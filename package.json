@@ -7,6 +7,8 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/test-operator-details.ts",
+    "voices:refresh": "node scripts/build-operator-voices.mjs",
+    "test:operator-voices": "tsx --test scripts/test-operator-voices.ts",
     "test:operator-guesser": "tsx --test scripts/test-operator-guesser.ts",
     "lint": "next lint",
     "test:minigames": "tsx --test scripts/test-minigames.ts scripts/test-stage-guesser.ts",

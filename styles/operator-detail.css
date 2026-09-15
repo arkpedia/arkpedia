@@ -1002,6 +1002,10 @@ body.op-detail-no-scroll {
   font-weight: 600;
 }
 
+:root[data-theme="light"] .op-stat-highlight {
+  color: #235bb5;
+}
+
 .op-tag-pill {
   display: inline-block;
   padding: 3px 10px;

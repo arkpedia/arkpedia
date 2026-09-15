@@ -1,0 +1,17 @@
+.range { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.elites { display: flex; justify-content: center; align-items: center; gap: 4px; }
+.elite {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.elite:hover { color: var(--teal); border-color: var(--teal); }
+.elite[aria-pressed="true"] { color: var(--teal); border-color: var(--teal); background: var(--teal-dim); }
+.elite:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }

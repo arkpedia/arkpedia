@@ -200,3 +200,7 @@
 .roster-branch-row .roster-class-btn.active .roster-branch-btn-name {
   color: inherit;
 }
+/* Keep the portrait edge-to-edge, with breathing room for identity and metadata. */
+.roster-card > .op-name { margin: 12px 12px 8px; line-height: 1.35; }
+.roster-card > .hint { margin: 0 12px 12px; line-height: 1.5; }
+.roster-card > .avatar { margin-bottom: 0; }

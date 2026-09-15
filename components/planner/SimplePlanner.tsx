@@ -280,6 +280,7 @@ export function SimplePlanner({
                           level={state.startingLevel}
                         />
                       </b>
+                      <span className="simple-state-action">Set current</span>
                     </button>
                     <span aria-hidden="true">→</span>
                     <button type="button" className="simple-state-link" onClick={() => onEdit(name, "goal")}>
@@ -287,6 +288,7 @@ export function SimplePlanner({
                       <b>
                         <Level elite={state.elite} level={state.level} />
                       </b>
+                      <span className="simple-state-action">Set goal</span>
                     </button>
                   </div>
                   <div className="simple-upgrade-labels">

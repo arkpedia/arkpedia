@@ -7,6 +7,14 @@ import { readCsv } from './lib/operator-csv';
 import { getBaseSkillIconPath, getSkillIconPath } from '../lib/operators/operatorIconPaths';
 import { getOperatorIconPath } from '../lib/operators/operatorIcon';
 import { getOperatorSearchResults } from '../lib/operators/operatorSearch';
+import { getOperatorAppearances } from '../lib/operators/operatorAppearances';
+import { getOperatorArtworkCredits } from '../lib/operators/operatorArtworkCredits';
+import { getAllSkins } from '../lib/skins/skins';
+import { getOperatorAttackRanges } from '../lib/operators/operatorAttackRanges';
+import type { CroppedRange } from '../lib/operators/branchRanges';
+import OPERATOR_DEPLOY from '../public/operator-deploy.json';
+import { getFactionIconPath } from '../lib/operators/classBranchIcons';
+import { publicFileExists } from '../lib/assets/publicAssets';
 
 const operators: Operator[] = [1, 2, 3, 4, 5, 6].flatMap(star => {
   const dir = `data/operators-${star}star`;
@@ -14,6 +22,156 @@ const operators: Operator[] = [1, 2, 3, 4, 5, 6].flatMap(star => {
 });
 const op = (name: string) => { const found = operators.find(row => row.name === name); assert(found); return found; };
 const stats = (name: string) => { const found = op(name).stats; assert(found); return found; };
+
+test('all operator factions resolve to published artwork emblems', () => {
+  for (const operator of operators) {
+    const path = getFactionIconPath(operator.faction);
+    assert(path, `${operator.name}: no faction emblem`);
+    assert(publicFileExists(path), `${operator.name}: emblem missing from deployment asset index`);
+  }
+  for (const [faction, filename] of [
+    ['Aegir', 'Ægir.webp'], ['Blacksteel', 'Blacksteel Worldwide.webp'],
+    ['Elite Op', 'Rhodes Island-Elite Operator.webp'], ['Lungmen', 'Yan-Lungmen.webp'],
+    ['Op A4', 'Op Team A4.webp'], ['Op Reserve A1', 'Reserve Op Team A1.webp'],
+    ['Op Reserve A4', 'Reserve Op Team A4.webp'], ['Op Reserve A6', 'Reserve Op Team A6.webp'],
+    ['Pinus Sylvestris', 'Pinus Sylvestris Knightclub.webp'], ["Chiave's Gang", "Chiave's Gang.png"],
+    ["Laios's Party", 'Rhodes Island.webp'], ['Ave Mujica', 'Rhodes Island.webp'],
+  ]) assert.equal(getFactionIconPath(faction), `/faction-icons/${filename}`);
+  assert.equal(getFactionIconPath(null), null);
+});
+
+const attackRanges = (name: string) => getOperatorAttackRanges(op(name), OPERATOR_DEPLOY.ranges);
+const rangeOffsets = (range: CroppedRange) => [[0, 0], ...range.rangeCells.map(([row, col]) =>
+  [col - range.opCell[1], row - range.opCell[0]])].sort(([af, al], [bf, bl]) => al - bl || af - bf);
+
+test('overview range choices keep only the first promotion with each distinct range', () => {
+  for (const [name, elites] of [
+    ['Kroos', [0, 1]], ['Exusiai', [0, 1]], ['Amiya', [0, 1]],
+    ['Frostleaf', [0, 1, 2]], ['Tachanka', [0, 2]], ["Kal'tsit", [0, 1, 2]], ['SilverAsh', [0, 1]],
+    ['Rangers', [0]], ['Dobermann', [0]], ['Amiya (Guard)', [2]], ['Amiya (Medic)', [2]],
+  ] as const) {
+    assert.deepEqual(attackRanges(name).map(choice => choice.elite), elites, name);
+  }
+});
+
+test('normal attack ranges include permanent talent effects but exclude auras and skill-only changes', () => {
+  const frostleaf = attackRanges('Frostleaf');
+  assert.equal(frostleaf[2].talent, 'Covered Strike');
+  assert.deepEqual(rangeOffsets(frostleaf[2].range), [
+    [0, -1], [1, -1], [2, -1], [0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1],
+  ]);
+  assert.notDeepEqual(frostleaf[1].range, frostleaf[2].range);
+  const tachanka = attackRanges('Tachanka');
+  assert.deepEqual(rangeOffsets(tachanka[0].range), [[0, 0], [1, 0], [2, 0]]);
+  assert.deepEqual(rangeOffsets(tachanka[1].range), [[0, 0], [1, 0], [2, 0], [3, 0]]);
+  assert.deepEqual(attackRanges('Tomimi').map(choice => choice.range), attackRanges('Amiya').map(choice => choice.range));
+  assert.equal(attackRanges('Dobermann')[0].talent, null);
+  assert.equal(attackRanges('Bena').at(-1)?.range.rows, 1);
+});
+
+test('range deduplication compares tiles rather than range IDs or source ordering', () => {
+  const source = op('Exusiai');
+  const phases = source.stats!.phases.map((phase, index) => ({ ...phase, rangeId: `alias-${index}` }));
+  const choices = getOperatorAttackRanges({ ...source, stats: { ...source.stats!, phases } }, {
+    'alias-0': [[0, 0], [1, 0]], 'alias-1': [[1, 0], [0, 0]], 'alias-2': [[0, 0], [1, 0], [2, 0]],
+  });
+  assert.deepEqual(choices.map(choice => choice.elite), [0, 2]);
+});
+
+test('every operator and form has valid, unique overview ranges from its actual promotions', () => {
+  for (const operator of operators) {
+    const choices = getOperatorAttackRanges(operator, OPERATOR_DEPLOY.ranges);
+    assert(choices.length > 0, operator.name);
+    const firstElite = ['Amiya (Guard)', 'Amiya (Medic)'].includes(operator.name) ? 2 : operator.stats!.phases[0].elite;
+    assert.equal(choices[0].elite, firstElite, operator.name);
+    assert.equal(new Set(choices.map(choice => JSON.stringify(rangeOffsets(choice.range)))).size, choices.length, operator.name);
+    for (const { elite, range } of choices) {
+      assert(operator.stats!.phases.some(phase => phase.elite === elite), operator.name);
+      for (const [row, col] of [range.opCell, ...range.rangeCells]) {
+        assert(Number.isInteger(row) && row >= 1 && row <= range.rows, operator.name);
+        assert(Number.isInteger(col) && col >= 1 && col <= range.cols, operator.name);
+      }
+    }
+  }
+});
+
+test('outfit credits follow the selected artwork while Base and Elite show only their illustrator', () => {
+  const operator = op('Exusiai');
+  const credits = getOperatorArtworkCredits(operator, getOperatorAppearances(operator), getAllSkins());
+  assert.equal(credits['Midnight Delivery'].illustrator, '尾鱼');
+  assert.equal(credits['Wild Operation'].illustrator, '幻象黑兔');
+  assert.equal(credits.Base.illustrator, '幻象黑兔');
+  assert.deepEqual(credits['Elite 2'], credits.Base);
+});
+
+test('base artwork excludes skin, promotional-art and NPC illustrator annotations', () => {
+  const skins = getAllSkins();
+  for (const [name, illustrator] of [
+    ['Exusiai', '幻象黑兔'], ['Amiya', '唯@W'], ['Amiya (Guard)', '唯@W'],
+    ['Amiya (Medic)', '唯@W'], ['Saria', 'NoriZC'], ['Wiš\'adel', 'Liduke'],
+    ['Fiammetta', '幻象黑兔'], ['Cuora', 'Skade'], ['Estelle', '鸭'],
+    ['Vermeil', 'KENTllaall'], ['Breeze', '藻'], ['PhonoR-0', 'M1917史密斯维森'],
+    ['Nightmare', 'Lpip'], ['Lappland the Decadenza', '幻象黑兔'], ['Lin', '三目YYB'],
+    ['Blaze the Igniting Spark', 'Mag42'], ['Vina Victoria', 'Studio Montagne'],
+  ]) {
+    assert.equal(getOperatorArtworkCredits(op(name), [], skins).Base.illustrator, illustrator, name);
+  }
+  for (const operator of operators) {
+    if (operator.characterInfo?.Illustrator?.trim()) {
+      assert(getOperatorArtworkCredits(operator, [], skins).Base.illustrator, `${operator.name}: base credit lost`);
+    }
+  }
+});
+
+test('explicit operator-art and original-design roles remain separate', () => {
+  const skins = getAllSkins();
+  for (const [name, illustrator, originalDesigner] of [
+    ["Kal'tsit", '唯@W', '海猫络合物'], ["Kal'tsit - Esperanta", 'Studio Montagne', '海猫络合物 & 唯@W'],
+    ['Ines', '板板', 'Liduke'], ['Mechanist', 'Studio Montagne', 'Cenm0'],
+    ['Crownslayer', '直立行走', '海猫络合物'], ['Miss.Christine', 'YUJI', 'Skade'],
+    ['Nasti', 'AerialB', 'Ametora'], ['W', 'Liduke', null],
+  ] as const) {
+    assert.deepEqual(getOperatorArtworkCredits(op(name), [], skins).Base, { illustrator, originalDesigner }, name);
+  }
+});
+
+test('base credit parsing preserves artist aliases and complete multiword names', () => {
+  assert.equal(getOperatorArtworkCredits(op('Akafuyu'), [], getAllSkins()).Base.illustrator, 'Kumatangent (credited as "熊太")');
+  for (const name of ['Studio Montagne', 'TEAM EXPNDR', 'Peachy Miruku', 'Lowro & Studio Montagne']) {
+    const operator = { name: 'Example', characterInfo: { Illustrator: name } };
+    assert.equal(getOperatorArtworkCredits(operator, [], []).Base.illustrator, name);
+  }
+});
+
+test('outfit credits preserve the original character designer', () => {
+  const operator = op('Thorns the Lodestar');
+  const credits = getOperatorArtworkCredits(operator, getOperatorAppearances(operator), getAllSkins());
+  assert.equal(credits['Boundless Sail'].illustrator, '嘎嘎人');
+  assert.equal(credits['Boundless Sail'].originalDesigner, '幻象黑兔');
+  assert.equal(credits.Base.originalDesigner, '幻象黑兔');
+});
+
+test('outfit credits resolve filename punctuation and stay scoped to the operator', () => {
+  const operator = op('Surtr');
+  const credits = getOperatorArtworkCredits(operator, getOperatorAppearances(operator), getAllSkins());
+  assert.equal(credits['LibertéÉchec'].illustrator, 'ASK');
+  const unrelated = getOperatorArtworkCredits(operator, [{ label: 'Guest outfit', fullPath: null }], [
+    { model: 'Exusiai', name: 'Guest outfit', image: null, illustrator: 'Another artist' },
+  ]);
+  assert.equal(unrelated['Guest outfit'].illustrator, null);
+});
+
+test('missing outfit credits never assign the operator illustrator to an unknown outfit', () => {
+  const operator = { name: 'Example', characterInfo: { Illustrator: 'Base artist (original design by Designer)' } };
+  const appearances = [{ label: 'Unlisted outfit', fullPath: null }, { label: 'Uncredited outfit', fullPath: null }];
+  const credits = getOperatorArtworkCredits(operator, appearances, [
+    { model: 'Example', name: 'Uncredited outfit', image: null, illustrator: null },
+  ]);
+  for (const appearance of appearances) {
+    assert.deepEqual(credits[appearance.label], { illustrator: null, originalDesigner: 'Designer' });
+  }
+  assert.equal(getOperatorArtworkCredits(operator, [], []).Base.illustrator, 'Base artist');
+});
 
 test('all roster records have complete, finite stats and nonempty archives', () => {
   assert.equal(operators.length, 427);

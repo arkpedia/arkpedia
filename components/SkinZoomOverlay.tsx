@@ -1,4 +1,4 @@
-import { useRef, useState, WheelEvent, MouseEvent, TouchEvent } from 'react';
+import { useEffect, useRef, useState, WheelEvent, MouseEvent, TouchEvent } from 'react';
 import Image from 'next/image';
 
 interface Props {
@@ -11,6 +11,14 @@ const MIN_SCALE = 1;
 const MAX_SCALE = 5;
 
 export default function SkinZoomOverlay({ image, name, onClose }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus({ preventScroll: true });
+    return () => previousFocus?.focus({ preventScroll: true });
+  }, []);
+
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragState = useRef<{ startX: number; startY: number; startOffsetX: number; startOffsetY: number } | null>(null);
@@ -81,7 +89,15 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
   }
 
   return (
-    <div className="skin-zoom-overlay">
+    <div className="skin-zoom-overlay" ref={dialogRef} role="dialog" aria-modal="true" aria-label={`${name} artwork`}
+      onKeyDown={event => {
+        if (event.key === 'Escape') { event.preventDefault(); onClose(); }
+        if (event.key !== 'Tab') return;
+        const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
+        const first = buttons[0], last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}>
       <div
         className="skin-zoom-viewport"
         onWheel={handleWheel}
@@ -116,7 +132,7 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
         <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
           Reset
         </button>
-        <button type="button" className="primary" onClick={onClose}>
+        <button ref={closeRef} type="button" className="primary" onClick={onClose}>
           Close
         </button>
       </div>

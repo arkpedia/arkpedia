@@ -1262,7 +1262,7 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
                   Import file
                 </button>
               </div>
-              <details className="plan-transfer-help">
+              <details>
                 <summary>Supported formats</summary>
                 <p>Arkpedia backups include your inventory, operators and goals. Krooster CSV, Penguin Stats JSON and ark-nights files import inventory only.</p>
                 <p>{filePickerReady ? 'Choose where to save your backup.' : 'Exports go to your browser’s downloads.'}</p>

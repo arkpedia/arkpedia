@@ -1,0 +1,17 @@
+.demo { margin-top: 12px; border-top: 1px solid var(--line); }
+.demo summary { min-height: 40px; padding: 12px 0 0; color: var(--teal); font: 500 12px/1.4 var(--font-body); cursor: pointer; }
+.body { padding-top: 8px; }
+.body p { margin: 0 0 12px; color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+.options { display: flex; gap: 6px; }
+.options button { flex: 1; min-height: 40px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--text-dim); padding: 8px; cursor: pointer; font: 500 12px/1.2 var(--font-body); }
+.options button[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+.lane { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; padding: 16px 0 12px; max-width: 330px; margin-inline: auto; }
+.tile { aspect-ratio: 1; display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 3px; }
+.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
+.wall { color: var(--text-dim); background: repeating-linear-gradient(135deg, var(--panel-2), var(--panel-2) 4px, var(--bg) 4px, var(--bg) 8px); }
+.result { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 12px; }
+.result span { display: flex; flex-wrap: wrap; gap: 4px 8px; color: var(--text-dim); }
+.result strong { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+.result small { grid-column: 1 / -1; min-height: 34px; padding-top: 4px; font-size: 12px; color: var(--text-dim); }
+.source { display: inline-block; min-height: 32px; padding-block: 8px; font-size: 11px; text-underline-offset: 3px; }
+@media (max-width: 900px) { .options button, .demo summary { min-height: 44px; } }

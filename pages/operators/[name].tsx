@@ -12,6 +12,7 @@ import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
 import { getClassIconPath, getBranchIconPath, getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { parseDate } from '@/lib/operators/operatorReleaseDates';
+import { publicFileExists } from '@/lib/assets/publicAssets';
 import { fetchVideoOEmbedInfo } from '@/lib/music/youtube';
 import {
   getOperatorAppearances,
@@ -19,21 +20,33 @@ import {
 } from '@/lib/operators/operatorAppearances';
 import SKILL_RANGES from '@/data/skill-ranges.json';
 import SKILL_TIMINGS from '@/data/skill-timings.json';
+import OPERATOR_DEPLOY from '@/public/operator-deploy.json';
 import { getSkillTiming, SkillTiming } from '@/lib/operators/skillTiming';
 import { getSkillIconPath, getBaseSkillIconPath, getEssentialIconPath, getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
 import { getAllSkins } from '@/lib/skins/skins';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinZoomOverlay from '@/components/SkinZoomOverlay';
 import { highlightStats } from '@/components/HighlightedText';
-import { getBranchRange, CroppedRange } from '@/lib/operators/branchRanges';
+import { CroppedRange } from '@/lib/operators/branchRanges';
+import { getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } from '@/lib/operators/operatorAttackRanges';
+import OperatorAttackRange from '@/components/OperatorAttackRange';
 import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
 import OPERATOR_FORMS from '@/data/operator-forms.json';
 import OperatorStatsPanel from '@/components/OperatorStatsPanel';
 import OperatorGameIcon from '@/components/OperatorGameIcon';
-import OperatorTalentRows from '@/components/OperatorTalentRows';
+import OperatorTalents from '@/components/OperatorTalents';
+import LodestarTalentDemo from '@/components/LodestarTalentDemo';
+import OperatorCredits from '@/components/OperatorCredits';
+import OperatorAppearancePicker from '@/components/OperatorAppearancePicker';
+import OperatorArtworkCaption from '@/components/OperatorArtworkCaption';
+import { getOperatorArtworkCredits, ArtworkCredit } from '@/lib/operators/operatorArtworkCredits';
 import OperatorStatModifiers from '@/components/OperatorStatModifiers';
 import OperatorFilesPanel from '@/components/OperatorFilesPanel';
+import OperatorVoiceLines from '@/components/OperatorVoiceLines';
+import StyledSelect from '@/components/StyledSelect';
 import pageStyles from '@/components/OperatorPage.module.css';
+import { sortMaterials } from '@/lib/farming/materialSortOrder';
+import { getOperatorVoiceData, OperatorVoiceData } from '@/lib/operators/operatorVoices';
 
 interface SynergyMatchOperator {
   name: string;
@@ -79,6 +92,9 @@ interface OperatorForm {
 }
 
 interface Props {
+  overviewRanges: AttackRangeChoice[];
+  artworkCredits: Record<string, ArtworkCredit>;
+  factionEmblem: string | null;
   skillTimings: (SkillTiming | null)[][];
   operator: Operator;
   appearances: Appearance[];
@@ -95,6 +111,7 @@ interface Props {
    *  Absent for the operators whose skills all leave the range alone, which is most of
    *  them: 174 of 400-odd have any. Built by scripts/build-skill-ranges.mjs. */
   skillRanges: Record<string, SkillRangeChange> | null;
+  voiceData: OperatorVoiceData | null;
 }
 
 /** One skill's effect on the range, from data/skill-ranges.json. */
@@ -122,8 +139,6 @@ function formatLevelList(labels: string[]): string {
   return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
 }
 
-const ROTATION_INTERVAL_MS = 8000;
-
 /* A form's label is its class, except that our class icons are filed under the class
    names our records use. Amiya's three labels happen to BE those names, so this is a
    pass-through today and the lookup exists so a future form labelled something other
@@ -132,7 +147,7 @@ const FORM_CLASS: Record<string, string> = {
   Caster: 'Caster', Guard: 'Guard', Medic: 'Medic',
 };
 
-type SectionKey = 'stats' | 'files' | 'skills' | 'talents' | 'modules' | 'synergy' | 'potential' | 'baseSkills' | 'characterInfo' | 'guides' | 'mastery' | 'promotion' | 'appearance';
+type SectionKey = 'stats' | 'files' | 'voiceLines' | 'skills' | 'talents' | 'modules' | 'synergy' | 'potential' | 'baseSkills' | 'characterInfo' | 'guides' | 'mastery' | 'promotion' | 'appearance';
 
 function sumCostGroups(groups: (CostGroup | null | undefined)[]): CostGroup {
   const totals = new Map<string, number>();
@@ -144,43 +159,6 @@ function sumCostGroups(groups: (CostGroup | null | undefined)[]): CostGroup {
     }
   }
   return Array.from(totals.entries()).map(([name, quantity]) => ({ name, quantity }));
-}
-
-const MATERIAL_SORT_ORDER: string[] = [
-  'Skill Summary - 3',
-  'Skill Summary - 2',
-  'Skill Summary - 1',
-  'Module Data Block',
-  'Data Supplement Instrument',
-  'Data Supplement Stick',
-  // Tier 5
-  'Bipolar Nanoflake', 'D32 Steel', 'Nucleic Crystal Sinter', 'Polymerization Preparation', 'Rephasic Enantiomer',
-  // Tier 4
-  'Orirock Concentration', 'Optimized Device', 'Keton Colloid', 'Polyester Lump', 'Oriron Block', 'Sugar Lump',
-  'Cyclicene Prefab', 'Polymerized Gel', 'Coagulative Nodule', 'Cutting Fluid Solution', 'Crystalline Circuit',
-  'Solidified Fiber Board', 'Grindstone Pentahydrate', 'Incandescent Alloy Block', 'White Horse Kohl',
-  'Manganese Trihydrate', 'RMA70-24', 'Refined Solvent', 'Transmuted Salt Agglomerate', 'Chiral Refractor',
-  // Tier 3
-  'Orirock Cluster', 'Integrated Device', 'Aketon', 'Polyester Pack', 'Oriron Cluster', 'Sugar Pack',
-  'Aggregate Cyclicene', 'Coagulating Gel', 'Compound Cutting Fluid', 'Crystalline Component', 'Fuscous Fiber',
-  'Grindstone', 'Incandescent Alloy', 'Loxic Kohl', 'Manganese Ore', 'RMA70-12', 'Semi-Synthetic Solvent',
-  'Transmuted Salt',
-  // Tier 2
-  'Orirock Cube', 'Device', 'Polyketon', 'Polyester', 'Oriron', 'Sugar',
-  // Tier 1
-  'Orirock', 'Damaged Device', 'Diketon', 'Ester', 'Oriron Shard', 'Sugar Substitute',
-];
-const MATERIAL_SORT_INDEX = new Map(MATERIAL_SORT_ORDER.map((name, i) => [name, i]));
-
-function sortMaterials(cost: CostGroup): CostGroup {
-  return [...cost].sort((a, b) => {
-    const ai = MATERIAL_SORT_INDEX.get(a.name);
-    const bi = MATERIAL_SORT_INDEX.get(b.name);
-    if (ai != null && bi != null) return ai - bi;
-    if (ai != null) return -1;
-    if (bi != null) return 1;
-    return 0; // neither is in the known list -- keep their existing relative order
-  });
 }
 
 /** Renders a branch's cropped range grid as a small box -- amber tile
@@ -212,20 +190,28 @@ function RangeGridBox({ range, label }: { range: CroppedRange | null; label?: st
   );
 }
 
-function CostRow({ cost }: { cost: CostGroup | null | undefined }) {
+function CostRow({ cost, promotion = false }: { cost: CostGroup | null | undefined; promotion?: boolean }) {
   if (!cost || cost.length === 0) return <p className="hint">No cost data.</p>;
   const sorted = sortMaterials(cost);
+  const renderItem = (item: CostGroup[number], index: number) => {
+    const iconPath = getMaterialIconPath(item.name);
+    return (
+      <span key={`${item.name}-${index}`} className="op-cost-item" title={item.name}>
+        {iconPath && <Image src={iconPath} alt={item.name} width={36} height={36} />}
+        <b>×{item.quantity}</b>
+      </span>
+    );
+  };
   return (
-    <div className="op-cost-row">
-      {sorted.map((c, i) => {
-        const iconPath = getMaterialIconPath(c.name);
-        return (
-          <span key={i} className="op-cost-item" title={c.name}>
-            {iconPath && <Image src={iconPath} alt={c.name} width={36} height={36} />}
-            <b>×{c.quantity}</b>
+    <div className={`op-cost-row${promotion ? ` ${pageStyles.promotionCosts}` : ''}`}>
+      {promotion ? (
+        <>
+          {sorted.filter(item => item.name === 'LMD').map(renderItem)}
+          <span className={pageStyles.promotionMaterials}>
+            {sorted.filter(item => item.name !== 'LMD').map(renderItem)}
           </span>
-        );
-      })}
+        </>
+      ) : sorted.map(renderItem)}
     </div>
   );
 }
@@ -262,12 +248,14 @@ function getUmbrellaDefinitions(techName: string | null): string[] {
 }
 
 function TechniqueList({
+  summary = "Mechanics & interactions",
   techniques,
   techniqueUnitIcons,
   techniqueBranchOperators,
   techniqueGroupOperators,
   techniqueRelatedOperators,
 }: {
+  summary?: string;
   techniques: SkillTechnique[];
   techniqueUnitIcons: Record<string, SearchableOperator>;
   techniqueBranchOperators: Record<string, SearchableOperator[]>;
@@ -277,7 +265,7 @@ function TechniqueList({
   const [expandedTechniqueIndex, setExpandedTechniqueIndex] = useState<number | null>(null);
   return (
     <details className={pageStyles.mechanics}>
-      <summary>Mechanics & interactions</summary>
+      <summary>{summary}</summary>
       <div className="op-skill-techniques">
       {techniques.map((t, ti) => {
         const unitData = t.unit ? techniqueUnitIcons[t.unit] : null;
@@ -443,13 +431,15 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
       <div className="video-thumb-wrap">
         <Image src={`https://i.ytimg.com/vi/${guide.videoId}/mqdefault.jpg`} alt={displayTitle} fill loading="lazy" sizes="384px" style={{ objectFit: 'cover' }} />
       </div>
-      <p className="video-card-title">{displayTitle}</p>
-      {info?.author && <p className="video-card-meta">{info.author}</p>}
+      <div className="video-card-copy">
+        <p className="video-card-title">{displayTitle}</p>
+        {info?.author && <p className="video-card-meta">{info.author}</p>}
+      </div>
     </a>
   );
 }
 
-export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings }: Props) {
+export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData }: Props) {
   const router = useRouter();
 
   // --- Header search state ---
@@ -502,9 +492,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
   // --- Skin carousel state ---
   const [activeIndex, setActiveIndex] = useState(0);
-  const [rotating, setRotating] = useState(false);
+  const [rotating, setRotating] = useState(true);
   const [zooming, setZooming] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Client-side navigation to a different operator (e.g. via the header
   // search) re-renders this same page component instead of remounting
@@ -513,16 +502,19 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   // skin whenever the operator itself changes.
   useEffect(() => {
     setActiveIndex(0);
-    setRotating(false);
+    setRotating(true);
     setZooming(false);
   }, [operator.name]);
 
-  const rangeElite = operator.stats?.phases.some(phase => phase.elite >= 1) ? 1 : 0;
-  const overviewRange = getBranchRange(operator.branch, rangeElite);
+  useEffect(() => {
+    if (!rotating || appearances.length <= 1) return;
+    const timer = setInterval(() => setActiveIndex(index => (index + 1) % appearances.length), 8000);
+    return () => clearInterval(timer);
+  }, [rotating, appearances.length, operator.name]);
 
-  function selectAppearance(i: number) {
-    setActiveIndex(i);
+  function selectAppearance(index: number) {
     setRotating(false);
+    setActiveIndex(index);
   }
 
   const activeAppearance = appearances[activeIndex];
@@ -542,47 +534,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
     };
   }, [activeAppearance]);
 
-  const [prevLabel, setPrevLabel] = useState<string | null>(null);
-  const prevLabelRef = useRef<string | null>(null);
-  const labelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (prevLabelRef.current !== null && prevLabelRef.current !== activeAppearance?.label) {
-      setPrevLabel(prevLabelRef.current);
-      if (labelTimeoutRef.current) clearTimeout(labelTimeoutRef.current);
-      labelTimeoutRef.current = setTimeout(() => setPrevLabel(null), 450);
-    }
-    prevLabelRef.current = activeAppearance?.label || null;
-    return () => {
-      if (labelTimeoutRef.current) clearTimeout(labelTimeoutRef.current);
-    };
-  }, [activeAppearance?.label]);
-
-  // How to obtain this specific skin (e.g. "18 OP", "400 DC") -- looked
-  // up by appearance label, same convention the skins gallery already
-  // uses (parsePrices/formatPrices off each skin's own howToObtain
-  // text). Base/Elite appearances and skins with no parseable
-  // certificate/OP price (Default, Elite 2, most Collab pieces, etc.)
-  // simply have no entry, so nothing renders for those -- same
-  // "only show what's actually known" approach as the label itself.
-  const activeObtainText = activeAppearance ? skinObtainByLabel[activeAppearance.label] || null : null;
-  const [prevObtainText, setPrevObtainText] = useState<string | null>(null);
-  const prevObtainTextRef = useRef<string | null>(null);
-  const obtainTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (prevObtainTextRef.current !== null && prevObtainTextRef.current !== activeObtainText) {
-      setPrevObtainText(prevObtainTextRef.current);
-      if (obtainTimeoutRef.current) clearTimeout(obtainTimeoutRef.current);
-      obtainTimeoutRef.current = setTimeout(() => setPrevObtainText(null), 450);
-    }
-    prevObtainTextRef.current = activeObtainText;
-    return () => {
-      if (obtainTimeoutRef.current) clearTimeout(obtainTimeoutRef.current);
-    };
-  }, [activeObtainText]);
-
-  // All sections share one continuous reference page.
+  // Each section keeps its controls mounted while only the selected one is visible.
   const availableSections: { key: SectionKey; label: string }[] = [];
   const skillList = useMemo(() => getSkillList(operator), [operator]);
   const skillCost = useMemo(() => getSkillCost(operator), [operator]);
@@ -623,75 +575,137 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   if (operator.potential?.levels?.length > 0) availableSections.push({ key: 'potential', label: 'Potential' });
   if (operator.baseSkills && operator.baseSkills.length > 0) availableSections.push({ key: 'baseSkills', label: 'Base skills' });
   if (operator.characterInfo || operator.characterVoices || operator.basicInfo || operator.physicalExam || operator.review?.official) {
-    availableSections.push({ key: 'characterInfo', label: 'Character information' });
+    availableSections.push({ key: 'characterInfo', label: 'Profile' });
   }
   if (operator.files?.length) availableSections.push({ key: 'files', label: 'Files' });
+  if (voiceData?.lines.length) availableSections.push({ key: 'voiceLines', label: 'Voice lines' });
   if (operator.guides?.length) availableSections.push({ key: 'guides', label: 'Guides' });
-  if (skillList.length) availableSections.push({ key: 'mastery', label: 'Skills & mastery' });
+  if (priorityGuideGroups.length) availableSections.push({ key: 'mastery', label: 'Mastery' });
   if (operator.promotion?.length) availableSections.push({ key: 'promotion', label: 'Promotion' });
-  const sectionOrder: SectionKey[] = ['skills', 'stats', 'talents', 'synergy', 'baseSkills', 'mastery', 'modules', 'promotion', 'potential', 'appearance', 'characterInfo', 'files', 'guides'];
+  const sectionOrder: SectionKey[] = ['skills', 'stats', 'talents', 'mastery', 'modules', 'promotion', 'potential', 'baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'];
   availableSections.sort((a, b) => sectionOrder.indexOf(a.key) - sectionOrder.indexOf(b.key));
   const [activeSection, setActiveSection] = useState('overview');
   const hasSection = (key: SectionKey) => availableSections.some(section => section.key === key);
   const sectionVisible = hasSection;
-  const navigationRef = useRef<HTMLElement>(null);
+  const navigationRef = useRef<HTMLDivElement>(null);
 
-  function jumpToSection(view: string) {
-    const aliases: Record<string, string> = { mastery: 'skills', gameplay: 'skills', upgrades: 'skills', profile: 'characterInfo', appearance: 'artwork' };
-    const key = aliases[view] ?? view;
-    const target = document.getElementById(`operator-${key}`);
-    if (!target) return;
-    const offset = (navigationRef.current?.getBoundingClientRect().height ?? 0) + 64;
-    window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.scrollY - offset), behavior: 'instant' as ScrollBehavior });
-    target.focus({ preventScroll: true });
-    setActiveSection(key);
+  const areaRef = useRef<HTMLDivElement>(null);
+  function jumpToSection(view: string, focusPanel = false) {
+    const aliases: Record<string, string> = { gameplay: 'skills', upgrades: 'skills', profile: 'characterInfo', appearance: 'artwork' };
+    const requested = aliases[view] ?? view;
+    const key = requested === 'artwork' ? 'overview'
+      : requested === 'mastery' && !hasSection('mastery') ? 'skills' : requested;
+    if (key !== 'overview' && !hasSection(key as SectionKey)) return;
+    requestAnimationFrame(() => {
+      const panel = areaRef.current;
+      const target = document.getElementById(`operator-${requested === 'artwork' ? 'artwork' : key}`);
+      if (!panel || !target) return;
+      setActiveSection(requested === 'artwork' && window.matchMedia('(max-width: 900px)').matches ? 'artwork' : key);
+      if (requested === 'artwork') {
+        panel.scrollTop = 0;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      } else if (getComputedStyle(panel).overflowY === 'auto') {
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        panel.scrollTo({ top: panel.scrollTop + target.getBoundingClientRect().top - panel.getBoundingClientRect().top - 12, behavior: 'instant' as ScrollBehavior });
+      } else {
+        const navHeight = navigationRef.current?.getBoundingClientRect().height ?? 0;
+        const siteNavHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 52;
+        window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - navHeight - siteNavHeight - 12, behavior: 'instant' as ScrollBehavior });
+      }
+      if (focusPanel) target.focus({ preventScroll: true });
+    });
   }
 
-  function selectView(view: string) {
-    jumpToSection(view);
-    if (window.location.hash !== `#${view}`) void router.push(`${router.asPath.split('#')[0]}#${view}`, undefined, { shallow: true, scroll: false });
+  function selectView(view: string, focusPanel = false) {
+    jumpToSection(view, focusPanel);
+    if (window.location.hash !== `#${view}`) {
+      void router.push(`${router.asPath.split('#')[0]}#${view}`, undefined, { shallow: true, scroll: false }).catch(error => {
+        // A later section selection may supersede this shallow navigation.
+        if (!error.cancelled) throw error;
+      });
+    }
   }
+
+  const sectionGroups = [
+    { label: 'Overview and abilities', keys: ['overview', 'skills', 'stats', 'talents'] },
+    { label: 'Upgrades', keys: ['mastery', 'modules', 'promotion', 'potential'] },
+    { label: 'More operator information', keys: ['baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'] },
+  ] as const;
 
   useEffect(() => {
-    const syncHash = () => {
-      if (window.location.hash) requestAnimationFrame(() => jumpToSection(window.location.hash.slice(1)));
-      else setActiveSection('overview');
+    const header = navigationRef.current;
+    const details = header?.parentElement;
+    if (!header || !details) return;
+    const updateHeaderHeight = () => {
+      details.style.setProperty('--operator-panel-header-h', `${header.getBoundingClientRect().height}px`);
     };
-    syncHash();
+    updateHeaderHeight();
+    const observer = new ResizeObserver(updateHeaderHeight);
+    observer.observe(header);
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+      details.style.removeProperty('--operator-panel-header-h');
+    };
+  }, [operator.name]);
+
+  useEffect(() => {
+    const panel = areaRef.current;
+    if (!panel) return;
+    panel.scrollTop = 0;
+    if (getComputedStyle(panel).overflowY === 'auto') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    const syncHash = () => jumpToSection(window.location.hash.slice(1) || 'overview');
+    if (window.location.hash) syncHash();
+    else setActiveSection('overview');
     window.addEventListener('hashchange', syncHash);
     window.addEventListener('popstate', syncHash);
     router.events.on('hashChangeComplete', syncHash);
-    // Highlight the section being read, without changing history or scrolling.
-    let pending = false;
+
+    // Scrolling only updates the highlight. It never changes history or moves focus.
+    let frame = 0;
     const updateSection = () => {
-      if (pending) return;
-      pending = true;
-      requestAnimationFrame(() => {
-        pending = false;
-        const edge = (navigationRef.current?.getBoundingClientRect().bottom ?? 52) + 24;
-        const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-operator-section]'));
-        const current = sections.filter(section => section.getBoundingClientRect().top <= edge).pop();
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const internalScroll = getComputedStyle(panel).overflowY === 'auto';
+        const artwork = document.getElementById('operator-artwork');
+        const siteNavHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 52;
+        if (!internalScroll && window.matchMedia('(max-width: 900px)').matches
+          && artwork && artwork.getBoundingClientRect().bottom > siteNavHeight + 16) {
+          setActiveSection('artwork');
+          return;
+        }
+        const edge = (internalScroll ? panel.getBoundingClientRect().top
+          : navigationRef.current?.getBoundingClientRect().bottom ?? 52) + 16;
+        const sections = Array.from(panel.querySelectorAll<HTMLElement>('[data-operator-section]'));
+        const scrollRoot = internalScroll ? panel : document.documentElement;
+        const viewportHeight = internalScroll ? panel.clientHeight : window.innerHeight;
+        const scrollTop = internalScroll ? panel.scrollTop : window.scrollY;
+        const atEnd = scrollRoot.scrollHeight > viewportHeight && scrollRoot.scrollHeight - viewportHeight - scrollTop <= 2;
+        const current = atEnd ? sections[sections.length - 1]
+          : sections.filter(section => section.getBoundingClientRect().top <= edge).pop() ?? sections[0];
         if (current) setActiveSection(current.dataset.operatorSection!);
       });
     };
+    panel.addEventListener('scroll', updateSection, { passive: true });
     window.addEventListener('scroll', updateSection, { passive: true });
+    window.addEventListener('resize', updateSection);
+    const observer = new ResizeObserver(updateSection);
+    if (panel.firstElementChild) observer.observe(panel.firstElementChild);
     return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      panel.removeEventListener('scroll', updateSection);
+      window.removeEventListener('scroll', updateSection);
+      window.removeEventListener('resize', updateSection);
       window.removeEventListener('hashchange', syncHash);
       window.removeEventListener('popstate', syncHash);
-      window.removeEventListener('scroll', updateSection);
       router.events.off('hashChangeComplete', syncHash);
     };
+  // The section catalogue is derived from this operator and is otherwise stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operator.name, router.events]);
-
-  useEffect(() => {
-    if (!rotating || appearances.length <= 1) return;
-    timerRef.current = setInterval(() => {
-      setActiveIndex((i) => (i + 1) % appearances.length);
-    }, ROTATION_INTERVAL_MS);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [rotating, appearances.length]);
 
   // Skill effects, timings and upgrade costs share one selection.
   const [activeSkillIndex, setActiveSkillIndex] = useState(0);
@@ -708,7 +722,9 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       return av - bv;
     });
   }, [activeSkill]);
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  // Keep the chosen level across skills; operators without Mastery stop at Lv7.
+  const [preferredStepIndex, setActiveStepIndex] = useState(9);
+  const activeStepIndex = Math.min(preferredStepIndex, Math.max(0, skillSteps.length - 1));
   const [showTotal, setShowTotal] = useState(false);
   const [showModuleTotal, setShowModuleTotal] = useState(false);
   const activeStep = skillSteps[activeStepIndex];
@@ -741,10 +757,6 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
     const id = ids[Math.min(Math.max(idx, 0), ids.length - 1)];
     return (id && skillRange.grids[id]) || null;
   }, [skillRange, activeStep]);
-
-  useEffect(() => {
-    setActiveStepIndex(skillSteps.length > 0 ? skillSteps.length - 1 : 0);
-  }, [activeSkillIndex, skillSteps.length, operator.name]);
 
   function costForStep(): CostGroup | null {
     if (!activeStep) return null;
@@ -788,6 +800,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
   useEffect(() => {
     setActiveSkillIndex(0);
+    setActiveStepIndex(9);
     setActiveModuleIndex(operator.modules?.some(module => module.type !== 'Original') ? 0 : null);
     setActiveModuleStage(0);
     setShowMission(false);
@@ -833,7 +846,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
   return (
     <>
-      <div className="op-page-header-search" ref={searchWrapRef}>
+      <div className={pageStyles.frame}>
+      <div className={`op-page-header-search ${pageStyles.searchHeader}`} ref={searchWrapRef}>
         <Link prefetch={false} href="/operators" className="op-back-to-roster-btn" aria-label="Back to operators">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16">
             <path d="M12 4 L6 10 L12 16" strokeLinecap="round" strokeLinejoin="round" />
@@ -889,10 +903,11 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
         const link = (event.target as HTMLElement).closest('a[href^="#"]');
         if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        selectView(link.getAttribute('href')!.slice(1));
+        selectView(link.getAttribute('href')!.slice(1), true);
       }}>
           <section id="operator-artwork" tabIndex={-1} aria-label="Operator artwork" className={pageStyles.gallery}>
             <div className="op-carousel-main">
+              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: `url("${factionEmblem}")`, WebkitMaskImage: `url("${factionEmblem}")` }} />}
               {prevAppearance?.fullPath && (
                 <div key={`prev-img-${prevAppearance.label}`} className="op-carousel-main-img op-carousel-img-exit">
                   <Image src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes="(max-width: 900px) 100vw, 40vw" />
@@ -915,83 +930,43 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
               ) : (
                 <div className="op-carousel-main-empty">No large image available</div>
               )}
-              <div className="op-carousel-label-wrap">
-                {prevLabel && (
-                  <div key={`prev-${prevLabel}`} className="op-carousel-label op-carousel-label-exit">
-                    {prevLabel}
-                  </div>
-                )}
-                <div key={`current-${activeAppearance?.label}`} className="op-carousel-label op-carousel-label-enter">
-                  {activeAppearance?.label}
-                </div>
-              </div>
-              {(activeObtainText || prevObtainText) && (
-                <div className="op-carousel-obtain-wrap">
-                  {prevObtainText && (
-                    <div key={`prev-obtain-${prevObtainText}`} className="op-carousel-obtain op-carousel-label-exit">
-                      {prevObtainText}
-                    </div>
-                  )}
-                  {activeObtainText && (
-                    <div key={`current-obtain-${activeObtainText}`} className="op-carousel-obtain op-carousel-label-enter">
-                      {activeObtainText}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
-            <div className="op-carousel-thumbs">
-              {appearances.map((a, i) => (
-                <button
-                  type="button"
-                  key={a.label}
-                  className={`op-carousel-thumb${i === activeIndex ? ' active' : ''}`}
-                  onClick={() => selectAppearance(i)}
-                  title={a.label}
-                  aria-pressed={i === activeIndex}
-                >
-                  {a.iconPath ? (
-                    <Image src={a.iconPath} alt={a.label} width={48} height={48} />
-                  ) : (
-                    <span className="op-carousel-thumb-fallback">{a.label[0]}</span>
-                  )}
-                </button>
-              ))}
-              {appearances.length > 1 && (
-                <button
-                  type="button"
-                  className="op-carousel-play-btn"
-                  onClick={() => setRotating((r) => !r)}
-                  title={rotating ? 'Pause rotation' : 'Resume rotation'}
-                  aria-label={rotating ? 'Pause rotation' : 'Resume rotation'}
-                >
-                  {rotating ? '⏸' : '▶'}
-                </button>
-              )}
-            </div>
+            <OperatorArtworkCaption appearances={appearances} activeIndex={activeIndex} prices={skinObtainByLabel} />
+            <OperatorAppearancePicker key={operator.name} appearances={appearances} activeIndex={activeIndex}
+              onSelect={selectAppearance} rotating={rotating} onRotationChange={setRotating} />
 
 
           </section>
 
           <div className={pageStyles.details}>
-          <div className={pageStyles.panelHeader}>
+          <div ref={navigationRef} className={pageStyles.panelHeader}>
           <header className={pageStyles.hero}>
             <div className={pageStyles.identity}>
             <div className="op-header-flex">
               <div className="op-header-text">
                 <div className="op-name-row">
                   <h1>{operator.name}</h1>
-
+                  <nav className={pageStyles.sectionMenu} aria-label="Operator sections">
+                    <StyledSelect label="Jump to section" value={activeSection}
+                      options={[
+                        { value: 'artwork', label: 'Artwork' },
+                        ...sectionGroups.flatMap(group => group.keys.flatMap(key => {
+                          const section = key === 'overview' ? { key, label: 'Overview' } : availableSections.find(item => item.key === key);
+                          return section ? [{ value: section.key, label: section.label, group: group.label }] : [];
+                        })),
+                      ]}
+                      onChange={view => selectView(view, true)} />
+                  </nav>
                 </div>
 
                 <div className="op-sticky-meta">
                   <span>{operator.rarity ? '★'.repeat(operator.rarity) : ''}</span>
                   {getClassIconPath(operator.class) && (
-                    <OperatorGameIcon src={getClassIconPath(operator.class)!} label={operator.class || 'Class'} size={28} />
+                    <span className={pageStyles.classLabel}><OperatorGameIcon src={getClassIconPath(operator.class)!} label={operator.class || 'Class'} size={20} /><span>{operator.class}</span></span>
                   )}
                   {getBranchIconPath(operator.branch) && (
-                    <OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={28} />
+                    <span className={pageStyles.classLabel}><OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={20} /><span>{operator.branch}</span></span>
                   )}
                 </div>
 
@@ -1037,38 +1012,27 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             </div>
           </header>
           </div>
-          <nav ref={navigationRef} className={pageStyles.directNavigation} aria-label="Operator sections">
-            {[{ key: 'overview', label: 'Overview' }, ...(['skills', 'stats', 'talents', 'modules', 'potential', 'baseSkills'] as SectionKey[]).flatMap(key => availableSections.filter(section => section.key === key))].map(section => (
-              <button type="button" key={section.key} aria-current={section.key === activeSection ? 'location' : undefined}
-                onClick={() => selectView(section.key)}>{section.label}</button>
-            ))}
-            <select aria-label="More operator sections" value={['overview', 'skills', 'stats', 'talents', 'modules', 'potential', 'baseSkills'].includes(activeSection ?? '') ? '' : activeSection ?? ''}
-              onChange={event => {
-                selectView(event.target.value);
-              }}>
-              <option value="" disabled>More</option>
-              <option value="artwork">Artwork</option>
-              {availableSections.filter(section => !['skills', 'stats', 'talents', 'modules', 'potential', 'baseSkills', 'mastery'].includes(section.key)).map(section => <option key={section.key} value={section.key}>{section.label}</option>)}
-            </select>
-          </nav>
-          <div id="operator-detail-panel" className={pageStyles.area}>
+          <div id="operator-detail-panel" ref={areaRef} className={pageStyles.area}>
             <div className={pageStyles.content}>
             {(
               <section id="operator-overview" data-operator-section="overview" tabIndex={-1} className={pageStyles.overview} aria-label="Overview">
+                <h2>Overview</h2>
                 <div>
-
-                  {overviewRange && <div className={pageStyles.range}><RangeGridBox range={overviewRange} label={`Elite ${rangeElite} branch range`} /><OperatorGameIcon label={`Elite ${rangeElite}`} size={22} /></div>}
+                  {operator.review?.official && <p className={pageStyles.review}>{highlightStats(operator.review.official)}</p>}
+                  {overviewRanges.length > 0 && <div className={pageStyles.range}><OperatorAttackRange key={operator.internalName ?? operator.name} ranges={overviewRanges} /></div>}
                   <p className={pageStyles.trait}>{typeof operator.trait === 'string' ? highlightStats(operator.trait) : 'Trait changes with promotion.'}</p>
                   <div className="op-sticky-meta op-sticky-tag-row">
                     {operator.position && <span className="op-tag-pill op-tag-pill-position">{operator.position}</span>}
                     {operator.tags?.map(tag => <span className="op-tag-pill" key={tag}>{tag}</span>)}
                   </div>
                   {howToObtainDisplay !== 'Unknown' && <p className={pageStyles.obtain}>{howToObtainDisplay}</p>}
+                  <OperatorCredits artwork={artworkCredits[activeAppearance?.label ?? 'Base'] ?? artworkCredits.Base} variants={Object.values(artworkCredits)} voices={operator.characterVoices} />
                 </div>
               </section>
             )}
             {sectionVisible('skills') && (
               <section id="operator-skills" data-operator-section="skills" tabIndex={-1} className={pageStyles.section}>
+                <h2>Skills</h2>
                 <div className="op-skill-tabs">
                   {skillList.map((s, i) => {
                     const iconPath = getSkillIconPath(operator.name, s.name);
@@ -1086,7 +1050,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                         }}
                       >
                         {iconPath && <Image src={iconPath} alt="" width={40} height={40} />}
-                        {!iconPath && <span>S{i + 1}</span>}
+                        <span className={pageStyles.skillNumber}>S{i + 1}</span>
                       </button>
                     );
                   })}
@@ -1094,18 +1058,25 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
                 {activeSkill && (
                   <>
-                    <h2 className={pageStyles.selectedSkill}>
-                      {activeSkill.name || `Skill ${activeSkillIndex + 1}`}
-                      <RecommendationBadge entries={activeSkill.recommendation} />
-                    </h2>
+                    <h3 className={pageStyles.selectedSkill}>
+                      {/* Overlapping variants reserve the tallest header at this width,
+                          including wrapped names and recommendation badges. */}
+                      {skillList.map((skill, index) => (
+                        <span key={index} className={pageStyles.skillTitleVariant}
+                          aria-hidden={index !== activeSkillIndex}
+                          style={{ visibility: index === activeSkillIndex ? 'visible' : 'hidden' }}>
+                          <span>{skill.name || `Skill ${index + 1}`}</span>
+                          <RecommendationBadge entries={skill.recommendation} />
+                        </span>
+                      ))}
+                    </h3>
 
 
                     <div className={pageStyles.skillLevelControl}>
                       <label htmlFor="operator-skill-level">Skill level</label>
                       <span className={pageStyles.skillLevelValue} aria-hidden="true">
-                        {activeStep?.mastery != null
-                          ? <OperatorGameIcon label={`M${activeStep.mastery}`} size={28} color />
-                          : activeStep?.level}
+                        {activeStep?.mastery != null && <OperatorGameIcon label={`M${activeStep.mastery}`} size={24} color />}
+                        <span>{activeStep?.mastery != null ? `M${activeStep.mastery}` : `Lv${activeStep?.level ?? '—'}`}</span>
                       </span>
                       <input id="operator-skill-level" type="range" min={0} max={Math.max(0, skillSteps.length - 1)} step={1}
                         value={activeStepIndex} aria-valuetext={activeStepLabel ?? undefined}
@@ -1154,36 +1125,13 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                         {(
                           <div className={pageStyles.costs}>
                             <label htmlFor="skill-cost-scope">Material costs</label>
-                            <select id="skill-cost-scope" value={showTotal ? 'total' : 'step'} onChange={event => setShowTotal(event.target.value === 'total')}>
-                              <option value="step">Selected upgrade only</option>
-                              <option value="total">All skill levels up to {activeStepLabel}</option>
-                            </select>
+                            <StyledSelect id="skill-cost-scope" label="Skill material costs" className={pageStyles.costSelect}
+                              value={showTotal ? 'total' : 'step'} onChange={value => setShowTotal(value === 'total')}
+                              options={[{ value: 'step', label: 'Selected upgrade only' }, { value: 'total', label: `All skill levels up to ${activeStepLabel}` }]} />
                             <CostRow cost={costForStep()} />
                           </div>
                         )}
-                {priorityGuideGroups.length > 0 && (
-                  <details className={pageStyles.guidance}>
-                    <summary>Mastery priorities</summary>
-                  <div className="op-priority-guide-list">
-                    {priorityGuideGroups.map((group, gi) => (
-                      <div key={gi} className="op-priority-guide-group">
-                        <h3 className="op-priority-guide-order">{group.order}:</h3>
-                        {group.entries.map((row, i) => (
-                          <div key={i} className="op-priority-guide-row">
-                            <div className="op-priority-guide-header">
-                              {row.iconPath && <Image src={row.iconPath} alt="" width={24} height={24} />}
-                              <span>Skill {row.skillIndex + 1}</span>
-                              {row.entry.mastery && <OperatorGameIcon label={row.entry.mastery.toUpperCase()} color />}
-                              <span>{row.entry.priority === 'main' ? 'Main Priority' : row.entry.priority === 'sub' ? 'Sub Priority' : ''}</span>
-                            </div>
-                            {row.entry.explanation && <p className="op-priority-guide-explanation">{row.entry.explanation}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                  </details>
-                )}
+
 
                         {(() => {
                           const autoTechs = activeSkill ? detectAutoTechniques(operator.rarity, activeSkill.levels.map((l) => l.description), operator.name, operator.branch, operator.class) : [];
@@ -1215,22 +1163,38 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
             {sectionVisible('talents') && operator.talents && (
               <section id="operator-talents" data-operator-section="talents" tabIndex={-1} className={pageStyles.section}>
-                <h2>Talents</h2>
-                {operator.talents.map((talent, index) => {
-                  const autoTechs = detectAutoTechniques(operator.rarity, talent.rows.map(row => row.description), operator.name, operator.branch, operator.class, true);
-                  const allTechs = [...(talent.technique || []), ...autoTechs];
-                  return (
-                    <article key={`${operator.name}-${index}`} className={pageStyles.talent}>
-                      <h3>{talent.name || `Talent ${index + 1}`}</h3>
-                      <OperatorTalentRows rows={talent.rows} name={talent.name || `Talent ${index + 1}`} />
-                      {allTechs.length > 0 && <TechniqueList techniques={allTechs} techniqueUnitIcons={techniqueUnitIcons} techniqueBranchOperators={techniqueBranchOperators} techniqueGroupOperators={techniqueGroupOperators} techniqueRelatedOperators={techniqueRelatedOperators} />}
-                    </article>
-                  );
-                })}
+                <OperatorTalents key={operator.name} talents={operator.talents}
+                  elites={operator.stats?.phases.map(phase => phase.elite) ?? []}
+                  renderDetails={(talent, unlocked) => {
+                    if (operator.internalName === 'char_1039_thorn2' && talent.name === 'El Alcance de la Visión') return <LodestarTalentDemo unlocked={unlocked} />;
+                    const autoTechs = detectAutoTechniques(operator.rarity, talent.rows.map(row => row.description), operator.name, operator.branch, operator.class, true);
+                    const allTechs = [...(talent.technique || []), ...autoTechs];
+                    return allTechs.length > 0 ? <TechniqueList summary="Talent details" techniques={allTechs} techniqueUnitIcons={techniqueUnitIcons} techniqueBranchOperators={techniqueBranchOperators} techniqueGroupOperators={techniqueGroupOperators} techniqueRelatedOperators={techniqueRelatedOperators} /> : null;
+                  }} />
               </section>
             )}
 
-
+            {priorityGuideGroups.length > 0 && (
+              <section id="operator-mastery" data-operator-section="mastery" tabIndex={-1} className={pageStyles.section}>
+                <h2>Mastery priorities</h2>
+                <div className={pageStyles.masteryGrid}>
+                  {priorityGuideGroups.flatMap(group => group.entries.map((row, index) => (
+                    <article key={`${group.order}-${row.skillIndex}-${index}`} className={pageStyles.masteryCard}>
+                      <div className={pageStyles.masteryHeading}>
+                        <span className={pageStyles.priorityOrder}>{group.order}</span>
+                        <a href="#skills" onClick={() => setActiveSkillIndex(row.skillIndex)} className={pageStyles.masterySkill} title={skillList[row.skillIndex].name || undefined}>
+                          {row.iconPath && <Image src={row.iconPath} alt="" width={28} height={28} />}
+                          <span>Skill {row.skillIndex + 1}</span>
+                        </a>
+                        {row.entry.mastery && <OperatorGameIcon label={row.entry.mastery.toUpperCase()} color />}
+                        <span className={pageStyles.priorityKind}>{row.entry.priority === 'main' ? 'Main' : row.entry.priority === 'sub' ? 'Sub' : ''}</span>
+                      </div>
+                      {row.entry.explanation && <p>{row.entry.explanation}</p>}
+                    </article>
+                  )))}
+                </div>
+              </section>
+            )}
 
             {/* ---- Modules ---- */}
             {sectionVisible('modules') && (
@@ -1301,10 +1265,9 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             )}
                             <div className={pageStyles.costs}>
                               <label htmlFor="module-cost-scope">Material costs</label>
-                              <select id="module-cost-scope" value={showModuleTotal ? 'total' : 'step'} onChange={event => setShowModuleTotal(event.target.value === 'total')}>
-                                <option value="step">Selected stage only</option>
-                                <option value="total">All stages up to stage {activeModuleStage + 1}</option>
-                              </select>
+                              <StyledSelect id="module-cost-scope" label="Module material costs" className={pageStyles.costSelect}
+                                value={showModuleTotal ? 'total' : 'step'} onChange={value => setShowModuleTotal(value === 'total')}
+                                options={[{ value: 'step', label: 'Selected stage only' }, { value: 'total', label: `All stages up to stage ${activeModuleStage + 1}` }]} />
                               <CostRow cost={costForModuleStage()} />
                             </div>
                           </div>
@@ -1313,6 +1276,69 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     )}
                   </div>
                 )}
+              </section>
+            )}
+
+            {sectionVisible('promotion') && (
+              <section id="operator-promotion" data-operator-section="promotion" tabIndex={-1} className={pageStyles.section}>
+                <h2>Promotion</h2>
+                {operator.promotion.map((tier, index) => (
+                  <div key={index} className={pageStyles.promotionTier}>
+                    <h3><OperatorGameIcon label={tier.tier} size={36} /></h3>
+                    {tier.prerequisite && <p><OperatorStatModifiers text={tier.prerequisite} /></p>}
+                    {tier.upgrades.length > 0 && <ul>{tier.upgrades.map((upgrade, index) => <li key={index}>{upgrade}</li>)}</ul>}
+                    <CostRow cost={tier.cost} promotion />
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* ---- Potential ---- */}
+            {sectionVisible('potential') && (
+              <section id="operator-potential" data-operator-section="potential" tabIndex={-1} className={pageStyles.section}>
+                <h2>Potential</h2>
+                {operator.potential.levels.map((p, i) => {
+                  const iconPath = p.level >= 2 && p.level <= 6 ? getEssentialIconPath(`Potential ${p.level}`) : null;
+                  return (
+                    <p key={i} className="op-potential-row">
+                      {iconPath ? (
+                        <OperatorGameIcon label={`Potential ${p.level}`} size={36} color />
+                      ) : (
+                        <b>Potential {p.level}:</b>
+                      )}
+                      <span>{highlightStats(p.benefit)}</span>
+                    </p>
+                  );
+                })}
+              </section>
+            )}
+
+            {/* ---- Base Skills ---- */}
+            {sectionVisible('baseSkills') && operator.baseSkills && (
+              <section id="operator-baseSkills" data-operator-section="baseSkills" tabIndex={-1} className={pageStyles.section}>
+                <h2>Base skills</h2>
+                <div className="op-base-skill-list">
+                  {operator.baseSkills.map((bs, i) => {
+                    const iconPath = getBaseSkillIconPath(operator.name, bs.name);
+                    return (
+                      <div key={i} className="op-base-skill-card">
+                        <div className="op-base-skill-header">
+                          {iconPath && <Image src={iconPath} alt="" width={32} height={32} />}
+                          <div>
+                            <b>{bs.name}</b>
+                            <p className="hint op-base-skill-meta">
+                              {bs.facility}
+                              {bs.eliteLevel && (
+<OperatorGameIcon label={bs.eliteLevel} size={24} />
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <p>{highlightStats(bs.description)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
             )}
 
@@ -1437,73 +1463,10 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
               </section>
             )}
 
-            {sectionVisible('promotion') && (
-              <section id="operator-promotion" data-operator-section="promotion" tabIndex={-1} className={pageStyles.section}>
-                <h2>Promotion</h2>
-                {operator.promotion.map((tier, index) => (
-                  <div key={index} className={pageStyles.promotionTier}>
-                    <h3><OperatorGameIcon label={tier.tier} size={36} /></h3>
-                    {tier.prerequisite && <p><OperatorStatModifiers text={tier.prerequisite} /></p>}
-                    {tier.upgrades.length > 0 && <ul>{tier.upgrades.map((upgrade, index) => <li key={index}>{upgrade}</li>)}</ul>}
-                    <CostRow cost={tier.cost} />
-                  </div>
-                ))}
-              </section>
-            )}
-
-            {/* ---- Potential ---- */}
-            {sectionVisible('potential') && (
-              <section id="operator-potential" data-operator-section="potential" tabIndex={-1} className={pageStyles.section}>
-                <h2>Potential</h2>
-                {operator.potential.levels.map((p, i) => {
-                  const iconPath = p.level >= 2 && p.level <= 6 ? getEssentialIconPath(`Potential ${p.level}`) : null;
-                  return (
-                    <p key={i} className="op-potential-row">
-                      {iconPath ? (
-                        <OperatorGameIcon label={`Potential ${p.level}`} size={36} color />
-                      ) : (
-                        <b>Potential {p.level}:</b>
-                      )}
-                      <span>{highlightStats(p.benefit)}</span>
-                    </p>
-                  );
-                })}
-              </section>
-            )}
-
-            {/* ---- Base Skills ---- */}
-            {sectionVisible('baseSkills') && operator.baseSkills && (
-              <section id="operator-baseSkills" data-operator-section="baseSkills" tabIndex={-1} className={pageStyles.section}>
-                <h2>Base skills</h2>
-                <div className="op-base-skill-list">
-                  {operator.baseSkills.map((bs, i) => {
-                    const iconPath = getBaseSkillIconPath(operator.name, bs.name);
-                    return (
-                      <div key={i} className="op-base-skill-card">
-                        <div className="op-base-skill-header">
-                          {iconPath && <Image src={iconPath} alt="" width={32} height={32} />}
-                          <div>
-                            <b>{bs.name}</b>
-                            <p className="hint op-base-skill-meta">
-                              {bs.facility}
-                              {bs.eliteLevel && (
-<OperatorGameIcon label={bs.eliteLevel} size={24} />
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        <p>{highlightStats(bs.description)}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
             {/* ---- Character Info ---- */}
             {sectionVisible('characterInfo') && (
               <section id="operator-characterInfo" data-operator-section="characterInfo" tabIndex={-1} className={pageStyles.section}>
-                <h2>Character information</h2>
+                <h2>Profile</h2>
                   <div className={pageStyles.facts}>
                     <div className="op-sticky-meta op-sticky-meta-factions">
                       {operator.faction && (
@@ -1547,7 +1510,6 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       </span>
                     </div>
                   </div>
-                  {operator.review?.official && <p className={pageStyles.review}>{highlightStats(operator.review.official)}</p>}
 
                 {([['Record', operator.characterInfo], ['Basic information', operator.basicInfo], ['Physical examination', operator.physicalExam], ['Voice actors', operator.characterVoices]] as const)
                   .map(([label, block]) => block && (
@@ -1569,6 +1531,12 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
               </div>
             ) : null}
 
+            {voiceData?.lines.length ? (
+              <div id="operator-voiceLines" data-operator-section="voiceLines" tabIndex={-1} className={pageStyles.section}>
+                <OperatorVoiceLines key={`voices-${operator.internalName}`} data={voiceData} />
+              </div>
+            ) : null}
+
             {sectionVisible('guides') && (
               <section id="operator-guides" data-operator-section="guides" tabIndex={-1} className={pageStyles.section}>
                 <h2>Guides</h2>
@@ -1587,6 +1555,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
           </div>
           </div>
       </main>
+      </div>
 
       {zooming && activeAppearance?.fullPath && (
         <SkinZoomOverlay image={activeAppearance.fullPath} name={activeAppearance.label} onClose={() => setZooming(false)} />
@@ -1609,6 +1578,8 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
     return { notFound: true };
   }
   const appearances = getOperatorAppearances(operator);
+  const skins = getAllSkins();
+  const artworkCredits = getOperatorArtworkCredits(operator, appearances, skins);
 
   // Maps each skin appearance's label to a short "how to obtain" price
   // string (e.g. "18 OP", "400 DC"), reusing the exact same
@@ -1617,7 +1588,7 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
   // Originite Prime price (Default, Elite 2, most Collab pieces, Welfare,
   // etc.) are simply left out of the map -- nothing renders for those.
   const skinObtainByLabel: Record<string, string> = {};
-  for (const skin of getAllSkins()) {
+  for (const skin of skins) {
     if (skin.model !== operator.name) continue;
     const prices = parsePrices(skin.howToObtain);
     if (prices.length > 0) skinObtainByLabel[skin.name] = formatPrices(prices);
@@ -1795,7 +1766,12 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
      fails the build rather than emitting a grid it could not decode. */
   const allSkillRanges = SKILL_RANGES as unknown as Record<string, Record<string, SkillRangeChange>>;
   const skillRanges = allSkillRanges[operator.name] ?? null;
+  // Resolve on the server: only this operator's compact grids reach the page.
+  const overviewRanges = getOperatorAttackRanges(operator, OPERATOR_DEPLOY.ranges);
 
   const skillTimings = (SKILL_TIMINGS.operators as unknown as Record<string, (SkillTiming | null)[][]>)[operator.internalName ?? ''] ?? [];
-  return { props: { skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges } };
+  const voiceData = getOperatorVoiceData(operator.internalName);
+  const factionPath = getFactionIconPath(operator.faction);
+  const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
+  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData } };
 };

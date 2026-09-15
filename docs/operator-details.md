@@ -52,27 +52,25 @@ The optional CSV test compares all eight values at every imported level. CI runs
 
 ## Operator page navigation
 
-On desktop, large artwork stays on the left and the operator identity and navigation stay above the right-hand detail panel. Only the active detail view scrolls. At 900px and below, artwork appears above the details, the page uses normal document scrolling, and the identity and navigation remain sticky while reading.
+All available sections form one continuous reading flow, in the same order as the section dropdown. On desktop, the right-hand panel scrolls while the artwork, operator identity and navigation stay visible. On phones and short desktop windows, the document scrolls normally and the navigation stays sticky.
 
-Overview, Combat, Upgrades and Profile are keyboard-accessible tabs (arrow keys, Home and End). A second row selects one view at a time: skills, stats, talents, synergy, base skills, mastery, modules, promotion, potential, character information, files or guides, where available. Synergy sits under Overview alongside At a glance and Guides, where available; existing `#synergy` links select Overview automatically. Opening a view replaces the content in place. Each primary tab remembers its last view, and each view remembers its reading position for the current operator.
+A styled dropdown beside the operator name jumps to the corresponding section. The header stays visible while reading. Ordinary scrolling updates the dropdown value without changing the URL, moving focus or requiring another gesture at section boundaries. Existing fragments such as `#stats`, `#mastery`, `#modules` and `#files` jump to their sections; `#gameplay`, `#upgrades`, `#profile` and `#appearance` retain their aliases. Explicit navigation works with browser Back and Forward.
 
-Existing fragments such as `/operators/Amiya#stats`, `#mastery`, `#modules` and `#files` select the corresponding view without scrolling to a document anchor. `#gameplay` remains supported as the Combat tab; the former `#appearance` link opens Profile with artwork already visible. Next's shallow navigation keeps Back and Forward working without resetting component state.
+Skill levels stay selected when switching skills. Module selection, stage, cost scope, Stats inputs and open archive disclosures remain mounted while reading other sections. These settings reset when navigating to another operator or form. Artwork rotation starts paused and enlargement remains available throughout the page.
 
-Skill and level selections are shared between Combat and Upgrades. Module selection, stage and cost scope persist across tabs. Stats controls and native file disclosures stay mounted so adjusted values and opened archives survive view changes. These settings reset when navigating to a different operator or Amiya form. Artwork rotation starts paused and artwork can be enlarged from any tab.
-
-Skill and module costs default to the selected step; cumulative-cost controls are independent. Promotion costs use a flat material list, verified against every operator record in `test:operators`. Initial SP, SP cost and selected-level duration retain explicit labels. Stats remain base values plus trust, independent of skill effects.
+The section and material-cost dropdowns share keyboard navigation (arrows, Home/End, typing, Enter and Escape), visible selection and focus styling, and popups that fit the viewport. Skill and module costs default to the selected step; cumulative-cost controls are independent. Promotion costs use a flat material list, verified against every operator record in `test:operators`. Initial SP, SP cost and selected-level duration retain explicit labels. Stats remain base values plus trust, independent of skill effects.
 
 ### Interaction checks
 
 Check desktop and phone widths with Thorns the Lodestar and Amiya:
 
-- Open a deep link, switch primary tabs and detail views, then use browser Back.
-- Select S2 and a non-default level, leave Combat, and return to the same selection and scroll position.
-- Change level and trust under Stats; switch views and confirm both values remain.
-- Open an archive file; leave Profile and confirm it remains open when returning.
-- Select a module stage, change tabs and confirm the stage persists.
+- Open a deep link, jump between sections, then use browser Back and Forward.
+- Select S2 and a non-default level, scroll into Stats and back, and confirm the selection stays unchanged.
+- Change level and trust under Stats; jump elsewhere and back, and confirm both values remain.
+- Open an archive file, jump elsewhere and confirm it remains open when returning.
+- Select a module stage, scroll to neighboring sections and confirm the stage persists.
 - Navigate between Amiya forms and confirm operator-specific controls reset.
-- Check artwork selection and enlargement, keyboard tab navigation, light/dark themes, and horizontal fit at 320px and 390px.
+- Check artwork selection and enlargement, keyboard section navigation, light/dark themes, and horizontal fit at 320px and 390px.
 
 The layout borrows prominent character presentation from [Valorant](https://playvalorant.com/en-us/agents/jett/), in-place ability selection from [Warframe](https://www.warframe.com/en/game/warframes/citrine/), and persistent database navigation from [Project Amber](https://gi.yatta.moe/en/archive/avatar/10000052/raiden-shogun). No code, artwork or data was imported from those references.
 

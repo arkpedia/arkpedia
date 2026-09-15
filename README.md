@@ -39,7 +39,8 @@ pulls from them; each script's own header says which it uses and why.
 | [fexli/ArknightsResource](https://github.com/fexli/ArknightsResource) | The wider art set — full character art, story sprites, medals. | one-off art imports |
 | [arknights.wiki.gg](https://arknights.wiki.gg) | EN key art (`File:EN <name> banner.png`), and curated tables for things nobody has extracted from the raw data. Numbers here are a lead, not an answer — it lags the live event. | `sync-banner-art.py`, transparent material icons |
 | [prts.wiki](https://prts.wiki) | The CN wiki. Best source for interface art the mirrors do not carry (mode emblems, alliance badges, stratagem icons), usually at higher resolution. Filed under CN names. | Stronghold Protocol icons |
-| [Arkpedia/arkpedia-voice-assets](https://github.com/arkpedia/arkpedia-voice-assets) | Arkpedia's public voice asset mirror, with its upstream revision recorded in `source.json`. | Operator voice files |
+| [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2/tree/voice) | Public upstream recordings mirrored into Arkpedia's language-specific voice repositories. Each mirror records its upstream revision in `source.json`. | `build-operator-voices.mjs` |
+| [isHarryh/Ark-Voice](https://github.com/isHarryh/Ark-Voice) | Recording inventory used to identify audio absent from current dialogue tables, including unused promotion lines and replaced recordings. | `build-operator-voices.mjs` |
 
 Dates are reconciled against the client tables rather than announcements:
 `sync-event-windows.mjs` overwrites estimated windows in `data/events/events_*.json`
@@ -55,6 +56,10 @@ Large media is kept out of this repository's Git history and served directly fro
 | [Arkpedia/arkpedia-skin-assets](https://github.com/arkpedia/arkpedia-skin-assets) | Full operator artwork and skin-series logos |
 | [Arkpedia/arkpedia-image-assets](https://github.com/arkpedia/arkpedia-image-assets) | Icons, banners, posters, maps, covers, and other site images |
 | [Arkpedia/arkpedia-color-palette](https://github.com/arkpedia/arkpedia-color-palette) | Community-reviewed Color Palette Guesser corrections |
-| [Arkpedia/arkpedia-voice-assets](https://github.com/arkpedia/arkpedia-voice-assets) | Operator voice audio by language |
+| [Arkpedia/arkpedia-voice-japanese](https://github.com/arkpedia/arkpedia-voice-japanese) | Japanese operator voice audio |
+| [Arkpedia/arkpedia-voice-mandarin](https://github.com/arkpedia/arkpedia-voice-mandarin) | Mandarin operator voice audio |
+| [Arkpedia/arkpedia-voice-english](https://github.com/arkpedia/arkpedia-voice-english) | English operator voice audio |
+| [Arkpedia/arkpedia-voice-korean](https://github.com/arkpedia/arkpedia-voice-korean) | Korean operator voice audio |
+| [Arkpedia/arkpedia-voice-regional](https://github.com/arkpedia/arkpedia-voice-regional) | Regional and alternate operator voice audio |
 
 The application keeps `data/external-asset-index.json` so build-time availability checks still cover external media. Next Image optimization is disabled for these paths so the browser follows the redirect to GitHub instead of proxying the media through Vercel.

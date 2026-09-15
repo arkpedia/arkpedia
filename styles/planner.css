@@ -383,3 +383,5 @@
 .state-level-field .state-level-number:focus-visible { outline:none; }
 .state-level-max { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; flex-basis:52px; min-height:48px; border-color:var(--teal); background:var(--teal-dim); cursor:pointer; }
 .state-level-max:hover { background:var(--teal); color:var(--bg); }
+
+.simple-state-link .simple-state-action { display: block; margin-top: 6px; color: var(--teal); font: 500 11px/1.4 var(--font-body); text-transform: none; letter-spacing: normal; }
