@@ -1,0 +1,30 @@
+// Matches the SERIES list in scrape_skins.py -- shown as filter chips even
+// before all series have been scraped, so the full 25-series filter is
+// always visible (clicking one with no data yet just shows an empty grid).
+export const ALL_SERIES: string[] = [
+  'Test Collection',
+  'EPOQUE',
+  'Made by 0011',
+  '0011 Tempest',
+  '0011 Yun',
+  'MARTHE',
+  'Coral Coast',
+  'Witch Feast',
+  'Cambrian',
+  'Icefield Messenger',
+  'Vitafield',
+  'Pioneer',
+  'Striker',
+  'Bloodline of Combat',
+  'Rhodes Kitchen',
+  'Dreambind Castle',
+  'Whistlewind',
+  'Ambience Synesthesia',
+  'Shining Steps',
+  'Achievement Star',
+  'Iteration Provident',
+  'Unveiling of Devotion',
+  'Misaligned Sightseer',
+  'Storyboard Breaker',
+  'Crossover',
+];

@@ -1,0 +1,703 @@
+/* Split from globals.css -- gacha-tutorial.css
+   The gacha tutorial system: guide modal chrome, the question screen,
+   every Basics page, and every banner-specific tutorial page/animation. */
+
+/* --- Modal wrapper (extends the shared .modal-overlay/.modal-box chrome) --- */
+.gacha-guide-modal {
+  max-width: 480px;
+  width: 100%;
+}
+
+/* --- Question screen ("Do you understand the basics?") --- */
+.gacha-tutorial-question {
+  text-align: center;
+  padding: 20px 0;
+}
+.gacha-tutorial-question-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.gacha-tutorial-yes-btn {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 10px 22px;
+  background: var(--teal-dim);
+  border: 1px solid var(--teal);
+  color: var(--teal);
+}
+.gacha-tutorial-yes-btn:hover {
+  filter: brightness(1.1);
+}
+.gacha-tutorial-no-btn {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 10px 22px;
+  background: var(--danger-dim);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+.gacha-tutorial-no-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* --- Progress + nav --- */
+.gacha-tutorial-progress {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+  margin-bottom: 10px;
+}
+.gacha-tutorial-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+}
+
+/* --- Page shell --- */
+.gacha-tutorial-page {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gacha-tutorial-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* --- Animation viewport: fixed size so switching pages never visibly
+   grows/shrinks the box -- the single biggest source of the "jumping"
+   complaint that started this whole animation-standardization effort. --- */
+.gacha-tutorial-visual {
+  height: 220px;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+}
+
+/* --- Basics: rarity row --- */
+.gacha-tutorial-rarity-row {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: center;
+}
+.gacha-tutorial-rarity-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Basics: featured splits + Kernel/Standard/Featured splits --- */
+.gacha-tutorial-splits {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.gacha-tutorial-splits-row {
+  display: flex;
+  gap: 22px;
+  justify-content: center;
+}
+.gacha-tutorial-split-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.gacha-tutorial-split-chip {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--amber);
+  background: rgba(245, 166, 35, 0.15);
+  border: 1px solid rgba(245, 166, 35, 0.4);
+  border-radius: 3px;
+  padding: 2px 6px;
+  min-width: 22px;
+  text-align: center;
+}
+.gacha-tutorial-split-chip.off-banner {
+  color: var(--text-faint);
+  background: var(--panel);
+  border-color: var(--line-soft);
+}
+.gacha-tutorial-split-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+.gacha-tutorial-footnote {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+  margin: 4px 0 0;
+}
+
+/* --- Basics: ramp-up demo --- */
+.gacha-tutorial-ramp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.gacha-tutorial-ramp-pull {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--amber);
+}
+.gacha-tutorial-ramp-pull.ramping {
+  animation: gachaRampPulse 0.6s ease infinite;
+}
+@keyframes gachaRampPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* --- Basics: reset animation --- */
+.gacha-tutorial-reset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.3s ease;
+}
+.gacha-tutorial-reset.fading {
+  opacity: 0;
+}
+.gacha-tutorial-reset.hit {
+  animation: gachaResetHitFlash 0.3s ease;
+}
+@keyframes gachaResetHitFlash {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.gacha-tutorial-reset.hit .gacha-tutorial-reset-label {
+  color: var(--amber);
+}
+.gacha-tutorial-reset-label {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--teal);
+}
+.gacha-tutorial-reset-sublabel {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* --- Carryover / isolated pity flow (shared by Basics, Kernel,
+   Standard, Orienteering, Joint Operation, Celebration, Limited) --- */
+.gacha-tutorial-pity-flow {
+  position: relative;
+  width: 100%;
+}
+.gacha-tutorial-pity-chip {
+  position: absolute;
+  top: -34px;
+  transform: translateX(-50%);
+  transition: left 0.5s ease, opacity 0.5s ease;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.gacha-tutorial-pity-chip.shake {
+  animation: pityChipShake 0.4s;
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+@keyframes pityChipShake {
+  0%, 100% { transform: translateX(-50%) translateX(0); }
+  25% { transform: translateX(-50%) translateX(-4px); }
+  75% { transform: translateX(-50%) translateX(4px); }
+}
+.gacha-tutorial-pity-chip.fizzling {
+  animation: pityChipFizzle 0.6s steps(6, end) forwards;
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+@keyframes pityChipFizzle {
+  0% { opacity: 1; filter: blur(0) contrast(1); transform: translateX(-50%) scale(1); }
+  15% { opacity: 0.75; filter: blur(0.5px) contrast(2); transform: translateX(-50%) scale(1.03) translateY(-1px); }
+  30% { opacity: 0.55; filter: blur(1px) contrast(1); transform: translateX(-50%) scale(0.97) translateY(1px); }
+  45% { opacity: 0.65; filter: blur(0.5px) contrast(2.5); transform: translateX(-50%) scale(1.04) translateY(-2px); }
+  60% { opacity: 0.35; filter: blur(1.5px) contrast(1); transform: translateX(-50%) scale(0.95) translateY(1px); }
+  75% { opacity: 0.4; filter: blur(2px) contrast(2); transform: translateX(-50%) scale(1.02) translateY(-1px); }
+  90% { opacity: 0.15; filter: blur(3px); transform: translateX(-50%) scale(0.9); }
+  100% { opacity: 0; filter: blur(4px); transform: translateX(-50%) scale(0.8); }
+}
+.gacha-tutorial-pity-chip.obtained {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+.gacha-tutorial-pity-flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+}
+.gacha-tutorial-pity-flow-row.two {
+  gap: 40px;
+}
+.gacha-tutorial-pity-flow-box {
+  font-size: 11px;
+  text-align: center;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 8px 10px;
+  min-width: 70px;
+}
+.gacha-tutorial-pity-flow-box.linked {
+  border-color: var(--teal-dim);
+  color: var(--text);
+}
+.gacha-tutorial-pity-flow-x {
+  font-size: 16px;
+  color: var(--danger);
+  font-weight: 700;
+}
+.gacha-tutorial-carryover-link {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--teal);
+}
+.gacha-tutorial-carryover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.gacha-tutorial-carryover-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gacha-tutorial-carryover-box {
+  font-size: 11px;
+  text-align: center;
+  border-radius: 4px;
+  padding: 6px 10px;
+  min-width: 70px;
+}
+.gacha-tutorial-carryover-box.shared {
+  background: var(--teal-dim);
+  border: 1px solid var(--teal);
+  color: var(--text);
+  font-size: 11px;
+}
+.gacha-tutorial-carryover-box.isolated {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  color: var(--text);
+  opacity: 0.75;
+  font-size: 11px;
+}
+.gacha-tutorial-carryover-shared-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--teal);
+}
+.gacha-tutorial-carryover-isolated-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.gacha-tutorial-carryover-isolated-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* --- Basics: First 10 Pulls --- */
+.gacha-tutorial-first-ten {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.gacha-tutorial-first-ten-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.gacha-tutorial-pull-grid {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  min-width: 365px;
+}
+.gacha-tutorial-pull-card {
+  position: relative;
+  width: 32px;
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.gacha-tutorial-pull-card.highlight {
+  border-color: var(--amber);
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.28), rgba(245, 166, 35, 0.05));
+}
+.gacha-tutorial-pull-card.small {
+  width: 22px;
+  height: 28px;
+}
+.gacha-tutorial-pull-card.small .gacha-stars-icons svg {
+  width: 9px;
+  height: 9px;
+}
+.gacha-tutorial-pull-card.small .gacha-tutorial-pull-card-label {
+  font-size: 7px;
+}
+.gacha-tutorial-pull-card .gacha-stars-icons {
+  color: var(--amber);
+}
+.gacha-stars-icons {
+  display: flex;
+  gap: 1px;
+}
+.gacha-tutorial-pull-card-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text);
+}
+.gacha-tutorial-pull-card-label.dim {
+  color: var(--text);
+  opacity: 0.6;
+}
+/* .gacha-pull-slide-bottom/-top intentionally NOT redefined here --
+   they're shared with the real pull-result grid (see gacha.tsx line
+   ~2175), and gacha.css already owns the canonical slide+glow version.
+   Redefining them here previously created a duplicate that silently
+   won the cascade (this file loads after gacha.css) and replaced the
+   real animation with a simpler, faster, glow-less one everywhere. */
+
+/* --- Basics: six-star guarantee text examples --- */
+.gacha-tutorial-guarantee-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.gacha-tutorial-guarantee-chip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 14px;
+}
+.gacha-tutorial-guarantee-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.gacha-tutorial-guarantee-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--amber);
+}
+.gacha-tutorial-guarantee-label.triggered {
+  margin-top: 6px;
+  color: var(--teal);
+}
+.gacha-tutorial-pity-inline {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--teal);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* --- Basics: done screen --- */
+.gacha-tutorial-done-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.gacha-tutorial-done-image {
+  border-radius: 6px;
+}
+.gacha-tutorial-done-thumb {
+  font-size: 88px;
+  line-height: 1;
+}
+
+/* --- Orienteering / Celebration / Kernel Locating: pick slots --- */
+.gacha-tutorial-orienteering {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+}
+.gacha-tutorial-orienteering-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.gacha-tutorial-pick-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  opacity: 0.45;
+  transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  min-width: 56px;
+}
+.gacha-tutorial-pick-slot.picked {
+  opacity: 1;
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+.gacha-tutorial-pick-slot.included {
+  opacity: 0.85;
+  border-color: var(--amber);
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.18), rgba(245, 166, 35, 0.03));
+}
+.gacha-tutorial-pick-slot.owned {
+  opacity: 0.55;
+  border-color: var(--line);
+  background: var(--panel);
+}
+.gacha-tutorial-pick-slot.just-obtained {
+  opacity: 1;
+  border-color: var(--amber);
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.28), rgba(245, 166, 35, 0.05));
+}
+.gacha-tutorial-pick-slot.more {
+  opacity: 0.6;
+  justify-content: center;
+  border-style: dashed;
+}
+.gacha-tutorial-pick-icon {
+  border-radius: 4px;
+  object-fit: cover;
+}
+.gacha-tutorial-pick-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+.gacha-tutorial-pick-label.small {
+  font-size: 9px;
+  max-width: 52px;
+  text-align: center;
+  line-height: 1.2;
+}
+.gacha-tutorial-pick-pct {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--teal);
+}
+.gacha-tutorial-pick-pct.dim {
+  color: var(--amber);
+}
+.gacha-tutorial-pick-status {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text);
+  opacity: 0.8;
+  text-transform: uppercase;
+}
+.gacha-tutorial-pick-more {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+.gacha-tutorial-trolley-icon {
+  color: #4A90D9;
+}
+.gacha-tutorial-celebration-pool {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+  margin: 0;
+}
+
+/* --- Kernel / Standard: shop operator + advisory --- */
+.gacha-tutorial-kernel-shop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.gacha-tutorial-kernel-shop-image-wrap {
+  max-width: 280px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.gacha-tutorial-kernel-shop-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.gacha-tutorial-advisory-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.gacha-tutorial-advisory-bad {
+  color: var(--danger);
+  font-weight: 700;
+}
+.gacha-tutorial-advisory-good {
+  color: var(--teal);
+  font-weight: 700;
+}
+
+/* --- Limited: rate-up bars + spark store cards --- */
+.gacha-tutorial-rateup-demo {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 90px;
+}
+.gacha-tutorial-rateup-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  height: 100%;
+}
+.gacha-tutorial-rateup-bar {
+  width: 22px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--amber), rgba(245, 166, 35, 0.55));
+  border: 1px solid var(--amber);
+  transition: height 1.4s ease;
+}
+.gacha-tutorial-limited-cards {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+.gacha-tutorial-equals {
+  font-size: 16px;
+  color: var(--text-faint);
+}
+.gacha-tutorial-pct {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--teal);
+}
+
+/* --- Fallback for unbuilt banner tutorials --- */
+.gacha-tutorial-coming-soon {
+  font-size: 40px;
+}
+
+/* --- Legacy/basics selection card (predates .gacha-tutorial-pick-slot,
+   still used by the earliest Orienteering selection demo) --- */
+.prod-grey { color: var(--text-faint); }
+.prod-yellow { color: #E8C54D; font-weight: 700; }
+.prod-danger {
+  color: var(--danger);
+  font-weight: 700;
+}
+.prod-green {
+  color: #5FBF6B;
+  font-weight: 700;
+}
+.orienteering-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 10px;
+}
+.orienteering-pick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  text-align: center;
+}
+.orienteering-pick-card img { width: 48px; height: 48px; border-radius: 4px; }
+.orienteering-pick-card.picked {
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+.gacha-rate-up-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--amber);
+  background: rgba(245, 166, 35, 0.15);
+  border: 1px solid rgba(245, 166, 35, 0.4);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.gacha-limited-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--teal);
+  background: rgba(45, 212, 191, 0.15);
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  border-radius: 3px;
+  padding: 1px 5px;
+}

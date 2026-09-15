@@ -1,0 +1,64 @@
+/* Announcement ticker -- mounted on the home page only (pages/index.tsx).
+   Timing (15s initial delay, 2-minute repeat, hide-on-last-word) and
+   the pixel start/end positions are computed in AnnouncementTicker.tsx;
+   this file only handles the visual. */
+
+.ticker-bar {
+  position: relative;
+  overflow: hidden;
+  height: 0;
+  background: var(--amber);
+  opacity: 0;
+  transition: height 0.25s ease, opacity 0.25s ease;
+}
+.ticker-bar.visible {
+  height: 32px;
+  opacity: 1;
+}
+
+.ticker-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  /* Single pass, not looping -- the next appearance is a fresh mount
+     2 minutes later, driven by the JS cycle, not a CSS loop. */
+  animation: ticker-scroll var(--ticker-duration, 16s) linear forwards;
+  will-change: transform;
+}
+
+.ticker-text {
+  padding: 0 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1a0f00;
+}
+
+/* --ticker-start = the container's own width in px, so the text's
+   left edge begins exactly at the container's right edge (fully
+   off-screen to the right). --ticker-end = minus the track's own
+   width, so the text's right edge ends exactly at the container's
+   left edge (fully off-screen to the left) -- "the first word comes
+   out from the right, the last word ends on the left." */
+@keyframes ticker-scroll {
+  from { transform: translateX(var(--ticker-start, 100%)); }
+  to { transform: translateX(var(--ticker-end, -100%)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+    position: static;
+    white-space: normal;
+    padding: 4px 0;
+  }
+  .ticker-text {
+    padding: 0 24px;
+  }
+}

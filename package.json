@@ -1,0 +1,54 @@
+{
+  "name": "operator-power-survey",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "test:operators": "tsx --test scripts/test-operator-details.ts",
+    "test:operator-guesser": "tsx --test scripts/test-operator-guesser.ts",
+    "lint": "next lint",
+    "test:minigames": "tsx --test scripts/test-minigames.ts scripts/test-stage-guesser.ts",
+    "test:recruitment-guesser": "tsx --test scripts/test-recruitment-guesser.ts",
+    "test:color-palette": "tsx --test scripts/test-color-palette.ts",
+    "palettes:refresh": "python3 scripts/build-color-palettes.py",
+    "palettes:review": "python3 scripts/review-color-palettes.py",
+    "start": "next start",
+    "test:music-guesser": "tsx --test scripts/test-music-guesser.ts",
+    "audit:music-guesser": "tsx scripts/audit-music-guesser.ts",
+    "audit:base": "node scripts/audit-base-skills.mjs",
+    "test:techniques": "tsx --test scripts/test-technique-regressions.ts",
+    "audit:import": "npx tsx scripts/audit-import-formats.ts",
+    "audit:styles": "node scripts/audit-styles.mjs",
+    "audit:build": "npx tsx scripts/audit-build.ts",
+    "stages:refresh": "bash scripts/refresh-stage-data.sh",
+    "events:sync": "node scripts/sync-event-windows.mjs",
+    "prebuild": "node scripts/build-enemy-details.mjs && npx tsx scripts/build-stage-details.ts && npx tsx scripts/build-stage-guesser.ts",
+    "predev": "node scripts/build-enemy-details.mjs && npx tsx scripts/build-stage-details.ts && npx tsx scripts/build-stage-guesser.ts"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "pg": "^8.11.3",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.14",
+    "@types/node": "^20.11.0",
+    "@types/pg": "^8.11.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/topojson-client": "^3.1.5",
+    "@types/topojson-specification": "^1.0.5",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "tsx": "^4.23.12",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,66 @@
+# Typechecks and builds every pull request.
+#
+# There was no gate at all before this: the only workflow in the repository
+# refreshes data on a schedule, so nothing looked at a branch before it merged.
+#
+# BOTH steps, because they disagree. `tsc` reads the whole project and catches what
+# a compiler catches -- a use before declaration, a prop that no longer exists, a
+# type that stopped matching. `next build` runs the SWC transform instead, which is
+# happy with some things tsc rejects and rejects some things tsc accepts, and it is
+# also the only thing that runs getStaticProps for every page the site prerenders: a
+# page that throws on one row of its data fails here and nowhere else.
+#
+# The build is the long pole -- minutes, and it grows with the number of prerendered
+# pages -- which is why it runs after the typecheck rather than beside it: a type
+# error should come back in one minute rather than after all of them.
+name: Check
+
+on:
+  pull_request:
+    branches: [main, games-foundation, recruitment-guesser]
+  # So a branch can be checked before it has a pull request, and so this file can
+  # be tried by hand once it lands.
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run pointless.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Operator data and calculations
+        run: npm run test:operators
+
+      # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
+      # in the four big pages, plus two ARIA roles), every one of them a judgement
+      # call about behaviour rather than a mechanical fix, so they are left standing
+      # and capped. Errors fail on their own. Lower the number as they go.
+      - name: Lint
+        run: npm run lint -- --max-warnings 15
+
+      # A class the app renders that no stylesheet styles is invisible to the type
+      # checker and to the linter: nothing fails, the page just quietly looks wrong.
+      # That was 45 names when this check went in; it is 0 now, so --strict can gate.
+      - name: Every rendered class is styled
+        run: node scripts/check-unstyled-classes.mjs --strict
+
+      # NEXT_TELEMETRY_DISABLED so a CI run is not also a ping to Vercel.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

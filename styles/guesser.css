@@ -1,0 +1,199 @@
+/* Split from globals.css -- guesser.css */
+
+
+
+/* --- Guesser --- */
+.guesser-status-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.guesser-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.guesser-hint-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.guesser-hint-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--teal);
+  text-transform: uppercase;
+  flex-shrink: 0;
+  width: 110px;
+}
+.guesser-hint-value { font-size: 13px; }
+.guesser-hint-image { width: 32px; height: 32px; border-radius: 4px; }
+
+.guesser-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.guesser-autocomplete { position: relative; flex: 1; max-width: 320px; }
+.guesser-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.guesser-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin-top: 4px;
+  background: var(--panel);
+  border: 1px solid var(--teal);
+  border-radius: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.guesser-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--text);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  text-align: left;
+}
+.guesser-suggestion:hover,
+.guesser-suggestion.highlighted { background: var(--panel-2); border-color: transparent; }
+.guesser-suggestion-icon { width: 22px; height: 22px; border-radius: 3px; }
+.guesser-wrong-list { margin-top: 10px; }
+
+.guesser-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.guesser-result-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--teal);
+  margin: 0;
+}
+.guesser-answer-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 600;
+}
+.guesser-answer-card img { width: 40px; height: 40px; border-radius: 4px; }
+
+.guesser-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+.guesser-setting {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 6px 10px;
+  text-align: left;
+}
+.guesser-setting.selected {
+  color: var(--text);
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+.guesser-setting.disabled { opacity: 0.4; cursor: not-allowed; }
+.guesser-setting-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--teal);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+}
+.guesser-setting-order.empty {
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  min-width: 16px;
+}
+.guesser-setting-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--line-soft);
+  font-size: 11px;
+  color: var(--bg);
+}
+.guesser-setting-checkbox.checked {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+/* The Vasebreaker Yes/No group is a fieldset for semantics (a <label>
+   can't legally wrap a button group), dressed down to look exactly like
+   the inline labels beside it in the Round Settings row -- the element
+   changed for meaning, not for looks. */
+.guesser-toggle-fieldset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+/* A legend normally renders in its own special box carved out of the
+   fieldset's border edge, ignoring the flex layout entirely; giving it
+   a float opts it out of that special treatment (per the HTML spec's
+   "rendered legend" rules), after which it lays out as a normal flex
+   item -- inline with the buttons, exactly where the old label text
+   sat. The float itself does nothing in a flex container. */
+.guesser-toggle-fieldset legend {
+  float: left;
+  padding: 0;
+}

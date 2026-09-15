@@ -1,0 +1,38 @@
+/** Arknights rich text.
+ *
+ * Stage and enemy descriptions carry the game's own inline markup --
+ * `<@lv.item>Stun Generator</>` names an item, `<$ba.stun>` a status effect.
+ * The prototype turned those into <em> via innerHTML; this returns segments
+ * instead so the page can render them as real elements and never has to hand
+ * game data to dangerouslySetInnerHTML.
+ */
+export interface TextSegment {
+  text: string;
+  emphasis: boolean;
+}
+
+const OPEN = /<[@$][a-z0-9._]+>/gi;
+
+
+/**
+ * A stage's description, split into its lead and the rules it states.
+ *
+ * The source separates them with newlines and names each rule in angle brackets --
+ * "\n<Deep Water Zone>Unable to deploy on these tiles..." -- and rendering the
+ * whole string as one paragraph ran them together into a wall of prose. 2,920 of
+ * the 3,784 descriptions state at least one rule this way, up to eight of them.
+ * A rule that shares its line with another is split too, since 864 descriptions
+ * carry tags with no newline before them.
+ */
+export function describeStage(raw: string | null): { tag: string | null; text: string }[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split('\n')
+    .flatMap((line) => line.split(/(?=<[^>@/][^>]*>)/g))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const named = /^<([^>]+)>\s*(.*)$/.exec(part);
+      return named ? { tag: named[1], text: named[2] } : { tag: null, text: part };
+    });
+}

@@ -1,0 +1,2489 @@
+import { GetStaticProps } from 'next';
+import Head from 'next/head';
+import { useRouter } from 'next/router';
+import Image from 'next/image';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
+import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
+import { getBannersSortedByDate, HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
+import { buildRealBannerConfig, getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
+import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
+import { buildEligiblePool } from '@/lib/gacha/gachaOperatorEligibility';
+import { KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
+import { ReleaseDateLookup, deriveReleaseDatesFromBanners, getReleaseDate } from '@/lib/operators/operatorReleaseDates';
+import { getAllOperators } from '@/lib/operators/operators';
+import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, GachaItem } from '@/lib/gacha/gachaTypes';
+import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
+
+interface Props {
+  pools: GachaIconPools;
+  banners: HeadhuntingBanner[]; // sorted newest-first
+  kernelLookup: KernelAdditionLookup;
+  releaseLookup: ReleaseDateLookup;
+  kernelExclusiveNames: string[];
+  howToObtainLookup: HowToObtainLookup;
+  operatorSeriesMap: Record<string, OperatorSeries>;
+}
+
+type DisplayCategory = BannerType | 'other' | 'upcoming';
+
+const CATEGORY_LABELS: Record<DisplayCategory, string> = {
+  upcoming: 'Upcoming',
+  featured: 'Featured',
+  limited: 'Limited',
+  standard: 'Standard',
+  kernel: 'Kernel',
+  kernelLocating: 'Kernel Locating',
+  joint: 'Joint Operation',
+  orienteering: 'Orienteering',
+  celebration: 'Celebration',
+  crossover: 'Crossover',
+  trio: 'The Front That Was',
+  other: 'Other (unclassified)',
+};
+const CATEGORIES: DisplayCategory[] = ['upcoming', 'featured', 'limited', 'standard', 'kernel', 'kernelLocating', 'joint', 'orienteering', 'celebration', 'crossover', 'trio', 'other'];
+
+function rarityClass(rarity: number): string {
+  if (rarity === 6) return 'pull-six';
+  if (rarity === 5) return 'pull-five';
+  if (rarity === 4) return 'pull-four';
+  return 'pull-three';
+}
+
+/** Spark cost for a genuinely Limited six-star drops from 300 to 200
+ * once the eligible waiting period has passed since their own release
+ * date -- 4 years 10 months for Festival specifically, 3 years 10
+ * months for every other series (Celebration, Carnival, Crossover).
+ * Checked against the CURRENT BANNER's own date -- not real-world
+ * "today" -- consistent with every other chronology check in this
+ * simulator (release availability, series eligibility, etc.), since
+ * the simulator represents a specific point in the banner timeline,
+ * not the actual present moment. */
+function getSparkCost(operatorName: string, bannerDate: Date | null, releaseLookup: ReleaseDateLookup, series?: OperatorSeries): number {
+  if (!bannerDate) return 300;
+  const releaseDate = getReleaseDate(operatorName, releaseLookup);
+  if (!releaseDate) return 300;
+  const threshold = new Date(releaseDate);
+  const [years, months] = series === 'festival' ? [4, 10] : [3, 10];
+  threshold.setFullYear(threshold.getFullYear() + years);
+  threshold.setMonth(threshold.getMonth() + months);
+  return bannerDate >= threshold ? 200 : 300;
+}
+
+function PullIcon({ item }: { item: PulledItem }) {
+  if (item.icon) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <Image src={item.icon} alt={item.name} className="gacha-pull-icon" width={56} height={56} />;
+  }
+  return <div className="gacha-pull-icon gacha-pull-icon-placeholder">{item.rarity}★</div>;
+}
+
+function FeaturedChip({ item, rarity, percent, tags, count }: { item: GachaItem; rarity: 6 | 5; percent?: number; tags?: ('rateUp' | 'limited')[]; count?: number }) {
+  return (
+    <div className={`gacha-featured-chip gacha-featured-chip-${rarity}`}>
+      {item.icon ? (
+        <Image src={item.icon} alt={item.name} width={44} height={44} />
+      ) : (
+        <div className="gacha-pull-icon-placeholder">{rarity}★</div>
+      )}
+      <span>{item.name}</span>
+      {tags?.includes('rateUp') && <span className="gacha-rate-up-tag">RATE-UP</span>}
+      {tags?.includes('limited') && <span className="gacha-limited-tag">LIMITED</span>}
+      {percent !== undefined && <span className="gacha-featured-percent">{percent.toFixed(2)}%</span>}
+      <span className="gacha-featured-count">Obtained: {count || 0}</span>
+    </div>
+  );
+}
+
+// Draws `count` star icons in a row -- used throughout the FAQ modal
+// so "6★" reads as six drawn stars rather than a number-plus-glyph.
+function Stars({ count }: { count: number }) {
+  return (
+    <span className="gacha-stars-icons" aria-label={`${count} star`} role="img">
+      {Array.from({ length: count }).map((_, i) => (
+        <svg key={i} viewBox="0 0 20 20" width="13" height="13" fill="currentColor" aria-hidden="true">
+          <path d="M10 1 L12.7 7.6 L19.8 8.3 L14.4 13 L16 20 L10 16.3 L4 20 L5.6 13 L0.2 8.3 L7.3 7.6 Z" />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
+function TutorialRarityRow({ items }: { items: { n: number; content: JSX.Element }[] }) {
+  return (
+    <div className="gacha-tutorial-rarity-row">
+      {items.map((item) => (
+        <div key={item.n} className="gacha-tutorial-rarity-col">
+          <Stars count={item.n} />
+          {item.content}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BasicsPageRarities() {
+  return (
+    <TutorialRarityRow
+      items={[
+        { n: 6, content: <span className="gacha-tutorial-pct">2%</span> },
+        { n: 5, content: <span className="gacha-tutorial-pct">8%</span> },
+        { n: 4, content: <span className="gacha-tutorial-pct">50%</span> },
+        { n: 3, content: <span className="gacha-tutorial-pct">40%</span> },
+      ]}
+    />
+  );
+}
+
+function BasicsPageFeaturedSplits() {
+  const splits: Record<number, number[][]> = {
+    6: [[50, 50], [35, 35, 30], [25, 25, 25, 25]],
+    5: [[50, 50], [25, 25, 50], [16.7, 16.7, 16.7, 50]],
+    4: [[50, 50]],
+  };
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => s + 1), 2200);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="gacha-tutorial-splits">
+      <div className="gacha-tutorial-splits-row">
+        {[6, 5, 4].map((n) => {
+          const variants = splits[n];
+          const row = variants[step % variants.length];
+          return (
+            <div key={n} className="gacha-tutorial-rarity-col">
+              <Stars count={n} />
+              <div className="gacha-tutorial-split-row">
+                {row.map((v, i) => (
+                  <span key={i} className={`gacha-tutorial-split-chip${i === row.length - 1 ? ' off-banner' : ''}`}>
+                    {v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="gacha-tutorial-footnote">Highlighted numbers are the featured operator(s)&apos; share; the last number is the off-banner share.</p>
+    </div>
+  );
+}
+
+function BasicsPageRampUp() {
+  const [pull, setPull] = useState(48);
+  useEffect(() => {
+    const id = setInterval(() => setPull((p) => (p >= 65 ? 48 : p + 1)), 1100);
+    return () => clearInterval(id);
+  }, []);
+  const rates = ratesAtPull(pull);
+  const isRamping = pull > 50;
+  return (
+    <div className="gacha-tutorial-ramp">
+      <div className={`gacha-tutorial-ramp-pull${isRamping ? ' ramping' : ''}`}>
+        Pull #{pull}
+        {isRamping && ' (soft pity)'}
+      </div>
+      <TutorialRarityRow
+        items={[
+          { n: 6, content: <span className="gacha-tutorial-pct">{(rates.six * 100).toFixed(isRamping ? 2 : 0)}%</span> },
+          { n: 5, content: <span className="gacha-tutorial-pct">{(rates.five * 100).toFixed(isRamping ? 2 : 0)}%</span> },
+          { n: 4, content: <span className="gacha-tutorial-pct">{(rates.four * 100).toFixed(isRamping ? 2 : 0)}%</span> },
+          { n: 3, content: <span className="gacha-tutorial-pct">{(rates.three * 100).toFixed(isRamping ? 2 : 0)}%</span> },
+        ]}
+      />
+    </div>
+  );
+}
+
+// Two scenarios -- a low and a high starting pull count -- each doing
+// the same build-up -> reset-to-0 -> count-up -> fade-out cycle, so
+// it's clear the reset happens no matter how high the counter climbed
+// first, not just for small numbers.
+const RESET_SEQUENCES: { label: string; values: number[] }[] = [
+  { label: 'Low pull count', values: [4, 5, 6, 7, 0, 1, 2, 3] },
+  { label: 'High pull count', values: [45, 46, 47, 48, 0, 1, 2, 3] },
+];
+const RESET_HOLD_STEPS = 2; // extra steps to hold the fade-out before switching scenario
+
+function BasicsPageReset() {
+  const cycleLength = RESET_SEQUENCES[0].values.length + RESET_HOLD_STEPS;
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s + 1) % (cycleLength * RESET_SEQUENCES.length)), 550);
+    return () => clearInterval(id);
+  }, []);
+  const scenarioIndex = Math.floor(step / cycleLength) % RESET_SEQUENCES.length;
+  const localStep = step % cycleLength;
+  const seq = RESET_SEQUENCES[scenarioIndex];
+  const inSequence = localStep < seq.values.length;
+  const isFading = !inSequence;
+  const isResetMoment = localStep === 4;
+  const count = inSequence ? seq.values[localStep] : seq.values[seq.values.length - 1];
+  return (
+    <div className={`gacha-tutorial-reset${isResetMoment ? ' hit' : ''}${isFading ? ' fading' : ''}`}>
+      <span className="gacha-tutorial-reset-sublabel">{seq.label}</span>
+      {isResetMoment ? (
+        <>
+          <Stars count={6} />
+          <span className="gacha-tutorial-reset-label">Obtained! Resets.</span>
+        </>
+      ) : (
+        <span className="gacha-tutorial-reset-label">Pulls since last 6★: {count}</span>
+      )}
+    </div>
+  );
+}
+
+// Measures the actual horizontal center of each of `count` box
+// elements relative to their shared container, so a floating chip can
+// be positioned exactly above whichever box it's "at" -- guessing a
+// fixed percentage (e.g. 25%/75%) breaks as soon as the row isn't
+// perfectly symmetric, which it usually isn't once separators like
+// "‹ shared ›" (much wider than "✕") are in the mix.
+function useBoxCenters(count: number) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const boxRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [centers, setCenters] = useState<number[] | null>(null);
+  useLayoutEffect(() => {
+    function measure() {
+      const container = containerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      setCenters(
+        boxRefs.current.map((el) => {
+          if (!el) return 0;
+          const rect = el.getBoundingClientRect();
+          return rect.left - containerRect.left + rect.width / 2;
+        })
+      );
+    }
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [count]);
+  const setBoxRef = (i: number) => (el: HTMLDivElement | null) => {
+    boxRefs.current[i] = el;
+  };
+  return { containerRef, setBoxRef, centers };
+}
+
+// Slide 0 of BasicsPageCarryover (and reused by Kernel/Standard/
+// Orienteering/Joint's own carryover pages) -- concrete pity-counter
+// demo showing carryover actually succeeding (counter keeps climbing
+// and lands a 6★), the mirror image of the isolated-pity flow's
+// rejection. Pass fromLabel/toLabel directly for a genuine
+// cross-category link (e.g. Standard -> Orienteering); repeatLabel is
+// a shorthand for the same-category case (e.g. Featured -> Next
+// Featured).
+function CarryoverPityDemo({ repeatLabel, fromLabel, toLabel }: { repeatLabel?: string; fromLabel?: string; toLabel?: string }) {
+  const left = fromLabel ?? repeatLabel ?? 'Featured';
+  const right = toLabel ?? `Next ${repeatLabel ?? 'Featured'}`;
+  const frames = [
+    { pos: 0, value: 48, obtained: false },
+    { pos: 0, value: 48, obtained: false },
+    { pos: 1, value: 48, obtained: false },
+    { pos: 1, value: 50, obtained: false },
+    { pos: 1, value: 53, obtained: false },
+    { pos: 1, value: 53, obtained: true },
+    { pos: 1, value: 53, obtained: true },
+  ];
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s + 1) % frames.length), 1200);
+    return () => clearInterval(id);
+  }, []);
+  const frame = frames[step];
+  const { containerRef, setBoxRef, centers } = useBoxCenters(2);
+  return (
+    <div className="gacha-tutorial-pity-flow" ref={containerRef}>
+      <div className={`gacha-tutorial-pity-chip${frame.obtained ? ' obtained' : ''}`} style={{ left: centers ? centers[frame.pos] : 0, opacity: centers ? 1 : 0 }}>
+        {frame.obtained ? 'Obtained 6★!' : `Pity: ${frame.value}`}
+      </div>
+      <div className="gacha-tutorial-pity-flow-row two">
+        <div ref={setBoxRef(0)} className="gacha-tutorial-pity-flow-box linked">
+          {left}
+        </div>
+        <span className="gacha-tutorial-carryover-link">‹ shared ›</span>
+        <div ref={setBoxRef(1)} className="gacha-tutorial-pity-flow-box linked">
+          {right}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Slide 1 of TwoSlideCarryoverDemo -- a chip that bounces from the
+// first banner type to the second and back once, showing pity is
+// genuinely shared both ways rather than a one-time transfer, then
+// holds in place for the rest of this slide's display time. Remounts
+// fresh (and so re-plays) each time TwoSlideCarryoverDemo cycles back
+// to this slide.
+const CARRYOVER_BOUNCE_POSITIONS = [0, 1, 0];
+
+function CarryoverBouncingPair({ pairLeft, pairRight }: { pairLeft: string; pairRight: string }) {
+  const { containerRef, setBoxRef, centers } = useBoxCenters(2);
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (step >= CARRYOVER_BOUNCE_POSITIONS.length - 1) return;
+    const id = setTimeout(() => setStep((s) => s + 1), 900);
+    return () => clearTimeout(id);
+  }, [step]);
+  const pos = CARRYOVER_BOUNCE_POSITIONS[step];
+  return (
+    <div className="gacha-tutorial-pity-flow" ref={containerRef}>
+      <div className="gacha-tutorial-pity-chip obtained" style={{ left: centers ? centers[pos] : 0, opacity: centers ? 1 : 0 }}>
+        Pity
+      </div>
+      <div className="gacha-tutorial-pity-flow-row two">
+        <div ref={setBoxRef(0)} className="gacha-tutorial-pity-flow-box linked">
+          {pairLeft}
+        </div>
+        <span className="gacha-tutorial-carryover-link">‹ shared ›</span>
+        <div ref={setBoxRef(1)} className="gacha-tutorial-pity-flow-box linked">
+          {pairRight}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// A simpler 2-slide version of the carryover demo (pity demo, then a
+// bouncing chip over the static shared pair) for banner types that
+// don't need a third "isolated" slide -- currently Kernel, Standard,
+// Orienteering, and Joint Operation. demoFromLabel/demoToLabel let the
+// pity-demo slide show a genuine cross-category link (e.g. Standard ->
+// Orienteering) instead of the same-category repeatLabel shorthand.
+function TwoSlideCarryoverDemo({
+  repeatLabel,
+  pairLeft,
+  pairRight,
+  demoFromLabel,
+  demoToLabel,
+}: {
+  repeatLabel?: string;
+  pairLeft: string;
+  pairRight: string;
+  demoFromLabel?: string;
+  demoToLabel?: string;
+}) {
+  const [slide, setSlide] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSlide((s) => (s + 1) % 2), 5700);
+    return () => clearInterval(id);
+  }, []);
+  if (slide === 1) {
+    return <CarryoverBouncingPair pairLeft={pairLeft} pairRight={pairRight} />;
+  }
+  return <CarryoverPityDemo repeatLabel={repeatLabel} fromLabel={demoFromLabel} toLabel={demoToLabel} />;
+}
+
+function BasicsPageCarryover() {
+  const [slide, setSlide] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSlide((s) => (s + 1) % 3), 5700);
+    return () => clearInterval(id);
+  }, []);
+
+  if (slide === 1) {
+    return (
+      <div className="gacha-tutorial-carryover">
+        <div className="gacha-tutorial-carryover-shared-label">Share pity together:</div>
+        <div className="gacha-tutorial-carryover-isolated-row">
+          {['Featured', 'Standard', 'Joint Operation', 'Orienteering'].map((name) => (
+            <div key={name} className="gacha-tutorial-carryover-box shared">
+              {name}
+            </div>
+          ))}
+        </div>
+        <div className="gacha-tutorial-carryover-pair">
+          <div className="gacha-tutorial-carryover-box">Kernel</div>
+          <span className="gacha-tutorial-carryover-link">‹ shared ›</span>
+          <div className="gacha-tutorial-carryover-box">Kernel Locating</div>
+        </div>
+      </div>
+    );
+  }
+  if (slide === 2) {
+    return (
+      <div className="gacha-tutorial-carryover">
+        <div className="gacha-tutorial-carryover-isolated-label">No carryover between or within these:</div>
+        <div className="gacha-tutorial-carryover-isolated-row">
+          {['Limited', 'Crossover', 'Celebration'].map((name) => (
+            <div key={name} className="gacha-tutorial-carryover-box isolated">
+              {name}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return <CarryoverPityDemo />;
+}
+
+// A single mini pull-result card, reusing the real simulator's own
+// slide-in-and-glow animation classes so this preview actually looks
+// like a Pull x10 reveal -- just with a rarity label instead of an
+// operator portrait, and no reliance on any specific operator's icon.
+function TutorialPullCard({ rarity, index }: { rarity: 5 | 6 | 4 | 3; index: number }) {
+  const slideDirection = index % 2 === 0 ? 'gacha-pull-slide-bottom' : 'gacha-pull-slide-top';
+  const isHighlight = rarity === 5 || rarity === 6;
+  return (
+    <div key={index} className={`gacha-tutorial-pull-card${isHighlight ? ' highlight' : ''} ${slideDirection}`}>
+      {isHighlight ? (
+        <>
+          <Stars count={1} />
+          <span className="gacha-tutorial-pull-card-label">{rarity}★</span>
+        </>
+      ) : (
+        <span className="gacha-tutorial-pull-card-label dim">{rarity}★</span>
+      )}
+    </div>
+  );
+}
+
+// Four illustrative Pull x10 outcomes, all satisfying "at least one
+// 5★-or-higher in the first 10" in different ways -- cycles through
+// them on a loop, replaying the slide-in reveal each time.
+const FIRST_TEN_SCENARIOS: (5 | 6 | 4 | 3)[][] = [
+  [3, 4, 3, 4, 5, 4, 3, 4, 3, 4],
+  [4, 5, 3, 4, 5, 3, 4, 5, 4, 3],
+  [3, 4, 3, 3, 4, 6, 4, 3, 4, 3],
+  [4, 3, 5, 4, 3, 4, 6, 3, 4, 3],
+];
+
+function BasicsPageFirstTen() {
+  const [scenario, setScenario] = useState(0);
+  useEffect(() => {
+    // Changing every card's key at once is enough to force React to
+    // unmount and remount all 10 in the same render, replaying the
+    // slide-in animation together -- no need to briefly empty the grid
+    // first, which was causing it to collapse and re-center each cycle.
+    const id = setInterval(() => setScenario((s) => (s + 1) % FIRST_TEN_SCENARIOS.length), 2200);
+    return () => clearInterval(id);
+  }, []);
+  const results = FIRST_TEN_SCENARIOS[scenario];
+  return (
+    <div className="gacha-tutorial-first-ten">
+      <div className="gacha-tutorial-first-ten-title">First 10 Pulls</div>
+      <div className="gacha-tutorial-pull-grid">
+        {results.map((rarity, i) => <TutorialPullCard key={`${scenario}-${i}`} rarity={rarity} index={i} />)}
+      </div>
+    </div>
+  );
+}
+
+function BasicsPageSixStarGuarantee() {
+  return (
+    <div className="gacha-tutorial-guarantee-examples">
+      <span className="gacha-tutorial-guarantee-chip">Featured: 150-pull protection</span>
+      <span className="gacha-tutorial-guarantee-chip">Limited: 300-pull free copy</span>
+      <span className="gacha-tutorial-guarantee-chip">Crossover: 120-pull guarantee</span>
+    </div>
+  );
+}
+
+// Fixed closing celebration image -- next/image handles caching and
+// optimization automatically (same as every other image on this page),
+// and `priority` gets it preloaded rather than lazily loaded since
+// it's the very last thing shown in the guide.
+const BASICS_DONE_IMAGE = "/six-star-skins/Wiš'adel - I am Wiš'adel.webp";
+
+function BasicsPageDone() {
+  return (
+    <div className="gacha-tutorial-done-row">
+      <Image src={BASICS_DONE_IMAGE} alt="Wiš'adel" width={120} height={120} className="gacha-tutorial-done-image" priority />
+      <span className="gacha-tutorial-done-thumb">👍</span>
+    </div>
+  );
+}
+
+const BASICS_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  { Visual: BasicsPageRarities, text: 'The chance of obtaining each rarity in Arknights is the same for all banners.' },
+  { Visual: BasicsPageFeaturedSplits, text: 'Depending on the type of banner, the chance of the featured six stars, five stars and four stars can be different.' },
+  {
+    Visual: BasicsPageRampUp,
+    text: 'When you do not pull for a six star within 50 pulls, every pull after increases the chance of getting a six star by 2%. The chance of the other rarities decrease proportionately.',
+  },
+  { Visual: BasicsPageReset, text: 'The counter gets reset whenever you have obtained a six star.' },
+  {
+    Visual: BasicsPageCarryover,
+    text: "This 'pity' counter can get carried over on certain banners: featured, standard, joint operation, and orienteering all share pity together, while kernel and kernel locating share pity separately from that group. Every other banner type is isolated. Please check on the specific banner tutorials to understand this better.",
+  },
+  { Visual: BasicsPageFirstTen, text: 'Every banner guarantees at least 1 five star or higher rarity in the first 10 pulls.' },
+  {
+    Visual: BasicsPageSixStarGuarantee,
+    text: 'Certain banners have guarantee systems for six stars. Please check on the specific banner tutorials to understand this better.',
+  },
+  { Visual: BasicsPageDone, text: "That's all the basics that every banner of this game have!" },
+];
+
+// Same six-star roster used by Celebration's tutorial, reused here so
+// Orienteering has real referenceable operators too instead of Greek
+// letters standing in for nothing in particular.
+const SIX_STAR_SHOWCASE_OPERATORS = ['Bagpipe', 'Aak', 'Nightingale', 'Passenger', 'Saria', 'Surtr'];
+const ORIENTEERING_FIVE_OPERATORS = ['Blue Poison', 'Lappland', 'Specter', 'Platinum', 'Mayer', 'Glaucus'];
+const ORIENTEERING_SIX_PICKED = [0, 2, 4];
+const ORIENTEERING_FIVE_PICKED = [1, 3, 5];
+
+function sixStarIconPath(name: string): string {
+  return `/six-star-icons/${name} - Base.webp`;
+}
+function fiveStarIconPath(name: string): string {
+  return `/five-star-icons/${name} - Base.webp`;
+}
+
+function OrienteeringPageSixSelection() {
+  const totalSteps = 4; // 3 reveals + 1 hold, then loop
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s >= totalSteps ? 0 : s + 1)), 650);
+    return () => clearInterval(id);
+  }, []);
+  const revealed = Math.min(step, 3);
+  const showResult = step >= 3;
+  return (
+    <div className="gacha-tutorial-orienteering-row">
+      {SIX_STAR_SHOWCASE_OPERATORS.map((name, i) => {
+        const order = ORIENTEERING_SIX_PICKED.indexOf(i);
+        const picked = order !== -1 && order < revealed;
+        return (
+          <div key={i} className={`gacha-tutorial-pick-slot${picked ? ' picked' : ''}`}>
+            <Image src={sixStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+            <span className="gacha-tutorial-pick-label small">{name}</span>
+            {showResult && picked && <span className="gacha-tutorial-pick-pct">33.3%</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Unlike six-stars, the 3 NOT chosen still stay pullable here -- just
+// at reduced weight -- so this animates two distinct reveal groups:
+// the 3 chosen (60% shared, "picked") and the 3 remaining (40% shared,
+// "included" -- a lighter highlight showing they're still live, just
+// not preferred).
+function OrienteeringPageFiveSelection() {
+  const totalSteps = 7; // 3 chosen reveals + 3 remaining reveals + 1 hold, then loop
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s >= totalSteps ? 0 : s + 1)), 650);
+    return () => clearInterval(id);
+  }, []);
+  const chosenRevealed = Math.min(step, 3);
+  const remainingRevealed = Math.max(0, Math.min(step - 3, 3));
+  const showResult = step >= 6;
+  const remainingIndices = ORIENTEERING_FIVE_OPERATORS.map((_, i) => i).filter((i) => !ORIENTEERING_FIVE_PICKED.includes(i));
+  return (
+    <div className="gacha-tutorial-orienteering-row">
+      {ORIENTEERING_FIVE_OPERATORS.map((name, i) => {
+        const isChosen = ORIENTEERING_FIVE_PICKED.includes(i);
+        const chosenOrder = ORIENTEERING_FIVE_PICKED.indexOf(i);
+        const chosenShown = isChosen && chosenOrder < chosenRevealed;
+        const remainingOrder = remainingIndices.indexOf(i);
+        const remainingShown = !isChosen && remainingOrder !== -1 && remainingOrder < remainingRevealed;
+        return (
+          <div key={i} className={`gacha-tutorial-pick-slot${chosenShown ? ' picked' : remainingShown ? ' included' : ''}`}>
+            <Image src={fiveStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+            <span className="gacha-tutorial-pick-label small">{name}</span>
+            {showResult && chosenShown && <span className="gacha-tutorial-pick-pct">20%</span>}
+            {showResult && remainingShown && <span className="gacha-tutorial-pick-pct dim">13.3%</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const ORIENTEERING_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  {
+    Visual: OrienteeringPageSixSelection,
+    text: 'Choose 3 out of 6 six stars. They are the only ones pullable on the banner.',
+  },
+  {
+    Visual: OrienteeringPageFiveSelection,
+    text: 'Choose 3 out of 6 five stars as well. They take up 60% chance shared equally. The remaining 3 five stars are also pullable, sharing 40%.',
+  },
+  {
+    Visual: () => <TwoSlideCarryoverDemo pairLeft="Standard" pairRight="Orienteering" demoFromLabel="Standard" demoToLabel="Orienteering" />,
+    text: '6-star pity ramp up is shared with Featured and Standard banners -- it carries over between them, not isolated to this banner alone.',
+  },
+];
+
+// A left-facing shopping trolley -- marks which of the selected
+// six-star/five-star picks the player chose to make shop-buyable.
+function TrolleyIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" className="gacha-tutorial-trolley-icon" style={{ transform: 'scaleX(-1)' }}>
+      <path d="M2 3h2l1.5 9h9L17 6H6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="14" cy="16" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+// Kernel Locating shows the same 6 showcase operators per rarity as
+// Orienteering, plus a "+6" marker since there are actually 12
+// candidates of each rarity -- drawing all 12 would be excessive for
+// an illustrative example. One picked six-star and one picked
+// five-star show the trolley icon, marking them as the ones chosen to
+// also be shop-buyable.
+function KernelLocatingPageSelection() {
+  const totalSteps = 7;
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s >= totalSteps ? 0 : s + 1)), 650);
+    return () => clearInterval(id);
+  }, []);
+  const sixRevealed = Math.min(step, 3);
+  const fiveRevealed = Math.max(0, Math.min(step - 3, 3));
+  return (
+    <div className="gacha-tutorial-orienteering">
+      <div className="gacha-tutorial-orienteering-row">
+        {SIX_STAR_SHOWCASE_OPERATORS.map((name, i) => {
+          const order = ORIENTEERING_SIX_PICKED.indexOf(i);
+          const picked = order !== -1 && order < sixRevealed;
+          const isShopPick = order === 0 && picked;
+          return (
+            <div key={i} className={`gacha-tutorial-pick-slot${picked ? ' picked' : ''}`}>
+              <Image src={sixStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+              <span className="gacha-tutorial-pick-label small">{name}</span>
+              {isShopPick && <TrolleyIcon />}
+            </div>
+          );
+        })}
+        <div className="gacha-tutorial-pick-slot more">
+          <span className="gacha-tutorial-pick-more">+6</span>
+        </div>
+      </div>
+      <div className="gacha-tutorial-orienteering-row">
+        {ORIENTEERING_FIVE_OPERATORS.map((name, i) => {
+          const order = ORIENTEERING_FIVE_PICKED.indexOf(i);
+          const picked = order !== -1 && order < fiveRevealed;
+          const isShopPick = order === 0 && picked;
+          return (
+            <div key={i} className={`gacha-tutorial-pick-slot${picked ? ' picked' : ''}`}>
+              <Image src={fiveStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+              <span className="gacha-tutorial-pick-label small">{name}</span>
+              {isShopPick && <TrolleyIcon />}
+            </div>
+          );
+        })}
+        <div className="gacha-tutorial-pick-slot more">
+          <span className="gacha-tutorial-pick-more">+6</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const KERNEL_LOCATING_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  {
+    Visual: KernelLocatingPageSelection,
+    text: 'Choose 2 out of 12 six stars and 3 out of 12 five stars. You may choose which 6 stars and 5 stars are buyable in shop for 180 and 45 gold certs respectively.',
+  },
+  {
+    Visual: KernelPageSplit,
+    text: 'The 2 selected six stars share a 50% chance, and the 3 five stars also share their own 50% chance. The remainder of 6 stars and 5 stars remain in the off banner pool.',
+  },
+  { Visual: KernelPageAdvisory, text: 'It is not advisable to spend your pull resources on this banner, instead use your gold certificates to buy units that you would like.' },
+  { Visual: KernelPageCarryover, text: '6-star pity ramp up can be inherited from a previous kernel locating or kernel banner or passed into future similar banners.' },
+];
+
+function JointPageFeatured() {
+  const sixOps = SIX_STAR_SHOWCASE_OPERATORS.slice(0, 4);
+  const fiveOps = ORIENTEERING_FIVE_OPERATORS;
+  return (
+    <div className="gacha-tutorial-orienteering">
+      <div className="gacha-tutorial-orienteering-row">
+        {sixOps.map((name) => (
+          <div key={name} className="gacha-tutorial-pick-slot picked">
+            <Image src={sixStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+            <span className="gacha-tutorial-pick-label small">{name}</span>
+            <span className="gacha-tutorial-pick-pct">25%</span>
+          </div>
+        ))}
+      </div>
+      <div className="gacha-tutorial-orienteering-row">
+        {fiveOps.map((name) => (
+          <div key={name} className="gacha-tutorial-pick-slot picked">
+            <Image src={fiveStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+            <span className="gacha-tutorial-pick-label small">{name}</span>
+            <span className="gacha-tutorial-pick-pct">16.7%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const JOINT_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  {
+    Visual: JointPageFeatured,
+    text: 'There are four featured six stars and 6 featured five stars, they will be the only ones pullable on the banner.',
+  },
+  {
+    Visual: () => <TwoSlideCarryoverDemo pairLeft="Standard" pairRight="Joint Operation" demoFromLabel="Standard" demoToLabel="Joint Operation" />,
+    text: '6-star pity ramp up is shared with Featured and Standard banners -- it carries over between them, not isolated to this banner alone.',
+  },
+];
+
+const CELEBRATION_INITIALLY_OWNED = [0, 3];
+
+function CelebrationPagePool() {
+  return (
+    <div className="gacha-tutorial-orienteering-row">
+      {SIX_STAR_SHOWCASE_OPERATORS.map((name, i) => {
+        const owned = CELEBRATION_INITIALLY_OWNED.includes(i);
+        return (
+          <div key={i} className={`gacha-tutorial-pick-slot${owned ? ' owned' : ' picked'}`}>
+            <Image src={sixStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+            <span className="gacha-tutorial-pick-label small">{name}</span>
+            <span className="gacha-tutorial-pick-status">{owned ? 'Owned' : 'Available'}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CelebrationPageBlowOpen() {
+  const [phase, setPhase] = useState(0); // 0 = before, 1 = obtaining, 2 = after
+  useEffect(() => {
+    const id = setInterval(() => setPhase((p) => (p + 1) % 3), 2300);
+    return () => clearInterval(id);
+  }, []);
+  const justObtained = 2;
+  return (
+    <div className="gacha-tutorial-celebration-pool">
+      <div className="gacha-tutorial-orienteering-row">
+        {SIX_STAR_SHOWCASE_OPERATORS.map((name, i) => {
+          let cls = 'picked';
+          let status = 'Available';
+          if (phase === 0) {
+            if (CELEBRATION_INITIALLY_OWNED.includes(i)) {
+              cls = 'owned';
+              status = 'Owned';
+            }
+          } else if (phase === 1) {
+            if (i === justObtained) {
+              cls = 'just-obtained';
+              status = 'Obtained!';
+            } else if (CELEBRATION_INITIALLY_OWNED.includes(i)) {
+              cls = 'owned';
+              status = 'Owned';
+            }
+          }
+          // phase 2 ("after"): every slot -- including the one just
+          // obtained -- goes back to Available. Nothing stays excluded,
+          // which is exactly why pulling further risks a duplicate.
+          return (
+            <div key={i} className={`gacha-tutorial-pick-slot ${cls}`}>
+              <Image src={sixStarIconPath(name)} alt={name} width={36} height={36} className="gacha-tutorial-pick-icon" />
+              <span className="gacha-tutorial-pick-label small">{name}</span>
+              <span className="gacha-tutorial-pick-status">{status}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="gacha-tutorial-footnote">
+        {phase === 0 ? 'Before: some already owned.' : phase === 1 ? 'You pull and obtain a new six star!' : 'After: pool fully reopens -- even the one you just got.'}
+      </p>
+    </div>
+  );
+}
+
+function IsolatedPityFlowDemo({ label }: { label: string }) {
+  // Two independent chips: "a" is the original 30-pity counter that
+  // gets rejected and settles back at Previous Banner for good --
+  // never moving again -- while "b" is a brand new counter that fades
+  // in fresh at the current banner afterward and does the rest of the
+  // journey on its own. Using one chip for both halves made it look
+  // like the same counter was physically traveling back and forth.
+  const steps: {
+    a: { pos: number; value: number; shake: boolean };
+    b: { pos: number; value: number; shake: boolean; visible: boolean; fizzling: boolean };
+  }[] = [
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 1, value: 0, shake: false, visible: false, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 1, value: 0, shake: false, visible: false, fizzling: false } },
+    { a: { pos: 1, value: 30, shake: false }, b: { pos: 1, value: 0, shake: false, visible: false, fizzling: false } },
+    { a: { pos: 1, value: 30, shake: true }, b: { pos: 1, value: 0, shake: false, visible: false, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 1, value: 0, shake: false, visible: false, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 1, value: 0, shake: false, visible: true, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 1, value: 3, shake: false, visible: true, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 1, value: 5, shake: false, visible: true, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 1, value: 8, shake: false, visible: true, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 2, value: 8, shake: false, visible: true, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 2, value: 8, shake: true, visible: true, fizzling: false } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 2, value: 8, shake: false, visible: true, fizzling: true } },
+    { a: { pos: 0, value: 30, shake: false }, b: { pos: 2, value: 8, shake: false, visible: false, fizzling: false } },
+  ];
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s + 1) % steps.length), 1200);
+    return () => clearInterval(id);
+  }, []);
+  const frame = steps[step];
+  const { containerRef, setBoxRef, centers } = useBoxCenters(3);
+  return (
+    <div className="gacha-tutorial-pity-flow" ref={containerRef}>
+      <div className={`gacha-tutorial-pity-chip${frame.a.shake ? ' shake' : ''}`} style={{ left: centers ? centers[frame.a.pos] : 0, opacity: centers ? 1 : 0 }}>
+        Pity: {frame.a.value}
+      </div>
+      <div
+        className={`gacha-tutorial-pity-chip${frame.b.shake ? ' shake' : ''}${frame.b.fizzling ? ' fizzling' : ''}`}
+        style={{ left: centers ? centers[frame.b.pos] : 0, opacity: centers && frame.b.visible ? 1 : 0 }}
+      >
+        Pity: {frame.b.value}
+      </div>
+      <div className="gacha-tutorial-pity-flow-row">
+        <div ref={setBoxRef(0)} className="gacha-tutorial-pity-flow-box">
+          Previous Banner
+        </div>
+        <span className="gacha-tutorial-pity-flow-x">✕</span>
+        <div ref={setBoxRef(1)} className="gacha-tutorial-pity-flow-box celebration">
+          {label}
+        </div>
+        <span className="gacha-tutorial-pity-flow-x">✕</span>
+        <div ref={setBoxRef(2)} className="gacha-tutorial-pity-flow-box">
+          Future Banner
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CELEBRATION_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  { Visual: CelebrationPagePool, text: 'This banner contains a pool of past six stars. Only the ones you do not have in your account are obtainable.' },
+  {
+    Visual: CelebrationPageBlowOpen,
+    text: 'After you have obtained a new six star, all other six stars that you own will become available in the pool again so do not pull beyond the first six star.',
+  },
+  {
+    Visual: () => <IsolatedPityFlowDemo label="Celebration" />,
+    text: '6-star pity ramp up is isolated, starts from 0 for this banner and does not carry over to any future banners.',
+  },
+];
+
+function KernelPageSplit() {
+  return (
+    <TutorialRarityRow
+      items={[
+        {
+          n: 6,
+          content: (
+            <div className="gacha-tutorial-split-list">
+              <div className="gacha-tutorial-split-row">
+                <span className="gacha-tutorial-split-chip">25%</span>
+                <span className="gacha-tutorial-split-chip">25%</span>
+              </div>
+              <span className="gacha-tutorial-footnote">2 featured, share 50%</span>
+            </div>
+          ),
+        },
+        {
+          n: 5,
+          content: (
+            <div className="gacha-tutorial-split-list">
+              <div className="gacha-tutorial-split-row">
+                <span className="gacha-tutorial-split-chip">16.7%</span>
+                <span className="gacha-tutorial-split-chip">16.7%</span>
+                <span className="gacha-tutorial-split-chip">16.7%</span>
+              </div>
+              <span className="gacha-tutorial-footnote">3 featured, share 50%</span>
+            </div>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+// Fixed illustrative example -- deliberately NOT derived from the
+// currently-selected banner, so this tutorial page keeps showing the
+// same reference image regardless of which/how many kernel banners
+// get added later.
+// Fixed illustrative example -- deliberately NOT derived from the
+// currently-selected banner, so this tutorial page keeps showing the
+// same reference image regardless of which/how many banners of this
+// type get added later.
+const KERNEL_EXAMPLE_IMAGE = '/headhunting-banner-images/Kernel 57 (Global).webp';
+const STANDARD_EXAMPLE_IMAGE = '/headhunting-banner-images/Standard Pool 171 (Global).webp';
+
+function KernelPageShopOperator() {
+  return (
+    <div className="gacha-tutorial-kernel-shop">
+      <div className="gacha-tutorial-kernel-shop-image-wrap">
+        <Image src={KERNEL_EXAMPLE_IMAGE} alt="Kernel banner example" width={280} height={140} style={{ objectFit: 'cover', width: '100%', height: 'auto' }} />
+      </div>
+      <div className="gacha-tutorial-kernel-shop-legend">
+        <p>
+          <Stars count={6} /> Center -- Shop Operator (180 gold certificates)
+        </p>
+        <p>
+          <Stars count={5} /> Leftmost -- Shop Operator (45 gold certificates)
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function KernelPageAdvisory() {
+  return (
+    <div className="gacha-tutorial-advisory-row">
+      <span className="gacha-tutorial-advisory-bad">✕ Spending pulls here</span>
+      <span className="gacha-tutorial-advisory-good">✓ Spending gold certificates</span>
+    </div>
+  );
+}
+
+function KernelPageCarryover() {
+  return <TwoSlideCarryoverDemo repeatLabel="Kernel" pairLeft="Kernel Locating" pairRight="Kernel" />;
+}
+
+const KERNEL_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  { Visual: KernelPageSplit, text: '2 six stars are featured, sharing a 50% chance, 3 five stars are also featured, sharing their own 50% chance.' },
+  {
+    Visual: KernelPageShopOperator,
+    text: 'The center six star is the shop operator, buyable for 180 gold certificates. The leftmost five star is also the shop operator, buyable for 45 gold certificates.',
+  },
+  { Visual: KernelPageAdvisory, text: 'It is not advisable to spend your pull resources on this banner, instead use your gold certificates to buy units that you would like.' },
+  { Visual: KernelPageCarryover, text: '6-star pity ramp up can be inherited from a previous kernel locating or kernel banner or passed into future similar banners.' },
+];
+
+// Standard's tutorial mimics Kernel's own page structure entirely --
+// its own split (page 1) and advisory (page 3) pages are literally the
+// same components Kernel uses, since the underlying mechanics are the
+// same shape; only the shop-operator page (2) and carryover page (4)
+// have Standard-specific content.
+function StandardPageShopOperator() {
+  return (
+    <div className="gacha-tutorial-kernel-shop">
+      <div className="gacha-tutorial-kernel-shop-image-wrap">
+        <Image src={STANDARD_EXAMPLE_IMAGE} alt="Standard banner example" width={280} height={140} style={{ objectFit: 'cover', width: '100%', height: 'auto' }} />
+      </div>
+      <div className="gacha-tutorial-kernel-shop-legend">
+        <p>
+          <Stars count={6} /> Elite 0 version -- Shop Operator (180 gold certificates)
+        </p>
+        <p>
+          <Stars count={5} /> Middle of the three -- Shop Operator (45 gold certificates)
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StandardPageCarryover() {
+  return <TwoSlideCarryoverDemo repeatLabel="Standard" pairLeft="Featured" pairRight="Standard" />;
+}
+
+const STANDARD_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  { Visual: KernelPageSplit, text: '2 six stars are featured, sharing a 50% chance, 3 five stars are also featured, sharing their own 50% chance.' },
+  {
+    Visual: StandardPageShopOperator,
+    text: 'The Elite 0 version six star is the shop operator, buyable for 180 gold certificates. The five star in the middle of the three is also the shop operator, buyable for 45 gold certificates.',
+  },
+  { Visual: KernelPageAdvisory, text: 'It is not advisable to spend your pull resources on this banner, instead use your gold certificates to buy units that you would like.' },
+  { Visual: StandardPageCarryover, text: '6-star pity ramp up can be inherited from a previous featured or standard banner, or passed into future similar banners.' },
+];
+
+// Featured only ever has a single featured six-star (always 50/50 with
+// off-banner), but the five-star slot varies banner to banner between
+// exactly 1 or exactly 2 featured five-stars -- cycles between those
+// two real shapes rather than showing an invented average.
+function FeaturedPageSplit() {
+  const fiveVariants = [[50, 50], [25, 25, 50]];
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => s + 1), 2200);
+    return () => clearInterval(id);
+  }, []);
+  const fiveRow = fiveVariants[step % fiveVariants.length];
+  return (
+    <div className="gacha-tutorial-splits">
+      <div className="gacha-tutorial-splits-row">
+        <div className="gacha-tutorial-rarity-col">
+          <Stars count={6} />
+          <div className="gacha-tutorial-split-row">
+            <span className="gacha-tutorial-split-chip">50</span>
+            <span className="gacha-tutorial-split-chip off-banner">50</span>
+          </div>
+        </div>
+        <div className="gacha-tutorial-rarity-col">
+          <Stars count={5} />
+          <div className="gacha-tutorial-split-row">
+            {fiveRow.map((v, i) => (
+              <span key={i} className={`gacha-tutorial-split-chip${i === fiveRow.length - 1 ? ' off-banner' : ''}`}>
+                {v}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="gacha-tutorial-rarity-col">
+          <Stars count={4} />
+          <div className="gacha-tutorial-split-row">
+            <span className="gacha-tutorial-split-chip">50</span>
+            <span className="gacha-tutorial-split-chip off-banner">50</span>
+          </div>
+        </div>
+      </div>
+      <p className="gacha-tutorial-footnote">Highlighted numbers are the featured operator(s)&apos; share; the last number is the off-banner share.</p>
+    </div>
+  );
+}
+
+// Pulls 141-150 land no six-star at all -- protection is now active,
+// but the next batch shows the guarantee only kicks in whenever the
+// next six-star actually lands (here pull 155), not forced exactly at
+// 150, and that six-star is automatically the featured one.
+const FEATURED_150_FILLER: (5 | 6 | 4 | 3)[] = [3, 4, 3, 4, 3, 4, 3, 4, 4, 3];
+const FEATURED_AFTER_150: (5 | 6 | 4 | 3)[] = [4, 3, 4, 3, 6];
+
+function FeaturedPageProtection() {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setPhase((p) => (p + 1) % 2), 2400);
+    return () => clearInterval(id);
+  }, []);
+
+  if (phase === 1) {
+    return (
+      <div className="gacha-tutorial-first-ten">
+        <div className="gacha-tutorial-first-ten-title">
+          Pulls 151-155 <span className="gacha-tutorial-pity-inline">Protection active</span>
+        </div>
+        <div className="gacha-tutorial-pull-grid">
+          {FEATURED_AFTER_150.map((rarity, i) => (
+            <TutorialPullCard key={`p1-${i}`} rarity={rarity} index={i} />
+          ))}
+        </div>
+        <span className="gacha-tutorial-guarantee-label triggered">Next 6★ = guaranteed featured</span>
+      </div>
+    );
+  }
+  return (
+    <div className="gacha-tutorial-first-ten">
+      <div className="gacha-tutorial-first-ten-title">
+        Pulls 141-150 <span className="gacha-tutorial-pity-inline">Pull count: 150</span>
+      </div>
+      <div className="gacha-tutorial-pull-grid">
+        {FEATURED_150_FILLER.map((rarity, i) => (
+          <TutorialPullCard key={`p0-${i}`} rarity={rarity} index={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const FEATURED_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  {
+    Visual: FeaturedPageSplit,
+    text: '1 six stars is featured obtaining at 50% chance, 1 or 2 five stars are also featured, taking up its own 50% chance. 4 stars may appear, taking up 50% chance.',
+  },
+  {
+    Visual: FeaturedPageProtection,
+    text: 'If you do not obtain the 6 star by 150 pulls, the next 6 star you obtain will be the featured. You do not necessarily obtain the 6 star at 150 pulls.',
+  },
+  { Visual: StandardPageCarryover, text: '6-star pity ramp up can be inherited from a previous featured or standard banner, or passed into future similar banners.' },
+];
+
+function LimitedPageFeaturedSplit() {
+  return (
+    <div className="gacha-tutorial-limited-cards">
+      <div className="gacha-tutorial-pick-slot picked">
+        <Stars count={6} />
+        <span className="gacha-tutorial-pick-pct">35%</span>
+      </div>
+      <div className="gacha-tutorial-pick-slot picked">
+        <Stars count={6} />
+        <span className="gacha-limited-tag">LIMITED</span>
+        <span className="gacha-tutorial-pick-pct">35%</span>
+      </div>
+      <div className="gacha-tutorial-pick-slot picked">
+        <Stars count={5} />
+        <span className="gacha-tutorial-pick-pct">50%</span>
+      </div>
+    </div>
+  );
+}
+
+// Animates the off-banner card's bar at a baseline height while the 3
+// rate-up cards' bars grow to 5x that height and back, looping, to
+// make the multiplier visually obvious rather than just stating "5x".
+function LimitedPageRateUps() {
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    const id = setInterval(() => setGrown((g) => !g), 1400);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="gacha-tutorial-rateup-demo">
+      <div className="gacha-tutorial-rateup-col">
+        <div className="gacha-tutorial-rateup-bar" style={{ height: 16 }} />
+        <Stars count={6} />
+        <span className="gacha-tutorial-pick-status">Off-banner</span>
+        <span className="gacha-tutorial-pick-pct">1x</span>
+      </div>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="gacha-tutorial-rateup-col">
+          <div className="gacha-tutorial-rateup-bar rateup" style={{ height: grown ? 80 : 16 }} />
+          <Stars count={6} />
+          <span className="gacha-rate-up-tag">RATE-UP</span>
+          <span className="gacha-tutorial-pick-pct">{grown ? '5x' : '1x'}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LimitedPageSameChance() {
+  return (
+    <div className="gacha-tutorial-limited-cards">
+      <div className="gacha-tutorial-pick-slot picked">
+        <Stars count={6} />
+        <span className="gacha-tutorial-pick-status">Same series</span>
+      </div>
+      <span className="gacha-tutorial-equals">=</span>
+      <div className="gacha-tutorial-pick-slot picked">
+        <Stars count={6} />
+        <span className="gacha-tutorial-pick-status">Off-banner</span>
+      </div>
+    </div>
+  );
+}
+
+// Pulls 281-290 and 291-300 both deliberately contain no natural 5★/6★
+// hit -- the whole point of this page is that the guarantee exists
+// because the player DIDN'T land the featured limited naturally by
+// pull 300, so the reveal at the end has to be the thing that grants
+// it. 301-310 then shows pity continuing to climb regardless (the
+// guarantee doesn't reset it) until it naturally triggers on its own,
+// landing an ordinary (non-limited) 6★.
+const LIMITED_300_FILLER_A: (5 | 6 | 4 | 3)[] = [3, 4, 3, 4, 3, 4, 4, 3, 4, 3];
+const LIMITED_300_FILLER_B: (5 | 6 | 4 | 3)[] = [4, 3, 3, 4, 3, 4, 3, 4, 4, 3];
+const LIMITED_300_FILLER_C: (5 | 6 | 4 | 3)[] = [3, 4, 3, 4, 3, 4, 3, 4, 3, 6];
+
+function LimitedPage300Guarantee() {
+  const phases = ['a', 'b', 'reveal300', 'c'] as const;
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setPhase((p) => (p + 1) % phases.length), 2200);
+    return () => clearInterval(id);
+  }, []);
+  const current = phases[phase];
+
+  if (current === 'reveal300') {
+    return (
+      <div className="gacha-tutorial-first-ten">
+        <div className="gacha-tutorial-first-ten-title">
+          Pull #300 <span className="gacha-tutorial-pity-inline">Pity: 53</span>
+        </div>
+        <div className="gacha-tutorial-pull-grid">
+          {LIMITED_300_FILLER_B.map((rarity, i) => (
+            <TutorialPullCard key={`b-${i}`} rarity={rarity} index={i} />
+          ))}
+        </div>
+        <div className="gacha-tutorial-guarantee-row">
+          <div className="gacha-tutorial-pull-card highlight small">
+            <Stars count={1} />
+            <span className="gacha-tutorial-pull-card-label">6★</span>
+          </div>
+          <span className="gacha-tutorial-guarantee-label">+1 Limited Guarantee</span>
+        </div>
+      </div>
+    );
+  }
+
+  const label = current === 'a' ? 'Pulls 281-290' : current === 'b' ? 'Pulls 291-300' : 'Pulls 301-310';
+  const results = current === 'a' ? LIMITED_300_FILLER_A : current === 'b' ? LIMITED_300_FILLER_B : LIMITED_300_FILLER_C;
+  const pity = current === 'a' ? 43 : current === 'b' ? 53 : null;
+  return (
+    <div className="gacha-tutorial-first-ten">
+      <div className="gacha-tutorial-first-ten-title">
+        {label}
+        {pity !== null && <span className="gacha-tutorial-pity-inline">Pity: {pity}</span>}
+      </div>
+      <div className="gacha-tutorial-pull-grid">
+        {results.map((rarity, i) => (
+          <TutorialPullCard key={`${current}-${i}`} rarity={rarity} index={i} />
+        ))}
+      </div>
+      {current === 'c' && <span className="gacha-tutorial-guarantee-label triggered">Pity triggered naturally!</span>}
+    </div>
+  );
+}
+
+function LimitedPageSparkStore() {
+  return (
+    <div className="gacha-tutorial-limited-cards">
+      <div className="gacha-tutorial-pick-slot picked">
+        <Stars count={6} />
+        <span className="gacha-tutorial-pick-status">Current featured</span>
+        <span className="gacha-tutorial-pick-pct">300</span>
+      </div>
+      <div className="gacha-tutorial-pick-slot picked">
+        <Stars count={6} />
+        <span className="gacha-tutorial-pick-status">Older limited</span>
+        <span className="gacha-tutorial-pick-pct">200</span>
+      </div>
+      <div className="gacha-tutorial-pick-slot owned">
+        <Stars count={5} />
+        <span className="gacha-tutorial-pick-status">Not recommended</span>
+        <span className="gacha-tutorial-pick-pct">75</span>
+      </div>
+    </div>
+  );
+}
+
+const LIMITED_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  {
+    Visual: LimitedPageFeaturedSplit,
+    text: 'There are two featured six stars, one of them being limited each taking 35% of the six stars odds. One featured five star takes up 50% of the five stars odds.',
+  },
+  {
+    Visual: LimitedPageRateUps,
+    text: '3 past limited operators are also given rate-ups. They take up 5x the chance of an off-banner six star in the 30% pool.',
+  },
+  {
+    Visual: LimitedPageSameChance,
+    text: 'Other limited operators of the same series can be pullable but they take the same chance as every other remaining off-banner.',
+  },
+  {
+    Visual: LimitedPage300Guarantee,
+    text: 'At 300 pulls, you will be given a copy of the featured limited 6 star regardless of whether you have an earlier copy before. This only happens once. It also does not affect the 6 star pity accumulated.',
+  },
+  {
+    Visual: LimitedPageSparkStore,
+    text: 'The current featured six stars along with limiteds of the same series are obtainable in the spark store for either 300 or 200 sparks (older limited six stars get the 200 treatment). The featured 5 star is available for 75 sparks but is not recommended to be bought.',
+  },
+  {
+    Visual: () => <IsolatedPityFlowDemo label="Limited" />,
+    text: 'Limited banner pity is isolated and can never be inherited from a previous banner or passed into future banners.',
+  },
+];
+
+function ComingSoonVisual() {
+  return <div className="gacha-tutorial-coming-soon">🚧</div>;
+}
+const DEFAULT_BANNER_PAGES: { Visual: () => JSX.Element; text: string }[] = [
+  { Visual: ComingSoonVisual, text: 'A tutorial for this banner type is coming soon!' },
+];
+
+const BANNER_TUTORIAL_PAGES: Partial<Record<BannerType, { Visual: () => JSX.Element; text: string }[]>> = {
+  orienteering: ORIENTEERING_PAGES,
+  celebration: CELEBRATION_PAGES,
+  kernel: KERNEL_PAGES,
+  standard: STANDARD_PAGES,
+  limited: LIMITED_PAGES,
+  kernelLocating: KERNEL_LOCATING_PAGES,
+  joint: JOINT_PAGES,
+  featured: FEATURED_PAGES,
+};
+
+export default function GachaSimulator({ pools, banners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap }: Props) {
+  const router = useRouter();
+  const bannersByCategory = useMemo(() => {
+    const grouped: Record<DisplayCategory, HeadhuntingBanner[]> = {
+      upcoming: [], featured: [], limited: [], standard: [], kernel: [], kernelLocating: [], joint: [], orienteering: [], celebration: [], crossover: [], trio: [], other: [],
+    };
+    const today = new Date();
+    for (const b of banners) {
+      const cat: DisplayCategory = getMechanicType(b) || 'other';
+      grouped[cat].push(b);
+
+      // Upcoming: any banner whose Global date hasn't started yet,
+      // regardless of pull_type (Limited, Crossover, Joint, etc. all
+      // count) -- additive, not a replacement for its normal mechanic
+      // bucket, so the same banner shows in both places. Currently-
+      // active banners (already started, not yet ended) are ALSO
+      // included here, at the top -- what's live right now is at least
+      // as actionable as what's coming next, arguably more so since you
+      // can actually pull on it today.
+      const bannerDate = parseBannerDate(b);
+      const bannerEndDate = parseBannerEndDate(b);
+      const isUpcoming = bannerDate !== null && bannerDate > today;
+      const isActive = bannerDate !== null && bannerDate <= today && bannerEndDate !== null && bannerEndDate >= today;
+      if (isUpcoming || isActive) {
+        grouped.upcoming.push(b);
+      }
+    }
+    // Active banners first (soonest-ending first, since that's the
+    // most time-sensitive), then upcoming banners (soonest-starting
+    // first) -- the opposite of the newest-first convention every
+    // other tab uses, since this tab is specifically about what's
+    // live or coming up soonest.
+    grouped.upcoming.sort((a, b) => {
+      const startA = parseBannerDate(a);
+      const startB = parseBannerDate(b);
+      const endA = parseBannerEndDate(a);
+      const endB = parseBannerEndDate(b);
+      const activeA = startA !== null && startA <= today;
+      const activeB = startB !== null && startB <= today;
+      if (activeA !== activeB) return activeA ? -1 : 1;
+      if (activeA && activeB) {
+        if (!endA || !endB) return 0;
+        return endA.getTime() - endB.getTime();
+      }
+      if (!startA || !startB) return 0;
+      return startA.getTime() - startB.getTime();
+    });
+    return grouped;
+  }, [banners]);
+
+  const [category, setCategory] = useState<DisplayCategory>('upcoming');
+  const categoryBanners = bannersByCategory[category];
+  const [selectedBannerName, setSelectedBannerName] = useState<string>(categoryBanners[0]?.name || '');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [openInfoPanel, setOpenInfoPanel] = useState<'other' | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showSparkStore, setShowSparkStore] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [guidePhase, setGuidePhase] = useState<'question' | 'basics' | 'banner'>('question');
+  const [guidePageIndex, setGuidePageIndex] = useState(0);
+  // Mobile gets one continuous scrolling page rather than a
+  // Browse/Pull view switch, so we still need to know when we're on a
+  // narrow viewport to skip the auto-collapse-the-sidebar behavior
+  // below (see `pull()`) -- that behavior only makes sense on desktop,
+  // where the sidebar competes for horizontal space with the pull UI.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 800px)');
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const featuredSectionEndRef = useRef<HTMLDivElement>(null);
+  const selectedBanner = categoryBanners.find((b) => b.name === selectedBannerName) || categoryBanners[0];
+  const [visibleCount, setVisibleCount] = useState(5);
+  const visibleBanners = categoryBanners.slice(0, visibleCount);
+
+  const [state, setState] = useState<GachaState>(createInitialState());
+  const [lastPulls, setLastPulls] = useState<PulledItem[]>([]);
+
+  const [orienteeringSelected, setOrienteeringSelected] = useState<GachaItem[]>([]);
+  const [orienteeringFiveSelected, setOrienteeringFiveSelected] = useState<GachaItem[]>([]);
+  const [orienteeringConfirmed, setOrienteeringConfirmed] = useState(false);
+  const [missingSixStars, setMissingSixStars] = useState<Set<string>>(new Set());
+  const [celebrationConfirmed, setCelebrationConfirmed] = useState(false);
+  const [kernelLocatingSixSelected, setKernelLocatingSixSelected] = useState<GachaItem[]>([]);
+  const [kernelLocatingFiveSelected, setKernelLocatingFiveSelected] = useState<GachaItem[]>([]);
+  const [kernelLocatingConfirmed, setKernelLocatingConfirmed] = useState(false);
+
+  const isKernelLocating = selectedBanner ? getMechanicType(selectedBanner) === 'kernelLocating' : false;
+  const kernelLocatingSixCandidates: GachaItem[] = useMemo(() => {
+    if (!isKernelLocating || !selectedBanner) return [];
+    return selectedBanner.six_stars.map((name) => pools.six.find((i) => i.name === name) || { name, icon: null });
+  }, [isKernelLocating, selectedBanner, pools.six]);
+  const kernelLocatingFiveCandidates: GachaItem[] = useMemo(() => {
+    if (!isKernelLocating || !selectedBanner) return [];
+    return selectedBanner.five_stars.map((name) => pools.five.find((i) => i.name === name) || { name, icon: null });
+  }, [isKernelLocating, selectedBanner, pools.five]);
+
+  function toggleKernelLocatingSix(item: GachaItem) {
+    setKernelLocatingSixSelected((current) => {
+      if (current.some((c) => c.name === item.name)) return current.filter((c) => c.name !== item.name);
+      if (current.length >= 2) return current;
+      return [...current, item];
+    });
+  }
+  function toggleKernelLocatingFive(item: GachaItem) {
+    setKernelLocatingFiveSelected((current) => {
+      if (current.some((c) => c.name === item.name)) return current.filter((c) => c.name !== item.name);
+      if (current.length >= 3) return current;
+      return [...current, item];
+    });
+  }
+
+  const isCelebration = selectedBanner ? getMechanicType(selectedBanner) === 'celebration' : false;
+
+  const isOrienteering = selectedBanner ? getMechanicType(selectedBanner) === 'orienteering' : false;
+  const orienteeringCandidates: GachaItem[] = useMemo(() => {
+    if (!isOrienteering || !selectedBanner) return [];
+    return selectedBanner.six_stars.map((name) => {
+      const found = pools.six.find((i) => i.name === name);
+      return found || { name, icon: null };
+    });
+  }, [isOrienteering, selectedBanner, pools.six]);
+  const orienteeringFiveCandidates: GachaItem[] = useMemo(() => {
+    if (!isOrienteering || !selectedBanner) return [];
+    return selectedBanner.five_stars.map((name) => {
+      const found = pools.five.find((i) => i.name === name);
+      return found || { name, icon: null };
+    });
+  }, [isOrienteering, selectedBanner, pools.five]);
+
+  function changeCategory(next: DisplayCategory) {
+    setCategory(next);
+    const firstInCategory = bannersByCategory[next][0];
+    setSelectedBannerName(firstInCategory?.name || '');
+    setVisibleCount(5);
+    setState(createInitialState());
+    setLastPulls([]);
+    setSidebarCollapsed(false);
+    setOrienteeringSelected([]);
+    setOrienteeringFiveSelected([]);
+    setOrienteeringConfirmed(false);
+    setMissingSixStars(new Set());
+    setCelebrationConfirmed(false);
+    setKernelLocatingSixSelected([]);
+    setKernelLocatingFiveSelected([]);
+    setKernelLocatingConfirmed(false);
+  }
+
+  function changeBanner(name: string) {
+    setSelectedBannerName(name);
+    setState(createInitialState());
+    setLastPulls([]);
+    setOrienteeringSelected([]);
+    setOrienteeringFiveSelected([]);
+    setOrienteeringConfirmed(false);
+    setMissingSixStars(new Set());
+    setCelebrationConfirmed(false);
+    setKernelLocatingSixSelected([]);
+    setKernelLocatingFiveSelected([]);
+    setKernelLocatingConfirmed(false);
+  }
+
+  // Deep-link support: /gacha?banner=<name> (used by the home page's
+  // banner poster link) lands already on that specific banner, in the
+  // default "upcoming" category. If the name isn't found in that
+  // category's list, selectedBanner already falls back to
+  // categoryBanners[0] elsewhere, so this degrades gracefully rather
+  // than crashing.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const bannerParam = router.query.banner;
+    if (typeof bannerParam === 'string' && bannerParam) {
+      changeBanner(bannerParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.banner]);
+
+  function toggleMissingSixStar(name: string) {
+    setMissingSixStars((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  function confirmCelebrationSelection() {
+    setCelebrationConfirmed(true);
+    setState(createInitialState());
+    setLastPulls([]);
+  }
+
+  function changeCelebrationSelection() {
+    setCelebrationConfirmed(false);
+  }
+
+  function toggleOrienteeringPick(item: GachaItem) {
+    setOrienteeringSelected((current) => {
+      if (current.some((c) => c.name === item.name)) {
+        return current.filter((c) => c.name !== item.name);
+      }
+      if (current.length >= 3) return current;
+      return [...current, item];
+    });
+  }
+
+  function toggleOrienteeringFivePick(item: GachaItem) {
+    setOrienteeringFiveSelected((current) => {
+      if (current.some((c) => c.name === item.name)) {
+        return current.filter((c) => c.name !== item.name);
+      }
+      if (current.length >= 3) return current;
+      return [...current, item];
+    });
+  }
+
+  const banner: BannerConfig | null = useMemo(() => {
+    if (!selectedBanner || category === 'other') return null;
+    // Celebration's pool isn't static once pulling starts: the player's
+    // initial "I already own this" marks (missingSixStars) only govern
+    // the pool BEFORE they've obtained anything from this banner. The
+    // moment they land any new six-star from this specific banner, the
+    // real game reopens the pool to ALL six of them -- including the
+    // one they just obtained, which is exactly why continuing to pull
+    // risks landing a duplicate of what you just got. So once that
+    // happens, nothing is excluded at all.
+    const hasObtainedAnyCelebrationSix = isCelebration && selectedBanner
+      ? selectedBanner.six_stars.some((n) => (state.obtainedCounts[n] || 0) > 0)
+      : false;
+    const celebrationExcludeNames = isCelebration && selectedBanner
+      ? hasObtainedAnyCelebrationSix
+        ? []
+        : selectedBanner.six_stars.filter((n) => !missingSixStars.has(n))
+      : [];
+    const base = buildRealBannerConfig(selectedBanner, pools, celebrationExcludeNames, kernelLookup, releaseLookup, new Set(kernelExclusiveNames), howToObtainLookup, operatorSeriesMap);
+
+    // Recompute the general "everyone else" pools for all four rarities
+    // using the eligibility rules derived directly from each operator's
+    // own howToObtain + release/kernel-addition dates, rather than the
+    // series-matching logic buildRealBannerConfig uses internally --
+    // this is what actually makes newer 6-star through 3-star operators
+    // (who may not be covered by the older series classification) show
+    // up correctly in every banner they're eligible for.
+    const bannerDate = parseBannerDate(selectedBanner);
+    const mechanicType = getMechanicType(selectedBanner);
+    const isKernelMechanic = mechanicType === 'kernel' || mechanicType === 'kernelLocating';
+    const featuredSixNames = new Set(base.sixStarFeatured.map((o) => o.name));
+    const featuredFiveNames = new Set(base.fiveStarFeatured.map((o) => o.name));
+    const featuredFourNames = new Set((base.fourStarFeatured || []).map((o) => o.name));
+
+    const eligibleOtherSix = buildEligiblePool(pools.six, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic, featuredSixNames);
+    const eligibleOtherFive = buildEligiblePool(pools.five, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic, featuredFiveNames);
+    const eligibleFour = buildEligiblePool(pools.four, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic, featuredFourNames);
+    const eligibleThree = buildEligiblePool(pools.three, howToObtainLookup, releaseLookup, kernelLookup, bannerDate, isKernelMechanic);
+
+    // These mechanic types have NO "other" 6★/5★ pool at all -- the
+    // featured roster IS the entire 6★/5★ chance, full stop. Preserve
+    // buildRealBannerConfig's already-correctly-emptied values instead
+    // of letting the general eligibility override below repopulate them.
+    const noOtherPoolTypes = new Set(['orienteering', 'joint', 'celebration', 'trio']);
+    const hasNoOtherPool = noOtherPoolTypes.has(mechanicType);
+
+    // For Limited banners specifically, base.otherSixStarPool/otherFiveStarPool
+    // (from buildRealBannerConfig's series-matching logic) and
+    // eligibleOtherSix/eligibleOtherFive (from the Standard/Kernel-flag-based
+    // eligibility rules) each catch operators the other misses: base correctly
+    // includes genuinely Limited-exclusive operators via their derived series,
+    // which eligibleOtherSix has no concept of at all (it only checks Standard/
+    // Kernel Headhunting); eligibleOtherSix catches newer operators who may not
+    // yet be reflected in the series derivation. Letting eligibleOtherSix fully
+    // REPLACE base's result -- as this used to do -- silently dropped every
+    // Limited-exclusive operator whose howToObtain has neither flag set to
+    // "Yes", which is exactly what Limited-exclusive operators look like.
+    function mergeByName(a: GachaItem[], b: GachaItem[]): GachaItem[] {
+      const seen = new Set(a.map((item) => item.name));
+      return [...a, ...b.filter((item) => !seen.has(item.name))];
+    }
+
+    const withEligibility: BannerConfig = {
+      ...base,
+      otherSixStarPool: hasNoOtherPool ? base.otherSixStarPool : mergeByName(base.otherSixStarPool, eligibleOtherSix),
+      otherFiveStarPool: hasNoOtherPool ? base.otherFiveStarPool : mergeByName(base.otherFiveStarPool, eligibleOtherFive),
+      fourStarPool: eligibleFour,
+      threeStarPool: eligibleThree,
+    };
+
+    if (isOrienteering && orienteeringConfirmed && orienteeringSelected.length === 3 && orienteeringFiveSelected.length === 3) {
+      // Six-stars stay fully exclusive (only the chosen 3 are pullable
+      // at all), but five-stars aren't anymore -- the 3 NOT chosen
+      // remain pullable too, just at reduced weight, so they need to
+      // actually be in the off-banner pool rather than left empty.
+      const chosenFiveNames = new Set(orienteeringFiveSelected.map((o) => o.name));
+      const remainingFive = orienteeringFiveCandidates.filter((o) => !chosenFiveNames.has(o.name));
+      return {
+        ...withEligibility,
+        sixStarFeatured: orienteeringSelected,
+        fiveStarFeatured: orienteeringFiveSelected,
+        otherFiveStarPool: remainingFive,
+      };
+    }
+    if (isKernelLocating && kernelLocatingConfirmed && kernelLocatingSixSelected.length === 2 && kernelLocatingFiveSelected.length === 3) {
+      const chosenSixNames = new Set(kernelLocatingSixSelected.map((o) => o.name));
+      const chosenFiveNames = new Set(kernelLocatingFiveSelected.map((o) => o.name));
+      const offBannerSix = kernelLocatingSixCandidates.filter((o) => !chosenSixNames.has(o.name));
+      const offBannerFive = kernelLocatingFiveCandidates.filter((o) => !chosenFiveNames.has(o.name));
+      return {
+        ...withEligibility,
+        sixStarFeatured: kernelLocatingSixSelected,
+        fiveStarFeatured: kernelLocatingFiveSelected,
+        otherSixStarPool: offBannerSix,
+        otherFiveStarPool: offBannerFive,
+      };
+    }
+    return withEligibility;
+  }, [
+    selectedBanner,
+    pools,
+    category,
+    isCelebration,
+    missingSixStars,
+    celebrationConfirmed,
+    state.obtainedCounts,
+    isOrienteering,
+    orienteeringConfirmed,
+    orienteeringSelected,
+    orienteeringFiveSelected,
+    orienteeringFiveCandidates,
+    isKernelLocating,
+    kernelLocatingConfirmed,
+    kernelLocatingSixSelected,
+    kernelLocatingFiveSelected,
+    kernelLocatingSixCandidates,
+    kernelLocatingFiveCandidates,
+    kernelLookup,
+    releaseLookup,
+    kernelExclusiveNames,
+    howToObtainLookup,
+  ]);
+
+  const sixStarOdds = useMemo(() => {
+    if (!banner) return [];
+    const pool = sixStarWeightedPool(banner);
+    const total = pool.reduce((sum, p) => sum + p.weight, 0) || 1;
+    return pool.map((p) => ({ item: p.item, weight: p.weight / total }));
+  }, [banner]);
+
+  const fiveStarOdds = useMemo(() => {
+    if (!banner) return [];
+    const pool = fiveStarWeightedPool(banner);
+    const total = pool.reduce((sum, p) => sum + p.weight, 0) || 1;
+    return pool.map((p) => ({ item: p.item, weight: p.weight / total }));
+  }, [banner]);
+
+  const stats = useMemo(() => {
+    const counts = { 6: 0, 5: 0, 4: 0, 3: 0 };
+    state.history.forEach((item) => {
+      counts[item.rarity] += 1;
+    });
+    return counts;
+  }, [state.history]);
+
+  function pull(count: number) {
+    if (!banner) return;
+    const isFirstPull = state.pullCount === 0;
+    const result = doPulls(banner, state, count);
+    setState(result.state);
+    setLastPulls(result.items);
+    if (isFirstPull) {
+      if (!isMobile) setSidebarCollapsed(true);
+      requestAnimationFrame(() => {
+        featuredSectionEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }
+
+  function reset() {
+    setState(createInitialState());
+    setLastPulls([]);
+  }
+
+  return (
+    <>
+      <Head><title>Gacha Simulator — Arkpedia</title></Head>
+
+      <header>
+        <div className="eyebrow">Rhodes Island // Headhunting Simulation</div>
+        <h1>Gacha Simulator</h1>
+      </header>
+
+      <main className="gacha-main">
+        <div className="gacha-category-row">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={cat === category ? 'primary' : 'ghost'}
+              onClick={() => changeCategory(cat)}
+              disabled={bannersByCategory[cat].length === 0}
+            >
+              {CATEGORY_LABELS[cat]} ({bannersByCategory[cat].length})
+            </button>
+          ))}
+        </div>
+
+        <div className="gacha-layout">
+          <aside className={`gacha-banner-sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
+            {sidebarCollapsed ? (
+              <button type="button" className="ghost gacha-sidebar-reopen" onClick={() => setSidebarCollapsed(false)}>
+                Show banners ▸
+              </button>
+            ) : categoryBanners.length === 0 ? (
+              <p className="hint">No banners in this category yet.</p>
+            ) : (
+              <>
+                {visibleBanners.map((b) => {
+                  const isCurrentlyActive =
+                    category === 'upcoming' &&
+                    (() => {
+                      const start = parseBannerDate(b);
+                      const end = parseBannerEndDate(b);
+                      const now = new Date();
+                      return start !== null && start <= now && end !== null && end >= now;
+                    })();
+                  return (
+                    <button
+                      key={b.name}
+                      type="button"
+                      className={`gacha-banner-sidebar-item${b.name === selectedBannerName ? ' active' : ''}`}
+                      onClick={() => changeBanner(b.name)}
+                      title={b.name}
+                    >
+                      {b.banner_image && (
+                        <Image src={b.banner_image} alt="" fill sizes="260px" className="gacha-banner-sidebar-bg" />
+                      )}
+                      {isCurrentlyActive && <span className="gacha-banner-sidebar-live-badge">LIVE NOW</span>}
+                      <span className="gacha-banner-sidebar-text">
+                        <span className="gacha-banner-sidebar-name">{getDisplayFeaturedSixStarsWithRerunLabel(b, releaseLookup).join(' / ') || b.name}</span>
+                        <span className="gacha-banner-sidebar-date">{b.global_date || b.cn_date || ''}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+                {visibleCount < categoryBanners.length && (
+                  <button
+                    type="button"
+                    className="ghost gacha-banner-sidebar-more"
+                    onClick={() => setVisibleCount((v) => (v === 5 ? 15 : categoryBanners.length))}
+                  >
+                    {category === 'upcoming'
+                      ? visibleCount === 5
+                        ? 'Show further'
+                        : 'Show even further'
+                      : visibleCount === 5
+                      ? 'Show older'
+                      : 'Show even older'}
+                  </button>
+                )}
+              </>
+            )}
+          </aside>
+
+          <div className="gacha-main-col">
+            {category === 'other' && selectedBanner ? (
+              <section className="op-section">
+                <h2>{selectedBanner.name}</h2>
+                <p className="hint">
+                  This banner&apos;s type couldn&apos;t be confidently determined from the scraped data, so no
+                  simulator is available for it. Showing what&apos;s known below.
+                </p>
+                <div className="gacha-featured-row" style={{ marginTop: 12 }}>
+                  {selectedBanner.six_stars.map((name) => {
+                    const found = pools.six.find((i) => i.name === name);
+                    return <FeaturedChip key={name} item={found || { name, icon: null }} rarity={6} />;
+                  })}
+                  {selectedBanner.five_stars.map((name) => {
+                    const found = pools.five.find((i) => i.name === name);
+                    return <FeaturedChip key={name} item={found || { name, icon: null }} rarity={5} />;
+                  })}
+                </div>
+              </section>
+            ) : !selectedBanner || !banner ? (
+              <section className="op-section">
+                <p className="hint">No banner data available yet -- run the headhunting banners scraper first.</p>
+              </section>
+            ) : (
+              <>
+                {!((isOrienteering && !orienteeringConfirmed) || (isKernelLocating && !kernelLocatingConfirmed)) && (
+                  <section className="op-section gacha-featured-section">
+                    <h2 style={{ marginBottom: 4 }}>
+                      {banner.label} <span className="gacha-banner-date">({selectedBanner?.global_date || selectedBanner?.cn_date || 'date unknown'})</span>
+                    </h2>
+                    {selectedBanner?.banner_image && (
+                      <Image
+                        src={selectedBanner.banner_image}
+                        alt={banner.label}
+                        width={1600}
+                        height={900}
+                        className="gacha-banner-main-image"
+                        style={{ width: '100%', maxWidth: 480, height: 'auto' }}
+                      />
+                    )}
+
+                    <div className="gacha-content-group">
+                    <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
+                    <div className="gacha-featured-row">
+                      {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
+                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={6}
+                            tags={isLimited ? ['limited'] : undefined}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                      {(banner.rateUpSixStars || []).map((item) => {
+                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={6}
+                            tags={isLimited ? ['rateUp', 'limited'] : ['rateUp']}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                      {banner.fiveStarFeatured.map((item) => {
+                        const pct = fiveStarOdds.find((o) => o.item.name === item.name);
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={5}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                      {banner.otherSixStarPool
+                        .filter((item) => {
+                          const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
+                          if (isLimited) return state.pullCount === 0 || state.obtainedCounts[item.name];
+                          return state.obtainedCounts[item.name];
+                        })
+                        .map((item) => {
+                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={6}
+                            tags={banner.type === 'limited' && isLimited ? ['limited'] : undefined}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div ref={featuredSectionEndRef} />
+
+                    <div className="gacha-info-toggle-row">
+                      <button
+                        type="button"
+                        className="ghost gacha-other-toggle"
+                        onClick={() => setOpenInfoPanel((v) => (v === 'other' ? null : 'other'))}
+                      >
+                        {openInfoPanel === 'other' ? '▾' : '▸'} Other operators (
+                        {banner.otherSixStarPool.length +
+                          banner.otherFiveStarPool.length +
+                          banner.fourStarPool.length +
+                          banner.threeStarPool.length}
+                        )
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost gacha-other-toggle"
+                        onClick={() => {
+                          setShowGuide(true);
+                          setGuidePhase('question');
+                          setGuidePageIndex(0);
+                        }}
+                      >
+                        How does this work?
+                      </button>
+                      {banner.type === 'limited' && (
+                        <button type="button" className="gacha-spark-store-btn" onClick={() => setShowSparkStore(true)}>
+                          Spark Store
+                        </button>
+                      )}
+                    </div>
+                    {openInfoPanel === 'other' && (
+                      <div className="gacha-other-list">
+                        {[
+                          { label: '6 star', pool: banner.otherSixStarPool },
+                          { label: '5 star', pool: banner.otherFiveStarPool },
+                          { label: '4 star', pool: banner.fourStarPool },
+                          { label: '3 star', pool: banner.threeStarPool },
+                        ].map(
+                          ({ label, pool }) =>
+                            pool.length > 0 && (
+                              <p key={label} className="gacha-other-row">
+                                <span className="gacha-other-row-label">{label}:</span>{' '}
+                                {pool
+                                  .map((o) => o.name)
+                                  .sort((a, b) => a.localeCompare(b))
+                                  .join(' / ')}
+                              </p>
+                            )
+                        )}
+                      </div>
+                    )}
+                    </div>
+                  </section>
+                )}
+
+                {isCelebration && !celebrationConfirmed && (
+                  <section className="op-section">
+                    <h2>{banner.label} — Choose the units you&apos;re missing</h2>
+                    <p className="hint" style={{ marginBottom: 12 }}>
+                      Pick every six-star from this banner you don&apos;t already have -- only your
+                      chosen ones will populate as featured and be pullable.
+                    </p>
+                    <div className="gacha-owned-grid">
+                      {selectedBanner?.six_stars.map((name) => {
+                        const found = pools.six.find((i) => i.name === name);
+                        const missing = missingSixStars.has(name);
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            className={`gacha-owned-card${missing ? ' owned' : ''}`}
+                            onClick={() => toggleMissingSixStar(name)}
+                          >
+                            {found?.icon ? (
+                              <Image src={found.icon} alt={name} width={44} height={44} />
+                            ) : (
+                              <div className="gacha-pull-icon-placeholder">6★</div>
+                            )}
+                            <span>{name}</span>
+                            {missing && <span className="gacha-owned-tag">MISSING</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      className="primary"
+                      style={{ marginTop: 14 }}
+                      disabled={missingSixStars.size === 0}
+                      onClick={confirmCelebrationSelection}
+                    >
+                      Confirm selection
+                    </button>
+                  </section>
+                )}
+
+                {isCelebration && celebrationConfirmed && (
+                  <section className="op-section">
+                    <button type="button" className="ghost" onClick={changeCelebrationSelection}>
+                      Change selection
+                    </button>
+                  </section>
+                )}
+
+                <div className="gacha-content-group">
+                {(isOrienteering && !orienteeringConfirmed) || (isCelebration && !celebrationConfirmed) || (isKernelLocating && !kernelLocatingConfirmed) ? (
+                  isOrienteering ? (
+                  <section className="op-section">
+                    <div className="gacha-info-toggle-row" style={{ marginBottom: 10 }}>
+                      <h2 style={{ margin: 0 }}>{banner.label} — Choose 3 six★s and 3 five★s</h2>
+                      <button
+                        type="button"
+                        className="ghost gacha-other-toggle"
+                        onClick={() => {
+                          setShowGuide(true);
+                          setGuidePhase('question');
+                          setGuidePageIndex(0);
+                        }}
+                      >
+                        How does this work?
+                      </button>
+                    </div>
+                    <p className="hint" style={{ marginBottom: 12 }}>
+                      Pick exactly 3 of this banner&apos;s real six-star candidates and 3 of its
+                      five-star candidates -- only your chosen ones will be pullable.
+                    </p>
+                    <h3 style={{ marginBottom: 8 }}>Six-star candidates ({orienteeringSelected.length}/3)</h3>
+                    <div className="orienteering-pick-grid">
+                      {orienteeringCandidates.map((item) => {
+                        const picked = orienteeringSelected.some((s) => s.name === item.name);
+                        return (
+                          <button
+                            key={item.name}
+                            type="button"
+                            className={`orienteering-pick-card${picked ? ' picked' : ''}`}
+                            onClick={() => toggleOrienteeringPick(item)}
+                          >
+                            {item.icon ? (
+                              <Image src={item.icon} alt={item.name} width={48} height={48} />
+                            ) : (
+                              <div className="gacha-pull-icon-placeholder">6★</div>
+                            )}
+                            <span>{item.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <h3 style={{ marginTop: 16, marginBottom: 8 }}>Five-star candidates ({orienteeringFiveSelected.length}/3)</h3>
+                    <div className="orienteering-pick-grid">
+                      {orienteeringFiveCandidates.map((item) => {
+                        const picked = orienteeringFiveSelected.some((s) => s.name === item.name);
+                        return (
+                          <button
+                            key={item.name}
+                            type="button"
+                            className={`orienteering-pick-card${picked ? ' picked' : ''}`}
+                            onClick={() => toggleOrienteeringFivePick(item)}
+                          >
+                            {item.icon ? (
+                              <Image src={item.icon} alt={item.name} width={48} height={48} />
+                            ) : (
+                              <div className="gacha-pull-icon-placeholder">5★</div>
+                            )}
+                            <span>{item.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="submit-row" style={{ marginTop: 14 }}>
+                      <span className="rated-count">
+                        {orienteeringSelected.length}/3 six★, {orienteeringFiveSelected.length}/3 five★ selected
+                      </span>
+                      <div className="submit-row-actions">
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={orienteeringSelected.length !== 3 || orienteeringFiveSelected.length !== 3}
+                          onClick={() => setOrienteeringConfirmed(true)}
+                        >
+                          Confirm selection
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                ) : isKernelLocating && !kernelLocatingConfirmed ? (
+                  <section className="op-section">
+                    <div className="gacha-info-toggle-row" style={{ marginBottom: 10 }}>
+                      <h2 style={{ margin: 0 }}>{banner.label} — Choose 2 six★s and 3 five★s</h2>
+                      <button
+                        type="button"
+                        className="ghost gacha-other-toggle"
+                        onClick={() => {
+                          setShowGuide(true);
+                          setGuidePhase('question');
+                          setGuidePageIndex(0);
+                        }}
+                      >
+                        How does this work?
+                      </button>
+                    </div>
+                    <p className="hint" style={{ marginBottom: 12 }}>
+                      Kernel Locating: only your chosen 2 six-stars and 3 five-stars exist in this
+                      banner&apos;s pool at all -- nothing else can appear.
+                    </p>
+                    <h3 style={{ marginBottom: 8 }}>Six-star candidates ({kernelLocatingSixSelected.length}/2)</h3>
+                    <div className="orienteering-pick-grid">
+                      {kernelLocatingSixCandidates.map((item) => {
+                        const picked = kernelLocatingSixSelected.some((s) => s.name === item.name);
+                        return (
+                          <button
+                            key={item.name}
+                            type="button"
+                            className={`orienteering-pick-card${picked ? ' picked' : ''}`}
+                            onClick={() => toggleKernelLocatingSix(item)}
+                          >
+                            {item.icon ? (
+                              <Image src={item.icon} alt={item.name} width={48} height={48} />
+                            ) : (
+                              <div className="gacha-pull-icon-placeholder">6★</div>
+                            )}
+                            <span>{item.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <h3 style={{ marginTop: 16, marginBottom: 8 }}>Five-star candidates ({kernelLocatingFiveSelected.length}/3)</h3>
+                    <div className="orienteering-pick-grid">
+                      {kernelLocatingFiveCandidates.map((item) => {
+                        const picked = kernelLocatingFiveSelected.some((s) => s.name === item.name);
+                        return (
+                          <button
+                            key={item.name}
+                            type="button"
+                            className={`orienteering-pick-card${picked ? ' picked' : ''}`}
+                            onClick={() => toggleKernelLocatingFive(item)}
+                          >
+                            {item.icon ? (
+                              <Image src={item.icon} alt={item.name} width={48} height={48} />
+                            ) : (
+                              <div className="gacha-pull-icon-placeholder">5★</div>
+                            )}
+                            <span>{item.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="submit-row" style={{ marginTop: 14 }}>
+                      <span className="rated-count">
+                        {kernelLocatingSixSelected.length}/2 six★, {kernelLocatingFiveSelected.length}/3 five★ selected
+                      </span>
+                      <div className="submit-row-actions">
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={kernelLocatingSixSelected.length !== 2 || kernelLocatingFiveSelected.length !== 3}
+                          onClick={() => setKernelLocatingConfirmed(true)}
+                        >
+                          Confirm selection
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                  ) : null
+                ) : (
+                  <section className="op-section">
+                    <div className="gacha-pity-row">
+                      <div className="gacha-pity-stat">
+                        <span className="gacha-pity-label">Total pulls</span>
+                        <span className="gacha-pity-value">{state.pullCount}</span>
+                      </div>
+                      <div className="gacha-pity-stat">
+                        <span className="gacha-pity-label">Pulls since last 6★</span>
+                        <span className="gacha-pity-value">{state.softPitySince6}</span>
+                      </div>
+                      <div className="gacha-pity-stat">
+                        <span className="gacha-pity-label">First-10 5★+ guarantee</span>
+                        <span className="gacha-pity-value">
+                          {state.firstTenGuaranteeUsed
+                            ? 'Used'
+                            : state.pullCount < 10
+                            ? `${10 - state.pullCount} left`
+                            : 'Missed'}
+                        </span>
+                      </div>
+                      {banner.type === 'featured' && (
+                        <div className="gacha-pity-stat">
+                          <span className="gacha-pity-label">Featured guarantee</span>
+                          <span className="gacha-pity-value">
+                            {state.featuredGuaranteeUsed
+                              ? 'Used'
+                              : state.pullsSinceFeatured6Star >= 150
+                              ? 'Active'
+                              : `${150 - state.pullsSinceFeatured6Star} left`}
+                          </span>
+                        </div>
+                      )}
+                      {banner.type === 'limited' && (
+                        <div className="gacha-pity-stat">
+                          <span className="gacha-pity-label">Limited guarantee</span>
+                          <span className="gacha-pity-value">
+                            {state.limitedGuaranteeGranted ? 'Granted (+1)' : `${Math.max(0, 300 - state.pullCount)} left`}
+                          </span>
+                        </div>
+                      )}
+                      {banner.type === 'crossover' && (
+                        <div className="gacha-pity-stat">
+                          <span className="gacha-pity-label">Crossover guarantee (120)</span>
+                          <span className="gacha-pity-value">
+                            {state.crossoverGuaranteeUsed
+                              ? 'Used'
+                              : state.pullsSinceCrossover6Star >= 120
+                              ? 'Active'
+                              : `${120 - state.pullsSinceCrossover6Star} left`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="gacha-stats-rates">
+                      <span className="rated-count">
+                        {(() => {
+                          const currentPullNumber = state.softPitySince6 + 1;
+                          const current = ratesAtPull(currentPullNumber);
+                          const decimals = currentPullNumber > 50 ? 2 : 0;
+                          return (
+                            <>
+                              6★ ({(current.six * 100).toFixed(decimals)}%): {stats[6]} &nbsp;
+                              5★ ({(current.five * 100).toFixed(decimals)}%): {stats[5]} &nbsp;
+                              4★ ({(current.four * 100).toFixed(decimals)}%): {stats[4]} &nbsp;
+                              3★ ({(current.three * 100).toFixed(decimals)}%): {stats[3]}
+                            </>
+                          );
+                        })()}
+                      </span>
+                      <div className="gacha-pull-actions">
+                        <button type="button" onClick={reset}>
+                          Reset
+                        </button>
+                        <button type="button" className="primary" onClick={() => pull(1)}>
+                          x1
+                        </button>
+                        <button type="button" className="primary" onClick={() => pull(10)}>
+                          x10
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {lastPulls.length > 0 && (
+                  <section className="op-section">
+                    <h2>Latest pull</h2>
+                    <div
+                      className="gacha-pull-grid"
+                      style={
+                        lastPulls.length > 0
+                          ? ({
+                              '--gacha-glow-color': (() => {
+                                const highest = Math.max(...lastPulls.map((p) => p.rarity));
+                                if (highest >= 6) return 'rgba(245, 166, 35, 0.7)'; // gold (--amber)
+                                if (highest === 5) return 'rgba(245, 213, 71, 0.7)'; // yellow
+                                if (highest === 4) return 'rgba(138, 126, 248, 0.7)'; // purplish-blue
+                                if (highest === 3) return 'rgba(255, 255, 255, 0.7)'; // white
+                                return undefined; // below 3-star: fall back to the default teal
+                              })(),
+                            } as CSSProperties)
+                          : undefined
+                      }
+                    >
+                      {lastPulls.map((item, i) => {
+                        const slideDirection = lastPulls.length === 1 || i % 2 === 0 ? 'gacha-pull-slide-bottom' : 'gacha-pull-slide-top';
+                        return (
+                        <div
+                          key={`${state.pullCount}-${i}`}
+                          className={`gacha-pull-card ${rarityClass(item.rarity)} ${slideDirection}`}
+                        >
+                          {item.isBonus && <span className="gacha-bonus-tag">+1 Guarantee</span>}
+                          {item.featuredGuaranteeEvent === 'reset' && <span className="gacha-bonus-tag">Reset</span>}
+                          {item.featuredGuaranteeEvent === 'guarantee' && <span className="gacha-bonus-tag">Guarantee</span>}
+                          {item.crossoverFiveStarGuarantee && <span className="gacha-bonus-tag">Guarantee</span>}
+                          <PullIcon item={item} />
+                          <div className="gacha-pull-rarity">{item.rarity}★</div>
+                          <div className="gacha-pull-name">{item.name}</div>
+                          {item.isFeatured && <div className="gacha-pull-featured">Featured</div>}
+                          {item.isRateUp && <div className="gacha-pull-featured gacha-pull-rate-up">Rate-Up</div>}
+                        </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {state.history.length > 0 && (
+                  <section className="op-section">
+                    <button
+                      type="button"
+                      className="ghost gacha-history-toggle"
+                      onClick={() => setShowHistory((v) => !v)}
+                    >
+                      {showHistory ? '▾' : '▸'} Pull history ({state.history.length})
+                    </button>
+                    {showHistory && (
+                      <div className="gacha-history-strip">
+                        {state.history
+                          .slice()
+                          .reverse()
+                          .map((item, i) => (
+                            <div key={i} className={`gacha-history-chip ${rarityClass(item.rarity)}`} title={item.name}>
+                              {item.rarity}★
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </section>
+                )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {showSparkStore && banner && (
+        <div className="modal-overlay" onClick={() => setShowSparkStore(false)}>
+          <div className="modal-box gacha-spark-store-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="modal-back-btn" onClick={() => setShowSparkStore(false)}>
+              ‹ Back
+            </button>
+            <h2>Spark Store</h2>
+            <p className="hint" style={{ marginBottom: 14 }}>
+              Guaranteed at 300 spark for a six-star, 75 for a featured five-star.
+            </p>
+            <div className="gacha-spark-store-grid">
+              {[
+                ...banner.sixStarFeatured,
+                ...(banner.rateUpSixStars || []),
+                ...banner.otherSixStarPool.filter((item) => howToObtainLookup[item.name]?.Limited === 'Yes'),
+              ]
+                .slice()
+                .sort((a, b) => {
+                  const dateA = getReleaseDate(a.name, releaseLookup);
+                  const dateB = getReleaseDate(b.name, releaseLookup);
+                  if (!dateA && !dateB) return 0;
+                  if (!dateA) return 1; // no known date -- sort to the end
+                  if (!dateB) return -1;
+                  return dateB.getTime() - dateA.getTime(); // newest first
+                })
+                .map((item) => (
+                <div key={item.name} className="gacha-spark-store-item">
+                  {item.icon ? (
+                    <Image src={item.icon} alt={item.name} width={56} height={56} />
+                  ) : (
+                    <div className="gacha-pull-icon-placeholder">6★</div>
+                  )}
+                  <span>{item.name}</span>
+                  <span className="gacha-spark-store-cost">{getSparkCost(item.name, parseBannerDate(selectedBanner), releaseLookup, operatorSeriesMap[item.name])}</span>
+                </div>
+              ))}
+              {banner.fiveStarFeatured.map((item) => (
+                <div key={item.name} className="gacha-spark-store-item">
+                  {item.icon ? (
+                    <Image src={item.icon} alt={item.name} width={56} height={56} />
+                  ) : (
+                    <div className="gacha-pull-icon-placeholder">5★</div>
+                  )}
+                  <span>{item.name}</span>
+                  <span className="gacha-spark-store-cost">75</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGuide && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setShowGuide(false);
+            setGuidePhase('question');
+            setGuidePageIndex(0);
+          }}
+        >
+          <div className="modal-box gacha-guide-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="modal-back-btn"
+              onClick={() => {
+                setShowGuide(false);
+                setGuidePhase('question');
+                setGuidePageIndex(0);
+              }}
+            >
+              ‹ Back
+            </button>
+
+            {guidePhase === 'question' && (
+              <div className="gacha-tutorial-question">
+                <p>Do you understand the basics of Arknights banners?</p>
+                <div className="gacha-tutorial-question-actions">
+                  <button
+                    type="button"
+                    className="gacha-tutorial-yes-btn"
+                    onClick={() => {
+                      setGuidePhase('banner');
+                      setGuidePageIndex(0);
+                    }}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    className="gacha-tutorial-no-btn"
+                    onClick={() => {
+                      setGuidePhase('basics');
+                      setGuidePageIndex(0);
+                    }}
+                  >
+                    No
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {guidePhase !== 'question' && (() => {
+              const bannerPages = banner ? BANNER_TUTORIAL_PAGES[banner.type] || DEFAULT_BANNER_PAGES : DEFAULT_BANNER_PAGES;
+              const pages = guidePhase === 'basics' ? BASICS_PAGES : bannerPages;
+              const { Visual } = pages[guidePageIndex];
+              const isLastPage = guidePageIndex === pages.length - 1;
+              const isLastBasicsPage = guidePhase === 'basics' && isLastPage;
+              return (
+                <div className="gacha-tutorial-page">
+                  <div className="gacha-tutorial-visual">
+                    <Visual />
+                  </div>
+                  <p className="gacha-tutorial-text">{pages[guidePageIndex].text}</p>
+                  <div className="gacha-tutorial-nav">
+                    <button type="button" className="ghost" disabled={guidePageIndex === 0} onClick={() => setGuidePageIndex((s) => s - 1)}>
+                      ‹ Back
+                    </button>
+                    <span className="gacha-tutorial-progress">
+                      {guidePhase === 'basics' ? 'Basics ' : "Banner "}
+                      {guidePageIndex + 1} / {pages.length}
+                    </span>
+                    {isLastBasicsPage ? (
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() => {
+                          setGuidePhase('banner');
+                          setGuidePageIndex(0);
+                        }}
+                      >
+                        Continue ›
+                      </button>
+                    ) : isLastPage ? (
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() => {
+                          setShowGuide(false);
+                          setGuidePhase('question');
+                          setGuidePageIndex(0);
+                        }}
+                      >
+                        Done
+                      </button>
+                    ) : (
+                      <button type="button" className="primary" onClick={() => setGuidePageIndex((s) => s + 1)}>
+                        Next ›
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export const getStaticProps: GetStaticProps<Props> = async () => {
+  const pools = getGachaIconPools();
+  const banners = getBannersSortedByDate();
+  const derivedReleaseDates = deriveReleaseDatesFromBanners(banners);
+
+  const kernelLookup: KernelAdditionLookup = {};
+  const releaseLookup: ReleaseDateLookup = {};
+  const kernelExclusiveNames: string[] = [];
+  const howToObtainLookup: HowToObtainLookup = {};
+  for (const op of getAllOperators()) {
+    const kernelDate = op.characterInfo?.['Kernel Addition Date'];
+    if (kernelDate) kernelLookup[op.name] = kernelDate;
+    // The operator's own recorded Release Date takes priority; when
+    // it's missing, fall back to their earliest banner appearance
+    // instead of leaving them with no release date on record at all.
+    const releaseDate = op.characterInfo?.['Release Date'] || derivedReleaseDates[op.name];
+    if (releaseDate) releaseLookup[op.name] = releaseDate;
+
+    const obtain = op.howToObtain;
+    if (obtain && typeof obtain === 'object') {
+      howToObtainLookup[op.name] = obtain;
+      if (obtain['Kernel Headhunting'] === 'Yes' && obtain['Standard Headhunting'] !== 'Yes') {
+        kernelExclusiveNames.push(op.name);
+      }
+    }
+  }
+
+  const operatorSeriesMap = buildOperatorSeriesMap(banners, howToObtainLookup);
+
+  // Trimmed for the client -- category, year, and linked_event are
+  // confirmed unused both directly in this file and in every helper
+  // function from realGachaBanners.ts this page relies on
+  // (buildRealBannerConfig, getMechanicType, getDisplayFeaturedSixStars,
+  // parseBannerDate/EndDate). Every other field is read by one of those.
+  const trimmedBanners: HeadhuntingBanner[] = banners.map((b) => ({
+    name: b.name ?? '',
+    category: '',
+    cn_date: b.cn_date ?? null,
+    global_date: b.global_date ?? null,
+    banner_image: b.banner_image ?? null,
+    six_stars: b.six_stars ?? [],
+    rate_up_six_stars: b.rate_up_six_stars ?? [],
+    five_stars: b.five_stars ?? [],
+    four_stars: b.four_stars ?? [],
+    pull_type: b.pull_type ?? 'unknown',
+    year: 0,
+    linked_event: null,
+  }));
+
+  return { props: { pools, banners: trimmedBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
+};

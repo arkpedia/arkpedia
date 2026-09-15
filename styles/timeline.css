@@ -1,0 +1,938 @@
+/* Split from globals.css -- timeline.css */
+
+/* --- the calendar's header ------------------------------------------------------
+   One line: where you are on the left with the arrows either side of it, what the grid
+   draws on the right. It replaced three stacked rows -- prev/year/next/today, then
+   twelve month buttons, then two filters -- which was three bands of chrome above the
+   thing being read, with no indication which control belonged to what. */
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  /* The width of the grid it controls, and centred with it. main-wide is 1320px and the
+     grid is a 950px column inside it, so a header spanning the full main put its arrows
+     and its toggles out past the calendar's own edges, floating either side of the thing
+     they belong to. */
+  max-width: 950px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.cal-head-when { display: flex; align-items: center; gap: 8px; }
+
+/* The month and the year, as the heading they are AND the controls that change it.
+   A border and a chevron at rest, not only on hover: a heading that turns out to be
+   pressable is a thing found by accident. Quiet enough to still read as a title. */
+.cal-head-title { display: flex; align-items: center; gap: 6px; }
+.cal-pick { position: relative; display: inline-flex; }
+.cal-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.cal-pick-btn svg { opacity: 0.55; transition: transform 0.18s ease, opacity 0.15s ease; }
+.cal-pick-btn:hover { border-color: var(--teal); color: var(--teal); background: var(--panel-2); }
+.cal-pick-btn:hover svg { opacity: 1; }
+/* Open reads as open, and the chevron points the way the list went. */
+.cal-pick-btn.open { border-color: var(--teal); color: var(--teal); background: var(--panel-2); }
+.cal-pick-btn.open svg { transform: rotate(180deg); opacity: 1; }
+/* The month is the title; the year is the quieter half, since you change the month far
+   more often. */
+/* Wide enough for the longest month name, so the arrow and the Today button beside it
+   do not move as the month changes. Measured: the button ran 77px on May and 137px on
+   September, and everything right of it slid by 60px between the two. The text is
+   centred in the reserved space rather than left in it, so a short name does not look
+   pushed against the arrow. */
+.cal-pick-month { font-size: 20px; min-width: 158px; justify-content: space-between; }
+.cal-pick-year { font-size: 14px; color: var(--text-dim); }
+
+/* The list, ours rather than the operating system's: a native select's dropdown is the
+   one part of this page that cannot be styled, and it arrived as a white sheet in the
+   system font. Same shape as the picker lists elsewhere on the site. */
+.cal-picklist {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  left: 0;
+  min-width: max(100%, 132px);
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.4);
+  animation: cal-picklist-in 0.13s ease;
+}
+:root[data-theme="light"] .cal-picklist { box-shadow: 0 12px 28px rgb(15 25 35 / 0.14); }
+@keyframes cal-picklist-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.cal-pickopt {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.cal-pickopt:hover { background: var(--panel-2); color: var(--text); }
+.cal-pickopt.current { background: var(--teal-dim); color: var(--teal); }
+
+/* Round, because they are the two controls pressed most and a circle is the easiest
+   shape to hit without looking. 34px, over the 30 they were, since a bare arrow with
+   no label has only its box to aim at. */
+.cal-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+.cal-step:hover { border-color: var(--teal); color: var(--teal); background: var(--panel-2); }
+
+/* Only drawn when it would do something, so its presence is the message: you are not
+   on this month. */
+/* Holds the button's width whether or not it is drawn. */
+.cal-today-slot { display: inline-flex; min-width: 72px; margin-left: 4px; }
+.cal-today {
+  padding: 6px 12px;
+  border: 1px solid var(--teal-dim);
+  border-radius: 4px;
+  background: none;
+  color: var(--teal);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.cal-today:hover { border-color: var(--teal); background: rgb(77 232 209 / 0.1); }
+
+/* Two toggles as one segmented control rather than two loose buttons: they are the same
+   kind of choice about the same grid, and joining them says so. */
+.cal-head-shows {
+  display: inline-flex;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.cal-toggle {
+  padding: 7px 14px;
+  border: 0;
+  background: var(--panel);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.cal-toggle + .cal-toggle { border-left: 1px solid var(--line-soft); }
+.cal-toggle:hover { color: var(--text); background: var(--panel-2); }
+.cal-toggle.on { background: var(--teal-dim); color: var(--teal); }
+
+@media (max-width: 620px) {
+  /* The date controls take the line and the toggles drop below it, rather than the two
+     groups wrapping into each other. */
+  .cal-head { gap: 10px; }
+  .cal-head-when {
+    flex: 1 1 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 8px;
+  }
+  .cal-head-title { min-width: 0; }
+  .cal-head-title .cal-pick:first-child { flex: 1; min-width: 0; }
+  .cal-pick-month { min-width: 0; width: 100%; font-size: 18px; padding-inline: 6px; }
+  .cal-pick-year { padding-inline: 6px; }
+  .cal-today-slot { grid-column: 1 / -1; min-height: 32px; margin-left: 0; justify-content: flex-end; }
+  .cal-head-shows { flex: 1 1 100%; }
+  .cal-toggle { flex: 1 1 0; }
+  .cal-pick select { font-size: 18px; }
+}
+
+/* --- the two views ------------------------------------------------------------
+   Calendar and Events are two ways of reading the same schedule, so they are tabs on
+   one page rather than two pages behind a dropdown.
+
+   Built on primary/ghost, which is how this site switches sections everywhere else:
+   fifty-three pairs of them across the pages, against one cut-corner button on the
+   operator roster. The first version of these used that corner and called it the house
+   style, which it is not -- it is one button on one page. Same shape as the Recruitment
+   page's two sections and the Power Scale page's two modes, with a second line added
+   under the label saying what the section holds. */
+.schedule-views {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+/* The site's button metrics, with room for the hint line beneath the label. */
+.schedule-view {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  min-width: 152px;
+  padding: 8px 14px;
+}
+.schedule-view b {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.schedule-view em {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+@media (max-width: 560px) {
+  /* Two tabs, half the width each, rather than one per line. */
+  .schedule-view { flex: 1 1 0; min-width: 0; }
+}
+
+
+
+
+/* --- Events Timeline --- */
+.timeline-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 14px;
+}
+.timeline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.timeline-toggle input { accent-color: var(--teal); cursor: pointer; }
+.timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.timeline-dot-ingame { background: var(--amber); }
+.timeline-dot-community { background: var(--teal); }
+.timeline-dot-birthday { background: #FF6B9D; }
+
+.timeline-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: nowrap;
+}
+.timeline-nav-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.timeline-nav-row button {
+  font-size: 11px;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+.timeline-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Independent toggles, not a radio group: Birthdays and Official Events switch on and
+   off separately, so once BOTH are on neither has a .ghost sibling any more and
+   shared.css's sibling rule stops applying -- both sprang back to the base button's
+   size and the row grew. Stating the metrics here does not depend on what the
+   neighbours happen to be. */
+.timeline-filter-row button {
+  font-size: 12px;
+  padding: 8px 14px;
+}
+.timeline-month-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: scroll;
+  gap: 4px;
+}
+.timeline-month-tabs button {
+  font-size: 11px;
+  padding: 6px 9px;
+}
+
+.timeline-month-large {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 18px;
+  overflow: hidden;
+}
+.timeline-month-large h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin: 0 0 14px;
+}
+.timeline-weekday-row-large {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 6px;
+}
+.timeline-weekday-row-large span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.timeline-week-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.timeline-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0 4px;
+}
+.timeline-daybox {
+  min-width: 0;
+  padding: 5px 6px;
+  border-radius: 4px 4px 0 0;
+  border-bottom: none;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.timeline-daybox.out-of-month { opacity: 0.35; }
+.timeline-daybox.is-today {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+.timeline-daybox-lanes {
+  min-width: 0;
+  border-radius: 0 0 4px 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-top: none;
+}
+.timeline-daybox-lanes.out-of-month { opacity: 0.35; }
+.timeline-daybox-lanes.is-today {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+.timeline-daynum-large {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.timeline-bday-marks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* An event's run, as a quiet bar with a coloured edge.
+   These used to be filled with the colour pulled from the event's poster, at full
+   saturation, so a busy month was six solid blocks in six competing hues and the dates
+   underneath could not be read through them. The colour is an accent now: a 3px edge on
+   the left, which is where the run starts and the thing worth pointing at, and a wash of
+   the same colour at a tenth of its strength across the bar. Two bars are still told
+   apart at a glance; neither takes the grid over. */
+.timeline-bar {
+  align-self: start;
+  min-width: 0;
+  margin-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+  z-index: 1;
+  /* Sentence case, not caps. Six lines of uppercase at 10px is a wall of even-height
+     letters with no word shapes to catch, which is most of why this felt like a lot. */
+  text-transform: none;
+  letter-spacing: 0.01em;
+  /* 28%, not 11. At a tenth the hues all collapsed towards the panel's own grey and two
+     events were only told apart by their edge, which is not a colour you can see at a
+     glance across a month. This is enough for the hue to read as itself while the dates
+     underneath stay legible. */
+  background: color-mix(in srgb, var(--bar-accent, var(--teal)) 28%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--bar-accent, var(--teal)) 45%, transparent);
+  border-left: 3px solid var(--bar-accent, var(--teal));
+  color: var(--text);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+/* On hover the accent comes up, so the bar being pointed at is the loud one rather than
+   all of them being loud at once. */
+.timeline-bar:hover {
+  background: color-mix(in srgb, var(--bar-accent, var(--teal)) 48%, var(--panel));
+  border-color: color-mix(in srgb, var(--bar-accent, var(--teal)) 75%, transparent);
+}
+.timeline-bar.selected {
+  background: color-mix(in srgb, var(--bar-accent, var(--teal)) 58%, var(--panel));
+  border-color: var(--bar-accent, var(--teal));
+}
+/* In-game against community: the kind of thing, which the bar falls back to when the
+   event has no colour of its own. These used to set the background, the border and the
+   text outright, and being more specific than .timeline-bar they beat the per-event
+   accent -- so every bar came out the same amber and the poster colours were lost. They
+   only name the accent now, and the bar draws itself from it.
+   The bare .timeline-pill-ingame / -community fills are gone with them: grep says the
+   calendar's bars are the only thing that carries either class, so those rules were
+   never styling a pill anywhere -- they were quietly repainting these bars amber and
+   throwing the poster colour away. */
+.timeline-bar.timeline-pill-ingame { --bar-accent: var(--amber); }
+.timeline-bar.timeline-pill-community { --bar-accent: var(--teal); }
+
+.timeline-pill {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  cursor: help;
+}
+.timeline-pill-birthday { background: #FF6B9D22; color: #FF6B9D; }
+
+.series-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+.series-logo-btn {
+  width: 68px;
+  height: 68px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.series-logo-btn:hover { border-color: var(--teal-dim); }
+.series-logo-btn.active {
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+.series-logo-btn img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.series-logo-all {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.series-logo-btn.active .series-logo-all { color: var(--teal); }
+.series-logo-fallback {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1.25;
+  overflow: hidden;
+}
+
+.map-pin { cursor: pointer; }
+.map-pin-timer {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.map-pin-timer-live { fill: var(--teal); }
+.map-pin-timer-upcoming { fill: var(--amber); }
+.map-pin-timer-ended { fill: var(--text-faint); }
+.map-pin-dot {
+  fill: var(--teal);
+  stroke: #06211C;
+  stroke-width: 1.5;
+}
+.map-pin-upcoming .map-pin-dot { fill: var(--amber); }
+.map-pin-ended .map-pin-dot { fill: var(--text-faint); }
+.map-pin-pulse {
+  fill: var(--teal);
+  opacity: 0.35;
+  animation: pin-pulse 1.6s ease-out infinite;
+}
+@keyframes pin-pulse {
+  0% { r: 4.5; opacity: 0.5; }
+  100% { r: 14; opacity: 0; }
+}
+
+.map-tooltip-portal {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 14px));
+  z-index: 500;
+}
+.map-tooltip {
+  background: var(--panel);
+  border: 1px solid var(--teal);
+  border-radius: 4px;
+  padding: 12px 14px;
+  width: 260px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.map-tooltip-header { margin-bottom: 6px; }
+.map-tooltip-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+.map-tooltip-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--teal);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--teal-dim);
+}
+.map-tooltip-link:hover { border-bottom-color: var(--teal); }
+
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.event-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+.event-list-item:hover { border-color: var(--teal); }
+.event-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.event-status-live { background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+.event-status-upcoming { background: var(--amber); }
+.event-status-ended { background: var(--text-faint); }
+.event-list-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+}
+.event-list-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+/* --- Schedule page: year select + poster hover preview --- */
+.schedule-year-select {
+  padding: 6px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.schedule-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+  transition: transform 0.3s ease;
+}
+/* Shifts the WHOLE composition (calendar + panel, since the panel is a
+   descendant and inherits this transform too) left by half the panel's
+   own footprint (340px width + 20px gap = 360px, half = 180px) -- this
+   keeps the calendar's relative offset from the panel unchanged while
+   making the pair as a whole land centered in the viewport, instead of
+   the calendar staying frozen in the original center while the panel
+   effectively extends off to one side. */
+.schedule-layout.panel-open {
+  transform: translateX(-180px);
+}
+
+.schedule-calendar-col {
+  flex: 0 0 950px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Desktop default: side panel centered vertically to match the
+   calendar's own center, positioned just to the right of it.
+   left: calc(50% + 475px + gap) always lands exactly at the
+   calendar's right edge regardless of viewport width, since the
+   calendar is centered within this container and is the only
+   flex-sizing participant (475px = half of the calendar's 950px). */
+.schedule-fullscreen-panel {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 475px + 20px);
+  width: 340px;
+  opacity: 0;
+  transform: translateY(-50%) translateX(24px);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.schedule-fullscreen-panel.open {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
+
+.schedule-panel {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .schedule-layout.panel-open {
+    transform: none;
+  }
+
+  .timeline-nav-row {
+    justify-content: flex-start;
+  }
+  .timeline-month-tabs {
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .schedule-calendar-col {
+    flex: 1 1 100%;
+  }
+
+  /* The desktop positioning above assumes a 950px-wide calendar via a
+     calc() formula that has no meaning once the calendar column isn't
+     fixed-width anymore -- switch from a floating side panel to a
+     full-screen takeover instead, like a new page. This is the FULL,
+     final override for every property the desktop rule above sets,
+     since that rule now comes immediately before this block in the
+     cascade and would otherwise win on any property left unset here. */
+  .schedule-fullscreen-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: var(--bg);
+    overflow-y: auto;
+    padding: 24px;
+    width: auto;
+    transform: none;
+  }
+  .schedule-fullscreen-panel.open {
+    padding: 24px;
+    transform: none;
+  }
+
+  .schedule-panel {
+    padding: 16px;
+    max-width: 100%;
+  }
+
+  .timeline-daybox,
+  .timeline-daybox-lanes {
+    padding: 3px 4px;
+  }
+  .timeline-daynum-large {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .timeline-week-grid {
+    gap: 0 2px;
+  }
+  .timeline-daybox,
+  .timeline-daybox-lanes {
+    padding: 2px 3px;
+  }
+  .timeline-nav-row,
+  .timeline-filter-row {
+    gap: 6px;
+  }
+  .timeline-nav-side {
+    gap: 4px;
+  }
+  .schedule-panel {
+    padding: 12px;
+  }
+}
+
+.schedule-panel-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: #e5484d;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1;
+  cursor: pointer;
+}
+.schedule-panel-close-btn:hover {
+  background: var(--panel);
+  border-color: #e5484d;
+}
+.schedule-panel-poster {
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.schedule-panel-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+.schedule-panel-skins-outer {
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.schedule-panel-skins-track {
+  display: flex;
+  gap: 10px;
+  width: max-content;
+  animation-name: schedulePanelSkinsScroll;
+  animation-duration: var(--skins-scroll-duration, 18s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.schedule-panel-skins-track.paused {
+  animation-play-state: paused;
+}
+.schedule-panel-skins-track.no-scroll {
+  animation: none;
+}
+@keyframes schedulePanelSkinsScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.schedule-panel-skins-track .schedule-panel-skin {
+  flex: 0 0 110px;
+}
+.schedule-panel-skin {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.schedule-panel-skin-price {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--teal);
+  text-align: center;
+}
+.schedule-panel-skin img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+}
+.schedule-panel-skin:hover img { border-color: var(--teal); }
+
+.schedule-panel-materials-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.schedule-panel-material-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.schedule-panel-event-page-btn { width: 100%; margin-top: 14px; }
+.schedule-panel-event-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.schedule-bar {
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.schedule-bar.selected { outline: 2px solid var(--teal); }
+
+.timeline-birthday-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.birthday-icon {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.birthday-portrait {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 1px solid var(--line-soft);
+}
+.birthday-icon:hover .birthday-portrait { border-color: #FF6B9D; }
+
+.schedule-panel-pullable {
+  margin-bottom: 4px;
+}
+.schedule-panel-pullable-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.schedule-panel-pullable-op {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-2);
+}
+.schedule-panel-pullable-op img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.schedule-panel-skins-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.schedule-panel-show-all-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+.schedule-panel-show-all-btn.active {
+  background: var(--teal);
+  color: var(--bg);
+  border-color: var(--teal);
+}
+
+.schedule-show-all-modal {
+  max-width: 1100px;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+.schedule-show-all-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+.schedule-show-all-grid .schedule-panel-skin img {
+  width: 100%;
+  height: auto;
+}

@@ -1,0 +1,597 @@
+/* Split from globals.css -- nav.css */
+
+
+
+/* --- Site-wide top nav (desktop) --- */
+.site-nav {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-soft);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  backdrop-filter: blur(6px);
+  /* Its own view-transition layer: the Stronghold companion animates its taps in a
+     snapshot overlay that ignores fixed positioning, and without a layer of its own
+     the moving rows draw straight through this bar. Inert everywhere no transition
+     runs. The group rule below restores the bar's own z-order during one.
+     The mobile bar needs exactly the same thing and is named where it is defined --
+     see .mobile-nav-bar. It went without one for as long as this rule has existed,
+     because the companion is a desktop pop-out first and nobody had watched a tap
+     land on a phone. */
+  view-transition-name: site-nav;
+}
+::view-transition-group(site-nav) { z-index: 50; }
+/* Held to the same 1040px the page content uses, and centred with it.
+   Full width was tried and looks wrong here: the brand ends up at the window's edge
+   while everything it labels starts a couple of hundred pixels inboard, so the bar
+   stops reading as the top of this page and starts reading as a separate strip laid
+   over it. myrtle.moe runs its header full width and gets away with it, but their nav
+   sits immediately beside the logo rather than being spread across the bar. */
+.site-nav-inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: nowrap;
+}
+/* Sits at the far right beside the clock, so the bar still reads brand - navigation -
+   controls rather than as one clump on the left. The margin-left:auto that used to do
+   the pushing moved to .site-nav-clock-bar, which is now the first of the two: only one
+   element in a flex row may claim the free space, or the two split it between them and
+   both end up adrift in the middle. */
+.site-nav-theme-wrap {
+  flex-shrink: 0;
+}
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+/* Same reason as .power-distribution-svg: an img is inline, and the mark picked up
+   the baseline gap inside a flex row that is otherwise centred by the pixel. */
+.site-brand-mark-img { display: block; }
+.site-brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--teal), #1C4E45);
+  color: #06211C;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.site-brand-text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+.site-brand-beta {
+  font-style: italic;
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-left: 2px;
+  align-self: flex-end;
+}
+.site-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.site-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 200px;
+  opacity: 1;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 7px 12px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-nav-link,
+  .site-nav-trigger,
+  .site-nav-pop {
+    transition: none;
+    animation: none;
+  }
+  .mobile-nav-drawer { transition: none; }
+  .mobile-nav-overlay { animation: none; }
+}
+/* --- server clock and reset countdown --------------------------------------------- */
+
+/* Never shrinks and never wraps. The nav's spacer is sized from a ResizeObserver, so
+   anything that lets this bar grow to a second row takes the whole bar's height out of
+   the document on every viewport that does it -- which is the page jump the nav rework
+   exists to remove. Measured on the real bar: it adds no height at all, 54px with the
+   clock and 54px without. */
+.site-nav-clock {
+  display: flex;
+  align-items: baseline;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  /* One tick must never be wider than the last, or whatever sits beside it walks left
+     and right once a second. */
+  font-variant-numeric: tabular-nums;
+}
+/* 0.05em rather than the 0.1em the other small caps on this site use. "SERVER TIME" is
+   eleven characters and it alone sets the width of the bar's whole label column, so the
+   tracking is worth about 6px of the ~135px the bar has to give. See
+   .site-nav-clock-bar. */
+.site-nav-clock-label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+/* 600 against the labels' 400: the two rows are a value and a name for it, and the
+   value is the thing being read. This was briefly 500 because 600 was being synthesised
+   -- the site loaded JetBrains Mono at 400 and 500 only and the browser was smearing
+   the 400, which at 11-12px turned the m of "37m" into a solid block. _document loads
+   600 and 700 now, for this and for the other 38 rules that were in the same state. */
+.site-nav-clock-time {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.site-nav-clock-sep {
+  align-self: center;
+  width: 1px;
+  height: 13px;
+  background: var(--line);
+}
+/* Fixed width, left aligned, so the countdown's own digits changing cannot move
+   anything. 7ch is "24h 00m" and "23h 59m" exactly -- the widest this ever gets -- and
+   the floor matters for the narrowest, "9h 05m" at 6ch: without it the box would shrink
+   by a character once a day when the hours drop to one digit, and since the strip is
+   right-anchored by margin-left:auto the whole thing would step sideways. */
+.site-nav-clock-reset {
+  min-width: 7ch;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber);
+}
+
+/* In the bar: two rows, labels down the left, values down the right. Carries the
+   margin-left:auto that used to sit on the theme wrap.
+
+   Two rows rather than the one row the design was drawn as, and that is a width
+   budget, not taste. Measured on the real bar: .site-nav-links wants 625px, the brand
+   takes 138 and the theme toggle 34, and .site-nav-inner is capped at 1040 with 24px
+   of padding each side and 20px between its children -- which leaves about 135px here.
+   One row measured 170 and squeezed the links from 625 to 500. Stacked, "SERVER TIME"
+   sits above "RESET" in one column and the two values in the other, and the whole strip
+   fits. The label column is "SERVER TIME" wide at about 71px, which is over half the
+   budget on its own -- so if this ever needs more room, the wording is the thing with
+   slack in it, not the layout.
+
+   Going over budget does not overflow anything and shows no scrollbar. .site-nav-links
+   has min-width:0, so it gives the space up silently, and each .site-nav-link then
+   clips its own label inside its 200px box. So changes here have to be checked by
+   measuring the links, not by looking at the bar.
+
+   Free vertically: the bar is 54px because the theme toggle is 34 and the padding is
+   20, and two rows of this come to about 27. Measured 54px with the clock and 54
+   without, which is what keeps the ResizeObserver-fed spacer still. */
+.site-nav-clock-bar {
+  display: grid;
+  grid-template-columns: auto auto;
+  /* 6 and not the 10 this started at. Measured at 10 the strip came to 135px against a
+     budget of about 135, which is no margin at all for a platform whose font metrics
+     round differently. */
+  column-gap: 6px;
+  row-gap: 0;
+  align-items: baseline;
+  justify-items: start;
+  margin-left: auto;
+  /* Pinned to the height of the tallest thing already in the bar, so this can never be
+     what decides how tall the nav is. That is .site-nav-links at 33px -- a nav entry is
+     7px of padding and 1px of border either side of a 17px line box -- and not the
+     theme toggle, which is 30. Left to size itself the two rows came to 36 and took the
+     nav from 54 to 56; at 34 it still took it to 55, because one pixel over the tallest
+     child is still one pixel of bar, and the ResizeObserver-fed spacer follows the bar
+     onto every page. A floor is not enough here, it has to be a ceiling too, which is
+     why this is height and not min-height. The line-heights below keep the two rows
+     (13 + 16 = 29) inside it rather than trusting the default leading of two different
+     font sizes. */
+  height: 33px;
+  align-content: center;
+}
+.site-nav-clock-bar .site-nav-clock-label { line-height: 13px; }
+.site-nav-clock-bar .site-nav-clock-time,
+.site-nav-clock-bar .site-nav-clock-reset { line-height: 16px; }
+/* The rule the two rows already draw for themselves. */
+.site-nav-clock-bar .site-nav-clock-sep { display: none; }
+
+/* In the mobile drawer's header, which is a column and has the room the bar does not:
+   the full wording and the seconds. */
+/* In the phone's own bar, at the end of the row: the desktop bar's two-row grid on a
+   tighter budget still. Measured at 375px, which is the narrowest phone worth
+   designing for: 32px of padding, ~138px of brand, a 34px theme toggle and a 44px
+   menu button leave about 105. This comes to ~83 -- a 9px "SERVER" over "RESET" in
+   the label column, and the values beside them at 11px. The separator is display:none
+   like the desktop bar's, which is also what turns five grid children into four and
+   gives the two clean rows. */
+.site-nav-clock-mobile {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 5px;
+  row-gap: 0;
+  align-items: baseline;
+  justify-items: start;
+  /* Pushed to the end of the row, with air before the theme toggle. */
+  margin-left: auto;
+  margin-right: 12px;
+  /* Under the 44px menu button, so the clock can never be what decides the bar's
+     height -- and the bar's height is what every sticky thing on the site reads. */
+  height: 30px;
+  align-content: center;
+}
+.site-nav-clock-mobile .site-nav-clock-label { font-size: 9px; line-height: 12px; }
+.site-nav-clock-mobile .site-nav-clock-time,
+.site-nav-clock-mobile .site-nav-clock-reset { font-size: 11px; line-height: 15px; }
+.site-nav-clock-mobile .site-nav-clock-reset { min-width: 6.4ch; }
+.site-nav-clock-mobile .site-nav-clock-sep { display: none; }
+
+.site-nav-clock-drawer {
+  gap: 8px;
+  margin-top: 14px;
+}
+.site-nav-clock-drawer .site-nav-clock-sep { margin: 0 2px; }
+
+/* --- grouped menus ---------------------------------------------------------------- */
+
+/* The positioning context for the panel below it. */
+.site-nav-menu { position: relative; }
+/* No clipping on the bar: a fixed child still escapes a scroll container but NOT a
+   clip, so hiding the overflow here hid the menu itself. The panel is fixed instead,
+   which keeps it out of the document's scroll height without anything having to be
+   clipped. Verified on the roster: 1879 before opening and 1879 after. */
+
+.site-nav-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  background: none;
+  padding: 7px 12px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.site-nav-trigger:hover { color: var(--text); background: var(--panel-2); }
+/* Lit while the page being read lives in this menu, so the bar still answers "where am
+   I" without having to be opened. */
+.site-nav-trigger.active {
+  color: var(--teal);
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+.site-nav-trigger.open { color: var(--text); background: var(--panel-2); }
+.site-nav-chev { opacity: 0.7; transition: transform 0.18s ease; }
+.site-nav-trigger.open .site-nav-chev { transform: rotate(180deg); }
+
+/* Absolute, so the panel draws over the page and never adds to its height. A menu that
+   pushed content down would be the layout shift this rework exists to remove. */
+.site-nav-pop {
+  position: fixed;
+  top: var(--nav-h, 52px);
+  margin-top: 2px;
+  z-index: 60;
+  min-width: 178px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.38);
+  animation: site-nav-pop-in 0.14s ease;
+}
+:root[data-theme="light"] .site-nav-pop { box-shadow: 0 12px 28px rgb(15 25 35 / 0.13); }
+@keyframes site-nav-pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.site-nav-popitem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.site-nav-popitem:hover { background: var(--panel-2); color: var(--text); }
+.site-nav-popitem.active { color: var(--teal); background: var(--teal-dim); }
+/* Larger than the 15px the bar uses. A panel is a list read one line at a time and it
+   has the room, so the glyph can be the thing that identifies the row rather than a
+   mark beside the word. */
+.site-nav-popitem .site-nav-icon {
+  flex-shrink: 0;
+  width: 19px;
+  height: 19px;
+  opacity: 0.9;
+}
+.site-nav-popitem.active .site-nav-icon { opacity: 1; }
+
+.site-nav-icon {
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  opacity: 0.8;
+}
+/* A bitmap glyph (white-on-alpha webp) drawn in currentColor: the image is the
+   MASK and the paint is the background, so it tints exactly like the stroked
+   SVGs beside it -- dim at rest, teal when active, dark on the light theme. */
+.site-nav-glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.site-nav-link:hover {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--line-soft);
+}
+.site-nav-link.active {
+  color: var(--teal);
+  background: var(--teal-dim);
+  border-color: var(--teal);
+}
+.site-nav-link.active .site-nav-icon { opacity: 1; }
+
+/* --- Mobile nav (entirely separate component: MobileNavDrawer.tsx) --- */
+/* A column of two: the clock sliver, then the brand row. The height is whatever they
+   come to rather than a number written here, because a number written here is a number
+   three other stylesheets have to be told about. */
+.mobile-nav-bar {
+  display: none; /* shown only under the mobile breakpoint below */
+  height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  /* The mobile half of .site-nav's layer, and for the same reason: a tap in the
+     Stronghold companion snapshots the screen, and anything the companion names
+     rides in a layer of its own while everything unnamed -- this bar included --
+     goes into the root snapshot underneath them. So the companion's step bar was
+     drawn straight over the nav, clock and all, for the length of the transition. A name of its own puts the bar back on top. A separate name from
+     the desktop bar because a name has to be unique among rendered elements, and
+     although the media query means only one of the two is ever rendered, that is
+     not a thing to leave resting on a display property.
+     Inert everywhere no transition runs. */
+  view-transition-name: mobile-nav;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-soft);
+  backdrop-filter: blur(6px);
+}
+/* --nav-h is the bar as MobileNavDrawer's ResizeObserver measures it, so the spacer
+   follows the bar wherever it goes. The fallback is only what the first paint uses,
+   before the effect has run -- keep it equal to the bar's height above. */
+.mobile-nav-spacer {
+  display: none;
+  height: var(--nav-h, 52px);
+}
+/* 60, the bar's own z-index, so the snapshot keeps the page's stacking. The
+   companion's pieces sit at 4. */
+::view-transition-group(mobile-nav) { z-index: 60; }
+
+/* Fades in on the drawer's own curve. It used to appear at full strength the
+   instant the drawer began sliding, so the page went dark before the menu
+   arrived. Mounted only while open, so it animates from the .open class rather
+   than needing the drawer's visibility-delay trick. */
+.mobile-nav-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.55);
+  z-index: 65;
+  animation: mobile-nav-overlay-in 0.25s ease;
+}
+@keyframes mobile-nav-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mobile-nav-drawer {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 82vw;
+  max-width: 320px;
+  background: var(--panel);
+  border-right: 1px solid var(--line-soft);
+  z-index: 70;
+  transform: translateX(-100%);
+  /* visibility keeps the CLOSED drawer's links out of the tab order and
+     screen readers -- parked off-screen they were still focusable. The delay
+     matches the slide so hiding waits for the close animation; opening flips
+     visible instantly via the .open rule. */
+  visibility: hidden;
+  transition: transform 0.25s ease, visibility 0s linear 0.25s;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex-direction: column;
+}
+.mobile-nav-drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.25s ease;
+}
+/* The visible way in -- edge-swipe and tap-the-bar still work, but neither is
+   discoverable by sight nor reachable by keyboard. */
+/* 44 square. It was 34, which clears the 24px WCAG floor but sits under the
+   44px every mobile platform actually asks for -- and this is the only way into
+   the menu for anyone who does not know about the edge swipe or the tap-anywhere
+   bar. The glyph inside stays 18px; the growth is target, not decoration. */
+.mobile-nav-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.mobile-nav-menu-btn:hover { border-color: var(--teal); color: var(--teal); }
+.mobile-nav-bar-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* What a page puts where the brand goes. The display face at the brand's own weight,
+   so the bar still reads as the top of the site rather than as a toolbar that has
+   appeared -- and ellipsised, because the label is the page's to choose and this is a
+   phone. */
+.mobile-nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+  text-decoration: none;
+}
+.mobile-nav-back:hover { color: var(--teal); }
+.mobile-nav-back-chev {
+  flex: none;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.mobile-nav-drawer-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+.mobile-nav-drawer-links {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 2px;
+}
+/* 14px of padding around a 16px line box is 44 on the nose. At 12px these rows
+   measured about 40 -- close enough to hit most of the time, which is the worst
+   kind of wrong, since the misses feel like the link is broken. */
+.mobile-nav-drawer-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  padding: 14px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+.mobile-nav-drawer-link .site-nav-icon {
+  width: 18px;
+  height: 18px;
+}
+.mobile-nav-drawer-link:active {
+  background: var(--panel-2);
+}
+.mobile-nav-drawer-link.active {
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+.mobile-nav-drawer-link.active .site-nav-icon {
+  opacity: 1;
+}
+
+/* The bar's inner is capped at 1040px, so every viewport at or above that gets the
+   same 1040 and the clock either fits at all of them or at none. Below it the inner is
+   the viewport, and the width the clock needs comes straight out of the nav links --
+   which squeeze silently and clip their own labels rather than overflowing. So it is
+   dropped for the whole band between the mobile breakpoint and a full-width bar. The
+   drawer's copy is unaffected: it is in a column and has the room for the full form.
+
+   1054 and not 1039 because a media query measures the viewport INCLUDING the
+   scrollbar while layout gets what is left. On a platform with classic ~15px
+   scrollbars -- Windows, and Linux -- a 1050px window passes a 1039 test, hands layout
+   about 1035, and quietly eats the slack this strip is holding. macOS overlay
+   scrollbars are 0px wide, so that band cannot be reproduced here and the number is
+   reasoned rather than measured: 1040 of layout plus 15 of scrollbar, minus one. */
+@media (max-width: 1054px) {
+  .site-nav .site-nav-clock { display: none; }
+}
+
+@media (max-width: 900px) {
+  /* Desktop nav (and its dynamically-measured spacer) hidden
+     entirely -- MobileNavDrawer takes over completely below this
+     width, not just a CSS variant of the same markup. */
+  .site-nav {
+    display: none;
+  }
+  .site-nav-spacer {
+    display: none;
+  }
+
+  .mobile-nav-bar {
+    display: flex;
+  }
+  .mobile-nav-spacer {
+    display: block;
+  }
+  .mobile-nav-overlay {
+    display: block;
+  }
+  .mobile-nav-drawer {
+    display: flex;
+  }
+}

@@ -1,0 +1,226 @@
+/* Split from globals.css -- farming.css */
+
+
+
+/* --- Farming guide --- */
+.farming-main { padding-top: 12px; }
+
+.farming-legend-top {
+  margin-top: 0;
+  margin-bottom: 18px;
+  padding-top: 0;
+  padding-bottom: 10px;
+  border-top: none;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+@keyframes farmingTableFlowIn {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.farming-table-enter {
+  animation: farmingTableFlowIn 0.6s ease-out both;
+}
+
+.farming-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.farming-accordion-section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.farming-accordion-section.open { border-color: var(--teal); }
+.farming-accordion-body-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  max-height: 0;
+  overflow: hidden;
+  min-height: 0;
+  transition: grid-template-rows 0.35s ease, max-height 0.35s ease;
+}
+.farming-accordion-body-wrap.open {
+  grid-template-rows: 1fr;
+  max-height: 3000px;
+}
+.farming-accordion-body-wrap > .farming-accordion-body {
+  overflow: hidden;
+  min-height: 0;
+}
+.farming-accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text);
+  letter-spacing: normal;
+}
+.farming-accordion-section.open .farming-accordion-header { color: var(--teal); }
+.farming-accordion-arrow { font-size: 14px; color: var(--text-dim); }
+.farming-accordion-body {
+  padding: 6px 18px 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.farming-tile-grid-open {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.farming-tile-grid-open.farming-tile-grid-t3 {
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+}
+
+.farming-tile-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+}
+.farming-material-icon-open {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+.farming-material-name-open {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.farming-stage-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.farming-stage-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.3;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  text-align: center;
+}
+.farming-kind-plain {
+  background: var(--panel);
+  color: var(--text-dim);
+  border-color: var(--line-soft);
+}
+.farming-kind-efficient {
+  background: rgba(77, 163, 232, 0.15);
+  color: #4DA3E8;
+  border-color: rgba(77, 163, 232, 0.4);
+}
+.farming-kind-focused {
+  background: rgba(232, 197, 77, 0.15);
+  color: #E8C54D;
+  border-color: rgba(232, 197, 77, 0.4);
+}
+.farming-kind-alternative {
+  background: rgba(232, 140, 77, 0.15);
+  color: #E88C4D;
+  border-color: rgba(232, 140, 77, 0.4);
+}
+.farming-kind-future {
+  background: rgba(80, 200, 120, 0.15);
+  color: #50C878;
+  border-color: rgba(80, 200, 120, 0.4);
+}
+.farming-kind-eventActive {
+  background: rgba(80, 200, 120, 0.15);
+  color: #50C878;
+  border-color: rgba(80, 200, 120, 0.4);
+}
+
+/* These five chip colours were picked against the dark panel and never given a
+   light-theme counterpart, so on white they measured 1.68:1 (focused/yellow),
+   2.13:1 (green) and 2.72:1 (blue) -- the stage codes, which are the page's
+   actual content, all but vanished. Darkened here to clear 4.5:1 on --panel
+   while keeping each chip's hue recognisably the same as its dark-mode twin. */
+:root[data-theme="light"] .farming-kind-efficient { color: #1F6392; border-color: rgba(31, 99, 146, 0.45); background: rgba(31, 99, 146, 0.1); }
+:root[data-theme="light"] .farming-kind-focused { color: #7A5B00; border-color: rgba(122, 91, 0, 0.45); background: rgba(122, 91, 0, 0.1); }
+:root[data-theme="light"] .farming-kind-alternative { color: #94480F; border-color: rgba(148, 72, 15, 0.45); background: rgba(148, 72, 15, 0.1); }
+:root[data-theme="light"] .farming-kind-future,
+:root[data-theme="light"] .farming-kind-eventActive { color: #22693C; border-color: rgba(34, 105, 60, 0.45); background: rgba(34, 105, 60, 0.1); }
+.farming-stage-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.farming-countdown {
+  font-family: var(--font-mono);
+  /* Was 8px. This is the event's remaining time -- "120 days", "NOW" -- which is
+     the reason half this page is worth reading, not a footnote. */
+  font-size: 10px;
+  color: #22693C;
+  white-space: nowrap;
+}
+:root:not([data-theme="light"]) .farming-countdown { color: #50C878; }
+
+.farming-footnote {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--amber);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.farming-legend {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+.farming-legend p { margin: 0; }
+.farming-legend-label {
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.farming-countdown.farming-countdown-now {
+  color: #3ECF8E;
+  font-weight: 700;
+}

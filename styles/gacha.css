@@ -1,0 +1,591 @@
+/* Split from globals.css -- gacha.css */
+
+
+.gacha-banner-date { font-size: 13px; font-weight: 400; color: var(--text-dim); }
+.gacha-banner-main-image {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line-soft);
+}
+
+.gacha-pity-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.gacha-pity-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.gacha-pity-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+.gacha-pity-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--teal);
+}
+
+.gacha-stats-rates {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.gacha-pull-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.gacha-pull-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+.gacha-pull-grid .gacha-pull-card {
+  flex: 1 1 0;
+  min-width: 0;
+}
+@media (max-width: 800px) {
+  .gacha-pull-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .gacha-pull-grid .gacha-pull-card {
+    flex: unset;
+  }
+}
+.gacha-pull-card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 8px;
+  text-align: center;
+}
+@keyframes gachaPullSlideFromBottom {
+  from {
+    transform: translateY(18px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes gachaPullSlideFromTop {
+  from {
+    transform: translateY(-18px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes gachaPullSettleGlow {
+  0% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  30% {
+    box-shadow: 0 0 12px 2px var(--gacha-glow-color, rgba(77, 232, 209, 0.7));
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.gacha-pull-slide-bottom {
+  animation-name: gachaPullSlideFromBottom, gachaPullSettleGlow;
+  animation-duration: 0.4s, 0.6s;
+  animation-timing-function: ease-out, ease-out;
+  animation-fill-mode: both, both;
+  animation-delay: 0s, 0.4s;
+}
+.gacha-pull-slide-top {
+  animation-name: gachaPullSlideFromTop, gachaPullSettleGlow;
+  animation-duration: 0.4s, 0.6s;
+  animation-timing-function: ease-out, ease-out;
+  animation-fill-mode: both, both;
+  animation-delay: 0s, 0.4s;
+}
+.gacha-pull-icon {
+  width: 100%;
+  max-width: 56px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  object-fit: cover;
+  margin: 0 auto 6px;
+  display: block;
+  background: var(--panel-2);
+}
+.gacha-pull-icon-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-faint);
+}
+.gacha-pull-rarity {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+}
+.gacha-pull-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gacha-pull-featured {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--amber);
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+.gacha-bonus-tag {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--amber);
+  color: #2A1B00;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.pull-six { border-color: var(--amber); box-shadow: 0 0 10px rgba(245, 166, 35, 0.13); }
+.pull-six .gacha-pull-rarity { color: var(--amber); }
+.pull-five { border-color: #F5D547; }
+.pull-five .gacha-pull-rarity { color: #F5D547; }
+.pull-four { border-color: #8A7EF8; }
+.pull-four .gacha-pull-rarity { color: #8A7EF8; }
+.pull-three { border-color: #FFFFFF; }
+.pull-three .gacha-pull-rarity { color: #FFFFFF; }
+
+.gacha-history-toggle {
+  font-size: 18px;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+}
+.gacha-history-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.gacha-history-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.gacha-history-chip.pull-six { color: #FF6B9D; border-color: #FF6B9D66; }
+.gacha-history-chip.pull-five { color: var(--teal); border-color: var(--teal-dim); }
+.gacha-history-chip.pull-four { color: var(--text-dim); }
+.gacha-history-chip.pull-three { color: var(--text-faint); }
+.pullable-six-star {
+  width: 56px;
+  height: 56px;
+  background: rgba(245, 166, 35, 0.15);
+  color: var(--amber);
+  border-color: rgba(245, 166, 35, 0.4);
+}
+.pullable-five-star {
+  width: 56px;
+  height: 56px;
+  background: rgba(77, 232, 209, 0.12);
+  color: var(--teal);
+  border-color: rgba(77, 232, 209, 0.35);
+}
+.pullable-four-star {
+  width: 56px;
+  height: 56px;
+  background: rgba(140, 160, 174, 0.12);
+  color: var(--text-dim);
+  border-color: rgba(140, 160, 174, 0.35);
+}
+
+.gacha-banner-list {
+  flex-wrap: wrap;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.gacha-main {
+  overflow-anchor: none;
+}
+.gacha-category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+@media (max-width: 720px) {
+  .gacha-category-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+  .gacha-category-row button {
+    flex-shrink: 0;
+  }
+}
+
+.gacha-mobile-view-toggle {
+  display: none;
+}
+.gacha-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.gacha-banner-sidebar {
+  flex: 0 0 260px;
+  max-height: 70vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  transition: flex-basis 0.2s ease;
+}
+.gacha-banner-sidebar.collapsed {
+  flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
+  border: none;
+  background: none;
+}
+.gacha-sidebar-reopen {
+  writing-mode: vertical-rl;
+  padding: 14px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.gacha-banner-sidebar-item {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 110px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.gacha-banner-sidebar-item:hover { border-color: var(--teal); }
+.gacha-banner-sidebar-live-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  background: var(--danger-solid);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+}
+/* The art is the point of these rows -- it is how you recognise a banner
+   before you read its name -- so it is only dimmed enough to sit behind
+   text, not hidden. It used to be 0.35 UNDER a scrim that started fully
+   opaque at the left edge and was still 0.82 at the middle, which left
+   about 6% of the artwork visible across most of the card. */
+.gacha-banner-sidebar-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.72;
+}
+/* Contrast comes from a band behind the text instead of a veil over the
+   whole card. The art behind these rows varies wildly -- pale key art put
+   the date at 3.49:1 with nothing but a text-shadow holding it up, and on
+   the Zima and Necrass cards it collided with the artwork's own baked-in
+   lettering -- so the text needs a predictable ground. A band that hugs
+   the text gives it one while leaving the rest of the row as artwork:
+   #E7EEF3 and #8CA0AE over this reach ~15:1 and ~6.7:1 whatever is behind.
+   It has to be a real element rather than the card's ::after, because the
+   name wraps to anywhere from one line to five and a fixed scrim cannot
+   know how tall the text will be. */
+.gacha-banner-sidebar-text {
+  position: relative;
+  z-index: 2;
+  width: calc(100% + 28px);
+  margin: 0 -14px -12px;
+  padding: 7px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgb(12 17 23 / 0.88);
+}
+/* Softens the band's top edge into the art rather than cutting a line across it. */
+.gacha-banner-sidebar-text::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 26px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(12 17 23 / 0), rgb(12 17 23 / 0.88));
+}
+:root[data-theme="light"] .gacha-banner-sidebar-text { background: rgb(255 255 255 / 0.9); }
+:root[data-theme="light"] .gacha-banner-sidebar-text::before {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0), rgb(255 255 255 / 0.9));
+}
+/* One rule each. Both of these were previously declared twice in this file --
+   16px/700 and 11px, then again 12px/600 and 10px mono a few lines later --
+   so the first pair never applied at any point. */
+.gacha-banner-sidebar-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: normal;
+}
+.gacha-banner-sidebar-date {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.gacha-banner-sidebar-item.active {
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+
+.gacha-main-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.gacha-featured-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.gacha-featured-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  font-size: 11px;
+  text-align: center;
+  width: 80px;
+}
+.gacha-featured-chip img { width: 44px; height: 44px; border-radius: 4px; }
+.gacha-featured-chip-6 { border-color: rgba(245, 166, 35, 0.4); }
+.gacha-featured-chip-5 { border-color: rgba(77, 232, 209, 0.35); }
+
+.gacha-featured-percent {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--teal);
+}
+/* Beside the percent, and quieter than it. Unstyled, "Obtained: 0" came out as
+   11px Inter at full text brightness -- the loudest thing in a chip whose actual
+   subject is the rate above it. */
+.gacha-featured-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.gacha-owned-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.gacha-owned-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  width: 80px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  text-align: center;
+}
+.gacha-owned-card img { width: 44px; height: 44px; border-radius: 4px; }
+.gacha-owned-card.owned {
+  border-color: var(--danger);
+  background: var(--danger-dim);
+  opacity: 0.7;
+}
+.gacha-owned-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.gacha-pull-rate-up {
+  color: var(--amber);
+}
+
+.gacha-other-toggle {
+  margin-top: 10px;
+  font-size: 12px;
+}
+.gacha-info-toggle-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gacha-info-toggle-row .gacha-other-toggle {
+  margin-top: 10px;
+}
+.gacha-ramp-table-wrap {
+  margin-top: 10px;
+  overflow-x: scroll;
+}
+.gacha-ramp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.gacha-ramp-table th,
+.gacha-ramp-table td {
+  padding: 4px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+}
+.gacha-ramp-table th:first-child,
+.gacha-ramp-table td:first-child {
+  text-align: left;
+  color: var(--text-dim);
+}
+.gacha-ramp-table th {
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.gacha-ramp-row-highlight td {
+  color: var(--amber);
+  font-weight: 700;
+}
+.gacha-ramp-row-expand {
+  cursor: pointer;
+}
+.gacha-ramp-row-expand td {
+  text-align: center;
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+  transition: color 0.15s;
+}
+.gacha-ramp-row-expand:hover td {
+  color: var(--teal);
+}
+.gacha-other-list {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+.gacha-other-row { margin: 0 0 6px; }
+.gacha-other-row:last-child { margin-bottom: 0; }
+.gacha-other-row-label {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.gacha-banner-sidebar-more {
+  width: 100%;
+  padding: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+.gacha-spark-store-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--amber);
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.16), transparent);
+  color: var(--amber);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 13px;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+.gacha-spark-store-btn:hover {
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.28), rgba(245, 166, 35, 0.05));
+  box-shadow: 0 0 14px rgba(245, 166, 35, 0.35);
+}
+.gacha-spark-store-modal {
+  max-width: 560px;
+}
+.gacha-spark-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.gacha-spark-store-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  font-size: 11px;
+}
+.gacha-spark-store-item img {
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+}
+.gacha-spark-store-cost {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--amber);
+  font-size: 12px;
+}

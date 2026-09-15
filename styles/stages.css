@@ -1,0 +1,1923 @@
+/* Split from globals.css -- stages.css */
+/* --- Stages page --- */
+.stages-category-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+/* --- Stage browser -------------------------------------------------------
+   Ported from the arkpedia-web prototype, re-expressed in this site's tokens
+   rather than the prototype's own palette. The map's tile colours are the one
+   exception and stay hard-coded in lib/stages/stageTiles.ts, because they are
+   sampled from the game's renders and are data about Arknights, not theme. */
+.stage-search,
+.stage-select {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+.stage-search { padding: 8px 11px; font-size: 13px; }
+.stage-select { padding: 7px 10px; font-size: 12px; }
+.stage-rail-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+.stage-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+/* Two classes deep on purpose: button.ghost is (0,1,1) and a single class
+   cannot beat it, so a lone .stage-rail-clear left the button at ghost's 12px
+   /8px-14px metrics -- 6px taller than the 26px foot reserves, which pushed the
+   rows down the moment a filter became active. */
+.stage-rail-foot button.stage-rail-clear {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 5px 10px;
+}
+
+/* The list is a table in behaviour but a set of links in structure, so the
+   row declares its own columns. */
+.stage-rows {
+  display: flex;
+  flex-direction: column;
+}
+.stage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  gap: 2px 12px;
+  align-items: center;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+}
+.stage-row:hover {
+  background: var(--panel-2);
+  border-left-color: var(--teal);
+}
+.stage-row-code {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--teal);
+}
+.stage-row-name { font-size: 13px; }
+.stage-row-zone {
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-empty { padding: 16px 12px; }
+.stage-provenance { margin-top: 14px; line-height: 1.6; }
+
+.stage-variant-badge,
+.stage-boss-badge,
+.stage-kind-badge,
+.stage-override-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+}
+.stage-boss-badge { color: var(--danger); border-color: var(--danger); }
+.stage-variant-badge { color: var(--amber); border-color: var(--amber); }
+
+.stage-title-name {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.stage-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.stage-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--line-soft);
+}
+.stage-stat {
+  flex: 1 1 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: var(--panel);
+}
+.stage-stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.stage-stat-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 19px;
+}
+
+.stage-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stage-section-head h2 { margin: 0; }
+.stage-map-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+.stage-map-tools button { font-size: 12px; padding: 7px 12px; }
+/* The fullscreen control sits with the heading now, so it must not be dragged along by
+   the tools row's auto margin. */
+.stage-section-head > .stage-fullscreen { flex: none; }
+/* Words that are worth their room on a desktop and are noise on a phone. */
+.wide-only { display: inline; }
+
+.stage-mapwrap { overflow-x: scroll; }
+.stage-mapwrap svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.stage-ingame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #070b0f;
+}
+.stage-ingame figcaption { margin-top: 8px; }
+.stage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 11px 2px 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--line-soft);
+  margin-top: 12px;
+}
+.stage-legend i {
+  display: inline-block;
+  /* 13 rather than 11: it holds a mechanic glyph now, and 11 was too small to read
+     one. */
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.stage-enemy-idx,
+.stage-enemy-head .num,
+.stage-enemy-row .num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.stage-enemy-head .num,
+.stage-enemy-row .num { text-align: right; }
+.stage-drops {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 8px;
+}
+/* Every card is the same three things in the same places: icon, name, and the
+   rarity and rate under it. It used to be a flex row with the rate pushed right by
+   margin-left:auto, so a long name shoved the rate against it and wrapped it while
+   a short one left it far away -- no two cards read alike. */
+.stage-drop {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  min-height: 50px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+.stage-drop-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* One box for both kinds of drop, so a row of materials and a first-clear
+   operator line up: the item sprites are square, the operator portraits are
+   not, and object-fit settles the difference. */
+.stage-drop-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  object-fit: contain;
+}
+.stage-drop-icon.operator {
+  object-fit: cover;
+  background: var(--panel);
+}
+/* The row the stage is actually farmed for. COLOUR ONLY -- the border already
+   exists at 1px and only its colour changes, so a highlighted card cannot reflow
+   the grid the way a thicker border or extra padding would. */
+.stage-drop.main {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 10%, var(--panel-2));
+}
+.stage-drop.main .stage-drop-name { color: var(--teal); }
+
+.stage-drop-icon.blank {
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}
+.stage-drop-name {
+  font-size: 13px;
+  line-height: 1.25;
+  /* Two lines at most: an item name is worth reading in full, but a third line
+     would make one card taller than the rest of its row. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.stage-drop-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The map area reserves the schematic's aspect ratio, so switching to the
+   in-game render cannot resize the section and shove the page around. */
+.stage-map-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* Capped so a wide map is not 800px tall at full content width. The svg
+     letterboxes inside the box via object-fit, so the aspect-ratio reservation
+     still holds and toggling the in-game view cannot resize the section.
+     (An earlier attempt at this was reverted after the box appeared to
+     collapse to zero -- that reading came from the preview pane's viewport
+     being 0 wide, not from the page. Verified by screenshot this time.) */
+  max-height: 52vh;
+  /* An explicit width is what stops the box shrinking: a block with an
+     aspect-ratio and width:auto reduces its INLINE size when max-height clamps
+     it, so a near-square map sat 508px wide in a 934px pane and left the right
+     half of the section empty. With a definite width the svg letterboxes
+     inside instead, and a wide map now fills the pane. */
+  width: 100%;
+}
+/* The SVG carries only a viewBox, so it has no intrinsic size to fill this box
+   with -- inside the aspect-ratio area it collapsed to 0x0 and the map vanished
+   while still being in the DOM. Sizing both the wrap and the svg explicitly is
+   what gives the viewBox something to scale into. */
+.stage-map-area > * { max-width: 100%; max-height: 100%; }
+.stage-map-area > .stage-mapwrap { width: 100%; height: 100%; }
+.stage-map-area .stage-mapwrap svg { width: 100%; height: 100%; object-fit: contain; }
+
+/* The fullscreen toggle: an icon where the others in the row are words, so it gets a
+   square-ish box of its own rather than their text padding. */
+.stage-map-tools .stage-fullscreen { padding: 6px 8px; line-height: 0; }
+.stage-expand-glyph { display: block; width: 14px; height: 14px; }
+
+/* Fullscreen.
+   The section becomes the whole screen, so it lays itself out as one: heading and
+   tools at the top, the playback row at the bottom, and the map taking everything
+   between. 52vh is lifted here -- it exists to stop a wide map being 800px tall in
+   the page, which is not a problem the screen has -- and the map's own box goes
+   definite-height instead, letting the svg letterbox inside it exactly as it does
+   in the page. */
+.op-section:fullscreen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 22px;
+  background: var(--bg);
+  overflow: hidden;
+  /* The game's own pointer, in fullscreen only -- the page keeps the system cursor,
+     because a custom cursor over a page of links and prose is just worse.
+     
+     PNG rather than the webp it arrived as: Chrome takes a webp cursor and Safari does
+     not. 81x64, which is inside the 128px browsers cap and draws at about half that on
+     a 2x screen. The 6 5 is the hotspot, measured rather than guessed -- the opaque
+     pixel nearest the top-left corner, which is the point of the arrow. `default`
+     stays as the fallback, so a missing file degrades instead of breaking. */
+  cursor: url('/cursors/prts.png') 6 5, default;
+}
+.op-section:fullscreen .stage-map-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+/* Everything inside keeps the game's pointer, controls included -- the game does not
+   swap cursors over its own buttons either, and a control that flickered back to the
+   system arrow was the one thing that gave the illusion away. The search box is the
+   exception: a text field with no I-beam is a text field nobody finds. */
+.op-section:fullscreen *:not(input) { cursor: inherit; }
+.op-section:fullscreen input[type="search"] { cursor: text; }
+/* Painted behind the section, and seen only if the section ever fails to fill the
+   screen -- black by default, which would not be this site. */
+.op-section:fullscreen::backdrop { background: var(--bg); }
+
+/* The list row: code with its name beneath, details to the right. */
+.stage-row-ident { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stage-row-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: right; }
+.stage-row-facts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Fitted inside the reserved .stage-map-area, so switching between the
+   schematic and the render cannot change the section's height. */
+.stage-ingame { margin: 0; display: flex; width: 100%; height: 100%; }
+.stage-ingame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #070b0f;
+}
+
+/* --- Enemy cards ---------------------------------------------------------
+   Collapsed to a row, expanding to stats, abilities and flavour text. A stage
+   can field 40 enemies, so the detail is opt-in per enemy rather than always
+   printed. */
+/* The roster's two halves: what the stage always fields, and what it only may.
+   A rule rather than a bigger heading -- the rank titles under it are plain h3s,
+   and out-weighing them would have made the roster read as two pages. Amber on the
+   maybe, the same amber the cards use for a form that exists but is not this one. */
+/* The drops' own headings ("Guaranteed", "Event currency"), and the roster's rank
+   headings, which share the class. Nothing styled it, so they came out at the
+   browser's default h3 -- 18.72px bold Inter, the largest text on the page, above a
+   list of 11px mono rows. This is the same weight as the section head above it. */
+.stage-drop-group { margin-bottom: 12px; }
+.stage-drop-group-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.stage-enemy-section + .stage-enemy-section { margin-top: 4px; }
+.stage-enemy-section-title {
+  margin: 0 0 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--teal);
+}
+.stage-enemy-section-title.may { color: var(--amber); }
+.stage-enemy-rank-title {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.stage-enemy-rank-group { margin-bottom: 14px; }
+.stage-enemy-cards { display: flex; flex-direction: column; gap: 4px; }
+.stage-enemy-card {
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.stage-enemy-card.open { border-color: var(--teal-dim); }
+/* Metrics pinned across both states, so expanding a row changes what is shown
+   and not the size of the header above it. */
+/* Columns rather than a flex row: the stats used to be pushed right by
+   margin-left:auto, so where HP started depended on how long the enemy's name was
+   and no two cards' numbers lined up. */
+.stage-enemy-head-btn {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.stage-enemy-head-btn:hover { color: var(--teal); background: transparent; }
+.stage-enemy-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--panel);
+}
+.stage-enemy-icon-blank { border: 1px dashed var(--line); }
+.stage-enemy-card-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stage-enemy-card-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.stage-enemy-card-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 64px);
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.stage-enemy-chevron {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-faint);
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.stage-enemy-detail {
+  padding: 0 10px 12px 54px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* Paragraphs keep their default 1em margins otherwise, which on top of the flex
+   gap left a 40px hole between the flavour text and the note under it. */
+.stage-enemy-detail p { margin: 0; }
+/* Label column, then value. It was a flex row with justify-content:space-between
+   inside cells 180px and wider, so each value was flung to the right edge of its
+   own cell and the pairs read as "DAMAGE ......... Physical ATTACKS ....... Melee"
+   -- the label of one and the value of another sitting next to each other. A fixed
+   label column puts every value in the same place instead. */
+.stage-enemy-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(252px, 1fr));
+  gap: 3px 20px;
+}
+.stage-enemy-kv {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+}
+.stage-enemy-kv-label {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.stage-enemy-kv-value { font-family: var(--font-mono); font-size: 11px; }
+
+@media (max-width: 700px) {
+  .stage-enemy-card-stats { display: none; }
+  .stage-enemy-detail { padding-left: 10px; }
+}
+
+/* Battle timeline: play/pause, a scrubber, and the clock. */
+.stage-playback {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.stage-playback button { font-size: 12px; padding: 7px 14px; }
+.stage-scrub { flex: 1; min-width: 180px; accent-color: var(--teal); }
+.stage-clock {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  min-width: 92px;
+  text-align: right;
+}
+.stage-clock-total { color: var(--text-faint); }
+
+/* --- Two-pane layout ------------------------------------------------------
+   The prototype's reading: filters and the stage list hold their place on the
+   left, and the chosen stage fills the column beside them. */
+.stage-shell {
+  display: grid;
+  /* Narrower than it was: the page uses the site's standard 1040px container
+     like every other page rather than the 1320px tool width, and the rail gave
+     up its sanity and enemy columns to fit. */
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+/* The rail is exactly as tall as the viewport allows and scrolls inside
+   itself. Every rule in this chain is load-bearing: drop the height, or the
+   min-height:0 on either flex level, and the rows grow to their natural
+   height (2,436px for a 28-stage event) and spill down the page instead --
+   which is what the first version of this did. `top` clears the fixed site
+   nav, whose height is published as --nav-h by Sitenav because it shrinks
+   when the nav collapses. */
+.stage-list-col {
+  position: sticky;
+  top: calc(var(--nav-h, 58px) + 12px);
+  /* Sized for the pinned state, which is where the reader spends nearly all their time.
+     The rail is one box and the two states genuinely have different space available:
+     pinned, its top is the sticky offset; at the very top of the page it sits lower, by
+     the height of the page head. Sizing for the shorter of the two, which an earlier
+     version did, cost 130px on a 900px viewport and left the list stopping well short
+     of the bottom of the screen for no visible reason, which is worse than what it
+     fixed. Sizing for the pinned state instead means that at the very top of the page
+     the last row sits below the fold by the head's height, and the same small scroll
+     that brings it into view is the one that pins the rail.
+     Nothing here changes while scrolling, so no JavaScript watches the scroll: the
+     height used to be set on every frame from the rail's live position, which is what
+     made the list resize itself a beat after the reader stopped.
+     dvh rather than vh: on a phone the two differ by the browser's own chrome, and vh
+     is the taller one, which is how the last rows ended up under the address bar. */
+  height: calc(100dvh - var(--nav-h, 58px) - 24px);
+  min-height: 320px;
+  display: flex;
+  min-width: 0;
+}
+.stage-rail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.stage-rail-head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.stage-rail .stage-rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* The rail's scroll stops at its own ends rather than handing the rest of
+     the gesture to the page, so looking for a stage never scrolls the stage
+     beside it away. */
+  overscroll-behavior: contain;
+  /* offsetTop of a row is read against this box when the open stage is
+     scrolled into view. */
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.stage-rail-more { padding: 12px 11px; margin: 0; }
+.stage-list-col .stage-empty { padding: 16px 11px; }
+
+/* Rail rows: code, then name. */
+.stage-list-col .stage-row-name,
+.stage-list-col .stage-row-zone {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-list-col .stage-row-name { font-size: 12.5px; color: var(--text-dim); }
+.stage-list-col .stage-row-code { font-size: 12.5px; }
+.stage-list-col .stage-row-zone { font-size: 10px; color: var(--text-faint); }
+/* One column, now that nothing sits to the right of the name. */
+.stage-list-col .stage-row { grid-template-columns: minmax(0, 1fr); }
+/* Selection is colour only -- the transparent left border is already there in
+   the resting state, so nothing moves when a row becomes the open one. */
+.stage-list-col .stage-row.selected {
+  border-left-color: var(--teal);
+  background: var(--panel-2);
+}
+
+.stage-detail-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+/* .op-section carries a 36px bottom margin for stacked pages; in this column
+   the flex gap already spaces the sections. */
+.stage-detail-col .op-section { margin-bottom: 0; }
+.stage-empty-pane { display: flex; align-items: center; justify-content: center; min-height: 260px; }
+
+/* The stage's own identity, at the head of the pane beside the list. */
+.stage-brief { display: flex; flex-direction: column; gap: 10px; }
+.stage-brief .stage-badges { margin: 0; }
+.stage-brief .sub { margin: 0; }
+
+/* At this width the columns stop being readable side by side, so the list goes
+   back above the stage rather than being squeezed -- later than before, since a
+   264px rail beside a 1040px container leaves the stage enough room down to
+   roughly 820px. The height cap moves to the rows, because a full-viewport rail
+   stacked above the stage would mean scrolling past a whole screen of list to
+   reach the map. */
+@media (max-width: 820px) {
+  .stage-shell { grid-template-columns: minmax(0, 1fr); }
+  .stage-list-col { position: static; height: auto; min-height: 0; }
+  /* Stacked, there is nothing beside the rail to protect, and containment just
+     means a swipe that lands in the list cannot carry on down the page. */
+  .stage-rail .stage-rows { max-height: 40vh; overscroll-behavior: auto; }
+  /* Stacked, the head has width to spare and height to save -- the stage is
+     below the list here, so every pixel the filters take is a pixel further to
+     scroll before the map. */
+  .stage-rail-head { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  /* min-width:0 matters here and not in the column layout: laid out in a row
+     the select's main-axis automatic minimum size is its longest option
+     ("Stationary Security Service (227)"), which pushed it past the rail's
+     right edge on a phone. */
+  .stage-search { flex: 1 1 240px; min-width: 0; }
+  .stage-select { flex: 1 1 220px; width: auto; min-width: 0; }
+  .stage-rail-foot { flex: 1 1 100%; }
+}
+@media (max-width: 700px) {
+  .stage-rail .stage-rows { max-height: 34vh; }
+}
+
+/* --- Slim page head -------------------------------------------------------
+   The full site header ran 184px tall and, on a stage page, changed with every
+   row you clicked while the panes stayed put. Two lines instead, wide-aligned
+   with .main-wide (the default header is capped at 1040px, which left the
+   title indented 140px further than the panes below it). */
+.stages-head {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.stages-head .eyebrow { margin-bottom: 2px; }
+.stages-head h1 { font-size: 26px; margin: 0; }
+.stages-head .sub { margin: 6px 0 0; }
+
+/* --- Stage form toggle ----------------------------------------------------
+   Normal / Challenge Mode / Adverse Environment / Story / 6-star. Each form is
+   its own static page, so the options are links -- but the current one has to
+   carry exactly the same metrics as the links beside it, or reading a Challenge
+   stage would shift the pane. Only colour differs. */
+.stage-variant-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stage-variant-option {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+a.stage-variant-option:hover { border-color: var(--teal); color: var(--teal); }
+.stage-variant-option.current {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--teal);
+}
+
+/* --- Route lines ----------------------------------------------------------
+   The dashes march from spawn toward the objective, so which way a route runs
+   reads without playing the timeline. The pattern period and the offset the
+   animation ends on are the same number, which is what makes the loop seamless
+   (14+6 = 20, 4+6 = 10). Ground and flying keep their different patterns: that
+   distinction was the dash before this animation existed. */
+@keyframes stage-route-march {
+  to { stroke-dashoffset: -20; }
+}
+@keyframes stage-route-march-fine {
+  to { stroke-dashoffset: -10; }
+}
+.stage-route-line {
+  stroke-dasharray: 14 6;
+  animation: stage-route-march 1.4s linear infinite;
+}
+.stage-route-line.flying {
+  stroke-dasharray: 4 6;
+  animation: stage-route-march-fine 1.1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-route-line,
+  .stage-route-line.flying { animation: none; }
+}
+/* The Emergency Ops toggle switches in place rather than navigating, so its
+   options are buttons -- which need the site's bare `button` metrics overridden
+   to match the links they sit beside. */
+button.stage-variant-option {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  cursor: pointer;
+}
+button.stage-variant-option:hover { border-color: var(--teal); color: var(--teal); background: var(--panel-2); }
+button.stage-variant-option.current,
+button.stage-variant-option.current:hover {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--teal);
+}
+/* A pre-placed unit on the map. Hover gives its name and what it does; the map
+   is a diagram, so the marker is an outline rather than a filled block that
+   would read as a tile of its own. */
+.stage-device { pointer-events: all; }
+.stage-device:hover rect { stroke-width: 2.6; }
+
+/* --- The filter's dropdown ------------------------------------------------
+   Our own, because a native select cannot align its options: macOS draws the
+   popup in the system font whatever font-family the element asks for, so a code
+   padded to a fixed width still lands somewhere different on every row. Here the
+   code, name and count are grid columns and line up by construction. */
+.stage-picker { position: relative; }
+.stage-picker-btn {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  cursor: pointer;
+}
+.stage-picker-btn:hover { border-color: var(--teal-dim); background: var(--panel-2); color: var(--text); }
+.stage-picker-btn[aria-expanded='true'] { border-color: var(--teal); }
+.stage-picker-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-faint);
+}
+.stage-picker-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--teal);
+  white-space: pre;
+}
+.stage-picker-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-picker-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fixed, so 150 entries can be wider than the 264px rail and are not clipped by
+   .stage-rail's overflow:hidden. */
+.stage-picker-pop {
+  position: fixed;
+  z-index: 60;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--teal-dim);
+  border-radius: 5px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.stage-picker-heading {
+  position: sticky;
+  top: -4px;
+  padding: 7px 8px 4px;
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+/* Metrics are identical in every state -- hover, keyboard focus and the current
+   selection change colour only, so moving through the list cannot shift it. */
+.stage-picker-opt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  border-left: 2px solid transparent;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.stage-picker-opt.active { background: var(--panel-2); }
+.stage-picker-opt.selected { border-left-color: var(--teal); background: color-mix(in srgb, var(--teal) 12%, transparent); }
+/* The seconds beside a wait node. Tabular so a two-digit wait does not shift the
+   glyph beside it, and drawn in SVG user units, which the map scales with. */
+.stage-wait-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: #0b0f14;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* A stage's description: the lead, then one line per rule it states. The rules
+   arrive newline-separated with their subject in angle brackets, and reading them
+   as one paragraph is what the source's own formatting was trying to avoid. */
+.stage-brief-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.stage-brief-desc .sub { margin: 0; }
+.stage-desc-rule {
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+.stage-desc-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  margin-right: 7px;
+}
+
+/* Playback rate. Fixed width so 1x, 2x and 4x occupy the same space and the
+   controls beside them never move. */
+.stage-playback-rates { display: flex; gap: 4px; }
+button.stage-playback-rate {
+  width: 34px;
+  padding: 5px 0;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+button.stage-playback-rate:hover { border-color: var(--teal-dim); color: var(--text); background: var(--panel-2); }
+button.stage-playback-rate.current,
+button.stage-playback-rate.current:hover {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--teal);
+}
+
+/* --- Stages landing page --------------------------------------------------
+   The modes as tabs and everything the game runs as its own banner, newest
+   first. This replaced a two-pane rail whose left column was 4,130 stage codes
+   -- you could not tell an event from its stage numbers, which is what the
+   game's own Terminal shows you instead. */
+.stage-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* Same strip as the events page's reward tabs: primary for the one you are on,
+   ghost for the rest, both tightened to tab metrics. The shared.css toggle rule
+   already keeps a selected .primary from growing beside its .ghost siblings, so
+   picking a tab cannot shift the row. */
+.stage-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stage-mode-tabs button {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.stage-mode-searchrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* The row carried no bottom margin at all, so the first row of cards sat flush
+     against the input -- on a content page the search box read as part of the grid.
+     14px, between this page's 12px grid gutter and the 18px it puts between groups. */
+  margin-bottom: 14px;
+}
+.stage-mode-search { flex: 1 1 auto; }
+.stage-mode-searchrow .stage-count { white-space: nowrap; }
+
+.stage-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(304px, 1fr));
+  gap: 14px;
+}
+.stage-mode-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  color: var(--text);
+  text-decoration: none;
+}
+.stage-mode-card:hover {
+  border-color: var(--teal);
+}
+/* The banner's own shape, 1560x500. Map renders are 512x286 and get cropped to
+   it -- they stand in for the 57 modes the game never made a banner for, where
+   one of the mode's own maps says more than an empty box would. */
+.stage-mode-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 156 / 50;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.stage-mode-art img {
+  object-fit: cover;
+}
+.stage-mode-art-none {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+.stage-mode-live {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--teal-dim);
+  border: 1px solid var(--teal);
+  color: var(--teal);
+}
+.stage-mode-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px 10px;
+  min-width: 0;
+}
+.stage-mode-line {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+.stage-mode-code {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--teal);
+}
+.stage-mode-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-mode-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Stage hits under the cards, shown only while something is typed. */
+.stage-mode-stages {
+  margin-top: 4px;
+}
+
+/* --- One chapter or event: its stages as cards ----------------------------
+   The map is the card, and the stage's number sits in front of it -- the way
+   the game's own stage select reads. */
+.stage-back {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-decoration: none;
+  /* Same as .see-more-link: a back link 13px tall is a miss on a phone, and the
+     padding is pulled back out of the layout by the margins. */
+  padding: 6px 6px;
+  margin: -6px -6px 0;
+}
+.stage-back:hover { color: var(--teal); }
+.stages-head h1 .stage-content-code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--teal);
+  margin-right: 9px;
+  vertical-align: 2px;
+}
+.stage-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+  gap: 12px;
+}
+/* The render's own 512x286. */
+.stage-card {
+  position: relative;
+  display: block;
+  aspect-ratio: 256 / 143;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--panel-2);
+  color: var(--text);
+  text-decoration: none;
+}
+.stage-card:hover { border-color: var(--teal); }
+.stage-card-art {
+  position: absolute;
+  inset: 0;
+}
+.stage-card-art img { object-fit: cover; }
+/* The map is a backdrop for text here, not the subject, so it is darkened --
+   in-game renders are bright and a code laid straight over one is unreadable. */
+.stage-card-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0.42) 0%, rgb(0 0 0 / 0.12) 45%, rgb(0 0 0 / 0.72) 100%);
+}
+.stage-card-art-none {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--panel-2) 0 7px,
+    var(--panel) 7px 14px
+  );
+}
+/* The content's banner standing in for a stage the game gave no render. Held back
+   from a real map deliberately: every card in such an event shows this same picture,
+   so at full strength a grid of them claims to be twenty different maps. Dimmed and
+   desaturated, it reads as the backdrop it is and the code and name stay first. */
+.stage-card-art-poster {
+  opacity: 0.5;
+  filter: saturate(0.65);
+  object-fit: cover;
+}
+.stage-card-code {
+  position: absolute;
+  top: 8px;
+  left: 9px;
+  right: 9px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1;
+  /* Over a photograph in either theme, so this one colour is not a token. */
+  color: #FFFFFF;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
+}
+.stage-card-code .stage-boss-badge,
+.stage-card-code .stage-variant-badge {
+  font-size: 8px;
+  align-self: flex-start;
+  background: rgb(0 0 0 / 0.4);
+}
+/* The node an Integrated Strategies card is, beside the code the game gives it.
+   400 of the 525 nodes are coded ISW-NO, so the code alone cannot tell two of them
+   apart; this is smaller and dimmer than the code because it is the game's level
+   path talking, not the game's own label. */
+.stage-card-node {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: rgb(255 255 255 / 0.72);
+  align-self: center;
+}
+.stage-card-foot {
+  position: absolute;
+  bottom: 7px;
+  left: 9px;
+  right: 9px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.stage-card-name {
+  font-size: 12px;
+  line-height: 1.2;
+  color: #FFFFFF;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-card-forms {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--amber);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
+}
+
+/* Two cards abreast on a phone rather than one: 24 stages at one card per row
+   is a very long scroll, and the code and name still fit at 150px. */
+@media (max-width: 700px) {
+  .stage-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 9px;
+  }
+  .stage-card-code { font-size: 17px; }
+  .stage-card-name { font-size: 11px; }
+}
+
+/* --- The map's HUD -------------------------------------------------------
+   The stage's numbers laid out where the game puts them: life points and the
+   enemy count along the top, DP bottom-right with the deployment limit under
+   it, the recommended level bottom-left. They were an eight-cell table between
+   the description and the map before -- above the map, which is the one place
+   the game never shows them. */
+.stage-map-area { position: relative; }
+.stage-hud {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  /* A middle column so the status line can sit centred over the map the way the
+     game centres it, with the two top corners still free either side. */
+  grid-template-areas: 'tl tc tr' 'bl bb br';
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: auto 1fr;
+  align-content: space-between;
+  padding: 7px;
+  gap: 6px;
+  /* The map underneath stays draggable and the schematic's tooltips stay
+     reachable -- the HUD is a readout, not a control. */
+  pointer-events: none;
+}
+.stage-hud-corner {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+.stage-hud-corner.tl { grid-area: tl; }
+.stage-hud-corner.tc { grid-area: tc; justify-content: center; }
+.stage-hud-corner.tr { grid-area: tr; justify-content: flex-end; }
+/* The two bottom corners hang from the bottom of their row, and DP stacks over
+   the deployment limit the way the game stacks them. */
+.stage-hud-corner.bl {
+  grid-area: bl;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+.stage-hud-corner.br {
+  grid-area: br;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+/* The game's status line: one plate, the readings ruled apart inside it. */
+.stage-hud-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 3px 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgb(11 14 19 / 0.82);
+  backdrop-filter: blur(2px);
+}
+.stage-hud-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+}
+/* Between the readings, not before the first: the game rules them apart. */
+.stage-hud-bar-item + .stage-hud-bar-item { border-left: 1px solid var(--line); }
+.stage-hud-bar-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  /* Every digit the same width, which is what makes the reserved ch above exact. */
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* DP, bottom right, the size the game gives it -- with the deployment limit spelled
+   out under it rather than abbreviated into a chip of its own. */
+.stage-hud-dp-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.stage-hud-dp {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 10px 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgb(11 14 19 / 0.82);
+  backdrop-filter: blur(2px);
+}
+.stage-hud-dp-value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  /* Right, so the figure grows into the reserved room instead of pushing the glyph. */
+  text-align: right;
+}
+.stage-hud-limit {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgb(11 14 19 / 0.82);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.stage-hud-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px 5px;
+  border-radius: 4px;
+  /* Over a render or a schematic in either theme, so these two do not come from
+     the palette: the readings have to stay legible on top of whatever the map
+     happens to be. */
+  background: rgb(8 12 16 / 0.72);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  white-space: nowrap;
+}
+.stage-hud-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgb(255 255 255 / 0.55);
+}
+
+/* Sanity and DP go to the game's own glyph instead of a word -- see StatGlyph in
+   pages/stages/[slug].tsx. Masked so it takes the colour of the label or chip it
+   replaces, which is what keeps the DP chip's own tint. `in-colour` is the AP
+   medallion, which is full-colour art and would be flattened to one tone by a mask.
+   Sized off the text it stands in for, so it tracks the 8px HUD label and the 10px
+   stat label without either being restated here. */
+.stage-stat-glyph {
+  display: inline-block;
+  vertical-align: -0.15em;
+  width: 1.6em;
+  height: 1.6em;
+  background: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+.stage-stat-glyph.in-colour {
+  background-color: transparent;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+/* The word the glyph replaced, kept for a screen reader and for find-in-page. Not
+   display:none, which would take it out of the accessibility tree along with the
+   layout. */
+.stage-stat-label-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.stage-hud-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1;
+  color: #FFFFFF;
+}
+.stage-hud-chip.wide .stage-hud-value { font-size: 14px; }
+.stage-hud-chip.life .stage-hud-value { color: var(--danger); }
+.stage-hud-chip.dp .stage-hud-value { color: var(--teal); }
+
+/* Where a glyph IS the label, it is sized like a reading rather than like a word: at
+   the label's own 1.6em it came out smaller than the number it titles, which read as
+   a decoration on the figure instead of the name of it. Above the 17px figure it sits
+   beside, deliberately -- these two chips are the ones the eye should find first. */
+.stage-hud-chip .stage-stat-glyph { width: 26px; height: 26px; }
+/* The squad mark is 88x115 -- taller than wide, unlike every other glyph here -- so
+   it keeps its own ratio instead of being squashed into the square the rest use.
+   mask-size: contain would letterbox it either way; this makes the box the right
+   shape so it sits at the same optical weight as the others. */
+.stage-stat-glyph[data-glyph="squad"] { width: 1.25em; }
+.stage-hud-chip .stage-stat-glyph[data-glyph="squad"] { width: 20px; height: 26px; }
+.stage-hud-chip.has-glyph { align-items: center; }
+
+/* A slot that holds its height and shows nothing. `visibility` rather than `display`
+   or opacity: it has to keep occupying the row, and it must not catch a pointer. */
+.stage-hud-chip.reserved { visibility: hidden; }
+
+/* No filter on the life marker any more. It used to be the enemy page's rook -- the
+   same art in RED -- turned 205 degrees so the brackets read blue while the rook,
+   being fully desaturated, stayed white. public/stat-icons/life.webp is the game's
+   own mark, blue already, so the hue-rotate is gone rather than being applied to art
+   that does not need it. */
+
+/* DP reads glyph-then-figure across, the way the game sets a cost. `center` rather
+   than baseline: the glyph is art, and it has no baseline to sit on. */
+.stage-hud-chip.icon-left {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+/* On a phone the map area is only a few hundred pixels wide, and eight stacked
+   chips cover the tiles they sit on. Each reading goes to one line there --
+   label beside value rather than above it -- which halves the height of every
+   corner and leaves the map readable. */
+@media (max-width: 700px) {
+  .stage-hud { padding: 5px; gap: 4px; }
+  .stage-hud-corner { gap: 3px; flex-wrap: wrap; }
+  .stage-hud-chip {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 6px 3px;
+  }
+  .stage-hud-value { font-size: 12px; }
+  .stage-hud-chip.wide .stage-hud-value { font-size: 11px; }
+  /* The one corner that stacks: DP over the deployment limit, as in game. */
+  .stage-hud-corner.br { flex-direction: column; }
+  /* Smaller here in step with the 12px figure beside it. */
+  .stage-hud-chip .stage-stat-glyph { width: 19px; height: 19px; }
+
+  /* The status plate and the DP block replaced the chips for enemies, life and DP, and
+     inherited none of the sizing above -- so DP sat at 24px over a map a few hundred
+     pixels wide. Everything here is the same reading, smaller. */
+  .stage-hud-bar { padding: 2px 2px; border-radius: 2px; }
+  .stage-hud-bar-item { gap: 4px; padding: 0 7px; }
+  .stage-hud-bar-value { font-size: 12px; }
+  .stage-hud-bar .stage-stat-glyph { width: 15px; height: 15px; }
+  .stage-hud-dp { gap: 5px; padding: 1px 7px 1px 6px; }
+  .stage-hud-dp-value { font-size: 17px; }
+  .stage-hud-dp .stage-stat-glyph { width: 15px; height: 15px; }
+  .stage-hud-limit { padding: 1px 6px; font-size: 9px; }
+
+}
+
+/* --- The legend, as a panel that slides in over the map's right edge ------
+   It used to sit under the map as a flat row of swatches, which is a long way
+   from the tiles it names. Mounted at all times rather than rendered on toggle,
+   because a panel that only exists while open has nothing to slide in from. */
+.stage-legend-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 66%);
+  overflow-y: auto;
+  padding: 10px 12px;
+  /* Over a schematic in either theme, like the HUD chips. */
+  background: rgb(8 12 16 / 0.93);
+  border-left: 1px solid var(--line);
+  transform: translateX(101%);
+  transition: transform 180ms ease;
+  /* Closed, it must not swallow clicks meant for the tiles underneath. */
+  pointer-events: none;
+  text-align: left;
+  cursor: pointer;
+}
+.stage-legend-overlay.open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-legend-overlay { transition: none; }
+}
+.stage-legend-overlay h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+}
+.stage-legend-overlay h3 + * { margin-bottom: 12px; }
+.stage-legend-overlay .stage-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.stage-legend-special {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+.stage-legend-special b { color: var(--text); font-weight: 600; }
+
+/* --- What one tile is ----------------------------------------------------
+   Pinned along the bottom of the map rather than floated beside the tile: the
+   schematic scales to fit its box, so a tile's place on screen is not a place
+   this could be anchored to. The tile itself keeps a ring instead. */
+.stage-tile {
+  cursor: pointer;
+}
+.stage-tile-pop {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 30px 9px 11px;
+  border-radius: 4px;
+  background: rgb(8 12 16 / 0.94);
+  border: 1px solid var(--line);
+}
+.stage-tile-pop-close {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  padding: 2px 6px;
+  background: none;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.stage-tile-pop-close:hover { color: var(--text); }
+.stage-tile-pop-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: #FFFFFF;
+}
+.stage-tile-pop-at,
+.stage-tile-pop-facts {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+.stage-tile-pop-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
+/* --- The briefing: the game's own screen for a stage ---------------------
+   Its render, then what the stage says about itself, then what it drops. */
+.stage-briefing {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* Mirrors .stage-map-area: same cap, same explicit width, so the render letterboxes
+   into the box the schematic would have occupied rather than sizing itself. The
+   aspect-ratio comes from the map, inline -- see the figure in [slug].tsx. */
+.stage-briefing-art {
+  max-height: 52vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin: 0;
+}
+.stage-briefing-art img { width: 100%; height: 100%; object-fit: contain; }
+
+/* A heading over a run of stage cards -- the floors of an Integrated Strategies
+   season, where every other content is one unbroken sequence. */
+.stage-card-group + .stage-card-group { margin-top: 18px; }
+
+/* The count beside a legend entry -- how many tiles carry it, or how many of a
+   device the map starts with. */
+.stage-legend-count {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+/* A unit standing on the clicked tile, under the tile's own description. */
+.stage-tile-pop-unit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line-soft);
+}
+.stage-tile-pop-unit b {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: #FFFFFF;
+}
+
+/* The "show more" foot under either card grid. */
+.stage-mode-more {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* --- Deploying an operator on the map -------------------------------------- */
+
+/* The squad bar, under the playback row in fullscreen: promotion on the left because
+   it changes what every tile in the strip means, then the search, then the operators. */
+/* The tile's size lives here, once, because three other rules are derived from it: the
+   strip's floor, the note's box, and the ghost. Nothing in this row may change size
+   with its contents -- an empty search must occupy exactly what a full one does. */
+.stage-deploy {
+  --op-w: 74px;
+  --op-foot: 14px;
+  --op-h: calc(var(--op-w) + var(--op-foot));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel);
+}
+.stage-deploy-elite { display: flex; gap: 2px; flex: none; }
+.stage-deploy-elite-btn {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.stage-deploy-elite-btn:hover { color: var(--text); border-color: var(--teal-dim); }
+.stage-deploy-elite-btn.current {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: rgb(77 232 209 / 0.08);
+}
+.stage-deploy-search { flex: none; width: 210px; font-size: 12px; padding: 6px 9px; }
+
+/* The strip scrolls sideways: 407 operators is the point of the search box, but an
+   unfiltered strip should still be reachable.
+   
+   The scrollbar is drawn and always there rather than the overlay kind that fades: a
+   mouse with only a vertical wheel has no other way along the row, so the bar has to be
+   a thing you can grab. `overflow-x: scroll` reserves the gutter and shared.css dresses
+   it, the same as every other side-scroller; padding-bottom keeps it off the portraits. */
+.stage-deploy-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  /* Its floor is one tile tall, so "no operator matches that" leaves the row exactly
+     the height it had a keystroke ago. */
+  min-height: var(--op-h);
+  padding-bottom: 8px;
+}
+/* Fills the strip rather than sitting in it, so it cannot be shorter than the tiles it
+   stands in for. */
+.stage-deploy-note {
+  display: flex;
+  align-items: center;
+  min-height: var(--op-h);
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+/* Always laid out, only sometimes shown: appearing would narrow the strip and slide
+   every operator in it sideways. Wide enough for a three-figure count so the count
+   itself cannot resize it either. */
+.stage-deploy-clear {
+  flex: none;
+  font-size: 11px;
+  padding: 5px 9px;
+  min-width: 74px;
+}
+.stage-deploy-clear[hidden] { display: block; visibility: hidden; }
+
+/* One operator. The game stacks the class over the portrait and the DP cost in the
+   corner, with rarity as the colour of the frame. */
+.stage-deploy-op {
+  position: relative;
+  flex: none;
+  width: var(--op-w);
+  height: var(--op-h);
+  padding: 0 0 var(--op-foot);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel-2);
+  cursor: pointer;
+  overflow: hidden;
+}
+.stage-deploy-op:hover { border-color: var(--teal-dim); }
+.stage-deploy-op.armed { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.stage-deploy-op-art { display: block; width: 100%; height: auto; }
+/* An operator whose portrait the icon set does not have: the class mark stands in. */
+.stage-deploy-op-noart { aspect-ratio: 1; background: var(--panel); }
+.stage-deploy-op { touch-action: none; }   /* a press is a drag, not a scroll */
+/* The browser's own image drag would take the pointer off us mid-gesture. */
+.stage-deploy-op img { -webkit-user-drag: none; user-select: none; }
+.stage-deploy-op-class {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.9));
+}
+.stage-deploy-op-cost {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0 4px;
+  background: rgb(11 14 19 / 0.85);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--amber);
+}
+/* The name is a strip along the bottom rather than a line under the card, so the
+   tiles stay the same height whatever the name's length. */
+.stage-deploy-op-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2px 3px;
+  background: rgb(11 14 19 / 0.9);
+  font-size: 9px;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stage-deploy-op.r6 { border-color: #d9a13b; }
+.stage-deploy-op.r5 { border-color: #c9c04a; }
+.stage-deploy-op.r4 { border-color: #9a7fc4; }
+
+/* --- and what it looks like on the map ------------------------------------- */
+
+/* The whole deployed layer sits over the map, but only some of it takes clicks -- the
+   covered tiles and the range border are a readout, and the map underneath stays
+   pickable. The two that DO need clicks say so, because pointer-events inherits: the
+   dismiss rect was declared with no rule of its own and silently took the layer's
+   `none`, which is what stopped a click anywhere from closing the selection. */
+.stage-deployed-layer { pointer-events: none; }
+.stage-deployed-layer .stage-deployed,
+.stage-deployed-layer .stage-deployed-dismiss { pointer-events: auto; }
+.stage-covered { fill: var(--teal); pointer-events: none; }
+/* The game's deployed marker: the operator in a pale ring with an amber arrowhead on
+   the side it faces. */
+.stage-deployed-ring { fill: none; stroke: rgb(233 238 242 / 0.92); stroke-width: 1.6; }
+.stage-deployed-arrow { fill: var(--amber); }
+.stage-deployed:hover .stage-deployed-ring { stroke: #fff; }
+.stage-deployed-hit { fill: transparent; cursor: pointer; }
+/* Catches the click that puts the selection away. Transparent, and under everything
+   that has its own job. */
+.stage-deployed-dismiss { fill: transparent; }   /* pointer-events set above */
+/* The selected operator's range, outlined as one region. */
+.stage-range-border {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 1.8;
+  stroke-linecap: square;
+  pointer-events: none;
+}
+
+/* --- aiming ---------------------------------------------------------------- */
+
+/* The whole picker takes pointers, unlike the readout layer it sits in. */
+.stage-aim { pointer-events: auto; }
+.stage-aim-out { fill: rgb(6 8 11 / 0.55); }
+.stage-aim-frame {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.9);
+  stroke-width: 1.6;
+  pointer-events: none;
+}
+/* The cones are drawn, never hit-tested: the gesture is measured from the tile centre,
+   so which shape happens to be under the pointer is not the question being asked. */
+.stage-aim-cone { pointer-events: none; }
+.stage-aim-lit { fill: transparent; }
+.stage-aim-chevron {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.4;
+}
+/* The direction being aimed at lights up, which is the whole feedback: the game tints
+   the side you are pulling toward. */
+.stage-aim-cone.live .stage-aim-lit { fill: rgb(216 160 60 / 0.26); }
+.stage-aim-cone.live .stage-aim-chevron { opacity: 1; stroke-width: 4; }
+.stage-aim-cancel {
+  fill: rgb(28 16 18 / 0.86);
+  stroke: #d4574f;
+  stroke-width: 1.4;
+  pointer-events: none;
+}
+.stage-aim-cancel.live { fill: #4a2321; stroke: #ff8d84; }
+.stage-aim-cancel-mark {
+  stroke: #ff8d84;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  fill: none;
+  pointer-events: none;
+}
+
+/* --- dragging an operator to a tile ---------------------------------------- */
+
+/* Under the pointer, and not in the way of it: elementFromPoint has to find the TILE
+   beneath, so the ghost cannot be hit-testable. */
+.stage-drag-ghost {
+  position: fixed;
+  z-index: 40;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  border: 1px solid rgb(233 238 242 / 0.5);
+  border-radius: 2px;
+  background: rgb(11 14 19 / 0.7);
+  line-height: 0;
+  opacity: 0.75;
+}
+.stage-drag-ghost.over { opacity: 1; border-color: var(--teal); }
+.stage-drag-ghost img { display: block; }
+
+/* Where it could land, and where it would. */
+/* While a drag OR an aim is running, the map must not pan the page out from under the
+   finger. Aiming needs it as much as dragging does: the direction is chosen by pulling
+   out of the middle, and without this the browser reads that pull as a scroll and sends
+   pointercancel instead of moves. Only during those two: the rest of the time a phone
+   has to be able to scroll past a map that is most of the screen. */
+.stage-map-area.dragging { touch-action: none; }
+.stage-map-area.dragging .stage-map-frame,
+.stage-map-area.dragging svg { touch-action: none; }
+.stage-tile.takes-drag rect { stroke: var(--teal-dim); }
+.stage-tile.drag-over rect { stroke: var(--teal); stroke-width: 2; }
+/* Retreat. Only there once the operator is selected, over its portrait, so it is a
+   deliberate second click rather than something to catch with a stray one. */
+.stage-deployed-off { cursor: pointer; }
+.stage-deployed-off circle { fill: rgb(43 20 22 / 0.92); stroke: #d4574f; stroke-width: 1.4; }
+.stage-deployed-off path { stroke: #ff8d84; stroke-width: 2.4; stroke-linecap: round; fill: none; }
+.stage-deployed-off:hover circle { fill: #582624; stroke: #ff8d84; }
+
+/* The mechanic glyph on a tile. One stroke colour for all of them: the glyph says what
+   KIND of thing happens here and the tile's fill already says what it is made of, so a
+   second colour axis would only compete with the theme tint. */
+.stage-tile-mark {
+  fill: none;
+  stroke: rgb(235 240 245 / 0.62);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.stage-tile:hover .stage-tile-mark { stroke: rgb(235 240 245 / 0.95); }
+/* In the legend swatch, where it stands on its own and can afford to be brighter. */
+.stage-legend i > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.stage-legend i > svg .stage-tile-mark { stroke: rgb(235 240 245 / 0.85); stroke-width: 1.5; }
+
+/* --- the deploy bar on a phone ---------------------------------------------------
+   AFTER the rules above rather than in the media block further up this file: these
+   set the same properties at the same specificity, so a mobile override written
+   earlier simply loses. It did -- --op-w stayed 74px and the search stayed 210px
+   wide, while flex-wrap was the only line that took effect because nothing above
+   contested it. */
+@media (max-width: 700px) {
+  .stage-deploy {
+    --op-w: 62px;
+    --op-foot: 13px;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px 6px;
+  }
+  /* Three rows: promotion and Clear share the first, the search takes the second,
+     the operators keep the third. Clear beside the elite buttons rather than on a
+     row of its own -- reserved space in a wrapping container costs a whole line. */
+  .stage-deploy-search { flex: 1 1 100%; width: auto; min-width: 0; }
+  .stage-deploy-strip { flex: 1 1 100%; }
+  .stage-deploy-clear { min-width: 0; margin-left: auto; }
+}
+
+/* --- the map's own head on a phone -----------------------------------------------
+   A heading, four actions and a view control do not fit across 375px, and left to wrap
+   they came out ragged: three buttons on one line, two on the next, the icon orphaned.
+   So the head wraps deliberately instead -- the title and the fullscreen control keep
+   the first line, and the four actions take the full width below as an even 2x2 grid.
+   Equal cells also mean pressing one cannot resize it. */
+@media (max-width: 700px) {
+  .stage-section-head { flex-wrap: wrap; }
+  .stage-section-head > .stage-fullscreen { margin-left: auto; }
+  .stage-map-tools {
+    flex: 1 1 100%;
+    margin-left: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    /* Last, so the full-width grid does not push the fullscreen control onto a third
+       line of its own. Wrapping follows DOM order otherwise, and the control is the
+       last child. */
+    order: 1;
+  }
+  .stage-map-tools button { font-size: 11px; padding: 8px 6px; }
+  /* "Toggle Paths" becomes "Paths": the verb is doing no work in a cell this wide. */
+  .wide-only { display: none; }
+}
+
+/* The glyph a spawn marker shows when nothing names it. Sized to sit inside the
+   11px disc without touching its ring. */
+.stage-unit-unknown {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+}

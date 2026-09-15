@@ -1,0 +1,60 @@
+/* Split from globals.css -- world.css */
+
+
+
+/* --- Events world map --- */
+.world-map-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.world-map-wrap.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: var(--bg);
+  padding: 24px;
+  overflow-y: auto;
+  gap: 16px;
+}
+.world-map-wrap.fullscreen .world-map-svg {
+  max-height: 80vh;
+}
+.world-map-svg {
+  width: 100%;
+  height: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.world-map-fullscreen-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+.world-map-fullscreen-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+.world-map-bg { fill: var(--panel); }
+.world-map-land {
+  fill: var(--panel-2);
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.world-map-grid { stroke: var(--line-soft); stroke-width: 1; }
+.world-map-equator { stroke: var(--teal-dim); stroke-width: 1; stroke-dasharray: 4 3; }

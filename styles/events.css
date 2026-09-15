@@ -1,0 +1,311 @@
+/* --- Events list page --- */
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.events-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--row-grad, var(--panel));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-frame, 3px);
+  padding: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+.events-row:hover {
+  border-color: var(--teal);
+}
+.events-row-poster-wrap {
+  position: relative;
+  width: 180px;
+  aspect-ratio: 16 / 7;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.events-row-live-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  /* was #e0554f -- white on it measured 3.76:1 */
+  background: var(--danger-solid);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.events-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.events-row-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.events-row-date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.events-row-ops {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.events-row-ops img {
+  border-radius: 4px;
+  border: 1px solid var(--line-soft);
+}
+
+/* --- Event detail page ---
+   The right side reuses .op-section / .op-section-tabs from
+   operator-detail.css directly (same tab-switcher pattern as the
+   operator page's own right panel: one active section shown at a
+   time, switched via primary/ghost buttons) -- so only the layout
+   wrapper and this page's own content pieces (header poster, carousel
+   dots, banner art, featured operator cards, skin cards, reward
+   cards) need their own rules here. */
+.event-detail-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.event-detail-header-poster {
+  position: relative;
+  width: 160px;
+  height: 70px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.event-detail-header-poster img {
+  border-radius: 6px;
+}
+
+.event-detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 20px;
+  align-items: start;
+}
+.event-detail-carousel {
+  position: sticky;
+  top: 20px;
+}
+.event-detail-image-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+/* Carousel auto-advances every 8s (see AnnouncementTicker-style timer
+   in pages/events/[slug].tsx) -- no prev/next buttons, just dots for
+   jumping directly to a specific image. */
+.event-detail-carousel-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+}
+.event-detail-carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-2);
+  cursor: pointer;
+  padding: 0;
+}
+.event-detail-carousel-dot.active {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.event-detail-right {
+  min-width: 0;
+}
+.event-detail-banner-art-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel-2);
+  margin-bottom: 10px;
+}
+.event-detail-featured-ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.event-detail-featured-op {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 70px;
+  font-size: 11px;
+  text-align: center;
+}
+.event-detail-featured-op img {
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+}
+
+.event-detail-skins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.event-detail-skin-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 120px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.event-detail-rewards-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.event-detail-reward-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 90px;
+  font-size: 11px;
+  text-align: center;
+}
+.event-detail-reward-item img {
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-2);
+}
+
+@media (max-width: 900px) {
+  .event-detail-layout {
+    grid-template-columns: 1fr;
+  }
+  .event-detail-carousel {
+    position: static;
+  }
+}
+
+/* Append to styles/events.css -- Rewards section sub-tabs (All + one
+   per store type present) and the reward panels themselves. */
+.event-rewards-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.event-rewards-tabs button {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+}
+
+/* 3 fixed rows, growing horizontally as items are added -- items fill
+   down each column before starting the next, so a scroll to the right
+   reveals more columns while always keeping exactly 3 rows tall.
+   Panels keep their own fixed width via grid-auto-columns rather than
+   shrinking to fit, so they stay a consistent size regardless of how
+   many are visible in the viewport. */
+.event-rewards-scroll-grid {
+  display: grid;
+  grid-template-rows: repeat(3, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: 210px;
+  gap: 10px;
+  overflow-x: scroll;
+  padding-bottom: 8px;
+}
+
+.event-reward-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+/* The quantity over the corner of the icon it counts. Neither of these two had a
+   rule, so "x3" sat as plain inline text after a 40px image -- the wrap existed to
+   position it and did not. Not seen in a browser at the time of writing: no event
+   currently in the dataset carries a reward store with quantities, so this is built
+   from the two names and the panel they sit in. */
+.event-reward-icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.event-reward-qty-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.event-reward-panel img {
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: var(--panel);
+}
+.event-reward-panel-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.event-reward-panel-name {
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.event-reward-panel-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Append to styles/events.css -- .event-detail-skin-item is now a
+   <button> (clickable, opens the skin detail modal), not a plain
+   <div>, so it needs the usual button-chrome reset. */
+.event-detail-skin-item {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}

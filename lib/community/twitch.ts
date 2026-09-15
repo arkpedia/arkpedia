@@ -1,0 +1,100 @@
+export interface TwitchStream {
+  userLogin: string;
+  displayName: string;
+  title: string;
+  gameName: string;
+  viewerCount: number;
+  thumbnailUrl: string;
+  startedAt: string;
+  url: string;
+}
+
+// In-memory cache for the app access token within a single server
+// instance -- avoids requesting a new token on every single ISR
+// revalidation. Tokens are valid for ~60 days, so a simple module-level
+// cache is more than enough here.
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getAppAccessToken(clientId: string, clientSecret: string): Promise<string | null> {
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.token;
+  }
+  try {
+    const res = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'client_credentials',
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    cachedToken = {
+      token: data.access_token,
+      expiresAt: Date.now() + (data.expires_in - 60) * 1000, // refresh a minute early
+    };
+    return cachedToken.token;
+  } catch {
+    return null;
+  }
+}
+
+export async function getLiveTwitchStreams(
+  categoryName: string,
+  limit: number,
+  clientId: string | undefined,
+  clientSecret: string | undefined
+): Promise<TwitchStream[]> {
+  if (!clientId || !clientSecret || !categoryName) return [];
+
+  const token = await getAppAccessToken(clientId, clientSecret);
+  if (!token) return [];
+
+  const headers = {
+    'Client-Id': clientId,
+    Authorization: `Bearer ${token}`,
+  };
+
+  // Resolve the category/game name to Twitch's internal game_id first.
+  let gameId: string | null = null;
+  try {
+    const gameRes = await fetch(
+      `https://api.twitch.tv/helix/games?name=${encodeURIComponent(categoryName)}`,
+      { headers }
+    );
+    if (!gameRes.ok) return [];
+    const gameData = await gameRes.json();
+    gameId = gameData.data?.[0]?.id || null;
+  } catch {
+    return [];
+  }
+  if (!gameId) return [];
+
+  const streams: TwitchStream[] = [];
+  try {
+    const res = await fetch(
+      `https://api.twitch.tv/helix/streams?game_id=${gameId}&first=${Math.min(limit, 100)}`,
+      { headers }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    for (const item of data.data || []) {
+      streams.push({
+        userLogin: item.user_login,
+        displayName: item.user_name,
+        title: item.title,
+        gameName: item.game_name,
+        viewerCount: item.viewer_count,
+        thumbnailUrl: (item.thumbnail_url as string).replace('{width}', '440').replace('{height}', '248'),
+        startedAt: item.started_at,
+        url: `https://www.twitch.tv/${item.user_login}`,
+      });
+    }
+  } catch {
+    /* return whatever we have, likely empty */
+  }
+
+  return streams;
+}

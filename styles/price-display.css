@@ -1,0 +1,17 @@
+.price-display {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.price-display-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.price-display-icon {
+  border-radius: 2px;
+}
+.price-display-sep {
+  margin: 0 4px;
+  color: var(--text-faint);
+}

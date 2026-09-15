@@ -1,0 +1,1340 @@
+/* Split from globals.css -- enemies.css (enemy handbook list + detail) */
+
+/* The browse page's own styles are gone with the page: /enemies is the frame now,
+   so the card grid, the filter bar and the breadcrumb have no markup left. Its
+   `.enemy-grid` rules were also quietly overriding the frame's -- the old
+   six-across rule and its 900px/560px breakpoints sat above the frame's block and
+   fought it, which is what broke the grid on a phone. */
+
+/* ---------- detail page ---------- */
+
+
+.enemy-hero {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+.enemy-hero-icon {
+  width: 108px;
+  flex: none;
+  margin-bottom: 0;
+}
+.enemy-hero-icon img { object-fit: contain; }
+.enemy-hero-text { min-width: 0; width: 100%; }
+.enemy-hero-text h1 { margin-top: 0; margin-bottom: 0; }
+/* One line, always. Wrapping a 46-character name pushed the rank tag and the
+   life-point cost onto a row of their own and shoved the portrait down with them.
+   The line-height is a fixed pixel value, NOT a multiplier: the size steps below
+   change this h1's font-size, and with a relative line-height every step changed the
+   line box with it, so the row -- and the portrait and every stat under it -- shifted
+   by a few pixels as you clicked between a short name and a long one. 34px clears the
+   tallest step's caps, so all four steps occupy exactly the same height. */
+.enemy-hero-name h1 {
+  white-space: nowrap;
+  line-height: 34px;
+  /* hidden, so a name can never be drawn over the tag beside it while the fit runs;
+     the ellipsis is the last resort for a name that will not fit even at the 13px
+     floor. Both are backstops -- the effect in the page shrinks the text so that
+     neither should be reached. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The steps are scoped through .enemy-hero-text so they outrank the mobile rule
+   further down that sets this h1 to 21px -- a long name needs shrinking on a phone
+   more than on a desktop, not less. */
+.enemy-hero-text .enemy-hero-name h1.enemy-name-m { font-size: 23px; }
+.enemy-hero-text .enemy-hero-name h1.enemy-name-s { font-size: 19px; }
+.enemy-hero-text .enemy-hero-name h1.enemy-name-xs { font-size: 16px; }
+
+/* The handbook stacks race, then code + name, then how it fights. */
+/* Holds the row when an enemy has no race -- 937 of them. line-height and
+   min-height are the same value on purpose: with min-height alone the empty row
+   came out 14px against a filled row's 15, so the panel still moved by a pixel as
+   you clicked between a Sarkaz and a Soldier. */
+.enemy-race {
+  line-height: 15px;
+  min-height: 15px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+/* One row, and the level buttons and life-point cost stay pinned to its right end.
+   With wrapping they dropped to a line of their own as soon as the name got long,
+   which is exactly when the name's own size steps are keeping it on this line. The
+   h1 may shrink so they never get pushed off. */
+.enemy-hero-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+.enemy-hero-name h1 { min-width: 0; }
+.enemy-hero-name .enemy-lifepoints { margin-left: 0; }
+/* The game sets the code in a solid dark block against the name, not as an
+   outlined tag -- it reads as a label stuck on rather than a piece of metadata. */
+.enemy-code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 8px;
+  flex: none;
+}
+/* The group is what gets pushed right, so it lands there whether or not the level
+   switch inside it exists. The auto margin used to sit on the switch itself, which
+   right-bound the pair only on the 182 enemies that have one. */
+.enemy-hero-name-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+/* Larger than the rest of the row on purpose: this is the one figure here that says
+   what the enemy costs you, and at 14px it read as just another tag. */
+.enemy-lifepoints {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* The glyph takes the figure's colour. It was inheriting --text-faint from
+     .enemy-stat-icon, which put a grey marker next to a red 2 on a dark panel --
+     legible in theory, invisible in practice. In game both are red. */
+  flex: none;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--danger);
+}
+.enemy-lifepoints .enemy-stat-icon { color: inherit; }
+/* The marker scales with its figure rather than staying at the 15px the stat cells
+   use. Selector goes through .enemy-stat-icon deliberately: at two classes it tied
+   with `.enemy-stat-icon .enemy-stat-art` and lost on source order, so the marker
+   stayed 15px while the number grew around it. */
+.enemy-lifepoints .enemy-stat-icon .enemy-stat-art,
+.enemy-lifepoints .enemy-stat-icon .enemy-stat-glyph { width: 24px; height: 24px; }
+
+/* A cost of nothing reads blue, the way the game marks an enemy that takes no life
+   points with it -- 156 level rows, Theresis among them.
+   The marker is artwork rather than a tintable shape, so the colour comes from
+   hue-rotate rather than a fill. That works here precisely because of what the file
+   is made of: the brackets are rgb(224,48,32) at hue 5deg, and the rook is
+   rgb(240,240,240) at zero saturation, which hue-rotate cannot move. So the brackets
+   turn and the rook stays white.
+   The blue is defined here rather than as a site token: shared.css's :root block is
+   the one region an unmerged branch is also editing, and nothing outside this page
+   needs the value. */
+.enemy-lifepoints.is-free {
+  --lifepoint-free: #4DA3E8;
+  color: var(--lifepoint-free);
+}
+.enemy-lifepoints.is-free .enemy-stat-art { filter: hue-rotate(205deg); }
+
+/* The silence marker sits in the bullet's place rather than beside it, so a marked
+   ability lines up with the unmarked ones instead of being indented past them. */
+.enemy-ability-silence { list-style: none; }
+.enemy-silence-mark {
+  display: inline-flex;
+  vertical-align: -2px;
+  margin-right: 7px;
+  margin-left: -1.15em;
+  color: var(--amber);
+}
+.enemy-silence-mark svg { width: 12px; height: 12px; }
+
+/* Badges and the life counter are grouped, and the group carries the auto margin --
+   the same lesson as the name row, where putting it on one optional child left the
+   pair unbound on every enemy that lacked that child. */
+.enemy-attack-line-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+/* A small tag for a fact that is only worth stating when it differs from the
+   default -- taunt other than 0, a block requirement above 1, unblockable. */
+.enemy-attack-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 2px 7px;
+}
+.enemy-attack-badge .enemy-stat-icon svg { width: 12px; height: 12px; }
+/* Unblockable is the one that changes how you play, so it is the one that shouts. */
+.enemy-attack-badge.is-unblockable {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.enemy-attack-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.enemy-attack-move {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+.enemy-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+ /* A chapter or event shorthand -- "EP 08", "IS", "CC" -- is a code, and codes are
+   teal mono everywhere else on the site (.stage-row-code and .stage-picker-code on
+   the stages page). This had no rule in any stylesheet, so it rendered as plain body
+   text in the appearance picker, in its options, and in the hero beside the name.
+   white-space:pre so "EP 08" cannot break across its space. */
+.enemy-index {
+  font-family: var(--font-mono);
+  color: var(--teal);
+  white-space: pre;
+}
+
+/* Rank is a badge, and it uses the badge recipe the stages page uses for
+   .stage-boss-badge and .stage-variant-badge -- same size, tracking, padding and
+   radius, and the same two colours, so a boss reads danger-red and an elite amber on
+   either page. Restored: this went out with the browse page's stylesheet while the
+   detail page kept rendering it, which left the rank as unstyled text between two
+   bordered chips. No positioning now -- it sits in the hero's tag row, not on art. */
+.enemy-rank-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-faint);
+}
+.enemy-rank-tag.rank-elite { color: var(--amber); border-color: var(--amber); }
+.enemy-rank-tag.rank-boss { color: var(--danger); border-color: var(--danger); }
+
+.enemy-hero-tags > span:not(.enemy-index):not(.enemy-rank-tag) {
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 2px 7px;
+  background: var(--panel-2);
+}
+
+@media (max-width: 560px) {
+  .enemy-hero { flex-direction: column; gap: 12px; }
+  .enemy-hero-icon { width: 84px; }
+}
+
+.enemy-flavour {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  max-width: 78ch;
+  margin: 0 0 24px;
+}
+.enemy-flavour em, .enemy-abilities em {
+  font-style: normal;
+  color: var(--teal);
+}
+
+.enemy-section { margin-bottom: 28px; }
+.enemy-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.enemy-section-aside {
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabular figures, or the buttons change width as you switch: Rajdhani's digits
+   have different advance widths, so "Lv 1" measured 49.78px against "Lv 0"'s
+   52.2px and the row shifted under the cursor. Padding and height already match
+   between selected and unselected via the shared button rule. */
+.enemy-level-tabs {
+  margin-left: auto;
+  display: flex;
+  gap: 5px;
+}
+/* Sized to match .enemy-code, the shorthand tag beside the name ("PT" for
+   Patriot): same mono face, same 13px, same 3px/8px padding and radius. At the
+   shared button metrics they were half again as tall as everything else on the row.
+   The min-width is still a floor, because the digits in "Lv 0", "Lv 1" and "Lv 2"
+   have different advance widths in Rajdhani -- 52.2, 49.78 and 51.7px at the old
+   size -- so the row shifted as you switched. Tabular figures cannot fix that here:
+   set on the container the property never inherits, the UA setting `font:` on
+   button as a shorthand that resets it, and set on the buttons it applies but finds
+   no tnum feature in Rajdhani to select. A width floor needs no such luck. */
+.enemy-level-tabs button {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 3px;
+  min-width: 46px;
+  text-align: center;
+}
+
+/* What a tier is, in prose, beside the label -- the section head is uppercase mono,
+   and this is a sentence, so it opts out of both. First thing to go when the row
+   gets tight: the buttons and the label still say what the control does. */
+.enemy-level-hint {
+  margin-left: 10px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+@media (max-width: 620px) {
+  .enemy-level-hint { display: none; }
+}
+
+.enemy-abilities {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  max-width: 78ch;
+}
+.enemy-abilities li { margin-bottom: 5px; }
+.enemy-ability-title {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Art left, grid right, as the handbook has it. The art column is fixed so the
+   grid's two columns stay equal from one enemy to the next. */
+/* The top margin is the gap under "Ranged Arts". Without it the portrait sat
+   directly beneath that line and the whole block read as one crowded mass. */
+.enemy-statblock {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+/* Weight sits directly under the portrait. This column used to spread its children
+   to the grid's full height, which was worth doing while Taunt was the last of them
+   and its bottom needed to line up; with Taunt moved to the attack line there is one
+   box left, and spreading only pushed it away from the picture it belongs to. */
+.enemy-statblock-art {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.enemy-statblock-art .enemy-hero-icon { width: 116px; height: 116px; margin: 0; }
+/* The label does not flex here. .enemy-stat-label sets flex:1 for the stat cells,
+   where a label should absorb the slack, but these boxes are only as wide as their
+   own contents -- flexing let it be compressed below the width of the word. */
+.enemy-art-stat .enemy-stat-label { flex: none; white-space: nowrap; }
+/* Weight and Taunt, stacked under the portrait. The figure is pushed to the right
+   edge so the two read as a column of values rather than two ragged rows. */
+.enemy-art-stat .enemy-stat-value { margin-left: auto; }
+/* Smaller than a stat cell on purpose. These are the two figures the handbook keeps
+   outside its grid, and at the cell's own size they read as a third column of it. */
+.enemy-art-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+.enemy-art-stat .enemy-stat-icon svg { width: 13px; height: 13px; }
+.enemy-art-stat .enemy-stat-label { font-size: 10px; }
+.enemy-art-stat .enemy-stat-value { font-size: 12px; }
+
+/* Exactly two columns: the handbook's eight cells, left column read down then the
+   right. auto-fill would reflow them into three on a wide pane and break the
+   pairing the game's ordering depends on. */
+.enemy-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+@media (max-width: 700px) {
+  /* auto, not a number. The weight box shares this column with the portrait, and a
+     fixed width crushed its label: at 84px "Weight" was squeezed to 23px against a
+     natural 40 and collided with the figure, and 96px still left it 5px short.
+     Sizing the column to its content cannot be off by a few pixels the way a guess
+     at the label's width can. */
+  .enemy-statblock { grid-template-columns: auto minmax(0, 1fr); }
+  .enemy-statblock-art .enemy-hero-icon { width: 96px; height: 96px; }
+  .enemy-stats { grid-template-columns: minmax(0, 1fr); }
+}
+/* center, not baseline: a cell now leads with a glyph, and baseline alignment sat
+   the icon's box on the text baseline and pushed it up out of the row. */
+.enemy-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 8px 11px;
+}
+/* No text-transform here. The handbook writes "Movement Speed" and "Effect Res" in
+   mixed case and only the acronyms in caps, so uppercasing everything made HP and
+   Movement Speed look like different kinds of label than the game has them. The
+   labels are written in the case they should render in. */
+/* nowrap in the grid: the label shares its row with a figure of unpredictable width,
+   so left to itself it broke wherever it happened to fit -- one line on one enemy and
+   two on the next. The two labels that DO take two lines carry their own <br>, which
+   nowrap does not suppress, so every enemy breaks them in the same place. */
+.enemy-stats .enemy-stat-label { white-space: nowrap; }
+/* All eight cells one height, and the height comes from the tallest of them rather
+   than a number I picked: grid-auto-rows:1fr makes every row equal, so the two-line
+   labels set it and the six one-line cells match. A min-height guess got within a
+   pixel -- 45 against 44 -- which is exactly the sort of thing 1fr does not get
+   wrong. */
+.enemy-stats { grid-auto-rows: 1fr; }
+.enemy-stat-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  flex: 1;
+  min-width: 0;
+}
+/* The extras row and the weight box reuse the label, and both want it quieter. */
+.enemy-stat-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* The handbook's own banding, shown beside the figure it grades and
+   never instead of it. */
+.enemy-stat-icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--text-faint);
+}
+.enemy-stat-icon svg { width: 15px; height: 15px; }
+/* The masked glyphs: same box as the drawn ones, shape from the file's alpha,
+   colour from currentColor. */
+.enemy-stat-icon .enemy-stat-glyph {
+  display: block;
+  width: 15px;
+  height: 15px;
+  background: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+/* "Nothing can block this" -- the game's Block glyph with a bar struck over it. The
+   game has no such icon (the handbook says it in words), so rather than redraw the
+   whole stack the real glyph is kept and only the bar is drawn, laid on top of it.
+   Both layers are currentColor, so it tints and themes as one mark. */
+.enemy-stat-glyph-stack {
+  position: relative;
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+/* The bar fills whatever the stack is, rather than restating a size. Three classes
+   deep so it beats `.enemy-attack-badge .enemy-stat-icon svg`, which pins svgs in a
+   badge to 12px and would otherwise leave the bar inset inside its own shield. */
+.enemy-stat-icon .enemy-stat-glyph-stack .enemy-stat-strike {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* A badge sizes its icons down; the stack and the masked glyphs follow the svgs
+   there, or the Unblockable shield stood 3px taller than the Taunt crosshair next to
+   it. Same for the smaller art-stat row. */
+.enemy-attack-badge .enemy-stat-icon .enemy-stat-glyph-stack,
+.enemy-attack-badge .enemy-stat-icon .enemy-stat-glyph { width: 12px; height: 12px; }
+.enemy-art-stat .enemy-stat-icon .enemy-stat-glyph-stack,
+.enemy-art-stat .enemy-stat-icon .enemy-stat-glyph { width: 13px; height: 13px; }
+
+/* Art in its own colours: a separate class rather than a modifier, because the masked
+   rule above paints background: currentColor and that colour would show through every
+   transparent pixel of an image laid over it. */
+.enemy-stat-icon .enemy-stat-art {
+  display: block;
+  width: 15px;
+  height: 15px;
+  background-color: transparent;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* The grade is the game's headline for a stat, so it is set like one: the display
+   face at weight 700, big enough to read at a glance, and no border -- the game
+   shows a bare letter. Colour still carries the band. */
+.enemy-grade {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  flex: none;
+  margin-left: auto;
+  min-width: 1.6em;
+  text-align: right;
+}
+
+/* --- Attack range ---------------------------------------------------------- */
+
+.enemy-range { display: flex; flex-direction: column; gap: 12px; }
+
+/* Square by construction, and capped so a 13-tile grid does not fill the pane while
+   a 3-tile one sits lost in the middle of it. The tile count comes in as
+   --range-side, so a small grid draws smaller rather than stretching its tiles. */
+.enemy-range-map {
+  position: relative;
+  width: min(100%, calc(var(--range-side) * 34px));
+  max-width: 340px;
+  aspect-ratio: 1;
+}
+.enemy-range-map svg { display: block; width: 100%; height: 100%; }
+
+.enemy-range-tile { fill: var(--panel); stroke: var(--line-soft); stroke-width: 0.02; }
+/* Covered tiles are the answer to "can it reach me here", so they carry the accent
+   rather than the circle doing all the work. */
+.enemy-range-tile.covered { fill: var(--teal-dim); stroke: var(--teal); stroke-width: 0.03; }
+.enemy-range-circle { fill: none; stroke: var(--teal); stroke-width: 1.5; opacity: 0.85; }
+
+/* Over the centre tile. Sized as a fraction of the grid by the component, so it
+   stays one tile wide whatever the radius. */
+.enemy-range-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.enemy-range-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.enemy-range-icon .fallback {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.enemy-range-note { margin: 0; max-width: 62ch; }
+
+/* Immune and vulnerable read as one list of nine, differing only in colour and the
+   mark -- the same rule the rest of the page follows, since a state that also
+   changes size makes the row jump as you click between enemies. */
+.enemy-resist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.enemy-resist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 7px 10px;
+}
+.enemy-resist-mark {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  width: 1em;
+  text-align: center;
+}
+.enemy-resist-name { flex: 1; min-width: 0; font-size: 12.5px; }
+.enemy-resist-verdict {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* Read from the reader's side, not the enemy's: teal is the site's colour for
+   something going your way, so it marks what you CAN land, and red marks what is
+   closed off. The border stays a wash rather than a full-strength outline -- with
+   nine tiles up at once, two saturated borders made the grid look like an error
+   state. The base rule's --line-soft stands in wherever color-mix is unsupported. */
+.enemy-resist.immune {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line-soft));
+}
+.enemy-resist.immune .enemy-resist-mark,
+.enemy-resist.immune .enemy-resist-verdict { color: var(--danger); }
+.enemy-resist.vulnerable {
+  border-color: color-mix(in srgb, var(--teal) 30%, var(--line-soft));
+}
+.enemy-resist.vulnerable .enemy-resist-mark,
+.enemy-resist.vulnerable .enemy-resist-verdict { color: var(--teal); }
+
+/* A named skill inside an ability line. Teal like every other in-text term the
+   site picks out, and mono so a name like [Icicle Fall] reads as a label rather
+   than as part of the sentence around it. */
+.enemy-skill-name {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--teal);
+}
+
+
+/* Collapsed by default so the stat grid above is never pushed off the pane. */
+.enemy-flavour-drop { margin-bottom: 16px; }
+.enemy-flavour-drop > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.enemy-flavour-drop > summary::-webkit-details-marker { display: none; }
+.enemy-flavour-drop > summary::before {
+  content: '\25B8';
+  display: inline-block;
+  margin-right: 7px;
+  color: var(--text-faint);
+  transition: transform 0.15s ease;
+}
+.enemy-flavour-drop[open] > summary::before { transform: rotate(90deg); }
+.enemy-flavour-drop .enemy-flavour { margin: 10px 0 0; }
+
+/* On a phone the 13 stats were 13 bordered boxes with 8px of padding and an 8px
+   gap between them -- most of the block was frame rather than figures. One column
+   is right (two would truncate "Elemental damage RES", which has no ellipsis), so
+   the density comes from dropping the boxes: a hairline-separated list reads as a
+   table and costs about half the height. */
+@media (max-width: 480px) {
+  .enemy-stats {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .enemy-stat {
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    border-radius: 0;
+    padding: 5px 2px;
+  }
+  .enemy-stat:last-child { border-bottom: 0; }
+  /* The grade chip is the tallest thing in the row, so it sets the row height. */
+  .enemy-grade { padding: 0 4px; }
+}
+
+.enemy-grade.grade-ss,
+.enemy-grade.grade-splus,
+.enemy-grade.grade-s { color: var(--danger); }
+.enemy-grade.grade-aplus,
+.enemy-grade.grade-a { color: var(--amber); }
+.enemy-grade.grade-bplus,
+.enemy-grade.grade-b { color: var(--teal); }
+
+/* Left-bound, and its label does not flex. .enemy-stat-label carries flex:1 for the
+   stat cells, where the label should absorb the slack -- here that pushed the figures
+   to the far right of the pane while "SP" stayed at the left, reading as two separate
+   things. margin puts it under the heading's rule rather than against it. */
+.enemy-sp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  justify-content: flex-start;
+  margin: 10px 0 0;
+}
+.enemy-sp .enemy-stat-label { flex: none; }
+/* The empty case: a dash rather than a missing row, so the stat grid below does
+   not jump as you click from an enemy with immunities to one without. */
+.enemy-mods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.enemy-mod {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+.enemy-mod-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.enemy-mod-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* The internal handle stays visible next to the humanised name -- the
+   pretty form is this site's rendering, the code is the game's. */
+.enemy-mod-name code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-faint);
+  letter-spacing: 0;
+}
+.enemy-mod-meta {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.enemy-kv {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.enemy-kv > span {
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+}
+.enemy-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.enemy-param {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 3px 7px;
+}
+.enemy-param i {
+  font-style: normal;
+  color: var(--text-faint);
+  margin-right: 6px;
+}
+.enemy-param a { color: var(--teal); }
+
+/* --- Appearances: which content, then which of its stages -------------------
+   A picker rather than every content at once: the busiest enemy is fielded by 26
+   contents across 223 stages, which as a flat list buried the rest of the page. */
+/* Label and control on one row. The picker keeps its own width rather than filling
+   the pane, so it reads as something you operate; 340px is enough for the longest
+   content name plus its stage count. */
+.enemy-appear-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.enemy-appear-filter-label {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.enemy-appear-filter .enemy-appear-picker {
+  flex: 0 1 340px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.enemy-appear-picker { position: relative; margin-bottom: 12px; }
+.enemy-appear-trigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  color: var(--text);
+  cursor: pointer;
+}
+.enemy-appear-trigger:hover { border-color: var(--teal); }
+.enemy-appear-trigger-name { min-width: 0; overflow-wrap: anywhere; }
+/* Pushed to the right so the count and the caret keep their places no matter how
+   long the content name is. */
+.enemy-appear-trigger .enemy-section-aside { margin-left: auto; }
+.enemy-appear-caret { flex: none; color: var(--text-faint); font-size: 9px; }
+
+/* Fixed, with left/top/width/maxHeight set by the component. Absolute meant the
+   nearest scrolling ancestor clipped it, which cost 283px of the list when this
+   picker sits at the bottom of the filter panel. z-index clears the music player's
+   100. */
+.enemy-appear-list {
+  position: fixed;
+  z-index: 120;
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--panel-2, var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 10px 26px rgb(0 0 0 / 45%);
+}
+.enemy-appear-list-head {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2, var(--panel));
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 6px 6px 3px;
+}
+/* A three-column grid, which is the whole reason this is not a <select>: the
+   label, the name and the stage count line up down the list instead of being laid
+   out by the OS in its own font. */
+.enemy-appear-option {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+/* Colour only on both states -- a border width or padding change here would
+   reflow every row below the one under the cursor. */
+.enemy-appear-option.active { background: color-mix(in srgb, var(--teal) 10%, transparent); }
+.enemy-appear-option.current {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--text);
+}
+.enemy-appear-option-name { min-width: 0; overflow-wrap: anywhere; }
+.enemy-appear-option-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  /* Counts sit in a column down the right of the popup, so the digits have to line
+     up -- the same reason .stage-picker-count does this. */
+  font-variant-numeric: tabular-nums;
+}
+
+.enemy-appear-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 3px;
+}
+.enemy-appear-stages li {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 5px 8px;
+}
+/* The code is the link. It is a placeholder on IS and Reclamation nodes, where
+   several stages share one and the name beside it is what tells them apart. */
+.enemy-appear-stage-code {
+  flex: none;
+  font-family: var(--font-mono);
+  /* 700 to match .stage-row-code: the same stage code, so it should not go bold
+     when you follow the link to the page it names. */
+  font-weight: 700;
+  color: var(--teal);
+  letter-spacing: 0.05em;
+  text-decoration: none;
+}
+.enemy-appear-stage-code:hover { text-decoration: underline; }
+.enemy-appear-stage-name { min-width: 0; overflow-wrap: anywhere; }
+
+/* The stages page draws a stage's variant as a bordered amber badge
+   (.stage-variant-badge); this is the same marker on the same stage codes, so it is
+   the same badge and not loose amber text. */
+.enemy-intro-tag {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+}
+
+/* === The one-frame browser: grid beside detail, nothing scrolls the page ======
+   Same shape as the operator detail page -- a viewport-locked frame with two
+   panes that scroll independently -- so the reader never scrolls to find
+   information. The frame's height is measured from its own offset at runtime
+   rather than hardcoded off the nav, because the nav's height has changed twice. */
+/* The frame fills whatever is left below the nav, and it does the arithmetic in
+   CSS rather than in JS. Measuring the frame's own offset and subtracting was
+   wrong twice: once because the offset changes after mount (the height came out
+   58px stale), and again because a ResizeObserver on the body cannot see an
+   element ABOVE the frame shrink without the body's own size changing, which left
+   84px of the viewport unused. Making the body a flex column and letting main take
+   the remainder needs no measurement and cannot go stale. */
+/* The page scrolls by exactly the height of the header above the frame, so the
+   "Enemy handbook" title can be pushed off and the frame left filling the viewport.
+   min-height rather than height, and no overflow:hidden, or there is nothing to
+   scroll. The frame's own height is set below from the nav's measured height, which
+   is what makes the arithmetic come out at header-height of travel and no more. */
+body.enemy-frame-lock {
+  display: flex;
+  flex-direction: column;
+  /* dvh, not vh: on a phone the address bar makes vh taller than the viewport. */
+  min-height: 100dvh;
+}
+/* The chain has to pass through Next's own wrapper: main is not a child of body,
+   #__next is, and as a plain block it grew to its content -- 42,692px -- so main's
+   flex:1 had no flex parent to act on and the whole thing scrolled again. Both the
+   wrapper and main need flex:1 AND min-height:0, or a flex item defaults to
+   min-height:auto and refuses to shrink below its content. (#__next is a pages-router
+   implementation detail; it is stable for this app, and if it ever changes the
+   symptom is this exact bug returning.) */
+body.enemy-frame-lock #__next {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+/* Both flow children of the wrapper need an explicit width. header and main each
+   carry `max-width: 1040px; margin: 0 auto` from shared.css, and a flex item with
+   auto side margins shrink-to-fits its CONTENT instead of stretching -- so making
+   #__next a flex column collapsed both of them onto their text. main's width came
+   out at 806px for an enemy with one line of flavour text and 1040px for one with
+   four, and the header centred itself with its border-bottom stopping at the end of
+   the title instead of ruling the column. width:100% fills the flex line; max-width
+   still caps at 1040 and the auto margins still do the centring. */
+body.enemy-frame-lock #__next > header,
+body.enemy-frame-lock main.enemy-page {
+  width: 100%;
+}
+/* A viewport minus the nav, so once the header is scrolled away the frame sits
+   directly under the fixed nav and fills what is left. The fallback matches the
+   desktop nav's two rows; --enemy-nav-h replaces it with the real measurement on
+   mount (see the effect in pages/enemies/[slug].tsx). */
+body.enemy-frame-lock main.enemy-page {
+  flex: none;
+  height: calc(100dvh - var(--enemy-nav-h, 92px));
+  min-height: 0;
+}
+
+/* The height goes on main, so main has to be the flex parent too -- and it has to
+   CLIP. Without overflow:hidden here the frame simply grows past the height it was
+   given and pushes the page, which is what happened: 1,540 tiles over four columns
+   made the document 42,816px tall while the frame reported 638. The min-height:0
+   chain has to run unbroken from here down to the scrolling pane. */
+main.enemy-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  /* main carries 24px of padding from shared.css and is content-box, so the height
+     set in JS had 48px added back and the frame hung 42px below the fold. */
+  box-sizing: border-box;
+}
+
+.enemy-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+.enemy-frame-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  flex-wrap: wrap;
+}
+.enemy-frame-sorts, .enemy-frame-tabs { display: flex; gap: 4px; }
+.enemy-frame-tabs { margin-left: auto; }
+
+/* Sort lives with the grid because it sorts the grid. Metrics are pinned so
+   picking a field cannot resize its button and shuffle the row. */
+.enemy-sort, .enemy-type-tab, .enemy-filter-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  height: 28px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.enemy-sort:hover, .enemy-type-tab:hover, .enemy-filter-btn:hover { border-color: var(--teal); }
+/* Colour only on the selected state -- never metrics. */
+.enemy-sort.current, .enemy-type-tab.current, .enemy-filter-btn.current {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--teal);
+}
+/* The magnifier sits on the text's own line, sized in em so it tracks the label
+   and stays put when the button turns teal on open. */
+.enemy-filter-btn { display: inline-flex; align-items: center; gap: 6px; }
+/* Beside Search, and quieter than it: Search is where you go, Clear is how you undo,
+   and it only exists while there is something to undo. Amber rather than teal, which
+   is the colour this site already uses for a state worth noticing. */
+.enemy-clear-btn {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 40%, transparent);
+  /* The width of the Search button it stands in for, measured, since "Clear" is a
+     shorter word than "Search" and the two sit one above the other: 83 against 76 read
+     as a mistake rather than as two buttons. */
+  min-width: 83px;
+  justify-content: center;
+}
+.enemy-clear-btn:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+}
+/* The closed-panel Clear, sitting where the open panel's one sits: the top of the right
+   column, which is empty above the enemy's record. Absolute rather than in the flow, so
+   the detail pane does not have to leave a hole for it, and opaque because it is over
+   content. The offsets match .enemy-filters' own padding so the button lands on the
+   same pixel whether the panel is open or shut. */
+.enemy-clear-float {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  background: var(--panel);
+}
+.enemy-clear-float:hover { background: color-mix(in srgb, var(--amber) 12%, var(--panel)); }
+.enemy-filter-btn-icon {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+}
+
+.enemy-frame-body {
+  display: grid;
+  grid-template-columns: minmax(268px, 0.9fr) 1.1fr;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+/* min-height:0 is what makes the panes scroll instead of the page: a grid item
+   defaults to min-content, so without it both panes grow to fit their content
+   and push the frame past the viewport. */
+.enemy-grid-pane, .enemy-detail-pane {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.enemy-detail-pane { position: relative; }
+.enemy-grid-empty { padding: 10px 2px; }
+
+/* The foot of the grid pane: how far into the list we are, and the way to go
+   further. Inside the scrolling pane, so it sits under the last row rather than
+   pinned -- reaching it is what asking for more looks like. */
+.enemy-grid-more {
+  display: flex;
+  align-items: center;
+  /* The count holds the left edge and the buttons group on the right --
+     space-between put the second button in the middle of the row once
+     "Show all" joined "Show more". */
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 4px 2px 2px;
+}
+.enemy-grid-more .hint { margin-right: auto; }
+.enemy-grid-more .hint { font-family: var(--font-mono); font-size: 11px; }
+
+/* Four per row, as the game lays them out. */
+.enemy-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding-right: 4px;
+}
+.enemy-tile {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.enemy-tile:hover { border-color: var(--teal); }
+.enemy-tile.current {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 18%, var(--panel));
+}
+.enemy-tile-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+.enemy-tile-art.blank { background: var(--panel-2, var(--panel)); }
+/* The handbook code, badged where the game badges it. */
+.enemy-tile-index {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  padding: 3px 4px;
+  background: rgb(0 0 0 / 72%);
+  color: var(--text);
+  border-bottom-right-radius: 3px;
+}
+
+/* === The filter panel, over the detail rather than over the grid ============= */
+.enemy-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px;
+}
+.enemy-filters-head { display: flex; align-items: baseline; gap: 10px; }
+.enemy-filters-head h3 { margin: 0; }
+/* Right-aligned, and out to the panel's edge rather than inside its 4px scrollbar
+   gutter, so it stacks flush under the Search button above it. */
+.enemy-filters-head .enemy-clear-btn { margin-left: auto; margin-right: -4px; }
+
+/* Matched to .roster-search, which is this site's search field. Before this the
+   rule was `width: 100%` and nothing else, so the browser drew its own input in
+   the system font -- white box, wrong typeface, no teal focus. */
+.enemy-filter-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.enemy-filter-search:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 30%, transparent); }
+.enemy-filter-search::placeholder { color: var(--text-faint); }
+
+.enemy-filter-group .enemy-section-head { margin-bottom: 8px; }
+/* The filter buttons are the site's own primary/ghost pair, which is what the
+   operators roster uses for its rarity filters -- so this page reads as the same
+   site rather than borrowing the techniques page's pills.
+   METRICS ARE PINNED ON BOTH STATES. button.ghost is 12px/8px 14px while the base
+   button is 15px/12px 26px, so an unpinned toggle grows the moment it is pressed
+   and shoves every button after it along the row. Turning one on changes colour
+   and nothing else. */
+.enemy-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Left-aligned, deliberately. The music player is fixed at bottom:16px right:16px
+   with z-index 100 on every page, so anything pushed to the bottom-right corner of
+   this panel ends up underneath it -- which is what happened to "Show 125". */
+.enemy-filters-foot {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+/* Narrow screens stack and scroll normally: a locked frame with two panes needs
+   width to be an improvement rather than two tiny windows. */
+/* --- Narrow screens ---------------------------------------------------------
+   A locked two-pane frame needs width to be an improvement rather than two tiny
+   windows, so below 900px the page stacks and scrolls the way every other page
+   does. The grid keeps its own scroll box so it cannot push the detail an entire
+   screen down -- 1,540 tiles at four across is 385 rows. */
+@media (max-width: 900px) {
+  /* Undo the whole viewport lock: the body, the wrapper and main all go back to
+     ordinary block flow so the page scrolls like every other page. Leaving the
+     100dvh body in place here would clip the stacked panes instead. */
+  body.enemy-frame-lock {
+    overflow: auto;
+    display: block;
+    height: auto;
+  }
+  body.enemy-frame-lock #__next {
+    display: block;
+    flex: none;
+    min-height: 0;
+  }
+  body.enemy-frame-lock main.enemy-page,
+  main.enemy-page {
+    flex: none;
+    overflow: visible;
+    height: auto;
+  }
+  .enemy-frame { height: auto; }
+  .enemy-frame-body { grid-template-columns: 1fr; }
+  /* auto, not visible: a max-height with visible overflow spills the tiles over
+     whatever follows instead of scrolling them, which is what it was doing. */
+  .enemy-grid-pane {
+    max-height: 44vh;
+    overflow-y: auto;
+    /* iOS clips a scroll box's last row against the rounded corner without this. */
+    -webkit-overflow-scrolling: touch;
+  }
+  .enemy-detail-pane { overflow-y: visible; min-height: 0; }
+  .enemy-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  /* The head is 6 sort buttons, 3 tabs and Search -- 10 controls that cannot sit
+     on one line of a phone. Sorts wrap as a group, and the tabs stop being pushed
+     to the far right so they land under them rather than orphaned. */
+  .enemy-frame-head { row-gap: 6px; }
+  .enemy-frame-sorts, .enemy-frame-tabs { flex-wrap: wrap; }
+  .enemy-frame-tabs { margin-left: 0; }
+  .enemy-frame-sorts { flex: 1 1 100%; }
+
+  /* The filter panel is a full screen of its own here rather than a column. */
+  .enemy-filters { padding-right: 0; }
+
+  /* --- The detail behaves like a screen of its own ---------------------------
+     Choosing an enemy scrolls this pane up under the nav (see EnemyBrowser), and
+     these three rules are what make that land somewhere sensible. */
+
+  /* 1. Always tall enough to scroll to. An enemy with two abilities and no stages
+        is shorter than the viewport, so without this the scroll stops early and
+        the pane sits halfway up the screen. Blank space below is the price, and
+        it is the right price -- the alternative is the position moving depending
+        on which enemy you picked. */
+  .enemy-detail-pane { min-height: calc(100dvh - var(--nav-h, 52px)); }
+
+  /* 2. The picture and the name stay put while everything under them scrolls.
+        --nav-h clears the fixed mobile bar; z-index sits under that bar (60) and under
+        the music player (100). The background has to be opaque or the content scrolls
+        through it. It was a hardcoded 52 and the bar grew a clock. The fallback is only
+        for the first paint, before MobileNavDrawer's observer has measured. */
+  .enemy-detail-pane .enemy-hero {
+    position: sticky;
+    top: var(--nav-h, 52px);
+    z-index: 5;
+    background: var(--bg);
+    padding: 8px 0;
+    margin: 0 0 2px;
+    /* A hairline so the stuck header reads as a header once content is under it. */
+    border-bottom: 1px solid var(--line-soft);
+  }
+  /* The portrait is no longer part of the sticky header -- it moved into the stat
+     block, where the handbook has it -- so this rule was only shrinking it to 52px
+     wherever it now lives. The sticky header is the name and the code, and the
+     portrait keeps the size .enemy-statblock-art gives it. */
+  .enemy-detail-pane .enemy-hero h1 { font-size: 21px; margin: 0; }
+  /* The steps are absolute px, so the first one (23px) was LARGER than this 21px
+     base -- a medium-length name came out bigger than a short one on a phone. Capped
+     here; the two smaller steps are already under the base and stay as they are. */
+  .enemy-hero-text .enemy-hero-name h1.enemy-name-m { font-size: 20px; }
+
+  /* 3. The tags and the first-appearance line scroll away under it. */
+  /* 16px, or mobile Safari zooms the whole page in when the field takes focus --
+     which reads as the entire UI changing size. The desktop rule keeps 12px.
+     Only the text field needs this now: the content dropdown is a button that opens
+     a listbox, so nothing there takes text focus. */
+  .enemy-filter-search { font-size: 16px; }
+}
+
+/* Three across under ~430px: four tiles inside a 375px viewport, after main's
+   padding, leaves 78px each and the handbook code badge stops being legible. */
+@media (max-width: 430px) {
+  .enemy-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .enemy-grid-pane { max-height: 40vh; }
+  .enemy-frame-head { gap: 6px; }
+  .enemy-sort, .enemy-type-tab, .enemy-filter-btn { padding: 6px 8px; }
+}
+
+/* --- The detail pane's tabs ------------------------------------------------
+   Stats, Abilities, Stages: one at a time, with the identity block above them
+   staying put. Replaces the folding sections, which still made the reader scroll
+   past collapsed headings to reach the next one. */
+.enemy-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.enemy-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  background: none;
+  border: 0;
+  /* The underline is the selected state, so it exists on every tab and only
+     changes colour -- a border that appears on selection would shift the row. */
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.enemy-tab:hover { color: var(--text-dim); }
+.enemy-tab.current {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+.enemy-tab .enemy-section-aside { font-size: 9px; }
+
+@media (max-width: 430px) {
+  .enemy-tab { padding: 7px 8px; letter-spacing: 0.04em; }
+}

@@ -1,0 +1,1383 @@
+/* Split from globals.css -- shared: variables, resets, generic UI primitives (buttons, badges, modals, chips, hints), and anything not cleanly attributable to one feature */
+
+/* The palette is design 4, "Field, softened", from the UI rework handoff. It
+   lives here rather than in the theme file it arrived in because this block is
+   the site's single source of truth for a token -- every one of the 30
+   stylesheets reads these names, and a second :root somewhere else is how two
+   palettes start to drift. The handoff's primitives and patterns, which are new
+   rules rather than new values, are in styles/arkpedia-theme.css.
+
+   Design intent: no pure black, a narrow value range, gentle top-to-bottom
+   gradients instead of flat fills, hairlines at low alpha, 2px radii, and one
+   accent used as a solid fill behind dark ink. */
+:root {
+  /* Tells the browser this is a dark page, so scrollbars, form controls, and
+     other UA chrome render dark instead of glaring white. Flipped in the
+     light block below. */
+  color-scheme: dark;
+
+  /* Surfaces -- a narrow range on purpose. The old #0A0E13 ground under
+     #E7EEF3 text was the harshness people reported; this spans about a third
+     of that distance. */
+  --bg: #0f151b;
+  --panel: #18212a;
+  --panel-2: #1b242d;
+  /* Inset fields, meter tracks, value boxes -- the one surface DARKER than the
+     panel it sits in, so a well reads as cut into it rather than laid on it. */
+  --well: #111820;
+  /* The flat, INERT surface: a control that renders but cannot be used, and the
+     ground under a nested row. It is --panel-grad's bottom stop, so a dimmed
+     tile reads as the same material as the panel, one step down, rather than as
+     a different colour. */
+  --panel-dim: #141c23;
+
+  /* Hairlines are alpha rather than opaque greys, so one value sits correctly
+     on any surface beneath it: panel, panel-2, well, or an image. */
+  --line: rgba(255, 255, 255, 0.10);
+  --line-soft: rgba(255, 255, 255, 0.06);
+
+  --teal: #5fd9c6;
+  --teal-dim: rgba(95, 217, 198, 0.14);
+  /* Text and glyphs ON a teal fill. 9.6:1 against the fill's darker stop, where
+     the old #06211C under the old brighter teal was needlessly severe. */
+  --teal-ink: #0a2621;
+  --teal-fill: linear-gradient(180deg, #69e0cd, #4bc8b4);
+  /* Hover goes UP the scale here, because the ink on it is dark. */
+  --teal-fill-hi: linear-gradient(180deg, #7ee9d8, #5fd9c6);
+
+  --amber: #e0aa4e;
+  --danger: #d4685c;
+  --danger-dim: rgba(212, 104, 92, 0.14);
+  /* --danger is tuned as TEXT on a dark panel, which makes it far too light to
+     sit UNDER white text: a white LIVE badge on it measured 3.11:1. This is the
+     same red taken down to where white clears 4.5:1, for solid fills only. */
+  --danger-solid: #b8483d;
+
+  /* Rarity -- the game's own scale, softened into this palette. These encode
+     DATA, which makes them the one exception to the single-accent rule. Never
+     use them for hover, selection or emphasis; that is what --teal is for. */
+  --rarity-6: #F0803C;
+  --rarity-5: #E8B93A;
+  --rarity-4: #B58AC4;
+  --rarity-3: #6E9BC4;
+
+  /* Text, lifted off white -- the brightness was the other half of the
+     harshness. On --panel: --text 8.6:1, --text-dim 5.4:1, --text-faint 4.5:1.
+     --text-faint sits deliberately AT the AA floor rather than under it: it
+     styles 9.5-10px micro-labels, and it has already been lifted once (from
+     #5A6E7C, which measured 3.2:1) for exactly this reason. Do not darken it. */
+  --text: #BCC8CF;
+  --text-dim: #93a6b1;
+  --text-faint: #7d8f9b;
+  /* One step ABOVE --text, for the handful of places a number is the subject of
+     its own control -- the value in a stepper, the label on the selected
+     segment. --text is the body voice; this is the emphasis the old palette's
+     #E7EEF3 used to carry everywhere before it was pulled back. */
+  --text-bright: #E7EEF3;
+
+  /* A panel's surface as a gradient. Use var(--panel-grad) on panels and cards;
+     the flat --panel stays available for children that sit on top of one. */
+  --panel-grad: linear-gradient(180deg, #18212a, #141c23);
+  --row-grad: linear-gradient(180deg, #1b242d, #171f27);
+  /* A row that is the SELECTED one. Lifted off --row-grad rather than coloured,
+     which is the rule: teal means on, and a surface that changes colour to say
+     the same thing is a second vocabulary for one idea. */
+  --row-grad-hi: linear-gradient(180deg, #232d37, #1d2630);
+
+  /* One radius for the whole system. 3px only on an outermost frame. */
+  --radius: 2px;
+  --radius-frame: 3px;
+
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Rajdhani', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  /* One base grid row, reserved at its filled height so the layout holds
+     still as operators go in -- see .base-grid for where 204px comes from. */
+  --base-row-height: 204px;
+  /* Height of the base view AND of the operator picker that replaces it. One
+     value for both, deliberately: they swap places, so any difference makes
+     the page grow or shrink underneath you -- which is what let the browser
+     clamp the scroll position when the picker opened, losing your place on
+     the base.
+
+     It is the picker's natural reading height rather than the grid's full
+     height. The grid at 1:1 is ~1060px, and matching that would stretch the
+     picker's operator cards into mostly-empty columns; matching the picker
+     the other way by shrinking the grid would mean zooming out to ~0.6 and
+     losing the text again. So the view keeps 1:1 and pans instead -- the
+     base view has always been a pan/zoom surface, and that is what it is
+     for. */
+  --base-view-height: min(78vh, 640px);
+  /* The two stops of the soft bevel a pressable tile wears: a vertical gradient with
+     the top edge a few percent lighter than the bottom, which is enough for the eye to
+     read the tile as a raised surface rather than a flat swatch. That is the whole
+     effect -- no shadow, no highlight band, no inner glow. Not a gloss (which adds a
+     hard band across the upper half), not neumorphism (paired shadows on a matching
+     ground), not elevation (a cast shadow). Colours rather than a whole gradient so
+     the light theme can restate the pair without restating the geometry. */
+  --bevel-top: #1B242D;
+  --bevel-bottom: #171F27;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F1F3F5;
+  --panel: #FBFCFD;
+  --panel-2: #E7ECEF;
+  --well: #DEE4E8;
+  /* Dimmer means GREYER here, not darker-than-the-page: the light theme lifts a
+     panel towards white, so one step down from it is one step towards the
+     ground. The dark theme's #141c23 in this slot would be a near-black tile
+     under this theme's dark ink. */
+  --panel-dim: #E9EEF1;
+
+  --line: rgba(0, 0, 0, 0.12);
+  --line-soft: rgba(0, 0, 0, 0.07);
+
+  /* The accent has to be dark enough to be TEXT here (5.0:1 on --panel-2),
+     which is why it is not the dark theme's hue value. Darkened from #0C9C86 /
+     #C67A0A / #7C8FA0: as 12px text -- active nav links, tags, hints -- those
+     measured 2.9-3.4:1 on light grounds, under AA.
+     --teal-ink flips to white, matching the .primary:not(button) fix below. */
+  --teal: #097565;
+  --teal-dim: rgba(9, 117, 101, 0.12);
+  --teal-ink: #FFFFFF;
+  --teal-fill: linear-gradient(180deg, #0b8b77, #097565);
+  /* And DOWN the scale here, because the ink on it is white. Lightening a
+     light-theme fill on hover is what took the old #0B8B77 to 4.22:1 under
+     white; going darker instead lands at 5.7:1 on the top stop and 7.4:1 on
+     the bottom. */
+  --teal-fill-hi: linear-gradient(180deg, #097565, #076253);
+
+  --amber: #8F5808;
+  --danger: #C33D30;
+  --danger-dim: rgba(195, 61, 48, 0.12);
+  --danger-solid: #C33D30;
+
+  /* The same rarity hues taken down to clear 4.5:1 as TEXT on --panel-2. As a
+     background FILL -- an operator card's colour block -- use the dark theme's
+     values above with near-black ink, which is what the game itself does. */
+  --rarity-6: #C2551A;
+  --rarity-5: #8A6708;
+  --rarity-4: #7B4E8C;
+  --rarity-3: #3D6A94;
+
+  --text: #26333c;
+  --text-dim: #51677A;
+  --text-faint: #566C7F;
+  --danger: #C33D30;
+  --danger-dim: #FBE2DF;
+  --danger-solid: #C33D30;
+  /* Same idea the other way up the scale: the light still comes from above, so the top
+     stop is the lighter one. A wider absolute step than the dark pair needs, because a
+     few points of difference near white is a smaller proportion of the eye's range
+     than the same step near black. */
+  --bevel-top: #FBFCFE;
+  --bevel-bottom: #EDF1F5;
+
+  /* Brighter means DARKER here, for the same reason: emphasis is distance from
+     the ground, and this ground is white. */
+  --text-bright: #141C22;
+
+  --panel-grad: linear-gradient(180deg, #FFFFFF, #F7F9FA);
+  --row-grad: linear-gradient(180deg, #EDF1F3, #E7ECEF);
+  /* Lifted means lighter here, the same direction the light theme lifts a panel
+     off its ground. The dark theme's value is a dark surface, and under this
+     theme's dark --text it would have been text the colour of its own tile. */
+  --row-grad-hi: linear-gradient(180deg, #FFFFFF, #F7F9FA);
+}
+
+/* --- site-wide interaction & a11y primitives --------------------------------------- */
+
+/* First tap acts immediately -- no 300ms double-tap-zoom delay on touch. */
+a, button, input, select, textarea, summary, [role="button"] { touch-action: manipulation; }
+
+/* The site does not highlight when you drag across it.
+   It is an app made of controls, not an article: dragging over a roster card, a tab or
+   a filter is a mis-aimed click, and the blue smear it leaves has to be clicked away.
+   On touch it is worse, raising the copy callout instead of acting on the control.
+
+   Off by default, then back on for the text a reader has a reason to copy. That
+   direction round is deliberate: an allowlist of controls was tried first and missed
+   every card and tab on the roster, because those are links rather than buttons and
+   their labels are spans rather than paragraphs.
+
+   The rules below are ordered so the last one wins, since they have the same weight:
+   content on, then content that is really a control's label back off. */
+body { user-select: none; -webkit-user-select: none; }
+
+/* On: the text that is the point rather than the label of a control. An operator's
+   trait and description, skill text, enemy stats, lyrics, tables. .selectable is the
+   escape hatch for a block a page wants copyable whatever else applies. */
+p, li, dd, dt, td, th, caption, blockquote, pre, code, figcaption,
+.selectable, .selectable * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Off again where that text is a control's own label: a paragraph inside a card that
+   is really a link, a list item inside a button. */
+a p, a li, a dd, a dt,
+button p, button li,
+[role="button"] p, [role="button"] li,
+label p, label li,
+summary p, summary li {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Always: what the reader typed is theirs, whatever an ancestor says. !important
+   because a page marking a container unselectable would otherwise trap the caret. */
+input, textarea, [contenteditable="true"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* The one keyboard focus indicator. :focus-visible only, so mouse clicks stay
+   quiet; individual inputs may add their own border/halo treatment on top,
+   but nothing may remove this without replacing it. */
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+/* In-page anchors land BELOW the fixed nav instead of under it. --nav-h is
+   published by Sitenav's ResizeObserver; the fallback covers first paint. */
+[id] { scroll-margin-top: calc(var(--nav-h, 60px) + 12px); }
+
+/* Screen-reader-only text: visually gone, still announced. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip-to-content: the first tab stop on every page, invisible until focused --
+   without it every page starts with the nav's full run of links. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  transform: translateY(-300%);
+  background: var(--panel);
+  color: var(--teal);
+  border: 1px solid var(--teal);
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-decoration: none;
+}
+.skip-link:focus { transform: none; }
+
+/* type="search" without WebKit's native cancel button -- the pages draw their
+   own clear affordances and the UA one fights the dark styling. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-anchor: none;
+}
+/* Reserve the scrollbar's width whether or not there is one to show.
+   Without this, a page that grows past the viewport -- a filter opening, a
+   list loading, a section expanding -- gains a scrollbar mid-interaction and
+   every centred thing on it jumps left by its width. Reserved once, nothing
+   moves. No effect where the OS uses overlay scrollbars (macOS by default),
+   which is why it is easy to miss while developing on a Mac. */
+html { scrollbar-gutter: stable; }
+@media (prefers-reduced-motion: reduce) {
+  /* The invalid-card shake goes -- the danger border alone carries the
+     message. The scanbar used to be here too, for the same reason; it does not
+     animate at all any more (arkpedia-theme.css retires it to a static
+     hairline), so there is nothing left to hold still. */
+  .card.invalid { animation: none; }
+}
+header {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  max-width: 1040px;
+  margin: 0 auto;
+}
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .header-top { flex-direction: column; }
+}
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--teal);
+  text-transform: uppercase;
+}
+/* A crumb inside an eyebrow is part of the eyebrow, not a browser link. Nothing
+   here styles anchor colour, so the breadcrumb came out in the UA's own blue and
+   then went purple once you had visited the page it points at -- one crumb teal,
+   the next purple, with teal separators between them. The underline stays: that
+   is what says it is a link. */
+.eyebrow a,
+.eyebrow a:visited,
+.eyebrow a:hover,
+.eyebrow a:active {
+  color: inherit;
+}
+/* A link inside PROSE -- .sub and .hint are the site's two body-text classes.
+   Not a bare `a` selector, which is what I reached for first and which turned the
+   whole site nav teal: those links carry no colour of their own and inherit one, so a
+   rule on the element itself beats what the nav intended. Scoped here, the only
+   anchors affected are the ones in running text, which had no colour and were coming
+   out in the browser's blue -- then its purple once visited, which on this ground is
+   invisible. Teal both ways: on a wiki a link you have followed is not less of a link.
+   .eyebrow a below says the same thing for the breadcrumb. */
+.sub a,
+.hint a {
+  color: var(--teal);
+}
+.sub a:visited,
+.hint a:visited {
+  color: var(--teal);
+}
+.sub a:hover,
+.hint a:hover {
+  color: #6FF0DC;
+}
+:root[data-theme="light"] .sub a:hover,
+:root[data-theme="light"] .hint a:hover {
+  color: #0A7D6B;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: 0.02em;
+  margin: 6px 0 8px;
+  text-transform: uppercase;
+}
+/* h1 was the only heading the site styled, so a bare h2 or h3 fell through to the
+   browser's own defaults: Times-ish bold at a size nothing else on the page uses.
+   Fourteen pages write them bare, and on those the headings read as text that had
+   been bolded at random rather than as a hierarchy. These carry h1's family and
+   casing down the levels and step the size once each. Anything that wants a
+   different heading keeps overriding these, as the several scoped rules already do. */
+/* A titled block of a page. Fifteen pages across the site use this, which made it a
+   shared primitive living in operator-detail.css: whichever stylesheet happened to load
+   last decided how a section heading looked, and on the pages that only borrowed the
+   class the amber h2 below arrived as a surprise. Same rules, moved to where its users
+   are. Amber stays: it is what all fifteen have been showing. */
+.op-section {
+  margin-bottom: 36px;
+}
+.op-section h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 14px;
+  letter-spacing: 0.03em;
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  margin: 18px 0 8px;
+  text-transform: uppercase;
+}
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  margin: 14px 0 6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.sub {
+  font-size: 14px;
+  color: var(--text-dim);
+  max-width: 620px;
+  line-height: 1.6;
+}
+main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--danger-dim);
+  border: 1px solid var(--danger);
+  color: #FFD3CE;
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  font-family: var(--font-mono);
+}
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.grid-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+.grid-fieldset:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  h1 { font-size: 24px; }
+}
+/* .card itself is in arkpedia-theme.css. What stays here is the state it can be
+   in, which that file does not describe. */
+.card.invalid {
+  border-color: var(--danger);
+  animation: shake 0.35s;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+/* Paint and focus are in arkpedia-theme.css with the other inputs. These two are
+   the power page's own: a select that stacks with 8px under it, and the disabled
+   state nothing else needs. */
+select.power-select { width: 100%; margin-bottom: 8px; }
+select.power-select:disabled { opacity: 0.35; }
+.unable-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+.unable-row input { accent-color: var(--amber); cursor: pointer; }
+.submit-row {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rated-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.submit-row-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* The four button variants are in arkpedia-theme.css. What is left here is the
+   one correction the tokens cannot make on their own: anything wearing .primary
+   that is NEITHER a button NOR an anchor -- the theme names those two -- still
+   needs the light theme's white ink, or it inherits near-black onto a dark teal
+   fill at 3.01:1. Both the hover backgrounds now come from --teal-fill-hi. */
+:root[data-theme="light"] .primary:not(button):not(a) { color: #FFFFFF; }
+
+/* Anchor twin of button.ghost. Several pages put class="ghost" on a <Link>
+   (Discover on /music, Back to Base on the optimizers, See all skins)
+   expecting the ghost-button look, but every rule above is scoped to
+   button.* -- so those anchors rendered as bare browser links, default
+   blue underline and all. Mirrors the base button + button.ghost
+   declarations at the same (0,1,1) specificity, plus the anchor-only
+   resets: text-decoration, and inline-flex so an icon + label pair sits
+   on one line with padding that actually takes effect vertically. */
+a.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  border-radius: 3px;
+  border: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text-faint);
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+a.ghost:hover { border-color: var(--teal); color: var(--teal); }
+
+/* Anchor twin of button.primary, added for the same reason a.ghost was: a toggle group
+   written the site's usual way, `cond ? 'primary' : 'ghost'`, renders the selected option
+   as a bare browser link when the group is made of <Link>s rather than <button>s. a.ghost
+   existed already, so such a group came out half styled. First needed by the Amiya form
+   switcher, where the options are real navigations and so have to be links.
+
+   Mirrors button + button.primary at the same (0,1,1) specificity, plus the anchor-only
+   resets a.ghost also needed: text-decoration, and inline-flex so an icon and a label sit
+   on one line with padding that takes effect vertically. Light mode is already handled --
+   `.primary:not(button)` in the block above catches this too. */
+a.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 12px 26px;
+  border-radius: 3px;
+  border: 1px solid var(--teal);
+  background: var(--teal);
+  color: #06211C;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+a.primary:hover { background: #6FF0DC; color: #06211C; }
+:root[data-theme="light"] a.primary:hover { background: #0B8B77; }
+
+/* A selected toggle keeps its neighbours' size. Toggles are written across the site
+   as `cond ? 'primary' : 'ghost'`, so the selected option is a .primary among .ghost
+   siblings -- and .ghost is smaller than the base button, so the selected one grew
+   24px wider and 8px taller than the options beside it. Picking 6* on /operators
+   enlarged that one star. 48 toggle groups across 15 files shared this.
+
+   The two selectors are one idea in the two directions the sibling combinator
+   reaches. Requiring a .ghost *sibling* is what leaves standalone calls-to-action
+   ("x10", "Run Optimizer") at full size. The :where() wrappers add no specificity, so
+   anything more specific still wins.
+
+   Only .modal-actions and .skin-zoom-controls are excluded, both of which hold
+   nothing but Confirm/Cancel-style pairs where the size difference IS the emphasis.
+   .submit-row-actions is NOT excluded even though it holds such pairs, because it
+   also wraps three real toggle groups -- /guesser hint order, /guesser vasebreaker,
+   /planner total-vs-separate -- and excluding it left the very bug this fixes in
+   place on two shipped pages. The cost is that planner's Confirm/Cancel matches
+   sizes; the benefit is that three toggle groups stop jumping.
+
+   This cannot help a group of INDEPENDENT toggles, which lose their last .ghost
+   sibling once everything is on: see .timeline-filter-row below, which states its own
+   metrics for that reason. */
+button.primary:where(:has(~ button.ghost)):not(:where(.modal-actions, .skin-zoom-controls) *),
+:where(button.ghost) ~ button.primary:not(:where(.modal-actions, .skin-zoom-controls) *) {
+  font-size: 12px;
+  padding: 8px 14px;
+}
+/* Same idea for a link toggle group, which has no modal-actions case to exclude because
+   a Confirm/Cancel pair is never a pair of links. */
+a.primary:where(:has(~ a.ghost)),
+:where(a.ghost) ~ a.primary {
+  font-size: 12px;
+  padding: 8px 14px;
+}
+.chip {
+  width: 72px;
+  height: 72px;
+  border-radius: 5px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+.chip img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.chip:active { cursor: grabbing; }
+.chip.dragging { opacity: 0.3; }
+.chip.selected {
+  box-shadow: 0 0 0 3px var(--teal);
+  transform: scale(0.95);
+}
+.add-row-btn-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0;
+}
+.add-row-btn-wrap button {
+  font-size: 12px;
+  padding: 8px 18px;
+  border-style: dashed;
+}
+.hint.gacha-base-rates-text {
+  margin-top: -6px;
+  margin-bottom: 4px;
+}
+.hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 18px;
+}
+.thanks-view { text-align: center; padding: 60px 20px; }
+.thanks-view h2 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.stats-table {
+  margin-top: 20px;
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: left;
+}
+.stats-table th, .stats-table td {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+.stats-table-boxplot-btn {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: block;
+}
+.stats-table-boxplot-btn:hover .power-boxplot-svg { opacity: 0.8; }
+/* The distribution curve. Sized by its own width/height attributes, but an inline
+   svg sits on the text baseline and leaves the descender gap under itself -- 4px of
+   it, under every chart on /results. */
+.power-distribution-svg { display: block; }
+.stats-table th { color: var(--text-faint); font-weight: 500; }
+.stats-table-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.stats-table-sortable:hover {
+  color: var(--teal);
+}
+.stats-table img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.waiting-box {
+  text-align: center;
+  padding: 80px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  margin-top: 20px;
+}
+.waiting-box h2 {
+  font-family: var(--font-display);
+  color: var(--amber);
+  text-transform: uppercase;
+}
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.view-toggle {
+  display: flex;
+  gap: 8px;
+}
+.view-toggle button {
+  font-size: 12px;
+  padding: 8px 16px;
+}
+.num-highlight {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.info-flip-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px;
+  height: 100%;
+}
+.info-flip-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.info-flip-tabs button { font-size: 10px; padding: 6px 9px; }
+.info-flip-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin: 0 0 10px;
+}
+.info-flip-body .char-file-grid {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 700px) {
+  .skills-info-row { flex-direction: column; }
+}
+
+@keyframes cardRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .roster-card-enter,
+  .skin-card-enter {
+    animation: none;
+  }
+}
+@media (max-width: 720px) {
+  .recruit-combo-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .recruit-combo-tags {
+    min-width: 0;
+  }
+}
+
+/* The zoomable panel itself. Its footprint is set by --base-view-height
+   rather than by the grid inside it, so it reads as its own distinct
+   "beautiful navigable base"; the grid is zoomed to fit that footprint
+   instead of the panel being sized to the grid. overflow:hidden clips the
+   scaled/panned stage to this viewport; cursor communicates the
+   click-and-drag panning. */
+.base-zoom-viewport {
+  position: relative;
+  height: var(--base-view-height);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.base-zoom-viewport.fullscreen {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  z-index: 300;
+  border-radius: 0;
+  border: none;
+}
+
+@media (max-width: 900px) {
+  /* The grid itself keeps its real fixed pixel dimensions -- it lives
+     inside the zoom/pan viewport, which already has full touch support
+     (pinch to zoom, single-finger pan), so shrinking the grid's own
+     layout here would fight the zoom math rather than help. Only the
+     viewport's on-screen footprint and the UI around it need to adapt. */
+  :root {
+    --base-view-height: min(70vh, 480px);
+  }
+  .base-zoom-controls {
+    top: 8px;
+    left: 8px;
+    padding: 5px 8px;
+    gap: 6px;
+  }
+  .base-zoom-slider {
+    width: 70px;
+  }
+  .base-fullscreen-btn {
+    display: none;
+  }
+
+  .base-room-panel {
+    padding: 10px;
+    gap: 8px;
+  }
+  .base-room-panel-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .base-room-panel-title {
+    font-size: 14px;
+  }
+  .base-room-panel-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .base-room-panel-controls .base-sidebar-search {
+    width: 100%;
+  }
+  .base-room-elite-select {
+    justify-content: stretch;
+  }
+  .base-room-elite-select button {
+    flex: 1;
+  }
+  .base-room-card {
+    flex-basis: 150px;
+  }
+
+  .base-bottom-panels {
+    flex-direction: column;
+  }
+  .base-extra-resources-settings-panel {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  /* The popover's counter-scale (1/baseZoom) can grow very large once
+     zoomed far out on a narrower screen -- cap it to something that
+     stays readable and on-screen instead of overflowing. */
+  .base-popover {
+    max-width: min(85vw, 320px);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --base-view-height: min(65vh, 420px);
+  }
+  .base-room-card {
+    flex-basis: 130px;
+  }
+  .base-room-panel-title {
+    font-size: 13px;
+  }
+}
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+.info-row-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+.info-row-value { font-size: 13px; }
+@media (prefers-reduced-motion: reduce) {
+  .farming-table-enter { animation: none; }
+}
+
+@media (max-width: 700px) {
+  .farming-accordion-header { font-size: 15px; padding: 12px 14px; }
+  .farming-accordion-body { padding: 4px 12px 14px; }
+  .farming-tile-grid-open,
+  .farming-tile-grid-open.farming-tile-grid-t3 {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 8px;
+  }
+  .farming-material-icon-open { width: 36px; height: 36px; }
+  .farming-material-name-open { font-size: 10px; }
+}
+
+/* --- Gacha simulator --- */
+.banner-select-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gacha-pull-slide-bottom,
+  .gacha-pull-slide-top {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .timeline-bar, .timeline-pill { font-size: 8px; }
+}
+@media (max-width: 720px) {
+  .series-filter-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+  .series-logo-btn {
+    flex-shrink: 0;
+  }
+}
+
+/* Fills a fixed-ratio box by scaling each image to match the box height
+   (every source image here is wider than the 3:4 box), then crops only
+   the necessary horizontal excess, centered. This keeps the operator at
+   a consistent apparent scale across every card, since the crop adapts
+   to each image's own proportions rather than cutting a flat percentage
+   of whatever resolution that particular image happens to be. */
+.skin-image-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--panel-2);
+}
+
+
+.main-wide { max-width: 1320px; }
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 4px;
+  overflow: hidden;
+  padding: 0;
+}
+.theme-toggle img {
+  border-radius: 50%;
+  object-fit: cover;
+}
+.theme-toggle:hover {
+  border-color: var(--teal);
+}
+@media (max-width: 640px) {
+  .site-nav-link span:last-child { display: none; }
+  .site-nav-link { padding: 8px; }
+  .site-nav-icon { width: 17px; height: 17px; }
+}
+
+/* --- Collectibles / Tongbaos theme page --- */
+.section-nav {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+.section-nav a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--teal);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--teal-dim);
+}
+.section-nav a:hover { border-bottom-color: var(--teal); }
+.badge-tradeable { color: var(--teal); }
+.badge-no-trade { color: var(--danger); border-color: #F0665A44; }
+
+.price-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+.price-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+}
+.price-currency { color: var(--text-faint); }
+/* Fullscreen isn't supported on mobile -- the button never appears
+   there at all, rather than appearing and not working well. */
+@media (max-width: 700px) {
+  .world-map-fullscreen-btn {
+    display: none;
+  }
+}
+@keyframes title-marquee {
+  0%, 12% { transform: translateX(0); }
+  50% { transform: translateX(calc(-1 * var(--scroll-distance))); }
+  88%, 100% { transform: translateX(0); }
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 10, 0.75);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 300;
+}
+.modal-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--teal);
+  border-radius: 4px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 26px 28px;
+}
+.modal-box h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  text-transform: uppercase;
+  margin: 6px 0 16px;
+}
+.modal-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.modal-box p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0 0 14px;
+}
+.modal-box ol {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0 0 14px;
+  padding-left: 20px;
+}
+.modal-box li { margin-bottom: 10px; }
+.modal-box strong { color: var(--text); }
+.modal-box a { color: var(--teal); }
+.modal-box li.rule-red,
+.modal-box p.text-red {
+  color: var(--danger);
+}
+.mt-disclaimer {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  border-left: 2px solid var(--line);
+  padding-left: 10px;
+  margin-bottom: 16px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.see-more-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--teal);
+  text-decoration: none;
+  white-space: nowrap;
+  /* 53x13 of link is not a finger. The padding is negative-margined back out
+     so the row it sits in keeps its old spacing. */
+  display: inline-block;
+  padding: 6px 4px;
+  margin: -6px -4px;
+}
+.see-more-link:hover { text-decoration: underline; }
+
+.modal-back-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.modal-back-btn:hover { border-color: var(--teal); color: var(--teal); }
+
+/* On mobile, the skin and stage detail modals take over the full
+   screen like a new page rather than sitting as an embedded popup. */
+@media (max-width: 700px) {
+  .skin-modal,
+  .stage-detail-modal {
+    position: fixed;
+    inset: 0;
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    margin: 0;
+  }
+}
+@media (max-width: 800px) {
+  .gacha-layout { flex-direction: column; }
+  .gacha-banner-sidebar { flex: none; width: 100%; max-height: 220px; }
+
+  .submit-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .submit-row-actions {
+    justify-content: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .in-store-now-row.scrolling { animation: none; overflow-x: auto; }
+}
+
+.countdown-timer {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--amber);
+}
+
+.support-social-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.support-social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: 1px solid var(--teal);
+  background: linear-gradient(135deg, rgba(77, 232, 209, 0.12), transparent);
+  color: var(--teal);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 13px;
+  text-decoration: none;
+  transition: box-shadow 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+.support-social-link:hover {
+  background: linear-gradient(135deg, rgba(77, 232, 209, 0.22), rgba(77, 232, 209, 0.04));
+  box-shadow: 0 0 14px rgba(77, 232, 209, 0.35);
+  transform: translateY(-1px);
+}
+.support-social-column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.support-options-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+/* The supporter tiers. These three had no rules at all, so a ul rendered with disc
+   bullets and 40px of indent in the middle of a page that has neither anywhere
+   else -- it read as an unstyled document dropped into the design. Panels to match
+   .support-option below, since that is what the rest of this page is made of. */
+.supporters-tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.supporter-tier {
+  padding: 14px;
+  border-radius: var(--radius-frame, 3px);
+  border: 1px solid var(--line-soft);
+  background: var(--panel-grad, var(--panel-2));
+}
+.supporter-tier h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.supporter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.support-option {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 16px 14px;
+  border-radius: var(--radius-frame, 3px);
+  border: 1px solid var(--line-soft);
+  background: var(--panel-grad, var(--panel-2));
+}
+.support-option h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.support-option .support-social-link {
+  padding: 8px 12px;
+  font-size: 11px;
+  gap: 6px;
+}
+.support-option .support-social-link svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .support-options-row { grid-template-columns: 1fr; }
+}
+.support-option .hint { font-size: 14px; line-height: 1.6; }
+.support-option .support-social-link { font-size: 12px; min-height: 44px; }
+.support-dialog { margin: auto; width: calc(100% - 40px); color: var(--text); }
+.support-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+/* --- every other scrollbar, in the site's own colors -------------------------
+   One inherited declaration: thumb in --line on the page's own ground, both themes,
+   Chromium and Firefox alike. Safari ignores scrollbar-color and keeps its overlay
+   bar, which is invisible until used anyway -- an acceptable miss, where forcing the
+   ::-webkit route on everything would turn macOS's overlay page bar into a permanent
+   12px gutter. */
+:root { scrollbar-color: var(--line) transparent; }
+
+/* The side-scrolling rows below draw their own gutter bars through
+   ::-webkit-scrollbar, and an inherited non-auto scrollbar-color switches Chromium
+   to its native bar, throwing those away. `auto` hands the pseudo-elements back. */
+.sidescroll,
+.base-room-scroll,
+.event-rewards-scroll-grid,
+.future-skins-month-scroller,
+.gacha-ramp-table-wrap,
+.gm-gridwrap,
+.score-rail,
+.timeline-month-tabs,
+.stage-mapwrap,
+.stage-deploy-strip {
+  scrollbar-color: auto;
+}
+
+/* --- side-scrolling rows ----------------------------------------------------
+   Every box on this site whose content runs off to the right gets a scrollbar that is
+   DRAWN and takes up space, not the overlay kind that fades. A mouse with only a
+   vertical wheel has no other way along the row, so the bar has to be a thing you can
+   grab, and a reserved gutter also means the row does not shift the moment its content
+   grows past the edge. A container declares `overflow-x: scroll` itself and this dresses
+   the bar; new ones should carry the `sidescroll` class, the named ones predate it.
+
+   ::-webkit-scrollbar AND NOT scrollbar-width. They are mutually exclusive: setting
+   `scrollbar-width` hands the element to Chromium's own bar and the pseudo-elements are
+   then ignored -- which on macOS means an overlay that reserves nothing. Measured on
+   this machine: a styled ::-webkit-scrollbar reserves 12px, `scrollbar-width: thin`
+   reserves 0. So the standard properties are kept for the one engine that has no
+   pseudo-elements, behind @supports, where they cannot disable this.
+
+   Deliberately NOT here, all of them already right:
+     .terminal-tabs               hidden by design, and on a desktop all seven fit
+     .technique-filter-row        only scrolls under 720px, where the finger works
+     .op-carousel-thumbs          the same, under 720px
+     .gacha-category-row          the same
+     .series-filter-row           the same */
+.sidescroll::-webkit-scrollbar,
+.base-room-scroll::-webkit-scrollbar,
+.event-rewards-scroll-grid::-webkit-scrollbar,
+.future-skins-month-scroller::-webkit-scrollbar,
+.gacha-ramp-table-wrap::-webkit-scrollbar,
+.gm-gridwrap::-webkit-scrollbar,
+.score-rail::-webkit-scrollbar,
+.timeline-month-tabs::-webkit-scrollbar,
+.stage-mapwrap::-webkit-scrollbar,
+.stage-deploy-strip::-webkit-scrollbar {
+  height: 10px;
+}
+.sidescroll::-webkit-scrollbar-track,
+.base-room-scroll::-webkit-scrollbar-track,
+.event-rewards-scroll-grid::-webkit-scrollbar-track,
+.future-skins-month-scroller::-webkit-scrollbar-track,
+.gacha-ramp-table-wrap::-webkit-scrollbar-track,
+.gm-gridwrap::-webkit-scrollbar-track,
+.score-rail::-webkit-scrollbar-track,
+.timeline-month-tabs::-webkit-scrollbar-track,
+.stage-mapwrap::-webkit-scrollbar-track,
+.stage-deploy-strip::-webkit-scrollbar-track {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+.sidescroll::-webkit-scrollbar-thumb,
+.base-room-scroll::-webkit-scrollbar-thumb,
+.event-rewards-scroll-grid::-webkit-scrollbar-thumb,
+.future-skins-month-scroller::-webkit-scrollbar-thumb,
+.gacha-ramp-table-wrap::-webkit-scrollbar-thumb,
+.gm-gridwrap::-webkit-scrollbar-thumb,
+.score-rail::-webkit-scrollbar-thumb,
+.timeline-month-tabs::-webkit-scrollbar-thumb,
+.stage-mapwrap::-webkit-scrollbar-thumb,
+.stage-deploy-strip::-webkit-scrollbar-thumb {
+  background: var(--teal-dim);
+  border-radius: 2px;
+}
+.sidescroll::-webkit-scrollbar-thumb:hover,
+.base-room-scroll::-webkit-scrollbar-thumb:hover,
+.event-rewards-scroll-grid::-webkit-scrollbar-thumb:hover,
+.future-skins-month-scroller::-webkit-scrollbar-thumb:hover,
+.gacha-ramp-table-wrap::-webkit-scrollbar-thumb:hover,
+.scrollable-row::-webkit-scrollbar-thumb:hover,
+.gm-gridwrap::-webkit-scrollbar-thumb:hover,
+.score-rail::-webkit-scrollbar-thumb:hover,
+.timeline-month-tabs::-webkit-scrollbar-thumb:hover,
+.stage-mapwrap::-webkit-scrollbar-thumb:hover,
+.stage-deploy-strip::-webkit-scrollbar-thumb:hover {
+  background: var(--teal);
+}
+/* Firefox, which has no ::-webkit-scrollbar to be disabled by these. */
+@supports not selector(::-webkit-scrollbar) {
+  .sidescroll,
+  .base-room-scroll,
+  .event-rewards-scroll-grid,
+  .future-skins-month-scroller,
+  .gacha-ramp-table-wrap,
+  .scrollable-row,
+  .gm-gridwrap,
+  .score-rail,
+  .timeline-month-tabs,
+  .stage-mapwrap,
+  .stage-deploy-strip {
+    scrollbar-width: thin;
+    scrollbar-color: var(--teal-dim) var(--panel-2);
+  }
+}

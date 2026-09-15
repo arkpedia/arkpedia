@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Palette review — Arkpedia</title><link rel="stylesheet" href="/review.css"></head>
+<body class="quick">
+  <header><div><h1>Palette review</h1><p>Accept the good palettes. Adjust the rest afterwards.</p></div><div class="progress"><strong id="progress">Loading artwork…</strong><button id="apply" type="button">Apply reviewed palettes</button></div></header>
+  <nav class="review-steps" aria-label="Review steps"><button id="step-quick" type="button" aria-pressed="true">1. Quick review</button><button id="step-adjust" type="button" aria-pressed="false">2. Adjust declined <span id="declined-count"></span></button><button id="step-all" type="button" aria-pressed="false">All palettes</button><button id="undo" type="button" disabled>Undo last choice</button></nav>
+  <p id="message" role="status" aria-live="polite"></p>
+  <main>
+    <aside aria-label="Artwork queue">
+      <label for="search">Find an operator</label><input id="search" type="search" placeholder="Operator name">
+      <div class="filters"><div><label for="mode">Artwork</label><select id="mode"><option value="">Both modes</option><option>Base</option><option>Elite 2</option></select></div><div><label for="status">Review status</label><select id="status"><option value="">All</option><option value="unreviewed">Unreviewed</option><option value="draft">Draft</option><option value="flagged">Flagged</option><option value="declined">Declined</option><option value="accepted">Accepted</option><option value="approved">Adjusted & approved</option><option value="stale">Artwork changed</option></select></div></div>
+      <p id="matches"></p><ul id="queue"></ul>
+    </aside>
+    <section id="complete" hidden><h2 id="complete-title">First pass complete</h2><p id="complete-text"></p><button id="go-adjust" class="primary" type="button">Adjust declined palettes</button></section>
+    <section id="editor" aria-labelledby="title" hidden>
+      <div class="title-row"><div><h2 id="title"></h2><p id="review-status"></p></div><div class="pager"><button id="previous" type="button">Previous</button><button id="next" type="button">Next</button></div></div>
+      <div id="quick-palette" class="palette" aria-label="Suggested palette"></div>
+      <div class="workspace">
+        <div class="art-column">
+          <div class="art-toolbar"><label for="zoom">Zoom</label><select id="zoom"><option value="1">Fit</option><option value="2">2×</option><option value="4">4×</option></select><label for="background">Background</label><select id="background"><option value="dark">Dark</option><option value="light">Light</option></select></div>
+          <div id="art-scroll"><div id="art-wrap"><canvas id="art" aria-label="Operator artwork. Select a feature slot, then click its color in the artwork."></canvas><div id="markers" aria-hidden="true"></div></div></div>
+          <div class="pixel-readout"><canvas id="magnifier" width="99" height="99" aria-hidden="true"></canvas><span id="pixel">Hover over the artwork to inspect a pixel.</span></div>
+          <details><summary>Sample with coordinates</summary><p>Coordinates refer to the original full-size image.</p><div class="coordinates"><label>X <input id="sample-x" type="number" min="0" value="0"></label><label>Y <input id="sample-y" type="number" min="0" value="0"></label><button id="sample-position" type="button">Sample position</button></div></details>
+        </div>
+        <div class="review-column">
+          <h3>Suggested palette</h3><div id="current-palette" class="palette" aria-label="Current palette"></div>
+          <h3>Your selection</h3><p>Select a slot, click its color in the artwork, and describe what it represents.</p>
+          <details class="palette-guide"><summary>How to choose the five colors</summary>
+            <ol><li><strong>Hair:</strong> a representative hair color. Use visible headgear, fur, or shell when hair is covered or absent.</li><li><strong>Clothing 1:</strong> the main clothing color.</li><li><strong>Clothing 2:</strong> a second recognizable clothing color.</li><li><strong>Skin / clothing 3:</strong> use skin when it forms a substantial visible part of the artwork; otherwise choose another clothing color. A small face or a pair of hands alone does not require a skin swatch.</li><li><strong>Accent / item:</strong> a distinctive weapon, accessory, trim, or effect, even if it takes up little space.</li></ol>
+            <p>Choose colors from visible features, avoiding isolated highlights or deep shadows. For nonhuman operators, use body or equipment colors in the clothing slots. Review Base and Elite 2 separately; a monochrome design can stay monochrome.</p>
+          </details>
+          <ol id="slots"></ol>
+          <label for="notes">Review notes</label><textarea id="notes" rows="3" maxlength="2000" placeholder="Anything uncertain or worth checking?"></textarea>
+          <div class="save-actions"><button id="save" type="button">Save draft</button><button id="flag" type="button">Flag for review</button><button id="approve" type="button" class="primary" disabled>Approve palette</button></div>
+          <p id="approval-hint">Sample and describe all five features to approve.</p><p class="local-note">Reviews are saved in this checkout. Use “Apply reviewed palettes” when ready to update the game data locally.</p>
+        </div>
+      </div>
+      <div id="quick-actions"><button id="decline" type="button">Decline <kbd>←</kbd></button><button id="accept" type="button" class="primary">Accept <kbd>→</kbd></button><p>Saves your choice and opens the next artwork.</p></div>
+    </section>
+  </main>
+  <script src="/review.js"></script>
+</body></html>

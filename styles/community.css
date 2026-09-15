@@ -1,0 +1,94 @@
+/* Split from globals.css -- community.css */
+
+
+
+.community-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .community-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.community-grid-panel {
+  min-width: 0;
+}
+
+.tongbao-group { margin-bottom: 28px; }
+.tongbao-group h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.live-now-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+}
+.live-now-badge-twitch { background: #9146FF; }
+.creator-name-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 3px;
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viewer-count-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 7px;
+  border-radius: 3px;
+}
+.live-section-heading { color: var(--danger) !important; }
+/* Twitch purple, nudged per theme to clear 4.5:1 -- the brand value measured
+   4.17:1 on our dark panel and 4.36:1 on the light one, failing both. */
+.live-section-heading-twitch { color: #A970FF !important; }
+:root[data-theme="light"] .live-section-heading-twitch { color: #7B2FF7 !important; }
+
+.live-section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.live-section-heading-row h2 { margin: 0; }
+/* The event's real window, under its status. Quieter than the status line
+   above it: that says whether to care, this says when. */
+.event-list-range {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.8;
+}

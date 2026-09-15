@@ -1,0 +1,134 @@
+# Runs the stage-data refresh on a schedule and keeps ONE pull request in step with
+# whatever upstream has that this repository does not, so a new event reaches the site
+# without anyone doing it by hand.
+#
+# A pull request, not a push: this repository has more than one person in it, and a
+# scheduled job should not be committing to the branch everyone deploys from.
+#
+# INERT UNTIL THIS FILE IS ON THE DEFAULT BRANCH: GitHub only runs `schedule`
+# there. Nothing else is needed -- every source the refresh reads is public, so
+# there is no secret to add. Use "Run workflow" to try it once by hand first.
+name: Refresh stage data
+
+on:
+  schedule:
+    # 05:17 UTC daily. Off the hour on purpose: scheduled jobs on the hour queue
+    # behind everyone else's.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-stage-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The only two things the refresh scripts need beyond the standard library:
+      # Pillow converts the renders to webp, certifi gives urllib a trust store.
+      - run: pip install --quiet pillow certifi
+
+      # The upstream checkouts are partial and sparse but still large. Caching them
+      # turns a 5-minute clone into a fetch of whatever moved.
+      - uses: actions/cache@v4
+        with:
+          path: .cache/upstream
+          key: upstream-${{ github.run_id }}
+          restore-keys: upstream-
+
+      - name: Refresh
+        run: npm run stages:refresh
+
+      - name: Prevent unpublished media references
+        run: node scripts/check-external-assets.cjs
+
+      - name: Open or update the one refresh pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Nothing moved upstream: the game has shipped nothing since the
+          # default branch was last updated.
+          if [ -z "$(git status --porcelain data public)" ]; then
+            echo "No change: the game has not shipped anything new."
+            exit 0
+          fi
+
+          git config user.name 'arkpedia-bot'
+          git config user.email 'arkpedia-bot@users.noreply.github.com'
+
+          # ONE branch, reused, rather than one per day.
+          #
+          # The dated name was the whole bug. This job's "has anything changed"
+          # test compares the refresh against the DEFAULT branch, and while a
+          # refresh PR sits unmerged the default branch does not have that
+          # change -- so the next run finds the same diff again, and a new date
+          # gives it a new branch and a second pull request for identical
+          # content. Two branches on record, refresh/stage-data-2026-09-04 and
+          # -09-05, whose diff against each other is empty.
+          branch="refresh/stage-data"
+          git checkout -b "$branch"
+          git add data public
+
+          summary="$(git diff --cached --numstat -- data public | awk '{print $3}' | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -6 | awk '{printf "  %s files under %s\n", $1, $2}')"
+          git commit -m "Refresh stage data" -m "$summary"
+
+          # Is this the same refresh that is already open? Compare CONTENT, not
+          # commits: the commit differs every run because its timestamp does, so
+          # comparing revisions would always say "new" and would fix nothing.
+          if git fetch --quiet origin "$branch" 2>/dev/null; then
+            if git diff --quiet FETCH_HEAD HEAD -- data public; then
+              echo "Identical to the refresh already open -- nothing new to say."
+              exit 0
+            fi
+            echo "The open refresh is out of date; replacing it."
+          fi
+
+          # Force, deliberately: this branch is a rolling snapshot of "what
+          # upstream has that we do not", owned by this job alone, and its
+          # history is worth nothing. --force-with-lease so a run that raced
+          # another one loses instead of overwriting it.
+          if git rev-parse --quiet --verify FETCH_HEAD >/dev/null 2>&1; then
+            git push --force-with-lease="$branch:$(git rev-parse FETCH_HEAD)" \
+              --set-upstream origin "$branch"
+          else
+            git push --set-upstream origin "$branch"
+          fi
+
+          {
+            echo 'Automated run of `npm run stages:refresh`.'
+            echo
+            echo "$summary"
+            echo
+            echo 'Nothing here is hand-written: every file is regenerated from upstream'
+            echo 'gamedata by the scripts in `scripts/`. The diff stat is the thing to read.'
+            echo
+            echo "_Last refreshed $(date -u +'%Y-%m-%d %H:%M') UTC. This branch is reused:"
+            echo 'a later run with the same result changes nothing, and a run with a new_'
+            echo '_result updates this pull request in place rather than opening another._'
+          } > /tmp/pr-body.md
+
+          # One pull request, updated in place. `gh pr create` fails when one is
+          # already open for the branch, which is the normal case now.
+          if gh pr create --title "Refresh stage data" --body-file /tmp/pr-body.md 2>/dev/null; then
+            echo "Opened a pull request."
+          else
+            gh pr edit "$branch" --body-file /tmp/pr-body.md \
+              && echo "Updated the pull request already open." \
+              || echo "Could not update the existing pull request; the push landed regardless."
+          fi
