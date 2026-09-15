@@ -30,7 +30,7 @@ export default function ResponsiveSkinArtwork({
 
   if (!sources) {
     return <img src={src} alt={alt} className={className} style={imageStyle} width={width} height={height}
-      loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} onClick={onClick} />;
+      loading={priority ? 'eager' : 'lazy'} onClick={onClick} />;
   }
 
   return (
@@ -40,7 +40,7 @@ export default function ResponsiveSkinArtwork({
       <source type="image/webp" sizes={sizes}
         srcSet={`${sources.webp[320]} 320w, ${sources.webp[768]} 768w, ${sources.webp[1280]} 1280w`} />
       <img src={sources.fallback} alt={alt} className={className} style={imageStyle} width={width} height={height}
-        loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onClick={onClick} />
+        loading={priority ? 'eager' : 'lazy'} decoding="async" onClick={onClick} />
     </picture>
   );
 }
