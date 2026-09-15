@@ -1,5 +1,6 @@
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from 'next/image';
+import ResponsiveSkinArtwork from '@/components/ResponsiveSkinArtwork';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -910,7 +911,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
               {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: `url("${factionEmblem}")`, WebkitMaskImage: `url("${factionEmblem}")` }} />}
               {prevAppearance?.fullPath && (
                 <div key={`prev-img-${prevAppearance.label}`} className="op-carousel-main-img op-carousel-img-exit">
-                  <Image src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes="(max-width: 900px) 100vw, 40vw" />
+                  <ResponsiveSkinArtwork src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes="(max-width: 900px) 100vw, 40vw" />
                 </div>
               )}
               {activeAppearance?.fullPath ? (
@@ -924,7 +925,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                   }}
                 >
                   <div key={`current-img-${activeAppearance.label}`} className="op-carousel-main-img op-carousel-img-enter">
-                    <Image src={activeAppearance.fullPath} alt={activeAppearance.label} fill priority sizes="(max-width: 900px) 100vw, 40vw" />
+                    <ResponsiveSkinArtwork src={activeAppearance.fullPath} alt={activeAppearance.label} fill priority sizes="(max-width: 900px) 100vw, 40vw" />
                   </div>
                 </button>
               ) : (

@@ -10,6 +10,7 @@ import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinZoomOverlay from '@/components/SkinZoomOverlay';
+import ResponsiveSkinArtwork from '@/components/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { getOngoingEvents, getSkinsForScheduleEvent } from '@/lib/skins/upcomingSkins';
@@ -278,7 +279,7 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
         >
           <div className="skin-image-wrap">
             {skin.image ? (
-              <Image src={skin.image} alt={skin.name} fill sizes="(max-width: 480px) 170px, 220px" loading="lazy" />
+              <ResponsiveSkinArtwork src={skin.image} alt={skin.name} fill sizes="(max-width: 480px) 170px, 220px" />
             ) : (
               <div className="skin-image-placeholder">No image</div>
             )}
@@ -356,7 +357,7 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
                       tabIndex={isLoopDuplicate ? -1 : undefined}
                     >
                       {s.image && (
-                        <Image src={s.image} alt={s.name} width={90} height={120} />
+                        <ResponsiveSkinArtwork src={s.image} alt={s.name} width={90} height={120} sizes="90px" />
                       )}
                       <span>{s.name}</span>
                     </button>
@@ -500,11 +501,12 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
             </button>
             <div className="skin-modal-image-wrap-full">
               {active.image && (
-                <Image
+                <ResponsiveSkinArtwork
                   src={active.image}
                   alt={active.name}
                   width={1600}
                   height={900}
+                  sizes="90vw"
                   className="skin-modal-image-clickable"
                   style={{ maxWidth: '100%', maxHeight: '60vh', width: 'auto', height: 'auto', objectFit: 'contain' }}
                   onClick={() => setZooming(true)}

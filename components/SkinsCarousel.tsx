@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Skin } from '@/lib/skins/skinTypes';
 import { parsePrices } from '@/lib/skins/skinPrice';
 import PriceDisplay from './PriceDisplay';
 import SkinZoomOverlay from './SkinZoomOverlay';
+import ResponsiveSkinArtwork from './ResponsiveSkinArtwork';
 
 export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -76,10 +76,9 @@ export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
                 key={`${skin.name}-${i}`}
                 onClick={() => setActive(skin)}
               >
-                {/* Requested at twice the box: the art is 900-2048px and cover
-                    crops into it, so a 128px optimizer rendition re-enlarged by the
-                    crop was mush on any screen. */}
-                {skin.image && <Image src={skin.image} alt={skin.name} width={240} height={320} quality={85} style={{ objectFit: 'cover', width: 120, height: 160 }} />}
+                {/* The browser selects the smallest prebuilt rendition that stays
+                    crisp through this card's cover crop. */}
+                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt={skin.name} width={240} height={320} sizes="120px" style={{ objectFit: 'cover', width: 120, height: 160 }} />}
                 <span className="front-skin-name">
                   {skin.model ? `${skin.model} - ${skin.name}` : skin.name}
                 </span>
@@ -110,11 +109,12 @@ export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'zoom-in', display: 'block', width: '100%' }}
                   aria-label={`Zoom in on ${active.name}`}
                 >
-                  <Image
+                  <ResponsiveSkinArtwork
                     src={active.image}
                     alt={active.name}
                     width={1600}
                     height={900}
+                    sizes="90vw"
                     style={{ maxWidth: '100%', maxHeight: '60vh', width: 'auto', height: 'auto', objectFit: 'contain' }}
                   />
                 </button>

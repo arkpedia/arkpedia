@@ -68,6 +68,16 @@ const nextConfig = {
     return [
       ...externalAssetRedirects(SKIN_ASSET_FOLDERS, 'arkpedia-skin-assets'),
       ...externalAssetRedirects(IMAGE_ASSET_FOLDERS, 'arkpedia-image-assets'),
+      {
+        source: '/skin-originals/:path*',
+        destination: 'https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/main/originals/:path*',
+        permanent: false,
+      },
+      {
+        source: '/skin-variants/:format/:width/:path*',
+        destination: 'https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/main/variants/:format/:width/:path*',
+        permanent: false,
+      },
       { source: '/community/livestreams', destination: '/community/videos', permanent: true },
       ...['characters', 'artists', 'origins'].map((collection) => ({
         source: `/music/discover/${collection}`,

@@ -7,6 +7,7 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/test-operator-details.ts",
+    "test:skin-artwork": "tsx --test scripts/test-skin-artwork.ts",
     "voices:refresh": "node scripts/build-operator-voices.mjs",
     "test:operator-voices": "tsx --test scripts/test-operator-voices.ts",
     "test:operator-guesser": "tsx --test scripts/test-operator-guesser.ts",
