@@ -44,7 +44,7 @@ jobs:
       - run: python -m pip install pillow certifi
 
       - name: Palette import tests
-        run: python3 -m unittest discover -s scripts/palettes -p "test-*.py"
+        run: python3 scripts/palettes/test-color-palettes.py
 
       - name: External asset coverage
         run: npm run check:assets && npm run check:published-assets
