@@ -58,6 +58,34 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
   const [duration, setDuration] = useState(0);
   const [audioError, setAudioError] = useState('');
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const playerAnchorRef = useRef<HTMLDivElement>(null);
+  const [playerStuck, setPlayerStuck] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const player = playerRef.current;
+      const anchor = playerAnchorRef.current;
+      if (player && anchor) {
+        setPlayerStuck(anchor.getBoundingClientRect().top < player.getBoundingClientRect().top - 0.5);
+      }
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    // Desktop scrolls the detail panel; mobile scrolls the document.
+    document.addEventListener('scroll', schedule, true);
+    window.addEventListener('resize', schedule);
+    const observer = new ResizeObserver(schedule);
+    if (playerRef.current) observer.observe(playerRef.current);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      document.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('resize', schedule);
+    };
+  }, []);
 
   const pack = data.packs.find(item => item.id === packId) ?? preferredPack;
   const selected = data.lines.find(line => line.id === selectedId) ?? data.lines[0];
@@ -183,7 +211,8 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
         </div>
       </div>
 
-      <div className={styles.player} aria-label="Voice line player">
+      <div ref={playerAnchorRef} aria-hidden="true" />
+      <div ref={playerRef} className={styles.player} data-stuck={playerStuck || undefined} aria-label="Voice line player">
         <button type="button" className={styles.mainPlay} onClick={() => void toggleSelected()}
           aria-label={`${playing ? 'Pause' : 'Play'} ${selected?.title ?? 'voice line'}`} disabled={!selectedHasRecording}>
           <PlayIcon paused={!playing} />
