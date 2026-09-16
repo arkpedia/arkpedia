@@ -62,6 +62,21 @@ test('the newest CN operators use recordings from the current asset inventory', 
   assert.ok(jacinta.packs.every(pack => pack.audioTemplate?.endsWith('/{voiceIdLower}.mp3')));
 });
 
+test('the current Global operators include English transcripts and EN/KR recordings', () => {
+  for (const operatorId of ['char_1051_headb2', 'char_4223_botany', 'char_4224_turdus']) {
+    const operator = operators[operatorId];
+    assert.equal(operator.textLocale, 'en', `${operatorId} still uses a fallback transcript`);
+    assert.ok(operator.lines.every(line => line.status === 'unused' || line.text), `${operatorId} has a blank current transcript`);
+    assert.ok(operator.packs.some(pack => pack.id === 'en'), `${operatorId} has no English recording pack`);
+    assert.ok(operator.packs.some(pack => pack.id === 'kr'), `${operatorId} has no Korean recording pack`);
+  }
+
+  for (const operatorId of ['char_4123_ela', 'char_4124_iana', 'char_4125_rdoc', 'char_4126_fuze']) {
+    const linkage = operators[operatorId].packs.find(pack => pack.id === 'linkage');
+    assert.ok(linkage?.audioTemplate?.includes('arkpedia-voice-english'), `${operatorId} uses the wrong collaboration audio repository`);
+  }
+});
+
 test('voice transcript markup is supported and rendered safely', () => {
   const unsupported = Object.entries(operators).flatMap(([operatorId, operator]) => operator.lines.flatMap(line => {
     const tags = line.text?.match(/<\/?[a-z][^>]*>/gi) ?? [];

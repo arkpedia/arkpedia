@@ -31,6 +31,7 @@ const LEGACY_AUDIO_ROOTS = {
 };
 const URLS = {
   en: 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/charword_table.json',
+  enSupplemental: 'https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/main/en_US/gamedata/excel/charword_table.json',
   cn: 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/charword_table.json',
   archive: 'https://codeload.github.com/PseudoMon/tlvr-source/zip/refs/heads/master',
   audioIndex: 'https://raw.githubusercontent.com/isHarryh/Ark-Voice/master/voice_data.json',
@@ -99,24 +100,31 @@ function packId(type) {
   return ({ CN_MANDARIN: 'cn', CN_TOPOLECT: 'cn_topolect', LINKAGE: 'linkage', 11: 'spa' }[type] || String(type).toLowerCase());
 }
 
-function audioLocation(charId, type, voicePath) {
+function audioLocations(charId, type, voicePath) {
   const id = packId(type);
-  if (type === 'EN') return { directory: 'voice_en', folder: charId };
-  if (type === 'JP') return { directory: 'voice', folder: charId };
-  if (type === 'KR') return { directory: 'voice_kr', folder: charId };
-  if (type === 'CN_MANDARIN') return { directory: 'voice_cn', folder: charId };
-  if (type === 'ITA' || type === 'CN_TOPOLECT') return { directory: 'voice_custom', folder: `${charId}_${id}` };
-  if (['GER', 'RUS', 'FRE', '11'].includes(String(type))) return { directory: 'voice_custom', folder: charId };
+  if (type === 'EN') return [{ directory: 'voice_en', folder: charId }];
+  if (type === 'JP') return [{ directory: 'voice', folder: charId }];
+  if (type === 'KR') return [{ directory: 'voice_kr', folder: charId }];
+  if (type === 'CN_MANDARIN') return [{ directory: 'voice_cn', folder: charId }];
+  if (type === 'ITA' || type === 'CN_TOPOLECT') return [{ directory: 'voice_custom', folder: `${charId}_${id}` }];
+  if (['GER', 'RUS', 'FRE', '11'].includes(String(type))) return [{ directory: 'voice_custom', folder: charId }];
   if (type === 'LINKAGE') {
-    const directory = String(voicePath || '').toLowerCase().includes('cn') ? 'voice_cn' : 'voice';
-    return { directory, folder: charId };
+    if (String(voicePath || '').toLowerCase().includes('cn')) {
+      return [{ directory: 'voice_cn', folder: charId }];
+    }
+    return [
+      { directory: 'voice_en', folder: charId },
+      { directory: 'voice', folder: charId },
+      { directory: 'voice_cn', folder: charId },
+    ];
   }
-  return null;
+  return [];
 }
 
 function audioTemplate(charId, type, voicePath, directoryIndex) {
-  const location = audioLocation(charId, type, voicePath);
-  if (!location || !directoryIndex[location.directory]?.has(location.folder)) return null;
+  const location = audioLocations(charId, type, voicePath)
+    .find(candidate => directoryIndex[candidate.directory]?.has(candidate.folder));
+  if (!location) return null;
   return `${AUDIO_ROOTS[location.directory]}/${location.folder}/{voiceIdLower}.mp3`;
 }
 
@@ -227,8 +235,9 @@ function unusedLines(audioIndex, charId, currentIds) {
   });
 }
 
-const [en, cn, audioIndex, directory, audioDirectories] = await Promise.all([
+const [en, enSupplemental, cn, audioIndex, directory, audioDirectories] = await Promise.all([
   jsonInput('ARKPEDIA_EN_CHARWORDS', URLS.en),
+  jsonInput('ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS', URLS.enSupplemental),
   jsonInput('ARKPEDIA_CN_CHARWORDS', URLS.cn),
   jsonInput('ARKPEDIA_VOICE_INDEX', URLS.audioIndex),
   tlvrDirectory(),
@@ -239,9 +248,10 @@ const operators = {};
 
 for (const charId of [...operatorIds()].sort()) {
   const enWords = wordsFor(en, charId);
+  const supplementalEnWords = wordsFor(enSupplemental, charId);
   const cnWords = wordsFor(cn, charId);
   const archive = tlvr.get(charId);
-  const source = enWords.length ? enWords : cnWords;
+  const source = enWords.length ? enWords : supplementalEnWords.length ? supplementalEnWords : cnWords;
   const fallback = source.length ? [] : tlvrFallback(archive);
   const lines = source.map((word, index) => ({
     id: word.voiceId,
@@ -257,6 +267,12 @@ for (const charId of [...operatorIds()].sort()) {
 
   const packsById = new Map();
   for (const pack of currentPacks(en, charId, audioDirectories)) packsById.set(pack.id, pack);
+  for (const pack of currentPacks(enSupplemental, charId, audioDirectories)) {
+    const existing = packsById.get(pack.id);
+    if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
+      packsById.set(pack.id, { ...pack, actors: existing?.actors?.length ? existing.actors : pack.actors });
+    }
+  }
   for (const pack of currentPacks(cn, charId, audioDirectories)) {
     const existing = packsById.get(pack.id);
     if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
@@ -273,12 +289,16 @@ for (const charId of [...operatorIds()].sort()) {
       if (template) packs.push({ id, label: PACK_LABELS[type], actors: archive.actors?.[id] ? [archive.actors[id].global || archive.actors[id].native] : [], status: 'current', audioTemplate: template });
     }
   }
-  if (lines.length) operators[charId] = { textLocale: enWords.length || fallback.length ? 'en' : 'zh-CN', lines, packs };
+  if (lines.length) operators[charId] = {
+    textLocale: enWords.length || supplementalEnWords.length || fallback.length ? 'en' : 'zh-CN',
+    lines,
+    packs,
+  };
 }
 
 writeFileSync(OUTPUT, `${JSON.stringify({
   meta: {
-    transcripts: [URLS.en, URLS.cn],
+    transcripts: [URLS.en, URLS.enSupplemental, URLS.cn],
     audio: AUDIO_ROOTS,
     legacyAudio: LEGACY_AUDIO_ROOTS,
     archive: 'https://github.com/PseudoMon/tlvr-source',
