@@ -17,9 +17,13 @@ import { getEnemyBySlug } from '@/lib/enemies/enemies';
 
 const STAGES_DIR = path.join(process.cwd(), 'data', 'stages');
 const GEOMETRY_DIR = path.join(process.cwd(), 'data', 'stage-geometry');
+let sortedSummaries: StageSummary[] | undefined;
 
 export function getStageSummaries(): StageSummary[] {
-  return (indexData as StageSummary[]).slice().sort(compareStageSummaries);
+  // The imported index is fixed for this build. Sort it once, rather than once
+  // per generated stage, and keep callers free to reorder their own arrays.
+  sortedSummaries ??= (indexData as StageSummary[]).slice().sort(compareStageSummaries);
+  return sortedSummaries.slice();
 }
 
 /**
