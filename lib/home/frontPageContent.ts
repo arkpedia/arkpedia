@@ -1,3 +1,4 @@
+import { parseGameWindow, type GameWindowTimes } from '@/lib/schedule/gameWindow';
 import { loadAllEventYears } from '../events/loadEventsData';
 import { getBannersSortedByDate, HeadhuntingBanner } from '../gacha/headhuntingBanners';
 import { parseBannerDate, parseBannerEndDate } from '../gacha/realGachaBanners';
@@ -9,7 +10,7 @@ import { FARMING_TIERS } from '../farming/farmingConfig';
 import { FarmingMaterial } from '../farming/farmingTypes';
 import { withArtVersion } from '@/lib/art/artVersion';
 
-export interface GameEvent {
+export interface GameEvent extends GameWindowTimes {
   name: string;
   poster: string;
   year: number;
@@ -18,44 +19,11 @@ export interface GameEvent {
   end: Date;
 }
 
-/**
- * Parses a "YYYY/MM/DD–YYYY/MM/DD" range using the fixed convention:
- * events open at the global server's reset, 04:00 UTC-7 on the start
- * date (= 11:00 UTC), and close at 03:59 UTC-7 on the end date. The
- * start hour used to be assumed as 23:00 SGT (15:00 UTC), which made
- * the home page count down for four hours while the Terminal -- whose
- * window comes from the client's own activity_table -- already said
- * "open now" about the same event. The client data settled the hour.
- *
- * Only used for events data below -- gacha banners use parseBannerDate/
- * parseBannerEndDate instead (see getOngoingGachaBanners), since those
- * are the same, more lenient parsers the Gacha page's own "Upcoming"
- * category already relies on.
- */
-function parseEventWindow(dateRange: string): { start: Date; end: Date } | null {
-  const parts = dateRange.split(/[\u2013-]/).map((s) => s.trim());
-  if (parts.length !== 2) return null;
-
-  function parseYMD(s: string): { y: number; m: number; d: number } | null {
-    const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-    if (!m) return null;
-    return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
-  }
-
-  const startYMD = parseYMD(parts[0]);
-  const endYMD = parseYMD(parts[1]);
-  if (!startYMD || !endYMD) return null;
-
-  const start = new Date(Date.UTC(startYMD.y, startYMD.m - 1, startYMD.d, 11, 0, 0));
-  const end = new Date(Date.UTC(endYMD.y, endYMD.m - 1, endYMD.d, 11, 0, 0));
-  return { start, end };
-}
-
 interface RawEvent {
   name: string;
   poster: string;
   year: number;
-  global?: { dateRange: string | null; note: string | null } | null;
+  global?: GameWindowTimes & { dateRange: string | null; note: string | null } | null;
   cn?: { dateRange: string | null; note: string | null } | null;
 }
 
@@ -65,16 +33,16 @@ export function loadGameEvents(): GameEvent[] {
   for (const e of raw) {
     const dateRange = e.global?.dateRange;
     if (!dateRange) continue;
-    const window = parseEventWindow(dateRange);
+    const window = parseGameWindow(dateRange, e.global ?? {});
     if (!window) continue;
-    events.push({ name: e.name, poster: withArtVersion(e.poster, e.name), year: e.year, dateRange, start: window.start, end: window.end });
+    events.push({ name: e.name, poster: withArtVersion(e.poster, e.name), year: e.year, ...e.global, dateRange, start: window.start, end: window.end });
   }
   return events;
 }
 
 export function getOngoingEvents(now: Date = new Date(), events = loadGameEvents()): GameEvent[] {
   return events
-    .filter((e) => e.start <= now && now <= e.end)
+    .filter((e) => e.start <= now && now < e.end)
     .sort((a, b) => a.end.getTime() - b.end.getTime());
 }
 
@@ -129,10 +97,11 @@ function bannerCategoryRank(banner: HeadhuntingBanner): number {
 export function getOngoingGachaBanners(now: Date = new Date(), banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const result: GachaBannerWithWindow[] = [];
   for (const b of banners) {
+    if (!b.global_date) continue; // CN-only pools are not active on Global.
     const start = parseBannerDate(b);
     const end = parseBannerEndDate(b);
     if (!start || !end) continue;
-    if (start <= now && now <= end) {
+    if (start <= now && now < end) {
       result.push({ ...b, start, end });
     }
   }
@@ -141,6 +110,17 @@ export function getOngoingGachaBanners(now: Date = new Date(), banners = getBann
     if (rankDiff !== 0) return rankDiff;
     return a.end.getTime() - b.end.getTime(); // soonest-ending first within the same category
   });
+}
+
+/** Keep the next Global banner visible with a start countdown. */
+export function getHomeGachaBanners(now: Date = new Date(), banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
+  const ongoing = getOngoingGachaBanners(now, banners);
+  const next = banners.filter(banner => banner.global_date).map(banner => {
+    const start = parseBannerDate(banner), end = parseBannerEndDate(banner);
+    return start && end && start > now ? { ...banner, start, end } : null;
+  }).filter((banner): banner is GachaBannerWithWindow => banner !== null)
+    .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
+  return next ? [...ongoing, next] : ongoing;
 }
 
 /** Skins tied to a currently-ongoing event, via each skin's own
@@ -210,7 +190,7 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
   for (const e of raw) {
     const globalRange = e.global?.dateRange;
     if (globalRange) {
-      const window = parseEventWindow(globalRange);
+      const window = parseGameWindow(globalRange, e.global ?? {});
       if (!window) continue;
       result.push({
         name: e.name,
@@ -219,7 +199,7 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
         dateRange: globalRange,
         start: window.start,
         end: window.end,
-        isOngoing: window.start <= now && now <= window.end,
+        isOngoing: window.start <= now && now < window.end,
         isPredicted: false,
       });
       continue;
@@ -228,7 +208,7 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
     // No confirmed Global date -- estimate one from CN's, if known.
     const cnRange = e.cn?.dateRange;
     if (!cnRange) continue; // no date info at all -- nothing to show or predict from
-    const cnWindow = parseEventWindow(cnRange);
+    const cnWindow = parseGameWindow(cnRange);
     if (!cnWindow) continue;
     const predictedStart = new Date(cnWindow.start.getTime() + PREDICTED_GAP_DAYS * 86400000);
     const predictedEnd = new Date(cnWindow.end.getTime() + PREDICTED_GAP_DAYS * 86400000);
@@ -241,12 +221,12 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
       dateRange: formatDateRange(predictedStart, predictedEnd),
       start: predictedStart,
       end: predictedEnd,
-      isOngoing: predictedStart <= now && now <= predictedEnd,
+      isOngoing: predictedStart <= now && now < predictedEnd,
       isPredicted: true,
     });
   }
 
   return result
-    .filter((e) => e.end.getTime() >= now.getTime())
+    .filter((e) => e.end.getTime() > now.getTime())
     .sort((a, b) => a.start.getTime() - b.start.getTime());
 }

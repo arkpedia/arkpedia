@@ -59,7 +59,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
     );
   }
 
-  const active = slides[activeIndex];
+  const active = slides[Math.min(activeIndex, slides.length - 1)];
 
   return (
     <section className="front-panel front-events-panel">
@@ -70,11 +70,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
         </div>
         <div className="front-events-info">
           <span className="front-events-name">{active.event.name}</span>
-          {active.isUpcoming ? (
-            <CountdownTimer target={active.event.start} label="Starts in" />
-          ) : (
-            <CountdownTimer target={active.event.end} label="Ends in" />
-          )}
+          <CountdownTimer start={active.event.start} target={active.event.end} />
         </div>
       </button>
 

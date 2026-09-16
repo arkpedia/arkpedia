@@ -14,7 +14,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
     return (
       <section className="front-panel front-gacha-panel">
         <h2>Gacha Banners</h2>
-        <p className="hint">No ongoing banners right now.</p>
+        <p className="hint">No banners to show right now.</p>
       </section>
     );
   }
@@ -30,7 +30,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
         </Link>
         <div className="front-gacha-info">
           <span className="front-gacha-name">{active.name}</span>
-          <CountdownTimer target={active.end} label="Ends in" />
+          <CountdownTimer start={active.start} target={active.end} />
         </div>
       </div>
 

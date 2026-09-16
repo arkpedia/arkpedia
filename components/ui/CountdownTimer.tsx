@@ -1,3 +1,4 @@
+import { windowCountdown } from '@/lib/schedule/gameWindow';
 import { useEffect, useState } from 'react';
 
 function formatRemaining(ms: number): string {
@@ -12,7 +13,7 @@ function formatRemaining(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-export default function CountdownTimer({ target, label }: { target: Date; label?: string }) {
+export default function CountdownTimer({ target, label, start }: { target: Date; label?: string; start?: Date }) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -25,10 +26,13 @@ export default function CountdownTimer({ target, label }: { target: Date; label?
   // mounted, since "now" can only be known client-side.
   if (!now) return <span className="countdown-timer">--</span>;
 
-  const remaining = target.getTime() - now.getTime();
+  const state = start ? windowCountdown(start, target, now) : null;
+  const remaining = state?.remaining ?? target.getTime() - now.getTime();
+  const activeLabel = state?.label ?? label;
+  if (remaining <= 0) return <span className="countdown-timer">Ended</span>;
   return (
     <span className="countdown-timer">
-      {label ? `${label}: ` : ''}
+      {activeLabel ? `${activeLabel}: ` : ''}
       {formatRemaining(remaining)}
     </span>
   );

@@ -1,4 +1,5 @@
 import { withContentPage } from '@/lib/content/server';
+import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
 import { getAllSkins } from '@/lib/skins/skins';
 import { getBannersSortedByDate, type HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -15,7 +16,7 @@ import {
   GachaBannerWithWindow,
   getOngoingEvents,
   getNextUpcomingEvent,
-  getOngoingGachaBanners,
+  getHomeGachaBanners,
   getOngoingSkins,
   getCurrentFarmableMaterials,
 } from '@/lib/home/frontPageContent';
@@ -105,7 +106,12 @@ export default function HomePage({
 async function finalizeHome(props: Props): Promise<Props> {
   const { __calendar, ...rest } = props;
   const now = new Date();
-  const events = __calendar?.events.map(event => ({ ...event, start: new Date(event.start), end: new Date(event.end) }));
+  // Older releases serialized an assumed reset hour. Reparse date-only records
+  // with the shared rules; new releases also carry the exact startAt/endAt.
+  const events = __calendar?.events.flatMap(event => {
+    const window = parseGameWindow(event.dateRange, event);
+    return window ? [{ ...event, ...window }] : [];
+  });
   const serialize = (event: GameEvent) => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() });
   const upcoming = getNextUpcomingEvent(now, events);
   const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
@@ -119,7 +125,7 @@ async function finalizeHome(props: Props): Promise<Props> {
   return { ...rest,
     ongoingEvents: getOngoingEvents(now, events).map(serialize),
     upcomingEvent: upcoming ? serialize(upcoming) : null,
-    ongoingBanners: getOngoingGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() })),
+    ongoingBanners: getHomeGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() })),
     ongoingSkins: getOngoingSkins(now, __calendar?.skins, events),
     featuredVideo: videos[0] || null, featuredStream: streams[0] || null, earliestCommunityEvent: communityEvent,
   };

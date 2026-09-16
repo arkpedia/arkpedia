@@ -1,3 +1,4 @@
+import type { GameWindowTimes } from '@/lib/schedule/gameWindow';
 import bannersData from '@/data/headhunting_banners.json';
 import { withArtVersion } from '@/lib/art/artVersion';
 
@@ -6,6 +7,8 @@ export interface HeadhuntingBanner {
   category: string;
   cn_date: string | null;
   global_date: string | null;
+  global_window?: GameWindowTimes;
+  cn_window?: GameWindowTimes;
   banner_image?: string | null;
   six_stars: string[]; // for Limited banners, only the first 2 (true featured)
   rate_up_six_stars?: string[]; // Limited banners only: the remaining "off-banner rate-up" 6-stars

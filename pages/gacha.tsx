@@ -1305,7 +1305,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
       const bannerDate = parseBannerDate(b);
       const bannerEndDate = parseBannerEndDate(b);
       const isUpcoming = bannerDate !== null && bannerDate > today;
-      const isActive = bannerDate !== null && bannerDate <= today && bannerEndDate !== null && bannerEndDate >= today;
+      const isActive = bannerDate !== null && bannerDate <= today && bannerEndDate !== null && bannerEndDate > today;
       if (isUpcoming || isActive) {
         grouped.upcoming.push(b);
       }
@@ -1707,7 +1707,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       const start = parseBannerDate(b);
                       const end = parseBannerEndDate(b);
                       const now = new Date();
-                      return start !== null && start <= now && end !== null && end >= now;
+                      return start !== null && start <= now && end !== null && end > now;
                     })();
                   return (
                     <button
@@ -2476,6 +2476,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     category: '',
     cn_date: b.cn_date ?? null,
     global_date: b.global_date ?? null,
+    ...(b.global_window ? { global_window: b.global_window } : {}),
+    ...(b.cn_window ? { cn_window: b.cn_window } : {}),
     banner_image: b.banner_image ?? null,
     six_stars: b.six_stars ?? [],
     rate_up_six_stars: b.rate_up_six_stars ?? [],

@@ -28,3 +28,13 @@ Existing upstream scripts do not supply every new operator editorial entry autom
 ## Free-tier operation
 
 Public validation uses standard GitHub-hosted Linux runners. Private preparation uses the existing included Actions allowance with a 20-minute timeout and no website build. Keep the organization spending caps at zero. Changes to application code still need a deployment; publishing a data release does not invoke Vercel.
+
+## Event and banner times
+
+Store confirmed opening and closing instants as timezone-qualified ISO strings:
+`startAt` and `endAt` on an event's `global`/`cn` block, or a banner's
+`global_window`/`cn_window`. `endAt` is exclusive; `timingSource` records the
+announcement or game table URL. Keep the existing date ranges for calendar labels.
+`npm run events:sync` preserves exact client times even if the dates did not change.
+Date-only legacy entries use server-time estimates; confirmed hours always override
+those estimates. The homepage countdown changes state in the browser at each boundary.

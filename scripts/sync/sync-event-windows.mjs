@@ -24,9 +24,9 @@
  * windows is resolved to the one nearest the entry's existing dates, or
  * skipped with a warning when there is nothing to be near.
  *
- * Dates are written as calendar days in the SERVER's own zone -- UTC-7 for
+ * Dates and exact ISO timestamps are written; calendar days remain in the SERVER's own zone -- UTC-7 for
  * global, UTC+8 for CN -- which is the convention the files already use
- * (an event "2026/08/27" opens at the EN reset, 04:00 UTC-7).
+ * Opening hours vary with maintenance, so never infer the hour from a date.
  *
  * Runs standalone: reads the refresh pipeline's .cache/upstream checkouts
  * when they exist and fetches the four tables from the public mirrors when
@@ -121,7 +121,7 @@ function pick(cands, existingEndTs) {
 }
 
 /** Applies one client window to one { dateRange, note } block. Returns a log line or null. */
-function apply(block, cands, offset, label) {
+function apply(block, cands, offset, label, source) {
   if (!block) return null;
   const existing = block.dateRange ? parseRange(block.dateRange) : null;
   // A dateRange that parses as anything but a plain range is hand-curated
@@ -133,11 +133,15 @@ function apply(block, cands, offset, label) {
   if (!win) return null;
   const startDay = serverDay(win.start, offset);
   const endDay = serverDay(win.end, offset);
-  // Same days, different punctuation is not a correction -- leave the file be.
-  if (existing && existing.startDay === startDay && existing.endDay === endDay) return null;
-  const next = `${startDay}${DASH}${endDay}`;
+  const startAt = new Date(win.start * 1000).toISOString();
+  // Client tables sometimes use the final inclusive second (03:59:59),
+  // sometimes the exclusive minute boundary. Store one exclusive end.
+  const endAt = new Date((win.end + (win.end % 60 === 59 ? 1 : 0)) * 1000).toISOString();
+  const sameDays = existing && existing.startDay === startDay && existing.endDay === endDay;
+  if (sameDays && block.startAt === startAt && block.endAt === endAt) return null;
+  const next = sameDays ? block.dateRange : `${startDay}${DASH}${endDay}`;
   const was = block.dateRange ?? '(none)';
-  block.dateRange = next;
+  Object.assign(block, { dateRange: next, startAt, endAt, timingSource: source });
   // The client shipping a window is the confirmation the estimate was waiting for.
   if (block.note && /estimat/i.test(block.note)) block.note = null;
   return `  ${label}: ${was} -> ${next}`;
@@ -165,8 +169,8 @@ for (const file of fs.readdirSync(path.join(root, 'data', 'events')).filter((f) 
   const log = [];
   for (const e of rows) {
     const key = fold(e.name);
-    const line = apply(e.global, enActs.get(key), -7, `${e.name} [global]`);
-    const cnLine = apply(e.cn, cnActs.get(key), 8, `${e.name} [cn]`);
+    const line = apply(e.global, enActs.get(key), -7, `${e.name} [global]`, `${RAW.en}/activity_table.json`);
+    const cnLine = apply(e.cn, cnActs.get(key), 8, `${e.name} [cn]`, `${RAW.cn}/activity_table.json`);
     if (line) log.push(line);
     if (cnLine) log.push(cnLine);
   }
@@ -191,12 +195,12 @@ for (const b of banners) {
   const cnCands = keys.map((k) => cnPools.get(k)).find(Boolean);
   // The banner file keeps bare strings rather than {dateRange, note} blocks;
   // wrap and unwrap so apply() serves both shapes.
-  const g = { dateRange: b.global_date ?? null, note: null };
-  const c = { dateRange: b.cn_date ?? null, note: null };
-  const gl = apply(g, enCands, -7, `${b.name} [global]`);
-  const cl = apply(c, cnCands, 8, `${b.name} [cn]`);
-  if (gl) { b.global_date = g.dateRange; bannerLog.push(gl); }
-  if (cl) { b.cn_date = c.dateRange; bannerLog.push(cl); }
+  const g = { ...b.global_window, dateRange: b.global_date ?? null, note: null };
+  const c = { ...b.cn_window, dateRange: b.cn_date ?? null, note: null };
+  const gl = apply(g, enCands, -7, `${b.name} [global]`, `${RAW.en}/gacha_table.json`);
+  const cl = apply(c, cnCands, 8, `${b.name} [cn]`, `${RAW.cn}/gacha_table.json`);
+  if (gl) { b.global_date = g.dateRange; b.global_window = { startAt: g.startAt, endAt: g.endAt, timingSource: g.timingSource }; bannerLog.push(gl); }
+  if (cl) { b.cn_date = c.dateRange; b.cn_window = { startAt: c.startAt, endAt: c.endAt, timingSource: c.timingSource }; bannerLog.push(cl); }
 }
 if (bannerLog.length) {
   fs.writeFileSync(bannersAt, `${JSON.stringify(banners, null, 2)}\n`);

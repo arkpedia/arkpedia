@@ -1,3 +1,4 @@
+import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { BannerConfig, BannerType, GachaItem } from './gachaTypes';
 import { GachaIconPools } from './gachaIconPools';
 import { HeadhuntingBanner } from './headhuntingBanners';
@@ -19,31 +20,19 @@ function without(pool: GachaItem[], featured: GachaItem[]): GachaItem[] {
   return pool.filter((item) => !featuredNames.has(item.name));
 }
 
-export function parseBannerDate(banner: HeadhuntingBanner): Date | null {
-  const range = banner.global_date || banner.cn_date;
-  if (!range) return null;
-  const start = range.split('–')[0];
-  const m = start.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+export function parseBannerWindow(banner: HeadhuntingBanner) {
+  const global = Boolean(banner.global_date);
+  return parseGameWindow(global ? banner.global_date : banner.cn_date,
+    global ? banner.global_window : banner.cn_window, global ? 'global' : 'cn',
+    banner.pull_type === 'standard' || banner.pull_type === 'kernel');
 }
 
-/** Companion to parseBannerDate -- parses the END of the same
- * "start–end" range, needed to tell a currently-active banner (start
- * has passed, end hasn't) apart from a genuinely upcoming one (start
- * hasn't happened yet) or an already-ended one. Falls back to null if
- * the range has no second date (shouldn't happen given the scraped
- * data's consistent "start–end" format, but stay defensive rather than
- * assume). */
+export function parseBannerDate(banner: HeadhuntingBanner): Date | null {
+  return parseBannerWindow(banner)?.start ?? null;
+}
+
 export function parseBannerEndDate(banner: HeadhuntingBanner): Date | null {
-  const range = banner.global_date || banner.cn_date;
-  if (!range) return null;
-  const parts = range.split('–');
-  if (parts.length < 2) return null;
-  const end = parts[1];
-  const m = end.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return parseBannerWindow(banner)?.end ?? null;
 }
 
 // Welfare (free, story-clear rewards) and pure Recruitment operators are

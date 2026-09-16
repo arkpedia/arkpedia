@@ -1,0 +1,84 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { parseGameWindow, windowCountdown } from '@/lib/schedule/gameWindow';
+import { parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBanners';
+import { getHomeGachaBanners, getOngoingGachaBanners, getOngoingEvents, loadGameEvents } from '@/lib/home/frontPageContent';
+
+const start = new Date('2026-09-16T15:00:00Z');
+const end = new Date('2026-09-30T11:00:00Z');
+test('People, A People and Rage of The Many share the announced opening, not midnight or reset', () => {
+  const event = loadGameEvents().find(e => e.name === '[Side Story] People, A People')!;
+  const banner = getAllHeadhuntingBanners().find(b => b.name === 'Rage of The Many')!;
+  assert.deepEqual(event.start, start);
+  assert.deepEqual(event.end, end);
+  assert.deepEqual(parseBannerDate(banner), start);
+  assert.deepEqual(parseBannerEndDate(banner), end);
+  for (const now of ['2026-09-16T00:00:00Z', '2026-09-16T11:00:00Z', '2026-09-16T14:59:59Z']) {
+    assert.equal(getOngoingEvents(new Date(now), [event]).length, 0);
+    assert.equal(getOngoingGachaBanners(new Date(now), [banner]).length, 0);
+    assert.equal(getHomeGachaBanners(new Date(now), [banner])[0].name, banner.name);
+  }
+  assert.equal(getOngoingEvents(start, [event]).length, 1);
+  assert.equal(getOngoingGachaBanners(start, [banner]).length, 1);
+  assert.equal(getOngoingEvents(end, [event]).length, 0);
+  assert.equal(getOngoingGachaBanners(end, [banner]).length, 0);
+  assert.equal(getHomeGachaBanners(start, [{ ...banner, global_date: null, global_window: undefined }]).length, 0);
+});
+
+test('countdown crosses opening and closing without stale labels or negative time', () => {
+  assert.deepEqual(windowCountdown(start, end, new Date(+start - 1000)), { label: 'Starts in', remaining: 1000 });
+  assert.deepEqual(windowCountdown(start, end, start), { label: 'Ends in', remaining: +end - +start });
+  assert.deepEqual(windowCountdown(start, end, new Date(+end - 1000)), { label: 'Ends in', remaining: 1000 });
+  for (const now of [end, new Date(+end + 1000)]) assert.deepEqual(windowCountdown(start, end, now), { label: 'Ended', remaining: 0 });
+});
+
+test('date-only fallback is timezone-independent, with exact maintenance hours taking precedence', () => {
+  const before = process.env.TZ;
+  try {
+    for (const tz of ['UTC', 'America/Los_Angeles', 'Asia/Tokyo', 'Europe/Zurich']) {
+      process.env.TZ = tz;
+      assert.deepEqual(parseGameWindow('2026/09/16–2026/09/30'), { start, end });
+      assert.equal(parseGameWindow('2026/09/16–2026/09/30', {}, 'global', true)?.start.toISOString(), '2026-09-16T11:00:00.000Z');
+      assert.equal(parseGameWindow('2026/09/16–2026/09/30', {}, 'cn', true)?.start.toISOString(), '2026-09-15T20:00:00.000Z');
+      assert.equal(parseGameWindow('2026/09/16–2026/09/30', { startAt: '2026-09-16T10:00:00-07:00' })?.start.toISOString(), '2026-09-16T17:00:00.000Z');
+    }
+  } finally { if (before === undefined) delete process.env.TZ; else process.env.TZ = before; }
+  assert.equal(parseGameWindow('2026/02/30–2026/03/15'), null);
+  assert.equal(parseGameWindow('2026/09/16–2026/09/30', { startAt: '2026-09-16T15:00:00' }), null);
+  assert.equal(parseGameWindow('2026/09/30–2026/09/16'), null);
+});
+
+test('sync retains exact hours even when calendar days are unchanged, and is idempotent', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-window-test-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'data/events'), { recursive: true });
+    const year = new Date().getUTCFullYear() + 1;
+    const range = `${year}/09/16–${year}/09/30`;
+    const open = Date.UTC(year, 8, 16, 17) / 1000, close = Date.UTC(year, 8, 30, 11) / 1000;
+    const eventFile = path.join(tmp, `data/events/events_${year}.json`), bannerFile = path.join(tmp, 'data/headhunting_banners.json');
+    fs.writeFileSync(eventFile, JSON.stringify([{ name: 'Test event', global: { dateRange: range, note: 'Estimated' } }]));
+    fs.writeFileSync(bannerFile, JSON.stringify([{ name: 'Test banner', global_date: range }]));
+    for (const region of ['en', 'cn']) {
+      const dir = path.join(tmp, region, 'gamedata/excel'); fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'activity_table.json'), JSON.stringify({ basicInfo: region === 'en' ? { test: { name: 'Test event', startTime: open, endTime: close - 1 } } : {} }));
+      fs.writeFileSync(path.join(dir, 'gacha_table.json'), JSON.stringify({ gachaPoolClient: region === 'en' ? [{ gachaPoolName: 'Test banner', openTime: open, endTime: close }] : [] }));
+    }
+    const run = () => execFileSync(process.execPath, [path.resolve('scripts/sync/sync-event-windows.mjs')], { cwd: tmp, env: { ...process.env, ARKPEDIA_EN: 'en', ARKPEDIA_CN: 'cn' }, encoding: 'utf8' });
+    run();
+    const event = JSON.parse(fs.readFileSync(eventFile, 'utf8'))[0].global;
+    const banner = JSON.parse(fs.readFileSync(bannerFile, 'utf8'))[0].global_window;
+    assert.equal(event.startAt, `${year}-09-16T17:00:00.000Z`);
+    assert.equal(event.endAt, `${year}-09-30T11:00:00.000Z`);
+    assert.equal(event.note, null);
+    assert.equal(banner.startAt, event.startAt);
+    assert.equal(banner.endAt, event.endAt);
+    const saved = fs.readFileSync(eventFile, 'utf8') + fs.readFileSync(bannerFile, 'utf8');
+    run();
+    assert.equal(fs.readFileSync(eventFile, 'utf8') + fs.readFileSync(bannerFile, 'utf8'), saved);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
