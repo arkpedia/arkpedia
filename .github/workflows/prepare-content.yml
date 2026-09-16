@@ -1,8 +1,9 @@
 name: Prepare content release
 on:
   schedule:
-    # 5h 57m after Global reset; asset jobs run first at 16:07–16:31 UTC.
-    - cron: '57 16 * * *'
+    # After the Global patch window and the public asset jobs (19:30–19:39 UTC).
+    # This also leaves the English gamedata mirror time to publish its patch dump.
+    - cron: '57 19 * * *'
   workflow_dispatch:
     inputs:
       data_ref:

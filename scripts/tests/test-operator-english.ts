@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error JavaScript importer is also used directly by the refresh job.
-import { localizeOperator } from '../sync/sync-operator-english.mjs';
+import { localizeOperator, localizeReleasedMechanics } from '../sync/sync-operator-english.mjs';
 
 const operator = {
   internalName: 'char_test', review: { official: '中文简介', editor: 'Keep the editorial review.' },
@@ -29,4 +29,37 @@ test('missing, untranslated, mismatched and conditional data cannot overwrite ex
   }
   const english = { ...operator, review: { official: 'Existing English', editor: 'Editorial text' }, files: [] };
   assert.deepEqual(localizeOperator(english, handbook), english);
+});
+
+test('a newly released operator adopts official Global mechanics while preserving editorial skill notes', () => {
+  const unreleased = {
+    name: 'Test Operator', internalName: 'char_test', trait: 'Old trait', tags: [],
+    review: { official: '中文简介' }, files: [], voiceData: { lines: [] },
+    potential: { levels: [], totalCost: [{ name: 'Token', quantity: 5 }] }, talents: [], baseSkills: [], modules: [],
+    skills: { skillList: [{ name: 'Fan translation', recommendation: ['Keep me'], pairings: [], techniques: [] }], skillCost: {} },
+  };
+  const tables = {
+    characters: { char_test: {
+      name: 'Test Operator', description: 'Official <@ba.vup>trait</>', tagList: ['DPS'],
+      potentialRanks: [{ description: 'ATK <@ba.vup>+10</>' }],
+      talents: [{ candidates: [{ name: 'Official Talent', unlockCondition: { phase: 'PHASE_1' }, requiredPotentialRank: 0, description: 'Talent text' }] }],
+      skills: [{ skillId: 'skill_test', levelUpCostCond: [{ levelUpCost: [{ id: 'item', count: 1 }] }] }],
+      allSkillLvlup: [{ lvlUpCost: [{ id: 'item', count: 2 }] }],
+    } },
+    skills: { skill_test: { skillId: 'skill_test', levels: [{
+      name: 'Official Skill', description: 'ATK <@ba.vup>+{atk:0%}</>', blackboard: [{ key: 'atk', value: 0.2 }],
+      spData: { spType: 'INCREASE_WITH_TIME', initSp: 3, spCost: 8 }, skillType: 'MANUAL', duration: 10,
+    }] } },
+    building: { chars: { char_test: { buffChar: [{ buffData: [{ buffId: 'buff', cond: { phase: 'PHASE_0' } }] }] } },
+      buffs: { buff: { buffName: 'Official Base Skill', roomType: 'HIRE', description: 'Contact speed <@cc.vup>+30%</>' } } },
+    modules: { equipDict: {}, missionList: {} }, items: { items: { item: { name: 'Material' } } },
+  };
+  const next = localizeReleasedMechanics(unreleased, tables);
+  assert.equal(next.trait, 'Official trait');
+  assert.equal(next.skills.skillList[0].name, 'Official Skill');
+  assert.equal(next.skills.skillList[0].levels[0].description, 'ATK +20%');
+  assert.deepEqual(next.skills.skillList[0].recommendation, ['Keep me']);
+  assert.equal(next.talents[0].name, 'Official Talent');
+  assert.equal(next.baseSkills[0].name, 'Official Base Skill');
+  assert.deepEqual(next.potential.totalCost, unreleased.potential.totalCost);
 });
