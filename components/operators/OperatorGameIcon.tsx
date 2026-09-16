@@ -1,3 +1,4 @@
+import { ContentImg } from '@/components/content/ContentImage';
 import { CSSProperties } from 'react';
 
 /** Existing game artwork, with readable ink in both themes and a named tooltip. */
@@ -9,7 +10,7 @@ export default function OperatorGameIcon({ label, src, size = 28, color = false 
   return color ? (
     // These badges contain blue details as well as the white rank glyph.
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={path} alt={label} title={label} width={size} height={size} style={{ ...style, objectFit: 'contain', background: '#18212a', borderRadius: 4, padding: 3 }} />
+    <ContentImg src={path} alt={label} title={label} width={size} height={size} style={{ ...style, objectFit: 'contain', background: '#18212a', borderRadius: 4, padding: 3 }} />
   ) : <span role="img" aria-label={label} title={label} style={{ ...style, backgroundColor: 'currentColor', mask: `url("${path}") center / contain no-repeat`, WebkitMask: `url("${path}") center / contain no-repeat` }} />;
 }
 

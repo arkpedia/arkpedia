@@ -1,7 +1,8 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import { getBannersSortedByDate, HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -2436,7 +2437,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gacha", async () => {
   const pools = getGachaIconPools();
   const banners = getBannersSortedByDate();
   const derivedReleaseDates = deriveReleaseDatesFromBanners(banners);
@@ -2486,4 +2487,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   }));
 
   return { props: { pools, banners: trimmedBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
-};
+});

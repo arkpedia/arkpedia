@@ -1,4 +1,6 @@
-import Image from 'next/image';
+import { useContentUrl } from '@/lib/content/context';
+import { ContentImg } from '@/components/content/ContentImage';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EnemyContent, EnemySummary } from '@/lib/enemies/enemyTypes';
@@ -53,7 +55,7 @@ const TYPE_TABS = [
 /**
  * How many tiles the grid paints before the reader asks for more. All 1,540 at once
  * is a lot of grid for a pane four columns wide: every tile is a DOM node and an
- * unoptimized <img> request, and they were all mounted on arrival whether or not
+ * unoptimized <ContentImg> request, and they were all mounted on arrival whether or not
  * anyone scrolled to them. Same page size and same "Show more" affordance as the
  * operators roster.
  */
@@ -114,17 +116,18 @@ interface Props {
 }
 
 export default function EnemyBrowser({ seed, contents, selectedSlug, children }: Props) {
+  const contentUrl = useContentUrl();
   // The whole index is fetched once rather than shipped with all 1,585 pages:
   // 509KB per page is not a grid. Until it lands, the seed rows stand in.
   const [all, setAll] = useState<EnemySummary[] | null>(null);
   useEffect(() => {
     let live = true;
-    fetch('/enemies-index.json')
+    fetch(contentUrl('/enemies-index.json'))
       .then((r) => (r.ok ? r.json() : null))
       .then((rows) => { if (live && rows) setAll(rows as EnemySummary[]); })
       .catch(() => {});
     return () => { live = false; };
-  }, []);
+  }, [contentUrl]);
 
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sortField, setSortField] = useState<SortField>('handbook');

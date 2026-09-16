@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { YouTubeVideo } from '@/lib/music/youtube';
 import { TwitchStream } from '@/lib/community/twitch';
 

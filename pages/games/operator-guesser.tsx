@@ -1,7 +1,8 @@
+import { withContentPage } from '@/lib/content/server';
 import GameLinks from '@/components/minigames/GameLinks';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -507,7 +508,7 @@ function HintCard({ hint, onZoom }: { hint: Hint; onZoom: (image: { src: string;
   </article>;
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/games/operator-guesser", async () => {
   const operators = getAllOperators().map(toGuesserOperator);
   const skins: GuesserSkin[] = getAllSkins().map((s) => ({
     name: s.name,
@@ -517,4 +518,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   return {
     props: { operators, skins },
   };
-};
+});

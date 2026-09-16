@@ -26,8 +26,8 @@ for (const [name, materials] of Object.entries(eventMaterials)) {
  * events.json (bracket-tagged names like "[Rerun] X Rerun") and
  * event_materials.json (plain names like "X") come from two different
  * scrapers with different naming conventions. */
-export function getEventMaterials(eventName: string): Record<string, string> | null {
-  const materials = normalizedLookup.get(normalize(eventName));
+export function getEventMaterials(eventName: string, table?: Record<string, Record<string, string>>): Record<string, string> | null {
+  const materials = table ? Object.entries(table).find(([name]) => normalize(name) === normalize(eventName))?.[1] : normalizedLookup.get(normalize(eventName));
   if (!materials || Object.keys(materials).length !== 3) return null;
   return materials;
 }

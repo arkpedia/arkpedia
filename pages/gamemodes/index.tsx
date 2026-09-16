@@ -1,3 +1,4 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -71,7 +72,7 @@ export default function GamemodesPage({ modes }: { modes: Mode[] }) {
   );
 }
 
-export const getStaticProps: GetStaticProps<{ modes: Mode[] }> = async () => {
+export const getStaticProps: GetStaticProps<{ modes: Mode[] }> = withContentPage<{ modes: Mode[] }>("/gamemodes", async () => {
   return {
     props: {
       modes: [
@@ -106,4 +107,4 @@ export const getStaticProps: GetStaticProps<{ modes: Mode[] }> = async () => {
       ],
     },
   };
-};
+});

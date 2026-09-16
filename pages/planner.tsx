@@ -1,3 +1,6 @@
+import { usePlannerContent } from '@/lib/content/planner';
+import { useContentUrl } from '@/lib/content/context';
+import { withContentPage } from '@/lib/content/server';
 import { TransferDialog } from "@/components/planner/TransferDialog";
 import { PlannerStateLabel } from '@/components/planner/PromotionIcon';
 import { withMasteryPrerequisites, withModulePrerequisites, withSkillRankPrerequisites } from '@/lib/planner/goalPrerequisites';
@@ -6,7 +9,7 @@ import { upgradeCostGroups } from '@/lib/planner/upgradeCostGroups';
 import { publicFiles, publicFileExists } from '@/lib/assets/publicAssets';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import fs from 'fs';
 import path from 'path';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -33,8 +36,7 @@ import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { hasFilePicker, hasFolderPicker, loadFromFile, saveToFile, showFolder } from '@/lib/planner/fileTransfer';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
-import { resolveNeeds, shortShares } from '@/lib/planner/craft';
-import { applyGoal, goalBlocker, goalReady, planBuild, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
+import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
 import { CRAFTING_EVENT, readCrafting, writeCrafting } from '@/lib/planner/crafting';
 import {
   ROSTER_EVENT,
@@ -223,6 +225,8 @@ function costLine(cost: CostGroup): string {
 
 
 export default function PlannerPage({ operators, depotCatalogue }: Props) {
+  const { resolveNeeds, shortShares, planBuild } = usePlannerContent();
+  const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   const [simpleNewOperator, setSimpleNewOperator] = useState(false);
   const [simpleStep, setSimpleStep] = useState<'current' | 'goal'>('current');
@@ -428,7 +432,7 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
     setFailedNames(cur => { const next = new Set(cur); next.delete(name); return next; });
     setLoadingNames((cur) => new Set(cur).add(name));
     // The filename itself is encoded on disk, so encode it again for the URL.
-    fetch(`/planner-data/${encodeURIComponent(encodeURIComponent(name))}.json`)
+    fetch(contentUrl(`/planner-data/${encodeURIComponent(encodeURIComponent(name))}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${name}`))))
       .then((data: PlannerOperator) => {
         setDetailCache((cur) => ({ ...cur, [name]: data }));
@@ -1066,12 +1070,12 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
   /* THE resolve. One, for the whole page. */
   const resolution = useMemo(
     () => resolveNeeds(split.materials, depot, { crafting, autoCraft }),
-    [split.materials, depot, crafting, autoCraft],
+    [split.materials, depot, crafting, autoCraft, resolveNeeds],
   );
   /* Crafting costs LMD at the bench, and the plan's own LMD line is where that
      belongs -- it is the same money. */
   const lmdTotal = split.lmd + resolution.craftingLmd;
-  const shares = useMemo(() => shortShares(resolution), [resolution]);
+  const shares = useMemo(() => shortShares(resolution), [resolution, shortShares]);
   const shortMaterialCount = resolution.rows.filter((r) => r.short > 0).length;
 
   /**
@@ -1759,7 +1763,7 @@ function trimModule(mod: OperatorModule) {
   };
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/planner", async () => {
   const allOps = getAllOperators().filter((op) => !op.isFuture);
 
   // Lightweight props -- just enough for the search picker and
@@ -1961,4 +1965,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   }
 
   return { props: { operators, depotCatalogue } };
-};
+});

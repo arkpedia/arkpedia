@@ -1,3 +1,4 @@
+import { useContentUrl } from '@/lib/content/context';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -91,6 +92,7 @@ function openingContent(groups: StageGroup[], nowSeconds: number): string {
  * two rows were above the fold. Every height here is part of that chain.
  */
 export default function StageList({ stages, typeCounts, complete, now, selectedSlug }: Props) {
+  const contentUrl = useContentUrl();
   // Starts as whatever the page shipped and is replaced by the full index once
   // it arrives; the file is static and immutable, so it is one fetch for the
   // whole visit rather than 1.98MB per stage opened.
@@ -101,7 +103,7 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
   useEffect(() => {
     if (complete) return;
     let live = true;
-    fetch(`${basePath}/stages-index.json`)
+    fetch(contentUrl(`${basePath}/stages-index.json`))
       .then((r) => (r.ok ? r.json() : null))
       .then((rows) => {
         if (!live || !Array.isArray(rows)) return;
@@ -115,7 +117,7 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
     return () => {
       live = false;
     };
-  }, [basePath, complete]);
+  }, [contentUrl, basePath, complete]);
 
   const selected = useMemo(
     () => (selectedSlug ? all.find((s) => s.slug === selectedSlug) : undefined),

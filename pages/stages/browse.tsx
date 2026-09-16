@@ -1,3 +1,6 @@
+import { useContentUrl, useContentTable } from '@/lib/content/context';
+import { ContentImg } from '@/components/content/ContentImage';
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -26,12 +29,14 @@ import { describeStage } from '@/lib/stages/stageText';
  * log. A shared promise has no such window.
  */
 let operatorCache: DeployData | null = null;
+let operatorCacheUrl = '';
 let operatorPromise: Promise<DeployData | null> | null = null;
 
-function loadOperators(): Promise<DeployData | null> {
+function loadOperators(url: string): Promise<DeployData | null> {
+  if (operatorCacheUrl !== url) { operatorCacheUrl = url; operatorCache = null; operatorPromise = null; }
   if (operatorCache) return Promise.resolve(operatorCache);
   if (!operatorPromise) {
-    operatorPromise = fetch('/operator-deploy.json')
+    operatorPromise = fetch(url)
       .then((r) => (r.ok ? (r.json() as Promise<DeployData>) : null))
       .then((json) => { operatorCache = json; return json; })
       .catch(() => {
@@ -230,7 +235,7 @@ interface Props {
  * every stage-to-stage navigation. As an import it lands in the route's own JS chunk,
  * which the browser fetches once and caches.
  */
-const tileLegend = tileLegendData as TileLegend;
+const defaultTileLegend = tileLegendData as TileLegend;
 
 const CELL = 34;
 const GAP = 2;
@@ -337,7 +342,9 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
    * in the bundle of a page most readers open to look at a map -- and only once, the
    * first time the bar is shown, which today means the first time fullscreen is opened.
    */
-  const [deployData, setDeployData] = useState<DeployData | null>(operatorCache);
+  const contentUrl = useContentUrl();
+  const tileLegend = useContentTable('stage-tile-legend', defaultTileLegend);
+  const [deployData, setDeployData] = useState<DeployData | null>(() => operatorCacheUrl === contentUrl('/operator-deploy.json') ? operatorCache : null);
   const [elite, setElite] = useState(2);
   const [armed, setArmed] = useState<DeployOperator | null>(null);
   const [placed, setPlaced] = useState<Placed[]>([]);
@@ -349,8 +356,8 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
   const wantOperators = deployOpen;
   useEffect(() => {
     if (!wantOperators || deployData) return;
-    loadOperators().then((json) => { if (json) setDeployData(json); });
-  }, [wantOperators, deployData]);
+    loadOperators(contentUrl('/operator-deploy.json')).then((json) => { if (json) setDeployData(json); });
+  }, [wantOperators, deployData, contentUrl]);
 
   /**
    * Dragging an operator out of the bar, and the direction picker that follows.
@@ -673,7 +680,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
     // Water and the deployables first: they decide where a squad can go at all, so on a
     // map that has them they are the first thing the legend should say.
     return out.sort((a, b) => a.rank - b.rank);
-  }, [geometry]);
+  }, [geometry, tileLegend]);
 
   const drops = useMemo(() => {
     const byRarity = (a: { rarity: string | null }, b: { rarity: string | null }) =>
@@ -747,7 +754,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
     return groups.filter((g) => g.drops.length > 0);
   }, [stage]);
 
-  const properties = useMemo(() => stageProperties(geometry, tileLegend), [geometry]);
+  const properties = useMemo(() => stageProperties(geometry, tileLegend), [geometry, tileLegend]);
   const tokens = useMemo(() => stageTokens(geometry), [geometry]);
 
   // The pre-placed units, grouped for the properties list: a map with eight
@@ -1078,7 +1085,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
       // pointer -- the only hit area was a 1.8px outline and a 2.6px dot.
       units: devicesByTile.get(`${col},${row}`) || [],
     };
-  }, [openTile, geometry, devicesByTile]);
+  }, [openTile, geometry, devicesByTile, tileLegend]);
 
   return (
     <div
@@ -1277,7 +1284,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                         screenshots served straight from public/, and the camera
                         perspective means a responsive srcset buys nothing. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <ContentImg
                       src={`/stages-images/${encodeURIComponent(shownPreview)}`}
                       alt={`In-game view of ${stage.code || stage.slug}${emergencyOn ? ', Emergency Ops' : ''}`}
                       loading="lazy"
@@ -1330,7 +1337,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                         >
                           {dropIcons[d.item.id] ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <ContentImg
                               className={`stage-drop-icon${d.item.is_operator ? ' operator' : ''}`}
                               src={dropIcons[d.item.id]}
                               alt=""
@@ -1969,7 +1976,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
               >
                 {dragging.op.icon && (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={dragging.op.icon} alt="" width={52} height={52} draggable={false} />
+                  <ContentImg src={dragging.op.icon} alt="" width={52} height={52} draggable={false} />
                 )}
               </span>
             )}
@@ -2120,7 +2127,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                           >
                             {detail?.icon ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img className="stage-enemy-icon" src={detail.icon} alt="" loading="lazy" />
+                              <ContentImg className="stage-enemy-icon" src={detail.icon} alt="" loading="lazy" />
                             ) : (
                               <span className="stage-enemy-icon stage-enemy-icon-blank" aria-hidden="true" />
                             )}
@@ -2224,6 +2231,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
  * arrives as a static file written by scripts/build-stage-details.ts.
  */
 export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }: Props) {
+  const contentUrl = useContentUrl();
   const router = useRouter();
   const slug = typeof router.query.s === 'string' && router.query.s ? router.query.s : firstSlug;
   const [detail, setDetail] = useState<StageDetailData | null>(null);
@@ -2232,12 +2240,12 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
   useEffect(() => {
     let live = true;
     setFailed(false);
-    fetch(`/stage-detail/${encodeURIComponent(slug)}.json`)
+    fetch(contentUrl(`/stage-detail/${encodeURIComponent(slug)}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: StageDetailData) => { if (live) setDetail(d); })
       .catch(() => { if (live) { setDetail(null); setFailed(true); } });
     return () => { live = false; };
-  }, [slug]);
+  }, [slug, contentUrl]);
 
   /* Named for the stage on screen. Every one of these 3,786 URLs used to serve
      the same empty title -- the only <title> a crawler found was an SVG label
@@ -2320,7 +2328,7 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/browse", async () => {
   const slugs = getStageSlugs();
   const first = slugs[0] ?? '';
   return {
@@ -2333,4 +2341,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       firstSlug: first,
     },
   };
-};
+});

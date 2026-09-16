@@ -1,6 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { MinistoryMark } from '@/components/ui/ContentCardLink';
@@ -193,7 +194,7 @@ function ModePanel({ card, kind, count, noun }: { card: StageModeCard; kind: str
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages", async () => {
   const now = Math.floor(Date.now() / 1000);
   return { props: { ...getTerminalHome(now), now } };
-};
+});

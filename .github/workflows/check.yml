@@ -26,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - run: npm ci
@@ -62,11 +62,18 @@ jobs:
       - name: Every rendered class is styled
         run: node scripts/audits/check-unstyled-classes.mjs --strict
 
+      - name: Compile and validate runtime content
+        run: npm run content:export && npm run content:validate
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
+
       # NEXT_TELEMETRY_DISABLED so a CI run is not also a ping to Vercel.
       - name: Build
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+          ARKPEDIA_CONTENT_DISABLED: '1'
           # prebuild runs before Next sets this; enable immutable data caches
           # while generating thousands of stage files in this fresh process.
           NODE_ENV: production
@@ -76,3 +83,6 @@ jobs:
 
       - name: Desktop and mobile browser regressions
         run: npm run test:browser
+
+      - name: Content updates and rollback without rebuilding
+        run: npm run test:content-runtime

@@ -183,6 +183,7 @@ export function applyGoal(goal: Goal, from: Owned): Owned {
 export function spendBattleRecords(
   exp: number,
   stock: Depot,
+  records = BATTLE_RECORDS,
 ): { spent: Record<string, number>; wasted: number } | null {
   const need = Math.max(0, Math.ceil(exp));
   if (need === 0) return { spent: {}, wasted: 0 };
@@ -190,9 +191,9 @@ export function spendBattleRecords(
   /* The unit is the records' common divisor, read off the table rather than
      assumed to be the Drill's 200. */
   const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-  const unit = BATTLE_RECORDS.map((r) => r.exp).reduce(gcd);
+  const unit = records.map((r) => r.exp).reduce(gcd);
   /* Largest first, as the table is. */
-  const shelf = BATTLE_RECORDS.map((r) => ({ name: r.name, size: r.exp / unit, have: stock[r.name] || 0 }));
+  const shelf = records.map((r) => ({ name: r.name, size: r.exp / unit, have: stock[r.name] || 0 }));
   const target = Math.ceil(need / unit);
   const total = shelf.reduce((n, r) => n + r.size * r.have, 0);
   if (total < target) return null;
@@ -241,6 +242,7 @@ export function planBuild(
   cost: CostGroup,
   depot: Depot,
   opts: { crafting?: ReadonlySet<string>; autoCraft: boolean },
+  craftTools = { resolveNeeds, BATTLE_RECORDS },
 ): BuildPlan {
   const materials: CostGroup = [];
   let lmd = 0;
@@ -254,13 +256,13 @@ export function planBuild(
   }
 
   /* The same resolve the shortfall list reads, on this bill alone. */
-  const res = resolveNeeds(materials, depot, opts);
+  const res = craftTools.resolveNeeds(materials, depot, opts);
   const short = res.rows.filter((r) => r.short > 0).map((r) => r.name);
   const stock: Depot = { ...res.stock };
 
   const lmdTotal = lmd + res.craftingLmd;
   if ((stock.LMD || 0) < lmdTotal) short.push('LMD');
-  const records = spendBattleRecords(exp, stock);
+  const records = spendBattleRecords(exp, stock, craftTools.BATTLE_RECORDS);
   if (!records) short.push('EXP');
   if (short.length) return { ok: false, short };
 

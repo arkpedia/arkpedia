@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<'dark' | 'light' | null>(null);

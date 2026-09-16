@@ -1,3 +1,4 @@
+import { ContentImg } from '@/components/content/ContentImage';
 /**
  * The glyphs the in-game enemy handbook puts beside each stat.
  *
@@ -28,9 +29,9 @@
 /**
  * Three of these are the game's own art, supplied as PNG rather than drawn: ASPD, the
  * movement-speed boot, and the life-point marker. They render as a CSS MASK rather
- * than an <img>, which keeps the file's exact shape while the colour comes from
+ * than an <ContentImg>, which keeps the file's exact shape while the colour comes from
  * currentColor -- so they sit at --text-faint beside a stat label, turn red beside the
- * life-point figure, and still work on the light theme. A white <img> could do none of
+ * life-point figure, and still work on the light theme. A white <ContentImg> could do none of
  * that.
  *
  * Set inline rather than in the stylesheet so the url stays next to the icon it

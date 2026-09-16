@@ -1,3 +1,4 @@
+import { ContentImg } from '@/components/content/ContentImage';
 /* eslint-disable @next/next/no-img-element -- zoom deliberately loads the lossless public original. */
 import { useEffect, useRef, useState, WheelEvent, MouseEvent, TouchEvent } from 'react';
 import { getSkinArtworkOriginal } from '@/lib/assets/skinArtwork';
@@ -110,7 +111,7 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <img
+        <ContentImg
           src={getSkinArtworkOriginal(image)}
           alt={name}
           width={1600}

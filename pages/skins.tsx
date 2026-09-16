@@ -1,6 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllSkins } from '@/lib/skins/skins';
 import { useQueryState } from '@/lib/hooks/useQueryState';
@@ -560,7 +561,7 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/skins", async () => {
   const rawSkins = getAllSkins();
   const events = getAllEvents();
 
@@ -610,4 +611,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   // above). Rounded to the minute, matching that re-pick.
   const now = Math.floor(Date.now() / 60000) * 60000;
   return { props: { skins, seriesLogos, events, now } };
-};
+});

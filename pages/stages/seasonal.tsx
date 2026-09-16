@@ -1,5 +1,6 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import ContentCardLink, { NoMapNote } from '@/components/ui/ContentCardLink';
 import Rail from '@/components/ui/Rail';
 import ModeMark from '@/components/stages/ModeMark';
@@ -98,6 +99,6 @@ function Mode({ tab, cards, noun, mark }: { tab: string; cards: StageModeCard[];
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => ({
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/seasonal", async () => ({
   props: getSeasonalChallenge(),
-});
+}));

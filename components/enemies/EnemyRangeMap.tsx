@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 
 /**
  * An enemy's attack range, drawn the way the game measures it: a tile grid with the

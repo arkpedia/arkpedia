@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { PriceEntry, getCurrencyIconPath, getCurrencyAbbreviation } from '@/lib/skins/skinPrice';
 
 /** Renders a list of PriceEntry as "amount icon" for currencies with an

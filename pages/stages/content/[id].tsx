@@ -1,5 +1,6 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticPaths, GetStaticProps } from 'next';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { getContentPoster } from '@/lib/stages/stageContents';
@@ -305,11 +306,11 @@ export const getStaticPaths: GetStaticPaths = async () => {
     paths: Object.keys(contents)
       .filter((id) => withStages.has(id))
       .map((id) => ({ params: { id } })),
-    fallback: false,
+    fallback: 'blocking',
   };
 };
 
-export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/content/[id]", async ({ params }) => {
   const id = String(params?.id || '');
   const content = getStageContents()[id];
   if (!content) return { notFound: true };
@@ -430,4 +431,4 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
       ra,
     },
   };
-};
+});

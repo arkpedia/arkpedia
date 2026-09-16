@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { TwitchStream } from '@/lib/community/twitch';
 import { YouTubeVideo } from '@/lib/music/youtube';

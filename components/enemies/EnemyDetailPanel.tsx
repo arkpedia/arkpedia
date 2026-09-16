@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
 import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';

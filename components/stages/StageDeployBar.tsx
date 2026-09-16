@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 

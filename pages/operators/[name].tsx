@@ -1,5 +1,6 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticPaths, GetStaticProps } from 'next';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -1569,11 +1570,11 @@ export const getStaticPaths: GetStaticPaths = async () => {
   const operators = getAllOperators();
   return {
     paths: operators.map((op) => ({ params: { name: op.name } })),
-    fallback: false,
+    fallback: 'blocking',
   };
 };
 
-export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/operators/[name]", async ({ params }) => {
   const operator = getOperatorByName(params?.name as string);
   if (!operator) {
     return { notFound: true };
@@ -1775,4 +1776,4 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
   const factionPath = getFactionIconPath(operator.faction);
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
   return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData } };
-};
+});

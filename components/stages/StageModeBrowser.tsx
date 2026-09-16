@@ -1,4 +1,5 @@
-import Image from 'next/image';
+import { useContentUrl } from '@/lib/content/context';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import ContentCardLink, { MinistoryMark, NoMapNote } from '@/components/ui/ContentCardLink';
 import { useRouter } from 'next/router';
@@ -49,6 +50,7 @@ function year(release: string | null): string {
  * arrived, lists the stages that match underneath.
  */
 export default function StageModeBrowser({ cards, counts, now }: Props) {
+  const contentUrl = useContentUrl();
   const [mode, setMode] = useState('');
   const [search, setSearch] = useState('');
   const [clock, setClock] = useState(now);
@@ -81,7 +83,7 @@ export default function StageModeBrowser({ cards, counts, now }: Props) {
   useEffect(() => {
     if (!wanted || stages) return;
     let live = true;
-    fetch(`${basePath}/stages-index.json`)
+    fetch(contentUrl(`${basePath}/stages-index.json`))
       .then((r) => (r.ok ? r.json() : null))
       .then((rows) => {
         if (!live || !Array.isArray(rows)) return;
@@ -94,7 +96,7 @@ export default function StageModeBrowser({ cards, counts, now }: Props) {
     return () => {
       live = false;
     };
-  }, [wanted, stages, basePath]);
+  }, [contentUrl, wanted, stages, basePath]);
 
   const shown = useMemo(() => {
     const q = search.trim();

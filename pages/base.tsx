@@ -1,6 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { BASE_SKILL_SLOTS, BaseSkillSlot } from '@/lib/base/baseSkillSlots';
@@ -4753,7 +4754,7 @@ export default function BasePage({ operators }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/base", async () => {
   // This page reads name/rarity/faction/baseSkills -- getAllOperators()
   // returns every operator's ENTIRE record (all combat skills' per-level/
   // per-mastery text, talents, modules, promotion tables, full bios,
@@ -4766,4 +4767,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   }));
 
   return { props: { operators } };
-};
+});

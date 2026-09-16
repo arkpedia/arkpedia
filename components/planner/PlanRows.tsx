@@ -1,5 +1,5 @@
 import { PlannerStateLabel } from "./PromotionIcon";
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
 import { useHeightFloor } from './useHeightFloor';

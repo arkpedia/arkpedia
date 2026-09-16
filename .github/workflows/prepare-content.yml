@@ -1,0 +1,93 @@
+name: Prepare content release
+on:
+  schedule:
+    - cron: '47 15 * * *'
+  workflow_dispatch:
+    inputs:
+      data_ref:
+        description: 'Public data branch/ref to compile (main normally, or a correction branch)'
+        default: main
+        type: string
+      refresh_upstream:
+        description: Refresh supported upstream game data and asset revisions
+        default: true
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: prepare-content
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: python -m pip install pillow certifi
+      - name: Load public source records
+        env:
+          DATA_REF: ${{ inputs.data_ref || 'main' }}
+        run: |
+          set -euo pipefail
+          [[ "$DATA_REF" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]
+          git clone --depth 1 https://github.com/arkpedia/arkpedia-data.git "$RUNNER_TEMP/arkpedia-data"
+          git -C "$RUNNER_TEMP/arkpedia-data" fetch --depth 1 origin "$DATA_REF"
+          git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach FETCH_HEAD
+          node scripts/content/hydrate-source.mjs "$RUNNER_TEMP/arkpedia-data"
+      - name: Refresh supported upstream records
+        if: github.event_name == 'schedule' || inputs.refresh_upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run assets:update && npm run stages:refresh
+      - name: Validate and compile data (no website build)
+        env:
+          ARKPEDIA_CONTENT_DISABLED: '1'
+          NODE_ENV: production
+        run: |
+          npm test
+          npm run check:assets
+          npm run check:published-assets
+          mkdir -p "$RUNNER_TEMP/prepared-content"
+          cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
+          node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
+          node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
+      - name: Propose the public release
+        env:
+          CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$CONTENT_DATA_DEPLOY_KEY"
+          key="$RUNNER_TEMP/content-data-key"
+          umask 077
+          printf '%s\n' "$CONTENT_DATA_DEPLOY_KEY" > "$key"
+          trap 'rm -f "$key"' EXIT
+          # Fetch GitHub's published SSH keys over authenticated HTTPS.
+          mkdir -p "$HOME/.ssh"
+          curl --fail --silent --show-error https://api.github.com/meta | node -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>{for(const key of JSON.parse(s).ssh_keys)console.log("github.com "+key)})' > "$HOME/.ssh/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          repo="$RUNNER_TEMP/arkpedia-data"
+          git -C "$repo" remote set-url origin git@github.com:arkpedia/arkpedia-data.git
+          git -C "$repo" fetch origin main
+          git -C "$repo" checkout -B refresh/content origin/main
+          rm -rf "$repo/source" "$repo/release"
+          cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
+          git -C "$repo" add source release
+          if git -C "$repo" diff --cached --quiet; then echo 'Content unchanged.'; exit 0; fi
+          git -C "$repo" config user.name 'github-actions[bot]'
+          git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$repo" commit -m 'Refresh game content and prepared page data'
+          if git -C "$repo" fetch origin refresh/content; then
+            previous=$(git -C "$repo" rev-parse FETCH_HEAD)
+            if git -C "$repo" diff --quiet "$previous" HEAD -- source release; then echo 'Existing proposal is current.'; exit 0; fi
+            git -C "$repo" push --force-with-lease="refs/heads/refresh/content:$previous" origin HEAD:refresh/content
+          else
+            git -C "$repo" push origin HEAD:refresh/content
+          fi
