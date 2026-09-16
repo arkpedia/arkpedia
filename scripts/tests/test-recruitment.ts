@@ -41,3 +41,15 @@ test('both recruitment views use the compact real operator pool and retain calcu
   assert.ok(top.some((combo) => combo.tags.includes('Top Operator')));
   assert.ok(top.filter((combo) => combo.tags.includes('Top Operator')).every((combo) => combo.operators.every((operator) => operator.rarity === 6)));
 });
+
+
+test('Summon recruitment excludes headhunting-only Deepcolor and retains Mayer', async () => {
+  const result = await getRecruitmentPageProps({});
+  assert.ok('props' in result);
+  const { operators } = await result.props;
+  assert.ok(!operators.some((operator) => operator.name === 'Deepcolor'));
+  const summon = computeTagCombos(['Summon'], operators).find((combo) => combo.tags.includes('Summon'));
+  assert.ok(summon);
+  assert.ok(summon.operators.some((operator) => operator.name === 'Mayer'));
+  assert.ok(!summon.operators.some((operator) => operator.name === 'Deepcolor'));
+});

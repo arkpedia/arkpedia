@@ -88,3 +88,10 @@ test('recruitment ships compact data and only released recruitable answers', () 
   assert.ok(names.has('Lancet-2'));
   assert.equal(getRecruitmentGameData(new Date('2019-01-01')).questions.length, 0);
 });
+
+
+test('recruitment guesser never accepts headhunting-only Deepcolor', () => {
+  assert.ok(!game.operators.some((operator) => operator.name === 'Deepcolor'));
+  assert.ok(game.questions.every((question) => !question.answers.includes('Deepcolor')));
+  assert.ok(game.questions.some((question) => question.tags.includes('Summon') && question.answers.includes('Mayer')));
+});
