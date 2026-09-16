@@ -8,3 +8,25 @@ test-results
 playwright-report
 *.log
 *.tsbuildinfo
+
+# Derived from data/ by the prebuild scripts. Uploading a local copy duplicates
+# thousands of files; the deployment build creates the exact required outputs.
+public/enemy-detail
+public/stage-detail
+public/stage-guesser
+
+# Local/importer outputs. Runtime media is served by the public asset repos.
+public/lyrics
+public/planner-data
+public/**/*.webp
+public/**/*.png
+public/**/*.jpg
+public/**/*.jpeg
+public/**/*.gif
+public/**/*.svg
+public/**/*.avif
+public/**/*.ico
+scripts/ra-tracer.html
+
+# Private survey source used only to produce the checked-in aggregate results.
+data/survey/poll_raw_export_clean.csv
