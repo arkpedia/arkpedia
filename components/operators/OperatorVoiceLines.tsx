@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContentUrl } from '@/lib/content/context';
 import StyledSelect from '../ui/StyledSelect';
 import { OperatorVoiceData, OperatorVoiceLine } from '@/lib/operators/operatorVoices';
 import styles from './OperatorVoiceLines.module.css';
@@ -43,6 +44,7 @@ function hasRecording(line: OperatorVoiceLine | undefined, pack: OperatorVoiceDa
 }
 
 export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }) {
+  const contentUrl = useContentUrl();
   const preferredPack = data.packs.find(pack => pack.id === 'en' && pack.status === 'current')
     ?? data.packs.find(pack => pack.id === 'jp' && pack.status === 'current')
     ?? data.packs.find(pack => pack.id === 'cn' && pack.status === 'current')
@@ -121,7 +123,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
       return;
     }
     audio.pause();
-    audio.src = source;
+    audio.src = contentUrl(source);
     audio.load();
     try {
       await audio.play();

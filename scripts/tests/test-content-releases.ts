@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 import { withContentPage } from '../../lib/content/server';
+import { contentPageClock } from '../../lib/content/pageClock';
+import bundledRevisions from '../../data/assets/revisions.json';
+import { getOperatorVoiceData } from '../../lib/operators/operatorVoices';
 import { contentUrl } from '../../lib/content/urls';
 import { contentRoute, type ContentManifest, type ContentPointer } from '../../lib/content/types';
 import { createCraftTools } from '../../lib/planner/craft';
@@ -85,4 +88,42 @@ test('new crafting recipes are isolated to their content release', () => {
   assert.equal(result.rows.find(row => row.name === 'New material')?.short, 0);
   assert.ok(tools.formulaFor('New material'));
   assert.equal(createCraftTools().formulaFor('New material'), null);
+});
+
+
+test('voice playback resolves stable and old pinned templates against each page release', () => {
+  const repositories = Object.keys(bundledRevisions).filter(name => name.startsWith('arkpedia-voice-'));
+  const release = (pin: string) => ({ release: pin.repeat(64), baseUrl: 'https://example.com/release', assets: Object.fromEntries(repositories.map(name => [name, pin.repeat(40)])) });
+  for (const repository of repositories) {
+    for (const ref of ['main', 'd'.repeat(40)]) {
+      for (const suffix of ['current/char_123/cn_001.mp3', 'legacy/archive/char_123/CN_001.mp3']) {
+        const url = `https://raw.githubusercontent.com/arkpedia/${repository}/${ref}/${suffix}`;
+        assert.equal(contentUrl(url, release('a')), `https://raw.githubusercontent.com/arkpedia/${repository}/${'a'.repeat(40)}/${suffix}`);
+        assert.equal(contentUrl(url, release('b')), `https://raw.githubusercontent.com/arkpedia/${repository}/${'b'.repeat(40)}/${suffix}`);
+        assert.equal(contentUrl(url), `https://raw.githubusercontent.com/arkpedia/${repository}/${bundledRevisions[repository as keyof typeof bundledRevisions]}/${suffix}`);
+      }
+    }
+  }
+  const external = 'https://raw.githubusercontent.com/another/voices/main/recording.mp3';
+  assert.equal(contentUrl(external, release('a')), external);
+  assert.throws(() => contentUrl('https://raw.githubusercontent.com/arkpedia/arkpedia-voice-japanese/main/test.mp3', { ...release('a'), assets: {} }), /lacks/);
+  const data = getOperatorVoiceData('char_1039_thorn2');
+  assert.ok(data?.packs.every(pack => !pack.audioTemplate || pack.audioTemplate.includes('/main/')));
+});
+
+test('content snapshots omit presentation clocks and old or new snapshots get fresh clocks without mutation', () => {
+  const time = Date.UTC(2026, 8, 16, 15, 12, 34);
+  for (const route of ['/operators', '/skins', '/stages', '/stages/all', '/stages/browse', '/stages/regular']) {
+    const old = { value: 'game record', now: 1 };
+    const snapshot = contentPageClock(route, old, true, time);
+    assert.deepEqual(snapshot, { value: 'game record' });
+    assert.deepEqual(contentPageClock(route, old, true, time + 86_400_000), snapshot);
+    const current = contentPageClock(route, snapshot, false, time);
+    assert.equal(current.now, ['/operators', '/skins'].includes(route) ? Math.floor(time / 60000) * 60000 : Math.floor(time / 1000));
+    assert.deepEqual(contentPageClock(route, old, false, time), current);
+    assert.deepEqual(old, { value: 'game record', now: 1 });
+    assert.deepEqual(snapshot, { value: 'game record' });
+  }
+  const unrelated = { now: 123 };
+  assert.equal(contentPageClock('/events/[slug]', unrelated, true), unrelated);
 });

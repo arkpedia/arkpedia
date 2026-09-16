@@ -1,4 +1,3 @@
-import { pinAssetUrl } from '@/lib/assets/revisions';
 import VOICE_DATA from '@/data/operator-voice-lines.json';
 
 export type OperatorVoiceCategory = 'profile' | 'combat' | 'special' | 'unused';
@@ -30,10 +29,9 @@ export interface OperatorVoiceData {
   packs: OperatorVoicePack[];
 }
 
-const OPERATORS = Object.fromEntries(Object.entries(VOICE_DATA.operators as Record<string, OperatorVoiceData>)
-  .map(([id, operator]) => [id, { ...operator, packs: operator.packs.map(pack => ({
-    ...pack, audioTemplate: pack.audioTemplate ? pinAssetUrl(pack.audioTemplate) : null,
-  })) }])) as Record<string, OperatorVoiceData>;
+// Keep templates independent of asset revisions. Playback resolves them against
+// the page's content release, so an asset refresh does not rewrite every operator.
+const OPERATORS = VOICE_DATA.operators as Record<string, OperatorVoiceData>;
 
 export function getOperatorVoiceData(internalName: string | null | undefined): OperatorVoiceData | null {
   return internalName ? OPERATORS[internalName] ?? null : null;

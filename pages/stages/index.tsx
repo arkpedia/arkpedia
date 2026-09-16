@@ -196,5 +196,5 @@ function ModePanel({ card, kind, count, noun }: { card: StageModeCard; kind: str
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages", async () => {
   const now = Math.floor(Date.now() / 1000);
-  return { props: { ...getTerminalHome(now), now } };
+  return { props: { ...getTerminalHome(), now } };
 });

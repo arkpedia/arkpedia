@@ -153,15 +153,9 @@ export function getModeCardsOfKind(kind: string): StageModeCard[] {
   return getStageModeCards().filter((c) => c.kind === kind);
 }
 
-/** A run window either side of the build clock, in seconds. Anything outside it
- *  cannot become "running now" between the build and the read, however stale the
- *  build is, so there is no reason to ship it. */
-const HOME_WINDOW = 120 * 24 * 3600;
-
 export interface TerminalHome {
-  /** Contents whose run window straddles the build clock, or is near enough to it
-   *  that the reader's own clock might put it inside. The page filters again on
-   *  mount: a build can be weeks old and "what is running" is the whole point. */
+  /** Timed contents. The reader filters by the current clock, so snapshots stay
+   *  correct across event boundaries without a data-only republish. */
   candidates: StageModeCard[];
   /** Newest season of each long-term mode, for the two panels the home leads with. */
   latestIs: StageModeCard | null;
@@ -170,13 +164,12 @@ export interface TerminalHome {
   raSeasons: number;
 }
 
-export function getTerminalHome(now: number): TerminalHome {
+export function getTerminalHome(): TerminalHome {
   const cards = getStageModeCards();
   const is = cards.filter((c) => c.kind === 'integrated_strategies');
   const ra = cards.filter((c) => c.kind === 'reclamation');
   return {
-    candidates: cards.filter((c) => c.start && c.end
-      && c.end > now - HOME_WINDOW && c.start < now + HOME_WINDOW),
+    candidates: cards.filter((c) => c.start && c.end),
     latestIs: is[0] ?? null,
     latestRa: ra[0] ?? null,
     isThemes: is.length,

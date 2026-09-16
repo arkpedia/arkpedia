@@ -13,6 +13,7 @@ function make(label) {
   const manifest = structuredClone(initial), overrides = new Map();
   manifest.release = label.repeat(64);
   if (label === 'b') manifest.assets['arkpedia-image-assets'] = 'b'.repeat(40);
+  for (const repository of Object.keys(manifest.assets).filter(name => name.startsWith('arkpedia-voice-'))) manifest.assets[repository] = label.repeat(40);
   const readPage = route => JSON.parse(fs.readFileSync(path.join(root, initial.pages[route].path)));
   const setPage = (route, props) => {
     const file = `pages/${sha(route)}.json`, body = JSON.stringify({ props });
@@ -78,12 +79,20 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('https://raw.githubusercontent.com/arkpedia/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#1b2c34"/></svg>' }));
+    const checkVoice = async (label) => {
+      await page.goto('http://localhost:3193/operators/Runtime%20Content%20Test#voiceLines');
+      await page.getByRole('button', { name: /^Play / }).first().click();
+      const src = await page.locator('audio').first().getAttribute('src');
+      assert.ok(src?.includes(`/${label.repeat(40)}/`), `${name} voice URL did not use release ${label}`);
+    };
     active = 'a'; corrupt = false;
     const visit = async () => { const url = 'http://localhost:3193/operators/Runtime%20Content%20Test#overview'; if (page.url() === url) await page.reload(); else await page.goto(url); return page.locator('body').innerText(); };
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} release A`);
+    await checkVoice('a');
     active = 'b';
     await waitFor(async () => (await visit()).includes('Approved content release B'), `${name} updated existing operator`);
     assert.ok(await page.locator('.site-nav-glyph').first().evaluate(el => el.style.maskImage.includes('b'.repeat(40))), `${name} CSS artwork did not adopt the release`);
+    await checkVoice('b');
     const added = await page.goto('http://localhost:3193/operators/New%20Runtime%20Operator#overview');
     assert.equal(added.status(), 200);
     assert.match(await page.locator('h1').innerText(), /New Runtime Operator/i);
@@ -96,8 +105,11 @@ try {
       await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
       return (await page.locator('body').innerText()).includes('Runtime Stage B');
     }, `${name} new stage`, 75_000);
+    const servedNow = await page.evaluate(() => window.__NEXT_DATA__.props.pageProps.now);
+    assert.ok(Math.abs(servedNow - Date.now() / 1000) < 120, `${name} runtime stage clock is stale`);
     active = 'a';
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} rollback`);
+    await checkVoice('a');
     active = 'b'; corrupt = true;
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} corrupt pointer retains previous content`);
     assert.deepEqual(errors, [], `${name} client errors`);

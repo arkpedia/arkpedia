@@ -1,3 +1,4 @@
+import bundledRevisions from '@/data/assets/revisions.json';
 import type { ContentRelease } from './types';
 
 const SKINS = new Set(['one-star-skins', 'two-star-skins', 'three-star-skins', 'four-star-skins', 'five-star-skins', 'six-star-skins', 'skin-series-logos']);
@@ -5,6 +6,15 @@ const IMAGES = new Set(['act-marks', 'album-covers', 'alliance-icons', 'base-ski
 
 /** Pure and request-scoped: never change a process-global asset version. */
 export function contentUrl(src: string, release?: ContentRelease | null): string {
+  // Accept both stable templates and older page payloads with embedded pins.
+  // The suffix also preserves archived actor recordings, not just current audio.
+  const voice = src.match(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/(arkpedia-voice-(?:japanese|english|mandarin|korean|regional))\/(?:main|[a-f0-9]{40})\/(.+)$/);
+  if (voice) {
+    const [, repository, relative] = voice;
+    const revision = release ? release.assets[repository] : bundledRevisions[repository as keyof typeof bundledRevisions];
+    if (!revision) throw new Error(`Content release lacks ${repository}`);
+    return `https://raw.githubusercontent.com/arkpedia/${repository}/${revision}/${relative}`;
+  }
   if (!release || !src.startsWith('/') || src.startsWith('//')) return src;
   const folder = src.slice(1).split('/')[0];
   let repository = SKINS.has(folder) ? 'arkpedia-skin-assets' : IMAGES.has(folder) ? 'arkpedia-image-assets' : '';

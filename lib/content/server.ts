@@ -1,3 +1,4 @@
+import { contentPageClock } from './pageClock';
 import { createHash } from 'node:crypto';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
@@ -81,6 +82,7 @@ export function withContentPage<P extends object>(template: string, bundled: Get
       if (!file) {
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
         const fallback = await bundled(context);
+        if ('props' in fallback) fallback.props = contentPageClock(template, await fallback.props);
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props);
         return { ...fallback, revalidate: options.revalidate ?? 60 };
       }
@@ -96,7 +98,7 @@ export function withContentPage<P extends object>(template: string, bundled: Get
           if (pageCache.size >= 64) pageCache.delete(pageCache.keys().next().value!);
           pageCache.set(cacheKey, props);
         }
-        const currentProps = { ...props, __contentRelease: loaded.context } as unknown as P;
+        const currentProps = contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P);
         return { props: options.finalize ? await options.finalize(currentProps) : currentProps, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60) };
       } catch (error) {
         // An ISR failure preserves Next's previous valid page. A cold request can
@@ -106,6 +108,7 @@ export function withContentPage<P extends object>(template: string, bundled: Get
       }
     }
     const fallback = await bundled(context);
+    if ('props' in fallback) fallback.props = contentPageClock(template, await fallback.props, process.env.ARKPEDIA_EXPORT_CONTENT === '1');
     if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props);
     return { ...fallback, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60) };
   };
