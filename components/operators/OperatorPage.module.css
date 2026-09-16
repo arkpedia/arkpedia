@@ -435,3 +435,12 @@
   .hero { padding: 12px; }
   .sectionMenu button { font-size: 12px; }
 }
+
+/* The voice transport fills the reading panel when pinned below its header. */
+.area { --operator-player-inset: 26px; --operator-player-sticky-top: -12px; }
+@media (max-width: 900px) {
+  .area { --operator-player-inset: 21px; }
+}
+@media (max-width: 360px) {
+  .area { --operator-player-inset: 17px; }
+}

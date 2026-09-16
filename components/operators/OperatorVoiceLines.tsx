@@ -160,6 +160,8 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
     setCurrentTime(value);
   }
 
+  const playerMessage = selected && !selectedHasRecording ? `No ${pack?.label ?? 'selected'} recording for this line.` : audioError;
+
   return (
     <section className={styles.root} aria-labelledby="voice-lines-heading">
       <div className={styles.heading}>
@@ -188,15 +190,14 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
         </button>
         <div className={styles.nowPlaying}>
           <strong>{selected?.title ?? 'Select a voice line'}</strong>
-          <span>{pack?.label ?? 'No recording selected'}</span>
+          <span className={styles.playerStatus} data-error={!!playerMessage || undefined} aria-live="polite" title={playerMessage || undefined}>
+            {playerMessage || pack?.label || 'No recording selected'}
+          </span>
         </div>
         <input className={styles.seek} type="range" min="0" max={duration || 0} step="0.01"
           value={Math.min(currentTime, duration || 0)} onChange={event => seek(Number(event.target.value))}
           aria-label="Audio position" disabled={!duration} />
         <span className={styles.time}>{formatTime(currentTime)} / {formatTime(duration)}</span>
-        <span className={styles.playerStatus} aria-live="polite">
-          {selected && !selectedHasRecording ? `No ${pack?.label ?? 'selected'} recording for this line.` : audioError}
-        </span>
         <audio ref={audioRef} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
           onLoadedMetadata={event => setDuration(event.currentTarget.duration)}
