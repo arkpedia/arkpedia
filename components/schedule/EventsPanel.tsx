@@ -19,9 +19,15 @@ interface Props {
 }
 
 export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Props) {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const slides: SlideItem[] = [
-    ...ongoing.map((event) => ({ event, isUpcoming: false })),
-    ...(upcoming ? [{ event: upcoming, isUpcoming: true }] : []),
+    ...ongoing.map((event) => ({ event, isUpcoming: now ? now < event.start : false })),
+    ...(upcoming ? [{ event: upcoming, isUpcoming: now ? now < upcoming.start : true }] : []),
   ];
 
   const [activeIndex, setActiveIndex] = useState(0);
