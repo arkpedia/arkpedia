@@ -120,6 +120,16 @@ function pick(cands, existingEndTs) {
   return Math.abs(best.end - existingEndTs) <= NEARBY ? best : null;
 }
 
+/** Curated official notices outrank third-party mirrors of the client tables. */
+function isOfficialAnnouncement(source) {
+  try {
+    const url = new URL(source);
+    if (url.protocol !== 'https:') return false;
+    return (['arknights.global', 'www.arknights.global'].includes(url.hostname) && /^\/news\/\d+\/?$/.test(url.pathname))
+      || (['x.com', 'twitter.com'].includes(url.hostname) && /^\/ArknightsEN\/status\/\d+\/?$/i.test(url.pathname));
+  } catch { return false; }
+}
+
 /** Applies one client window to one { dateRange, note } block. Returns a log line or null. */
 function apply(block, cands, offset, label, source) {
   if (!block) return null;
@@ -138,6 +148,12 @@ function apply(block, cands, offset, label, source) {
   // sometimes the exclusive minute boundary. Store one exclusive end.
   const endAt = new Date((win.end + (win.end % 60 === 59 ? 1 : 0)) * 1000).toISOString();
   const sameDays = existing && existing.startDay === startDay && existing.endDay === endDay;
+  if (isOfficialAnnouncement(block.timingSource) && block.startAt && block.endAt) {
+    if (!sameDays || block.startAt !== startAt || block.endAt !== endAt) {
+      console.warn(`${label}: mirrored client times differ from ${block.timingSource}; keeping the official announcement for review.`);
+    }
+    return null;
+  }
   if (sameDays && block.startAt === startAt && block.endAt === endAt) return null;
   const next = sameDays ? block.dateRange : `${startDay}${DASH}${endDay}`;
   const was = block.dateRange ?? '(none)';

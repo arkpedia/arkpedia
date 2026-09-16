@@ -80,5 +80,13 @@ test('sync retains exact hours even when calendar days are unchanged, and is ide
     const saved = fs.readFileSync(eventFile, 'utf8') + fs.readFileSync(bannerFile, 'utf8');
     run();
     assert.equal(fs.readFileSync(eventFile, 'utf8') + fs.readFileSync(bannerFile, 'utf8'), saved);
+    // An official notice may announce maintenance hours that the mirror lacks.
+    const official = { startAt: `${year}-09-16T15:00:00.000Z`, endAt: event.endAt, timingSource: 'https://www.arknights.global/news/4635' };
+    fs.writeFileSync(eventFile, JSON.stringify([{ name: 'Test event', global: { dateRange: range, ...official } }]));
+    fs.writeFileSync(bannerFile, JSON.stringify([{ name: 'Test banner', global_date: range, global_window: official }]));
+    const announced = fs.readFileSync(eventFile, 'utf8') + fs.readFileSync(bannerFile, 'utf8');
+    run();
+    assert.equal(fs.readFileSync(eventFile, 'utf8') + fs.readFileSync(bannerFile, 'utf8'), announced);
+
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });

@@ -38,3 +38,13 @@ announcement or game table URL. Keep the existing date ranges for calendar label
 `npm run events:sync` preserves exact client times even if the dates did not change.
 Date-only legacy entries use server-time estimates; confirmed hours always override
 those estimates. The homepage countdown changes state in the browser at each boundary.
+
+Timing source priority: use the official Arknights regional website or verified
+regional social-account announcement first. Match the precise section: stage
+availability, headhunting, and reward-shop windows can end on different dates.
+An official notice stored in `timingSource` is retained when the mirrored client
+tables disagree; the sync logs the discrepancy for review rather than overwriting
+it. Review later official maintenance/correction notices when a schedule changes.
+Use mirrored game tables only where no official timing has been recorded, and
+keep date-only fallbacks documented as estimates. The mirrors are third-party
+hosts, not official announcements.
