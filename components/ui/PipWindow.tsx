@@ -8,11 +8,10 @@ import { createPortal } from 'react-dom';
  * operating system keeps above other windows. `window.open` cannot: a popup goes behind
  * the moment you click the game, which is exactly when you want to be reading it.
  *
- * Chromium since 116, and Firefox has it now too: 154 exposes
- * `documentPictureInPicture` with a working `requestWindow`, checked rather than
- * assumed. Safari still has only the video kind, which cannot show a document, so
- * `supported` is false there and the caller offers the plain window alone rather than
- * a button that would do nothing.
+ * A usable `documentPictureInPicture.requestWindow` is checked rather than assumed.
+ * Safari still has only the video kind, which cannot show a document. Opera GX can
+ * expose Chromium's API surface while refusing the document window, so Opera uses the
+ * caller's ordinary popup/tab fallback instead of presenting a button that fails.
  */
 
 interface PipApi {
@@ -25,9 +24,18 @@ interface PipApi {
   window: Window | null;
 }
 type WithPip = typeof globalThis & { documentPictureInPicture?: PipApi };
+type NavigatorWithBrands = Navigator & { userAgentData?: { brands?: Array<{ brand: string }> } };
+
+function isOperaBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const brandedNavigator = navigator as NavigatorWithBrands;
+  return /(?:^|\s)OPR\//.test(navigator.userAgent)
+    || !!brandedNavigator.userAgentData?.brands?.some(({ brand }) => /opera/i.test(brand));
+}
 
 export function pipSupported(): boolean {
-  return typeof window !== 'undefined' && 'documentPictureInPicture' in window;
+  if (typeof window === 'undefined' || isOperaBrowser()) return false;
+  return typeof (window as WithPip).documentPictureInPicture?.requestWindow === 'function';
 }
 
 /**

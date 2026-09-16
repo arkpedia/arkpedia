@@ -73,6 +73,31 @@ test('operator search and planner entry are usable', async ({ page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('Opera GX uses the recruitment popup fallback', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Opera GX is a desktop browser');
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: `${navigator.userAgent} OPR/124.0.0.0`,
+    });
+    Object.defineProperty(window, 'documentPictureInPicture', {
+      configurable: true,
+      value: {
+        requestWindow: () => { throw new Error('Opera GX rejected document PiP'); },
+        window: null,
+      },
+    });
+  });
+  await page.goto('/recruitment');
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Pop out', exact: true }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  await expect(popup).toHaveURL(/\/recruitment\/popout/);
+  await expect(popup.getByRole('heading', { name: 'Recruitment', exact: true })).toBeVisible();
+  await popup.close();
+});
+
 test('artwork uses pinned external files', async ({ request }) => {
   const response = await request.get('/six-star-skins/Penance%20-%20Base.webp', { maxRedirects: 0 });
   expect(response.status()).toBe(307);
