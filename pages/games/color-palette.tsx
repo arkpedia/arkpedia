@@ -1,3 +1,4 @@
+import { pinAssetUrl } from '@/lib/assets/revisions';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from 'next/image';
@@ -103,7 +104,7 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   let overrides: CommunityPaletteOverrides = {};
   try {
     const response = await fetch(
-      'https://raw.githubusercontent.com/arkpedia/arkpedia-color-palette/main/palettes/community-overrides.json',
+      pinAssetUrl('https://raw.githubusercontent.com/arkpedia/arkpedia-color-palette/main/palettes/community-overrides.json'),
       { signal: AbortSignal.timeout(5000) },
     );
     if (response.ok) {

@@ -1,5 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const assetRevisions = require('./data/assets/revisions.json');
+for (const [repository, revision] of Object.entries(assetRevisions)) {
+  if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
+}
 
 /**
  * /enemies is the handbook, and the handbook is the frame on /enemies/<slug>: a
@@ -43,7 +47,7 @@ const IMAGE_ASSET_FOLDERS = [
 function externalAssetRedirects(folders, repository) {
   return folders.map((folder) => ({
     source: `/${folder}/:path*`,
-    destination: `https://raw.githubusercontent.com/arkpedia/${repository}/main/${folder}/:path*`,
+    destination: `https://raw.githubusercontent.com/arkpedia/${repository}/${assetRevisions[repository]}/${folder}/:path*`,
     permanent: false,
   }));
 }
@@ -70,12 +74,12 @@ const nextConfig = {
       ...externalAssetRedirects(IMAGE_ASSET_FOLDERS, 'arkpedia-image-assets'),
       {
         source: '/skin-originals/:path*',
-        destination: 'https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/main/originals/:path*',
+        destination: `https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/${assetRevisions['arkpedia-skin-assets']}/originals/:path*`,
         permanent: false,
       },
       {
         source: '/skin-variants/:format/:width/:path*',
-        destination: 'https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/main/variants/:format/:width/:path*',
+        destination: `https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/${assetRevisions['arkpedia-skin-assets']}/variants/:format/:width/:path*`,
         permanent: false,
       },
       { source: '/community/livestreams', destination: '/community/videos', permanent: true },

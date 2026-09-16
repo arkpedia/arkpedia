@@ -31,7 +31,10 @@
     "predev": "node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts",
     "test": "tsx --test scripts/tests/test-*.ts scripts/palettes/test-color-palette.ts",
     "check:styles": "node scripts/audits/check-unstyled-classes.mjs --strict",
-    "check:assets": "node scripts/audits/check-external-assets.cjs"
+    "check:assets": "node scripts/audits/check-external-assets.cjs",
+    "check:published-assets": "node scripts/audits/check-published-assets.mjs",
+    "assets:update": "node scripts/sync/update-asset-revisions.mjs",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "next": "^14.2.0",
@@ -42,6 +45,7 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/geojson": "^7946.0.14",
     "@types/node": "^20.11.0",
     "@types/pg": "^8.11.0",

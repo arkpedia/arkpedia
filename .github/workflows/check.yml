@@ -1,23 +1,10 @@
-# Typechecks and builds every pull request.
-#
-# There was no gate at all before this: the only workflow in the repository
-# refreshes data on a schedule, so nothing looked at a branch before it merged.
-#
-# BOTH steps, because they disagree. `tsc` reads the whole project and catches what
-# a compiler catches -- a use before declaration, a prop that no longer exists, a
-# type that stopped matching. `next build` runs the SWC transform instead, which is
-# happy with some things tsc rejects and rejects some things tsc accepts, and it is
-# also the only thing that runs getStaticProps for every page the site prerenders: a
-# page that throws on one row of its data fails here and nowhere else.
-#
-# The build is the long pole -- minutes, and it grows with the number of prerendered
-# pages -- which is why it runs after the typecheck rather than beside it: a type
-# error should come back in one minute rather than after all of them.
 name: Check
 
 on:
+  push:
+    branches: [main]
   pull_request:
-    branches: [main, games-foundation, recruitment-guesser]
+    branches: [main]
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.
   workflow_dispatch:
@@ -27,9 +14,13 @@ concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -46,8 +37,17 @@ jobs:
       - name: Application regression tests
         run: npm test
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install pillow certifi
+
+      - name: Palette import tests
+        run: python3 -m unittest discover -s scripts/palettes -p "test-*.py"
+
       - name: External asset coverage
-        run: npm run check:assets
+        run: npm run check:assets && npm run check:published-assets
 
       # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
       # in the four big pages, plus two ARIA roles), every one of them a judgement
@@ -67,3 +67,9 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Install Chromium only
+        run: npx playwright install --with-deps chromium
+
+      - name: Desktop and mobile browser regressions
+        run: npm run test:browser

@@ -61,3 +61,7 @@ public/**/*.ico
 # Python importer caches
 __pycache__/
 *.py[cod]
+
+# Local browser regression output
+/test-results/
+/playwright-report/

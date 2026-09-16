@@ -33,3 +33,5 @@ npm run build
 ```
 
 `predev` and `prebuild` generate the JSON delivery files under `public/`. Do not commit generated media, build output, credentials, or upstream caches.
+
+CI, asset refreshes, deployment pins and free-tier limits: [Automation](docs/development/automation.md).

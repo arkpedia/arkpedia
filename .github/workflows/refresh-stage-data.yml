@@ -12,9 +12,9 @@ name: Refresh stage data
 
 on:
   schedule:
-    # 05:17 UTC daily. Off the hour on purpose: scheduled jobs on the hour queue
+    # 15:17 UTC daily, after public asset syncs. Off the hour on purpose: scheduled jobs on the hour queue
     # behind everyone else's.
-    - cron: '17 5 * * *'
+    - cron: '17 15 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -24,6 +24,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
@@ -47,8 +48,13 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .cache/upstream
-          key: upstream-${{ github.run_id }}
+          key: upstream-${{ runner.os }}-${{ github.run_id }}
           restore-keys: upstream-
+
+      - name: Adopt validated public asset revisions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run assets:update
 
       - name: Refresh
         run: npm run stages:refresh
@@ -130,5 +136,5 @@ jobs:
           else
             gh pr edit "$branch" --body-file /tmp/pr-body.md \
               && echo "Updated the pull request already open." \
-              || echo "Could not update the existing pull request; the push landed regardless."
+              || { echo "::error::Refresh branch published, but GitHub blocked the PR. Enable Actions PR creation in organization/repository settings, or open the PR manually."; exit 1; }
           fi
