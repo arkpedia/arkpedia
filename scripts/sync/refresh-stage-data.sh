@@ -29,6 +29,9 @@ upstream_sync cn-resource https://github.com/yuanyan3060/ArknightsGameResource.g
 upstream_sync en-gamedata https://github.com/ArknightsAssets/ArknightsGamedata.git default \
   en/gamedata/excel en/gamedata/levels
 
+step 'Verified Global recruitment pool'
+node scripts/sync/sync-recruitment.mjs
+
 step 'The stage dataset: records, geometry, contents, index'
 node scripts/stage-pipeline/build.mjs
 
