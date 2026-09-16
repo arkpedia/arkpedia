@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { useEffect, useRef, useState } from 'react';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';

@@ -1,5 +1,6 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import Rail from '@/components/ui/Rail';
@@ -185,6 +186,6 @@ function ModeRail({ cards }: { cards: StageModeCard[] }) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => ({
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/regular", async () => ({
   props: { ...getRegularTasks(), now: Math.floor(Date.now() / 1000) },
-});
+}));

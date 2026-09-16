@@ -1,6 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import GameLinks from '@/components/minigames/GameLinks';
@@ -73,4 +74,4 @@ export default function RecruitmentGame({ operators, questions }: Props) {
     </main>
   </>;
 }
-export const getStaticProps: GetStaticProps<Props> = async () => ({ props: getRecruitmentGameData() });
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/games/recruitment-guesser", async () => ({ props: getRecruitmentGameData() }));

@@ -1,3 +1,4 @@
+import { ContentContext, ContentTablesContext } from '@/lib/content/context';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import '@/styles/core/shared.css';
@@ -51,6 +52,8 @@ export default function App({ Component, pageProps }: AppProps) {
     || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '');
   const ogImage = origin && logoPath ? `${origin}${logoPath}` : '';
   return (
+    <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
+    <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
     <MusicPlayerProvider>
       {/* Next injects a bare `width=device-width` on its own, with no
           initial-scale. That is the pair iOS Safari reads together when it
@@ -119,5 +122,7 @@ export default function App({ Component, pageProps }: AppProps) {
       </div>
       {!hideSiteChrome && <MusicPlayer />}
     </MusicPlayerProvider>
+    </ContentTablesContext.Provider>
+    </ContentContext.Provider>
   );
 }

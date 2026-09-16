@@ -1,7 +1,13 @@
+import { useContentTable } from '@/lib/content/context';
+import contentColors from '@/data/event_colors.json';
+import contentMaterials from '@/data/event_materials.json';
+import contentBanners from '@/data/headhunting_banners.json';
+import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, CSSProperties } from 'react';
 import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule/timelineUtils';
@@ -68,6 +74,9 @@ const MONTH_NAMES = [
 ];
 
 export default function SchedulePage({ events, operators, skins, releaseLookup, eventRows }: Props) {
+  const colors = useContentTable('event_colors', contentColors);
+  const materials = useContentTable('event_materials', contentMaterials);
+  const banners = useContentTable('headhunting_banners', contentBanners) as HeadhuntingBanner[];
   const router = useRouter();
   const today = useMemo(() => new Date(), []);
 
@@ -201,9 +210,9 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
   const panelMaterials = displayEvent
     ? displayEvent.materials && displayEvent.materials.length > 0
       ? displayEvent.materials
-      : Object.keys(getEventMaterials(displayEvent.name) || {})
+      : Object.keys(getEventMaterials(displayEvent.name, materials) || {})
     : [];
-  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, displayEvent.global.dateRange) : null;
+  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, displayEvent.global.dateRange, banners) : null;
   const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
 
   const skinsTrackRef = useRef<HTMLDivElement>(null);
@@ -587,7 +596,7 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
                       {bars.map((bar) => {
                         const barKey = `${bar.key}-${wi}`;
                         const isSelected = selectedEvent?.name === bar.key;
-                        const extractedColor = getEventColor(bar.key);
+                        const extractedColor = getEventColor(bar.key, colors);
                         return (
                           <button
                             key={barKey}
@@ -871,7 +880,7 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/schedule", async () => {
   // Timeline only ever reads name/rarity/isFuture (for icon paths) and
   // the birthdate (for the birthday row) -- trimming out the heavy
   // skills/talents/modules/baseSkills data here cuts this page's static
@@ -919,4 +928,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
        cannot be built once and left. Twenty minutes, as the old events page had. */
     revalidate: 1200,
   };
-};
+});

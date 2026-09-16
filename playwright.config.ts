@@ -15,6 +15,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run start -- -p 3192',
+    env: { ARKPEDIA_CONTENT_DISABLED: '1' },
     url: 'http://127.0.0.1:3192',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

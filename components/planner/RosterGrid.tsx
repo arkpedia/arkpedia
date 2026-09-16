@@ -1,5 +1,5 @@
 import { PlannerStateLabel } from "./PromotionIcon";
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useEffect, useMemo, useRef } from 'react';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';

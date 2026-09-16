@@ -1,7 +1,8 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -377,7 +378,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/obtain-method", async () => {
   const operators: RosterOperator[] = getAllOperators().map((op) => ({
     name: op.name,
     rarity: op.rarity,
@@ -394,4 +395,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   const limitedBannerInfo = getLimitedBannerInfoLookup();
   const celebrationBannerDates = getCelebrationBannerDates();
   return { props: { operators, limitedBannerInfo, celebrationBannerDates } };
-};
+});

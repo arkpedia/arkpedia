@@ -1,3 +1,4 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import StageModeBrowser from '@/components/stages/StageModeBrowser';
@@ -36,7 +37,7 @@ export default function AllOperationsPage({ cards, counts, now }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/all", async () => {
   const cards = getStageModeCards();
   return { props: { cards, counts: getModeCounts(cards), now: Math.floor(Date.now() / 1000) } };
-};
+});

@@ -1,6 +1,7 @@
+import { ContentImg } from '@/components/content/ContentImage';
 import { isGamePath } from '@/lib/minigames/catalogue';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import ThemeToggle from './ThemeToggle';
@@ -14,7 +15,7 @@ import { ENEMY_HANDBOOK_HREF, ENEMY_HANDBOOK_SECTION } from '@/lib/enemies/handb
  * A game icon drawn in the current text colour.
  *
  * The art is a white-on-alpha bitmap, so it goes in as a CSS mask over currentColor
- * rather than as an <img>. An <img> would stay white on the light theme and ignore the
+ * rather than as an <ContentImg>. An <ContentImg> would stay white on the light theme and ignore the
  * teal an active entry picks up, which is the whole reason the site draws them this way
  * (see .site-nav-glyph in nav.css).
  */

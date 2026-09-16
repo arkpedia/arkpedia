@@ -2,6 +2,7 @@
 
 - [Repository map](repository-map.md): ownership, feature locations, and placement rules.
 - [Development setup](development/setup.md): local development, checks, and deployment.
+- [Runtime content](development/runtime-content.md): reviewed game updates without a website rebuild.
 - [Data pipelines](development/data-pipelines.md): refresh stages, upstream caches, and base-skill audits.
 - [Data sources](development/data-sources.md): source repositories and provenance.
 - [Data catalogue](../data/README.md): game datasets and generated payloads.

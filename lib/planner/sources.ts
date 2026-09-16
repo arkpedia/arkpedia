@@ -24,6 +24,9 @@ export interface Source {
   buy?: { currency: string; price?: number };
 }
 
+export function createSourceTools(supply: Record<string, string[]> = supplyStages, lookupRecipe: typeof formulaFor = formulaFor) {
+
+
 /**
  * The permanent certificate store, by hand.
  *
@@ -53,7 +56,7 @@ const CERTIFICATE_STORE: Record<string, { currency: string; price?: number }> = 
  * Derived, because a hand-written range would have been wrong: CA-1 through CA-5 all
  * drop a Skill Summary, but only CA-4 and CA-5 drop a volume 3. Best stage first.
  */
-const SUPPLY: Record<string, string[]> = supplyStages;
+const SUPPLY: Record<string, string[]> = supply;
 
 /** The farming guide's own material -> stages map. Its labels are stage codes, with
  *  one exception: "Event Store", which is a shop rather than a stage. */
@@ -62,7 +65,7 @@ const FARMING = new Map(
   FARMING_TIERS.flatMap((t) => t.materials).map((m) => [m.name, m.stages.map((s) => s.label)]),
 );
 
-export function sourceFor(name: string): Source {
+function sourceFor(name: string): Source {
   const labels = FARMING.get(name) ?? [];
   /* The guide first, because its codes are chosen for efficiency; then the supply
      stages, which cover what the guide deliberately does not. */
@@ -84,7 +87,7 @@ export function sourceFor(name: string): Source {
      The room matters -- a Dualchip is made in the FACTORY out of two Chip Packs and a
      Chip Catalyst, and sending someone to the Workshop for one is sending them to the
      wrong bench. */
-  const recipe = formulaFor(name);
+  const recipe = lookupRecipe(name);
   if (recipe) return { kind: recipe.room === 'FACTORY' ? 'factory' : 'workshop', stages: [] };
   /* After the bench, not before: anything you can make, you should make. This is for
      what is left, which the store is the only route to. */
@@ -93,7 +96,7 @@ export function sourceFor(name: string): Source {
   return { kind: 'unknown', stages: [] };
 }
 
-export const SOURCE_LABELS: Record<SourceKind, { tag: string; title: string; note: string }> = {
+const SOURCE_LABELS: Record<SourceKind, { tag: string; title: string; note: string }> = {
   workshop: { tag: 'Workshop', title: 'Craft or promote', note: 'no stage runs needed' },
   factory: { tag: 'Factory', title: 'Make in the base', note: 'no stage runs needed' },
   certificate: { tag: 'Certificate store', title: 'Buy with certificates', note: 'always open' },
@@ -103,7 +106,7 @@ export const SOURCE_LABELS: Record<SourceKind, { tag: string; title: string; not
 };
 
 /** The order the groups are shown in: cheapest route first. */
-export const SOURCE_ORDER: SourceKind[] = ['workshop', 'factory', 'certificate', 'event', 'farm', 'unknown'];
+const SOURCE_ORDER: SourceKind[] = ['workshop', 'factory', 'certificate', 'event', 'farm', 'unknown'];
 
 /**
  * The SHORTEST list of stages that covers a set of farmables, best run first.
@@ -120,7 +123,7 @@ export const SOURCE_ORDER: SourceKind[] = ['workshop', 'factory', 'certificate',
  * log factor -- which is the right trade for a strip of stage codes: it is always a
  * genuine cover, and it is always at least as short as the union.
  */
-export function stagesToRun(names: string[]): { codes: string[]; covers: number } {
+function stagesToRun(names: string[]): { codes: string[]; covers: number } {
   const stagesOf = new Map<string, string[]>();
   for (const name of names) {
     const s = sourceFor(name);
@@ -154,3 +157,7 @@ export function stagesToRun(names: string[]): { codes: string[]; covers: number 
   }
   return { codes, covers: farmables };
 }
+return { sourceFor, SOURCE_LABELS, SOURCE_ORDER, stagesToRun };
+}
+
+export const { sourceFor, SOURCE_LABELS, SOURCE_ORDER, stagesToRun } = createSourceTools();

@@ -1,3 +1,4 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -151,7 +152,7 @@ CompanionPage.mobileNav = {
   back: { href: '/gamemodes/stronghold-protocol', label: 'Stronghold' },
 };
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gamemodes/stronghold-protocol/stronghold-companion", async () => {
   const data = strongholdData();
   /* Throws if the playbook names an operator, item, strategy or alliance the season
      does not have. Here rather than at runtime because the failure is silent
@@ -161,4 +162,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
      line of it a name. */
   assertOpening(data);
   return { props: { data, picker: buildableAlliances(alliancesForPicker(data)) } };
-};
+});

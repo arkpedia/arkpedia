@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 
 const FILES = [
   'operators-1star.json',

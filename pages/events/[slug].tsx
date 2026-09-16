@@ -1,6 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
 import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
@@ -468,11 +469,11 @@ export const getStaticPaths: GetStaticPaths = async () => {
   const listings = getAllEventListings();
   return {
     paths: listings.map((e) => ({ params: { slug: e.name } })),
-    fallback: false,
+    fallback: 'blocking',
   };
 };
 
-export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
   const listings = getAllEventListings();
   const event = listings.find((e) => e.name === name);
@@ -527,4 +528,4 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
     },
     revalidate: 1200,
   };
-};
+});

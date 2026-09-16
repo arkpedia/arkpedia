@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 
 /** Shared by planner controls and summaries so promotion always uses game art. */
 export function PromotionIcon({ elite, size = 22 }: { elite: number; size?: number }) {

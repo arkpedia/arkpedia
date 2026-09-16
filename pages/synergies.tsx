@@ -1,6 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -218,7 +219,7 @@ export default function SynergiesPage({ groups }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/synergies", async () => {
   const operators = getAllOperators();
 
   const factionNames = new Set<string>();
@@ -347,4 +348,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
     });
 
   return { props: { groups } };
-};
+});

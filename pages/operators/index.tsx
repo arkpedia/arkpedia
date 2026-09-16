@@ -1,8 +1,9 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import path from 'path';
 import Head from 'next/head';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -550,7 +551,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/operators", async () => {
   // This page only ever reads name/rarity/class/branch/faction/
   // isFuture/characterInfo['Release Date'] -- getAllOperators()
   // returns every operator's ENTIRE record (all skills' per-level/
@@ -610,4 +611,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   // clock state above). Rounded to the minute, matching that re-pick.
   const now = Math.floor(Date.now() / 60000) * 60000;
   return { props: { operators, now } };
-};
+});

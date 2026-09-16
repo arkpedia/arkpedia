@@ -1,14 +1,11 @@
+import { usePlannerContent } from '@/lib/content/planner';
 import { useMemo, useState } from 'react';
 import type { Depot } from '@/lib/planner/depot';
 import {
-  BATTLE_RECORDS,
-  expToBattleRecords,
-  formulaFor,
-  isCraftable,
   type NeedRow,
   type Resolution,
 } from '@/lib/planner/craft';
-import { SOURCE_LABELS, sourceFor, stagesToRun } from '@/lib/planner/sources';
+import { SOURCE_LABELS, sourceFor } from '@/lib/planner/sources';
 import { MaterialIcon } from './MaterialIcon';
 import { useHeightFloor } from './useHeightFloor';
 
@@ -43,8 +40,8 @@ import { useHeightFloor } from './useHeightFloor';
  * same fact said twice, in a chip, in the space where a stage code would have
  * told the reader where to go.
  */
-function sourceTags(name: string, short: number): { text: string }[] {
-  const source = sourceFor(name);
+function sourceTags(name: string, short: number, lookup = sourceFor): { text: string }[] {
+  const source = lookup(name);
   if (source.kind === 'farm') return source.stages.slice(0, 3).map((code) => ({ text: code }));
   if (source.buy) {
     return [{
@@ -62,9 +59,9 @@ function sourceTags(name: string, short: number): { text: string }[] {
 
 /** The same, for a row that has no other place to say where a material comes
  *  from -- so it never comes back empty. */
-function whereChips(name: string, short: number): { text: string }[] {
-  const tags = sourceTags(name, short);
-  return tags.length ? tags : [{ text: SOURCE_LABELS[sourceFor(name).kind].tag }];
+function whereChips(name: string, short: number, lookup = sourceFor): { text: string }[] {
+  const tags = sourceTags(name, short, lookup);
+  return tags.length ? tags : [{ text: SOURCE_LABELS[lookup(name).kind].tag }];
 }
 
 /**
@@ -95,6 +92,7 @@ function RecipeTree({
   depth?: number;
 }) {
   const [openIngredient, setOpenIngredient] = useState<string | null>(null);
+  const { formulaFor, isCraftable, sourceFor } = usePlannerContent();
   const recipe = formulaFor(name);
   if (!recipe) return null;
 
@@ -163,7 +161,7 @@ function RecipeTree({
                   <span className="per">&times;{r.per} each</span>
                 </span>
                 <span className="where">
-                  {whereChips(r.name, r.short).map((t) => <em key={t.text}>{t.text}</em>)}
+                  {whereChips(r.name, r.short, sourceFor).map((t) => <em key={t.text}>{t.text}</em>)}
                 </span>
                 <span className="have">{r.have} <span>/ {r.need}</span></span>
                 {r.short > 0
@@ -234,6 +232,7 @@ function NeedCard({
   onOpen: () => void;
   onCraftingToggle: (name: string) => void;
 }) {
+  const { formulaFor, isCraftable, sourceFor } = usePlannerContent();
   const recipe = formulaFor(row.name);
   const declared = crafting.has(row.name);
   const covered = row.need - row.short;
@@ -266,7 +265,7 @@ function NeedCard({
       </div>
 
       <div className="need-card-tags">
-        {sourceTags(row.name, row.short).map((t) => <em key={t.text}>{t.text}</em>)}
+        {sourceTags(row.name, row.short, sourceFor).map((t) => <em key={t.text}>{t.text}</em>)}
         {row.viaCrafting && <em>for a craft above</em>}
         {recipe && isCraftable(row.name) ? (
           <button
@@ -383,14 +382,15 @@ export function ShortfallList({
 
   /* EXP is not held, records are: priced at the values in item_table.expItems,
      which is the same table the greedy split spends. */
+  const { BATTLE_RECORDS, expToBattleRecords, stagesToRun, isCraftable, formulaFor, sourceFor } = usePlannerContent();
   const money = useMemo(() => {
     const heldExp = BATTLE_RECORDS.reduce((n, r) => n + (depot[r.name] || 0) * r.exp, 0);
     return { heldExp, heldLmd: depot.LMD || 0, expShort: Math.max(0, exp - heldExp) };
-  }, [depot, exp]);
-  const records = useMemo(() => expToBattleRecords(money.expShort), [money.expShort]);
+  }, [depot, exp, BATTLE_RECORDS]);
+  const records = useMemo(() => expToBattleRecords(money.expShort), [money.expShort, expToBattleRecords]);
   const lmdShort = Math.max(0, lmd - money.heldLmd);
 
-  const run = useMemo(() => stagesToRun(shortRows.map((r) => r.name)), [shortRows]);
+  const run = useMemo(() => stagesToRun(shortRows.map((r) => r.name)), [shortRows, stagesToRun]);
 
   /**
    * The sentence under the cards, derived from them.
@@ -640,7 +640,7 @@ export function OperatorBill({
               <MaterialIcon name={r.name} size={30} />
               <span className="name">{r.name}</span>
               <span className="where">
-                {whereChips(r.name, r.short).map((t) => <em key={t.text}>{t.text}</em>)}
+                {whereChips(r.name, r.short, sourceFor).map((t) => <em key={t.text}>{t.text}</em>)}
               </span>
               <span className="have">
                 <b>{(r.need - r.short).toLocaleString()}</b><span> / {r.need.toLocaleString()}</span>

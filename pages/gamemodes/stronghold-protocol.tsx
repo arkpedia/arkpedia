@@ -1,6 +1,8 @@
+import { useContentUrl } from '@/lib/content/context';
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -290,18 +292,19 @@ function EnemyRecord({ slug, name, intro, onClose }: {
   intro?: ReactNode;
   onClose: () => void;
 }) {
+  const contentUrl = useContentUrl();
   const [detail, setDetail] = useState<EnemyDetailData | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
     setDetail(null);
     setFailed(false);
-    fetch(`/enemy-detail/${encodeURIComponent(slug)}.json`)
+    fetch(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: EnemyDetailData) => { if (live) setDetail(d); })
       .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [slug]);
+  }, [slug, contentUrl]);
 
   /* Focus moves in on open so Tab starts inside the record rather than at the top of
      the page behind it. The backdrop is a sibling rather than a parent: a
@@ -1426,7 +1429,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gamemodes/stronghold-protocol", async () => {
   const data = strongholdData();
   return { props: { data, picker: alliancesForPicker(data) } };
-};
+});

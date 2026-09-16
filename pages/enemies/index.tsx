@@ -1,3 +1,5 @@
+import { useContentUrl } from '@/lib/content/context';
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -27,6 +29,7 @@ interface Props {
  * JSON file written by scripts/build-enemy-details.mjs.
  */
 export default function EnemiesPage({ siblings, contents, firstSlug }: Props) {
+  const contentUrl = useContentUrl();
   const router = useRouter();
   const slug = typeof router.query.e === 'string' && router.query.e ? router.query.e : firstSlug;
   const [detail, setDetail] = useState<EnemyDetailData | null>(null);
@@ -35,12 +38,12 @@ export default function EnemiesPage({ siblings, contents, firstSlug }: Props) {
   useEffect(() => {
     let live = true;
     setFailed(false);
-    fetch(`/enemy-detail/${encodeURIComponent(slug)}.json`)
+    fetch(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: EnemyDetailData) => { if (live) setDetail(d); })
       .catch(() => { if (live) { setDetail(null); setFailed(true); } });
     return () => { live = false; };
-  }, [slug]);
+  }, [slug, contentUrl]);
 
   /* The record's own name, once it is known. Every one of these used to share a
      single title -- there were 1,585 URLs and not one of them said what it was. */
@@ -127,7 +130,7 @@ export default function EnemiesPage({ siblings, contents, firstSlug }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/enemies", async () => {
   const summaries = getEnemySummaries().filter((e) => !e.hidden);
   const first = summaries[0];
   return {
@@ -139,4 +142,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       firstSlug: first?.slug ?? '',
     },
   };
-};
+});

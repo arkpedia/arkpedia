@@ -59,7 +59,7 @@ interface RawEvent {
   cn?: { dateRange: string | null; note: string | null } | null;
 }
 
-function loadGameEvents(): GameEvent[] {
+export function loadGameEvents(): GameEvent[] {
   const raw = loadAllEventYears() as RawEvent[];
   const events: GameEvent[] = [];
   for (const e of raw) {
@@ -72,16 +72,16 @@ function loadGameEvents(): GameEvent[] {
   return events;
 }
 
-export function getOngoingEvents(now: Date = new Date()): GameEvent[] {
-  return loadGameEvents()
+export function getOngoingEvents(now: Date = new Date(), events = loadGameEvents()): GameEvent[] {
+  return events
     .filter((e) => e.start <= now && now <= e.end)
     .sort((a, b) => a.end.getTime() - b.end.getTime());
 }
 
 /** The single soonest upcoming event -- guarantees there's always at
  * least one banner to show, even with zero ongoing events. */
-export function getNextUpcomingEvent(now: Date = new Date()): GameEvent | null {
-  const upcoming = loadGameEvents()
+export function getNextUpcomingEvent(now: Date = new Date(), events = loadGameEvents()): GameEvent | null {
+  const upcoming = events
     .filter((e) => e.start > now)
     .sort((a, b) => a.start.getTime() - b.start.getTime());
   return upcoming[0] || null;
@@ -126,8 +126,7 @@ function bannerCategoryRank(banner: HeadhuntingBanner): number {
  * the SAME functions the Gacha page's own "Upcoming" category already
  * uses to correctly identify currently-active banners.
  */
-export function getOngoingGachaBanners(now: Date = new Date()): GachaBannerWithWindow[] {
-  const banners = getBannersSortedByDate();
+export function getOngoingGachaBanners(now: Date = new Date(), banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const result: GachaBannerWithWindow[] = [];
   for (const b of banners) {
     const start = parseBannerDate(b);
@@ -146,12 +145,11 @@ export function getOngoingGachaBanners(now: Date = new Date()): GachaBannerWithW
 
 /** Skins tied to a currently-ongoing event, via each skin's own
  * "release" field matching that event's name. */
-export function getOngoingSkins(now: Date = new Date()): Skin[] {
-  const ongoingEvents = getOngoingEvents(now);
-  const allSkins = getAllSkins();
+export function getOngoingSkins(now: Date = new Date(), allSkins = getAllSkins(), events = loadGameEvents()): Skin[] {
+  const ongoingEvents = getOngoingEvents(now, events);
   /* Every event name, not just the ongoing ones: the point of the list is to let a
      release be recognised as belonging to some OTHER event than this one. */
-  const allEventNames = loadGameEvents().map((e) => e.name);
+  const allEventNames = events.map((e) => e.name);
   const seen = new Set<string>();
   const result: Skin[] = [];
   for (const event of ongoingEvents) {

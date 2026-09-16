@@ -1,5 +1,5 @@
 import { PromotionIcon } from "./PromotionIcon";
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useState } from 'react';
 import { LEVEL_CAPS, maxEliteForRarity, maxLevelForElite, maxSkillRankForElite, moduleUnlock } from '@/lib/planner/plannerLogic';
 

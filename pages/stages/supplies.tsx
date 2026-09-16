@@ -1,5 +1,6 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import ModeMark from '@/components/stages/ModeMark';
@@ -118,9 +119,9 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => ({
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/supplies", async () => ({
   props: {
     cards: getSupplyCards(),
     buildDay: serverWeekday(),
   },
-});
+}));

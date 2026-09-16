@@ -1,6 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import { useEffect, useState } from 'react';
 import { FARMING_TIERS, TIER_1_2_FOOTNOTE, LEGEND } from '@/lib/farming/farmingConfig';
 import { FarmingMaterial, FarmingStage } from '@/lib/farming/farmingTypes';
@@ -123,11 +124,11 @@ function MaterialTile({ material, stages }: { material: FarmingMaterial; stages:
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/farming", async () => {
   return {
     props: {
       countdowns: getMaterialCountdowns(),
       eventStoreCountdown: getEventStoreCountdown(),
     },
   };
-};
+});

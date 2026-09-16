@@ -1,8 +1,10 @@
+import { useContentUrl } from '@/lib/content/context';
+import { withContentPage } from '@/lib/content/server';
 import type { GetStaticProps } from 'next';
 import fs from 'fs';
 import path from 'path';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import GameLinks from '@/components/minigames/GameLinks';
@@ -22,6 +24,7 @@ const COLLECTIONS: { id: StagePool; label: string }[] = [
 const HINT_NAMES = ['In-game image', 'Chapter or event'];
 
 export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
+  const contentUrl = useContentUrl();
   const [searchMode, setSearchMode] = useState<StageSearchMode>('connections');
   const [collection, setCollection] = useState<StagePool>('classic');
   const [questions, setQuestions] = useState<StageEntry[]>([]);
@@ -75,7 +78,7 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
     try {
       let catalogue = questions;
       if (!catalogue.length) {
-        const response = await fetch(catalogueUrl);
+        const response = await fetch(contentUrl(catalogueUrl));
         if (!response.ok) throw new Error('catalogue');
         const data = await response.json() as StageCatalogue;
         catalogue = data.entries;
@@ -83,7 +86,7 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
       }
       const next = pickNext(filterStagePool(catalogue, collection, selectedGroups), recent, (question) => question.slug);
       if (!next) throw new Error('empty');
-      const response = await fetch(next.layoutUrl);
+      const response = await fetch(contentUrl(next.layoutUrl));
       if (!response.ok) throw new Error('layout');
       const layout = await response.json() as StageLayout;
       if (!layout.rows || !layout.cols || !Array.isArray(layout.tileGrid)) throw new Error('layout');
@@ -180,4 +183,4 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
     </main>
   </>;
 }
-export const getStaticProps: GetStaticProps<Props> = async () => ({ props: JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public/stage-guesser/manifest.json'), 'utf8')) as Props });
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/games/stage-guesser", async () => ({ props: JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public/stage-guesser/manifest.json'), 'utf8')) as Props }));

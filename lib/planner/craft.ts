@@ -26,23 +26,6 @@ export interface Formula {
   alternatives: { lmd: number; costs: { name: string; count: number }[] }[];
 }
 
-const FORMULAS = formulaData as Record<string, Formula>;
-
-/**
- * Which recipes may be DESCENDED INTO.
- *
- * F_ASC, the chip family, is a cycle -- three Sniper Chips make a Caster Chip and
- * three Caster Chips make a Sniper Chip, because those are the game's class trades
- * rather than a ladder. Following them would not terminate, and the advice it
- * produced on the way would be nonsense. scripts/imports/import-base-formulas.mjs fails
- * the build if a cycle ever appears among the two families below, so this set and
- * that guard have to agree; they are stated in both places on purpose.
- */
-const WALKABLE = new Set(['F_EVOLVE', 'F_SKILL']);
-
-/** Highest tier first, which is the order the sort list already encodes. */
-const TIER_RANK = new Map(MATERIAL_SORT_ORDER.map((name, i) => [name, i]));
-
 export type Coverage = 'have' | 'craftable' | 'crafting' | 'short';
 
 export interface NeedRow {
@@ -62,6 +45,52 @@ export interface NeedRow {
 }
 
 /**
+ * What the Workshop did on the way to an answer: LMD charged at the bench and
+ * how many of each product came off it. Kept because a BUILD has to spend
+ * exactly this -- the ingredients the recipes consumed are already gone from
+ * `stock`, but the bench fee is not a material and has to be added to the
+ * plan's own LMD line, for automatic crafts as much as declared ones. */
+export interface CraftLedger {
+  lmd: number;
+  made: Record<string, number>;
+}
+
+export interface Resolution {
+  rows: NeedRow[];
+  /** LMD the crafts will cost at the bench, on top of the plan's own -- the
+   *  declared ones AND the automatic ones. The bench charges either way, and a
+   *  total that left the automatic ones out was a total the build could not
+   *  pay from. */
+  craftingLmd: number;
+  /** The depot after everything above was taken from it: what the plan asked
+   *  for where it was held, and the ingredients of whatever was crafted. This
+   *  is what a build writes back. Only meaningful when nothing is short. */
+  stock: Depot;
+  /** How many of each product the bench made, declared and automatic. */
+  made: Record<string, number>;
+}
+
+export function createCraftTools(formulas: Record<string, Formula> = formulaData, records: { name: string; exp: number }[] = recordData) {
+
+
+const FORMULAS = formulas;
+
+/**
+ * Which recipes may be DESCENDED INTO.
+ *
+ * F_ASC, the chip family, is a cycle -- three Sniper Chips make a Caster Chip and
+ * three Caster Chips make a Sniper Chip, because those are the game's class trades
+ * rather than a ladder. Following them would not terminate, and the advice it
+ * produced on the way would be nonsense. scripts/imports/import-base-formulas.mjs fails
+ * the build if a cycle ever appears among the two families below, so this set and
+ * that guard have to agree; they are stated in both places on purpose.
+ */
+const WALKABLE = new Set(['F_EVOLVE', 'F_SKILL']);
+
+/** Highest tier first, which is the order the sort list already encodes. */
+const TIER_RANK = new Map(MATERIAL_SORT_ORDER.map((name, i) => [name, i]));
+
+/**
  * EXP is not a material you hold; battle records are.
  *
  * Read from the table rather than restated here. They are four numbers that have not
@@ -70,11 +99,11 @@ export interface NeedRow {
  * item_table.expItems, already sorted largest first, which is the order the greedy
  * conversion below spends them in.
  */
-export const BATTLE_RECORDS: { name: string; exp: number }[] = recordData;
+const BATTLE_RECORDS: { name: string; exp: number }[] = records;
 
 /** The records that cover `exp`, largest first. The last one over-shoots, which is
  *  what happens in game too -- a record cannot be spent by halves. */
-export function expToBattleRecords(exp: number): { name: string; count: number }[] {
+function expToBattleRecords(exp: number): { name: string; count: number }[] {
   let left = Math.max(0, Math.ceil(exp));
   const out: { name: string; count: number }[] = [];
   BATTLE_RECORDS.forEach(({ name, exp: value }, i) => {
@@ -86,17 +115,6 @@ export function expToBattleRecords(exp: number): { name: string; count: number }
     }
   });
   return out;
-}
-
-/**
- * What the Workshop did on the way to an answer: LMD charged at the bench and
- * how many of each product came off it. Kept because a BUILD has to spend
- * exactly this -- the ingredients the recipes consumed are already gone from
- * `stock`, but the bench fee is not a material and has to be added to the
- * plan's own LMD line, for automatic crafts as much as declared ones. */
-export interface CraftLedger {
-  lmd: number;
-  made: Record<string, number>;
 }
 
 /**
@@ -154,21 +172,6 @@ function craftInto(name: string, extra: number, stock: Depot, seen: Set<string>,
   return made;
 }
 
-export interface Resolution {
-  rows: NeedRow[];
-  /** LMD the crafts will cost at the bench, on top of the plan's own -- the
-   *  declared ones AND the automatic ones. The bench charges either way, and a
-   *  total that left the automatic ones out was a total the build could not
-   *  pay from. */
-  craftingLmd: number;
-  /** The depot after everything above was taken from it: what the plan asked
-   *  for where it was held, and the ingredients of whatever was crafted. This
-   *  is what a build writes back. Only meaningful when nothing is short. */
-  stock: Depot;
-  /** How many of each product the bench made, declared and automatic. */
-  made: Record<string, number>;
-}
-
 /**
  * The plan against the depot, and against what you have said you will craft.
  *
@@ -196,7 +199,7 @@ export interface Resolution {
  * A DECLARED craft still runs with it off: that is the reader saying "make this",
  * not the resolver deciding on their behalf.
  */
-export function resolveNeeds(
+function resolveNeeds(
   need: CostGroup,
   depot: Depot,
   opts: { crafting?: ReadonlySet<string>; autoCraft: boolean },
@@ -285,12 +288,12 @@ export function resolveNeeds(
 
 /** Whether the Workshop knows how to make this at all -- used to decide whether a row
  *  is worth offering a "craft" affordance, not to decide the numbers. */
-export function isCraftable(name: string): boolean {
+function isCraftable(name: string): boolean {
   const f = FORMULAS[name];
   return !!f && WALKABLE.has(f.type);
 }
 
-export function formulaFor(name: string): Formula | null {
+function formulaFor(name: string): Formula | null {
   return FORMULAS[name] ?? null;
 }
 
@@ -311,7 +314,7 @@ export function formulaFor(name: string): Formula | null {
  * one among the walkable families, and a resolver that hangs on bad data is a
  * worse failure than one that declines.
  */
-export function shortShares(resolution: Resolution): Map<string, number> {
+function shortShares(resolution: Resolution): Map<string, number> {
   const byName = new Map(resolution.rows.map((r) => [r.name, r]));
   const cache = new Map<string, number>();
 
@@ -351,3 +354,7 @@ export function shortShares(resolution: Resolution): Map<string, number> {
   for (const row of resolution.rows) out.set(row.name, share(row.name, new Set()));
   return out;
 }
+return { BATTLE_RECORDS, expToBattleRecords, resolveNeeds, isCraftable, formulaFor, shortShares };
+}
+
+export const { BATTLE_RECORDS, expToBattleRecords, resolveNeeds, isCraftable, formulaFor, shortShares } = createCraftTools();

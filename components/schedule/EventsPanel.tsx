@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import CountdownTimer from '../ui/CountdownTimer';
 import { GameEvent } from '@/lib/home/frontPageContent';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';

@@ -1,3 +1,7 @@
+import { withContentPage } from '@/lib/content/server';
+import { loadGameEvents } from '@/lib/home/frontPageContent';
+import { getAllSkins } from '@/lib/skins/skins';
+import { getBannersSortedByDate, type HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { GetStaticProps } from 'next';
 import { useEffect, useState } from 'react';
 import AnnouncementTicker from '@/components/layout/AnnouncementTicker';
@@ -40,6 +44,7 @@ interface Props {
   featuredStream: TwitchStream | null;
   featuredVideo: YouTubeVideo | null;
   earliestCommunityEvent: CommunityEvent | null;
+  __calendar?: { events: (Omit<GameEvent, 'start' | 'end'> & { start: string; end: string })[]; banners: HeadhuntingBanner[]; skins: Skin[] };
 }
 
 export default function HomePage({
@@ -96,50 +101,33 @@ export default function HomePage({
   );
 }
 
-// Note: dates are computed at BUILD time here, so "ongoing" status is
-// only as fresh as the last build/deploy -- fine for events/banners
-// that last days to weeks, but if this site rebuilds infrequently,
-// consider revalidate (ISR) or moving this check to getServerSideProps
-// instead.
-export const getStaticProps: GetStaticProps<Props> = async () => {
+// Recompute time-sensitive homepage selections during server revalidation.
+async function finalizeHome(props: Props): Promise<Props> {
+  const { __calendar, ...rest } = props;
   const now = new Date();
-  const ongoingEvents = getOngoingEvents(now).map((e) => ({ ...e, start: e.start.toISOString(), end: e.end.toISOString() }));
-  const upcoming = getNextUpcomingEvent(now);
-  const upcomingEvent = upcoming ? { ...upcoming, start: upcoming.start.toISOString(), end: upcoming.end.toISOString() } : null;
-  const ongoingBanners = getOngoingGachaBanners(now).map((b) => ({ ...b, start: b.start.toISOString(), end: b.end.toISOString() }));
-  const ongoingSkins = getOngoingSkins(now);
-  const farmableMaterials = getCurrentFarmableMaterials();
-
-  const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+  const events = __calendar?.events.map(event => ({ ...event, start: new Date(event.start), end: new Date(event.end) }));
+  const serialize = (event: GameEvent) => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() });
+  const upcoming = getNextUpcomingEvent(now, events);
   const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
-  const enrichedVideos = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
-  const nonLivestreamVideos = filterBannedByTitle(enrichedVideos.filter((v) => !v.isLivestream));
-  const featuredVideo = nonLivestreamVideos[0] || null;
-
-  const twitchClientId = process.env.TWITCH_CLIENT_ID;
-  const twitchClientSecret = process.env.TWITCH_CLIENT_SECRET;
-  const twitchStreams = await getLiveTwitchStreams(TWITCH_CATEGORY, TWITCH_STREAM_LIMIT, twitchClientId, twitchClientSecret);
-  const featuredStream = twitchStreams[0] || null;
-
-  const earliestCommunityEvent =
-    [...EVENTS]
-      .filter((e) => {
-        const end = e.endTime ? new Date(e.endTime) : new Date(new Date(e.startTime).getTime() + 24 * 60 * 60 * 1000);
-        return end.getTime() >= now.getTime();
-      })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] || null;
-
-  return {
-    props: {
-      ongoingEvents,
-      upcomingEvent,
-      ongoingBanners,
-      ongoingSkins,
-      farmableMaterials,
-      featuredStream,
-      featuredVideo,
-      earliestCommunityEvent,
-    },
-    revalidate: 1500,
+  const enrichedVideos = await enrichWithLiveStatus(rawVideos, process.env.YOUTUBE_API_KEY);
+  const videos = filterBannedByTitle(enrichedVideos.filter(video => !video.isLivestream));
+  const streams = await getLiveTwitchStreams(TWITCH_CATEGORY, TWITCH_STREAM_LIMIT, process.env.TWITCH_CLIENT_ID, process.env.TWITCH_CLIENT_SECRET);
+  const communityEvent = [...EVENTS].filter(event => {
+    const end = event.endTime ? new Date(event.endTime) : new Date(new Date(event.startTime).getTime() + 86400000);
+    return end.getTime() >= now.getTime();
+  }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] || null;
+  return { ...rest,
+    ongoingEvents: getOngoingEvents(now, events).map(serialize),
+    upcomingEvent: upcoming ? serialize(upcoming) : null,
+    ongoingBanners: getOngoingGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() })),
+    ongoingSkins: getOngoingSkins(now, __calendar?.skins, events),
+    featuredVideo: videos[0] || null, featuredStream: streams[0] || null, earliestCommunityEvent: communityEvent,
   };
-};
+}
+
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/', async () => ({ props: {
+  ongoingEvents: [], upcomingEvent: null, ongoingBanners: [], ongoingSkins: [],
+  farmableMaterials: getCurrentFarmableMaterials(), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
+  // Stored in the data release, consumed on the server, and never sent to the browser.
+  __calendar: { events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins() },
+} }), { finalize: finalizeHome, revalidate: 1500 });

@@ -1,7 +1,8 @@
+import { withContentPage } from '@/lib/content/server';
 import { pinAssetUrl } from '@/lib/assets/revisions';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import GameLinks from '@/components/minigames/GameLinks';
@@ -100,7 +101,7 @@ export default function PaletteGame({ operators }: Props) {
     </main>
   </>;
 }
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/games/color-palette", async () => {
   let overrides: CommunityPaletteOverrides = {};
   try {
     const response = await fetch(
@@ -116,4 +117,4 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
     // temporarily unavailable while Arkpedia is building.
   }
   return { props: { operators: applyCommunityPaletteOverrides(getPaletteOperators(), overrides) } };
-};
+});

@@ -63,11 +63,11 @@ export function getBannersSortedByDate(): HeadhuntingBanner[] {
  *   3. Same start date -- Featured/Limited banners that share an
  *      event's exact start date are related to it even when their
  *      names don't line up well (crossover/collab banners especially). */
-export function getBannerForEvent(eventName: string, eventGlobalDateRange?: string | null): HeadhuntingBanner | null {
+export function getBannerForEvent(eventName: string, eventGlobalDateRange?: string | null, banners: HeadhuntingBanner[] = ALL_BANNERS): HeadhuntingBanner | null {
   const target = normalize(eventName);
 
   if (target) {
-    const explicitMatch = ALL_BANNERS.find((b) => b.linked_event && normalize(b.linked_event) === target);
+    const explicitMatch = banners.find((b) => b.linked_event && normalize(b.linked_event) === target);
     if (explicitMatch) return explicitMatch;
 
     for (const banner of ALL_BANNERS) {
@@ -80,7 +80,7 @@ export function getBannerForEvent(eventName: string, eventGlobalDateRange?: stri
 
   const eventStart = parseStartDate(eventGlobalDateRange);
   if (eventStart) {
-    const dateMatch = ALL_BANNERS.find(
+    const dateMatch = banners.find(
       (b) => (b.pull_type === 'featured' || b.pull_type === 'limited') && parseStartDate(b.global_date) === eventStart
     );
     if (dateMatch) return dateMatch;
