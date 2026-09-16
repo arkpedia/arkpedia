@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
-const OUTPUT = join(ROOT, 'data/operator-voice-lines.json');
+const OUTPUT = process.env.ARKPEDIA_VOICE_OUTPUT || join(ROOT, 'data/operator-voice-lines.json');
+const ASSET_REVISIONS = JSON.parse(readFileSync(join(ROOT, 'data/assets/revisions.json'), 'utf8'));
 const VOICE_REPOSITORIES = {
   voice: 'arkpedia-voice-japanese',
   voice_cn: 'arkpedia-voice-mandarin',
@@ -63,7 +64,11 @@ async function audioDirectoryIndex() {
 
   const directories = ['voice', 'voice_cn', 'voice_custom', 'voice_en', 'voice_kr'];
   const entries = await Promise.all(directories.map(async directory => {
-    const response = await fetch(`${AUDIO_DIRECTORY_APIS[directory]}?ref=main`);
+    const revision = ASSET_REVISIONS[VOICE_REPOSITORIES[directory]];
+    if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Missing adopted voice revision: ${directory}`);
+    const response = await fetch(`${AUDIO_DIRECTORY_APIS[directory]}?ref=${revision}`, {
+      headers: process.env.GH_TOKEN ? { Authorization: `Bearer ${process.env.GH_TOKEN}` } : {},
+    });
     if (!response.ok) throw new Error(`Arkpedia voice assets ${directory}: ${response.status} ${response.statusText}`);
     const listing = await response.json();
     return [directory, new Set(listing.filter(item => item.type === 'dir').map(item => item.name))];

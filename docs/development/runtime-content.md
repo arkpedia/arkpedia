@@ -4,9 +4,13 @@ The website reads reviewed game records from the public [arkpedia-data repositor
 
 ## Update flow
 
-1. `Prepare content release` runs daily at 15:47 UTC, or manually. It loads public source records, optionally refreshes supported upstream importers, then compiles page JSON without running a Next.js build.
+1. `Prepare content release` checks daily at 16:57 UTC (5h 57m after Global reset), or runs manually. Public artwork, image and voice syncs are staggered from 16:07 to 16:31 UTC first. The daily job compares upstream revisions and reuses a successful preparation when nothing changed, avoiding dependency installation and compilation on unchanged days. Manual runs always run. Changed inputs load public source records, refresh supported importers, then compile page JSON without running a Next.js build.
 2. A deploy key scoped only to arkpedia-data pushes `refresh/content`. That public repository validates the files and opens a review PR.
 3. Merging the PR publishes its immutable commit through the `live` pointer. Existing website pages adopt it during background revalidation; newly added operator, event and stage-content URLs generate on demand.
+
+Daily checks are retained because patches, mirror uploads and corrections do not always arrive together. This is a post-reset check, not a hard-coded assumption that every patch opens four hours after reset. Late upstream uploads are picked up by the next check; GitHub may delay scheduled jobs. A release still needs its review PR merged.
+
+The content refresh also imports English voice transcripts and replaces Chinese profile/archive fallbacks when the English game tables actually contain them. It preserves editorial reviews, existing English prose and ambiguous alternate-form archives. It never invents translations.
 
 The pointer is cached for 60 seconds and most pages revalidate after 60 seconds. GitHub caching and request-driven regeneration can add delay. The homepage retains its 25-minute community refresh interval. An already-open page retains its release so interactions do not mix versions or shift the UI.
 

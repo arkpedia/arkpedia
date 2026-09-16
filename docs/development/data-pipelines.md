@@ -108,26 +108,15 @@ content labels. Running it before the others leaves the index missing all of tha
 
 ### Doing it on a schedule
 
-`.github/workflows/refresh-stage-data.yml` runs the refresh daily and opens a pull
-request with whatever changed. It does nothing until it is on the default branch —
-GitHub only honours `schedule` there — and needs no secret, because every source it
-reads is public. Run it once by hand from the Actions tab before trusting the cron.
+Routine updates use `.github/workflows/prepare-content.yml` at 16:57 UTC,
+after the public asset syncs. Unchanged upstream revisions skip expensive work.
+The refresh includes English voice transcripts and missing English profile/archive
+text, then proposes a reviewed release in `arkpedia-data`. The older
+`refresh-stage-data.yml` workflow is a manual bundled-fallback tool only.
 
-### What cannot be a runtime refresh
-
-New stages cannot appear without a deploy, and the reason is not the clock: their
-records, geometry and renders live in this repo, and a page cannot be rendered
-from data that is not there. ISR would let a page be *built* on demand — this is a
-Vercel deploy, so `fallback: 'blocking'` and `revalidate` are available — but the
-data it would read is still the deployed bundle, so nothing new would appear.
-Reading gamedata at request time is the only thing that would, and that trades away
-the point of keeping every byte repo-local: the site would stop working when an
-upstream does.
-
-What IS live in the browser, with no rebuild: the Current group, the chapter the
-list opens on, an event ending, and a rerun whose window was already known. All of
-it is computed from the run windows shipped inside the page against the reader's
-own clock.
+New supported records can reach the site without a website deployment through
+[runtime content releases](runtime-content.md). New mechanics, schemas and UI
+still require application changes.
 
 ### What is not automatic
 
