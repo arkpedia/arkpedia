@@ -28,6 +28,7 @@ import { Levels, enemyCatalogue, loadEnemyNames } from './lib/level.mjs';
 import { buildGeometry, owningStage, enemyDatabaseLevels, unitNames } from './lib/geometry.mjs';
 import { encodeGeometry } from './lib/encode.mjs';
 import { stagePreviews, defaultImagesDir } from './lib/preview.mjs';
+import { assetFileNames } from '../lib/public-assets.mjs';
 import { missingLevels, syntheticSlugs, syntheticRecord, tableLevelMetadata, compareNatural } from './lib/synthetic.mjs';
 import { isVariations } from './lib/isvariations.mjs';
 import { raBeginnerCuts } from './lib/rabeginner.mjs';
@@ -52,7 +53,7 @@ const known = new Set([...registry.all().map((e) => `${e.kind} ${e.id}`), 'guide
 const rewards = new Rewards();
 const catalogue = enemyCatalogue();
 const levelReader = new Levels(catalogue);
-const previews = stagePreviews(stages, defaultImagesDir(ROOT));
+const previews = stagePreviews(stages, defaultImagesDir(ROOT), assetFileNames('stages-images', ROOT));
 
 // The tiers of a Trials for Navigator trial, which stage_table does not
 // distinguish at all -- needed by the slugs as well as by the records.

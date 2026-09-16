@@ -60,7 +60,7 @@ jobs:
         run: npm run stages:refresh
 
       - name: Prevent unpublished media references
-        run: node scripts/audits/check-external-assets.cjs
+        run: npm run check:assets
 
       - name: Open or update the one refresh pull request
         env:

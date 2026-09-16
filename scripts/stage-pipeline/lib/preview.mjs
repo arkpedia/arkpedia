@@ -5,10 +5,9 @@
 // parent's layout, so every member of a layout group shows the same picture --
 // which is what the game does with them too.
 //
-// The render files themselves are committed under public/stages-images/, so this
-// resolves against the repo rather than against the upstream image repos. A
-// refresh that wants renders for a NEW event still has to fetch them (see
-// scripts/README.md); this step only decides which stage points at which file.
+// Render availability combines the pinned public asset index with any local
+// previews generated during import. New renders still need publication before
+// the refreshed dataset can be merged.
 import fs from 'node:fs';
 import path from 'node:path';
 import { SlugSet, slug, stageSlug } from './names.mjs';
@@ -61,11 +60,11 @@ export function assignStageSlugs(stageIds, stages) {
 }
 
 /** stage id -> the manifest-style preview path, for every stage that has a render. */
-export function stagePreviews(stages, imagesDir) {
+export function stagePreviews(stages, imagesDir, publishedFiles = []) {
   const groups = groupStagesByLevel(stages);
   const canonical = [...groups.keys()];
   const slugOf = assignStageSlugs(canonical, stages);
-  const have = new Set();
+  const have = new Set(publishedFiles.map(file => file.replace(/\.[a-z]+$/i, '')));
   if (fs.existsSync(imagesDir)) {
     for (const f of fs.readdirSync(imagesDir)) have.add(f.replace(/\.[a-z]+$/i, ''));
   }
