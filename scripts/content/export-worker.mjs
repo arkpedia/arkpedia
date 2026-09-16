@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
+import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 const [route, destination] = process.argv.slice(2);
 if (!route || !destination) throw new Error('Expected route and output directory');
 process.env.ARKPEDIA_EXPORT_CONTENT = '1';
@@ -38,8 +39,9 @@ for (const item of paths) {
   const bytes = Buffer.from(JSON.stringify({ props }));
   // JSON.stringify must not silently erase unsupported top-level values.
   if (!props || typeof props !== 'object' || Array.isArray(props)) throw new Error(`Invalid props: ${key}`);
-  const file = `pages/${createHash('sha256').update(key).digest('hex')}.json`;
-  fs.mkdirSync(path.join(destination, 'pages'), { recursive: true });
+  const file = pageFilePath(key);
+  if (fs.existsSync(path.join(destination, file))) throw new Error(`Duplicate page filename: ${file}`);
+  fs.mkdirSync(path.dirname(path.join(destination, file)), { recursive: true });
   fs.writeFileSync(path.join(destination, file), bytes);
   entries[key] = { path: file, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
 }

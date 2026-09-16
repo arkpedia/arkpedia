@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 const root = path.resolve(process.argv[2] || '.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const check = (value, message) => { if (!value) throw new Error(message); };
@@ -16,12 +17,12 @@ function walk(dir) {
 }
 const manifestBytes = fs.readFileSync(path.join(root, 'release/manifest.json'));
 const m = JSON.parse(manifestBytes);
-check(m.schema === 1 && hex.test(m.release) && gitSha.test(m.generator), 'Unsupported release metadata');
+check(m.schema === 2 && hex.test(m.release) && gitSha.test(m.generator), 'Unsupported release metadata');
 check(m.assets && Object.keys(m.assets).length === 8, 'Expected eight media/palette repositories');
 for (const [repo, revision] of Object.entries(m.assets)) check(/^arkpedia-(image-assets|skin-assets|color-palette|voice-(english|japanese|korean|mandarin|regional))$/.test(repo) && gitSha.test(revision), `Invalid asset: ${repo}`);
 const expected = new Set(['manifest.json']);
 for (const [route, file] of Object.entries(m.pages)) {
-  check(route.startsWith('/') && !route.includes('..') && /^pages\/[a-f0-9]{64}\.json$/.test(file.path), `Invalid page: ${route}`);
+  check(file.path === pageFilePath(route), `Invalid page: ${route}`);
 }
 for (const [name, file] of Object.entries(m.files)) check(safe(name) && file.path === `public/${name}`, `Invalid public file: ${name}`);
 for (const file of [...Object.values(m.pages), ...Object.values(m.files)]) {
@@ -45,7 +46,7 @@ for (const file of walk(path.join(root, 'source')).sort()) {
   sources[name] = sha(bytes);
 }
 check(JSON.stringify(sources) === JSON.stringify(m.sourceHashes), 'Source records changed without regenerating the release');
-check(sha(JSON.stringify({ schema: 1, generator: m.generator, sourceHashes: sources })) === m.release, 'Release input fingerprint mismatch');
+check(sha(JSON.stringify({ schema: 2, generator: m.generator, sourceHashes: sources })) === m.release, 'Release input fingerprint mismatch');
 for (const route of ['/', '/operators', '/planner', '/gacha', '/schedule', '/skins', '/stages', '/enemies']) check(m.pages[route], `Missing required page: ${route}`);
 check(Object.keys(m.pages).filter(route => route.startsWith('/operators/')).length > 100, 'Operator catalogue is incomplete');
 for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json']) check(m.files[file], `Missing catalogue: ${file}`);

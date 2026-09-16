@@ -1,4 +1,4 @@
-export const CONTENT_SCHEMA = 1;
+export const CONTENT_SCHEMA = 2;
 
 export interface ContentFile { path: string; sha256: string; bytes: number }
 export interface ContentPointer { schema: number; release: string; revision: string; manifestSha256: string }

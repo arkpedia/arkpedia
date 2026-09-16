@@ -179,7 +179,7 @@ test('full catalogue covers usable released maps and custom unions without shipp
     const stage = JSON.parse(fs.readFileSync(path.join('data/stages', `${e.slug}.json`), 'utf8'));
     assert.ok(isStageGuesserVersion(stage));
     assert.ok(stage.content.release_date <= '2026-09-10');
-    const layout = layouts.get(e.layoutUrl.match(/layout-(.+)\.json$/)![1]);
+    const layout = layouts.get(decodeURIComponent(e.layoutUrl.match(/layouts\/(.+)\.json$/)![1]));
     assert.ok(layout && !('routes' in layout));
     assert.ok(!('layout' in e));
   }

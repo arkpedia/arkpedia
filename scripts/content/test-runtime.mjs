@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { chromium, devices } from '@playwright/test';
 const root = path.resolve(process.argv[2] || '.cache/content-export/release');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -16,7 +17,7 @@ function make(label) {
   for (const repository of Object.keys(manifest.assets).filter(name => name.startsWith('arkpedia-voice-'))) manifest.assets[repository] = label.repeat(40);
   const readPage = route => JSON.parse(fs.readFileSync(path.join(root, initial.pages[route].path)));
   const setPage = (route, props) => {
-    const file = `pages/${sha(route)}.json`, body = JSON.stringify({ props });
+    const file = pageFilePath(route), body = JSON.stringify({ props });
     overrides.set(file, body);
     manifest.pages[route] = { path: file, bytes: Buffer.byteLength(body), sha256: sha(body) };
   };
@@ -38,7 +39,7 @@ function make(label) {
   }
   const body = JSON.stringify(manifest);
   overrides.set('manifest.json', body);
-  return { manifest, overrides, pointer: { schema: 1, release: manifest.release, revision: label.repeat(40), manifestSha256: sha(body) } };
+  return { manifest, overrides, pointer: { schema: 2, release: manifest.release, revision: label.repeat(40), manifestSha256: sha(body) } };
 }
 states.a = make('a'); states.b = make('b');
 let active = 'a', corrupt = false;
