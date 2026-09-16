@@ -21,7 +21,9 @@ test('approved content changes, new routes, rollback, outages and invalid data u
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   assert.ok(address && typeof address !== 'string');
-  const before = { url: process.env.ARKPEDIA_CONTENT_URL, test: process.env.ARKPEDIA_CONTENT_TEST };
+  const before = { url: process.env.ARKPEDIA_CONTENT_URL, test: process.env.ARKPEDIA_CONTENT_TEST, disabled: process.env.ARKPEDIA_CONTENT_DISABLED, exporting: process.env.ARKPEDIA_EXPORT_CONTENT };
+  process.env.ARKPEDIA_CONTENT_DISABLED = '0';
+  process.env.ARKPEDIA_EXPORT_CONTENT = '0';
   process.env.ARKPEDIA_CONTENT_URL = `http://127.0.0.1:${address.port}`;
   process.env.ARKPEDIA_CONTENT_TEST = '1';
   function publish(label: string, rows: Record<string, Record<string, unknown>>) {
@@ -60,6 +62,8 @@ test('approved content changes, new routes, rollback, outages and invalid data u
   } finally {
     if (before.url === undefined) delete process.env.ARKPEDIA_CONTENT_URL; else process.env.ARKPEDIA_CONTENT_URL = before.url;
     if (before.test === undefined) delete process.env.ARKPEDIA_CONTENT_TEST; else process.env.ARKPEDIA_CONTENT_TEST = before.test;
+    if (before.disabled === undefined) delete process.env.ARKPEDIA_CONTENT_DISABLED; else process.env.ARKPEDIA_CONTENT_DISABLED = before.disabled;
+    if (before.exporting === undefined) delete process.env.ARKPEDIA_EXPORT_CONTENT; else process.env.ARKPEDIA_EXPORT_CONTENT = before.exporting;
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
