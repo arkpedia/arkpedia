@@ -13,7 +13,7 @@ CI can stop until the allowance resets; free does not mean unlimited private run
 - Private app: one Ubuntu job per PR update and main push, 20-minute timeout,
   one Chromium installation, desktop and phone projects in the same job. A newer
   update cancels its previous check. No uploaded build, screenshot or video artifacts.
-- Private daily data/asset refresh: one job, 15-minute timeout, one rolling PR.
+- Private daily content preparation: one job, 20-minute timeout, one rolling PR in the public data repository; no website build.
 - Public assets: standard Ubuntu runners only. Image/skin/voice syncs have explicit
   timeouts, avoid artifact uploads, and run several hours after Global reset.
 - Weekly grouped Dependabot PRs limit update churn. Updates still need review;
@@ -28,26 +28,13 @@ CI can stop until the allowance resets; free does not mean unlimited private run
 Sources: [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 and [included usage](https://docs.github.com/en/billing/reference/product-usage-included).
 
-The daily refresh needs **Allow GitHub Actions to create and approve pull requests**
-in organization and repository Actions settings. No workflow approves or merges PRs.
-If the setting is disabled, the refresh still publishes its branch but reports an
-error instead of pretending a review PR was opened. The organization owner enabled this permission during setup; the application
-repository keeps default workflow permissions read-only and grants PR writes only
-to its refresh job.
+The public data workflow needs **Allow GitHub Actions to create and approve pull requests** enabled. No workflow approves or merges PRs. The private preparation job uses `CONTENT_DATA_DEPLOY_KEY`, a write deploy key scoped only to `arkpedia-data`; other jobs keep read-only default permissions.
 
 ## Deployments and asset updates
 
-`data/assets/revisions.json` pins images, skins, five voice repositories and
-community palettes to immutable Git commits. The app redirects image requests to
-those commits; audio templates and palette fetches resolve through the same lock.
-Images/audio are still delivered from GitHub, without proxying their bodies through
-Vercel. Existing deployments do not follow asset-repository `main` automatically.
+[Runtime content releases](runtime-content.md) let deployed pages adopt reviewed records and media versions without rebuilding. `data/assets/revisions.json` pins images, skins, five voice repositories and community palettes to immutable commits. The daily preparation job runs `npm run assets:update`, compiles records and proposes a public data PR. Merging publishes one validated content pointer. Pages retain their release while open and adopt updates during server revalidation.
 
-Run `npm run assets:update` with GitHub CLI access to resolve current refs, update
-both availability indexes, and verify published assets. It refuses removed paths
-and restores the old files on validation failure. The daily refresh includes this
-step and proposes updates in its existing rolling PR. Review and merge that PR to
-adopt new media. Roll back the lock and both indexes together if needed.
+Images and audio are delivered directly from GitHub, without proxying their bodies through Vercel. The bundled fallback retains its deployment-time asset lock. Changes to application behavior or the content schema still need a deployment.
 
 `npm run check:published-assets` verifies every indexed image path against the pinned
 manifests, downloads a sample from every image category plus responsive variants,
@@ -68,9 +55,12 @@ npm run check:assets
 npm run check:published-assets
 npm run lint -- --max-warnings 15
 npm run check:styles
-npm run build
+npm run content:export
+npm run content:validate
+ARKPEDIA_CONTENT_DISABLED=1 NODE_ENV=production npm run build
 npx playwright install chromium
 npm run test:browser
+npm run test:content-runtime
 ```
 
 Browser checks cover operator search, planner selection, section navigation,

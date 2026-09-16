@@ -101,11 +101,7 @@ export default function HomePage({
   );
 }
 
-// Note: dates are computed at BUILD time here, so "ongoing" status is
-// only as fresh as the last build/deploy -- fine for events/banners
-// that last days to weeks, but if this site rebuilds infrequently,
-// consider revalidate (ISR) or moving this check to getServerSideProps
-// instead.
+// Recompute time-sensitive homepage selections during server revalidation.
 async function finalizeHome(props: Props): Promise<Props> {
   const { __calendar, ...rest } = props;
   const now = new Date();
