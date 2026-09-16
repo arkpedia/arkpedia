@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 import { withContentPage } from '../../lib/content/server';
+import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { contentPageClock } from '../../lib/content/pageClock';
 import bundledRevisions from '../../data/assets/revisions.json';
 import { getOperatorVoiceData } from '../../lib/operators/operatorVoices';
@@ -17,7 +18,7 @@ test('approved content changes, new routes, rollback, outages and invalid data u
   let pointer: ContentPointer;
   const server = createServer((request, response) => {
     if (request.url === '/live/current.json') { response.end(JSON.stringify(pointer)); return; }
-    const body = documents.get(request.url!);
+    const body = documents.get(decodeURIComponent(request.url!));
     if (!body) { response.writeHead(404); response.end(); return; }
     response.end(body);
   });
@@ -34,7 +35,7 @@ test('approved content changes, new routes, rollback, outages and invalid data u
     const manifest: ContentManifest = { schema: 1, release, generatedAt: '2026-09-16T00:00:00Z', generator: revision,
       assets: { 'arkpedia-image-assets': revision, 'arkpedia-skin-assets': revision }, pages: {}, files: {} };
     for (const [route, props] of Object.entries(rows)) {
-      const body = JSON.stringify({ props }), path = `pages/${sha(route)}.json`;
+      const body = JSON.stringify({ props }), path = label === 'a' ? `pages/${sha(route)}.json` : pageFilePath(route);
       documents.set(`/${revision}/release/${path}`, body);
       manifest.pages[route] = { path, bytes: Buffer.byteLength(body), sha256: sha(body) };
     }
@@ -49,18 +50,21 @@ test('approved content changes, new routes, rollback, outages and invalid data u
     const context = { params: { name: 'Penance' }, revalidateReason: 'build' as const };
     const read = async () => { const result = await get(context); assert.ok('props' in result); return await result.props; };
     assert.equal((await read()).value, 'old');
-    pointer = publish('b', { '/operators/Penance': { value: 'updated' }, '/operators/New%20Operator': { value: 'new' } });
+    pointer = publish('b', { '/operators/Penance': { value: 'updated' }, '/operators/New%20Operator': { value: 'new' }, '/operators/A%2FB%20%23%20Wi%C5%A1%27adel': { value: 'special' } });
     assert.equal((await read()).value, 'updated');
     const added = await get({ ...context, params: { name: 'New Operator' } });
     assert.ok('props' in added);
     assert.equal((await added.props).value, 'new');
+    const special = await get({ ...context, params: { name: "A/B # Wiš'adel" } });
+    assert.ok('props' in special);
+    assert.equal((await special.props).value, 'special');
     assert.deepEqual(await get({ ...context, params: { name: 'Missing' } }), { notFound: true, revalidate: 1 });
     pointer = first;
     assert.equal((await read()).value, 'old');
     pointer = { ...first, schema: 99 };
     assert.equal((await read()).value, 'old');
     pointer = publish('c', { '/operators/Penance': { value: 'corrupt' } });
-    documents.set(`/${'c'.repeat(40)}/release/pages/${sha('/operators/Penance')}.json`, '{}');
+    documents.set(`/${'c'.repeat(40)}/release/${pageFilePath('/operators/Penance')}`, '{}');
     await assert.rejects(async () => get({ ...context, revalidateReason: 'stale' }), /checksum mismatch/);
   } finally {
     if (before.url === undefined) delete process.env.ARKPEDIA_CONTENT_URL; else process.env.ARKPEDIA_CONTENT_URL = before.url;

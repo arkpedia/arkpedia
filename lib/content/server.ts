@@ -1,4 +1,5 @@
 import { contentPageClock } from './pageClock';
+import { isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { createHash } from 'node:crypto';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
@@ -39,7 +40,7 @@ async function read(url: string, maxBytes: number): Promise<Buffer> {
 
 function digest(bytes: Buffer) { return createHash('sha256').update(bytes).digest('hex'); }
 function validFile(file: ContentFile) {
-  return file && /^pages\/[a-f0-9]{64}\.json$/.test(file.path) && SHA.test(file.sha256)
+  return file && isContentPagePath(file.path) && SHA.test(file.sha256)
     && Number.isSafeInteger(file.bytes) && file.bytes > 0 && file.bytes <= 25_000_000;
 }
 
@@ -90,7 +91,7 @@ export function withContentPage<P extends object>(template: string, bundled: Get
       try {
         let props = pageCache.get(cacheKey);
         if (!props) {
-          const bytes = await read(`${loaded.context.baseUrl}/${file.path}`, file.bytes);
+          const bytes = await read(`${loaded.context.baseUrl}/${contentFileUrlPath(file.path)}`, file.bytes);
           if (bytes.length !== file.bytes || digest(bytes) !== file.sha256) throw new Error('Content page checksum mismatch');
           const parsed = JSON.parse(bytes.toString()) as { props?: Record<string, unknown> };
           if (!parsed.props || Array.isArray(parsed.props) || typeof parsed.props !== 'object') throw new Error('Invalid content page');

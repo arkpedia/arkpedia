@@ -89,3 +89,17 @@ only after validation succeeds. A failed update keeps the previous reviewed
 snapshot; it never falls back to CN eligibility or estimated release dates.
 Tables are third-party mirrors of game records, not official announcement sites.
 This check covers recruitment; other datasets require their own source validation.
+
+## Readable generated filenames
+
+Prepared page data follows its route: `/recruitment` uses
+`release/pages/recruitment.json`, and `/operators/Thorns%20the%20Lodestar` uses
+`release/pages/operators/Thorns the Lodestar.json`. The homepage uses `index.json`.
+Only reserved filename characters are escaped. Stage Guesser uses `catalogue.json`
+and `layouts/<stage-slug>.json`; identical layouts share one stage-named file.
+Hashes remain in manifests and internal comparison keys, not generated filenames.
+
+The loader reads both old hashed filenames and new readable filenames, so approved
+older releases remain usable for rollback. Deploy this loader before publishing
+the first release with readable paths: the previous deployed loader only accepts
+hashed page filenames. Subsequent data releases still require no website rebuild.

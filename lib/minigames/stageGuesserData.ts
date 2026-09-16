@@ -82,6 +82,7 @@ export function buildStageGuesserCatalogue(asOf = new Date()) {
   const entries: StageEntry[] = [];
   const answers: StageAnswer[] = [];
   const layouts = new Map<string, StageLayout>();
+  const layoutNames = new Map<string, string>();
   const groups = new Map<string, StageGroup>();
   const seen = new Set<string>();
   for (const file of fs.readdirSync(path.join(process.cwd(), 'data/stages')).sort()) {
@@ -111,7 +112,11 @@ export function buildStageGuesserCatalogue(asOf = new Date()) {
     if (seen.has(duplicateKey)) continue;
     seen.add(duplicateKey);
     const hash = crypto.createHash('sha256').update(JSON.stringify(layout)).digest('hex').slice(0, 20);
-    layouts.set(hash, layout);
+    // Reuse identical layouts, naming the file after the first stage in the
+    // deterministic catalogue order. Hashes remain internal comparison keys.
+    const layoutName = layoutNames.get(hash) || stage.slug;
+    layoutNames.set(hash, layoutName);
+    layouts.set(layoutName, layout);
     const source = [c.label, c.name].filter(Boolean).join(' · ');
     const groupId = `${c.kind}:${c.id}`;
     if (!groups.has(groupId)) groups.set(groupId, { id: groupId, label: source, kind: c.kind as StageCollection, count: 0 });
@@ -121,7 +126,7 @@ export function buildStageGuesserCatalogue(asOf = new Date()) {
       image: `/stages-images/${encodeURIComponent(filename)}`, reason: classic.get(stage.slug)?.reason || '',
       version: stage.variant?.label || 'Normal version',
       groupId,
-      classic: classic.has(stage.slug), mapKey, layoutUrl: `/stage-guesser/layout-${hash}.json` });
+      classic: classic.has(stage.slug), mapKey, layoutUrl: `/stage-guesser/layouts/${encodeURIComponent(layoutName)}.json` });
   }
   const questionSlugs = new Set(entries.map((entry) => entry.slug));
   const answerKeys = new Set<string>();
