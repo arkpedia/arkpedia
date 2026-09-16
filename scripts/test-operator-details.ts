@@ -34,7 +34,7 @@ test('all operator factions resolve to published artwork emblems', () => {
     ['Elite Op', 'Rhodes Island-Elite Operator.webp'], ['Lungmen', 'Yan-Lungmen.webp'],
     ['Op A4', 'Op Team A4.webp'], ['Op Reserve A1', 'Reserve Op Team A1.webp'],
     ['Op Reserve A4', 'Reserve Op Team A4.webp'], ['Op Reserve A6', 'Reserve Op Team A6.webp'],
-    ['Pinus Sylvestris', 'Pinus Sylvestris Knightclub.webp'], ["Chiave's Gang", "Chiave's Gang.png"],
+    ['Pinus Sylvestris', 'Pinus Sylvestris Knightclub.webp'], ["Chiave's Gang", "Chiave's Gang.webp"],
     ["Laios's Party", 'Rhodes Island.webp'], ['Ave Mujica', 'Rhodes Island.webp'],
   ]) assert.equal(getFactionIconPath(faction), `/faction-icons/${filename}`);
   assert.equal(getFactionIconPath(null), null);

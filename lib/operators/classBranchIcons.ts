@@ -20,7 +20,7 @@ const FACTION_ICON_FILES: Record<string, string> = {
   'Op Reserve A4': 'Reserve Op Team A4.webp',
   'Op Reserve A6': 'Reserve Op Team A6.webp',
   'Pinus Sylvestris': 'Pinus Sylvestris Knightclub.webp',
-  "Chiave's Gang": "Chiave's Gang.png",
+  "Chiave's Gang": "Chiave's Gang.webp",
   // The game uses the Rhodes Island emblem for these two collaboration teams.
   "Laios's Party": 'Rhodes Island.webp',
   'Ave Mujica': 'Rhodes Island.webp',
