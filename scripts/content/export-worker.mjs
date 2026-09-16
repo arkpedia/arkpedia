@@ -15,7 +15,10 @@ const bundle = path.resolve('.cache/content', createHash('sha256').update(route)
 await build({
   stdin: { contents: `export { getStaticProps${dynamic ? ', getStaticPaths' : ''} } from './${page}';`, resolveDir: process.cwd() },
   outfile: bundle, bundle: true, platform: 'node', format: 'cjs', packages: 'external',
-  jsx: 'automatic', loader: { '.css': 'empty' }, logLevel: 'warning', treeShaking: true,
+  jsx: 'automatic', logLevel: 'warning', treeShaking: true,
+  plugins: [{ name: 'data-only-styles', setup(builder) {
+    builder.onLoad({ filter: /\.css$/ }, () => ({ contents: 'export default {};', loader: 'js' }));
+  } }],
   define: { 'process.env.ARKPEDIA_EXPORT_CONTENT': '"1"' },
 });
 const { getStaticProps, getStaticPaths } = createRequire(import.meta.url)(bundle);

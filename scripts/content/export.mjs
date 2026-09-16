@@ -33,6 +33,8 @@ if (previous?.release === input && !process.argv.includes('--force')) {
 fs.rmSync(release, { recursive: true, force: true });
 fs.mkdirSync(release, { recursive: true });
 const env = { ...process.env, NODE_ENV: 'production', ARKPEDIA_EXPORT_CONTENT: '1' };
+// A removed operator must not leave an obsolete planner payload behind.
+fs.rmSync('public/planner-data', { recursive: true, force: true });
 for (const [command, args] of [
   ['node', ['scripts/build/build-enemy-details.mjs']],
   ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-stage-details.ts', '--force']],
@@ -58,7 +60,8 @@ for (const name of fs.readdirSync(release).filter(name => name.startsWith('entri
 }
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]); }
 const files = {};
-const publicFiles = walk('public').filter(file => file.endsWith('.json'));
+const publicFiles = walk('public').filter(file => /^public\/(?:stage-detail|enemy-detail|planner-data|stage-guesser)\/.+\.json$/.test(file)
+  || /^public\/(?:stages-index|enemies-index|operator-deploy)\.json$/.test(file));
 for (const file of publicFiles.sort()) {
   const bytes = fs.readFileSync(file);
   JSON.parse(bytes);

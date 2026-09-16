@@ -36,7 +36,7 @@
     "assets:update": "node scripts/sync/update-asset-revisions.mjs",
     "test:browser": "playwright test",
     "content:export": "node scripts/content/export.mjs",
-    "content:validate": "node scripts/content/validate-release.mjs",
+    "content:validate": "node scripts/content/validate-release.mjs .cache/content-export",
     "test:content-runtime": "node scripts/content/test-runtime.mjs"
   },
   "dependencies": {
