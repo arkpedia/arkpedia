@@ -50,7 +50,7 @@ test('approved content changes, new routes, rollback, outages and invalid data u
     const context = { params: { name: 'Penance' }, revalidateReason: 'build' as const };
     const read = async () => { const result = await get(context); assert.ok('props' in result); return await result.props; };
     assert.equal((await read()).value, 'old');
-    pointer = publish('b', { '/operators/Penance': { value: 'updated' }, '/operators/New%20Operator': { value: 'new' }, '/operators/A%2FB%20%23%20Wi%C5%A1%27adel': { value: 'special' } });
+    pointer = publish('b', { '/operators/Penance': { value: 'updated' }, '/operators/New%20Operator': { value: 'new' }, [contentRoute('/operators/[name]', { name: "A/B # Wiš'adel" })]: { value: 'special' } });
     assert.equal((await read()).value, 'updated');
     const added = await get({ ...context, params: { name: 'New Operator' } });
     assert.ok('props' in added);
