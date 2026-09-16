@@ -197,22 +197,21 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
         {data.textLocale !== 'en' && <span className={styles.localeBadge}>Chinese game text</span>}
       </div>
 
-      <div className={styles.packRow}>
-        <StyledSelect label="Voice language" value={pack?.id ?? ''} className={styles.packSelect}
-          options={data.packs.map(item => ({
-            value: item.id,
-            label: packCode(item.id),
-            group: item.status === 'legacy' ? 'Previous recordings' : 'Current recordings',
-          }))}
-          onChange={setPackId} />
-        <div className={styles.actor}>
-          <span>{pack?.status === 'legacy' ? 'Previous voice actor' : 'Voice actor'}</span>
-          <strong>{pack?.actors.join(', ') || 'Unknown'}</strong>
-        </div>
-      </div>
-
       <div ref={playerAnchorRef} aria-hidden="true" />
       <div ref={playerRef} className={styles.player} data-stuck={playerStuck || undefined} aria-label="Voice line player">
+        <div className={styles.packRow}>
+          <StyledSelect label="Voice language" value={pack?.id ?? ''} className={styles.packSelect}
+            options={data.packs.map(item => ({
+              value: item.id,
+              label: packCode(item.id),
+              group: item.status === 'legacy' ? 'Previous recordings' : 'Current recordings',
+            }))}
+            onChange={setPackId} />
+          <div className={styles.actor}>
+            <span>{pack?.status === 'legacy' ? 'Previous voice actor' : 'Voice actor'}</span>
+            <strong title={pack?.actors.join(', ') || 'Unknown'}>{pack?.actors.join(', ') || 'Unknown'}</strong>
+          </div>
+        </div>
         <button type="button" className={styles.mainPlay} onClick={() => void toggleSelected()}
           aria-label={`${playing ? 'Pause' : 'Play'} ${selected?.title ?? 'voice line'}`} disabled={!selectedHasRecording}>
           <PlayIcon paused={!playing} />
