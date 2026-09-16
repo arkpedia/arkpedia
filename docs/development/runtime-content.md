@@ -10,6 +10,19 @@ The website reads reviewed game records from the public [arkpedia-data repositor
 
 The pointer is cached for 60 seconds and most pages revalidate after 60 seconds. GitHub caching and request-driven regeneration can add delay. The homepage retains its 25-minute community refresh interval. An already-open page retains its release so interactions do not mix versions or shift the UI.
 
+## Stable page records
+
+Asset commit pins are stored once in the release manifest. Voice page data keeps
+stable templates; playback resolves them against the page's release (or bundled
+pins when remote content is unavailable). Older payloads with embedded pins remain
+supported. Presentation clocks are omitted from exported records and supplied by
+the server when rendering, with the existing browser clocks continuing to tick.
+Timed stage candidates are selected in the browser, not by the export date.
+
+An asset-only refresh should change `source/data/assets/revisions.json` and
+`release/manifest.json`, without rewriting every operator page. The public PR
+summary identifies asset-only updates and reports the actual file counts.
+
 ## Corrections and rollback
 
 Edit `source/` in a public data branch, then run the private preparation workflow with that branch as `data_ref` and `refresh_upstream=false`. Generated `release/` files must match the source checksums. The public release workflow can publish an earlier approved main-branch commit to roll back. It never approves or merges a PR.
