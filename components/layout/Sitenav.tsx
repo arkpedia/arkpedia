@@ -1,4 +1,4 @@
-import { ContentImg } from '@/components/content/ContentImage';
+import { ContentImg, ContentArt } from '@/components/content/ContentImage';
 import { isGamePath } from '@/lib/minigames/catalogue';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
@@ -20,10 +20,7 @@ import { ENEMY_HANDBOOK_HREF, ENEMY_HANDBOOK_SECTION } from '@/lib/enemies/handb
  * (see .site-nav-glyph in nav.css).
  */
 const glyph = (src: string): JSX.Element => (
-  <span
-    className="site-nav-glyph"
-    style={{ WebkitMaskImage: `url('${src}')`, maskImage: `url('${src}')` }}
-  />
+  <ContentArt className="site-nav-glyph" src={src} />
 );
 
 export const ICONS: Record<string, JSX.Element> = {

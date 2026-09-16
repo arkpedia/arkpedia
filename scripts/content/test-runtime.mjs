@@ -12,6 +12,7 @@ const states = {};
 function make(label) {
   const manifest = structuredClone(initial), overrides = new Map();
   manifest.release = label.repeat(64);
+  if (label === 'b') manifest.assets['arkpedia-image-assets'] = 'b'.repeat(40);
   const readPage = route => JSON.parse(fs.readFileSync(path.join(root, initial.pages[route].path)));
   const setPage = (route, props) => {
     const file = `pages/${sha(route)}.json`, body = JSON.stringify({ props });
@@ -82,6 +83,7 @@ try {
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} release A`);
     active = 'b';
     await waitFor(async () => (await visit()).includes('Approved content release B'), `${name} updated existing operator`);
+    assert.ok(await page.locator('.site-nav-glyph').first().evaluate(el => el.style.maskImage.includes('b'.repeat(40))), `${name} CSS artwork did not adopt the release`);
     const added = await page.goto('http://localhost:3193/operators/New%20Runtime%20Operator#overview');
     assert.equal(added.status(), 200);
     assert.match(await page.locator('h1').innerText(), /New Runtime Operator/i);

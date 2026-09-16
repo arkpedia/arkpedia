@@ -1,3 +1,4 @@
+import { useContentUrl } from '@/lib/content/context';
 import { ContentImg } from '@/components/content/ContentImage';
 import { CSSProperties } from 'react';
 
@@ -5,7 +6,8 @@ import { CSSProperties } from 'react';
 export default function OperatorGameIcon({ label, src, size = 28, color = false }: {
   label: string; src?: string; size?: number; color?: boolean;
 }) {
-  const path = src ?? `/essential-icons/${label === 'Base' ? 'Elite 0' : label}.webp`;
+  const url = useContentUrl();
+  const path = url(src ?? `/essential-icons/${label === 'Base' ? 'Elite 0' : label}.webp`);
   const style: CSSProperties = { width: size, height: size, display: 'inline-block', flexShrink: 0, verticalAlign: 'middle' };
   return color ? (
     // These badges contain blue details as well as the white rank glyph.

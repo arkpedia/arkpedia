@@ -1,5 +1,5 @@
 import NextImage, { type ImageProps } from 'next/image';
-import { forwardRef, type ImgHTMLAttributes } from 'react';
+import { forwardRef, type HTMLAttributes, type ImgHTMLAttributes } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 
 const ContentImage = forwardRef<HTMLImageElement, ImageProps>(function ContentImage({ src, ...props }, ref) {
@@ -14,3 +14,10 @@ export const ContentImg = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLIma
   // eslint-disable-next-line @next/next/no-img-element
   return <img {...props} alt={alt ?? ''} src={src ? url(src) : src} ref={ref} />;
 });
+
+/** CSS artwork needs the same release pin as ordinary images. */
+export function ContentArt({ src, ownColors = false, style, ...props }: HTMLAttributes<HTMLSpanElement> & { src: string; ownColors?: boolean }) {
+  const url = useContentUrl();
+  const image = `url("${url(src).replace(/["\\]/g, '\\$&')}")`;
+  return <span {...props} style={{ ...style, ...(ownColors ? { backgroundImage: image } : { maskImage: image, WebkitMaskImage: image }) }} />;
+}

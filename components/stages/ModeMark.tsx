@@ -1,3 +1,4 @@
+import { ContentArt } from '@/components/content/ContentImage';
 /**
  * One of the game's mode emblems, drawn in the current ink.
  *
@@ -13,11 +14,10 @@
  * that behind a guess would only mean a silent blank when the guess is wrong.
  */
 export default function ModeMark({ name, className }: { name: string; className?: string }) {
-  const url = `url(/mode-marks/${name})`;
   return (
-    <span
+    <ContentArt
       className={`mode-mark${className ? ` ${className}` : ''}`}
-      style={{ maskImage: url, WebkitMaskImage: url }}
+      src={`/mode-marks/${name}`}
       aria-hidden="true"
     />
   );

@@ -1,3 +1,4 @@
+import { ContentArt } from '@/components/content/ContentImage';
 /**
  * The stage map's HUD: the game's own glyphs, and the chips they sit in.
  *
@@ -39,12 +40,11 @@ const OWN_COLOURS: Partial<Record<GlyphName, string>> = {
 export function StatGlyph({ name }: { name: GlyphName }) {
   const own = OWN_COLOURS[name];
   if (own) {
-    return <span className="stage-stat-glyph in-colour" style={{ backgroundImage: `url(${own})` }} />;
+    return <ContentArt src={own} ownColors className="stage-stat-glyph in-colour" />;
   }
-  const url = `url(/stat-icons/${name}.webp)`;
   /* data-glyph so CSS can size one that is not square: the squad mark is 88x115, and
      in the square box the others use it came out squashed. */
-  return <span className="stage-stat-glyph" data-glyph={name} style={{ maskImage: url, WebkitMaskImage: url }} />;
+  return <ContentArt src={`/stat-icons/${name}.webp`} className="stage-stat-glyph" data-glyph={name} />;
 }
 
 /**

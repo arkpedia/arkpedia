@@ -1,3 +1,4 @@
+import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -82,12 +83,13 @@ export default function ScorePage({ lines }: Props) {
 }
 
 function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
+  const contentUrl = useContentUrl();
   return (
     <div
       className={`score-line${act ? ' act' : ''}`}
       /* The wash behind the line -- see .score-line::before for why it is the
          line's own banner rather than the game's storyline background. */
-      style={line.backdrop ? { ['--line-bg' as string]: cssUrl(line.backdrop) } : undefined}
+      style={line.backdrop ? { ['--line-bg' as string]: cssUrl(contentUrl(line.backdrop)) } : undefined}
     >
       <div className="score-line-head">
         {/* The game's own wordmark for an act, and the line's two-letter code for a
@@ -106,7 +108,7 @@ function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
              way the stat glyphs do. */
           <span
             className="score-line-emblem"
-            style={{ maskImage: cssUrl(line.mark), WebkitMaskImage: cssUrl(line.mark) }}
+            style={{ maskImage: cssUrl(contentUrl(line.mark)), WebkitMaskImage: cssUrl(contentUrl(line.mark)) }}
             aria-hidden="true"
           />
         ) : (

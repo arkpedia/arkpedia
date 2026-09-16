@@ -1,3 +1,4 @@
+import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -442,6 +443,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
 }
 
 export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData }: Props) {
+  const contentUrl = useContentUrl();
   const router = useRouter();
 
   // --- Header search state ---
@@ -909,7 +911,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       }}>
           <section id="operator-artwork" tabIndex={-1} aria-label="Operator artwork" className={pageStyles.gallery}>
             <div className="op-carousel-main">
-              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: `url("${factionEmblem}")`, WebkitMaskImage: `url("${factionEmblem}")` }} />}
+              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: `url("${contentUrl(factionEmblem)}")`, WebkitMaskImage: `url("${contentUrl(factionEmblem)}")` }} />}
               {prevAppearance?.fullPath && (
                 <div key={`prev-img-${prevAppearance.label}`} className="op-carousel-main-img op-carousel-img-exit">
                   <ResponsiveSkinArtwork src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes="(max-width: 900px) 100vw, 40vw" />

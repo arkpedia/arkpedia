@@ -1,4 +1,4 @@
-import { ContentImg } from '@/components/content/ContentImage';
+import { ContentImg, ContentArt } from '@/components/content/ContentImage';
 /**
  * The glyphs the in-game enemy handbook puts beside each stat.
  *
@@ -38,8 +38,7 @@ import { ContentImg } from '@/components/content/ContentImage';
  * belongs to.
  */
 function art(file: string) {
-  const url = `url(/enemy-stat-icons/${file})`;
-  return <span className="enemy-stat-glyph" style={{ maskImage: url, WebkitMaskImage: url }} />;
+  return <ContentArt src={`/enemy-stat-icons/${file}`} className="enemy-stat-glyph" />;
 }
 
 /**
@@ -50,8 +49,7 @@ function art(file: string) {
  * like the three older PNGs and take currentColor the same way.
  */
 function statArt(file: string) {
-  const url = `url(/stat-icons/${file})`;
-  return <span className="enemy-stat-glyph" style={{ maskImage: url, WebkitMaskImage: url }} />;
+  return <ContentArt src={`/stat-icons/${file}`} className="enemy-stat-glyph" />;
 }
 
 /**
@@ -64,8 +62,7 @@ function statArt(file: string) {
  * rook stays white because that is what the art is.
  */
 function artInOwnColours(file: string) {
-  const url = `url(/enemy-stat-icons/${file})`;
-  return <span className="enemy-stat-art" style={{ backgroundImage: url }} />;
+  return <ContentArt src={`/enemy-stat-icons/${file}`} ownColors className="enemy-stat-art" />;
 }
 
 const solid = {
