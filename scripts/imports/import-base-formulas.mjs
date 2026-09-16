@@ -32,6 +32,7 @@
  *
  * Re-run after an upstream refresh:  node scripts/imports/import-base-formulas.mjs
  */
+import { assetFileNames } from '../lib/public-assets.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -55,8 +56,7 @@ const building = readTable('building_data.json');
 const itemTable = readTable('item_table.json');
 
 const nameById = new Map(Object.entries(itemTable.items).map(([id, it]) => [id, it.name]));
-const iconDir = path.join(root, 'public', 'material-icons');
-const iconsOnDisk = new Set(fs.readdirSync(iconDir).map((f) => path.parse(f).name));
+const iconsOnDisk = new Set(assetFileNames('material-icons', root).map((f) => path.parse(f).name));
 /** The same fold getMaterialIconPath applies before building a path. */
 const iconStem = (n) => n.replace(/[\\/*?:"<>|]/g, '').trim();
 

@@ -31,6 +31,7 @@
  * comes from. Read from our own records rather than re-derived, because the game's
  * tables do not state the relationship anywhere.
  */
+import { assetFileNames } from '../lib/public-assets.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -122,9 +123,7 @@ const iconsByName = new Map();     // folded name -> url
 const iconsByWords = new Map();    // folded words, sorted -> url
 for (const [rarity, word] of Object.entries(RARITY_WORD)) {
   void rarity;
-  const dir = path.join(ROOT, 'public', `${word}-star-icons`);
-  if (!fs.existsSync(dir)) continue;
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.webp'));
+  const files = assetFileNames(`${word}-star-icons`, ROOT).filter((f) => f.endsWith('.webp'));
   // Group a folder's files by the operator they belong to, then pick one.
   const byOperator = new Map();
   for (const file of files) {

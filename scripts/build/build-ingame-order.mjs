@@ -16,6 +16,7 @@
  *
  * Re-run after an upstream refresh:  node scripts/build/build-ingame-order.mjs
  */
+import { assetFileNames } from '../lib/public-assets.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -51,8 +52,7 @@ for (const item of Object.values(items)) {
   }
 }
 
-const iconDir = path.join(root, 'public', 'material-icons');
-const stems = fs.readdirSync(iconDir).map((f) => path.parse(f).name);
+const stems = assetFileNames('material-icons', root).map((f) => path.parse(f).name);
 
 const out = {};
 const unmatched = [];
