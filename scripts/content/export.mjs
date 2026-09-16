@@ -24,7 +24,8 @@ for (const file of sourceFiles.sort()) {
   sourceHashes[file] = sha(bytes);
 }
 const generator = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-const input = sha(JSON.stringify({ schema: 1, generator, sourceHashes }));
+const schema = 2;
+const input = sha(JSON.stringify({ schema, generator, sourceHashes }));
 const previous = fs.existsSync(path.join(release, 'manifest.json')) ? JSON.parse(fs.readFileSync(path.join(release, 'manifest.json'), 'utf8')) : null;
 if (previous?.release === input && !process.argv.includes('--force')) {
   console.log('Content inputs unchanged; existing release retained.');
@@ -69,7 +70,7 @@ for (const file of publicFiles.sort()) {
   fs.writeFileSync(path.join(release, file), bytes);
   files[file.slice('public/'.length)] = { path: file, bytes: bytes.length, sha256: sha(bytes) };
 }
-const manifest = { schema: 1, release: input, generator, generatedAt: new Date().toISOString(),
+const manifest = { schema, release: input, generator, generatedAt: new Date().toISOString(),
   assets: JSON.parse(fs.readFileSync('data/assets/revisions.json', 'utf8')), sourceHashes,
   pages: Object.fromEntries(Object.entries(pages).sort(([a], [b]) => a.localeCompare(b))), files };
 fs.writeFileSync(path.join(release, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

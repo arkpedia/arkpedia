@@ -24,5 +24,4 @@ test('unsafe filename characters are escaped without merging distinct routes', (
   for (const file of ['../page.json', 'pages/../page.json', 'pages//page.json', 'pages/a?b.json', 'pages/a\\b.json']) {
     assert.equal(isContentPagePath(file), false);
   }
-  assert.ok(isContentPagePath(`pages/${'a'.repeat(64)}.json`), 'Old releases remain readable for rollback');
 });

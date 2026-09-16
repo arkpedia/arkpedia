@@ -39,7 +39,7 @@ function make(label) {
   }
   const body = JSON.stringify(manifest);
   overrides.set('manifest.json', body);
-  return { manifest, overrides, pointer: { schema: 1, release: manifest.release, revision: label.repeat(40), manifestSha256: sha(body) } };
+  return { manifest, overrides, pointer: { schema: 2, release: manifest.release, revision: label.repeat(40), manifestSha256: sha(body) } };
 }
 states.a = make('a'); states.b = make('b');
 let active = 'a', corrupt = false;

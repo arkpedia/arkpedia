@@ -1,5 +1,5 @@
 import { contentPageClock } from './pageClock';
-import { isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
+import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { createHash } from 'node:crypto';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
@@ -39,8 +39,8 @@ async function read(url: string, maxBytes: number): Promise<Buffer> {
 }
 
 function digest(bytes: Buffer) { return createHash('sha256').update(bytes).digest('hex'); }
-function validFile(file: ContentFile) {
-  return file && isContentPagePath(file.path) && SHA.test(file.sha256)
+function validFile(route: string, file: ContentFile) {
+  return file && isContentPagePath(file.path) && file.path === pageFilePath(route) && SHA.test(file.sha256)
     && Number.isSafeInteger(file.bytes) && file.bytes > 0 && file.bytes <= 25_000_000;
 }
 
@@ -61,7 +61,7 @@ async function loadRelease(): Promise<Loaded | undefined> {
       if (manifest.schema !== CONTENT_SCHEMA || manifest.release !== pointer.release || !manifest.pages || !manifest.files || !manifest.assets
         || !Object.values(manifest.assets).every(value => typeof value === 'string' && GIT_SHA.test(value))
         || !manifest.assets['arkpedia-image-assets'] || !manifest.assets['arkpedia-skin-assets']
-        || !Object.values(manifest.pages).every(validFile)) throw new Error('Invalid content manifest');
+        || !Object.entries(manifest.pages).every(([route, file]) => validFile(route, file))) throw new Error('Invalid content manifest');
       cached = { manifest, context: { release: pointer.release, baseUrl, assets: manifest.assets } };
       pageCache.clear();
       return cached;

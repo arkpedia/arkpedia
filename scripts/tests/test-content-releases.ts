@@ -8,7 +8,7 @@ import { contentPageClock } from '../../lib/content/pageClock';
 import bundledRevisions from '../../data/assets/revisions.json';
 import { getOperatorVoiceData } from '../../lib/operators/operatorVoices';
 import { contentUrl } from '../../lib/content/urls';
-import { contentRoute, type ContentManifest, type ContentPointer } from '../../lib/content/types';
+import { CONTENT_SCHEMA, contentRoute, type ContentManifest, type ContentPointer } from '../../lib/content/types';
 import { createCraftTools } from '../../lib/planner/craft';
 
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -32,16 +32,16 @@ test('approved content changes, new routes, rollback, outages and invalid data u
   process.env.ARKPEDIA_CONTENT_TEST = '1';
   function publish(label: string, rows: Record<string, Record<string, unknown>>) {
     const revision = label.repeat(40), release = label.repeat(64);
-    const manifest: ContentManifest = { schema: 1, release, generatedAt: '2026-09-16T00:00:00Z', generator: revision,
+    const manifest: ContentManifest = { schema: CONTENT_SCHEMA, release, generatedAt: '2026-09-16T00:00:00Z', generator: revision,
       assets: { 'arkpedia-image-assets': revision, 'arkpedia-skin-assets': revision }, pages: {}, files: {} };
     for (const [route, props] of Object.entries(rows)) {
-      const body = JSON.stringify({ props }), path = label === 'a' ? `pages/${sha(route)}.json` : pageFilePath(route);
+      const body = JSON.stringify({ props }), path = pageFilePath(route);
       documents.set(`/${revision}/release/${path}`, body);
       manifest.pages[route] = { path, bytes: Buffer.byteLength(body), sha256: sha(body) };
     }
     const body = JSON.stringify(manifest);
     documents.set(`/${revision}/release/manifest.json`, body);
-    return { schema: 1, release, revision, manifestSha256: sha(body) };
+    return { schema: CONTENT_SCHEMA, release, revision, manifestSha256: sha(body) };
   }
   try {
     const first = publish('a', { '/operators/Penance': { value: 'old' } });
@@ -61,7 +61,7 @@ test('approved content changes, new routes, rollback, outages and invalid data u
     assert.deepEqual(await get({ ...context, params: { name: 'Missing' } }), { notFound: true, revalidate: 1 });
     pointer = first;
     assert.equal((await read()).value, 'old');
-    pointer = { ...first, schema: 99 };
+    pointer = { ...first, schema: 1 };
     assert.equal((await read()).value, 'old');
     pointer = publish('c', { '/operators/Penance': { value: 'corrupt' } });
     documents.set(`/${'c'.repeat(40)}/release/${pageFilePath('/operators/Penance')}`, '{}');

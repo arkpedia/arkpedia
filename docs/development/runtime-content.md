@@ -99,7 +99,7 @@ Only reserved filename characters are escaped. Stage Guesser uses `catalogue.jso
 and `layouts/<stage-slug>.json`; identical layouts share one stage-named file.
 Hashes remain in manifests and internal comparison keys, not generated filenames.
 
-The loader reads both old hashed filenames and new readable filenames, so approved
-older releases remain usable for rollback. Deploy this loader before publishing
-the first release with readable paths: the previous deployed loader only accepts
-hashed page filenames. Subsequent data releases still require no website rebuild.
+This is content schema 2. Schema 1 hash-named releases are deliberately unsupported;
+rollback targets must also use schema 2 and readable paths. Deploy the schema 2
+loader before publishing its first data release. Subsequent data releases still
+require no website rebuild.
