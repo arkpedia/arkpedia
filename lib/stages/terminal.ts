@@ -63,7 +63,7 @@ export interface ScoreLine {
  * The Score scene: the main story's four acts, then the side-story lines.
  *
  * Order is the game's, out of data/story-groups.json, which
- * scripts/build-story-groups.mjs reads from the storylines table -- so "Story Line ·
+ * scripts/build/build-story-groups.mjs reads from the storylines table -- so "Story Line ·
  * RL / The Ark" holds Darknights Memoir, A Walk in the Dust, Vigilo and Babel in
  * that sequence, the same as the game's own timeline.
  *
@@ -117,7 +117,7 @@ export function getScoreLines(): ScoreLine[] {
 
 /** A story line's emblem in public/story-marks/, or null.
  *
- *  Keyed by the line's own name, which is what scripts/import-story-marks.py names
+ *  Keyed by the line's own name, which is what scripts/imports/import-story-marks.py names
  *  the files after -- the gamedata's storylineIconId would be the better key and the
  *  files it points at are in no mirror we can reach, so these are screenshots and the
  *  name is the only thing tying the two together. */
@@ -353,7 +353,7 @@ export function getRegularTasks(): RegularTasks {
  * look alike and say nothing about where a reader is being sent.
  *
  * The crest is only substituted where there IS one: data/nation-marks.json is written
- * by scripts/import-nation-marks.py from the wiki, and a nation it could not find
+ * by scripts/imports/import-nation-marks.py from the wiki, and a nation it could not find
  * keeps the map rather than showing an empty frame.
  */
 function withCrest(card: StageModeCard): StageModeCard {

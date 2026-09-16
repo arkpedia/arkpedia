@@ -8,7 +8,7 @@
  * not a hypothetical, and it made the Supplies page name the wrong open operation.
  *
  * Everything that answers "what day is it in the game" has to come through here. The
- * same constant is written out in prose in lib/frontPageContent.ts, which parses event
+ * same constant is written out in prose in lib/home/frontPageContent.ts, which parses event
  * windows against it.
  */
 

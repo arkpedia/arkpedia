@@ -1,7 +1,7 @@
 import { PromotionIcon } from "./PromotionIcon";
 import Image from 'next/image';
 import { useState } from 'react';
-import { LEVEL_CAPS, maxEliteForRarity, maxLevelForElite, maxSkillRankForElite, moduleUnlock } from '@/lib/plannerLogic';
+import { LEVEL_CAPS, maxEliteForRarity, maxLevelForElite, maxSkillRankForElite, moduleUnlock } from '@/lib/planner/plannerLogic';
 
 /**
  * The four axes of an operator build, in the order the game unlocks them.

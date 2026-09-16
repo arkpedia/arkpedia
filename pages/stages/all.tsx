@@ -1,7 +1,7 @@
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import StageModeBrowser from '@/components/StageModeBrowser';
-import TerminalNav from '@/components/TerminalNav';
+import StageModeBrowser from '@/components/stages/StageModeBrowser';
+import TerminalNav from '@/components/stages/TerminalNav';
 import { getModeCounts, getStageModeCards } from '@/lib/stages/stageContents';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 

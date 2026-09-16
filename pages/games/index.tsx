@@ -1,8 +1,8 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { ICONS } from '@/components/Sitenav';
+import { ICONS } from '@/components/layout/Sitenav';
 import { GAMES } from '@/lib/minigames/catalogue';
-import styles from '@/styles/games.module.css';
+import styles from '@/styles/games/games.module.css';
 
 export default function GamesPage() {
   return <>

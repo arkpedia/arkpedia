@@ -3,8 +3,8 @@ import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { MinistoryMark } from '@/components/ContentCardLink';
-import TerminalNav from '@/components/TerminalNav';
+import { MinistoryMark } from '@/components/ui/ContentCardLink';
+import TerminalNav from '@/components/stages/TerminalNav';
 import { getTerminalHome, TerminalHome } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 

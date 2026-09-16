@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import externalAssets from '@/data/external-asset-index.json';
+import externalAssets from '@/data/assets/external-asset-index.json';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import curated from '@/data/stage-guesser.json';
 import { tileStyle } from '@/lib/stages/stageTiles';

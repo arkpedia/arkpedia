@@ -46,7 +46,7 @@ const KIND_ORDER = Object.keys(KIND_LABELS);
  * each of them. A content appears once now, and `byType` says how many stages it
  * holds of each type so the filter above can still narrow it.
  *
- * The order comes from data/story-groups.json, which scripts/build-story-groups.mjs
+ * The order comes from data/story-groups.json, which scripts/build/build-story-groups.mjs
  * derives from the game's own storylines table: the main story split into the
  * four acts it names, then its 13 side-story lines (RL The Ark, UR Wildfire, ...)
  * in the game's sortId order. Whatever is in neither -- April Fools' events, duel

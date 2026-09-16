@@ -9,7 +9,7 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
  * Item id -> icon path for a stage's drops, or absent when neither set has one.
  *
  * Two sets, because a stage drops two different kinds of thing: materials and
- * tokens come from public/item-icons/ (imported by scripts/import-item-icons.mjs
+ * tokens come from public/item-icons/ (imported by scripts/imports/import-item-icons.mjs
  * and keyed by gamedata item id, since the file names carry a slug the drop
  * record does not), while a first-clear operator reward is an operator and uses
  * the operator's own portrait.

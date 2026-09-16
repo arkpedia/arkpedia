@@ -57,3 +57,7 @@ public/**/*.gif
 public/**/*.svg
 public/**/*.avif
 public/**/*.ico
+
+# Python importer caches
+__pycache__/
+*.py[cod]

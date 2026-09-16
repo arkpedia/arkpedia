@@ -8,7 +8,7 @@ import {
   promotionCostsNeeded,
   skillLevelCostRemaining,
   skillMasteryCostRemaining,
-} from '@/lib/plannerLogic';
+} from '@/lib/planner/plannerLogic';
 import { BATTLE_RECORDS, resolveNeeds } from './craft';
 import type { Depot } from './depot';
 import type { Goal } from './goals';

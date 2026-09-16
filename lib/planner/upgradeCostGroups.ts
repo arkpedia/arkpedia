@@ -9,7 +9,7 @@ import {
   skillLevelCostRemaining,
   skillMasteryCostRemaining,
   moduleStageCostRemaining,
-} from "@/lib/plannerLogic";
+} from "@/lib/planner/plannerLogic";
 
 /** One cost calculation shared by the overview, wizard, and depot bill. */
 export function upgradeCostGroups(

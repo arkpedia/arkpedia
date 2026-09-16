@@ -1,4 +1,4 @@
-import { LEVEL_CAPS, maxLevelForElite } from '@/lib/plannerLogic';
+import { LEVEL_CAPS, maxLevelForElite } from '@/lib/planner/plannerLogic';
 
 /**
  * A plan, counted as the discrete upgrades it is made of.

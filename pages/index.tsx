@@ -1,11 +1,11 @@
 import { GetStaticProps } from 'next';
 import { useEffect, useState } from 'react';
-import AnnouncementTicker from '@/components/AnnouncementTicker';
-import EventsPanel from '@/components/EventsPanel';
-import GachaBannersPanel from '@/components/GachaBannersPanel';
-import FeaturedOperatorsPanel from '@/components/FeaturedOperatorsPanel';
-import SkinsCarousel from '@/components/SkinsCarousel';
-import CommunityFader from '@/components/CommunityFader';
+import AnnouncementTicker from '@/components/layout/AnnouncementTicker';
+import EventsPanel from '@/components/schedule/EventsPanel';
+import GachaBannersPanel from '@/components/home/GachaBannersPanel';
+import FeaturedOperatorsPanel from '@/components/home/FeaturedOperatorsPanel';
+import SkinsCarousel from '@/components/skins/SkinsCarousel';
+import CommunityFader from '@/components/home/CommunityFader';
 import {
   GameEvent,
   GachaBannerWithWindow,
@@ -14,7 +14,7 @@ import {
   getOngoingGachaBanners,
   getOngoingSkins,
   getCurrentFarmableMaterials,
-} from '@/lib/frontPageContent';
+} from '@/lib/home/frontPageContent';
 import { Skin } from '@/lib/skins/skinTypes';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';
 import { getLatestVideos, enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';

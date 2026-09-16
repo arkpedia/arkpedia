@@ -4,11 +4,11 @@ import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { StatsRow, POWER_VALUES } from '@/lib/types';
-import { RESULTS_READY } from '@/lib/siteConfig';
+import { StatsRow, POWER_VALUES } from '@/lib/survey/types';
+import { RESULTS_READY } from '@/lib/config/siteConfig';
 import { FINAL_STATS_ROWS, FINAL_HISTOGRAMS, FINAL_SUBMISSION_COUNT } from '@/lib/results/finalPollResults';
-import PowerBoxPlot from '@/components/PowerBoxPlot';
-import PowerDistributionCurve from '@/components/PowerDistributionCurve';
+import PowerBoxPlot from '@/components/survey/PowerBoxPlot';
+import PowerDistributionCurve from '@/components/survey/PowerDistributionCurve';
 
 interface Props {
   iconMap: Record<string, string>;

@@ -1,4 +1,4 @@
-import { addCostGroup, totalsToCostGroup } from "@/lib/plannerLogic";
+import { addCostGroup, totalsToCostGroup } from "@/lib/planner/plannerLogic";
 import { PromotionIcon } from "./PromotionIcon";
 import { useMemo, useState } from "react";
 import Image from "next/image";
@@ -8,7 +8,7 @@ import type {
   CostGroup,
 } from "@/lib/operators/operatorTypes";
 import { getOperatorIconPath } from "@/lib/operators/operatorIcon";
-import { matchesSearch, searchRelevance } from "@/lib/searchNormalize";
+import { matchesSearch, searchRelevance } from "@/lib/search/searchNormalize";
 import type { BuilderState } from "@/lib/planner/builderStates";
 import { upgradeCostGroups } from "@/lib/planner/upgradeCostGroups";
 import { sortMaterials } from "@/lib/farming/materialSortOrder";

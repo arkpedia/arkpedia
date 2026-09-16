@@ -11,7 +11,7 @@
  *
  * Kept deliberately separate from `plannerState`, which holds the goals. They change
  * on completely different rhythms -- a goal a few times a run, a depot every time you
- * clear a stage -- and lib/plannerStorage.ts already reads and writes plannerState
+ * clear a stage -- and lib/planner/plannerStorage.ts already reads and writes plannerState
  * from the operator pages. One key each means neither can corrupt the other, and
  * nothing existing needed a migration.
  */

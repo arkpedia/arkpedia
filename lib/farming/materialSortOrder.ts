@@ -144,7 +144,7 @@ export const MATERIAL_GROUPS: MaterialGroup[] = [
  *
  * Derived, not transcribed. item_table gives every item a sortId and that sortId IS
  * the depot screen's order -- LMD 10201, Pure Gold 10202, the certificates 10203/4/5.
- * scripts/build-ingame-order.mjs pulls the numbers out for every material the site has
+ * scripts/build/build-ingame-order.mjs pulls the numbers out for every material the site has
  * art for; this sorts the catalogue by them.
  *
  * It began as a hand transcription of a real depot, which is how the derivation is
@@ -178,7 +178,7 @@ export const IN_GAME_ORDER: string[] = MATERIAL_SORT_ORDER
   if (placeless.length) {
     throw new Error(
       'materialSortOrder: no sortId for ' + placeless.join(', ') +
-      '. Re-run scripts/build-ingame-order.mjs; if the game genuinely has no entry for it, ' +
+      '. Re-run scripts/build/build-ingame-order.mjs; if the game genuinely has no entry for it, ' +
       'add an alias there the way Information Fragment(s) has one.',
     );
   }

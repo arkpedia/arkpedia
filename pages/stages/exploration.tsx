@@ -1,9 +1,9 @@
 import { GetStaticProps } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import Rail from '@/components/Rail';
-import ModeMark from '@/components/ModeMark';
-import TerminalNav from '@/components/TerminalNav';
+import Rail from '@/components/ui/Rail';
+import ModeMark from '@/components/stages/ModeMark';
+import TerminalNav from '@/components/stages/TerminalNav';
 import { getModeCardsOfKind } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 

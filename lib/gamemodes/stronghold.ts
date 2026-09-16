@@ -39,7 +39,7 @@ function stamped(publicPath: string): string {
 /**
  * Stronghold Protocol's seven datasets, read at build time.
  *
- * Four of the seven are built by scripts/build-stronghold-data.mjs from the running
+ * Four of the seven are built by scripts/build/build-stronghold-data.mjs from the running
  * season's block in the EN gamedata -- alliances, operators, items, strategies -- which
  * is the only source that keeps up: the wiki's tables still describe the part before
  * this one. The decision pools and the enemy groups are still hand-compiled, as is the
@@ -70,7 +70,7 @@ export interface StrongholdOperator {
   /** Can put damage on a flying enemy. Not the same as being ranged: a Medic is ranged
    *  and heals, a Lord Guard is melee and shoots. See hitsAir() in the build script. */
   hits_air?: boolean;
-  /** Derived by scripts/build-stronghold-data.mjs from the attribute sentence: what this
+  /** Derived by scripts/build/build-stronghold-data.mjs from the attribute sentence: what this
    *  operator adds to an alliance, how much and how often. The planner multiplies it. */
   /** Alliances whose stacks this operator converts into its own damage, or ['core'].
    *  Empty for everyone who only makes stacks or ignores them. */

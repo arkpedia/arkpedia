@@ -61,7 +61,7 @@ export function getAllSkins(): Skin[] {
 
     /* Amiya's Guard and Medic forms used to be hardcoded to 5 here, because the skins
        data names the FORM as the model while the operator files knew one Amiya. They are
-       real operator records now (scripts/build-amiya-forms.mjs), so their rarity comes
+       real operator records now (scripts/build/build-amiya-forms.mjs), so their rarity comes
        from the same place as everyone else's and the warning below is free to mean what
        it says: a model with no operator behind it. */
     const rarity = rarityByOperatorName.get(skin.model);

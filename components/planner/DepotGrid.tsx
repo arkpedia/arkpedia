@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHeightFloor } from './useHeightFloor';
 import { IN_GAME_ORDER, MATERIAL_GROUPS, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
-import { matchesSearch } from '@/lib/searchNormalize';
+import { matchesSearch } from '@/lib/search/searchNormalize';
 import type { CostGroup } from '@/lib/operators/operatorTypes';
 import type { Depot } from '@/lib/planner/depot';
 import { MaterialIcon } from './MaterialIcon';

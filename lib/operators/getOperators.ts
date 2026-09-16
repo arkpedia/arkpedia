@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { Operator } from '../types';
+import { Operator } from '../survey/types';
 
 const ICONS_DIR = path.join(process.cwd(), 'public', 'operator_icons');
 

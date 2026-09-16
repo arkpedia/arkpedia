@@ -5,12 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { getContentPoster } from '@/lib/stages/stageContents';
 import { getStageBySlug, getStagePreviewFile, getStageContents } from '@/lib/stages/stages';
 import { MODE_LABELS, StageSummary, sceneForContent, variantLabel, variantShortLabel } from '@/lib/stages/stageTypes';
-import RaMap, { RaNodeData } from '@/components/RaMap';
-import TerminalNav from '@/components/TerminalNav';
+import RaMap, { RaNodeData } from '@/components/stages/RaMap';
+import TerminalNav from '@/components/stages/TerminalNav';
 import { raMapData } from '@/lib/stages/raMap';
 import { isFloor, isNodeCode } from '@/lib/stages/isNodes';
 import { compareStageSummaries } from '@/lib/stages/stageSort';
-import { matchesSearch } from '@/lib/searchNormalize';
+import { matchesSearch } from '@/lib/search/searchNormalize';
 import indexData from '@/public/stages-index.json';
 
 /** Cards per press. A season of Integrated Strategies is 179 nodes, each with a

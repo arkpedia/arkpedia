@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
-import { matchesSearch, searchRelevance } from '@/lib/searchNormalize';
+import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import type { Roster } from '@/lib/planner/roster';
 
 /**

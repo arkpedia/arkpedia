@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAMES } from '@/lib/minigames/catalogue';
-import styles from '@/styles/game-links.module.css';
+import styles from '@/styles/games/game-links.module.css';
 
 export default function GameLinks() {
   const { pathname } = useRouter();

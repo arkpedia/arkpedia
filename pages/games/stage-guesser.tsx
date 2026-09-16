@@ -11,8 +11,8 @@ import StageLayoutMap from '@/components/minigames/StageLayoutMap';
 import StageTileLegend from '@/components/minigames/StageTileLegend';
 import { normalizeAnswer, pickNext } from '@/lib/minigames/logic';
 import { guessStage, newStageRound, revealStageHint, filterStagePool, StageEntry, StageCatalogue, StageAnswer as StageAnswerEntry, StageGroup, StagePool, StageLayout, StageQuestion, StageSearchMode, STAGE_HINT_AT, STAGE_HINTS, STAGE_MISTAKES } from '@/lib/minigames/stageGuesser';
-import common from '@/styles/minigames.module.css';
-import styles from '@/styles/stage-guesser.module.css';
+import common from '@/styles/games/minigames.module.css';
+import styles from '@/styles/games/stage-guesser.module.css';
 
 interface Props { catalogueUrl: string; groups: StageGroup[]; counts: { all: number; classic: number } }
 const COLLECTIONS: { id: StagePool; label: string }[] = [

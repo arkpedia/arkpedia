@@ -1,5 +1,5 @@
 import { MAX_MISTAKES, Progress } from '@/lib/minigames/logic';
-import styles from '@/styles/minigames.module.css';
+import styles from '@/styles/games/minigames.module.css';
 
 export default function RoundFeedback({ progress, notice }: { progress: Progress; notice: string }) {
   return <div className={styles.feedback}>

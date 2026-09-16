@@ -277,7 +277,7 @@ export interface StageSummary {
   order: number | null;
   /** The stage this one is a Challenge Mode / Adverse Environment / Story /
    *  6-star form OF, or null. Written into the index by
-   *  scripts/enrich-stage-index.mjs, since the source states the link as the
+   *  scripts/build/enrich-stage-index.mjs, since the source states the link as the
    *  base stage's gamedata id and resolving it needs every stage record. */
   variantOf?: string | null;
 }
@@ -489,7 +489,7 @@ export function filterType(stageType: string): string {
 
 export const TYPE_ORDER = [
   // 'special_story' -- the Vignettes -- is not here: those 10 stages carry no map,
-  // no roster and no drops, and scripts/enrich-stage-index.mjs drops them from the
+  // no roster and no drops, and scripts/build/enrich-stage-index.mjs drops them from the
   // roster entirely.
   'main', 'activity', 'event', 'daily', 'campaign',
   'integrated_strategies', 'climb_tower', 'reclamation', 'contingency_contract', 'guide',

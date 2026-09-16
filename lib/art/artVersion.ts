@@ -1,8 +1,8 @@
-import artSources from '@/data/banner_art_sources.json';
+import artSources from '@/data/assets/banner_art_sources.json';
 
 /**
  * Cache-busting suffix for the banner and event-poster art that
- * scripts/sync-banner-art.py replaces IN PLACE.
+ * scripts/sync/sync-banner-art.py replaces IN PLACE.
  *
  * next.config.js sets `minimumCacheTTL: 31536000` on the explicit premise
  * that "a new upload gets a new filename, not an in-place overwrite". The
@@ -17,7 +17,7 @@ import artSources from '@/data/banner_art_sources.json';
  * fix it.
  *
  * The version is the sha1 the sync script already records per job in
- * data/banner_art_sources.json, so it re-bumps itself on every future swap
+ * data/assets/banner_art_sources.json, so it re-bumps itself on every future swap
  * with no change here or in the script. Art the script has never touched
  * gets no suffix: its bytes have not changed, so neither should its URL.
  *

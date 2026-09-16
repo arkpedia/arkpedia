@@ -13,7 +13,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
-import { highlightStats } from '@/components/HighlightedText';
+import { highlightStats } from '@/components/ui/HighlightedText';
 import { IN_GAME_ORDER } from '@/lib/farming/materialSortOrder';
 import { PlannerOperator, PlannerOperatorSummary, Skill, OperatorModule, PromotionTier, getSkillList, type CostGroup } from '@/lib/operators/operatorTypes';
 import { buildAliasMap } from '@/lib/operators/operatorAliases';
@@ -68,7 +68,7 @@ import {
   maxEliteForRarity,
   maxSkillRankForElite,
   moduleUnlock,
-} from '@/lib/plannerLogic';
+} from '@/lib/planner/plannerLogic';
 
 interface Props {
   operators: PlannerOperatorSummary[];
@@ -1813,7 +1813,7 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       `planner: ${faceless.length} operator(s) have no portrait in public/<rarity>-star-icons/, so the `
       + `roster grid would show a blank square for them here and on /operators, the guesser, `
       + `recruitment, the base and the timeline: ${faceless.map((o) => `${o.name} (${o.rarity}\u2605)`).join(', ')}. `
-      + 'Run: python3 scripts/import-operator-avatars.py',
+      + 'Run: python3 scripts/imports/import-operator-avatars.py',
     );
   }
 

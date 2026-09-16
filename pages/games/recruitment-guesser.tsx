@@ -9,7 +9,7 @@ import RoundFeedback from '@/components/minigames/RoundFeedback';
 import { getRecruitmentGameData } from '@/lib/minigames/recruitmentData';
 import { newProgress, pickNext, submitAnswer } from '@/lib/minigames/logic';
 import type { RecruitmentGameOperator, RecruitmentQuestion } from '@/lib/minigames/recruitmentLogic';
-import styles from '@/styles/minigames.module.css';
+import styles from '@/styles/games/minigames.module.css';
 
 interface Props { operators: RecruitmentGameOperator[]; questions: RecruitmentQuestion[] }
 export default function RecruitmentGame({ operators, questions }: Props) {

@@ -5,7 +5,7 @@ import type { SongChoice } from '@/lib/music-guesser/game';
 import { ANSWER_MODES } from '@/lib/music-guesser/options';
 import { DEFAULT_MUSIC_SETTINGS, isGlobalGroup, MUSIC_CATEGORIES } from '@/lib/music-guesser/selection';
 import type { MusicGroup, MusicSettings } from '@/lib/music-guesser/selection';
-import styles from '@/styles/song-guesser.module.css';
+import styles from '@/styles/games/song-guesser.module.css';
 
 interface Props {
   songs: SongChoice[];

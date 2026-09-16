@@ -17,7 +17,7 @@ import { useSongClip } from '@/lib/music-guesser/useSongClip';
 import { useSongQueue } from '@/lib/music-guesser/useSongQueue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useKeyboardListNav } from '@/lib/hooks/useKeyboardListNav';
-import styles from '@/styles/song-guesser.module.css';
+import styles from '@/styles/games/song-guesser.module.css';
 
 export default function SongGuesser({ songs, groups, asOf }: { songs: SongChoice[]; groups: MusicGroup[]; asOf: string }) {
   const router = useRouter();

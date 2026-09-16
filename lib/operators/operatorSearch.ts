@@ -1,4 +1,4 @@
-import { matchesSearch, normalizeForSearch, searchRelevance } from '../searchNormalize';
+import { matchesSearch, normalizeForSearch, searchRelevance } from '../search/searchNormalize';
 
 /** Use the roster's matching and ranking rules in the operator-page quick search. */
 export function getOperatorSearchResults<T extends { name: string }>(operators: T[], query: string): T[] {

@@ -1,0 +1,1112 @@
+/* Split from globals.css -- music.css */
+
+
+
+/* --- Persistent music player --- */
+.music-player {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 100;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--teal);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  width: 280px;
+  overflow: hidden;
+}
+/* No padding while collapsed: the widget IS the button then, and a padding ring
+   around it is a strip of the target that does not respond. It measured 34x35 with a
+   16x16 button inside, so three quarters of what looks like a button was dead, and the
+   live part was well under the 44px a finger needs. The button carries its own size
+   below instead. */
+.music-player.collapsed {
+  padding: 0;
+  gap: 0;
+  width: auto;
+}
+.music-hidden-frame {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.music-collapse-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1;
+  width: 16px;
+  height: 16px;
+  /* Rounded to match the shell it fills while collapsed, so the hover tint does not
+     square off the widget's corners. Harmless while expanded, where it is a small
+     chip in the corner. */
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.music-collapse-toggle:hover { background: var(--panel-2); color: var(--text); }
+/* Fills the collapsed shell, so every pixel of what looks like a button is one. 44px
+   is the smallest a touch target should be.
+   The last pixel or two belongs to the shell's border and its teal top accent, which a
+   child cannot cover. Stretching the button over them by its own border width closes
+   that, so a press on the visible edge is a press on the button. */
+.music-player.collapsed .music-collapse-toggle {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  margin: -2px -1px -1px;
+}
+.music-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.music-title-row { min-width: 0; }
+.music-title-scroll {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.music-track-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--teal);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--teal-dim);
+  display: inline-block;
+  white-space: nowrap;
+}
+.music-track-title:hover { border-bottom-color: var(--teal); }
+
+/* Cross-fade between a song's title and its translated alt title,
+   5 seconds each (see lib/music/useCrossFadeTitle.ts). Applied to
+   whichever element actually renders the swapping name -- the .fading
+   class is added for a brief window mid-swap, transitioning opacity
+   to 0 and back via CSS rather than an instant text change. */
+.music-crossfade-text {
+  transition: opacity 0.4s ease;
+  display: inline-block;
+}
+.music-crossfade-text.fading {
+  opacity: 0;
+}
+
+.music-track-title.marquee {
+  animation: title-marquee 9s ease-in-out infinite;
+}
+.music-seek-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.music-seek {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--teal);
+}
+.music-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  width: 28px;
+}
+.music-time:last-child { text-align: right; }
+.music-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.music-controls button {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 4px 5px;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.music-controls button:hover { background: var(--panel-2); border-color: transparent; }
+.music-play-btn {
+  color: var(--teal) !important;
+  font-size: 15px !important;
+}
+.music-play-btn.loading {
+  animation: music-play-loading-pulse 1s ease-in-out infinite;
+  cursor: default;
+}
+@keyframes music-play-loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.music-shuffle-btn.active {
+  color: var(--teal) !important;
+  background: var(--teal-dim);
+}
+.music-volume {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--teal);
+  margin-left: 6px;
+}
+.music-next-up {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .music-player {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+  }
+  .music-player.collapsed {
+    left: auto;
+  }
+  .music-collapse-toggle {
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+  }
+  .music-controls {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .music-controls button {
+    padding: 6px 8px;
+    font-size: 16px;
+  }
+  .music-play-btn {
+    font-size: 19px !important;
+  }
+  .music-seek,
+  .music-volume {
+    height: 22px;
+  }
+}
+
+.song-guesser-duration-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.song-guesser-duration-row button { font-size: 12px; padding: 8px 14px; }
+
+.music-repeat-btn.active,
+.music-list-btn.active {
+  color: var(--teal) !important;
+  background: var(--teal-dim);
+}
+.music-song-list {
+  max-height: 160px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.music-song-list-item {
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.music-song-list-item:hover { background: var(--panel); color: var(--text); }
+.music-song-list-item.active { color: var(--teal); background: var(--teal-dim); }
+
+.music-list-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+.music-list-btn:hover { color: var(--text); }
+.music-library-song-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.music-song-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 4px 4px 10px;
+  border-radius: 6px;
+}
+.music-song-row:hover {
+  background: var(--panel-2);
+}
+.music-song-row-info-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 4px 6px 4px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+}
+.music-song-row-play-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--teal-dim);
+  background: none;
+  color: var(--teal);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.music-song-row-play-btn:hover {
+  background: var(--teal-dim);
+}
+.music-song-row-number {
+  width: 24px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.music-song-row-cover {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel-2);
+  position: relative;
+}
+.music-song-row-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.music-song-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.music-song-row-title {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.music-song-row-length {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.music-album-header-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-top: 10px;
+}
+.music-album-header-cover {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+}
+
+/* --- Full player page (pages/music/index.tsx) --- */
+.music-player-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.music-player-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.music-discover-btn,
+.music-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Now-playing: CSS Grid with named areas -- desktop arranges Discover
+   + cover + song info as a left column, actions row + lyrics as a
+   right column; mobile (media query below) redefines the SAME areas
+   into a single stacked column instead, with the actions row sitting
+   fixed between whichever of cover/info or lyrics the mobile toggle
+   currently shows (see .mobile-hidden/.mobile-active below) -- no DOM
+   reordering needed, just a different grid-template-areas per
+   breakpoint. */
+.music-now-playing {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-areas:
+    'discover actions'
+    'cover    lyrics'
+    'info     lyrics'
+    '.        wave'
+    '.        buttons';
+  gap: 10px 24px;
+  align-items: start;
+}
+.music-discover-btn {
+  grid-area: discover;
+  justify-self: start;
+}
+.music-now-playing-cover-col {
+  grid-area: cover;
+}
+.music-now-playing-cover {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+}
+.music-now-playing-cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: var(--text-faint);
+}
+
+.music-now-playing-song-info {
+  grid-area: info;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.music-now-playing-credits {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.music-now-playing-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.music-mobile-lyrics-btn {
+  display: none; /* desktop: lyrics always shown inline already, no toggle needed -- shown only under the mobile breakpoint below */
+}
+.music-add-playlist-wrap {
+  position: relative;
+  display: inline-flex;
+}
+/* Shared visual treatment for Add to Playlist and Watch on YouTube --
+   same padding/border/radius/font-size so they read as one consistent
+   button family, even though one's a <button> and the other's an <a>
+   pointing off-site. */
+.music-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+}
+/* a.ghost in shared.css (0,1,1) outranks .music-action-btn (0,1,0) on the
+   <a>-based action button (Watch on YouTube), which is fine for color and
+   font-size -- button.ghost already pinned its <button> sibling to the same
+   faint 12px, so losing those makes the pair MORE alike -- but a.ghost's
+   3px radius would visibly mismatch the sibling's 6px. Same specificity as
+   a.ghost; wins because music.css loads after shared.css. */
+a.music-action-btn { border-radius: 6px; }
+.music-now-playing-buttons {
+  grid-area: buttons;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.music-toast {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  white-space: nowrap;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+/* Karaoke lyrics: fixed-height scroll area, active line bolded and
+   brought to full text color while every other line stays dim --
+   auto-scrolled to keep the active line centered (see the page
+   component's own scrollIntoView call), pausable by a manual scroll. */
+.music-lyrics-scroll {
+  grid-area: lyrics;
+  min-height: 200px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 8px 4px;
+}
+
+/* Synth-style wave strip -- three sine paths (see
+   components/music/MusicWaveVisualizer.tsx) each scrolling at a different
+   speed, whole group slowly cycling hue together. Purely decorative. */
+.music-wave-visualizer {
+  grid-area: wave;
+  height: 40px;
+  overflow: hidden;
+  animation: music-wave-hue-cycle 20s linear infinite;
+}
+.music-wave-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.music-wave {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.music-wave-1 {
+  stroke: var(--teal);
+  stroke-width: 2;
+  opacity: 0.9;
+  animation: music-wave-scroll 3.5s linear infinite;
+}
+.music-wave-2 {
+  stroke: var(--amber);
+  stroke-width: 2;
+  opacity: 0.6;
+  animation: music-wave-scroll 5s linear infinite reverse;
+}
+.music-wave-3 {
+  stroke: var(--teal);
+  stroke-width: 1.5;
+  opacity: 0.4;
+  animation: music-wave-scroll 6.5s linear infinite;
+}
+@keyframes music-wave-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100px); }
+}
+@keyframes music-wave-hue-cycle {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Every infinite loop the player runs goes still: the marquee'd
+     track title (it's still fully readable via its title attribute /
+     the truncated static text), the three wave paths' scroll loops,
+     and the visualizer's slow hue-rotate filter cycle. The waves stay
+     VISIBLE as a static strip -- the preference is about motion, not
+     decoration. */
+  .music-track-title.marquee,
+  .music-wave-visualizer,
+  .music-wave-1,
+  .music-wave-2,
+  .music-wave-3 {
+    animation: none;
+  }
+}
+
+.music-lyric-line {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-faint);
+  transition: color 0.2s ease;
+}
+.music-lyric-line.active {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* Queue panel -- drag-and-drop reorder, play-now, move-to-top, remove. */
+.music-queue-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.music-queue-search {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+}
+/* Shared by the queue panel's pagination and the discover page's
+   filtered-songs pagination -- deliberately the same treatment, since
+   they're the same "mount more rows on request" pattern. */
+.music-queue-show-more,
+.music-discover-show-more {
+  width: 100%;
+  padding: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+.music-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.music-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none; /* the row is draggable -- without this, a drag that starts mid-text selects the title instead of moving the row */
+}
+/* Base background is already --panel-2, so hover flips toward --panel
+   plus the same teal-dim border the discover song rows use -- the row
+   needs SOME visible response, since it carries a drag affordance and
+   a tap-select gesture that nothing else telegraphs. Deliberately
+   placed before the .dragging/.selected/.active rules below so those
+   states (same specificity, later in the file) keep winning on hover. */
+.music-queue-row:hover {
+  background: var(--panel);
+  border-color: var(--teal-dim);
+}
+.music-queue-row.dragging {
+  opacity: 0.4;
+}
+.music-queue-row.selected {
+  border-color: var(--amber);
+  background: rgba(245, 166, 35, 0.12);
+}
+/* Reserves the same height as a real row while search results number
+   fewer than the cap, so the panel (and everything below it) doesn't
+   jump around as the match count changes with every keystroke. */
+.music-queue-row-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+.music-queue-row.active {
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+.music-queue-drag-handle {
+  color: var(--text-faint);
+  flex-shrink: 0;
+  cursor: grab;
+}
+.music-queue-row-index {
+  width: 24px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.music-queue-row.active .music-queue-row-index {
+  color: var(--teal);
+}
+/* A real <button> (the row's primary tap-select control -- the row div
+   itself only handles drag, see QueueRow in pages/music/index.tsx), so
+   the UA's default button padding/font have to be explicitly zeroed/
+   inherited to keep it rendering exactly like the plain span it used
+   to be. */
+.music-queue-row-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.music-queue-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.music-queue-row-actions button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* Bottom transport bar -- favorite, stream-safe, shuffle, prev, play,
+   next, repeat, seek+time, volume, list toggle, all in one row. */
+.music-player-bottombar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.music-player-bottombar-seek {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.music-player-bottombar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.music-player-bottombar button {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 15px;
+  padding: 6px 7px;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.music-player-bottombar button:hover {
+  background: var(--panel-2);
+}
+.music-player-bottombar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.music-player-bottombar button:disabled:hover {
+  background: transparent;
+}
+.music-player-bottombar .music-seek {
+  flex: 1;
+  min-width: 80px;
+}
+.music-player-bottombar .music-volume {
+  width: 90px;
+  flex: none;
+}
+.music-fav-btn.active {
+  color: var(--teal) !important;
+}
+.music-stream-safe-btn.active {
+  color: var(--teal) !important;
+  background: var(--teal-dim);
+}
+.music-repeat-one-badge {
+  font-size: 8px;
+  margin-left: 1px;
+}
+
+@media (max-width: 900px) {
+  /* Mobile users are assumed fine with non-stream-safe songs -- this
+     setting exists for streamers, a desktop use case, so it's dropped
+     entirely on mobile rather than just tucked away. Shared class name
+     between the mini-player and the /music page's own transport bar,
+     so this one rule covers both, and 900px matches the width where
+     this page's own layout already goes mobile (the mini-player's own
+     640px breakpoint sits comfortably inside this range too). */
+  .music-stream-safe-btn {
+    display: none;
+  }
+  /* Seek row (time + slider + time) and the controls row are now
+     genuine separate DOM elements (music-player-bottombar-seek /
+     -controls), not flat siblings relying on order + flex-basis
+     tricks to fake a grouped row -- that approach couldn't actually
+     keep the three seek pieces together, since flex-wrap wraps each
+     item independently rather than as a group. Centering itself is
+     now a base rule (applies everywhere, not just here), so there's
+     nothing mobile-specific left to add for the controls row. */
+  .music-now-playing {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'discover'
+      'cover'
+      'info'
+      'actions'
+      'lyrics'
+      'wave'
+      'buttons';
+  }
+  .music-discover-btn {
+    justify-self: start;
+  }
+  .music-now-playing-cover-col {
+    justify-self: center;
+  }
+  /* Only shown on mobile while actively viewing lyrics (paired with
+     mobileShowLyrics toggling the same class the lyrics scroll uses)
+     -- desktop shows it whenever something's playing, full stop, no
+     class needed there. */
+  .music-wave-visualizer {
+    display: none;
+  }
+  .music-wave-visualizer.mobile-active {
+    display: block;
+  }
+  /* The actions row (Lyrics toggle only) always stays visible -- only
+     cover+info vs. lyrics swap, and they swap together as a pair since
+     the toggle button lives in the fixed row between them. Add to
+     Playlist and Watch on YouTube sit together as their own pair below
+     the lyrics/wave, outside this fixed row entirely. */
+  .music-now-playing-cover-col.mobile-hidden,
+  .music-now-playing-song-info.mobile-hidden {
+    display: none;
+  }
+  .music-lyrics-scroll {
+    display: none;
+  }
+  .music-lyrics-scroll.mobile-active {
+    display: block;
+    width: 100%;
+  }
+  .music-mobile-lyrics-btn {
+    display: inline-flex;
+  }
+  .music-player-bottombar .music-volume {
+    display: none; /* volume slider takes real estate that's tighter to spare on mobile -- still adjustable via the device's own hardware volume */
+  }
+}
+
+/* ===================== Discover page ===================== */
+
+.music-discover-page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 40px;
+}
+
+.music-discover-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.music-discover-back-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.music-discover-search {
+  flex: 1;
+  padding: 14px 18px;
+  font-size: 15px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+}
+/* Same focus halo the site's other text inputs use -- a bare
+   outline:none with only a border-color change was a barely-visible
+   focus indicator on an input this large. */
+.music-discover-search:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 30%, transparent);
+}
+
+.music-discover-results {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.music-discover-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.music-discover-section-heading h2 {
+  margin: 0;
+}
+.music-discover-show-all {
+  padding: 6px 8px;
+  border-color: transparent;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.music-discover-show-all:hover {
+  color: var(--teal);
+}
+
+.music-discover-section h2,
+.music-discover-results h2 {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 14px;
+}
+.music-discover-active-facet {
+  color: var(--teal);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.music-discover-song-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.music-discover-song-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--row-grad, var(--panel));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius, 2px);
+  cursor: pointer;
+  text-align: left;
+}
+.music-discover-song-row:hover {
+  border-color: var(--teal-dim);
+  background: var(--panel-2);
+}
+.music-discover-song-cover {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.music-discover-song-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.music-discover-song-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.music-discover-song-title {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.music-discover-song-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Preview collections scroll horizontally; Show all wraps the selected collection. */
+.music-discover-row {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 14px;
+  padding-bottom: 4px; /* room for the scrollbar without it overlapping content */
+}
+.music-discover-row.expanded {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.music-discover-row.expanded .music-discover-artist-pill,
+.music-discover-row.expanded .music-discover-origin-pill {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.music-discover-cloud-row {
+  align-items: baseline; /* origin pills vary in font-size by weight, baseline keeps their bottoms aligned rather than their centers */
+  gap: 8px 12px;
+}
+
+.music-discover-album-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  width: 120px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+.music-discover-album-tile img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--line-soft);
+  transition: border-color 0.15s ease;
+}
+.music-discover-album-tile:hover img {
+  border-color: var(--teal);
+}
+.music-discover-album-tile-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+}
+.music-discover-album-tile-name {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-discover-artist-pill {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 20px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.music-discover-artist-pill:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.music-discover-character-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 72px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.music-discover-character-portrait {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  transition: border-color 0.15s ease;
+}
+.music-discover-character-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.music-discover-character-tile:hover .music-discover-character-portrait {
+  border-color: var(--teal);
+}
+.music-discover-character-name {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.music-discover-origin-pill {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--line-soft);
+  background: none;
+  cursor: pointer;
+  line-height: 1.4;
+  color: var(--amber);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.music-discover-origin-pill:hover {
+  border-color: var(--amber);
+  opacity: 1;
+}

@@ -10,12 +10,12 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getAllSkins } from '@/lib/skins/skins';
 import { GuesserOperator } from '@/lib/operators/operatorTypes';
 import { toGuesserOperator } from '@/lib/guesser/guesserPageData';
-import { matchesSearch, searchRelevance } from '@/lib/searchNormalize';
+import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { useKeyboardListNav } from '@/lib/hooks/useKeyboardListNav';
 import { buildHintPool, pickRandomOperator, NOT_AVAILABLE, GuesserSkin } from '@/lib/guesser/guesserLogic';
 import { Hint, ALL_HINT_TYPES, HINT_GROUPS, HintType, ThemedLevel, THEMED_MODES } from '@/lib/guesser/guesserTypes';
 
-import styles from '@/styles/guesser.module.css';
+import styles from '@/styles/games/guesser.module.css';
 
 interface Props {
   operators: GuesserOperator[];

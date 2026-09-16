@@ -1,4 +1,4 @@
-import RecruitmentTool from '@/components/RecruitmentTool';
+import RecruitmentTool from '@/components/recruitment/RecruitmentTool';
 import { getRecruitmentPageProps, type RecruitmentProps } from '@/lib/gacha/recruitmentPageData';
 
 export default function RecruitmentPopout(props: RecruitmentProps) {

@@ -6,7 +6,7 @@ import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useEffect, useMemo, useState } from 'react';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
-import { useQueryState } from '@/lib/useQueryState';
+import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum } from '@/lib/music/albumsDataServer';
 
 interface Props {

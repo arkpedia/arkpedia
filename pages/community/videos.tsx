@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { getLatestVideos, enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
-import { VideoCard } from '@/components/StreamCards';
+import { VideoCard } from '@/components/community/StreamCards';
 
 interface Props {
   videos: YouTubeVideo[];

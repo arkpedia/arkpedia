@@ -2,8 +2,8 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import EnemyBrowser from '@/components/EnemyBrowser';
-import EnemyDetailPanel, { type EnemyDetailData } from '@/components/EnemyDetailPanel';
+import EnemyBrowser from '@/components/enemies/EnemyBrowser';
+import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
 import { getEnemyContents, getEnemySummaries } from '@/lib/enemies/enemies';
 import { EnemyContent, EnemySummary } from '@/lib/enemies/enemyTypes';
 

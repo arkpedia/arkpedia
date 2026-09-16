@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useKeyboardListNav } from '@/lib/hooks/useKeyboardListNav';
 import { resolveStageAnswer, searchStageAnswers, StageAnswer as Answer, StageSearchMode } from '@/lib/minigames/stageGuesser';
-import common from '@/styles/minigames.module.css';
-import styles from '@/styles/stage-guesser.module.css';
+import common from '@/styles/games/minigames.module.css';
+import styles from '@/styles/games/stage-guesser.module.css';
 
 export default function StageAnswer({ stages, onGuess, mode, onModeChange, onTypingChange }: { stages: Answer[]; onGuess: (slug: string) => void; mode: StageSearchMode; onTypingChange: (typing: boolean) => void; onModeChange: (mode: StageSearchMode) => void }) {
   const [input, setInput] = useState('');

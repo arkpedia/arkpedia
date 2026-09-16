@@ -8,7 +8,7 @@ import OperatorAnswer from '@/components/minigames/OperatorAnswer';
 import RoundFeedback from '@/components/minigames/RoundFeedback';
 import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteOperators } from '@/lib/minigames/data';
 import { newProgress, PaletteMode, PaletteOperator, pickNext, submitAnswer } from '@/lib/minigames/logic';
-import styles from '@/styles/minigames.module.css';
+import styles from '@/styles/games/minigames.module.css';
 
 interface Props { operators: PaletteOperator[] }
 const COLOR_LABELS = ['Hair', 'Clothing 1', 'Clothing 2', 'Skin / clothing 3', 'Accent'];

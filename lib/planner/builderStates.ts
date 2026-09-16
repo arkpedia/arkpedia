@@ -1,5 +1,5 @@
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
-import { maxEliteForRarity, maxLevelForElite, maxSkillRankForElite, moduleUnlock } from '@/lib/plannerLogic';
+import { maxEliteForRarity, maxLevelForElite, maxSkillRankForElite, moduleUnlock } from '@/lib/planner/plannerLogic';
 import { boundedInt, isSafeKey } from './untrusted';
 
 /**

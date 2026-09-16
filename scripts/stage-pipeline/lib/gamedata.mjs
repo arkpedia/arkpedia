@@ -17,7 +17,7 @@ export function excel(name) {
   if (!cache.has(name)) {
     const file = path.join(EN, 'excel', `${name}.json`);
     if (!fs.existsSync(file)) {
-      throw new Error(`missing ${file}\n  run scripts/refresh-stage-data.sh, which syncs the upstream cache first`);
+      throw new Error(`missing ${file}\n  run scripts/sync/refresh-stage-data.sh, which syncs the upstream cache first`);
     }
     cache.set(name, JSON.parse(fs.readFileSync(file, 'utf8')));
   }

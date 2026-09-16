@@ -43,8 +43,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Operator data and calculations
-        run: npm run test:operators
+      - name: Application regression tests
+        run: npm test
+
+      - name: External asset coverage
+        run: npm run check:assets
 
       # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
       # in the four big pages, plus two ARIA roles), every one of them a judgement
@@ -57,7 +60,7 @@ jobs:
       # checker and to the linter: nothing fails, the page just quietly looks wrong.
       # That was 45 names when this check went in; it is 0 now, so --strict can gate.
       - name: Every rendered class is styled
-        run: node scripts/check-unstyled-classes.mjs --strict
+        run: node scripts/audits/check-unstyled-classes.mjs --strict
 
       # NEXT_TELEMETRY_DISABLED so a CI run is not also a ping to Vercel.
       - name: Build

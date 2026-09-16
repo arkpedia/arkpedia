@@ -60,7 +60,7 @@ export function allianceSlug(name: string): string {
 export const FUNDS_ICON = '/alliance-icons/funds.webp';
 
 /**
- * The same fold scripts/build-operator-deploy.mjs uses, so a name looked up here and a
+ * The same fold scripts/build/build-operator-deploy.mjs uses, so a name looked up here and a
  * name resolved there agree. Punctuation that joins rather than separates is dropped
  * (Ch'en, Wis'adel), then the letters no NFD decomposition covers.
  */
@@ -79,7 +79,7 @@ export function foldName(text: string): string {
     .trim();
 }
 
-/** Mirrors slug() in scripts/build-stronghold-icons.mjs, LETTERS included: NFD splits an
+/** Mirrors slug() in scripts/build/build-stronghold-icons.mjs, LETTERS included: NFD splits an
  *  accent off its base letter but leaves ł alone, which turned Młynar into "m-ynar". */
 export function stratagemSlug(leader: string): string {
   return leader

@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { GameOperator, resolveOperator } from '@/lib/minigames/logic';
-import { matchesSearch, searchRelevance } from '@/lib/searchNormalize';
+import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { useKeyboardListNav } from '@/lib/hooks/useKeyboardListNav';
-import styles from '@/styles/minigames.module.css';
+import styles from '@/styles/games/minigames.module.css';
 
 export default function OperatorAnswer({ operators, onGuess }: { operators: GameOperator[]; onGuess: (name: string) => void }) {
   const [input, setInput] = useState('');

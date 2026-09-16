@@ -61,7 +61,7 @@ const POSTERED_KINDS = new Set(['event', 'story']);
 /**
  * A content's own art, keyed by ID rather than matched by name.
  *
- * Written out per content by scripts/import_content_art.py: the in-game art for every
+ * Written out per content by scripts/imports/import_content_art.py: the in-game art for every
  * main-story episode, and the banner for Reclamation Algorithm. This is checked FIRST,
  * so an episode shows the art the game puts on it instead of whichever of its stages
  * happened to have a render, and RA gets art at all -- POSTERED_KINDS keeps the
@@ -190,7 +190,7 @@ export function getContentPoster(id: string, kind: string, name: string): string
 export function getStageModeCards(): StageModeCard[] {
   const contents = contentData as Record<string, StageContent>;
   // Facts about a content that only the whole record set answers; see
-  // scripts/enrich-stage-index.mjs for what each one means.
+  // scripts/build/enrich-stage-index.mjs for what each one means.
   const traits = contentTraits as Record<string, { mapless?: boolean; ministory?: boolean }>;
   const events = loadAllEventYears() as ScheduleEvent[];
   const windows = contentWindowData as Record<string, number[]>;

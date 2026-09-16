@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
-import { pool } from '@/lib/db';
+import { pool } from '@/lib/server/db';
 import { getOperators } from '@/lib/operators/getOperators';
-import { Ratings, POWER_VALUES } from '@/lib/types';
+import { Ratings, POWER_VALUES } from '@/lib/survey/types';
 
 const MAX_SUBMISSIONS_PER_IP_PER_DAY = 5;
 const VALID_POWERS = new Set(POWER_VALUES);

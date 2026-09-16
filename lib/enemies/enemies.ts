@@ -108,7 +108,7 @@ export function getEnemyContents(): EnemyContent[] {
 /**
  * enemy slug -> the contents that field it, each with the stages inside it.
  * From data/enemy-stage-appearances.json, built by
- * scripts/build-enemy-stage-appearances.mjs out of the stage dataset.
+ * scripts/build/build-enemy-stage-appearances.mjs out of the stage dataset.
  *
  * The file is normalised -- contents and stages are listed once and referred to by
  * index, because the flat shape repeated 129 contents 4,943 times and 2,299 stages

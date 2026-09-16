@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 
 // This route used to export a stale copy of the mini player
-// (components/MusicPlayer.tsx) as its own page -- a leftover from
+// (components/music/MusicPlayer.tsx) as its own page -- a leftover from
 // before the full player experience moved to /music. Despite the
 // [albumId] name it never fetched any album data (no getStaticProps
 // at all), nothing in the codebase links here, and its private copy

@@ -7,8 +7,8 @@ import { getAllSongModalLookup, writeLyricsFilesToPublic, SongModalLookupEntry }
 import type { LyricLine } from '@/lib/music/albumsDataServer';
 import { useMusicPlayer, QueueTrack } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
-import { useQueryState } from '@/lib/useQueryState';
-import MusicWaveVisualizer from '@/components/MusicWaveVisualizer';
+import { useQueryState } from '@/lib/hooks/useQueryState';
+import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 
 interface Props {
   songLookup: SongModalLookupEntry[];

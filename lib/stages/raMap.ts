@@ -1,13 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import type { RaNodeData } from '@/components/RaMap';
+import type { RaNodeData } from '@/components/stages/RaMap';
 
 /**
  * The Reclamation Algorithm map, for the one content page that draws it.
  *
  * Read from disk at build time rather than imported, so the 30kB of node data lands in
  * that one page's props instead of in the bundle every content page shares. Written by
- * scripts/import-ra-nodes.mjs -- the surveyed nodes, credited on the page.
+ * scripts/imports/import-ra-nodes.mjs -- the surveyed nodes, credited on the page.
  *
  * data/ra-map.json, the game's own zone polygons, is no longer drawn: the art already
  * prints the region names and the borders over it were clutter. It stays in the repo

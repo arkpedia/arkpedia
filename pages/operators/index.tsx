@@ -6,12 +6,12 @@ import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
-import { useQueryState } from '@/lib/useQueryState';
+import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
 import { parseDate } from '@/lib/operators/operatorReleaseDates';
 import { RosterOperator } from '@/lib/operators/operatorTypes';
-import { matchesSearch, searchRelevance } from '@/lib/searchNormalize';
+import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
 import { publicFiles } from '@/lib/assets/publicAssets';
 
@@ -600,7 +600,7 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   if (noArt.length) {
     throw new Error(
       `operators: ${noArt.length} class/branch icon(s) the roster renders do not exist: ${noArt.join(', ')}. `
-      + 'Run scripts/build-branch-icons.mjs, which fetches the missing ones from prts.wiki by the '
+      + 'Run scripts/build/build-branch-icons.mjs, which fetches the missing ones from prts.wiki by the '
       + "branch's own subProfessionId.",
     );
   }

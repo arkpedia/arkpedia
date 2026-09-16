@@ -1,4 +1,4 @@
-import index from '@/data/public-asset-index.json';
+import index from '@/data/assets/public-asset-index.json';
 
 // Generated from this checkout by next.config.js before build/dev compilation.
 // Keep URL resolution independent of artwork being present in a server function.

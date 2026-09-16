@@ -3,18 +3,18 @@ import Head from 'next/head';
 import Image from 'next/image';
 import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllSkins } from '@/lib/skins/skins';
-import { useQueryState } from '@/lib/useQueryState';
+import { useQueryState } from '@/lib/hooks/useQueryState';
 import { Skin } from '@/lib/skins/skinTypes';
 import { computeSkinCountdowns } from '@/lib/skins/skinAvailability';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
-import SkinZoomOverlay from '@/components/SkinZoomOverlay';
-import ResponsiveSkinArtwork from '@/components/ResponsiveSkinArtwork';
+import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { getOngoingEvents, getSkinsForScheduleEvent } from '@/lib/skins/upcomingSkins';
-import { matchesSearch, searchRelevance } from '@/lib/searchNormalize';
+import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 
 interface Props {
   skins: Skin[];

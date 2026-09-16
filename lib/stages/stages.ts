@@ -74,13 +74,13 @@ function readStageRecord(slug: string): Stage | null {
     // The 140 replacer levels are unnamed in the source and read as a bare
     // "ISW-NO"; they are alternate layouts for a node whose base level is named,
     // and that is the name the game shows. The index carries the same fill (see
-    // scripts/enrich-stage-index.mjs), so the list and the page agree.
+    // scripts/build/enrich-stage-index.mjs), so the list and the page agree.
     if (!String(stage.name || '').trim()) {
       const borrowed = isNode(slug)?.name;
       if (borrowed) return { ...stage, name: borrowed };
     }
     // A CCB stage has no stage record behind it, so it arrives with neither a code
-    // nor a name; scripts/import_cc_stages.py builds the code from its level path
+    // nor a name; scripts/imports/import_cc_stages.py builds the code from its level path
     // and takes the name from medal text where the game gives one.
     const cc = ccStage(slug);
     if (cc && (!String(stage.code || '').trim() || !String(stage.name || '').trim())) {

@@ -1,9 +1,9 @@
 import { GetStaticProps } from 'next';
 import Image from 'next/image';
-import ContentCardLink, { MinistoryMark, NoMapNote } from '@/components/ContentCardLink';
-import Rail from '@/components/Rail';
-import ModeMark from '@/components/ModeMark';
-import TerminalNav from '@/components/TerminalNav';
+import ContentCardLink, { MinistoryMark, NoMapNote } from '@/components/ui/ContentCardLink';
+import Rail from '@/components/ui/Rail';
+import ModeMark from '@/components/stages/ModeMark';
+import TerminalNav from '@/components/stages/TerminalNav';
 import { getScoreLines, ScoreLine } from '@/lib/stages/terminal';
 
 /**
@@ -101,7 +101,7 @@ function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
           />
         ) : line.mark ? (
           /* The game's own emblem for the line. Keyed to a white-on-alpha mask by
-             scripts/import-story-marks.py, so it takes its colour from the CSS the
+             scripts/imports/import-story-marks.py, so it takes its colour from the CSS the
              way the stat glyphs do. */
           <span
             className="score-line-emblem"

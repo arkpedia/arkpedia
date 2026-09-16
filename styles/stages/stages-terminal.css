@@ -1,0 +1,1323 @@
+/* --- The Terminal ---------------------------------------------------------
+   The game's own operations screen, which is not a list: five scenes, each with
+   its own shape, moved between by a row of hexagonal marks along the bottom.
+
+   Two deliberate departures from the screenshots. The game inverts to near-white
+   for Regular Tasks and Seasonal Challenge; this keeps the site's own tokens so
+   that light and dark themes both keep working, and reaches for the game's
+   CONTRAST rather than its literal palette. And the game is landscape-only,
+   where every rail here scrolls sideways inside a page that stacks -- which is
+   what the game does with its rails anyway, so a phone gets the same idea. */
+
+/* The site's own soft bounds. Every other page is 1040px wide with 24px of gutter
+   (see `main` in shared.css); .main-wide's 1320px belongs to the stage viewer, which
+   is a two-pane reader and needs the room. These scenes are not, and at 1240 they
+   stood proud of the events, farming and enemies pages either side of them. */
+/* The gutter a Terminal scene keeps, declared once for the three rules that have to
+   agree about it. The head is a SIBLING of the scene rather than a child, so nothing
+   makes them line up on its own -- a head at 16 over panels at 24 puts the title 8px
+   inside everything beneath it, which is invisible at 1040px and plain on a phone. And
+   .score-line's wash reaches the edge of the page by pulling itself out past the
+   gutter, so a wash that reaches further than the gutter is sideways scroll. `main` in
+   shared.css keeps its own 24px for every other page. */
+.terminal-head,
+.terminal-scene { --scene-gutter: 24px; }
+
+.terminal-head {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 26px var(--scene-gutter) 14px;
+}
+.terminal-head h1 { margin: 6px 0 8px; }
+
+/* Sides and bottom rather than the shorthand: the top is `main`'s own 24px in
+   shared.css, and only the phone wants that changed. */
+.terminal-scene {
+  padding-left: var(--scene-gutter);
+  padding-right: var(--scene-gutter);
+  padding-bottom: 40px;
+}
+
+/* --- The section bar -----------------------------------------------------
+   The game puts this along the BOTTOM of a landscape screen. Here it sits at the
+   top, above the scene's own title: a website reads downwards and the switcher is
+   the first thing you want, where in the game it is under your thumb. It carries a
+   ground of its own for the same reason -- floated over the scene on a gradient the
+   marks were barely there. */
+.terminal-bar {
+  /* Sticky under the site nav, which is `position: fixed` and shrinks when it
+     collapses on scroll. TerminalNav measures that height and sets `top` inline --
+     the --nav-h variable Sitenav publishes lags the collapse, and a stale offset
+     leaves the bar stuck below the nav with a gap for the page to scroll through.
+     This is the first-paint fallback, before the effect runs. z-index sits below the
+     nav's 50, so the bar tucks under it rather than over it. */
+  position: sticky;
+  top: var(--nav-h, 0px);
+  z-index: 30;
+  border-bottom: 1px solid var(--line-soft);
+  background:
+    linear-gradient(180deg, rgb(77 232 209 / 0.07), rgb(77 232 209 / 0) 70%),
+    var(--panel);
+}
+.terminal-bar-inner {
+  position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 12px;
+}
+/* The row of tabs. On a desktop this IS the bar; under the mobile breakpoint it
+   becomes the menu that the collapsed bar opens. */
+.terminal-tabs {
+  display: flex;
+  align-items: stretch;
+  /* `safe` because a plain `center` with overflow-x puts the overflow on BOTH sides
+     and the left half becomes unreachable -- the first two sections scrolled off with
+     no way back to them. */
+  justify-content: safe center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.terminal-tabs::-webkit-scrollbar { display: none; }
+
+/* --- the collapsed bar, under the mobile breakpoint --------------------------
+   Hidden on a desktop, where all seven tabs fit. */
+.terminal-bar-toggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 4px;
+  border: 0;
+  background: none;
+  color: var(--teal);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+/* Three bars, drawn rather than typed: a glyph would inherit the font's own metrics
+   and sit off-centre. Pushed to the far end, where a thumb is. */
+.terminal-bar-burger {
+  margin-left: auto;
+  width: 16px;
+  height: 11px;
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  position: relative;
+}
+.terminal-bar-burger::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  margin-top: -1px;
+  border-top: 2px solid currentColor;
+}
+
+.terminal-tab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  /* Tight, because the emblems cost width the glyphs did not: at 15px of side padding
+     the seven tabs ran 50px past the site's 1040px bound, so All Operations sat
+     half-clipped behind a scroll on every screen size, the bound being a cap rather
+     than a viewport. */
+  padding: 11px 11px 9px;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.terminal-tab-mark {
+  font-size: 17px;
+  line-height: 1;
+}
+/* An emblem in place of a glyph. Larger than the type it sits beside, because these
+   are line art with a lot of internal detail -- at the 10px of the label they were
+   a smudge. */
+.terminal-tab-mark.mode-mark {
+  width: 19px;
+  height: 19px;
+}
+/* Every section is named here, unlike in game where only the current one is. A row
+   of bare glyphs is a guessing game on a site you arrive at from a search result. */
+.terminal-tab-label { white-space: nowrap; }
+.terminal-tab:hover {
+  color: var(--text);
+  background: rgb(255 255 255 / 0.03);
+}
+/* The current section is marked along the bar's own edge -- the game lifts its tab
+   off the bottom, which is the same gesture the other way up. */
+.terminal-tab.current {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+.terminal-tab.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --- Score ---------------------------------------------------------------
+   One block for the main theme, one for the side-story lines. */
+.score-block { margin-bottom: 30px; }
+.score-block-title {
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+.score-line {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: 26px;
+}
+/* The line's own art, behind the line.
+   The game gives every storyline a background of its own -- stage_table.storylines
+   names it (backgroundId "bg_ssLine_3", and a logo and abbreviation mark beside it) --
+   and not one of the five asset mirrors this project can reach carries those files.
+   So this is the line's OWN newest banner, dimmed and blurred to a wash: per-line art
+   from what we have, in the place the real background would go. Swapping in
+   bg_ssLine_* is a one-line change the day a source turns up. */
+.score-line::before {
+  content: '';
+  position: absolute;
+  /* Out to the edge of the page and not one pixel further. This was -24px, which was
+     the scene's gutter written a second time in a file that had no way to notice they
+     had stopped matching. */
+  inset: -6px calc(-1 * var(--scene-gutter));
+  z-index: -1;
+  background-image: var(--line-bg, none);
+  background-size: cover;
+  background-position: center 30%;
+  opacity: 0.13;
+  filter: blur(3px) saturate(0.75);
+  /* Faded at both ends so the wash never collides with the line above or below. */
+  mask-image: linear-gradient(to right, transparent, #000 10%, #000 82%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 82%, transparent);
+  pointer-events: none;
+}
+/* The main story's squares. Narrower than a banner node so a 1:1 card does not make
+   the rail 232px deep -- which is roughly how big the game draws them too. */
+.score-line.act .score-rail {
+  --node-w: 172px;
+  --art-ratio: 1;
+}
+.score-line-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+/* The line's emblem. The game draws a per-line mark here; the two-letter code the
+   game files the line under stands in until those are imported, which is close to
+   what the game prints beside it anyway ("Story Line · RL"). */
+.score-line-mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--teal);
+}
+.score-line.act .score-line-mark { color: var(--amber); }
+/* The line's emblem, as a mask so it takes a colour rather than arriving with one --
+   the screenshots these came from were a dim grey on fourteen slightly different
+   backgrounds, and keying them to alpha is what makes them a set. */
+.score-line-emblem {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  background: var(--teal);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+/* The main story's own emblem, beside the block that holds its acts. */
+.score-block-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.score-block-emblem {
+  width: 18px;
+  height: 18px;
+  background: var(--teal);
+  mask-image: url(/story-marks/main-story.webp);
+  -webkit-mask-image: url(/story-marks/main-story.webp);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+/* The act's own wordmark, at the size the game draws it. White line art on
+   transparency, so it needs no colour of its own -- and no box: at 33px tall beside
+   a 21px title it is the same weight as the hexagon it replaces. */
+.score-act-mark {
+  flex: 0 0 auto;
+  width: 86px;
+  height: auto;
+  opacity: 0.9;
+}
+/* Inverted under the light theme, where white-on-transparent would vanish. */
+:root[data-theme="light"] .score-act-mark { filter: invert(1); }
+.score-line-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.score-line-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.score-line-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.score-line-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* The rail, with the wire behind it. Overflow-x rather than wrap: a story line is
+   one row deep at any width, which is what makes this hold together on a phone. */
+.score-rail {
+  /* Each line's art is shaped the way the GAME ships it, because one box cannot hold
+     both: a main-story episode's emblem is exactly square (512x512, 429x430) and an
+     event banner is 1560x500. At a common 16:6 the squares were cropped to ribbons --
+     Evil Time's crest lost its top and bottom. So the ratio is a variable, the acts
+     override it, and object-fit has nothing left to cut in either case.
+
+     The node width and the art's height are one number and its consequence, held here
+     because the wire has to land on the art's centre line -- 50% of the rail would put
+     it through the captions, where it reads as an underline rather than a thread the
+     stops hang on. */
+  --node-w: 232px;
+  --art-ratio: 3.12;
+  --art-h: calc(var(--node-w) / var(--art-ratio));
+  --rail-pad: 16px;
+  --wire-y: calc(var(--rail-pad) + var(--art-h) / 2);
+  position: relative;
+  display: flex;
+  gap: 12px;
+  overflow-x: scroll;
+  padding: var(--rail-pad) 2px 10px;
+}
+.score-rail::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--wire-y);
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--line) 4%, var(--line) 96%, transparent);
+}
+
+/* A rail you can drag. The cursor says so, and while a drag is under way nothing
+   inside it selects or catches the pointer -- a half-selected row of captions is what
+   dragging over text looks like otherwise. */
+.rail-draggable { cursor: grab; }
+.rail-draggable.dragging { cursor: grabbing; user-select: none; }
+.rail-draggable.dragging * { pointer-events: none; }
+/* And the browser's own drag is off. Press on a card without this and you get a ghost
+   image of the artwork dragged around instead of a rail that scrolls -- images and
+   links are draggable by default. The component cancels dragstart as well; this is
+   what keeps Safari from painting the ghost in the first place. */
+.rail-draggable img,
+.rail-draggable a {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+.score-node {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--node-w);
+  text-decoration: none;
+  color: inherit;
+}
+/* The node on the wire: a small diamond, as the game marks its stops. */
+.score-node-pin {
+  position: absolute;
+  /* On the wire, in the gap before the card -- the stop, not the card's centre. */
+  top: calc(var(--art-h) / 2 - 4px);
+  left: -10px;
+  width: 7px;
+  height: 7px;
+  background: var(--panel);
+  border: 1px solid var(--teal-dim);
+  transform: rotate(45deg);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  z-index: 1;
+}
+.score-node:hover .score-node-pin {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.score-node-art {
+  position: relative;
+  display: block;
+  aspect-ratio: var(--art-ratio);
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  transition: border-color 0.15s ease;
+}
+.score-node:hover .score-node-art { border-color: var(--teal-dim); }
+.score-node-art img { object-fit: cover; }
+/* A stage map standing in for a banner: dimmed and desaturated, the same treatment
+   the content cards give it, so a borrowed picture never reads as the real art. */
+.score-node-art img.score-node-map { opacity: 0.55; filter: saturate(0.6); }
+.score-node-art-none {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.score-node-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 7px;
+}
+.score-node-code {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--teal);
+}
+.score-node-name {
+  font-size: 13px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.score-node:hover .score-node-name { color: var(--teal); }
+.score-node-meta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+/* --- Terminal home ------------------------------------------------------
+   Panels with their label clipped to the top-left corner, which is the game's own
+   signature on this screen (ATTENTION, TO-DO LIST, VECTOR BREAKTHROUGH). */
+.terminal-home {
+  display: grid;
+  /* minmax(0, ...) on both tracks rather than a bare fr. A bare `1fr` is
+     minmax(auto, 1fr), and that `auto` floors the track at its widest item's
+     MIN-CONTENT width -- so a panel wanting more than its share does not ellipsise or
+     wrap, it grows the track and hangs off the page. On a 430px phone the ATTENTION
+     panel wanted 418px in a 382px column and put 12px of the document past the right
+     edge, its own border with it, and the whole page scrolled sideways. A zero minimum
+     makes the track the width the layout says and leaves the overflow to the content,
+     which already knows what to do with it: the row name ellipsises, the meta wraps. */
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.terminal-panel {
+  position: relative;
+  padding: 26px 14px 14px;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  /* Rounded like every other box on the site, which these were not: the front page and
+     the game-mode panels are 6px and these were square, so a reader moving between
+     them saw two different shapes for the same kind of thing.
+     Three corners rather than four. The top-left carries the label tab below, clipped
+     flush into the corner the way the game draws it, and rounding that corner would
+     round the panel out from under the label and leave it overhanging. */
+  border-radius: 0 6px 6px 6px;
+}
+.terminal-panel.wide { grid-column: 1 / -1; }
+
+/* A scene that STACKS its panels -- Regular Tasks, Seasonal Challenge -- rather than
+   laying them out on the home board's grid. Two panels of the same weight, edge to
+   edge, read as one long list with a label dropped into the middle of it: the
+   Annihilation rail ran straight into the Stationary Security Service header. So they
+   get air between them, a crisper edge than --line-soft gives, and a rule along the
+   top that starts the block. */
+.terminal-scene > .terminal-panel {
+  border-color: var(--line);
+  border-top: 2px solid var(--teal-dim);
+}
+.terminal-scene > .terminal-panel + .terminal-panel { margin-top: 26px; }
+.terminal-panel::before {
+  content: attr(data-tab);
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 3px 10px 3px 12px;
+  background: var(--panel-2);
+  border-right: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.terminal-empty { margin: 6px 0; }
+
+/* The lead: the running event at the size the game gives it. */
+.terminal-lead {
+  position: relative;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.terminal-lead-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 3.12;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+}
+.terminal-lead-art img { object-fit: cover; }
+.terminal-lead-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+}
+.terminal-lead-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  /* Amber only when it really is open: the same colour on a closed event would be the
+     board telling you to go and play something that ended. */
+  color: var(--text-dim);
+}
+.terminal-lead.live .terminal-lead-kind { color: var(--amber); }
+.terminal-lead-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.terminal-lead:hover .terminal-lead-name { color: var(--teal); }
+.terminal-lead-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Attention: what else is open, with how long it has left. */
+.terminal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.terminal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: inherit;
+}
+.terminal-row:hover {
+  border-color: var(--teal-dim);
+  background: var(--panel-2);
+}
+.terminal-row-art {
+  position: relative;
+  flex: 0 0 auto;
+  width: 84px;
+  aspect-ratio: 3.12;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.terminal-row-art img { object-fit: cover; }
+.terminal-row-art-none {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--panel-2);
+}
+.terminal-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.terminal-row-name {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.terminal-row-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+/* The countdown pill the game stamps on everything with a deadline. */
+.terminal-pill {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 9px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.terminal-pill.live { color: var(--amber); border-color: var(--teal-dim); }
+
+/* The two permanent modes, pinned as the game pins Integrated Strategies. */
+.terminal-mode {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 5px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: inherit;
+}
+.terminal-mode:hover {
+  border-color: var(--teal-dim);
+  background: var(--panel-2);
+}
+.terminal-mode-art {
+  position: relative;
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 3.12;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.terminal-mode-art img { object-fit: cover; }
+.terminal-mode-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.terminal-mode-kind {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.terminal-mode-name {
+  font-size: 13px;
+  line-height: 1.25;
+}
+.terminal-mode-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+/* The game's Enter button, which is a wide flat slab and not a pill. */
+.terminal-cta {
+  display: block;
+  margin-top: 4px;
+  padding: 9px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  text-align: center;
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-radius: 6px;
+}
+.terminal-cta:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+/* --- Regular Tasks ------------------------------------------------------
+   Each panel leads with what is running, the way the game leads with "Kazdel /
+   Scorching Workshop" and "#10 Freeze Security Service". */
+/* What is running: the whole block is the link, because it is the one thing on this
+   screen worth a click. It used to be a text stack with a full-width empty button
+   under it, which read as a gap in the page rather than as an invitation. */
+.regular-now {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--teal);
+  background:
+    radial-gradient(120% 140% at 0% 50%, rgb(70 220 200 / 0.07), transparent 60%),
+    var(--panel-2);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.14s, background-color 0.14s;
+  border-radius: 6px;
+}
+a.regular-now:hover { border-color: var(--teal); }
+a.regular-now:hover .regular-now-go { color: var(--teal); }
+a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
+/* SSS has no crest of its own to show and its towers sit inside, so it drops the
+   picture column and stacks. */
+.regular-now.season { grid-template-columns: 1fr; }
+.regular-now-crest {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+}
+/* The nation's mark, drawn in the ink the theme is using. It arrives as white on
+   alpha, which would be the brightest thing on the panel left as it is. */
+.regular-crest {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.85;
+}
+.regular-now-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.regular-now-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.regular-now-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.regular-now-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+/* The affordance the button used to be, at the size a line of text deserves. */
+.regular-now-go {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  transition: color 0.14s;
+}
+.regular-now-go::after {
+  content: ' \2192';
+  display: inline-block;
+  transition: transform 0.14s;
+}
+/* A season runs two towers: a new one and, usually, an older one brought back. */
+.regular-towers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.regular-tower {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: stretch;
+  gap: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  text-decoration: none;
+  color: var(--text);
+  overflow: hidden;
+  transition: border-color 0.14s;
+}
+.regular-tower:hover { border-color: var(--teal); }
+.regular-tower-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  background: var(--panel-2);
+}
+.regular-tower-art img { object-fit: cover; }
+.regular-tower-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  justify-content: center;
+  padding: 8px 10px 8px 0;
+  min-width: 0;
+}
+/* New or brought back. The new one leads the pair, so the tag confirms the order
+   rather than being the only way to work it out. */
+.regular-tower-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.regular-tower-tag.rerun { color: var(--text-faint); }
+.regular-tower-name {
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+.regular-tower-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+/* A crest is an object, not a scene: shown whole and dimmed to the ink weight of the
+   panel it sits on rather than the white it arrives as.
+   Written as .score-node-art img.score-node-crest, not as the bare class: the rail's
+   own `.score-node-art img { object-fit: cover }` is two selectors and wins against
+   one, so a bare class left every crest cropped to a 230x74 strip -- and with a
+   percentage pad on a box that shallow, cropped to nothing at all. */
+.score-node-art img.score-node-crest {
+  object-fit: contain;
+  padding: 14%;
+  opacity: 0.8;
+}
+/* And a strip is the wrong frame for an emblem regardless: the rails default to the
+   3.12 of side-story banner art, so a crest rail asks for a square -- and a narrow
+   one. A crest is a label, not a picture: at the 232px the banner rails use it was
+   the biggest thing on the screen, and only four of the fifteen zones fitted. */
+.crest-rail {
+  --node-w: 116px;
+  --art-ratio: 1;
+}
+
+.regular-sub {
+  margin: 0 0 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+/* A panel with nothing behind it. The game draws its unopened slots rather than
+   hiding them, and so does this -- dimmed, and saying why. */
+.terminal-panel.shut {
+  border-style: dashed;
+  background: none;
+}
+.terminal-panel.shut::before { color: var(--text-faint); }
+.terminal-panel.shut .hint { margin: 4px 0 0; }
+
+/* --- Long-Term Exploration ---------------------------------------------- */
+.explore-mode { margin-bottom: 34px; }
+.explore-hero {
+  position: relative;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.explore-hero-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 3.12;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+}
+.explore-hero-art img { object-fit: cover; }
+.explore-hero:hover .explore-hero-art { border-color: var(--teal-dim); }
+.explore-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+}
+.explore-hero-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.explore-hero-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.explore-hero-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.explore-rail { margin-top: 6px; }
+
+/* --- Supplies -----------------------------------------------------------
+   Portrait cards with the days on them and a stamp over the ones today is not,
+   which is the game's own composition for this screen. */
+.supply-schedule {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.supply-day {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 4px 5px;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.supply-day:hover { border-color: var(--line); color: var(--text); }
+/* Today is marked whether or not it is the day being previewed -- the game keeps a
+   TODAY tick under the real day, and losing it while you look at Thursday would make
+   the strip a set of buttons rather than a schedule. */
+.supply-day-abbr { line-height: 1.1; }
+.supply-day-mark {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--amber);
+}
+.supply-day.current {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: var(--panel-2);
+}
+
+.supply-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 12px;
+}
+.supply-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+.supply-card:hover { border-color: var(--teal-dim); }
+.supply-card-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  /* A faint pit for the reward to sit in, rather than the flat panel a cropped map
+     needed: the mark is a small object now and wants a ground to read against. */
+  background:
+    radial-gradient(circle at 50% 46%, rgb(255 255 255 / 0.06), transparent 62%),
+    var(--panel-2);
+}
+/* The reward, or the class emblem. Sized off the card rather than the file: the item
+   icons are 183px square and the emblems 160x157, and left to themselves they landed
+   at two visibly different sizes on the same row. */
+.supply-card-mark {
+  width: auto;
+  height: 62%;
+  max-width: 62%;
+  object-fit: contain;
+}
+/* Shut for the day: drained of colour, with the game's own words stamped across it. */
+.supply-card.shut .supply-card-art img { filter: grayscale(1) brightness(0.5); }
+.supply-card.shut { opacity: 0.72; }
+.supply-card-shut {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 3px 6px;
+  background: rgb(240 102 90 / 0.85);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1A0C0A;
+}
+.supply-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px 10px;
+}
+.supply-card-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+}
+.supply-card-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.supply-card-days {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.supply-pips {
+  display: flex;
+  gap: 3px;
+  margin: 5px 0 3px;
+}
+.supply-pip {
+  width: 9px;
+  height: 4px;
+  background: var(--teal-dim);
+}
+.supply-card.shut .supply-pip { background: var(--line); }
+.supply-card-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+@media (max-width: 900px) {
+  .terminal-home { grid-template-columns: minmax(0, 1fr); }
+
+  /* Seven tabs do not fit a phone, and a sideways-scrolling bar hides most of them
+     behind a gesture with nothing to say it is there. So the bar names the section you
+     are in, and the button opens the rest as a panel under it. The same 900px the site
+     switches its own nav at, so the two change together. */
+  .terminal-bar-toggle { display: flex; }
+  .terminal-tabs {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    overflow: visible;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    /* Above the scene, and above the sticky rails inside it. */
+    z-index: 2;
+    box-shadow: 0 12px 24px rgb(0 0 0 / 0.4);
+  }
+  .terminal-tabs.open { display: flex; }
+  .terminal-tabs .terminal-tab {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .terminal-tabs .terminal-tab:last-child { border-bottom: 0; }
+  /* The current tab is marked along its leading edge here: the bar's own underline
+     idiom has nothing to underline in a column. */
+  .terminal-tabs .terminal-tab.current {
+    border-bottom-color: var(--line-soft);
+    box-shadow: inset 2px 0 0 var(--teal);
+  }
+}
+@media (max-width: 700px) {
+  /* 24px each side of a 430px phone is a ninth of the screen spent on margin, on
+     scenes whose panels already want more width than is left. The head was alone in
+     knowing that; now the scene and the wash follow it. */
+  .terminal-head,
+  .terminal-scene { --scene-gutter: 16px; }
+  .terminal-head { padding: 18px var(--scene-gutter) 10px; }
+  /* And 24px of dead space between the title and the first panel, on top of the head's
+     own 10 and the h1's 8. Air at 1040px wide; a hole on a phone. */
+  .terminal-scene { padding-top: 10px; }
+  .terminal-lead-name { font-size: 19px; }
+  .explore-hero-name { font-size: 18px; }
+  .score-rail { --node-w: 200px; }
+  .score-line.act .score-rail { --node-w: 148px; }
+  .score-line-name { font-size: 18px; }
+  .terminal-bar-inner { padding: 0 10px; }
+  .terminal-tab { padding: 9px 10px 7px; gap: 6px; font-size: 10px; }
+  .terminal-tab-mark { font-size: 15px; }
+  .terminal-tab-mark.mode-mark { width: 16px; height: 16px; }
+}
+
+/* --- the game's mode emblems -------------------------------------------------
+   Painted as masks so they take the ink of whatever they sit in; see
+   components/stages/ModeMark.tsx for why, and scripts/imports/import-mode-marks.py for where the
+   files come from. The element carries only its own mask-image inline. */
+.mode-mark {
+  display: inline-block;
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+}
+/* Beside a scene's name, at the cap height of the title it belongs to. */
+.head-mark {
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.42em;
+  vertical-align: -0.1em;
+  color: var(--teal);
+}
+/* And large in a panel's corner, the way the game watermarks its own -- behind
+   everything, and out of the way of the header pill in the other corner. At the 0.07
+   this started on it was doing nothing but costing a request: an emblem this fine has
+   most of its area in thin strokes, so it needs several times the alpha a solid shape
+   would to read at all. */
+.panel-mark {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 92px;
+  height: 92px;
+  color: var(--text);
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+/* --- contents with no map ---------------------------------------------------
+   Fifteen of them: the game drops a stage's level file once there is no way to play
+   it, so these have no map, no render and no enemy list. Their cards are spans rather
+   than links (components/ui/ContentCardLink.tsx), so they need to stop LOOKING like
+   links -- the hover lift and the border warming both come off. */
+.mapless { cursor: default; }
+.mapless:hover .score-node-art,
+.mapless:hover .stage-mode-art,
+.mapless:hover .explore-hero-art { border-color: var(--line-soft); }
+.mapless .score-node-name,
+.mapless .stage-mode-name,
+.mapless .explore-hero-name { color: var(--text-dim); }
+/* The ART is not dimmed. Draining a content's own banner to say "not clickable" gives
+   up the one thing these cards still have, and the corner note says it in words. */
+/* Bottom right, over the art, in the game's own stamp idiom -- the same corner and
+   the same weight as the "Running now" flag it sits opposite. */
+.card-nomap {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 2px 6px;
+  background: rgb(10 14 18 / 0.86);
+  border-top: 1px solid var(--line-soft);
+  border-left: 1px solid var(--line-soft);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* The Story Collection mark: bottom LEFT of a card's art, opposite the no-map note.
+   The game files these under MINISTORY -- small events with no new enemies, no new
+   mechanic and no re-run -- and it is a fact about the event, not about our data, so
+   it sits on cards whose maps are all present too (Crossing, A Kazdelian Rescue). */
+.card-ministory {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  padding: 3px 5px;
+  background: rgb(10 14 18 / 0.86);
+  border-top: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+  color: var(--text-dim);
+}
+.card-ministory .mode-mark {
+  width: 17px;
+  height: 17px;
+}
+/* Small art needs a smaller mark: the Terminal's list rows run a 120px thumbnail. */
+.terminal-row-art .card-ministory { padding: 2px 4px; }
+.terminal-row-art .card-ministory .mode-mark { width: 13px; height: 13px; }
+
+/* --- Reclamation Algorithm, as a map -------------------------------------------
+   The one mode whose operations are places. Coordinates are the game's own, so the
+   SVG carries a viewBox in map units and everything inside it is sized in those --
+   which is why the radii read as 28-46 rather than as pixels. */
+.ra-map { margin: 0 0 26px; }
+.ra-map-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  /* The head wraps, the tabs do not: when the two do not fit on one line it is the
+     zoom controls that drop, rather than one tab breaking off the end of the row. */
+  flex-wrap: wrap;
+}
+/* The map, and the operations it has no node for, as tabs over the frame. */
+.ra-map-pick {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+@media (max-width: 700px) {
+  /* Narrower than the tabs themselves: wrapping beats overflowing. */
+  .ra-map-pick { flex-wrap: wrap; }
+}
+/* The map keeps its place in the DOM on the other tab -- see RaMap -- so it is hidden
+   here rather than unmounted there. */
+.ra-map-frame.put-away { display: none; }
+/* The other tab's contents. The frame can sit tight under the tabs because its border
+   draws the join; a bare heading cannot, so this is the room it needs. */
+.ra-map-list { margin-top: 20px; }
+.ra-map-tab {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.ra-map-tab:hover { color: var(--text); border-color: var(--teal-dim); }
+.ra-map-tab.current {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: rgb(77 232 209 / 0.08);
+}
+.ra-map-zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.ra-map-zoom[hidden] { display: none; }   /* display:flex above outranks [hidden] */
+.ra-map-zoom input[type="range"] { width: 120px; accent-color: var(--teal); }
+/* The shortcut, said once where the zoom lives -- a plain wheel scrolls the page. */
+.ra-zoom-hint { color: var(--text-faint); }
+@media (max-width: 700px) {
+  /* No wheel to hold a key over. */
+  .ra-zoom-hint { display: none; }
+}
+.ra-zoom-reset { padding: 2px 8px; font-size: 10px; }
+/* Size-limited, like the base planner's viewport: the map is a window on the desert
+   rather than a picture as tall as the desert is wide. 70vh so the whole thing is
+   visible on a laptop without scrolling the page to see its own bottom edge. */
+.ra-map-frame {
+  position: relative;
+  height: min(70vh, 660px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  touch-action: pan-y;
+  /* Dragging pans the map, and a drag across SVG <text> is a text selection to the
+     browser -- so panning past a few labels left half the desert highlighted in blue. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ra-map-frame.zoomed { cursor: grab; }
+.ra-map-frame.zoomed:active { cursor: grabbing; }
+.ra-map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ra-paths line {
+  stroke: rgb(255 255 255 / 0.45);
+  stroke-linecap: round;
+}
+/* The markers, styled after their renderer: a near-white fill with a BLACK glyph, under
+   a translucent ring of the same shape. Every colour here is one of theirs. */
+.ra-fill {
+  fill: #ffffff;
+  transition: fill 0.12s;
+}
+.ra-ring {
+  fill: none;
+  stroke: #efefef;
+}
+/* The glyphs arrive white on alpha. `ink` inverts one to black, which is how their
+   renderer draws every marker glyph -- the market keeps its white on the teal. */
+.ra-glyph { pointer-events: none; }
+.ra-glyph.ink { filter: invert(1); }
+/* The chips are lit like little cubes -- three facets, three greys -- and their glyphs
+   carry their own tint. Which is why the hover rules name .ra-fill and nothing else:
+   inverting everything under the pointer turned the resource icons black. */
+.ra-chip-facet { stroke: none; }
+.ra-node-link { cursor: pointer; }
+.ra-node-link:hover .ra-fill,
+.ra-node-link:focus .ra-fill { fill: #FFD166; }
+.ra-node-link:focus { outline: none; }
+.ra-node-link:focus-visible .ra-fill { stroke: #FFD166; stroke-dasharray: 4 3; }
+
+/* The label: the kind over the name on a dark plate, with the weather chip the game
+   puts to the left of it. A caption, not a target, so it takes no pointer. */
+.ra-tag { pointer-events: none; }
+.ra-tag-plate { fill: rgb(17 17 17 / 0.72); }
+.ra-tag-chip { fill: #333333; }
+.ra-tag-kind {
+  fill: #aaaaaa;
+  font-family: var(--font-mono);
+}
+.ra-tag-name {
+  fill: #ffffff;
+  font-weight: 600;
+}
+.ra-map-credit { margin: 4px 0 0; }
+
+/* What the maps do not place. A list rather than the card grid every other content
+   gets: for this one mode the maps ARE the index, and a wall of tiles beside them was
+   the same operations twice. These are the leftovers, so they are quiet. */
+

@@ -1,7 +1,7 @@
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
-import ModeMark from '@/components/ModeMark';
+import ModeMark from '@/components/stages/ModeMark';
 
 interface Mode {
   /** null while the mode has no page of its own -- the row is still listed. */

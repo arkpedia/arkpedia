@@ -34,7 +34,7 @@ const FORMULAS = formulaData as Record<string, Formula>;
  * F_ASC, the chip family, is a cycle -- three Sniper Chips make a Caster Chip and
  * three Caster Chips make a Sniper Chip, because those are the game's class trades
  * rather than a ladder. Following them would not terminate, and the advice it
- * produced on the way would be nonsense. scripts/import-base-formulas.mjs fails
+ * produced on the way would be nonsense. scripts/imports/import-base-formulas.mjs fails
  * the build if a cycle ever appears among the two families below, so this set and
  * that guard have to agree; they are stated in both places on purpose.
  */

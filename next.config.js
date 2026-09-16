@@ -231,7 +231,7 @@ const nextConfig = {
 
 module.exports = (phase) => {
   if (phase === 'phase-production-build' || phase === 'phase-development-server') {
-    require('./scripts/build-public-asset-index.cjs').buildPublicAssetIndex(__dirname);
+    require('./scripts/build/build-public-asset-index.cjs').buildPublicAssetIndex(__dirname);
   }
   return nextConfig;
 };

@@ -10,11 +10,11 @@ import {
   strongholdData,
 } from '@/lib/gamemodes/stronghold';
 import { operatorFunds, tierFunds } from '@/lib/gamemodes/strongholdPrice';
-import { Badge, Funds } from '@/components/StrongholdIcons';
+import { Badge, Funds } from '@/components/gamemodes/StrongholdIcons';
 import { buildableAlliances } from '@/lib/gamemodes/strongholdPlaybook';
 import { ISOMORPH_ITEM } from '@/lib/gamemodes/strongholdOpening';
-import StrongholdCompanion from '@/components/StrongholdCompanion';
-import EnemyDetailPanel, { type EnemyDetailData } from '@/components/EnemyDetailPanel';
+import StrongholdCompanion from '@/components/gamemodes/StrongholdCompanion';
+import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
 
 type Picker = ReturnType<typeof alliancesForPicker>;
 

@@ -1,4 +1,4 @@
-import { moduleUnlock } from '@/lib/plannerLogic';
+import { moduleUnlock } from '@/lib/planner/plannerLogic';
 
 /** Promotion resets the level; only retain levels already within Elite 2. */
 export function withMasteryPrerequisites<T extends { elite: number; level: number; skillLevel: number }>(state: T): T {

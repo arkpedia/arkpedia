@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { getLiveTwitchStreams, TwitchStream } from '@/lib/community/twitch';
 import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
-import { TwitchCard } from '@/components/StreamCards';
+import { TwitchCard } from '@/components/community/StreamCards';
 
 interface Props {
   twitchStreams: TwitchStream[];

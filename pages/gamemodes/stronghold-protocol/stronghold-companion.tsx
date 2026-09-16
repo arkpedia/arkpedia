@@ -9,7 +9,7 @@ import {
 } from '@/lib/gamemodes/stronghold';
 import { assertPlaybook, buildableAlliances } from '@/lib/gamemodes/strongholdPlaybook';
 import { assertOpening } from '@/lib/gamemodes/strongholdOpening';
-import StrongholdCompanion, { type CompanionProps } from '@/components/StrongholdCompanion';
+import StrongholdCompanion, { type CompanionProps } from '@/components/gamemodes/StrongholdCompanion';
 import { isCompanionPopout } from '@/lib/gamemodes/companionRoute';
 
 type Props = CompanionProps & { data: StrongholdData };

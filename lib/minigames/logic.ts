@@ -1,4 +1,4 @@
-import { normalizeForSearch } from '@/lib/searchNormalize';
+import { normalizeForSearch } from '@/lib/search/searchNormalize';
 
 export interface GameOperator { name: string; aliases: string[] }
 export type PaletteMode = 'base' | 'elite2';

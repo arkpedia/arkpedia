@@ -10,7 +10,7 @@
 //
 // This replaces the private arkpedia-database bundles. Everything downstream of
 // it -- variant links, borrowed names, story groups, run windows, devices,
-// exclusions -- is rebuilt by the later steps in scripts/refresh-stage-data.sh,
+// exclusions -- is rebuilt by the later steps in scripts/sync/refresh-stage-data.sh,
 // one of which has to run last.
 //
 // Output is built beside the real directories and swapped in only at the end, so

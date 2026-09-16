@@ -38,7 +38,7 @@ import { MAX_COUNT, ownString, shortLabel } from './untrusted';
  * WHY THE MAPS ARE GENERATED. Krooster keys on the gamedata's itemId and
  * ark-nights on arkgraph's shorthand codes, and neither is derivable from an
  * English name -- "M-4-8" is Manganese Trihydrate and there is no rule that
- * says so. Both maps are built by scripts/build-import-aliases.ts and committed,
+ * says so. Both maps are built by scripts/build/build-import-aliases.ts and committed,
  * so reading a pasted file needs no network.
  */
 
@@ -72,7 +72,7 @@ const KNOWN_NOT_HELD = new Set(['EXP']);
       'foreignImport: data/import-aliases.json and MATERIAL_SORT_ORDER disagree.' +
       (unmapped.length ? ` No itemId for: ${unmapped.join(', ')}.` : '') +
       (orphans.length ? ` Maps a name the sort order does not have: ${orphans.join(', ')}.` : '') +
-      ' Re-run: npx tsx scripts/build-import-aliases.ts',
+      ' Re-run: npx tsx scripts/build/build-import-aliases.ts',
     );
   }
 }

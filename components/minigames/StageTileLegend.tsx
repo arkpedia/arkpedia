@@ -1,6 +1,6 @@
 import type { StageLayout } from '@/lib/minigames/stageGuesser';
 import { stageTileMark, tileStyle } from '@/lib/stages/stageTiles';
-import styles from '@/styles/stage-guesser.module.css';
+import styles from '@/styles/games/stage-guesser.module.css';
 
 export default function StageTileLegend({ layout, selected, onSelect }: {
   layout: StageLayout; selected: number | null; onSelect: (index: number | null) => void;

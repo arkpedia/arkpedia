@@ -10,7 +10,7 @@ import events2027 from '@/data/events/events_2027.json';
 /**
  * Merges every per-year events file (data/events/events_2020.json
  * through events_2026.json) into one array, replacing the old single
- * data/events.json -- both lib/frontPageContent.ts (home page, event
+ * data/events.json -- both lib/home/frontPageContent.ts (home page, event
  * listings) and lib/schedule/schedule.ts (skin-countdown matching on
  * pages/skins.tsx) read through here instead of importing the old
  * file directly, so they can't drift out of sync with each other.

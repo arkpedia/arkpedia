@@ -8,10 +8,10 @@ import { getLiveTwitchStreams, TwitchStream } from '@/lib/community/twitch';
 import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
 import { EVENTS } from '@/lib/schedule/eventsConfig';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
-import WorldMapEvents from '@/components/WorldMapEvents';
-import EventListPanel from '@/components/EventListPanel';
-import FadeCarousel from '@/components/FadeCarousel';
-import { VideoCard, TwitchCard } from '@/components/StreamCards';
+import WorldMapEvents from '@/components/schedule/WorldMapEvents';
+import EventListPanel from '@/components/schedule/EventListPanel';
+import FadeCarousel from '@/components/ui/FadeCarousel';
+import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
 
 const CAROUSEL_MAX_ITEMS = 4;
 

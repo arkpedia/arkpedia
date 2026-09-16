@@ -12,7 +12,7 @@
  * a view of this, and correcting it there corrects it here.
  */
 
-import { maxSkillRankForElite } from '@/lib/plannerLogic';
+import { maxSkillRankForElite } from '@/lib/planner/plannerLogic';
 import { isSafeKey } from './untrusted';
 
 /** More skills or modules than any operator has. The game tops out at three of
