@@ -1,5 +1,5 @@
 import type { GetStaticProps } from 'next';
-import { getAllOperators } from '@/lib/operators/operators';
+import { getGlobalRecruitmentOperators } from './recruitmentPool';
 import { computeGuaranteedCombos, type GuaranteedCombo, type RecruitableOperator } from './recruitmentCalc';
 
 export interface RecruitmentProps {
@@ -9,12 +9,7 @@ export interface RecruitmentProps {
 }
 
 export const getRecruitmentPageProps: GetStaticProps<RecruitmentProps> = async () => {
-  const operators = getAllOperators().filter((op) => {
-    const raw = op.howToObtain;
-    if (typeof raw === 'string') return raw.toLowerCase().includes('recruitment');
-    if (raw && typeof raw === 'object') return raw['Recruitment'] === 'Yes';
-    return false;
-  });
+  const operators = getGlobalRecruitmentOperators();
   const guaranteedCombos4 = computeGuaranteedCombos(operators, 4);
   const guaranteedCombos5 = computeGuaranteedCombos(operators, 5);
   // Project AFTER the combos are computed -- those run here, at build time, and

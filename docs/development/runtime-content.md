@@ -73,3 +73,19 @@ from banners. Exported operator records carry the resolved `releaseAt`; badges
 use that instant across timezones. Without a confirmed hour, the roster says
 “Releases today” through the Global server's calendar day instead of declaring
 availability at the reader's midnight.
+
+## Recruitment accuracy
+
+The calculator, pop-out and guesser use one reviewed Global roster in
+`data/recruitment-global.json`. Its source records include immutable English game
+table URLs and SHA-256 hashes. `node scripts/sync/sync-recruitment.mjs` prepares an
+update during the existing daily refresh; a content PR still needs review before
+publication. A mirrored game table can contain preloaded changes, so reviewers
+must confirm that any new recruitment batch is active on Global before merging.
+
+The importer rejects incomplete rarity groups, ambiguous names, unknown tags,
+missing local operators and disagreements with local recruitment fields. It writes
+only after validation succeeds. A failed update keeps the previous reviewed
+snapshot; it never falls back to CN eligibility or estimated release dates.
+Tables are third-party mirrors of game records, not official announcement sites.
+This check covers recruitment; other datasets require their own source validation.
