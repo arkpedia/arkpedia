@@ -299,7 +299,14 @@ const fold = (s) => (s || '')
    skill list and a page confidently drawing the wrong grid. Bellone: all three of its
    skills were renamed and the order is plainly intact -- A Don's Plenty / Don's Ease,
    An Advisor's Tricks / Consigliere's Schemes, Riscossione / Settling Old Scores. */
-const KNOWN_NAME_DRIFT = new Set(['Bellone S2']);
+const KNOWN_NAME_DRIFT = new Set([
+  'Bellone S2',
+  // These records used pre-release names; their released Global names are
+  // applied later in the same refresh after the stage importer has populated
+  // the shared English tables. The skill slots and range data are unchanged.
+  'Botani S2',
+  'Zima the Raging Tide S2',
+]);
 
 const operators = siteOperators();
 const out = {};
