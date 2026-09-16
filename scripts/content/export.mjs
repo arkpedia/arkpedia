@@ -10,7 +10,7 @@ const routes = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8'))
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { encoding: 'utf8' }).split('\0').filter(Boolean);
 // Publish game records only. No application source, environment files, or raw user responses.
-const sourceFiles = tracked.filter(file => file.endsWith('.json') && !file.includes('final-poll-results')
+const sourceFiles = tracked.filter(file => fs.existsSync(file) && file.endsWith('.json') && !file.includes('final-poll-results')
   && (file.startsWith('data/') || /^public\/[^/]+\.json$/.test(file)));
 const sourceHashes = {};
 fs.rmSync(source, { recursive: true, force: true });
