@@ -84,7 +84,7 @@
 }
 @media (max-width: 900px) {
   .page { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; gap: 16px; padding: 8px 16px 24px; }
-  .gallery { height: min(55dvh, 480px); }
+  .gallery { height: min(55svh, 480px); }
   .details { min-height: calc(100dvh - 52px); }
   .panelHeader { position: sticky; top: 52px; z-index: 8; }
   .hero { padding: 8px 0 16px; }
@@ -144,7 +144,7 @@
 .area { padding-top: 18px; }
 @media (max-width: 900px) {
   .details { grid-row: 2; }
-  .gallery { grid-row: 1; height: min(70dvh, 560px); }
+  .gallery { grid-row: 1; height: min(70svh, 560px); }
   .directNavigation button, .directNavigation select { font-size: 14px; }
 }
 
@@ -218,7 +218,7 @@
 .page :global(.op-base-skill-card) { padding: 12px; }
 @media (max-width: 900px) {
   .page { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .gallery { position: static; height: min(70dvh, 560px); }
+  .gallery { position: static; height: min(70svh, 560px); }
   .details { min-height: 0; }
   .directNavigation { top: 52px; }
 }
@@ -282,7 +282,7 @@
 .masteryGrid { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 900px) {
   .page { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; gap: 20px; }
-  .gallery { height: min(70dvh, 600px); }
+  .gallery { height: min(70svh, 600px); }
   .details { height: auto; display: block; }
   .directNavigation { position: sticky; top: 52px; }
   .area { overflow: visible; min-height: calc(100svh - 170px); padding: 22px 0 24px; }
@@ -390,7 +390,10 @@
   .hero { padding: 18px 14px 14px; }
   .content > [data-operator-section] { padding: 12px; }
   .area { padding: 12px 8px 20px; overflow: visible; min-height: calc(100svh - var(--nav-h, 52px) - 132px); }
-  .gallery { height: min(70dvh, 600px); }
+  /* Mobile browser chrome changes the dynamic viewport while the document is
+     scrolling. Basing the hero on dvh made the artwork resize underneath the
+     user's finger; svh keeps its initial compact-viewport size stable. */
+  .gallery { height: min(70svh, 600px); }
   .talentControls .talentOptions button { min-height: 44px; }
 }
 
