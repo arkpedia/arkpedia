@@ -32,6 +32,7 @@ store data; it is skipped and reported so the scrape gets fixed instead.
 
 Run:  python3 scripts/imports/import-reward-icons.py
 """
+from published_assets import published_assets
 import glob
 import json
 import os
@@ -100,7 +101,8 @@ for path in sorted(glob.glob(os.path.join(root, 'data', 'events', 'events_*.json
 
 missing = {
     n: ev for n, ev in wanted.items()
-    if n not in NOT_REAL and not os.path.exists(os.path.join(out_dir, f'{safe(n)}.webp'))
+    if n not in NOT_REAL and f'material-icons/{safe(n)}.webp' not in published_assets()
+    and not os.path.exists(os.path.join(out_dir, f'{safe(n)}.webp'))
 }
 skipped_placeholders = sorted(n for n in wanted if n in NOT_REAL)
 

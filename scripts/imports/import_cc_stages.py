@@ -28,6 +28,7 @@ have none.
 
 Run:  python3 scripts/imports/import_cc_stages.py
 """
+from published_assets import published_assets
 import json
 import os
 import re
@@ -79,7 +80,9 @@ def main():
         if names.get(level):
             entry['name'] = names[level]
         src = os.path.join(RES, 'map', f'{key}.png')
-        if os.path.exists(src):
+        if f'stages-images/{key}.webp' in published_assets():
+            entry['render'] = f'{key}.webp'
+        elif os.path.exists(src):
             # Matching the rest of public/stages-images/, which is webp.
             Image.open(src).convert('RGB').save(os.path.join(out_dir, f'{key}.webp'), 'WEBP', quality=80, method=6)
             entry['render'] = f'{key}.webp'

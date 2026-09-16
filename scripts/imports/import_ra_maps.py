@@ -30,6 +30,7 @@ the same thing for RA as for everything else.
 
 Run:  python3 scripts/imports/import_ra_maps.py
 """
+from published_assets import published_assets
 import json
 import os
 import ssl
@@ -126,6 +127,12 @@ def main():
     written = 0
     for slug, (path, stage) in sorted(records.items()):
         name = stage.get('name')
+        if f'stages-images/{slug}.webp' in published_assets() and not os.environ.get('ARKPEDIA_REFETCH'):
+            stage['preview'] = f'images/stages/{slug}.png'
+            with open(path, 'w') as fh:
+                json.dump(stage, fh, ensure_ascii=False, separators=(',', ':'))
+            written += 1
+            continue
         hit = urls.get(name)
         if not hit:
             print(f'  no map: {slug} ({name})')

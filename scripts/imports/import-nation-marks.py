@@ -27,6 +27,7 @@ emblems. Filenames are folded to ASCII (Bolívar -> bolivar, Ægir -> aegir) bec
 letter encoded -- and it does that in production only, so the blank card never shows
 up in dev.
 """
+from published_assets import published_assets
 import json
 import os
 import re
@@ -121,6 +122,10 @@ def main() -> int:
     fetched = 0
     cache = {}
     for cid, nation in sorted(wanted.items()):
+        file = f'{slug(nation)}.webp'
+        if f'nation-marks/{file}' in published_assets():
+            index[cid] = file
+            continue
         url = urls.get(nation)
         if not url:
             continue

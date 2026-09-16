@@ -23,6 +23,7 @@
  * Re-run after regenerating the dataset:  node scripts/imports/import-item-icons.mjs
  */
 import fs from 'fs';
+import { assetFileNames } from '../lib/public-assets.mjs';
 import path from 'path';
 
 const root = process.cwd();
@@ -48,9 +49,10 @@ fs.mkdirSync(outDir, { recursive: true });
 const mapFile = path.join(root, 'data', 'item-icons.json');
 const existing = fs.existsSync(mapFile) ? JSON.parse(fs.readFileSync(mapFile, 'utf-8')) : {};
 const map = {};
+const publishedIcons = new Set(assetFileNames('item-icons', root));
 let kept = 0;
 for (const [id, file] of Object.entries(existing)) {
-  if (fs.existsSync(path.join(outDir, file))) { map[id] = file; kept++; }
+  if (publishedIcons.has(file)) { map[id] = file; kept++; }
 }
 const added = [];
 const missing = [];

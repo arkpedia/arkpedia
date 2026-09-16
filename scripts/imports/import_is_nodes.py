@@ -33,6 +33,7 @@ fetches the same files, and bumping it picks up new seasons.
 
 Run:  python3 scripts/imports/import_is_nodes.py
 """
+from published_assets import published_assets
 import json
 import os
 import ssl
@@ -150,9 +151,10 @@ def main():
         plan[slug] = entry
 
     os.makedirs(out_dir, exist_ok=True)
-    needed = sorted(wanted)
+    available = {rogue for rogue in wanted if f'stages-images/{rogue}.webp' in published_assets()}
+    needed = sorted(wanted - available)
     print(f'{len(plan)} IS stages resolve to {len(needed)} renders (normal and Emergency Ops); fetching')
-    written, problems = set(), []
+    written, problems = set(available), []
     with ThreadPoolExecutor(max_workers=8) as pool:
         for rogue, (data, err) in zip(needed, pool.map(fetch, needed)):
             if err:
@@ -174,7 +176,7 @@ def main():
 
     with open(os.path.join(root, 'data', 'is-nodes.json'), 'w') as fh:
         json.dump(plan, fh, separators=(',', ':'), sort_keys=True)
-    print(f'{len(written)} renders written to public/stages-images/')
+    print(f'{len(written)} renders available (published or newly generated)')
     print(f'{len(plan)} stages have a render; '
           f'{sum(1 for e in plan.values() if e.get("emergency"))} also have an Emergency Ops form; '
           f'{sum(1 for e in plan.values() if e.get("name"))} borrow their name')
