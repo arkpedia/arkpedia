@@ -19,6 +19,14 @@ function PlayIcon({ paused }: { paused: boolean }) {
   );
 }
 
+function VolumeIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16">
+      <path d="M2 6h3l3-3v10l-3-3H2V6Zm8.3-.8a4 4 0 0 1 0 5.6M12.2 3a7 7 0 0 1 0 10" />
+    </svg>
+  );
+}
+
 function audioUrl(template: string | null, line: OperatorVoiceLine) {
   return template
     ?.replace('{voiceId}', encodeURIComponent(line.id))
@@ -56,11 +64,25 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [volumeLoaded, setVolumeLoaded] = useState(false);
   const [audioError, setAudioError] = useState('');
   const audioRef = useRef<HTMLAudioElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const playerAnchorRef = useRef<HTMLDivElement>(null);
   const [playerStuck, setPlayerStuck] = useState(false);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('arkpedia.voiceVolume');
+    const saved = stored === null ? NaN : Number(stored);
+    if (Number.isFinite(saved) && saved >= 0 && saved <= 1) setVolume(saved);
+    setVolumeLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+    if (volumeLoaded) window.localStorage.setItem('arkpedia.voiceVolume', String(volume));
+  }, [volume, volumeLoaded]);
 
   useEffect(() => {
     let frame = 0;
@@ -211,6 +233,13 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
             <span>{pack?.status === 'legacy' ? 'Previous voice actor' : 'Voice actor'}</span>
             <strong title={pack?.actors.join(', ') || 'Unknown'}>{pack?.actors.join(', ') || 'Unknown'}</strong>
           </div>
+          <label className={styles.volume} title={`Volume ${Math.round(volume * 100)}%`}>
+            <span className="visually-hidden">Volume</span>
+            <VolumeIcon />
+            <input type="range" min="0" max="1" step="0.05" value={volume}
+              onChange={event => setVolume(Number(event.target.value))}
+              aria-label="Voice volume" aria-valuetext={`${Math.round(volume * 100)}%`} />
+          </label>
         </div>
         <button type="button" className={styles.mainPlay} onClick={() => void toggleSelected()}
           aria-label={`${playing ? 'Pause' : 'Play'} ${selected?.title ?? 'voice line'}`} disabled={!selectedHasRecording}>
