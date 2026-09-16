@@ -390,10 +390,9 @@
   .hero { padding: 18px 14px 14px; }
   .content > [data-operator-section] { padding: 12px; }
   .area { padding: 12px 8px 20px; overflow: visible; min-height: calc(100svh - var(--nav-h, 52px) - 132px); }
-  /* Mobile browser chrome changes the dynamic viewport while the document is
-     scrolling. Basing the hero on dvh made the artwork resize underneath the
-     user's finger; svh keeps its initial compact-viewport size stable. */
-  .gallery { height: min(70svh, 600px); }
+  /* The page captures this height once per phone orientation. Address-bar and
+     keyboard height changes therefore cannot resize the artwork mid-scroll. */
+  .gallery { height: var(--operator-mobile-art-height, min(70svh, 600px)); }
   .talentControls .talentOptions button { min-height: 44px; }
 }
 

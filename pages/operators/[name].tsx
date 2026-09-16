@@ -450,6 +450,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchHighlight, setSearchHighlight] = useState(0);
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const searchWrapRef = useRef<HTMLDivElement | null>(null);
 
   const searchResults = useMemo(
@@ -460,6 +461,53 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   useEffect(() => {
     setSearchHighlight(0);
   }, [searchResults]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const mobile = window.matchMedia('(max-width: 900px)');
+    let layoutWidth = window.innerWidth;
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const setArtworkHeight = () => {
+      if (!mobile.matches) {
+        frame.style.removeProperty('--operator-mobile-art-height');
+        return;
+      }
+
+      // Mobile browsers resize the visible viewport as their address bar hides
+      // and returns. Capture the initial visible height as pixels so that normal
+      // vertical scrolling cannot resize the artwork underneath the user's finger.
+      const visibleHeight = window.visualViewport?.height ?? window.innerHeight;
+      frame.style.setProperty('--operator-mobile-art-height', `${Math.min(Math.round(visibleHeight * 0.7), 600)}px`);
+    };
+
+    const handleResize = () => {
+      const nextWidth = window.innerWidth;
+      // Height-only resizes are browser chrome or the on-screen keyboard. A real
+      // width change means rotation, split-screen resizing, or a breakpoint change.
+      if (Math.abs(nextWidth - layoutWidth) <= 8) return;
+      layoutWidth = nextWidth;
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(setArtworkHeight, 120);
+    };
+
+    const handleBreakpoint = () => {
+      layoutWidth = window.innerWidth;
+      setArtworkHeight();
+    };
+
+    setArtworkHeight();
+    window.addEventListener('resize', handleResize, { passive: true });
+    mobile.addEventListener('change', handleBreakpoint);
+    return () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      window.removeEventListener('resize', handleResize);
+      mobile.removeEventListener('change', handleBreakpoint);
+      frame.style.removeProperty('--operator-mobile-art-height');
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -849,7 +897,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
   return (
     <>
-      <div className={pageStyles.frame}>
+      <div className={pageStyles.frame} ref={frameRef}>
       <div className={`op-page-header-search ${pageStyles.searchHeader}`} ref={searchWrapRef}>
         <Link prefetch={false} href="/operators" className="op-back-to-roster-btn" aria-label="Back to operators">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16">
