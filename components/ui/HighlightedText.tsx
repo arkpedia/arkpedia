@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 
 const NUMBER_PATTERN = /(\+?\b\d+\b%?|\b\d+s\b)/g;
 
@@ -39,4 +39,27 @@ export function highlightStats(text: string | null | undefined): ReactNode[] {
       part
     )
   );
+}
+
+/** Render the small, trusted inline-markup subset used by game text.
+ * Unknown tags remain visible as text instead of being interpreted as HTML. */
+export function renderGameText(text: string | null | undefined): ReactNode[] {
+  if (!text) return [];
+  const parts = text.split(/(<\/?i>)/gi);
+  const rendered: ReactNode[] = [];
+  let emphasisDepth = 0;
+
+  parts.forEach((part, index) => {
+    if (/^<i>$/i.test(part)) {
+      emphasisDepth += 1;
+      return;
+    }
+    if (/^<\/i>$/i.test(part)) {
+      emphasisDepth = Math.max(0, emphasisDepth - 1);
+      return;
+    }
+    if (!part) return;
+    rendered.push(emphasisDepth > 0 ? <em key={index}>{part}</em> : part);
+  });
+  return rendered;
 }

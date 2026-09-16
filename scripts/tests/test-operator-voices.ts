@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createElement, Fragment } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import voiceData from '../../data/operator-voice-lines.json';
+import { renderGameText } from '../../components/ui/HighlightedText';
 import type { OperatorVoiceData } from '../../lib/operators/operatorVoices';
 
 const operators = voiceData.operators as Record<string, OperatorVoiceData>;
@@ -57,4 +60,19 @@ test('the newest CN operators use recordings from the current asset inventory', 
   assert.deepEqual(jacinta.packs.map(pack => pack.id), ['jp', 'cn']);
   assert.ok(jacinta.packs.every(pack => pack.audioTemplate?.includes('arkpedia/arkpedia-voice-')));
   assert.ok(jacinta.packs.every(pack => pack.audioTemplate?.endsWith('/{voiceIdLower}.mp3')));
+});
+
+test('voice transcript markup is supported and rendered safely', () => {
+  const unsupported = Object.entries(operators).flatMap(([operatorId, operator]) => operator.lines.flatMap(line => {
+    const tags = line.text?.match(/<\/?[a-z][^>]*>/gi) ?? [];
+    return tags.filter(tag => !/^<\/?i>$/i.test(tag)).map(tag => `${operatorId}: ${tag}`);
+  }));
+  assert.deepEqual(unsupported, []);
+
+  const html = renderToStaticMarkup(createElement(Fragment, null, ...renderGameText('<i>Aj-aj-aj,</i>')));
+  assert.equal(html, '<em>Aj-aj-aj,</em>');
+  assert.equal(
+    renderToStaticMarkup(createElement(Fragment, null, ...renderGameText('<script>alert(1)</script>'))),
+    '&lt;script&gt;alert(1)&lt;/script&gt;',
+  );
 });

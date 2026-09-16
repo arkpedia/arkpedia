@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 import StyledSelect from '../ui/StyledSelect';
+import { renderGameText } from '../ui/HighlightedText';
 import { OperatorVoiceData, OperatorVoiceLine } from '@/lib/operators/operatorVoices';
 import styles from './OperatorVoiceLines.module.css';
 
@@ -295,7 +296,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
                   {line.status === 'unused' && <span className={styles.unused}>Unused</span>}
                   {line.unlock && <span className={styles.unlock}>{line.unlock}</span>}
                 </div>
-                <p lang={data.textLocale}>{line.text || 'Transcript not present in current game data.'}</p>
+                <p lang={data.textLocale}>{line.text ? renderGameText(line.text) : 'Transcript not present in current game data.'}</p>
               </div>
             </li>
           );
