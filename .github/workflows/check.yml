@@ -67,6 +67,9 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+          # prebuild runs before Next sets this; enable immutable data caches
+          # while generating thousands of stage files in this fresh process.
+          NODE_ENV: production
 
       - name: Install Chromium only
         run: npx playwright install --with-deps chromium
