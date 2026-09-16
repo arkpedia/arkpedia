@@ -14,7 +14,7 @@ import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from 
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
 import { getClassIconPath, getBranchIconPath, getFactionIconPath } from '@/lib/operators/classBranchIcons';
-import { parseDate } from '@/lib/operators/operatorReleaseDates';
+import { operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { fetchVideoOEmbedInfo } from '@/lib/music/youtube';
 import {
@@ -826,15 +826,14 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
     return sumCostGroups(stagesUpToActive.map((s) => s.cost));
   }
 
-  // Countdown for operators who haven't released yet -- same date
-  // source/parsing as the roster page's "coming soon" logic
-  // (characterInfo['Release Date'], via the shared parseDate helper),
-  // just scoped to this one operator instead of the whole list. Only
-  // shown once there's an actual future date to count down to --
-  // isFuture alone (with no recorded date yet) has nothing to display.
-  const releaseDate = parseDate(operator.characterInfo?.['Release Date'] || '');
-  const daysUntilRelease = releaseDate ? (releaseDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000) : null;
-  const showReleaseCountdown = operator.isFuture && daysUntilRelease !== null && daysUntilRelease > 0;
+  const [releaseClock, setReleaseClock] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setReleaseClock(Date.now());
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const releaseLabel = releaseClock === null ? null : operatorReleaseLabel(operator, releaseClock);
 
   const welfareInfo = getWelfareInfo(operator.howToObtain);
   const howToObtainDisplay =
@@ -1508,8 +1507,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       <span>Trait: {typeof operator.trait === 'string' ? operator.trait : 'varies by promotion'}</span>
                       <span>
                         How to obtain: {howToObtainDisplay}
-                        {showReleaseCountdown && (
-                          <span className="op-release-countdown"> (in {Math.ceil(daysUntilRelease!)} day{Math.ceil(daysUntilRelease!) === 1 ? '' : 's'})</span>
+                        {releaseLabel && (
+                          <span className="op-release-countdown"> ({releaseLabel})</span>
                         )}
                       </span>
                     </div>

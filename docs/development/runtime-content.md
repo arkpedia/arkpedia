@@ -61,3 +61,11 @@ it. Review later official maintenance/correction notices when a schedule changes
 Use mirrored game tables only where no official timing has been recorded, and
 keep date-only fallbacks documented as estimates. The mirrors are third-party
 hosts, not official announcements.
+
+Confirmed Global operator debuts belong in `data/operator-release-overrides.json`
+with a timezone-qualified `startAt` and official `timingSource`. They override
+stale scraped calendar dates, including event reward operators that are absent
+from banners. Exported operator records carry the resolved `releaseAt`; badges
+use that instant across timezones. Without a confirmed hour, the roster says
+“Releases today” through the Global server's calendar day instead of declaring
+availability at the reader's midnight.

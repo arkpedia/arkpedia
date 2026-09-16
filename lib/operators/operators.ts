@@ -1,4 +1,5 @@
 import fs from 'fs';
+import releaseOverrides from '@/data/operator-release-overrides.json';
 import path from 'path';
 import { Operator } from './operatorTypes';
 
@@ -169,7 +170,13 @@ export function getAllOperators(): Operator[] {
   // entry takes over automatically).
   const future = getFutureOperators().filter((op) => !releasedNames.has(op.name));
 
-  cachedOperators = [...released, ...future].sort((a, b) => a.name.localeCompare(b.name));
+  cachedOperators = [...released, ...future].map(op => {
+    const override = releaseOverrides[op.name as keyof typeof releaseOverrides];
+    if (!override) return op;
+    return { ...op, releaseAt: override.startAt, characterInfo: {
+      ...op.characterInfo, 'Release Date': override.startAt.slice(0, 10).replace(/-/g, '/'),
+    } };
+  }).sort((a, b) => a.name.localeCompare(b.name));
   return cachedOperators;
 }
 

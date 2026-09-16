@@ -229,6 +229,8 @@ export interface Operator {
   region?: string | null;
   subRegion?: string | null;
   otherLanguages?: Record<string, string> | null;
+  /** Confirmed Global release instant, including timezone. */
+  releaseAt?: string;
   characterInfo?: Record<string, string> | null;
   characterVoices?: Record<string, string> | null;
   basicInfo?: Record<string, string> | null;
@@ -254,6 +256,8 @@ export interface RosterOperator {
   connectedFactions?: string[];
   howToObtain: string | HowToObtainInfo | null;
   isFuture?: boolean;
+  /** Confirmed Global release instant, including timezone. */
+  releaseAt?: string;
   characterInfo?: Record<string, string> | null;
 }
 
@@ -343,6 +347,8 @@ export interface GuesserOperator {
   talents?: GuesserTalent[];
   baseSkills?: Pick<BaseSkill, 'name'>[];
   basicInfo?: Record<string, string> | null;
+  /** Confirmed Global release instant, including timezone. */
+  releaseAt?: string;
   characterInfo?: Record<string, string> | null;
   characterVoices?: Record<string, string> | null;
   ep?: string | Record<string, string> | null;

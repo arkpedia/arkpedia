@@ -10,6 +10,7 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
+import { operatorRelease, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { parseDate } from '@/lib/operators/operatorReleaseDates';
 import { RosterOperator } from '@/lib/operators/operatorTypes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
@@ -62,7 +63,10 @@ export default function OperatorsIndex({ operators, now }: Props) {
   // is a no-op for React.
   const [clock, setClock] = useState(now);
   useEffect(() => {
-    setClock(Math.floor(Date.now() / 60000) * 60000);
+    const tick = () => setClock(Date.now());
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const rarities = useMemo(
@@ -97,9 +101,9 @@ export default function OperatorsIndex({ operators, now }: Props) {
   // no parseable release date at all (falls back to the isFuture flag
   // in that case, both for filtering and the "coming soon" sort boost).
   function daysUntilRelease(op: RosterOperator): number | null {
-    const d = parseDate(op.characterInfo?.['Release Date'] || '');
-    if (!d) return null;
-    return (d.getTime() - clock) / (24 * 60 * 60 * 1000);
+    const release = operatorRelease(op);
+    if (!release) return null;
+    return (release.at - clock) / (24 * 60 * 60 * 1000);
   }
   const COMING_SOON_WINDOW_DAYS = 10;
   const RECENTLY_RELEASED_WINDOW_DAYS = 14;
@@ -482,7 +486,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                     // coming-soon window) have no confirmed rarity/class
                     // yet in practice -- keep the existing text-only
                     // display for them, unchanged.
-                    if (op.isFuture && !comingSoon) {
+                    if (op.isFuture && (days === null || days > COMING_SOON_WINDOW_DAYS)) {
                       return <p className="hint roster-class-branch">Upcoming</p>;
                     }
                     return (
@@ -524,7 +528,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                         )}
                         {comingSoon && (
                           <p className="hint roster-release-tag">
-                            In <span className="roster-release-days">{Math.ceil(days!)} day{Math.ceil(days!) === 1 ? '' : 's'}</span>
+                            <span className="roster-release-days">{operatorReleaseLabel(op, clock)}</span>
                           </p>
                         )}
                         {recentlyReleased && <p className="hint roster-release-tag roster-release-tag-available">Now Available</p>}
@@ -572,6 +576,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     connectedFactions: op.connectedFactions || [],
     howToObtain: null,
     isFuture: op.isFuture ?? false,
+    ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     characterInfo: op.characterInfo ? { 'Release Date': op.characterInfo['Release Date'] || '' } : null,
   }));
   /**
@@ -608,7 +613,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
 
   // The build's clock, for the release-date countdowns' first paint --
   // the component re-picks the reader's real time on mount (see the
-  // clock state above). Rounded to the minute, matching that re-pick.
+  // clock state above). The browser then keeps the availability badge live.
   const now = Math.floor(Date.now() / 60000) * 60000;
   return { props: { operators, now } };
 });
