@@ -72,14 +72,20 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
             <legend>Module</legend>
             <div className={styles.moduleRow}>
               <div className={styles.moduleOptions} role="group" aria-label="Module">
-                <button type="button" className={moduleIndex === null ? 'primary' : 'ghost'} aria-pressed={moduleIndex === null}
-                  onClick={() => setModuleIndex(null)}>Off</button>
                 {upgradeModules.map((module, index) => (
                   <button type="button" key={module.name ?? index} className={moduleIndex === index ? 'primary' : 'ghost'}
                     aria-pressed={moduleIndex === index} disabled={phaseIndex !== maxPhaseIndex}
                     aria-label={moduleLabel(module, index)}
-                    title={phaseIndex === maxPhaseIndex ? module.name ?? moduleLabel(module, index) : 'Modules require the final promotion'}
-                    onClick={() => { setModuleIndex(index); setModuleStageIndex(0); }}>
+                    title={phaseIndex === maxPhaseIndex
+                      ? `${module.name ?? moduleLabel(module, index)}${moduleIndex === index ? ' — click again to disable' : ''}`
+                      : 'Modules require the final promotion'}
+                    onClick={() => {
+                      if (moduleIndex === index) setModuleIndex(null);
+                      else {
+                        setModuleIndex(index);
+                        setModuleStageIndex(0);
+                      }
+                    }}>
                     {moduleShortLabel(module, index)}
                   </button>
                 ))}

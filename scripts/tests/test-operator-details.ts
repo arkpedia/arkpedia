@@ -6,7 +6,7 @@ import { Operator } from '../../lib/operators/operatorTypes';
 import { readCsv } from '../lib/operator-csv';
 import { getBaseSkillIconPath, getSkillIconPath } from '../../lib/operators/operatorIconPaths';
 import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
-import { getOperatorSearchResults } from '../../lib/operators/operatorSearch';
+import { getOperatorSearchResults, loadOperatorSearch } from '../../lib/operators/operatorSearch';
 import { getOperatorAppearances } from '../../lib/operators/operatorAppearances';
 import { getOperatorArtworkCredits } from '../../lib/operators/operatorArtworkCredits';
 import { getAllSkins } from '../../lib/skins/skins';
@@ -343,6 +343,30 @@ test('operator quick search ranks normalized prefixes first without mutating its
   assert.deepEqual(getOperatorSearchResults(candidates, 'an').map(op => op.name), ['Andreana', 'Ansel', 'Franka', 'Manticore']);
   assert.equal(candidates[0].name, 'Franka');
   assert.equal(getOperatorSearchResults(operators, 'a').length, 8);
+});
+
+test('operator quick search falls back to the bundled catalogue when a content release is incomplete', async () => {
+  const requests: string[] = [];
+  const fetcher = async (url: string) => {
+    requests.push(url);
+    if (url.includes('/release/')) return { ok: false, status: 404, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => ({ operators: [{ name: 'Botani', rarity: 5, isFuture: false }] }) };
+  };
+  assert.deepEqual(
+    await loadOperatorSearch('https://example.test/release/public/operator-search.json', undefined, fetcher),
+    [{ name: 'Botani', rarity: 5, isFuture: false }],
+  );
+  assert.deepEqual(requests, ['https://example.test/release/public/operator-search.json', '/operator-search.json']);
+});
+
+test('operator quick search does not retry the bundled catalogue against itself', async () => {
+  let requests = 0;
+  const fetcher = async () => {
+    requests += 1;
+    return { ok: false, status: 500, json: async () => ({}) };
+  };
+  await assert.rejects(() => loadOperatorSearch('/operator-search.json', undefined, fetcher), /returned 500/);
+  assert.equal(requests, 1);
 });
 
 // Activation duration and the duration of a thrown unit are different game fields.

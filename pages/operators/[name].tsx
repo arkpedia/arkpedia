@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { getOperatorSearchResults } from '@/lib/operators/operatorSearch';
+import { getOperatorSearchResults, loadOperatorSearch } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
@@ -457,12 +457,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   useEffect(() => {
     const controller = new AbortController();
     setOperatorSearchLoading(true);
-    fetch(contentUrl('/operator-search.json'), { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Operator search data returned ${response.status}`);
-        return response.json() as Promise<{ operators: SearchableOperator[] }>;
-      })
-      .then((data) => setAllOperatorNames(Array.isArray(data.operators) ? data.operators : []))
+    loadOperatorSearch(contentUrl('/operator-search.json'), controller.signal)
+      .then((operators) => setAllOperatorNames(operators))
       .catch((error) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         console.error(error);
