@@ -16,6 +16,8 @@ import { SongClipCache } from '../../lib/music-guesser/songClipCache';
 import type { SongClip } from '../../lib/music-guesser/songClipCache';
 import { confirmedRelease, eventKey, getMusicSelectionCatalogue } from '../../lib/music-guesser/selectionCatalogue';
 import { connectionGroupId, DEFAULT_MUSIC_SETTINGS, isGlobalGroup, readMusicSettings, selectMusic } from '../../lib/music-guesser/selection';
+import { parseLrc } from '../../lib/music/albumsDataServer';
+import { readdirSync, readFileSync } from 'node:fs';
 
 const songs = getSongChoices();
 const song = { id: 'test', title: '生命流', altTitle: 'Flow of Life', videoId: 'test' };
@@ -956,4 +958,36 @@ test('every event-release draw accepts its event even without a reviewed in-game
     const index = buildAnswerIndex(selected, 'all');
     for (const track of selected) assert.equal(judgeAnswer(index, track, group.name), 'correct', `${group.name}: ${track.id}`);
   }
+});
+
+test('lyrics drop the credits block Monster Siren puts in the file, and only that', () => {
+  // 59 of the published LRC files open with a credits block -- Chinese, English or
+  // both -- so without this the player highlights an engineer's name for the first
+  // forty seconds of a song. It is stripped at render time, never from the file:
+  // the files stay byte-identical to what the label serves, which is what makes
+  // scripts/sync/sync-lyrics.mjs able to verify them.
+  const credits = `[00:01.33]音乐设计/监制: MSR Studio
+[00:02.47]作曲 Composer: Yocke
+[00:03.71]Vocals & Lyrics: Laura Intravia
+[00:04.00]Presented by Monster Siren Records
+[00:40.23]Clear morning light, your voice so sweet.
+[00:45.00]We cry: "March on!"`;
+  const parsed = parseLrc(credits);
+  assert.deepEqual(parsed.map((line) => line.text),
+    ['Clear morning light, your voice so sweet.', 'We cry: "March on!"']);
+
+  // The leading-block restriction is load bearing: a sung line may carry a colon,
+  // and a rule that swept the whole file would delete it.
+  assert.deepEqual(parseLrc('[00:05.00]We cry: "March on!"\n[00:09.00]作曲 Composer: Yocke')
+    .map((line) => line.text), ['We cry: "March on!"', '作曲 Composer: Yocke']);
+
+  // Against the real catalogue: no file may be emptied, and every file must now
+  // open on something that is not a credit.
+  const emptied = [];
+  for (const file of readdirSync('data/lyrics').filter((name) => name.endsWith('.lrc'))) {
+    const text = readFileSync(`data/lyrics/${file}`, 'utf8');
+    const timed = text.split(/\r?\n/).filter((line) => /^\[\d/.test(line) && line.replace(/\[[^\]]*\]/g, '').trim());
+    if (timed.length && !parseLrc(text).length) emptied.push(file);
+  }
+  assert.deepEqual(emptied, []);
 });
