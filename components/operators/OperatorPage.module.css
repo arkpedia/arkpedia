@@ -331,6 +331,11 @@
 /* Match Aceship's seven-column artwork / five-column information balance. */
 .frame .page { flex: 1; height: auto; min-height: 0; padding-top: 4px; padding-bottom: 16px; gap: 24px; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
 .details { border: 1px solid var(--line); border-top: 2px solid var(--teal); border-radius: 8px; background: var(--panel); overflow: hidden; container-type: inline-size; container-name: operatorDetails; }
+/* The search row belongs to the artwork column. Lift the information panel into
+   that row so both primary controls begin on the same visual baseline. */
+@media (min-width: 901px) {
+  .frame .details { margin-top: -53px; height: calc(100% + 53px); }
+}
 .panelHeader { background: transparent; }
 .hero { padding: 12px 16px 8px; border: 0; background: transparent; }
 .identity h1 { font-size: clamp(26px, 2.5vw, 36px); line-height: 1.15; overflow-wrap: anywhere; }
