@@ -40,6 +40,12 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
     return code || module.badgeText || `Module ${index + 1}`;
   };
 
+  const moduleShortLabel = (module: OperatorModule, index: number) => {
+    const suffix = moduleLabel(module, index).split('-').pop()?.trim() || moduleLabel(module, index);
+    const symbols: Record<string, string> = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'Δ' };
+    return symbols[suffix.toLowerCase()] || suffix;
+  };
+
   return (
     <section className={`${styles.stats}${compact ? ` ${styles.compact}` : ''}`} aria-label="Operator stats" hidden={hidden}>
       <h2>Stats</h2>
@@ -71,9 +77,10 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
                 {upgradeModules.map((module, index) => (
                   <button type="button" key={module.name ?? index} className={moduleIndex === index ? 'primary' : 'ghost'}
                     aria-pressed={moduleIndex === index} disabled={phaseIndex !== maxPhaseIndex}
+                    aria-label={moduleLabel(module, index)}
                     title={phaseIndex === maxPhaseIndex ? module.name ?? moduleLabel(module, index) : 'Modules require the final promotion'}
                     onClick={() => { setModuleIndex(index); setModuleStageIndex(0); }}>
-                    {moduleLabel(module, index)}
+                    {moduleShortLabel(module, index)}
                   </button>
                 ))}
               </div>
