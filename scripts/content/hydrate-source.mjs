@@ -12,16 +12,38 @@ function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap
   const file = path.join(dir, entry.name);
   return entry.isDirectory() ? walk(file) : [file];
 }); }
+/** An LRC is timestamped plain text. Parsing it here keeps the source tree to records
+ * the site can actually read, the way JSON.parse does for everything else. */
+function assertLyric(relative, bytes) {
+  const text = bytes.toString('utf8');
+  if (Buffer.compare(Buffer.from(text, 'utf8'), bytes) !== 0) throw new Error(`Lyric file is not UTF-8: ${relative}`);
+  if (bytes.length > 256_000) throw new Error(`Lyric file too large: ${relative}`);
+  const lines = text.split(/\r?\n/).filter(line => line.trim());
+  if (!lines.length) throw new Error(`Empty lyric file: ${relative}`);
+  // A file with no timestamps parses to zero lines, so its song shows no lyrics at
+  // all. That is a content defect rather than a pipeline one -- refusing the whole
+  // release over it would block every other record -- so it is counted and named.
+  if (!lines.some(line => /^\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/.test(line))) untimestamped.push(relative);
+}
+
+const untimestamped = [];
 const incoming = new Map();
 for (const file of walk(source)) {
   const relative = path.relative(source, file);
-  if (!/^(data\/.*|public\/[^/]+)\.json$/.test(relative) || relative.includes('..') || relative.includes('\\')) throw new Error(`Invalid source file: ${relative}`);
+  // Lyrics are authored by hand in LRC, the format a lyric editor writes, so they
+  // are the one non-JSON record the pipeline carries. Everything else stays JSON.
+  const lyric = /^data\/lyrics\/[^/]+\.lrc$/.test(relative);
+  // Segment-wise, not a substring search: "Best_Moments_of..._lyrics.lrc" is a real
+  // filename and contains "..", so `includes('..')` rejected a legitimate record.
+  // Only a path SEGMENT that is "." or ".." can escape the tree.
+  const escapes = relative.split('/').some(part => !part || part === '.' || part === '..');
+  if (!(lyric || /^(data\/.*|public\/[^/]+)\.json$/.test(relative)) || escapes || relative.includes('\\')) throw new Error(`Invalid source file: ${relative}`);
   // Old public releases can still contain retired fallback records. Never
   // hydrate them back into the canonical source tree; the next publication
   // consequently removes them from arkpedia-data as well.
   if (deprecatedSourceFiles.has(relative)) continue;
   const bytes = fs.readFileSync(file);
-  JSON.parse(bytes);
+  if (lyric) assertLyric(relative, bytes); else JSON.parse(bytes);
   incoming.set(relative, bytes);
 }
 for (const required of ['data/headhunting_banners.json', 'data/skins.json', 'data/assets/revisions.json', 'public/stages-index.json']) {
@@ -30,11 +52,12 @@ for (const required of ['data/headhunting_banners.json', 'data/skins.json', 'dat
 if (incoming.size < 1000) throw new Error('Incomplete source snapshot');
 // Work only in the disposable CI checkout. Deleted game records must not survive
 // silently in the bundled fallback and reappear in the next generated release.
-for (const file of walk('data').filter(file => file.endsWith('.json') && !file.includes('final-poll-results'))) {
+for (const file of walk('data').filter(file => (file.endsWith('.json') || file.endsWith('.lrc')) && !file.includes('final-poll-results'))) {
   if (!incoming.has(file)) fs.unlinkSync(file);
 }
 for (const [file, bytes] of incoming) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, bytes);
 }
+if (untimestamped.length) console.warn(`${untimestamped.length} lyric file(s) have no timestamps and will render no lyrics: ${untimestamped.join(', ')}`);
 console.log(`Loaded ${incoming.size} public source records.`);

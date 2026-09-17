@@ -10,14 +10,16 @@ const routes = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8'))
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { encoding: 'utf8' }).split('\0').filter(Boolean);
 // Publish game records only. No application source, environment files, or raw user responses.
-const sourceFiles = tracked.filter(file => fs.existsSync(file) && file.endsWith('.json') && !file.includes('final-poll-results')
+// Lyrics are authored by hand in LRC and are the one non-JSON record published.
+const isLyric = file => /^data\/lyrics\/[^/]+\.lrc$/.test(file);
+const sourceFiles = tracked.filter(file => fs.existsSync(file) && !file.includes('final-poll-results')
   && file !== 'public/operator-search.json'
-  && (file.startsWith('data/') || /^public\/[^/]+\.json$/.test(file)));
+  && (isLyric(file) || (file.endsWith('.json') && (file.startsWith('data/') || /^public\/[^/]+\.json$/.test(file)))));
 const sourceHashes = {};
 fs.rmSync(source, { recursive: true, force: true });
 for (const file of sourceFiles.sort()) {
   const bytes = fs.readFileSync(file);
-  JSON.parse(bytes);
+  if (!isLyric(file)) JSON.parse(bytes);
   if (/-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}/.test(bytes.toString())) throw new Error(`Credential-like content in ${file}`);
   const out = path.join(source, file);
   fs.mkdirSync(path.dirname(out), { recursive: true });
