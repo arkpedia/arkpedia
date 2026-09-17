@@ -259,7 +259,7 @@ test('anniversary main-story releases retain chapter and phase identities', () =
 });
 
 test('MSR songs remain playable in the game and keep bilingual titles as player coverage grows', () => {
-  assert.equal(songs.length, 897);
+  assert.equal(songs.length, 901);
   for (const id of ['125056', '125055', '697674', '779442', '514513', '880305', '779424']) {
     assert.ok(byId(id).inGame);
     assert.equal(judge(id, byId(id).title, 'titles'), 'correct');

@@ -87,6 +87,41 @@ async function mapLimited(items, worker) {
   return results;
 }
 
+/**
+ * Exact track length from the audio itself, for a draft that would otherwise leave a
+ * required field blank. Reads 4kB with a range request and walks the RIFF chunks --
+ * byteRate and the data chunk's size give the duration outright, no estimate.
+ *
+ * New releases are WAV; the back catalogue is MP3, whose duration needs frame-by-frame
+ * parsing (or the whole file, for a variable bitrate) and is not worth fetching
+ * megabytes to guess. Anything that is not RIFF/WAVE returns null and the draft leaves
+ * `length` for a person, which is the honest outcome rather than a wrong number.
+ */
+async function trackLength(sourceUrl) {
+  try {
+    const response = await fetch(sourceUrl, { headers: { range: 'bytes=0-4095' }, signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) return null;
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.subarray(0, 4).toString('latin1') !== 'RIFF' || bytes.subarray(8, 12).toString('latin1') !== 'WAVE') return null;
+    let offset = 12, byteRate = null;
+    while (offset + 8 <= bytes.length) {
+      const id = bytes.subarray(offset, offset + 4).toString('latin1');
+      const size = bytes.readUInt32LE(offset + 4);
+      if (id === 'fmt ') byteRate = bytes.readUInt32LE(offset + 16);
+      if (id === 'data') {
+        if (!byteRate) return null;
+        const seconds = size / byteRate;
+        if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 3600) return null;
+        return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
+      }
+      offset += 8 + size + (size % 2);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 const albumsText = fs.readFileSync(ALBUMS, 'utf8');
 const albums = JSON.parse(albumsText);
 const albumList = Array.isArray(albums) ? albums : albums.albums;
@@ -174,8 +209,53 @@ console.log(`  ${created.length} new lyric file(s), ${changed.length} updated, $
 if (lost.length) console.log(`  ${lost.length} song(s) no longer publish lyrics upstream; local copies kept: ${lost.map(row => row.song.songName).join(', ')}`);
 if (failures.length) console.log(`  ${failures.length} fetch failure(s) tolerated:\n    ${failures.map(row => row.error || row.song?.songName).join('\n    ')}`);
 if (added.length) {
-  console.log(`\n  ${added.length} song(s) exist upstream with no record here. Their lyrics cannot be`);
-  console.log('  filed until someone adds the song to data/albums.json:');
-  for (const song of added) console.log(`    ${song.cid}  ${song.name}`);
+  const localAlbums = new Set(albumList.map(album => String(album.albumId)));
+  const drafts = await mapLimited(added, async (song) => {
+    let detail = null, album = null;
+    try { detail = await json(`${API}/song/${song.cid}`); } catch { /* reported as unknown below */ }
+    const albumCid = String(detail?.albumCid ?? song.albumCid ?? '');
+    if (albumCid && !localAlbums.has(albumCid)) {
+      try { album = await json(`${API}/album/${albumCid}/detail`); } catch { /* same */ }
+    }
+    return {
+      song: {
+        songId: String(song.cid),
+        songName: song.name,
+        songAltName: '',            // editorial: the English or romanised title
+        albumId: albumCid,
+        credits: [],                // editorial: the API returns only the label, not the people
+        lyricUrl: detail?.lyricUrl ?? '',
+        lyricFilename: detail?.lyricUrl ? `${song.name.replace(/[\\/*?:"<>|']/g, '').replace(/ /g, '_')}_lyrics.lrc` : '',
+        videoId: '',                // REQUIRED, and not derivable: the YouTube id
+        length: detail?.sourceUrl ? (await trackLength(detail.sourceUrl)) ?? '' : '',
+        songCategory: [],
+        songGenre: [],
+        copyright: '',
+      },
+      upstream: { artists: song.artists ?? detail?.artists ?? [], sourceUrl: detail?.sourceUrl ?? null, mvUrl: detail?.mvUrl ?? null },
+      albumMissing: album && {
+        albumId: albumCid,
+        albumName: album.name,
+        albumAltName: '',           // editorial
+        coverUrl: album.coverUrl,
+        coverFilename: '',          // needs the cover published to arkpedia-image-assets as .webp
+        releaseDate: '',            // not published by the API
+        region: '', characters: [], albumCategory: [], albumGenre: [],
+        intro: album.intro,
+      },
+    };
+  });
+  if (!dryRun) {
+    fs.mkdirSync(path.join(ROOT, '.cache'), { recursive: true });
+    fs.writeFileSync(path.join(ROOT, '.cache/new-songs.json'), JSON.stringify(drafts, null, 2) + '\n');
+  }
+  console.log(`\n  ${added.length} song(s) exist upstream with no record here:`);
+  for (const draft of drafts) {
+    const missingAlbum = draft.albumMissing ? `  [album ${draft.albumMissing.albumId} "${draft.albumMissing.albumName}" also missing]` : '';
+    console.log(`    ${draft.song.songId}  ${draft.song.songName}${draft.song.lyricUrl ? '  (has lyrics)' : '  (no lyrics upstream)'}${missingAlbum}`);
+  }
+  console.log('  Drafts with every field the source supplies: .cache/new-songs.json');
+  console.log('  Length is measured from the audio; videoId, credits, categories and the');
+  console.log('  English title are editorial. Nothing is written to albums.json automatically.');
 }
 if (dryRun) console.log('\nDry run: nothing written.');
