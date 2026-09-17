@@ -43,15 +43,31 @@
 .fileText { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; font-size: 14px; line-height: 1.8; padding: 4px 8px 16px; }
 .stats input:focus-visible, .stats button:focus-visible, .file summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 @container operatorDetails (max-width: 620px) {
-  .buildControls { display: grid; gap: 14px; }
-  .moduleControls { width: 100%; }
+  .buildControls { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
+  .promotionOptions button { width: 48px; min-width: 48px; }
+  .moduleControls { width: auto; }
   .moduleRow { justify-content: flex-start; }
-  .primaryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 16px; }
+  .controls { gap: 12px; margin-top: 14px; padding-top: 12px; }
+  .control { grid-template-columns: minmax(0, 1fr); gap: 5px; align-content: start; }
+  .numeric input { width: 64px; }
+  .primaryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; margin: 12px 0 10px; padding: 10px 0; }
+  .stat { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 0 8px; }
+  .stat dt { min-height: 0; padding-top: 2px; }
+  .stat dd { margin-top: 0; }
+  .total { font-size: 25px; }
+  .breakdown { margin-top: 3px; line-height: 1.35; }
   .secondaryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .secondaryStats > div { padding: 4px 0; }
+  .help { margin-top: 6px; }
 }
 @container operatorDetails (max-width: 430px) {
-  .controls { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .moduleRow { align-items: flex-start; flex-direction: column; }
-  .primaryStats { gap: 14px 16px; }
-  .total { font-size: 27px; }
+  .moduleLevels { gap: 4px; }
+  .moduleLevels > span { display: none; }
+  .moduleLevels button { min-width: 32px; }
+}
+@container operatorDetails (max-width: 300px) {
+  .buildControls { grid-template-columns: minmax(0, 1fr); }
+  .moduleControls { width: 100%; }
 }
