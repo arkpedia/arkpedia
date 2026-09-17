@@ -71,6 +71,19 @@ test('the current Global operators include English transcripts and EN/KR recordi
     assert.ok(operator.packs.some(pack => pack.id === 'kr'), `${operatorId} has no Korean recording pack`);
   }
 
+  assert.deepEqual(
+    Object.fromEntries(operators.char_4223_botany.packs
+      .filter(pack => ['en', 'jp', 'cn', 'kr', 'rus'].includes(pack.id))
+      .map(pack => [pack.id, pack.actors])),
+    {
+      en: ['Nana Sarkisyan'],
+      jp: ['Aki Orita'],
+      cn: ['Yixuan Hu'],
+      kr: ['Kim Jin-ah'],
+      rus: ['Nana Sarkisyan'],
+    },
+  );
+
   for (const operatorId of ['char_4123_ela', 'char_4124_iana', 'char_4125_rdoc', 'char_4126_fuze']) {
     const linkage = operators[operatorId].packs.find(pack => pack.id === 'linkage');
     assert.ok(linkage?.audioTemplate?.includes('arkpedia-voice-english'), `${operatorId} uses the wrong collaboration audio repository`);

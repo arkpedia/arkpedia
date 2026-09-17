@@ -1,7 +1,9 @@
 import fs from 'fs';
 import releaseOverrides from '@/data/operator-release-overrides.json';
+import voiceData from '@/data/operator-voice-lines.json';
 import path from 'path';
 import { Operator } from './operatorTypes';
+import type { OperatorVoiceData } from './operatorVoices';
 
 const FUTURE_ICONS_DIR = path.join(process.cwd(), 'public', 'future_operator_icons');
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -14,6 +16,19 @@ const RARITY_FOLDERS = [
   'operators-2star',
   'operators-1star',
 ];
+const voiceOperators = voiceData.operators as Record<string, OperatorVoiceData>;
+
+function currentVoiceCredits(operator: Operator): Record<string, string> | null | undefined {
+  const voice = operator.internalName ? voiceOperators[operator.internalName] : null;
+  if (!voice) return operator.characterVoices;
+  const credits: Record<string, string> = {};
+  for (const pack of voice.packs) {
+    if (pack.status !== 'current' || !pack.actors.length) continue;
+    const language = pack.id === 'cn' ? 'Chinese' : pack.label;
+    credits[language] = pack.actors.join(' / ');
+  }
+  return Object.keys(credits).length ? credits : operator.characterVoices;
+}
 
 /**
  * Reads every .json file in a rarity folder (e.g. data/operators-6star/)
@@ -161,6 +176,7 @@ export function getAllOperators(): Operator[] {
   const releasedRaw = allData.filter((op) => !('error' in (op as Record<string, unknown>))) as Operator[];
   const released = releasedRaw.map((op) => ({
     ...op,
+    characterVoices: currentVoiceCredits(op),
     talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],
   }));
   const releasedNames = new Set(released.map((op) => op.name));

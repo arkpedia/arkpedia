@@ -120,6 +120,17 @@ test('CN and KR voice actors survive projection, including Mandarin-only and mis
   }
 });
 
+test('current voice packs override stale operator-record credits', () => {
+  const botani = operators.find((operator) => operator.internalName === 'char_4223_botany')!;
+  assert.deepEqual(botani.characterVoices, {
+    English: 'Nana Sarkisyan',
+    Japanese: 'Aki Orita',
+    Chinese: 'Yixuan Hu',
+    Korean: 'Kim Jin-ah',
+    Russian: 'Nana Sarkisyan',
+  });
+});
+
 test('hint groups cover every selectable hint once, with Base skills separated from identity and creator metadata', () => {
   const grouped = HINT_GROUPS.flatMap((group) => group.types);
   assert.equal(grouped.length, new Set(grouped).size);

@@ -19,6 +19,13 @@ const ROOM = {
   TRAINING: 'Training Room', WORKSHOP: 'Workshop',
 };
 const PHASE = { PHASE_0: 'Base', PHASE_1: 'Elite 1', PHASE_2: 'Elite 2' };
+const VOICE_LANGUAGE = {
+  EN: 'English', JP: 'Japanese', KR: 'Korean', CN_MANDARIN: 'Chinese',
+  CN_TOPOLECT: 'Regional Chinese', ITA: 'Italian', GER: 'German', RUS: 'Russian',
+  FRE: 'French', 11: 'Spanish', LINKAGE: 'English',
+};
+const SUPPLEMENTAL_CHARWORDS = 'https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/main/en_US/gamedata/excel/charword_table.json';
+const rows = value => Array.isArray(value) ? value : [];
 
 const costList = (entries, items) => (Array.isArray(entries) ? entries : []).map(entry => ({
   name: items?.items?.[entry.id]?.name ?? `item ${entry.id}`,
@@ -26,8 +33,12 @@ const costList = (entries, items) => (Array.isArray(entries) ? entries : []).map
 }));
 
 function skillRows(skill) {
-  return (skill.levels ?? []).map((level, index) => {
-    const { text, missing } = interpolateBlackboard(level.description, level.blackboard);
+  return rows(skill.levels).map((level, index) => {
+    const blackboard = rows(level.blackboard);
+    const values = level.duration == null || blackboard.some(entry => String(entry?.key).toLowerCase() === 'duration')
+      ? blackboard
+      : [...blackboard, { key: 'duration', value: level.duration }];
+    const { text, missing } = interpolateBlackboard(level.description, values);
     if (missing.length) throw new Error(`${skill.skillId} level ${index + 1} is missing ${missing.join(', ')}`);
     return {
       level: index < 7 ? index + 1 : null,
@@ -40,10 +51,11 @@ function skillRows(skill) {
   });
 }
 
-function officialTalents(character) {
-  return (character.talents ?? []).flatMap(talent => {
+function officialTalents(character, current) {
+  const previous = rows(current);
+  return rows(character.talents).flatMap((talent, index) => {
     let name = null;
-    const rows = (talent.candidates ?? []).map(candidate => {
+    const candidates = rows(talent.candidates).map(candidate => {
       name = candidate.name || name;
       const phase = Number(String(candidate.unlockCondition?.phase ?? '').replace('PHASE_', '')) || 0;
       return {
@@ -52,12 +64,12 @@ function officialTalents(character) {
         description: stripRichText(candidate.description),
       };
     });
-    return name ? [{ name, rows }] : [];
+    return name ? [{ ...previous[index], name, rows: candidates }] : [];
   });
 }
 
 function officialBaseSkills(characterId, building) {
-  const slots = building?.chars?.[characterId]?.buffChar ?? [];
+  const slots = rows(building?.chars?.[characterId]?.buffChar);
   return slots.flatMap(slot => (Array.isArray(slot.buffData) ? slot.buffData : [])).map(entry => {
     const buff = building.buffs?.[entry.buffId];
     if (!buff) throw new Error(`${characterId} base skill ${entry.buffId} is missing`);
@@ -71,7 +83,7 @@ function officialBaseSkills(characterId, building) {
 }
 
 function officialModules(characterId, modules, current) {
-  const previous = new Map((current ?? []).map(module => [module.type, module]));
+  const previous = new Map(rows(current).map(module => [module.type, module]));
   return Object.values(modules?.equipDict ?? {})
     .filter(module => module.charId === characterId)
     .sort((a, b) => a.charEquipOrder - b.charEquipOrder)
@@ -90,38 +102,47 @@ function officialModules(characterId, modules, current) {
     });
 }
 
-function needsReleasedGlobalSync(operator) {
-  return hasChinese(operator.review?.official)
-    || (operator.files ?? []).some(file => hasChinese(file.description))
-    || (operator.voiceData?.lines ?? []).some(line => hasChinese(line.title) || hasChinese(line.text));
+export function officialVoiceActors(characterId, tables, current = null) {
+  const voices = {};
+  for (const table of tables ?? []) {
+    const entries = table?.voiceLangDict?.[characterId]?.dict;
+    if (!entries || typeof entries !== 'object') continue;
+    for (const [type, entry] of Object.entries(entries)) {
+      const language = VOICE_LANGUAGE[type] ?? table.voiceLangTypeDict?.[type]?.name ?? type;
+      const actors = (Array.isArray(entry?.cvName) ? entry.cvName : []).filter(name => typeof name === 'string' && name.trim());
+      if (actors.length) voices[language] = actors.join(' / ');
+    }
+  }
+  return Object.keys(voices).length ? voices : current;
 }
 
 export function localizeReleasedMechanics(operator, tables) {
-  if (!needsReleasedGlobalSync(operator)) return operator;
   const character = tables?.characters?.[operator.internalName];
   if (!character || character.name !== operator.name) return operator;
   const next = structuredClone(operator);
   const previousSkills = next.skills?.skillList ?? [];
+  const previousTalents = rows(next.talents);
   next.trait = stripRichText(character.description);
   next.tags = character.tagList ?? next.tags;
   next.potential = {
     ...next.potential,
-    levels: (character.potentialRanks ?? []).map((rank, index) => ({
+    levels: rows(character.potentialRanks).map((rank, index) => ({
       level: index + 2,
       benefit: stripRichText(rank.description),
     })),
   };
-  next.talents = officialTalents(character);
+  next.talents = officialTalents(character, next.talents);
   next.baseSkills = officialBaseSkills(operator.internalName, tables.building);
   next.modules = officialModules(operator.internalName, tables.modules, next.modules);
+  next.characterVoices = officialVoiceActors(operator.internalName, tables.voiceTables, next.characterVoices);
   next.skills = {
     ...next.skills,
-    skillList: (character.skills ?? []).map((entry, index) => {
+    skillList: rows(character.skills).map((entry, index) => {
       const skill = tables.skills?.[entry.skillId];
       if (!skill) throw new Error(`${operator.name} is missing ${entry.skillId}`);
       const first = skill.levels?.[0] ?? {};
       const prior = previousSkills[index] ?? {};
-      const masteries = entry.levelUpCostCond ?? [];
+      const masteries = rows(entry.levelUpCostCond);
       return {
         ...prior,
         name: first.name,
@@ -136,10 +157,21 @@ export function localizeReleasedMechanics(operator, tables) {
         },
       };
     }),
-    skillCost: Object.fromEntries((character.allSkillLvlup ?? []).map((step, index) => [
+    skillCost: Object.fromEntries(rows(character.allSkillLvlup).map((step, index) => [
       String(index + 2), costList(step.lvlUpCost, tables.items),
     ])),
   };
+  const nameChanges = [
+    ...previousTalents.map((talent, index) => [talent.name, next.talents[index]?.name]),
+    ...previousSkills.map((skill, index) => [skill.name, next.skills.skillList[index]?.name]),
+  ].filter(([before, after]) => before && after && before !== after);
+  next.promotion = rows(next.promotion).map(tier => ({
+    ...tier,
+    upgrades: rows(tier.upgrades).map(upgrade => nameChanges.reduce(
+      (text, [before, after]) => text.replaceAll(before, after),
+      upgrade,
+    )),
+  }));
   return next;
 }
 
@@ -152,46 +184,80 @@ export function localizeOperator(operator, handbook) {
     .map(group => [group.storyTitle, group.stories[0].storyText]));
   const next = structuredClone(operator);
   const profile = sections.get('Profile');
-  if (profile && (!next.review?.official || hasChinese(next.review.official))) {
+  if (profile && next.review?.official !== profile) {
     next.review = { ...next.review, official: profile };
   }
   for (const file of next.files ?? []) {
     const text = sections.get(file.section);
-    if (text && hasChinese(file.description)) file.description = text;
+    if (text && file.description !== text) file.description = text;
   }
   return next;
+}
+
+export function shouldRefreshReleasedOperator(operator, now = Date.now(), windowDays = 90) {
+  // Global tables often settle over several post-patch updates. Recheck recent
+  // releases daily, while leaving stable older records alone unless they still
+  // contain untranslated text. A manual audit can opt into a full refresh.
+  if (hasChinese(operator.review?.official)
+    || (operator.files ?? []).some(file => hasChinese(file.description))) return true;
+  const match = String(operator.characterInfo?.['Release Date'] ?? '').match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (!match) return false;
+  const release = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const age = now - release;
+  return age >= 0 && age <= windowDays * 24 * 60 * 60 * 1000;
 }
 
 export function syncOperatorEnglish(root, handbook, tables = null) {
   if (!handbook?.handbookDict || typeof handbook.handbookDict !== 'object') throw new Error('Invalid English handbook table');
   let changed = 0;
+  const forcedIds = new Set(String(process.env.ARKPEDIA_OPERATOR_IDS ?? '').split(',').map(id => id.trim()).filter(Boolean));
   for (const directory of fs.readdirSync(path.join(root, 'data')).filter(name => /^operators-\dstar$/.test(name))) {
     for (const file of fs.readdirSync(path.join(root, 'data', directory)).filter(name => name.endsWith('.json'))) {
       const at = path.join(root, 'data', directory, file);
       const operator = JSON.parse(fs.readFileSync(at, 'utf8'));
+      const shouldRefresh = process.env.ARKPEDIA_OPERATOR_REFRESH_ALL === '1'
+        || forcedIds.has(operator.internalName)
+        || shouldRefreshReleasedOperator(operator);
+      if (!shouldRefresh) continue;
       const mechanics = tables ? localizeReleasedMechanics(operator, tables) : operator;
       const next = localizeOperator(mechanics, handbook.handbookDict[operator.internalName]);
       if (JSON.stringify(next) === JSON.stringify(operator)) continue;
       fs.writeFileSync(at, JSON.stringify(next, null, 2) + '\n');
-      console.log(`English profile/archive text: ${operator.name}`);
+      console.log(`Global operator data: ${operator.name}`);
       changed++;
     }
   }
   return changed;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+async function main() {
   const root = process.env.ARKPEDIA_OPERATOR_ROOT || process.cwd();
   const excel = process.env.ARKPEDIA_EN || path.join(process.cwd(), '.cache/upstream/en-gamedata/en/gamedata');
   const table = process.env.ARKPEDIA_EN_HANDBOOK
     || path.join(excel, 'excel/handbook_info_table.json');
   const read = name => JSON.parse(fs.readFileSync(path.join(excel, 'excel', name), 'utf8'));
+  const supplementalPath = process.env.ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS;
+  const supplementalCharwords = supplementalPath
+    ? JSON.parse(fs.readFileSync(supplementalPath, 'utf8'))
+    : await (async () => {
+      const response = await fetch(SUPPLEMENTAL_CHARWORDS);
+      if (!response.ok) throw new Error(`Supplemental Global voice credits: ${response.status} ${response.statusText}`);
+      return response.json();
+    })();
   const changed = syncOperatorEnglish(root, JSON.parse(fs.readFileSync(table, 'utf8')), {
     characters: read('character_table.json'),
     skills: read('skill_table.json'),
     building: read('building_data.json'),
     modules: read('uniequip_table.json'),
     items: read('item_table.json'),
+    voiceTables: [read('charword_table.json'), supplementalCharwords],
   });
-  console.log(`${changed} operator(s) gained published English profile/archive text.`);
+  console.log(`${changed} operator record(s) refreshed from published Global data.`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

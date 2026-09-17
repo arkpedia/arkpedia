@@ -1,9 +1,11 @@
 import styles from './OperatorPage.module.css';
 import type { ArtworkCredit } from '@/lib/operators/operatorArtworkCredits';
+import type { OperatorVoicePack } from '@/lib/operators/operatorVoices';
 
 const LANGUAGE_CODES: Record<string, string> = {
   Japanese: 'JP', Chinese: 'CN', Mandarin: 'CN', English: 'EN', Korean: 'KR',
   Spanish: 'ES', Russian: 'RU', Italian: 'IT', German: 'DE', French: 'FR',
+  'Regional Chinese': 'CN-R', Collaboration: 'EN',
 };
 
 function CreditIcon({ kind }: { kind: 'Illustrator' | 'Original designer' | 'Voice actor' }) {
@@ -29,14 +31,14 @@ function CreditValue({ value, variants }: { value: string | null; variants: (str
   </dd>;
 }
 
-export default function OperatorCredits({ artwork, variants, voices }: {
+export default function OperatorCredits({ artwork, variants, voicePacks }: {
   artwork: ArtworkCredit;
   variants: ArtworkCredit[];
-  voices?: Record<string, string> | null;
+  voicePacks?: OperatorVoicePack[] | null;
 }) {
   const hasArtist = variants.some(credit => credit.illustrator || credit.originalDesigner);
   const hasDesigner = variants.some(credit => credit.originalDesigner);
-  const voiceEntries = Object.entries(voices ?? {}).filter(([, credit]) => credit?.trim());
+  const voiceEntries = (voicePacks ?? []).filter(pack => pack.status === 'current' && pack.actors.some(actor => actor.trim()));
   if (!hasArtist && !voiceEntries.length) return null;
   return <section className={styles.credits} aria-label="Credits">
     <h3>Credits</h3>
@@ -46,9 +48,9 @@ export default function OperatorCredits({ artwork, variants, voices }: {
         {hasDesigner && <div><dt><CreditIcon kind="Original designer" /></dt><CreditValue value={artwork.originalDesigner} variants={variants.map(credit => credit.originalDesigner)} /></div>}
       </dl>}
       {voiceEntries.length > 0 && <dl>
-        {voiceEntries.map(([language, credit]) => <div key={language}>
-          <dt title={`${language} voice actor`}><CreditIcon kind="Voice actor" /><span aria-label={language}>{language.split(' & ').map(part => LANGUAGE_CODES[part] ?? part).join(' / ')}</span></dt>
-          <dd>{credit.split(/(?<=\))\s+(?=[^()]+\()/).map(actor => <div key={actor}>{actor}</div>)}</dd>
+        {voiceEntries.map(pack => <div key={pack.id}>
+          <dt title={`${pack.label} voice actor`}><CreditIcon kind="Voice actor" /><span aria-label={pack.label}>{LANGUAGE_CODES[pack.label] ?? pack.label}</span></dt>
+          <dd>{pack.actors.map(actor => <div key={actor}>{actor}</div>)}</dd>
         </div>)}
       </dl>}
     </div>

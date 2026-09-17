@@ -66,10 +66,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/main/en_US/gamedata/excel/charword_table.json \
+            --output "$supplemental_charwords"
           npm run assets:update
           npm run stages:refresh
-          node scripts/sync/sync-operator-english.mjs
-          ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json npm run voices:refresh
+          ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" node scripts/sync/sync-operator-english.mjs
+          ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
+            ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" \
+            npm run voices:refresh
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:

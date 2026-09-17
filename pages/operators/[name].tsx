@@ -626,7 +626,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   else if (autoSynergyGroups && autoSynergyGroups.length > 0) availableSections.push({ key: 'synergy', label: 'Synergy' });
   if (operator.potential?.levels?.length > 0) availableSections.push({ key: 'potential', label: 'Potential' });
   if (operator.baseSkills && operator.baseSkills.length > 0) availableSections.push({ key: 'baseSkills', label: 'Base skills' });
-  if (operator.characterInfo || operator.characterVoices || operator.basicInfo || operator.physicalExam || operator.review?.official) {
+  if (operator.characterInfo || operator.basicInfo || operator.physicalExam || operator.review?.official) {
     availableSections.push({ key: 'characterInfo', label: 'Profile' });
   }
   if (operator.files?.length) availableSections.push({ key: 'files', label: 'Files' });
@@ -1077,7 +1077,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     {operator.tags?.map(tag => <span className="op-tag-pill" key={tag}>{tag}</span>)}
                   </div>
                   {howToObtainDisplay !== 'Unknown' && <p className={pageStyles.obtain}>{howToObtainDisplay}</p>}
-                  <OperatorCredits artwork={artworkCredits[activeAppearance?.label ?? 'Base'] ?? artworkCredits.Base} variants={Object.values(artworkCredits)} voices={operator.characterVoices} />
+                  <OperatorCredits artwork={artworkCredits[activeAppearance?.label ?? 'Base'] ?? artworkCredits.Base} variants={Object.values(artworkCredits)} voicePacks={voiceData?.packs} />
                 </div>
               </section>
             )}
@@ -1562,7 +1562,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     </div>
                   </div>
 
-                {([['Record', operator.characterInfo], ['Basic information', operator.basicInfo], ['Physical examination', operator.physicalExam], ['Voice actors', operator.characterVoices]] as const)
+                {([['Record', operator.characterInfo], ['Basic information', operator.basicInfo], ['Physical examination', operator.physicalExam]] as const)
                   .map(([label, block]) => block && (
                     <div key={label} className="op-char-info-block">
                       <h3>{label}</h3>
