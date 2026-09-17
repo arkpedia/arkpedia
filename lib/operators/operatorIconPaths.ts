@@ -1,3 +1,5 @@
+import type { BaseSkill } from './operatorTypes';
+
 /**
  * Skill icon path, built from the operator name + skill name -- the
  * new schema dropped the embedded icon URL entirely, so this is
@@ -29,12 +31,28 @@ export function getSkillIconPath(operatorName: string, skillName: string | null 
 }
 
 /**
+ * The scrape concatenated a base skill's "Replaces <older skill>" label onto its
+ * own name with no separator, so 152 of the 880 records carry a name like
+ * "SleepinessReplacesLaziness". The suffix is load bearing -- pages/base.tsx reads
+ * it back out to work out which slot a skill upgrades (extractReplacedName) -- so it
+ * stays in the data and in the icon filenames, and only the displayed text is cleaned.
+ */
+export function baseSkillDisplayName(skill: Pick<BaseSkill, 'name'>): string {
+  return (skill.name ?? '').split('Replaces')[0].trim();
+}
+
+/**
  * Base skill icon path, same convention, base-skill-icons/ folder.
  * Encode the filename before passing it through Next image optimization: a raw
  * Greek letter in the inner URL otherwise fails its internal image request.
+ *
+ * Takes the whole skill rather than a name: the filename matches the RAW name, the
+ * heading shows the cleaned one, and passing a bare string let the operator page hand
+ * over the cleaned name and silently 404. Only this function decides which to use.
  */
-export function getBaseSkillIconPath(operatorName: string, baseSkillName: string | null | undefined): string | null {
-  if (!baseSkillName) return null;
-  const safe = baseSkillName.replace(/[\\/*?:"<>|]/g, '').trim();
+export function getBaseSkillIconPath(operatorName: string, skill: Pick<BaseSkill, 'name' | 'rawName'>): string | null {
+  const fileName = skill.rawName ?? skill.name;
+  if (!fileName) return null;
+  const safe = fileName.replace(/[\\/*?:"<>|]/g, '').trim();
   return `/base-skill-icons/${encodeURIComponent(`${operatorName} - ${safe}.webp`)}`;
 }

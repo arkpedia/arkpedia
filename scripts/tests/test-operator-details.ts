@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { applyModuleStatBonuses, getBaseStats, getTrustBonus, clampInteger, parseModuleStatBonuses, STAT_KEYS, OperatorStats, StatPhase } from '../../lib/operators/operatorStats';
 import { Operator } from '../../lib/operators/operatorTypes';
 import { readCsv } from '../lib/operator-csv';
-import { getBaseSkillIconPath, getSkillIconPath } from '../../lib/operators/operatorIconPaths';
+import { getBaseSkillIconPath, getSkillIconPath, baseSkillDisplayName } from '../../lib/operators/operatorIconPaths';
 import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
 import { getOperatorSearchResults, loadOperatorSearch } from '../../lib/operators/operatorSearch';
 import { getOperatorAppearances } from '../../lib/operators/operatorAppearances';
@@ -291,9 +291,24 @@ if (process.env.OPERATOR_STATS_CSV) {
   });
 }
 
+test('a base skill icon follows the raw name while its heading drops the Replaces suffix', () => {
+  // The scrape ran the "Replaces <older skill>" label onto the name with no separator.
+  // The file on disk carries that raw string, so the icon must keep it and only the
+  // displayed heading may be cleaned -- passing the cleaned name here was a silent 404.
+  const raw = { name: 'SleepinessReplacesLaziness' };
+  assert.equal(baseSkillDisplayName(raw), 'Sleepiness');
+  assert.equal(decodeURIComponent(getBaseSkillIconPath('Durin', raw)!),
+    '/base-skill-icons/Durin - SleepinessReplacesLaziness.webp');
+  // Where base.tsx has already split the two apart, rawName wins for the filename.
+  const split = { name: 'Sleepiness', rawName: 'SleepinessReplacesLaziness' };
+  assert.equal(decodeURIComponent(getBaseSkillIconPath('Durin', split)!),
+    '/base-skill-icons/Durin - SleepinessReplacesLaziness.webp');
+  assert.equal(baseSkillDisplayName({ name: 'Metalwork α' }), 'Metalwork α');
+});
+
 test('skill image URLs encode Unicode and URL delimiters before image optimization', () => {
   for (const [path, filename] of [
-    [getBaseSkillIconPath('Thorns the Lodestar', 'Metalwork α'), '/base-skill-icons/Thorns the Lodestar - Metalwork α.webp'],
+    [getBaseSkillIconPath('Thorns the Lodestar', { name: 'Metalwork α' }), '/base-skill-icons/Thorns the Lodestar - Metalwork α.webp'],
     [getSkillIconPath('Amiya', 'Tactical Chant γ'), '/skill-icons/Amiya - Tactical Chant γ.webp'],
   ]) {
     assert(path);

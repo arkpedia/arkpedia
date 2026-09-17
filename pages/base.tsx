@@ -3848,7 +3848,7 @@ export default function BasePage({ operators }: Props) {
                                 <>
                                   <div className="base-room-card-skills-scroll">
                                     {skills.map((sk, si) => {
-                                      const iconSrc = sk.icon || getBaseSkillIconPath(op.name, sk.rawName || sk.name);
+                                      const iconSrc = sk.icon || getBaseSkillIconPath(op.name, sk);
                                       return (
                                         <div key={si} className="base-room-card-skill">
                                           {iconSrc && <Image src={iconSrc} alt="" width={26} height={26} className="base-room-card-skill-icon" />}
@@ -4495,7 +4495,7 @@ export default function BasePage({ operators }: Props) {
                                     <span className="base-slot-name">{slotOp.name}</span>
                                     <div className="base-slot-badges">
                                       {skillsFor(slot, f.label).map((s, si) => {
-                                        const iconSrc = s.icon || getBaseSkillIconPath(slotOp.name, s.rawName || s.name);
+                                        const iconSrc = s.icon || getBaseSkillIconPath(slotOp.name, s);
                                         return iconSrc ? (
                                           <Image key={si} src={iconSrc} alt="" width={64} height={64} quality={85} className="base-slot-skill-icon" title={s.name ?? undefined} />
                                         ) : null;

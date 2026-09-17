@@ -25,7 +25,7 @@ import SKILL_RANGES from '@/data/skill-ranges.json';
 import SKILL_TIMINGS from '@/data/skill-timings.json';
 import OPERATOR_DEPLOY from '@/public/operator-deploy.json';
 import { getSkillTiming, SkillTiming } from '@/lib/operators/skillTiming';
-import { getSkillIconPath, getBaseSkillIconPath, getEssentialIconPath, getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
+import { getSkillIconPath, getBaseSkillIconPath, baseSkillDisplayName, getEssentialIconPath, getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
 import { getAllSkins } from '@/lib/skins/skins';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
@@ -1389,13 +1389,13 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                 <h2>Base skills</h2>
                 <div className="op-base-skill-list">
                   {operator.baseSkills.map((bs, i) => {
-                    const iconPath = getBaseSkillIconPath(operator.name, bs.name);
+                    const iconPath = getBaseSkillIconPath(operator.name, bs);
                     return (
                       <div key={i} className="op-base-skill-card">
                         <div className="op-base-skill-header">
                           {iconPath && <Image src={iconPath} alt="" width={32} height={32} />}
                           <div>
-                            <b>{bs.name}</b>
+                            <b>{baseSkillDisplayName(bs)}</b>
                             <p className="hint op-base-skill-meta">
                               {bs.facility}
                               {bs.eliteLevel && (
