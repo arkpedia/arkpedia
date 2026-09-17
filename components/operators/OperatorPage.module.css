@@ -149,8 +149,8 @@
 }
 
 .talentOptions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.talentOptions button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; height: 44px; padding: 5px 8px; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 4px; cursor: pointer; }
-.talentOptions button[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); background: var(--panel-2); }
+.talentOptions button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; height: 44px; padding: 5px 8px; background: var(--row-grad); border: 1px solid var(--line); color: var(--text); border-radius: 4px; cursor: pointer; }
+.talentOptions button[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); background: var(--row-grad-hi); }
 .talentDescriptions { display: grid; }
 .talentDescriptions p { grid-area: 1 / 1; margin: 0; font-size: 15px; line-height: 1.7; }
 .talent + .talent { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }

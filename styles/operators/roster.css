@@ -6,7 +6,7 @@
   width: 100%;
   aspect-ratio: 1;
   border-radius: 4px;
-  background: var(--panel-2);
+  background: var(--row-grad);
   border: 1px solid var(--line-soft);
   display: flex;
   align-items: center;
@@ -54,7 +54,7 @@
   gap: 8px;
   margin-top: 14px;
 }
-.roster-search {
+input.roster-search {
   flex: 1 1 200px;
   min-width: 160px;
   padding: 8px 12px;
@@ -68,7 +68,7 @@
 /* Replaces the global :focus-visible ring with the input focus halo --
    a border swap alone (the old treatment) is too quiet to count as a
    focus indicator once outline is suppressed. */
-.roster-search:focus {
+input.roster-search:focus {
   outline: none;
   border-color: var(--teal);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 30%, transparent);

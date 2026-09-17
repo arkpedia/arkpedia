@@ -314,7 +314,8 @@ test('operator portraits preserve names through URL encoding for every rarity an
     assert.equal(parsed.hash, '');
     assert.equal(parsed.search, '');
     const name = operator.name.replace(/[\\/*?:"<>|]/g, '').trim();
-    assert.equal(decodeURIComponent(parsed.pathname.split('/').pop()!), operator.isFuture ? `${operator.name}.webp` : `${name} - Base.webp`);
+    const hasPublishedPortrait = publicFileExists(`${operator.rarity ? ['', 'one', 'two', 'three', 'four', 'five', 'six'][operator.rarity] : 'six'}-star-icons/${name} - Base.webp`);
+    assert.equal(decodeURIComponent(parsed.pathname.split('/').pop()!), operator.isFuture && !hasPublishedPortrait ? `${operator.name}.webp` : `${name} - Base.webp`);
   }
   assert.equal(getOperatorIconPath(op("Wiš'adel")), "/six-star-icons/Wi%C5%A1'adel%20-%20Base.webp");
   const future = getOperatorIconPath({ name: 'Test é #1 & 50%', rarity: 6, isFuture: true });

@@ -659,14 +659,14 @@ body.op-detail-no-scroll {
   height: 15px;
   font-size: 8px;
 }
-.op-header-search-input {
+input.op-header-search-input {
   width: 100%;
   flex: 1;
   min-width: 0;
   padding: 7px 10px;
   border-radius: 6px;
   border: 1px solid var(--line-soft);
-  background: var(--panel-2);
+  background: var(--row-grad);
   color: var(--text);
   font-size: 13px;
 }

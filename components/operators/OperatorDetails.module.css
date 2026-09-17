@@ -10,7 +10,7 @@
 .moduleLevels button {
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: var(--panel);
+  background: var(--row-grad);
   color: var(--text);
 }
 .promotionOptions button:hover:not(:disabled),
@@ -20,7 +20,7 @@
 .moduleOptions button[aria-pressed='true'],
 .moduleLevels button[aria-pressed='true'] {
   border-color: var(--teal);
-  background: var(--panel-2);
+  background: var(--row-grad-hi);
   color: var(--teal);
 }
 .moduleControls { flex: 1 1 300px; }
@@ -44,7 +44,7 @@
 .numeric { display: flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 13px; }
 .numeric input { width: 76px; min-width: 0; min-height: 42px; padding: 6px 9px; font-size: 17px; font-variant-numeric: tabular-nums; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; }
 .slider { grid-column: 1 / -1; width: 100%; min-width: 0; min-height: 28px; accent-color: var(--teal); margin: 0; padding: 0; }
-.maxButton { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; height: 42px; padding: 3px 7px; color: var(--teal); border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font-size: 16px; cursor: pointer; line-height: 1.1; }
+.maxButton { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; height: 42px; padding: 3px 7px; color: var(--teal); border: 1px solid var(--line); border-radius: 4px; background: var(--row-grad); font-size: 16px; cursor: pointer; line-height: 1.1; }
 .maxButton small { font-size: 9px; letter-spacing: .08em; }
 .primaryStats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 18px; margin: 18px 0 14px; padding: 15px 0; border-block: 1px solid var(--line); }
 .stat { min-width: 0; padding: 0; }
