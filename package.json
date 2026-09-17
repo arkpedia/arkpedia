@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "postbuild": "npm run check:deployment-traces",
+    "deploy:vercel": "bash scripts/deploy/vercel-production.sh",
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
     "test:skin-artwork": "tsx --test scripts/tests/test-skin-artwork.ts",

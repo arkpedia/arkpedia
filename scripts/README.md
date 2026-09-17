@@ -12,7 +12,7 @@ Run commands from the repository root. npm scripts are the stable entry points.
 | `palettes/` | Palette generation, local review UI, and its Python/TypeScript tests. |
 | `stage-pipeline/` | Existing stage extraction pipeline and its helpers. |
 | `lib/` | Shared CSV, game-text, and upstream-sync helpers. |
-| `deploy/` | Vercel build-selection script. |
+| `deploy/` | Vercel build selection and safe production deployment scripts. |
 
 ## Common commands
 

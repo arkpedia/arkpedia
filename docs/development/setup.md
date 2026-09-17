@@ -33,3 +33,11 @@ The lint warning ceiling preserves existing warnings. Do not raise it to accommo
 Vercel builds with `npm run build`. Configure `DATABASE_URL` only if the submission API is needed. `vercel.json` uses `scripts/deploy/vercel-ignore-build.sh`: production builds run; branch previews need `[preview]` in the commit message, or an explicit manual deployment.
 
 A build reads the checked-in game records and emits JSON under `public/`. Media stays in the public asset repositories and is delivered through the redirects in `next.config.js`.
+
+For a manual production deployment, use:
+
+```sh
+npm run deploy:vercel
+```
+
+The script builds a production Build Output bundle and uploads it as a compressed archive. The generated site contains thousands of prerendered pages and symlinked ISR entries; a regular prebuilt upload expands those entries before transfer and can exceed Vercel's 15,000-file direct-upload limit. The archive is Vercel's supported upload path for this output shape. Before uploading, the script removes invalid server-function mappings to ignored development files and generated public files that already live in Vercel's static output. It does not delete the static files themselves.
