@@ -19,14 +19,11 @@ const index = JSON.parse(fs.readFileSync(new URL('../../data/assets/external-ass
 const published = new Set(index.files);
 const root = new URL('../../data/', import.meta.url);
 
-// Every gap known when this check went in. Each needs art published to
-// arkpedia-image-assets, not a code change.
+// Every gap still open. Each needs art published to arkpedia-image-assets, not a code
+// change. Bellone's and Ripresa's five base skill icons were here until the art was
+// mapped in arkpedia-image-assets#9 -- the entries came out the moment they resolved,
+// which is the point of failing on a filled gap as well as a new one.
 const KNOWN_GAPS = new Map([
-  ["base-skill-icons/Bellone - Famiglia Business α.webp", 'no base skill art published for Bellone'],
-  ["base-skill-icons/Bellone - Famiglia Business β.webp", 'no base skill art published for Bellone'],
-  ["base-skill-icons/Bellone - Outstanding Debt.webp", 'no base skill art published for Bellone'],
-  ["base-skill-icons/Ripresa - Professional Manager α.webp", 'no base skill art published for Ripresa'],
-  ["base-skill-icons/Ripresa - Professional Manager β.webp", 'no base skill art published for Ripresa'],
   ["base-skill-icons/Ju - Craftsman's Heart β.webp", 'published as "…β ReplacesCraftsman\'s Heart α"; record was cleaned, file was not'],
   ["base-skill-icons/Titi - As Good As Old β.webp", 'published as "…β ReplacesAs Good As Old α"; record was cleaned, file was not'],
   ["base-skill-icons/Varkáris - Pride of a Hero β.webp", 'published as "…β ReplacesPride of a Hero α"; record was cleaned, file was not'],
