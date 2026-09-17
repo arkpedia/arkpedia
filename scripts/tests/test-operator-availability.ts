@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { isOperatorReleased, operatorRelease, operatorReleaseLabel } from '../../lib/operators/operatorAvailability';
 import { getAllOperators } from '../../lib/operators/operators';
+import operatorSearch from '../../public/operator-search.json';
 
 const opening = Date.parse('2026-09-16T15:00:00Z');
 test('official release corrections cover the complete batch including the welfare operator', () => {
@@ -37,4 +38,13 @@ test('unknown or invalid release dates do not imply availability', () => {
   assert.ok(operatorRelease({ characterInfo: { 'Release Date': 'October 24, 2023' } }));
   assert.equal(isOperatorReleased({ isFuture: true }), false);
   assert.equal(isOperatorReleased({ isFuture: false }), true);
+});
+
+test('the shared operator search catalogue uses the current release source', () => {
+  const expected = getAllOperators().map((operator) => ({
+    name: operator.name,
+    rarity: operator.rarity,
+    isFuture: !isOperatorReleased(operator),
+  }));
+  assert.deepEqual(operatorSearch.operators, expected);
 });

@@ -11,6 +11,7 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const tracked = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { encoding: 'utf8' }).split('\0').filter(Boolean);
 // Publish game records only. No application source, environment files, or raw user responses.
 const sourceFiles = tracked.filter(file => fs.existsSync(file) && file.endsWith('.json') && !file.includes('final-poll-results')
+  && file !== 'public/operator-search.json'
   && (file.startsWith('data/') || /^public\/[^/]+\.json$/.test(file)));
 const sourceHashes = {};
 fs.rmSync(source, { recursive: true, force: true });
@@ -40,6 +41,7 @@ for (const [command, args] of [
   ['node', ['scripts/build/build-enemy-details.mjs']],
   ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-stage-details.ts', '--force']],
   ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-stage-guesser.ts']],
+  ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-operator-search.ts']],
 ]) execFileSync(command, args, { env, stdio: 'inherit' });
 
 let cursor = 0;
@@ -62,7 +64,7 @@ for (const name of fs.readdirSync(release).filter(name => name.startsWith('entri
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]); }
 const files = {};
 const publicFiles = walk('public').filter(file => /^public\/(?:stage-detail|enemy-detail|planner-data|stage-guesser)\/.+\.json$/.test(file)
-  || /^public\/(?:stages-index|enemies-index|operator-deploy)\.json$/.test(file));
+  || /^public\/(?:stages-index|enemies-index|operator-deploy|operator-search)\.json$/.test(file));
 for (const file of publicFiles.sort()) {
   const bytes = fs.readFileSync(file);
   JSON.parse(bytes);

@@ -104,7 +104,6 @@ interface Props {
   skinObtainByLabel: Record<string, string>; // appearance label (skin name) -> formatted price text, e.g. "18 OP" or "400 DC" -- only present for skins with a parseable certificate/OP price
   synergyMatches: SynergyMatchOperator[][]; // one entry per operator.synergies[i], parallel arrays
   autoSynergyGroups: AutoSynergyGroup[]; // auto-detected from skill/talent text mentioning this operator's own faction/class -- separate from the manually-authored operator.synergies above
-  allOperatorNames: SearchableOperator[];
   techniqueUnitIcons: Record<string, SearchableOperator>; // unit name -> resolved operator data, for techniques that reference another operator instead of a plain name
   techniqueBranchOperators: Record<string, SearchableOperator[]>; // branch name -> up to 5 operators of that branch, for techniques that reference a branch
   techniqueGroupOperators: Record<string, SearchableOperator[]>; // custom group name -> its member operators (supplied directly in the JSON, no icon)
@@ -442,16 +441,38 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
   );
 }
 
-export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData }: Props) {
+export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData }: Props) {
   const contentUrl = useContentUrl();
   const router = useRouter();
 
   // --- Header search state ---
+  const [allOperatorNames, setAllOperatorNames] = useState<SearchableOperator[]>([]);
+  const [operatorSearchLoading, setOperatorSearchLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchHighlight, setSearchHighlight] = useState(0);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const searchWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setOperatorSearchLoading(true);
+    fetch(contentUrl('/operator-search.json'), { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Operator search data returned ${response.status}`);
+        return response.json() as Promise<{ operators: SearchableOperator[] }>;
+      })
+      .then((data) => setAllOperatorNames(Array.isArray(data.operators) ? data.operators : []))
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        console.error(error);
+        setAllOperatorNames([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setOperatorSearchLoading(false);
+      });
+    return () => controller.abort();
+  }, [contentUrl]);
 
   const searchResults = useMemo(
     () => getOperatorSearchResults(allOperatorNames, searchQuery),
@@ -942,6 +963,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     <span>{op.name}</span>
                   </button>
                 ))
+              ) : operatorSearchLoading ? (
+                <div className="op-header-search-empty">Loading operators…</div>
               ) : (
                 <div className="op-header-search-empty">No operators found.</div>
               )}
@@ -1757,8 +1780,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     })
     .filter((g): g is AutoSynergyGroup => g !== null);
 
-  const allOperatorNames: SearchableOperator[] = allOperators.map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null }));
-
   const techniqueUnitIcons: Record<string, SearchableOperator> = {};
   const techniqueBranchOperators: Record<string, SearchableOperator[]> = {};
   const techniqueGroupOperators: Record<string, SearchableOperator[]> = {};
@@ -1832,5 +1853,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const voiceData = getOperatorVoiceData(operator.internalName);
   const factionPath = getFactionIconPath(operator.faction);
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
-  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, allOperatorNames, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData } };
+  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData } };
 });

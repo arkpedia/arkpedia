@@ -49,6 +49,6 @@ check(JSON.stringify(sources) === JSON.stringify(m.sourceHashes), 'Source record
 check(sha(JSON.stringify({ schema: 2, generator: m.generator, sourceHashes: sources })) === m.release, 'Release input fingerprint mismatch');
 for (const route of ['/', '/operators', '/planner', '/gacha', '/schedule', '/skins', '/stages', '/enemies']) check(m.pages[route], `Missing required page: ${route}`);
 check(Object.keys(m.pages).filter(route => route.startsWith('/operators/')).length > 100, 'Operator catalogue is incomplete');
-for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json']) check(m.files[file], `Missing catalogue: ${file}`);
+for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json', 'operator-search.json']) check(m.files[file], `Missing catalogue: ${file}`);
 console.log(`Validated ${Object.keys(m.pages).length} pages, ${Object.keys(m.files).length} data files and ${Object.keys(sources).length} source records.`);
 console.log(`Manifest SHA-256: ${sha(manifestBytes)}`);
