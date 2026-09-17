@@ -29,7 +29,7 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
     return `https://raw.githubusercontent.com/arkpedia/${repository}/${revision}/${relative}`;
   }
   // These are generated game records, not application/API routes.
-  if (/^\/(?:stage-detail|enemy-detail|planner-data|stage-guesser)\//.test(src)
+  if (/^\/(?:stage-detail|enemy-detail|planner-data|stage-guesser|lyrics)\//.test(src)
     || /^\/(?:stages-index|enemies-index|operator-deploy|operator-search)\.json(?:\?|$)/.test(src)) {
     return `${release.baseUrl}/public${src}`;
   }

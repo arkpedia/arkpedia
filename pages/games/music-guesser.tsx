@@ -1,3 +1,4 @@
+import { withContentPage } from '@/lib/content/server';
 import GameLinks from '@/components/minigames/GameLinks';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -167,7 +168,6 @@ export default function SongGuesser({ songs, groups, asOf }: { songs: SongChoice
   </>;
 }
 
-export const getStaticProps: GetStaticProps = async () => ({
+export const getStaticProps: GetStaticProps = withContentPage("/games/music-guesser", async () => ({
   props: { ...getMusicSelectionCatalogue(getSongChoices()), asOf: new Date().toISOString().slice(0, 10) },
-  revalidate: 3600,
-});
+}), { revalidate: 3600 });

@@ -1,3 +1,4 @@
+import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
@@ -427,7 +428,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/music/discover", async () => {
   const data = getDiscoverPageData();
   return { props: data };
-};
+});

@@ -4,6 +4,8 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllSongModalLookup, writeLyricsFilesToPublic, SongModalLookupEntry } from '@/lib/music/albumsDataServer';
+import { withContentPage } from '@/lib/content/server';
+import { useContentUrl } from '@/lib/content/context';
 import type { LyricLine } from '@/lib/music/albumsDataServer';
 import { useMusicPlayer, QueueTrack } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
@@ -32,26 +34,33 @@ function formatRoleLabel(role: string): string {
 
 // Module-level per-song cache -- same pattern as SongDetailModal.tsx
 // used before it: each song's lyrics are fetched at most once per
-// session, from public/lyrics/{videoId}.json (written at build time),
-// not embedded in this page's own static props.
+// session, from lyrics/{videoId}.json, not embedded in this page's own
+// static props.
+//
+// The address is passed in rather than built here: this is module scope, so it
+// cannot read the release from context, and a lyric file belongs to a release the
+// same way a stage detail does. A required parameter rather than an optional one
+// so a caller cannot quietly fall back to the deploy-time copy. The cache is keyed
+// by the resolved URL for the same reason -- a new release must not be answered
+// from the previous release's lyrics.
 const lyricsCache = new Map<string, LyricLine[]>();
 const lyricsPromises = new Map<string, Promise<LyricLine[]>>();
-function fetchLyricsFor(videoId: string): Promise<LyricLine[]> {
-  const cached = lyricsCache.get(videoId);
+function fetchLyricsFor(url: string): Promise<LyricLine[]> {
+  const cached = lyricsCache.get(url);
   if (cached) return Promise.resolve(cached);
-  let promise = lyricsPromises.get(videoId);
+  let promise = lyricsPromises.get(url);
   if (!promise) {
-    promise = fetch(`/lyrics/${videoId}.json`)
+    promise = fetch(url)
       .then((res) => res.json())
       .then((lines: LyricLine[]) => {
-        lyricsCache.set(videoId, lines);
+        lyricsCache.set(url, lines);
         return lines;
       })
       .catch(() => {
-        lyricsPromises.delete(videoId);
+        lyricsPromises.delete(url);
         return [];
       });
-    lyricsPromises.set(videoId, promise);
+    lyricsPromises.set(url, promise);
   }
   return promise;
 }
@@ -153,6 +162,7 @@ function QueueRow({
 }
 
 export default function MusicPage({ songLookup }: Props) {
+  const contentUrl = useContentUrl();
   const {
     ready,
     starting,
@@ -257,7 +267,7 @@ export default function MusicPage({ songLookup }: Props) {
     }
     let cancelled = false;
     setLyricsLoading(true);
-    fetchLyricsFor(videoId).then((lines) => {
+    fetchLyricsFor(contentUrl(`/lyrics/${videoId}.json`)).then((lines) => {
       if (!cancelled) {
         setLyrics(lines);
         setLyricsLoading(false);
@@ -266,7 +276,7 @@ export default function MusicPage({ songLookup }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [videoId, hasLyrics]);
+  }, [videoId, hasLyrics, contentUrl]);
 
   // The currently-singing line -- the last line whose own timestamp
   // has already passed, per the actual playback position.
@@ -818,15 +828,19 @@ export default function MusicPage({ songLookup }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/music", async () => {
   // Written exactly once, here -- see writeLyricsFilesToPublic's own
   // comment in albumsDataServer.ts for why this page specifically, and
   // why writing to public/ from within getStaticProps is safe for a
   // static export build.
+  //
+  // This body only ever runs while prerendering or in local development:
+  // withContentPage serves the published release at runtime, and listing the route
+  // in scripts/content/pages.json excludes data/ and public/ from the function's
+  // file trace. So the ISR function neither traces the local data tree nor tries to
+  // rewrite public/ on Vercel's read-only filesystem -- the two things the previous
+  // plain-static version of this page existed to avoid.
   writeLyricsFilesToPublic();
   const songLookup = getAllSongModalLookup();
-  // The generated lyric files and song lookup are build artifacts. Keeping this
-  // page static prevents the ISR function from tracing the entire local data tree
-  // and from trying to rewrite public/ on Vercel's read-only runtime filesystem.
   return { props: { songLookup } };
-};
+});

@@ -30,5 +30,8 @@
   "/games/color-palette",
   "/gamemodes",
   "/gamemodes/stronghold-protocol",
-  "/gamemodes/stronghold-protocol/stronghold-companion"
+  "/gamemodes/stronghold-protocol/stronghold-companion",
+  "/music",
+  "/music/discover",
+  "/games/music-guesser"
 ]
