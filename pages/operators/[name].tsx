@@ -1647,7 +1647,13 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
 
   // Related-operator cards need a current icon source. The scraped isFuture
   // flag can outlive a Global release; derive it from the shared release source.
-  const allOperators = getAllOperators().map((op) => ({ ...op, isFuture: !isOperatorReleased(op) }));
+  const allOperators = getAllOperators().map((op) => ({
+    ...op,
+    // Keep the established compact schema: `true` marks unavailable icons,
+    // while released operators omit the flag instead of serializing `false`
+    // into every operator page payload.
+    isFuture: isOperatorReleased(op) ? undefined : true,
+  }));
   const synergyMatches: SynergyMatchOperator[][] = (operator.synergies || []).map((entry) => {
     if (entry.type === 'category') return []; // category matching isn't defined yet
     const matches = allOperators.filter((op) => {
