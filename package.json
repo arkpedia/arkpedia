@@ -11,6 +11,7 @@
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
     "test:skin-artwork": "tsx --test scripts/tests/test-skin-artwork.ts",
     "voices:refresh": "node scripts/build/build-operator-voices.mjs",
+    "lyrics:refresh": "node scripts/sync/sync-lyrics.mjs",
     "test:operator-voices": "tsx --test scripts/tests/test-operator-voices.ts",
     "test:operator-guesser": "tsx --test scripts/tests/test-operator-guesser.ts",
     "lint": "next lint",
