@@ -4,7 +4,7 @@ The website reads reviewed game records from the public [arkpedia-data repositor
 
 ## Update flow
 
-1. `Prepare content release` checks daily at 16:57 UTC (5h 57m after Global reset), or runs manually. Public artwork, image and voice syncs are staggered from 16:07 to 16:31 UTC first. The daily job compares upstream revisions and reuses a successful preparation when nothing changed, avoiding dependency installation and compilation on unchanged days. Manual runs always run. Changed inputs load public source records, refresh supported importers, then compile page JSON without running a Next.js build.
+1. `Prepare content release` checks daily at 19:57 UTC (8h 57m after the 11:00 UTC Global reset), or runs manually. The public image sync runs earlier, at 16:11 UTC, so its commit is available to pin. The daily job compares upstream revisions and reuses a successful preparation when nothing changed, avoiding dependency installation and compilation on unchanged days. Manual runs always run. Changed inputs load public source records, refresh supported importers, then compile page JSON without running a Next.js build.
 2. A deploy key scoped only to arkpedia-data pushes `refresh/content`. That public repository validates the files and opens a review PR.
 3. Merging the PR publishes its immutable commit through the `live` pointer. Existing website pages adopt it during background revalidation; newly added operator, event and stage-content URLs generate on demand.
 
