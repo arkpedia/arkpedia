@@ -26,13 +26,13 @@ export default function OperatorTalents({ talents, elites, renderDetails }: {
       <div className={styles.talentSelectors}>
         <div className={styles.talentOptions} role="group" aria-label="Talent promotion">
           {promotions.map(level => <button type="button" key={level} title={`Elite ${level}`} aria-label={`Elite ${level}`} aria-pressed={elite === level} onClick={() => setElite(level)}>
-            <OperatorGameIcon label={`Elite ${level}`} size={20} />
+            <OperatorGameIcon label={`Elite ${level}`} size={28} />
           </button>)}
         </div>
         <div className={styles.talentOptions} role="group" aria-label="Talent potential"
           style={potentials.length > 3 ? { display: 'grid', gridTemplateColumns: `repeat(${Math.ceil(potentials.length / 2)}, 44px)` } : undefined}>
           {potentials.map(rank => <button type="button" key={rank} title={`Potential ${rank}`} aria-label={`Potential ${rank}`} aria-pressed={potential === rank} onClick={() => setPotential(rank)}>
-            <OperatorGameIcon label={`Potential ${rank}`} size={20} color />
+            <OperatorGameIcon label={`Potential ${rank}`} size={32} color />
           </button>)}
         </div>
       </div>

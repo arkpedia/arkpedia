@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const assetRevisions = require('./data/assets/revisions.json');
+const contentPageRoutes = require('./scripts/content/pages.json');
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
@@ -54,6 +55,21 @@ function externalAssetRedirects(folders, repository) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // These routes use local records only while Next prerenders the bundled
+    // fallback. In production their ISR functions read the signed release from
+    // arkpedia-data, while public/ is emitted separately as static output.
+    // Without this exclusion @vercel/nft follows the broad data readers and
+    // copies every stage, operator, and generated public file into each function.
+    outputFileTracingExcludes: {
+      ...Object.fromEntries(contentPageRoutes.map((route) => [route === '/' ? '/index' : route, [
+        'data/**/*', 'public/**/*', '.env*',
+      ]])),
+      // These endpoints are hard-blocked outside `next dev`; their local editor
+      // files must never be packaged into a deployed function.
+      '/api/dev/**': ['data/**/*', 'public/**/*', '.env*'],
+    },
+  },
   // The redirect above serves anyone who ARRIVES at /enemies -- a typed URL, a
   // bookmark, a search result. It cannot serve next/link: the client router looks
   // for a /enemies page chunk, 404s on it, and falls back to window.location, so

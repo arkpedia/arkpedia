@@ -234,13 +234,6 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
             <span>{pack?.status === 'legacy' ? 'Previous voice actor' : 'Voice actor'}</span>
             <strong title={pack?.actors.join(', ') || 'Unknown'}>{pack?.actors.join(', ') || 'Unknown'}</strong>
           </div>
-          <label className={styles.volume} title={`Volume ${Math.round(volume * 100)}%`}>
-            <span className="visually-hidden">Volume</span>
-            <VolumeIcon />
-            <input type="range" min="0" max="1" step="0.05" value={volume}
-              onChange={event => setVolume(Number(event.target.value))}
-              aria-label="Voice volume" aria-valuetext={`${Math.round(volume * 100)}%`} />
-          </label>
         </div>
         <button type="button" className={styles.mainPlay} onClick={() => void toggleSelected()}
           aria-label={`${playing ? 'Pause' : 'Play'} ${selected?.title ?? 'voice line'}`} disabled={!selectedHasRecording}>
@@ -252,6 +245,13 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
             {playerMessage || pack?.label || 'No recording selected'}
           </span>
         </div>
+        <label className={styles.volume} title={`Volume ${Math.round(volume * 100)}%`}>
+          <span className="visually-hidden">Volume</span>
+          <VolumeIcon />
+          <input type="range" min="0" max="1" step="0.05" value={volume}
+            onChange={event => setVolume(Number(event.target.value))}
+            aria-label="Voice volume" aria-valuetext={`${Math.round(volume * 100)}%`} />
+        </label>
         <input className={styles.seek} type="range" min="0" max={duration || 0} step="0.01"
           value={Math.min(currentTime, duration || 0)} onChange={event => seek(Number(event.target.value))}
           aria-label="Audio position" disabled={!duration} />

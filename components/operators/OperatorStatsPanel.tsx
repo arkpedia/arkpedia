@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import OperatorGameIcon, { STAT_ICONS } from './OperatorGameIcon';
-import { clampInteger, getBaseStats, getTrustBonus, OperatorStats, StatKey } from '@/lib/operators/operatorStats';
+import { applyModuleStatBonuses, clampInteger, getBaseStats, getTrustBonus, OperatorStats, parseModuleStatBonuses, StatKey } from '@/lib/operators/operatorStats';
+import type { OperatorModule } from '@/lib/operators/operatorTypes';
 import styles from './OperatorDetails.module.css';
 
 const primary: { key: 'hp' | 'atk' | 'def' | 'res'; label: string }[] = [
@@ -14,10 +15,13 @@ const secondary: { key: StatKey; label: string; unit?: string }[] = [
 const format = (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: 3 });
 
 /** Parent keys this by operator so client navigation cannot carry over an invalid elite/level. */
-export default function OperatorStatsPanel({ stats, hidden, compact = false }: { stats: OperatorStats; hidden?: boolean; compact?: boolean }) {
+export default function OperatorStatsPanel({ stats, modules = [], hidden, compact = false }: { stats: OperatorStats; modules?: OperatorModule[]; hidden?: boolean; compact?: boolean }) {
   const id = useId();
   const levelId = `${id}-level`, trustId = `${id}-trust`, helpId = `${id}-trust-help`;
+  const upgradeModules = modules.filter(module => module.type === 'Upgrade' && module.stages.length > 0);
   const [phaseIndex, setPhaseIndex] = useState(stats.phases.length - 1);
+  const [moduleIndex, setModuleIndex] = useState<number | null>(null);
+  const [moduleStageIndex, setModuleStageIndex] = useState(0);
   const phase = stats.phases[phaseIndex];
   const [levelInput, setLevelInput] = useState(String(phase.maxLevel));
   const [trustInput, setTrustInput] = useState('100');
@@ -25,25 +29,67 @@ export default function OperatorStatsPanel({ stats, hidden, compact = false }: {
   const trust = clampInteger(Number(trustInput), 0, 200);
   const base = getBaseStats(phase, level);
   const bonus = getTrustBonus(stats, trust);
+  const activeModule = moduleIndex === null ? null : upgradeModules[moduleIndex];
+  const activeModuleStage = activeModule?.stages[moduleStageIndex] ?? null;
+  const moduleBonuses = parseModuleStatBonuses(activeModuleStage?.attributesIncreased);
+  const moduleAdjusted = applyModuleStatBonuses(base, moduleBonuses);
+  const maxPhaseIndex = stats.phases.length - 1;
+
+  const moduleLabel = (module: OperatorModule, index: number) => {
+    const code = module.name?.match(/^([^:]+):/)?.[1]?.trim();
+    return code || module.badgeText || `Module ${index + 1}`;
+  };
 
   return (
     <section className={`${styles.stats}${compact ? ` ${styles.compact}` : ''}`} aria-label="Operator stats" hidden={hidden}>
       <h2>Stats</h2>
-      <fieldset className={styles.promotion}>
-        <legend className="visually-hidden">Promotion</legend>
-        <div className={styles.promotionOptions}>
-          {stats.phases.map((item, index) => (
-            <button type="button" key={item.elite} aria-pressed={index === phaseIndex}
-              className={index === phaseIndex ? 'primary' : 'ghost'} aria-label={`Elite ${item.elite}`} title={`Elite ${item.elite}`}
-              onClick={() => {
-                setPhaseIndex(index);
-                setLevelInput(String(level === phase.maxLevel ? item.maxLevel : clampInteger(level, item.minLevel, item.maxLevel)));
-              }}>
-              <OperatorGameIcon label={`Elite ${item.elite}`} />
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <div className={styles.buildControls}>
+        <fieldset className={styles.promotion}>
+          <legend>Promotion</legend>
+          <div className={styles.promotionOptions}>
+            {stats.phases.map((item, index) => (
+              <button type="button" key={item.elite} aria-pressed={index === phaseIndex}
+                className={index === phaseIndex ? 'primary' : 'ghost'} aria-label={`Elite ${item.elite}`} title={`Elite ${item.elite}`}
+                onClick={() => {
+                  setPhaseIndex(index);
+                  if (index !== maxPhaseIndex) setModuleIndex(null);
+                  setLevelInput(String(level === phase.maxLevel ? item.maxLevel : clampInteger(level, item.minLevel, item.maxLevel)));
+                }}>
+                <OperatorGameIcon label={`Elite ${item.elite}`} />
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {upgradeModules.length > 0 && (
+          <fieldset className={styles.moduleControls}>
+            <legend>Module</legend>
+            <div className={styles.moduleRow}>
+              <div className={styles.moduleOptions} role="group" aria-label="Module">
+                <button type="button" className={moduleIndex === null ? 'primary' : 'ghost'} aria-pressed={moduleIndex === null}
+                  onClick={() => setModuleIndex(null)}>Off</button>
+                {upgradeModules.map((module, index) => (
+                  <button type="button" key={module.name ?? index} className={moduleIndex === index ? 'primary' : 'ghost'}
+                    aria-pressed={moduleIndex === index} disabled={phaseIndex !== maxPhaseIndex}
+                    title={phaseIndex === maxPhaseIndex ? module.name ?? moduleLabel(module, index) : 'Modules require the final promotion'}
+                    onClick={() => { setModuleIndex(index); setModuleStageIndex(0); }}>
+                    {moduleLabel(module, index)}
+                  </button>
+                ))}
+              </div>
+              {activeModule && (
+                <div className={styles.moduleLevels} role="group" aria-label={`${activeModule.name ?? 'Module'} level`}>
+                  <span>Level</span>
+                  {activeModule.stages.map((stage, index) => (
+                    <button type="button" key={stage.stage ?? index} className={moduleStageIndex === index ? 'primary' : 'ghost'}
+                      aria-pressed={moduleStageIndex === index} onClick={() => setModuleStageIndex(index)}>{index + 1}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </fieldset>
+        )}
+      </div>
 
       <div className={styles.controls}>
         <div className={styles.control}>
@@ -75,13 +121,16 @@ export default function OperatorStatsPanel({ stats, hidden, compact = false }: {
         {primary.map(({ key, label }) => {
           const added = key === 'res' ? 0 : bonus[key];
           const hasTrust = key !== 'res' && stats.trust[key] !== 0;
+          const moduleAdded = moduleBonuses[key] ?? 0;
           return (
             <div key={key} className={styles.stat}>
               <dt><OperatorGameIcon label={label} src={`/stat-icons/${STAT_ICONS[key]}.webp`} size={24} /></dt>
               <dd>
-                <span className={styles.total}>{format(base[key] + added)}</span>
+                <span className={styles.total}>{format(moduleAdjusted[key] + added)}</span>
                 <span className={styles.breakdown}>
-                  {format(base[key])} base{hasTrust && <span className={styles.trustBonus}> + {format(added)} trust</span>}
+                  <span>{format(base[key])} base</span>
+                  {hasTrust && <span className={styles.trustBonus}>+ {format(added)} trust</span>}
+                  {moduleAdded !== 0 && <span className={styles.moduleBonus}>{moduleAdded > 0 ? '+' : '−'} {format(Math.abs(moduleAdded))} module</span>}
                 </span>
               </dd>
             </div>
@@ -90,10 +139,10 @@ export default function OperatorStatsPanel({ stats, hidden, compact = false }: {
       </dl>
       <dl className={styles.secondaryStats}>
         {secondary.map(({ key, label, unit }) => (
-          <div key={key}><dt><OperatorGameIcon label={label} src={`/stat-icons/${STAT_ICONS[key]}.webp`} size={24} /></dt><dd>{format(base[key])}{unit && <span> {unit}</span>}</dd></div>
+          <div key={key}><dt><OperatorGameIcon label={label} src={`/stat-icons/${STAT_ICONS[key]}.webp`} size={24} /></dt><dd>{format(moduleAdjusted[key])}{unit && <span> {unit}</span>}</dd></div>
         ))}
       </dl>
-      <p className={styles.help}>Base + trust only.</p>
+      <p className={styles.help}>{activeModuleStage ? `Base, trust, and ${moduleLabel(activeModule!, moduleIndex!)} level ${moduleStageIndex + 1}.` : 'Base + trust.'}</p>
     </section>
   );
 }

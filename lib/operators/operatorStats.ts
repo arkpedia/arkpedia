@@ -18,6 +18,33 @@ export interface OperatorStats {
   trust: Pick<StatValues, 'hp' | 'atk' | 'def'>;
 }
 
+export type ModuleStatBonuses = Partial<StatValues> & { aspd?: number };
+
+const MODULE_STAT_KEYS: Record<string, keyof ModuleStatBonuses> = {
+  HP: 'hp', ATK: 'atk', DEF: 'def', RES: 'res', Cost: 'dp', Block: 'block', 'Rdp.': 'redeploy', ASPD: 'aspd',
+};
+
+/** Parse the concise stat line supplied by the game data for one module stage. */
+export function parseModuleStatBonuses(attributes: string | null | undefined): ModuleStatBonuses {
+  const bonuses: ModuleStatBonuses = {};
+  for (const part of attributes?.split(',') ?? []) {
+    const match = part.trim().match(/^(HP|ATK|DEF|RES|Cost|Block|Rdp\.|ASPD)\s*([+-]\s*\d+(?:\.\d+)?)/i);
+    if (!match) continue;
+    const sourceKey = Object.keys(MODULE_STAT_KEYS).find(key => key.toLowerCase() === match[1].toLowerCase());
+    if (!sourceKey) continue;
+    const key = MODULE_STAT_KEYS[sourceKey];
+    bonuses[key] = Number(match[2].replace(/\s/g, ''));
+  }
+  return bonuses;
+}
+
+/** Apply direct module attributes to the stat block. ASPD modifies attack interval. */
+export function applyModuleStatBonuses(base: StatValues, bonuses: ModuleStatBonuses): StatValues {
+  const withDirectBonuses = Object.fromEntries(STAT_KEYS.map(key => [key, base[key] + (bonuses[key] ?? 0)])) as StatValues;
+  if (bonuses.aspd) withDirectBonuses.interval = base.interval * 100 / (100 + bonuses.aspd);
+  return withDirectBonuses;
+}
+
 export interface OperatorFile {
   section: string;
   unlock: string;

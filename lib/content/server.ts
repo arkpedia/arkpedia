@@ -76,12 +76,19 @@ async function loadRelease(): Promise<Loaded | undefined> {
 /** Build and ISR use the same reader. No remote code or credentials are shipped. */
 export function withContentPage<P extends object>(template: string, bundled: GetStaticProps<P>, options: { finalize?: (props: P) => Promise<P>; revalidate?: number } = {}): GetStaticProps<P> {
   return async (context: GetStaticPropsContext): Promise<GetStaticPropsResult<P>> => {
+    // Local source data is present while prerendering and in local development.
+    // Vercel ISR functions intentionally exclude it from their file traces; at
+    // runtime they must use the published content release instead.
+    const bundledFallbackAvailable = context.revalidateReason === 'build'
+      || process.env.VERCEL !== '1'
+      || process.env.ARKPEDIA_CONTENT_DISABLED === '1';
     const loaded = await loadRelease();
     if (loaded) {
       const route = contentRoute(template, context.params);
       const file = loaded.manifest.pages[route];
       if (!file) {
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
+        if (!bundledFallbackAvailable) throw new Error(`Published content is missing ${route}`);
         const fallback = await bundled(context);
         if ('props' in fallback) fallback.props = contentPageClock(template, await fallback.props);
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props);
@@ -108,6 +115,7 @@ export function withContentPage<P extends object>(template: string, bundled: Get
         console.warn('[content] Using bundled page:', error instanceof Error ? error.message : error);
       }
     }
+    if (!bundledFallbackAvailable) throw new Error(`Published content is unavailable for ${contentRoute(template, context.params)}`);
     const fallback = await bundled(context);
     if ('props' in fallback) fallback.props = contentPageClock(template, await fallback.props, process.env.ARKPEDIA_EXPORT_CONTENT === '1');
     if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props);

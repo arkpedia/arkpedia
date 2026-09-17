@@ -1231,7 +1231,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
             {operator.stats?.phases.length ? (
               <div id="operator-stats" data-operator-section="stats" tabIndex={-1} className={pageStyles.section}>
-                <OperatorStatsPanel key={`stats-${operator.name}`} stats={operator.stats} compact />
+                <OperatorStatsPanel key={`stats-${operator.name}`} stats={operator.stats} modules={operator.modules} compact />
               </div>
             ) : null}
 

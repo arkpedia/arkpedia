@@ -78,6 +78,9 @@ jobs:
           # while generating thousands of stage files in this fresh process.
           NODE_ENV: production
 
+      - name: Deployment traces stay lean
+        run: npm run check:deployment-traces
+
       - name: Install Chromium only
         run: npx playwright install --with-deps chromium
 

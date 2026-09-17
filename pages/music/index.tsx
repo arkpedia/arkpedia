@@ -825,5 +825,8 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   // static export build.
   writeLyricsFilesToPublic();
   const songLookup = getAllSongModalLookup();
-  return { props: { songLookup }, revalidate: 1500 };
+  // The generated lyric files and song lookup are build artifacts. Keeping this
+  // page static prevents the ISR function from tracing the entire local data tree
+  // and from trying to rewrite public/ on Vercel's read-only runtime filesystem.
+  return { props: { songLookup } };
 };

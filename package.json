@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "npm run check:deployment-traces",
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
     "test:skin-artwork": "tsx --test scripts/tests/test-skin-artwork.ts",
@@ -33,6 +34,7 @@
     "check:styles": "node scripts/audits/check-unstyled-classes.mjs --strict",
     "check:assets": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs",
     "check:published-assets": "node scripts/audits/check-published-assets.mjs",
+    "check:deployment-traces": "node scripts/audits/check-deployment-traces.mjs",
     "assets:update": "node scripts/sync/update-asset-revisions.mjs",
     "test:browser": "playwright test",
     "content:export": "node scripts/content/export.mjs",

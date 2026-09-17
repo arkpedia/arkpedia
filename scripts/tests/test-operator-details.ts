@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { getBaseStats, getTrustBonus, clampInteger, STAT_KEYS, OperatorStats, StatPhase } from '../../lib/operators/operatorStats';
+import { applyModuleStatBonuses, getBaseStats, getTrustBonus, clampInteger, parseModuleStatBonuses, STAT_KEYS, OperatorStats, StatPhase } from '../../lib/operators/operatorStats';
 import { Operator } from '../../lib/operators/operatorTypes';
 import { readCsv } from '../lib/operator-csv';
 import { getBaseSkillIconPath, getSkillIconPath } from '../../lib/operators/operatorIconPaths';
@@ -237,6 +237,19 @@ test('trust uses battle phases, rounds the bonus, and caps at 100%', () => {
   assert.equal(getTrustBonus(exusiai, 100).atk, 90);
   const zero: OperatorStats = { ...amiya, trust: { hp: 0, atk: 0, def: 0 } };
   assert.deepEqual(getTrustBonus(zero, 200), { hp: 0, atk: 0, def: 0 });
+});
+
+test('module attributes update direct stats and convert ASPD to attack interval', () => {
+  assert.deepEqual(parseModuleStatBonuses('HP +200 , DEF +50 , Block +1'), { hp: 200, def: 50, block: 1 });
+  assert.deepEqual(parseModuleStatBonuses('DEF +30 , Rdp. -25 sec. , ASPD +5'), { def: 30, redeploy: -25, aspd: 5 });
+  assert.deepEqual(parseModuleStatBonuses('ATK +57 , Cost -8 , RES +3'), { atk: 57, dp: -8, res: 3 });
+  const base = getBaseStats(stats('Exusiai').phases[2], 90);
+  const adjusted = applyModuleStatBonuses(base, { hp: 190, atk: 41, block: 1, redeploy: -10, aspd: 5 });
+  assert.equal(adjusted.hp, base.hp + 190);
+  assert.equal(adjusted.atk, base.atk + 41);
+  assert.equal(adjusted.block, base.block + 1);
+  assert.equal(adjusted.redeploy, base.redeploy - 10);
+  assert.equal(adjusted.interval, base.interval * 100 / 105);
 });
 
 test('rarity and class forms keep their own promotion limits and files', () => {
