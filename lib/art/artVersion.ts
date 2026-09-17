@@ -22,7 +22,7 @@ import artSources from '@/data/assets/banner_art_sources.json';
  * gets no suffix: its bytes have not changed, so neither should its URL.
  *
  * Apply this where a path becomes an <Image src>, NEVER in the data files.
- * The scrapers own events.json and headhunting_banners.json and would
+ * The scrapers own the per-year event records and headhunting_banners.json and would
  * clobber an edit there, and lib/stages/stageContents.ts resolves poster
  * strings against the filesystem -- `existsSync("foo.webp?v=abc")` is
  * quietly false, which would drop the poster from every stage page.

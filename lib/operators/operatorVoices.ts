@@ -36,3 +36,20 @@ const OPERATORS = VOICE_DATA.operators as Record<string, OperatorVoiceData>;
 export function getOperatorVoiceData(internalName: string | null | undefined): OperatorVoiceData | null {
   return internalName ? OPERATORS[internalName] ?? null : null;
 }
+
+/** Current credits are generated with the voice-line catalogue. The copy in an
+ * operator's scraped record predates that pipeline and is fallback data only. */
+export function getCurrentOperatorVoiceCredits(
+  internalName: string | null | undefined,
+  fallback: Record<string, string> | null | undefined = null,
+): Record<string, string> | null | undefined {
+  const voice = getOperatorVoiceData(internalName);
+  if (!voice) return fallback;
+  const credits: Record<string, string> = {};
+  for (const pack of voice.packs) {
+    if (pack.status !== 'current' || !pack.actors.length) continue;
+    const language = pack.id === 'cn' ? 'Chinese' : pack.label;
+    credits[language] = pack.actors.join(' / ');
+  }
+  return Object.keys(credits).length ? credits : fallback;
+}

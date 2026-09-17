@@ -1,4 +1,9 @@
-type ReleaseOperator = { releaseAt?: string; characterInfo?: Record<string, string> | null };
+export type ReleaseOperator = {
+  releaseAt?: string;
+  characterInfo?: Record<string, string> | null;
+  /** Only a fallback for placeholder records that have no release date. */
+  isFuture?: boolean | null;
+};
 const DAY = 86_400_000;
 
 /** Global release dates are UTC-7 calendar dates, never the viewer's midnight.
@@ -29,4 +34,18 @@ export function operatorReleaseLabel(op: ReleaseOperator, now: number): string |
   if (remaining < DAY) return `In ${Math.ceil(remaining / 3_600_000)}h`;
   const days = Math.ceil(remaining / DAY);
   return `In ${days} day${days === 1 ? '' : 's'}`;
+}
+
+/**
+ * One release-state decision for every operator surface.
+ *
+ * Exact Global timestamps win, date-only legacy records keep the conservative
+ * UTC-7 safeguard above, and `isFuture` is consulted only when neither exists.
+ * That prevents a manually stored flag or calendar date from making an operator
+ * playable before the confirmed Global release instant.
+ */
+export function isOperatorReleased(op: ReleaseOperator, now = Date.now()): boolean {
+  const release = operatorRelease(op);
+  if (release) return now >= release.at;
+  return op.isFuture !== true;
 }

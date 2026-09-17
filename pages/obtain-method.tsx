@@ -6,6 +6,7 @@ import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
+import { isOperatorReleased, operatorRelease } from '@/lib/operators/operatorAvailability';
 import { RosterOperator, isWelfareUnit, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { getLimitedBannerInfoLookup, getCelebrationBannerDates, dateStringValue, LimitedBannerType, LimitedOperatorInfo } from '@/lib/gacha/limitedBannerType';
 
@@ -84,11 +85,7 @@ function OperatorGrid({ operators, getNote }: { operators: RosterOperator[]; get
 }
 
 function releaseDateValue(op: RosterOperator): number {
-  const raw = op.characterInfo?.['Release Date'];
-  if (!raw) return -Infinity; // no known date -- always sorts last regardless of direction
-  const m = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (!m) return -Infinity;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+  return operatorRelease(op)?.at ?? -Infinity;
 }
 
 // Limited banners (Celebration/Festival/Carnival especially) broadly
@@ -294,10 +291,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
                   // this incoming banner is their debut, not a return
                   // appearance, and labeling it "rerun" would be wrong.
                   if (info.nextScheduledDate) {
-                    const releaseDate = op.characterInfo?.['Release Date'] || null;
-                    const now = new Date();
-                    now.setHours(0, 0, 0, 0);
-                    const notYetReleased = releaseDate ? dateStringValue(releaseDate) > now.getTime() : false;
+                    const notYetReleased = !isOperatorReleased(op);
                     const label = notYetReleased ? 'release' : 'scheduled rerun';
                     return `${info.type} \u2014 ${daysUntil(info.nextScheduledDate)} days until ${label}`;
                   }
@@ -387,6 +381,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ob
     faction: op.faction,
     howToObtain: op.howToObtain,
     isFuture: op.isFuture ?? false,
+    ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     // Only 'Release Date' is actually read anywhere on this page --
     // the full characterInfo object (description, position, tags,
     // etc.) is a large chunk of unused payload otherwise.

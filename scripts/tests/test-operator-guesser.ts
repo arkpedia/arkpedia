@@ -43,6 +43,7 @@ test('every operator retains every hint and themed hint pool after serialization
       return value;
     }));
     assert.equal(compact.characterInfo?.['Release Date'], op.characterInfo?.['Release Date']);
+    assert.equal(compact.releaseAt, op.releaseAt);
     assertSameHints(op, compact, allTypes);
     for (const type of allTypes) assertSameHints(op, compact, [type]);
     for (const mode of THEMED_MODES) assertSameHints(op, compact, mode.hints.map(({ type }) => type));

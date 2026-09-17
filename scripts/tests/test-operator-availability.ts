@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { operatorRelease, operatorReleaseLabel } from '../../lib/operators/operatorAvailability';
+import { isOperatorReleased, operatorRelease, operatorReleaseLabel } from '../../lib/operators/operatorAvailability';
 import { getAllOperators } from '../../lib/operators/operators';
 
 const opening = Date.parse('2026-09-16T15:00:00Z');
@@ -12,6 +12,8 @@ test('official release corrections cover the complete batch including the welfar
     assert.equal(operatorReleaseLabel(op, opening - 1), 'In 1m');
     assert.equal(operatorReleaseLabel(op, opening), null);
     assert.equal(operatorReleaseLabel(op, opening - 4 * 3600000), 'In 4h');
+    assert.equal(isOperatorReleased({ ...op, isFuture: false }, opening - 1), false, 'exact time overrides a stale false flag');
+    assert.equal(isOperatorReleased({ ...op, isFuture: true }, opening), true, 'exact time overrides a stale true flag');
   }
 });
 test('release instants and date-only safeguards are independent of user timezone', () => {
@@ -33,4 +35,6 @@ test('unknown or invalid release dates do not imply availability', () => {
   for (const date of ['', 'N/A', '2026/02/30']) assert.equal(operatorRelease({ characterInfo: { 'Release Date': date } }), null);
   assert.equal(operatorRelease({ releaseAt: '2026-09-16T08:00:00' }), null);
   assert.ok(operatorRelease({ characterInfo: { 'Release Date': 'October 24, 2023' } }));
+  assert.equal(isOperatorReleased({ isFuture: true }), false);
+  assert.equal(isOperatorReleased({ isFuture: false }), true);
 });

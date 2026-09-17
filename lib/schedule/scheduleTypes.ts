@@ -18,7 +18,7 @@ export interface ScheduleEvent {
   materials?: string[];
   pullsNeeded?: number;
   // Whether this event hosts a Fashion Review rotation in its Outfit
-  // Store. Computed once at scrape time (see events.json) rather than
+  // Store. Computed once at scrape time from the per-year event records rather than
   // inferred from the event name at render time -- true for events
   // directly confirmed via the wiki's own Fashion Review "Added in"
   // table, plus any Celebration/Carnival/Festival-tagged event from

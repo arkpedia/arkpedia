@@ -16,7 +16,7 @@ export interface HeadhuntingBanner {
   four_stars?: string[]; // featured 4-stars -- 50% chance when a 4-star is rolled, shared 50% among everyone else
   pull_type: 'featured' | 'limited' | 'special' | 'standard' | 'kernel' | 'orienteering' | 'joint' | 'celebration' | 'unknown';
   year: number | string;
-  linked_event: string | null; // computed once at scrape time against events.json
+  linked_event: string | null; // computed once at scrape time against the per-year event records
 }
 
 // banner_image is versioned here, at the single point every consumer reads

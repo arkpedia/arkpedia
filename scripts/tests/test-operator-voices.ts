@@ -4,7 +4,7 @@ import { createElement, Fragment } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import voiceData from '../../data/operator-voice-lines.json';
 import { renderGameText } from '../../components/ui/HighlightedText';
-import type { OperatorVoiceData } from '../../lib/operators/operatorVoices';
+import { getCurrentOperatorVoiceCredits, type OperatorVoiceData } from '../../lib/operators/operatorVoices';
 
 const operators = voiceData.operators as Record<string, OperatorVoiceData>;
 
@@ -88,6 +88,17 @@ test('the current Global operators include English transcripts and EN/KR recordi
     const linkage = operators[operatorId].packs.find(pack => pack.id === 'linkage');
     assert.ok(linkage?.audioTemplate?.includes('arkpedia-voice-english'), `${operatorId} uses the wrong collaboration audio repository`);
   }
+});
+
+test('generated voice credits replace stale credits embedded in operator records', () => {
+  assert.deepEqual(getCurrentOperatorVoiceCredits('char_4223_botany', { English: 'Old actor' }), {
+    English: 'Nana Sarkisyan',
+    Japanese: 'Aki Orita',
+    Chinese: 'Yixuan Hu',
+    Korean: 'Kim Jin-ah',
+    Russian: 'Nana Sarkisyan',
+  });
+  assert.deepEqual(getCurrentOperatorVoiceCredits('missing', { English: 'Fallback actor' }), { English: 'Fallback actor' });
 });
 
 test('voice transcript markup is supported and rendered safely', () => {

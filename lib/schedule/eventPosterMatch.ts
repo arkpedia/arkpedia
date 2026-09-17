@@ -29,7 +29,7 @@ function containsWords(haystack: string, needle: string): boolean {
 }
 
 /** Finds the matching event's poster image, given a stage_index.json
- * event name (clean, e.g. "Crossing") against events.json's
+ * event name (clean, e.g. "Crossing") against the per-year event records'
  * bracket-tagged names (e.g. "[Story Collection] Crossing"). This is
  * why stage banners weren't showing at all -- event names differ
  * between the two data sources, and the previous code didn't even

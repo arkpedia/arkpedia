@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
+import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import { highlightStats } from '@/components/ui/HighlightedText';
@@ -1764,7 +1765,7 @@ function trimModule(mod: OperatorModule) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/planner", async () => {
-  const allOps = getAllOperators().filter((op) => !op.isFuture);
+  const allOps = getAllOperators().filter((op) => isOperatorReleased(op));
 
   // Lightweight props -- just enough for the search picker and
   // selected-operator chips. Full promotion/skills/modules build data

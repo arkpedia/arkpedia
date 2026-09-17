@@ -14,7 +14,7 @@ import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from 
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
 import { getClassIconPath, getBranchIconPath, getFactionIconPath } from '@/lib/operators/classBranchIcons';
-import { operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
+import { isOperatorReleased, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { fetchVideoOEmbedInfo } from '@/lib/music/youtube';
 import {
@@ -1645,7 +1645,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     if (prices.length > 0) skinObtainByLabel[skin.name] = formatPrices(prices);
   }
 
-  const allOperators = getAllOperators();
+  // Related-operator cards need a current icon source. The scraped isFuture
+  // flag can outlive a Global release; derive it from the shared release source.
+  const allOperators = getAllOperators().map((op) => ({ ...op, isFuture: !isOperatorReleased(op) }));
   const synergyMatches: SynergyMatchOperator[][] = (operator.synergies || []).map((entry) => {
     if (entry.type === 'category') return []; // category matching isn't defined yet
     const matches = allOperators.filter((op) => {
@@ -1772,7 +1774,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
       if (tech.group && tech.members && !techniqueGroupOperators[tech.group]) {
         techniqueGroupOperators[tech.group] = tech.members
           .map((name) => allOperators.find((op) => op.name === name))
-          .filter((op): op is Operator => !!op)
+          .filter((op): op is (typeof allOperators)[number] => !!op)
           .map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null }));
       }
     }

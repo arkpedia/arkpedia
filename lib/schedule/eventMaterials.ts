@@ -6,7 +6,7 @@ function normalize(s: string): string {
   return s
     .toLowerCase()
     .replace(/\[[^\]]*\]/g, '') // strip [Crossover]-style tags
-    .replace(/\brerun\b/g, '') // events.json often appends/repeats "Rerun"
+    .replace(/\brerun\b/g, '') // event records often append/repeat "Rerun"
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
@@ -23,7 +23,7 @@ for (const [name, materials] of Object.entries(eventMaterials)) {
  * than showing a partial/misleading list.
  *
  * Uses normalized matching rather than an exact string match, since
- * events.json (bracket-tagged names like "[Rerun] X Rerun") and
+ * event records (bracket-tagged names like "[Rerun] X Rerun") and
  * event_materials.json (plain names like "X") come from two different
  * scrapers with different naming conventions. */
 export function getEventMaterials(eventName: string, table?: Record<string, Record<string, string>>): Record<string, string> | null {

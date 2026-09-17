@@ -11,7 +11,6 @@ import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
 import { operatorRelease, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
-import { parseDate } from '@/lib/operators/operatorReleaseDates';
 import { RosterOperator } from '@/lib/operators/operatorTypes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
@@ -169,17 +168,17 @@ export default function OperatorsIndex({ operators, now }: Props) {
       // dedicated, simpler ordering for "what's coming, and in what
       // order" specifically.
       if (showUnreleased) {
-        const da = parseDate(a.characterInfo?.['Release Date'] || '');
-        const db = parseDate(b.characterInfo?.['Release Date'] || '');
-        if (!da && !db) {
+        const da = operatorRelease(a)?.at;
+        const db = operatorRelease(b)?.at;
+        if (da === undefined && db === undefined) {
           const ra = a.rarity ?? -1;
           const rb = b.rarity ?? -1;
           if (ra !== rb) return rb - ra;
           return a.name.localeCompare(b.name);
         }
-        if (!da) return 1; // missing dates always sort last
-        if (!db) return -1;
-        const diff = da.getTime() - db.getTime();
+        if (da === undefined) return 1; // missing dates always sort last
+        if (db === undefined) return -1;
+        const diff = da - db;
         if (diff !== 0) return diff; // ascending -- earliest first
         const ra = a.rarity ?? -1;
         const rb = b.rarity ?? -1;
@@ -212,12 +211,12 @@ export default function OperatorsIndex({ operators, now }: Props) {
       const bComingSoon = isComingSoon(b);
       if (aComingSoon !== bComingSoon) return aComingSoon ? -1 : 1;
       if (sortField === 'releaseDate') {
-        const da = parseDate(a.characterInfo?.['Release Date'] || '');
-        const db = parseDate(b.characterInfo?.['Release Date'] || '');
-        if (!da && !db) return a.name.localeCompare(b.name);
-        if (!da) return 1; // missing dates always sort last, regardless of direction
-        if (!db) return -1;
-        const diff = da.getTime() - db.getTime();
+        const da = operatorRelease(a)?.at;
+        const db = operatorRelease(b)?.at;
+        if (da === undefined && db === undefined) return a.name.localeCompare(b.name);
+        if (da === undefined) return 1; // missing dates always sort last, regardless of direction
+        if (db === undefined) return -1;
+        const diff = da - db;
         if (diff !== 0) return sortDir === 'desc' ? -diff : diff;
         return a.name.localeCompare(b.name);
       }
@@ -486,7 +485,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                     // coming-soon window) have no confirmed rarity/class
                     // yet in practice -- keep the existing text-only
                     // display for them, unchanged.
-                    if (op.isFuture && (days === null || days > COMING_SOON_WINDOW_DAYS)) {
+                    if ((days === null ? op.isFuture : days > COMING_SOON_WINDOW_DAYS)) {
                       return <p className="hint roster-class-branch">Upcoming</p>;
                     }
                     return (

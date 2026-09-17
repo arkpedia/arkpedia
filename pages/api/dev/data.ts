@@ -6,18 +6,20 @@ import path from 'path';
 // "anything in data/", so a malformed request can't read/write outside
 // what's expected.
 const ALLOWED_FILES = [
-  'operators-1star.json',
-  'operators-2star.json',
-  'operators-3star.json',
-  'operators-4star.json',
-  'operators-5star.json',
-  'operators-6star.json',
   'skins.json',
-  'events.json',
-  'stages.json',
-  'stage_index.json',
-  'collectibles.json',
-  'tongbaos.json',
+  'events/events_2020.json',
+  'events/events_2021.json',
+  'events/events_2022.json',
+  'events/events_2023.json',
+  'events/events_2024.json',
+  'events/events_2025.json',
+  'events/events_2026.json',
+  'events/events_2027.json',
+  'event_colors.json',
+  'event_materials.json',
+  'stage-guesser.json',
+  'music-guesser-review.json',
+  'techniques_definitions.json',
 ];
 
 function isLocalDev(): boolean {

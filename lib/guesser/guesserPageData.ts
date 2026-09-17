@@ -17,6 +17,7 @@ export function toGuesserOperator(op: Operator): GuesserOperator {
     howToObtain: op.howToObtain,
     tags: op.tags,
     isFuture: op.isFuture ?? false,
+    ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     skills: getSkillList(op).map((skill) => {
       const m3 = skill.levels?.find((level) => level.mastery === 3);
       return {

@@ -3,18 +3,20 @@ import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 
 const FILES = [
-  'operators-1star.json',
-  'operators-2star.json',
-  'operators-3star.json',
-  'operators-4star.json',
-  'operators-5star.json',
-  'operators-6star.json',
   'skins.json',
-  'events.json',
-  'stages.json',
-  'stage_index.json',
-  'collectibles.json',
-  'tongbaos.json',
+  'events/events_2020.json',
+  'events/events_2021.json',
+  'events/events_2022.json',
+  'events/events_2023.json',
+  'events/events_2024.json',
+  'events/events_2025.json',
+  'events/events_2026.json',
+  'events/events_2027.json',
+  'event_colors.json',
+  'event_materials.json',
+  'stage-guesser.json',
+  'music-guesser-review.json',
+  'techniques_definitions.json',
 ];
 
 export default function DevConsole() {
@@ -22,7 +24,7 @@ export default function DevConsole() {
   const [unlocked, setUnlocked] = useState(false);
   const [mode, setMode] = useState<'editor' | 'addEvent' | 'extractSkills'>('editor');
 
-  const [selectedFile, setSelectedFile] = useState(FILES[5]);
+  const [selectedFile, setSelectedFile] = useState(FILES[0]);
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -212,7 +214,7 @@ export default function DevConsole() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setEvStatus(`Saved "${evName}" to events.json.`);
+      setEvStatus(`Saved "${evName}" to ${data.file}.`);
       setEvName('');
       setEvPoster('');
       setEvGlobalRange('');
@@ -253,7 +255,7 @@ export default function DevConsole() {
       <h1>Dev Console</h1>
       <p className="hint" style={{ marginBottom: 16 }}>
         Edits write directly to your local <code>data/</code> files. Commit and push the changed
-        files, then let Vercel rebuild, for changes to actually appear on the live site.
+        files, then publish a content release for changes to appear on the live site.
       </p>
 
       <div className="stages-category-row" style={{ marginBottom: 20 }}>

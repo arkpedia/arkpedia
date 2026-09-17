@@ -66,13 +66,15 @@ Use mirrored game tables only where no official timing has been recorded, and
 keep date-only fallbacks documented as estimates. The mirrors are third-party
 hosts, not official announcements.
 
-Confirmed Global operator debuts belong in `data/operator-release-overrides.json`
-with a timezone-qualified `startAt` and official `timingSource`. They override
-stale scraped calendar dates, including event reward operators that are absent
-from banners. Exported operator records carry the resolved `releaseAt`; badges
-use that instant across timezones. Without a confirmed hour, the roster says
-“Releases today” through the Global server's calendar day instead of declaring
-availability at the reader's midnight.
+Confirmed Global operator debuts are derived from the canonical event `startAt`:
+featured operators join through the banner's `linked_event`, while welfare
+operators join through their unlock event. This keeps countdowns and operator
+availability on the same official timestamp instead of maintaining a second
+override file. The recorded operator date is only a proximity guard against
+mistaking a later rate-up for a debut. Exported operator records carry the
+resolved `releaseAt`; badges use that instant across timezones. Without a
+confirmed hour, the roster says “Releases today” through the Global server's
+calendar day instead of declaring availability at the reader's midnight.
 
 ## Recruitment accuracy
 

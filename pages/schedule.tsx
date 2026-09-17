@@ -14,6 +14,7 @@ import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule
 import { getAllEvents, getOperatorBirthdays, parseDateRange, OperatorBirthday } from '@/lib/schedule/schedule';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
+import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
 import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
@@ -891,7 +892,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   const trimmedOperators: TimelineOperator[] = allOperators.map((op) => ({
     name: op.name,
     rarity: op.rarity ?? null,
-    isFuture: !!op.isFuture,
+    isFuture: !isOperatorReleased(op),
     basicInfo: op.basicInfo?.['Date of Birth'] ? { 'Date of Birth': op.basicInfo['Date of Birth'] } : null,
   }));
 

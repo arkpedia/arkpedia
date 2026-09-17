@@ -24,12 +24,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Event needs at least a name and year' });
   }
 
-  const filepath = path.join(process.cwd(), 'data', 'events.json');
+  const relativeFile = `events/events_${event.year}.json`;
+  const filepath = path.join(process.cwd(), 'data', relativeFile);
+  if (!fs.existsSync(filepath)) {
+    return res.status(400).json({
+      error: `No supported event-year file for ${event.year}. Add and import ${relativeFile} before creating events for that year.`,
+    });
+  }
   let events: ScheduleEvent[] = [];
   try {
     events = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
   } catch (e) {
-    return res.status(500).json({ error: 'Failed to read events.json', detail: String(e) });
+    return res.status(500).json({ error: `Failed to read ${relativeFile}`, detail: String(e) });
   }
 
   if (events.some((e) => e.name === event.name)) {
@@ -53,8 +59,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     fs.copyFileSync(filepath, filepath + '.bak');
     fs.writeFileSync(filepath, JSON.stringify(events, null, 2), 'utf-8');
-    return res.status(200).json({ saved: true, event: newEvent });
+    return res.status(200).json({ saved: true, event: newEvent, file: relativeFile });
   } catch (e) {
-    return res.status(500).json({ error: 'Failed to write events.json', detail: String(e) });
+    return res.status(500).json({ error: `Failed to write ${relativeFile}`, detail: String(e) });
   }
 }

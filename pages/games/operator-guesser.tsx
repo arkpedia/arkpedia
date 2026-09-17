@@ -6,7 +6,7 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
-import { parseDate } from '@/lib/operators/operatorReleaseDates';
+import { isOperatorReleased, operatorRelease } from '@/lib/operators/operatorAvailability';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getAllSkins } from '@/lib/skins/skins';
 import { GuesserOperator } from '@/lib/operators/operatorTypes';
@@ -39,11 +39,7 @@ const NO_REPEAT_ROUNDS = 50;
 export default function GuesserPage({ operators, skins }: Props) {
   const realOperators = useMemo(
     () =>
-      operators.filter((o) => {
-        const releaseDate = parseDate(o.characterInfo?.['Release Date'] || '');
-        if (!releaseDate) return false; // no parseable release date at all -- not guessable
-        return releaseDate.getTime() <= Date.now(); // actually released as of today, regardless of the isFuture flag's own freshness
-      }),
+      operators.filter((operator) => operatorRelease(operator) !== null && isOperatorReleased(operator)),
     [operators]
   );
 

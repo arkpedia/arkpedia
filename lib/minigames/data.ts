@@ -1,6 +1,6 @@
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { getAllOperators } from '@/lib/operators/operators';
-import { parseDate } from '@/lib/operators/operatorReleaseDates';
+import { isOperatorReleased, operatorRelease } from '@/lib/operators/operatorAvailability';
 import { Operator } from '@/lib/operators/operatorTypes';
 import { GameOperator, PaletteArtwork, PaletteOperator } from './logic';
 import palettes from '@/data/color-palettes.json';
@@ -8,10 +8,8 @@ import palettes from '@/data/color-palettes.json';
 const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 
 function releasedOperators(now = new Date()): Operator[] {
-  return getAllOperators().filter((operator) => {
-    const release = parseDate(operator.characterInfo?.['Release Date'] || '');
-    return !operator.isFuture && Boolean(release && release <= now);
-  });
+  return getAllOperators().filter((operator) => operatorRelease(operator) !== null
+    && isOperatorReleased(operator, now.getTime()));
 }
 function toGameOperator(operator: Operator): GameOperator {
   return {
