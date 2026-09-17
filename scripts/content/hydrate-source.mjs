@@ -3,6 +3,10 @@ import path from 'node:path';
 const root = path.resolve(process.argv[2] || '');
 if (!process.argv[2] || root === process.cwd()) throw new Error('Specify a separate data repository checkout');
 const source = path.join(root, 'source');
+const deprecatedSourceFiles = new Set([
+  'data/events.json',
+  'data/operator-release-overrides.json',
+]);
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
   if (entry.isSymbolicLink()) throw new Error(`Source symlink: ${entry.name}`);
   const file = path.join(dir, entry.name);
@@ -12,6 +16,10 @@ const incoming = new Map();
 for (const file of walk(source)) {
   const relative = path.relative(source, file);
   if (!/^(data\/.*|public\/[^/]+)\.json$/.test(relative) || relative.includes('..') || relative.includes('\\')) throw new Error(`Invalid source file: ${relative}`);
+  // Old public releases can still contain retired fallback records. Never
+  // hydrate them back into the canonical source tree; the next publication
+  // consequently removes them from arkpedia-data as well.
+  if (deprecatedSourceFiles.has(relative)) continue;
   const bytes = fs.readFileSync(file);
   JSON.parse(bytes);
   incoming.set(relative, bytes);

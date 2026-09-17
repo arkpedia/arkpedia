@@ -18,6 +18,13 @@ test('obsolete monolithic operator and event files cannot return as editable sou
   assert.match(devSources, /events\/events_/);
 });
 
+test('content hydration cannot restore retired public source records', () => {
+  const hydration = read('scripts/content/hydrate-source.mjs');
+  assert.match(hydration, /data\/events\.json/);
+  assert.match(hydration, /data\/operator-release-overrides\.json/);
+  assert.match(hydration, /deprecatedSourceFiles\.has\(relative\)/);
+});
+
 test('every canonical event-year file is part of the runtime event loader', () => {
   const loader = read('lib/events/loadEventsData.ts');
   const files = fs.readdirSync(path.join(ROOT, 'data/events'))
