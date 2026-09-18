@@ -96,22 +96,24 @@ interface RawTalent {
   [key: string]: unknown;
 }
 
-// Matches a trailing Roman numeral (I-VI covers every real case --
-// operators cap at Potential 6) at the end of a talent's base name,
-// e.g. "Pay-Per-Confession I" -> base "Pay-Per-Confession". Longer
-// numerals are checked first so "VI" isn't half-matched as "V" + "I".
-const TRAILING_ROMAN_NUMERAL = /\s+(VI|IV|III|II|I|V)$/;
+// Potential-upgraded talent names use either Roman numerals or Arabic digits.
+// Robots such as Lancet-2 and Castle-3 use "Support Spray 1" and "Tactical
+// Configuration 1", while most other chains use I-VI. Operators cap at
+// Potential 6, so keep this deliberately narrow to avoid stripping meaningful
+// numbers from unrelated talent names.
+const TRAILING_TALENT_RANK = /\s+(VI|IV|III|II|I|V|[1-6])$/;
 
 function baseTalentName(rawName: string): string {
   // The "Replaces X" label got concatenated onto the name with no
   // separator during scraping -- cut everything from "Replaces" onward
-  // first, then strip the trailing Roman numeral from what's left.
+  // first, then strip the trailing upgrade rank from what's left.
   const beforeReplaces = rawName.split('Replaces')[0].trim();
-  return beforeReplaces.replace(TRAILING_ROMAN_NUMERAL, '').trim();
+  return beforeReplaces.replace(TRAILING_TALENT_RANK, '').trim();
 }
 
 /** Merges a scraped talents array's "one entry per potential level"
- * chains (detected via the base-name-plus-Roman-numeral pattern) back
+ * replacement chains (detected via the scraped `Replaces` marker and a
+ * matching base name) back
  * into single talent objects with all their rows combined -- see the
  * comment above the caller for the full explanation. Talents that
  * don't match this pattern (genuinely separate, e.g. a second real
@@ -130,15 +132,20 @@ function normalizeTalents(rawTalents: RawTalent[] | undefined): RawTalent[] {
     groups.get(base)!.push(t);
   }
 
-  return order.map((base) => {
+  return order.flatMap((base) => {
     const entries = groups.get(base)!;
-    if (entries.length === 1) return entries[0]; // genuinely a single entry -- leave its original name/shape alone
-    return {
+    // Some genuinely separate talents end in I/II (for example Mechanist's
+    // Expert Backup talents). Only collapse a group when the source explicitly
+    // says that one entry replaces another.
+    const isReplacementChain = entries.some(entry => entry.name?.includes('Replaces'));
+    if (entries.length === 1) return [entries[0]];
+    if (!isReplacementChain) return entries;
+    return [{
       ...entries[0],
       name: base,
       rows: entries.flatMap((e) => e.rows || []),
       technique: entries.flatMap((e) => (Array.isArray(e.technique) ? e.technique : [])),
-    };
+    }];
   });
 }
 

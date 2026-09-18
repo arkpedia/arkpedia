@@ -45,8 +45,13 @@ test('low-rarity operator tiers and scraped talent names render cleanly', async 
   await page.goto('/operators/Castle-3#talents');
   const talents = page.locator('#operator-talents');
   await expect(talents).toBeVisible();
-  await expect(talents.getByRole('heading', { name: 'Tactical Configuration 2', exact: true })).toBeVisible();
+  await expect(talents.locator('article')).toHaveCount(1);
+  await expect(talents.getByRole('heading', { name: 'Tactical Configuration', exact: true })).toBeVisible();
   await expect(talents.getByRole('heading', { name: /Replaces/ })).toHaveCount(0);
+  await expect(talents.getByText(/10% for 10 seconds/)).toBeVisible();
+  await talents.getByRole('button', { name: 'Potential 6' }).click();
+  await expect(talents.getByText(/20% for 20 seconds/)).toBeVisible();
+  await expect(talents.getByText(/10% for 10 seconds/)).toBeHidden();
   await withinBounds(page);
 });
 

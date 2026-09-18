@@ -15,6 +15,7 @@ import type { CroppedRange } from '../../lib/operators/branchRanges';
 import OPERATOR_DEPLOY from '../../public/operator-deploy.json';
 import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
 import { publicFileExists } from '../../lib/assets/publicAssets';
+import { getAllOperators } from '../../lib/operators/operators';
 
 const operators: Operator[] = [1, 2, 3, 4, 5, 6].flatMap(star => {
   const dir = `data/operators-${star}star`;
@@ -317,6 +318,21 @@ test('talent headings drop the scraped Replaces suffix while the raw name stays 
   assert.equal(talentDisplayName('Tactical Configuration 2ReplacesTactical Configuration 1'), 'Tactical Configuration 2');
   assert.equal(talentDisplayName('Support of the LittleReplacesFast Deployment'), 'Support of the Little');
   assert.equal(talentDisplayName('Cold Front'), 'Cold Front');
+});
+
+test('potential replacement chains render as one talent while independent numbered talents stay separate', () => {
+  const normalized = new Map(getAllOperators().map(operator => [operator.name, operator]));
+  for (const name of ['Castle-3', 'Lancet-2', 'THRM-EX', 'Rhodes Island Recon']) {
+    const talents = normalized.get(name)?.talents;
+    assert.equal(talents?.length, 1, name);
+    assert.equal(talents[0].rows.length, 6, name);
+    assert(!talents[0].name?.match(/(?:\s[1-6]|\s(?:I|II|III|IV|V|VI))$/), name);
+  }
+
+  // These are distinct Integrated Strategies talents, despite their I/II suffixes.
+  const mechanist = normalized.get('Mechanist')?.talents ?? [];
+  assert(mechanist.some(talent => talent.name === 'Expert Backup I'));
+  assert(mechanist.some(talent => talent.name === 'Expert Backup II'));
 });
 
 test('skill image URLs encode Unicode and URL delimiters before image optimization', () => {
