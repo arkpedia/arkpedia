@@ -1,0 +1,63 @@
+# Deploy to Vercel from CI, after the Check workflow has passed on main.
+#
+# The Vercel project (arkpedia-dev) has no Git integration, so until now production
+# was whatever `npm run deploy:vercel` found in someone's working tree: no CI in front
+# of it, the bundle built on a laptop's Node (26) for functions declared nodejs24.x,
+# and vercel.json's ignoreCommand never consulted. This runs the same three commands
+# the script runs, on Node 24, only after check.yml is green for that exact commit.
+#
+# One secret is needed: VERCEL_TOKEN (Vercel → Account Settings → Tokens, scoped to
+# the Mocchibirds team). The org and project ids below are not secrets; they are what
+# `.vercel/project.json` holds locally.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [Check]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Only a green Check on main deploys; a manual run trusts the operator.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERCEL_ORG_ID: team_PdK2g24xbV0rLWIQrHvkTNnN
+      VERCEL_PROJECT_ID: prj_rGdk34hEbAky1IniF9GLXeRCFtSj
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Refuse to run without the deploy token
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+        with:
+          # Deploy the commit Check actually verified, not whatever main is by now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          # Matches the runtime the functions declare (nodejs24.x).
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Link the project and pull production settings
+        run: npx vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+      - name: Build
+        run: npx vercel build --prod --yes --token "$VERCEL_TOKEN"
+      - name: Prepare the Build Output bundle
+        run: node scripts/deploy/prepare-vercel-output.mjs
+      - name: Deploy
+        run: npx vercel deploy --prebuilt --prod --archive=tgz --yes --token "$VERCEL_TOKEN"
