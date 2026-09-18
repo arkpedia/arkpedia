@@ -1,4 +1,4 @@
-import cdn from '@/data/assets/cdn.json';
+import cdn from '@/config/asset-delivery.json';
 
 /**
  * The one place a published asset's address is built. `path` is the repository

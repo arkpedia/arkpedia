@@ -18,6 +18,11 @@ test('obsolete monolithic operator and event files cannot return as editable sou
   assert.match(devSources, /events\/events_/);
 });
 
+test('application asset delivery configuration lives outside hydrated game data', () => {
+  assert.equal(fs.existsSync(path.join(ROOT, 'config/asset-delivery.json')), true);
+  assert.equal(fs.existsSync(path.join(ROOT, 'data/assets/cdn.json')), false);
+});
+
 test('content hydration cannot restore retired public source records', () => {
   const hydration = read('scripts/content/hydrate-source.mjs');
   assert.match(hydration, /data\/events\.json/);

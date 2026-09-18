@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { pinAssetUrl } from '../../lib/assets/revisions';
 import revisions from '../../data/assets/revisions.json';
-import cdn from '../../data/assets/cdn.json';
+import cdn from '../../config/asset-delivery.json';
 
 const delivered = (repository: string, revision: string, path: string) => cdn.template
   .replace('{repository}', repository)

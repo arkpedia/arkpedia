@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 const read = async file => JSON.parse(await fs.readFile(new URL(`../../${file}`, import.meta.url), 'utf8'));
 const revisions = await read('data/assets/revisions.json');
 const index = await read('data/assets/external-asset-index.json');
-const cdn = await read('data/assets/cdn.json');
+const cdn = await read('config/asset-delivery.json');
 // Fetch through the same template the site emits, so this verifies what readers load.
 const url = (repo, path) => cdn.template.replace('{repository}', repo).replace('{revision}', revisions[repo]).replace('{path}', path.split('/').map(encodeURIComponent).join('/'));
 async function download(address) {

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
-import assetCdn from '../../data/assets/cdn.json' with { type: 'json' };
+import assetCdn from '../../config/asset-delivery.json' with { type: 'json' };
 // How a pinned revision appears inside a delivered address, taken from the same template the
 // site builds URLs from -- "/<sha>/" on raw.githubusercontent, "@<sha>/" on jsDelivr -- so a
 // delivery-network change cannot turn this check red while the site is right.

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const assetRevisions = require('./data/assets/revisions.json');
-const assetCdn = require('./data/assets/cdn.json');
+const assetCdn = require('./config/asset-delivery.json');
 const assetUrl = (repository, path) => assetCdn.template.replace('{repository}', repository).replace('{revision}', assetRevisions[repository]).replace('{path}', path);
 const contentPageRoutes = require('./scripts/content/pages.json');
 for (const [repository, revision] of Object.entries(assetRevisions)) {

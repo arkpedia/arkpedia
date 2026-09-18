@@ -1,5 +1,5 @@
 import { expect, test, Page } from '@playwright/test';
-import cdn from '../../data/assets/cdn.json';
+import cdn from '../../config/asset-delivery.json';
 
 async function withinBounds(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -50,7 +50,7 @@ test('low-rarity operator tiers and scraped talent names render cleanly', async 
   await withinBounds(page);
 });
 
-// Where readers load published media from is one template (data/assets/cdn.json), so the
+// Where readers load published media from is one template (config/asset-delivery.json), so the
 // tests read it too rather than hard-coding a host: a delivery-network change must not
 // turn into four red browser tests. `pinned` is the address prefix for one repository at
 // any 40-hex commit; `pinnedGlob` is the same shape as a Playwright route pattern.

@@ -6,7 +6,7 @@ import { withContentPage } from '../../lib/content/server';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { contentPageClock } from '../../lib/content/pageClock';
 import bundledRevisions from '../../data/assets/revisions.json';
-import cdn from '../../data/assets/cdn.json';
+import cdn from '../../config/asset-delivery.json';
 import { getOperatorVoiceData } from '../../lib/operators/operatorVoices';
 import { contentUrl } from '../../lib/content/urls';
 import { CONTENT_SCHEMA, contentRoute, type ContentManifest, type ContentPointer } from '../../lib/content/types';
