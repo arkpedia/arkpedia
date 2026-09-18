@@ -34,10 +34,12 @@ jobs:
     env:
       VERCEL_ORG_ID: team_PdK2g24xbV0rLWIQrHvkTNnN
       VERCEL_PROJECT_ID: prj_rGdk34hEbAky1IniF9GLXeRCFtSj
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_CLI_VERSION: 59.23.1
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - name: Refuse to run without the deploy token
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
             echo "::error::VERCEL_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
@@ -54,10 +56,16 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Link the project and pull production settings
-        run: npx vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes "vercel@$VERCEL_CLI_VERSION" pull --yes --environment=production --token "$VERCEL_TOKEN"
       - name: Build
-        run: npx vercel build --prod --yes --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes "vercel@$VERCEL_CLI_VERSION" build --prod --yes --token "$VERCEL_TOKEN"
       - name: Prepare the Build Output bundle
         run: node scripts/deploy/prepare-vercel-output.mjs
       - name: Deploy
-        run: npx vercel deploy --prebuilt --prod --archive=tgz --yes --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes "vercel@$VERCEL_CLI_VERSION" deploy --prebuilt --prod --archive=tgz --yes --token "$VERCEL_TOKEN"

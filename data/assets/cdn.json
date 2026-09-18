@@ -1,4 +1,4 @@
 {
-  "template": "https://cdn.jsdelivr.net/gh/arkpedia/{repository}@{revision}/{path}",
-  "note": "Where readers load published art and audio from. Every asset URL the site emits is built from this one template, so changing the delivery network is a one-line edit here. jsDelivr serves a commit-pinned path as immutable for a year; raw.githubusercontent.com served the same file with max-age=300. The content release (arkpedia-data) deliberately does NOT use this: its pointer must not sit in a long CDN cache."
+  "template": "https://raw.githubusercontent.com/arkpedia/{repository}/{revision}/{path}",
+  "note": "Where readers load commit-pinned published art and audio. Media bypasses Vercel without depending on a package CDN whose size and media-hosting policies do not fit these repositories. The content release pointer also uses GitHub directly so updates remain promptly visible."
 }

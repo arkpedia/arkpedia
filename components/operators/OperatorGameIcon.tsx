@@ -1,5 +1,6 @@
 import { useContentUrl } from '@/lib/content/context';
 import { ContentImg } from '@/components/content/ContentImage';
+import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import { CSSProperties } from 'react';
 
 /** Existing game artwork, with readable ink in both themes and a named tooltip. */
@@ -7,7 +8,7 @@ export default function OperatorGameIcon({ label, src, size = 28, color = false 
   label: string; src?: string; size?: number; color?: boolean;
 }) {
   const url = useContentUrl();
-  const path = url(src ?? `/essential-icons/${label === 'Base' ? 'Elite 0' : label}.webp`);
+  const path = url(src ?? getEssentialIconPath(label) ?? '');
   const style: CSSProperties = { width: size, height: size, display: 'inline-block', flexShrink: 0, verticalAlign: 'middle' };
   return color ? (
     // These badges contain blue details as well as the white rank glyph.

@@ -109,6 +109,12 @@ jobs:
           git -C "$repo" remote set-url origin git@github.com:arkpedia/arkpedia-data.git
           git -C "$repo" fetch origin main
           git -C "$repo" checkout -B refresh/content origin/main
+          prepared_release=$(node -p "require('$RUNNER_TEMP/prepared-content/release/manifest.json').release")
+          current_release=$(node -p "require('$repo/release/manifest.json').release" 2>/dev/null || true)
+          if [ "$prepared_release" = "$current_release" ]; then
+            echo "Release inputs are unchanged; ignoring generatedAt-only output."
+            exit 0
+          fi
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
           git -C "$repo" add source release

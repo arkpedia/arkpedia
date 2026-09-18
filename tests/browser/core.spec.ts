@@ -31,6 +31,25 @@ test('operator section navigation and skill controls stay stable', async ({ page
   await withinBounds(page);
 });
 
+test('low-rarity operator tiers and scraped talent names render cleanly', async ({ page }) => {
+  const essentialRequests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/essential-icons/')) essentialRequests.push(request.url());
+  });
+  await page.goto('/operators/Castle-3#baseSkills');
+  await expect(page.locator('#operator-baseSkills')).toBeVisible();
+  await expect.poll(() => essentialRequests.some(url => /Elite(?:%20| )0\.webp/.test(url))).toBe(true);
+  expect(essentialRequests.some(url => /Level(?:%20| )30\.webp/.test(url)), 'Level 30 must reuse the existing Elite 0 icon').toBe(false);
+  await withinBounds(page);
+
+  await page.goto('/operators/Castle-3#talents');
+  const talents = page.locator('#operator-talents');
+  await expect(talents).toBeVisible();
+  await expect(talents.getByRole('heading', { name: 'Tactical Configuration 2', exact: true })).toBeVisible();
+  await expect(talents.getByRole('heading', { name: /Replaces/ })).toHaveCount(0);
+  await withinBounds(page);
+});
+
 // Where readers load published media from is one template (data/assets/cdn.json), so the
 // tests read it too rather than hard-coding a host: a delivery-network change must not
 // turn into four red browser tests. `pinned` is the address prefix for one repository at
