@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const assetRevisions = require('./data/assets/revisions.json');
+const assetCdn = require('./data/assets/cdn.json');
+const assetUrl = (repository, path) => assetCdn.template.replace('{repository}', repository).replace('{revision}', assetRevisions[repository]).replace('{path}', path);
 const contentPageRoutes = require('./scripts/content/pages.json');
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
@@ -48,7 +50,7 @@ const IMAGE_ASSET_FOLDERS = [
 function externalAssetRedirects(folders, repository) {
   return folders.map((folder) => ({
     source: `/${folder}/:path*`,
-    destination: `https://raw.githubusercontent.com/arkpedia/${repository}/${assetRevisions[repository]}/${folder}/:path*`,
+    destination: assetUrl(repository, `${folder}/:path*`),
     permanent: false,
   }));
 }
@@ -90,12 +92,12 @@ const nextConfig = {
       ...externalAssetRedirects(IMAGE_ASSET_FOLDERS, 'arkpedia-image-assets'),
       {
         source: '/skin-originals/:path*',
-        destination: `https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/${assetRevisions['arkpedia-skin-assets']}/originals/:path*`,
+        destination: assetUrl('arkpedia-skin-assets', 'originals/:path*'),
         permanent: false,
       },
       {
         source: '/skin-variants/:format/:width/:path*',
-        destination: `https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/${assetRevisions['arkpedia-skin-assets']}/variants/:format/:width/:path*`,
+        destination: assetUrl('arkpedia-skin-assets', 'variants/:format/:width/:path*'),
         permanent: false,
       },
       { source: '/community/livestreams', destination: '/community/videos', permanent: true },

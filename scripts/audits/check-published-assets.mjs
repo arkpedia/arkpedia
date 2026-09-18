@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto';
 const read = async file => JSON.parse(await fs.readFile(new URL(`../../${file}`, import.meta.url), 'utf8'));
 const revisions = await read('data/assets/revisions.json');
 const index = await read('data/assets/external-asset-index.json');
-const url = (repo, path) => `https://raw.githubusercontent.com/arkpedia/${repo}/${revisions[repo]}/${path.split('/').map(encodeURIComponent).join('/')}`;
+const cdn = await read('data/assets/cdn.json');
+// Fetch through the same template the site emits, so this verifies what readers load.
+const url = (repo, path) => cdn.template.replace('{repository}', repo).replace('{revision}', revisions[repo]).replace('{path}', path.split('/').map(encodeURIComponent).join('/'));
 async function download(address) {
   const response = await fetch(address, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`${response.status}: ${address}`);

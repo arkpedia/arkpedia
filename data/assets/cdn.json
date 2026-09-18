@@ -1,0 +1,4 @@
+{
+  "template": "https://cdn.jsdelivr.net/gh/arkpedia/{repository}@{revision}/{path}",
+  "note": "Where readers load published art and audio from. Every asset URL the site emits is built from this one template, so changing the delivery network is a one-line edit here. jsDelivr serves a commit-pinned path as immutable for a year; raw.githubusercontent.com served the same file with max-age=300. The content release (arkpedia-data) deliberately does NOT use this: its pointer must not sit in a long CDN cache."
+}

@@ -78,8 +78,8 @@ test('approved content changes, new routes, rollback, outages and invalid data u
 test('release URLs cover artwork sizes and lazy game data without redirecting application routes', () => {
   const release = { release: 'a'.repeat(64), baseUrl: 'https://example.org/commit/release', assets: { 'arkpedia-image-assets': 'b'.repeat(40), 'arkpedia-skin-assets': 'c'.repeat(40) } };
   assert.equal(contentRoute('/operators/[name]', { name: 'Thorns the Lodestar' }), '/operators/Thorns%20the%20Lodestar');
-  assert.match(contentUrl('/six-star-icons/Test%20-%20Base.webp', release), /arkpedia-image-assets\/b{40}\/six-star-icons\//);
-  assert.match(contentUrl('/skin-variants/avif/w768/six-star-skins/Test.avif', release), /arkpedia-skin-assets\/c{40}\/variants\/avif/);
+  assert.match(contentUrl('/six-star-icons/Test%20-%20Base.webp', release), /arkpedia-image-assets@b{40}\/six-star-icons\//);
+  assert.match(contentUrl('/skin-variants/avif/w768/six-star-skins/Test.avif', release), /arkpedia-skin-assets@c{40}\/variants\/avif/);
   assert.match(contentUrl('/skin-originals/six-star-skins/Test.png', release), /\/originals\/six-star-skins\/Test.png$/);
   assert.equal(contentUrl('/planner-data/Test%2520Name.json', release), 'https://example.org/commit/release/public/planner-data/Test%2520Name.json');
   assert.equal(contentUrl('/operators/Penance', release), '/operators/Penance');
@@ -102,9 +102,9 @@ test('voice playback resolves stable and old pinned templates against each page 
     for (const ref of ['main', 'd'.repeat(40)]) {
       for (const suffix of ['current/char_123/cn_001.mp3', 'legacy/archive/char_123/CN_001.mp3']) {
         const url = `https://raw.githubusercontent.com/arkpedia/${repository}/${ref}/${suffix}`;
-        assert.equal(contentUrl(url, release('a')), `https://raw.githubusercontent.com/arkpedia/${repository}/${'a'.repeat(40)}/${suffix}`);
-        assert.equal(contentUrl(url, release('b')), `https://raw.githubusercontent.com/arkpedia/${repository}/${'b'.repeat(40)}/${suffix}`);
-        assert.equal(contentUrl(url), `https://raw.githubusercontent.com/arkpedia/${repository}/${bundledRevisions[repository as keyof typeof bundledRevisions]}/${suffix}`);
+        assert.equal(contentUrl(url, release('a')), `https://cdn.jsdelivr.net/gh/arkpedia/${repository}@${'a'.repeat(40)}/${suffix}`);
+        assert.equal(contentUrl(url, release('b')), `https://cdn.jsdelivr.net/gh/arkpedia/${repository}@${'b'.repeat(40)}/${suffix}`);
+        assert.equal(contentUrl(url), `https://cdn.jsdelivr.net/gh/arkpedia/${repository}@${bundledRevisions[repository as keyof typeof bundledRevisions]}/${suffix}`);
       }
     }
   }

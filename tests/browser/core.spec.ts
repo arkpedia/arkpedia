@@ -1,4 +1,5 @@
 import { expect, test, Page } from '@playwright/test';
+import cdn from '../../data/assets/cdn.json';
 
 async function withinBounds(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -30,6 +31,14 @@ test('operator section navigation and skill controls stay stable', async ({ page
   await withinBounds(page);
 });
 
+// Where readers load published media from is one template (data/assets/cdn.json), so the
+// tests read it too rather than hard-coding a host: a delivery-network change must not
+// turn into four red browser tests. `pinned` is the address prefix for one repository at
+// any 40-hex commit; `pinnedGlob` is the same shape as a Playwright route pattern.
+const prefix = cdn.template.split('{path}')[0];
+const pinned = (repository: string) => new RegExp('^' + prefix.replace('{repository}', repository).replace('{revision}', '[a-f0-9]{40}').replace(/[.]/g, '\\.'));
+const pinnedGlob = (repository: string) => prefix.replace('{repository}', repository).replace('{revision}', '*') + '**';
+
 test('voice playback requests the pinned source and can pause', async ({ page }) => {
   // A short local generated WAV makes playback deterministic and avoids downloading
   // game audio in every CI run. It still exercises the real browser media element.
@@ -39,7 +48,7 @@ test('voice playback requests the pinned source and can pause', async ({ page })
   wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32);
   wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(wav.length - 44, 40);
   const requested: string[] = [];
-  await page.route('https://raw.githubusercontent.com/arkpedia/arkpedia-voice-*/**', async route => {
+  await page.route(pinnedGlob('arkpedia-voice-*'), async route => {
     requested.push(route.request().url());
     await route.fulfill({ status: 200, contentType: 'audio/wav', body: wav });
   });
@@ -48,7 +57,7 @@ test('voice playback requests the pinned source and can pause', async ({ page })
   await expect(voice.getByRole('searchbox', { name: 'Search voice lines' })).toBeVisible();
   await voice.locator('ol button:not([disabled])').first().click();
   await expect.poll(() => requested.length).toBeGreaterThan(0);
-  expect(requested[0]).toMatch(/arkpedia-voice-[^/]+\/[a-f0-9]{40}\//);
+  expect(requested[0]).toMatch(pinned('arkpedia-voice-[^/@]+'));
   await expect.poll(() => voice.locator('audio').evaluate((el: HTMLAudioElement) => el.paused)).toBe(false);
   await voice.locator('ol button').first().click();
   await expect.poll(() => voice.locator('audio').evaluate((el: HTMLAudioElement) => el.paused)).toBe(true);
@@ -101,5 +110,5 @@ test('Opera GX uses the recruitment popup fallback', async ({ page }, testInfo) 
 test('artwork uses pinned external files', async ({ request }) => {
   const response = await request.get('/six-star-skins/Penance%20-%20Base.webp', { maxRedirects: 0 });
   expect(response.status()).toBe(307);
-  expect(response.headers().location).toMatch(/^https:\/\/raw.githubuser(?:content)?\.com\/arkpedia\/arkpedia-skin-assets\/[a-f0-9]{40}\//);
+  expect(response.headers().location).toMatch(pinned('arkpedia-skin-assets'));
 });
