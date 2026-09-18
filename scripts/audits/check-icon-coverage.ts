@@ -19,6 +19,7 @@
  */
 import fs from 'node:fs';
 import { isOperatorReleased } from '../../lib/operators/operatorAvailability';
+import { getEssentialIconPath } from '../../lib/operators/operatorIconPaths';
 
 const index = JSON.parse(fs.readFileSync(new URL('../../data/assets/external-asset-index.json', import.meta.url), 'utf8'));
 const published = new Set(index.files);
@@ -65,6 +66,10 @@ function* expected(operator: any): Generator<[string, string]> {
   // "Replaces …" suffix, and only the heading is cleaned. See operatorIconPaths.ts.
   for (const baseSkill of operator.baseSkills ?? []) {
     if (baseSkill?.name) yield [`base-skill-icons/${safe(operator.rawName ?? operator.name)} - ${safe(baseSkill.rawName ?? baseSkill.name)}.webp`, 'base skill icon'];
+    // The tier badge beside it. Resolved through the real helper, not a copy of its
+    // rule: "Level 30" was missing for 14 operators because only the helper knew "Base".
+    const tier = getEssentialIconPath(baseSkill?.eliteLevel);
+    if (tier) yield [decodeURIComponent(tier.slice(1)), 'elite tier icon'];
   }
 }
 

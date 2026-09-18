@@ -25,7 +25,7 @@ import SKILL_RANGES from '@/data/skill-ranges.json';
 import SKILL_TIMINGS from '@/data/skill-timings.json';
 import OPERATOR_DEPLOY from '@/public/operator-deploy.json';
 import { getSkillTiming, SkillTiming } from '@/lib/operators/skillTiming';
-import { getSkillIconPath, getBaseSkillIconPath, baseSkillDisplayName, getEssentialIconPath, getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
+import { getSkillIconPath, getBaseSkillIconPath, baseSkillDisplayName, talentDisplayName, getEssentialIconPath, getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
 import { getAllSkins } from '@/lib/skins/skins';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
@@ -282,7 +282,7 @@ function TechniqueList({
                 </Link>
               </div>
               <p className="op-skill-technique-row">
-                <b>{t.name}</b>
+                <b>{talentDisplayName(t.name)}</b>
                 {t.description && <span>: {t.description}</span>}
               </p>
               {umbrellaDefs.map((def, di) => (
@@ -308,7 +308,7 @@ function TechniqueList({
                   ))}
               </div>
               <p className="op-skill-technique-row">
-                <b>{t.name}</b>
+                <b>{talentDisplayName(t.name)}</b>
                 {t.description && <span>: {t.description}</span>}
               </p>
               {umbrellaDefs.map((def, di) => (
@@ -324,7 +324,7 @@ function TechniqueList({
           return (
             <div key={ti} className="op-skill-technique-block">
               <div className="op-skill-technique-unit-header">
-                {t.name && <b>{t.name}</b>}
+                {t.name && <b>{talentDisplayName(t.name)}</b>}
                 <span className="hint">{t.group}</span>
               </div>
               {t.description && <p className="op-skill-technique-description">{t.description}</p>}
@@ -354,7 +354,7 @@ function TechniqueList({
               onClick={related ? () => setExpandedTechniqueIndex(isExpanded ? null : ti) : undefined}
               style={related ? { cursor: 'pointer' } : undefined}
             >
-              <b>{t.name}</b>
+              <b>{talentDisplayName(t.name)}</b>
               {t.description && <span>: {t.description}</span>}
             </p>
             {umbrellaDefs.map((def, di) => (

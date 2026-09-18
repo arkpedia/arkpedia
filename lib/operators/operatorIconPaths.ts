@@ -14,7 +14,11 @@ import type { BaseSkill } from './operatorTypes';
  */
 export function getEssentialIconPath(label: string | null | undefined): string | null {
   if (!label) return null;
-  const normalized = label.trim().toLowerCase() === 'base' ? 'Elite 0' : label.trim();
+  // 1★/2★ operators have no Elite path; their base skills are tagged "Level 30", which
+  // is Base's tier -- pages/base.tsx already resolves it that way. Without this, 14
+  // operators asked for essential-icons/Level 30.webp, which has never existed.
+  const key = label.trim().toLowerCase();
+  const normalized = key === 'base' || key === 'level 30' ? 'Elite 0' : label.trim();
   return `/essential-icons/${normalized}.webp`;
 }
 
@@ -38,7 +42,18 @@ export function getSkillIconPath(operatorName: string, skillName: string | null 
  * stays in the data and in the icon filenames, and only the displayed text is cleaned.
  */
 export function baseSkillDisplayName(skill: Pick<BaseSkill, 'name'>): string {
-  return (skill.name ?? '').split('Replaces')[0].trim();
+  return stripReplacesSuffix(skill.name);
+}
+
+/** Talents were scraped the same way ("Tactical Configuration 2ReplacesTactical
+ * Configuration 1"). The raw name stays in the data -- lookups such as technique
+ * groups and umbrella definitions are keyed on it -- and only the heading is cleaned. */
+export function talentDisplayName(name: string | null | undefined): string {
+  return stripReplacesSuffix(name);
+}
+
+function stripReplacesSuffix(name: string | null | undefined): string {
+  return (name ?? '').split('Replaces')[0].trim();
 }
 
 /**

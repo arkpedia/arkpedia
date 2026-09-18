@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { applyModuleStatBonuses, getBaseStats, getTrustBonus, clampInteger, parseModuleStatBonuses, STAT_KEYS, OperatorStats, StatPhase } from '../../lib/operators/operatorStats';
 import { Operator } from '../../lib/operators/operatorTypes';
 import { readCsv } from '../lib/operator-csv';
-import { getBaseSkillIconPath, getSkillIconPath, baseSkillDisplayName } from '../../lib/operators/operatorIconPaths';
+import { getBaseSkillIconPath, getSkillIconPath, baseSkillDisplayName, talentDisplayName, getEssentialIconPath } from '../../lib/operators/operatorIconPaths';
 import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
 import { getOperatorSearchResults, loadOperatorSearch } from '../../lib/operators/operatorSearch';
 import { getOperatorAppearances } from '../../lib/operators/operatorAppearances';
@@ -304,6 +304,19 @@ test('a base skill icon follows the raw name while its heading drops the Replace
   assert.equal(decodeURIComponent(getBaseSkillIconPath('Durin', split)!),
     '/base-skill-icons/Durin - SleepinessReplacesLaziness.webp');
   assert.equal(baseSkillDisplayName({ name: 'Metalwork α' }), 'Metalwork α');
+});
+
+test('Level 30 resolves to the Base tier icon, which is the only one that exists for it', () => {
+  // 1★/2★ operators have no Elite path; a base skill tagged "Level 30" is Base's tier.
+  assert.equal(getEssentialIconPath('Level 30'), '/essential-icons/Elite 0.webp');
+  assert.equal(getEssentialIconPath('Base'), '/essential-icons/Elite 0.webp');
+  assert.equal(getEssentialIconPath('Elite 2'), '/essential-icons/Elite 2.webp');
+});
+
+test('talent headings drop the scraped Replaces suffix while the raw name stays for lookups', () => {
+  assert.equal(talentDisplayName('Tactical Configuration 2ReplacesTactical Configuration 1'), 'Tactical Configuration 2');
+  assert.equal(talentDisplayName('Support of the LittleReplacesFast Deployment'), 'Support of the Little');
+  assert.equal(talentDisplayName('Cold Front'), 'Cold Front');
 });
 
 test('skill image URLs encode Unicode and URL delimiters before image optimization', () => {
