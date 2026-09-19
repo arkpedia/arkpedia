@@ -133,6 +133,11 @@ test('content snapshots omit presentation clocks and old or new snapshots get fr
     assert.deepEqual(old, { value: 'game record', now: 1 });
     assert.deepEqual(snapshot, { value: 'game record' });
   }
+  const supplies = { cards: [], buildDay: 'Friday' };
+  const supplySnapshot = contentPageClock('/stages/supplies', supplies, true, time);
+  assert.deepEqual(supplySnapshot, { cards: [] });
+  assert.deepEqual(contentPageClock('/stages/supplies', supplySnapshot, false, time), { cards: [], buildDay: 'Wednesday' });
+  assert.deepEqual(supplies, { cards: [], buildDay: 'Friday' });
   const unrelated = { now: 123 };
   assert.equal(contentPageClock('/events/[slug]', unrelated, true), unrelated);
 });

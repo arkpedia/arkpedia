@@ -4,6 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { pinAssetUrl } from '../../lib/assets/revisions';
 import revisions from '../../data/assets/revisions.json';
+import externalAssets from '../../data/assets/external-asset-index.json';
 import cdn from '../../config/asset-delivery.json';
 
 const delivered = (repository: string, revision: string, path: string) => cdn.template
@@ -16,11 +17,14 @@ test('public Arkpedia media uses commit-pinned raw GitHub delivery', () => {
 });
 
 test('schedule artwork uses Arkpedia image-asset paths', () => {
+  const published = new Set(externalAssets.files);
   const directory = path.join(process.cwd(), 'data', 'events');
   for (const file of fs.readdirSync(directory).filter(name => /^events_\d{4}\.json$/.test(name))) {
     const events = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8')) as Array<{ name: string; poster?: string | null }>;
     for (const event of events) {
-      if (event.poster) assert.match(event.poster, /^\/event-poster\/.+$/, `${file}: ${event.name}`);
+      if (!event.poster) continue;
+      assert.match(event.poster, /^\/event-poster\/.+\.webp$/, `${file}: ${event.name}`);
+      assert.ok(published.has(event.poster.slice(1)), `${file}: ${event.name} references unpublished ${event.poster}`);
     }
   }
 });
