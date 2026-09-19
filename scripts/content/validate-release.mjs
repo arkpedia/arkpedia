@@ -33,7 +33,10 @@ for (const file of [...Object.values(m.pages), ...Object.values(m.files)]) {
   check(bytes.length === file.bytes && sha(bytes) === file.sha256, `Checksum mismatch: ${file.path}`);
   const json = JSON.parse(bytes);
   check(!/-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}/.test(bytes.toString()), `Credential-like content: ${file.path}`);
-  if (file.path.startsWith('pages/')) check(json.props && typeof json.props === 'object' && !Array.isArray(json.props) && !json.props.__contentRelease, `Invalid page props: ${file.path}`);
+  if (file.path.startsWith('pages/')) {
+    check(json.props && typeof json.props === 'object' && !Array.isArray(json.props) && !json.props.__contentRelease, `Invalid page props: ${file.path}`);
+    check(!/https:\/\/(?:cdn\.jsdelivr\.net|arknights\.wiki\.gg\/images)\//.test(bytes.toString()), `Page bypasses Arkpedia asset delivery: ${file.path}`);
+  }
 }
 const actual = walk(path.join(root, 'release')).map(file => path.relative(path.join(root, 'release'), file));
 check(actual.length === expected.size && actual.every(file => expected.has(file)), 'Release contains unindexed files');

@@ -7,8 +7,7 @@ import { spawn } from 'node:child_process';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import assetCdn from '../../config/asset-delivery.json' with { type: 'json' };
 // How a pinned revision appears inside a delivered address, taken from the same template the
-// site builds URLs from -- "/<sha>/" on raw.githubusercontent, "@<sha>/" on jsDelivr -- so a
-// delivery-network change cannot turn this check red while the site is right.
+// site builds URLs from, so a delivery-network change cannot turn this check red while the site is right.
 const pinnedRevision = (revision) => assetCdn.template.split('{repository}')[1].split('{path}')[0].replace('{revision}', revision);
 import { chromium, devices } from '@playwright/test';
 const root = path.resolve(process.argv[2] || '.cache/content-export/release');
@@ -85,7 +84,6 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('https://raw.githubusercontent.com/arkpedia/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#1b2c34"/></svg>' }));
-    await page.route('https://cdn.jsdelivr.net/gh/arkpedia/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#1b2c34"/></svg>' }));
     const checkVoice = async (label) => {
       await page.goto('http://localhost:3193/operators/Runtime%20Content%20Test#voiceLines');
       await page.getByRole('button', { name: /^Play / }).first().click();

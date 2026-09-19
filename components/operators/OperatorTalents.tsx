@@ -45,7 +45,7 @@ export default function OperatorTalents({ talents, elites, renderDetails }: {
       const unlock = Math.min(...talent.rows.map(eliteOf));
       return <article key={index} className={styles.talentCard}>
         <div className={styles.talentHeading}>
-          <h3>{talentDisplayName(talent.name) || `Talent ${index + 1}`}</h3>
+          <h3>{talentDisplayName(selected?.name ?? talent.name) || `Talent ${index + 1}`}</h3>
           <span className={styles.talentBadges}>
             <OperatorGameIcon label={`Elite ${selected ? eliteOf(selected) : unlock}`} size={25} />
             <span className={styles.talentPotentialBadge}>
