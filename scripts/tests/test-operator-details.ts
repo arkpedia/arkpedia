@@ -324,10 +324,17 @@ test('potential replacement chains render as one talent while independent number
   const normalized = new Map(getAllOperators().map(operator => [operator.name, operator]));
   for (const name of ['Castle-3', 'Lancet-2', 'THRM-EX', 'Rhodes Island Recon']) {
     const talents = normalized.get(name)?.talents;
-    assert.equal(talents?.length, 1, name);
-    assert.equal(talents[0].rows.length, 6, name);
-    assert(!talents[0].name?.match(/(?:\s[1-6]|\s(?:I|II|III|IV|V|VI))$/), name);
+    assert(talents, name);
+    assert.equal(talents.length, 1, name);
+    const talent = talents[0];
+    assert(talent, name);
+    assert.equal(talent.rows.length, 6, name);
+    assert(!talent.name?.match(/(?:\s[1-6]|\s(?:I|II|III|IV|V|VI))$/), name);
+    assert.deepEqual(talent.rows.map(row => row.name), Array.from({ length: 6 }, (_, index) => `${talent.name} ${index + 1}`), name);
   }
+
+  assert.deepEqual(normalized.get('CONFESS-47')?.talents?.[0]?.rows.map(row => row.name),
+    ['Pay-Per-Confession I', 'Pay-Per-Confession II', 'Pay-Per-Confession III', 'Pay-Per-Confession IV', 'Pay-Per-Confession V', 'Pay-Per-Confession VI']);
 
   // These are distinct Integrated Strategies talents, despite their I/II suffixes.
   const mechanist = normalized.get('Mechanist')?.talents ?? [];

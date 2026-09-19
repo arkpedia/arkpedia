@@ -77,6 +77,7 @@ export interface Skill {
 }
 
 export interface TalentRow {
+  name?: string | null;
   stage: string | null;
   potential: string | null;
   description: string | null;

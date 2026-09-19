@@ -85,6 +85,7 @@ function getFutureOperators(): Operator[] {
 }
 
 interface TalentRow {
+  name?: string | null;
   stage: string | null;
   potential: string | null;
   description: string | null;
@@ -102,6 +103,7 @@ interface RawTalent {
 // Potential 6, so keep this deliberately narrow to avoid stripping meaningful
 // numbers from unrelated talent names.
 const TRAILING_TALENT_RANK = /\s+(VI|IV|III|II|I|V|[1-6])$/;
+const ROMAN_TALENT_RANKS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
 function baseTalentName(rawName: string): string {
   // The "Replaces X" label got concatenated onto the name with no
@@ -140,10 +142,15 @@ function normalizeTalents(rawTalents: RawTalent[] | undefined): RawTalent[] {
     const isReplacementChain = entries.some(entry => entry.name?.includes('Replaces'));
     if (entries.length === 1) return [entries[0]];
     if (!isReplacementChain) return entries;
+    const usesRomanRanks = entries.some(entry => /\s+(?:VI|IV|III|II|I|V)$/.test(entry.name?.split('Replaces')[0].trim() || ''));
     return [{
       ...entries[0],
       name: base,
-      rows: entries.flatMap((e) => e.rows || []),
+      rows: entries.flatMap((entry) => (entry.rows || []).map((row) => {
+        const rank = Number(row.potential?.match(/\d+/)?.[0] ?? 1);
+        const suffix = usesRomanRanks ? ROMAN_TALENT_RANKS[rank - 1] : String(rank);
+        return { ...row, name: `${base} ${suffix}` };
+      })),
       technique: entries.flatMap((e) => (Array.isArray(e.technique) ? e.technique : [])),
     }];
   });
