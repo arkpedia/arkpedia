@@ -1,0 +1,37 @@
+import { IncludePastSwitch } from './IncludePastSwitch';
+import { useState } from 'react';
+import { ONE_TIME, PLAYABLE_EVENTS } from '@/lib/pulls/pulls';
+import firstClears from '@/data/pull-first-clears.json';
+
+export function PastRewards({ doneKeys, doneEvents, annihilationDone, include, onKeys, onEvents, onAnnihilation, onInclude }: {
+  doneKeys: Set<string>; doneEvents: Set<string>; annihilationDone: boolean; include: boolean;
+  onKeys: (keys: Set<string>) => void; onEvents: (keys: Set<string>) => void; onAnnihilation: (done: boolean) => void; onInclude: (include: boolean) => void;
+}) {
+  const [open, setOpen] = useState('story');
+  const groups = [
+    { id:'story', name:'Main story', unit:'OP', items:ONE_TIME.chapters.map(c => ({id:c.id, name:`${c.label} · ${c.name}`, amount:c.op})) },
+    { id:'events', name:'Events', unit:'OP', items:PLAYABLE_EVENTS.map(e => ({id:e.id, name:e.name, amount:e.op})) },
+    { id:'annihilation', name:'Annihilation', unit:'Orundum', items:firstClears.annihilation },
+    { id:'resources', name:'Resource stages', unit:'OP', items:firstClears.resources },
+  ];
+  const complete = (group: string, id: string) => group === 'events' ? doneEvents.has(id) : group === 'annihilation' && annihilationDone || group === 'resources' && doneKeys.has('daily') || doneKeys.has(id);
+  const setCompleted = (group: typeof groups[number], ids: string[], done: boolean) => {
+    const next = new Set(group.id === 'events' ? doneEvents : doneKeys);
+    // Expand old all-or-nothing saves only when the user edits this category.
+    if (group.id === 'annihilation' && annihilationDone) { group.items.forEach(item => next.add(item.id)); onAnnihilation(false); }
+    if (group.id === 'resources' && next.has('daily')) { group.items.forEach(item => next.add(item.id)); next.delete('daily'); }
+    ids.forEach(id => done ? next.add(id) : next.delete(id));
+    (group.id === 'events' ? onEvents : onKeys)(next);
+  };
+  return <>
+    <div className="pulls-panel-head"><h2>Unclaimed rewards</h2><IncludePastSwitch checked={include} onChange={onInclude} className="pulls-include-mobile" /></div>
+    <p className="hint">Tick completed content.</p>
+    {groups.map(group => <details className="pulls-disclosure" key={group.id} open={open === group.id}>
+      <summary onClick={event => { event.preventDefault(); setOpen(previous => previous === group.id ? '' : group.id); }}>{group.name}<span className="hint">{group.items.reduce((n,item) => n + (complete(group.id,item.id) ? 0 : item.amount),0).toLocaleString()} {group.unit} left</span></summary>
+      <div className="pulls-eventlist-acts"><button type="button" className="pulls-quick-btn" onClick={() => setCompleted(group, group.items.map(item => item.id), true)}>All completed</button><button type="button" className="pulls-quick-btn" onClick={() => setCompleted(group, group.items.map(item => item.id), false)}>None completed</button></div>
+      <div className="pulls-eventgrid">{group.items.map(item => <button type="button" key={item.id} className={`pulls-eventchip${complete(group.id,item.id) ? ' on' : ''}`} aria-pressed={complete(group.id,item.id)} onClick={() => setCompleted(group,[item.id],!complete(group.id,item.id))}>
+        <span className="pulls-eventchip-mark" aria-hidden="true">{complete(group.id,item.id) ? '✓' : ''}</span><span className="pulls-eventchip-name">{item.name}</span><span className="pulls-eventchip-op">{item.amount}</span>
+      </button>)}</div>
+    </details>)}
+  </>;
+}

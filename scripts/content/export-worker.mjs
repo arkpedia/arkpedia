@@ -17,6 +17,10 @@ await build({
   stdin: { contents: `export { getStaticProps${dynamic ? ', getStaticPaths' : ''} } from './${page}';`, resolveDir: process.cwd() },
   outfile: bundle, bundle: true, platform: 'node', format: 'cjs', packages: 'external',
   jsx: 'automatic', logLevel: 'warning', treeShaking: true,
+  // Client components may declare Web Workers with import.meta.url. Content
+  // export executes getStaticProps only; Next's browser build owns those
+  // worker URLs, so the server-only CJS bundle never evaluates them.
+  logOverride: { 'empty-import-meta': 'silent' },
   plugins: [{ name: 'data-only-styles', setup(builder) {
     builder.onLoad({ filter: /\.css$/ }, () => ({ contents: 'export default {};', loader: 'js' }));
   } }],

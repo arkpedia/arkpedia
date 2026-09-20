@@ -27,9 +27,10 @@ function sortKey(label: string): [number, number, string] {
 /**
  * Returns this operator's appearances (Base, Elite N, skins) in
  * display order, with paths to both the small icon and the full
- * illustration wherever each exists. Reads directly off the icon/skin
- * folders rather than the operator's own JSON, since the actual image
- * files are the source of truth for what appearances are available.
+ * illustration wherever each exists. Full artwork defines the selectable
+ * appearances; icon-only aliases must not create a gallery choice that opens
+ * onto an empty panel (Amiya's alternate-form promotion icons are one such
+ * upstream alias).
  */
 export function getOperatorAppearances(operator: Pick<Operator, 'name' | 'rarity'>): Appearance[] {
   if (!operator.rarity) return [];
@@ -44,11 +45,6 @@ export function getOperatorAppearances(operator: Pick<Operator, 'name' | 'rarity
   const prefix = `${operator.name} - `;
   const labels = new Set<string>();
 
-  for (const f of iconFiles) {
-    if (f.startsWith(prefix) && f.toLowerCase().endsWith('.webp')) {
-      labels.add(f.slice(prefix.length, -'.webp'.length));
-    }
-  }
   for (const f of skinFiles) {
     if (f.startsWith(prefix) && f.toLowerCase().endsWith('.webp')) {
       labels.add(f.slice(prefix.length, -'.webp'.length));
@@ -70,15 +66,9 @@ export function getOperatorAppearances(operator: Pick<Operator, 'name' | 'rarity
       const filename = `${operator.name} - ${label}.webp`;
       const iconPath = iconFileSet.has(filename) ? `/${iconDir}/${encodeURIComponent(filename)}` : null;
       const fullPath = skinFileSet.has(filename) ? `/${skinDir}/${encodeURIComponent(filename)}` : null;
-      /* A label is collected if EITHER folder has it, so a filename misspelt in one of
-         them produces an appearance with half its images: a card the reader can click
-         with nothing to show. It happened eight times, and the spellings were near
-         enough to read past -- "Species Planatarum" against "Species Plantarum",
-         "Boundless Soil" against "Boundless Sail", "Default" and "Basic" where every
-         other operator says "Base".
-         Warned rather than thrown: a genuinely icon-only or art-only appearance is
-         possible, and failing the build over one would be worse than a gap. Reported
-         once per case, with both folders named, so the fix is a rename. */
+      /* Every selected label has full artwork. Warn when its matching thumbnail
+         is missing because that still leaves a blank selector and usually means
+         a near-miss in one of the filenames. */
       if (!iconPath || !fullPath) {
         const missing = !iconPath ? iconDir : skinDir;
         const has = !iconPath ? skinDir : iconDir;

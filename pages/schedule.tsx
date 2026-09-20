@@ -6,6 +6,7 @@ import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
+import { getPullSchedule } from '@/lib/pulls/schedule';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
@@ -35,6 +36,7 @@ interface EventRow {
   poster: string;
   dateRange: string;
   isPredicted: boolean;
+  pullBannerName: string | null;
   isOngoing: boolean;
   featuredOperators: { name: string; rarity: 6 | 5 }[];
 }
@@ -47,6 +49,7 @@ interface Props {
   /** The Events list's rows. Named apart from `events`, which is the calendar's
    *  schedule data and a different shape entirely. */
   eventRows: EventRow[];
+  pullBannerLinks: Record<string, string>;
 }
 
 /** The two views. In the URL as ?view=, so a link can point at either. */
@@ -74,7 +77,7 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-export default function SchedulePage({ events, operators, skins, releaseLookup, eventRows }: Props) {
+export default function SchedulePage({ events, operators, skins, releaseLookup, eventRows, pullBannerLinks }: Props) {
   const colors = useContentTable('event_colors', contentColors);
   const materials = useContentTable('event_materials', contentMaterials);
   const banners = useContentTable('headhunting_banners', contentBanners) as HeadhuntingBanner[];
@@ -349,7 +352,8 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
           ) : (
             <div className="events-list">
               {eventRows.map((e) => (
-                <Link prefetch={false} key={e.name} href={`/events/${encodeURIComponent(e.name)}`} className="events-row">
+                <div key={e.name} className="events-row-entry">
+                <Link prefetch={false} href={`/events/${encodeURIComponent(e.name)}`} className="events-row">
                   <div className="events-row-poster-wrap">
                     {e.poster && <Image src={e.poster} alt={e.name} fill sizes="240px" style={{ objectFit: 'cover' }} />}
                     {e.isOngoing && <span className="events-row-live-badge">LIVE</span>}
@@ -376,6 +380,12 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
                     )}
                   </div>
                 </Link>
+                {e.pullBannerName && (
+                  <Link prefetch={false} className="events-row-plan" href={{ pathname: '/pulls', query: { banner: e.pullBannerName } }}>
+                    Add to Pull Planner
+                  </Link>
+                )}
+                </div>
               ))}
             </div>
           )}
@@ -662,6 +672,13 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
                 {panelBanner && (panelBannerSixStars.length > 0 || panelBanner.five_stars.length > 0 || (panelBanner.four_stars || []).length > 0) && (
                   <div className="schedule-panel-pullable">
                     <h3 className="char-file-subheading">Pullable Operators</h3>
+                    {pullBannerLinks[panelBanner.name.toLowerCase()] && (
+                      <p className="hint">
+                        <Link prefetch={false} href={{ pathname: '/pulls', query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
+                          Add to Pull Planner
+                        </Link>
+                      </p>
+                    )}
                     <div className="schedule-panel-pullable-row">
                       {panelBannerSixStars.map((name) => {
                         const op = operatorByName.get(name);
@@ -906,6 +923,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
      because the list is now a view of this page, and both views are wanted before the
      first paint: switching between them is a tab, not a navigation, so neither may
      arrive late. */
+  const pullBannerLinks = Object.fromEntries(
+    getPullSchedule()
+      .filter((banner) => new Date(`${banner.end}T23:59:59Z`) > new Date())
+      .map((banner) => [banner.name.toLowerCase(), banner.name]),
+  );
   const eventRows: EventRow[] = getAllEventListings(new Date()).map((e) => {
     const banner = getBannerForEvent(e.name, e.isPredicted ? null : e.dateRange);
     const featuredOperators: { name: string; rarity: 6 | 5 }[] = [];
@@ -918,13 +940,14 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
       poster: e.poster,
       dateRange: e.dateRange,
       isPredicted: e.isPredicted,
+      pullBannerName: banner ? pullBannerLinks[banner.name.toLowerCase()] ?? null : null,
       isOngoing: e.isOngoing,
       featuredOperators,
     };
   });
 
   return {
-    props: { events: getAllEvents(), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows },
+    props: { events: getAllEvents(), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBannerLinks },
     /* The list carries "ongoing or upcoming", which is a claim about now, so the page
        cannot be built once and left. Twenty minutes, as the old events page had. */
     revalidate: 1200,

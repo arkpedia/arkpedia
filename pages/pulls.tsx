@@ -1,0 +1,486 @@
+import BannerPicker from '@/components/pulls/BannerPicker';
+import PullBannerRow from '@/components/pulls/PullBannerRow';
+import workspace from '@/styles/pulls/pulls-workspace.module.css';
+import { RewardAmount } from "@/components/pulls/RewardAmount";
+import { PastRewards } from '@/components/pulls/PastRewards';
+import { certificatePulls, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
+import { getAllEvents } from '@/lib/schedule/schedule';
+import { getAllEventListings } from '@/lib/home/frontPageContent';
+import { withContentPage } from '@/lib/content/server';
+import { ContentImg } from '@/components/content/ContentImage';
+import { pullSkinCollections, skinReleaseDates, type SkinCollection } from '@/lib/pulls/skinCollections';
+import { getBannerOdds } from '@/lib/pulls/bannerOdds';
+import type { BannerOdds } from '@/lib/pulls/probability';
+import { WISHING_WALL_LABELS, type WishingWallMode } from '@/lib/pulls/wishingWall';
+import Head from 'next/head';
+import type { GetStaticProps } from 'next';
+import { getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
+import { useRouter } from 'next/router';
+import { getAllSkins } from '@/lib/skins/skins';
+import { PlannerSelect } from '@/components/pulls/PlannerSelect';
+import { SkinPlan } from '@/components/pulls/SkinPlan';
+import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
+import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, MAX_PLAN_FILE_SIZE, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
+  MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
+  WEEKLY_ORUNDUM,
+  eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
+  pullsFrom, remainingBacklog,
+  type Holdings, type UpcomingBanner, type PullEventReward,
+} from '@/lib/pulls/pulls';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A number the reader typed, floored at zero. Empty reads as zero rather than
+ *  NaN, because a NaN here propagates into every figure on the page. */
+function readNumber(raw: string): number {
+  return planNumber(raw);
+}
+
+function Field({
+  label, unit, value, onChange, icon,
+}: {
+  label: string; unit: string; value: string; onChange: (v: string) => void; icon?: string;
+}) {
+  return (
+    <label className="pulls-field" title={icon ? label : undefined}>
+      <span className="pulls-field-label">{/* eslint-disable-next-line @next/next/no-img-element */}
+        {icon && <ContentImg src={icon} alt="" width="28" height="28" />}{label}</span>
+      <span className="pulls-field-box">
+        <input
+          type="text"
+          inputMode="numeric"
+          onFocus={event => event.currentTarget.select()}
+          onClick={event => event.currentTarget.select()}
+          value={value}
+          onChange={(e) => /^\d{0,8}$/.test(e.target.value) && Number(e.target.value) <= 10_000_000 && onChange(e.target.value)}
+          placeholder="0"
+          aria-label={label}
+        />
+        <span className="pulls-field-unit">{unit}</span>
+      </span>
+    </label>
+  );
+}
+
+/** Events in the list that actually pay: a rerun you have cleared is shown but
+ *  contributes nothing, and counting it would overstate the line above it. */
+function haulCountedPaying(counted: PullEventReward[], cleared: ReadonlySet<string>): number {
+  return counted.filter((b) => b.op > 0 && !eventWasCleared(b, cleared)).length;
+}
+
+/** One line of the working: what it is, the sum, and the amount. */
+function Line({ what, sum, amount, muted }: { what: string; sum: string; amount: number; muted?: boolean }) {
+  return (
+    <div className={`pulls-line${muted ? ' muted' : ''}`}>
+      <span className="pulls-line-what">{what}</span>
+      <span className="pulls-line-sum">{sum}</span>
+      <span className="pulls-line-amount">{amount.toLocaleString()}</span>
+    </div>
+  );
+}
+
+export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatalogue, skinCollections, bannerOdds }: { skinCollections: SkinCollection[]; bannerOdds: Record<string, BannerOdds>; scheduledEvents: PullEventReward[]; scheduledBanners: UpcomingBanner[]; skinCatalogue: PlannedSkin[] }) {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('');
+  const [choosingBanner, setChoosingBanner] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<string | null>(null);
+  const [reservedOP, setReservedOP] = useState('');
+  const [skinIds, setSkinIds] = useState<string[]>([]);
+  const skinBudget = useMemo(() => skinReservation(skinIds, skinCatalogue, readNumber(reservedOP)), [skinIds, skinCatalogue, reservedOP]);
+  const reserve = skinBudget.reserved;
+  const [goals, setGoals] = useState<BannerGoal[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [saveBlocked, setSaveBlocked] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('Loading saved plan…');
+  const [notice, setNotice] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
+  const handledLink = useRef('');
+  const [orundum, setOrundum] = useState('');
+  const [yellowCerts, setYellowCerts] = useState('');
+  const [incomeSettings, setIncomeSettings] = useState<IncomeSettings>(DEFAULT_INCOME_SETTINGS);
+  const [originite, setOriginite] = useState('');
+  const [permits, setPermits] = useState('');
+  const [includeBacklog, setIncludeBacklog] = useState(false);
+  /* What the reader has already cleared. Empty means "new account", which is
+     the only state where the whole back catalogue is honest. */
+  const [doneEvents, setDoneEvents] = useState<Set<string>>(new Set());
+  const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set());
+  const [annihilationDone, setAnnihilationDone] = useState(false);
+  /* Empty until the client picks it: a date computed on the server renders one
+     value in the HTML and another after hydration, which React calls a
+     mismatch and the reader sees as a flicker. */
+  const [until, setUntil] = useState('');
+  const [monthlyCard, setMonthlyCard] = useState(false);
+  const [wishingWallMode, setWishingWallMode] = useState<WishingWallMode>('average');
+  /* Which banner the reader is saving for. Empty means they are working to a
+     plain date instead, which is still a perfectly good question to ask. */
+  const [bannerName, setBannerName] = useState('');
+  const [clearedReruns, setClearedReruns] = useState<Set<string>>(new Set());
+
+  const [now, setNow] = useState<Date | null>(null);
+
+  const applyPlan = useCallback((plan: SavedPullPlan) => {
+    setYellowCerts(plan.yellowCerts ?? ''); setIncomeSettings(plan.incomeSettings ?? DEFAULT_INCOME_SETTINGS);
+    setOrundum(plan.orundum); setOriginite(plan.originite); setPermits(plan.permits); setReservedOP(plan.reservedOP);
+    setUntil(plan.until); setBannerName(plan.bannerName);
+    setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setAnnihilationDone(plan.annihilationDone);
+    setDoneEvents(new Set(plan.doneEvents)); setDoneKeys(new Set(plan.doneKeys)); setClearedReruns(new Set(plan.clearedReruns));
+    setWishingWallMode(plan.wishingWallMode ?? 'average');
+    setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners)); setSkinIds(plan.skinIds ?? []);
+  }, [scheduledBanners]);
+
+  useEffect(() => {
+    const today = new Date();
+    setNow(today);
+    setUntil(new Date(today.getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
+    try {
+      const saved = localStorage.getItem(PULL_PLAN_KEY);
+      if (saved) applyPlan(parsePullPlan(saved));
+    } catch {
+      setSaveBlocked(true);
+      setSaveStatus('Could not load your saved plan. It has not been overwritten.');
+    }
+    setHydrated(true);
+  }, [applyPlan]);
+
+  const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings,
+    monthlyCard, includeBacklog, annihilationDone, doneEvents: [...doneEvents], doneKeys: [...doneKeys], clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, annihilationDone, doneEvents, doneKeys, clearedReruns, goals, skinIds, wishingWallMode]);
+
+  useEffect(() => {
+    if (!hydrated || saveBlocked) return;
+    try {
+      localStorage.setItem(PULL_PLAN_KEY, JSON.stringify(savedPlan));
+      setSaveStatus('Saved on this device');
+    } catch { setSaveStatus('Device storage is unavailable. Export your plan to keep a copy.'); }
+  }, [hydrated, saveBlocked, savedPlan]);
+
+  function exportPlan() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(savedPlan, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'arkpedia-pull-plan.json'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function importPlan(file: File) {
+    try {
+      if (file.size > MAX_PLAN_FILE_SIZE) throw new Error('Choose a pull plan smaller than 250 KB.');
+      const plan = parsePullPlan(await file.text());
+      applyPlan(plan); setSaveBlocked(false); setNotice('Imported your pull plan.');
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not read this pull plan.'); }
+  }
+
+  const held: Holdings = {
+    orundum: readNumber(orundum),
+    originitePrime: readNumber(originite),
+    permits: readNumber(permits),
+  };
+
+  const target = useMemo(() => {
+    if (!validPlanDate(until)) return null;
+    /* End of the chosen day, so "until the 30th" includes the 30th. */
+    const d = new Date(`${until}T23:59:59Z`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }, [until]);
+
+  const banners = useMemo(() => (now ? scheduledBanners.filter(b => new Date(`${b.end}T23:59:59Z`) > now).sort((a, b) => a.start.localeCompare(b.start)) : []), [now, scheduledBanners]);
+  const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => new Date(`${event.end}T23:59:59Z`) > now) : [], [now, scheduledEvents]);
+  const picked = useMemo(
+    () => banners.find((b) => b.name === bannerName) ?? null,
+    [banners, bannerName],
+  );
+
+  const income = useMemo(
+    () => selectedIncome(now && target ? incomeBetween(now, target) : incomeBetween(new Date(0), new Date(0)), incomeSettings),
+    [now, target, incomeSettings],
+  );
+  /* The card pays at the daily sign-in, so it rides the same counted resets as
+     the daily mission rather than being multiplied out by calendar days. */
+  const card = useMemo(() => monthlyCardIncome(income), [income]);
+
+  /* Only what is actually left: a returning player is the normal case, and
+     telling somebody with three years of clears that 2,717 OP is waiting would
+     be worse than not offering the figure. */
+  const backlog = useMemo(
+    () => remainingBacklog(doneEvents, doneKeys, annihilationDone),
+    [doneEvents, doneKeys, annihilationDone],
+  );
+
+
+  /* Potential funds include selected, still-unclaimed content. The holdings
+     summary below deliberately excludes these rewards. */
+  const inHand: Holdings = {
+    orundum: held.orundum + (includeBacklog ? backlog.annihilationOrundum : 0),
+    originitePrime: held.originitePrime + (includeBacklog ? backlog.originitePrime : 0),
+    permits: held.permits + (includeBacklog ? backlog.permits : 0),
+  };
+
+  const rerunOptions = useMemo(() => ({ cleared: clearedReruns, wishingWallMode }), [clearedReruns, wishingWallMode]);
+
+  /*
+   * The whole calculation at one moment in time.
+   *
+   * Written once and called for each date that matters -- the target, and, when
+   * a banner is picked, its first day and its last. Three near-identical
+   * inline sums would have drifted apart the first time anything was added to
+   * one of them.
+   */
+  const totalAt = useCallback((when: Date) => {
+    const inc = selectedIncome(now ? incomeBetween(now, when) : incomeBetween(new Date(0), new Date(0)), incomeSettings);
+    const certs = now ? certificatePulls(now, when, readNumber(yellowCerts), incomeSettings.certificates) : 0;
+    const green = greenCertificateIncome(now ?? when, when, !!incomeSettings.greenCertificates);
+    const mc = monthlyCardIncome(inc);
+    const haul = bannerHaul(rewardEvents, when, rerunOptions);
+    const withExtras = {
+      ...inc,
+      orundum: inc.orundum + green.orundum + (monthlyCard ? mc.orundum : 0) + haul.wishOrundum,
+    };
+    const grossOP = inHand.originitePrime + haul.op
+      + (monthlyCard ? mc.originitePrime : 0);
+    const holdings: Holdings = {
+      orundum: inHand.orundum,
+      /* A future event's Originite is NOT in hand -- it does not exist until the
+         event runs -- so it arrives here rather than in the holdings above. */
+      originitePrime: Math.max(0, grossOP - reserve),
+      permits: inHand.permits + haul.permits + certs + green.permits,
+    };
+    /* Banner-locked, so it belongs to the banner being ASKED about and to no
+       other date: a limited banner passing in the meantime hands you pulls you
+       can only spend on it, which are worth nothing to somebody saving for a
+       later one. Kept out of `pullsFrom` and added at the end for the same
+       reason permits are -- they are pulls, not currency. */
+    const free = picked && now ? availableBannerFreePulls(picked, when, now, goals.find(g => g.banner === picked.name)?.ticketUsed) : 0;
+    const p = pullsFrom(holdings, withExtras);
+    const recurringOnly = pullsFrom({
+      orundum: readNumber(orundum), permits: readNumber(permits) + certs + green.permits,
+      originitePrime: Math.max(0, readNumber(originite) + (monthlyCard ? mc.originitePrime : 0) - reserve),
+    }, { ...inc, orundum: inc.orundum + green.orundum + (monthlyCard ? mc.orundum : 0) });
+    return {
+      grossOP,
+      recurringOnly: recurringOnly.pulls,
+      pulls: { ...p, pulls: p.pulls + free },
+      free,
+      income: inc,
+      card: mc,
+      haul,
+      arriving: withExtras.orundum,
+    };
+  }, [now, rewardEvents, picked, rerunOptions, monthlyCard, inHand.orundum, inHand.originitePrime,
+    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts]);
+
+  const at = useMemo(() => (target ? totalAt(target) : null), [target, totalAt]);
+  const total = at ? at.pulls : pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0)));
+  const haul = at ? at.haul : bannerHaul([], new Date(0), rerunOptions);
+
+  const today = pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0)));
+  const greenIncome = greenCertificateIncome(now ?? new Date(0), target ?? now ?? new Date(0), !!incomeSettings.greenCertificates);
+  const recurringGained = (at?.recurringOnly ?? today.pulls) - today.pulls;
+  const rewardGained = at ? total.pulls - at.free - at.recurringOnly : 0;
+
+
+  const budgetRows = useMemo(() => now ? planBudgets(goals, banners, now, date => {
+    const result = totalAt(date);
+    return result.pulls.pulls - result.free;
+  }) : [], [goals, banners, now, totalAt]);
+  const forecastSavings = total.pulls - (at?.free ?? 0);
+  const savingsAfterPlan = savingsAfterPlanAt(forecastSavings, budgetRows, until);
+  const totalShortfall = budgetRows.reduce((max, row) => Math.max(max, row.shortfall), 0);
+  const addGoal = useCallback((banner: UpcomingBanner) => {
+    setGoals(previous => previous.some(g => g.banner === banner.name) || previous.length >= MAX_GOALS ? previous : [...previous, { banner: banner.name, pulls: 0, spendOn: banner.end }]);
+  }, []);
+  useEffect(() => {
+    if (!hydrated || !router.isReady || !now) return;
+    const name = router.query.banner;
+    if (typeof name !== 'string' || handledLink.current === name) return;
+    handledLink.current = name;
+    const banner = banners.find(b => b.name === name);
+    if (!banner) { setNotice('This banner is not in the upcoming schedule. Choose another banner below.'); return; }
+    addGoal(banner); setEditingBanner(banner.name); setBannerName(banner.name); setUntil(banner.end); setActiveTab('');
+  }, [hydrated, router.isReady, router.query.banner, now, banners, addGoal]);
+
+  const monthlyEnd = new Date((now?.getTime() ?? 0) + 30 * DAY_MS);
+  const monthlyBase = selectedIncome(incomeBetween(now ?? monthlyEnd, monthlyEnd), incomeSettings);
+  const monthlyBonus = monthlyCardIncome(monthlyBase);
+  const monthlyGreen = greenCertificateIncome(now ?? monthlyEnd, monthlyEnd, !!incomeSettings.greenCertificates);
+  const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates);
+  return <>
+    <Head><title>Pull Planner — Arkpedia</title></Head>
+    <main className={`pulls-page ${workspace.page}`}>
+      <header className={workspace.header}><div><h1>Pull Planner</h1></div><div className={workspace.headerActions}>
+        <button type="button" className="pulls-quick-btn" onClick={exportPlan}>Export</button><button type="button" className="pulls-quick-btn" onClick={() => fileInput.current?.click()}>Import</button>
+        <input ref={fileInput} type="file" accept=".json" hidden aria-label="Import pull plan file" onChange={e => { const file = e.target.files?.[0]; if (file) void importPlan(file); e.target.value = ''; }} />
+      </div></header>
+      {notice && <p role="status">{notice}</p>}
+      {(saveBlocked || saveStatus.startsWith('Device storage')) && <p role="alert" className="pulls-plan-warning">{saveStatus}</p>}
+      <div className={workspace.sections}>
+      <section className={workspace.overview} aria-labelledby="pull-resources-heading">
+        <h2 id="pull-resources-heading" className={workspace.resourceHeading}>Resources &amp; income</h2>
+        <div className={workspace.wallet}>
+          <Field label="Orundum" unit="" icon="/material-icons/Orundum.png" value={orundum} onChange={setOrundum} />
+          <Field label="Originite Prime" unit="" icon="/material-icons/Originite%20Prime.webp" value={originite} onChange={setOriginite} />
+          <Field label="Permits" unit="" icon="/material-icons/Headhunting%20Permit.webp" value={permits} onChange={setPermits} />
+          <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} />
+        </div>
+        {skinBudget.missing.length > 0 && <p className="pulls-plan-warning">Some selected skins have missing prices. Review your wishlist.</p>}
+        <div className={workspace.incomeRow}>            <div className="pulls-recurring-grid">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} /><span>{label}</span><small>{rate}</small></label>)}<label className={workspace.monthly}><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label></div>
+<div className={workspace.rate}><strong>{monthlyIncome.toLocaleString(undefined,{maximumFractionDigits:1})}</strong><span>pulls / 30 days</span></div></div>
+        <div className={workspace.utilities}>
+          <button type="button" id="tab-income" aria-controls="panel-income" aria-expanded={activeTab === 'income'} onClick={() => setActiveTab(activeTab === 'income' ? '' : 'income')}><span>Income & events</span><span>{activeTab === 'income' ? '−' : '+'}</span></button>
+          <div className={workspace.pastUtility}>
+            <label title="Include past rewards in forecast"><input type="checkbox" aria-label="Include past rewards in forecast" checked={includeBacklog} onChange={e => setIncludeBacklog(e.target.checked)} /></label>
+            <button type="button" id="tab-past" aria-controls="panel-past" aria-expanded={activeTab === 'past'} onClick={() => setActiveTab(activeTab === 'past' ? '' : 'past')}><span>Past events</span><span aria-hidden="true">{activeTab === 'past' ? '−' : '+'}</span></button>
+          </div>
+          <button type="button" id="tab-skins" aria-controls="panel-skins" aria-expanded={activeTab === 'skins'} onClick={() => setActiveTab(activeTab === 'skins' ? '' : 'skins')}><span>Skin wishlist <b>{skinIds.length}</b></span><span>{reserve} OP reserved {activeTab === 'skins' ? '−' : '+'}</span></button>
+        </div>
+        <div className={workspace.detailArea} hidden={!activeTab}>          <section role="region" id="panel-income" aria-labelledby="tab-income" hidden={activeTab !== 'income'} className={workspace.detailPanel}>
+            <h2>Income</h2>
+            <div className="pulls-target-row"><PlannerSelect label="Forecast banner" value={bannerName} onChange={name => { setBannerName(name); const banner = banners.find(b => b.name === name); if (banner) setUntil(banner.end); }} options={[{ value: '', label: 'Choose a banner…' }, ...banners.map(b => {
+                const rateUp = bannerOdds[b.name]?.operators.filter(operator => operator.kind === 'featured') ?? [];
+                const dateLabel = (date: string, year: boolean) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' as const } : {}), timeZone: 'UTC' });
+                return { value: b.name, label: (rateUp.length ? rateUp.map(operator => operator.name) : b.sixStars).join(' · ') || b.name,
+                  detail: b.name.replace(/^\[[^\]]*\]\s*/, ''),
+                  meta: `${dateLabel(b.start, b.start.slice(0, 4) !== b.end.slice(0, 4))} – ${dateLabel(b.end, true)}`,
+                  portraits: rateUp.filter(operator => operator.icon).map(operator => ({ name: operator.name, src: operator.icon! })) };
+              })]} />
+              <input id="forecast-date" type="date" className="pulls-date" aria-label="Forecast date" max="2099-12-31" value={until} min={now?.toISOString().slice(0, 10)} onChange={e => { if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName(''); }} />
+              <div className="pulls-day-options">{(['start', 'end'] as const).map(day => <button type="button" key={day} disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
+            </div>
+            {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
+              {picked.image && <ContentImg src={picked.image} alt="" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
+            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Recurring income breakdown <span className="hint">{income.days} daily resets · {income.weeks} weekly resets</span></summary>
+              <div className="pulls-lines">
+            <Line what="Yellow certificate shop" sum="pulls from full monthly sets" amount={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) : 0} />
+            <Line what="Green cert shop" sum={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} amount={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} />
+            <Line what="Daily mission" sum={`${income.days} resets × ${DAILY_ORUNDUM}`} amount={income.daily} />
+            <Line what="Weekly mission" sum={`${income.weeks} resets × ${WEEKLY_ORUNDUM}`} amount={income.weekly} />
+            <Line what="Annihilation" sum={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM}`} amount={income.annihilation} />
+            {monthlyCard && (
+              <>
+                <Line what="Monthly card" sum={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM}`} amount={card.orundum} />
+                <Line
+                  what="Cards bought"
+                  sum={`${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP × ${ORUNDUM_PER_ORIGINITE}`}
+                  amount={card.originitePrime * ORUNDUM_PER_ORIGINITE}
+                />
+              </>
+            )}
+            <div className="pulls-line total">
+              <span className="pulls-line-what">Recurring Orundum equivalent</span>
+              <span className="pulls-line-sum" />
+              <span className="pulls-line-amount">
+                {(income.orundum + greenIncome.orundum + greenIncome.permits * ORUNDUM_PER_PULL + (now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) * ORUNDUM_PER_PULL : 0) + (monthlyCard ? card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE : 0)).toLocaleString()}
+              </span>
+            </div>
+          </div>
+</details>
+            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure pulls-event-rewards" open><summary>Event rewards <span className="hint">{haul.op} OP · {haul.permits} permits by {until}</span></summary>
+          {haul.counted.length === 0 && haul.skipped.length === 0 ? (
+            <p className="hint pulls-empty">
+              No events end before this date.
+            </p>
+          ) : (
+            <div className="pulls-events">
+              {haul.counted.map((b) => {
+                const cleared = eventWasCleared(b, clearedReruns);
+                return (
+                  <div key={b.name} className={`pulls-event-row${cleared ? '' : ' on'}`}>
+                    <span className="pulls-event-who">
+                      <b>{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</b>
+                      <i>
+                        ends {b.end}
+                        {b.opSource === 'median' ? ' · estimated' : ''}
+                        {b.opSource === 'cn' ? ' · stage rewards' : ''}
+                        {b.opSource === 'global' ? ' · first-run rewards' : ''}
+                      </i>
+                    </span>
+                    <span className="pulls-event-mid">{b.rerun && b.op > 0 && <button type="button" className={`pulls-tick${cleared ? ' on' : ''}`}
+                      aria-pressed={cleared} aria-label={`Already cleared ${(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}`}
+                      onClick={() => setClearedReruns(previous => {
+                        const next = new Set(previous);
+                        if (eventWasCleared(b, next)) [b.name, ...(b.legacyNames ?? [])].forEach(name => next.delete(name));
+                        else next.add(b.name);
+                        return next;
+                      })}>
+                      <span className="pulls-tick-mark" aria-hidden="true">✓</span>Already cleared
+                    </button>}</span>
+                    <span className="pulls-event-op">
+                      <RewardAmount resource="op" amount={cleared ? 0 : b.op} />{eventShopPermits(b) > 0 && <RewardAmount resource="permits" amount={eventShopPermits(b)} />}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {haul.skipped.map((b) => (
+                <div key={b.name} className="pulls-event-row muted">
+                  <span className="pulls-event-who">
+                    <b>{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</b>
+                    {/* Counting it here as well as in the back catalogue would be
+                        the easiest wrong number on the page. */}
+                    <i>Included under unclaimed content</i>
+                  </span>
+                  <span className="pulls-event-mid" />
+                  <span className="pulls-event-op">{b.op} OP{eventShopPermits(b) > 0 ? ` · ${eventShopPermits(b)} permits` : ''}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(haul.op > 0 || haul.permits > 0) && <div className="pulls-event-total" aria-label="Event reward total">
+            <strong>Total</strong><div><RewardAmount resource="op" amount={haul.op} /><RewardAmount resource="permits" amount={haul.permits} /></div>
+          </div>}
+
+</details>
+
+            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Wishing Wall</summary>          <fieldset className="pulls-wishing-wall" aria-label="Wishing Wall">
+            <div className="pulls-wish-options">
+              {(['minimum', 'average', 'lucky'] as const).map(mode => <label key={mode} className={`pulls-wish-option${wishingWallMode === mode ? ' on' : ''}`}>
+                <input type="radio" name="wishing-wall" value={mode} checked={wishingWallMode === mode} onChange={() => setWishingWallMode(mode)} />
+                <span><b>{WISHING_WALL_LABELS[mode]}</b><span>{mode === 'minimum' ? '200/day · 2,800 over 14 days' : mode === 'average' ? '≈584/day · ≈8,170 over 14 days' : '800/day · 11,200 over 14 days'}</span></span>
+              </label>)}
+            </div>
+
+          </fieldset>
+          {haul.wishOrundum > 0 && <div className="pulls-event-total"><span>{haul.wishWalls.reduce((n, b) => n + b.wishDays, 0)} days · {WISHING_WALL_LABELS[wishingWallMode]}{wishingWallMode === 'average' ? ' estimate' : ''}</span><RewardAmount resource="orundum" amount={haul.wishOrundum} /></div>}
+          </details>
+
+
+
+          </section>
+          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={workspace.detailPanel}><PastRewards doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} include={includeBacklog} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} onInclude={setIncludeBacklog} /></section>
+          <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={workspace.detailPanel}>        <SkinPlan collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} heldOP={held.originitePrime} extraOP={readNumber(reservedOP)} forecastOP={date => totalAt(new Date(`${date}T23:59:59Z`)).grossOP}
+          extraField={<Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} />} />
+</section>
+</div>
+      </section>
+      <section className={workspace.forecast} aria-label="Pull calculation">
+        <div className={workspace.calculationHeading}><h2>Pull calculation</h2><div className={workspace.forecastDate}><label htmlFor="pull-calculation-date">Until</label><input id="pull-calculation-date" type="date" value={until} onChange={e => {if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName('');}} /></div></div>
+        <dl>
+          <div><dt>Available now</dt><dd>{today.pulls}</dd></div>
+          <div><dt>Income</dt><dd><span aria-hidden="true">+</span>{recurringGained}</dd></div>
+          <div><dt>Event rewards</dt><dd><span aria-hidden="true">+</span>{rewardGained}</dd></div>
+          <div className={workspace.forecastTotal}><dt>Before spending</dt><dd><span aria-hidden="true">=</span>{forecastSavings}<small> pulls</small></dd></div>
+        </dl>
+      </section>
+      <section className={workspace.plan} aria-label="Your banner plan">
+        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={workspace.add} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
+        {choosingBanner && <BannerPicker banners={banners} selected={goals.map(goal => goal.banner)} odds={bannerOdds} onAdd={addGoal} />}
+        <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
+        {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}
+        {!goals.length && <div className={workspace.empty}>Add a banner to start planning.</div>}
+        <footer className={workspace.planFooter}><span>{!goals.length ? 'No planned spending' : totalShortfall ? 'Budget needs attention' : 'Budgets covered'}<small>Through {until || 'today'}</small></span><span>Savings after your plan <strong className={savingsAfterPlan < 0 ? workspace.negative : ''}>{savingsAfterPlan}<small> pulls</small></strong></span></footer>
+      </section>
+      </div>
+    </main>
+  </>;
+}
+
+export const getStaticProps: GetStaticProps = withContentPage('/pulls', async () => {
+  const scheduledBanners = getPullSchedule().filter(banner => new Date(`${banner.end}T23:59:59Z`) > new Date());
+  const skins = getAllSkins();
+  const events = getAllEvents();
+  const skinCatalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins));
+  const predicted = new Set(getAllEventListings().filter(event => event.isPredicted).map(event => event.name));
+  const skinCollections = pullSkinCollections(events, skins, skinCatalogue, new Date().toISOString().slice(0, 10), predicted);
+  return { props: { scheduledEvents: getPullEventSchedule(), skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) }, revalidate: 1200 };
+});

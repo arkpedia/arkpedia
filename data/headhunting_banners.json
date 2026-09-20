@@ -267,7 +267,7 @@
     "category": "standard",
     "cn_date": "2019/11/19–2019/12/02",
     "global_date": "2020/05/27–2020/06/10",
-    "banner_image": null,
+    "banner_image": "/headhunting-banner-images/[Limited-Time] Keeper of the Lock & Keys.webp",
     "year": 2020,
     "four_stars": [
       "May"
@@ -8681,7 +8681,7 @@
     "category": "kernel",
     "cn_date": null,
     "global_date": "2026/01/27–2026/02/10",
-    "banner_image": null,
+    "banner_image": "/headhunting-banner-images/Kernel Locating #10 (Global).webp",
     "year": 2026,
     "four_stars": [],
     "five_stars": [
@@ -8766,7 +8766,12 @@
       "Bellone"
     ],
     "pull_type": "featured",
-    "linked_event": "[Story Collection] Crossing"
+    "linked_event": "[Story Collection] Crossing",
+    "global_window": {
+      "startAt": "2026-08-13T12:00:00.000Z",
+      "endAt": "2026-08-27T11:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/gacha_table.json"
+    }
   },
   {
     "name": "Joint Operation #21",
@@ -8811,7 +8816,12 @@
       "Necrass"
     ],
     "pull_type": "featured",
-    "linked_event": "[Rerun] When Elegies Are Ashes Rerun"
+    "linked_event": "[Rerun] When Elegies Are Ashes Rerun",
+    "global_window": {
+      "startAt": "2026-08-27T15:00:00.000Z",
+      "endAt": "2026-09-10T11:00:00.000Z",
+      "timingSource": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/gacha_table.json"
+    }
   },
   {
     "name": "Rage of The Many",

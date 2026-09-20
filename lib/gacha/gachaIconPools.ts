@@ -1,6 +1,5 @@
-import fs from 'fs';
-import path from 'path';
 import { GachaItem } from './gachaTypes';
+import { publicFiles } from '@/lib/assets/publicAssets';
 
 const FOLDERS: Record<'six' | 'five' | 'four' | 'three', string> = {
   six: 'six-star-icons',
@@ -10,14 +9,7 @@ const FOLDERS: Record<'six' | 'five' | 'four' | 'three', string> = {
 };
 
 function readFolder(folderName: string): GachaItem[] {
-  const dir = path.join(process.cwd(), 'public', folderName);
-  let files: string[] = [];
-  try {
-    files = fs.readdirSync(dir);
-  } catch {
-    return [];
-  }
-  return files
+  return publicFiles(folderName)
     .filter((f) => f.toLowerCase().endsWith('.webp') && / - Base\.webp$/i.test(f))
     .map((f) => {
       const name = f.replace(/ - Base\.webp$/i, '');
@@ -34,10 +26,9 @@ export interface GachaIconPools {
 }
 
 /**
- * Reads all four rarity icon folders. Server-only (uses fs) -- call this
- * from getStaticProps only, never import it into client-rendered
- * component code directly, or the build will fail trying to bundle `fs`
- * for the browser.
+ * Reads all four rarity icon inventories from the generated public asset
+ * index. The real files live in the shared GitHub repository and therefore
+ * must never be discovered by reading this checkout's public directory.
  */
 export function getGachaIconPools(): GachaIconPools {
   return {

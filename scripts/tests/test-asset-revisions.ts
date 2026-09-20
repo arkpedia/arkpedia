@@ -29,6 +29,16 @@ test('schedule artwork uses Arkpedia image-asset paths', () => {
   }
 });
 
+test('every headhunting banner has published artwork', () => {
+  const published = new Set(externalAssets.files);
+  const banners = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'headhunting_banners.json'), 'utf8')) as Array<{ name: string; banner_image?: string | null }>;
+  assert.ok(banners.length > 400, 'banner history unexpectedly shrank');
+  for (const banner of banners) {
+    assert.match(banner.banner_image || '', /^\/headhunting-banner-images\/.+\.webp$/, `${banner.name} has no normalized artwork path`);
+    assert.ok(published.has(banner.banner_image!.slice(1)), `${banner.name} references unpublished ${banner.banner_image}`);
+  }
+});
+
 test('pins public media while preserving encoded filenames and template placeholders', () => {
   assert.equal(pinAssetUrl('https://raw.githubusercontent.com/arkpedia/arkpedia-voice-english/main/current/a%20b/{id}.mp3'),
     delivered('arkpedia-voice-english', revisions['arkpedia-voice-english'], 'current/a%20b/{id}.mp3'));

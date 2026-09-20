@@ -1,7 +1,7 @@
 import skinsData from '@/data/skins.json';
 import { Skin } from './skinTypes';
 import { getAllOperators } from '@/lib/operators/operators';
-import { publicFiles } from '@/lib/assets/publicAssets';
+import { publicFileExists, publicFiles } from '@/lib/assets/publicAssets';
 
 // Same convention as lib/operators/operatorAppearances.ts -- images now
 // live in six rarity-specific folders (one-star-skins .. six-star-skins),
@@ -58,6 +58,11 @@ export function getAllSkins(): Skin[] {
 
   return raw.map((skin) => {
     if (!skin.model) return { ...skin, image: null };
+
+    // New catalogue entries already carry their verified rarity-specific asset
+    // path. Prefer that published path so future and crossover outfits do not
+    // depend on an operator record having landed in the same content release.
+    if (skin.image && publicFileExists(skin.image)) return skin;
 
     /* Amiya's Guard and Medic forms used to be hardcoded to 5 here, because the skins
        data names the FORM as the model while the operator files knew one Amiya. They are

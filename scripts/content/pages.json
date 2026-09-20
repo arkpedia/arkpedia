@@ -5,6 +5,7 @@
   "/skins",
   "/gacha",
   "/planner",
+  "/pulls",
   "/schedule",
   "/events/[slug]",
   "/enemies",

@@ -120,6 +120,13 @@ export const ICONS: Record<string, JSX.Element> = {
       <path d="M13 4.5H17.5V9" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  calculator: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="4" y="2.5" width="12" height="15" rx="1.5" />
+      <rect x="6.8" y="5" width="6.4" height="2.6" rx="0.6" />
+      <path d="M7.4 10.6h.01M10 10.6h.01M12.6 10.6h.01M7.4 13.8h.01M10 13.8h.01M12.6 13.8h.01" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  ),
   music: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <circle cx="6" cy="15" r="2.3" />
@@ -160,6 +167,7 @@ export const LINKS: NavLink[] = [
   { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
   { href: '/planner', label: 'Planner', icon: 'planner' },
+  { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/community', label: 'Community', icon: 'community' },
   { href: '/gacha', label: 'Gacha', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
@@ -196,7 +204,7 @@ const at = (href: string): NavLink => {
 
 export const GROUPS: NavGroup[] = [
   { label: 'Database', items: [at('/operators'), at('/skins'), at(ENEMY_HANDBOOK_HREF), at('/stages')] },
-  { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
+  { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha'), at('/pulls')] },
   { label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
 ];
 
