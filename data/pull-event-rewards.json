@@ -122,7 +122,7 @@
   {
     "event": "[Side Story ‐ Crossover] Sur le lac lune vivante",
     "cnAct": "act54side",
-    "op": 11,
+    "op": 27,
     "shopPermits": 3,
     "permitSource": "standard-event-shop-allowance",
     "wishActId": null,

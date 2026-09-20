@@ -28,15 +28,18 @@ import path from 'path';
 
 const ROOT = process.cwd();
 const STAGES = path.join(ROOT, 'data', 'stages');
-const CAMPAIGN = path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata/excel/campaign_table.json');
-const ACTIVITY = path.join(ROOT, '.cache/activity_table.json');
-const RETRO = path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata/excel/retro_table.json');
+const EN_EXCEL = path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata/excel');
+const CAMPAIGN = path.join(EN_EXCEL, 'campaign_table.json');
+const ACTIVITY = path.join(EN_EXCEL, 'activity_table.json');
+const RETRO = path.join(EN_EXCEL, 'retro_table.json');
 const BANNERS = path.join(ROOT, 'data', 'headhunting_banners.json');
 /* CN runs about half a year ahead, so every event global has not had yet has
    already happened there, stages and all. */
-const CN_STAGES = path.join(ROOT, '.cache/upstream/cn/stage_table.json');
-const CN_ACTIVITY = path.join(ROOT, '.cache/upstream/cn/activity_table.json');
-const CN_GACHA = path.join(ROOT, '.cache/upstream/cn/gacha_table.json');
+const CN_EXCEL = process.env.PULL_CN_DATA_DIR
+  ?? path.join(ROOT, '.cache/upstream/cn-resource/gamedata/excel');
+const CN_STAGES = path.join(CN_EXCEL, 'stage_table.json');
+const CN_ACTIVITY = path.join(CN_EXCEL, 'activity_table.json');
+const CN_GACHA = path.join(CN_EXCEL, 'gacha_table.json');
 const OUT = path.join(ROOT, 'data', 'pull-sources.json');
 
 const ORIGINITE_PRIME = '4002';
@@ -162,8 +165,8 @@ function eventBreakdown() {
       + '  It is what says which events are minigames rather than real events, and\n'
       + '  without it this would credit Icebreaker Games with 88 Originite Prime it\n'
       + '  does not pay. Fetch it with\n'
-      + '  curl -sSL -o .cache/activity_table.json \\\n'
-      + '    https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/activity_table.json',
+      + '  Run `npm run stages:refresh` first so the shared EN gamedata checkout\n'
+      + '  contains activity_table.json.',
     );
   }
   const basicInfo = (JSON.parse(fs.readFileSync(ACTIVITY, 'utf8')) as {
@@ -293,16 +296,15 @@ function eventBreakdown() {
  * differs. That is what makes it safe to use for events global has not had yet.
  */
 function cnOriginiteByActivity(): Record<string, number> {
-  if (!fs.existsSync(CN_STAGES) || !fs.existsSync(CN_ACTIVITY)) {
+  if (!fs.existsSync(CN_STAGES) || !fs.existsSync(CN_ACTIVITY) || !fs.existsSync(CN_GACHA)) {
     throw new Error(
       'build-pull-sources: missing the CN tables.\n'
       + '  Upcoming events have not run on global, so their payout is read from CN,\n'
       + '  which is roughly six months ahead. Without them every future event falls\n'
       + '  back to its kind\'s median, which called a mini event 29 OP when it pays 18.\n'
-      + '  mkdir -p .cache/upstream/cn && for T in activity_table stage_table; do\n'
-      + '    curl -sSL -o .cache/upstream/cn/$T.json \\\n'
-      + '      https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/$T.json\n'
-      + '  done',
+      + '  Run `npm run stages:refresh` first, or point PULL_CN_DATA_DIR at a\n'
+      + '  directory containing activity_table.json, stage_table.json, and\n'
+      + '  gacha_table.json.',
     );
   }
   const stages = (JSON.parse(fs.readFileSync(CN_STAGES, 'utf8')) as {
@@ -401,8 +403,32 @@ function luckyWallsByStartDate(activity: {
  */
 const FREE_TICKET_PULLS = 10;
 
+// Older mirrors serialize this enum by name; the current CN resource mirror
+// serializes the same game enum by number. Normalize both representations at
+// the boundary so generated public data stays readable and source-independent.
+const GACHA_RULE_NAMES: Record<number, string> = {
+  0: 'NORMAL',
+  1: 'LIMITED',
+  2: 'LINKAGE',
+  3: 'ATTAIN',
+  4: 'CLASSIC',
+  5: 'SINGLE',
+  6: 'FESCLASSIC',
+  7: 'CLASSIC_ATTAIN',
+  8: 'SPECIAL',
+  9: 'DOUBLE',
+  10: 'CLASSIC_DOUBLE',
+  11: 'RETURN',
+};
+
+const gachaRuleName = (value: string | number | undefined) => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return GACHA_RULE_NAMES[value] ?? `RULE_${value}`;
+  return null;
+};
+
 function freePullsByPool(gacha: {
-  gachaPoolClient?: { gachaPoolId?: string; gachaRuleType?: string; openTime?: number; endTime?: number }[];
+  gachaPoolClient?: { gachaPoolId?: string; gachaRuleType?: string | number; openTime?: number; endTime?: number }[];
   freeGacha?: { poolId?: string; openTime?: number; endTime?: number; freeCount?: number }[];
   limitTenGachaItem?: { itemId?: string; endTime?: number }[];
 }) {
@@ -415,7 +441,7 @@ function freePullsByPool(gacha: {
      LIMITED pool has a freeGacha entry, and no other rule type has one. If that
      ever stops being true the rule above is wrong, and this says so loudly
      instead of quietly paying the wrong banners. */
-  const limited = pools.filter((p) => p.gachaRuleType === 'LIMITED');
+  const limited = pools.filter((p) => gachaRuleName(p.gachaRuleType) === 'LIMITED');
   const missing = limited.filter((p) => !free.has(p.gachaPoolId ?? ''));
   const stray = [...free.keys()].filter((id) => !limited.some((p) => p.gachaPoolId === id));
   if (missing.length || stray.length) {
@@ -434,7 +460,7 @@ function freePullsByPool(gacha: {
        together -- so a NORMAL pool sharing a LIMITED one's end time picked up
        its permit and was credited 10 free pulls it does not give. Caught by the
        audit, not by reading. */
-    if (p.gachaRuleType !== 'LIMITED') continue;
+    if (gachaRuleName(p.gachaRuleType) !== 'LIMITED') continue;
     const id = p.gachaPoolId ?? '';
     const f = free.get(id);
     /* One free pull per day, counted over the window the entry itself carries.
@@ -611,7 +637,7 @@ function upcomingBanners(
          banner for one of those must not add its Originite a second time. */
       inBacklog: !!known && known.playable,
       poolId: pool?.gachaPoolId ?? null,
-      ruleType: pool?.gachaRuleType ?? null,
+      ruleType: gachaRuleName(pool?.gachaRuleType),
       freeDaily: freebies?.daily ?? 0,
       freeTicket: freebies?.ticket ?? 0,
       freePulls: freebies?.total ?? 0,

@@ -1537,7 +1537,7 @@
         "Mostima"
       ],
       "alsoRatedUp": [],
-      "image": null,
+      "image": "/headhunting-banner-images/[Limited-Time] Keeper of the Lock & Keys.webp",
       "event": null,
       "rerun": false,
       "op": 0,
@@ -11061,7 +11061,7 @@
         "Weedy"
       ],
       "alsoRatedUp": [],
-      "image": null,
+      "image": "/headhunting-banner-images/Kernel Locating #10 (Global).webp",
       "event": null,
       "rerun": false,
       "op": 0,
@@ -12405,8 +12405,8 @@
     {
       "name": "Rage of The Many",
       "category": "standard",
-      "start": "2026-09-10",
-      "end": "2026-09-24",
+      "start": "2026-09-16",
+      "end": "2026-09-30",
       "days": 14,
       "sixStars": [
         "Zima the Raging Tide"
@@ -12432,8 +12432,8 @@
     {
       "name": "[Celebration] Sealed With Time",
       "category": "limited",
-      "start": "2026-10-04",
-      "end": "2026-10-18",
+      "start": "2026-10-14",
+      "end": "2026-10-28",
       "days": 14,
       "sixStars": [
         "Closure",

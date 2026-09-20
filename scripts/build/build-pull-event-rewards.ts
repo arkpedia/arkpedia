@@ -6,7 +6,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getAllEvents } from '../../lib/schedule/schedule';
 
-const dir = process.env.PULL_CN_DATA_DIR ?? '.cache/upstream/cn';
+// The stage refresh owns the shared CN checkout. Reuse it so a clean CI runner
+// does not depend on a second, manually populated `.cache/upstream/cn` folder.
+const dir = process.env.PULL_CN_DATA_DIR ?? '.cache/upstream/cn-resource/gamedata/excel';
 const activity = JSON.parse(fs.readFileSync(path.join(dir, 'activity_table.json'), 'utf8'));
 const stages = JSON.parse(fs.readFileSync(path.join(dir, 'stage_table.json'), 'utf8')).stages;
 const noOP = new Set(['MULTIPLAY', 'MULTIPLAY_V3', 'MULTIPLAY_VERIFY2', 'ENEMY_DUEL', 'APRIL_FOOL', 'ACT_FOOTBALL', 'ARK_HUB']);
