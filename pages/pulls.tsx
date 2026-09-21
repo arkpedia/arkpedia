@@ -317,7 +317,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       <section className={workspace.overview} aria-labelledby="pull-resources-heading">
         <h2 id="pull-resources-heading" className={workspace.resourceHeading}>Resources &amp; income</h2>
         <div className={workspace.wallet}>
-          <Field label="Orundum" unit="" icon="/material-icons/Orundum.png" value={orundum} onChange={setOrundum} />
+          <Field label="Orundum" unit="" icon="/material-icons/Orundum.webp" value={orundum} onChange={setOrundum} />
           <Field label="Originite Prime" unit="" icon="/material-icons/Originite%20Prime.webp" value={originite} onChange={setOriginite} />
           <Field label="Permits" unit="" icon="/material-icons/Headhunting%20Permit.webp" value={permits} onChange={setPermits} />
           <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} />
