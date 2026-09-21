@@ -99,6 +99,9 @@ node scripts/build/build-amiya-forms.mjs
 step 'Skills that change an operator attack range'
 node scripts/build/build-skill-ranges.mjs
 
+step 'Module stat bonuses from the Global client'
+node scripts/sync/sync-module-stats.mjs
+
 # After the enemy index, since it reads the stat lines out of it, and after the stage
 # records, since it reads which enemies each stage fields.
 step 'Enemies of the running Stronghold Protocol event'
