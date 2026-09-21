@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { detectAutoTechniques } from '../../lib/techniques/autoTechniques';
 import { findSynergyMatches } from '../../lib/techniques/synergyDetection';
+import { buildTechniqueGroups } from '../../lib/techniques/buildTechniqueGroups';
+import { buildEnemyStatusOperatorMap, ENEMY_STATUS_TECHNIQUES } from '../../lib/enemies/statusOperators';
 
 const techniques = (texts: string[], name = 'Fixture') =>
   detectAutoTechniques(6, texts, name).map((entry) => entry.name);
@@ -48,4 +50,15 @@ test('Glasgow Gang keeps its actual Glasgow faction match', () => {
 test('short editorial brackets never become a fuzzy faction match', () => {
   assert.deepEqual(groups('An unrelated description [ sic ].'), []);
   assert.deepEqual(groups('All [Sui] operators gain ATK.'), ['Sui']);
+});
+
+test('enemy status recommendations come from the shared technique index', () => {
+  const statusOperators = buildEnemyStatusOperatorMap(buildTechniqueGroups());
+  for (const [status, technique] of Object.entries(ENEMY_STATUS_TECHNIQUES)) {
+    const group = statusOperators[status as keyof typeof statusOperators];
+    assert.ok(group, `${status} should resolve to ${technique}`);
+    assert.equal(group?.technique, technique);
+    assert.ok((group?.operators.length ?? 0) > 0);
+    assert.ok((group?.operators.length ?? 0) <= 4);
+  }
 });

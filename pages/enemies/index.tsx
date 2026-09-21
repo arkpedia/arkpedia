@@ -8,6 +8,10 @@ import EnemyBrowser from '@/components/enemies/EnemyBrowser';
 import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
 import { getEnemyContents, getEnemySummaries } from '@/lib/enemies/enemies';
 import { EnemyContent, EnemySummary } from '@/lib/enemies/enemyTypes';
+import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
+import { getAllOperators } from '@/lib/operators/operators';
+import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
+import { buildEnemyStatusOperatorMap, type EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
 
 interface Props {
   /** Enough grid rows to paint immediately. The full 1,585 arrive from
@@ -16,6 +20,7 @@ interface Props {
   contents: EnemyContent[];
   /** What the page opens on when the URL names no enemy. */
   firstSlug: string;
+  statusOperators: EnemyStatusOperatorMap;
 }
 
 
@@ -28,7 +33,7 @@ interface Props {
  * selection lives in the URL (?e=<slug>) and the record arrives as a static
  * JSON file written by scripts/build-enemy-details.mjs.
  */
-export default function EnemiesPage({ siblings, contents, firstSlug }: Props) {
+export default function EnemiesPage({ siblings, contents, firstSlug, statusOperators = {} }: Props) {
   const contentUrl = useContentUrl();
   const router = useRouter();
   const slug = typeof router.query.e === 'string' && router.query.e ? router.query.e : firstSlug;
@@ -118,7 +123,7 @@ export default function EnemiesPage({ siblings, contents, firstSlug }: Props) {
             /* Keyed on the slug so the panel's own state -- level, tab, content
                picker -- starts fresh for each enemy instead of carrying the last
                one's choices over, which is what the in-render reset used to do. */
-            <EnemyDetailPanel key={detail.enemy.slug} {...detail} />
+            <EnemyDetailPanel key={detail.enemy.slug} {...detail} statusOperators={statusOperators} />
           ) : (
             <p className="hint enemy-detail-loading">
               {failed ? 'That enemy could not be loaded.' : 'Loading...'}
@@ -133,6 +138,7 @@ export default function EnemiesPage({ siblings, contents, firstSlug }: Props) {
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/enemies", async () => {
   const summaries = getEnemySummaries().filter((e) => !e.hidden);
   const first = summaries[0];
+  const availableNames = new Set(getAllOperators().filter(isOperatorReleased).map(operator => operator.name));
   return {
     props: {
       // The grid's first paint. Everything else still comes from
@@ -140,6 +146,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/en
       siblings: summaries.slice(0, 40),
       contents: getEnemyContents(),
       firstSlug: first?.slug ?? '',
+      statusOperators: buildEnemyStatusOperatorMap(buildTechniqueGroups(), availableNames),
     },
   };
 });

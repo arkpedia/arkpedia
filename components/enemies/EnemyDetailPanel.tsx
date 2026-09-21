@@ -4,6 +4,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
 import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
 import EnemyRangeMap from '@/components/enemies/EnemyRangeMap';
+import EnemyStatusPopover from '@/components/enemies/EnemyStatusPopover';
+import type { EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
 import {
   Enemy,
   EnemyContent,
@@ -267,7 +269,7 @@ function ModuleList({
   );
 }
 
-export default function EnemyDetailPanel({ enemy, introducedBy, appearances, referenced }: EnemyDetailData) {
+export default function EnemyDetailPanel({ enemy, introducedBy, appearances, referenced, statusOperators = {} }: EnemyDetailData & { statusOperators?: EnemyStatusOperatorMap }) {
   const [levelIndex, setLevelIndex] = useState(0);
   const [tab, setTab] = useState<DetailTab>('resistances');
   const level: EnemyLevel = enemy.levels[levelIndex] ?? enemy.levels[0];
@@ -683,15 +685,17 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
               {STATUSES.map((st) => {
                 const moot = st === 'Silence' && silenceIsMoot;
                 const immune = level.immunities.includes(st) || moot;
-                return (
-                  <div key={st} className={`enemy-resist${immune ? ' immune' : ' vulnerable'}`}>
+                const row = <div className={`enemy-resist${immune ? ' immune' : ' vulnerable'}`}>
                     <span className="enemy-resist-mark" aria-hidden="true">{immune ? '\u2715' : '\u2713'}</span>
                     <span className="enemy-resist-name">{st}</span>
                     <span className="enemy-resist-verdict">
                       {moot ? 'No effect' : immune ? 'Immune' : 'Vulnerable'}
                     </span>
-                  </div>
-                );
+                  </div>;
+                const operators = statusOperators[st as keyof typeof statusOperators];
+                return operators
+                  ? <EnemyStatusPopover key={st} status={st} group={operators} immune={immune}>{row}</EnemyStatusPopover>
+                  : <Fragment key={st}>{row}</Fragment>;
               })}
             </div>
           </section>
