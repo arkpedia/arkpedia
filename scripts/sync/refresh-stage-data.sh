@@ -115,6 +115,8 @@ step 'Event and banner calendars: real windows over estimates'
 # the future; once the client ships an activity or gacha window, that window is
 # the truth. This keeps the home page's countdowns agreeing with the Terminal,
 # which reads the same client tables via build-content-windows.mjs.
+step 'Recurring Standard and Kernel banners'
+node scripts/sync/sync-recurring-banners.mjs
 node scripts/sync/sync-event-windows.mjs
 
 step 'Reward icons for events global has not received yet'

@@ -44,7 +44,9 @@
     "test:browser": "playwright test",
     "content:export": "node scripts/content/export.mjs",
     "content:validate": "node scripts/content/validate-release.mjs .cache/content-export",
-    "test:content-runtime": "node scripts/content/test-runtime.mjs"
+    "test:content-runtime": "node scripts/content/test-runtime.mjs",
+    "banners:sync": "node scripts/sync/sync-recurring-banners.mjs",
+    "test:banners": "node --test scripts/tests/test-recurring-banners.mjs"
   },
   "dependencies": {
     "next": "^14.2.0",
