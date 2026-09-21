@@ -1,6 +1,7 @@
 import styles from './OperatorPage.module.css';
 import type { ArtworkCredit } from '@/lib/operators/operatorArtworkCredits';
 import type { OperatorVoicePack } from '@/lib/operators/operatorVoices';
+import OperatorRelationPopover, { RelatedOperator } from './OperatorRelationPopover';
 
 const LANGUAGE_CODES: Record<string, string> = {
   Japanese: 'JP', Chinese: 'CN', Mandarin: 'CN', English: 'EN', Korean: 'KR',
@@ -22,19 +23,23 @@ function CreditIcon({ kind }: { kind: 'Illustrator' | 'Original designer' | 'Voi
   </svg>;
 }
 
-function CreditValue({ value, variants }: { value: string | null; variants: (string | null)[] }) {
+function CreditValue({ value, variants, related }: { value: string | null; variants: (string | null)[]; related: Record<string, RelatedOperator[]> }) {
   const labels = [...new Set([...variants, value].map(credit => credit || 'Not listed'))];
   const selected = value || 'Not listed';
   return <dd className={styles.creditValue}>
     {labels.map(label => <span key={label} aria-hidden={label !== selected}
-      style={{ visibility: label === selected ? 'visible' : 'hidden' }}>{label}</span>)}
+      style={{ visibility: label === selected ? 'visible' : 'hidden', pointerEvents: label === selected ? undefined : 'none' }}>
+      <OperatorRelationPopover label={label} title={`Also illustrated by ${label}`} operators={related[label] ?? []} />
+    </span>)}
   </dd>;
 }
 
-export default function OperatorCredits({ artwork, variants, voicePacks }: {
+export default function OperatorCredits({ artwork, variants, voicePacks, relatedByArtist = {}, relatedByVoiceActor = {} }: {
   artwork: ArtworkCredit;
   variants: ArtworkCredit[];
   voicePacks?: OperatorVoicePack[] | null;
+  relatedByArtist?: Record<string, RelatedOperator[]>;
+  relatedByVoiceActor?: Record<string, RelatedOperator[]>;
 }) {
   const hasArtist = variants.some(credit => credit.illustrator || credit.originalDesigner);
   const hasDesigner = variants.some(credit => credit.originalDesigner);
@@ -44,13 +49,13 @@ export default function OperatorCredits({ artwork, variants, voicePacks }: {
     <h3>Credits</h3>
     <div className={styles.creditGroups}>
       {hasArtist && <dl>
-        <div><dt><CreditIcon kind="Illustrator" /></dt><CreditValue value={artwork.illustrator} variants={variants.map(credit => credit.illustrator)} /></div>
-        {hasDesigner && <div><dt><CreditIcon kind="Original designer" /></dt><CreditValue value={artwork.originalDesigner} variants={variants.map(credit => credit.originalDesigner)} /></div>}
+        <div><dt><CreditIcon kind="Illustrator" /></dt><CreditValue value={artwork.illustrator} variants={variants.map(credit => credit.illustrator)} related={relatedByArtist} /></div>
+        {hasDesigner && <div><dt><CreditIcon kind="Original designer" /></dt><CreditValue value={artwork.originalDesigner} variants={variants.map(credit => credit.originalDesigner)} related={relatedByArtist} /></div>}
       </dl>}
       {voiceEntries.length > 0 && <dl>
         {voiceEntries.map(pack => <div key={pack.id}>
           <dt title={`${pack.label} voice actor`}><CreditIcon kind="Voice actor" /><span aria-label={pack.label}>{LANGUAGE_CODES[pack.label] ?? pack.label}</span></dt>
-          <dd>{pack.actors.map(actor => <div key={actor}>{actor}</div>)}</dd>
+          <dd>{pack.actors.map(actor => <div key={actor}><OperatorRelationPopover label={actor} title={`Also voiced by ${actor}`} operators={relatedByVoiceActor[actor] ?? []} /></div>)}</dd>
         </div>)}
       </dl>}
     </div>

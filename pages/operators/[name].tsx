@@ -50,6 +50,7 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import pageStyles from '@/components/operators/OperatorPage.module.css';
 import { sortMaterials } from '@/lib/farming/materialSortOrder';
 import { getOperatorVoiceData, OperatorVoiceData } from '@/lib/operators/operatorVoices';
+import OperatorRelationPopover, { RelatedOperator } from '@/components/operators/OperatorRelationPopover';
 
 interface SynergyMatchOperator {
   name: string;
@@ -114,6 +115,9 @@ interface Props {
    *  them: 174 of 400-odd have any. Built by scripts/build-skill-ranges.mjs. */
   skillRanges: Record<string, SkillRangeChange> | null;
   voiceData: OperatorVoiceData | null;
+  branchRelatedOperators: RelatedOperator[];
+  relatedByArtist: Record<string, RelatedOperator[]>;
+  relatedByVoiceActor: Record<string, RelatedOperator[]>;
 }
 
 /** One skill's effect on the range, from data/skill-ranges.json. */
@@ -441,7 +445,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
   );
 }
 
-export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData }: Props) {
+export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {} }: Props) {
   const contentUrl = useContentUrl();
   const router = useRouter();
 
@@ -563,6 +567,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   const [activeIndex, setActiveIndex] = useState(0);
   const [rotating, setRotating] = useState(true);
   const [zooming, setZooming] = useState(false);
+  const [infoExpanded, setInfoExpanded] = useState(false);
 
   // Client-side navigation to a different operator (e.g. via the header
   // search) re-renders this same page component instead of remounting
@@ -573,6 +578,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
     setActiveIndex(0);
     setRotating(true);
     setZooming(false);
+    setInfoExpanded(false);
   }, [operator.name]);
 
   useEffect(() => {
@@ -969,7 +975,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
         </div>
       </div>
 
-      <main className={pageStyles.page} onClick={(event) => {
+      <main className={`${pageStyles.page}${infoExpanded ? ` ${pageStyles.infoExpanded}` : ''}`} onClick={(event) => {
         const link = (event.target as HTMLElement).closest('a[href^="#"]');
         if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
@@ -1009,6 +1015,17 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
           </section>
 
+          <div className={pageStyles.splitRail}>
+            <button type="button" aria-pressed={infoExpanded}
+              aria-label={infoExpanded ? 'Restore artwork and information balance' : 'Widen operator information'}
+              title={infoExpanded ? 'Restore panel width' : 'Widen information panel'}
+              onClick={() => setInfoExpanded(value => !value)}>
+              <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d={infoExpanded ? 'M7 4l6 6-6 6' : 'M13 4l-6 6 6 6'} />
+              </svg>
+            </button>
+          </div>
+
           <div className={pageStyles.details}>
           <div ref={navigationRef} className={pageStyles.panelHeader}>
           <header className={pageStyles.hero}>
@@ -1036,7 +1053,9 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     <span className={pageStyles.classLabel}><OperatorGameIcon src={getClassIconPath(operator.class)!} label={operator.class || 'Class'} size={20} /><span>{operator.class}</span></span>
                   )}
                   {getBranchIconPath(operator.branch) && (
-                    <span className={pageStyles.classLabel}><OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={20} /><span>{operator.branch}</span></span>
+                    <OperatorRelationPopover label={operator.branch || 'Branch'} title={`Other ${operator.branch} operators`} operators={branchRelatedOperators}>
+                      <span className={pageStyles.classLabel}><OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={20} /><span>{operator.branch}</span></span>
+                    </OperatorRelationPopover>
                   )}
                 </div>
 
@@ -1096,7 +1115,13 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     {operator.tags?.map(tag => <span className="op-tag-pill" key={tag}>{tag}</span>)}
                   </div>
                   {howToObtainDisplay !== 'Unknown' && <p className={pageStyles.obtain}>{howToObtainDisplay}</p>}
-                  <OperatorCredits artwork={artworkCredits[activeAppearance?.label ?? 'Base'] ?? artworkCredits.Base} variants={Object.values(artworkCredits)} voicePacks={voiceData?.packs} />
+                  <OperatorCredits
+                    artwork={artworkCredits[activeAppearance?.label ?? 'Base'] ?? artworkCredits.Base}
+                    variants={Object.values(artworkCredits)}
+                    voicePacks={voiceData?.packs}
+                    relatedByArtist={relatedByArtist}
+                    relatedByVoiceActor={relatedByVoiceActor}
+                  />
                 </div>
               </section>
             )}
@@ -1642,6 +1667,48 @@ export const getStaticPaths: GetStaticPaths = async () => {
   };
 };
 
+interface OperatorRelationIndexes {
+  branches: Map<string, RelatedOperator[]>;
+  artists: Map<string, RelatedOperator[]>;
+  voiceActors: Map<string, RelatedOperator[]>;
+}
+
+let operatorRelationIndexes: OperatorRelationIndexes | null = null;
+
+function buildOperatorRelationIndexes(allOperators: Operator[], skins: ReturnType<typeof getAllSkins>): OperatorRelationIndexes {
+  if (operatorRelationIndexes) return operatorRelationIndexes;
+  const branches = new Map<string, RelatedOperator[]>();
+  const artists = new Map<string, RelatedOperator[]>();
+  const voiceActors = new Map<string, RelatedOperator[]>();
+
+  const add = (index: Map<string, RelatedOperator[]>, key: string | null | undefined, candidate: Operator) => {
+    if (!key) return;
+    const rows = index.get(key) ?? [];
+    if (!rows.some(row => row.name === candidate.name)) {
+      rows.push({ name: candidate.name, rarity: candidate.rarity, isFuture: candidate.isFuture ?? null });
+      index.set(key, rows);
+    }
+  };
+
+  for (const candidate of allOperators) {
+    add(branches, candidate.branch, candidate);
+    const credits = getOperatorArtworkCredits(candidate, getOperatorAppearances(candidate), skins);
+    const candidateArtists = new Set(Object.values(credits).flatMap(credit => [credit.illustrator, credit.originalDesigner]).filter((value): value is string => Boolean(value)));
+    candidateArtists.forEach(artist => add(artists, artist, candidate));
+
+    const voices = getOperatorVoiceData(candidate.internalName ?? candidate.name);
+    const candidateActors = new Set((voices?.packs ?? []).filter(pack => pack.status === 'current').flatMap(pack => pack.actors).filter(Boolean));
+    candidateActors.forEach(actor => add(voiceActors, actor, candidate));
+  }
+
+  for (const index of [branches, artists, voiceActors]) {
+    for (const rows of index.values()) rows.sort((a, b) => (b.rarity ?? 0) - (a.rarity ?? 0) || a.name.localeCompare(b.name));
+  }
+
+  operatorRelationIndexes = { branches, artists, voiceActors };
+  return operatorRelationIndexes;
+}
+
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/operators/[name]", async ({ params }) => {
   const operator = getOperatorByName(params?.name as string);
   if (!operator) {
@@ -1673,6 +1740,18 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     // into every operator page payload.
     isFuture: isOperatorReleased(op) ? undefined : true,
   }));
+  const voiceData = getOperatorVoiceData(operator.internalName ?? operator.name);
+  const relationIndexes = buildOperatorRelationIndexes(allOperators, skins);
+  const withoutCurrent = (rows: RelatedOperator[] | undefined) => (rows ?? []).filter(row => row.name !== operator.name);
+  const branchRelatedOperators = operator.branch ? withoutCurrent(relationIndexes.branches.get(operator.branch)) : [];
+  const relatedByArtist = Object.fromEntries(
+    [...new Set(Object.values(artworkCredits).flatMap(credit => [credit.illustrator, credit.originalDesigner]).filter((value): value is string => Boolean(value)))]
+      .map(artist => [artist, withoutCurrent(relationIndexes.artists.get(artist))]),
+  );
+  const relatedByVoiceActor = Object.fromEntries(
+    [...new Set((voiceData?.packs ?? []).filter(pack => pack.status === 'current').flatMap(pack => pack.actors).filter(Boolean))]
+      .map(actor => [actor, withoutCurrent(relationIndexes.voiceActors.get(actor))]),
+  );
   const synergyMatches: SynergyMatchOperator[][] = (operator.synergies || []).map((entry) => {
     if (entry.type === 'category') return []; // category matching isn't defined yet
     const matches = allOperators.filter((op) => {
@@ -1846,8 +1925,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const overviewRanges = getOperatorAttackRanges(operator, OPERATOR_DEPLOY.ranges);
 
   const skillTimings = (SKILL_TIMINGS.operators as unknown as Record<string, (SkillTiming | null)[][]>)[operator.internalName ?? ''] ?? [];
-  const voiceData = getOperatorVoiceData(operator.internalName);
   const factionPath = getFactionIconPath(operator.faction);
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
-  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData } };
+  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor } };
 });
