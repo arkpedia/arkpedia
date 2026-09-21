@@ -16,7 +16,7 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
     if (!revision) throw new Error(`Content release lacks ${repository}`);
     return assetUrl(repository, revision, relative);
   }
-  if (!release || !src.startsWith('/') || src.startsWith('//')) return src;
+  if (!src.startsWith('/') || src.startsWith('//')) return src;
   const folder = src.slice(1).split('/')[0];
   let repository = SKINS.has(folder) ? 'arkpedia-skin-assets' : IMAGES.has(folder) ? 'arkpedia-image-assets' : '';
   let relative = src.slice(1);
@@ -25,13 +25,18 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
     relative = src.replace(/^\/skin-originals\//, 'originals/').replace(/^\/skin-variants\//, 'variants/');
   }
   if (repository) {
-    const revision = release.assets[repository];
+    // A newly deployed page can briefly fall back to its bundled data before
+    // that route exists in the public content release. Its media must still use
+    // the bundled, commit-pinned asset set rather than a nonexistent Vercel
+    // `/public` copy.
+    const revision = release?.assets[repository]
+      ?? bundledRevisions[repository as keyof typeof bundledRevisions];
     if (!revision) throw new Error(`Content release lacks ${repository}`);
     return assetUrl(repository, revision, relative);
   }
   // These are generated game records, not application/API routes.
-  if (/^\/(?:stage-detail|enemy-detail|planner-data|stage-guesser|lyrics)\//.test(src)
-    || /^\/(?:stages-index|enemies-index|operator-deploy|operator-search)\.json(?:\?|$)/.test(src)) {
+  if (release && (/^\/(?:stage-detail|enemy-detail|planner-data|stage-guesser|lyrics)\//.test(src)
+    || /^\/(?:stages-index|enemies-index|operator-deploy|operator-search)\.json(?:\?|$)/.test(src))) {
     return `${release.baseUrl}/public${src}`;
   }
   return src;

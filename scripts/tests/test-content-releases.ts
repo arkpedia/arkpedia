@@ -86,6 +86,8 @@ test('release URLs cover artwork sizes and lazy game data without redirecting ap
   assert.equal(contentUrl('/six-star-icons/Test%20-%20Base.webp', release), delivered('arkpedia-image-assets', 'b'.repeat(40), 'six-star-icons/Test%20-%20Base.webp'));
   assert.equal(contentUrl('/skin-variants/avif/w768/six-star-skins/Test.avif', release), delivered('arkpedia-skin-assets', 'c'.repeat(40), 'variants/avif/w768/six-star-skins/Test.avif'));
   assert.equal(contentUrl('/skin-originals/six-star-skins/Test.png', release), delivered('arkpedia-skin-assets', 'c'.repeat(40), 'originals/six-star-skins/Test.png'));
+  assert.equal(contentUrl('/six-star-icons/Test%20-%20Base.webp'), delivered('arkpedia-image-assets', bundledRevisions['arkpedia-image-assets'], 'six-star-icons/Test%20-%20Base.webp'));
+  assert.equal(contentUrl('/skin-variants/avif/w768/six-star-skins/Test.avif'), delivered('arkpedia-skin-assets', bundledRevisions['arkpedia-skin-assets'], 'variants/avif/w768/six-star-skins/Test.avif'));
   assert.equal(contentUrl('/planner-data/Test%2520Name.json', release), 'https://example.org/commit/release/public/planner-data/Test%2520Name.json');
   assert.equal(contentUrl('/operators/Penance', release), '/operators/Penance');
   assert.equal(contentUrl('https://other.example/image.png', release), 'https://other.example/image.png');
