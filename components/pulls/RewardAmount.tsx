@@ -3,7 +3,7 @@ import Image from '@/components/content/ContentImage';
 const resources = {
   op: { name: 'Originite Prime', unit: 'OP', path: '/material-icons/Originite%20Prime.webp' },
   permits: { name: 'Headhunting Permit', unit: 'permits', path: '/material-icons/Headhunting%20Permit.webp' },
-  orundum: { name: 'Orundum', unit: 'Orundum', path: '/material-icons/Orundum.png' },
+  orundum: { name: 'Orundum', unit: 'Orundum', path: '/material-icons/Orundum.webp' },
 };
 
 export function RewardAmount({ resource, amount }: { resource: keyof typeof resources; amount: number }) {

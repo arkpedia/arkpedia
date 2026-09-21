@@ -2,12 +2,21 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
 import { ALL_BANNERS, type UpcomingBanner } from '../../lib/pulls/pulls';
+import { publicFileExists } from '../../lib/assets/publicAssets';
 const now = new Date('2026-09-01T12:00:00Z');
 function banner(name: string, start = '2026-09-02', end = '2026-09-15', freeTicket = 0): UpcomingBanner {
   return { ...ALL_BANNERS[0], name, start, end, freeDaily: 0, freeTicket, freePulls: freeTicket };
 }
 const a = banner('First'); const b = banner('Second', '2026-09-16', '2026-09-29');
 const saved: SavedPullPlan = { version: 1, orundum: '12345', originite: '60', permits: '10', reservedOP: '42', until: '2026-09-29', manualEventDate: '', bannerName: b.name, monthlyCard: true, includeBacklog: true, annihilationDone: false, doneEvents: ['event'], doneKeys: ['main_0'], clearedReruns: ['rerun'], future: { sidestory: 2 }, goals: [{ banner: a.name, spendOn: a.end, pulls: 80, ticketUsed: false }] };
+test('every planner resource icon is published', () => {
+  for (const path of [
+    '/material-icons/Orundum.webp',
+    '/material-icons/Originite Prime.webp',
+    '/material-icons/Headhunting Permit.webp',
+    '/material-icons/Distinction Certificate.webp',
+  ]) assert.ok(publicFileExists(path), `Missing pull planner asset: ${path}`);
+});
 test('saved plans round trip all resource, content, and goal settings', () => {
   assert.deepEqual(parsePullPlan(JSON.stringify(saved)), saved);
 });
