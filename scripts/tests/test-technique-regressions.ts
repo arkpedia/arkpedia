@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { detectAutoTechniques } from '../../lib/techniques/autoTechniques';
 import { findSynergyMatches } from '../../lib/techniques/synergyDetection';
 import { buildTechniqueGroups } from '../../lib/techniques/buildTechniqueGroups';
-import { buildEnemyStatusOperatorMap, ENEMY_STATUS_TECHNIQUES } from '../../lib/enemies/statusOperators';
+import { buildEnemyStatusOperatorMap, ENEMY_STATUS_TECHNIQUES, ENEMY_STATUSES } from '../../lib/enemies/statusOperators';
 import { getAllOperators } from '../../lib/operators/operators';
 import { appliesEnemyStatus } from '../../lib/enemies/statusSources';
 import { isOperatorReleased } from '../../lib/operators/operatorAvailability';
@@ -71,7 +71,7 @@ test('enemy status recommendations remain populated after filtering to released 
     .filter(operator => isOperatorReleased(operator))
     .map(operator => operator.name));
   const statusOperators = buildEnemyStatusOperatorMap(buildTechniqueGroups(), releasedNames);
-  for (const status of Object.keys(ENEMY_STATUS_TECHNIQUES)) {
+  for (const status of ENEMY_STATUSES) {
     assert.ok(statusOperators[status as keyof typeof statusOperators], `${status} should have a released operator`);
   }
 });
@@ -100,4 +100,27 @@ test('status source checks distinguish applying a status from immunity, synergy,
   ]) assert.equal(appliesEnemyStatus(status, text), false, text);
   assert.equal(appliesEnemyStatus('Stun', 'Stuns hit targets for 1 second; then Stuns self for 5s'), true);
   assert.equal(appliesEnemyStatus('Sleep', 'Puts herself to Sleep; puts nearby enemies to Sleep'), true);
+});
+
+
+test('all displayed enemy statuses have sources, including Disarm and Paralysis', () => {
+  assert.deepEqual(Object.keys(ENEMY_STATUS_TECHNIQUES), [...ENEMY_STATUSES]);
+  const map = buildEnemyStatusOperatorMap(buildTechniqueGroups(), undefined, 500);
+  assert.equal(map.Disarm!.technique, 'Frighten');
+  assert.equal(map.Disarm!.operators.find(op => op.name === 'Degenbrecher')?.sourceLabel, 'T1');
+  assert.ok(map.Disarm!.operators.some(op => op.name === 'Laios'));
+  assert.equal(map.Paralysis!.technique, 'Nervous Impairment');
+  assert.equal(map.Paralysis!.operators.find(op => op.name === 'Tragodia')?.sourceLabel, 'T1');
+  assert.ok(map.Paralysis!.operators.some(op => op.name === 'Cairn'));
+  assert.ok(!map.Paralysis!.operators.some(op => op.name === 'Thorns'), 'burst synergy is not Nervous Impairment buildup');
+});
+
+test('Disarm and Paralysis sources exclude synergy and amplification', () => {
+  assert.ok(appliesEnemyStatus('Disarm', 'Frighten the target for 5s'));
+  assert.ok(appliesEnemyStatus('Disarm', 'Enemies blocked during skill are Frightened'));
+  assert.ok(!appliesEnemyStatus('Disarm', 'Ignores 30% DEF when attacking Frightened targets'));
+  assert.ok(appliesEnemyStatus('Paralysis', 'Attacks deal an additional 30% of ATK as Nervous Impairment'));
+  assert.ok(appliesEnemyStatus('Paralysis', 'When enemies attack, they take 70 points of Nervous Impairment'));
+  assert.ok(!appliesEnemyStatus('Paralysis', 'Targets receive 1.8 x more Nervous Impairment during the Bind'));
+  assert.ok(!appliesEnemyStatus('Paralysis', 'Enemies under the burst effect of Nervous Impairment have ASPD -16'));
 });

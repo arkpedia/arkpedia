@@ -22,6 +22,12 @@ export function appliesEnemyStatus(status: string, source: string | null): boole
       return /\binflicts?\s+fear\b|\bcasting\s+fear\b/i.test(text);
     case 'Lure':
       return /\blures?\s+(?:up to |all |the |nearby )?\d*\s*enemies/i.test(text);
+    case 'Disarm':
+      return /\bfrighten(?:s|ing)?\b|\b(?:enemies|targets?)[^.;]{0,80}\b(?:are|become|be)\s+frightened\b|\binflict\w*\s+with\s+frightened\b/i.test(text);
+    case 'Paralysis':
+      // Nervous Impairment buildup causes Paralysis on burst. Bonuses against
+      // already-burst enemies and amplification alone do not apply the status.
+      return /\b(?:deal(?:s|ing)?|takes?)\b[^;]{0,150}\bas\s+nervous impairment\b|\btakes?\s+\d+(?:\.\d+)?\s+points?\s+of\s+nervous impairment\b/i.test(text);
     case 'Silence':
       return /\bsilenc(?:e|es|ed)\b|\bdisables?\b[^.;]{0,60}\bspecial abilit/i.test(text);
     default: return false;

@@ -5,7 +5,7 @@ import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
 import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
 import EnemyRangeMap from '@/components/enemies/EnemyRangeMap';
 import EnemyStatusPopover from '@/components/enemies/EnemyStatusPopover';
-import type { EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
+import { ENEMY_STATUSES, type EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
 import {
   Enemy,
   EnemyContent,
@@ -74,14 +74,6 @@ function nameSizeClass(name: string): string | undefined {
   return 'enemy-name-xs';
 }
 
-/**
- * Every status the data ever marks an enemy immune to, in the order the game's own
- * status row runs. Fixed rather than derived: the point of the tab is what an enemy
- * is NOT immune to, and a list built from its own immunities can never show that.
- * These nine are the whole vocabulary across all 1,585 enemies -- Silence appears on
- * 680 of them, Paralysis on 41.
- */
-const STATUSES = ['Stun', 'Silence', 'Sleep', 'Frozen', 'Levitate', 'Fear', 'Lure', 'Disarm', 'Paralysis'] as const;
 
 function num(v: number | null | undefined): string {
   if (v == null) return DASH;
@@ -678,11 +670,11 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
             <h3 className="enemy-section-head">
               Status immunity
               <span className="enemy-section-aside">
-                {level.immunities.length} of {STATUSES.length}
+                {level.immunities.length} of {ENEMY_STATUSES.length}
               </span>
             </h3>
             <div className="enemy-resist-grid">
-              {STATUSES.map((st) => {
+              {ENEMY_STATUSES.map((st) => {
                 const moot = st === 'Silence' && silenceIsMoot;
                 const immune = level.immunities.includes(st) || moot;
                 const row = <div className={`enemy-resist${immune ? ' immune' : ' vulnerable'}`}>
@@ -692,7 +684,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                       {moot ? 'No effect' : immune ? 'Immune' : 'Vulnerable'}
                     </span>
                   </div>;
-                const operators = statusOperators[st as keyof typeof statusOperators];
+                const operators = statusOperators[st];
                 return operators
                   ? <EnemyStatusPopover key={st} status={st} group={operators} immune={immune}>{row}</EnemyStatusPopover>
                   : <Fragment key={st}>{row}</Fragment>;

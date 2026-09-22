@@ -60,3 +60,19 @@ test('enemy status menus only open on click and show applicable sources', async 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+
+test('Disarm and Paralysis expose their operator sources', async ({ page }) => {
+  await page.goto('/enemies');
+  for (const [status, operator] of [['Disarm', 'Degenbrecher'], ['Paralysis', 'Tragodia']]) {
+    const trigger = page.getByRole('button', { name: new RegExp(`${status} Vulnerable`, 'i') });
+    await trigger.click();
+    const menu = page.getByRole('dialog', { name: `Operators who apply ${status}` });
+    await expect(menu.getByRole('link', { name: new RegExp(operator) })).toBeVisible();
+    await anchored(page, trigger, menu);
+    await menu.locator('img').evaluateAll(async images => { await Promise.all(images.map(image => (image as HTMLImageElement).decode().catch(() => {}))); });
+    await page.screenshot({ path: test.info().outputPath(`${status.toLowerCase()}-popover.png`) });
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+  }
+});

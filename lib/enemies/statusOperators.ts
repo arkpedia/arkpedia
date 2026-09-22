@@ -1,6 +1,11 @@
 import { appliesEnemyStatus } from './statusSources';
 import type { TechniqueGroup } from '@/lib/techniques/buildTechniqueGroups';
 
+// The panel and source lookup share this vocabulary, so a displayed status
+// cannot silently omit its operator mapping.
+export const ENEMY_STATUSES = ['Stun', 'Silence', 'Sleep', 'Frozen', 'Levitate', 'Fear', 'Lure', 'Disarm', 'Paralysis'] as const;
+export type EnemyStatus = typeof ENEMY_STATUSES[number];
+
 export const ENEMY_STATUS_TECHNIQUES = {
   Stun: 'Stun',
   Silence: 'Silence',
@@ -9,9 +14,9 @@ export const ENEMY_STATUS_TECHNIQUES = {
   Levitate: 'Levitate',
   Fear: 'Fear',
   Lure: 'Lure',
-} as const;
-
-export type EnemyStatus = keyof typeof ENEMY_STATUS_TECHNIQUES;
+  Disarm: 'Frighten',
+  Paralysis: 'Nervous Impairment',
+} as const satisfies Record<EnemyStatus, string>;
 
 export interface EnemyStatusOperator {
   name: string;
@@ -59,7 +64,7 @@ export function buildEnemyStatusOperatorMap(
           name: entry.operatorName,
           icon: entry.operatorIconPath,
           sourceIcon: source?.skillIconPath ?? null,
-          sourceTitle: source?.label ?? null,
+          sourceTitle: source ? `${source.label}${status === 'Paralysis' ? ' — Paralysis on Nervous Impairment burst' : ''}` : null,
           sourceLabel: source ? `${source.skillNumber ? `S${source.skillNumber}` : source.label}${/\bin Integrated Strategies\b/i.test(source.sourceText || '') ? ' · Integrated Strategies' : ''}` : null,
         };
       }),

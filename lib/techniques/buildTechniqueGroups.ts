@@ -68,12 +68,9 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
     if (!opMap.has(op.name)) opMap.set(op.name, { operatorName: op.name, operatorIconPath, branchIconPath, branchName, viaBranch: false, rarity, badges: [], hasM3MainPriority: false });
     const entry = opMap.get(op.name)!;
     if (isTalentTier) {
-      // A previous talent tier (e.g. T1-T5) already matched this same
-      // technique for this operator -- since talents process in T1
-      // through T6 order, drop the earlier tier's badge so only the
-      // highest matching tier survives, instead of showing every tier
-      // as a separate badge.
-      const priorTalentBadgeIdx = entry.badges.findIndex((b) => b.talentLabel !== null);
+      // Rows within each talent are already collapsed below. Preserve distinct
+      // talents: a T2 synergy must not overwrite T1's actual status application.
+      const priorTalentBadgeIdx = entry.badges.findIndex((b) => b.talentLabel === badge.talentLabel);
       if (priorTalentBadgeIdx !== -1) entry.badges.splice(priorTalentBadgeIdx, 1);
     }
     entry.badges.push(badge);
