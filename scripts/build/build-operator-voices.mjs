@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { englishVoiceTitles, englishVoiceTitle } from '../lib/voice-line-titles.mjs';
 import { actorAliases, normalizeVoicePack } from '../lib/voice-pack-metadata.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -245,6 +246,7 @@ const [en, enSupplemental, cn, audioIndex, directory, audioDirectories] = await 
   audioDirectoryIndex(),
 ]);
 const aliases = actorAliases(cn, [en, enSupplemental]);
+const titles = englishVoiceTitles([en, enSupplemental]);
 const tlvr = readTlvr(directory);
 const operators = {};
 
@@ -293,7 +295,7 @@ for (const charId of [...operatorIds()].sort()) {
   }
   if (lines.length) operators[charId] = {
     textLocale: enWords.length || supplementalEnWords.length || fallback.length ? 'en' : 'zh-CN',
-    lines,
+    lines: lines.map(line => ({ ...line, title: englishVoiceTitle(line.id, line.title, titles) })),
     packs: packs.map(pack => normalizeVoicePack(pack, aliases)),
   };
 }

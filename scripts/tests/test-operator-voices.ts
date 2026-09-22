@@ -128,3 +128,10 @@ test('Persona voice credits share Japanese actor identities with existing operat
     assert.deepEqual(operators[id].packs.find(pack => pack.id === 'jp')!.actors, makoto.actors);
   }
 });
+
+test('Persona voice headings are English while the original Chinese dialogue remains available', () => {
+  const lines = operators.char_4217_makoto.lines;
+  assert.deepEqual(lines.slice(0, 4).map(line => line.title), ['Appointed as Assistant', 'Talk 1', 'Talk 2', 'Talk 3']);
+  assert.equal(lines[0].text, '轮到我值日吗……明白了。');
+  assert.equal(operators.char_4217_makoto.textLocale, 'zh-CN');
+});
