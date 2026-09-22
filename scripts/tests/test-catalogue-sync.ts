@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { getFeaturedOperatorRates } from '../../lib/gacha/eventBannerRates';
 // @ts-expect-error Plain Node import scripts share their pure reconciliation with tests.
 import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows } from '../sync/catalogue-model.mjs';
 const cn=JSON.parse(fs.readFileSync('scripts/tests/fixtures/persona-source.json','utf8'));
@@ -50,6 +51,10 @@ test('secondary limited rate-ups never become featured during automatic imports'
   const calendar=reconcileCalendars({events:[],banners:[],operators:ops,cn,en:empty,eventRows:[],bannerRows:[row]});
   assert.deepEqual(calendar.banners[0].six_stars,['New limited']);assert.deepEqual(calendar.banners[0].rate_up_six_stars,['Returning limited']);
   assert.equal(calendar.banners[0].pull_type,'limited');
+  assert.equal(getFeaturedOperatorRates(calendar.banners[0])[0].percent,35);
+  const joint=reconcileCalendars({events:[],banners:[],operators:ops,cn,en:empty,eventRows:[],bannerRows:[{...row,type:'jo',limited:''}]});
+  assert.equal(joint.banners[0].pull_type,'joint');
+  assert.equal(getFeaturedOperatorRates(joint.banners[0])[0].percent,50);
 });
 test('structured discovery tolerates spacing and fails on a missing referenced operator',()=>{
   assert.equal(parseWikiRows('{{Banners cell\n| name = Test\n| operators = New\n}}','Banners cell')[0].name,'Test');

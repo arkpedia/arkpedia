@@ -1,0 +1,28 @@
+{
+  "drops": [
+    {
+      "stageId": "act51side_06",
+      "stage": "PA-6",
+      "itemId": "30023",
+      "material": "Sugar Pack",
+      "startAt": "2026-09-16T15:00:00.000Z",
+      "endAt": "2026-09-30T11:00:00.000Z"
+    },
+    {
+      "stageId": "act51side_07",
+      "stage": "PA-7",
+      "itemId": "30053",
+      "material": "Aketon",
+      "startAt": "2026-09-16T15:00:00.000Z",
+      "endAt": "2026-09-30T11:00:00.000Z"
+    },
+    {
+      "stageId": "act51side_08",
+      "stage": "PA-8",
+      "itemId": "31033",
+      "material": "Crystalline Component",
+      "startAt": "2026-09-16T15:00:00.000Z",
+      "endAt": "2026-09-30T11:00:00.000Z"
+    }
+  ]
+}

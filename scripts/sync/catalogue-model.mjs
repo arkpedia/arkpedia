@@ -177,7 +177,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     if (!client) { if (!banner) throw new Error(`${title}: no unambiguous official CN window`); continue; }
     if (!banner) banner = nextBanners.find(b=>b.cnPoolId===client.gachaPoolId);
     if (!banner) {
-      banner = { name: `[${row.type || 'Headhunting'}] ${title}`, category: /celebration|carnival|festival|crossover/.test(row.type) ? 'limited' : 'special',
+      banner = { name: ['jo','orient'].includes(row.type) ? title : `[${({celebration:'Celebration',carnival:'Carnival',festival:'Festival',crossover:'Crossover'})[row.type] || 'Headhunting'}] ${title}`, category: /celebration|carnival|festival|crossover/.test(row.type) ? 'limited' : 'special',
         year: Number(start.slice(0,4)), global_date: null, banner_image: `/headhunting-banner-images/${safeName(title)}.webp` };
       media.push({ path: banner.banner_image.slice(1), wikiFiles: [`CN ${title} banner.png`, `${title} banner.png`] }); nextBanners.push(banner);
     }
@@ -186,7 +186,9 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     // Keep confirmed CN announcement timestamps; calendar discovery adds days only.
     const limited = (row.limited || '').split(',');
     banner.six_stars = stableOrder(banner.six_stars, lineup.filter((op, i) => op.rarity === 6 && limited[i]?.trim() !== '2').map(op => op.name));
-    banner.pull_type = /celebration|carnival|festival|crossover/.test(row.type) ? 'limited' : (banner.pull_type || 'standard');
+    banner.pull_type = /celebration|carnival|festival|crossover/.test(row.type) ? 'limited'
+      : row.type === 'jo' ? 'joint' : row.type === 'orient' ? 'orienteering'
+      : client.gachaRuleType === 'SINGLE' ? 'featured' : (banner.pull_type || 'unknown');
     banner.five_stars = stableOrder(banner.five_stars, lineup.filter(op => op.rarity === 5).map(op => op.name));
     banner.four_stars = stableOrder(banner.four_stars, lineup.filter(op => op.rarity === 4).map(op => op.name));
     banner.rate_up_six_stars = stableOrder(banner.rate_up_six_stars, lineup.filter((op, i) => op.rarity === 6 && limited[i]?.trim() === '2').map(op => op.name));

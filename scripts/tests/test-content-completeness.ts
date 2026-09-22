@@ -1,4 +1,5 @@
 import test from 'node:test';
+import farmingFixture from './fixtures/people-farming.json';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { checkCompleteness, readCompletenessInputs } from '../content/check-completeness.mjs';
@@ -14,7 +15,7 @@ test('publication rejects missing operators, outfits, banners, event records and
   for (const [field, remove, expected] of [
     ['operators', (row: any) => row.internalName === 'char_4217_makoto', /CN operator missing: char_4217_makoto/],
     ['skins', (row: any) => row.skinId === 'char_4217_makoto@p3r#1', /CN outfit missing: char_4217_makoto/],
-    ['banners', (row: any) => row.name.includes('Persona 3'), /Bundle banner missing/],
+    ['banners', (row: any) => input.bundles[0].bannerIds.includes(row.cnPoolId), /Bundle banner missing/],
     ['events', (row: any) => row.activityId === input.bundles[0].eventId, /Bundle event missing/],
   ] as const) {
     const broken = { ...input, [field]: input[field].filter((row: any) => !remove(row)) };
@@ -27,7 +28,7 @@ test('publication rejects missing operators, outfits, banners, event records and
   assert.match(checkCompleteness({ ...input, inventory: newer }).join('\n'), /CN operator missing: char_new/);
 });
 test('home farming is limited to battle windows, independently of shop closing times', () => {
-  const materials = getEventFarmingMaterials();
+  const materials = getEventFarmingMaterials(farmingFixture.drops);
   const now = Date.parse('2026-09-22T12:00:00Z');
   const pairs = activeEventFarming(materials, now).map(m => [m.name, m.stages.map(s => s.label).join(',')]);
   assert.deepEqual(pairs.sort(), [['Aketon', 'PA-7'], ['Crystalline Component', 'PA-8'], ['Sugar Pack', 'PA-6']]);
