@@ -42,6 +42,8 @@ try {
 }
 
 const generator = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-const fingerprint = createHash('sha256').update(JSON.stringify({ generator, revisions, songs: createHash('sha256').update(songs).digest('hex') })).digest('hex');
+// Wiki corrections and newly published art must be retried even between game patches.
+const discoveryDay = new Date().toISOString().slice(0, 10);
+const fingerprint = createHash('sha256').update(JSON.stringify({ generator, revisions, discoveryDay, songs: createHash('sha256').update(songs).digest('hex') })).digest('hex');
 if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `fingerprint=${fingerprint}\n`);
 console.log(`Checked ${revisions.length} public sources; refresh fingerprint ${fingerprint}`);

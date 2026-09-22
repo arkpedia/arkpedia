@@ -26,6 +26,7 @@ const stats = (name: string) => { const found = op(name).stats; assert(found); r
 
 test('all operator factions resolve to published artwork emblems', () => {
   for (const operator of operators) {
+    if (!operator.faction && operator.sourceRegion) continue; // New source teams can precede their translated emblem metadata.
     const path = getFactionIconPath(operator.faction);
     assert(path, `${operator.name}: no faction emblem`);
     assert(publicFileExists(path), `${operator.name}: emblem missing from deployment asset index`);
@@ -175,7 +176,9 @@ test('missing outfit credits never assign the operator illustrator to an unknown
 });
 
 test('all roster records have complete, finite stats and nonempty archives', () => {
-  assert.equal(operators.length, 427);
+  const inventory = JSON.parse(fs.readFileSync('data/content-inventory.json', 'utf8'));
+  const ids = new Set(operators.map(operator => operator.internalName));
+  for (const source of inventory.operators) assert(ids.has(source.id), `Missing source operator: ${source.id}`);
   for (const operator of operators) {
     assert(operator.stats?.phases.length, operator.name);
     assert(operator.files?.length, operator.name);

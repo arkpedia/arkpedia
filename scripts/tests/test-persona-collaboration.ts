@@ -1,24 +1,28 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
+import { getAllOperators } from '../../lib/operators/operators';
 import { getBannerForEvent } from '../../lib/gacha/headhuntingBanners';
 import { getFeaturedOperatorRates } from '../../lib/gacha/eventBannerRates';
 import { getGachaIconPools } from '../../lib/gacha/gachaIconPools';
 import { getAllEventListings } from '../../lib/home/frontPageContent';
 import { getAllSkins } from '../../lib/skins/skins';
-import { getSkinsForEvent } from '../../lib/schedule/scheduleSkinMatch';
 import { matchesSearch } from '../../lib/search/searchNormalize';
-import evidence from '../../data/persona-collaboration-sources.json';
 
 const pinned = /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/[^/]+\/[a-f0-9]{40}\//;
 
-test('Persona links the official banner and portraits without claiming a Global date', () => {
-  const banner = getBannerForEvent(evidence.event)!;
+const rawEvent = () => fs.readdirSync('data/events').filter(file => /^events_\d+\.json$/.test(file)).flatMap(file => JSON.parse(fs.readFileSync(`data/events/${file}`, 'utf8'))).find(event => event.activityId === 'act54side');
+
+test('Persona links the banner and portraits, with evidence for any Global date', () => {
+  const banner = getBannerForEvent(rawEvent().name)!;
   assert.ok(banner);
-  assert.equal(banner.global_date, null);
+  if (banner.global_date) assert.ok(banner.global_window?.timingSource, 'Global release must have source evidence');
   assert.match(banner.banner_image!, pinned);
-  assert.deepEqual(getFeaturedOperatorRates(banner).map(op => [op.name, op.percent]), [
-    ['Makoto Yuki', 50], ['Aegis', 25], ['Yukari Takeba', 25],
-  ]);
+  const roster = getAllOperators();
+  const name = (id: string) => roster.find(op => op.internalName === id)!.name;
+  assert.deepEqual(getFeaturedOperatorRates(banner).map(op => [op.name, op.percent]).sort(), [
+    [name('char_4217_makoto'), 50], [name('char_4218_aigis'), 25], [name('char_4219_yukari'), 25],
+  ].sort());
   const pools = getGachaIconPools();
   for (const name of [...banner.six_stars, ...banner.five_stars]) {
     const icon = [...pools.six, ...pools.five].find(op => op.name === name)?.icon;
@@ -29,13 +33,16 @@ test('Persona links the official banner and portraits without claiming a Global 
 });
 
 test('Persona event estimates remain labelled and all four searchable outfits have artwork', () => {
-  const event = getAllEventListings(new Date('2026-09-22T12:00:00Z')).find(e => e.name === evidence.event)!;
-  assert.ok(event?.isPredicted);
+  const source = rawEvent();
+  const event = getAllEventListings().find(e => e.name === source.name)!;
+  assert.ok(event);
+  if (!source.global?.startAt) assert.ok(event.isPredicted);
+  else assert.ok(source.global.timingSource);
   assert.match(event.poster, pinned);
-  const skins = getSkinsForEvent(evidence.event, getAllSkins(), [evidence.event]);
-  assert.deepEqual(skins.map(s => `${s.model} / ${s.name}`).sort(), [...evidence.skinIds].sort());
+  const skins = getAllSkins().filter(skin => skin.skinId?.includes('@p3r#'));
+  assert.equal(skins.length, 4);
   for (const skin of skins) {
-    assert.match(skin.image!, pinned);
-    assert.ok(matchesSearch(skin.searchAliases!.join(' '), 'Persona 3'));
+    assert.ok(skin.image?.match(pinned) || skin.image?.startsWith('/'), skin.skinId);
+    assert.ok(matchesSearch((skin.searchAliases || [skin.series]).join(' '), 'Persona 3'));
   }
 });

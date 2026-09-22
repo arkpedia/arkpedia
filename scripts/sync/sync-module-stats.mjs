@@ -90,6 +90,7 @@ export async function syncModuleStats(root = process.cwd(), check = false) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const changes = await syncModuleStats(process.cwd(), process.argv.includes('--check'));
-  console.log(changes.length ? `Updated module stats:\n${changes.map((line) => `  ${line}`).join('\n')}` : 'Module stats match the Global client.');
+  syncModuleStats(process.cwd(), process.argv.includes('--check')).then(changes => {
+    console.log(changes.length ? `Updated module stats:\n${changes.map((line) => `  ${line}`).join('\n')}` : 'Module stats match the Global client.');
+  }).catch(error => { console.error(error); process.exitCode = 1; });
 }

@@ -1,3 +1,4 @@
+import { getEventFarmingMaterials } from '@/lib/farming/eventFarming';
 import { withContentPage } from '@/lib/content/server';
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
@@ -18,7 +19,6 @@ import {
   getNextUpcomingEvent,
   getHomeGachaBanners,
   getOngoingSkins,
-  getCurrentFarmableMaterials,
 } from '@/lib/home/frontPageContent';
 import { Skin } from '@/lib/skins/skinTypes';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';
@@ -133,7 +133,7 @@ async function finalizeHome(props: Props): Promise<Props> {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/', async () => ({ props: {
   ongoingEvents: [], upcomingEvent: null, ongoingBanners: [], ongoingSkins: [],
-  farmableMaterials: getCurrentFarmableMaterials(), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
+  farmableMaterials: getEventFarmingMaterials(), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
   // Stored in the data release, consumed on the server, and never sent to the browser.
   __calendar: { events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins() },
 } }), { finalize: finalizeHome, revalidate: 1500 });

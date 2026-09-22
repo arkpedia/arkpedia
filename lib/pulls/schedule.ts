@@ -12,8 +12,8 @@ export const pullBannerKey = (name: string) => name.normalize('NFKC').toLowerCas
 /** Rewards are generated separately, but their snapshot must not pin old banner
  * dates after the site's schedule is corrected. Resolve dates at page build/ISR.
  * Unknown windows are omitted instead of reviving a stale estimated date. */
-export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current: readonly { name: string; global_date: string | null; global_date_estimated?: boolean; global_window?: { timingSource?: string | null } }[]): UpcomingBanner[] {
-  const byName = new Map(current.map(b => [pullBannerKey(b.name), b]));
+export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current: readonly { name: string; aliases?: string[]; global_date: string | null; global_date_estimated?: boolean; global_window?: { timingSource?: string | null } }[]): UpcomingBanner[] {
+  const byName = new Map(current.flatMap(b => [b.name, ...(b.aliases ?? [])].map(name => [pullBannerKey(name), b] as const)));
   return rewards.flatMap(banner => {
     const latest = byName.get(pullBannerKey(banner.name));
     const dates = latest?.global_date?.split(/[–—]/).map(part => {
@@ -24,6 +24,8 @@ export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current:
     const [start, end] = dates;
     return [{
       ...banner,
+      name: latest!.name,
+      aliases: latest!.aliases,
       start,
       end,
       // A client/official timing source confirms the window. The legacy flag

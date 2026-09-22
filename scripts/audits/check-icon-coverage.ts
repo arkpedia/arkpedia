@@ -39,7 +39,7 @@ const FACTION_ICON_FILES: Record<string, string> = {
   Lungmen: 'Yan-Lungmen.webp', 'Op A4': 'Op Team A4.webp', 'Op Reserve A1': 'Reserve Op Team A1.webp',
   'Op Reserve A4': 'Reserve Op Team A4.webp', 'Op Reserve A6': 'Reserve Op Team A6.webp',
   'Pinus Sylvestris': 'Pinus Sylvestris Knightclub.webp', "Chiave's Gang": "Chiave's Gang.webp",
-  "Laios's Party": 'Rhodes Island.webp', 'Ave Mujica': 'Rhodes Island.webp',
+  "Laios's Party": 'Rhodes Island.webp', 'Ave Mujica': 'Rhodes Island.webp', 'S.E.E.S': 'Rhodes Island.webp',
 };
 const safe = (value: unknown) => String(value).replace(/[\\/*?:"<>|]/g, '').trim();
 

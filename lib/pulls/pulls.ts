@@ -277,6 +277,7 @@ export const EVENT_SHOP_PERMITS = 3;
 
 export interface UpcomingBanner {
   name: string;
+  aliases?: string[];
   /** The linked event still uses a predicted Global window in the schedule. */
   datesEstimated?: boolean;
   category: string;

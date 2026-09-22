@@ -1,7 +1,10 @@
+import { assertCompleteness } from './check-completeness.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
+
+assertCompleteness();
 
 const destination = path.resolve(process.argv[2] || '.cache/content-export');
 const release = path.join(destination, 'release');

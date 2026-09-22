@@ -3,6 +3,8 @@ export type StageKind = 'efficient' | 'focused' | 'alternative' | 'plain' | 'fut
 export interface FarmingStage {
   label: string;
   kind: StageKind;
+  startAt?: string;
+  endAt?: string;
   fullLabel?: string; // shown as a tooltip when label is a shortened version
   countdown?: string; // e.g. "In ??? days" -- only meaningful for kind: 'future'
 }

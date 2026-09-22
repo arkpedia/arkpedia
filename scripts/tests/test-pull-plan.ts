@@ -373,6 +373,11 @@ test('saved custom spending dates follow banner deadlines without changing goals
   assert.equal(goalsAtBannerEnd(normalized, [moved])[0].spendOn, moved.end);
   const row = planBudgets(normalized.slice(0,1), [a], now, date => date.getUTCDate())[0];
   assert.equal(row.available, 15);
+  const localized = {...a, name: 'Official Global title', aliases: [a.name]};
+  const migrated = goalsAtBannerEnd(goals, [localized]);
+  assert.equal(migrated[0].banner, localized.name);
+  assert.deepEqual(migrated[0].targets, goals[0].targets);
+  assert.equal(planBudgets(goals.slice(0,1), [localized], now, date => date.getUTCDate())[0].banner?.name, localized.name);
 });
 
 test('event rewards include bannerless reruns and custom exchanges by the event end', async () => {

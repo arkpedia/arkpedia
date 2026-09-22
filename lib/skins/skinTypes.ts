@@ -1,5 +1,10 @@
 export interface Skin {
   name: string;
+  /** Immutable identity in the regional game tables, independent of translations. */
+  skinId?: string;
+  sourceRegion?: string;
+  cnReleaseAt?: number | null;
+  globalReleaseAt?: number | null;
   searchAliases?: string[];
   series: string;
   seriesImage: string | null;

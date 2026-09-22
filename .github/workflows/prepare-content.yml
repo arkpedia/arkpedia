@@ -22,7 +22,7 @@ concurrency:
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -65,12 +65,18 @@ jobs:
         if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
         env:
           GH_TOKEN: ${{ github.token }}
+          CATALOGUE_IMAGE_DEPLOY_KEY: ${{ secrets.CATALOGUE_IMAGE_DEPLOY_KEY }}
+          CATALOGUE_SKIN_DEPLOY_KEY: ${{ secrets.CATALOGUE_SKIN_DEPLOY_KEY }}
         run: |
+          set -euo pipefail
           supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
           curl --fail --location --retry 3 \
             https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/main/en_US/gamedata/excel/charword_table.json \
             --output "$supplemental_charwords"
           npm run assets:update
+          node scripts/sync/sync-catalogue.mjs
+          bash scripts/sync/publish-catalogue-assets.sh
+          node scripts/sync/refresh-media-pins.mjs
           npm run stages:refresh
           npm run pulls:refresh
           ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" node scripts/sync/sync-operator-english.mjs
@@ -78,12 +84,16 @@ jobs:
             ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" \
             npm run voices:refresh
           npm run lyrics:refresh
+          node scripts/sync/sync-content-inventory.mjs
+          node scripts/sync/sync-event-farming.mjs
+          node scripts/content/check-completeness.mjs
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           ARKPEDIA_CONTENT_DISABLED: '1'
           NODE_ENV: production
         run: |
+          node scripts/content/check-completeness.mjs
           npm test
           npm run check:assets
           npm run check:published-assets
@@ -91,7 +101,7 @@ jobs:
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
           node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
-      - name: Propose the public release
+      - name: Publish the validated public release
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
@@ -108,8 +118,15 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
           repo="$RUNNER_TEMP/arkpedia-data"
           git -C "$repo" remote set-url origin git@github.com:arkpedia/arkpedia-data.git
+          prepared_base=$(git -C "$repo" rev-parse HEAD)
           git -C "$repo" fetch origin main
-          git -C "$repo" checkout -B refresh/content origin/main
+          current_base=$(git -C "$repo" rev-parse origin/main)
+          # Never overwrite a correction published while compilation was running.
+          if [ "$prepared_base" != "$current_base" ]; then
+            echo '::error::Data main changed during preparation. Retry from the new main.'
+            exit 1
+          fi
+          git -C "$repo" checkout -B main origin/main
           prepared_release=$(node -p "require('$RUNNER_TEMP/prepared-content/release/manifest.json').release")
           current_release=$(node -p "require('$repo/release/manifest.json').release" 2>/dev/null || true)
           if [ "$prepared_release" = "$current_release" ]; then
@@ -123,13 +140,16 @@ jobs:
           git -C "$repo" config user.name 'github-actions[bot]'
           git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git -C "$repo" commit -m 'Refresh game content and prepared page data'
-          if git -C "$repo" fetch origin refresh/content; then
-            previous=$(git -C "$repo" rev-parse FETCH_HEAD)
-            if git -C "$repo" diff --quiet "$previous" HEAD -- source release; then echo 'Existing proposal is current.'; exit 0; fi
-            git -C "$repo" push --force-with-lease="refs/heads/refresh/content:$previous" origin HEAD:refresh/content
-          else
-            git -C "$repo" push origin HEAD:refresh/content
-          fi
+          git -C "$repo" push origin HEAD:main
+      - name: Keep discovery evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: content-refresh-evidence
+          path: |
+            .cache/catalogue/report.json
+            .cache/catalogue/asset-plan.json
+          if-no-files-found: ignore
       - name: Remember successful preparation
         if: github.event_name == 'schedule' && steps.prepared.outputs.cache-hit != 'true'
         run: mkdir -p .cache/prepared-inputs && touch .cache/prepared-inputs/complete

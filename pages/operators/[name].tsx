@@ -1549,7 +1549,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 export const getStaticPaths: GetStaticPaths = async () => {
   const operators = getAllOperators();
   return {
-    paths: operators.map((op) => ({ params: { name: op.name } })),
+    paths: operators.flatMap((op) => [op.name, ...(op.aliases ?? [])].map(name => ({ params: { name } }))),
     fallback: 'blocking',
   };
 };

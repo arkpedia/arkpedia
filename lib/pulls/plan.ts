@@ -9,8 +9,8 @@ export interface BannerGoal { banner: string; pulls: number; spendOn: string; ti
 /** The planner forecasts through each banner's end; migrate former custom dates
  * when a saved/imported plan is opened. Keep missing banners available to remove. */
 export function goalsAtBannerEnd(goals: readonly BannerGoal[], banners: readonly UpcomingBanner[]): BannerGoal[] {
-  const ends = new Map(banners.map(banner => [banner.name, banner.end]));
-  return goals.map(goal => ({ ...goal, spendOn: ends.get(goal.banner) ?? goal.spendOn }));
+  const current = new Map(banners.flatMap(banner => [banner.name, ...(banner.aliases ?? [])].map(name => [name, banner] as const)));
+  return goals.map(goal => ({ ...goal, banner: current.get(goal.banner)?.name ?? goal.banner, spendOn: current.get(goal.banner)?.end ?? goal.spendOn }));
 }
 
 export interface SavedPullPlan {
@@ -131,7 +131,7 @@ export interface BudgetRow {
 export function planBudgets(goals: readonly BannerGoal[], banners: readonly UpcomingBanner[], now: Date, walletAt: (date: Date) => number): BudgetRow[] {
   let spent = 0;
   return goals.map((goal, index) => ({ goal, index })).sort((a, b) => a.goal.spendOn.localeCompare(b.goal.spendOn) || a.index - b.index).map(({ goal }) => {
-    const banner = banners.find(b => b.name === goal.banner) ?? null;
+    const banner = banners.find(b => b.name === goal.banner || b.aliases?.includes(goal.banner)) ?? null;
     const when = new Date(`${goal.spendOn}T23:59:59Z`);
     const expired = when < now;
     const issue = !banner ? 'This banner is missing from the current schedule.' : expired ? 'This spending date has passed. Remove this goal and update your holdings with what you actually spent.' : goal.spendOn < banner.start || goal.spendOn > banner.end ? 'This date is outside the current banner dates. Choose a date during its run.' : null;

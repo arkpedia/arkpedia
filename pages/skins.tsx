@@ -202,7 +202,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       if (selectedSeries && selectedSeries !== 'WISHLIST' && skin.series !== selectedSeries) return false;
       const window = availability.get(skinKey(skin));
       if (availabilityFilter === 'now') return !!window?.live;
-      if (availabilityFilter === 'upcoming') return !!window && !window.live;
+      if (availabilityFilter === 'upcoming') return (!!window && !window.live) || skin.sourceRegion === 'CN' || /^\[CN\]/.test(skin.release || '');
       if (['shop', 'reward', 'draw'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
       return true;
     });

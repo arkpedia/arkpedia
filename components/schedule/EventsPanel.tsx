@@ -1,3 +1,4 @@
+import { activeEventFarming } from '@/lib/farming/eventFarming';
 import { useEffect, useRef, useState } from 'react';
 import Image from '@/components/content/ContentImage';
 import CountdownTimer from '../ui/CountdownTimer';
@@ -25,6 +26,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+  const currentMaterials = activeEventFarming(farmableMaterials, (now ?? new Date()).getTime());
   const slides: SlideItem[] = [
     ...ongoing.map((event) => ({ event, isUpcoming: now ? now < event.start : false })),
     ...(upcoming ? [{ event: upcoming, isUpcoming: now ? now < upcoming.start : true }] : []),
@@ -60,7 +62,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
       <section className="front-panel front-events-panel">
         <h2>Events</h2>
         <p className="hint">No events to show right now.</p>
-        {farmableMaterials.length > 0 && <FarmableInline materials={farmableMaterials} />}
+        {currentMaterials.length > 0 && <FarmableInline materials={currentMaterials} />}
       </section>
     );
   }
@@ -98,18 +100,14 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
         </div>
       )}
 
-      <FarmableInline materials={farmableMaterials} />
+      <FarmableInline materials={currentMaterials} />
     </section>
   );
 }
 
-/** Where to actually farm this material right now -- the "eventActive"
- * stage's own label if one exists (e.g. "Event Store", or a real stage
- * code like "AD-7" for materials boosted at a specific stage), falling
- * back to the material's first listed stage otherwise. */
+/** More than one active event may offer the same material. */
 function farmLocationLabel(material: FarmingMaterial): string {
-  const stage = material.stages.find((s) => s.kind === 'eventActive') || material.stages[0];
-  return stage?.label || '';
+  return [...new Set(material.stages.map(stage => stage.label))].join(' · ');
 }
 
 function FarmableInline({ materials }: { materials: FarmingMaterial[] }) {

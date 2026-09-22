@@ -1,0 +1,140 @@
+#!/usr/bin/env node
+/** Discover content before derived pages are compiled. --dry-run never writes source records. */
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, safeName, rarityWord } from './catalogue-model.mjs';
+import { buildInventory } from './sync-content-inventory.mjs';
+const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
+const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
+const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json' };
+async function json(url) {
+  const response = await fetch(url,{signal:AbortSignal.timeout(60000),headers: url.startsWith('https://api.github.com/') && process.env.GH_TOKEN ? {Authorization:`Bearer ${process.env.GH_TOKEN}`} : {}});
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return response.json();
+}
+async function source(repo, branch, folder, cache) {
+  const {sha} = await json(`https://api.github.com/repos/${repo}/commits/${branch}`);
+  if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error(`Invalid revision: ${repo}`);
+  const base = `https://raw.githubusercontent.com/${repo}/${sha}/${folder}`;
+  const result = {source:base, revision:sha, repository:`https://github.com/${repo}`};
+  // Bound concurrency and persist immutable inputs so a failed run is reproducible.
+  for (const [key,file] of Object.entries(tableFiles)) {
+    const target = path.join(cache,repo.replace('/','-'),sha,file);
+    result[key] = fs.existsSync(target) ? read(target) : await json(`${base}/${file}`);
+    if (!fs.existsSync(target)) write(target,result[key]);
+  }
+  if (Object.keys(result.characters ?? {}).length < 400 || Object.keys(result.skins?.charSkins ?? {}).length < 500
+    || Object.keys(result.skills ?? {}).length < 500 || Object.keys(result.handbook?.handbookDict ?? {}).length < 300
+    || !Array.isArray(result.gacha?.gachaPoolClient) || result.gacha.gachaPoolClient.length < 100
+    || !result.activity?.basicInfo || !Array.isArray(result.constants?.evolveGoldCost)) throw new Error(`Truncated or changed regional source schema: ${repo}`);
+  if (folder.startsWith('en/') && Object.values(result.characters).filter(c=>c.name && !/\p{Script=Han}/u.test(c.name)).length < 300)
+    throw new Error('Global mirror does not contain an English roster');
+  result.voiceTables = [result.voices];
+  return result;
+}
+async function wiki(page, cache) {
+  const response = await json(`https://arknights.wiki.gg/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&format=json`);
+  const text = response.parse?.wikitext?.['*'];
+  if (!text) throw new Error(`Missing structured wiki page: ${page}`);
+  write(path.join(cache,'wiki',page.replaceAll('/','-')+'.json'),response);
+  return text;
+}
+export function assetPlan(operators, skins, cn, en, published, extra = []) {
+  const planned = new Map(extra.filter(a => !published.has(a.path)).map(a => [a.path,a]));
+  const add = (target,source) => { if (!published.has(target)) planned.set(target,{path:target,sourcePath:source}); };
+  for (const op of operators) {
+    const id=op.internalName, c=cn.characters[id]; if (!c) continue;
+    const word=rarityWord(op.rarity), name=safeName(op.name);
+    for (const [label,suffix] of [['Base',''],...(c.phases.length >= 3 ? [['Elite 2','_2']] : [])]) {
+      const skin=cn.skins.charSkins[`${id}#${suffix ? 2 : 1}`];
+      if (!skin) continue;
+      add(`${word}-star-icons/${name} - ${label}.webp`,`avatar/${skin.avatarId}.png`);
+      add(`${word}-star-skins/${name} - ${label}.webp`,`skin/${skin.illustId.replace(/^illust_/,'')}b.png`);
+    }
+    const tables=op.sourceRegion==='Global' ? en : cn;
+    for (const [i,skill] of (op.skills?.skillList ?? []).entries()) {
+      const source=tables.skills[c.skills[i]?.skillId]; if (!source || !skill.name) continue;
+      add(`skill-icons/${name} - ${safeName(skill.name)}.webp`,`skill/skill_icon_${source.iconId || c.skills[i].skillId}.png`);
+    }
+    const buffs=(tables.building.chars[id]?.buffChar ?? []).flatMap(slot => slot.buffData);
+    for (const [i,base] of (op.baseSkills ?? []).entries()) {
+      const buff=tables.building.buffs[buffs[i]?.buffId]; if (!buff) continue;
+      add(`base-skill-icons/${safeName(op.rawName || name)} - ${safeName(base.rawName || base.name)}.webp`,`building_skill/${buff.skillIcon}.png`);
+    }
+  }
+  const roster=new Map(operators.map(op=>[op.internalName,op]));
+  for (const skin of skins) {
+    const source=cn.skins.charSkins[skin.skinId],op=roster.get(skin.skinId?.split('@')[0]) ?? roster.get(source?.charId); if (!op) continue;
+    // Existing explicitly pinned artwork may deliberately use a different spelling.
+    if (skin.image?.startsWith('https://')) continue;
+    const stem=`${safeName(op.name)} - ${safeName(skin.name)}.webp`,word=rarityWord(op.rarity);
+    add(`${word}-star-skins/${stem}`,`skin/${source.illustId.replace(/^illust_/,'')}b.png`);
+    add(`${word}-star-icons/${stem}`,`avatar/${source.avatarId}.png`);
+  }
+  const items=new Map(Object.values({...cn.items.items,...en.items?.items}).map(item=>[item.name,item]));
+  for (const op of operators.filter(op=>op.sourceRegion)) {
+    const costs=[...(op.promotion ?? []).flatMap(p=>p.cost ?? []),...Object.values(op.skills?.skillCost ?? {}).flat(),
+      ...(op.skills?.skillList ?? []).flatMap(s=>Object.values(s.cost ?? {}).flat()),...(op.modules ?? []).flatMap(m=>(m.stages ?? []).flatMap(s=>s.cost ?? []))];
+    for (const cost of costs) { const item=items.get(cost.name); if (item?.iconId) add(`material-icons/${safeName(cost.name)}.webp`,`item/${item.iconId}.png`); }
+  }
+  return [...planned.values()].sort((a,b)=>a.path.localeCompare(b.path));
+}
+export async function syncCatalogue(root, options={}) {
+  const cache=path.resolve(root,'.cache/catalogue');
+  const sources=options.sources || await (async()=>{
+    const [cn,en]=await Promise.all([
+      source('Kengxxiao/ArknightsGameData','master','zh_CN/gamedata/excel',cache),
+      source('ArknightsAssets/ArknightsGamedata','master','en/gamedata/excel',cache),
+    ]);
+    const year=new Date().getUTCFullYear();
+    const [upcoming,yearly,events]=await Promise.all([wiki('Headhunting/Banners/Upcoming',cache),wiki(`Headhunting/Banners/${year}`,cache),wiki('Event/Upcoming',cache)]);
+    const resource=await json('https://api.github.com/repos/yuanyan3060/ArknightsGameResource/commits/main');
+    return {cn,en,bannerRows:[...parseWikiRows(upcoming,'Banners cell'),...parseWikiRows(yearly,'Banners cell')],eventRows:parseWikiRows(events,'Upcoming events cell'),resourceRevision:resource.sha};
+  })();
+  const {cn,en}=sources;
+  const operatorFiles=fs.readdirSync(path.join(root,'data')).filter(dir=>/^operators-\dstar$/.test(dir)).flatMap(dir=>fs.readdirSync(path.join(root,'data',dir)).filter(f=>f.endsWith('.json')).map(f=>path.join(root,'data',dir,f)));
+  const operators=operatorFiles.map(read), skins=read(path.join(root,'data/skins.json')), banners=read(path.join(root,'data/headhunting_banners.json'));
+  const eventFiles=fs.readdirSync(path.join(root,'data/events')).filter(f=>/^events_\d+\.json$/.test(f)).map(f=>path.join(root,'data/events',f));
+  const events=eventFiles.flatMap(read);
+  const initial=reconcileOperators({operators,cn,en});
+  const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows});
+  const updated=reconcileOperators({operators:initial.operators,cn,en,releases:operatorReleaseDates(initial.operators,calendars.banners,cn,en)});
+  // Populate CN release dates for newly imported records too; reconciliation only revisits Global releases.
+  const releases=operatorReleaseDates(updated.operators,calendars.banners,cn,en);
+  for (const op of updated.operators) if (initial.changes.includes(op.internalName) && releases.get(op.internalName)?.cn && !op.characterInfo?.['CN Release Date']) {
+    op.characterInfo['CN Release Date']=new Date((releases.get(op.internalName).cn+8*3600)*1000).toISOString().slice(0,10).replaceAll('-','/');
+  }
+  const outfits=reconcileSkins({skins,operators:updated.operators,cn,en,events:calendars.events});
+  const outfitNames=new Map(outfits.renames.map(([before, after])=>[before.split(' / ').slice(1).join(' / '),after.split(' / ').slice(1).join(' / ')]));
+  for (const op of updated.operators) op.skins=(op.skins ?? []).map(name=>outfitNames.get(name) ?? name);
+  const renames=new Map([...initial.renames,...updated.renames,...outfits.renames,...calendars.renames]);
+  const replace=value=>typeof value==='string' ? renames.get(value) ?? value : Array.isArray(value) ? value.map(replace) : value && typeof value==='object' ? Object.fromEntries(Object.entries(value).map(([k,v])=>[k,replace(v)])) : value;
+  const published=new Set(read(path.join(root,'data/assets/external-asset-index.json')).files);
+  const plan={sourceRepository:'yuanyan3060/ArknightsGameResource',revision:sources.resourceRevision,files:assetPlan(updated.operators,outfits.skins,cn,en,published,calendars.media)};
+  const inventory=buildInventory(cn.characters,cn.skins,{repository:cn.repository,revision:cn.revision,files:Object.fromEntries(['characters','skins'].map(k=>[tableFiles[k],createHash('sha256').update(JSON.stringify(cn[k])).digest('hex')]))});
+  inventory.events=calendars.events.filter(e=>e.activityId).map(e=>({id:e.activityId,name:e.name}));
+  inventory.banners=calendars.banners.filter(b=>b.cnPoolId).map(b=>({id:b.cnPoolId,name:b.name}));
+  const report={operatorsAdded:updated.operators.length-operators.length,outfitsAdded:outfits.skins.length-skins.length,eventsAdded:calendars.events.length-events.length,bannersAdded:calendars.banners.length-banners.length,renames:[...renames],assetsRequired:plan.files.length,sources:{cn:cn.revision,global:en.revision,resource:sources.resourceRevision}};
+  write(path.join(cache,'asset-plan.json'),plan); write(path.join(cache,'report.json'),report);
+  if (!options.dryRun) {
+    for (const op of updated.operators) {
+      const prior=operatorFiles.find((_,i)=>operators[i].internalName===op.internalName);
+      write(prior || path.join(root,`data/operators-${op.rarity}star/${safeName(op.name)}.json`),op);
+    }
+    write(path.join(root,'data/skins.json'),replace(outfits.skins)); write(path.join(root,'data/headhunting_banners.json'),replace(calendars.banners));
+    for (const file of eventFiles) write(file,replace(calendars.events.filter(e=>Number(e.year)===Number(/events_(\d+)/.exec(file)[1]))));
+    for (const year of new Set(calendars.events.map(e=>e.year))) {
+      const file=path.join(root,`data/events/events_${year}.json`); if (!eventFiles.includes(file)) write(file,replace(calendars.events.filter(e=>e.year===year)));
+    }
+    for (const file of ['skin-availability-windows.json','skin-shop-rotations.json']) {
+      const at=path.join(root,'data',file); write(at,replace(read(at)));
+    }
+    write(path.join(root,'data/content-inventory.json'),inventory);
+    write(path.join(root,'data/catalogue-sync.json'),report);
+  }
+  return report;
+}
+if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) syncCatalogue(process.cwd(),{dryRun:process.argv.includes('--dry-run')}).then(console.log).catch(error=>{console.error(error);process.exitCode=1;});

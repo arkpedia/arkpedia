@@ -6,7 +6,7 @@ import { bannerSeriesFromName } from '../operators/operatorSeries';
 import { getAllSkins } from '../skins/skins';
 import { Skin } from '../skins/skinTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
-import { FARMING_TIERS } from '../farming/farmingConfig';
+import { activeEventFarming, getEventFarmingMaterials } from '../farming/eventFarming';
 import { FarmingMaterial } from '../farming/farmingTypes';
 import { withArtVersion } from '@/lib/art/artVersion';
 
@@ -142,19 +142,9 @@ export function getOngoingSkins(now: Date = new Date(), allSkins = getAllSkins()
   return result;
 }
 
-/** Materials with at least one stage marked "eventActive" -- the
- * existing marker for "currently boosted/farmable due to an active
- * event," already tracked in the farming data. */
-export function getCurrentFarmableMaterials(): FarmingMaterial[] {
-  const result: FarmingMaterial[] = [];
-  for (const tier of FARMING_TIERS) {
-    for (const material of tier.materials) {
-      if (material.stages.some((s) => s.kind === 'eventActive')) {
-        result.push(material);
-      }
-    }
-  }
-  return result;
+/** Actual repeatable stage drops inside their confirmed Global battle windows. */
+export function getCurrentFarmableMaterials(now: Date = new Date()): FarmingMaterial[] {
+  return activeEventFarming(getEventFarmingMaterials(), now.getTime());
 }
 
 // --- Full events listing, for the standalone /events pages ---------

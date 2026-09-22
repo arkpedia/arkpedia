@@ -620,6 +620,7 @@ function upcomingBanners(
 
     out.push({
       name: String(b.name ?? ''),
+      ...(Array.isArray(b.aliases) ? { aliases: b.aliases } : {}),
       category: String(b.category ?? 'standard'),
       start: new Date(g.start).toISOString().slice(0, 10),
       end: new Date(g.end).toISOString().slice(0, 10),

@@ -178,7 +178,7 @@ export function getAllOperators(): Operator[] {
     characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
     talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],
   }));
-  const releasedNames = new Set(released.map((op) => op.name));
+  const releasedNames = new Set(released.flatMap((op) => [op.name, ...(op.aliases ?? [])]));
 
   // Only include a future stub if that operator isn't already in the
   // real, fully-scraped dataset (once released and re-scraped, the real
@@ -196,5 +196,5 @@ export function getAllOperators(): Operator[] {
 }
 
 export function getOperatorByName(name: string): Operator | undefined {
-  return getAllOperators().find((op) => op.name === name);
+  return getAllOperators().find((op) => op.name === name || op.aliases?.includes(name));
 }

@@ -191,6 +191,9 @@ export function getWelfareInfo(howToObtain: string | Record<string, unknown> | n
 }
 
 export interface Operator {
+  /** Previous public names remain valid after official Global localization. */
+  aliases?: string[];
+  sourceRegion?: 'CN' | 'Global';
   name: string;
   rarity: number | null;
   class: string | null;

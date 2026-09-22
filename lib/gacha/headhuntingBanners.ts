@@ -4,6 +4,7 @@ import { withArtVersion } from '@/lib/art/artVersion';
 
 export interface HeadhuntingBanner {
   name: string;
+  aliases?: string[];
   category: string;
   cn_date: string | null;
   global_date: string | null;
