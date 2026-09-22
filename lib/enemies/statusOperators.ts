@@ -1,3 +1,4 @@
+import { appliesEnemyStatus } from './statusSources';
 import type { TechniqueGroup } from '@/lib/techniques/buildTechniqueGroups';
 
 export const ENEMY_STATUS_TECHNIQUES = {
@@ -17,6 +18,7 @@ export interface EnemyStatusOperator {
   icon: string;
   sourceIcon: string | null;
   sourceLabel: string | null;
+  sourceTitle?: string | null;
 }
 
 export interface EnemyStatusOperatorGroup {
@@ -43,9 +45,10 @@ export function buildEnemyStatusOperatorMap(
   for (const [status, technique] of Object.entries(ENEMY_STATUS_TECHNIQUES) as [EnemyStatus, string][]) {
     const group = byName.get(technique);
     if (!group) continue;
-    const entries = availableNames
-      ? group.entries.filter(entry => availableNames.has(entry.operatorName))
-      : group.entries;
+    const entries = group.entries
+      .filter(entry => !availableNames || availableNames.has(entry.operatorName))
+      .map(entry => ({ ...entry, badges: entry.badges.filter(badge => appliesEnemyStatus(status, badge.sourceText)) }))
+      .filter(entry => entry.badges.length > 0);
     if (!entries.length) continue;
     result[status] = {
       technique,
@@ -56,7 +59,8 @@ export function buildEnemyStatusOperatorMap(
           name: entry.operatorName,
           icon: entry.operatorIconPath,
           sourceIcon: source?.skillIconPath ?? null,
-          sourceLabel: source?.label ?? null,
+          sourceTitle: source?.label ?? null,
+          sourceLabel: source ? `${source.skillNumber ? `S${source.skillNumber}` : source.label}${/\bin Integrated Strategies\b/i.test(source.sourceText || '') ? ' · Integrated Strategies' : ''}` : null,
         };
       }),
     };

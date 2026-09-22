@@ -9,6 +9,7 @@ import techniqueDefinitionsData from '@/data/techniques_definitions.json';
 const techniqueDefinitions = techniqueDefinitionsData as Record<string, string>;
 
 export interface TechniqueBadge {
+  skillNumber?: number; // stable skill slot for compact source labels
   label: string; // for the tooltip -- skill name, or "T1"/"T2" for talents
   skillIconPath: string | null;
   talentLabel: string | null; // "T1"/"T2" etc -- shown as text instead of an icon
@@ -144,7 +145,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       }
     });
 
-    for (const skill of getSkillList(op)) {
+    for (const [skillIndex, skill] of getSkillList(op).entries()) {
       const manualTechs = (skill.techniques || []).map((t) => ({ ...t, viaBranch: false, matchedKeyword: null as string | null, matchedKeywordEnd: null as string | null, highlightSeparately: false, sourceText: t.description }));
       // Sub priority doesn't count -- only an M3 recommendation
       // explicitly marked "main" priority qualifies a skill's badges
@@ -182,6 +183,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         if (!tech.name) continue;
         addBadge(tech.name, tech.description, tech.viaBranch, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
           label: skill.name || '',
+          skillNumber: skillIndex + 1,
           skillIconPath: getSkillIconPath(op.name, skill.name),
           talentLabel: null,
           sourceText: tech.sourceText,
@@ -205,6 +207,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
             const techDescription = techniqueDefinitions[techName] || null;
             addBadge(techName, techDescription, false, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
               label: skill.name || '',
+              skillNumber: skillIndex + 1,
               skillIconPath: getSkillIconPath(op.name, skill.name),
               talentLabel: null,
               sourceText: referencedTalentText,
@@ -217,19 +220,11 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       }
     }
 
-    // Modules also get scanned, but only Stage 1 ("New trait") and
-    // Stage 3 ("[Talent] improved") -- Stage 2 is skipped entirely.
-    // Greek letter is inferred from the Upgrade-type module's order
-    // (first = alpha, second = beta, ...) since the data's own `name`
-    // field isn't populated for any operator currently on file -- this
-    // matches the game's real convention in the vast majority of
-    // cases, but isn't verified per-operator.
-    const GREEK_LETTERS = ['α', 'β', 'γ', 'δ', 'ε'];
-    let upgradeModuleIndex = 0;
+    // Use the recorded module code, never its position in the module list.
     for (const mod of op.modules || []) {
       if (mod.type !== 'Upgrade') continue;
-      const greekLetter = GREEK_LETTERS[upgradeModuleIndex] || `#${upgradeModuleIndex + 1}`;
-      upgradeModuleIndex++;
+      const moduleCode = mod.name?.match(/^([^:]+):/)?.[1]?.trim() || mod.badgeText || mod.name || 'Module';
+      const moduleLetter = moduleCode.split('-').pop() || moduleCode;
       // Stage 3 before Stage 1 -- if the same technique matches both
       // stages of this module (e.g. a talent-improvement at Stage 3
       // repeating similar wording to the Stage 1 trait), only the
@@ -246,9 +241,9 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
           if (seenModuleNames.has(m.name)) continue; // already badged from this module's higher stage
           seenModuleNames.add(m.name);
           addBadge(m.name, m.description, m.viaBranch, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
-            label: `Module ${greekLetter} (${s.stage})`,
+            label: `Module ${moduleCode} (${s.stage})`,
             skillIconPath: null,
-            talentLabel: greekLetter,
+            talentLabel: moduleLetter,
             sourceText: s.effectText,
             matchedKeyword: m.matchedKeyword,
             matchedKeywordEnd: m.matchedKeywordEnd,

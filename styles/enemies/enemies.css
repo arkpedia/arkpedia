@@ -408,9 +408,11 @@
 /* center, not baseline: a cell now leads with a glyph, and baseline alignment sat
    the icon's box on the text baseline and pushed it up out of the row. */
 .enemy-stat {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1em minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
+  row-gap: 2px;
   background: var(--panel);
   border: 1px solid var(--line-soft);
   border-radius: 4px;
@@ -573,14 +575,16 @@
    changes size makes the row jump as you click between enemies. */
 .enemy-resist-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
   gap: 6px;
   margin-bottom: 14px;
 }
 .enemy-resist {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1em minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
+  row-gap: 2px;
   background: var(--panel);
   border: 1px solid var(--line-soft);
   border-radius: 4px;
@@ -593,8 +597,9 @@
   width: 1em;
   text-align: center;
 }
-.enemy-resist-name { flex: 1; min-width: 0; font-size: 12.5px; }
+.enemy-resist-name { min-width: 0; font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: normal; text-transform: none; }
 .enemy-resist-verdict {
+  grid-column: 2;
   flex: none;
   font-family: var(--font-mono);
   font-size: 9px;
@@ -613,6 +618,9 @@
   text-align: inherit;
   cursor: pointer;
   position: relative;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
 }
 .enemy-status-trigger > .enemy-resist { padding-right: 28px; }
 .enemy-status-trigger > svg {
@@ -639,7 +647,8 @@
 .enemy-status-menu {
   position: fixed;
   z-index: 120;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--teal);
   border-radius: 5px;
   background: var(--panel-2);
@@ -657,11 +666,11 @@
 .enemy-status-menu-head strong { font-family: var(--font-display); font-size: 15px; }
 .enemy-status-menu-head > div > span,
 .enemy-status-menu-head > span { color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
-.enemy-status-operator-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line-soft); }
+.enemy-status-operator-list { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line-soft); }
 .enemy-status-operator {
   min-width: 0;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
   gap: 7px;
   min-height: 48px;
@@ -673,9 +682,10 @@
 .enemy-status-operator:hover,
 .enemy-status-operator:focus-visible { background: var(--teal-dim); color: var(--teal); }
 .enemy-status-operator > img:first-child { border-radius: 3px; background: var(--surface); }
-.enemy-status-operator > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 650; }
-.enemy-status-operator small { font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); }
-.enemy-status-source-icon { border-radius: 2px; }
+.enemy-status-operator > span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 650; }
+.enemy-status-operator > img:first-child { grid-row: span 2; }
+.enemy-status-operator small { grid-column: 2; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); }
+.enemy-status-source-icon { display: inline-block; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
 .enemy-status-more {
   display: flex;
   justify-content: space-between;

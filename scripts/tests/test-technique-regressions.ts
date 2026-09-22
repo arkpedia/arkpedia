@@ -5,6 +5,7 @@ import { findSynergyMatches } from '../../lib/techniques/synergyDetection';
 import { buildTechniqueGroups } from '../../lib/techniques/buildTechniqueGroups';
 import { buildEnemyStatusOperatorMap, ENEMY_STATUS_TECHNIQUES } from '../../lib/enemies/statusOperators';
 import { getAllOperators } from '../../lib/operators/operators';
+import { appliesEnemyStatus } from '../../lib/enemies/statusSources';
 import { isOperatorReleased } from '../../lib/operators/operatorAvailability';
 
 const techniques = (texts: string[], name = 'Fixture') =>
@@ -73,4 +74,30 @@ test('enemy status recommendations remain populated after filtering to released 
   for (const status of Object.keys(ENEMY_STATUS_TECHNIQUES)) {
     assert.ok(statusOperators[status as keyof typeof statusOperators], `${status} should have a released operator`);
   }
+});
+
+
+test('module status badges use the actual module code and expose mode restrictions', () => {
+  const map = buildEnemyStatusOperatorMap(buildTechniqueGroups(), undefined, 500);
+  const angelina = map.Levitate!.operators.find(op => op.name === 'Angelina');
+  assert.equal(angelina?.sourceLabel, 'Module ISW-α (Stage 3) · Integrated Strategies');
+  assert.equal(map.Sleep!.operators.find(op => op.name === 'Blemishine')?.sourceLabel, 'S2');
+  assert.equal(map.Sleep!.operators.find(op => op.name === 'Erato')?.sourceLabel, "S1");
+  assert.equal(map.Sleep!.operators.find(op => op.name === 'Blacknight')?.sourceLabel, 'S2');
+  assert.ok(!map.Stun!.operators.some(op => ['Bryophyta', 'Conviction'].includes(op.name)), 'self/allied stun is not an enemy application');
+});
+
+
+test('status source checks distinguish applying a status from immunity, synergy, and self effects', () => {
+  for (const [status, text] of [
+    ['Sleep', 'Can attack Sleeping enemies; increases ATK when attacking Sleeping enemies'],
+    ['Sleep', 'Puts herself to Sleep for 5 seconds'],
+    ['Stun', 'Immune to Stun'],
+    ['Stun', 'After skill ends, Stuns self for 5s'],
+    ['Stun', 'Stunning all allied units within range for 5 seconds'],
+    ['Frozen', 'All allied Operators gain Frozen immunity'],
+    ['Levitate', 'Levitated enemies take more Arts damage'],
+  ]) assert.equal(appliesEnemyStatus(status, text), false, text);
+  assert.equal(appliesEnemyStatus('Stun', 'Stuns hit targets for 1 second; then Stuns self for 5s'), true);
+  assert.equal(appliesEnemyStatus('Sleep', 'Puts herself to Sleep; puts nearby enemies to Sleep'), true);
 });
