@@ -1,12 +1,11 @@
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Image from '@/components/content/ContentImage';
 import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllSkins } from '@/lib/skins/skins';
-import { useQueryState } from '@/lib/hooks/useQueryState';
+import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
-import { computeSkinCountdowns } from '@/lib/skins/skinAvailability';
+import { acquisitionLabel, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -14,36 +13,33 @@ import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
-import { getOngoingEvents, getSkinsForScheduleEvent } from '@/lib/skins/upcomingSkins';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 
 interface Props {
   skins: Skin[];
   seriesLogos: Record<string, string | null>;
   events: ScheduleEvent[];
+  availabilityWindows?: SkinWindow[];
   /** The build's clock, in unix milliseconds, rounded to the minute. */
   now: number;
 }
 
 const WISHLIST_STORAGE_KEY = 'skinWishlist_v1';
-const MIN_IN_STORE_FOR_SPIN = 6; // matches SkinsCarousel.tsx's own threshold -- a handful of items overflowing the row still doesn't make for a proper spin, just a choppy loop of the same few images
 
-export default function SkinsGallery({ skins, seriesLogos, events, now }: Props) {
+export default function SkinsGallery({ skins, events, now, availabilityWindows }: Props) {
   // The open skin lives in the URL, addressed by name (the same key the
   // wishlist already treats as a skin's identity) -- so a specific
   // skin's detail view can be shared as a link. Opening the dialog sets
   // it, closing clears it back out of the query string, and the Skin
   // object itself is just looked up from that name.
-  const [activeSkinName, setActiveSkinName] = useQueryState('skin');
+  const [query, setQuery] = useSkinGalleryState();
+  const activeSkinName = query.skin;
+  const setActiveSkinName = (value: string) => setQuery('skin', value);
   const active = useMemo(
     () => (activeSkinName ? skins.find((s) => s.name === activeSkinName) ?? null : null),
     [skins, activeSkinName]
   );
   const [zooming, setZooming] = useState(false);
-  const [inStoreDismissed, setInStoreDismissed] = useState(false);
-  const inStoreRowRef = useRef<HTMLDivElement | null>(null);
-  const inStoreViewportRef = useRef<HTMLDivElement | null>(null);
-  const [inStoreNeedsScroll, setInStoreNeedsScroll] = useState(false);
   // Focus bookkeeping for the detail dialog: where focus should land
   // when it opens (its Back button), and where it should return when it
   // closes (the card that opened it). With a deep link there is no
@@ -52,79 +48,32 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
   const modalBackBtnRef = useRef<HTMLButtonElement | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
-  // Availability countdowns are judged against the READER's clock, not
-  // the build's -- a static build can be weeks old, and "Available in:
-  // 3 days" for a skin that arrived last Tuesday is actively wrong. So
-  // the markup and first client paint render from the build's clock
-  // (they must agree, or React flags a hydration mismatch) and an
-  // effect re-picks the real time immediately on mount. Same pattern as
-  // the Terminal page. Rounded to the minute so a re-read is a no-op.
   const [clock, setClock] = useState(now);
   useEffect(() => {
-    setClock(Math.floor(Date.now() / 60000) * 60000);
+    const tick = () => setClock(Date.now());
+    tick();
+    const timer = window.setInterval(tick, 30_000);
+    window.addEventListener('focus', tick);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); };
   }, []);
-
-  // Recomputes the countdown from the shipped availableDate instead of
-  // trusting the daysUntilAvailable number the build derived from ITS
-  // clock. Deliberately whole days in UTC on both ends: local-midnight
-  // math would make the server (built in one timezone) and the reader's
-  // browser (in another) disagree about "today" and mismatch on
-  // hydration. Null once the date has arrived, matching the build-side
-  // convention.
-  function daysUntilAvailable(skin: Skin): number | null {
-    if (!skin.availableDate) return null;
-    const todayUtcMidnight = Math.floor(clock / 86400000) * 86400000;
-    const days = Math.ceil((Date.parse(`${skin.availableDate}T00:00:00Z`) - todayUtcMidnight) / 86400000);
-    return days > 0 ? days : null;
+  // Recompute from acquisition windows even when runtime content contains old
+  // build-time availability flags. Initial server/client clocks still agree.
+  const windows = useMemo(() => availabilityWindows ?? getSkinWindows(skins, events), [skins, events, availabilityWindows]);
+  const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
+  const currentSkins = useMemo(() => skins.filter(skin => availability.get(skinKey(skin))?.live), [skins, availability]);
+  const directSkins = currentSkins.filter(skin => availability.get(skinKey(skin))?.kind !== 'draw');
+  const drawCount = currentSkins.length - directSkins.length;
+  const availabilityFilter = query.availability;
+  const setAvailabilityFilter = (value: string) => setQuery('availability', value);
+  const wishlistOnly = query.wishlist;
+  const setWishlistOnly = (value: string) => setQuery('wishlist', value);
+  const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Etc/GMT+7' });
+  const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Etc/GMT+7' }) + ' (UTC−7)';
+  function availabilityText(skin: Skin): string | null {
+    const window = availability.get(skinKey(skin));
+    if (!window) return null;
+    return window.live ? `${acquisitionLabel(window)} · until ${shortDate(window.endAt)}` : `${window.estimated ? 'Estimated ' : ''}${shortDate(window.startAt)}`;
   }
-
-  /** The window a skin is buyable in, as "19 Aug 2026 - 2 Sep 2026".
-   *
-   *  Only for a skin that is available NOW, which is the case where the label
-   *  above it does not already carry a date: "In 19 days" says when the window
-   *  opens, so repeating the same date under it was the line saying itself
-   *  twice. "NOW" is the one that leaves the question open -- until when. */
-  function availabilityWindow(skin: Skin): string | null {
-    if (!skin.availableNow) return null;
-    if (!skin.availableDate) return null;
-    const fmt = (iso: string) => {
-      const t = Date.parse(`${iso}T00:00:00Z`);
-      return Number.isNaN(t)
-        ? null
-        : new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-    };
-    const from = fmt(skin.availableDate);
-    if (!from) return null;
-    const to = skin.availableUntil ? fmt(skin.availableUntil) : null;
-    return to && to !== from ? `${from} \u2013 ${to}` : from;
-  }
-
-  const inStoreSkins = useMemo(() => {
-    const ongoing = getOngoingEvents(events);
-    const seen = new Set<string>();
-    const result: Skin[] = [];
-    for (const event of ongoing) {
-      for (const skin of getSkinsForScheduleEvent(event, skins, events)) {
-        if (!seen.has(skin.name)) {
-          seen.add(skin.name);
-          result.push(skin);
-        }
-      }
-    }
-    return result;
-  }, [events, skins]);
-
-  useEffect(() => {
-    function checkOverflow() {
-      const row = inStoreRowRef.current;
-      const viewport = inStoreViewportRef.current;
-      if (!row || !viewport) return;
-      setInStoreNeedsScroll(inStoreSkins.length >= MIN_IN_STORE_FOR_SPIN && row.scrollWidth > viewport.clientWidth);
-    }
-    checkOverflow();
-    window.addEventListener('resize', checkOverflow);
-    return () => window.removeEventListener('resize', checkOverflow);
-  }, [inStoreSkins, inStoreRowRef, inStoreViewportRef]);
 
   useEffect(() => {
     if (!active) setZooming(false);
@@ -190,17 +139,15 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
     }
   }
 
-  // The series filter, sort toggle, and search text all live in the URL
-  // too, so any filtered view of the gallery is shareable and survives
-  // reload. 'WISHLIST' rides along as a pseudo-series name; the sort is
-  // stored as the word 'available' rather than a bare flag so the query
-  // string stays self-describing.
-  const [selectedSeriesRaw, setSelectedSeriesRaw] = useQueryState('series');
+  // Keep legacy wishlist links working alongside independent filters.
+  const selectedSeriesRaw = query.series;
+  const setSelectedSeriesRaw = (value: string) => setQuery('series', value);
   const selectedSeries: string | null = selectedSeriesRaw === '' ? null : selectedSeriesRaw;
   const setSelectedSeries = (v: string | null) => setSelectedSeriesRaw(v ?? '');
-  const [showSeriesRow, setShowSeriesRow] = useState(false);
-  const [search, setSearch] = useQueryState('q');
-  const [sortRaw, setSortRaw] = useQueryState('sort');
+  const search = query.q;
+  const setSearch = (value: string) => setQuery('q', value);
+  const sortRaw = query.sort;
+  const setSortRaw = (value: string) => setQuery('sort', value);
   const sortByAvailableDate = sortRaw === 'available';
   const setSortByAvailableDate = (v: boolean) => setSortRaw(v ? 'available' : '');
   const SKIN_PAGE_SIZE = 30;
@@ -231,45 +178,46 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
   }
 
   const seriesFiltered = useMemo(() => {
-    if (selectedSeries === 'WISHLIST') return skins.filter((s) => wishlist.has(s.name));
-    if (selectedSeries) return skins.filter((s) => s.series === selectedSeries);
-    return skins;
-  }, [skins, selectedSeries, wishlist]);
+    return skins.filter(skin => {
+      if ((wishlistOnly === '1' || selectedSeries === 'WISHLIST') && !wishlist.has(skin.name)) return false;
+      if (selectedSeries && selectedSeries !== 'WISHLIST' && skin.series !== selectedSeries) return false;
+      const window = availability.get(skinKey(skin));
+      if (availabilityFilter === 'now') return !!window?.live;
+      if (availabilityFilter === 'upcoming') return !!window && !window.live;
+      if (['shop', 'reward', 'draw'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
+      return true;
+    });
+  }, [skins, selectedSeries, wishlist, wishlistOnly, availability, availabilityFilter]);
 
   const filteredSkins = useMemo(() => {
     const base = !search.trim()
       ? seriesFiltered
-      : seriesFiltered.filter((s) => s.model && matchesSearch(s.model, search));
+      : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series}`, search));
 
     const searching = search.trim().length > 0;
     if (!sortByAvailableDate && !searching) return base;
 
     return [...base].sort((a, b) => {
       if (searching) {
-        const relDiff = searchRelevance(a.model || '', search) - searchRelevance(b.model || '', search);
+        const relDiff = searchRelevance(`${a.model || ''} ${a.name}`, search) - searchRelevance(`${b.model || ''} ${b.name}`, search);
         if (relDiff !== 0) return relDiff;
       }
       if (!sortByAvailableDate) return 0;
-      if (!a.availableDate && !b.availableDate) return 0;
-      if (!a.availableDate) return 1; // no known date -- sort to the end
-      if (!b.availableDate) return -1;
-      if (a.availableDate !== b.availableDate) return a.availableDate.localeCompare(b.availableDate);
-      // Same date: non-Fashion-Review skins (a direct release) come
-      // before Fashion Review ones.
-      const aIsFR = a.isFashionReviewAvailability ? 1 : 0;
-      const bIsFR = b.isFashionReviewAvailability ? 1 : 0;
-      return aIsFR - bIsFR;
+      const aWindow = availability.get(skinKey(a)), bWindow = availability.get(skinKey(b));
+      if (!!aWindow?.live !== !!bWindow?.live) return aWindow?.live ? -1 : 1;
+      return (aWindow ? Date.parse(aWindow.live ? aWindow.endAt : aWindow.startAt) : Infinity)
+        - (bWindow ? Date.parse(bWindow.live ? bWindow.endAt : bWindow.startAt) : Infinity);
     });
-  }, [seriesFiltered, search, sortByAvailableDate]);
+  }, [seriesFiltered, search, sortByAvailableDate, availability]);
 
   useEffect(() => {
     setVisibleSkinCount(SKIN_PAGE_SIZE);
-  }, [search, seriesFiltered, sortByAvailableDate]);
+  }, [search, selectedSeries, wishlistOnly, availabilityFilter, sortByAvailableDate]);
 
   function renderSkinCards(list: Skin[], keyPrefix: string) {
     return list.map((skin, i) => {
       const prices = parsePrices(skin.howToObtain);
-      const daysUntil = daysUntilAvailable(skin);
+      const window = availability.get(skinKey(skin));
       return (
         <button
           key={`${keyPrefix}${skin.series}-${skin.name}-${i}`}
@@ -285,23 +233,12 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
               <div className="skin-image-placeholder">No image</div>
             )}
 
-            <div className="skin-card-overlay">
-              <p className="skin-card-overlay-name">{skin.name}</p>
-              {prices.length > 0 && (
-                <p className="skin-card-overlay-price">{formatPrices(prices)}</p>
-              )}
-              {(skin.availableNow || daysUntil !== null) && (
-                <p className="skin-card-overlay-availability">
-                  {/* One label in both states -- it read "Available in: 12 days"
-                      for a future skin and said nothing at all for one you could
-                      buy today, so the two cases could not be compared. */}
-                  Available: {skin.availableNow ? 'NOW' : `In ${daysUntil} ${daysUntil === 1 ? 'day' : 'days'}`}
-                </p>
-              )}
-              {availabilityWindow(skin) && (
-                <p className="skin-card-overlay-window">{availabilityWindow(skin)}</p>
-              )}
-            </div>
+          </div>
+          <div className="skin-card-info">
+            <span className="skin-card-operator">{skin.model}</span>
+            <span className="skin-card-name">{skin.name}</span>
+            <span className="skin-card-price">{window?.live && window.kind === 'draw' ? window.label : prices.length > 0 ? formatPrices(prices) : 'Special acquisition'}</span>
+            <span className={`skin-card-status${window?.live ? ' is-live' : ''}`}>{availabilityText(skin) || 'No scheduled availability'}</span>
           </div>
         </button>
       );
@@ -324,135 +261,62 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
     <>
       <Head><title>Skins Gallery — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Wardrobe Archive</div>
-        <h1>Skins Gallery</h1>
-        <p className="sub">
-          {filteredSkins.length} of {skins.length} outfits shown. Click any skin for full details.
-        </p>
-
-        {inStoreSkins.length > 0 && !inStoreDismissed && (
-          <div className="in-store-now-banner">
-            <div className="in-store-now-header">
-              <h2 style={{ margin: 0 }}>In Store Now</h2>
-              <button type="button" className="ghost in-store-now-close" onClick={() => setInStoreDismissed(true)}>
-                Close
-              </button>
-            </div>
-            <div className="in-store-now-viewport" ref={inStoreViewportRef}>
-              <div className={`in-store-now-row${inStoreNeedsScroll ? ' scrolling' : ' static'}`} ref={inStoreRowRef}>
-                {(inStoreNeedsScroll ? [...inStoreSkins, ...inStoreSkins] : inStoreSkins).map((s, i) => {
-                  // The second copy of the set exists purely so the
-                  // marquee can loop seamlessly -- to a screen reader or
-                  // the Tab order it would just be the same run of
-                  // buttons twice, so the duplicates are hidden from
-                  // assistive tech and skipped by the keyboard.
-                  const isLoopDuplicate = inStoreNeedsScroll && i >= inStoreSkins.length;
-                  return (
-                    <button
-                      type="button"
-                      key={`${s.name}-${i}`}
-                      className="in-store-now-item"
-                      onClick={() => openSkin(s)}
-                      aria-hidden={isLoopDuplicate || undefined}
-                      tabIndex={isLoopDuplicate ? -1 : undefined}
-                    >
-                      {s.image && (
-                        <ResponsiveSkinArtwork src={s.image} alt={s.name} width={90} height={120} sizes="90px" />
-                      )}
-                      <span>{s.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-          <input
-            type="search"
-            name="skin-search"
-            aria-label="Search skins"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="Search by operator…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="guesser-input"
-            style={{ maxWidth: 320, marginTop: 0, marginBottom: 0 }}
-          />
-          <button
-            type="button"
-            className={`ghost${sortByAvailableDate ? ' active' : ''}`}
-            aria-pressed={sortByAvailableDate}
-            onClick={() => setSortByAvailableDate(!sortByAvailableDate)}
-          >
-            {sortByAvailableDate ? 'Sorted by Available Date' : 'Sort by Available Date'}
-          </button>
+      <header className="skins-header">
+        <div className="skins-heading">
+          <h1>Skins</h1>
+          <span className="hint">{skins.length} outfits · Global availability</span>
         </div>
-
-        <div className="series-filter-row">
-          <button
-            type="button"
-            className={selectedSeries === null ? 'series-logo-btn active' : 'series-logo-btn'}
-            aria-pressed={selectedSeries === null}
-            onClick={() => setSelectedSeries(null)}
-            title="All series"
-          >
-            <span className="series-logo-all">All</span>
-          </button>
-          <button
-            type="button"
-            className={selectedSeries === 'WISHLIST' ? 'series-logo-btn active' : 'series-logo-btn'}
-            aria-pressed={selectedSeries === 'WISHLIST'}
-            onClick={() => setSelectedSeries('WISHLIST')}
-            title="Wishlist"
-          >
-            <span className="series-logo-fallback">WISHLIST</span>
-          </button>
-          <button
-            type="button"
-            className="series-logo-btn"
-            aria-pressed={showSeriesRow}
-            onClick={() => setShowSeriesRow((v) => !v)}
-          >
-            <span className="series-logo-fallback">{showSeriesRow ? 'Hide Series' : 'Show Series'}</span>
-          </button>
+        <div className="skins-toolbar">
+          <input type="search" name="skin-search" aria-label="Search skins" autoComplete="off" spellCheck={false}
+            placeholder="Operator or outfit…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <select aria-label="Skin series" value={selectedSeries === 'WISHLIST' ? '' : selectedSeries || ''} onChange={e => setSelectedSeries(e.target.value || null)}>
+            <option value="">All series</option>
+            {ALL_SERIES.filter(series => skins.some(skin => skin.series === series)).map(series => <option key={series} value={series}>{series}</option>)}
+          </select>
+          <select aria-label="Sort skins" value={sortByAvailableDate ? 'available' : ''} onChange={e => setSortByAvailableDate(e.target.value === 'available')}>
+            <option value="">Catalogue order</option><option value="available">Availability</option>
+          </select>
+          <button type="button" className={`ghost${wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? ' active' : ''}`}
+            aria-pressed={wishlistOnly === '1' || selectedSeries === 'WISHLIST'} onClick={() => {
+              if (selectedSeries === 'WISHLIST') setSelectedSeries(null);
+              setWishlistOnly(wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? '' : '1');
+            }}>☆ Wishlist <span>{wishlist.size}</span></button>
         </div>
-
-        {showSeriesRow && (
-          <div className="series-filter-row">
-            {ALL_SERIES.map((series) => {
-              const logo = seriesLogos[series];
-              return (
-                <button
-                  key={series}
-                  type="button"
-                  className={selectedSeries === series ? 'series-logo-btn active' : 'series-logo-btn'}
-                  aria-pressed={selectedSeries === series}
-                  onClick={() => setSelectedSeries(series)}
-                  title={series}
-                >
-                  {logo ? (
-                    <Image src={logo} alt={series} width={80} height={32} style={{ objectFit: 'contain' }} />
-                  ) : (
-                    <span className="series-logo-fallback">{series}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {selectedSeries === 'WISHLIST' && (
-          <p className="hint" style={{ marginTop: 8 }}>
-            {wishlist.size} skin{wishlist.size === 1 ? '' : 's'} wishlisted — {wishlistOriginitePrimeTotal} Originite Prime total
-          </p>
-        )}
+        <div className="skins-filters" role="group" aria-label="Skin availability">
+          {([['', 'All'], ['now', 'Available now'], ['shop', 'Shop'], ['reward', 'Rewards'], ['draw', 'Random draws'], ['upcoming', 'Upcoming']] as const).map(([value, label]) => (
+            <button key={value} type="button" className={`ghost${availabilityFilter === value ? ' active' : ''}`} aria-pressed={availabilityFilter === value} onClick={() => setAvailabilityFilter(value)}>{label}</button>
+          ))}
+        </div>
+        {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="hint">{wishlist.size} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total</p>}
       </header>
 
-      <main>
+      {currentSkins.length > 0 && (
+        <section className="skins-current" aria-label="Available now">
+          <div className="skins-current-heading">
+            <h2>Available now <span>{currentSkins.length}</span></h2>
+            <button className="ghost" type="button" onClick={() => { setAvailabilityFilter('now'); setSearch(''); setSelectedSeries(null); setWishlistOnly(''); }}>View all</button>
+          </div>
+          <div className="skins-current-row">
+            {directSkins.map(skin => {
+              const window = availability.get(skinKey(skin))!;
+              return <button type="button" key={skinKey(skin)} className="skins-current-item" onClick={() => openSkin(skin)}>
+                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt="" width={72} height={84} sizes="72px" />}
+                <span><strong>{skin.model}</strong><span>{skin.name}</span><small>{acquisitionLabel(window)}</small><small>Until {shortDate(window.endAt)}</small></span>
+              </button>;
+            })}
+          </div>
+          {drawCount > 0 && <button type="button" className="skins-draw-link" onClick={() => { setAvailabilityFilter('draw'); setSearch(''); setSelectedSeries(null); setWishlistOnly(''); }}>
+            Fashion Review · {drawCount} outfits in random draws <span aria-hidden="true">→</span>
+          </button>}
+        </section>
+      )}
+
+      <main className="skins-results">
+        <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
+          <button type="button" className="ghost" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); }}>Reset filters</button>
+        </div>
+        {availabilityFilter === 'draw' && <p className="skins-acquisition-note">Fashion Review gives a random outfit for 2,800 Orundum, up to twice per pool. Owning the entire pool gives a Review Ticket instead.</p>}
+        {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}
         {filteredSkins.length === 0 ? (
           // A silent empty grid reads as a broken page, not as "nothing
           // matched" -- same empty-state treatment the roster uses.
@@ -523,27 +387,23 @@ export default function SkinsGallery({ skins, seriesLogos, events, now }: Props)
               {active.model && <p className="hint">Model: {active.model}</p>}
               {active.illustrator && <p className="hint">Illustrator: {active.illustrator}</p>}
               {active.description && <p style={{ marginTop: 10 }}>{active.description}</p>}
-              {active.release && <p className="hint" style={{ marginTop: 10 }}>Release: {active.release}</p>}
+              {active.release && <p className="hint" style={{ marginTop: 10 }}>Original release: {availability.get(skinKey(active))?.live ? active.release.replace(/\[CN\]\s*/g, '') : active.release}</p>}
               {(() => {
+                const window = availability.get(skinKey(active));
                 const prices = parsePrices(active.howToObtain);
-                return prices.length > 0 ? (
-                  <p className="hint">Price: {formatPrices(prices)}</p>
-                ) : null;
+                return <>
+                  {window && <div className="skin-acquisition">
+                    <strong>{window.live ? 'Available now' : window.estimated ? 'Estimated availability' : 'Upcoming'} · {acquisitionLabel(window)}</strong>
+                    <p>{window.label} · {window.event.replace(/\[[^\]]*\]\s*/g, '')}</p>
+                    <p>{exactDate(window.startAt)} – {exactDate(window.endAt)}</p>
+                    {window.details && <p>{window.details}</p>}
+                    {window.source && <a href={window.source} target="_blank" rel="noreferrer">{window.estimated ? 'Schedule source' : 'Official announcement'} ↗</a>}
+                    {window.inventorySource && <> · <a href={window.inventorySource} target="_blank" rel="noreferrer">Pool contents ↗</a></>}
+                  </div>}
+                  {prices.length > 0 && <p className="hint">{window?.live && window.kind !== 'shop' ? 'Original shop price' : 'Catalogue price'}: {formatPrices(prices)}</p>}
+                  {active.howToObtain && <p className="hint">Original acquisition: {active.howToObtain}</p>}
+                </>;
               })()}
-              {(() => {
-                const daysUntil = daysUntilAvailable(active);
-                if (!active.availableNow && daysUntil === null) return null;
-                return (
-                  <>
-                    <p className="hint">
-                      Available: {active.availableNow ? 'NOW' : `In ${daysUntil} ${daysUntil === 1 ? 'day' : 'days'}`}
-                      {active.availableEventName && ` (${active.availableEventName})`}
-                    </p>
-                    {availabilityWindow(active) && <p className="hint">{availabilityWindow(active)}</p>}
-                  </>
-                );
-              })()}
-              {active.howToObtain && <p className="hint">How to obtain: {active.howToObtain}</p>}
             </div>
             <div className="modal-actions">
               <button type="button" className="primary" onClick={closeSkin}>
@@ -572,30 +432,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
      happened, and which nothing else would have reported. */
   assertSkinMatching(events.map((e) => e.name), rawSkins);
 
-  const availability = computeSkinCountdowns(rawSkins, events);
-  const skins: Skin[] = rawSkins.map((skin) => {
-    // fashionReviewDate only feeds computeSkinCountdowns above (server-side)
-    // -- the component never reads it directly, only the derived
-    // availableDate/availableEventName/isFashionReviewAvailability
-    // fields below, so there's no reason to ship the raw field to the
-    // client too. The "available in N days" countdown itself is
-    // deliberately NOT baked in here any more: a number derived from
-    // the build's clock goes stale the moment the build does, so the
-    // component recomputes it from availableDate against the reader's
-    // own clock instead (see daysUntilAvailable there).
-    const { fashionReviewDate, ...clientSkin } = skin;
-    const avail = availability.get(skin.name);
-    if (!avail) return clientSkin;
-    return {
-      ...clientSkin,
-      availableDate: avail.date.toISOString().slice(0, 10),
-      availableUntil: avail.endDate ? avail.endDate.toISOString().slice(0, 10) : undefined,
-      availableNow: avail.live,
-      availableEventName: avail.eventName,
-      isFashionReviewAvailability: avail.isFashionReview,
-    };
-  });
-
+  const skins = rawSkins;
   const seriesLogos: Record<string, string | null> = {};
   for (const skin of skins) {
     if (skin.seriesImage && !seriesLogos[skin.series]) {
@@ -610,5 +447,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
   // re-picks the reader's real time on mount (see the clock state
   // above). Rounded to the minute, matching that re-pick.
   const now = Math.floor(Date.now() / 60000) * 60000;
-  return { props: { skins, seriesLogos, events, now } };
+  return { props: { skins, seriesLogos, events, now, availabilityWindows: getSkinWindows(skins, events) } };
 });

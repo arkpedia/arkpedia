@@ -1,4 +1,7 @@
 export interface ServerDateInfo {
+  startAt?: string;
+  endAt?: string;
+  timingSource?: string;
   dateRange: string | null; // e.g. "2026/01/16–2026/02/06"
   note: string | null; // e.g. "as Arknights Global's 6th Anniversary event"
 }
