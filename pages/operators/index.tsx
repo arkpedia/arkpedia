@@ -575,6 +575,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     connectedFactions: op.connectedFactions || [],
     howToObtain: null,
     isFuture: op.isFuture ?? false,
+    ...(op.sourceRegion ? { sourceRegion: op.sourceRegion } : {}),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     characterInfo: op.characterInfo ? { 'Release Date': op.characterInfo['Release Date'] || '' } : null,
   }));

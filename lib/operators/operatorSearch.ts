@@ -1,6 +1,7 @@
 import { matchesSearch, normalizeForSearch, searchRelevance } from '../search/searchNormalize';
 
 export interface SearchableOperatorRecord {
+  sourceRegion?: 'CN' | 'Global';
   name: string;
   rarity: number | null;
   isFuture: boolean | null;

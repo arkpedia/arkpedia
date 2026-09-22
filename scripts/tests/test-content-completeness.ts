@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
 import farmingFixture from './fixtures/people-farming.json';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -47,4 +48,9 @@ test('farming importer ignores shop currency, first clears, CN guesses and non-r
   const tables = { stages: { valid: stage, unknown: stage, firstOnly: { ...stage, canBattleReplay: false } },
     stageValidInfo: { valid: { startTs: 100, endTs: 200 }, firstOnly: { startTs: 100, endTs: 200 } } };
   assert.deepEqual(buildEventFarming(tables, items), [{ stageId: 'valid', stage: 'TEST-8', itemId: 'material', material: 'material', startAt: '1970-01-01T00:01:40.000Z', endAt: '1970-01-01T00:03:21.000Z' }]);
+});
+
+test('a new runtime CN record can use published portrait art without a website rebuild',()=>{
+  assert.equal(getOperatorIconPath({name:'Future imported operator',rarity:6,isFuture:true,sourceRegion:'CN'}),'/six-star-icons/Future%20imported%20operator%20-%20Base.webp');
+  assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,isFuture:true}),'/future_operator_icons/Unverified%20placeholder.webp');
 });

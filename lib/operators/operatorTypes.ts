@@ -252,6 +252,7 @@ export interface Operator {
 // talents, modules, base stats, promotion tables, bios, voice credits,
 // ...) to the client when a page never reads any of that.
 export interface RosterOperator {
+  sourceRegion?: 'CN' | 'Global';
   name: string;
   rarity: number | null;
   class: string | null;

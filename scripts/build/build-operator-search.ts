@@ -8,6 +8,7 @@ const output = {
     name: operator.name,
     rarity: operator.rarity,
     isFuture: !isOperatorReleased(operator),
+    ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
   })),
 };
 

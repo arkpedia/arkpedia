@@ -12,7 +12,7 @@ const RARITY_WORDS: Record<number, string> = {
  * safe to call from client-rendered components as well as server-side code.
  * Encode the filename for Next image optimization, retaining accents and apostrophes.
  */
-export function getOperatorIconPath(op: Pick<Operator, 'name' | 'rarity' | 'isFuture'>): string {
+export function getOperatorIconPath(op: Pick<Operator, 'name' | 'rarity' | 'isFuture' | 'sourceRegion'>): string {
   const word = (op.rarity && RARITY_WORDS[op.rarity]) || 'six';
   const safeName = op.name.replace(/[\\/*?:"<>|]/g, '').trim();
   const published = `${word}-star-icons/${safeName} - Base.webp`;
@@ -20,6 +20,6 @@ export function getOperatorIconPath(op: Pick<Operator, 'name' | 'rarity' | 'isFu
   // before the Global release. Prefer that verified asset whenever it exists;
   // the old future_operator_icons folder is only a fallback for true
   // placeholders that have no rarity portrait yet.
-  if (!op.isFuture || publicFileExists(published)) return `/${word}-star-icons/${encodeURIComponent(`${safeName} - Base.webp`)}`;
+  if (!op.isFuture || op.sourceRegion || publicFileExists(published)) return `/${word}-star-icons/${encodeURIComponent(`${safeName} - Base.webp`)}`;
   return `/future_operator_icons/${encodeURIComponent(`${op.name}.webp`)}`;
 }
