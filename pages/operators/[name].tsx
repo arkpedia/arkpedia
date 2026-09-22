@@ -9,7 +9,8 @@ import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { getOperatorSearchResults, loadOperatorSearch } from '@/lib/operators/operatorSearch';
+import OperatorSearch from '@/components/operators/OperatorSearch';
+import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
@@ -78,12 +79,6 @@ interface AutoSynergyGroup {
   name: string;
   type: 'faction' | 'class';
   entries: AutoSynergyEntry[]; // contributors first (rarity desc), then members (rarity desc), capped at 10 total, no pagination
-}
-
-interface SearchableOperator {
-  name: string;
-  rarity: number | null;
-  isFuture: boolean | null;
 }
 
 /**
@@ -450,39 +445,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   const contentUrl = useContentUrl();
   const router = useRouter();
 
-  // --- Header search state ---
-  const [allOperatorNames, setAllOperatorNames] = useState<SearchableOperator[]>([]);
-  const [operatorSearchLoading, setOperatorSearchLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchHighlight, setSearchHighlight] = useState(0);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const searchWrapRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setOperatorSearchLoading(true);
-    loadOperatorSearch(contentUrl('/operator-search.json'), controller.signal)
-      .then((operators) => setAllOperatorNames(operators))
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        console.error(error);
-        setAllOperatorNames([]);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setOperatorSearchLoading(false);
-      });
-    return () => controller.abort();
-  }, [contentUrl]);
-
-  const searchResults = useMemo(
-    () => getOperatorSearchResults(allOperatorNames, searchQuery),
-    [searchQuery, allOperatorNames],
-  );
-
-  useEffect(() => {
-    setSearchHighlight(0);
-  }, [searchResults]);
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -530,39 +493,6 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       frame.style.removeProperty('--operator-mobile-art-height');
     };
   }, []);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  function goToOperator(name: string) {
-    setSearchQuery('');
-    setSearchOpen(false);
-    router.push(`/operators/${encodeURIComponent(name)}`);
-  }
-
-  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!searchOpen || searchResults.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSearchHighlight((h) => Math.min(h + 1, searchResults.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSearchHighlight((h) => Math.max(h - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const chosen = searchResults[searchHighlight];
-      if (chosen) goToOperator(chosen.name);
-    } else if (e.key === 'Escape') {
-      setSearchOpen(false);
-    }
-  }
 
   // --- Skin carousel state ---
   const [activeIndex, setActiveIndex] = useState(0);
@@ -921,59 +851,15 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
   return (
     <>
-      <div className={pageStyles.frame} ref={frameRef}>
-      <div className={`op-page-header-search ${pageStyles.searchHeader}`} ref={searchWrapRef}>
+      <div className={`${pageStyles.frame}${infoExpanded ? ` ${pageStyles.frameExpanded}` : ''}`} ref={frameRef}>
+      <div className={`op-page-header-search ${pageStyles.searchHeader}`}>
         <Link prefetch={false} href="/operators" className="op-back-to-roster-btn" aria-label="Back to operators">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16">
             <path d="M12 4 L6 10 L12 16" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span>Operators</span>
         </Link>
-        <div className="op-header-search-wrap">
-          <input
-            type="text"
-            className="op-header-search-input"
-            placeholder="Search operators…"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setSearchOpen(true);
-            }}
-            onFocus={() => setSearchOpen(true)}
-            onKeyDown={handleSearchKeyDown}
-            role="combobox"
-            aria-controls="operator-search-results"
-            aria-activedescendant={searchOpen && searchResults.length ? `operator-search-result-${searchHighlight}` : undefined}
-            aria-label="Search operators"
-            aria-autocomplete="list"
-            aria-expanded={searchOpen && searchResults.length > 0}
-          />
-          {searchOpen && searchQuery.trim() && (
-            <div className="op-header-search-results" id="operator-search-results" role="listbox" aria-label="Matching operators">
-              {searchResults.length > 0 ? (
-                searchResults.map((op, i) => (
-                  <button
-                    type="button"
-                    key={op.name}
-                    className={`op-header-search-result${i === searchHighlight ? ' active' : ''}`}
-                    id={`operator-search-result-${i}`}
-                    role="option"
-                    aria-selected={i === searchHighlight}
-                    onMouseEnter={() => setSearchHighlight(i)}
-                    onClick={() => goToOperator(op.name)}
-                  >
-                    <Image src={getOperatorIconPath(op as Operator)} alt="" width={28} height={28} />
-                    <span>{op.name}</span>
-                  </button>
-                ))
-              ) : operatorSearchLoading ? (
-                <div className="op-header-search-empty">Loading operators…</div>
-              ) : (
-                <div className="op-header-search-empty">No operators found.</div>
-              )}
-            </div>
-          )}
-        </div>
+        <OperatorSearch compact={infoExpanded} />
       </div>
 
       <main className={`${pageStyles.page}${infoExpanded ? ` ${pageStyles.infoExpanded}` : ''}`} onClick={(event) => {
@@ -1146,7 +1032,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                         }}
                       >
                         {iconPath && <Image src={iconPath} alt="" width={40} height={40} />}
-                        <span className={pageStyles.skillNumber}>S{i + 1}</span>
+                        <span className={pageStyles.skillNumber}>Skill {i + 1}</span>
                       </button>
                     );
                   })}

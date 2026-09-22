@@ -456,7 +456,7 @@
    remains the default; widening information is reversible and never changes the
    overall bounded workspace or the reserved ad gutters. */
 .frame .page { grid-template-columns: minmax(0, 7fr) 28px minmax(0, 5fr); gap: 8px; }
-.frame .page.infoExpanded { grid-template-columns: minmax(0, 5fr) 28px minmax(0, 7fr); }
+.frame .page.infoExpanded { grid-template-columns: minmax(0, 3fr) 28px minmax(0, 9fr); }
 .gallery { grid-column: 1; }
 .splitRail { grid-column: 2; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; }
 .splitRail::before { content: ''; position: absolute; inset-block: 8px; left: 50%; width: 1px; background: var(--line); }
@@ -485,3 +485,19 @@
   .gallery, .details { grid-column: 1; }
   .splitRail { display: none; }
 }
+
+/* Search occupies exactly the artwork column, even when the reading pane grows. */
+@media (min-width: 901px) {
+  .frame .searchHeader { width: calc((100% - 44px) * 7 / 12); margin-inline: 0; padding-inline: 0; }
+  .frameExpanded .searchHeader { width: calc((100% - 44px) / 4); }
+}
+.searchTrigger { display: grid; place-items: center; width: 36px; height: 33px; padding: 0; border: 1px solid var(--line-soft); border-radius: 6px; color: var(--text-dim); background: var(--panel-2); cursor: pointer; }
+.searchTrigger:hover, .searchTrigger:focus-visible { color: var(--teal); border-color: var(--teal); }
+.searchDialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 18px; box-sizing: border-box; overflow: auto; border: 1px solid var(--teal); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 18px 48px #0006; }
+.searchDialog::backdrop { background: #0008; }
+.searchDialog header { padding: 0; border: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.searchDialog h2 { margin: 0; font: 600 24px var(--font-display); }
+.searchDialog header button { padding: 0; min-width: 36px; min-height: 36px; font-size: 24px; }
+.searchDialog :global(.op-header-search-results) { position: static; width: 100%; max-height: 320px; margin-top: 8px; box-shadow: none; }
+.searchDialog :global(.op-header-search-result) { min-height: 44px; justify-content: flex-start; text-transform: none; letter-spacing: normal; font: 400 14px var(--font-body); }
+.searchDialog :global(.op-header-search-result span) { overflow-wrap: anywhere; }
