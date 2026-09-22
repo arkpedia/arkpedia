@@ -81,9 +81,9 @@ test('module status badges use the actual module code and expose mode restrictio
   const map = buildEnemyStatusOperatorMap(buildTechniqueGroups(), undefined, 500);
   const angelina = map.Levitate!.operators.find(op => op.name === 'Angelina');
   assert.equal(angelina?.sourceLabel, 'Module ISW-α (Stage 3) · Integrated Strategies');
-  assert.equal(map.Sleep!.operators.find(op => op.name === 'Blemishine')?.sourceLabel, 'S2');
-  assert.equal(map.Sleep!.operators.find(op => op.name === 'Erato')?.sourceLabel, "S1");
-  assert.equal(map.Sleep!.operators.find(op => op.name === 'Blacknight')?.sourceLabel, 'S2');
+  assert.equal(map.Sleep!.operators.find(op => op.name === 'Blemishine')?.sourceLabel, 'Skill 2');
+  assert.equal(map.Sleep!.operators.find(op => op.name === 'Erato')?.sourceLabel, 'Skill 1');
+  assert.equal(map.Sleep!.operators.find(op => op.name === 'Blacknight')?.sourceLabel, 'Skill 2');
   assert.ok(!map.Stun!.operators.some(op => ['Bryophyta', 'Conviction'].includes(op.name)), 'self/allied stun is not an enemy application');
 });
 
@@ -107,10 +107,10 @@ test('all displayed enemy statuses have sources, including Disarm and Paralysis'
   assert.deepEqual(Object.keys(ENEMY_STATUS_TECHNIQUES), [...ENEMY_STATUSES]);
   const map = buildEnemyStatusOperatorMap(buildTechniqueGroups(), undefined, 500);
   assert.equal(map.Disarm!.technique, 'Frighten');
-  assert.equal(map.Disarm!.operators.find(op => op.name === 'Degenbrecher')?.sourceLabel, 'T1');
+  assert.equal(map.Disarm!.operators.find(op => op.name === 'Degenbrecher')?.sourceLabel, 'Talent 1');
   assert.ok(map.Disarm!.operators.some(op => op.name === 'Laios'));
   assert.equal(map.Paralysis!.technique, 'Nervous Impairment');
-  assert.equal(map.Paralysis!.operators.find(op => op.name === 'Tragodia')?.sourceLabel, 'T1');
+  assert.equal(map.Paralysis!.operators.find(op => op.name === 'Tragodia')?.sourceLabel, 'Talent 1');
   assert.ok(map.Paralysis!.operators.some(op => op.name === 'Cairn'));
   assert.equal(map.Paralysis!.operators.find(op => op.name === 'Thorns')?.sourceLabel, 'Module LOR-Δ (Stage 1)', 'buildup comes from the trait, not the Stage 3 burst synergy');
 });

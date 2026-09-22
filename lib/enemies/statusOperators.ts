@@ -65,7 +65,7 @@ export function buildEnemyStatusOperatorMap(
           icon: entry.operatorIconPath,
           sourceIcon: source?.skillIconPath ?? null,
           sourceTitle: source ? `${source.label}${status === 'Paralysis' ? ' — Paralysis on Nervous Impairment burst' : ''}` : null,
-          sourceLabel: source ? `${source.skillNumber ? `S${source.skillNumber}` : source.label}${/\bin Integrated Strategies\b/i.test(source.sourceText || '') ? ' · Integrated Strategies' : ''}` : null,
+          sourceLabel: source ? `${source.skillNumber ? `Skill ${source.skillNumber}` : source.label.replace(/^T(\d+)$/, 'Talent $1')}${/\bin Integrated Strategies\b/i.test(source.sourceText || '') ? ' · Integrated Strategies' : ''}` : null,
         };
       }),
     };

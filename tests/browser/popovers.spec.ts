@@ -56,7 +56,7 @@ test('enemy status menus only open on click and show applicable sources', async 
   await expect(menu).toHaveCount(0);
   const sleep = page.getByRole('button', { name: /Sleep Vulnerable/i });
   await sleep.click();
-  await expect(page.getByRole('dialog').getByTitle('Deterring Radiance')).toBeVisible();
+  await expect(page.getByRole('dialog').getByTitle('Deterring Radiance')).toHaveText('Skill 2');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
@@ -69,6 +69,7 @@ test('Disarm and Paralysis expose their operator sources', async ({ page }) => {
     await trigger.click();
     const menu = page.getByRole('dialog', { name: `Operators who apply ${status}` });
     await expect(menu.getByRole('link', { name: new RegExp(operator) })).toBeVisible();
+    await expect(menu.getByRole('link', { name: new RegExp(operator) }).getByText('Talent 1', { exact: true })).toBeVisible();
     await anchored(page, trigger, menu);
     await menu.locator('img').evaluateAll(async images => { await Promise.all(images.map(image => (image as HTMLImageElement).decode().catch(() => {}))); });
     await page.screenshot({ path: test.info().outputPath(`${status.toLowerCase()}-popover.png`) });
