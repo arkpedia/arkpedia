@@ -94,6 +94,7 @@ jobs:
           NODE_ENV: production
         run: |
           node scripts/content/check-completeness.mjs
+          npx tsx scripts/build/build-operator-search.ts
           npm test
           npm run check:assets
           npm run check:published-assets

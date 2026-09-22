@@ -45,6 +45,7 @@ test('the shared operator search catalogue uses the current release source', () 
     name: operator.name,
     rarity: operator.rarity,
     isFuture: !isOperatorReleased(operator),
+    ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
   }));
   assert.deepEqual(operatorSearch.operators, expected);
 });
