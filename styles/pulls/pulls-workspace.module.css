@@ -1,4 +1,4 @@
-.page { padding: 26px 0 64px; display: grid; gap: 20px; }
+.page { padding-block: 26px 64px; display: grid; gap: 20px; }
 .page h1,.page h2 { margin: 0; letter-spacing: 0; text-transform: none; font-family: var(--font-display); }
 .page h1 { font-size: 34px; line-height: 1.15; }
 .page h2 { font-size: 24px; }

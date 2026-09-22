@@ -8,6 +8,9 @@ export interface HeadhuntingBanner {
   category: string;
   cn_date: string | null;
   global_date: string | null;
+  global_date_estimated?: boolean;
+  schedule_anchor?: string;
+  cnPoolId?: string;
   global_window?: GameWindowTimes;
   cn_window?: GameWindowTimes;
   banner_image?: string | null;

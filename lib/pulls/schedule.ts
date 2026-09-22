@@ -6,39 +6,48 @@ import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBanners';
 import { ALL_BANNERS, type UpcomingBanner } from './pulls';
 import { pullArtworkUrl } from './artwork';
 import { validPlanDate } from './plan';
+import { resolvePullBannerWindows } from './bannerWindows';
 
 export const pullBannerKey = (name: string) => name.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 
 /** Rewards are generated separately, but their snapshot must not pin old banner
  * dates after the site's schedule is corrected. Resolve dates at page build/ISR.
  * Unknown windows are omitted instead of reviving a stale estimated date. */
-export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current: readonly { name: string; aliases?: string[]; global_date: string | null; global_date_estimated?: boolean; global_window?: { timingSource?: string | null } }[]): UpcomingBanner[] {
-  const byName = new Map(current.flatMap(b => [b.name, ...(b.aliases ?? [])].map(name => [pullBannerKey(name), b] as const)));
-  return rewards.flatMap(banner => {
-    const latest = byName.get(pullBannerKey(banner.name));
-    const dates = latest?.global_date?.split(/[–—]/).map(part => {
+type CurrentPullBanner = { name: string; aliases?: string[]; global_date: string | null; global_date_estimated?: boolean;
+  global_window?: { timingSource?: string | null }; category?: string; six_stars?: string[]; rate_up_six_stars?: string[];
+  banner_image?: string | null; linked_event?: string | null; cnPoolId?: string;
+};
+export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current: readonly CurrentPullBanner[]): UpcomingBanner[] {
+  const byName = new Map(rewards.flatMap(b => [b.name, ...(b.aliases ?? [])].map(name => [pullBannerKey(name), b] as const)));
+  return current.flatMap(latest => {
+    const banner = [latest.name, ...(latest.aliases ?? [])].map(name => byName.get(pullBannerKey(name))).find(Boolean);
+    const dates = latest.global_date?.split(/[–—]/).map(part => {
       const match = part.trim().match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
       return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` : '';
     });
     if (!dates || dates.length !== 2 || !validPlanDate(dates[0]) || !validPlanDate(dates[1]) || dates[1] < dates[0]) return [];
     const [start, end] = dates;
+    const featured = latest.six_stars ?? banner?.sixStars ?? [];
     return [{
+      rerun: false,
+      op: 0, opSource: 'none' as const, cnAct: null, inBacklog: false, ruleType: null,
+      freeDaily: 0, freeTicket: 0, freePulls: 0, wishActId: null, wishDays: 0, wishOrundum: 0, hasShop: false,
       ...banner,
-      name: latest!.name,
-      aliases: latest!.aliases ?? [],
-      start,
-      end,
-      // A client/official timing source confirms the window. The legacy flag
-      // remains accepted for old saved snapshots, but new data records exact
-      // provenance in global_window instead of maintaining a second truth.
-      datesEstimated: !latest?.global_window?.timingSource || latest?.global_date_estimated === true,
+      name: latest.name, aliases: latest.aliases ?? [], start, end,
+      category: latest.category ?? banner?.category ?? 'standard',
+      sixStars: featured,
+      alsoRatedUp: (latest.rate_up_six_stars ?? banner?.alsoRatedUp ?? []).filter(name => !featured.includes(name)),
+      image: latest.banner_image === undefined ? banner?.image ?? null : latest.banner_image,
+      event: latest.linked_event === undefined ? banner?.event ?? null : latest.linked_event,
+      poolId: latest.cnPoolId ?? banner?.poolId ?? null,
+      datesEstimated: !latest.global_window?.timingSource || latest.global_date_estimated === true,
       days: (Date.parse(end) - Date.parse(start)) / 86400000,
     }];
   });
 }
 export function getPullSchedule(): UpcomingBanner[] {
   const estimated = new Set(getAllEventListings().filter(event => event.isPredicted).map(event => pullBannerKey(event.name)));
-  return resolvePullSchedule(ALL_BANNERS, getAllHeadhuntingBanners()).map(banner => ({
+  return resolvePullSchedule(ALL_BANNERS, resolvePullBannerWindows(getAllHeadhuntingBanners())).map(banner => ({
     ...banner, image: pullArtworkUrl(banner.image), datesEstimated: banner.datesEstimated || (!!banner.event && estimated.has(pullBannerKey(banner.event))),
   }));
 }

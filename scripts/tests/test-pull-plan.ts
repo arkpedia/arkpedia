@@ -508,3 +508,45 @@ test('forecast savings deduct paid pulls only through the selected date', () => 
   assert.equal(savingsAfterPlanAt(336, rows, '2027-01-31'), 220);
   assert.equal(savingsAfterPlanAt(10, rows, '2027-01-31'), -106);
 });
+
+
+test('current catalogue discovers banners and replaces stale lineups and artwork', async () => {
+  const { resolvePullSchedule } = await import('../../lib/pulls/schedule');
+  const [fresh] = resolvePullSchedule([], [{name:'New pool',global_date:'2027/02/19–2027/03/05',six_stars:['Makoto Yuki'],cnPoolId:'LINKAGE_77_0_1'}]);
+  assert.equal(fresh.poolId, 'LINKAGE_77_0_1');
+  assert.deepEqual(fresh.sixStars, ['Makoto Yuki']);
+  assert.equal(fresh.freePulls, 0); // no invented rewards without a source
+  assert.equal(fresh.datesEstimated, true);
+  const [updated] = resolvePullSchedule([{...a, name:'Old name',freePulls:24}], [{name:'New name',aliases:['Old name'],global_date:'2027/02/19–2027/03/05',global_window:{timingSource:'client'},six_stars:['New featured'],rate_up_six_stars:['Returning'],banner_image:'/new.webp'}]);
+  assert.equal(updated.freePulls, 24);
+  assert.equal(updated.image, '/new.webp');
+  assert.deepEqual(updated.sixStars, ['New featured']);
+  assert.deepEqual(updated.alsoRatedUp, ['Returning']);
+  assert.equal(updated.datesEstimated, false);
+});
+
+test('banner forecasts reuse calendar event windows without extending banners to event endings', async () => {
+  const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
+  const { getAllEvents } = await import('../../lib/schedule/schedule');
+  const { getAllEventListings } = await import('../../lib/home/frontPageContent');
+  const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBanners');
+  const events = getAllEvents();
+  const calendar = getAllEventListings(new Date('2026-09-22T12:00:00Z'));
+  const banner = getAllHeadhuntingBanners().find(b=>b.name.includes('Persona 3'))!;
+  const event = calendar.find(e=>e.name===banner.linked_event)!;
+  assert.ok(event.isPredicted);
+  const [forecast] = resolvePullBannerWindows([banner], events, calendar);
+  assert.equal(forecast.global_date?.split('–')[0], event.dateRange.split('–')[0]);
+  assert.equal(forecast.global_date_estimated, true);
+  const movedCalendar = calendar.map(e=>e===event?{...e,dateRange:'2027/03/01–2027/03/30'}:e);
+  const [moved] = resolvePullBannerWindows([banner], events, movedCalendar);
+  assert.equal(moved.global_date, '2027/03/01–2027/03/15');
+  const confirmed = {...banner,global_date:'2027/04/01–2027/04/15',global_window:{timingSource:'client'}};
+  assert.equal(resolvePullBannerWindows([confirmed],events,movedCalendar)[0].global_date, confirmed.global_date);
+  assert.equal(resolvePullBannerWindows([banner],[],[])[0].global_date, null);
+});
+
+test('versioned catalogue artwork retains its query after filename escaping', async () => {
+  const { pullArtworkUrl } = await import('../../lib/pulls/artwork');
+  assert.equal(pullArtworkUrl('/banners/Pool [175].webp?v=abc123'), '/banners/Pool%20%5B175%5D.webp?v=abc123');
+});

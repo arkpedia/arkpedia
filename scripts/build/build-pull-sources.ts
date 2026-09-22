@@ -25,6 +25,8 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { resolvePullBannerWindows } from '../../lib/pulls/bannerWindows';
+import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 
 const ROOT = process.cwd();
 const STAGES = path.join(ROOT, 'data', 'stages');
@@ -525,7 +527,7 @@ function upcomingBanners(
     /** Whether the event shipping with this banner has a token shop. */
     hasShop: boolean;
   }
-  const raw = JSON.parse(fs.readFileSync(BANNERS, 'utf8')) as Record<string, unknown>[];
+  const raw = resolvePullBannerWindows(JSON.parse(fs.readFileSync(BANNERS, 'utf8')) as HeadhuntingBanner[]);
   const cnOp = cnOriginiteByActivity();
   const cnGacha = JSON.parse(fs.readFileSync(CN_GACHA, 'utf8')) as Parameters<typeof freePullsByPool>[0];
   const freeByPool = freePullsByPool(cnGacha);
@@ -584,8 +586,8 @@ function upcomingBanners(
     /* The banner IS a CN gacha pool, found the same way its event is: by the CN
        date the banner records. That gives the pool's own rule type, which is
        what decides free pulls -- our file's `category` disagrees with it. */
-    let pool: (typeof cnPools)[number] | null = null;
-    if (cnStart) {
+    let pool: (typeof cnPools)[number] | null = cnPools.find(pool => pool.gachaPoolId === b.cnPoolId) ?? null;
+    if (!pool && cnStart) {
       let best = Infinity;
       for (const p of cnPools) {
         if (!p.openTime) continue;
