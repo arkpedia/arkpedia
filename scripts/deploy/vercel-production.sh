@@ -4,6 +4,8 @@
 # API accepts even though its actual payload is modest.
 set -euo pipefail
 
-npx vercel build --prod --yes
+VERCEL_SCOPE="${VERCEL_SCOPE:-mocchibirds}"
+
+npx vercel build --prod --yes --scope "$VERCEL_SCOPE"
 node scripts/deploy/prepare-vercel-output.mjs
-npx vercel deploy --prebuilt --prod --archive=tgz --yes
+npx vercel deploy --prebuilt --prod --archive=tgz --yes --scope "$VERCEL_SCOPE"
