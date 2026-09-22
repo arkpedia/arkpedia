@@ -235,8 +235,11 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         for (const m of matches) {
           if (!m.name) continue;
           if (talentDetectedNames.has(m.name)) continue; // talent takes precedence -- already covered, don't double count
-          if (seenModuleNames.has(m.name)) continue; // already badged from this module's higher stage
-          seenModuleNames.add(m.name);
+          // The Stage 1 trait and later talent upgrade are independent. A
+          // Stage 3 synergy must not hide the trait that applies the status.
+          const effectKey = `${m.name}:${s.effectLabel || s.stage}`;
+          if (seenModuleNames.has(effectKey)) continue;
+          seenModuleNames.add(effectKey);
           addBadge(m.name, m.description, m.viaBranch, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
             label: `Module ${moduleCode} (${s.stage})`,
             skillIconPath: null,

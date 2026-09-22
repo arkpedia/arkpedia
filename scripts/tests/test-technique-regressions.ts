@@ -112,7 +112,7 @@ test('all displayed enemy statuses have sources, including Disarm and Paralysis'
   assert.equal(map.Paralysis!.technique, 'Nervous Impairment');
   assert.equal(map.Paralysis!.operators.find(op => op.name === 'Tragodia')?.sourceLabel, 'T1');
   assert.ok(map.Paralysis!.operators.some(op => op.name === 'Cairn'));
-  assert.ok(!map.Paralysis!.operators.some(op => op.name === 'Thorns'), 'burst synergy is not Nervous Impairment buildup');
+  assert.equal(map.Paralysis!.operators.find(op => op.name === 'Thorns')?.sourceLabel, 'Module LOR-Δ (Stage 1)', 'buildup comes from the trait, not the Stage 3 burst synergy');
 });
 
 test('Disarm and Paralysis sources exclude synergy and amplification', () => {
