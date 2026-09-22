@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { getAllOperators } from '../../lib/operators/operators';
 import { createElement, Fragment } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import voiceData from '../../data/operator-voice-lines.json';
@@ -9,7 +10,8 @@ import { getCurrentOperatorVoiceCredits, type OperatorVoiceData } from '../../li
 const operators = voiceData.operators as Record<string, OperatorVoiceData>;
 
 test('voice manifest covers the operator roster', () => {
-  assert.equal(Object.keys(operators).length, 427);
+  const ids = getAllOperators().filter(op => op.internalName).map(op => op.internalName!);
+  assert.deepEqual(Object.keys(operators).sort(), [...new Set(ids)].sort());
   for (const [id, operator] of Object.entries(operators)) {
     assert.ok(operator.lines.length > 0, `${id} has no transcript rows`);
     assert.equal(new Set(operator.lines.map(line => line.id)).size, operator.lines.length, `${id} has duplicate line IDs`);
