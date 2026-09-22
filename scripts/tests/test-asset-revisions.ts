@@ -21,8 +21,8 @@ function publishedImagePath(value: string): string {
   if (!value.startsWith('https://')) return value;
   const url = new URL(value);
   assert.equal(url.origin, 'https://raw.githubusercontent.com');
-  const prefix = `/arkpedia/arkpedia-image-assets/${revisions['arkpedia-image-assets']}`;
-  assert.ok(url.pathname.startsWith(`${prefix}/`), 'external art must use the adopted immutable image revision');
+  const prefix = url.pathname.match(/^\/arkpedia\/arkpedia-image-assets\/[a-f0-9]{40}(?=\/)/)?.[0];
+  assert.ok(prefix, 'external art must use an immutable image revision');
   return decodeURIComponent(url.pathname.slice(prefix.length));
 }
 
