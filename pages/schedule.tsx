@@ -1,3 +1,4 @@
+import { operatorIconOverrides } from '@/lib/operators/operatorIconOverrides';
 import { useContentTable } from '@/lib/content/context';
 import contentColors from '@/data/event_colors.json';
 import contentMaterials from '@/data/event_materials.json';
@@ -56,6 +57,7 @@ interface Props {
 type ViewKey = 'calendar' | 'events';
 
 function iconPathFor(name: string, rarity: 6 | 5): string {
+  if (operatorIconOverrides[name]) return operatorIconOverrides[name].icon;
   const folder = rarity === 6 ? 'six-star-icons' : 'five-star-icons';
   return `/${folder}/${name} - Base.webp`;
 }

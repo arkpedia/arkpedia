@@ -57,6 +57,7 @@ export function getAllSkins(): Skin[] {
   }
 
   return raw.map((skin) => {
+    if (skin.image?.startsWith('https://raw.githubusercontent.com/')) return skin;
     if (!skin.model) return { ...skin, image: null };
 
     // New catalogue entries already carry their verified rarity-specific asset

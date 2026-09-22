@@ -200,7 +200,7 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
         start: window.start,
         end: window.end,
         isOngoing: window.start <= now && now < window.end,
-        isPredicted: false,
+        isPredicted: /estimated|predicted/i.test(e.global?.note || ''),
       });
       continue;
     }

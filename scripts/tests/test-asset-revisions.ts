@@ -16,6 +16,16 @@ test('public Arkpedia media uses commit-pinned raw GitHub delivery', () => {
   assert.equal(cdn.template, 'https://raw.githubusercontent.com/arkpedia/{repository}/{revision}/{path}');
 });
 
+// Explicit pins are also used by independently mergeable upstream content PRs.
+function publishedImagePath(value: string): string {
+  if (!value.startsWith('https://')) return value;
+  const url = new URL(value);
+  assert.equal(url.origin, 'https://raw.githubusercontent.com');
+  const prefix = `/arkpedia/arkpedia-image-assets/${revisions['arkpedia-image-assets']}`;
+  assert.ok(url.pathname.startsWith(`${prefix}/`), 'external art must use the adopted immutable image revision');
+  return decodeURIComponent(url.pathname.slice(prefix.length));
+}
+
 test('schedule artwork uses Arkpedia image-asset paths', () => {
   const published = new Set(externalAssets.files);
   const directory = path.join(process.cwd(), 'data', 'events');
@@ -23,8 +33,9 @@ test('schedule artwork uses Arkpedia image-asset paths', () => {
     const events = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8')) as Array<{ name: string; poster?: string | null }>;
     for (const event of events) {
       if (!event.poster) continue;
-      assert.match(event.poster, /^\/event-poster\/.+\.webp$/, `${file}: ${event.name}`);
-      assert.ok(published.has(event.poster.slice(1)), `${file}: ${event.name} references unpublished ${event.poster}`);
+      const asset = publishedImagePath(event.poster);
+      assert.match(asset, /^\/event-poster\/.+\.(?:webp|jpg)$/, `${file}: ${event.name}`);
+      assert.ok(published.has(asset.slice(1)), `${file}: ${event.name} references unpublished ${event.poster}`);
     }
   }
 });
@@ -34,8 +45,9 @@ test('every headhunting banner has published artwork', () => {
   const banners = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'headhunting_banners.json'), 'utf8')) as Array<{ name: string; banner_image?: string | null }>;
   assert.ok(banners.length > 400, 'banner history unexpectedly shrank');
   for (const banner of banners) {
-    assert.match(banner.banner_image || '', /^\/headhunting-banner-images\/.+\.webp$/, `${banner.name} has no normalized artwork path`);
-    assert.ok(published.has(banner.banner_image!.slice(1)), `${banner.name} references unpublished ${banner.banner_image}`);
+    const asset = publishedImagePath(banner.banner_image || '');
+    assert.match(asset, /^\/headhunting-banner-images\/.+\.(?:webp|jpg)$/, `${banner.name} has no normalized artwork path`);
+    assert.ok(published.has(asset.slice(1)), `${banner.name} references unpublished ${banner.banner_image}`);
   }
 });
 

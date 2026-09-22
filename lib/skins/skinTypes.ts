@@ -1,5 +1,6 @@
 export interface Skin {
   name: string;
+  searchAliases?: string[];
   series: string;
   seriesImage: string | null;
   code: string | null;

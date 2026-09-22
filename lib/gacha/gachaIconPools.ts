@@ -1,3 +1,4 @@
+import { operatorIconOverrides } from '@/lib/operators/operatorIconOverrides';
 import { GachaItem } from './gachaTypes';
 import { publicFiles } from '@/lib/assets/publicAssets';
 
@@ -31,9 +32,20 @@ export interface GachaIconPools {
  * must never be discovered by reading this checkout's public directory.
  */
 export function getGachaIconPools(): GachaIconPools {
+  const read = (key: keyof typeof FOLDERS, rarity: number) => {
+    const pool = readFolder(FOLDERS[key]);
+    for (const [name, entry] of Object.entries(operatorIconOverrides)) {
+      if (entry.rarity !== rarity) continue;
+      const index = pool.findIndex(item => item.name === name);
+      const item = { name, icon: entry.icon };
+      if (index < 0) pool.push(item);
+      else pool[index] = item;
+    }
+    return pool;
+  };
   return {
-    six: readFolder(FOLDERS.six),
-    five: readFolder(FOLDERS.five),
+    six: read('six', 6),
+    five: read('five', 5),
     four: readFolder(FOLDERS.four),
     three: readFolder(FOLDERS.three),
   };

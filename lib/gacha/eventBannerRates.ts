@@ -1,3 +1,4 @@
+import { classifyLimitedBanner } from './limitedBannerType';
 import type { HeadhuntingBanner } from './headhuntingBanners';
 
 export interface FeaturedOperatorRate {
@@ -36,7 +37,7 @@ export function getFeaturedOperatorRates(banner: HeadhuntingBanner): FeaturedOpe
 
   switch (banner.pull_type) {
     case 'limited':
-      sixStars.slice(0, 2).forEach((name) => result.push({ name, rarity: 6, percent: 35 }));
+      sixStars.slice(0, 2).forEach((name) => result.push({ name, rarity: 6, percent: classifyLimitedBanner(banner) === 'Crossover' ? 50 / Math.max(1, sixStars.length) : 35 }));
       rateUps.forEach((name) => result.push({ name, rarity: 6, percent: null, returningLimited: true }));
       fiveStars.forEach((name) => result.push({ name, rarity: 5, percent: 50 / Math.max(1, fiveStars.length) }));
       fourStars.forEach((name) => result.push({ name, rarity: 4, percent: 50 / Math.max(1, fourStars.length) }));

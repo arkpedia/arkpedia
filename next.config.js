@@ -154,6 +154,7 @@ const nextConfig = {
     // not an in-place overwrite).
     minimumCacheTTL: 31536000,
     remotePatterns: [
+      { protocol: 'https', hostname: 'raw.githubusercontent.com', pathname: '/arkpedia/**' },
       {
         protocol: 'https',
         hostname: '*.ytimg.com', // YouTube video thumbnails -- covers i.ytimg.com plus the numbered CDN subdomains (i1/i2/i3/i4.ytimg.com) YouTube load-balances across

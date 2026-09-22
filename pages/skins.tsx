@@ -211,7 +211,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const filteredSkins = useMemo(() => {
     const base = !search.trim()
       ? seriesFiltered
-      : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series}`, search));
+      : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series} ${s.release || ''} ${(s.searchAliases || []).join(' ')}`, search));
 
     const searching = search.trim().length > 0;
     if (!sortByAvailableDate && !searching && !['now', 'shop', 'reward', 'draw'].includes(availabilityFilter)) return base;
