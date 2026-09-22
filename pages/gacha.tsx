@@ -1725,7 +1725,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       {isCurrentlyActive && <span className="gacha-banner-sidebar-live-badge">LIVE NOW</span>}
                       <span className="gacha-banner-sidebar-text">
                         <span className="gacha-banner-sidebar-name">{getDisplayFeaturedSixStarsWithRerunLabel(b, releaseLookup).join(' / ') || bannerDisplayName(b.name)}</span>
-                        <span className="gacha-banner-sidebar-date">{b.global_date || b.cn_date || ''}</span>
+                        <span className="gacha-banner-sidebar-date">{!b.global_date && b.cn_date ? 'CN · ' : ''}{b.global_date || b.cn_date || ''}</span>
                       </span>
                     </button>
                   );
@@ -1777,8 +1777,9 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 {!((isOrienteering && !orienteeringConfirmed) || (isKernelLocating && !kernelLocatingConfirmed)) && (
                   <section className="op-section gacha-featured-section">
                     <h2 style={{ marginBottom: 4 }}>
-                      {banner.label} <span className="gacha-banner-date">({selectedBanner?.global_date || selectedBanner?.cn_date || 'date unknown'})</span>
+                      {banner.label} <span className="gacha-banner-date">({!selectedBanner?.global_date && selectedBanner?.cn_date ? 'CN · ' : ''}{selectedBanner?.global_date || selectedBanner?.cn_date || 'date unknown'})</span>
                     </h2>
+                    {!selectedBanner?.global_date && <p className="hint">Global release date unannounced.</p>}
                     {selectedBanner?.banner_image && (
                       <Image
                         src={selectedBanner.banner_image}
