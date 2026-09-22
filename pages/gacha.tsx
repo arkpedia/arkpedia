@@ -1,3 +1,4 @@
+import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -1715,14 +1716,14 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       type="button"
                       className={`gacha-banner-sidebar-item${b.name === selectedBannerName ? ' active' : ''}`}
                       onClick={() => changeBanner(b.name)}
-                      title={b.name}
+                      title={bannerDisplayName(b.name)}
                     >
                       {b.banner_image && (
                         <Image src={b.banner_image} alt="" fill sizes="260px" className="gacha-banner-sidebar-bg" />
                       )}
                       {isCurrentlyActive && <span className="gacha-banner-sidebar-live-badge">LIVE NOW</span>}
                       <span className="gacha-banner-sidebar-text">
-                        <span className="gacha-banner-sidebar-name">{getDisplayFeaturedSixStarsWithRerunLabel(b, releaseLookup).join(' / ') || b.name}</span>
+                        <span className="gacha-banner-sidebar-name">{getDisplayFeaturedSixStarsWithRerunLabel(b, releaseLookup).join(' / ') || bannerDisplayName(b.name)}</span>
                         <span className="gacha-banner-sidebar-date">{b.global_date || b.cn_date || ''}</span>
                       </span>
                     </button>
@@ -1750,7 +1751,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
           <div className="gacha-main-col">
             {category === 'other' && selectedBanner ? (
               <section className="op-section">
-                <h2>{selectedBanner.name}</h2>
+                <h2>{bannerDisplayName(selectedBanner.name)}</h2>
                 <p className="hint">
                   This banner&apos;s type couldn&apos;t be confidently determined from the scraped data, so no
                   simulator is available for it. Showing what&apos;s known below.

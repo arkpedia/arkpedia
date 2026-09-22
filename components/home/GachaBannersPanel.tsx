@@ -1,3 +1,4 @@
+import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import CountdownTimer from '../ui/CountdownTimer';
@@ -26,10 +27,10 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
       <h2>Gacha Banners</h2>
       <div className="front-gacha-main">
         <Link prefetch={false} href={`/gacha?banner=${encodeURIComponent(active.name)}`} className="front-gacha-poster-wrap">
-          {active.banner_image && <Image src={active.banner_image} alt={active.name} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+          {active.banner_image && <Image src={active.banner_image} alt={bannerDisplayName(active.name)} fill sizes="600px" style={{ objectFit: 'contain' }} />}
         </Link>
         <div className="front-gacha-info">
-          <span className="front-gacha-name">{active.name}</span>
+          <span className="front-gacha-name">{bannerDisplayName(active.name)}</span>
           <CountdownTimer start={active.start} target={active.end} />
         </div>
       </div>
@@ -42,7 +43,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
               key={b.name}
               className={`front-gacha-thumb${i === activeIndex ? ' active' : ''}`}
               onClick={() => onSelect(i)}
-              title={b.name}
+              title={bannerDisplayName(b.name)}
             >
               {b.banner_image ? (
                 /* The source is a 1024x323 banner and the thumb is a square crop OUT
@@ -51,7 +52,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
                    sized for the crop, not the box -- but only just: 384 was
                    overshooting the other way, pulling an 828px rendition into a
                    52px slot on every retina visit. */
-                <Image src={b.banner_image} alt={b.name} width={192} height={61} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <Image src={b.banner_image} alt={bannerDisplayName(b.name)} width={192} height={61} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <span className="front-gacha-thumb-fallback">{b.name[0]}</span>
               )}

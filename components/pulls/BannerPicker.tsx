@@ -1,3 +1,4 @@
+import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { useState } from 'react';
 import type { UpcomingBanner } from '@/lib/pulls/pulls';
 import type { BannerOdds } from '@/lib/pulls/probability';
@@ -16,12 +17,12 @@ export default function BannerPicker({ banners, selected, odds, onAdd }: {
         const added = selected.includes(banner.name);
         const operators = odds[banner.name]?.operators.filter(op => op.kind === 'featured' && op.rarity === 6) ?? [];
         const names = operators.length ? operators.map(op => op.name).join(' · ') : banner.sixStars.join(' · ');
-        return <button type="button" key={banner.name} className={styles.bannerChoice} onClick={() => { if (!added) onAdd(banner); }} aria-disabled={added} aria-label={`${added ? 'Added' : 'Add'} ${names || banner.name}`}>
+        return <button type="button" key={banner.name} className={styles.bannerChoice} onClick={() => { if (!added) onAdd(banner); }} aria-disabled={added} aria-label={`${added ? 'Added' : 'Add'} ${names || bannerDisplayName(banner.name)}`}>
           <span className={styles.pickerPortraits}>{operators.filter(op => op.icon).slice(0, 2).map(op => (
             // eslint-disable-next-line @next/next/no-img-element
             <ContentImg key={op.name} src={op.icon!} alt="" width="68" height="68" />
           ))}</span>
-          <span className={styles.pickerCopy}><strong>{names || banner.name}</strong><small>{banner.name.replace(/^\[[^\]]*\]\s*/, '')}</small><small>{new Date(`${banner.start}T12:00:00Z`).toLocaleDateString('en-GB', {day:'numeric',month:'short'})} – {new Date(`${banner.end}T12:00:00Z`).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}</small></span>
+          <span className={styles.pickerCopy}><strong>{names || bannerDisplayName(banner.name)}</strong><small>{bannerDisplayName(banner.name).replace(/^\[[^\]]*\]\s*/, '')}</small><small>{new Date(`${banner.start}T12:00:00Z`).toLocaleDateString('en-GB', {day:'numeric',month:'short'})} – {new Date(`${banner.end}T12:00:00Z`).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}</small></span>
           <span className={styles.pickerAdd} aria-hidden="true">{added ? '✓' : '+'}</span>
         </button>;
       })}
