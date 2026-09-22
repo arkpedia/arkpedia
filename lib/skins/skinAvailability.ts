@@ -18,6 +18,7 @@ export interface SkinWindow {
   inventorySource?: string;
   details?: string;
   estimated?: boolean;
+  newRelease?: boolean;
 }
 export interface SkinCountdown extends SkinWindow {
   live: boolean;
@@ -89,3 +90,12 @@ export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], as
 }
 
 export const acquisitionLabel = (window: SkinWindow) => window.kind === 'shop' ? 'Outfit shop' : window.kind === 'reward' ? 'Event reward' : 'Random draw';
+
+/** Current releases precede reissues, independent of catalogue/scrape order. */
+export function compareCurrentSkins(a: Skin, b: Skin, availability: Map<string, SkinCountdown>): number {
+  const first = availability.get(skinKey(a)), second = availability.get(skinKey(b));
+  const isNew = (skin: Skin, window: SkinCountdown | undefined) => window?.newRelease ?? confirmed.entries.some(entry =>
+    entry.newRelease && entry.startAt === window?.startAt && entry.kind === window?.kind && entry.skinIds.includes(skinKey(skin)));
+  return Number(isNew(b, second)) - Number(isNew(a, first))
+    || Date.parse(second?.startAt ?? '1970-01-01') - Date.parse(first?.startAt ?? '1970-01-01');
+}

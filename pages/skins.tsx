@@ -5,7 +5,7 @@ import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useSta
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
-import { acquisitionLabel, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -61,7 +61,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   // build-time availability flags. Initial server/client clocks still agree.
   const windows = useMemo(() => availabilityWindows ?? getSkinWindows(skins, events), [skins, events, availabilityWindows]);
   const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
-  const currentSkins = useMemo(() => skins.filter(skin => availability.get(skinKey(skin))?.live), [skins, availability]);
+  const currentSkins = useMemo(() => skins.filter(skin => availability.get(skinKey(skin))?.live).sort((a, b) => compareCurrentSkins(a, b, availability)), [skins, availability]);
   const directSkins = currentSkins.filter(skin => availability.get(skinKey(skin))?.kind !== 'draw');
   const drawCount = currentSkins.length - directSkins.length;
   const availabilityFilter = query.availability;
@@ -153,6 +153,24 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const setSortByAvailableDate = (v: boolean) => setSortRaw(v ? 'available' : '');
   const SKIN_PAGE_SIZE = 30;
   const [visibleSkinCount, setVisibleSkinCount] = useState(SKIN_PAGE_SIZE);
+  const resultsRef = useRef<HTMLElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [resultsJump, setResultsJump] = useState(0);
+  function showAvailableResults(filter: string) {
+    setAvailabilityFilter(filter);
+    setSearch('');
+    setSelectedSeries(null);
+    setWishlistOnly('');
+    setResultsJump(value => value + 1);
+  }
+  useEffect(() => {
+    if (!resultsJump) return;
+    resultsRef.current?.focus({ preventScroll: true });
+    resultsRef.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  }, [resultsJump]);
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -196,12 +214,17 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series}`, search));
 
     const searching = search.trim().length > 0;
-    if (!sortByAvailableDate && !searching) return base;
+    if (!sortByAvailableDate && !searching && !['now', 'shop', 'reward', 'draw'].includes(availabilityFilter)) return base;
 
     return [...base].sort((a, b) => {
       if (searching) {
         const relDiff = searchRelevance(`${a.model || ''} ${a.name}`, search) - searchRelevance(`${b.model || ''} ${b.name}`, search);
         if (relDiff !== 0) return relDiff;
+      }
+      if (availability.get(skinKey(a))?.live && availability.get(skinKey(b))?.live
+        && (sortByAvailableDate || ['now', 'shop', 'reward', 'draw'].includes(availabilityFilter))) {
+        const currentOrder = compareCurrentSkins(a, b, availability);
+        if (currentOrder) return currentOrder;
       }
       if (!sortByAvailableDate) return 0;
       const aWindow = availability.get(skinKey(a)), bWindow = availability.get(skinKey(b));
@@ -209,11 +232,23 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       return (aWindow ? Date.parse(aWindow.live ? aWindow.endAt : aWindow.startAt) : Infinity)
         - (bWindow ? Date.parse(bWindow.live ? bWindow.endAt : bWindow.startAt) : Infinity);
     });
-  }, [seriesFiltered, search, sortByAvailableDate, availability]);
+  }, [seriesFiltered, search, sortByAvailableDate, availability, availabilityFilter]);
 
   useEffect(() => {
     setVisibleSkinCount(SKIN_PAGE_SIZE);
   }, [search, selectedSeries, wishlistOnly, availabilityFilter, sortByAvailableDate]);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || visibleSkinCount >= filteredSkins.length) return;
+    const observer = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      observer.disconnect();
+      setVisibleSkinCount(count => Math.min(count + SKIN_PAGE_SIZE, filteredSkins.length));
+    }, { rootMargin: '600px 0px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleSkinCount, filteredSkins]);
 
   function renderSkinCards(list: Skin[], keyPrefix: string) {
     return list.map((skin, i) => {
@@ -283,9 +318,9 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               setWishlistOnly(wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? '' : '1');
             }}>☆ Wishlist <span>{wishlist.size}</span></button>
         </div>
-        <div className="skins-filters" role="group" aria-label="Skin availability">
+        <div className="seg-row seg-row-compact skins-filters" role="group" aria-label="Skin availability">
           {([['', 'All'], ['now', 'Available now'], ['shop', 'Shop'], ['reward', 'Rewards'], ['draw', 'Random draws'], ['upcoming', 'Upcoming']] as const).map(([value, label]) => (
-            <button key={value} type="button" className={`ghost${availabilityFilter === value ? ' active' : ''}`} aria-pressed={availabilityFilter === value} onClick={() => setAvailabilityFilter(value)}>{label}</button>
+            <button key={value} type="button" className="seg" aria-pressed={availabilityFilter === value} onClick={() => setAvailabilityFilter(value)}>{label}</button>
           ))}
         </div>
         {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="hint">{wishlist.size} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total</p>}
@@ -295,24 +330,24 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
         <section className="skins-current" aria-label="Available now">
           <div className="skins-current-heading">
             <h2>Available now <span>{currentSkins.length}</span></h2>
-            <button className="ghost" type="button" onClick={() => { setAvailabilityFilter('now'); setSearch(''); setSelectedSeries(null); setWishlistOnly(''); }}>View all</button>
+            <button className="ghost" type="button" onClick={() => showAvailableResults('now')}>View all</button>
           </div>
           <SkinShelfScroller>
             {directSkins.map(skin => {
               const window = availability.get(skinKey(skin))!;
               return <button type="button" key={skinKey(skin)} className="skins-current-item" onClick={() => openSkin(skin)}>
-                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt="" width={180} height={210} sizes="180px" />}
+                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt="" width={180} height={156} sizes="180px" />}
                 <span><strong>{skin.model}</strong><span>{skin.name}</span><small>{acquisitionLabel(window)}</small><small>Until {shortDate(window.endAt)}</small></span>
               </button>;
             })}
           </SkinShelfScroller>
-          {drawCount > 0 && <button type="button" className="skins-draw-link" onClick={() => { setAvailabilityFilter('draw'); setSearch(''); setSelectedSeries(null); setWishlistOnly(''); }}>
+          {drawCount > 0 && <button type="button" className="skins-draw-link" onClick={() => showAvailableResults('draw')}>
             Fashion Review · {drawCount} outfits in random draws <span aria-hidden="true">→</span>
           </button>}
         </section>
       )}
 
-      <main className="skins-results">
+      <main className="skins-results" id="skin-results" ref={resultsRef} tabIndex={-1} aria-label="Skin gallery">
         <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
           <button type="button" className="ghost" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); }}>Reset filters</button>
         </div>
@@ -331,14 +366,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               {renderSkinCards(filteredSkins.slice(0, visibleSkinCount), '')}
             </div>
             {visibleSkinCount < filteredSkins.length && (
-              <div className="roster-show-more-row">
-                <p className="hint">
-                  Showing {Math.min(visibleSkinCount, filteredSkins.length)} of {filteredSkins.length}.
-                </p>
-                <button type="button" className="ghost" onClick={() => setVisibleSkinCount((c) => c + SKIN_PAGE_SIZE)}>
-                  Show more
-                </button>
-              </div>
+              <div ref={loadMoreRef} className="skins-load-sentinel" aria-hidden="true" />
             )}
           </>
         )}

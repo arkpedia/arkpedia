@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import skins from '../../data/skins.json';
 import confirmed from '../../data/skin-availability-windows.json';
-import { computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '../../lib/skins/skinAvailability';
+import { compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '../../lib/skins/skinAvailability';
 import { getAllEvents } from '../../lib/schedule/schedule';
 import type { Skin } from '../../lib/skins/skinTypes';
 
@@ -65,4 +65,16 @@ test('expired build flags cannot revive a closed shop', () => {
   const stale = catalogue.map(skin => ({ ...skin, availableNow: true, availableDate: '2026-09-01' }));
   const result = computeSkinCountdowns(stale, [], new Date('2027-01-01T00:00:00Z'));
   assert.equal([...result.values()].filter(window => window.live).length, 0);
+});
+
+test('new current outfits lead reissues, including older published window metadata', () => {
+  const result = at('2026-09-22T12:00:00Z');
+  for (const legacy of [false, true]) {
+    if (legacy) for (const window of result.values()) delete window.newRelease;
+    const direct = catalogue.filter(skin => { const window = result.get(skinKey(skin)); return window?.live && window.kind !== 'draw'; })
+      .sort((a, b) => compareCurrentSkins(a, b, result));
+    assert.deepEqual(direct.slice(0, 3).map(skinKey), ['Surtr / Prelude to Transcendence', 'Nymph / Blooming Reverie', 'Mousse / Hydration Time']);
+    assert(direct.findIndex(skin => skin.model === 'Ethan') >= 3);
+    assert(direct.findIndex(skin => skin.model === 'Qiubai') >= 3);
+  }
 });
