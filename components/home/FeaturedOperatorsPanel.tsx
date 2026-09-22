@@ -1,5 +1,6 @@
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
+import { getBannerLineup, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
 import { GachaBannerWithWindow } from '@/lib/home/frontPageContent';
 
 // Icon paths follow the same "<Name> - Base.webp" naming convention as
@@ -11,9 +12,14 @@ function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
   return `/${folder}/${name} - Base.webp`;
 }
 
-interface FeaturedOp {
-  name: string;
-  rarity: 6 | 5 | 4;
+function OperatorRow({ operators }: { operators: BannerOperator[] }) {
+  return <div className="front-featured-ops-row">
+    {operators.map(op => <Link prefetch={false} key={`${op.rarity}-${op.name}`} href={`/operators/${encodeURIComponent(op.name)}`} className="front-featured-op" title={op.name}>
+      <Image src={iconPathFor(op.name, op.rarity)} alt="" width={52} height={52} />
+      <span className="front-featured-op-name">{op.name}</span>
+      <span className="front-featured-op-rarity">{op.rarity}★</span>
+    </Link>)}
+  </div>;
 }
 
 export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBannerWithWindow | null }) {
@@ -26,18 +32,7 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
     );
   }
 
-  const sixStars = [...(banner.six_stars || []), ...(banner.rate_up_six_stars || [])];
-  const fiveStars = banner.five_stars || [];
-  const fourStars = banner.four_stars || [];
-
-  // All rarities together in display order (6★ first), rather than
-  // separate rows per rarity -- the rarity itself is shown per-card
-  // instead.
-  const featured: FeaturedOp[] = [
-    ...sixStars.map((name) => ({ name, rarity: 6 as const })),
-    ...fiveStars.map((name) => ({ name, rarity: 5 as const })),
-    ...fourStars.map((name) => ({ name, rarity: 4 as const })),
-  ];
+  const { featured, returning } = getBannerLineup(banner);
 
   if (featured.length === 0) {
     return (
@@ -51,20 +46,12 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
   return (
     <section className="front-panel front-featured-ops-panel">
       <h2>Featured Operators</h2>
-      <div className="front-featured-ops-row">
-        {featured.map((op) => (
-          <Link prefetch={false}
-            key={`${op.rarity}-${op.name}`}
-            href={`/operators/${encodeURIComponent(op.name)}`}
-            className="front-featured-op"
-            title={op.name}
-          >
-            <Image src={iconPathFor(op.name, op.rarity)} alt={op.name} width={52} height={52} />
-            <span className="front-featured-op-name">{op.name}</span>
-            <span className="front-featured-op-rarity">{op.rarity}★</span>
-          </Link>
-        ))}
-      </div>
+      <OperatorRow operators={featured} />
+      {returning.length > 0 && <div className="front-returning-ops">
+        <h3>Returning limited operators</h3>
+        <p className="hint">{RETURNING_LIMITED_NOTE}</p>
+        <OperatorRow operators={returning} />
+      </div>}
     </section>
   );
 }

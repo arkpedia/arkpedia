@@ -481,3 +481,7 @@ body.front-page-no-scroll {
   text-decoration: none;
   color: inherit;
 }
+/* Secondary rate-ups remain visually separate from the featured lineup. */
+.front-returning-ops { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.front-returning-ops h3 { font-size: 13px; margin: 0 0 4px; }
+.front-returning-ops .hint { margin: 0 0 8px; font-size: 11px; line-height: 1.4; }

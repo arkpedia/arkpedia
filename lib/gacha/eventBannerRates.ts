@@ -1,4 +1,4 @@
-import { HeadhuntingBanner } from './headhuntingBanners';
+import type { HeadhuntingBanner } from './headhuntingBanners';
 
 export interface FeaturedOperatorRate {
   name: string;
@@ -10,6 +10,7 @@ export interface FeaturedOperatorRate {
   // size, which isn't known from a single banner's own data) -- shown
   // without a percentage rather than a guessed one.
   percent: number | null;
+  returningLimited?: boolean;
 }
 
 /**
@@ -36,7 +37,7 @@ export function getFeaturedOperatorRates(banner: HeadhuntingBanner): FeaturedOpe
   switch (banner.pull_type) {
     case 'limited':
       sixStars.slice(0, 2).forEach((name) => result.push({ name, rarity: 6, percent: 35 }));
-      rateUps.forEach((name) => result.push({ name, rarity: 6, percent: null }));
+      rateUps.forEach((name) => result.push({ name, rarity: 6, percent: null, returningLimited: true }));
       fiveStars.forEach((name) => result.push({ name, rarity: 5, percent: 50 / Math.max(1, fiveStars.length) }));
       fourStars.forEach((name) => result.push({ name, rarity: 4, percent: 50 / Math.max(1, fourStars.length) }));
       return result;
@@ -63,4 +64,13 @@ export function getFeaturedOperatorRates(banner: HeadhuntingBanner): FeaturedOpe
       fourStars.forEach((name) => result.push({ name, rarity: 4, percent: null }));
       return result;
   }
+}
+
+/** Old published event payloads predate returningLimited. Only the limited
+ * schema has exactly two 35% 6-stars followed by unpercentaged secondary rates. */
+export function splitEventBannerRates(operators: FeaturedOperatorRate[]) {
+  const legacyLimited = operators.filter(op => op.rarity === 6 && op.percent === 35).length === 2;
+  const isReturning = (op: FeaturedOperatorRate) => op.returningLimited === true
+    || (op.returningLimited === undefined && legacyLimited && op.rarity === 6 && op.percent === null);
+  return { featured: operators.filter(op => !isReturning(op)), returning: operators.filter(isReturning) };
 }

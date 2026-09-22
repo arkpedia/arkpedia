@@ -1,3 +1,4 @@
+import { RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -1806,6 +1807,23 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           />
                         );
                       })}
+                      {banner.fiveStarFeatured.map((item) => {
+                        const pct = fiveStarOdds.find((o) => o.item.name === item.name);
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={5}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                    </div>
+                    {(banner.rateUpSixStars || []).length > 0 && <>
+                      <h3 style={{ marginTop: 16, marginBottom: 4 }}>Returning limited operators</h3>
+                      <p className="hint">{RETURNING_LIMITED_NOTE}</p>
+                      <div className="gacha-featured-row">
                       {(banner.rateUpSixStars || []).map((item) => {
                         const pct = sixStarOdds.find((o) => o.item.name === item.name);
                         const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
@@ -1820,18 +1838,11 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           />
                         );
                       })}
-                      {banner.fiveStarFeatured.map((item) => {
-                        const pct = fiveStarOdds.find((o) => o.item.name === item.name);
-                        return (
-                          <FeaturedChip
-                            key={item.name}
-                            item={item}
-                            rarity={5}
-                            percent={pct ? pct.weight * 100 : undefined}
-                            count={state.obtainedCounts[item.name]}
-                          />
-                        );
-                      })}
+                      </div>
+                    </>}
+                    {banner.otherSixStarPool.some(item => (banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes' && state.pullCount === 0) || state.obtainedCounts[item.name]) && <>
+                      <h3 style={{ marginTop: 16, marginBottom: 8 }}>Other available operators</h3>
+                      <div className="gacha-featured-row">
                       {banner.otherSixStarPool
                         .filter((item) => {
                           const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
@@ -1853,6 +1864,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         );
                       })}
                     </div>
+                    </>}
                     <div ref={featuredSectionEndRef} />
 
                     <div className="gacha-info-toggle-row">

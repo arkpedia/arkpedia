@@ -5,7 +5,8 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
-import { getFeaturedOperatorRates, FeaturedOperatorRate } from '@/lib/gacha/eventBannerRates';
+import { RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
+import { getFeaturedOperatorRates, splitEventBannerRates, FeaturedOperatorRate } from '@/lib/gacha/eventBannerRates';
 import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { Skin } from '@/lib/skins/skinTypes';
@@ -300,15 +301,17 @@ export default function EventDetailPage({
                     </div>
                   )}
                   <p className="hint">{bannerName}</p>
-                  <div className="event-detail-featured-ops">
-                    {featuredOperators.map((op) => (
-                      <div key={`${op.rarity}-${op.name}`} className="event-detail-featured-op">
+                  {Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
+                    <h3>{group === 'featured' ? 'Featured operators' : 'Returning limited operators'}</h3>
+                    {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
+                    <div className="event-detail-featured-ops">
+                      {operators.map(op => <div key={`${op.rarity}-${op.name}`} className="event-detail-featured-op">
                         <Image src={iconPathFor(op.name, op.rarity)} alt={op.name} width={52} height={52} />
                         <span>{op.name}</span>
                         <span className="hint">{op.percent !== null ? `${op.percent.toFixed(1)}%` : `${op.rarity}★`}</span>
-                      </div>
-                    ))}
-                  </div>
+                      </div>)}
+                    </div>
+                  </div>)}
                 </>
               ) : (
                 <p className="hint">No banner linked to this event.</p>
