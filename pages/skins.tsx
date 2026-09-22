@@ -9,6 +9,7 @@ import { acquisitionLabel, computeSkinCountdowns, getSkinWindows, skinKey, type 
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
+import SkinShelfScroller from '@/components/skins/SkinShelfScroller';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
@@ -296,15 +297,15 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
             <h2>Available now <span>{currentSkins.length}</span></h2>
             <button className="ghost" type="button" onClick={() => { setAvailabilityFilter('now'); setSearch(''); setSelectedSeries(null); setWishlistOnly(''); }}>View all</button>
           </div>
-          <div className="skins-current-row">
+          <SkinShelfScroller>
             {directSkins.map(skin => {
               const window = availability.get(skinKey(skin))!;
               return <button type="button" key={skinKey(skin)} className="skins-current-item" onClick={() => openSkin(skin)}>
-                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt="" width={72} height={84} sizes="72px" />}
+                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt="" width={180} height={210} sizes="180px" />}
                 <span><strong>{skin.model}</strong><span>{skin.name}</span><small>{acquisitionLabel(window)}</small><small>Until {shortDate(window.endAt)}</small></span>
               </button>;
             })}
-          </div>
+          </SkinShelfScroller>
           {drawCount > 0 && <button type="button" className="skins-draw-link" onClick={() => { setAvailabilityFilter('draw'); setSearch(''); setSelectedSeries(null); setWishlistOnly(''); }}>
             Fashion Review · {drawCount} outfits in random draws <span aria-hidden="true">→</span>
           </button>}
