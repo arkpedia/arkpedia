@@ -6,7 +6,7 @@ import OperatorRelationPopover, { RelatedOperator } from './OperatorRelationPopo
 const LANGUAGE_CODES: Record<string, string> = {
   Japanese: 'JP', Chinese: 'CN', Mandarin: 'CN', English: 'EN', Korean: 'KR',
   Spanish: 'ES', Russian: 'RU', Italian: 'IT', German: 'DE', French: 'FR',
-  'Regional Chinese': 'CN-R', Collaboration: 'EN',
+  'Regional Chinese': 'CN-R', Collaboration: 'CO',
 };
 
 function CreditIcon({ kind }: { kind: 'Illustrator' | 'Original designer' | 'Voice actor' }) {

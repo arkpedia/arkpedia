@@ -117,3 +117,14 @@ test('voice transcript markup is supported and rendered safely', () => {
     '&lt;script&gt;alert(1)&lt;/script&gt;',
   );
 });
+
+test('Persona voice credits share Japanese actor identities with existing operators', () => {
+  for (const id of ['char_4217_makoto', 'char_4218_aigis', 'char_4219_yukari', 'char_4220_kormr']) {
+    assert.equal(operators[id].packs.find(pack => pack.id === 'linkage')?.label, 'Japanese');
+  }
+  const makoto = operators.char_4217_makoto.packs.find(pack => pack.id === 'linkage')!;
+  assert.deepEqual(makoto.actors, ['Akira Ishida']);
+  for (const id of ['char_250_phatom', 'char_1042_phatm2']) {
+    assert.deepEqual(operators[id].packs.find(pack => pack.id === 'jp')!.actors, makoto.actors);
+  }
+});

@@ -226,7 +226,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
           <StyledSelect label="Voice language" value={pack?.id ?? ''} className={styles.packSelect}
             options={data.packs.map(item => ({
               value: item.id,
-              label: packCode(item.id),
+              label: item.id === 'linkage' ? ({ Japanese: 'JP', English: 'EN', Mandarin: 'CN', Korean: 'KR' }[item.label] ?? 'CO') : packCode(item.id),
               group: item.status === 'legacy' ? 'Previous recordings' : 'Current recordings',
             }))}
             onChange={setPackId} />

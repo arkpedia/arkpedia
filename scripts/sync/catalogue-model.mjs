@@ -44,6 +44,15 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     // Refresh official Global text for a CN record by ID, including renamed operators.
     const promote = global && (op?.isFuture || op?.sourceRegion === 'CN');
     if (op && !global) op.sourceRegion = 'CN';
+    // Backfill missing overview text even when a CN record already exists.
+    // Only promote existing text when the official Global record becomes available.
+    const profile = list(tables.handbook?.handbookDict?.[id]?.storyTextAudio)
+      .find(group => ['Profile', '客观履历', '学生概况'].includes(group.storyTitle) && group.stories?.length === 1);
+    const overview = profile && stripRichText(profile.stories[0].storyText);
+    if (op && overview && (!op.review?.official || promote)) {
+      op.review = { ...op.review, official: overview };
+      if (!isNew && !promote) changes.push(id);
+    }
     if (!isNew && !promote) continue;
     const name = sourceName(character, global);
     if (!safeName(name)) throw new Error(`Operator ${id} has no usable name`);
@@ -57,6 +66,7 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
         characterVoices: {}, otherLanguages: {}, basicInfo: {}, physicalExam: {}, stats: stats(character), isFuture: true,
       };
     }
+    if (overview) op.review = { ...op.review, official: overview };
     const oldName = op.name;
     // The mechanics importer checks the regional name. Restore the public name afterwards.
     const mechanics = localizeReleasedMechanics({ ...op, name: character.name }, tables);

@@ -82,3 +82,19 @@ test('existing Global banner identities retain rerun and edition qualifiers',()=
   assert.equal(result.banners[0].name,banner.name);
   assert.deepEqual(result.renames,[]);
 });
+
+test('existing CN overview is backfilled and replaced with official Global text on release', () => {
+  const imported = reconcileOperators({ operators: [], cn, en: empty }).operators;
+  const op = imported.find((o: any) => o.internalName === 'char_4217_makoto');
+  assert.match(op.review.official, /结城理/);
+  delete op.review;
+  const repaired = reconcileOperators({ operators: imported, cn, en: empty });
+  const fixed = repaired.operators.find((o: any) => o.internalName === op.internalName);
+  assert.match(fixed.review.official, /结城理/);
+  assert(repaired.changes.includes(op.internalName));
+  const global = structuredClone(cn);
+  global.characters[op.internalName].name = 'Makoto Yuki';
+  global.handbook.handbookDict[op.internalName].storyTextAudio = [{ storyTitle: 'Profile', stories: [{ storyText: 'Official Global profile', unLockType: 'DIRECT' }] }];
+  const released = reconcileOperators({ operators: repaired.operators, cn, en: global });
+  assert.equal(released.operators.find((o: any) => o.internalName === op.internalName).review.official, 'Official Global profile');
+});
