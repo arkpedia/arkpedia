@@ -138,7 +138,10 @@ export default function EnemiesPage({ siblings, contents, firstSlug, statusOpera
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/enemies", async () => {
   const summaries = getEnemySummaries().filter((e) => !e.hidden);
   const first = summaries[0];
-  const availableNames = new Set(getAllOperators().filter(isOperatorReleased).map(operator => operator.name));
+  // Array#filter passes (value, index, array). isOperatorReleased's optional
+  // second argument is a timestamp, so passing the function directly makes the
+  // array index look like "now" and marks almost the whole roster unreleased.
+  const availableNames = new Set(getAllOperators().filter(operator => isOperatorReleased(operator)).map(operator => operator.name));
   return {
     props: {
       // The grid's first paint. Everything else still comes from

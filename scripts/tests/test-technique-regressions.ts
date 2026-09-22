@@ -4,6 +4,8 @@ import { detectAutoTechniques } from '../../lib/techniques/autoTechniques';
 import { findSynergyMatches } from '../../lib/techniques/synergyDetection';
 import { buildTechniqueGroups } from '../../lib/techniques/buildTechniqueGroups';
 import { buildEnemyStatusOperatorMap, ENEMY_STATUS_TECHNIQUES } from '../../lib/enemies/statusOperators';
+import { getAllOperators } from '../../lib/operators/operators';
+import { isOperatorReleased } from '../../lib/operators/operatorAvailability';
 
 const techniques = (texts: string[], name = 'Fixture') =>
   detectAutoTechniques(6, texts, name).map((entry) => entry.name);
@@ -60,5 +62,15 @@ test('enemy status recommendations come from the shared technique index', () => 
     assert.equal(group?.technique, technique);
     assert.ok((group?.operators.length ?? 0) > 0);
     assert.ok((group?.operators.length ?? 0) <= 4);
+  }
+});
+
+test('enemy status recommendations remain populated after filtering to released operators', () => {
+  const releasedNames = new Set(getAllOperators()
+    .filter(operator => isOperatorReleased(operator))
+    .map(operator => operator.name));
+  const statusOperators = buildEnemyStatusOperatorMap(buildTechniqueGroups(), releasedNames);
+  for (const status of Object.keys(ENEMY_STATUS_TECHNIQUES)) {
+    assert.ok(statusOperators[status as keyof typeof statusOperators], `${status} should have a released operator`);
   }
 });
