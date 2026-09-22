@@ -1,9 +1,19 @@
 # Game data sources
 
 
-Everything on the site that states a fact about the game is derived from one of
-these, not typed in by hand. The refresh pipeline (`scripts/sync/refresh-stage-data.sh`)
-pulls from them; each script's own header says which it uses and why.
+Upstream sources are inputs to import jobs, not runtime dependencies for game
+records. `arkpedia-data/source/` is the reviewed canonical dataset; generated
+`release/` payloads and Arkpedia's asset repositories are the website's delivery
+sources. Import jobs may read external game dumps; operator pages must not fetch
+those dumps directly. See [runtime content](runtime-content.md).
+
+Game mechanics should come from extracted regional client tables. Some historical
+module descriptions and editorial records still originate from earlier imports;
+they are not all refreshed by the stat synchronizer. Do not claim they have been
+verified merely because the release passes schema validation. Preserve regional
+provenance, use stable game IDs, and compare disputed values with the extracted
+tables before publishing a correction. Reviews and recommendations are editorial,
+not game-dump facts.
 
 | Source | What it provides | Used by |
 | --- | --- | --- |
@@ -16,7 +26,27 @@ pulls from them; each script's own header says which it uses and why.
 | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2/tree/voice) | Public upstream recordings mirrored into Arkpedia's language-specific voice repositories. Each mirror records its upstream revision in `source.json`. | `build-operator-voices.mjs` |
 | [isHarryh/Ark-Voice](https://github.com/isHarryh/Ark-Voice) | Recording inventory used to identify audio absent from current dialogue tables, including unused promotion lines and replaced recordings. | `build-operator-voices.mjs` |
 
-Dates are reconciled against the client tables rather than announcements:
+Confirmed official announcement times take priority; client tables reconcile
+estimated windows when no confirmed announcement time is recorded:
 `sync-event-windows.mjs` overwrites estimated windows in `data/events/events_*.json`
 and `data/headhunting_banners.json` once `activity_table`/`gacha_table` ship a real
 one, which is also what the skins page's availability countdowns are computed from.
+
+## Module data and derived displays
+
+- `uniequip_table.json` provides stable module IDs, names, types, missions and costs.
+- `battle_equip_table.json` provides stage attributes and trait/talent candidates.
+- `sync-module-stats.mjs` reconciles attribute bonuses. It does **not** refresh all
+  stored effect descriptions; those require a separately validated import.
+- `sync-operator-english.mjs` matches existing modules by ID or their exact module
+  code/name. A shared `Upgrade` type is not an identity. CN-only records survive
+  an English refresh instead of being replaced by another Global module.
+- `getModuleStageEffects` derives the selected level's active descriptions from
+  the stored stage changes. Traits carry forward; later versions of the same
+  named effect replace earlier versions. This is display composition, not stat
+  addition or a source of new game numbers.
+
+Keep one editable canonical record. Generated page payloads, search indexes and
+bundled fallback snapshots are intentional derived copies; regenerate them from
+that record, never correct them independently. This rule matters more than whether
+records are encoded as JSON or stored in a database.

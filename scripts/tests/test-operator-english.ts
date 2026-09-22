@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error JavaScript importer is also used directly by the refresh job.
-import { localizeOperator, localizeReleasedMechanics, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
+import { localizeOperator, localizeReleasedMechanics, officialModules, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
 
 const operator = {
   internalName: 'char_test', review: { official: '中文简介', editor: 'Keep the editorial review.' },
@@ -93,4 +93,23 @@ test('a newly released operator adopts official Global mechanics while preservin
   assert.equal(next.baseSkills[0].name, 'Official Base Skill');
   assert.deepEqual(next.characterVoices, { English: 'Current Actor' });
   assert.deepEqual(next.potential.totalCost, unreleased.potential.totalCost);
+});
+
+
+test('module refresh preserves independent X/Y/alpha stages and CN-only modules', () => {
+  const current = [
+    { type: 'Upgrade', name: 'DEC-X: Old X', stages: [{ effectText: 'X trait' }] },
+    { type: 'Upgrade', name: 'DEC-Y: Old Y', stages: [{ effectText: 'Y trait' }] },
+    { type: 'Upgrade', name: 'ISW-α: Old alpha', stages: [{ effectText: 'IS trait' }] },
+    { type: 'Upgrade', name: 'DEC-Δ: CN only', stages: [{ effectText: 'CN trait' }] },
+  ];
+  const equipDict = Object.fromEntries([['x', 'DEC', 'X'], ['y', 'DEC', 'Y'], ['a', 'ISW', 'A']].map(([id, prefix, suffix], index) => [id, {
+    uniEquipId: id, charId: 'char_test', type: 'ADVANCED', typeName1: prefix, typeName2: suffix,
+    uniEquipName: `Current ${id}`, charEquipOrder: index,
+  }]));
+  const updated = officialModules('char_test', { equipDict }, current);
+  assert.deepEqual(updated.map((m: { stages: { effectText: string }[] }) => m.stages[0].effectText), ['X trait', 'Y trait', 'IS trait', 'CN trait']);
+  assert.equal(updated[2].name, 'ISW-α: Current a');
+  assert.deepEqual(updated.slice(0, 3).map((m: { moduleId?: string }) => m.moduleId), ['x', 'y', 'a']);
+  assert.deepEqual(officialModules('char_test', { equipDict }, updated), updated, 'repeat refresh is idempotent');
 });

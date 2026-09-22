@@ -49,7 +49,7 @@ Pages remain in `pages/` because their paths define public URLs. Their component
 
 Voice repositories use `current/` for current recordings and `legacy/<upstream commit>/` for preserved recordings. Those revision folders are provenance, not temporary clutter.
 
-A separate `arkpedia-data` repository has been discussed but is not part of this restructuring. Existing game-data paths are preserved to keep imports and refresh pipelines compatible. Raw poll submissions stay private.
+[`arkpedia-data`](https://github.com/arkpedia/arkpedia-data) owns reviewed game records in `source/` and generated runtime payloads in `release/`. The application reads a validated, immutable release selected by `live/current.json`. See [runtime content](development/runtime-content.md). Application `data/` records are a bundled build/development fallback, not a separately maintained canonical dataset. Refresh jobs hydrate them from `arkpedia-data` before compiling. Raw poll submissions stay private.
 
 ## Adding or changing artwork
 

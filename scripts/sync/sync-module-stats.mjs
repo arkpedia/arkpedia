@@ -41,7 +41,8 @@ export function reconcileOperatorModuleStats(operator, equipIds, equipDict, batt
   const changes = [];
   for (const local of modules) {
     const prefix = /^([^:]+):/.exec(local.name || '')?.[1].replace(/[^A-Z0-9]/gi, '').toLowerCase();
-    const upstream = upgrades.find((entry) => `${entry.typeName1 || ''}${entry.typeName2 || ''}`.replace(/[^A-Z0-9]/gi, '').toLowerCase() === prefix)
+    const upstream = upgrades.find((entry) => entry.uniEquipId === local.moduleId)
+      || upgrades.find((entry) => `${entry.typeName1 || ''}${entry.typeName2 || ''}`.replace(/[^A-Z0-9]/gi, '').toLowerCase() === prefix)
       || upgrades.find((entry) => local.name?.includes(entry.uniEquipName));
     // A CN-only second module can coexist with the one already shipped on
     // Global. Leave it alone until its own Global client record arrives.

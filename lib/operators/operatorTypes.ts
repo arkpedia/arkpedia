@@ -113,6 +113,7 @@ export interface ModuleMission {
 }
 
 export interface OperatorModule {
+  moduleId?: string; // immutable uniEquipId from the regional game dump
   type: 'Original' | 'Upgrade';
   icon?: string | null;
   badgeText?: string | null;

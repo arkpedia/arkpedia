@@ -1,3 +1,4 @@
+import { getModuleStageEffects } from '@/lib/operators/moduleEffects';
 import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticPaths, GetStaticProps } from 'next';
@@ -1353,11 +1354,11 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             <p>
                               <OperatorStatModifiers text={activeStage.attributesIncreased} />
                             </p>
-                            {activeStage.effectLabel && (
-                              <p>
-                                <b>{activeStage.effectLabel}:</b> {highlightStats(activeStage.effectText)}
+                            {getModuleStageEffects(activeModule, activeModuleStage).map(effect => (
+                              <p key={effect.label}>
+                                <b>{effect.label}:</b> {highlightStats(effect.text)}
                               </p>
-                            )}
+                            ))}
                             <div className={pageStyles.costs}>
                               <label htmlFor="module-cost-scope">Material costs</label>
                               <StyledSelect id="module-cost-scope" label="Module material costs" className={pageStyles.costSelect}

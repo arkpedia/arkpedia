@@ -82,24 +82,38 @@ function officialBaseSkills(characterId, building) {
   });
 }
 
-function officialModules(characterId, modules, current) {
-  const previous = new Map(rows(current).map(module => [module.type, module]));
-  return Object.values(modules?.equipDict ?? {})
+export function officialModules(characterId, modules, current) {
+  const previous = rows(current);
+  const matched = new Set();
+  const normalizeCode = value => String(value ?? '').replace(/α/gi, 'A').replace(/β/gi, 'B').replace(/δ/gi, 'D').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const updated = Object.values(modules?.equipDict ?? {})
     .filter(module => module.charId === characterId)
     .sort((a, b) => a.charEquipOrder - b.charEquipOrder)
     .map(module => {
       const type = module.type === 'INITIAL' ? 'Original' : 'Upgrade';
-      const prefix = type === 'Original' ? '' : `${module.typeName1}-${module.typeName2}: `;
-      const prior = previous.get(type) ?? {};
+      const suffix = { A: 'α', B: 'β', D: 'Δ' }[module.typeName2] ?? module.typeName2;
+      const code = `${module.typeName1}-${suffix}`;
+      const prefix = type === 'Original' ? '' : `${code}: `;
+      // Several upgrades share type=Upgrade. Never copy one module's stages,
+      // costs or trait into another merely because they have the same type.
+      const prior = previous.find(entry => entry.moduleId === module.uniEquipId)
+        ?? previous.find(entry => entry.type === type && (type === 'Original'
+          || normalizeCode(entry.name?.split(':')[0]) === normalizeCode(code)
+          || entry.name?.split(':').slice(1).join(':').trim() === module.uniEquipName))
+        ?? { stages: [] };
+      matched.add(prior);
       const missions = (Array.isArray(module.missionList) ? module.missionList : [])
         .map(id => modules.missionList?.[id]?.desc).filter(Boolean);
       return {
         ...prior,
         type,
+        moduleId: module.uniEquipId,
         name: `${prefix}${module.uniEquipName}`,
         ...(missions.length ? { mission: { requirement1: missions[0] ?? '', requirement2: missions[1] ?? '' } } : {}),
       };
     });
+  // A Global refresh must not delete an independently recorded CN-only module.
+  return [...updated, ...previous.filter(entry => !matched.has(entry))];
 }
 
 export function officialVoiceActors(characterId, tables, current = null) {
