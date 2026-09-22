@@ -25,7 +25,7 @@ export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current:
     return [{
       ...banner,
       name: latest!.name,
-      aliases: latest!.aliases,
+      aliases: latest!.aliases ?? [],
       start,
       end,
       // A client/official timing source confirms the window. The legacy flag
