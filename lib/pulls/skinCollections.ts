@@ -1,3 +1,4 @@
+import confirmedAvailability from '../../data/skin-availability-windows.json';
 import shopRotations from '../../data/skin-shop-rotations.json';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
 import type { ScheduleEvent } from '../schedule/scheduleTypes';
@@ -17,6 +18,11 @@ export interface SkinShopSource {
   event: string; source: string; sourceRegion: string; eventStart: string;
   rotations: { label: string; start: string; end: string; dateBasis: string; new: string[]; returning: string[] }[];
 }
+export interface ConfirmedSkinWindow {
+  event: string; kind: string; label: string; startAt: string; endAt: string;
+  skinIds: string[]; source?: string; newRelease?: boolean;
+}
+const normalizeEvent = (name: string) => name.replace(/\[[^\]]*\]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 const day = 86_400_000;
 const shiftDate = (date: string, offset: number) => new Date(Date.parse(`${date}T00:00:00Z`) + offset).toISOString().slice(0, 10);
 
@@ -24,9 +30,33 @@ const shiftDate = (date: string, offset: number) => new Date(Date.parse(`${date}
  * rerun, or Fashion Review flag is not evidence that an outfit is sold for OP.
  * CN rotations follow the scheduled Global event opening, retaining each shop's
  * own offsets. Both inventory and timing remain estimates until verified Global. */
-export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], catalogue: PlannedSkin[], today: string, predicted: ReadonlySet<string> = new Set(), sources: SkinShopSource[] = shopRotations.entries): SkinCollection[] {
+export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], catalogue: PlannedSkin[], today: string, predicted: ReadonlySet<string> = new Set(), sources: SkinShopSource[] = shopRotations.entries, confirmed: ConfirmedSkinWindow[] = confirmedAvailability.entries): SkinCollection[] {
   const paid = new Set(catalogue.map(skin => skin.id));
-  return sources.flatMap(source => {
+  // Keep expired confirmations too: an old CN projection must never resurrect
+  // a shop after its verified Global window has closed.
+  const confirmedEvents = new Set(confirmed.map(window => normalizeEvent(window.event)));
+  const verified: SkinCollection[] = confirmed.flatMap(window => {
+    if (window.kind !== 'shop') return [];
+    const startTime = Date.parse(window.startAt), endTime = Date.parse(window.endAt);
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+      throw new Error(`Invalid confirmed shop window: ${window.event} / ${window.label}`);
+    }
+    const start = new Date(startTime).toISOString().slice(0, 10);
+    // endAt is exclusive, including a shop closing exactly at midnight.
+    const end = new Date(endTime - 1).toISOString().slice(0, 10);
+    if (end < today) return [];
+    const skinIds = [...new Set(window.skinIds)];
+    for (const id of skinIds) if (!paid.has(id)) throw new Error(`Shop outfit missing OP metadata: ${id}`);
+    return skinIds.length ? [{
+      id: `${window.event} / ${start} / ${window.label}`,
+      name: `${window.event} · ${window.label}`,
+      start, end, estimated: false, skinIds,
+      featuredIds: window.newRelease ? skinIds : [],
+      source: window.source, sourceRegion: 'global',
+    }] : [];
+  });
+  const projected = sources.flatMap(source => {
+    if (confirmedEvents.has(normalizeEvent(source.event))) return [];
     const event = events.find(event => event.name === source.event);
     if (!event) return [];
     return (event.global.dateRange || '').split(';').flatMap(window => {
@@ -53,7 +83,8 @@ export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], cat
         }] : [];
       });
     });
-  }).sort((a, b) => a.start.localeCompare(b.start) || b.featuredIds.length - a.featuredIds.length || a.name.localeCompare(b.name));
+  });
+  return [...verified, ...projected].sort((a, b) => a.start.localeCompare(b.start) || b.featuredIds.length - a.featuredIds.length || a.name.localeCompare(b.name));
 }
 
 /** Original release dates, not the next rerun/Fashion Review shop window.

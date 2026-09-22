@@ -190,20 +190,20 @@ test('only explicitly listed shop outfits are offered, never inferred Fashion Re
     {label:'Shop',start:'2026-01-08',end:'2026-01-25',dateBasis:'shop',new:['New / New'],returning:['Return / Return']},
   ]};
   const catalogue = pullSkinCatalogue(skins);
-  const [collection] = pullSkinCollections(events, skins, catalogue, '2026-09-21', new Set(), [source]);
+  const [collection] = pullSkinCollections(events, skins, catalogue, '2026-09-21', new Set(), [source], []);
   assert.deepEqual(collection.skinIds, ['New / New', 'Return / Return']);
   assert.deepEqual(collection.featuredIds, ['New / New']);
   assert.equal(collection.start, '2026-09-08'); // Opens before the event.
   assert.equal(collection.end, '2026-09-25'); // Remains after the event ends.
   assert.equal(collection.estimated, true); // CN list is not confirmed Global stock.
-  assert.equal(pullSkinCollections(events,skins,catalogue,'2026-09-25',new Set(),[source]).length,1);
-  assert.deepEqual(pullSkinCollections(events,skins,catalogue,'2026-09-26',new Set(),[source]), []);
-  assert.deepEqual(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(),[]), []);
-  assert.deepEqual(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(),[{...source,event:'Unknown'}]), []);
-  assert.throws(() => pullSkinCollections(events,skins,[], '2026-09-01',new Set(),[source]), /missing OP metadata/);
+  assert.equal(pullSkinCollections(events,skins,catalogue,'2026-09-25',new Set(),[source], []).length,1);
+  assert.deepEqual(pullSkinCollections(events,skins,catalogue,'2026-09-26',new Set(),[source], []), []);
+  assert.deepEqual(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(),[], []), []);
+  assert.deepEqual(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(),[{...source,event:'Unknown'}], []), []);
+  assert.throws(() => pullSkinCollections(events,skins,[], '2026-09-01',new Set(),[source], []), /missing OP metadata/);
   const confirmed = {...source,sourceRegion:'global'};
-  assert.equal(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(),[confirmed])[0].estimated,false);
-  assert.equal(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(['Event']),[confirmed])[0].estimated,true);
+  assert.equal(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(),[confirmed], [])[0].estimated,false);
+  assert.equal(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(['Event']),[confirmed], [])[0].estimated,true);
 });
 
 test('recorded event rotations retain their own rosters and deadlines', async () => {
@@ -213,7 +213,7 @@ test('recorded event rotations retain their own rosters and deadlines', async ()
   const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
   const { default: manifest } = await import('../../data/skin-shop-rotations.json');
   const skins=getAllSkins(), events=getAllEvents(), catalogue=pullSkinCatalogue(skins);
-  const collections=pullSkinCollections(events,skins,catalogue,'2026-09-09');
+  const collections=pullSkinCollections(events,skins,catalogue,'2026-09-09',new Set(),manifest.entries,[]);
   assert.equal(collections.length,19);
   assert.ok(collections.every(c=>c.estimated));
   for (const source of manifest.entries) {
@@ -240,13 +240,48 @@ test('recorded event rotations retain their own rosters and deadlines', async ()
     assert.ok(people[2].skinIds.includes(id), `Official later shop: ${id}`);
     assert.ok(!people[1].skinIds.includes(id), `Not in early shop: ${id}`);
   }
-  const afterFirstShop=pullSkinCollections(events,skins,catalogue,'2026-10-01').filter(c=>c.name.includes('People, A People'));
+  const afterFirstShop=pullSkinCollections(events,skins,catalogue,'2026-10-01',new Set(),manifest.entries,[]).filter(c=>c.name.includes('People, A People'));
   assert.equal(afterFirstShop.length,2);
   assert.ok(!afterFirstShop.some(c=>c.id.endsWith(' / Early returns')));
   assert.equal(collections.filter(c=>c.name.includes("The Masses' Travels")).flatMap(c=>c.skinIds).length,1);
   assert.equal(collections.filter(c=>c.name.includes('A Flurry to the Flame')).flatMap(c=>c.skinIds).length,3);
   assert.equal(collections.filter(c=>c.name.includes('Magic and Friendship')).flatMap(c=>c.skinIds).length,3);
   assert.equal(collections.filter(c=>c.name.includes('Contingency Contract Obliteration')).flatMap(c=>c.skinIds).length,3);
+});
+
+test('planner shares verified Global shops with the skins page and never revives CN projections', async () => {
+  const { getAllSkins } = await import('../../lib/skins/skins');
+  const { getAllEvents } = await import('../../lib/schedule/schedule');
+  const { pullSkinCatalogue } = await import('../../lib/pulls/skins');
+  const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
+  const { default: confirmed } = await import('../../data/skin-availability-windows.json');
+  const skins = getAllSkins(), catalogue = pullSkinCatalogue(skins), events = getAllEvents();
+  const collections = pullSkinCollections(events, skins, catalogue, '2026-09-22');
+  for (const window of confirmed.entries.filter(window => window.kind === 'shop')) {
+    const collection = collections.find(collection => collection.name === `${window.event} · ${window.label}`)!;
+    assert.ok(collection, window.event);
+    assert.equal(collection.start, window.startAt.slice(0, 10));
+    assert.equal(collection.end, window.endAt.slice(0, 10));
+    assert.equal(collection.estimated, false);
+    assert.equal(collection.sourceRegion, 'global');
+    assert.equal(collection.source, window.source);
+    assert.deepEqual(collection.skinIds, window.skinIds);
+  }
+  const people = collections.filter(collection => collection.name.includes('People, A People'));
+  assert.equal(people.length, 1, 'discard all unconfirmed CN batches for a confirmed Global event');
+  assert.equal(people[0].end, '2026-10-07');
+  assert.deepEqual(people[0].skinIds, ['Surtr / Prelude to Transcendence', 'Nymph / Blooming Reverie']);
+  const rerun = collections.find(collection => collection.skinIds.includes('Qiubai / Courtesy'))!;
+  assert.equal(rerun.start, '2026-09-10');
+  assert.equal(rerun.end, '2026-09-24');
+  assert.equal(rerun.featuredIds.length, 0);
+  const current = collections.filter(collection => collection.start <= '2026-09-22');
+  assert.equal(current.flatMap(collection => collection.skinIds).length, 6, 'rewards and random draws are not OP shops');
+  assert.ok(collections.some(collection => collection.start > '2026-09-22' && collection.estimated && collection.sourceRegion === 'cn'), 'retain future CN estimates');
+  assert.ok(!pullSkinCollections(events, skins, catalogue, '2026-10-08').some(collection => collection.name.includes('People, A People')), 'expired confirmation does not revive projected shops');
+  const midnight = {...confirmed.entries[0], endAt: '2026-09-23T00:00:00Z'};
+  assert.equal(pullSkinCollections([], skins, catalogue, '2026-09-22', new Set(), [], [midnight])[0].end, '2026-09-22');
+  assert.deepEqual(pullSkinCollections([], skins, catalogue, '2026-09-23', new Set(), [], [midnight]), []);
 });
 
 test('skin OP deadlines accumulate earlier purchases and reserve unknown-date skins once', async () => {
