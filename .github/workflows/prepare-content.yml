@@ -16,6 +16,8 @@ on:
         type: boolean
 permissions:
   contents: read
+  # Only for the failure reports at the end of the job.
+  issues: write
 concurrency:
   group: prepare-content
   cancel-in-progress: false
@@ -102,6 +104,46 @@ jobs:
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
           node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
+      # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
+      # here on its own. Report it, but never hold back the day's content over it.
+      - name: Report failing asset syncs
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cutoff=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          failing=''
+          for sync in arkpedia-image-assets/sync-images.yml arkpedia-skin-assets/sync-artwork.yml \
+            arkpedia-voice-english/sync-voices.yml arkpedia-voice-japanese/sync-voices.yml \
+            arkpedia-voice-korean/sync-voices.yml arkpedia-voice-mandarin/sync-voices.yml \
+            arkpedia-voice-regional/sync-voices.yml; do
+            repo=${sync%%/*} workflow=${sync#*/}
+            if run=$(gh api "repos/arkpedia/$repo/actions/workflows/$workflow/runs?event=schedule&status=completed&per_page=1" \
+              --jq '.workflow_runs[0] // {} | [.conclusion // "no finished run", .created_at // "", .html_url // ""] | @tsv'); then
+              IFS=$'\t' read -r conclusion created url <<< "$run"
+              # A success older than three days means the schedule itself stopped.
+              if [ "$conclusion" = success ] && [[ "$created" > "$cutoff" ]]; then continue; fi
+              failing+="- arkpedia/$repo \`$workflow\`: $conclusion ${created:0:10} $url"$'\n'
+            else
+              failing+="- arkpedia/$repo \`$workflow\`: its scheduled runs could not be read"$'\n'
+            fi
+          done
+          title='Asset sync failing'
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$failing" ]; then
+            echo "::warning::Asset syncs are failing; content releases pin each asset repository's current HEAD."
+            body=$(printf 'The latest finished scheduled run of each asset sync below failed or is more than three days old (checked by %s). Content releases do not wait for them; they pin the current commit of each repository.\n\n%s' "$RUN_URL" "$failing")
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Every asset sync's latest scheduled run succeeded: $RUN_URL"
+          fi
       - name: Publish the validated public release
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
@@ -154,3 +196,34 @@ jobs:
       - name: Remember successful preparation
         if: github.event_name == 'schedule' && steps.prepared.outputs.cache-hit != 'true'
         run: mkdir -p .cache/prepared-inputs && touch .cache/prepared-inputs/complete
+      # One open issue per outage: later failures comment on it, and the next good run
+      # closes it. A timeout counts as a cancellation, so it is reported too.
+      - name: Report the failed release
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          title='Content release failing'
+          body="Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
+      - name: Close the failed-release report
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title='Content release failing'
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Recovered: $RUN_URL"
+          fi
