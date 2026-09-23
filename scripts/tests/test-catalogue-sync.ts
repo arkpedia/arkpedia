@@ -5,7 +5,7 @@ import { getFeaturedOperatorRates } from '../../lib/gacha/eventBannerRates';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '../../lib/skins/skinSeriesConfig';
 import bundledSkins from '../../data/skins.json';
 // @ts-expect-error Plain Node import scripts share their pure reconciliation with tests.
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, skinText, SKIN_SERIES } from '../sync/catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, skinText, SKIN_SERIES, wikiText } from '../sync/catalogue-model.mjs';
 // @ts-expect-error Plain Node helper shared by the importers.
 import { stripRichText } from '../lib/gametext.mjs';
 const cn=JSON.parse(fs.readFileSync('scripts/tests/fixtures/persona-source.json','utf8'));
@@ -230,4 +230,17 @@ test('the importer writes the spellings the /skins dropdown orders, and every re
   const options = new Set(skinSeriesOptions(bundledSkins as { series: string }[]).map(seriesKey));
   const unselectable = (bundledSkins as { name: string; series: string }[]).filter(skin => !options.has(seriesKey(skin.series)) || !seriesKey(skin.series));
   assert.deepEqual(unselectable.map(skin => skin.name), []);
+});
+
+test('a yearly banner page the wiki has not created yet reads as no rows, and any other missing page stops the sync', () => {
+  // What the wiki API returns, with HTTP 200, for Headhunting/Banners/2027 in September 2026.
+  const missing = { error: { code: 'missingtitle', info: "The page you specified doesn't exist." } };
+  assert.equal(wikiText('Headhunting/Banners/2027', missing), '');
+  assert.deepEqual(parseWikiRows(wikiText('Headhunting/Banners/2027', missing), 'Banners cell'), []);
+  for (const page of ['Headhunting/Banners/Upcoming', 'Event/Upcoming']) assert.throws(() => wikiText(page, missing), new RegExp(`Missing structured wiki page: ${page}`));
+  // Only a page that does not exist is excused: a failed or empty read of the yearly page still stops it.
+  assert.throws(() => wikiText('Headhunting/Banners/2027', { error: { code: 'ratelimited' } }), /Missing structured wiki page/);
+  assert.throws(() => wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': '' } } }), /Missing structured wiki page/);
+  const page = '{{Banners cell\n|name = Test banner\n}}';
+  assert.equal(wikiText('Headhunting/Banners/2026', { parse: { wikitext: { '*': page } } }), page);
 });

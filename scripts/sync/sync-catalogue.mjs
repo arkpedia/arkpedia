@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, safeName, rarityWord } from './catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, wikiText, safeName, rarityWord } from './catalogue-model.mjs';
 import { buildInventory } from './sync-content-inventory.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
@@ -37,9 +37,8 @@ async function source(repo, branch, folder, cache) {
 }
 async function wiki(page, cache) {
   const response = await json(`https://arknights.wiki.gg/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&format=json`);
-  const text = response.parse?.wikitext?.['*'];
-  if (!text) throw new Error(`Missing structured wiki page: ${page}`);
-  write(path.join(cache,'wiki',page.replaceAll('/','-')+'.json'),response);
+  const text = wikiText(page, response);
+  if (text) write(path.join(cache,'wiki',page.replaceAll('/','-')+'.json'),response);
   return text;
 }
 export function assetPlan(operators, skins, cn, en, published, extra = []) {

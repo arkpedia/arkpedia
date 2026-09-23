@@ -215,6 +215,15 @@ export function reconcileSkins({ skins, operators, cn, en, events = [] }) {
   return { skins: next, changes, renames };
 }
 
+// The wiki creates each year's banner page around mid-January (2026's came early, on
+// 2025-12-24), so until it exists that year has no rows yet. Every other page must exist.
+const yearlyBannerPage = /^Headhunting\/Banners\/\d{4}$/;
+export function wikiText(page, response) {
+  if (response.error?.code === 'missingtitle' && yearlyBannerPage.test(page)) return '';
+  const text = response.parse?.wikitext?.['*'];
+  if (!text) throw new Error(`Missing structured wiki page: ${page}`);
+  return text;
+}
 /** Strict line-based parsing of the wiki's structured calendar templates. */
 export function parseWikiRows(text, template) {
   const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
