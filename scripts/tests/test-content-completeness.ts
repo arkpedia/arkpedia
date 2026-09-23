@@ -3,10 +3,11 @@ import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
 import farmingFixture from './fixtures/people-farming.json';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { checkCompleteness, missingEnemyIcons, readCompletenessInputs } from '../content/check-completeness.mjs';
+import { checkCompleteness, hasRecordedRelease, missingEnemyIcons, readCompletenessInputs } from '../content/check-completeness.mjs';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { buildEventFarming } from '../sync/sync-event-farming.mjs';
 import { activeEventFarming, getEventFarmingMaterials } from '../../lib/farming/eventFarming';
+import { operatorRelease } from '../../lib/operators/operatorAvailability';
 
 const input = readCompletenessInputs();
 test('the published catalogue covers CN source identities and every release bundle', () => {
@@ -42,6 +43,50 @@ test('publication rejects a stage enemy with no record or grid row, and never wi
   assets.delete(icon);
   assert.deepEqual(checkCompleteness({ ...input, assets }), []);
   assert.deepEqual(missingEnemyIcons({ ...input, assets }), [icon]);
+});
+test('publication rejects nested or malformed material cost lists', () => {
+  const withOperator = (name: string, edit: (op: any) => void) => {
+    const op = structuredClone(input.operators.find((row: any) => row.name === name));
+    edit(op);
+    return checkCompleteness({ ...input, operators: input.operators.map((row: any) => row.name === name ? op : row) }).join('\n');
+  };
+  // The hand-written Persona shape that crashed the image sync.
+  assert.match(withOperator('Aegis', op => { op.potential.totalCost = [[{ name: "Aegis's Token", quantity: 5 }]]; }),
+    /Aegis: potential\.totalCost is not a flat/);
+  for (const [edit, expected] of [
+    [(op: any) => { op.promotion[0].cost = [op.promotion[0].cost]; }, /Surtr: promotion\[0\]\.cost is not a flat/],
+    [(op: any) => { op.skills.skillCost['2'] = [op.skills.skillCost['2']]; }, /Surtr: skillCost\.2 is not a flat/],
+    [(op: any) => { op.skills.skillList[0].cost.m1 = [op.skills.skillList[0].cost.m1]; }, /Surtr: skills\[0\]\.cost\.m1 is not a flat/],
+    [(op: any) => { op.modules[1].stages[0].cost = [op.modules[1].stages[0].cost]; }, /Surtr: modules\[1\]\.stages\[0\]\.cost is not a flat/],
+    [(op: any) => { op.potential.totalCost = { name: "Surtr's Token", quantity: 5 }; }, /Surtr: potential\.totalCost is not a flat/],
+    [(op: any) => { op.potential.totalCost = [{ name: "Surtr's Token", quantity: '5' }]; }, /Surtr: potential\.totalCost is not a flat/],
+  ] as const) assert.match(withOperator('Surtr', edit), expected);
+  assert.equal(withOperator('Surtr', op => { op.potential.totalCost = []; }), '');
+});
+test('a CN record without a release date must be marked as future', () => {
+  const withMechanist = (edit: (op: any) => void) => {
+    const op = structuredClone(input.operators.find((row: any) => row.name === 'Mechanist'));
+    edit(op);
+    return checkCompleteness({ ...input, operators: input.operators.map((row: any) => row.name === 'Mechanist' ? op : row) }).join('\n');
+  };
+  const released = /Mechanist: CN record has no release date and is not marked isFuture/;
+  assert.match(withMechanist(op => { delete op.isFuture; op.characterInfo['Release Date'] = null; }), released);
+  assert.match(withMechanist(op => { op.isFuture = false; op.characterInfo['Release Date'] = ''; }), released);
+  assert.match(withMechanist(op => { delete op.isFuture; op.characterInfo['Release Date'] = 'TBA'; }), released);
+  assert.equal(withMechanist(op => { op.isFuture = true; op.characterInfo['Release Date'] = null; }), '');
+  // A dated record follows its date. Once Global launches it reads as released even
+  // while the EN mirror still lags, so the guard must not block that release.
+  assert.equal(withMechanist(op => { delete op.isFuture; op.characterInfo['Release Date'] = '2026/09/01'; }), '');
+  assert.equal(withMechanist(op => { delete op.isFuture; delete op.sourceRegion; op.characterInfo['Release Date'] = null; }), '');
+});
+test('the release-date guard makes the same call as the site', () => {
+  const edges = [null, '', '  ', 'TBA', '2026/10/04', '2026-2-30', '2026/13/01', 'October 4, 2026']
+    .map(date => ({ characterInfo: { 'Release Date': date } }));
+  const exact = ['2026-10-14T03:00:00Z', '2026-10-14T10:00:00+08:00', '2026-10-14T03:00:00', 'soon']
+    .map(releaseAt => ({ releaseAt, characterInfo: { 'Release Date': null } }));
+  for (const op of [...input.operators, ...edges, ...exact, { characterInfo: null }]) {
+    assert.equal(hasRecordedRelease(op), operatorRelease(op) !== null, JSON.stringify({ releaseAt: op.releaseAt, date: op.characterInfo?.['Release Date'] }));
+  }
 });
 test('home farming is limited to battle windows, independently of shop closing times', () => {
   const materials = getEventFarmingMaterials(farmingFixture.drops);
