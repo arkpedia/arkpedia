@@ -7,7 +7,7 @@ import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
 import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
-import { ALL_SERIES } from '@/lib/skins/skinSeriesConfig';
+import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinShelfScroller from '@/components/skins/SkinShelfScroller';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
@@ -187,10 +187,11 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
     });
   }
 
+  const seriesOptions = useMemo(() => skinSeriesOptions(skins), [skins]);
   const seriesFiltered = useMemo(() => {
     return skins.filter(skin => {
       if ((wishlistOnly === '1' || selectedSeries === 'WISHLIST') && !wishlist.has(skin.name)) return false;
-      if (selectedSeries && selectedSeries !== 'WISHLIST' && skin.series !== selectedSeries) return false;
+      if (selectedSeries && selectedSeries !== 'WISHLIST' && seriesKey(skin.series) !== seriesKey(selectedSeries)) return false;
       const window = availability.get(skinKey(skin));
       if (availabilityFilter === 'now') return !!window?.live && window.kind !== 'draw';
       if (availabilityFilter === 'upcoming') return (!!window && !window.live) || skin.sourceRegion === 'CN' || /^\[CN\]/.test(skin.release || '');
@@ -296,9 +297,9 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
         <div className="skins-toolbar">
           <input type="search" name="skin-search" aria-label="Search skins" autoComplete="off" spellCheck={false}
             placeholder="Operator or outfit…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select aria-label="Skin series" value={selectedSeries === 'WISHLIST' ? '' : selectedSeries || ''} onChange={e => setSelectedSeries(e.target.value || null)}>
+          <select aria-label="Skin series" value={selectedSeries === 'WISHLIST' ? '' : seriesOptions.find(series => seriesKey(series) === seriesKey(selectedSeries)) ?? selectedSeries ?? ''} onChange={e => setSelectedSeries(e.target.value || null)}>
             <option value="">All series</option>
-            {ALL_SERIES.filter(series => skins.some(skin => skin.series === series)).map(series => <option key={series} value={series}>{series}</option>)}
+            {seriesOptions.map(series => <option key={series} value={series}>{series}</option>)}
           </select>
           <select aria-label="Sort skins" value={sortByAvailableDate ? 'available' : ''} onChange={e => setSortByAvailableDate(e.target.value === 'available')}>
             <option value="">Catalogue order</option><option value="available">Availability</option>
