@@ -101,10 +101,17 @@ checkout instead of the cache.
 | `build-content-windows.mjs` | `data/content-windows.json` | `activity_table`, `crisis_v2_table` |
 | `import-item-icons.mjs` | `public/item-icons/`, `data/item-icons.json` | upstream `images/manifest.json` |
 | `enrich-stage-index.mjs` | `public/stages-index.json` (in place) | everything above |
+| `build-enemy-records.mjs` | `data/enemies/`, `data/enemy_appearances.json` | `enemy_handbook_table`, `enemy_database`, stage records, the enriched index |
+| `build-enemy-stage-appearances.mjs` | `data/enemy-stage-appearances.json` | stage records, the enriched index |
+| `build-enemies-index.mjs` | `public/enemies-index.json` | `data/enemies/`, `data/enemy_appearances.json` |
+| `build-stronghold-enemies.mjs` | `data/stronghold_enemies.json` | stage records, `data/enemies/`, `public/enemies-index.json` |
 
-`enrich-stage-index.mjs` **runs last**: it applies the exclusions and folds in the
-variant links, the names the source leaves blank, CCB codes and names, and the
-content labels. Running it before the others leaves the index missing all of that.
+`enrich-stage-index.mjs` **runs last of the steps that write the index**: it applies
+the exclusions and folds in the variant links, the names the source leaves blank, CCB
+codes and names, and the content labels. Running it before the others leaves the index
+missing all of that. The enemy steps run after it, because they take the enriched
+index as the list of stages that get a page. `check-completeness.mjs` fails a release
+in which a listed stage fields an enemy with no record or no `enemies-index.json` row.
 
 ### Doing it on a schedule
 
