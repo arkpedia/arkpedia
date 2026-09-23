@@ -35,10 +35,11 @@ async function source(repo, branch, folder, cache) {
   result.voiceTables = [result.voices];
   return result;
 }
-async function wiki(page, cache) {
+async function wiki(page, cache, now) {
   const response = await json(`https://arknights.wiki.gg/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&format=json`);
-  const text = wikiText(page, response);
+  const text = wikiText(page, response, now);
   if (text) write(path.join(cache,'wiki',page.replaceAll('/','-')+'.json'),response);
+  else console.warn(`${page} does not exist on the wiki yet; reading it as no rows until the end of January (UTC).`);
   return text;
 }
 export function assetPlan(operators, skins, cn, en, published, extra = []) {
@@ -88,8 +89,8 @@ export async function syncCatalogue(root, options={}) {
       source('Kengxxiao/ArknightsGameData','master','zh_CN/gamedata/excel',cache),
       source('ArknightsAssets/ArknightsGamedata','master','en/gamedata/excel',cache),
     ]);
-    const year=new Date().getUTCFullYear();
-    const [upcoming,yearly,events]=await Promise.all([wiki('Headhunting/Banners/Upcoming',cache),wiki(`Headhunting/Banners/${year}`,cache),wiki('Event/Upcoming',cache)]);
+    const now=new Date();
+    const [upcoming,yearly,events]=await Promise.all([wiki('Headhunting/Banners/Upcoming',cache,now),wiki(`Headhunting/Banners/${now.getUTCFullYear()}`,cache,now),wiki('Event/Upcoming',cache,now)]);
     const resource=await json('https://api.github.com/repos/yuanyan3060/ArknightsGameResource/commits/main');
     return {cn,en,bannerRows:[...parseWikiRows(upcoming,'Banners cell'),...parseWikiRows(yearly,'Banners cell')],eventRows:parseWikiRows(events,'Upcoming events cell'),resourceRevision:resource.sha};
   })();

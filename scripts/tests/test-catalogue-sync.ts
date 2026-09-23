@@ -232,15 +232,26 @@ test('the importer writes the spellings the /skins dropdown orders, and every re
   assert.deepEqual(unselectable.map(skin => skin.name), []);
 });
 
-test('a yearly banner page the wiki has not created yet reads as no rows, and any other missing page stops the sync', () => {
-  // What the wiki API returns, with HTTP 200, for Headhunting/Banners/2027 in September 2026.
+test('in January a yearly banner page the wiki has not created yet reads as no rows; later, or for any other page, it stops the sync', () => {
+  // What the wiki API returns, with HTTP 200, for a page that does not exist.
   const missing = { error: { code: 'missingtitle', info: "The page you specified doesn't exist." } };
-  assert.equal(wikiText('Headhunting/Banners/2027', missing), '');
-  assert.deepEqual(parseWikiRows(wikiText('Headhunting/Banners/2027', missing), 'Banners cell'), []);
-  for (const page of ['Headhunting/Banners/Upcoming', 'Event/Upcoming']) assert.throws(() => wikiText(page, missing), new RegExp(`Missing structured wiki page: ${page}`));
+  const january = new Date('2027-01-15T12:00:00Z');
+  assert.equal(wikiText('Headhunting/Banners/2027', missing, january), '');
+  assert.deepEqual(parseWikiRows(wikiText('Headhunting/Banners/2027', missing, january), 'Banners cell'), []);
+  // The whole of January in UTC, and not a second more.
+  assert.equal(wikiText('Headhunting/Banners/2027', missing, new Date('2027-01-01T00:00:00Z')), '');
+  assert.equal(wikiText('Headhunting/Banners/2027', missing, new Date('2027-01-31T23:59:59Z')), '');
+  for (const late of ['2027-02-01T00:00:00Z', '2027-09-23T12:00:00Z', '2027-12-31T23:59:59Z']) {
+    assert.throws(() => wikiText('Headhunting/Banners/2027', missing, new Date(late)), /Missing structured wiki page: Headhunting\/Banners\/2027/, late);
+  }
+  // On New Year's Eve the next year's page is not asked for; if it were, it is not excused.
+  assert.throws(() => wikiText('Headhunting/Banners/2027', missing, new Date('2026-12-31T23:59:59Z')), /Missing structured wiki page/);
+  // Only the current year's page, and only the yearly banner page.
+  assert.throws(() => wikiText('Headhunting/Banners/2026', missing, january), /Missing structured wiki page: Headhunting\/Banners\/2026/);
+  for (const page of ['Headhunting/Banners/Upcoming', 'Event/Upcoming']) assert.throws(() => wikiText(page, missing, january), new RegExp(`Missing structured wiki page: ${page}`));
   // Only a page that does not exist is excused: a failed or empty read of the yearly page still stops it.
-  assert.throws(() => wikiText('Headhunting/Banners/2027', { error: { code: 'ratelimited' } }), /Missing structured wiki page/);
-  assert.throws(() => wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': '' } } }), /Missing structured wiki page/);
+  assert.throws(() => wikiText('Headhunting/Banners/2027', { error: { code: 'ratelimited' } }, january), /Missing structured wiki page/);
+  assert.throws(() => wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': '' } } }, january), /Missing structured wiki page/);
   const page = '{{Banners cell\n|name = Test banner\n}}';
-  assert.equal(wikiText('Headhunting/Banners/2026', { parse: { wikitext: { '*': page } } }), page);
+  assert.equal(wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': page } } }, new Date('2027-09-23T12:00:00Z')), page);
 });

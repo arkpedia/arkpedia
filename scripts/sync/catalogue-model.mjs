@@ -216,10 +216,11 @@ export function reconcileSkins({ skins, operators, cn, en, events = [] }) {
 }
 
 // The wiki creates each year's banner page around mid-January (2026's came early, on
-// 2025-12-24), so until it exists that year has no rows yet. Every other page must exist.
-const yearlyBannerPage = /^Headhunting\/Banners\/\d{4}$/;
-export function wikiText(page, response) {
-  if (response.error?.code === 'missingtitle' && yearlyBannerPage.test(page)) return '';
+// 2025-12-24), so during January (UTC) a missing page for the current year only means it
+// has no rows yet. From February on it is an error again, as is any other missing page:
+// a renamed or deleted page must not pass as an empty year for eleven months.
+export function wikiText(page, response, now) {
+  if (response.error?.code === 'missingtitle' && now.getUTCMonth() === 0 && page === `Headhunting/Banners/${now.getUTCFullYear()}`) return '';
   const text = response.parse?.wikitext?.['*'];
   if (!text) throw new Error(`Missing structured wiki page: ${page}`);
   return text;
