@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, wikiText, safeName, rarityWord } from './catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, wikiParseUrl, wikiText, safeName, rarityWord } from './catalogue-model.mjs';
 import { buildInventory } from './sync-content-inventory.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
@@ -35,8 +35,8 @@ async function source(repo, branch, folder, cache) {
   result.voiceTables = [result.voices];
   return result;
 }
-async function wiki(page, cache, now) {
-  const response = await json(`https://arknights.wiki.gg/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&format=json`);
+export async function wiki(page, cache, now) {
+  const response = await json(wikiParseUrl(page));
   const text = wikiText(page, response, now);
   if (text) write(path.join(cache,'wiki',page.replaceAll('/','-')+'.json'),response);
   else console.warn(`${page} does not exist on the wiki yet; reading it as no rows until the end of January (UTC).`);

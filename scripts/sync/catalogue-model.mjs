@@ -215,6 +215,10 @@ export function reconcileSkins({ skins, operators, cn, en, events = [] }) {
   return { skins: next, changes, renames };
 }
 
+// Every structured wiki page is read through these two. A moved page leaves a redirect
+// behind, not a missing title, so the request follows it (redirects=1) and wikiText
+// refuses what is still a redirect (a double one), instead of reading it as no rows.
+export const wikiParseUrl = page => `https://arknights.wiki.gg/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&redirects=1&format=json`;
 // The wiki creates each year's banner page around mid-January (2026's came early, on
 // 2025-12-24), so during January (UTC) a missing page for the current year only means it
 // has no rows yet. From February on it is an error again, as is any other missing page:
@@ -223,6 +227,7 @@ export function wikiText(page, response, now) {
   if (response.error?.code === 'missingtitle' && now.getUTCMonth() === 0 && page === `Headhunting/Banners/${now.getUTCFullYear()}`) return '';
   const text = response.parse?.wikitext?.['*'];
   if (!text) throw new Error(`Missing structured wiki page: ${page}`);
+  if (/^\s*#redirect\b/i.test(text)) throw new Error(`Structured wiki page ${page} is still a redirect after redirects were followed: ${text.trim().split('\n')[0]}`);
   return text;
 }
 /** Strict line-based parsing of the wiki's structured calendar templates. */

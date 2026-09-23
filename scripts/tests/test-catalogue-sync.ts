@@ -5,7 +5,7 @@ import { getFeaturedOperatorRates } from '../../lib/gacha/eventBannerRates';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '../../lib/skins/skinSeriesConfig';
 import bundledSkins from '../../data/skins.json';
 // @ts-expect-error Plain Node import scripts share their pure reconciliation with tests.
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, skinText, SKIN_SERIES, wikiText } from '../sync/catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, skinText, SKIN_SERIES, wikiParseUrl, wikiText } from '../sync/catalogue-model.mjs';
 // @ts-expect-error Plain Node helper shared by the importers.
 import { stripRichText } from '../lib/gametext.mjs';
 const cn=JSON.parse(fs.readFileSync('scripts/tests/fixtures/persona-source.json','utf8'));
@@ -254,4 +254,24 @@ test('in January a yearly banner page the wiki has not created yet reads as no r
   assert.throws(() => wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': '' } } }, january), /Missing structured wiki page/);
   const page = '{{Banners cell\n|name = Test banner\n}}';
   assert.equal(wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': page } } }, new Date('2027-09-23T12:00:00Z')), page);
+});
+
+test('a moved wiki page is followed to its new title, and one that still redirects stops the sync in any month', () => {
+  // Every structured page request is built here.
+  const url = new URL(wikiParseUrl('Headhunting/Banners/2027'));
+  assert.equal(url.searchParams.get('redirects'), '1');
+  assert.equal(url.searchParams.get('page'), 'Headhunting/Banners/2027');
+  // The shape of a parse answer once redirects=1 has followed a move to the new title.
+  const rows = '{{Banners cell\n|name = Test banner\n}}';
+  const followed = { parse: { title: 'Headhunting/Banners/2024', redirects: [{ from: 'Headhunting/Banners/Former-2024', to: 'Headhunting/Banners/2024' }], wikitext: { '*': rows } } };
+  assert.equal(wikiText('Headhunting/Banners/Former-2024', followed, new Date('2027-06-01T00:00:00Z')), rows);
+  // A redirect the request could not follow (a double redirect) is not an empty year, not even in January.
+  for (const text of ['#REDIRECT [[Headhunting/Banners/2020]]', '  #redirect[[Headhunting/Banners/2027 (new)]]\n']) {
+    for (const now of ['2027-01-15T12:00:00Z', '2027-06-01T00:00:00Z']) {
+      assert.throws(() => wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': text } } }, new Date(now)), /Headhunting\/Banners\/2027 is still a redirect/, `${now} ${text}`);
+    }
+  }
+  // A page that only mentions a redirect further down is read as usual.
+  const mentions = `${rows}\n<!-- #REDIRECT notes -->`;
+  assert.equal(wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': mentions } } }, new Date('2027-06-01T00:00:00Z')), mentions);
 });
