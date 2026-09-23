@@ -8,7 +8,9 @@
  * each Chinese item name is resolved to its game ID through the CN item and furniture
  * tables, and replaced with the EN tables' name for that ID. Display names are never
  * matched across languages: a CN name that belongs to two IDs with different EN names,
- * or to an ID the EN client does not have yet, is left alone.
+ * or to an ID the EN client does not have yet, is left alone. A Chinese name that is in
+ * neither CN table is a typo in the events data (straight quotes for the table's curly
+ * ones, say) and would stay Chinese forever, so it fails the run instead.
  *
  * The CN name is kept as `cnName`. Reward icons are files named after the display name
  * (getMaterialIconPath), and the file that is already published is the CN-named one, so
@@ -31,7 +33,8 @@ const chinese = value => /\p{Script=Han}/u.test(value ?? '');
 export const iconFile = name => `${String(name).replace(/[\\/*?:"<>|]/g, '').trim()}.webp`;
 const rewardBlocks = event => event.rewards ? (Array.isArray(event.rewards) ? event.rewards : [event.rewards]) : [];
 
-/** CN display name -> official EN display name, joined on the item or furniture ID. */
+/** Every CN item and furniture name -> its official EN name, joined on the ID, or null
+ *  while that is ambiguous or the EN client does not have the ID yet. */
 export function rewardNames(cn, en) {
   const ids = new Map();
   const add = (name, row) => { if (name) ids.set(name, [...(ids.get(name) ?? []), row]); };
@@ -40,7 +43,7 @@ export function rewardNames(cn, en) {
   const names = new Map();
   for (const [name, rows] of ids) {
     const english = new Set(rows.map(row => row?.name && !chinese(row.name) ? row.name : null));
-    if (english.size === 1 && !english.has(null)) names.set(name, [...english][0]);
+    names.set(name, english.size === 1 ? [...english][0] : null);
   }
   return names;
 }
@@ -54,7 +57,7 @@ export function globalStart(event) {
 
 /** `published` holds material-icons/ file names; see the header for `iconName`. */
 export function localizeRewards(events, names, published, now = Date.now()) {
-  const next = structuredClone(events), renamed = [];
+  const next = structuredClone(events), renamed = [], unknown = [];
   for (const event of next) {
     const start = globalStart(event);
     if (start == null || start > now) continue;
@@ -62,7 +65,8 @@ export function localizeRewards(events, names, published, now = Date.now()) {
       for (const item of block?.items ?? []) {
         // Skins resolve through the skins dataset, which has its own Global refresh.
         if (item.type === 'skin') continue;
-        if (chinese(item.name) && names.has(item.name)) {
+        if (chinese(item.name) && !names.has(item.name)) unknown.push(`${event.name}: ${item.name}`);
+        else if (chinese(item.name) && names.get(item.name)) {
           item.cnName = item.name; item.name = names.get(item.name);
           renamed.push(`${event.name}: ${item.cnName} -> ${item.name}`);
         }
@@ -72,7 +76,7 @@ export function localizeRewards(events, names, published, now = Date.now()) {
       }
     }
   }
-  return { events: next, renamed };
+  return { events: next, renamed, unknown };
 }
 
 export function syncRewardNames(root, cnExcel, enExcel, now = Date.now()) {
@@ -86,14 +90,14 @@ export function syncRewardNames(root, cnExcel, enExcel, now = Date.now()) {
   const cn = { items: table(cnExcel, 'item_table.json'), building: table(cnExcel, 'building_data.json') };
   const en = { items: table(enExcel, 'item_table.json'), building: table(enExcel, 'building_data.json') };
   const names = rewardNames(cn, en), published = new Set(assetFileNames('material-icons', root));
-  const renamed = [];
-  const directory = path.join(root, 'data/events');
+  const directory = path.join(root, 'data/events'), writes = [], renamed = [], unknown = [];
   for (const file of fs.readdirSync(directory).filter(f => /^events_\d+\.json$/.test(f))) {
-    const at = path.join(directory, file), events = read(directory, file);
-    const result = localizeRewards(events, names, published, now);
-    renamed.push(...result.renamed);
-    if (JSON.stringify(result.events) !== JSON.stringify(events)) fs.writeFileSync(at, JSON.stringify(result.events, null, 2) + '\n');
+    const events = read(directory, file), result = localizeRewards(events, names, published, now);
+    renamed.push(...result.renamed); unknown.push(...result.unknown);
+    if (JSON.stringify(result.events) !== JSON.stringify(events)) writes.push([path.join(directory, file), result.events]);
   }
+  if (unknown.length) throw new Error(`Event rewards on Global name no CN item or furniture, so they can never get an official name:\n${unknown.map(line => `- ${line}`).join('\n')}`);
+  for (const [at, events] of writes) fs.writeFileSync(at, JSON.stringify(events, null, 2) + '\n');
   return renamed;
 }
 

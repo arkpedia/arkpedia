@@ -34,8 +34,9 @@ test('CN reward names map to official EN names by game ID only, never by guessin
   assert.equal(names.get('制式木盆'), 'Standard Wooden Basin');
   assert.equal(names.get('“烛火之中”'), "'V Plameni Svechi'");
   assert.equal(names.get('龙门币'), 'LMD');
-  assert.equal(names.has('“回看”高脚凳'), false, 'not in the EN client yet');
-  assert.equal(names.has('同名家具'), false, 'two IDs with different EN names');
+  assert.equal(names.get('“回看”高脚凳'), null, 'not in the EN client yet');
+  assert.equal(names.get('同名家具'), null, 'two IDs with different EN names');
+  assert.equal(names.has('"烛火之中"'), false, 'straight quotes are not the table name');
 });
 
 test('an event is renamed once it has started on Global, keeping the CN name and the published icon', () => {
@@ -46,7 +47,7 @@ test('an event is renamed once it has started on Global, keeping the CN name and
     { name: 'Unannounced', global: { dateRange: null }, rewards: [store([item('制式木盆')])] },
   ];
   const published = new Set(['制式木盆.webp', '“烛火之中”.webp', 'Headhunting Permit.webp']);
-  const { events: next, renamed } = localizeRewards(events, rewardNames(cn, en), published, now);
+  const { events: next, renamed, unknown } = localizeRewards(events, rewardNames(cn, en), published, now);
   const items = next[0].rewards.items;
   assert.deepEqual(items.map((i: any) => [i.name, i.cnName, i.iconName]), [
     ['Standard Wooden Basin', '制式木盆', '制式木盆'],
@@ -57,6 +58,7 @@ test('an event is renamed once it has started on Global, keeping the CN name and
   ]);
   assert.equal(items[0].price, 40);
   assert.equal(renamed.length, 2);
+  assert.deepEqual(unknown, []);
   // Not started on Global: untouched, whatever the EN tables already hold.
   assert.equal(next[1].rewards.items[0].name, '制式木盆');
   assert.equal(next[2].rewards[0].items[0].name, '制式木盆');
@@ -68,6 +70,15 @@ test('an event is renamed once it has started on Global, keeping the CN name and
   const after = localizeRewards(next, rewardNames(cn, en), withEnglish, now).events[0].rewards.items;
   assert.deepEqual(after.slice(0, 2).map((i: any) => [i.name, i.cnName, i.iconName]),
     [['Standard Wooden Basin', '制式木盆', undefined], ["'V Plameni Svechi'", '“烛火之中”', undefined]]);
+});
+
+test('a Chinese reward name in neither CN table is reported, so the run fails instead of keeping it', () => {
+  const typo = [{ name: '[Side Story] People, A People', global: { startAt: '2026-09-16T15:00:00.000Z' }, rewards: store([item('"烛火之中"')]) }];
+  const result = localizeRewards(typo, rewardNames(cn, en), new Set(), now);
+  assert.deepEqual(result.unknown, ['[Side Story] People, A People: "烛火之中"']);
+  assert.equal(result.events[0].rewards.items[0].name, '"烛火之中"');
+  // Not yet on Global, a CN-only name is expected and is nobody's error.
+  assert.deepEqual(localizeRewards([{ ...typo[0], global: { dateRange: '2027/01/17–2027/02/06' } }], rewardNames(cn, en), new Set(), now).unknown, []);
 });
 
 test('Global start is the client window when known, else the announced UTC−7 day', () => {
