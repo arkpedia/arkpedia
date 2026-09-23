@@ -35,7 +35,7 @@ To correct a record by hand:
 2. Run `Prepare content release` with the branch as `data_ref` and `refresh_upstream=false`.
 3. The job compiles the release from the branch, then pushes the branch's commits and one commit with the regenerated `source/` and `release/` to data `main` as a fast-forward. That push publishes it like any other release. Delete the branch afterwards.
 
-The branch must contain the current data `main`. If `main` has moved on since the branch was cut, or moves while the job runs, the job fails and pushes nothing; it never overwrites a newer `main`. Merge `main` into the branch and run it again. A branch that changes nothing the release is built from (only a README or a script, say) is not published: the job warns and stops, and such a branch is merged like any other change.
+The branch must contain the current data `main`, and be at most 100 commits ahead of it. If `main` has moved on since the branch was cut, the job fails as soon as it loads the branch, before it installs or compiles anything; if `main` moves while the job runs, it fails when it comes to publish. Either way it pushes nothing and never overwrites a newer `main`. Merge `main` into the branch and run it again. A branch that changes nothing the release is built from (only a README or a script, say) is not published: the job warns and stops, and such a branch is merged like any other change.
 
 To roll back, run the public `Content release` workflow with an earlier `main` commit as `revision`. It validates that commit and points `live` at it without changing `main`, so the next push to `main` moves the pointer forward again. Neither workflow opens, approves or merges a pull request.
 

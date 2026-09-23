@@ -62,9 +62,10 @@ function dataRepository(root: string) {
     push: (ref: string) => git('-C', seed, 'push', '-q', 'origin', `HEAD:${ref}`),
     checkout: (...args: string[]) => git('-C', seed, 'checkout', '-q', ...args),
     load(ref: string) {
-      const result = step(loadStep, { DATA_REF: ref });
+      const result = repo.tryLoad(ref);
       assert.equal(result.status, 0, result.output);
     },
+    tryLoad: (ref: string) => step(loadStep, { DATA_REF: ref }),
     // What export.mjs leaves for the publish step.
     prepare(release: string, value = release) {
       const out = path.join(runner, 'prepared-content');
@@ -139,18 +140,54 @@ test('publication fails rather than overwrite a main that the compiled data does
     assert.equal(repo.publish().status, 1);
     assert.deepEqual(repo.main(), ['concurrent', 'main 2', 'main 1', 'main 0']);
   });
-  // A correction branch cut before main last moved.
+  // Main moved while a correction branch compiled.
+  withDataRepository(repo => {
+    repo.checkout('-b', 'fix');
+    repo.commit('fix', 'r2', 'fixed');
+    repo.push('fix');
+    repo.load('fix');
+    repo.prepare('r4', 'fixed');
+    repo.checkout('main');
+    repo.commit('concurrent', 'r9');
+    repo.push('main');
+    const result = repo.publish();
+    assert.equal(result.status, 1);
+    assert.match(result.output, /is not contained in the compiled data/);
+    assert.deepEqual(repo.main(), ['concurrent', 'main 2', 'main 1', 'main 0']);
+  });
+});
+
+test('a correction branch cut before main last moved fails when it is loaded, before the compile', () => {
   withDataRepository(repo => {
     repo.checkout('-b', 'fix', 'HEAD~1');
     repo.commit('fix', 'r1', 'fixed');
     repo.push('fix');
-    repo.load('fix');
-    repo.prepare('r4', 'fixed');
-    const result = repo.publish();
+    const result = repo.tryLoad('fix');
     assert.equal(result.status, 1);
-    assert.match(result.output, /is not contained in the compiled data/);
+    assert.match(result.output, /::error::fix \([0-9a-f]{40}\) does not contain data main \([0-9a-f]{40}\)\. Merge main into the correction branch/);
     assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
   });
+});
+
+// Every step the runner gets, with the lines of its own block.
+function steps() {
+  const lines = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('\n');
+  const starts = lines.flatMap((line, i) => /^ {6}- /.test(line) ? [i] : []);
+  return starts.map((start, i) => {
+    const block = lines.slice(start, starts[i + 1] ?? lines.length);
+    return { name: block[0].match(/- name: (.*)$/)?.[1] ?? block[0].trim(), block };
+  });
+}
+
+test('the asset-sync report can neither hold back nor fail the publication', () => {
+  const all = steps();
+  const publish = all.findIndex(step => step.name === 'Publish the validated public release');
+  const report = all.findIndex(step => step.name === 'Report failing asset syncs');
+  assert.ok(publish >= 0 && report > publish, 'the report runs after the publish step');
+  const settings = all[report].block.map(line => line.trim());
+  assert.ok(settings.includes('continue-on-error: true'));
+  const timeout = settings.find(line => line.startsWith('timeout-minutes:'));
+  assert.ok(timeout && Number(timeout.split(':')[1]) <= 5, 'the report has a short timeout of its own');
 });
 
 test('a correction branch that changes no release input publishes nothing', () => {

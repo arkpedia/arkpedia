@@ -54,6 +54,19 @@ jobs:
           git clone --depth 1 https://github.com/arkpedia/arkpedia-data.git "$RUNNER_TEMP/arkpedia-data"
           git -C "$RUNNER_TEMP/arkpedia-data" fetch --depth 1 origin "$DATA_REF"
           git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach FETCH_HEAD
+          # A correction branch is published as a fast-forward of main, so it must
+          # already contain main. Say so now, not after the compile; the publish
+          # step checks again in case main moves in between.
+          data_head=$(git -C "$RUNNER_TEMP/arkpedia-data" rev-parse HEAD)
+          data_main=$(git -C "$RUNNER_TEMP/arkpedia-data" rev-parse origin/main)
+          if [ "$data_head" != "$data_main" ]; then
+            # Both checkouts are shallow; deepen the branch until it reaches main.
+            git -C "$RUNNER_TEMP/arkpedia-data" fetch --deepen=100 origin "$data_head"
+            if ! git -C "$RUNNER_TEMP/arkpedia-data" merge-base --is-ancestor "$data_main" "$data_head"; then
+              echo "::error::$DATA_REF ($data_head) does not contain data main ($data_main). Merge main into the correction branch and dispatch again. Only the branch's last 100 commits are searched, so a longer branch reads as not containing main too."
+              exit 1
+            fi
+          fi
           node scripts/content/hydrate-source.mjs "$RUNNER_TEMP/arkpedia-data"
       - uses: actions/setup-python@v7
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
@@ -105,46 +118,6 @@ jobs:
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
           node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
-      # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
-      # here on its own. Report it, but never hold back the day's content over it.
-      - name: Report failing asset syncs
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          cutoff=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          failing=''
-          for sync in arkpedia-image-assets/sync-images.yml arkpedia-skin-assets/sync-artwork.yml \
-            arkpedia-voice-english/sync-voices.yml arkpedia-voice-japanese/sync-voices.yml \
-            arkpedia-voice-korean/sync-voices.yml arkpedia-voice-mandarin/sync-voices.yml \
-            arkpedia-voice-regional/sync-voices.yml; do
-            repo=${sync%%/*} workflow=${sync#*/}
-            if run=$(gh api "repos/arkpedia/$repo/actions/workflows/$workflow/runs?event=schedule&status=completed&per_page=1" \
-              --jq '.workflow_runs[0] // {} | [.conclusion // "no finished run", .created_at // "", .html_url // ""] | @tsv'); then
-              IFS=$'\t' read -r conclusion created url <<< "$run"
-              # A success older than three days means the schedule itself stopped.
-              if [ "$conclusion" = success ] && [[ "$created" > "$cutoff" ]]; then continue; fi
-              failing+="- arkpedia/$repo \`$workflow\`: $conclusion ${created:0:10} $url"$'\n'
-            else
-              failing+="- arkpedia/$repo \`$workflow\`: its scheduled runs could not be read"$'\n'
-            fi
-          done
-          title='Asset sync failing'
-          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
-            --jq "map(select(.title == \"$title\"))[0].number // empty")
-          if [ -n "$failing" ]; then
-            echo "::warning::Asset syncs are failing; content releases pin each asset repository's current HEAD."
-            body=$(printf 'The latest finished scheduled run of each asset sync below failed or is more than three days old (checked by %s). Content releases do not wait for them; they pin the current commit of each repository.\n\n%s' "$RUN_URL" "$failing")
-            if [ -n "$number" ]; then
-              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
-            else
-              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
-            fi
-          elif [ -n "$number" ]; then
-            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Every asset sync's latest scheduled run succeeded: $RUN_URL"
-          fi
       - name: Publish the validated public release
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
@@ -201,6 +174,49 @@ jobs:
           if [ "$(git -C "$repo" rev-parse HEAD)" = "$current_base" ]; then echo 'Content unchanged.'; exit 0; fi
           # Never forced: if main moves after the check above, the push is refused.
           git -C "$repo" push origin HEAD:main
+      # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
+      # here on its own. Report it, but never hold back the day's content over it: this
+      # runs after the publish step, and a slow or failing GitHub API call only fails
+      # this step, within its own timeout.
+      - name: Report failing asset syncs
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cutoff=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          failing=''
+          for sync in arkpedia-image-assets/sync-images.yml arkpedia-skin-assets/sync-artwork.yml \
+            arkpedia-voice-english/sync-voices.yml arkpedia-voice-japanese/sync-voices.yml \
+            arkpedia-voice-korean/sync-voices.yml arkpedia-voice-mandarin/sync-voices.yml \
+            arkpedia-voice-regional/sync-voices.yml; do
+            repo=${sync%%/*} workflow=${sync#*/}
+            if run=$(gh api "repos/arkpedia/$repo/actions/workflows/$workflow/runs?event=schedule&status=completed&per_page=1" \
+              --jq '.workflow_runs[0] // {} | [.conclusion // "no finished run", .created_at // "", .html_url // ""] | @tsv'); then
+              IFS=$'\t' read -r conclusion created url <<< "$run"
+              # A success older than three days means the schedule itself stopped.
+              if [ "$conclusion" = success ] && [[ "$created" > "$cutoff" ]]; then continue; fi
+              failing+="- arkpedia/$repo \`$workflow\`: $conclusion ${created:0:10} $url"$'\n'
+            else
+              failing+="- arkpedia/$repo \`$workflow\`: its scheduled runs could not be read"$'\n'
+            fi
+          done
+          title='Asset sync failing'
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$failing" ]; then
+            echo "::warning::Asset syncs are failing; content releases pin each asset repository's current HEAD."
+            body=$(printf 'The latest finished scheduled run of each asset sync below failed or is more than three days old (checked by %s). Content releases do not wait for them; they pin the current commit of each repository.\n\n%s' "$RUN_URL" "$failing")
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Every asset sync's latest scheduled run succeeded: $RUN_URL"
+          fi
       - name: Keep discovery evidence on failure
         if: failure()
         uses: actions/upload-artifact@v7
