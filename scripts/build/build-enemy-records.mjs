@@ -21,7 +21,8 @@
  *     collectors from mode tables no stage names (Defense Protocols, Design of
  *     Strife). So an enemy already filed somewhere stays there, and only an enemy
  *     with no record yet is filed, under the earliest content whose listed stages
- *     field it.
+ *     field it. The one thing that moves is a content's ID, when the stage dataset
+ *     re-files a whole event under its rerun's id (see the re-key in main()).
  *   - Appearances are ADDED to, never taken from. A content's row gains every
  *     enemy its listed stages field; nothing already in a row is removed, for the
  *     same reason -- 74 rows name enemies from mode mechanics the stage dataset
@@ -29,7 +30,7 @@
  *     pages (build-enemy-details.mjs explains the 205 that lost every content once).
  *   - An icon path already on a record is kept: 11 records have no upstream art
  *     and carry null on purpose. A new record gets the path the image sync
- *     publishes it under; see iconPath().
+ *     publishes it under; see iconPath() and the naming note in main().
  *
  * A bundle or row is written only when what it SAYS changed. JSON.stringify does
  * not round-trip the gamedata's floats (10.0 comes back as 10), so rewriting an
@@ -49,13 +50,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { excel, levelsDir } from '../stage-pipeline/lib/gamedata.mjs';
-import { asList, defined, enemySlugs, plain } from '../stage-pipeline/lib/level.mjs';
+import { asList, enemySlugs, plain } from '../stage-pipeline/lib/level.mjs';
 import { text } from '../stage-pipeline/lib/text.mjs';
 
 const ROOT = process.env.ARKPEDIA_ROOT || process.cwd();
 const BUNDLES = path.join(ROOT, 'data/enemies');
 const APPEARANCES = path.join(ROOT, 'data/enemy_appearances.json');
 const STAGES = path.join(ROOT, 'data/stages');
+const CONTENTS = path.join(ROOT, 'data/stages-content.json');
 const INDEX = path.join(ROOT, 'public/stages-index.json');
 const SCHEMA_VERSION = 3;
 
@@ -93,7 +95,7 @@ const IMMUNITIES = [
  * minus the characters a filename cannot hold. 'OpFor: Fissure' is
  * 'OpFor Fissure.webp'. The same rule every existing record's icon follows.
  */
-export function iconPath(name) {
+function iconPath(name) {
   return `/enemies-icons/${String(name).replace(/[\\/*?:"<>|]/g, '').trim()}.webp`;
 }
 
@@ -289,7 +291,7 @@ function buildRecord(id, entry, rows, { slugOf, races, bands, icon }) {
     rank: RANK[entry.enemyLevel],
     sort: entry.sortId,
     hidden: Boolean(entry.hideInHandbook),
-    icon: icon === undefined ? iconPath(name) : icon,
+    icon,
     // '-' is the handbook's placeholder for no description, as it is for no index.
     flavour_text: description === '-' ? null : description,
     race: tags.map((tag) => races[tag]?.raceName).find(Boolean) ?? null,
@@ -321,7 +323,7 @@ function writeIfChanged(file, value) {
 }
 
 function main() {
-  for (const required of [BUNDLES, APPEARANCES, STAGES, INDEX]) {
+  for (const required of [BUNDLES, APPEARANCES, STAGES, CONTENTS, INDEX]) {
     if (!fs.existsSync(required)) throw new Error(`missing ${path.relative(ROOT, required)}`);
   }
   const handbookTable = excel('enemy_handbook_table');
@@ -373,6 +375,35 @@ function main() {
     for (const slug of slugs) fielded.get(stage.content.id).add(slug);
   }
 
+  // A content the stage dataset has re-filed under another id. When a rerun ships,
+  // the rerun's activity registers the original's levels and the stage build files
+  // every stage under it: When Elegies Are Ashes was act41side when the enemies were
+  // imported and is act41sre in the stages now. The enemy side has to follow, or the
+  // stage links (keyed by the new id) find no appearance row to hang off, and the
+  // enemy page lists the event twice -- once with no stages. So a bundle whose id
+  // the stage dataset no longer has, facing exactly one content of the same kind,
+  // label and name that has no bundle and no row of its own, takes that content's id.
+  const registry = readJson(CONTENTS);
+  const rows = new Map(readJson(APPEARANCES).map((row) => [row.id, row]));
+  const same = (a, b) => a.kind === b.kind && a.name === b.name && (a.label ?? null) === (b.label ?? null);
+  const rekeyed = [];
+  for (const [oldId, bundle] of [...bundles]) {
+    if (registry[oldId]) continue;
+    const matches = Object.values(registry)
+      .filter((c) => !bundles.has(c.id) && !rows.has(c.id) && same(c, bundle.content));
+    if (matches.length !== 1) continue;
+    const content = matches[0];
+    bundles.delete(oldId);
+    bundles.set(content.id, { ...bundle, content });
+    for (const [id, contentId] of filedIn) if (contentId === oldId) filedIn.set(id, content.id);
+    const row = rows.get(oldId);
+    if (row) {
+      rows.delete(oldId);
+      rows.set(content.id, { ...row, id: content.id });
+    }
+    rekeyed.push(`${oldId} -> ${content.id} (${content.name})`);
+  }
+
   // A slug a stage names that the handbook does not know is a stage build that
   // disagrees with this one, and the enemy would silently have no page.
   const unknown = [...fielded.values()].flatMap((s) => [...s]).filter((slug) => !idBySlug.has(slug));
@@ -394,9 +425,27 @@ function main() {
     filedIn.set(id, contentId);
     added.push(id);
     if (!bundles.has(contentId)) {
-      const content = contentBlock.get(contentId);
+      const content = registry[contentId] || contentBlock.get(contentId);
       bundles.set(contentId, { file: bundleFile(content), content, ids: [] });
     }
+  }
+
+  // A new record's icon is named after the enemy, as every record's is -- unless
+  // another record already has that file. Records that share a name share a picture
+  // only when the art is identical (boss phases, difficulty tiers), which nothing
+  // here can see, and the two Jailed Students of People, A People share a name and
+  // not a picture. So the later one is told apart by its handbook code and the image
+  // sync publishes it from its own upstream file: a duplicate picture under a second
+  // name costs a few KB, a wrong picture is a wrong page.
+  const claimed = new Set([...iconOf.values()].filter(Boolean));
+  for (const id of [...added].sort((a, b) => handbook[a].sortId - handbook[b].sortId || byCodePoint(a, b))) {
+    const name = plain(handbook[id].name);
+    const index = text(handbook[id].enemyIndex);
+    let icon = iconPath(name);
+    if (claimed.has(icon)) icon = iconPath(`${name} (${index && index !== '-' ? index : id})`);
+    if (claimed.has(icon)) icon = iconPath(`${name} (${id})`);
+    claimed.add(icon);
+    iconOf.set(id, icon);
   }
 
   // Rebuild every record, bundle by bundle.
@@ -412,7 +461,7 @@ function main() {
     taken.add(bundle.file);
     const enemies = bundle.ids
       .map((id) => buildRecord(id, handbook[id], database[id], {
-        slugOf, races, bands, icon: iconOf.has(id) ? iconOf.get(id) : undefined,
+        slugOf, races, bands, icon: iconOf.get(id),
       }))
       // Filed records keep their place -- the import's order is arbitrary but moving
       // it rewrites the file for nothing -- and new ones follow in handbook order.
@@ -423,7 +472,6 @@ function main() {
   }
 
   // Appearances: every existing row kept, each gaining what its listed stages field.
-  const rows = new Map(readJson(APPEARANCES).map((row) => [row.id, row]));
   let grown = 0;
   for (const [contentId, slugs] of fielded) {
     const known = rows.get(contentId);
@@ -444,7 +492,8 @@ function main() {
 
   const total = [...bundles.values()].reduce((n, b) => n + b.ids.length, 0);
   console.log(`${total} enemies in ${bundles.size} bundles: ${added.length} new, ${written} bundle file(s) written`
-    + `; ${grown} appearance row(s) added or grown`);
+    + `; ${grown} appearance row(s) added or grown, ${rekeyed.length} content(s) re-keyed`);
+  for (const line of rekeyed) console.log(`  ~ ${line}: re-filed by the stage dataset`);
   for (const id of added) console.log(`  + ${slugOf.get(id)} -> ${bundles.get(filedIn.get(id)).file}`);
 }
 
