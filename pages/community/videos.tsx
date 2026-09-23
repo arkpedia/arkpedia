@@ -22,7 +22,6 @@ export default function VideosPage({ videos }: Props) {
         </Link>
         <h1>Videos</h1>
         <p className="sub">{videos.length} videos from the configured channels.</p>
-        <Link prefetch={false} href="/community/creators" className="ghost">Browse creators</Link>
       </header>
 
       <main>

@@ -12,7 +12,6 @@ import WorldMapEvents from '@/components/schedule/WorldMapEvents';
 import EventListPanel from '@/components/schedule/EventListPanel';
 import FadeCarousel from '@/components/ui/FadeCarousel';
 import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
-import { COMMUNITY_CREATORS } from '@/lib/community/creators';
 
 const CAROUSEL_MAX_ITEMS = 4;
 
@@ -49,23 +48,6 @@ export default function CommunityHub({
             <p className="hint">The community feed is temporarily unavailable.</p>
           </div>
         )}
-
-        <section className="op-section creator-spotlight-section">
-          <div className="live-section-heading-row">
-            <div>
-              <h2>Creators</h2>
-              <p className="hint">Channels selected for the Arkpedia community feed.</p>
-            </div>
-            <Link prefetch={false} href="/community/creators" className="see-more-link">Show all</Link>
-          </div>
-          <div className="creator-spotlight-row">
-            {COMMUNITY_CREATORS.slice(0, 6).map((creator) => (
-              <Link key={creator.id} href={`/community/creators/${creator.slug}`} className="creator-spotlight-link">
-                {creator.label}
-              </Link>
-            ))}
-          </div>
-        </section>
 
         {/* Map + events: event list as a left panel, map as the main
             area to its right -- stacks to map-on-top, events-below on
