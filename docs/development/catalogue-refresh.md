@@ -26,4 +26,4 @@ node --import tsx --test scripts/tests/test-catalogue-sync.ts scripts/tests/test
 node scripts/content/check-completeness.mjs
 ```
 
-The dry run writes only `.cache/catalogue`: pinned source snapshots, a change report, and the required-media plan. A normal run writes source records. `publish-catalogue-assets.py` stages and validates media in disposable asset checkouts; its shell wrapper performs scoped publication and updates the app's asset pins.
+The dry run writes only `.cache/catalogue`: pinned source snapshots, a change report, and the required-media plan. A normal run writes source records. `publish-catalogue-assets.py` stages and validates media in disposable asset checkouts; its shell wrapper performs scoped publication and updates the app's asset pins. Each image it maps from the upstream mirror records the git blob of the bytes it fetched (`sourceBlob`), so the image repository's own sync re-fetches that file as soon as upstream changes it. `python3 scripts/sync/test-publish-catalogue-assets.py` checks this offline.

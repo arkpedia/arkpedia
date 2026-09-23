@@ -46,6 +46,9 @@ jobs:
       - name: Palette import tests
         run: python3 scripts/palettes/test-color-palettes.py
 
+      - name: Catalogue media import tests
+        run: python3 scripts/sync/test-publish-catalogue-assets.py
+
       - name: External asset coverage
         run: npm run check:assets && npm run check:published-assets
 
