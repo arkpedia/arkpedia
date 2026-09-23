@@ -44,6 +44,11 @@ export interface RewardItem {
   price?: number;
   price_cork_stoppers?: number;
   stock?: string;
+  // Set by scripts/sync/sync-reward-names.mjs when a CN-named reward gets its official
+  // Global name: the CN name it was entered under, and -- until an icon file under the
+  // new name is published -- the name whose material-icons/ file to show instead.
+  cnName?: string;
+  iconName?: string;
 }
 
 export interface EventRewardBlock {

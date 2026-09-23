@@ -12,9 +12,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { wikiParseUrl, wikiText } from './catalogue-model.mjs';
 
 const CLIENT_BASE = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel';
-const WIKI_API = 'https://arknights.wiki.gg/api.php';
 const CLIENT_SOURCE = `${CLIENT_BASE}/gacha_table.json`;
 
 function serverDate(timestamp, utcOffsetHours = -7) {
@@ -142,7 +142,7 @@ async function readTable(root, file) {
   }
 }
 
-export async function syncRecurringBanners(root = process.cwd()) {
+export async function syncRecurringBanners(root = process.cwd(), now = new Date()) {
   const bannersAt = path.join(root, 'data/headhunting_banners.json');
   const operatorFolders = fs.readdirSync(path.join(root, 'data')).filter((name) => /^operators-[1-6]star$/.test(name));
   const roster = new Map();
@@ -152,19 +152,22 @@ export async function syncRecurringBanners(root = process.cwd()) {
       roster.set(operator.name, operator.rarity);
     }
   }
-  const year = new Date().getUTCFullYear();
-  const wikiUrl = `${WIKI_API}?action=parse&page=${encodeURIComponent(`Headhunting/Banners/${year}`)}&prop=wikitext&format=json&origin=*`;
+  // One clock names the year's page and decides whether its absence is excused, and
+  // the page is read under the same rule as sync-catalogue.mjs's copy of it.
+  const page = `Headhunting/Banners/${now.getUTCFullYear()}`;
   const [gachaTable, characters, wiki] = await Promise.all([
     readTable(root, 'gacha_table.json'),
     readTable(root, 'character_table.json'),
-    json(wikiUrl),
+    json(wikiParseUrl(page)),
   ]);
+  const text = wikiText(page, wiki, now);
+  if (!text) console.warn(`${page} does not exist on the wiki yet; reading it as no rows until the end of January (UTC).`);
   const banners = JSON.parse(fs.readFileSync(bannersAt, 'utf8'));
   const result = reconcileRecurringBanners({
     banners,
     gachaTable,
     characters,
-    wikiRows: parseRecurringWikiRows(wiki.parse?.wikitext?.['*'] || ''),
+    wikiRows: parseRecurringWikiRows(text),
     roster,
   });
   if (result.additions.length) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);

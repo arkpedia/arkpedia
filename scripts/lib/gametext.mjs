@@ -5,11 +5,15 @@
  * before this file existed, and one of them wrongly.
  *
  * RICH TEXT. The game marks up its own strings: `<@ba.vup>+20%</>` for a buff colour,
- * `<$ba.stun>` for a keyword link. Those wrappers come out. Angle brackets are ALSO
- * literal game text -- `<In battle>`, `<When obtained>`, `<Sargon>` are words the game
- * prints on screen -- so a blanket `<[^>]*>` eats real words. Only the two marker forms
- * and the closing tag are stripped. scripts/stage-pipeline/lib/names.mjs still uses the
- * blanket version on stage codes, where there is no prose to lose.
+ * `<$ba.stun>` for a keyword link. The tables also use Unity's formatting tags: every
+ * outfit blurb is wrapped in `<color name=#ffffff>…</color>`, and archives carry `<i>`.
+ * All of those come out. Angle brackets are ALSO literal game text -- `<In battle>`,
+ * `<When obtained>`, `<Sargon>`, even lowercase `<break>` and `<to be filled>` are words
+ * the game prints on screen -- so a blanket `<[^>]*>` eats real words. A Unity tag is
+ * only stripped when its name is one of Unity's and it has a tag's shape: bare
+ * (`<i>`, `</color>`) or carrying a value (`<size=20>`, `<color name=#fff>`).
+ * scripts/stage-pipeline/lib/names.mjs still uses the blanket version on stage codes,
+ * where there is no prose to lose.
  *
  * BLACKBOARD. A description carries placeholders that the game fills from a per-level
  * `blackboard` array: `ATK <@ba.vup>+{atk:0%}</>` with `atk: 0.2` prints as `ATK +20%`.
@@ -17,10 +21,13 @@
  * it, and keys match case-insensitively because the tables are inconsistent about it.
  */
 
+const UNITY_TAG = /<\/?(?:b|i|u|s|sub|sup|color|size|material|font|mark|style|link)(?:=[^<>]*|\s+[a-z-]+=[^<>]*)?\/?>/g;
+
 /** Strips the game's own markup and leaves literal angle brackets alone. */
 export function stripRichText(s) {
   return String(s ?? '')
     .replace(/<@[^>]*>|<\$[^>]*>|<\/>/g, '')
+    .replace(UNITY_TAG, '')
     .replace(/[ \t]+/g, ' ')
     .trim();
 }

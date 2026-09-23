@@ -7,15 +7,13 @@
  * which stages inside them, and the enemy page needs a stage to link to.
  *
  * The join comes from the stage dataset: every record in data/stages/ lists the
- * enemies it fields by the same slug the enemy records use. That dataset lives on
- * the stages branch and is not merged yet, so point this at a checkout of it:
+ * enemies it fields by the same slug the enemy records use. It runs in the stage
+ * refresh chain, after the index enrichment and build-enemy-records.mjs:
  *
- *   ARKPEDIA_STAGES=/path/to/data/stages \
- *   ARKPEDIA_STAGE_INDEX=/path/to/public/stages-index.json \
  *   node scripts/build/build-enemy-stage-appearances.mjs
  *
- * It defaults to the in-repo paths, so once the stages page merges this runs with
- * no arguments and belongs in the stage refresh chain.
+ * ARKPEDIA_STAGES and ARKPEDIA_STAGE_INDEX point it at another checkout's
+ * data/stages and public/stages-index.json.
  *
  * Only stages that actually get a page are emitted -- the index is the allowlist --
  * so the links this feeds cannot 404 on an excluded stage.

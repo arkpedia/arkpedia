@@ -33,8 +33,8 @@ def build(plan, image_root, skin_root):
         root = roots[kind]
         if target in manifests[kind]['files']:
             continue
-        if entry.get('sourcePath'):
-            source = entry['sourcePath']
+        source = entry.get('sourcePath')
+        if source:
             if source.startswith('/') or '..' in Path(source).parts: raise ValueError('Unsafe source path')
             url = f'https://raw.githubusercontent.com/{plan["sourceRepository"]}/{plan["revision"]}/{urllib.parse.quote(source)}'
         else:
@@ -56,12 +56,15 @@ def build(plan, image_root, skin_root):
             original = root/'originals'/Path(target).with_suffix('.png');original.parent.mkdir(parents=True,exist_ok=True)
             image.save(original,format='PNG');image.save(dest,format='WEBP',quality=90,method=6)
             _,row = variants.build_one((target,str(original),(320,768,1280)))
-            maps[kind]['files'][target] = source
+            # The artwork repository's map rows are bare source paths; it has no blob rule.
+            if source: maps[kind]['files'][target] = source
         else:
             image.thumbnail((1600,1600) if target.startswith(('event-poster/','headhunting-banner-images/')) else (180,180))
             image.save(dest,format='WEBP',lossless=True)
             row = {}
-            if entry.get('sourcePath'): maps[kind]['files'][target] = {'sourcePath':source,'maxWidth':180}
+            # The git blob of the exact bytes fetched at plan.revision. Without it the image
+            # sync adopts whatever blob upstream holds when it next runs, which may be newer.
+            if source: maps[kind]['files'][target] = {'sourcePath':source,'sourceBlob':hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest(),'maxWidth':180}
         row.update({'bytes':dest.stat().st_size,'sha256':sha(dest.read_bytes()),'width':image.width,'height':image.height})
         manifests[kind]['files'][target] = row
         sources[target] = {'url':url,'sha256':sha(data)}

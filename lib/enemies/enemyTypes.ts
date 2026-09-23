@@ -1,7 +1,8 @@
 /**
  * Types for the enemy bundles in data/enemies/ and the appearance index
- * in data/enemy_appearances.json (schema_version 3, as produced by
- * arkpedia-database's build_enemies.py).
+ * in data/enemy_appearances.json (schema_version 3, first imported from
+ * arkpedia-database's build_enemies.py and regenerated from the EN tables by
+ * scripts/build/build-enemy-records.mjs).
  *
  * Two things about this data shape are worth knowing up front, because
  * the page design follows from both:

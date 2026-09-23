@@ -6,7 +6,7 @@
  *   node scripts/build/build-stronghold-enemies.mjs [contentId]
  *
  * WHY THIS IS NOT data/enemies/<Name>.json. Those files, written by
- * scripts/build/build-enemies-index.mjs, hold the enemies a content INTRODUCES -- five for
+ * scripts/build/build-enemy-records.mjs, hold the enemies a content INTRODUCES -- five for
  * the original Stronghold Protocol, twenty-three for Alliance #1. Alliance #2
  * introduces none: all nine of its enemies came from the mainline, from Phantom &
  * Crimson Solitaire, or from Alliance #1. So by that convention it correctly has no

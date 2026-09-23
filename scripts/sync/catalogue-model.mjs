@@ -102,30 +102,91 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
   return { operators: next, changes, renames };
 }
 
+/* The site's spelling of each outfit brand, keyed by the tables' brand ID, in the order
+   the /skins dropdown lists them (lib/skins/skinSeriesConfig.ts ALL_SERIES, which a test
+   holds equal to these values). The tables' brandCapitalName is ALL CAPS for 22 of the
+   25 brands and brandName differs from these for six ("Collab Series", "0011/Tempest"),
+   so neither can be written as-is. A brand not listed here still gets a readable,
+   region-independent name: brandCapitalName is identical in the CN and EN tables. */
+export const SKIN_SERIES = {
+  sale: 'Test Collection', epoque: 'EPOQUE', nian: 'Made by 0011', whirlwind: '0011 Tempest', yun: '0011 Yun',
+  marthe: 'MARTHE', summer: 'Coral Coast', witch: 'Witch Feast', winter: 'Cambrian', xmas: 'Icefield Messenger',
+  wild: 'Vitafield', sweep: 'Pioneer', striker: 'Striker', boc: 'Bloodline of Combat', kitchen: 'Rhodes Kitchen',
+  ghost: 'Dreambind Castle', race: 'Whistlewind', ambienceSynesthesia: 'Ambience Synesthesia', shining: 'Shining Steps',
+  game: 'Achievement Star', iteration: 'Iteration Provident', unveiling: 'Unveiling of Devotion',
+  sightseer: 'Misaligned Sightseer', breaker: 'Storyboard Breaker', crossover: 'Crossover',
+};
+const MINOR_WORDS = new Set(['a', 'an', 'and', 'by', 'for', 'in', 'of', 'on', 'the', 'to']);
+const titleCase = text => text.toLowerCase().replace(/[\p{L}\p{N}]+/gu, (word, at) => at && MINOR_WORDS.has(word) ? word : word[0].toUpperCase() + word.slice(1));
+export const skinSeries = (brand, display) => SKIN_SERIES[brand?.brandId]
+  ?? (brand?.brandCapitalName ? titleCase(brand.brandCapitalName) : display.skinGroupName?.replace(/\/[^/]*$/, '') || null);
+/* An outfit blurb opens with its code line -- "EPOQUE Collection New Arrivals/Charm of the
+   Tiles." -- which the catalogue shows as the code and keeps out of the description.
+   A first sentence with no "/" outside brackets is prose, not a code (the Coral Coast
+   swimsuits), and stays in the description. Measured on the live tables, the code ends
+   with the outfit's own name for 415 of 416 EN and 453 of 453 CN slash lines. */
+const CODE_END = /[。！？]|\.(?=\s|$)/u;
+export function skinText(display) {
+  const text = stripRichText(display.dialog || display.content || display.description);
+  const end = CODE_END.exec(text);
+  const code = end ? text.slice(0, end.index + (/[！？]/u.test(end[0]) ? 1 : 0)).trim() : '';
+  if (!code.replace(/\[[^\]]*\]/g, '').includes('/')) return { code: null, description: text || null };
+  return { code, description: text.slice(end.index + end[0].length).trim() || null };
+}
+const CN_RELEASE = /\[CN\]|\(CN\)/, CN_MARKER = /^\s*(?:\[CN\]|\(CN\))\s*/;
+/* The event an outfit shipped with: the one whose activity opened at the outfit's getTime
+   on that server. Only rows from the wiki's Upcoming page carry an activityId (11 of 202
+   events), so an activity is matched to its record by the day it opened, and by name when
+   two records open that day. Anything less certain keeps the existing label. */
+function releaseEvent(events, activity, time, global) {
+  const opened = Object.values(activity?.basicInfo ?? {}).filter(a => time && a.startTime === time);
+  if (!opened.length) return null;
+  const byId = events.filter(e => opened.some(a => a.id === e.activityId));
+  if (byId.length === 1) return byId[0];
+  const day = serverDay(time, global ? -7 : 8);
+  const sameDay = events.filter(e => dayPart(e[global ? 'global' : 'cn']?.dateRange) === day);
+  if (sameDay.length <= 1) return sameDay[0] ?? null;
+  const named = sameDay.filter(e => opened.some(a => fold(a.name) === fold(e.name)));
+  return named.length === 1 ? named[0] : null;
+}
+
 export function reconcileSkins({ skins, operators, cn, en, events = [] }) {
   const next = structuredClone(skins), byId = new Map(next.map(s => [s.skinId, s]));
   const roster = new Map(operators.map(op => [op.internalName, op]));
-  const changes = [], renames = [];
+  const changes = [], renames = [], globalIds = new Set();
+  const brandOf = (tables, group) => Object.values(tables.skins.brandList).find(b => b.groupList.some(g => g.skinGroupId === group));
   for (const [id, source] of Object.entries(cn.skins.charSkins)) {
     const op = roster.get(id.split('@')[0]) ?? roster.get(source.charId);
     if (!op || !id.includes('@') || !source.displaySkin?.skinName) continue;
-    const official = en.skins.charSkins[id], global = !!official?.displaySkin?.skinName && !chinese(official.displaySkin.skinName);
-    const regional = global ? official : source, display = regional.displaySkin;
+    // Global means official English text, not only an English title over CN placeholders.
+    const official = en.skins.charSkins[id]?.displaySkin;
+    const global = !!official?.skinName && ![official.skinName, official.dialog || official.content].some(chinese);
+    const regional = global ? en.skins.charSkins[id] : source, display = regional.displaySkin;
+    if (global) globalIds.add(id);
     let skin = byId.get(id);
     const isNew = !skin;
     // Existing community translations remain useful until the Global table ships.
     if (skin && !global) skin.sourceRegion = 'CN';
-    const promote = global && (skin?.sourceRegion === 'CN' || skin?.release?.includes('[CN]') || chinese(skin?.name));
+    // Records that were already Global before this reconciler first ran never got a
+    // sourceRegion, so any CN text or CN release label left on one also promotes it.
+    const promote = global && (skin?.sourceRegion === 'CN' || CN_RELEASE.test(skin?.release ?? '') || [skin?.name, skin?.code, skin?.description].some(chinese));
     if (!isNew && !promote) continue;
-    const brand = Object.values((global ? en : cn).skins.brandList).find(b => b.groupList.some(g => g.skinGroupId === display.skinGroupId));
-    const event = events.find(e => e.activityId && ((global ? en : cn).activity.basicInfo[e.activityId]?.startTime === display.getTime));
+    const brand = brandOf(global ? en : cn, display.skinGroupId);
+    const event = releaseEvent(events, (global ? en : cn).activity, display.getTime, global);
+    const text = skinText(display);
+    // Art files are keyed by the name, so a difference of case or punctuation alone
+    // ("Charm of The Tiles") is not worth a rename, new artwork and a stranded old file.
+    const name = skin && fold(skin.name) === fold(display.skinName) ? skin.name : display.skinName;
     const oldKey = skin ? `${skin.model} / ${skin.name}` : null;
-    skin = { ...skin, skinId: id, name: display.skinName, model: op.name, series: brand?.brandCapitalName || display.skinGroupName,
-      seriesImage: skin?.seriesImage ?? null, code: skin?.code ?? null, illustrator: display.drawerList?.join(' / ') || null,
-      description: stripRichText(display.content || display.description),
-      release: event ? `${global ? '' : '[CN] '}${event.name}` : skin?.release ?? null,
+    skin = { ...skin, skinId: id, name, model: op.name, series: skinSeries(brand, display),
+      // A CN code stays until Global replaces it; the EN table's own code line, or none.
+      seriesImage: skin?.seriesImage ?? null, code: global || isNew ? text.code : skin?.code ?? null, illustrator: display.drawerList?.join(' / ') || null,
+      description: text.description,
+      // Global labels name the event alone ("People, A People"), CN ones add the marker.
+      release: event ? `${global ? '' : '[CN] '}${event.name.replace(/^\[[^\]]*\]\s*/, '')}`
+        : (global ? skin?.release?.replace(CN_MARKER, '') : skin?.release) ?? null,
       howToObtain: skin?.howToObtain || (regional.isBuySkin ? 'Outfit Store' : (global ? display.obtainApproach : null)),
-      image: `/${rarityWord(op.rarity)}-star-skins/${safeName(op.name)} - ${safeName(display.skinName)}.webp`,
+      image: `/${rarityWord(op.rarity)}-star-skins/${safeName(op.name)} - ${safeName(name)}.webp`,
       sourceRegion: global ? 'Global' : 'CN', cnReleaseAt: source.displaySkin.getTime || null,
       ...(global ? { globalReleaseAt: display.getTime || null } : {}),
     };
@@ -136,9 +197,39 @@ export function reconcileSkins({ skins, operators, cn, en, events = [] }) {
     if (isNew) next.push(skin); else next[next.findIndex(s => s.skinId === id)] = skin;
     byId.set(id, skin); changes.push(id);
   }
+  // One spelling per series, whoever wrote the record: "AMBIENCE SYNESTHESIA" and a
+  // hand-typed "0011/Yun" are the same series as the dropdown's "Ambience Synesthesia"
+  // and "0011 Yun". A record with no series takes its brand's.
+  const spellings = new Map(Object.values(SKIN_SERIES).map(name => [fold(name), name]));
+  for (const skin of next) {
+    const source = cn.skins.charSkins[skin.skinId]?.displaySkin;
+    const series = spellings.get(fold(skin.series)) ?? (skin.series || (source ? skinSeries(brandOf(cn, source.skinGroupId), source) : null));
+    if (series && series !== skin.series) { skin.series = series; if (!changes.includes(skin.skinId)) changes.push(skin.skinId); }
+  }
+  // The gates above are the only thing between CN text and a Global page, and one that
+  // misses a record fails here instead of showing Chinese on /skins.
+  const leftovers = next.filter(s => globalIds.has(s.skinId) && ([s.name, s.code, s.description].some(chinese) || CN_RELEASE.test(s.release ?? '')));
+  if (leftovers.length) throw new Error(`Global outfits still carry CN text or a CN release label: ${leftovers.map(s => `${s.model} / ${s.name}`).join(', ')}`);
+  const unnamed = next.filter(s => !s.series);
+  if (unnamed.length) throw new Error(`Outfits without a series cannot be filtered on /skins: ${unnamed.map(s => `${s.model} / ${s.name}`).join(', ')}`);
   return { skins: next, changes, renames };
 }
 
+// Every structured wiki page is read through these two. A moved page leaves a redirect
+// behind, not a missing title, so the request follows it (redirects=1) and wikiText
+// refuses what is still a redirect (a double one), instead of reading it as no rows.
+export const wikiParseUrl = page => `https://arknights.wiki.gg/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&redirects=1&format=json`;
+// The wiki creates each year's banner page around mid-January (2026's came early, on
+// 2025-12-24), so during January (UTC) a missing page for the current year only means it
+// has no rows yet. From February on it is an error again, as is any other missing page:
+// a renamed or deleted page must not pass as an empty year for eleven months.
+export function wikiText(page, response, now) {
+  if (response.error?.code === 'missingtitle' && now.getUTCMonth() === 0 && page === `Headhunting/Banners/${now.getUTCFullYear()}`) return '';
+  const text = response.parse?.wikitext?.['*'];
+  if (!text) throw new Error(`Missing structured wiki page: ${page}`);
+  if (/^\s*#redirect\b/i.test(text)) throw new Error(`Structured wiki page ${page} is still a redirect after redirects were followed: ${text.trim().split('\n')[0]}`);
+  return text;
+}
 /** Strict line-based parsing of the wiki's structured calendar templates. */
 export function parseWikiRows(text, template) {
   const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

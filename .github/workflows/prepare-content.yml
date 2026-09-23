@@ -16,6 +16,8 @@ on:
         type: boolean
 permissions:
   contents: read
+  # Only for the failure reports at the end of the job.
+  issues: write
 concurrency:
   group: prepare-content
   cancel-in-progress: false
@@ -52,6 +54,19 @@ jobs:
           git clone --depth 1 https://github.com/arkpedia/arkpedia-data.git "$RUNNER_TEMP/arkpedia-data"
           git -C "$RUNNER_TEMP/arkpedia-data" fetch --depth 1 origin "$DATA_REF"
           git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach FETCH_HEAD
+          # A correction branch is published as a fast-forward of main, so it must
+          # already contain main. Say so now, not after the compile; the publish
+          # step checks again in case main moves in between.
+          data_head=$(git -C "$RUNNER_TEMP/arkpedia-data" rev-parse HEAD)
+          data_main=$(git -C "$RUNNER_TEMP/arkpedia-data" rev-parse origin/main)
+          if [ "$data_head" != "$data_main" ]; then
+            # Both checkouts are shallow; deepen the branch until it reaches main.
+            git -C "$RUNNER_TEMP/arkpedia-data" fetch --deepen=100 origin "$data_head"
+            if ! git -C "$RUNNER_TEMP/arkpedia-data" merge-base --is-ancestor "$data_main" "$data_head"; then
+              echo "::error::$DATA_REF ($data_head) does not contain data main ($data_main). Merge main into the correction branch and dispatch again. Only the branch's last 100 commits are searched, so a longer branch reads as not containing main too."
+              exit 1
+            fi
+          fi
           node scripts/content/hydrate-source.mjs "$RUNNER_TEMP/arkpedia-data"
       - uses: actions/setup-python@v7
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
@@ -80,6 +95,7 @@ jobs:
           npm run stages:refresh
           npm run pulls:refresh
           ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" node scripts/sync/sync-operator-english.mjs
+          node scripts/sync/sync-reward-names.mjs
           ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
             ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" \
             npm run voices:refresh
@@ -122,26 +138,86 @@ jobs:
           prepared_base=$(git -C "$repo" rev-parse HEAD)
           git -C "$repo" fetch origin main
           current_base=$(git -C "$repo" rev-parse origin/main)
-          # Never overwrite a correction published while compilation was running.
-          if [ "$prepared_base" != "$current_base" ]; then
-            echo '::error::Data main changed during preparation. Retry from the new main.'
-            exit 1
+          # The release goes out as a fast-forward of main on top of the data it was
+          # compiled from: main itself, or a correction branch that already contains
+          # main. If main moved anywhere else meanwhile, e.g. to a correction published
+          # while this one compiled, fail rather than overwrite it.
+          if [ "$prepared_base" != "$current_base" ] && ! git -C "$repo" merge-base --is-ancestor "$current_base" "$prepared_base"; then
+            # Load already deepened a correction branch until it reached main, so this
+            # extra history is fetched only when main has moved since.
+            git -C "$repo" fetch --deepen=100 origin "$prepared_base"
+            if ! git -C "$repo" merge-base --is-ancestor "$current_base" "$prepared_base"; then
+              echo "::error::Data main ($current_base) is not contained in the compiled data ($prepared_base). Merge main into the correction branch, or retry from the new main."
+              exit 1
+            fi
           fi
-          git -C "$repo" checkout -B main origin/main
+          # Compare with the release main serves, not the one the checkout carries: a
+          # correction branch's own release/ is stale by design.
           prepared_release=$(node -p "require('$RUNNER_TEMP/prepared-content/release/manifest.json').release")
-          current_release=$(node -p "require('$repo/release/manifest.json').release" 2>/dev/null || true)
+          current_release=$(git -C "$repo" show origin/main:release/manifest.json 2>/dev/null | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).release' 2>/dev/null || true)
           if [ "$prepared_release" = "$current_release" ]; then
-            echo "Release inputs are unchanged; ignoring generatedAt-only output."
+            if [ "$prepared_base" != "$current_base" ]; then
+              echo '::warning::Data main already serves this release, so nothing was published: the correction branch changes no record the release is built from.'
+            else
+              echo "Release inputs are unchanged; ignoring generatedAt-only output."
+            fi
             exit 0
           fi
+          git -C "$repo" checkout -B main "$prepared_base"
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
           git -C "$repo" add source release
-          if git -C "$repo" diff --cached --quiet; then echo 'Content unchanged.'; exit 0; fi
-          git -C "$repo" config user.name 'github-actions[bot]'
-          git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git -C "$repo" commit -m 'Refresh game content and prepared page data'
+          if ! git -C "$repo" diff --cached --quiet; then
+            git -C "$repo" config user.name 'github-actions[bot]'
+            git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git -C "$repo" commit -m 'Refresh game content and prepared page data'
+          fi
+          if [ "$(git -C "$repo" rev-parse HEAD)" = "$current_base" ]; then echo 'Content unchanged.'; exit 0; fi
+          # Never forced: if main moves after the check above, the push is refused.
           git -C "$repo" push origin HEAD:main
+      # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
+      # here on its own. Report it, but never hold back the day's content over it: this
+      # runs after the publish step, and a slow or failing GitHub API call only fails
+      # this step, within its own timeout.
+      - name: Report failing asset syncs
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cutoff=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          failing=''
+          for sync in arkpedia-image-assets/sync-images.yml arkpedia-skin-assets/sync-artwork.yml \
+            arkpedia-voice-english/sync-voices.yml arkpedia-voice-japanese/sync-voices.yml \
+            arkpedia-voice-korean/sync-voices.yml arkpedia-voice-mandarin/sync-voices.yml \
+            arkpedia-voice-regional/sync-voices.yml; do
+            repo=${sync%%/*} workflow=${sync#*/}
+            if run=$(gh api "repos/arkpedia/$repo/actions/workflows/$workflow/runs?event=schedule&status=completed&per_page=1" \
+              --jq '.workflow_runs[0] // {} | [.conclusion // "no finished run", .created_at // "", .html_url // ""] | @tsv'); then
+              IFS=$'\t' read -r conclusion created url <<< "$run"
+              # A success older than three days means the schedule itself stopped.
+              if [ "$conclusion" = success ] && [[ "$created" > "$cutoff" ]]; then continue; fi
+              failing+="- arkpedia/$repo \`$workflow\`: $conclusion ${created:0:10} $url"$'\n'
+            else
+              failing+="- arkpedia/$repo \`$workflow\`: its scheduled runs could not be read"$'\n'
+            fi
+          done
+          title='Asset sync failing'
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$failing" ]; then
+            echo "::warning::Asset syncs are failing; content releases pin each asset repository's current HEAD."
+            body=$(printf 'The latest finished scheduled run of each asset sync below failed or is more than three days old (checked by %s). Content releases do not wait for them; they pin the current commit of each repository.\n\n%s' "$RUN_URL" "$failing")
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Every asset sync's latest scheduled run succeeded: $RUN_URL"
+          fi
       - name: Keep discovery evidence on failure
         if: failure()
         uses: actions/upload-artifact@v7
@@ -154,3 +230,34 @@ jobs:
       - name: Remember successful preparation
         if: github.event_name == 'schedule' && steps.prepared.outputs.cache-hit != 'true'
         run: mkdir -p .cache/prepared-inputs && touch .cache/prepared-inputs/complete
+      # One open issue per outage: later failures comment on it, and the next good run
+      # closes it. A timeout counts as a cancellation, so it is reported too.
+      - name: Report the failed release
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          title='Content release failing'
+          body="Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
+      - name: Close the failed-release report
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title='Content release failing'
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Recovered: $RUN_URL"
+          fi

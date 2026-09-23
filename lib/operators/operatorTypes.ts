@@ -14,7 +14,7 @@ export interface PotentialLevel {
 
 export interface Potential {
   levels: PotentialLevel[];
-  totalCost: CostGroup[];
+  totalCost: CostGroup;
 }
 
 export interface PromotionTier {

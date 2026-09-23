@@ -102,16 +102,29 @@ node scripts/build/build-skill-ranges.mjs
 step 'Module stat bonuses from the Global client'
 node scripts/sync/sync-module-stats.mjs
 
+# Last of the steps that WRITE the index, and it has to be: it applies the exclusions
+# to the index and copies in what the steps above resolved -- variant links, the
+# names the source leaves blank, CCB codes and names, and the content labels. The
+# enemy steps below only READ it.
+step 'Index enrichment (last step that writes the index)'
+node scripts/build/enrich-stage-index.mjs
+
+# After the enrichment, not before. The enemy steps take the index as the allowlist
+# of stages that get a page, and until the exclusions are applied it still lists the
+# limited-time modes that have none; the stage links also key on its variantOf and
+# read its CCB labels. In this order because each reads what the one before wrote:
+# the records and their appearance rows, then the stage links, then the grid's index.
+step 'Enemy records: new enemies filed, every record refreshed from the handbook'
+node scripts/build/build-enemy-records.mjs
+step 'Which stages field each enemy'
+node scripts/build/build-enemy-stage-appearances.mjs
+step 'Enemy index for the handbook grid'
+node scripts/build/build-enemies-index.mjs
+
 # After the enemy index, since it reads the stat lines out of it, and after the stage
 # records, since it reads which enemies each stage fields.
 step 'Enemies of the running Stronghold Protocol event'
 node scripts/build/build-stronghold-enemies.mjs
-
-# Last, and it has to be last: it applies the exclusions to the index and copies
-# in what the steps above resolved -- variant links, the names the source leaves
-# blank, CCB codes and names, and the content labels.
-step 'Index enrichment (must run last)'
-node scripts/build/enrich-stage-index.mjs
 
 step 'Event and banner calendars: real windows over estimates'
 # The events files are written from announcements and carry ESTIMATED dates for
