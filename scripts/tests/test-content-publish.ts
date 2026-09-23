@@ -24,7 +24,8 @@ const publishStep = stepScript('Publish the validated public release');
 
 // A local bare repository stands in for arkpedia-data. Both steps run unchanged: its
 // URLs are rewritten to the local one, and the deploy-key setup gets a dummy key and a
-// stub for the curl that fills known_hosts. Main starts as 'main 0'..'main 2' (release r2).
+// stub for the curl that fills known_hosts. A pass-through git notes every fetch that
+// deepens the history. Main starts as 'main 0'..'main 2' (release r2).
 function withDataRepository(run: (repo: ReturnType<typeof dataRepository>) => void) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-publish-'));
   try { run(dataRepository(root)); } finally { fs.rmSync(root, { recursive: true, force: true }); }
@@ -35,6 +36,10 @@ function dataRepository(root: string) {
   for (const dir of [path.join(app, 'scripts/content'), bin, runner, path.join(root, 'home')]) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(app, 'scripts/content/hydrate-source.mjs'), '');
   fs.writeFileSync(path.join(bin, 'curl'), '#!/bin/sh\necho \'{"ssh_keys":[]}\'\n', { mode: 0o755 });
+  const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  const deepenLog = path.join(root, 'deepen.log');
+  fs.writeFileSync(path.join(bin, 'git'), ['#!/bin/sh', `case " $* " in *" --deepen="*) echo "$*" >> '${deepenLog}' ;; esac`,
+    `exec '${realGit}' "$@"`, ''].join('\n'), { mode: 0o755 });
   fs.writeFileSync(path.join(root, 'gitconfig'), [`[url "file://${origin}"]`, '\tinsteadOf = https://github.com/arkpedia/arkpedia-data.git',
     '\tinsteadOf = git@github.com:arkpedia/arkpedia-data.git', '[user]', '\tname = test', '\temail = test@example.invalid',
     '[init]', '\tdefaultBranch = main', '[advice]', '\tdetachedHead = false', ''].join('\n'));
@@ -77,6 +82,7 @@ function dataRepository(root: string) {
     },
     publish: () => step(publishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key' }),
     main: () => git('-C', origin, 'log', '--format=%s', 'main').split('\n'),
+    deepened: () => fs.existsSync(deepenLog) ? fs.readFileSync(deepenLog, 'utf8').trim().split('\n') : [],
     mainFile: (file: string) => JSON.parse(git('-C', origin, 'show', `main:${file}`)),
   };
   git('init', '-q', '--bare', origin);
@@ -201,5 +207,37 @@ test('a correction branch that changes no release input publishes nothing', () =
     assert.equal(result.status, 0);
     assert.match(result.output, /Data main already serves this release/);
     assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
+  });
+});
+
+test('the publish step fetches more history only when the loaded history does not contain main', () => {
+  withDataRepository(repo => {
+    repo.checkout('-b', 'fix');
+    for (const n of [1, 2]) repo.commit(`fix ${n}`, 'r2', `fixed ${n}`);
+    repo.push('fix');
+    repo.load('fix');
+    assert.equal(repo.deepened().length, 1, 'the load step deepens the branch until it reaches main');
+    // Main moves meanwhile, but along the branch, to a commit the load step already has.
+    repo.checkout('fix~1');
+    repo.push('main');
+    repo.prepare('r4', 'fixed 2');
+    const result = repo.publish();
+    assert.equal(result.status, 0, result.output);
+    assert.deepEqual(repo.main(), [regenerated, 'fix 2', 'fix 1', 'main 2', 'main 1', 'main 0']);
+    assert.equal(repo.deepened().length, 1, 'the publish step fetched no more history');
+  });
+  // Main moves outside the branch: the publish step looks further back, then refuses.
+  withDataRepository(repo => {
+    repo.checkout('-b', 'fix');
+    repo.commit('fix', 'r2', 'fixed');
+    repo.push('fix');
+    repo.load('fix');
+    repo.prepare('r4', 'fixed');
+    repo.checkout('main');
+    repo.commit('concurrent', 'r9');
+    repo.push('main');
+    assert.equal(repo.publish().status, 1);
+    assert.equal(repo.deepened().length, 2);
+    assert.deepEqual(repo.main(), ['concurrent', 'main 2', 'main 1', 'main 0']);
   });
 });

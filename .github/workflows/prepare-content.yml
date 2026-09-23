@@ -142,8 +142,9 @@ jobs:
           # compiled from: main itself, or a correction branch that already contains
           # main. If main moved anywhere else meanwhile, e.g. to a correction published
           # while this one compiled, fail rather than overwrite it.
-          if [ "$prepared_base" != "$current_base" ]; then
-            # Both checkouts are shallow; deepen the branch until it reaches main.
+          if [ "$prepared_base" != "$current_base" ] && ! git -C "$repo" merge-base --is-ancestor "$current_base" "$prepared_base"; then
+            # Load already deepened a correction branch until it reached main, so this
+            # extra history is fetched only when main has moved since.
             git -C "$repo" fetch --deepen=100 origin "$prepared_base"
             if ! git -C "$repo" merge-base --is-ancestor "$current_base" "$prepared_base"; then
               echo "::error::Data main ($current_base) is not contained in the compiled data ($prepared_base). Merge main into the correction branch, or retry from the new main."
