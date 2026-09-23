@@ -38,19 +38,24 @@ test('available outfits have prominent artwork and persistent mouse/keyboard scr
 });
 
 
-test('View all jumps to new-first results and scrolling loads the rest', async ({ page }) => {
+test('closing the shelf keeps the gallery available and direct outfits load progressively', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-09-22T12:00:00Z'));
   await page.goto('/skins');
-  await page.getByRole('button', { name: 'View all', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Random draws', exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Fashion Review · .* outfits in random draws/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   const results = page.getByRole('main', { name: 'Skin gallery' });
+  await expect(page.getByRole('region', { name: 'Available now', exact: true })).toHaveCount(0);
   await expect(results).toBeFocused();
-  await expect.poll(() => results.evaluate(el => Math.round(el.getBoundingClientRect().top))).toBeLessThan(100);
+  await page.getByRole('button', { name: 'Available now', exact: true }).click();
   await expect(results.locator('.skin-card-operator').first()).toHaveText('Surtr');
-  await expect(results.locator('.skin-card')).toHaveCount(30);
-  await results.locator('.skin-card').last().focus();
-  await expect(results.locator('.skin-card')).toHaveCount(42);
-  await expect(results.locator('.skin-card').nth(29)).toBeFocused();
-  await expect(page.getByRole('button', { name: 'Show more', exact: true })).toHaveCount(0);
+  await expect(results.locator('.skin-card')).toHaveCount(8);
   await page.getByRole('button', { name: 'Rewards', exact: true }).click();
   await expect(results.locator('.skin-card')).toHaveCount(2);
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(results.locator('.skin-card')).toHaveCount(30);
+  await results.locator('.skin-card').last().focus();
+  await expect.poll(() => results.locator('.skin-card').count()).toBeGreaterThan(30);
+  await expect(results.locator('.skin-card').nth(29)).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Show more', exact: true })).toHaveCount(0);
 });

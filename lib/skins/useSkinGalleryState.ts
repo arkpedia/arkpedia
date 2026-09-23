@@ -6,8 +6,7 @@ type Key = typeof keys[number];
 type State = Record<Key, string>;
 const empty: State = { skin: '', series: '', q: '', sort: '', availability: '', wishlist: '' };
 
-/** One URL write for a combined filter change, so Reset/View all cannot race
- * several independent debounced query writers. Also follows browser navigation. */
+/** Batch rapid filter updates into one URL write and follow browser navigation. */
 export function useSkinGalleryState(): [State, (key: Key, value: string) => void] {
   const router = useRouter();
   const routerRef = useRef(router);

@@ -273,8 +273,6 @@
 .skins-current-item span span { font-size: 13px; line-height: 1.25; min-height: 2.5em; }
 .skins-current-item small { font-size: 10px; color: var(--text-dim); }
 .skins-current-item small:first-of-type { color: var(--teal); }
-.skins-draw-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 36px; padding: 6px 0 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--text); text-align: left; font: inherit; font-size: 12px; cursor: pointer; }
-.skins-draw-link:hover { color: var(--teal); }
 .skins-results { padding-top: 0; }
 .skins-result-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .skins-result-summary button { font-size: 10px; min-height: 36px; padding: 6px 10px; }
@@ -307,7 +305,7 @@
   .skins-results .skin-card-enter { animation: none; }
 }
 
-.skins-current-item, .skins-draw-link, .skins-results .skin-card { text-transform: none; letter-spacing: normal; }
+.skins-current-item, .skins-results .skin-card { text-transform: none; letter-spacing: normal; }
 
 /* This track stays visible even when the OS hides native overlay scrollbars. */
 .skins-scroll-controls { display: flex; align-items: center; gap: 10px; padding: 6px 0; }

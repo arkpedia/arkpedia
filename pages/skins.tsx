@@ -63,9 +63,11 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
   const currentSkins = useMemo(() => skins.filter(skin => availability.get(skinKey(skin))?.live).sort((a, b) => compareCurrentSkins(a, b, availability)), [skins, availability]);
   const directSkins = currentSkins.filter(skin => availability.get(skinKey(skin))?.kind !== 'draw');
-  const drawCount = currentSkins.length - directSkins.length;
-  const availabilityFilter = query.availability;
+  const availabilityFilter = query.availability === 'draw' ? '' : query.availability;
   const setAvailabilityFilter = (value: string) => setQuery('availability', value);
+  useEffect(() => {
+    if (query.availability === 'draw') setQuery('availability', '');
+  }, [query.availability, setQuery]);
   const wishlistOnly = query.wishlist;
   const setWishlistOnly = (value: string) => setQuery('wishlist', value);
   const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Etc/GMT+7' });
@@ -155,22 +157,11 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const [visibleSkinCount, setVisibleSkinCount] = useState(SKIN_PAGE_SIZE);
   const resultsRef = useRef<HTMLElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const [resultsJump, setResultsJump] = useState(0);
-  function showAvailableResults(filter: string) {
-    setAvailabilityFilter(filter);
-    setSearch('');
-    setSelectedSeries(null);
-    setWishlistOnly('');
-    setResultsJump(value => value + 1);
-  }
-  useEffect(() => {
-    if (!resultsJump) return;
+  const [currentShelfOpen, setCurrentShelfOpen] = useState(true);
+  function closeCurrentShelf() {
+    setCurrentShelfOpen(false);
     resultsRef.current?.focus({ preventScroll: true });
-    resultsRef.current?.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-      block: 'start',
-    });
-  }, [resultsJump]);
+  }
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -201,9 +192,9 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       if ((wishlistOnly === '1' || selectedSeries === 'WISHLIST') && !wishlist.has(skin.name)) return false;
       if (selectedSeries && selectedSeries !== 'WISHLIST' && skin.series !== selectedSeries) return false;
       const window = availability.get(skinKey(skin));
-      if (availabilityFilter === 'now') return !!window?.live;
+      if (availabilityFilter === 'now') return !!window?.live && window.kind !== 'draw';
       if (availabilityFilter === 'upcoming') return (!!window && !window.live) || skin.sourceRegion === 'CN' || /^\[CN\]/.test(skin.release || '');
-      if (['shop', 'reward', 'draw'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
+      if (['shop', 'reward'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
       return true;
     });
   }, [skins, selectedSeries, wishlist, wishlistOnly, availability, availabilityFilter]);
@@ -214,7 +205,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series} ${s.release || ''} ${(s.searchAliases || []).join(' ')}`, search));
 
     const searching = search.trim().length > 0;
-    if (!sortByAvailableDate && !searching && !['now', 'shop', 'reward', 'draw'].includes(availabilityFilter)) return base;
+    if (!sortByAvailableDate && !searching && !['now', 'shop', 'reward'].includes(availabilityFilter)) return base;
 
     return [...base].sort((a, b) => {
       if (searching) {
@@ -222,7 +213,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
         if (relDiff !== 0) return relDiff;
       }
       if (availability.get(skinKey(a))?.live && availability.get(skinKey(b))?.live
-        && (sortByAvailableDate || ['now', 'shop', 'reward', 'draw'].includes(availabilityFilter))) {
+        && (sortByAvailableDate || ['now', 'shop', 'reward'].includes(availabilityFilter))) {
         const currentOrder = compareCurrentSkins(a, b, availability);
         if (currentOrder) return currentOrder;
       }
@@ -319,18 +310,18 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
             }}>☆ Wishlist <span>{wishlist.size}</span></button>
         </div>
         <div className="seg-row seg-row-compact skins-filters" role="group" aria-label="Skin availability">
-          {([['', 'All'], ['now', 'Available now'], ['shop', 'Shop'], ['reward', 'Rewards'], ['draw', 'Random draws'], ['upcoming', 'Upcoming']] as const).map(([value, label]) => (
+          {([['', 'All'], ['now', 'Available now'], ['shop', 'Shop'], ['reward', 'Rewards'], ['upcoming', 'Upcoming']] as const).map(([value, label]) => (
             <button key={value} type="button" className="seg" aria-pressed={availabilityFilter === value} onClick={() => setAvailabilityFilter(value)}>{label}</button>
           ))}
         </div>
         {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="hint">{wishlist.size} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total</p>}
       </header>
 
-      {currentSkins.length > 0 && (
+      {currentShelfOpen && directSkins.length > 0 && (
         <section className="skins-current" aria-label="Available now">
           <div className="skins-current-heading">
-            <h2>Available now <span>{currentSkins.length}</span></h2>
-            <button className="ghost" type="button" onClick={() => showAvailableResults('now')}>View all</button>
+            <h2>Available now <span>{directSkins.length}</span></h2>
+            <button className="ghost" type="button" onClick={closeCurrentShelf}>Close</button>
           </div>
           <SkinShelfScroller>
             {directSkins.map(skin => {
@@ -341,9 +332,6 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               </button>;
             })}
           </SkinShelfScroller>
-          {drawCount > 0 && <button type="button" className="skins-draw-link" onClick={() => showAvailableResults('draw')}>
-            Fashion Review · {drawCount} outfits in random draws <span aria-hidden="true">→</span>
-          </button>}
         </section>
       )}
 
@@ -351,7 +339,6 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
         <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
           <button type="button" className="ghost" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); }}>Reset filters</button>
         </div>
-        {availabilityFilter === 'draw' && <p className="skins-acquisition-note">Fashion Review gives a random outfit for 2,800 Orundum, up to twice per pool. Owning the entire pool gives a Review Ticket instead.</p>}
         {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}
         {filteredSkins.length === 0 ? (
           // A silent empty grid reads as a broken page, not as "nothing
