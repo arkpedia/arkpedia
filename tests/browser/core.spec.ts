@@ -107,7 +107,30 @@ test('operator search and planner entry are usable', async ({ page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('Opera GX uses the recruitment popup fallback', async ({ page }, testInfo) => {
+test('Opera GX without Document PiP opens a regular recruitment window', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Opera GX is a desktop browser');
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: `${navigator.userAgent} OPR/124.0.0.0`,
+    });
+    Object.defineProperty(window, 'documentPictureInPicture', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto('/recruitment');
+  await expect(page.getByRole('button', { name: 'Open window', exact: true })).toBeVisible();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Open window', exact: true }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  await expect(popup).toHaveURL(/\/recruitment\/popout/);
+  await expect(popup.getByRole('heading', { name: 'Recruitment', exact: true })).toBeVisible();
+  await popup.close();
+});
+
+test('Opera GX with Document PiP tries it and offers a fallback if refused', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Opera GX is a desktop browser');
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', {
@@ -117,19 +140,36 @@ test('Opera GX uses the recruitment popup fallback', async ({ page }, testInfo) 
     Object.defineProperty(window, 'documentPictureInPicture', {
       configurable: true,
       value: {
-        requestWindow: () => { throw new Error('Opera GX rejected document PiP'); },
+        requestWindow: () => Promise.reject(new Error('Opera GX rejected document PiP')),
         window: null,
       },
     });
   });
   await page.goto('/recruitment');
+  await page.getByRole('button', { name: 'On top', exact: true }).click();
+  await expect(page.getByText('Could not open the pop-out: Opera GX rejected document PiP')).toBeVisible();
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Pop out', exact: true }).click();
+  await page.getByRole('button', { name: 'Open a regular window' }).click();
   const popup = await popupPromise;
-  await popup.waitForLoadState('domcontentloaded');
   await expect(popup).toHaveURL(/\/recruitment\/popout/);
-  await expect(popup.getByRole('heading', { name: 'Recruitment', exact: true })).toBeVisible();
   await popup.close();
+});
+
+test('Stronghold Companion switches to a tab after Document PiP is refused', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Document PiP uses a desktop window');
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'documentPictureInPicture', {
+      configurable: true,
+      value: {
+        requestWindow: () => Promise.reject(new Error('PiP unavailable')),
+        window: null,
+      },
+    });
+  });
+  await page.goto('/gamemodes/stronghold-protocol');
+  await page.getByRole('button', { name: 'On top' }).click();
+  await expect(page.getByText('Always-on-top is unavailable in this browser.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New tab' })).toBeVisible();
 });
 
 test('artwork uses pinned external files', async ({ request }) => {

@@ -8,10 +8,9 @@ import { createPortal } from 'react-dom';
  * operating system keeps above other windows. `window.open` cannot: a popup goes behind
  * the moment you click the game, which is exactly when you want to be reading it.
  *
- * A usable `documentPictureInPicture.requestWindow` is checked rather than assumed.
- * Safari still has only the video kind, which cannot show a document. Opera GX can
- * expose Chromium's API surface while refusing the document window, so Opera uses the
- * caller's ordinary popup/tab fallback instead of presenting a button that fails.
+ * Feature-detect the document API rather than a browser name. Some builds of a
+ * Chromium-based browser omit it, while later builds may implement it. A failed
+ * request is reported so the caller can offer its regular window/tab fallback.
  */
 
 interface PipApi {
@@ -24,18 +23,10 @@ interface PipApi {
   window: Window | null;
 }
 type WithPip = typeof globalThis & { documentPictureInPicture?: PipApi };
-type NavigatorWithBrands = Navigator & { userAgentData?: { brands?: Array<{ brand: string }> } };
-
-function isOperaBrowser(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const brandedNavigator = navigator as NavigatorWithBrands;
-  return /(?:^|\s)OPR\//.test(navigator.userAgent)
-    || !!brandedNavigator.userAgentData?.brands?.some(({ brand }) => /opera/i.test(brand));
-}
 
 export function pipSupported(): boolean {
-  if (typeof window === 'undefined' || isOperaBrowser()) return false;
-  return typeof (window as WithPip).documentPictureInPicture?.requestWindow === 'function';
+  return typeof window !== 'undefined'
+    && typeof (window as WithPip).documentPictureInPicture?.requestWindow === 'function';
 }
 
 /**
@@ -76,12 +67,16 @@ export function usePipWindow(size: { width: number; height: number }, bodyClassN
    * unhandled rejection would leave a button that silently does nothing.
    */
   const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const close = useCallback(() => { pip?.close(); }, [pip]);
 
   const open = useCallback(async () => {
     const api = (globalThis as WithPip).documentPictureInPicture;
-    if (!api) { setError('This browser cannot pop out. Chrome or Edge can.'); return; }
+    if (typeof api?.requestWindow !== 'function') {
+      setError('Always-on-top is unavailable in this browser.');
+      return;
+    }
     setError(null);
     let w: Window;
     try {
@@ -119,7 +114,7 @@ export function usePipWindow(size: { width: number; height: number }, bodyClassN
   /* The window itself comes back too. The browser draws its title bar and nothing can
      be added to it, but the window is script-resizable, which is enough for a caller
      that wants to shrink it to a strip and grow it again. */
-  return { host, win: pip, open, close, isOpen: !!host, error };
+  return { host, win: pip, open, close, isOpen: !!host, error, clearError };
 }
 
 /** Puts children in the pip window when there is one, and in place when there is not. */

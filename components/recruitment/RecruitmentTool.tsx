@@ -15,9 +15,18 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
   const [view, setView] = useState(DEFAULT_RECRUITMENT_VIEW);
   const [ready, setReady] = useState(false);
   const [popupBlocked, setPopupBlocked] = useState(false);
+  const [supportsPinnedWindow, setSupportsPinnedWindow] = useState(false);
   const popupRef = useRef<Window | null>(null);
   const pipRef = useRef<Window | null>(null);
   const pip = usePipWindow(POPOUT_SIZE, 'recruit-pip-body');
+
+  useEffect(() => {
+    setSupportsPinnedWindow(pipSupported() && !window.matchMedia('(pointer: coarse)').matches);
+  }, []);
+
+  useEffect(() => {
+    if (pip.error) setSupportsPinnedWindow(false);
+  }, [pip.error]);
   const { selectedTags, showAllPossibilities, activeSection, cheatSheetSearch } = view;
   const categories = useMemo(() => getRecruitmentTagCategories(operators), [operators]);
   const allowedTags = useMemo(() => Object.values(categories).flat(), [categories]);
@@ -101,14 +110,17 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
     setPopupBlocked(false);
     if (pip.win && !pip.win.closed) { pip.win.focus(); return; }
     if (popupRef.current && !popupRef.current.closed) { popupRef.current.focus(); return; }
-    if (pipSupported() && !window.matchMedia('(pointer: coarse)').matches) {
+    if (supportsPinnedWindow) {
       void pip.open();
       return;
     }
     // Keep this synchronous with the click so browsers can grant the popup.
     try {
       popupRef.current = window.open(`/recruitment/popout${recruitmentViewHash(view)}`, 'arkpedia-recruitment', 'popup,width=480,height=760,resizable=yes,scrollbars=yes');
-      if (popupRef.current) popupRef.current.focus();
+      if (popupRef.current) {
+        pip.clearError();
+        popupRef.current.focus();
+      }
       else setPopupBlocked(true);
     } catch {
       setPopupBlocked(true);
@@ -141,18 +153,25 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                 </>
               )
             ) : (
-              <button type="button" className="recruit-popout-button" onClick={openPopout}>
-                <PopoutIcon /> {pip.isOpen ? 'Focus pop-out' : 'Pop out'}
+              <button type="button" className="recruit-popout-button" onClick={openPopout}
+                title={supportsPinnedWindow ? 'Open an always-on-top window' : 'Open a regular window; it will not stay on top'}>
+                <PopoutIcon /> {pip.isOpen ? 'Focus pop-out' : supportsPinnedWindow ? 'On top' : 'Open window'}
               </button>
             )}
           </div>
         </header>
 
         <main className="recruit-main">
-          {!isCompact && (popupBlocked || pip.error) && (
+          {!isCompact && popupBlocked && (
             <p className="recruit-window-notice" role="status">
-              The pop-out could not open. Allow pop-ups for Arkpedia, or{' '}
+              The window could not open. Allow pop-ups for Arkpedia, or{' '}
               <a href={otherPage} target="_blank" rel="noopener noreferrer">open the compact view in a new tab</a>.
+            </p>
+          )}
+          {!isCompact && pip.error && !popupBlocked && (
+            <p className="recruit-window-notice" role="status">
+              {pip.error}{' '}
+              <button type="button" className="recruit-text-button" onClick={openPopout}>Open a regular window</button>.
             </p>
           )}
           {!isCompact && pip.isOpen && (

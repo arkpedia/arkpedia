@@ -1106,13 +1106,17 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
    * Reading it during render is a hydration error waiting to happen: the server has no
    * window object, and the two trees would disagree on what the control is.
    *
-   *   pip    Chromium: Document Picture-in-Picture, the only window an OS keeps on top.
-   *   tab    Safari and Firefox on a desktop: the New tab button alone. It will not
-   *          stay above the game, but it can be dragged to a second screen.
+   *   pip    Document Picture-in-Picture is available: an always-on-top window.
+   *   tab    The document API is absent: an ordinary tab, which can be dragged to
+   *          another screen but will not stay above the game.
    *   page   A phone or tablet: a second tab beside the game is a tab you cannot see,
    *          so the link opens the companion page in this one.
    */
   const [mode, setMode] = useState<'pip' | 'tab' | 'page'>('pip');
+
+  useEffect(() => {
+    if (pip.error) setMode('tab');
+  }, [pip.error]);
 
   /*
    * As close to "just the title bar" as the window can get and still be openable.
@@ -4400,6 +4404,9 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
             </button>
           </span>
         </div>
+      )}
+      {mode === 'tab' && (
+        <p className="hint gm-co-away">Always-on-top is unavailable in this browser.</p>
       )}
       {/* role=status: the error appears in answer to a press whose focus stays on
           the button, so without a live region the refusal is silent. */}
