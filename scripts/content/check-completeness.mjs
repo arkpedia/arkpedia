@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 const words = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
-export function checkCompleteness({ inventory, operators, skins, banners, events, bundles = [], assets }) {
+export function checkCompleteness({ inventory, operators, skins, banners, events, bundles = [], assets, stageEnemies, enemyRecords, enemyIndex }) {
   const errors = [];
   const byId = new Map(operators.map(op => [op.internalName, op]));
   const names = new Set(operators.flatMap(op => [op.name, op.recordName]));
@@ -41,7 +41,21 @@ export function checkCompleteness({ inventory, operators, skins, banners, events
     for (const id of bundle.skins ?? []) if (!skinIds.has(id)) errors.push(`Bundle outfit missing: ${id}`);
     for (const file of bundle.assets ?? []) asset(file, bundle.event);
   }
+  // Every enemy a listed stage fields needs a record (its detail file is built from
+  // it) and a grid row, or its stage links 404. Nothing regenerated either for a month,
+  // and a new event shipped 19 enemies with neither; this is what makes that a failed
+  // release rather than a quiet one. Icons are deliberately not checked here -- the
+  // image sync publishes them after the data -- see missingEnemyIcons.
+  for (const [slug, stage] of stageEnemies) {
+    if (!enemyRecords.has(slug)) errors.push(`Stage enemy has no record: ${slug} (fielded in ${stage})`);
+    if (!enemyIndex.has(slug)) errors.push(`Stage enemy missing from enemies-index.json: ${slug} (fielded in ${stage})`);
+  }
   return errors;
+}
+
+/** Enemy icon paths the records point at that the image repository has not published yet. */
+export function missingEnemyIcons({ enemyRecords, assets }) {
+  return [...new Set([...enemyRecords.values()].map(record => record.icon?.slice(1)).filter(file => file && !assets.has(file)))].sort();
 }
 
 export function readCompletenessInputs(root = process.cwd()) {
@@ -53,14 +67,32 @@ export function readCompletenessInputs(root = process.cwd()) {
   const assetIndex = fs.existsSync(path.join(root, 'data/assets/external-asset-index.json'))
     ? read('data/assets/external-asset-index.json').files : read('data/public-asset-index.json').files;
   const remote = fs.existsSync(path.join(root, 'data/operator-asset-overrides.json')) ? Object.keys(read('data/operator-asset-overrides.json')) : [];
+  // slug -> the first listed stage that fields it, from the stage records themselves:
+  // the same join the enemy builders make, and not their output, which is what is checked.
+  const listed = new Set(read('public/stages-index.json').map(row => row.slug));
+  const stageEnemies = new Map();
+  for (const file of fs.readdirSync(path.join(root, 'data/stages')).filter(file => file.endsWith('.json')).sort()) {
+    const stage = read(`data/stages/${file}`);
+    if (!listed.has(stage.slug)) continue;
+    for (const group of [stage.enemies?.by_rank, stage.enemies?.conditional?.by_rank]) {
+      for (const entry of Object.values(group ?? {}).flat()) if (entry?.slug && !stageEnemies.has(entry.slug)) stageEnemies.set(entry.slug, stage.slug);
+    }
+  }
+  const enemyRecords = new Map(fs.readdirSync(path.join(root, 'data/enemies')).filter(file => file.endsWith('.json'))
+    .flatMap(file => read(`data/enemies/${file}`).enemies.map(enemy => [enemy.slug, { name: enemy.name, icon: enemy.icon }])));
   return { inventory: read('data/content-inventory.json'), operators, skins: read('data/skins.json'),
     banners: read('data/headhunting_banners.json'), events: eventFiles.flatMap(file => read(`data/events/${file}`)),
-    bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]) };
+    bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
+    stageEnemies, enemyRecords, enemyIndex: new Set(read('public/enemies-index.json').map(row => row.slug)) };
 }
 export function assertCompleteness(root) {
   const input = readCompletenessInputs(root);
   const errors = checkCompleteness(input);
   if (errors.length) throw new Error(`Content publication blocked:\n${errors.map(error => `- ${error}`).join('\n')}`);
-  console.log(`Coverage verified: ${input.inventory.operators.length} CN operators, ${input.inventory.skins.length} CN outfits, banner references and release bundles`);
+  console.log(`Coverage verified: ${input.inventory.operators.length} CN operators, ${input.inventory.skins.length} CN outfits, banner references, release bundles and ${input.stageEnemies.size} stage enemies`);
+  // Reported, not failed: a new enemy's icon arrives with the image sync after its
+  // record does, and a page with a blank tile beats a release withheld for a picture.
+  const icons = missingEnemyIcons(input);
+  if (icons.length) console.warn(`${icons.length} enemy icon(s) not published yet -- the image sync must add them:\n${icons.map(file => `  ${file}`).join('\n')}`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) assertCompleteness(process.argv[2]);

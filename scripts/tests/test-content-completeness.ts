@@ -3,7 +3,7 @@ import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
 import farmingFixture from './fixtures/people-farming.json';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { checkCompleteness, readCompletenessInputs } from '../content/check-completeness.mjs';
+import { checkCompleteness, missingEnemyIcons, readCompletenessInputs } from '../content/check-completeness.mjs';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { buildEventFarming } from '../sync/sync-event-farming.mjs';
 import { activeEventFarming, getEventFarmingMaterials } from '../../lib/farming/eventFarming';
@@ -27,6 +27,21 @@ test('publication rejects missing operators, outfits, banners, event records and
   assert.match(checkCompleteness({ ...input, assets }).join('\n'), /missing asset one-star-icons\/Koromaru/);
   const newer = { ...input.inventory, operators: [...input.inventory.operators, { id: 'char_new', name: 'New CN operator' }] };
   assert.match(checkCompleteness({ ...input, inventory: newer }).join('\n'), /CN operator missing: char_new/);
+});
+test('publication rejects a stage enemy with no record or grid row, and never withholds a release for its icon', () => {
+  const slug = [...input.stageEnemies.keys()].find((s: string) => input.enemyRecords.get(s)?.icon);
+  assert.ok(slug, 'a listed stage fields an enemy with an icon');
+  const records = new Map(input.enemyRecords);
+  records.delete(slug);
+  assert.match(checkCompleteness({ ...input, enemyRecords: records }).join('\n'), new RegExp(`Stage enemy has no record: ${slug} `));
+  const index = new Set(input.enemyIndex);
+  index.delete(slug);
+  assert.match(checkCompleteness({ ...input, enemyIndex: index }).join('\n'), new RegExp(`Stage enemy missing from enemies-index.json: ${slug} `));
+  const icon = input.enemyRecords.get(slug).icon.slice(1);
+  const assets = new Set(input.assets);
+  assets.delete(icon);
+  assert.deepEqual(checkCompleteness({ ...input, assets }), []);
+  assert.deepEqual(missingEnemyIcons({ ...input, assets }), [icon]);
 });
 test('home farming is limited to battle windows, independently of shop closing times', () => {
   const materials = getEventFarmingMaterials(farmingFixture.drops);
