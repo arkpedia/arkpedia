@@ -514,7 +514,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       iconPath:
         item.type === 'skin'
           ? findSkinIconPath(item.name) || skinImageByName.get(item.name) || null
-          : getMaterialIconPath(item.name),
+          : getMaterialIconPath(item.iconName ?? item.name),
     })),
   }));
 

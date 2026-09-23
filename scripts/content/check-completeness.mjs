@@ -72,6 +72,11 @@ export function checkCompleteness({ inventory, operators, skins, banners, events
     }
   }
   for (const expected of inventory.events ?? []) if (!events.some(e=>e.activityId===expected.id)) errors.push(`Discovered event missing: ${expected.name}`);
+  // A reward renamed from its CN name must still resolve to a published icon: the page
+  // asks for material-icons/<iconName ?? name>, and a miss renders as a blank square.
+  for (const event of events) for (const block of [event.rewards ?? []].flat()) for (const item of block?.items ?? []) {
+    if (item.cnName && item.type !== 'skin') asset(`material-icons/${safe(item.iconName ?? item.name)}.webp`, `${event.name} reward ${item.name}`);
+  }
   for (const expected of inventory.banners ?? []) if (!banners.some(b=>b.cnPoolId===expected.id)) errors.push(`Discovered banner missing: ${expected.name}`);
   for (const bundle of bundles) {
     if (!events.some(event => bundle.eventId ? event.activityId === bundle.eventId : event.name === bundle.event)) errors.push(`Bundle event missing: ${bundle.event}`);

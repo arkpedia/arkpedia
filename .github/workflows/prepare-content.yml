@@ -82,6 +82,7 @@ jobs:
           npm run stages:refresh
           npm run pulls:refresh
           ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" node scripts/sync/sync-operator-english.mjs
+          node scripts/sync/sync-reward-names.mjs
           ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
             ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" \
             npm run voices:refresh

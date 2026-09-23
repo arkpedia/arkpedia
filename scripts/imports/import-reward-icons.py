@@ -94,7 +94,11 @@ for path in sorted(glob.glob(os.path.join(root, 'data', 'events', 'events_*.json
         rw = ev.get('rewards')
         for block in rw if isinstance(rw, list) else ([rw] if rw else []):
             for item in (block or {}).get('items', []):
-                name = item.get('name')
+                # A reward renamed to its Global name keeps showing the published
+                # CN-named file until an EN-named one exists (sync-reward-names.mjs),
+                # so that is the file it needs. Fetching the EN name here would put an
+                # unpublished file in public/ and fail check:assets.
+                name = item.get('iconName') or item.get('name')
                 # Skins resolve through the skins dataset, not this folder.
                 if name and item.get('type') != 'skin':
                     wanted.setdefault(name, ev['name'])
