@@ -5,10 +5,10 @@ The website reads reviewed game records from the public [arkpedia-data repositor
 ## Update flow
 
 1. `Prepare content release` checks daily at 19:57 UTC (8h 57m after the 11:00 UTC Global reset), or runs manually. The public image sync runs earlier, at 16:11 UTC, so its commit is available to pin. The daily job compares upstream revisions and reuses a successful preparation when nothing changed, avoiding dependency installation and compilation on unchanged days. Manual runs always run. Changed inputs load public source records, refresh supported importers, then compile page JSON without running a Next.js build.
-2. A deploy key scoped only to arkpedia-data pushes `refresh/content`. That public repository validates the files and opens a review PR.
-3. Merging the PR publishes its immutable commit through the `live` pointer. Existing website pages adopt it during background revalidation; newly added operator, event and stage-content URLs generate on demand.
+2. A deploy key scoped only to arkpedia-data pushes the validated release straight to its `main` as a fast-forward. No pull request is opened and nobody reviews the release first, so the checks in this job are the only gate.
+3. The push runs that repository's `Content release` workflow, which validates the commit again and publishes it through the `live` pointer. Existing website pages adopt it during background revalidation; newly added operator, event and stage-content URLs generate on demand.
 
-Daily checks are retained because patches, mirror uploads and corrections do not always arrive together. This is a post-reset check, not a hard-coded assumption that every patch opens four hours after reset. Late upstream uploads are picked up by the next check; GitHub may delay scheduled jobs. A release still needs its review PR merged.
+Daily checks are retained because patches, mirror uploads and corrections do not always arrive together. This is a post-reset check, not a hard-coded assumption that every patch opens four hours after reset. Late upstream uploads are picked up by the next check; GitHub may delay scheduled jobs.
 
 The content refresh also imports English voice transcripts and replaces Chinese profile/archive fallbacks when the English game tables actually contain them. It preserves editorial reviews, existing English prose and ambiguous alternate-form archives. It never invents translations.
 
@@ -29,7 +29,15 @@ summary identifies asset-only updates and reports the actual file counts.
 
 ## Corrections and rollback
 
-Edit `source/` in a public data branch, then run the private preparation workflow with that branch as `data_ref` and `refresh_upstream=false`. Generated `release/` files must match the source checksums. The public release workflow can publish an earlier approved main-branch commit to roll back. It never approves or merges a PR.
+To correct a record by hand:
+
+1. Branch arkpedia-data from its current `main` and edit `source/` only. Leave `release/` alone: the job regenerates it. Until then the data validator rejects the branch with "Source records changed without regenerating the release", which is expected.
+2. Run `Prepare content release` with the branch as `data_ref` and `refresh_upstream=false`.
+3. The job compiles the release from the branch, then pushes the branch's commits and one commit with the regenerated `source/` and `release/` to data `main` as a fast-forward. That push publishes it like any other release. Delete the branch afterwards.
+
+The branch must contain the current data `main`. If `main` has moved on since the branch was cut, or moves while the job runs, the job fails and pushes nothing; it never overwrites a newer `main`. Merge `main` into the branch and run it again. A branch that changes nothing the release is built from (only a README or a script, say) is not published: the job warns and stops, and such a branch is merged like any other change.
+
+To roll back, run the public `Content release` workflow with an earlier `main` commit as `revision`. It validates that commit and points `live` at it without changing `main`, so the next push to `main` moves the pointer forward again. Neither workflow opens, approves or merges a pull request.
 
 Existing upstream scripts do not supply every new operator editorial entry automatically. Complete new operator records still need a supported importer or a reviewed source addition. New mechanics, layouts, calculations, or incompatible content schemas require a website deployment.
 

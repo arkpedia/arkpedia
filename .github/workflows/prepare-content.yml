@@ -165,25 +165,41 @@ jobs:
           prepared_base=$(git -C "$repo" rev-parse HEAD)
           git -C "$repo" fetch origin main
           current_base=$(git -C "$repo" rev-parse origin/main)
-          # Never overwrite a correction published while compilation was running.
+          # The release goes out as a fast-forward of main on top of the data it was
+          # compiled from: main itself, or a correction branch that already contains
+          # main. If main moved anywhere else meanwhile, e.g. to a correction published
+          # while this one compiled, fail rather than overwrite it.
           if [ "$prepared_base" != "$current_base" ]; then
-            echo '::error::Data main changed during preparation. Retry from the new main.'
-            exit 1
+            # Both checkouts are shallow; deepen the branch until it reaches main.
+            git -C "$repo" fetch --deepen=100 origin "$prepared_base"
+            if ! git -C "$repo" merge-base --is-ancestor "$current_base" "$prepared_base"; then
+              echo "::error::Data main ($current_base) is not contained in the compiled data ($prepared_base). Merge main into the correction branch, or retry from the new main."
+              exit 1
+            fi
           fi
-          git -C "$repo" checkout -B main origin/main
+          # Compare with the release main serves, not the one the checkout carries: a
+          # correction branch's own release/ is stale by design.
           prepared_release=$(node -p "require('$RUNNER_TEMP/prepared-content/release/manifest.json').release")
-          current_release=$(node -p "require('$repo/release/manifest.json').release" 2>/dev/null || true)
+          current_release=$(git -C "$repo" show origin/main:release/manifest.json 2>/dev/null | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).release' 2>/dev/null || true)
           if [ "$prepared_release" = "$current_release" ]; then
-            echo "Release inputs are unchanged; ignoring generatedAt-only output."
+            if [ "$prepared_base" != "$current_base" ]; then
+              echo '::warning::Data main already serves this release, so nothing was published: the correction branch changes no record the release is built from.'
+            else
+              echo "Release inputs are unchanged; ignoring generatedAt-only output."
+            fi
             exit 0
           fi
+          git -C "$repo" checkout -B main "$prepared_base"
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
           git -C "$repo" add source release
-          if git -C "$repo" diff --cached --quiet; then echo 'Content unchanged.'; exit 0; fi
-          git -C "$repo" config user.name 'github-actions[bot]'
-          git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git -C "$repo" commit -m 'Refresh game content and prepared page data'
+          if ! git -C "$repo" diff --cached --quiet; then
+            git -C "$repo" config user.name 'github-actions[bot]'
+            git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git -C "$repo" commit -m 'Refresh game content and prepared page data'
+          fi
+          if [ "$(git -C "$repo" rev-parse HEAD)" = "$current_base" ]; then echo 'Content unchanged.'; exit 0; fi
+          # Never forced: if main moves after the check above, the push is refused.
           git -C "$repo" push origin HEAD:main
       - name: Keep discovery evidence on failure
         if: failure()
