@@ -3,10 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
+import eventRewards from '../../data/pull-event-rewards.json';
 import { bannerHaul, remainingBacklog, type BacklogSources } from '../../lib/pulls/pulls';
 import { resolvePullEventSchedule } from '../../lib/pulls/schedule';
-import { bundledBacklogSources } from '../../lib/pulls/sources';
-import { getAllEvents } from '../../lib/schedule/schedule';
+import type { getAllEvents } from '../../lib/schedule/schedule';
 
 /*
  * The pull planner once imported data/pull-sources.json into the browser. The
@@ -150,8 +150,22 @@ function withReleaseOnly(bundled: BacklogSources, event: { id: string; name: str
   return { ...bundled, playable: [...bundled.playable, event] };
 }
 
+/* A made-up back catalogue and calendar. The live ones change with every refresh:
+   the day the last scheduled event that pays Originite joins the back catalogue,
+   a test that looked one up in them would fail the release. */
+const bundled: BacklogSources = {
+  chapters: [{ id: 'main_01', label: 'Episode 01', name: 'Chapter', op: 20 }],
+  originiteByStageType: { daily: 12, main: 99, activity: 99 },
+  annihilationOrundum: 1800,
+  playable: [{ id: 'act_old', name: 'Old Event', op: 24 }],
+  resources: [{ id: 'wk_melee_1', name: 'Tough Siege', amount: 2 }],
+  annihilation: [{ id: 'camp_r_01', name: 'Chernobog', amount: 400 }],
+};
+// resolvePullEventSchedule reads the rewards file itself; any event in it that pays
+// Originite will do, given a window of its own.
+const reward = eventRewards.find(event => event.op > 0 && !/rerun/i.test(event.event));
+
 test('an event only the content release lists is counted, once', () => {
-  const bundled = bundledBacklogSources();
   const none = new Set<string>();
   const release = withReleaseOnly(bundled, { id: 'act_release_only', name: 'Release Only', op: 27 });
   assert.equal(remainingBacklog(release, none, none, false).originitePrime, remainingBacklog(bundled, none, none, false).originitePrime + 27);
@@ -159,10 +173,11 @@ test('an event only the content release lists is counted, once', () => {
 
   /* The schedule marks it inBacklog from the SAME object, so bannerHaul hands it
      over to the back catalogue rather than losing it between the two. */
-  const events = getAllEvents();
+  assert.ok(reward, 'data/pull-event-rewards.json lists an event that pays Originite');
+  const events = [{ name: reward.event, global: { dateRange: '2030/01/01–2030/01/15' } }] as unknown as ReturnType<typeof getAllEvents>;
   const before = resolvePullEventSchedule(events, bundled);
-  const target = before.find(event => event.op > 0 && !event.inBacklog && !event.rerun);
-  assert.ok(target, 'expected a scheduled event that pays Originite and is not yet in the back catalogue');
+  const target = before.find(event => event.name === reward.event);
+  assert.ok(target && target.op > 0 && !target.inBacklog && !target.rerun);
   const moved = withReleaseOnly(bundled, { id: 'act_release_only', name: target.event!, op: target.op });
   const after = resolvePullEventSchedule(events, moved);
   assert.equal(after.find(event => event.name === target.name)?.inBacklog, true);
