@@ -1,7 +1,5 @@
-import firstClears from '@/data/pull-first-clears.json';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
-import sources from '@/data/pull-sources.json';
 
 /**
  * How many pulls a player can have by a given date.
@@ -13,7 +11,9 @@ import sources from '@/data/pull-sources.json';
  *               Annihilation kill ladder never broken. A new account's whole
  *               back catalogue. From data/pull-sources.json, derived by
  *               scripts/build-pull-sources.ts out of the site's own stage
- *               records and the upstream campaign table.
+ *               records and the upstream campaign table, and read through
+ *               lib/pulls/sources.ts on the server only: the browser gets the
+ *               release's copy as page props (BacklogSources).
  *   RECURRING   what arrives between now and the banner: the daily mission,
  *               the weekly mission, and the Annihilation farm.
  *
@@ -116,17 +116,6 @@ export interface Chapter {
   op: number;
 }
 
-export const ONE_TIME = {
-  originitePrime: sources.originitePrime.total,
-  originiteByStageType: sources.originitePrime.byType as Record<string, number>,
-  /* The mainline broken up, adverse modes and H-stages included -- they belong
-     to the episode they are attached to, and splitting them out made a row
-     nobody could place. */
-  chapters: sources.originitePrime.chapters as Chapter[],
-  annihilationOrundum: sources.annihilationOrundum.total,
-  annihilationMaps: sources.annihilationOrundum.maps.length,
-};
-
 export interface PastEvent {
   id: string; name: string; type: string; kind: string; rerun: boolean;
   /** Whether the event has a token shop, and so stocks permits. */
@@ -137,38 +126,27 @@ export interface PastEvent {
   op: number;
 }
 
-/**
- * Events the gamedata credits with Originite Prime that the game does not pay.
- *
- * `stage_table` gives Duel Channel's VS-1 a first-clear `4002`, and the game
- * pays nothing -- confirmed in game. Kept rather than silently dropped, because
- * a number that quietly went missing is worse than one that says why it did.
- */
-export const EXCLUDED_EVENTS = sources.events.excluded as
-  { id: string; name: string; kind: string; claimed: number }[];
-
-/** Every past event that paid Originite Prime, biggest first. Includes the ones
- *  you can no longer play, because they are the evidence for what a FUTURE
- *  event of that kind pays. */
-export const PAST_EVENTS: PastEvent[] = sources.events.list as PastEvent[];
-
-/** The ones still worth ticking off: in Record Restoration, or running now.
- *  Mini events are absent by nature -- they get no rerun and no archive. */
-export const PLAYABLE_EVENTS: PastEvent[] = PAST_EVENTS.filter((e) => e.playable);
+/** One first clear the reader can tick off: a resource stage or an Annihilation map. */
+export interface FirstClear { id: string; name: string; amount: number }
 
 /**
- * What an event of each kind typically pays, MEASURED across the events that
- * have run rather than counted off a stage layout.
+ * The back catalogue, as the page's content release has it.
  *
- * The hand model and the data disagree, and the data wins here: "8 normal +
- * 8 EX, both with challenge = 32" describes a modern sidestory fairly, and the
- * median sidestory actually pays 29, with a 15-40 spread. Events differ in how
- * many stages carry a challenge mode, and older ones are smaller. The median is
- * the best guess at what the NEXT one pays; the range is why the page shows it.
+ * A required argument rather than a module constant, because the constant was
+ * the bug: compiled into the browser bundle, it froze the playable events at the
+ * last deploy while the release's schedule moved on, and a new Global event was
+ * marked "in the back catalogue" by the one and counted by neither. The page
+ * gets this from getStaticProps (lib/pulls/sources.ts, run against the release's
+ * data by the content export), the same call that marks `inBacklog`.
  */
-export const EVENT_TYPES = sources.events.typical as Record<
-  string, { median: number; low: number; high: number; events: number }
->;
+export interface BacklogSources {
+  chapters: Chapter[];
+  originiteByStageType: Record<string, number>;
+  annihilationOrundum: number;
+  playable: Pick<PastEvent, 'id' | 'name' | 'op'>[];
+  resources: FirstClear[];
+  annihilation: FirstClear[];
+}
 
 /** The labels a reader knows these by; the gamedata's own words are internal. */
 export const EVENT_TYPE_LABEL: Record<string, string> = {
@@ -177,21 +155,6 @@ export const EVENT_TYPE_LABEL: Record<string, string> = {
   special: 'Collab / anniversary',
   branchline: 'Branchline',
 };
-
-/** How many of each kind of event you expect before the banner. */
-export type FutureEvents = Record<string, number>;
-
-export function futureEventOrundum(planned: FutureEvents): { op: number; orundum: number; events: number } {
-  let op = 0;
-  let events = 0;
-  for (const [type, count] of Object.entries(planned)) {
-    const n = Math.max(0, Math.floor(count || 0));
-    if (!n || !EVENT_TYPES[type]) continue;
-    events += n;
-    op += n * EVENT_TYPES[type].median;
-  }
-  return { op, orundum: op * ORUNDUM_PER_ORIGINITE, events };
-}
 
 /**
  * What is LEFT of the back catalogue once the player says what they have done.
@@ -204,6 +167,7 @@ export function futureEventOrundum(planned: FutureEvents): { op: number; orundum
  * cleared essentially all of it.
  */
 export function remainingBacklog(
+  backlog: BacklogSources,
   doneEvents: ReadonlySet<string>,
   /** Chapter ids the reader has cleared, plus 'daily' for the resource stages.
    *  One set, because they are one question: what have you already done. */
@@ -211,22 +175,22 @@ export function remainingBacklog(
   annihilationDone: boolean,
 ): { originitePrime: number; annihilationOrundum: number; orundum: number; permits: number } {
   let op = 0;
-  for (const c of ONE_TIME.chapters) {
+  for (const c of backlog.chapters) {
     if (!doneKeys.has(c.id)) op += c.op;
   }
   /* The resource stages are the only first clears the chapters do not cover.
      'activity' is the events, counted below; 'main' and 'sub' are the chapters. */
-  for (const [type, n] of Object.entries(ONE_TIME.originiteByStageType)) {
+  for (const [type, n] of Object.entries(backlog.originiteByStageType)) {
     if (type === 'activity' || type === 'main' || type === 'sub') continue;
-    if (!doneKeys.has(type)) op += type === 'daily' ? Math.max(0, n - firstClears.resources.reduce((sum, stage) => sum + (doneKeys.has(stage.id) ? stage.amount : 0), 0)) : n;
+    if (!doneKeys.has(type)) op += type === 'daily' ? Math.max(0, n - backlog.resources.reduce((sum, stage) => sum + (doneKeys.has(stage.id) ? stage.amount : 0), 0)) : n;
   }
   // Archived stage clears do not reopen expired event shops. Current shops
   // are counted once, in the scheduled event rewards instead.
   const permits = 0;
-  for (const ev of PLAYABLE_EVENTS) {
+  for (const ev of backlog.playable) {
     if (!doneEvents.has(ev.id)) op += ev.op;
   }
-  const annihilationOrundum = annihilationDone ? 0 : Math.max(0, ONE_TIME.annihilationOrundum - firstClears.annihilation.reduce((sum, stage) => sum + (doneKeys.has(stage.id) ? stage.amount : 0), 0));
+  const annihilationOrundum = annihilationDone ? 0 : Math.max(0, backlog.annihilationOrundum - backlog.annihilation.reduce((sum, stage) => sum + (doneKeys.has(stage.id) ? stage.amount : 0), 0));
   return {
     originitePrime: op,
     annihilationOrundum,
@@ -326,14 +290,6 @@ export function bannerFreePulls(banner: UpcomingBanner, when: Date): number {
   const daysIn = Math.floor((when.getTime() - start) / 86400000) + 1;
   const daily = Math.max(0, Math.min(banner.freeDaily, daysIn));
   return banner.freeTicket + daily;
-}
-
-export const ALL_BANNERS: UpcomingBanner[] = (sources.banners ?? []) as UpcomingBanner[];
-
-/** The banners still to come at the moment of asking, not at the moment of
- *  building -- a deploy outlives its own snapshot. */
-export function bannersAfter(now: Date): UpcomingBanner[] {
-  return ALL_BANNERS.filter((b) => new Date(`${b.end}T23:59:59Z`).getTime() > now.getTime());
 }
 
 /** The reward schedule also contains events without a headhunting banner. */

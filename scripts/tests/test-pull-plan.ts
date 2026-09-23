@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
-import { ALL_BANNERS, type UpcomingBanner } from '../../lib/pulls/pulls';
+import type { UpcomingBanner } from '../../lib/pulls/pulls';
+import { ALL_BANNERS, bundledBacklogSources } from '../../lib/pulls/sources';
 import { publicFileExists } from '../../lib/assets/publicAssets';
 const now = new Date('2026-09-01T12:00:00Z');
 function banner(name: string, start = '2026-09-02', end = '2026-09-15', freeTicket = 0): UpcomingBanner {
@@ -419,7 +420,7 @@ test('event rewards include bannerless reruns and custom exchanges by the event 
   const {getPullEventSchedule} = await import('../../lib/pulls/schedule');
   const {bannerHaul} = await import('../../lib/pulls/pulls');
   const {default: rewardSources} = await import('../../data/pull-event-rewards.json');
-  const events = getPullEventSchedule().filter(e => e.end > '2026-09-09');
+  const events = getPullEventSchedule(bundledBacklogSources()).filter(e => e.end > '2026-09-09');
   const rerun = events.find(e => e.name.includes("Masses' Travels"))!;
   const custom = events.find(e => e.name.includes('Thunder in the Azure Dream'))!;
   assert.ok(rerun);
@@ -451,8 +452,8 @@ test('event date corrections are independent of banners and invalid windows are 
   const {resolvePullEventSchedule} = await import('../../lib/pulls/schedule');
   const events = getAllEvents();
   const bolivar = events.find(e => e.name.includes('Bolívar Diagnosed'))!;
-  assert.equal(resolvePullEventSchedule(events).find(e => e.name === bolivar.name)?.end, '2026-12-23');
-  const move = (dateRange: string) => resolvePullEventSchedule([{...bolivar, global:{...bolivar.global, dateRange}}]);
+  assert.equal(resolvePullEventSchedule(events, bundledBacklogSources()).find(e => e.name === bolivar.name)?.end, '2026-12-23');
+  const move = (dateRange: string) => resolvePullEventSchedule([{...bolivar, global:{...bolivar.global, dateRange}}], bundledBacklogSources());
   assert.equal(move('2026/12/01–2026/12/08')[0].end, '2026-12-08');
   assert.equal(move('2026/12/08–2026/12/01').length, 0);
   assert.equal(move('2026/02/30–2026/03/08').length, 0);
@@ -463,7 +464,7 @@ test('archived OP never suppresses scheduled shops or invents expired shop stock
   const event = {...a, event:'Event', name:'Event rerun', rerun:true, inBacklog:true, op:28, shopPermits:3, legacyNames:['Old banner']};
   const haul = bannerHaul([event], new Date('2026-12-31'), {cleared:new Set()});
   assert.equal(haul.op, 0); assert.equal(haul.permits, 3); assert.equal(haul.skipped.length, 1);
-  assert.equal(remainingBacklog(new Set(), new Set(), false).permits, 0);
+  assert.equal(remainingBacklog(bundledBacklogSources(), new Set(), new Set(), false).permits, 0);
   assert.equal(eventWasCleared(event, new Set(['Old banner'])), true);
   assert.equal(bannerHaul([{...event,inBacklog:false}], new Date('2026-12-31'), {cleared:new Set(['Old banner'])}).op, 0);
 });
@@ -497,17 +498,19 @@ test('certificate exchanges respect owned funds, full sets and Global monthly sh
 });
 
 test('individual first clears reconcile with old aggregate rewards and never double deduct', async () => {
-  const {remainingBacklog,ONE_TIME} = await import('../../lib/pulls/pulls');
+  const {remainingBacklog} = await import('../../lib/pulls/pulls');
+  const {ONE_TIME} = await import('../../lib/pulls/sources');
   const {default:firstClears} = await import('../../data/pull-first-clears.json');
-  const base = remainingBacklog(new Set(),new Set(),false);
+  const sources = bundledBacklogSources();
+  const base = remainingBacklog(sources,new Set(),new Set(),false);
   const resource = firstClears.resources[0], map = firstClears.annihilation[0];
-  const partial = remainingBacklog(new Set(),new Set([resource.id,map.id]),false);
+  const partial = remainingBacklog(sources,new Set(),new Set([resource.id,map.id]),false);
   assert.equal(partial.originitePrime,base.originitePrime-resource.amount);
   assert.equal(partial.annihilationOrundum,base.annihilationOrundum-map.amount);
-  const allIndividual = remainingBacklog(new Set(),new Set([...firstClears.resources,...firstClears.annihilation].map(s=>s.id)),false);
-  const allLegacy = remainingBacklog(new Set(),new Set(['daily']),true);
+  const allIndividual = remainingBacklog(sources,new Set(),new Set([...firstClears.resources,...firstClears.annihilation].map(s=>s.id)),false);
+  const allLegacy = remainingBacklog(sources,new Set(),new Set(['daily']),true);
   assert.deepEqual(allIndividual,allLegacy);
-  assert.deepEqual(remainingBacklog(new Set(),new Set(['daily',resource.id,map.id]),true),allLegacy);
+  assert.deepEqual(remainingBacklog(sources,new Set(),new Set(['daily',resource.id,map.id]),true),allLegacy);
   assert.equal(firstClears.resources.reduce((sum,s)=>sum+s.amount,0),ONE_TIME.originiteByStageType.daily);
 });
 

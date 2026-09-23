@@ -12,13 +12,17 @@
  * Run:  npm run audit:pulls
  */
 import {
-  ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, EVENT_TYPES, ONE_TIME, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
-  EXCLUDED_EVENTS, PAST_EVENTS, PLAYABLE_EVENTS, WEEKLY_ORUNDUM,
-  ALL_BANNERS, MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_DAYS, MONTHLY_CARD_ORIGINITE,
+  ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
+  WEEKLY_ORUNDUM,
+  MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_DAYS, MONTHLY_CARD_ORIGINITE,
   EVENT_SHOP_PERMITS, WISH_MIN_ORUNDUM, bannerFreePulls,
-  bannerHaul, bannersAfter, futureEventOrundum, incomeBetween, monthlyCardIncome,
+  bannerHaul, incomeBetween, monthlyCardIncome,
   pullsFrom, remainingBacklog,
 } from '@/lib/pulls/pulls';
+import {
+  EVENT_TYPES, ONE_TIME, EXCLUDED_EVENTS, PAST_EVENTS, PLAYABLE_EVENTS,
+  ALL_BANNERS, bannersAfter, bundledBacklogSources, futureEventOrundum,
+} from '@/lib/pulls/sources';
 
 let failures = 0;
 function check(label: string, cond: boolean, saw = '') {
@@ -159,13 +163,15 @@ check('a negative count cannot subtract Originite', futureEventOrundum({ sidesto
 
 /* --- the back catalogue, once a returning player ticks things off ----------- */
 const none = new Set<string>();
-const full = remainingBacklog(none, none, false);
+const backlogSources = bundledBacklogSources();
+const full = remainingBacklog(backlogSources, none, none, false);
 check('nothing ticked = the whole catalogue',
   full.originitePrime === ONE_TIME.originitePrime
   && full.annihilationOrundum === ONE_TIME.annihilationOrundum,
   `${full.originitePrime}`);
 
 const allDone = remainingBacklog(
+  backlogSources,
   new Set(PAST_EVENTS.map((e) => e.id)),
   new Set([...ONE_TIME.chapters.map((c) => c.id), ...Object.keys(ONE_TIME.originiteByStageType)]),
   true,
@@ -184,25 +190,25 @@ check('no two chapters share an id',
   new Set(ONE_TIME.chapters.map((c) => c.id)).size === ONE_TIME.chapters.length);
 
 const oneChapter = ONE_TIME.chapters[3];
-const chapterDone = remainingBacklog(none, new Set([oneChapter.id]), false);
+const chapterDone = remainingBacklog(backlogSources, none, new Set([oneChapter.id]), false);
 check('ticking one chapter removes exactly that chapter',
   full.originitePrime - chapterDone.originitePrime === oneChapter.op,
   `${full.originitePrime - chapterDone.originitePrime} vs ${oneChapter.op}`);
 
-const allChapters = remainingBacklog(none, new Set(ONE_TIME.chapters.map((c) => c.id)), false);
+const allChapters = remainingBacklog(backlogSources, none, new Set(ONE_TIME.chapters.map((c) => c.id)), false);
 check('ticking every chapter removes the whole mainline and nothing else',
   full.originitePrime - allChapters.originitePrime === mainline,
   String(full.originitePrime - allChapters.originitePrime));
 
 const oneEvent = PAST_EVENTS[0];
-const minusOne = remainingBacklog(new Set([oneEvent.id]), none, false);
+const minusOne = remainingBacklog(backlogSources, new Set([oneEvent.id]), none, false);
 check('ticking one event removes exactly that event',
   full.originitePrime - minusOne.originitePrime === oneEvent.op,
   `${full.originitePrime - minusOne.originitePrime} vs ${oneEvent.op}`);
 
 check('ticking Annihilation removes its orundum but no Originite',
-  remainingBacklog(none, none, true).annihilationOrundum === 0
-  && remainingBacklog(none, none, true).originitePrime === full.originitePrime);
+  remainingBacklog(backlogSources, none, none, true).annihilationOrundum === 0
+  && remainingBacklog(backlogSources, none, none, true).originitePrime === full.originitePrime);
 
 /* ---------------------------------------------------------------- the card */
 const cardWindow = incomeBetween(at('2026-09-01T00:00:00Z'), at('2026-10-15T00:00:00Z'));
@@ -381,9 +387,9 @@ if (shopBanners.length > 0) {
 
 /* Archived first clears do not reopen event shops. */
 check('the back catalogue never invents permits from expired shops',
-  remainingBacklog(none, none, false).permits === 0);
+  remainingBacklog(backlogSources, none, none, false).permits === 0);
 check('clearing archived events does not change scheduled shop permits',
-  remainingBacklog(new Set(PLAYABLE_EVENTS.map(e => e.id)), none, false).permits === 0);
+  remainingBacklog(backlogSources, new Set(PLAYABLE_EVENTS.map(e => e.id)), none, false).permits === 0);
 
 check('bannersAfter drops what has already ended',
   bannersAfter(farFuture).length === 0 && bannersAfter(new Date(0)).length === ALL_BANNERS.length,

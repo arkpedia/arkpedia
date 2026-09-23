@@ -1,9 +1,10 @@
 import eventRewards from '@/data/pull-event-rewards.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
-import { PLAYABLE_EVENTS, type PullEventReward } from './pulls';
+import type { BacklogSources, PullEventReward } from './pulls';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBanners';
-import { ALL_BANNERS, type UpcomingBanner } from './pulls';
+import type { UpcomingBanner } from './pulls';
+import { ALL_BANNERS } from './sources';
 import { pullArtworkUrl } from './artwork';
 import { validPlanDate } from './plan';
 import { resolvePullBannerWindows } from './bannerWindows';
@@ -53,8 +54,10 @@ export function getPullSchedule(): UpcomingBanner[] {
 }
 
 /** Resolve rewards against event windows, never banner windows. Missing or
- * invalid dates cannot silently resurrect the old reward snapshot's dates. */
-export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents>): PullEventReward[] {
+ * invalid dates cannot silently resurrect the old reward snapshot's dates.
+ * `inBacklog` is marked against the backlog the page itself ships, so an event
+ * skipped here is always one `remainingBacklog` counts. */
+export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents>, backlog: BacklogSources): PullEventReward[] {
   const byName = new Map(current.map(event => [pullBannerKey(event.name), event]));
   const plain = (name: string) => pullBannerKey(name.replace(/^\[[^\]]*\]\s*/, '').replace(/\s+rerun$/i, ''));
   return eventRewards.flatMap(reward => {
@@ -65,13 +68,13 @@ export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents
     return [{
       name: reward.event, event: reward.event, start: dates[0], end: dates[1],
       rerun: /rerun/i.test(reward.event), op: reward.op, opSource: 'cn' as const,
-      inBacklog: PLAYABLE_EVENTS.some(known => plain(known.name) === plain(reward.event)),
+      inBacklog: backlog.playable.some(known => plain(known.name) === plain(reward.event)),
       hasShop: reward.shopPermits > 0, shopPermits: reward.shopPermits,
       wishActId: reward.wishActId, wishDays: reward.wishDays, wishOrundum: reward.wishOrundum,
       legacyNames: ALL_BANNERS.filter(b => b.event === reward.event).map(b => b.name),
     }];
   }).sort((a,b) => a.start.localeCompare(b.start));
 }
-export function getPullEventSchedule(): PullEventReward[] {
-  return resolvePullEventSchedule(getAllEvents());
+export function getPullEventSchedule(backlog: BacklogSources): PullEventReward[] {
+  return resolvePullEventSchedule(getAllEvents(), backlog);
 }

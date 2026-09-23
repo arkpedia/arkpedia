@@ -15,6 +15,7 @@ import { WISHING_WALL_LABELS, type WishingWallMode } from '@/lib/pulls/wishingWa
 import Head from 'next/head';
 import type { GetStaticProps } from 'next';
 import { getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
+import { bundledBacklogSources } from '@/lib/pulls/sources';
 import { useRouter } from 'next/router';
 import { getAllSkins } from '@/lib/skins/skins';
 import { PlannerSelect } from '@/components/pulls/PlannerSelect';
@@ -28,7 +29,7 @@ import {
   WEEKLY_ORUNDUM,
   eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
   pullsFrom, remainingBacklog,
-  type Holdings, type UpcomingBanner, type PullEventReward,
+  type BacklogSources, type Holdings, type UpcomingBanner, type PullEventReward,
 } from '@/lib/pulls/pulls';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -82,7 +83,9 @@ function Line({ what, sum, amount, muted }: { what: string; sum: string; amount:
   );
 }
 
-export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatalogue, skinCollections, bannerOdds }: { skinCollections: SkinCollection[]; bannerOdds: Record<string, BannerOdds>; scheduledEvents: PullEventReward[]; scheduledBanners: UpcomingBanner[]; skinCatalogue: PlannedSkin[] }) {
+type PullsProps = { skinCollections: SkinCollection[]; bannerOdds: Record<string, BannerOdds>; scheduledEvents: PullEventReward[]; scheduledBanners: UpcomingBanner[]; skinCatalogue: PlannedSkin[]; backlogSources: BacklogSources };
+
+export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatalogue, skinCollections, bannerOdds, backlogSources }: PullsProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('');
   const [choosingBanner, setChoosingBanner] = useState(false);
@@ -203,8 +206,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
      telling somebody with three years of clears that 2,717 OP is waiting would
      be worse than not offering the figure. */
   const backlog = useMemo(
-    () => remainingBacklog(doneEvents, doneKeys, annihilationDone),
-    [doneEvents, doneKeys, annihilationDone],
+    () => remainingBacklog(backlogSources, doneEvents, doneKeys, annihilationDone),
+    [backlogSources, doneEvents, doneKeys, annihilationDone],
   );
 
 
@@ -447,7 +450,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
 
           </section>
-          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={workspace.detailPanel}><PastRewards doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} include={includeBacklog} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} onInclude={setIncludeBacklog} /></section>
+          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={workspace.detailPanel}><PastRewards backlog={backlogSources} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} include={includeBacklog} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} onInclude={setIncludeBacklog} /></section>
           <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={workspace.detailPanel}>        <SkinPlan collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} heldOP={held.originitePrime} extraOP={readNumber(reservedOP)} forecastOP={date => totalAt(new Date(`${date}T23:59:59Z`)).grossOP}
           extraField={<Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} />} />
 </section>
@@ -475,12 +478,24 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   </>;
 }
 
-export const getStaticProps: GetStaticProps = withContentPage('/pulls', async () => {
+export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsProps>('/pulls', async () => {
   const scheduledBanners = getPullSchedule().filter(banner => new Date(`${banner.end}T23:59:59Z`) > new Date());
+  /* One object for the schedule's `inBacklog` marks and the browser's backlog
+     totals. The content export runs this against the release's data, so both
+     arrive with the release in the page props and never from the app bundle. */
+  const backlogSources = bundledBacklogSources();
   const skins = getAllSkins();
   const events = getAllEvents();
   const skinCatalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins));
   const predicted = new Set(getAllEventListings().filter(event => event.isPredicted).map(event => event.name));
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, new Date().toISOString().slice(0, 10), predicted);
-  return { props: { scheduledEvents: getPullEventSchedule(), skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) }, revalidate: 1200 };
-});
+  return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) }, revalidate: 1200 };
+}, { finalize: async props => {
+  if (props.backlogSources) return props;
+  // A release exported before backlogSources joined the props. The first content
+  // run after this deploy re-exports /pulls (the generator commit changes the
+  // release fingerprint), and scripts/content/validate-release.mjs refuses a
+  // release without it, so only an older published release can land here.
+  console.warn('[pulls] Content release predates backlogSources; using the bundled back catalogue.');
+  return { ...props, backlogSources: bundledBacklogSources() };
+} });

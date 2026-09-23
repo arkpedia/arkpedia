@@ -1,18 +1,19 @@
 import { IncludePastSwitch } from './IncludePastSwitch';
 import { useState } from 'react';
-import { ONE_TIME, PLAYABLE_EVENTS } from '@/lib/pulls/pulls';
-import firstClears from '@/data/pull-first-clears.json';
+import type { BacklogSources } from '@/lib/pulls/pulls';
 
-export function PastRewards({ doneKeys, doneEvents, annihilationDone, include, onKeys, onEvents, onAnnihilation, onInclude }: {
+/** `backlog` is the page's release copy, never an import of data/: see BacklogSources. */
+export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, include, onKeys, onEvents, onAnnihilation, onInclude }: {
+  backlog: BacklogSources;
   doneKeys: Set<string>; doneEvents: Set<string>; annihilationDone: boolean; include: boolean;
   onKeys: (keys: Set<string>) => void; onEvents: (keys: Set<string>) => void; onAnnihilation: (done: boolean) => void; onInclude: (include: boolean) => void;
 }) {
   const [open, setOpen] = useState('story');
   const groups = [
-    { id:'story', name:'Main story', unit:'OP', items:ONE_TIME.chapters.map(c => ({id:c.id, name:`${c.label} · ${c.name}`, amount:c.op})) },
-    { id:'events', name:'Events', unit:'OP', items:PLAYABLE_EVENTS.map(e => ({id:e.id, name:e.name, amount:e.op})) },
-    { id:'annihilation', name:'Annihilation', unit:'Orundum', items:firstClears.annihilation },
-    { id:'resources', name:'Resource stages', unit:'OP', items:firstClears.resources },
+    { id:'story', name:'Main story', unit:'OP', items:backlog.chapters.map(c => ({id:c.id, name:`${c.label} · ${c.name}`, amount:c.op})) },
+    { id:'events', name:'Events', unit:'OP', items:backlog.playable.map(e => ({id:e.id, name:e.name, amount:e.op})) },
+    { id:'annihilation', name:'Annihilation', unit:'Orundum', items:backlog.annihilation },
+    { id:'resources', name:'Resource stages', unit:'OP', items:backlog.resources },
   ];
   const complete = (group: string, id: string) => group === 'events' ? doneEvents.has(id) : group === 'annihilation' && annihilationDone || group === 'resources' && doneKeys.has('daily') || doneKeys.has(id);
   const setCompleted = (group: typeof groups[number], ids: string[], done: boolean) => {
