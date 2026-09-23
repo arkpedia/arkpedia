@@ -4,8 +4,10 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import operatorFixture from './fixtures/operator-costs.json';
 
-const surtr = JSON.parse(fs.readFileSync('data/operators-6star/Surtr.json', 'utf8'));
+// Surtr's cost lists frozen in a fixture, so the test does not move with the live record.
+const surtr = operatorFixture.operator;
 const assets = Object.fromEntries(['image-assets', 'skin-assets', 'color-palette', 'voice-english', 'voice-japanese', 'voice-korean', 'voice-mandarin', 'voice-regional']
   .map(repo => [`arkpedia-${repo}`, 'a'.repeat(40)]));
 // Validates a release holding one edited operator record and returns the error it stops

@@ -1,6 +1,12 @@
 import test from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
 import farmingFixture from './fixtures/people-farming.json';
+import operatorFixture from './fixtures/operator-costs.json';
+import { emptyCatalogue } from './fixtures/catalogue';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { checkCompleteness, hasRecordedRelease, missingEnemyIcons, readCompletenessInputs } from '../content/check-completeness.mjs';
@@ -29,30 +35,74 @@ test('publication rejects missing operators, outfits, banners, event records and
   const newer = { ...input.inventory, operators: [...input.inventory.operators, { id: 'char_new', name: 'New CN operator' }] };
   assert.match(checkCompleteness({ ...input, inventory: newer }).join('\n'), /CN operator missing: char_new/);
 });
+/* A data tree holding only what the enemy checks read: a listed stage fielding two
+   enemies, and an unlisted stage fielding a third that nothing needs. `edit` takes away
+   whatever a case is about before the release gate runs on the tree. */
+function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: string }[]; index: string[]; icons: string[] }) => void) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-completeness-'));
+  try {
+    const tree = {
+      records: [{ slug: 'slug-a', name: 'Slug A', icon: '/enemies-icons/Slug A.webp' }, { slug: 'slug-b', name: 'Slug B', icon: '/enemies-icons/Slug B.webp' }],
+      index: ['slug-a', 'slug-b'],
+      icons: ['enemies-icons/Slug A.webp', 'enemies-icons/Slug B.webp'],
+    };
+    edit(tree);
+    const write = (file: string, data: unknown) => {
+      fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      fs.writeFileSync(path.join(root, file), JSON.stringify(data));
+    };
+    for (const file of ['data/skins.json', 'data/headhunting_banners.json', 'data/content-bundles.json', 'data/events/events_2026.json']) write(file, []);
+    write('data/content-inventory.json', { operators: [], skins: [] });
+    write('data/assets/external-asset-index.json', { files: tree.icons });
+    write('data/stages/test-1.json', { slug: 'test-1', enemies: { by_rank: { normal: [{ slug: 'slug-a' }] }, conditional: { by_rank: { elite: [{ slug: 'slug-b' }] } } } });
+    write('data/stages/unlisted.json', { slug: 'unlisted', enemies: { by_rank: { normal: [{ slug: 'slug-unlisted' }] } } });
+    write('data/enemies/Test Event.json', { enemies: tree.records });
+    write('public/stages-index.json', [{ slug: 'test-1' }]);
+    write('public/enemies-index.json', tree.index.map(slug => ({ slug })));
+    const run = spawnSync(process.execPath, ['scripts/content/check-completeness.mjs', root], { encoding: 'utf8' });
+    return { status: run.status, output: run.stdout + run.stderr };
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
 test('publication rejects a stage enemy with no record or grid row, and never withholds a release for its icon', () => {
-  const slug = [...input.stageEnemies.keys()].find((s: string) => input.enemyRecords.get(s)?.icon);
-  assert.ok(slug, 'a listed stage fields an enemy with an icon');
-  const records = new Map(input.enemyRecords);
-  records.delete(slug);
-  assert.match(checkCompleteness({ ...input, enemyRecords: records }).join('\n'), new RegExp(`Stage enemy has no record: ${slug} `));
-  const index = new Set(input.enemyIndex);
-  index.delete(slug);
-  assert.match(checkCompleteness({ ...input, enemyIndex: index }).join('\n'), new RegExp(`Stage enemy missing from enemies-index.json: ${slug} `));
-  const icon = input.enemyRecords.get(slug).icon.slice(1);
-  const assets = new Set(input.assets);
-  assets.delete(icon);
-  assert.deepEqual(checkCompleteness({ ...input, assets }), []);
-  assert.deepEqual(missingEnemyIcons({ ...input, assets }), [icon]);
+  const complete = enemyGate(() => {});
+  assert.equal(complete.status, 0, complete.output);
+  assert.match(complete.output, /and 2 stage enemies/);
+  assert.doesNotMatch(complete.output, /not published yet/);
+  // A new enemy whose icon the image sync has not published yet is reported and released:
+  // the sync finds new icons in the published records, so blocking here would deadlock.
+  const iconless = enemyGate(tree => { tree.icons = ['enemies-icons/Slug A.webp']; });
+  assert.equal(iconless.status, 0, iconless.output);
+  assert.match(iconless.output, /1 enemy icon\(s\) not published yet.*\n {2}enemies-icons\/Slug B\.webp\n/);
+  // With no record or no grid row, its stage links 404, so the release is blocked.
+  const unrecorded = enemyGate(tree => { tree.records = tree.records.filter(record => record.slug !== 'slug-b'); });
+  assert.equal(unrecorded.status, 1);
+  assert.match(unrecorded.output, /Stage enemy has no record: slug-b \(fielded in test-1\)/);
+  const unindexed = enemyGate(tree => { tree.index = ['slug-b']; });
+  assert.equal(unindexed.status, 1);
+  assert.match(unindexed.output, /Stage enemy missing from enemies-index\.json: slug-a \(fielded in test-1\)/);
 });
+test('unpublished enemy icons are listed once each and in order, and never count as errors', () => {
+  const icon = (name: string) => `/enemies-icons/${name}.webp`;
+  const enemyRecords = new Map([['b', { name: 'B', icon: icon('B') }], ['b-elite', { name: 'B', icon: icon('B') }],
+    ['a', { name: 'A', icon: icon('A') }], ['no-icon', { name: 'No icon yet' }], ['published', { name: 'P', icon: icon('P') }]]);
+  const catalogue = emptyCatalogue({ stageEnemies: new Map([...enemyRecords.keys()].map(slug => [slug, 'test-1'])), enemyRecords,
+    enemyIndex: new Set(enemyRecords.keys()), assets: new Set(['enemies-icons/P.webp']) });
+  assert.deepEqual(missingEnemyIcons(catalogue), ['enemies-icons/A.webp', 'enemies-icons/B.webp']);
+  assert.deepEqual(checkCompleteness(catalogue), []);
+});
+// Surtr's cost lists, frozen in a fixture: the live record may change with any refresh.
+const costRecord = () => structuredClone(operatorFixture.operator);
+const withOperator = (edit: (op: any) => void, op: any = costRecord()) => {
+  edit(op);
+  return checkCompleteness(emptyCatalogue({ operators: [op] })).join('\n');
+};
 test('publication rejects nested or malformed material cost lists', () => {
-  const withOperator = (name: string, edit: (op: any) => void) => {
-    const op = structuredClone(input.operators.find((row: any) => row.name === name));
-    edit(op);
-    return checkCompleteness({ ...input, operators: input.operators.map((row: any) => row.name === name ? op : row) }).join('\n');
-  };
+  assert.equal(withOperator(() => {}), '');
   // The hand-written Persona shape that crashed the image sync.
-  assert.match(withOperator('Aegis', op => { op.potential.totalCost = [[{ name: "Aegis's Token", quantity: 5 }]]; }),
-    /Aegis: potential\.totalCost is not a flat/);
+  assert.match(withOperator(op => { op.potential.totalCost = [[{ name: "Surtr's Token", quantity: 5 }]]; }),
+    /Surtr: potential\.totalCost is not a flat/);
   for (const [edit, expected] of [
     [(op: any) => { op.promotion[0].cost = [op.promotion[0].cost]; }, /Surtr: promotion\[0\]\.cost is not a flat/],
     [(op: any) => { op.skills.skillCost['2'] = [op.skills.skillCost['2']]; }, /Surtr: skillCost\.2 is not a flat/],
@@ -60,24 +110,22 @@ test('publication rejects nested or malformed material cost lists', () => {
     [(op: any) => { op.modules[1].stages[0].cost = [op.modules[1].stages[0].cost]; }, /Surtr: modules\[1\]\.stages\[0\]\.cost is not a flat/],
     [(op: any) => { op.potential.totalCost = { name: "Surtr's Token", quantity: 5 }; }, /Surtr: potential\.totalCost is not a flat/],
     [(op: any) => { op.potential.totalCost = [{ name: "Surtr's Token", quantity: '5' }]; }, /Surtr: potential\.totalCost is not a flat/],
-  ] as const) assert.match(withOperator('Surtr', edit), expected);
-  assert.equal(withOperator('Surtr', op => { op.potential.totalCost = []; }), '');
+  ] as const) assert.match(withOperator(edit), expected);
+  assert.equal(withOperator(op => { op.potential.totalCost = []; }), '');
 });
 test('a CN record without a release date must be marked as future', () => {
-  const withMechanist = (edit: (op: any) => void) => {
-    const op = structuredClone(input.operators.find((row: any) => row.name === 'Mechanist'));
-    edit(op);
-    return checkCompleteness({ ...input, operators: input.operators.map((row: any) => row.name === 'Mechanist' ? op : row) }).join('\n');
-  };
-  const released = /Mechanist: CN record has no release date and is not marked isFuture/;
-  assert.match(withMechanist(op => { delete op.isFuture; op.characterInfo['Release Date'] = null; }), released);
-  assert.match(withMechanist(op => { op.isFuture = false; op.characterInfo['Release Date'] = ''; }), released);
-  assert.match(withMechanist(op => { delete op.isFuture; op.characterInfo['Release Date'] = 'TBA'; }), released);
-  assert.equal(withMechanist(op => { op.isFuture = true; op.characterInfo['Release Date'] = null; }), '');
+  // A made-up CN-only record, so the case does not end when a real one reaches Global.
+  const cnRecord = () => Object.assign(costRecord(), { name: 'Unreleased CN operator', internalName: 'char_9999_cnonly', sourceRegion: 'CN', isFuture: true });
+  const withCnRecord = (edit: (op: any) => void) => withOperator(edit, cnRecord());
+  const released = /Unreleased CN operator: CN record has no release date and is not marked isFuture/;
+  assert.match(withCnRecord(op => { delete op.isFuture; op.characterInfo['Release Date'] = null; }), released);
+  assert.match(withCnRecord(op => { op.isFuture = false; op.characterInfo['Release Date'] = ''; }), released);
+  assert.match(withCnRecord(op => { delete op.isFuture; op.characterInfo['Release Date'] = 'TBA'; }), released);
+  assert.equal(withCnRecord(op => { op.isFuture = true; op.characterInfo['Release Date'] = null; }), '');
   // A dated record follows its date. Once Global launches it reads as released even
   // while the EN mirror still lags, so the guard must not block that release.
-  assert.equal(withMechanist(op => { delete op.isFuture; op.characterInfo['Release Date'] = '2026/09/01'; }), '');
-  assert.equal(withMechanist(op => { delete op.isFuture; delete op.sourceRegion; op.characterInfo['Release Date'] = null; }), '');
+  assert.equal(withCnRecord(op => { delete op.isFuture; op.characterInfo['Release Date'] = '2026/09/01'; }), '');
+  assert.equal(withCnRecord(op => { delete op.isFuture; delete op.sourceRegion; op.characterInfo['Release Date'] = null; }), '');
 });
 test('the release-date guard makes the same call as the site', () => {
   const edges = [null, '', '  ', 'TBA', '2026/10/04', '2026-2-30', '2026/13/01', 'October 4, 2026']

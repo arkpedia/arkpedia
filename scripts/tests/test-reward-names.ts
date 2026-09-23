@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 // @ts-expect-error JavaScript importer is also run directly by the refresh job.
 import { rewardNames, globalStart, localizeRewards, iconFile } from '../sync/sync-reward-names.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { checkCompleteness, readCompletenessInputs } from '../content/check-completeness.mjs';
+import { checkCompleteness } from '../content/check-completeness.mjs';
+import { emptyCatalogue } from './fixtures/catalogue';
 
 /* IDs and names copied from the live CN and EN building_data / item_table entries for
    the People, A People store (furni_ursusRoom_*), plus one furniture the EN client does
@@ -89,11 +90,13 @@ test('Global start is the client window when known, else the announced UTC−7 d
 });
 
 test('publication fails when a renamed reward would render without an icon', () => {
-  const input = readCompletenessInputs();
-  const event = { name: '[Side Story] People, A People', rewards: store([item('Standard Wooden Basin', { cnName: '制式木盆', iconName: '制式木盆' })]) };
-  const assets = new Set([...input.assets, 'material-icons/制式木盆.webp']);
-  assert.deepEqual(checkCompleteness({ ...input, events: [...input.events, event], assets }), []);
-  const dropped = { ...event, rewards: store([item('Standard Wooden Basin', { cnName: '制式木盆' })]) };
-  assert.match(checkCompleteness({ ...input, events: [...input.events, dropped], assets }).join('\n'),
+  // Only the Chinese-named icon is published here, whatever the live index holds: once the
+  // image sync publishes the English copy, the renamed item drops iconName and shows that.
+  const assets = new Set(['material-icons/制式木盆.webp']);
+  const withRewards = (...items: object[]) => checkCompleteness(emptyCatalogue({ events: [{ name: '[Side Story] People, A People', rewards: store(items) }], assets })).join('\n');
+  assert.equal(withRewards(item('Standard Wooden Basin', { cnName: '制式木盆', iconName: '制式木盆' })), '');
+  assert.match(withRewards(item('Standard Wooden Basin', { cnName: '制式木盆' })),
     /People, A People reward Standard Wooden Basin: missing asset material-icons\/Standard Wooden Basin\.webp/);
+  // Unrenamed items and outfits are not this check's business.
+  assert.equal(withRewards(item('Headhunting Permit'), item('Infiltrator', { type: 'skin', cnName: '潜行者' })), '');
 });
