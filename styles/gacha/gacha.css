@@ -288,7 +288,7 @@
   position: relative;
   overflow: hidden;
   width: 100%;
-  height: 90px;
+  height: 132px;
   box-sizing: border-box;
   margin-bottom: 6px;
   display: flex;
@@ -329,7 +329,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.72;
+  opacity: 0.9;
 }
 /* Contrast comes from a band behind the text instead of a veil over the
    whole card. The art behind these rows varies wildly -- pale key art put
@@ -338,15 +338,14 @@
    lettering -- so the text needs a predictable ground. A band that hugs
    the text gives it one while leaving the rest of the row as artwork:
    #E7EEF3 and #8CA0AE over this reach ~15:1 and ~6.7:1 whatever is behind.
-   It has to be a real element rather than the card's ::after, because the
-   name wraps to anywhere from one line to five and a fixed scrim cannot
-   know how tall the text will be. */
+   Keep the name to two lines so even the longest candidate list leaves
+   a substantial part of the artwork visible. */
 .gacha-banner-sidebar-text {
   position: relative;
   z-index: 2;
   width: calc(100% + 28px);
   margin: 0 -14px -12px;
-  padding: 7px 14px 10px;
+  padding: 7px 14px 9px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -359,7 +358,7 @@
   left: 0;
   right: 0;
   bottom: 100%;
-  height: 26px;
+  height: 14px;
   pointer-events: none;
   background: linear-gradient(180deg, rgb(12 17 23 / 0), rgb(12 17 23 / 0.88));
 }
@@ -376,6 +375,10 @@
   font-weight: 600;
   line-height: 1.25;
   white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 .gacha-banner-sidebar-date {
   font-family: var(--font-mono);
@@ -415,14 +418,8 @@
 .gacha-featured-info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .gacha-featured-name { font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .gacha-featured-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; }
-.gacha-featured-section { display: grid; grid-template-columns: minmax(200px, 300px) minmax(0, 1fr); gap: 12px 18px; align-items: start; }
-.gacha-featured-section > h2, .gacha-featured-section > .hint { grid-column: 1 / -1; }
+.gacha-featured-section { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
 .gacha-featured-section > .gacha-content-group { min-width: 0; }
-@media (max-width: 1080px) {
-  .gacha-featured-section { grid-template-columns: 1fr; }
-  .gacha-featured-section > .gacha-content-group { grid-column: 1; }
-  .gacha-banner-main-image { max-width: 380px; }
-}
 .gacha-featured-chip-6 { border-color: rgba(245, 166, 35, 0.4); }
 .gacha-featured-chip-5 { border-color: rgba(77, 232, 209, 0.35); }
 

@@ -46,7 +46,7 @@ const CATEGORY_LABELS: Record<DisplayCategory, string> = {
   other: 'Other (unclassified)',
 };
 const CATEGORIES: DisplayCategory[] = ['upcoming', 'featured', 'limited', 'standard', 'kernel', 'kernelLocating', 'joint', 'orienteering', 'celebration', 'crossover', 'trio', 'other'];
-const BANNER_ROW_STRIDE = 96;
+const BANNER_ROW_STRIDE = 138;
 function bannerRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: BANNER_ROW_STRIDE }; }
 
 function bannerDateLabel(banner: HeadhuntingBanner): string {
