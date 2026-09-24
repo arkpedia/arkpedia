@@ -3,8 +3,9 @@ import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
-import Image from '@/components/content/ContentImage';
+import Image, { ContentImg } from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import { getAllHeadhuntingBanners, getBannersSortedByDate, HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -48,8 +49,15 @@ const CATEGORY_LABELS: Record<DisplayCategory, string> = {
 const CATEGORIES: DisplayCategory[] = ['upcoming', 'featured', 'limited', 'standard', 'kernel', 'kernelLocating', 'joint', 'orienteering', 'celebration', 'crossover', 'trio', 'other'];
 const BANNER_ROW_STRIDE = 138;
 function bannerRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: BANNER_ROW_STRIDE }; }
-const HISTORY_ROW_STRIDE = 58;
-function historyRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: HISTORY_ROW_STRIDE }; }
+function historyRowLayout(element: HTMLDivElement): VirtualRowLayout {
+  const grid = element.querySelector<HTMLElement>('.gacha-history-grid');
+  if (!grid) return { columns: 10, rowStride: 72 };
+  const styles = getComputedStyle(grid);
+  const columns = styles.gridTemplateColumns.split(' ').length;
+  const gap = parseFloat(styles.columnGap) || 0;
+  const rowGap = parseFloat(styles.rowGap) || 0;
+  return { columns, rowStride: (grid.clientWidth - gap * (columns - 1)) / columns + rowGap };
+}
 
 function bannerDateLabel(banner: HeadhuntingBanner): string {
   const prefix = banner.global_date_estimated ? 'Estimated Global · ' : banner.global_date ? '' : 'CN · ';
@@ -85,13 +93,46 @@ function getSparkCost(operatorName: string, bannerDate: Date | null, releaseLook
 
 function PullIcon({ item }: { item: PulledItem }) {
   if (item.icon) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <Image src={item.icon} alt={item.name} className="gacha-pull-icon" width={56} height={56} />;
+    return <Image src={item.icon} alt="" className="gacha-pull-icon" width={80} height={80} />;
   }
   return <div className="gacha-pull-icon gacha-pull-icon-placeholder">{item.rarity}★</div>;
 }
 
-function PullHistory({ history }: { history: PulledItem[] }) {
+function PullTile({ item, onSelect, className = '', label }: { item: PulledItem; onSelect: (item: PulledItem) => void; className?: string; label?: string }) {
+  const accessibleName = `${label ? `${label}: ` : ''}${item.name}, ${item.rarity} stars${item.isBonus ? ', bonus guarantee' : ''}`;
+  return (
+    <button type="button" className={`gacha-pull-tile ${rarityClass(item.rarity)} ${className}`} onClick={() => onSelect(item)} aria-label={accessibleName} title={accessibleName}>
+      <PullIcon item={item} />
+    </button>
+  );
+}
+
+function PullPreview({ item, onClose }: { item: PulledItem; onClose: () => void }) {
+  const closeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    closeButton.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); previousFocus?.focus(); };
+  }, [onClose]);
+  const artFolder = item.rarity === 6 ? 'six' : item.rarity === 5 ? 'five' : item.rarity === 4 ? 'four' : 'three';
+  const art = `/${artFolder}-star-skins/${encodeURIComponent(`${item.name} - Base.webp`)}`;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box gacha-pull-preview" role="dialog" aria-modal="true" aria-labelledby="gacha-pull-preview-title" onClick={(event) => event.stopPropagation()}>
+        <div className="gacha-pull-preview-header">
+          <div><span className="gacha-pull-preview-rarity">{item.rarity}★ Operator</span><h2 id="gacha-pull-preview-title">{item.name}</h2></div>
+          <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close operator preview">×</button>
+        </div>
+        <ContentImg className="gacha-pull-preview-art" src={art} alt={`${item.name} base artwork`} />
+        <Link className="gacha-preview-link" href={`/operators/${encodeURIComponent(item.name)}`}>View operator page ↗</Link>
+      </div>
+    </div>
+  );
+}
+
+function PullHistory({ history, onSelect }: { history: PulledItem[]; onSelect: (item: PulledItem) => void }) {
   const entries = useMemo(() => {
     let pullNumber = 0;
     return history.map((item, index) => {
@@ -100,22 +141,16 @@ function PullHistory({ history }: { history: PulledItem[] }) {
       return { item, index, pullNumber };
     }).reverse();
   }, [history]);
-  const window = useVirtualRows(entries.length, historyRowLayout, { columns: 1, rowStride: HISTORY_ROW_STRIDE }, 4);
+  const window = useVirtualRows(entries.length, historyRowLayout, { columns: 10, rowStride: 72 }, 3);
 
   return (
     <div className="gacha-history-list" ref={window.scrollerRef} role="region" aria-label="Pull history, newest first" tabIndex={0}>
       <div style={{ height: window.before }} aria-hidden="true" />
-      {entries.slice(window.firstIndex, window.lastIndex).map(({ item, index, pullNumber }) => (
-        <div key={index} className={`gacha-history-entry ${rarityClass(item.rarity)}`}>
-          <span className="gacha-history-number">#{pullNumber}</span>
-          {item.icon ? <Image src={item.icon} alt="" width={38} height={38} className="gacha-history-icon" /> : <span className="gacha-history-icon gacha-pull-icon-placeholder">{item.rarity}★</span>}
-          <span className="gacha-history-info">
-            <strong title={item.name}>{item.name}</strong>
-            {(item.isBonus || item.isFeatured || item.isRateUp) && <small>{item.isBonus ? 'Bonus guarantee' : item.isFeatured ? 'Featured' : 'Returning limited'}</small>}
-          </span>
-          <span className="gacha-history-rarity">{item.rarity}★</span>
-        </div>
-      ))}
+      <div className="gacha-history-grid">
+        {entries.slice(window.firstIndex, window.lastIndex).map(({ item, index, pullNumber }) => (
+          <PullTile key={index} item={item} onSelect={onSelect} label={`Pull #${pullNumber}`} />
+        ))}
+      </div>
       <div style={{ height: window.after }} aria-hidden="true" />
     </div>
   );
@@ -1395,6 +1430,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
   const [state, setState] = useState<GachaState>(createInitialState());
   const [lastPulls, setLastPulls] = useState<PulledItem[]>([]);
+  const [previewedPull, setPreviewedPull] = useState<PulledItem | null>(null);
 
   const [orienteeringSelected, setOrienteeringSelected] = useState<GachaItem[]>([]);
   const [orienteeringFiveSelected, setOrienteeringFiveSelected] = useState<GachaItem[]>([]);
@@ -2099,14 +2135,14 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         })()}
                       </div>
                       <div className="gacha-pull-actions">
-                        <button type="button" className="ghost" onClick={reset}>
+                        <button type="button" className="gacha-action gacha-action-reset" onClick={reset}>
                           Reset
                         </button>
-                        <button type="button" className="ghost" onClick={() => pull(1)}>
-                          Pull 1
+                        <button type="button" className="gacha-action gacha-action-single" onClick={() => pull(1)} aria-label="Pull one operator">
+                          x1
                         </button>
-                        <button type="button" className="primary" onClick={() => pull(10)}>
-                          Pull 10
+                        <button type="button" className="gacha-action gacha-action-ten" onClick={() => pull(10)} aria-label="Pull ten operators">
+                          x10
                         </button>
                       </div>
                     </div>
@@ -2135,22 +2171,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     >
                       {lastPulls.map((item, i) => {
                         const slideDirection = lastPulls.length === 1 || i % 2 === 0 ? 'gacha-pull-slide-bottom' : 'gacha-pull-slide-top';
-                        return (
-                        <div
-                          key={`${state.pullCount}-${i}`}
-                          className={`gacha-pull-card ${rarityClass(item.rarity)} ${slideDirection}`}
-                        >
-                          {item.isBonus && <span className="gacha-bonus-tag">+1 Guarantee</span>}
-                          {item.featuredGuaranteeEvent === 'reset' && <span className="gacha-bonus-tag">Reset</span>}
-                          {item.featuredGuaranteeEvent === 'guarantee' && <span className="gacha-bonus-tag">Guarantee</span>}
-                          {item.crossoverFiveStarGuarantee && <span className="gacha-bonus-tag">Guarantee</span>}
-                          <PullIcon item={item} />
-                          <div className="gacha-pull-rarity">{item.rarity}★</div>
-                          <div className="gacha-pull-name">{item.name}</div>
-                          {item.isFeatured && <div className="gacha-pull-featured">Featured</div>}
-                          {item.isRateUp && <div className="gacha-pull-featured gacha-pull-rate-up">Rate-Up</div>}
-                        </div>
-                        );
+                        return <PullTile key={`${state.pullCount}-${i}`} item={item} onSelect={setPreviewedPull} className={slideDirection} />;
                       })}
                     </div>
                   </section>
@@ -2292,7 +2313,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       {showHistory ? '▾' : '▸'} Pull history
                     </button>
                     {showHistory && (
-                      <PullHistory history={state.history} />
+                      <PullHistory history={state.history} onSelect={setPreviewedPull} />
                     )}
                   </section>
                 )}
@@ -2302,6 +2323,8 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
           </div>
         </div>
       </main>
+
+      {previewedPull && <PullPreview item={previewedPull} onClose={() => setPreviewedPull(null)} />}
 
       {showSparkStore && banner && (
         <div className="modal-overlay" onClick={() => setShowSparkStore(false)}>
