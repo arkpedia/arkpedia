@@ -257,6 +257,11 @@ test('the release validator holds the published quarantine and upstream lock to 
   const lock = (repositories: object) => validateSources({ 'data/upstream.lock.json': { version: 1, repositories } });
   assert.match(lock({ 'Kengxxiao/ArknightsGameData': { branch: 'master', commit: 'd'.repeat(40), source: 'resolved' }, 'a/b': { branch: 'main', commit: null } }), passes);
   assert.match(lock({ 'Kengxxiao/ArknightsGameData': { branch: 'master', commit: 'master' } }), /invalid pin for Kengxxiao\/ArknightsGameData/);
+  // Where the run's CN tables came from (scripts/content/cn-tables.mjs) names a source at a commit.
+  const tables = (cnTables: object) => validateSources({ 'data/upstream.lock.json': { version: 1, repositories: {}, cnTables } });
+  assert.match(tables({ repository: 'yuanyan3060/ArknightsGameResource', commit: 'e'.repeat(40), folder: 'gamedata', serialization: 'numeric' }), passes);
+  assert.match(tables({ repository: 'yuanyan3060/ArknightsGameResource', commit: 'e'.repeat(40), folder: 'zh_CN/gamedata', serialization: 'numeric' }), /cnTables must name a CN table source at a commit/);
+  assert.match(tables({ repository: 'Kengxxiao/ArknightsGameData', commit: 'master', folder: 'zh_CN/gamedata', serialization: 'named' }), /cnTables must name a CN table source at a commit/);
   // The per-run stage report never goes out: its timings would make every day a release.
   assert.match(validateSources({ 'data/stage-report.json': { version: 1, stages: [] } }), /data\/stage-report\.json must not be published/);
   const ignored = spawnSync('git', ['check-ignore', '-q', 'data/stage-report.json']);

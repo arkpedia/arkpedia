@@ -422,11 +422,23 @@ test('the daily refresh runs every command as a uniquely named stage that needs 
     for (const need of stage.needs) assert.ok(seen.has(need), `${stage.name} needs ${need}, which must run before it`);
     seen.add(stage.name);
   }
-  // The pin comes first, so every later stage reads the same commits.
-  assert.equal(stages[0].name, 'pin-upstream');
-  // Only what no release can do without is an invariant: the upstream checkouts and the
-  // completeness gate. Every importer, wiki reader and downloader failing costs its stage.
+  // The pin comes first, so every later stage reads the same commits, and then the CN tables,
+  // before the catalogue or anything else reads one (scripts/content/cn-tables.mjs).
+  assert.deepEqual(stages.slice(0, 2).map(stage => [stage.name, stage.command]), [
+    ['pin-upstream', 'node scripts/content/pin-upstream.mjs'], ['upstream-cn', 'node scripts/content/cn-tables.mjs']]);
+  // Only what no release can do without is an invariant: the game tables (CN from any of its
+  // mirrors, EN) and the completeness gate. Every importer, wiki reader and downloader failing
+  // costs its stage -- the CN art too, which only one mirror carries.
   assert.deepEqual(stages.filter(stage => stage.invariant).map(stage => stage.name), ['upstream-cn', 'upstream-en', 'completeness']);
+  const art = stages.find(stage => stage.name === 'upstream-cn-art')!;
+  assert.deepEqual([art.invariant, art.command], [false, 'node scripts/content/cn-tables.mjs art']);
+  assert.ok(stages.find(stage => stage.name === 'item-icons')!.needs.includes('upstream-cn-art'), 'item-icons keeps its records on a day without the art');
+  // Not cc-stages: skipped, it would take the whole stage build back with it (--output), and
+  // it needs the art only for renders the image repository does not publish yet.
+  assert.ok(!stages.find(stage => stage.name === 'cc-stages')!.needs.includes('upstream-cn-art'));
+  // Run on its own, the stage-data refresh settles the CN tables itself, right after its pin.
+  assert.match(fs.readFileSync('scripts/sync/refresh-stage-data.sh', 'utf8'),
+    /stage pin-upstream -- node scripts\/content\/pin-upstream\.mjs\n(?:\s*#[^\n]*\n)*\s*stage upstream-cn --invariant --timeout-minutes \d+ -- node scripts\/content\/cn-tables\.mjs\nfi\n/);
   assert.equal(stages.at(-1)!.name, 'completeness');
   for (const script of ['sync-catalogue.mjs', 'import_ra_maps.py', 'import-nation-marks.py', 'sync-recurring-banners.mjs', 'import-reward-icons.py', 'import-item-icons.mjs', 'charword_table.json']) {
     assert.ok(stages.some(stage => stage.command.includes(script) && !stage.invariant), `${script} runs in a stage that is not an invariant`);

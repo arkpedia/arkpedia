@@ -9,7 +9,7 @@ import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorRelease
 import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
-import { pinnedCommit } from '../content/pin-upstream.mjs';
+import { cnTables, pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
 const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json' };
@@ -24,8 +24,10 @@ export const revision = (repo, env = process.env) => pinnedCommit(repo, async (r
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error(`Invalid revision: ${repository}`);
   return sha;
 }, env);
-export async function source(repo, folder, cache, env = process.env) {
-  const sha = await revision(repo, env);
+/** The tables of one regional mirror under `folder`, at `commit`, else the commit this run
+ * pinned for it, else its branch head. */
+export async function source(repo, folder, cache, env = process.env, commit = null) {
+  const sha = commit ?? await revision(repo, env);
   const base = `https://raw.githubusercontent.com/${repo}/${sha}/${folder}`;
   const result = {source:base, revision:sha, repository:`https://github.com/${repo}`};
   // Bound concurrency and persist immutable inputs so a failed run is reproducible.
@@ -40,8 +42,19 @@ export async function source(repo, folder, cache, env = process.env) {
     || !result.activity?.basicInfo || !Array.isArray(result.constants?.evolveGoldCost)) throw new Error(`Truncated or changed regional source schema: ${repo}`);
   if (folder.startsWith('en/') && Object.values(result.characters).filter(c=>c.name && !/\p{Script=Han}/u.test(c.name)).length < 300)
     throw new Error('Global mirror does not contain an English roster');
+  // Everything below reads enums by name ("TIER_6", "LIMITED"). The CN fallback mirror numbers
+  // them, and read as names they would misfile every operator and banner: refuse it, and this
+  // stage keeps its records as last published until the primary mirror is back.
+  if (Object.values(result.characters).some(c=>c?.rarity !== undefined && typeof c.rarity !== 'string') || result.gacha.gachaPoolClient.some(p=>typeof p.gachaRuleType !== 'string'))
+    throw new Error(`${repo} numbers the game's enums, and the catalogue reads them by name: its records stay as last published`);
   result.voiceTables = [result.voices];
   return result;
+}
+/** The CN tables at the mirror and commit this run settled on (scripts/content/cn-tables.mjs):
+ * the same bytes every stage of the run reads from its checkout. */
+export function cnSource(cache, env = process.env) {
+  const tables = cnTables(env);
+  return source(tables.repository, `${tables.folder}/excel`, cache, env, tables.commit);
 }
 export function assetPlan(operators, skins, cn, en, published, extra = []) {
   const planned = new Map(extra.filter(a => !published.has(a.path)).map(a => [a.path,a]));
@@ -98,7 +111,7 @@ export async function syncCatalogue(root, options={}) {
   const wikiStage=beginStage(root,'wiki',now);
   const sources=options.sources || await (async()=>{
     const [cn,en]=await Promise.all([
-      source('Kengxxiao/ArknightsGameData','zh_CN/gamedata/excel',cache),
+      cnSource(cache),
       source('ArknightsAssets/ArknightsGamedata','en/gamedata/excel',cache),
     ]);
     const {upcoming,yearly,events}=await readCalendarPages(root,{now,cn,en,alerts:wikiStage,write:!options.dryRun});

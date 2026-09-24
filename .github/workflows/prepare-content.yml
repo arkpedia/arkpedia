@@ -118,14 +118,20 @@ jobs:
           # (one that finishes an earlier stage's output in place takes that stage back with
           # it); the stages that --need it are skipped, the rest carry on, and
           # data/stage-report.json and the 'Content quarantined' issue say what happened. Only
-          # an --invariant stage fails this step: the upstream checkouts no stage can do
-          # without, and the completeness invariants. Its quarantine holds are kept even then,
-          # so the issue and the evidence show the day's, not yesterday's.
+          # an --invariant stage fails this step: the game tables no stage can do without (CN
+          # from any one of its mirrors, EN) and the completeness invariants. Its quarantine
+          # holds are kept even then, so the issue and the evidence show the day's, not
+          # yesterday's.
           stage() { node scripts/content/run-stage.mjs run "$@"; }
           node scripts/content/run-stage.mjs begin
           trap 'node scripts/content/run-stage.mjs end' EXIT
           # One commit per upstream mirror for the whole run, in data/upstream.lock.json.
           stage pin-upstream -- node scripts/content/pin-upstream.mjs
+          # The CN tables, every one from the same mirror at one commit (Kengxxiao, else
+          # yuanyan3060), before anything reads them: the catalogue, voices and inventory here
+          # fetch theirs from the mirror this settles on, the stages of refresh-stage-data.sh
+          # read its checkout (scripts/content/cn-tables.mjs).
+          stage upstream-cn --invariant --timeout-minutes 30 -- node scripts/content/cn-tables.mjs
           supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
           stage charwords --output "$supplemental_charwords" -- curl --fail --silent --show-error --location --retry 3 \
             "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)" \

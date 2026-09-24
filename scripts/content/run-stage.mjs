@@ -51,7 +51,9 @@
  * run by hand) fails if any stage did not.
  *
  * Every stage gets the mirror commits pinned in data/upstream.lock.json as environment
- * variables (see pin-upstream.mjs), so no two stages of one run read different versions.
+ * variables (see pin-upstream.mjs), and, once the upstream-cn stage has settled them, the
+ * mirror and commit of the CN tables (cn-tables.mjs), so no two stages of one run read
+ * different versions.
  */
 import fs from 'node:fs';
 import path from 'node:path';

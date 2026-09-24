@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { pinnedRef } from '../content/pin-upstream.mjs';
+import { cnTableUrl, pinnedRef } from '../content/pin-upstream.mjs';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const OUTPUT = process.env.ARKPEDIA_VOICE_OUTPUT || join(ROOT, 'data/operator-voice-lines.json');
@@ -34,14 +34,18 @@ const LEGACY_AUDIO_ROOTS = {
 };
 /* The game-data mirrors at a ref: the commit this run pinned (run-stage.mjs) when fetching,
    the branch in the output's meta, which is rewritten every run and so would otherwise
-   change whenever a mirror moves; data/upstream.lock.json records the commits. */
+   change whenever a mirror moves; data/upstream.lock.json records the commits. The CN table
+   comes from the mirror the run settled on for every CN table (cnTableUrl), which the meta,
+   read with no run's environment, names as the primary one's branch whichever it was. */
 const MIRROR_FILES = {
   en: ['ArknightsAssets/ArknightsGamedata', 'en/gamedata/excel/charword_table.json'],
   enSupplemental: ['PuppiizSunniiz/ArknightsGameData_YoStar', 'en_US/gamedata/excel/charword_table.json'],
-  cn: ['Kengxxiao/ArknightsGameData', 'zh_CN/gamedata/excel/charword_table.json'],
 };
-const mirrorUrls = env => Object.fromEntries(Object.entries(MIRROR_FILES).map(([key, [repository, file]]) =>
-  [key, `https://raw.githubusercontent.com/${repository}/${pinnedRef(repository, env)}/${file}`]));
+const mirrorUrls = env => ({
+  ...Object.fromEntries(Object.entries(MIRROR_FILES).map(([key, [repository, file]]) =>
+    [key, `https://raw.githubusercontent.com/${repository}/${pinnedRef(repository, env)}/${file}`])),
+  cn: cnTableUrl('excel/charword_table.json', env),
+});
 const TRANSCRIPTS = mirrorUrls({});
 const URLS = {
   ...mirrorUrls(process.env),

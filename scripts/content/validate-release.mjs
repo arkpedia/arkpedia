@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { contentInput, releaseInput } from './release-input.mjs';
+import { cnTablesRecord } from './pin-upstream.mjs';
 const root = path.resolve(process.argv[2] || '.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const check = (value, message) => { if (!value) throw new Error(message); };
@@ -84,6 +85,10 @@ function checkUpstreamLock(file) {
   for (const [repository, entry] of Object.entries(file.repositories)) {
     check(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) && plain(entry) && typeof entry.branch === 'string'
       && (entry.commit === null || gitSha.test(entry.commit)), `data/upstream.lock.json: invalid pin for ${repository}`);
+  }
+  // Where the run's CN tables came from (scripts/content/cn-tables.mjs), and the last run's.
+  for (const key of ['cnTables', 'lastCnTables']) {
+    check(file[key] === undefined || cnTablesRecord(file[key]) !== null, `data/upstream.lock.json: ${key} must name a CN table source at a commit`);
   }
 }
 const manifestBytes = fs.readFileSync(path.join(root, 'release/manifest.json'));

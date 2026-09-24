@@ -74,8 +74,19 @@ sparse checkouts, downloading only the paths the later steps read.
 
 | cache | upstream | paths | why |
 | --- | --- | --- | --- |
-| `cn-resource` | `yuanyan3060/ArknightsGameResource` | `gamedata/excel`, `gamedata/levels`, `map`, `item` | CN gamedata, level files, CCB renders, item icons |
+| `cn-tables` | `Kengxxiao/ArknightsGameData` | `zh_CN/gamedata/excel`, `zh_CN/gamedata/levels` | CN gamedata and level files |
+| `cn-tables-fallback` | `yuanyan3060/ArknightsGameResource` | `gamedata/excel`, `gamedata/levels` | the same, only on a day the first cannot serve them |
+| `cn-art` | `yuanyan3060/ArknightsGameResource` | `map`, `item` | CCB renders, item icons |
 | `en-gamedata` | `ArknightsAssets/ArknightsGamedata` | `en/gamedata/excel`, `en/gamedata/levels` | the whole stage dataset: tables, maps, waves, enemy configurations |
+
+Every CN table of a run comes from one mirror at one commit
+(`scripts/content/cn-tables.mjs`): Kengxxiao at the pinned commit, else its commit from the
+last run, else yuanyan3060, whichever first passes the table contract, recorded as
+`cnTables` in `data/upstream.lock.json`. The steps read `.cache/upstream/cn-resource`, a
+directory of links: `gamedata/` to the tables the run settled on, `map/` and `item/` to
+`cn-art`. The two mirrors write enums differently (names against numbers); the stage steps
+take either, the catalogue only names, so on a yuanyan day it keeps its records as they were.
+Only no usable CN tables stops the refresh; without the art, `item-icons` is skipped.
 
 Every input is gamedata. Measured drop rates from `penguin-stats.io` used to be read
 here too and were removed: they were the only non-gamedata input and the only one that

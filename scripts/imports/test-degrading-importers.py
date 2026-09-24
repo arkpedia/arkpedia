@@ -263,6 +263,23 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertIn('until stages-images/crisis_v2_09-01.webp is added to arkpedia-image-assets', entries(root)[0]['reason'])
             self.assertIn('has no map/crisis_v2_09-02.png', entries(root)[1]['reason'])
 
+    def test_cc_stages_names_every_stage_on_a_day_without_the_cn_art(self):
+        # The art is a stage of its own (upstream-cn-art); on a day it fails, cn-resource has
+        # no map/ at all, and the stages are still named and labelled, published renders kept.
+        with tempfile.TemporaryDirectory() as root:
+            published = next(f[len('stages-images/'):-len('.webp')] for f in PUBLISHED if f.startswith('stages-images/crisis_v2_'))
+            write(root, 'data/stages/ccb-a.json', {'slug': 'ccb-a', 'stage_type': 'contingency_contract', 'id': f'obt/crisis/v2/level_{published}'})
+            write(root, 'data/stages/ccb-9-2.json', {'slug': 'ccb-9-2', 'stage_type': 'contingency_contract', 'id': 'obt/crisis/v2/level_crisis_v2_09-02'})
+            write(root, 'data/stages-content.json', {'crisis_v2_s9': {'kind': 'contingency_contract', 'label': 'CC#9'}})
+            write(root, 'en/gamedata/excel/medal_table.json', {'medalList': []})
+            (Path(root)/'cn').mkdir()
+            run('import_cc_stages.py', root, ARKPEDIA_CN=str(Path(root)/'cn'), ARKPEDIA_EN=str(Path(root)/'en'))
+            self.assertEqual(json.loads((Path(root)/'data/cc-stages.json').read_text())['ccb-a']['render'], f'{published}.webp')
+            self.assertEqual(json.loads((Path(root)/'data/stages-content.json').read_text())['crisis_v2_s9']['label'], 'CCB#9')
+            [entry] = entries(root)
+            self.assertEqual((entry['key'], entry['action']), ('cc-render:ccb-9-2', 'published-partial'))
+            self.assertIn('the CN art (map/) could not be synced this run', entry['reason'])
+
     def test_is_nodes_stages_a_fetched_render_outside_public_and_leaves_its_form_out(self):
         with tempfile.TemporaryDirectory() as root:
             # The render source answers every request with one PNG; no network is used.
