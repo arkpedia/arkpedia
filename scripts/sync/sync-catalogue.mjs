@@ -44,8 +44,11 @@ export async function source(repo, folder, cache, env = process.env, commit = nu
     throw new Error('Global mirror does not contain an English roster');
   // Everything below reads enums by name ("TIER_6", "LIMITED"). The CN fallback mirror numbers
   // them, and read as names they would misfile every operator and banner: refuse it, and this
-  // stage keeps its records as last published until the primary mirror is back.
-  if (Object.values(result.characters).some(c=>c?.rarity !== undefined && typeof c.rarity !== 'string') || result.gacha.gachaPoolClient.some(p=>typeof p.gachaRuleType !== 'string'))
+  // stage keeps its records as last published until the primary mirror is back. By the most of
+  // them, not every one: a mirror that names enums still numbers a value its decoder does not
+  // know yet (the Global mirror's RETURN_EN_41_0_1 pool is gachaRuleType 11 in 2026-09).
+  const numbered = values => values.filter(value => typeof value === 'number').length * 2 > values.length;
+  if (numbered(Object.values(result.characters).map(c => c?.rarity)) || numbered(result.gacha.gachaPoolClient.map(p => p.gachaRuleType)))
     throw new Error(`${repo} numbers the game's enums, and the catalogue reads them by name: its records stay as last published`);
   result.voiceTables = [result.voices];
   return result;

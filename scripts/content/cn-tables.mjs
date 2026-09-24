@@ -129,8 +129,10 @@ export function checkTables(gamedata) {
       continue;
     }
     if (file === 'character_table.json') {
-      const rarity = Object.values(table).find(character => character?.rarity !== undefined)?.rarity;
-      serialization = typeof rarity === 'string' ? 'named' : typeof rarity === 'number' ? 'numeric' : null;
+      // How most of them write it: a mirror that names enums can still number one it cannot name.
+      const kinds = Object.values(table).map(character => typeof character?.rarity);
+      const most = kind => kinds.filter(each => each === kind).length * 2 > kinds.length;
+      serialization = most('string') ? 'named' : most('number') ? 'numeric' : null;
       if (!serialization) problems.push('excel/character_table.json writes rarity as neither a name nor a number');
     }
   }

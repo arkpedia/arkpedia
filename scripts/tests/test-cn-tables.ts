@@ -285,8 +285,11 @@ test('the catalogue refuses CN tables that number their enums, instead of misfil
     serving = tables(5, 0);
     await assert.rejects(cnSource(cache, yuanyan), /yuanyan3060\/ArknightsGameResource numbers the game's enums, and the catalogue reads them by name/);
     assert.ok(asked.length && asked.every(url => url.startsWith(`https://raw.githubusercontent.com/${YUANYAN}/${commit('3')}/gamedata/excel/`)), asked.join(', '));
-    // The same tables with named enums, from the primary at the commit the run settled on.
+    // The same tables with named enums, from the primary at the commit the run settled on --
+    // one value its decoder could not name is still a mirror that names them (the Global one
+    // numbers its RETURN_EN_41_0_1 pool, gachaRuleType 11, in 2026-09).
     serving = tables('TIER_6', 'NORMAL');
+    (serving['gacha_table.json'] as { gachaPoolClient: object[] }).gachaPoolClient[0] = { gachaRuleType: 11 };
     asked.length = 0;
     const kengxxiao = { [CN_TABLES_VARIABLE]: JSON.stringify({ repository: KENGXXIAO, commit: commit('a'), folder: 'zh_CN/gamedata', serialization: 'named' }) };
     const cn = await cnSource(cache, kengxxiao);
