@@ -191,9 +191,10 @@ export async function upstreamSync(root, { repository, commit, checkout, folders
 
 /*
  * .cache/upstream/cn-resource as a directory of links. Until 2026-09 it was one checkout of
- * yuanyan's tables and art; that checkout becomes the art checkout, whose next sync drops the
- * tables from it, so a cache restored from before (refresh-stage-data.yml keeps one) does not
- * download the art again.
+ * yuanyan's tables and art; that checkout becomes the art checkout, so a cache restored from
+ * before (refresh-stage-data.yml keeps one) does not download the art again. Its tables go:
+ * restored from a cache, git takes them for changed files and would keep them at the next
+ * sync, 600 MB that nothing reads.
  */
 function compose(root) {
   const at = path.join(root, COMPOSED);
@@ -203,7 +204,10 @@ function compose(root) {
   else if (stat && fs.existsSync(path.join(at, '.git'))) {
     const art = path.join(root, UPSTREAM, ART.checkout);
     if (fs.existsSync(art)) fs.rmSync(at, { recursive: true, force: true });
-    else fs.renameSync(at, art);
+    else {
+      fs.renameSync(at, art);
+      fs.rmSync(path.join(art, 'gamedata'), { recursive: true, force: true });
+    }
   }
   fs.mkdirSync(at, { recursive: true });
 }

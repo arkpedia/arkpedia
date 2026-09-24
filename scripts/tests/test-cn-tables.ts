@@ -185,11 +185,13 @@ test('the art is a stage of its own: at yuanyan\'s pin when it syncs, and gone, 
   writeLock(root);
   // The single checkout of before becomes the art checkout, so a restored cache is reused.
   fs.mkdirSync(path.join(root, COMPOSED, '.git'), { recursive: true });
+  writeDump(path.join(root, COMPOSED, 'gamedata'), { levels: 1 });
   const art = fakeSync(root, { [YUANYAN]: () => {} });
   assert.equal(await syncArt(root, { sync: art.sync }), commit('3'));
   assert.deepEqual(art.calls, [{ repository: YUANYAN, commit: commit('3'), folders: ['map', 'item'] }]);
   assert.ok(fs.existsSync(path.join(root, '.cache/upstream', ART.checkout, '.git')), 'moved, not downloaded again');
   assert.equal(fs.existsSync(path.join(root, COMPOSED, '.git')), false);
+  assert.equal(fs.existsSync(path.join(root, '.cache/upstream', ART.checkout, 'gamedata')), false, 'its tables, which nothing reads now, are dropped');
   assert.deepEqual(['map', 'item'].map(folder => linkOf(root, folder)), [path.join('..', ART.checkout, 'map'), path.join('..', ART.checkout, 'item')]);
   assert.ok(fs.existsSync(path.join(root, COMPOSED, 'item/item_0.png')));
   await assert.rejects(syncArt(root, { sync: fakeSync(root, { [YUANYAN]: new Error('Connection timed out') }).sync }), /Connection timed out/);
