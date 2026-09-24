@@ -400,6 +400,43 @@ test('a held-back Upcoming shrink is taken once its lost rows turn up on the yea
   });
 });
 
+test('a held-back Upcoming shrink ends when the page serves the rows it kept again, and the hold mark comes off', async t => {
+  const { readWikiRows, PEAK_DAYS } = await wikiPages();
+  const { beginStage } = await quarantine();
+  const upcoming = 'Headhunting/Banners/Upcoming';
+  await temporary(async root => {
+    let answer: unknown = bannerPage(range(0, 20));
+    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(answer), { status: 200 }));
+    t.mock.method(console, 'warn', () => {});
+    const day = (n: number) => new Date(Date.UTC(2027, 2, 1 + n, 20));
+    const read = async (n: number) => {
+      const alerts = beginStage(root, 'wiki', day(n));
+      const rows = await readWikiRows(root, upcoming, 'Banners cell', { now: day(n), alerts, movedTo: nowhere });
+      alerts.commit();
+      return rows.length;
+    };
+    const cache = () => JSON.parse(fs.readFileSync(cacheOf(root, upcoming), 'utf8'));
+    assert.equal(await read(0), 20);
+    answer = bannerPage(range(9, 20));
+    assert.equal(await read(1), 11);
+    answer = bannerPage(range(14, 20));
+    assert.equal(await read(2), 11);
+    assert.equal(cache().peak.held, true);
+    // The wiki reverts the edit: the page serves exactly the rows the good copy kept. Nothing
+    // about the rows changes, but the hold is over and its mark must come off, or the peak it
+    // marks never runs out and judges every later shrink by a count from weeks before.
+    answer = bannerPage(range(9, 20));
+    assert.equal(await read(3), 11);
+    assert.deepEqual(await entries(root), []);
+    assert.deepEqual(cache().peak, { rows: 20, since: '2027-03-02' }, 'the running peak stays, unmarked');
+    // A week on, that peak has run out like any other: five of the eleven leaving is taken.
+    assert.ok(10 - 1 > PEAK_DAYS);
+    answer = bannerPage(range(14, 20));
+    assert.equal(await read(10), 6);
+    assert.deepEqual(await entries(root), []);
+  });
+});
+
 test('sync-catalogue reads the yearly page first and tells the Upcoming pages where their rows go', async t => {
   const { readCalendarPages } = await catalogueSync();
   const { beginStage } = await quarantine();
