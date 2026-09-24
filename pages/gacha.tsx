@@ -6,7 +6,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image, { ContentImg } from '@/components/content/ContentImage';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import { getAllHeadhuntingBanners, getBannersSortedByDate, HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
@@ -2152,23 +2152,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 {lastPulls.length > 0 && (
                   <section className="op-section">
                     <h2>Latest pull</h2>
-                    <div
-                      className="gacha-pull-grid"
-                      style={
-                        lastPulls.length > 0
-                          ? ({
-                              '--gacha-glow-color': (() => {
-                                const highest = Math.max(...lastPulls.map((p) => p.rarity));
-                                if (highest >= 6) return 'rgba(245, 166, 35, 0.7)'; // gold (--amber)
-                                if (highest === 5) return 'rgba(245, 213, 71, 0.7)'; // yellow
-                                if (highest === 4) return 'rgba(138, 126, 248, 0.7)'; // purplish-blue
-                                if (highest === 3) return 'rgba(255, 255, 255, 0.7)'; // white
-                                return undefined; // below 3-star: fall back to the default teal
-                              })(),
-                            } as CSSProperties)
-                          : undefined
-                      }
-                    >
+                    <div className="gacha-pull-grid">
                       {lastPulls.map((item, i) => {
                         const slideDirection = lastPulls.length === 1 || i % 2 === 0 ? 'gacha-pull-slide-bottom' : 'gacha-pull-slide-top';
                         return <PullTile key={`${state.pullCount}-${i}`} item={item} onSelect={setPreviewedPull} className={slideDirection} />;
