@@ -1,6 +1,6 @@
 import { ContentImg } from '@/components/content/ContentImage';
 /* eslint-disable @next/next/no-img-element -- zoom deliberately loads the lossless public original. */
-import { useEffect, useRef, useState, WheelEvent, MouseEvent, TouchEvent } from 'react';
+import { useEffect, useRef, useState, MouseEvent, TouchEvent } from 'react';
 import { getSkinArtworkOriginal } from '@/lib/assets/skinArtwork';
 
 interface Props {
@@ -30,12 +30,33 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
     return Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
   }
 
-  function handleWheel(e: WheelEvent) {
-    e.preventDefault();
-    const next = clampScale(scale - e.deltaY * 0.002);
-    setScale(next);
-    if (next === MIN_SCALE) setOffset({ x: 0, y: 0 });
-  }
+  useEffect(() => {
+    const overlay = dialogRef.current;
+    if (!overlay) return;
+
+    // React's wheel handler can be passive in Chromium. A cancelable native
+    // listener lets trackpad pinch (Ctrl+wheel) and regular wheel zoom the art
+    // without also zooming the browser page while the viewer is open.
+    const onWheel = (event: globalThis.WheelEvent) => {
+      if (event.cancelable) event.preventDefault();
+      const distance = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
+      const next = clampScale(scale - distance * 0.002);
+      setScale(next);
+      if (next === MIN_SCALE) setOffset({ x: 0, y: 0 });
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    overlay.addEventListener('wheel', onWheel, { passive: false });
+    document.addEventListener('keydown', onEscape, true);
+    return () => {
+      overlay.removeEventListener('wheel', onWheel);
+      document.removeEventListener('keydown', onEscape, true);
+    };
+  }, [scale, onClose]);
 
   function handleMouseDown(e: MouseEvent) {
     if (scale === MIN_SCALE) return;
@@ -93,7 +114,6 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
   return (
     <div className="skin-zoom-overlay" ref={dialogRef} role="dialog" aria-modal="true" aria-label={`${name} artwork`}
       onKeyDown={event => {
-        if (event.key === 'Escape') { event.preventDefault(); onClose(); }
         if (event.key !== 'Tab') return;
         const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
         const first = buttons[0], last = buttons[buttons.length - 1];
@@ -102,7 +122,6 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
       }}>
       <div
         className="skin-zoom-viewport"
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

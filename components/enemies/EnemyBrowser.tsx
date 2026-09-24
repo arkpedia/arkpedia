@@ -519,15 +519,13 @@ function EnemyFilterPanel({
       <div className="enemy-filter-group">
         <h4 className="enemy-section-head">Appears in</h4>
         {/* The same picker the Appearances list uses. It was a native <select>,
-            which the OS draws in the system font: no teal shorthand, no counts
-            lined up down the right, and one grouping level at most. Two panels on
+            which the OS draws in the system font: no teal shorthand and one grouping
+            level at most. Two panels on
             one page offering the same choice should not look like two products. */}
         <ContentPicker
           options={contentOptions}
           value={filters.content}
           onChange={(id) => set('content', id)}
-          countNoun="enemy"
-          countNounPlural="enemies"
           anyOption={{ id: 'all', name: 'Any content', count: contentTotal }}
           ariaLabel="Appears in"
           searchable

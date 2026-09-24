@@ -21,6 +21,7 @@ test('operator relation menus anchor to their trigger and close on navigation', 
   const menu = page.getByRole('dialog');
   await expect(menu).toBeVisible();
   await anchored(page, trigger, menu);
+  await expect(menu.locator('[class*="relationHeading"] span')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(trigger).toBeFocused();
@@ -49,6 +50,8 @@ test('enemy status menus only open on click and show applicable sources', async 
   await trigger.click();
   await expect(menu).toBeVisible();
   await anchored(page, trigger, menu);
+  await expect(menu.locator('.enemy-status-menu-head > span')).toHaveCount(0);
+  await expect(menu.getByRole('link', { name: 'View all operators' })).toBeVisible();
   await expect(menu.getByText('Module ISW-α (Stage 3) · Integrated Strategies', { exact: true })).toBeVisible();
   await menu.locator('img').evaluateAll(async images => { await Promise.all(images.map(image => (image as HTMLImageElement).decode().catch(() => {}))); });
   await page.screenshot({ path: testInfo.outputPath('enemy-popover.png') });

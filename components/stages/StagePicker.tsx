@@ -32,8 +32,8 @@ interface Props {
  * wider than "LE" in a proportional font. Codes are 2 to 5 characters and 35 of
  * the 150 contents have none, so the dashes ended up scattered down the list.
  *
- * Here the code, the name and the count are three grid columns, which lines them
- * up by construction, and the list can be wider than the 264px rail because the
+ * Here the code and name have aligned columns, and the list can be wider than
+ * the 264px rail because the
  * popover is positioned fixed -- an absolutely positioned one would be clipped by
  * .stage-rail's overflow:hidden.
  */
@@ -184,7 +184,6 @@ export default function StagePicker({ label, value, groups, onChange }: Props) {
           {selected?.code || ''}
         </span>
         <span className="stage-picker-name">{selected?.name || ''}</span>
-        {selected?.count != null && <span className="stage-picker-count">{selected.count}</span>}
         <span className="stage-picker-caret" aria-hidden="true" />
       </button>
 
@@ -226,7 +225,6 @@ export default function StagePicker({ label, value, groups, onChange }: Props) {
                       {option.code}
                     </span>
                     <span className="stage-picker-name">{option.name}</span>
-                    {option.count != null && <span className="stage-picker-count">{option.count}</span>}
                   </div>
                 );
               })}

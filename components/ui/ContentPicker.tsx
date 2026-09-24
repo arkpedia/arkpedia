@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { KIND_LABELS, ContentKind } from '@/lib/enemies/enemyTypes';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 
-/** One piece of content, with however many things the caller is counting in it. */
+/** One piece of content that can be selected in an appearance filter. */
 export interface ContentPickerOption {
   kind: ContentKind;
   id: string;
@@ -15,10 +15,6 @@ interface Props {
   options: ContentPickerOption[];
   value: string;
   onChange: (id: string) => void;
-  /** Singular noun for the count. */
-  countNoun: string;
-  /** Its plural, when adding an s is wrong -- "enemy" wants "enemies". */
-  countNounPlural?: string;
   /**
    * An ungrouped row above the groups. Without it this picks between contents;
    * with it, one of the choices is "no content in particular", which is what the
@@ -32,8 +28,7 @@ interface Props {
 
 /**
  * Picking a piece of content. A custom listbox rather than a <select>, because a
- * native popup is drawn by the OS in the system font: the counts down the right
- * cannot be lined up with the labels down the left, the shorthand ("EP 08") cannot
+ * native popup is drawn by the OS in the system font: the shorthand ("EP 08") cannot
  * be the teal code it is everywhere else, and grouping is limited to optgroup.
  *
  * Used twice -- the appearances list on an enemy page and the "Introduced by"
@@ -41,7 +36,7 @@ interface Props {
  * looked like two different products depending on which panel you opened it from.
  */
 export default function ContentPicker({
-  options, value, onChange, countNoun, countNounPlural, anyOption, ariaLabel, searchable = false,
+  options, value, onChange, anyOption, ariaLabel, searchable = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -154,10 +149,6 @@ export default function ContentPicker({
     else if (e.key === 'Enter' && rows[active]) { e.preventDefault(); choose(rows[active].id); }
   }
 
-  /* An explicit locale, not the visitor's: the filter's counts run to four digits
-     and a server render that disagrees with the client is a hydration error. */
-  const num = (n: number) => n.toLocaleString('en-US');
-
   const optionRow = (option: { id: string; label: string | null; name: string; count: number }) => {
     const index = rows.findIndex((row) => row.id === option.id);
     return (
@@ -173,7 +164,6 @@ export default function ContentPicker({
       >
         <span className="enemy-index">{option.label || ''}</span>
         <span className="enemy-appear-option-name">{option.name}</span>
-        <span className="enemy-appear-option-count">{num(option.count)}</span>
       </button>
     );
   };
@@ -192,10 +182,6 @@ export default function ContentPicker({
       >
         {selected?.label && <span className="enemy-index">{selected.label}</span>}
         <span className="enemy-appear-trigger-name">{selected?.name}</span>
-        <span className="enemy-section-aside">
-          {num(selected?.count ?? 0)}{' '}
-          {selected?.count === 1 ? countNoun : countNounPlural || `${countNoun}s`}
-        </span>
         <span className="enemy-appear-caret" aria-hidden="true">▾</span>
       </button>
 

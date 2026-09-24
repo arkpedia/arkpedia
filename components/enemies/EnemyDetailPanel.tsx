@@ -189,12 +189,7 @@ function ModuleList({
   if (!entries.length) return null;
   return (
     <section className="enemy-section">
-      <h3 className="enemy-section-head">
-        {title}
-        <span className="enemy-section-aside">
-          {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
-        </span>
-      </h3>
+      <h3 className="enemy-section-head">{title}</h3>
       {note}
       <div className="enemy-mods">
         {entries.map((m, i) => {
@@ -455,11 +450,11 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
   const rangeRadius = s.range == null ? null : Number(s.range);
   const hasRange = rangeRadius != null && Number.isFinite(rangeRadius) && rangeRadius > 0;
 
-  const tabs: { key: DetailTab; label: string; count?: number }[] = [
-    { key: 'resistances', label: 'Resistances', count: level.immunities.length + (silenceIsMoot ? 1 : 0) },
+  const tabs: { key: DetailTab; label: string }[] = [
+    { key: 'resistances', label: 'Resistances' },
     ...(hasRange ? [{ key: 'range' as DetailTab, label: 'Range' }] : []),
-    ...(abilityCount ? [{ key: 'abilities' as DetailTab, label: 'Abilities', count: abilityCount }] : []),
-    ...(appearances.length ? [{ key: 'stages' as DetailTab, label: 'Stages', count: appearances.length }] : []),
+    ...(abilityCount ? [{ key: 'abilities' as DetailTab, label: 'Abilities' }] : []),
+    ...(appearances.length ? [{ key: 'stages' as DetailTab, label: 'Stages' }] : []),
   ];
   // Kept as a backstop even though the tab resets above: an enemy with no abilities
   // and no appearances has neither tab, so a stale key would render an empty pane.
@@ -653,7 +648,6 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
               onClick={() => setTab(t.key)}
             >
               {t.label}
-              {t.count != null && <span className="enemy-section-aside">{t.count}</span>}
             </button>
           ))}
         </div>
@@ -667,12 +661,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                 "can I stun it" is answered by absence, and a list of immunities alone
                 leaves you inferring that from what is missing. The status list is
                 fixed, so every enemy answers for all nine. */}
-            <h3 className="enemy-section-head">
-              Status immunity
-              <span className="enemy-section-aside">
-                {level.immunities.length} of {ENEMY_STATUSES.length}
-              </span>
-            </h3>
+            <h3 className="enemy-section-head">Status immunity</h3>
             <div className="enemy-resist-grid">
               {ENEMY_STATUSES.map((st) => {
                 const moot = st === 'Silence' && silenceIsMoot;
@@ -707,10 +696,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
           <>
         {abilities.length > 0 && (
           <section className="enemy-section">
-            <h3 className="enemy-section-head">
-              Abilities
-              <span className="enemy-section-aside">{abilities.length}</span>
-            </h3>
+            <h3 className="enemy-section-head">Abilities</h3>
             {/* format:'silence' is upstream's own flag for an ability that Silence
                 switches off, and the game marks those with a crossed-blades X. It
                 was being dropped: 217 abilities across the dataset carry it, and
@@ -769,12 +755,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
         {activeTab === 'stages' && (
           <>
         <section className="enemy-section">
-          <h3 className="enemy-section-head">
-            Appearances
-            <span className="enemy-section-aside">
-              {appearances.length} {appearances.length === 1 ? 'place' : 'places'}
-            </span>
-          </h3>
+          <h3 className="enemy-section-head">Appearances</h3>
           {/* Introduction and appearance are different facts: this enemy was
               introduced by exactly one piece of content but can be fielded by any
               number of others, so this is the whole set, not "the rest". A picker
@@ -793,7 +774,6 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                   options={options}
                   value={selected.id}
                   onChange={setContentId}
-                  countNoun="stage"
                   ariaLabel="Content to list stages for"
                 />
               </div>

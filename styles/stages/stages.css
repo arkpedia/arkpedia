@@ -767,7 +767,7 @@ button.stage-variant-option.current:hover {
 .stage-picker { position: relative; }
 .stage-picker-btn {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -804,13 +804,6 @@ button.stage-variant-option.current:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.stage-picker-count {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Fixed, so 150 entries can be wider than the 264px rail and are not clipped by
    .stage-rail's overflow:hidden. */
 .stage-picker-pop {
@@ -841,7 +834,7 @@ button.stage-variant-option.current:hover {
    selection change colour only, so moving through the list cannot shift it. */
 .stage-picker-opt {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 6px 8px;

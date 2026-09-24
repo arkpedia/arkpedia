@@ -38,7 +38,6 @@ export default function EnemyStatusPopover({
     >
       <div className="enemy-status-menu-head">
         <div><strong>{status}</strong><span>{immune ? 'Immune here' : 'Can be applied'}</span></div>
-        <span>{group.total}</span>
       </div>
       <div className="enemy-status-operator-list">
         {group.operators.map(operator => <Link
@@ -57,7 +56,7 @@ export default function EnemyStatusPopover({
         </Link>)}
       </div>
       <Link prefetch={false} className="enemy-status-more" onClick={close} href={`/techniques?q=${encodeURIComponent(group.technique)}`}>
-        View all {group.total} operators
+        View all operators
         <span aria-hidden="true">→</span>
       </Link>
     </div>, document.body)}

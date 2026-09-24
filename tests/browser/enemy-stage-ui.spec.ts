@@ -10,9 +10,10 @@ test('enemy filters stay usable without covering the page title', async ({ page 
   await expect.poll(async () => Number((await page.locator('.enemy-filters-head .hint').innerText()).replace(/[^0-9]/g, ''))).toBeGreaterThan(100);
   await page.getByRole('button', { name: 'Appears in', exact: true }).click();
   const search = page.getByRole('combobox', { name: 'Find event' });
-  await search.fill('People, A People');
-  const option = page.getByRole('option', { name: /People, A People/ });
+  await search.fill('Here A People Sows');
+  const option = page.getByRole('option', { name: /Here A People Sows/ });
   await expect(option).toBeVisible();
+  await expect(page.locator('.enemy-appear-option-count')).toHaveCount(0);
   const list = (await page.locator('.enemy-appear-list').boundingBox())!;
   const header = (await page.locator('.enemy-frame-head').boundingBox())!;
   const viewport = page.viewportSize()!;
@@ -30,6 +31,7 @@ test('stage picker overlays the map and moving enemies use pinned asset URLs', a
   await page.getByRole('button', { name: 'Chapter or event' }).click();
   const picker = page.locator('.stage-picker-pop');
   await expect(picker).toBeVisible();
+  await expect(page.locator('.stage-picker-count')).toHaveCount(0);
   const pop = (await picker.boundingBox())!;
   const map = (await page.locator('.stage-map-area').boundingBox())!;
   const x = Math.max(pop.x, map.x) + 12;

@@ -34,7 +34,6 @@ export default function OperatorRelationPopover({ label, title, operators, child
     {open && createPortal(<div ref={menuRef} role="dialog" aria-label={title} className={styles.relationMenu} style={menuStyle}>
       <div className={styles.relationHeading}>
         <b>{title}</b>
-        <span>{operators.length}</span>
       </div>
       <div className={styles.relationGrid}>
         {operators.map(operator => <Link prefetch={false} key={operator.name}
