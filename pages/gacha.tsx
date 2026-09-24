@@ -48,6 +48,8 @@ const CATEGORY_LABELS: Record<DisplayCategory, string> = {
 const CATEGORIES: DisplayCategory[] = ['upcoming', 'featured', 'limited', 'standard', 'kernel', 'kernelLocating', 'joint', 'orienteering', 'celebration', 'crossover', 'trio', 'other'];
 const BANNER_ROW_STRIDE = 138;
 function bannerRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: BANNER_ROW_STRIDE }; }
+const HISTORY_ROW_STRIDE = 58;
+function historyRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: HISTORY_ROW_STRIDE }; }
 
 function bannerDateLabel(banner: HeadhuntingBanner): string {
   const prefix = banner.global_date_estimated ? 'Estimated Global · ' : banner.global_date ? '' : 'CN · ';
@@ -87,6 +89,36 @@ function PullIcon({ item }: { item: PulledItem }) {
     return <Image src={item.icon} alt={item.name} className="gacha-pull-icon" width={56} height={56} />;
   }
   return <div className="gacha-pull-icon gacha-pull-icon-placeholder">{item.rarity}★</div>;
+}
+
+function PullHistory({ history }: { history: PulledItem[] }) {
+  const entries = useMemo(() => {
+    let pullNumber = 0;
+    return history.map((item, index) => {
+      // A guaranteed bonus is awarded alongside a pull, not as an extra pull.
+      if (!item.isBonus) pullNumber += 1;
+      return { item, index, pullNumber };
+    }).reverse();
+  }, [history]);
+  const window = useVirtualRows(entries.length, historyRowLayout, { columns: 1, rowStride: HISTORY_ROW_STRIDE }, 4);
+
+  return (
+    <div className="gacha-history-list" ref={window.scrollerRef} role="region" aria-label="Pull history, newest first" tabIndex={0}>
+      <div style={{ height: window.before }} aria-hidden="true" />
+      {entries.slice(window.firstIndex, window.lastIndex).map(({ item, index, pullNumber }) => (
+        <div key={index} className={`gacha-history-entry ${rarityClass(item.rarity)}`}>
+          <span className="gacha-history-number">#{pullNumber}</span>
+          {item.icon ? <Image src={item.icon} alt="" width={38} height={38} className="gacha-history-icon" /> : <span className="gacha-history-icon gacha-pull-icon-placeholder">{item.rarity}★</span>}
+          <span className="gacha-history-info">
+            <strong title={item.name}>{item.name}</strong>
+            {(item.isBonus || item.isFeatured || item.isRateUp) && <small>{item.isBonus ? 'Bonus guarantee' : item.isFeatured ? 'Featured' : 'Returning limited'}</small>}
+          </span>
+          <span className="gacha-history-rarity">{item.rarity}★</span>
+        </div>
+      ))}
+      <div style={{ height: window.after }} aria-hidden="true" />
+    </div>
+  );
 }
 
 function FeaturedChip({ item, rarity, percent, tags, count }: { item: GachaItem; rarity: 6 | 5; percent?: number; tags?: ('rateUp' | 'limited')[]; count?: number }) {
@@ -1781,129 +1813,6 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       <div className="gacha-banner-main-image gacha-banner-main-placeholder" aria-hidden="true" />
                     )}
 
-                    <div className="gacha-content-group">
-                    <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
-                    {isLineupPending(selectedBanner) ? <p className="hint">{LINEUP_PENDING_NOTE}</p> : <div className="gacha-featured-row">
-                      {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
-                        const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
-                        return (
-                          <FeaturedChip
-                            key={item.name}
-                            item={item}
-                            rarity={6}
-                            tags={isLimited ? ['limited'] : undefined}
-                            percent={pct ? pct.weight * 100 : undefined}
-                            count={state.obtainedCounts[item.name]}
-                          />
-                        );
-                      })}
-                      {banner.fiveStarFeatured.map((item) => {
-                        const pct = fiveStarOdds.find((o) => o.item.name === item.name);
-                        return (
-                          <FeaturedChip
-                            key={item.name}
-                            item={item}
-                            rarity={5}
-                            percent={pct ? pct.weight * 100 : undefined}
-                            count={state.obtainedCounts[item.name]}
-                          />
-                        );
-                      })}
-                    </div>}
-                    {(banner.rateUpSixStars || []).length > 0 && <>
-                      <h3 style={{ marginTop: 16, marginBottom: 4 }}>Returning limited operators</h3>
-                      <p className="hint">{RETURNING_LIMITED_NOTE}</p>
-                      <div className="gacha-featured-row">
-                      {(banner.rateUpSixStars || []).map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
-                        const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
-                        return (
-                          <FeaturedChip
-                            key={item.name}
-                            item={item}
-                            rarity={6}
-                            tags={isLimited ? ['limited'] : undefined}
-                            percent={pct ? pct.weight * 100 : undefined}
-                            count={state.obtainedCounts[item.name]}
-                          />
-                        );
-                      })}
-                      </div>
-                    </>}
-                    {banner.otherSixStarPool.some(item => (banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes' && state.pullCount === 0) || state.obtainedCounts[item.name]) && <>
-                      <h3 style={{ marginTop: 16, marginBottom: 8 }}>Other available operators</h3>
-                      <div className="gacha-featured-row">
-                      {banner.otherSixStarPool
-                        .filter((item) => {
-                          const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
-                          if (isLimited) return state.pullCount === 0 || state.obtainedCounts[item.name];
-                          return state.obtainedCounts[item.name];
-                        })
-                        .map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
-                        const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
-                        return (
-                          <FeaturedChip
-                            key={item.name}
-                            item={item}
-                            rarity={6}
-                            tags={banner.type === 'limited' && isLimited ? ['limited'] : undefined}
-                            percent={pct ? pct.weight * 100 : undefined}
-                            count={state.obtainedCounts[item.name]}
-                          />
-                        );
-                      })}
-                    </div>
-                    </>}
-
-                    <div className="gacha-info-toggle-row">
-                      <button
-                        type="button"
-                        className="ghost gacha-other-toggle"
-                        onClick={() => setOpenInfoPanel((v) => (v === 'other' ? null : 'other'))}
-                      >
-                        {openInfoPanel === 'other' ? '▾' : '▸'} Other operators
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost gacha-other-toggle"
-                        onClick={() => {
-                          setShowGuide(true);
-                          setGuidePhase('question');
-                          setGuidePageIndex(0);
-                        }}
-                      >
-                        How does this work?
-                      </button>
-                      {banner.type === 'limited' && (
-                        <button type="button" className="gacha-spark-store-btn" onClick={() => setShowSparkStore(true)}>
-                          Spark Store
-                        </button>
-                      )}
-                    </div>
-                    {openInfoPanel === 'other' && (
-                      <div className="gacha-other-list">
-                        {[
-                          { label: '6 star', pool: banner.otherSixStarPool },
-                          { label: '5 star', pool: banner.otherFiveStarPool },
-                          { label: '4 star', pool: banner.fourStarPool },
-                          { label: '3 star', pool: banner.threeStarPool },
-                        ].map(
-                          ({ label, pool }) =>
-                            pool.length > 0 && (
-                              <p key={label} className="gacha-other-row">
-                                <span className="gacha-other-row-label">{label}:</span>{' '}
-                                {pool
-                                  .map((o) => o.name)
-                                  .sort((a, b) => a.localeCompare(b))
-                                  .join(' / ')}
-                              </p>
-                            )
-                        )}
-                      </div>
-                    )}
-                    </div>
                   </section>
                 )}
 
@@ -2244,6 +2153,132 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                   </section>
                 )}
 
+                <section className="op-section gacha-roster-section">
+                    <div className="gacha-content-group">
+                    <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
+                    {isLineupPending(selectedBanner) ? <p className="hint">{LINEUP_PENDING_NOTE}</p> : <div className="gacha-featured-row">
+                      {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
+                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={6}
+                            tags={isLimited ? ['limited'] : undefined}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                      {banner.fiveStarFeatured.map((item) => {
+                        const pct = fiveStarOdds.find((o) => o.item.name === item.name);
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={5}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                    </div>}
+                    {(banner.rateUpSixStars || []).length > 0 && <>
+                      <h3 style={{ marginTop: 16, marginBottom: 4 }}>Returning limited operators</h3>
+                      <p className="hint">{RETURNING_LIMITED_NOTE}</p>
+                      <div className="gacha-featured-row">
+                      {(banner.rateUpSixStars || []).map((item) => {
+                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={6}
+                            tags={isLimited ? ['limited'] : undefined}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                      </div>
+                    </>}
+                    {banner.otherSixStarPool.some(item => (banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes' && state.pullCount === 0) || state.obtainedCounts[item.name]) && <>
+                      <h3 style={{ marginTop: 16, marginBottom: 8 }}>Other available operators</h3>
+                      <div className="gacha-featured-row">
+                      {banner.otherSixStarPool
+                        .filter((item) => {
+                          const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
+                          if (isLimited) return state.pullCount === 0 || state.obtainedCounts[item.name];
+                          return state.obtainedCounts[item.name];
+                        })
+                        .map((item) => {
+                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
+                        return (
+                          <FeaturedChip
+                            key={item.name}
+                            item={item}
+                            rarity={6}
+                            tags={banner.type === 'limited' && isLimited ? ['limited'] : undefined}
+                            percent={pct ? pct.weight * 100 : undefined}
+                            count={state.obtainedCounts[item.name]}
+                          />
+                        );
+                      })}
+                    </div>
+                    </>}
+
+                    <div className="gacha-info-toggle-row">
+                      <button
+                        type="button"
+                        className="ghost gacha-other-toggle"
+                        onClick={() => setOpenInfoPanel((v) => (v === 'other' ? null : 'other'))}
+                      >
+                        {openInfoPanel === 'other' ? '▾' : '▸'} Other operators
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost gacha-other-toggle"
+                        onClick={() => {
+                          setShowGuide(true);
+                          setGuidePhase('question');
+                          setGuidePageIndex(0);
+                        }}
+                      >
+                        How does this work?
+                      </button>
+                      {banner.type === 'limited' && (
+                        <button type="button" className="gacha-spark-store-btn" onClick={() => setShowSparkStore(true)}>
+                          Spark Store
+                        </button>
+                      )}
+                    </div>
+                    {openInfoPanel === 'other' && (
+                      <div className="gacha-other-list">
+                        {[
+                          { label: '6 star', pool: banner.otherSixStarPool },
+                          { label: '5 star', pool: banner.otherFiveStarPool },
+                          { label: '4 star', pool: banner.fourStarPool },
+                          { label: '3 star', pool: banner.threeStarPool },
+                        ].map(
+                          ({ label, pool }) =>
+                            pool.length > 0 && (
+                              <p key={label} className="gacha-other-row">
+                                <span className="gacha-other-row-label">{label}:</span>{' '}
+                                {pool
+                                  .map((o) => o.name)
+                                  .sort((a, b) => a.localeCompare(b))
+                                  .join(' / ')}
+                              </p>
+                            )
+                        )}
+                      </div>
+                    )}
+                    </div>
+                </section>
+
                 {state.history.length > 0 && (
                   <section className="op-section">
                     <button
@@ -2254,16 +2289,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       {showHistory ? '▾' : '▸'} Pull history
                     </button>
                     {showHistory && (
-                      <div className="gacha-history-strip">
-                        {state.history
-                          .slice()
-                          .reverse()
-                          .map((item, i) => (
-                            <div key={i} className={`gacha-history-chip ${rarityClass(item.rarity)}`} title={item.name}>
-                              {item.rarity}★
-                            </div>
-                          ))}
-                      </div>
+                      <PullHistory history={state.history} />
                     )}
                   </section>
                 )}
