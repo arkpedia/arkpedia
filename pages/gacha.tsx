@@ -130,7 +130,7 @@ function FeaturedChip({ item, rarity, percent, tags, count }: { item: GachaItem;
         <div className="gacha-pull-icon-placeholder">{rarity}★</div>
       )}
       <span className="gacha-featured-info">
-        <span className="gacha-featured-name">{item.name}</span>
+        <span className="gacha-featured-name" title={item.name}>{item.name}</span>
         <span className="gacha-featured-meta">
           {percent !== undefined && <span className="gacha-featured-percent">{percent.toFixed(2)}%</span>}
           {!!count && <span className="gacha-featured-count">Owned ×{count}</span>}
@@ -2080,21 +2080,24 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     </div>
 
                     <div className="gacha-stats-rates">
-                      <span className="rated-count">
+                      <div className="gacha-rarity-stats" aria-label="Pull rates and results">
                         {(() => {
                           const currentPullNumber = state.softPitySince6 + 1;
                           const current = ratesAtPull(currentPullNumber);
                           const decimals = currentPullNumber > 50 ? 2 : 0;
-                          return (
-                            <>
-                              6★ ({(current.six * 100).toFixed(decimals)}%): {stats[6]} &nbsp;
-                              5★ ({(current.five * 100).toFixed(decimals)}%): {stats[5]} &nbsp;
-                              4★ ({(current.four * 100).toFixed(decimals)}%): {stats[4]} &nbsp;
-                              3★ ({(current.three * 100).toFixed(decimals)}%): {stats[3]}
-                            </>
-                          );
+                          return ([
+                            { rarity: 6, rate: current.six },
+                            { rarity: 5, rate: current.five },
+                            { rarity: 4, rate: current.four },
+                            { rarity: 3, rate: current.three },
+                          ] as const).map(({ rarity, rate }) => (
+                            <div className="gacha-rarity-stat" key={rarity}>
+                              <span className="gacha-rarity-label">{rarity}★ <small>({(rate * 100).toFixed(decimals)}%)</small></span>
+                              <strong className="gacha-rarity-count">{stats[rarity]}</strong>
+                            </div>
+                          ));
                         })()}
-                      </span>
+                      </div>
                       <div className="gacha-pull-actions">
                         <button type="button" className="ghost" onClick={reset}>
                           Reset
