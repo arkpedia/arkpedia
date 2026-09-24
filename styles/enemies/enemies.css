@@ -1196,25 +1196,9 @@ main.enemy-page {
   overflow-y: auto;
   scrollbar-width: thin;
 }
+.enemy-grid-pane:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
 .enemy-detail-pane { position: relative; }
 .enemy-grid-empty { padding: 10px 2px; }
-
-/* The foot of the grid pane: how far into the list we are, and the way to go
-   further. Inside the scrolling pane, so it sits under the last row rather than
-   pinned -- reaching it is what asking for more looks like. */
-.enemy-grid-more {
-  display: flex;
-  align-items: center;
-  /* The count holds the left edge and the buttons group on the right --
-     space-between put the second button in the middle of the row once
-     "Show all" joined "Show more". */
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 4px 2px 2px;
-}
-.enemy-grid-more .hint { margin-right: auto; }
-.enemy-grid-more .hint { font-family: var(--font-mono); font-size: 11px; }
 
 /* Four per row, as the game lays them out. */
 .enemy-grid {

@@ -16,6 +16,7 @@ import { ReleaseDateLookup, deriveReleaseDatesFromBanners, getReleaseDate } from
 import { getAllOperators } from '@/lib/operators/operators';
 import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, GachaItem } from '@/lib/gacha/gachaTypes';
 import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
+import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 
 interface Props {
   pools: GachaIconPools;
@@ -44,6 +45,8 @@ const CATEGORY_LABELS: Record<DisplayCategory, string> = {
   other: 'Other (unclassified)',
 };
 const CATEGORIES: DisplayCategory[] = ['upcoming', 'featured', 'limited', 'standard', 'kernel', 'kernelLocating', 'joint', 'orienteering', 'celebration', 'crossover', 'trio', 'other'];
+const BANNER_ROW_STRIDE = 96;
+function bannerRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: BANNER_ROW_STRIDE }; }
 
 function rarityClass(rarity: number): string {
   if (rarity === 6) return 'pull-six';
@@ -88,11 +91,15 @@ function FeaturedChip({ item, rarity, percent, tags, count }: { item: GachaItem;
       ) : (
         <div className="gacha-pull-icon-placeholder">{rarity}★</div>
       )}
-      <span>{item.name}</span>
-      {tags?.includes('rateUp') && <span className="gacha-rate-up-tag">RATE-UP</span>}
-      {tags?.includes('limited') && <span className="gacha-limited-tag">LIMITED</span>}
-      {percent !== undefined && <span className="gacha-featured-percent">{percent.toFixed(2)}%</span>}
-      <span className="gacha-featured-count">Obtained: {count || 0}</span>
+      <span className="gacha-featured-info">
+        <span className="gacha-featured-name">{item.name}</span>
+        <span className="gacha-featured-meta">
+          {percent !== undefined && <span className="gacha-featured-percent">{percent.toFixed(2)}%</span>}
+          {!!count && <span className="gacha-featured-count">Owned ×{count}</span>}
+        </span>
+        {tags?.includes('rateUp') && <span className="gacha-rate-up-tag">RATE-UP</span>}
+        {tags?.includes('limited') && <span className="gacha-limited-tag">LIMITED</span>}
+      </span>
     </div>
   );
 }
@@ -1337,31 +1344,16 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
   const [category, setCategory] = useState<DisplayCategory>('upcoming');
   const categoryBanners = bannersByCategory[category];
+  const bannerWindow = useVirtualRows(categoryBanners.length, bannerRowLayout, { columns: 1, rowStride: BANNER_ROW_STRIDE }, 2);
   const [selectedBannerName, setSelectedBannerName] = useState<string>(categoryBanners[0]?.name || '');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openInfoPanel, setOpenInfoPanel] = useState<'other' | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showSparkStore, setShowSparkStore] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [guidePhase, setGuidePhase] = useState<'question' | 'basics' | 'banner'>('question');
   const [guidePageIndex, setGuidePageIndex] = useState(0);
-  // Mobile gets one continuous scrolling page rather than a
-  // Browse/Pull view switch, so we still need to know when we're on a
-  // narrow viewport to skip the auto-collapse-the-sidebar behavior
-  // below (see `pull()`) -- that behavior only makes sense on desktop,
-  // where the sidebar competes for horizontal space with the pull UI.
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 800px)');
-    setIsMobile(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  const featuredSectionEndRef = useRef<HTMLDivElement>(null);
   const selectedBanner = categoryBanners.find((b) => b.name === selectedBannerName) || categoryBanners[0];
-  const [visibleCount, setVisibleCount] = useState(5);
-  const visibleBanners = categoryBanners.slice(0, visibleCount);
+  const visibleBanners = categoryBanners.slice(bannerWindow.firstIndex, bannerWindow.lastIndex);
 
   const [state, setState] = useState<GachaState>(createInitialState());
   const [lastPulls, setLastPulls] = useState<PulledItem[]>([]);
@@ -1419,13 +1411,12 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   }, [isOrienteering, selectedBanner, pools.five]);
 
   function changeCategory(next: DisplayCategory) {
+    bannerWindow.scrollerRef.current?.scrollTo({ top: 0 });
     setCategory(next);
     const firstInCategory = bannersByCategory[next][0];
     setSelectedBannerName(firstInCategory?.name || '');
-    setVisibleCount(5);
     setState(createInitialState());
     setLastPulls([]);
-    setSidebarCollapsed(false);
     setOrienteeringSelected([]);
     setOrienteeringFiveSelected([]);
     setOrienteeringConfirmed(false);
@@ -1651,16 +1642,9 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
   function pull(count: number) {
     if (!banner) return;
-    const isFirstPull = state.pullCount === 0;
     const result = doPulls(banner, state, count);
     setState(result.state);
     setLastPulls(result.items);
-    if (isFirstPull) {
-      if (!isMobile) setSidebarCollapsed(true);
-      requestAnimationFrame(() => {
-        featuredSectionEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
   }
 
   function reset() {
@@ -1686,22 +1670,30 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
               className={cat === category ? 'primary' : 'ghost'}
               onClick={() => changeCategory(cat)}
               disabled={bannersByCategory[cat].length === 0}
+              aria-pressed={cat === category}
             >
-              {CATEGORY_LABELS[cat]} ({bannersByCategory[cat].length})
+              {CATEGORY_LABELS[cat]}
             </button>
           ))}
         </div>
+        <select
+          className="gacha-category-mobile"
+          aria-label="Banner category"
+          value={category}
+          onChange={(event) => changeCategory(event.target.value as DisplayCategory)}
+        >
+          {CATEGORIES.map((cat) => (
+            <option key={cat} value={cat} disabled={bannersByCategory[cat].length === 0}>{CATEGORY_LABELS[cat]}</option>
+          ))}
+        </select>
 
         <div className="gacha-layout">
-          <aside className={`gacha-banner-sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
-            {sidebarCollapsed ? (
-              <button type="button" className="ghost gacha-sidebar-reopen" onClick={() => setSidebarCollapsed(false)}>
-                Show banners ▸
-              </button>
-            ) : categoryBanners.length === 0 ? (
+          <div className="gacha-banner-sidebar" ref={bannerWindow.scrollerRef} role="region" aria-label="Banners" tabIndex={0}>
+            {categoryBanners.length === 0 ? (
               <p className="hint">No banners in this category yet.</p>
             ) : (
               <>
+                <div className="gacha-banner-sidebar-spacer" style={{ height: bannerWindow.before }} aria-hidden="true" />
                 {visibleBanners.map((b) => {
                   const isCurrentlyActive =
                     category === 'upcoming' &&
@@ -1717,6 +1709,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       type="button"
                       className={`gacha-banner-sidebar-item${b.name === selectedBannerName ? ' active' : ''}`}
                       onClick={() => changeBanner(b.name)}
+                      aria-pressed={b.name === selectedBannerName}
                       title={bannerDisplayName(b.name)}
                     >
                       {b.banner_image && (
@@ -1730,24 +1723,10 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     </button>
                   );
                 })}
-                {visibleCount < categoryBanners.length && (
-                  <button
-                    type="button"
-                    className="ghost gacha-banner-sidebar-more"
-                    onClick={() => setVisibleCount((v) => (v === 5 ? 15 : categoryBanners.length))}
-                  >
-                    {category === 'upcoming'
-                      ? visibleCount === 5
-                        ? 'Show further'
-                        : 'Show even further'
-                      : visibleCount === 5
-                      ? 'Show older'
-                      : 'Show even older'}
-                  </button>
-                )}
+                <div className="gacha-banner-sidebar-spacer" style={{ height: bannerWindow.after }} aria-hidden="true" />
               </>
             )}
-          </aside>
+          </div>
 
           <div className="gacha-main-col">
             {category === 'other' && selectedBanner ? (
@@ -1787,7 +1766,6 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         width={1600}
                         height={900}
                         className="gacha-banner-main-image"
-                        style={{ width: '100%', maxWidth: 480, height: 'auto' }}
                       />
                     )}
 
@@ -1866,7 +1844,6 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       })}
                     </div>
                     </>}
-                    <div ref={featuredSectionEndRef} />
 
                     <div className="gacha-info-toggle-row">
                       <button
@@ -1874,12 +1851,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         className="ghost gacha-other-toggle"
                         onClick={() => setOpenInfoPanel((v) => (v === 'other' ? null : 'other'))}
                       >
-                        {openInfoPanel === 'other' ? '▾' : '▸'} Other operators (
-                        {banner.otherSixStarPool.length +
-                          banner.otherFiveStarPool.length +
-                          banner.fourStarPool.length +
-                          banner.threeStarPool.length}
-                        )
+                        {openInfoPanel === 'other' ? '▾' : '▸'} Other operators
                       </button>
                       <button
                         type="button"
@@ -2203,14 +2175,14 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         })()}
                       </span>
                       <div className="gacha-pull-actions">
-                        <button type="button" onClick={reset}>
+                        <button type="button" className="ghost" onClick={reset}>
                           Reset
                         </button>
-                        <button type="button" className="primary" onClick={() => pull(1)}>
-                          x1
+                        <button type="button" className="ghost" onClick={() => pull(1)}>
+                          Pull 1
                         </button>
                         <button type="button" className="primary" onClick={() => pull(10)}>
-                          x10
+                          Pull 10
                         </button>
                       </div>
                     </div>
@@ -2267,7 +2239,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       className="ghost gacha-history-toggle"
                       onClick={() => setShowHistory((v) => !v)}
                     >
-                      {showHistory ? '▾' : '▸'} Pull history ({state.history.length})
+                      {showHistory ? '▾' : '▸'} Pull history
                     </button>
                     {showHistory && (
                       <div className="gacha-history-strip">

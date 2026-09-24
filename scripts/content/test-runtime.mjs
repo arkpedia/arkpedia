@@ -35,6 +35,7 @@ function make(label) {
   }
   const gacha = readPage('/gacha').props;
   gacha.banners[0].name = `Runtime Banner ${label.toUpperCase()}`;
+  gacha.pools.six[0].name = `Runtime Pool Operator ${label.toUpperCase()}`;
   setPage('/gacha', gacha);
   if (label === 'b') {
     const detail = JSON.parse(fs.readFileSync(path.join(root, 'public/stage-detail/1-7.json')));
@@ -104,8 +105,13 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${name} page overflow`);
     await waitFor(async () => {
       await page.goto('http://localhost:3193/gacha');
-      return page.evaluate(() => window.__NEXT_DATA__.props.pageProps.banners[0].name === 'Runtime Banner B');
+      return page.evaluate(() => window.__NEXT_DATA__.props.pageProps.banners[0].name === 'Runtime Banner B'
+        && window.__NEXT_DATA__.props.pageProps.pools.six[0].name === 'Runtime Pool Operator B');
     }, `${name} updated banners`, 75_000);
+    const bannerImage = await page.locator('.gacha-banner-sidebar-bg').first().getAttribute('src');
+    assert.ok(bannerImage?.includes(pinnedRevision('b'.repeat(40))), `${name} gacha banner artwork did not adopt the image release`);
+    const operatorIcon = await page.locator('.gacha-featured-chip img').first().getAttribute('src');
+    assert.ok(operatorIcon?.includes(pinnedRevision('b'.repeat(40))), `${name} gacha operator icon did not adopt the image release`);
     await waitFor(async () => {
       await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
       return (await page.locator('body').innerText()).includes('Runtime Stage B');

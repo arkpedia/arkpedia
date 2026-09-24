@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { EnemyContent, EnemySummary } from '@/lib/enemies/enemyTypes';
 import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
 import { matchesSearch } from '@/lib/search/searchNormalize';
+import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 
 /**
  * Enemy icons skip Next's image optimizer.
@@ -52,14 +53,16 @@ const TYPE_TABS = [
   { key: 'Boss', label: 'Leader' },
 ] as const;
 
-/**
- * How many tiles the grid paints before the reader asks for more. All 1,540 at once
- * is a lot of grid for a pane four columns wide: every tile is a DOM node and an
- * unoptimized <ContentImg> request, and they were all mounted on arrival whether or not
- * anyone scrolled to them. Same page size and same "Show more" affordance as the
- * operators roster.
- */
-const PAGE_SIZE = 40;
+function enemyGridLayout(element: HTMLDivElement): VirtualRowLayout {
+  const grid = element.querySelector<HTMLElement>('.enemy-grid');
+  if (!grid) return { columns: 4, rowStride: 100 };
+  const style = getComputedStyle(grid);
+  const columns = Math.max(1, style.gridTemplateColumns.split(' ').filter(Boolean).length);
+  const columnGap = parseFloat(style.columnGap) || 0;
+  const rowGap = parseFloat(style.rowGap) || 0;
+  const width = grid.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+  return { columns, rowStride: (width - columnGap * (columns - 1)) / columns + rowGap };
+}
 
 export type SortField = 'handbook' | 'name' | 'hp' | 'atk' | 'def' | 'res';
 type SortDir = 'asc' | 'desc';
@@ -247,48 +250,19 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
     else { setSortField(field); setSortDir(NATURAL_DIR[field]); }
   }
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  /* The most tiles the grid has been asked for. See shownCount below. */
-  const highWater = useRef(PAGE_SIZE);
-  /* Narrowing or reordering starts the count over. Otherwise a search matching three
-     enemies would still be paying for however far the reader had walked the full list,
-     and "Show more" would sit under a grid that had nothing more to show.
-     Keyed on the filters' VALUES rather than the object. `filters` is replaced whole by
-     every setFilters, so depending on it reset the count on changes that were not
-     narrowings, and the grid collapsed under the reader for no reason they could see. */
+  const virtual = useVirtualRows(shown.length, enemyGridLayout, { columns: 4, rowStride: 100 });
+  const { scrollerRef, revealIndex } = virtual;
+  /* A changed sort or filter is a new list, so begin at its first row. */
   const filterKey = `${filters.search}|${filters.type}|${filters.race}|${filters.movement}`
     + `|${filters.position}|${filters.damage}|${filters.content}`;
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-    highWater.current = PAGE_SIZE;
-  }, [filterKey, sortField, sortDir]);
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
+  }, [filterKey, sortField, sortDir, scrollerRef]);
 
-  /*
-   * How many tiles the grid paints: what the reader has asked for, and never less.
-   *
-   * The open enemy has to be IN the grid, whatever page it falls on. B1 is the first
-   * tile, but a link, a bookmark or a referenced-enemy jump can land on #1,400, and a
-   * handbook that will not show you where you are is worse than one that paints a few
-   * more tiles. Rounded up to a whole page, so the count stays on the boundaries "Show
-   * more" walks.
-   *
-   * Held as a high-water mark, which is the part that was missing. The selection term
-   * is a floor and the reader's own count is a floor, and taking the larger of the two
-   * each render meant that if anything reset visibleCount the grid fell back to
-   * whatever the selection alone required: the nearest page boundary after the open
-   * enemy. Choosing a tile near the top of a list expanded to 240 collapsed it to 40,
-   * and the next choice expanded it again, which is a list that jitters as you read it.
-   * A ref, not state, because it is derived rather than a thing to render on: raising
-   * it during a render that is already happening needs no second one.
-   */
   const selectedIndex = selectedSlug ? shown.findIndex((e) => e.slug === selectedSlug) : -1;
-  const wanted = Math.max(
-    visibleCount,
-    selectedIndex === -1 ? PAGE_SIZE : Math.ceil((selectedIndex + 1) / PAGE_SIZE) * PAGE_SIZE
-  );
-  /* Reset with the filters, not with a click: a narrowed list genuinely starts over. */
-  if (wanted > highWater.current) highWater.current = wanted;
-  const shownCount = highWater.current;
+  useEffect(() => {
+    if (selectedIndex >= 0) revealIndex(selectedIndex);
+  }, [selectedSlug, selectedIndex, revealIndex]);
 
   const narrowed = (Object.keys(EMPTY_FILTERS) as (keyof Filters)[])
     .some((key) => filters[key] !== EMPTY_FILTERS[key]);
@@ -364,9 +338,9 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
       </div>
 
       <div className="enemy-frame-body">
-        <div className="enemy-grid-pane">
-          <div className="enemy-grid">
-            {shown.slice(0, shownCount).map((e) => (
+        <div className="enemy-grid-pane" ref={scrollerRef} tabIndex={0} aria-label="Enemy list">
+          <div className="enemy-grid" style={{ paddingTop: virtual.before, paddingBottom: virtual.after }}>
+            {shown.slice(virtual.firstIndex, virtual.lastIndex).map((e) => (
               <Link prefetch={false}
                 key={e.slug}
                 /* The selection is a query on one page, not a route per enemy --
@@ -412,27 +386,6 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
               </Link>
             ))}
           </div>
-          {shownCount < shown.length && (
-            <div className="enemy-grid-more">
-              <span className="hint">{shownCount} of {shown.length}</span>
-              <button type="button" className="ghost" onClick={() => setVisibleCount(shownCount + PAGE_SIZE)}>
-                Show more
-              </button>
-              {/* Kept beside Show more rather than replacing it: paging exists
-                  because every tile is a DOM node and an image request, and
-                  1,540 of them at once is a real cost on a phone. But a reader
-                  who wants the whole list should not have to press a button
-                  thirty-seven times to get it. */}
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => setVisibleCount(shown.length)}
-                title={`Show all ${shown.length} at once`}
-              >
-                Show all {shown.length}
-              </button>
-            </div>
-          )}
           {shown.length === 0 && <p className="hint enemy-grid-empty">Nothing matches those filters.</p>}
         </div>
 
