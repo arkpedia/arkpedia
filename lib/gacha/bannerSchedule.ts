@@ -39,3 +39,16 @@ export function resolveBannerEventWindow<T extends BannerWindow>(banner: T, even
   const offset = globalEvent[0] - cnEvent[0];
   return { ...banner, global_date: `${format(cnBanner[0] + offset)}–${format(cnBanner[1] + offset)}` };
 }
+
+/** Calendar-style fallback for CN-only banners without a linked event window. */
+export function estimateBannerFromCn<T extends BannerWindow>(banner: T, gapDays: number): T {
+  if (banner.global_date) return banner;
+  const cn = range(banner.cn_date);
+  if (!cn) return banner;
+  const offset = gapDays * 86400000;
+  return {
+    ...banner,
+    global_date: `${format(cn[0] + offset)}–${format(cn[1] + offset)}`,
+    global_date_estimated: true,
+  };
+}

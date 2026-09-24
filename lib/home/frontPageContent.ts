@@ -159,7 +159,7 @@ export interface GameEventListing extends GameEvent {
 // confirmed Global date yet. This is a rough approximation (Arknights
 // Global has historically trailed CN by roughly 5-6 months); adjust
 // PREDICTED_GAP_DAYS if you have a more precise figure to use instead.
-const PREDICTED_GAP_DAYS = 175;
+export const PREDICTED_GAP_DAYS = 175;
 
 function formatDateRange(start: Date, end: Date): string {
   function fmt(d: Date): string {

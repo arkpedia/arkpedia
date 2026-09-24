@@ -7,7 +7,8 @@ import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
-import { getBannersSortedByDate, HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners, getBannersSortedByDate, HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
+import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 import { buildRealBannerConfig, getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
 import { buildEligiblePool } from '@/lib/gacha/gachaOperatorEligibility';
@@ -47,6 +48,11 @@ const CATEGORY_LABELS: Record<DisplayCategory, string> = {
 const CATEGORIES: DisplayCategory[] = ['upcoming', 'featured', 'limited', 'standard', 'kernel', 'kernelLocating', 'joint', 'orienteering', 'celebration', 'crossover', 'trio', 'other'];
 const BANNER_ROW_STRIDE = 96;
 function bannerRowLayout(): VirtualRowLayout { return { columns: 1, rowStride: BANNER_ROW_STRIDE }; }
+
+function bannerDateLabel(banner: HeadhuntingBanner): string {
+  const prefix = banner.global_date_estimated ? 'Estimated Global · ' : banner.global_date ? '' : 'CN · ';
+  return `${prefix}${banner.global_date || banner.cn_date || 'date unknown'}`;
+}
 
 function rarityClass(rarity: number): string {
   if (rarity === 6) return 'pull-six';
@@ -1718,7 +1724,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       {isCurrentlyActive && <span className="gacha-banner-sidebar-live-badge">LIVE NOW</span>}
                       <span className="gacha-banner-sidebar-text">
                         <span className="gacha-banner-sidebar-name">{getDisplayFeaturedSixStarsWithRerunLabel(b, releaseLookup).join(' / ') || bannerDisplayName(b.name)}</span>
-                        <span className="gacha-banner-sidebar-date">{!b.global_date && b.cn_date ? 'CN · ' : ''}{b.global_date || b.cn_date || ''}</span>
+                        <span className="gacha-banner-sidebar-date">{bannerDateLabel(b)}</span>
                       </span>
                     </button>
                   );
@@ -1756,7 +1762,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 {!((isOrienteering && !orienteeringConfirmed) || (isKernelLocating && !kernelLocatingConfirmed)) && (
                   <section className="op-section gacha-featured-section">
                     <h2 style={{ marginBottom: 4 }}>
-                      {banner.label} <span className="gacha-banner-date">({!selectedBanner?.global_date && selectedBanner?.cn_date ? 'CN · ' : ''}{selectedBanner?.global_date || selectedBanner?.cn_date || 'date unknown'})</span>
+                      {banner.label} <span className="gacha-banner-date">({bannerDateLabel(selectedBanner)})</span>
                     </h2>
                     {!selectedBanner?.global_date && <p className="hint">Global release date unannounced.</p>}
                     {selectedBanner?.banner_image && (
@@ -2425,7 +2431,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gacha", async () => {
   const pools = getGachaIconPools();
-  const banners = getBannersSortedByDate();
+  const banners = resolveGachaSimulatorBanners(getBannersSortedByDate());
   const derivedReleaseDates = deriveReleaseDatesFromBanners(banners);
 
   const kernelLookup: KernelAdditionLookup = {};
@@ -2452,7 +2458,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
 
   const operatorSeriesMap = buildOperatorSeriesMap(banners, howToObtainLookup);
 
-  // Trimmed for the client -- category, year, and linked_event are
+  // Trimmed for the client -- category and year are
   // confirmed unused both directly in this file and in every helper
   // function from realGachaBanners.ts this page relies on
   // (buildRealBannerConfig, getMechanicType, getDisplayFeaturedSixStars,
@@ -2462,6 +2468,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     category: '',
     cn_date: b.cn_date ?? null,
     global_date: b.global_date ?? null,
+    global_date_estimated: b.global_date_estimated ?? false,
+    ...(b.schedule_anchor ? { schedule_anchor: b.schedule_anchor } : {}),
     ...(b.global_window ? { global_window: b.global_window } : {}),
     ...(b.cn_window ? { cn_window: b.cn_window } : {}),
     banner_image: b.banner_image ?? null,
@@ -2471,8 +2479,25 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     four_stars: b.four_stars ?? [],
     pull_type: b.pull_type ?? 'unknown',
     year: 0,
-    linked_event: null,
+    linked_event: b.linked_event ?? null,
   }));
 
   return { props: { pools, banners: trimmedBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
+}, {
+  // An already-published content release may still carry CN-only dates. Fill
+  // only those gaps; resolved estimates and confirmed Global dates in newer
+  // releases must remain authoritative rather than being recalculated from
+  // this app deployment's older calendar snapshot.
+  finalize: async props => {
+    const sourceAnchors = new Map(getAllHeadhuntingBanners().map(b => [b.name, b.linked_event]));
+    const unresolved = props.banners.filter(b => !b.global_date).map(b => ({
+      ...b, linked_event: b.linked_event || sourceAnchors.get(b.name) || null,
+    }));
+    const completed = new Map(resolveGachaSimulatorBanners(unresolved).map(b => [b.name, b]));
+    return {
+      ...props,
+      banners: props.banners.map(b => completed.get(b.name) || b)
+        .sort((a, b) => (parseBannerDate(b)?.getTime() ?? 0) - (parseBannerDate(a)?.getTime() ?? 0)),
+    };
+  },
 });
