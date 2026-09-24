@@ -30,44 +30,68 @@ export const wikiCacheFile = (root, page) => path.join(root, WIKI_CACHE, `${page
  * A year's banner page (Headhunting/Banners/<year>) only grows during its year, so ANY
  * shrink from its last good copy is suspect.
  *
- * The Upcoming pages lose rows as Global catches up, so they are judged by half -- but
- * half of the most they held within PEAK_DAYS, not of yesterday's copy, or a page could
- * lose half its rows every day, each loss taken as the next day's yardstick. The cache
- * keeps that count as `peak` ({rows, since}) while it is above the rows it holds, set on
- * the day a shrink is taken and dropped once the page grows back past it. Pages this
+ * The Upcoming pages lose rows as Global catches up: the wiki moves a banner row to the
+ * yearly page once Global dates the banner, and an event row off the page once Global
+ * schedules the event. So a row that left is first looked for where it went -- `movedTo`,
+ * which the caller must give for these pages (sync-catalogue.mjs: the yearly page's rows,
+ * the Global client's activity table) -- and a read whose every lost row turned up there is
+ * taken. The rows date only the CN run, so a date accounts for nothing: a CN window long over
+ * stays Upcoming until Global dates it. Otherwise the page is judged by half -- of the most
+ * rows it held within PEAK_DAYS, less the rows found moved, not of yesterday's copy, or a
+ * page could lose half its rows every day, each loss taken as the next day's yardstick. The
+ * cache keeps that count as `peak` ({rows, since}) while it is above the rows it holds, set
+ * on the day a shrink is taken and dropped once the page grows back past it. Pages this
  * small are not judged.
+ *
+ * A shrink is never taken silently. One held back stays held back, and reported (overdue
+ * after three days, like any quarantined record), until the rows it lost turn up where they
+ * went, the page grows back, or a maintainer accepts it by deleting the page's cache file in
+ * arkpedia-data: the peak it was judged by is marked `held` on the first day, and a held peak
+ * does not run out. The day the hold ends rewrites the cache without the mark.
  */
 export const SHRINK_JUDGED_FROM = 6;
 export const PEAK_DAYS = 7;
 const onlyGrows = page => /^Headhunting\/Banners\/\d{4}$/.test(page);
 const utcDay = now => now.toISOString().slice(0, 10);
 const daysFrom = (since, today) => (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${since}T00:00:00Z`)) / 86_400_000;
-/** The most rows the page held within PEAK_DAYS, by the last good copy. */
+/** The most rows the page held within PEAK_DAYS, or since the shrink it holds back, by the last good copy. */
 function heldPeak(cached, today) {
   const peak = cached?.peak;
-  const live = peak && Number.isInteger(peak.rows) && daysFrom(peak.since, today) <= PEAK_DAYS ? peak : null;
+  const live = peak && Number.isInteger(peak.rows) && (peak.held === true || daysFrom(peak.since, today) <= PEAK_DAYS) ? peak : null;
   return live && live.rows > cached.rows.length ? live : null;
+}
+/** How many rows of the last good copy today's read lacks, and how many of those turned up where the wiki moves them. */
+function rowsLeft(cached, rows, movedTo) {
+  const kept = new Set(rows.map(row => JSON.stringify(row)));
+  const left = (cached?.rows ?? []).filter(row => !kept.has(JSON.stringify(row)));
+  return { left: left.length, moved: movedTo ? left.filter(row => movedTo.has(row)).length : 0 };
 }
 /** Why today's rows are too few to take over the last good copy, or null. The words hold no
  * count of today's rows: the reason is a release input, and the good copy stands meanwhile. */
-function shrinkProblem(page, template, rows, cached, today) {
+function shrinkProblem(page, template, rows, cached, today, { left, moved }, movedTo) {
   const had = cached?.rows.length ?? 0;
+  // Every row that left turned up where the wiki moves it: Global caught up on them.
+  if (!onlyGrows(page) && left === moved) return null;
   if (!rows.length && had) return `it has no "${template}" row that parses, where the last good read had ${had}; the template or its fields have probably changed`;
-  if (onlyGrows(page) && rows.length < had) return `fewer "${template}" rows parse than its last good read had, and a year's banner page only grows; rows have probably moved to another template or been cut short`;
-  const held = Math.max(had, heldPeak(cached, today)?.rows ?? 0);
-  if (!onlyGrows(page) && held >= SHRINK_JUDGED_FROM && rows.length < held / 2) {
-    return `fewer than half the "${template}" rows it held within the last ${PEAK_DAYS} days parse; most of the page has probably been reformatted`;
+  if (onlyGrows(page)) return rows.length < had ? `fewer "${template}" rows parse than its last good read had, and a year's banner page only grows; rows have probably moved to another template or been cut short` : null;
+  const held = Math.max(had, heldPeak(cached, today)?.rows ?? 0) - moved;
+  if (held >= SHRINK_JUDGED_FROM && rows.length < held / 2) {
+    return `fewer than half the "${template}" rows it recently held parse, not counting rows that moved ${movedTo.name}; most of the page has probably been reformatted`;
   }
   return null;
 }
-/** The peak a taken read leaves in the cache: the running one while it stands above the
- * rows, else the count before today's shrink, from today. */
-function nextPeak(page, rows, cached, today) {
+/** The peak a taken read leaves in the cache: the running one (less the rows that moved) while
+ * it stands above the rows, else the count before today's shrink, from today. Never held. */
+function nextPeak(page, rows, cached, today, moved) {
   if (onlyGrows(page) || !cached) return null;
-  const live = heldPeak(cached, today), had = cached.rows.length;
-  if (live && live.rows > rows.length && live.rows >= had) return live;
-  return had > rows.length ? { rows: had, since: today } : null;
+  const top = heldPeak(cached, today) ?? { rows: cached.rows.length, since: today };
+  const rest = top.rows - moved;
+  return rest > rows.length && daysFrom(top.since, today) <= PEAK_DAYS ? { rows: rest, since: top.since } : null;
 }
+const writeCache = (file, value) => {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+};
 export const wikiPageUrl = page => `${wikiBase()}/wiki/${encodeURI(page.replaceAll(' ', '_'))}`;
 
 /* Why a request for the page failed, in words that stay the same while the problem does:
@@ -101,13 +125,20 @@ function lastGoodRead(file) {
 }
 
 /**
- * The rows of one structured page, never throwing. `alerts` is a quarantine stage
- * (scripts/lib/quarantine.mjs); `write: false` leaves the cache untouched (dry runs).
+ * The rows of one structured page, never throwing over anything the wiki does. `alerts` is a
+ * quarantine stage (scripts/lib/quarantine.mjs); `write: false` leaves the cache untouched (dry
+ * runs). A page that loses rows as Global catches up (every page but a year's banner page)
+ * needs `movedTo`: { name, has(row) }, where the wiki moves a row that leaves it (see the top);
+ * leaving it out is a bug in the caller, and throws.
  */
-export async function readWikiRows(root, page, template, { now = new Date(), alerts, write = true } = {}) {
+export async function readWikiRows(root, page, template, { now = new Date(), alerts, write = true, movedTo } = {}) {
+  if (!onlyGrows(page) && (typeof movedTo?.name !== 'string' || typeof movedTo.has !== 'function')) {
+    throw new TypeError(`readWikiRows(${page}) needs movedTo: { name, has(row) }, to tell a row Global caught up on from a row the page lost`);
+  }
   const file = wikiCacheFile(root, page);
   const cached = lastGoodRead(file);
-  let problem;
+  const today = utcDay(now);
+  let rows, problem;
   try {
     const text = wikiText(page, await fetchWikiJson(wikiParseUrl(page)), now);
     // The only excused absence: this year's banner page before the wiki creates it.
@@ -115,25 +146,30 @@ export async function readWikiRows(root, page, template, { now = new Date(), ale
       console.warn(`${page} does not exist on the wiki yet; reading it as no rows until the end of January (UTC).`);
       return [];
     }
-    const rows = parseWikiRows(text, template), today = utcDay(now);
-    // No row where there were rows is a template or field rename, not a quiet day.
-    const shrunk = shrinkProblem(page, template, rows, cached, today);
-    if (shrunk) {
-      problem = `${shrunk}. If it really lost them, delete source/${path.relative(root, file)} in arkpedia-data (a correction branch) and the next run takes the page as it is`;
-    } else {
-      // The same rows leave the file alone, whatever became of the peak meanwhile.
-      if (write && JSON.stringify(cached?.rows) !== JSON.stringify(rows)) {
-        const peak = nextPeak(page, rows, cached, today);
-        fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, `${JSON.stringify({ page, template, rows, ...(peak ? { peak } : {}) }, null, 2)}\n`);
-      }
-      return rows;
-    }
+    rows = parseWikiRows(text, template);
   } catch (error) {
     const exact = error instanceof RequestFailed ? error.cause : error;
     const cause = exact.cause?.code ?? exact.cause?.message;
     console.warn(`Reading ${page} failed: ${exact.message}${cause ? ` (${cause})` : ''}`);
     problem = error.message;
+  }
+  if (rows) {
+    const gone = rowsLeft(cached, rows, onlyGrows(page) ? null : movedTo);
+    // No row where there were rows is a template or field rename, not a quiet day.
+    const shrunk = shrinkProblem(page, template, rows, cached, today, gone, movedTo);
+    if (!shrunk) {
+      // The same rows leave the file alone, whatever became of the peak meanwhile -- unless
+      // they end a hold, whose mark comes off.
+      if (write && (JSON.stringify(cached?.rows) !== JSON.stringify(rows) || cached?.peak?.held)) {
+        const peak = nextPeak(page, rows, cached, today, gone.moved);
+        writeCache(file, { page, template, rows, ...(peak ? { peak } : {}) });
+      }
+      return rows;
+    }
+    // Held back until the lost rows are accounted for: the peak it is judged by stops running out.
+    const peak = heldPeak(cached, today);
+    if (write && peak && !peak.held) writeCache(file, { ...cached, peak: { ...peak, held: true } });
+    problem = `${shrunk}. If it really lost them, delete source/${path.relative(root, file)} in arkpedia-data (a correction branch) and the next run takes the page as it is`;
   }
   const fallback = cached?.rows ?? [];
   const outcome = cached ? `its last good read (${fallback.length} rows) is used instead` : 'no earlier read is cached, so it reads as no rows and nothing new is discovered from it';

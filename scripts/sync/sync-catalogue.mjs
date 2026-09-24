@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, safeName, rarityWord } from './catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
 import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
@@ -83,6 +83,14 @@ export function assetPlan(operators, skins, cn, en, published, extra = []) {
   }
   return [...planned.values()].sort((a,b)=>a.path.localeCompare(b.path));
 }
+/** The wiki's calendar pages (wiki-pages.mjs). A row leaves an Upcoming page when Global catches up on it, and where
+ * it went tells that from a loss, so the yearly page is read first and the Global client's activity table is at hand. */
+export async function readCalendarPages(root, {now,cn,en,alerts,write}) {
+  const read=(page,template,movedTo)=>readWikiRows(root,page,template,{now,alerts,write,movedTo});
+  const yearlyPage=`Headhunting/Banners/${now.getUTCFullYear()}`,yearly=await read(yearlyPage,'Banners cell');
+  const [upcoming,events]=await Promise.all([read('Headhunting/Banners/Upcoming','Banners cell',{name:`to ${yearlyPage}`,has:onYearlyPage(yearly)}),read('Event/Upcoming','Upcoming events cell',{name:'into the Global client\'s activity table',has:inGlobalClient(cn,en)})]);
+  return {upcoming,yearly,events};
+}
 export async function syncCatalogue(root, options={}) {
   const cache=path.resolve(root,'.cache/catalogue'), now=options.now ?? new Date();
   // The wiki only enriches: a page it cannot serve today is read from its last good copy
@@ -93,8 +101,7 @@ export async function syncCatalogue(root, options={}) {
       source('Kengxxiao/ArknightsGameData','zh_CN/gamedata/excel',cache),
       source('ArknightsAssets/ArknightsGamedata','en/gamedata/excel',cache),
     ]);
-    const read=(page,template)=>readWikiRows(root,page,template,{now,alerts:wikiStage,write:!options.dryRun});
-    const [upcoming,yearly,events]=await Promise.all([read('Headhunting/Banners/Upcoming','Banners cell'),read(`Headhunting/Banners/${now.getUTCFullYear()}`,'Banners cell'),read('Event/Upcoming','Upcoming events cell')]);
+    const {upcoming,yearly,events}=await readCalendarPages(root,{now,cn,en,alerts:wikiStage,write:!options.dryRun});
     // The asset plan's revision: publish-catalogue-assets fetches every planned file at it.
     const resourceRevision=await revision('yuanyan3060/ArknightsGameResource');
     return {cn,en,bannerRows:[...upcoming,...yearly],eventRows:events,resourceRevision};

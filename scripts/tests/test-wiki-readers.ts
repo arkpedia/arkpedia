@@ -14,6 +14,12 @@ const wikiPages = () => import('../sync/wiki-pages.mjs');
 const recurringBannerSync = () => import('../sync/sync-recurring-banners.mjs');
 // @ts-expect-error Plain Node helper shared by the importers.
 const quarantine = () => import('../lib/quarantine.mjs');
+// @ts-expect-error Plain Node import scripts share their pure reconciliation with tests.
+const catalogueModel = () => import('../sync/catalogue-model.mjs');
+// @ts-expect-error Plain Node script, run directly by the release job.
+const quarantineReport = () => import('../content/quarantine-report.mjs');
+// @ts-expect-error Plain Node import scripts, also run directly by the refresh job.
+const catalogueSync = () => import('../sync/sync-catalogue.mjs');
 // The fixed answers are for the wiki itself. A run that rehearses an outage points the
 // readers elsewhere for the whole job, npm test included, and must not fail it here.
 delete process.env.ARKPEDIA_WIKI_BASE;
@@ -38,21 +44,27 @@ const wikiRequests = (requested: URL[]) => requested.filter(url => url.hostname 
 const eventCells = '{{Upcoming events cell\n|name = Test event\n|cnstart = 2027/05/01\n}}\n{{Upcoming events cell\n|name = Other event\n}}';
 const cacheOf = (root: string, page: string) => path.join(root, 'data/wiki-cache', `${page.replaceAll('/', '-')}.json`);
 const entries = async (root: string) => (await quarantine()).readQuarantine(root).entries;
+// Where a row that leaves an Upcoming page goes; these tests' rows go nowhere unless they say so.
+const nowhere = { name: 'nowhere', has: () => false };
 
 test('a page is read following redirects, and its parsed rows become the last good copy, with no timestamp', async t => {
   const { readWikiRows } = await wikiPages();
   await temporary(async root => {
     const requested = answering(t, () => ({ parse: { title: 'Event/Upcoming (Global)', redirects: [{ from: 'Event/Upcoming', to: 'Event/Upcoming (Global)' }], wikitext: { '*': eventCells } } }));
     const alerts = (await quarantine()).beginStage(root, 'wiki', new Date('2027-06-01T00:00:00Z'));
-    const rows = await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now: new Date('2027-06-01T00:00:00Z'), alerts });
+    const rows = await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now: new Date('2027-06-01T00:00:00Z'), alerts, movedTo: nowhere });
     assert.deepEqual(rows, [{ name: 'Test event', cnstart: '2027/05/01' }, { name: 'Other event' }]);
     assert.deepEqual(wikiRequests(requested).map(url => [url.searchParams.get('page'), url.searchParams.get('redirects')]), [['Event/Upcoming', '1']]);
     assert.equal(fs.readFileSync(cacheOf(root, 'Event/Upcoming'), 'utf8'), `${JSON.stringify({ page: 'Event/Upcoming', template: 'Upcoming events cell', rows }, null, 2)}\n`);
     assert.deepEqual(alerts.entries, []);
     // A dry run reads but never writes the data file.
     fs.rmSync(cacheOf(root, 'Event/Upcoming'));
-    await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now: new Date('2027-06-01T00:00:00Z'), write: false });
+    await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now: new Date('2027-06-01T00:00:00Z'), write: false, movedTo: nowhere });
     assert.equal(fs.existsSync(cacheOf(root, 'Event/Upcoming')), false);
+    // A page that loses rows as Global catches up cannot be read without saying where they go.
+    for (const movedTo of [undefined, { name: 'nowhere' }]) {
+      await assert.rejects(readWikiRows(root, 'Headhunting/Banners/Upcoming', 'Banners cell', { now: new Date('2027-06-01T00:00:00Z'), movedTo }), /needs movedTo/);
+    }
   });
 });
 
@@ -71,7 +83,7 @@ test('a page the wiki cannot serve is read from its last good copy and reported,
     });
     const read = async () => {
       const alerts = beginStage(root, 'wiki', now);
-      const rows = await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now, alerts });
+      const rows = await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now, alerts, movedTo: nowhere });
       alerts.commit();
       return rows;
     };
@@ -128,7 +140,7 @@ test('one outage writes the same quarantine file every day, whatever each day\'s
     });
     const read = async (day: string) => {
       const now = new Date(`${day}T20:00:00Z`), alerts = beginStage(root, 'wiki', now);
-      await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now, alerts });
+      await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now, alerts, movedTo: nowhere });
       alerts.commit();
       const file = path.join(root, 'data/quarantine.json');
       return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
@@ -212,29 +224,36 @@ test('an Upcoming page is judged by half the most rows it held within a week, so
     t.mock.method(console, 'warn', () => {});
     const read = async (day: string, wikiPage = upcoming) => {
       const now = new Date(`${day}T20:00:00Z`), alerts = beginStage(root, 'wiki', now);
-      const rows = await readWikiRows(root, wikiPage, 'Banners cell', { now, alerts });
+      const rows = await readWikiRows(root, wikiPage, 'Banners cell', { now, alerts, movedTo: nowhere });
       alerts.commit();
       return rows.length;
     };
     const cache = () => fs.readFileSync(cacheOf(root, upcoming), 'utf8');
     assert.equal(await read('2026-09-01'), 20);
     assert.equal(JSON.parse(cache()).peak, undefined, 'a page that never shrank keeps no peak');
-    // Global catches up on nine: taken, and the 20 it held is kept for a week.
+    // Nine rows leave (for nowhere these tests know of): fewer than half, taken, and the 20 it held is kept for a week.
     answer = page(11, 9);
     assert.equal(await read('2026-09-02'), 11);
     assert.deepEqual(JSON.parse(cache()).peak, { rows: 20, since: '2026-09-02' });
     assert.deepEqual(await entries(root), []);
-    // Half of yesterday's 11, but not half of the 20 held this week: kept, and reported.
+    const before = cache();
+    // Half of yesterday's 11, but not half of the 20 held this week: kept, and reported, and the
+    // peak it was judged by is marked as holding it back, so it cannot run out meanwhile.
     answer = page(6, 14);
     assert.equal(await read('2026-09-03'), 11);
     const [entry] = await entries(root);
     assert.deepEqual([entry.key, entry.action], [`wiki:${upcoming}`, 'kept-previous']);
-    assert.match(entry.reason, /fewer than half the "Banners cell" rows it held within the last 7 days parse/);
+    assert.match(entry.reason, /fewer than half the "Banners cell" rows it recently held parse, not counting rows that moved nowhere; most of the page has probably been reformatted/);
+    assert.deepEqual(JSON.parse(cache()).peak, { rows: 20, since: '2026-09-02', held: true });
+    assert.equal(JSON.parse(cache()).rows.length, 11, 'the good copy survives');
     assert.equal(PEAK_DAYS, 7);
-    // An unchanged page leaves the file alone, even once the week is over.
+    // The page comes back: the hold ends and its mark comes off. From then on an unchanged page
+    // leaves the file alone, even once the week is over.
     answer = page(11, 9);
-    const before = cache();
-    for (const day of ['2026-09-04', '2026-09-12']) assert.equal(await read(day), 11);
+    assert.equal(await read('2026-09-04'), 11);
+    assert.equal(cache(), before);
+    assert.deepEqual(await entries(root), []);
+    assert.equal(await read('2026-09-12'), 11);
     assert.equal(cache(), before);
     // A week on, the 11 it holds is the yardstick again.
     answer = page(6, 14);
@@ -254,6 +273,196 @@ test('an Upcoming page is judged by half the most rows it held within a week, so
   });
 });
 
+// Banner rows with CN windows of their own, as the Upcoming and yearly pages list them.
+const bannerCell = (i: number, name = `Banner ${i}`) => {
+  const day = String(i + 1).padStart(2, '0');
+  return `{{Banners cell\n|type = special\n|name = ${name}\n|cnstart = 2027/01/${day} 16:00:00\n|cnend = 2027/02/${day}\n}}`;
+};
+const bannerPage = (indices: number[], name?: (i: number) => string) => ({ parse: { wikitext: { '*': indices.map(i => bannerCell(i, name?.(i))).join('\n') } } });
+const range = (from: number, to: number) => Array.from({ length: to - from }, (_, i) => from + i);
+
+test('an Upcoming page whose lost rows turned up where the wiki moves them is taken, with no alert', async t => {
+  const { readWikiRows } = await wikiPages();
+  const { beginStage } = await quarantine();
+  const { onYearlyPage, parseWikiRows } = await catalogueModel();
+  const upcoming = 'Headhunting/Banners/Upcoming';
+  await temporary(async root => {
+    let answer: unknown = bannerPage(range(0, 20));
+    let yearly: object[] = [];
+    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(answer), { status: 200 }));
+    t.mock.method(console, 'warn', () => {});
+    const read = async (day: string) => {
+      const now = new Date(`${day}T20:00:00Z`), alerts = beginStage(root, 'wiki', now);
+      const rows = await readWikiRows(root, upcoming, 'Banners cell', { now, alerts, movedTo: { name: 'to Headhunting/Banners/2027', has: onYearlyPage(yearly) } });
+      alerts.commit();
+      return rows.length;
+    };
+    const cached = () => JSON.parse(fs.readFileSync(cacheOf(root, upcoming), 'utf8'));
+    // The yearly page lists a moved banner under its Global title, and its days without a time.
+    const yearlyWith = (indices: number[]) => parseWikiRows(bannerPage(indices, i => `Global title ${i}`).parse.wikitext['*'].replaceAll(' 16:00:00', ''), 'Banners cell');
+    assert.equal(await read('2027-03-01'), 20);
+    // Twelve rows leave and eight of them are on the yearly page: judged by the twelve it should
+    // still hold, the eight left are not too few, so it is taken, and the peak remembers twelve.
+    answer = bannerPage(range(12, 20));
+    yearly = yearlyWith(range(0, 8));
+    assert.equal(await read('2027-03-02'), 8);
+    assert.deepEqual(await entries(root), []);
+    assert.deepEqual(cached().peak, { rows: 12, since: '2027-03-02' });
+    // Five more leave, all five for the yearly page: taken, whatever the week's peak says.
+    answer = bannerPage(range(17, 20));
+    yearly = yearlyWith([...range(0, 8), ...range(12, 17)]);
+    assert.equal(await read('2027-03-03'), 3);
+    assert.deepEqual(await entries(root), []);
+    assert.deepEqual(cached().peak, { rows: 7, since: '2027-03-02' }, 'the rows that moved are not missed');
+  });
+});
+
+test('an Upcoming shrink nothing accounts for is held back and reported every day, overdue after three, until a maintainer accepts it', async t => {
+  const { readWikiRows, PEAK_DAYS } = await wikiPages();
+  const { beginStage, readQuarantine } = await quarantine();
+  const { onYearlyPage } = await catalogueModel();
+  const { renderQuarantineReport, OVERDUE_DAYS } = await quarantineReport();
+  const upcoming = 'Headhunting/Banners/Upcoming';
+  await temporary(async root => {
+    let answer: unknown = bannerPage(range(0, 20));
+    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(answer), { status: 200 }));
+    t.mock.method(console, 'warn', () => {});
+    const day = (n: number) => new Date(Date.UTC(2027, 2, 1 + n, 20));
+    const read = async (n: number) => {
+      const alerts = beginStage(root, 'wiki', day(n));
+      const rows = await readWikiRows(root, upcoming, 'Banners cell', { now: day(n), alerts, movedTo: { name: 'to Headhunting/Banners/2027', has: onYearlyPage([]) } });
+      alerts.commit();
+      return rows.length;
+    };
+    const file = () => fs.readFileSync(path.join(root, 'data/quarantine.json'), 'utf8');
+    const cache = () => fs.readFileSync(cacheOf(root, upcoming), 'utf8');
+    assert.equal(await read(0), 20);
+    answer = bannerPage(range(9, 20));
+    assert.equal(await read(1), 11);
+    // Five of the eleven leave for nowhere: fewer than half the 20 it held this week.
+    answer = bannerPage(range(14, 20));
+    assert.equal(await read(2), 11);
+    const [entry] = await entries(root);
+    assert.deepEqual([entry.key, entry.action, entry.firstSeen], [`wiki:${upcoming}`, 'kept-previous', '2027-03-03']);
+    assert.match(entry.reason, /If it really lost them, delete source\/data\/wiki-cache\/Headhunting-Banners-Upcoming\.json in arkpedia-data \(a correction branch\) and the next run takes the page as it is/);
+    const reported = file(), held = cache();
+    // Past the week the peak would have run out and the six been taken without a word. Held
+    // back, it stays held back, byte for byte: no day of it is a new release.
+    assert.ok(14 > PEAK_DAYS + 2);
+    for (let n = 3; n <= 14; n++) {
+      assert.equal(await read(n), 11, `day ${n}`);
+      assert.equal(file(), reported, `day ${n}: the same entry, byte for byte`);
+      assert.equal(cache(), held, `day ${n}: the good copy and its held peak`);
+      const report = renderQuarantineReport({ quarantine: readQuarantine(root), stageReport: { version: 1, stages: [] }, now: day(n) });
+      assert.equal(report.state, 'alert', `day ${n}`);
+      const row = report.body.split('\n').find((line: string) => line.includes(`\`wiki:${upcoming}\``));
+      assert.equal(row?.startsWith('| **overdue** |'), n - 2 > OVERDUE_DAYS, `day ${n}: ${row}`);
+    }
+    // The maintainer checks the page and accepts it: the cache file goes, and the page is taken as it is.
+    fs.rmSync(cacheOf(root, upcoming));
+    assert.equal(await read(15), 6);
+    assert.deepEqual(await entries(root), []);
+    assert.deepEqual(JSON.parse(cache()), { page: upcoming, template: 'Banners cell', rows: JSON.parse(cache()).rows });
+  });
+});
+
+test('a held-back Upcoming shrink is taken once its lost rows turn up on the yearly page, and the hold mark comes off', async t => {
+  const { readWikiRows } = await wikiPages();
+  const { beginStage } = await quarantine();
+  const { onYearlyPage, parseWikiRows } = await catalogueModel();
+  const upcoming = 'Headhunting/Banners/Upcoming';
+  await temporary(async root => {
+    let answer: unknown = bannerPage(range(0, 20));
+    let yearly: object[] = [];
+    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(answer), { status: 200 }));
+    t.mock.method(console, 'warn', () => {});
+    const day = (n: number) => new Date(Date.UTC(2027, 2, 1 + n, 20));
+    const read = async (n: number) => {
+      const alerts = beginStage(root, 'wiki', day(n));
+      const rows = await readWikiRows(root, upcoming, 'Banners cell', { now: day(n), alerts, movedTo: { name: 'to Headhunting/Banners/2027', has: onYearlyPage(yearly) } });
+      alerts.commit();
+      return rows.length;
+    };
+    assert.equal(await read(0), 20);
+    answer = bannerPage(range(9, 20));
+    assert.equal(await read(1), 11);
+    answer = bannerPage(range(14, 20));
+    assert.equal(await read(2), 11);
+    assert.equal((await entries(root)).length, 1);
+    assert.equal(await read(12), 11, 'still held back ten days on');
+    // The wiki editors were slow: the five rows land on the yearly page now.
+    yearly = parseWikiRows(bannerPage(range(9, 14)).parse.wikitext['*'], 'Banners cell');
+    assert.equal(await read(13), 6);
+    assert.deepEqual(await entries(root), []);
+    const cache = JSON.parse(fs.readFileSync(cacheOf(root, upcoming), 'utf8'));
+    assert.equal(cache.rows.length, 6);
+    assert.equal(cache.peak, undefined, 'the week of the peak it was held by is long over');
+  });
+});
+
+test('sync-catalogue reads the yearly page first and tells the Upcoming pages where their rows go', async t => {
+  const { readCalendarPages } = await catalogueSync();
+  const { beginStage } = await quarantine();
+  const eventCell = (i: number) => { const day = String(i + 1).padStart(2, '0'); return `{{Upcoming events cell\n|name = Event ${i}\n|cnstart = 2027/01/${day}\n|cnend = 2027/02/${day}}}`; };
+  const cnDay = (month: string, i: number, time: string) => Date.parse(`2027-${month}-${String(i + 1).padStart(2, '0')}T${time}+08:00`) / 1000;
+  const cn = { activity: { basicInfo: Object.fromEntries(range(0, 10).map(i => [`act${i}`, { id: `act${i}`, startTime: cnDay('01', i, '04:00:00'), endTime: cnDay('02', i, '03:59:59') }])) } };
+  for (const moved of [true, false]) {
+    await temporary(async root => {
+      // The yearly page already lists a banner of its own.
+      const dated = bannerCell(20, 'Dated long ago');
+      let pages: Record<string, string> = { 'Headhunting/Banners/Upcoming': range(0, 10).map(i => bannerCell(i)).join('\n'), 'Headhunting/Banners/2027': dated, 'Event/Upcoming': range(0, 10).map(eventCell).join('\n') };
+      const requested: string[] = [];
+      t.mock.method(globalThis, 'fetch', async (input: string) => {
+        const page = new URL(input).searchParams.get('page') ?? '';
+        requested.push(page);
+        return new Response(JSON.stringify({ parse: { wikitext: { '*': pages[page] } } }), { status: 200 });
+      });
+      t.mock.method(console, 'warn', () => {});
+      let en = { activity: { basicInfo: {} } };
+      const read = async (day: string) => {
+        const now = new Date(`${day}T20:00:00Z`), alerts = beginStage(root, 'wiki', now);
+        const rows = await readCalendarPages(root, { now, cn, en, alerts, write: true });
+        alerts.commit();
+        return rows;
+      };
+      await read('2027-03-01');
+      assert.equal(requested[0], 'Headhunting/Banners/2027', 'the yearly page is read before the Upcoming pages');
+      // Global dates banners 0-6 and schedules events 0-6: they leave the Upcoming pages.
+      pages = { 'Headhunting/Banners/Upcoming': range(7, 10).map(i => bannerCell(i)).join('\n'),
+        'Headhunting/Banners/2027': [dated, ...(moved ? range(0, 7).map(i => bannerCell(i, `Global title ${i}`)) : [])].join('\n'),
+        'Event/Upcoming': range(7, 10).map(eventCell).join('\n') };
+      if (moved) en = { activity: { basicInfo: Object.fromEntries(range(0, 7).map(i => [`act${i}`, { id: `act${i}` }])) } };
+      const rows = await read('2027-03-02');
+      if (moved) {
+        assert.deepEqual([rows.upcoming.length, rows.yearly.length, rows.events.length], [3, 8, 3]);
+        assert.deepEqual(await entries(root), []);
+      } else {
+        assert.deepEqual([rows.upcoming.length, rows.events.length], [10, 10], 'nothing accounts for the rows that left: the last good copies stand');
+        assert.deepEqual((await entries(root)).map((e: { key: string; reason: string }) => [e.key, /not counting rows that moved (.*?);/.exec(e.reason)?.[1]]),
+          [['wiki:Event/Upcoming', 'into the Global client\'s activity table'], ['wiki:Headhunting/Banners/Upcoming', 'to Headhunting/Banners/2027']]);
+      }
+    });
+    t.mock.restoreAll();
+  }
+});
+
+test('a row is accounted for where the wiki moves it: on the yearly page by its CN days, in the Global client by its CN activity', async () => {
+  const { onYearlyPage, inGlobalClient } = await catalogueModel();
+  const row = { type: 'limited', name: 'Fan title', cnstart: '2026/05/01 12:00:00', cnend: '2026/05/15 03:59:00' };
+  // The yearly page names it by its Global title, and writes its days without a time.
+  assert.equal(onYearlyPage([{ name: 'Official title', cnstart: '2026/05/01', cnend: '2026/05/15', globalstart: '2026/10/01' }])(row), true);
+  assert.equal(onYearlyPage([{ name: 'Fan title', cnstart: '2026/05/02', cnend: '2026/05/15' }])(row), false, 'another window is another banner');
+  assert.equal(onYearlyPage([{ name: 'Fan title', cnstart: '2026/05/01', cnend: '2026/05/29' }])(row), false);
+  assert.equal(onYearlyPage([{}])({ name: 'Undated' }), false, 'a row with no CN day is never accounted for');
+  // CN day boundaries are UTC+8: 2026-06-01 04:00 CN is 2026-05-31 20:00 UTC.
+  const at = (day: string) => Date.parse(`${day}T20:00:00Z`) / 1000;
+  const cn = { activity: { basicInfo: { act50side: { id: 'act50side', startTime: at('2026-05-31'), endTime: at('2026-06-14') } } } };
+  const event = { name: 'Thunder in the Azure Dream', cnstart: '2026/06/01', cnend: '2026/06/15' };
+  assert.equal(inGlobalClient(cn, { activity: { basicInfo: {} } })(event), false, 'not scheduled on Global yet');
+  assert.equal(inGlobalClient(cn, { activity: { basicInfo: { act50side: { id: 'act50side' } } } })(event), true);
+  assert.equal(inGlobalClient(cn, { activity: { basicInfo: { act50side: { id: 'act50side' } } } })({ ...event, cnend: '2026/06/22' }), false);
+});
+
 test('ARKPEDIA_WIKI_BASE points the readers elsewhere, so an unreachable wiki can be rehearsed', async t => {
   const { readWikiRows } = await wikiPages();
   const { beginStage } = await quarantine();
@@ -266,7 +475,7 @@ test('ARKPEDIA_WIKI_BASE points the readers elsewhere, so an unreachable wiki ca
     try {
       const alerts = beginStage(root, 'wiki', new Date('2027-06-01T00:00:00Z'));
       // A real request to a closed local port (not one fetch blocks outright): refused at once.
-      assert.deepEqual(await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now: new Date('2027-06-01T00:00:00Z'), alerts }), [{ name: 'Cached event' }]);
+      assert.deepEqual(await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now: new Date('2027-06-01T00:00:00Z'), alerts, movedTo: nowhere }), [{ name: 'Cached event' }]);
       assert.equal(alerts.entries[0].sourceRef, 'http://127.0.0.1:65534/wiki/Event/Upcoming');
       assert.match(alerts.entries[0].reason, /the wiki could not be reached/);
     } finally {

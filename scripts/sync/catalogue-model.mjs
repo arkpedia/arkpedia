@@ -283,6 +283,16 @@ export function parseWikiRows(text, template) {
   });
 }
 const dayPart = text => /\d{4}\/\d{2}\/\d{2}/.exec(text ?? '')?.[0];
+/* Where a row that left an Upcoming page went, for wiki-pages.mjs to tell a move from a loss.
+   The wiki moves a banner row to the yearly page of its Global year once Global dates the
+   banner, and an event row off Event/Upcoming once Global schedules the event, which the
+   Global client's activity table then carries. A row is known by its CN opening and closing
+   days, as reconcileCalendars knows it; the rows date nothing else, so a date alone accounts
+   for nothing. */
+const sameCnDays = (row, start, end) => Boolean(dayPart(row.cnstart)) && dayPart(row.cnstart) === start && dayPart(row.cnend) === end;
+export const onYearlyPage = yearlyRows => row => yearlyRows.some(other => sameCnDays(row, dayPart(other.cnstart), dayPart(other.cnend)));
+export const inGlobalClient = (cn, en) => row => Object.values(cn.activity?.basicInfo ?? {})
+  .some(activity => sameCnDays(row, serverDay(activity.startTime), serverDay(activity.endTime)) && Boolean(en.activity?.basicInfo?.[activity.id]));
 
 /* A banner's identity is the client's gacha pool: cnPoolId on CN, globalPoolId on
    Global. The kinds below tell pools apart that open the same day, and match a pool to
