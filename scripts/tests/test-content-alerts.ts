@@ -172,7 +172,7 @@ test('the quarantine report lists held records and failed stages, and marks entr
     entry('operator:x', '2026-09-10', { stage: 'completeness', action: 'published-partial', sourceRef: 'Headhunting/Banners/2026' }),
     // The stage runner's own entry for a stage that did not run to the end: it dates the
     // stage's row instead of being a row of its own.
-    entry('stage:charwords', '2026-09-19', { stage: 'refresh', action: 'kept-previous', reason: 'failed: exited 22' }),
+    entry('stage:charwords', '2026-09-19', { stage: 'refresh', action: 'kept-previous', reason: 'failed or timed out; the run\'s stage report says how' }),
   ] };
   const stageReport = { version: 1, stages: [
     { stage: 'pin-upstream', status: 'ok', durationMs: 1 },
@@ -220,7 +220,7 @@ test('the quarantine report lists held records and failed stages, and marks entr
   const leftover = renderQuarantineReport({ quarantine, stageReport: null, now });
   assert.equal(leftover.state, 'alert');
   assert.match(leftover.body, /No refresh stage ran in this run; this is what the last refresh left failing\./);
-  assert.match(leftover.body, /^\| \*\*overdue\*\* \| `charwords` \| last refresh \| 2026-09-19 \(4 d\) \| failed: exited 22 \|$/m);
+  assert.match(leftover.body, /^\| \*\*overdue\*\* \| `charwords` \| last refresh \| 2026-09-19 \(4 d\) \| failed or timed out; the run's stage report says how \|$/m);
 });
 
 test('text from the wiki, the game or a stage cannot forge a marker, mention anyone or break the table', () => {

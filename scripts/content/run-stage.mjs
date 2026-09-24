@@ -284,6 +284,22 @@ function record(root, entry) {
   writeJson(path.join(root, REPORT), report);
 }
 const HOW = { failed: 'failed', skipped: 'was skipped', 'rolled-back': 'was rolled back' };
+/*
+ * The reason a stage's quarantine entry carries (recordStageHolds), kept on its report entry as
+ * `hold`. It names the kind of problem and the stages involved, never how that day went: the
+ * exit code, the signal, the time limit and the error text differ from one day of an outage to
+ * the next (a server answers 502, then times out, then refuses the connection), and
+ * data/quarantine.json is published, so each of those would be a new release with no content
+ * change. They stay in the log and in the stage report, which is not published (.gitignore, and
+ * validate-release.mjs refuses it). For the same reason a timeout is not told apart from any
+ * other failure here, and a stage skipped or rolled back names the stage it waited on, not
+ * what became of that stage.
+ */
+const HOLD = {
+  failed: () => 'failed or timed out; the run\'s stage report says how',
+  skipped: need => `skipped: needs ${need}, which did not run to the end`,
+  rolledBack: (name, heads) => `rolled back: ${name} did not finish in place what ${heads.join(', ')} wrote`,
+};
 
 /* ---- run ----------------------------------------------------------------------- */
 
@@ -305,12 +321,13 @@ export function parseRunArgs(args) {
   return parsed;
 }
 
-/** Why a stage must not run, from what the stages it needs did earlier in this run. */
+/** Why a stage must not run, from what the stages it needs did earlier in this run: the first
+ * such need, and what became of it. */
 function blockedBy(report, needs) {
   for (const need of needs) {
     const result = report.stages.findLast(entry => entry.stage === need);
-    if (!result) return `needs ${need}, which has not run`;
-    if (result.status !== 'ok') return `needs ${need}, which ${HOW[result.status] ?? result.status}`;
+    if (!result) return { need, reason: `needs ${need}, which has not run` };
+    if (result.status !== 'ok') return { need, reason: `needs ${need}, which ${HOW[result.status] ?? result.status}` };
   }
   return null;
 }
@@ -389,10 +406,12 @@ function rollBackUnfinished(root, { name, needs, outputs }, why) {
   for (const entry of report.stages) if (entry.status === 'ok' && (entry.needs ?? []).some(need => stages.has(need))) stages.add(entry.stage);
   const { restored, kept } = rollBack(root, stages);
   const reason = `rolled back: ${name} ${why} before finishing in place what ${[...new Set(heads)].join(', ')} wrote`;
+  const hold = HOLD.rolledBack(name, [...new Set(heads)]);
   for (const entry of report.stages) {
     if (!stages.has(entry.stage) || entry.status !== 'ok') continue;
     entry.status = 'rolled-back';
     entry.reason = reason;
+    entry.hold = hold;
   }
   writeJson(path.join(root, REPORT), report);
   const invariant = report.stages.some(entry => stages.has(entry.stage) && entry.invariant);
@@ -409,9 +428,10 @@ export async function runStage(root, options) {
   const kept = keep.map(file => relative(root, file));
   for (const file of kept) if (!inTree(file)) throw new Error(`--keep takes a path under data/ or public/, not ${file}`);
   const facts = { stage: name, ...(invariant ? { invariant } : {}), ...(needs.length ? { needs } : {}) };
-  const reason = blockedBy(report, needs);
-  if (reason) {
-    record(root, { ...facts, status: 'skipped', reason, durationMs: 0 });
+  const blocked = blockedBy(report, needs);
+  if (blocked) {
+    const { reason } = blocked;
+    record(root, { ...facts, status: 'skipped', reason, hold: HOLD.skipped(blocked.need), durationMs: 0 });
     console.log(inActions() ? `::warning title=Stage ${name} skipped::${annotation(reason)}` : `\n== ${name}: skipped (${reason})`);
     const rolled = rollBackUnfinished(root, options, 'was skipped');
     return { status: 'skipped', exitCode: invariant || rolled?.invariant ? 1 : 0 };
@@ -440,7 +460,7 @@ export async function runStage(root, options) {
     ? [excerpt(result.output), `Only the asset repositories publish media, and check:assets refuses these: ${unpublished.slice(0, 10).join(', ')}${unpublished.length > 10 ? ` and ${unpublished.length - 10} more` : ''}; stage them outside public/ and report them.`].filter(Boolean).join('\n')
     : excerpt(result.output) || how;
   if (inActions()) console.log('::endgroup::');
-  record(root, { ...facts, status: 'failed', durationMs, exit: how, error, command: command.join(' '), restored: restored.length });
+  record(root, { ...facts, status: 'failed', durationMs, exit: how, error, hold: HOLD.failed(), command: command.join(' '), restored: restored.length });
   const summary = `${how}; ${restored.length} file(s) under data/ and public/ restored${kept.length ? ` (what it wrote to ${kept.join(', ')} is kept)` : ''}${invariant ? '. This stage is an invariant, so the run fails.' : ', stages that need it are skipped, the rest continue.'}`;
   console.log(inActions() ? `::error title=Stage ${name} failed::${annotation(`${summary}\n${error}`)}` : `\n== ${name}: FAILED (${summary})`);
   // A cancelled job stops here too, instead of starting the next stage (or rolling back).
@@ -488,9 +508,10 @@ export function declaredStages(root) {
  * invariant stopped early) keeps it -- unless the refresh no longer declares it: a stage
  * renamed or dropped while failing would otherwise stay in the published file, and reopen
  * the daily issue, for good.
- * The reason stays the same from day to day on purpose: the file is published, and the
- * day's error text is in the stage report and the issue. A clean run in a tree with no
- * quarantine file (a local refresh, the manual fallback's pull request) does not start one.
+ * The reason (HOLD, kept on the report entry as `hold`) stays the same from day to day on
+ * purpose: the file is published, and the day's exit and error text are in the stage report
+ * and the issue. A clean run in a tree with no quarantine file (a local refresh, the manual
+ * fallback's pull request) does not start one.
  */
 export function recordStageHolds(root, stages, now = defaultNow()) {
   if (!fs.existsSync(path.join(root, QUARANTINE_FILE)) && stages.every(entry => entry.status === 'ok')) return [];
@@ -503,8 +524,7 @@ export function recordStageHolds(root, stages, now = defaultNow()) {
   }
   for (const entry of stages) {
     if (entry.status === 'ok') continue;
-    holds.add({ key: `stage:${entry.stage}`, action: 'kept-previous',
-      reason: entry.status === 'failed' ? `failed: ${entry.exit}` : entry.status === 'skipped' ? `skipped: ${entry.reason}` : entry.reason });
+    holds.add({ key: `stage:${entry.stage}`, action: 'kept-previous', reason: entry.hold ?? entry.status });
   }
   return holds.commit();
 }

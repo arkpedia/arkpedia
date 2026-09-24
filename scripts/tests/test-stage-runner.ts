@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +10,8 @@ import path from 'node:path';
 import { MIRRORS } from '../content/pin-upstream.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { declaredStages, STAGE_DEFINITIONS } from '../content/run-stage.mjs';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { contentInput } from '../content/release-input.mjs';
 
 const runner = path.resolve('scripts/content/run-stage.mjs');
 /* A scratch tree with a little of data/ and public/, where every case runs the stage runner
@@ -262,17 +265,72 @@ test('every stage that did not run to the end keeps a dated quarantine entry unt
     day('2026-09-20T20:00:00Z', [['charwords', [], 'process.exit(22)'], ['voices', ['--needs', 'charwords'], 'process.exit(0)'], ['lyrics', [], 'process.exit(0)']]);
     assert.deepEqual(quarantine(), [
       { key: 'banner:X', stage: 'catalogue', action: 'published-partial', reason: 'no art', firstSeen: '2026-09-01' },
-      { key: 'stage:charwords', stage: 'refresh', action: 'kept-previous', reason: 'failed: exited 22', firstSeen: '2026-09-20' },
-      { key: 'stage:voices', stage: 'refresh', action: 'kept-previous', reason: 'skipped: needs charwords, which failed', firstSeen: '2026-09-20' },
+      { key: 'stage:charwords', stage: 'refresh', action: 'kept-previous', reason: 'failed or timed out; the run\'s stage report says how', firstSeen: '2026-09-20' },
+      { key: 'stage:voices', stage: 'refresh', action: 'kept-previous', reason: 'skipped: needs charwords, which did not run to the end', firstSeen: '2026-09-20' },
     ]);
     // Still failing four days on: the same entry, the first day it failed kept.
     day('2026-09-24T20:00:00Z', [['charwords', [], 'process.exit(22)'], ['voices', [], 'process.exit(0)']]);
-    assert.deepEqual(quarantine().slice(1), [{ key: 'stage:charwords', stage: 'refresh', action: 'kept-previous', reason: 'failed: exited 22', firstSeen: '2026-09-20' }]);
+    assert.deepEqual(quarantine().slice(1), [{ key: 'stage:charwords', stage: 'refresh', action: 'kept-previous', reason: 'failed or timed out; the run\'s stage report says how', firstSeen: '2026-09-20' }]);
     // A run of only some stages leaves the others' entries alone; a stage that recovers drops its own.
     day('2026-09-25T20:00:00Z', [['lyrics', [], 'process.exit(1)']]);
     assert.deepEqual(quarantine().slice(1).map((entry: any) => [entry.key, entry.firstSeen]), [['stage:charwords', '2026-09-20'], ['stage:lyrics', '2026-09-25']]);
     day('2026-09-26T20:00:00Z', [['charwords', [], 'process.exit(0)'], ['lyrics', [], 'process.exit(0)']]);
     assert.deepEqual(quarantine().map((entry: any) => entry.key), ['banner:X']);
+  });
+});
+
+test('a stage that keeps failing publishes the same source every day, however each day fails; the stage report keeps how', () => {
+  withTree(tree => {
+    // What the release would publish of this tree: export.mjs lists data/ and public/ through
+    // git, which leaves out what .gitignore names (the stage report), and hashes the rest into
+    // the content id the publish step compares.
+    fs.copyFileSync('.gitignore', path.join(tree.root, '.gitignore'));
+    assert.equal(spawnSync('git', ['init', '-q'], { cwd: tree.root }).status, 0);
+    const published = () => {
+      const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { cwd: tree.root, encoding: 'utf8' });
+      const files = listed.stdout.split('\0').filter(Boolean).sort();
+      return { files, content: contentInput({ generator: 'test', sourceHashes: Object.fromEntries(files.map(file =>
+        [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])) }) };
+    };
+    tree.write('data/quarantine.json', '{"version":1,"entries":[]}\n');
+    const hang = 'setTimeout(() => {}, 60000)';
+    // One outage, three days: a download answers 5xx (curl exits 22), hangs past its limit, then
+    // is refused (7); another stage times out, exits 1, then is killed; a stage that finishes an
+    // earlier one's output in place fails, hangs, then exits 3, taking that stage back each day.
+    const days: [string, [string[], string][]][] = [
+      ['2026-09-20T20:00:00Z', [[[], 'process.exit(22)'], [['--timeout-minutes', '0.01'], hang], [[], 'process.exit(1)']]],
+      ['2026-09-21T20:00:00Z', [[['--timeout-minutes', '0.01'], hang], [[], 'process.exit(1)'], [['--timeout-minutes', '0.01'], hang]]],
+      ['2026-09-22T20:00:00Z', [[[], 'process.exit(7)'], [[], "process.kill(process.pid, 'SIGKILL')"], [[], 'process.exit(3)']]],
+    ];
+    const seen = days.map(([now, [charwords, lyrics, index]]) => {
+      tree.cli(['begin']);
+      tree.stage('charwords', charwords[0], charwords[1]);
+      tree.stage('voices', ['--needs', 'charwords'], 'process.exit(0)');
+      tree.stage('lyrics', lyrics[0], lyrics[1]);
+      tree.stage('dataset', [], build);
+      tree.stage('index', ['--needs', 'dataset', '--output', 'public/index.json', ...index[0]], `require('fs').writeFileSync('public/index.json', '[1]'); ${index[1]}`);
+      tree.stage('late', ['--needs', 'dataset'], 'process.exit(0)');
+      assert.equal(tree.cli(['end'], { ARKPEDIA_NOW: now }).status, 0);
+      return { quarantine: tree.read('data/quarantine.json'), ...published(), report: tree.report().stages };
+    });
+    // How each day failed is in the stage report, which is not published.
+    assert.deepEqual(seen.map(day => day.report.find((entry: any) => entry.stage === 'charwords').exit), ['exited 22', 'timed out after 0.01 min', 'exited 7']);
+    assert.deepEqual(seen.map(day => day.report.find((entry: any) => entry.stage === 'lyrics').exit), ['timed out after 0.01 min', 'exited 1', 'killed by SIGKILL']);
+    assert.deepEqual(seen.map(day => day.report.find((entry: any) => entry.stage === 'index').exit), ['exited 1', 'timed out after 0.01 min', 'exited 3']);
+    assert.ok(seen.every(day => day.report.find((entry: any) => entry.stage === 'dataset').status === 'rolled-back'));
+    assert.ok(seen.every(day => day.files.includes('data/quarantine.json') && !day.files.includes('data/stage-report.json')), 'the stage report stays out of the published source');
+    // The published source is the same, byte for byte, every day of the outage: no new release.
+    assert.equal(seen[1].quarantine, seen[0].quarantine);
+    assert.equal(seen[2].quarantine, seen[0].quarantine);
+    assert.deepEqual(seen.map(day => day.content), Array(3).fill(seen[0].content));
+    assert.deepEqual(JSON.parse(seen[0].quarantine!).entries.map(({ key, reason, firstSeen }: any) => [key, reason, firstSeen]), [
+      ['stage:charwords', 'failed or timed out; the run\'s stage report says how', '2026-09-20'],
+      ['stage:dataset', 'rolled back: index did not finish in place what dataset wrote', '2026-09-20'],
+      ['stage:index', 'failed or timed out; the run\'s stage report says how', '2026-09-20'],
+      ['stage:late', 'skipped: needs dataset, which did not run to the end', '2026-09-20'],
+      ['stage:lyrics', 'failed or timed out; the run\'s stage report says how', '2026-09-20'],
+      ['stage:voices', 'skipped: needs charwords, which did not run to the end', '2026-09-20'],
+    ]);
   });
 });
 
