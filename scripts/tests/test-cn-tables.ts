@@ -130,7 +130,7 @@ test('with the primary mirror down, every CN table comes from the fallback, repo
   };
   const first = await day(new Error('fatal: unable to access \'https://github.com/Kengxxiao/ArknightsGameData.git/\': Failed to connect to github.com port 443: Connection refused'));
   assert.equal(first.chosen.as, 'fallback');
-  assert.deepEqual(first.calls.map(call => [call.repository, call.commit]), [[KENGXXIAO, commit('1')], [YUANYAN, commit('3')]]);
+  assert.deepEqual(first.calls.map((call: { repository: string; commit: string | null }) => [call.repository, call.commit]), [[KENGXXIAO, commit('1')], [YUANYAN, commit('3')]]);
   assert.deepEqual(first.tables, { repository: YUANYAN, commit: commit('3'), folder: 'gamedata', serialization: 'numeric' });
   assert.deepEqual(lockOf(root).cnTables, first.tables);
   assert.equal(linkOf(root, 'gamedata'), path.join('..', TABLE_CHECKOUTS[YUANYAN], 'gamedata'));
