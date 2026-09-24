@@ -249,8 +249,9 @@ test('text from the wiki, the game or a stage cannot forge a marker, mention any
   assert.doesNotMatch(prose, /(?<!\\)\[[^\]]*\]\(javascript:/, 'no live link to a script');
   // GitHub autolinks a bare address in text; only the sourceRef's own [source](...) may link.
   const bare = prose.replace(/\[source\]\(https?:\/\/[^\s)]+\)/g, '');
-  assert.doesNotMatch(bare, /\b(?:https?|ftp|mailto|xmpp):(?!\u200b)/i, 'no bare URL GitHub would link');
-  assert.doesNotMatch(bare, /\bwww\./i, 'no bare www. address GitHub would link');
+  assert.doesNotMatch(bare, /:\/\/|(?:mailto|xmpp):(?!\u200b)/i, 'no bare URL GitHub would link');
+  assert.doesNotMatch(bare, /www\./i, 'no bare www. address GitHub would link');
+  assert.doesNotMatch(bare, /@(?!\u200b)/, 'no bare email address or mention');
   // Each kind of bare address, in a cell of its own, reads as it was and links nowhere.
   for (const [address, shown] of [['https://evil.example/bare', 'https:\u200b//evil.example/bare'], ['visit http://evil.example/x now', 'visit http:\u200b//evil.example/x now'],
     ['www.evil.example', 'www\u200b.evil.example'], ['WWW.EVIL.EXAMPLE', 'WWW\u200b.EVIL.EXAMPLE'], ['HTTPS://EVIL.EXAMPLE/UP', 'HTTPS:\u200b//EVIL.EXAMPLE/UP'],
@@ -265,6 +266,43 @@ test('text from the wiki, the game or a stage cannot forge a marker, mention any
   const unescapedPipes = (line: string) => line.replace(/\\\|/g, '').split('|').length - 1;
   for (const line of text.split('\n').filter((line: string) => line.startsWith('| ') && !line.startsWith('| |'))) assert.equal(unescapedPipes(line), 7 - (line.includes('`catalogue`') ? 1 : 0), line);
   assert.doesNotMatch(comment, /[@#][\w-]|<!--/);
+});
+
+test('no address in a cell autolinks, whatever comes before or after it, and the sourceRef still links', () => {
+  const z = '\u200b';
+  // GitHub reads a scheme back over the letters before "://", links a "www." after "_", "*", "~"
+  // or "(", and an email address whose domain begins with "_" or "."; a word boundary missed these.
+  const hostile: [string, string][] = [
+    ['1https://evil.example', `1https:${z}//evil.example`],
+    ['_https://evil.example', `\\_https:${z}//evil.example`],
+    ['x_https://evil.example/a_b', `x\\_https:${z}//evil.example/a\\_b`],
+    ['git+ssh://evil.example', `git+ssh:${z}//evil.example`],
+    ['HTTPS://EVIL.EXAMPLE', `HTTPS:${z}//EVIL.EXAMPLE`],
+    ['x_www.evil.example', `x\\_www${z}.evil.example`],
+    ['_www.evil.example', `\\_www${z}.evil.example`],
+    ['*www.evil.example*', `\\*www${z}.evil.example\\*`],
+    ['~www.evil.example', `~www${z}.evil.example`],
+    ['(www.evil.example)', `(www${z}.evil.example)`],
+    ['1WWW.evil.example', `1WWW${z}.evil.example`],
+    ['9mailto:a@evil.example', `9mailto:${z}a@${z}evil.example`],
+    ['Xxmpp:foo@evil.example/r', `Xxmpp:${z}foo@${z}evil.example/r`],
+    ['user@evil.example', `user@${z}evil.example`],
+    ['user@_evil.example', `user@${z}\\_evil.example`],
+    ['user_@_evil.example', `user\\_@${z}\\_evil.example`],
+    ['a@.b.example', `a@${z}.b.example`],
+    ['first.last+tag@sub.evil.example', `first.last+tag@${z}sub.evil.example`],
+    // Mentions and references are neutralised as before.
+    ['@octocat', `@${z}octocat`], ['@arkpedia/maintainers', `@${z}arkpedia/maintainers`], ['see #12', `see #${z}12`], ['a/b#3', `a/b#${z}3`],
+  ];
+  for (const [text, shown] of hostile) assert.equal(cell(text), shown, text);
+  const sourceRef = `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${'a'.repeat(40)}/item/icon.png`;
+  const { body } = renderQuarantineReport({ quarantine: { version: 1, entries: [{ key: 'item-icon:x', stage: 'item-icons', action: 'published-partial',
+    firstSeen: '2026-09-23', reason: hostile.map(([text]) => text).join(' '), sourceRef }] }, stageReport: { version: 1, stages: [] }, now: new Date('2026-09-23T20:00:00Z') });
+  const row = body.split('\n').find((line: string) => line.includes('`item-icon:x`')) ?? '';
+  assert.ok(row.endsWith(` ([source](${sourceRef})) |`), `the sourceRef keeps its link: ${row.slice(-200)}`);
+  const text = row.replace(`[source](${sourceRef})`, '');
+  assert.doesNotMatch(text, /:\/\/|www\./i, 'no scheme or www. address is left whole');
+  assert.doesNotMatch(text, /@(?!\u200b)|#[\w-]/, 'no email address, mention or reference is left whole');
 });
 
 // The shell of a prepare-content step, as the runner gets it.
