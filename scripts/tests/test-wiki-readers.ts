@@ -66,6 +66,7 @@ test('a page the wiki cannot serve is read from its last good copy and reported,
     t.mock.method(globalThis, 'fetch', async () => {
       if (answer instanceof Error) throw answer;
       if (typeof answer === 'number') return new Response('busy', { status: answer });
+      if (typeof answer === 'string') return new Response(answer, { status: 200, headers: { 'content-type': 'text/html' } });
       return new Response(JSON.stringify(answer), { status: 200 });
     });
     const read = async () => {
@@ -78,13 +79,14 @@ test('a page the wiki cannot serve is read from its last good copy and reported,
     assert.equal(lastGood.length, 2);
     t.mock.method(console, 'warn', () => {});
     const outages: [unknown, RegExp][] = [
-      // A transport failure is named by its kind, not its words of the day: the reason is a
+      // A failed request is named by its kind, not its words of the day: the reason is a
       // release input, and an outage that times out one day and answers 502 the next is one problem.
       [Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } }), /cannot be used: the wiki could not be reached;/],
       [Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }), /cannot be used: the wiki could not be reached;/],
-      [503, /cannot be used: the wiki answered with a server error;/],
-      [502, /cannot be used: the wiki answered with a server error;/],
-      [403, /cannot be used: the wiki answered HTTP 403;/],
+      [503, /cannot be used: the wiki could not be reached;/],
+      [502, /cannot be used: the wiki could not be reached;/],
+      [403, /cannot be used: the wiki could not be reached;/],
+      ['<html>Down for maintenance</html>', /cannot be used: the wiki could not be reached;/],
       [missing, /Missing structured wiki page: Event\/Upcoming/],
       [{ parse: { wikitext: { '*': '#REDIRECT [[Event/Somewhere else]]' } } }, /still a redirect/],
       // Reformatted so that no row parses: a template rename, not a quiet day.
@@ -108,6 +110,48 @@ test('a page the wiki cannot serve is read from its last good copy and reported,
     answer = 503;
     assert.deepEqual(await read(), []);
     assert.deepEqual((await entries(root)).map((e: { action: string }) => e.action), ['omitted-new']);
+  });
+});
+
+test('one outage writes the same quarantine file every day, whatever each day\'s failed request said; the log gets the words', async t => {
+  const { readWikiRows } = await wikiPages();
+  const { beginStage } = await quarantine();
+  await temporary(async root => {
+    let answer: unknown = { parse: { wikitext: { '*': eventCells } } };
+    const warnings: string[] = [];
+    t.mock.method(console, 'warn', (message: string) => { warnings.push(message); });
+    t.mock.method(globalThis, 'fetch', async () => {
+      if (answer instanceof Error) throw answer;
+      if (typeof answer === 'number') return new Response('busy', { status: answer });
+      if (typeof answer === 'string') return new Response(answer, { status: 200, headers: { 'content-type': 'text/html' } });
+      return new Response(JSON.stringify(answer), { status: 200 });
+    });
+    const read = async (day: string) => {
+      const now = new Date(`${day}T20:00:00Z`), alerts = beginStage(root, 'wiki', now);
+      await readWikiRows(root, 'Event/Upcoming', 'Upcoming events cell', { now, alerts });
+      alerts.commit();
+      const file = path.join(root, 'data/quarantine.json');
+      return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    };
+    await read('2027-06-01');
+    const days: [string, unknown, RegExp][] = [
+      ['2027-06-02', 502, /Reading Event\/Upcoming failed: HTTP 502/],
+      ['2027-06-03', Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } }), /failed: fetch failed \(ECONNREFUSED\)/],
+      ['2027-06-04', 403, /failed: HTTP 403/],
+      ['2027-06-05', '<html>Down for maintenance</html>', /failed: .*JSON/],
+      ['2027-06-06', Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }), /failed: The operation was aborted due to timeout/],
+      ['2027-06-07', 503, /failed: HTTP 503/],
+    ];
+    const files = new Set<string>();
+    for (const [day, outage, logged] of days) {
+      answer = outage;
+      warnings.length = 0;
+      files.add(await read(day));
+      assert.match(warnings.join('\n'), logged, day);
+    }
+    assert.equal(files.size, 1, 'six days of one outage, one set of bytes');
+    const [entry] = await entries(root);
+    assert.deepEqual([entry.firstSeen, entry.reason], ['2027-06-02', 'Wiki page Event/Upcoming cannot be used: the wiki could not be reached; its last good read (2 rows) is used instead.']);
   });
 });
 

@@ -38,7 +38,11 @@ it must be published at.
 
 The wiki is only asked about crests that are not published yet -- none today -- and it
 never fails the refresh: a crest it cannot serve leaves that card on its fallback and
-goes on the quarantine list under 'nation-marks' until a later run imports it.
+goes on the quarantine list under 'nation-marks' until a later run imports it. The
+reason says which step failed (asking the wiki, the download, decoding the image) and
+never the day's error text, which goes to the log: data/quarantine.json is a release
+input, and an outage that answers 502 one day and refuses the connection the next must
+not publish a release each day.
 """
 from published_assets import published_assets
 from quarantine import WIKI_API, report
@@ -154,7 +158,7 @@ def main() -> int:
         handled.add(nation)
         url = urls.get(nation)
         if not url:
-            reason = (f'The wiki could not be asked for the {nation} crest ({unreachable})' if unreachable
+            reason = (f'The wiki could not be reached to ask for the {nation} crest' if unreachable
                       else f'The wiki has no File:{nation}.png')
             alerts.append({'key': f'nation-mark:{slug(nation)}', 'action': 'published-partial', 'sourceRef': API,
                            'reason': f'{reason}; its Annihilation cards are published without a crest.'})
@@ -162,11 +166,19 @@ def main() -> int:
         req = urllib.request.Request(url, headers={'User-Agent': UA})
         try:
             with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=90) as r:
-                crest = mask(r.read())
+                blob = r.read()
         except Exception as exc:  # noqa: BLE001
             print(f'  FAILED {nation}: {exc}', file=sys.stderr)
             alerts.append({'key': f'nation-mark:{slug(nation)}', 'action': 'published-partial', 'sourceRef': url,
-                           'reason': f'Downloading the {nation} crest failed ({exc}); its Annihilation cards are published without it.'})
+                           'reason': f'Downloading the {nation} crest failed; its Annihilation cards are published without it.'})
+            continue
+        try:
+            crest = mask(blob)
+        except Exception as exc:  # noqa: BLE001 -- e.g. an HTML page answered 200
+            print(f'  UNREADABLE {nation}: {exc}', file=sys.stderr)
+            alerts.append({'key': f'nation-mark:{slug(nation)}', 'action': 'published-partial', 'sourceRef': url,
+                           'reason': f'The {nation} crest the wiki serves is not an image that decodes; its Annihilation cards '
+                                     'are published without it.'})
             continue
         os.makedirs(out_dir, exist_ok=True)
         crest.save(os.path.join(out_dir, file), 'WEBP', lossless=True, method=6)

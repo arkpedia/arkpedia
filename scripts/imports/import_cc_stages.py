@@ -99,7 +99,10 @@ def main():
                 why = (f'its render is staged as .cache/cc-stages/{key}.webp from map/{key}.png, but nothing publishes it; '
                        f'it is published without one until stages-images/{key}.webp is added to arkpedia-image-assets')
             except Exception as exc:  # noqa: BLE001 -- one bad file holds back one stage
-                why = f'map/{key}.png does not decode ({exc}), so it is published without a render'
+                # The error names the checkout's path and the day's wording: the log gets it,
+                # the reason (a release input) only the kind.
+                print(f'  UNREADABLE map/{key}.png: {exc}', file=sys.stderr)
+                why = f'map/{key}.png does not decode, so it is published without a render'
             alerts.append({'key': f'cc-render:{rec["slug"]}', 'action': 'published-partial', 'sourceRef': f'map/{key}.png',
                            'reason': f'{entry["code"]} ({rec["slug"]}): {why}.'})
         else:

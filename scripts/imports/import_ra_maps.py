@@ -40,6 +40,9 @@ The wiki is only asked about stages whose map is not published yet -- none, once
 season is imported -- and it can never fail the refresh: a stage it cannot serve (down,
 no upload yet, a failed download, an image that does not decode) keeps preview: null
 and goes on the quarantine list under 'ra-maps' until a later run imports its map.
+The reason names which of those it was and never the day's error text, which goes to
+the log: data/quarantine.json is a release input, and an outage that answers 502 one day
+and refuses the connection the next must not publish a release each day.
 
 Run:  python3 scripts/imports/import_ra_maps.py
 """
@@ -165,7 +168,7 @@ def main():
         # and is tried again by the next run.
         if unreachable:
             alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': API,
-                           'reason': f'The wiki could not be asked for the map of {name} ({unreachable}); the stage is published without one.'})
+                           'reason': f'The wiki could not be reached to ask for the map of {name}; the stage is published without one.'})
             continue
         hit = urls.get(name)
         if not hit:
@@ -186,14 +189,14 @@ def main():
                 except Exception as exc:  # noqa: BLE001
                     print(f'  FAILED {title}: {exc}', file=sys.stderr)
                     alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
-                                   'reason': f'Downloading {title} failed ({exc}); the stage is published without a map.'})
+                                   'reason': f'Downloading {title} failed; the stage is published without a map.'})
                     continue
             try:
                 im = Image.open(BytesIO(fetched[url])).convert('RGB')
             except Exception as exc:  # noqa: BLE001 -- e.g. an HTML page answered 200
                 print(f'  UNREADABLE {title}: {exc}', file=sys.stderr)
                 alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
-                               'reason': f'{title} is not an image that decodes ({exc}); the stage is published without a map.'})
+                               'reason': f'{title} is not an image that decodes; the stage is published without a map.'})
                 continue
             os.makedirs(out_dir, exist_ok=True)
             im.save(target, 'WEBP', quality=80, method=6)

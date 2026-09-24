@@ -70,23 +70,25 @@ function nextPeak(page, rows, cached, today) {
 }
 export const wikiPageUrl = page => `${wikiBase()}/wiki/${encodeURI(page.replaceAll(' ', '_'))}`;
 
-async function fetchWikiJson(url) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(60000), headers: { 'User-Agent': USER_AGENT } });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
-}
-
 /* Why a request for the page failed, in words that stay the same while the problem does:
    the reason is published in data/quarantine.json, a release input, so an outage that
-   answers 502 one day and times out the next must not read as a new problem each day. A
-   page the wiki does serve but that cannot be used (missing, still a redirect) keeps
-   wikiText's own words, which name the page's state. The exact error goes to the log. */
-function unusable(error) {
-  const status = /^HTTP (\d{3})$/.exec(error.message)?.[1];
-  if (status) return Number(status) >= 500 ? 'the wiki answered with a server error' : `the wiki answered HTTP ${status}`;
-  if (error instanceof SyntaxError) return 'the wiki answered with something other than its API\'s JSON';
-  if (error instanceof TypeError || ['TimeoutError', 'AbortError'].includes(error.name)) return 'the wiki could not be reached';
-  return error.message;
+   answers 502 one day, refuses the connection the next and serves a maintenance page (or a
+   403 challenge) the day after must not read as a new problem each day. Every failure of the
+   request itself -- no answer, an HTTP error of any status, an answer that is not the API's
+   JSON -- is this one kind; the exact error goes to the log. A page the wiki does serve but
+   that cannot be used (missing, still a redirect) keeps wikiText's own words, which name the
+   page's state. */
+const UNREACHABLE = 'the wiki could not be reached';
+class RequestFailed extends Error {}
+
+async function fetchWikiJson(url) {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(60000), headers: { 'User-Agent': USER_AGENT } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    throw new RequestFailed(UNREACHABLE, { cause: error });
+  }
 }
 
 function lastGoodRead(file) {
@@ -128,9 +130,10 @@ export async function readWikiRows(root, page, template, { now = new Date(), ale
       return rows;
     }
   } catch (error) {
-    const cause = error.cause?.code ?? error.cause?.message;
-    console.warn(`Reading ${page} failed: ${error.message}${cause ? ` (${cause})` : ''}`);
-    problem = unusable(error);
+    const exact = error instanceof RequestFailed ? error.cause : error;
+    const cause = exact.cause?.code ?? exact.cause?.message;
+    console.warn(`Reading ${page} failed: ${exact.message}${cause ? ` (${cause})` : ''}`);
+    problem = error.message;
   }
   const fallback = cached?.rows ?? [];
   const outcome = cached ? `its last good read (${fallback.length} rows) is used instead` : 'no earlier read is cached, so it reads as no rows and nothing new is discovered from it';
