@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { interpolateBlackboard, stripRichText } from '../lib/gametext.mjs';
+import { pinnedRef } from '../content/pin-upstream.mjs';
 
 const hasChinese = text => typeof text === 'string' && /\p{Script=Han}/u.test(text);
 const isEnglish = text => typeof text === 'string' && /[A-Za-z]/.test(text) && !hasChinese(text);
@@ -24,7 +25,8 @@ const VOICE_LANGUAGE = {
   CN_TOPOLECT: 'Regional Chinese', ITA: 'Italian', GER: 'German', RUS: 'Russian',
   FRE: 'French', 11: 'Spanish', LINKAGE: 'English',
 };
-const SUPPLEMENTAL_CHARWORDS = 'https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/main/en_US/gamedata/excel/charword_table.json';
+// Only when ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS is unset; at the commit this run pinned, else the branch.
+const SUPPLEMENTAL_CHARWORDS = `https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/${pinnedRef('PuppiizSunniiz/ArknightsGameData_YoStar')}/en_US/gamedata/excel/charword_table.json`;
 const rows = value => Array.isArray(value) ? value : [];
 
 const costList = (entries, items) => (Array.isArray(entries) ? entries : []).map(entry => ({

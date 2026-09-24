@@ -9,36 +9,161 @@ import operatorFixture from './fixtures/operator-costs.json';
 import { emptyCatalogue } from './fixtures/catalogue';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { checkCompleteness, hasRecordedRelease, missingEnemyIcons, readCompletenessInputs } from '../content/check-completeness.mjs';
+import { checkCompleteness, COLLECTIONS, countDrops, hasRecordedRelease, missingEnemyIcons, parseAllowShrink, reviewCompleteness, writeQuarantine } from '../content/check-completeness.mjs';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { buildEventFarming } from '../sync/sync-event-farming.mjs';
 import { activeEventFarming, getEventFarmingMaterials } from '../../lib/farming/eventFarming';
 import { operatorRelease } from '../../lib/operators/operatorAvailability';
 
-const input = readCompletenessInputs();
-test('the published catalogue covers CN source identities and every release bundle', () => {
-  assert.deepEqual(checkCompleteness(input), []);
+type Hold = { key: string; action: string; reason: string };
+/* One made-up collaboration, complete: a CN operator with its outfit, the event and banner
+   the catalogue discovered for it, their published art, and the bundle that ties them.
+   Frozen here so no case depends on what the day's refresh left in data/. */
+function collaboration() {
+  const op = Object.assign(structuredClone(operatorFixture.operator), {
+    name: 'Test Operator', internalName: 'char_9990_test', stats: { phases: [{ elite: 0 }] } });
+  return emptyCatalogue({
+    inventory: { operators: [{ id: 'char_9990_test', name: '测试' }], skins: [{ id: 'char_9990_test@test#1', name: '测试服' }],
+      events: [{ id: 'act99side', name: 'Test Event' }], banners: [{ id: 'LINKAGE_99_0_1', name: 'Test Banner' }] },
+    operators: [op],
+    skins: [{ skinId: 'char_9990_test@test#1', model: 'Test Operator', name: 'Test Outfit' }],
+    events: [{ name: 'Test Event', activityId: 'act99side', poster: '/event-poster/Test Event.webp', rewards: [{ items: [{ name: 'Test Token', cnName: '测试币' }] }] }],
+    banners: [{ name: 'Test Banner', cnPoolId: 'LINKAGE_99_0_1', six_stars: ['Test Operator'], banner_image: '/headhunting-banner-images/Test Banner.webp' }],
+    bundles: [{ event: 'Test Event', eventId: 'act99side', banners: ['Test Banner'], bannerIds: ['LINKAGE_99_0_1'],
+      operators: ['char_9990_test'], skins: ['char_9990_test@test#1'], assets: ['skill-icons/Test Operator - Test Skill.webp'] }],
+    assets: new Set(['six-star-icons/Test Operator - Base.webp', 'six-star-skins/Test Operator - Base.webp',
+      'material-icons/Test Token.webp', 'skill-icons/Test Operator - Test Skill.webp',
+      'event-poster/Test Event.webp', 'headhunting-banner-images/Test Banner.webp']),
+  });
+}
+const holds = (catalogue: object): Hold[] => {
+  const { errors, quarantine } = reviewCompleteness(catalogue);
+  assert.deepEqual(errors, [], 'a missing record or picture never blocks the release');
+  return quarantine;
+};
+test('a complete collaboration passes with nothing held back', () => {
+  assert.deepEqual(reviewCompleteness(collaboration()), { errors: [], quarantine: [], allowed: [] });
 });
-test('publication rejects missing operators, outfits, banners, event records and artwork', () => {
-  for (const [field, remove, expected] of [
-    ['operators', (row: any) => row.internalName === 'char_4217_makoto', /CN operator missing: char_4217_makoto/],
-    ['skins', (row: any) => row.skinId === 'char_4217_makoto@p3r#1', /CN outfit missing: char_4217_makoto/],
-    ['banners', (row: any) => input.bundles[0].bannerIds.includes(row.cnPoolId), /Bundle banner missing/],
-    ['events', (row: any) => row.activityId === input.bundles[0].eventId, /Bundle event missing/],
+test('a missing record or picture quarantines that one record and blocks nothing', () => {
+  for (const [edit, key, action, reason] of [
+    [(c: any) => { c.operators = []; }, 'operator:char_9990_test', 'omitted-new', /CN operator missing: char_9990_test/],
+    [(c: any) => { delete c.operators[0].stats; }, 'operator:char_9990_test', 'published-partial', /Test Operator: missing stats/],
+    [(c: any) => { c.assets.delete('six-star-icons/Test Operator - Base.webp'); }, 'operator:char_9990_test', 'published-partial', /missing asset six-star-icons\/Test Operator - Base\.webp/],
+    [(c: any) => { c.skins = []; }, 'skin:char_9990_test@test#1', 'omitted-new', /CN outfit missing: char_9990_test@test#1/],
+    [(c: any) => { c.skins[0].model = 'Nobody'; }, 'skin:char_9990_test@test#1', 'published-partial', /Outfit operator missing: Nobody/],
+    [(c: any) => { c.events = []; }, 'event:act99side', 'omitted-new', /Discovered event missing: Test Event/],
+    [(c: any) => { c.assets.delete('material-icons/Test Token.webp'); }, 'event:act99side', 'published-partial', /Test Event reward Test Token: missing asset material-icons\/Test Token\.webp/],
+    [(c: any) => { c.banners = []; }, 'banner:LINKAGE_99_0_1', 'omitted-new', /Discovered banner missing: Test Banner/],
+    [(c: any) => { c.banners[0].six_stars = ['Unknown Operator']; }, 'banner:LINKAGE_99_0_1', 'published-partial', /Banner operator missing: Test Banner \/ Unknown Operator/],
+    [(c: any) => { c.assets.delete('headhunting-banner-images/Test Banner.webp'); }, 'banner:LINKAGE_99_0_1', 'published-partial', /Test Banner: missing asset headhunting-banner-images\/Test Banner\.webp/],
+    // A banner the catalogue created from the client has no key art until the wiki's upload.
+    [(c: any) => { c.banners[0].banner_image = null; }, 'banner:LINKAGE_99_0_1', 'published-partial', /Test Banner: no key art yet/],
+    [(c: any) => { delete c.banners[0].cnPoolId; c.banners[0].globalPoolId = 'SINGLE_EN_99_0_1'; c.assets.delete('headhunting-banner-images/Test Banner.webp'); }, 'banner:SINGLE_EN_99_0_1', 'published-partial', /missing asset/],
+    [(c: any) => { c.banners[0].banner_image = `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${'a'.repeat(40)}/headhunting-banner-images/Gone%20Banner.webp`; }, 'banner:LINKAGE_99_0_1', 'published-partial', /missing asset headhunting-banner-images\/Gone Banner\.webp/],
+    [(c: any) => { c.assets.delete('event-poster/Test Event.webp'); }, 'event:act99side', 'published-partial', /Test Event: missing asset event-poster\/Test Event\.webp/],
+    [(c: any) => { c.assets.delete('skill-icons/Test Operator - Test Skill.webp'); }, 'bundle:act99side', 'published-partial', /Test Event: missing asset skill-icons/],
   ] as const) {
-    const broken = { ...input, [field]: input[field].filter((row: any) => !remove(row)) };
-    assert.match(checkCompleteness(broken).join('\n'), expected);
+    const catalogue = collaboration();
+    edit(catalogue);
+    const held = holds(catalogue);
+    assert.ok(held.some(entry => entry.key === key && entry.action === action && reason.test(entry.reason)), `${key} ${action}: ${JSON.stringify(held)}`);
   }
-  const assets = new Set(input.assets);
-  assets.delete('one-star-icons/Koromaru - Base.webp');
-  assert.match(checkCompleteness({ ...input, assets }).join('\n'), /missing asset one-star-icons\/Koromaru/);
-  const newer = { ...input.inventory, operators: [...input.inventory.operators, { id: 'char_new', name: 'New CN operator' }] };
-  assert.match(checkCompleteness({ ...input, inventory: newer }).join('\n'), /CN operator missing: char_new/);
+  // A whole collaboration missing is held back record by record, and the bundle says so too.
+  const empty = collaboration();
+  Object.assign(empty, { operators: [], skins: [], events: [], banners: [] });
+  assert.deepEqual([...new Set(holds(empty).map(entry => entry.key))].sort(),
+    ['banner:LINKAGE_99_0_1', 'bundle:act99side', 'event:act99side', 'operator:char_9990_test', 'skin:char_9990_test@test#1']);
+});
+test('malformed hand-written records and outfit identities still block the release', () => {
+  const blocked = (edit: (c: any) => void) => { const c = collaboration(); edit(c); return reviewCompleteness(c).errors.join('\n'); };
+  assert.match(blocked(c => { c.operators[0].potential.totalCost = [[{ name: 'Token', quantity: 5 }]]; }), /Test Operator: potential\.totalCost is not a flat/);
+  assert.match(blocked(c => { Object.assign(c.operators[0], { sourceRegion: 'CN' }); c.operators[0].characterInfo['Release Date'] = null; }),
+    /Test Operator: CN record has no release date and is not marked isFuture/);
+  assert.match(blocked(c => { delete c.skins[0].skinId; }), /Outfit has no source identity: Test Operator \/ Test Outfit/);
+  assert.match(blocked(c => { c.skins.push({ ...c.skins[0] }); }), /Duplicate outfit identity: char_9990_test@test#1/);
+});
+test('a collection that shrank by more than 2% since the loaded data blocks the release', () => {
+  const baseline = { operators: 100, skins: 100, events: 100, banners: 100, enemies: 100, stages: 100 };
+  assert.deepEqual(countDrops(baseline, { ...baseline, stages: 98, banners: 250 }), []);
+  assert.deepEqual(countDrops(baseline, { ...baseline, stages: 97 }), ['stages shrank from 100 to 97 records (more than 2%) since the data this run loaded']);
+  for (const name of Object.keys(baseline)) assert.equal(countDrops(baseline, { ...baseline, [name]: 0 }).length, 1, name);
+  // Only through reviewCompleteness, and only when a baseline was recorded.
+  const catalogue = { ...collaboration(), counts: { ...baseline, events: 50 } };
+  assert.deepEqual(reviewCompleteness(catalogue).errors, []);
+  assert.match(reviewCompleteness({ ...catalogue, baseline }).errors.join('\n'), /events shrank from 100 to 50/);
+  // What the published site is built from, not only the records: the list and grid rows,
+  // the maps, the voice lines, the songs, the recruitable pool, the planner's banners.
+  for (const name of ['stageRows', 'enemyRows', 'stageContents', 'stageMaps', 'voiceOperators', 'songs', 'recruitment', 'pullBanners', 'deployOperators']) {
+    assert.ok(COLLECTIONS.includes(name), name);
+    assert.deepEqual(countDrops({ [name]: 1000 }, { [name]: 500 }), [`${name} shrank from 1000 to 500 records (more than 2%) since the data this run loaded`]);
+  }
+});
+test('a shrink the maintainer names in allow_shrink goes through for that run, and still says so', () => {
+  const baseline = { operators: 100, stageRows: 3800, stages: 4100 };
+  const catalogue = { ...collaboration(), baseline, counts: { operators: 100, stageRows: 3000, stages: 4100 } };
+  const blocked = reviewCompleteness(catalogue);
+  assert.deepEqual(blocked.errors, ['stageRows shrank from 3800 to 3000 records (more than 2%) since the data this run loaded',
+    'If that shrink is intended (records removed on purpose), run Prepare content release by hand with allow_shrink=stageRows; it lets them through for that run only. Otherwise find the stage that lost them.']);
+  const through = reviewCompleteness({ ...catalogue, allowShrink: ['stageRows'] });
+  assert.deepEqual(through.errors, []);
+  assert.deepEqual(through.allowed, ['stageRows shrank from 3800 to 3000 records (more than 2%) since the data this run loaded; allowed for this run by allow_shrink']);
+  // Only the collection named: another one that shrank still blocks.
+  assert.match(reviewCompleteness({ ...catalogue, counts: { ...catalogue.counts, operators: 50 }, allowShrink: ['stageRows'] }).errors[0], /^operators shrank from 100 to 50/);
+  // A name that is no collection is a mistake to hear about, not a silent no-op.
+  assert.match(reviewCompleteness({ ...catalogue, allowShrink: ['stageRow'] }).errors[0], /^allow_shrink names no collection: stageRow \(the collections: operators, /);
+  assert.deepEqual(parseAllowShrink(' stageRows, songs  enemies,'), ['stageRows', 'songs', 'enemies']);
+  assert.deepEqual(parseAllowShrink(undefined), []);
+});
+test('every step of the release job that runs the gate hears allow_shrink, and only a dispatch can set it', () => {
+  const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
+  assert.match(workflow, /\n {4}inputs:\n[\s\S]*\n {6}allow_shrink:\n {8}description: [^\n]+\n {8}default: ''\n {8}type: string\n/);
+  const steps = workflow.slice(workflow.indexOf('\n    steps:\n')).split(/\n {6}- (?=name:|uses:|run:)/)
+    .filter(step => /node scripts\/content\/check-completeness\.mjs(?! --record-baseline)/.test(step));
+  assert.equal(steps.length, 2, 'the refresh (as its completeness stage) and the compile step');
+  for (const step of steps) assert.match(step, /\n {10}ARKPEDIA_ALLOW_SHRINK: \$\{\{ inputs\.allow_shrink \}\}\n/, step.split('\n')[0]);
+});
+test('quarantine entries follow the shared file format and keep their first day', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-quarantine-'));
+  try {
+    const file = path.join(root, 'data/quarantine.json');
+    fs.mkdirSync(path.dirname(file));
+    // Another stage's entries, which this stage must leave exactly as they are.
+    const catalogue = { key: 'banner:SINGLE_77_0_1', stage: 'catalogue', reason: 'unknown operator', action: 'omitted-new', sourceRef: 'https://example.invalid/row', firstSeen: '2026-09-01' };
+    // As written before 2026-09, with the lastSeen no writer keeps any more.
+    fs.writeFileSync(file, JSON.stringify({ version: 1, entries: [{ ...catalogue, lastSeen: '2026-09-02' }] }));
+    writeQuarantine(root, 'completeness', [
+      { key: 'operator:b', action: 'published-partial', reason: 'B: missing asset one' },
+      { key: 'operator:a', action: 'omitted-new', reason: 'CN operator missing: a' },
+      { key: 'operator:b', action: 'published-partial', reason: 'B: missing asset two' },
+    ], new Date('2026-09-20T23:59:00Z'));
+    writeQuarantine(root, 'completeness', [
+      { key: 'operator:b', action: 'published-partial', reason: 'B: missing asset two' },
+      { key: 'enemy:c', action: 'published-partial', reason: 'C: icon not published yet' },
+    ], new Date('2026-09-22T00:01:00Z'));
+    const text = fs.readFileSync(file, 'utf8');
+    assert.ok(text.endsWith('}\n') && text.includes('\n  "entries": ['), 'two-space JSON with a trailing newline');
+    assert.deepEqual(JSON.parse(text), { version: 1, entries: [
+      catalogue,
+      { key: 'enemy:c', stage: 'completeness', reason: 'C: icon not published yet', action: 'published-partial', firstSeen: '2026-09-22' },
+      { key: 'operator:b', stage: 'completeness', reason: 'B: missing asset two', action: 'published-partial', firstSeen: '2026-09-20' },
+    ] });
+    // The same holds a day later write the same bytes: the file is a release input.
+    writeQuarantine(root, 'completeness', [
+      { key: 'operator:b', action: 'published-partial', reason: 'B: missing asset two' },
+      { key: 'enemy:c', action: 'published-partial', reason: 'C: icon not published yet' },
+    ], new Date('2026-09-23T00:01:00Z'));
+    assert.equal(fs.readFileSync(file, 'utf8'), text);
+    writeQuarantine(root, 'completeness', [], new Date('2026-09-24T00:00:00Z'));
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).entries, [catalogue]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 /* A data tree holding only what the enemy checks read: a listed stage fielding two
    enemies, and an unlisted stage fielding a third that nothing needs. `edit` takes away
-   whatever a case is about before the release gate runs on the tree. */
-function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: string }[]; index: string[]; icons: string[] }) => void) {
+   whatever a case is about before the release gate runs on the tree; `baseline` records
+   the counts the release job takes right after loading the data, before the edit. */
+function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: string }[]; index: string[]; icons: string[] }) => void, baseline = false, env: Record<string, string> = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-completeness-'));
   try {
     const tree = {
@@ -46,42 +171,78 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
       index: ['slug-a', 'slug-b'],
       icons: ['enemies-icons/Slug A.webp', 'enemies-icons/Slug B.webp'],
     };
-    edit(tree);
     const write = (file: string, data: unknown) => {
       fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
       fs.writeFileSync(path.join(root, file), JSON.stringify(data));
     };
+    const { ARKPEDIA_ALLOW_SHRINK: _, GITHUB_ACTIONS: __, ...inherited } = process.env;
+    const gate = (...args: string[]) => spawnSync(process.execPath, ['scripts/content/check-completeness.mjs', root, ...args], { encoding: 'utf8', env: { ...inherited, ...env } });
+    const writeTree = () => {
+      write('data/assets/external-asset-index.json', { files: tree.icons });
+      write('data/enemies/Test Event.json', { enemies: tree.records });
+      write('public/enemies-index.json', tree.index.map(slug => ({ slug })));
+    };
     for (const file of ['data/skins.json', 'data/headhunting_banners.json', 'data/content-bundles.json', 'data/events/events_2026.json']) write(file, []);
     write('data/content-inventory.json', { operators: [], skins: [] });
-    write('data/assets/external-asset-index.json', { files: tree.icons });
     write('data/stages/test-1.json', { slug: 'test-1', enemies: { by_rank: { normal: [{ slug: 'slug-a' }] }, conditional: { by_rank: { elite: [{ slug: 'slug-b' }] } } } });
     write('data/stages/unlisted.json', { slug: 'unlisted', enemies: { by_rank: { normal: [{ slug: 'slug-unlisted' }] } } });
-    write('data/enemies/Test Event.json', { enemies: tree.records });
     write('public/stages-index.json', [{ slug: 'test-1' }]);
-    write('public/enemies-index.json', tree.index.map(slug => ({ slug })));
-    const run = spawnSync(process.execPath, ['scripts/content/check-completeness.mjs', root], { encoding: 'utf8' });
-    return { status: run.status, output: run.stdout + run.stderr };
+    writeTree();
+    if (baseline) assert.equal(gate('--record-baseline').status, 0);
+    edit(tree);
+    writeTree();
+    const run = gate('--now', '2026-09-20');
+    const quarantine = path.join(root, 'data/quarantine.json');
+    return { status: run.status, output: run.stdout + run.stderr,
+      held: fs.existsSync(quarantine) ? JSON.parse(fs.readFileSync(quarantine, 'utf8')).entries : null };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
-test('publication rejects a stage enemy with no record or grid row, and never withholds a release for its icon', () => {
+test('a stage enemy with no record, grid row or icon is quarantined, and the release still goes out', () => {
   const complete = enemyGate(() => {});
   assert.equal(complete.status, 0, complete.output);
   assert.match(complete.output, /and 2 stage enemies/);
-  assert.doesNotMatch(complete.output, /not published yet/);
-  // A new enemy whose icon the image sync has not published yet is reported and released:
-  // the sync finds new icons in the published records, so blocking here would deadlock.
+  assert.doesNotMatch(complete.output, /not published yet|quarantined/);
+  // Nothing to hold, in a tree with no quarantine file: none is started (the file belongs to arkpedia-data).
+  assert.equal(complete.held, null);
+  // A new enemy whose icon the image sync has not published yet: the sync finds new icons
+  // in the published records, so withholding the record would deadlock.
   const iconless = enemyGate(tree => { tree.icons = ['enemies-icons/Slug A.webp']; });
   assert.equal(iconless.status, 0, iconless.output);
   assert.match(iconless.output, /1 enemy icon\(s\) not published yet.*\n {2}enemies-icons\/Slug B\.webp\n/);
-  // With no record or no grid row, its stage links 404, so the release is blocked.
+  assert.deepEqual(iconless.held, [{ key: 'enemy:slug-b', stage: 'completeness', reason: 'Slug B: icon enemies-icons/Slug B.webp not published yet',
+    action: 'published-partial', firstSeen: '2026-09-20' }]);
+  // With no record or no grid row only its stage links 404: the stage is published, the
+  // enemy is named in the quarantine, and nothing else is held back.
   const unrecorded = enemyGate(tree => { tree.records = tree.records.filter(record => record.slug !== 'slug-b'); });
-  assert.equal(unrecorded.status, 1);
-  assert.match(unrecorded.output, /Stage enemy has no record: slug-b \(fielded in test-1\)/);
+  assert.equal(unrecorded.status, 0, unrecorded.output);
+  assert.match(unrecorded.output, /enemy:slug-b \(published-partial\): Stage enemy has no record: slug-b \(fielded in test-1\)/);
+  assert.deepEqual(unrecorded.held.map((entry: Hold) => entry.key), ['enemy:slug-b']);
   const unindexed = enemyGate(tree => { tree.index = ['slug-b']; });
-  assert.equal(unindexed.status, 1);
-  assert.match(unindexed.output, /Stage enemy missing from enemies-index\.json: slug-a \(fielded in test-1\)/);
+  assert.equal(unindexed.status, 0, unindexed.output);
+  assert.match(unindexed.held[0].reason, /Stage enemy missing from enemies-index\.json: slug-a \(fielded in test-1\)/);
+});
+test('the release gate blocks a collection that lost records since the data was loaded', () => {
+  // Half of the enemy records gone: far more than one late record, so it is not quarantined.
+  const shrunk = enemyGate(tree => { tree.records = tree.records.slice(0, 1); }, true);
+  assert.equal(shrunk.status, 1, shrunk.output);
+  assert.match(shrunk.output, /Content publication blocked:\n- enemies shrank from 2 to 1 records/);
+  // The quarantine is still written, so the day's issue names the enemy too.
+  assert.deepEqual(shrunk.held.map((entry: Hold) => entry.key), ['enemy:slug-b']);
+  // The grid losing its rows is a drop too, whatever the records say.
+  const gridless = enemyGate(tree => { tree.index = []; }, true);
+  assert.equal(gridless.status, 1, gridless.output);
+  assert.match(gridless.output, /- enemyRows shrank from 2 to 0 records/);
+  assert.match(gridless.output, /run Prepare content release by hand with allow_shrink=enemyRows/);
+  const unchanged = enemyGate(() => {}, true);
+  assert.equal(unchanged.status, 0, unchanged.output);
+  assert.match(unchanged.output, /no collection shrank by more than 2% \(operators 0\u21920, skins 0\u21920, events 0\u21920, banners 0\u21920, enemies 2\u21922, stages 2\u21922, stageRows 1\u21921, enemyRows 2\u21922, stageContents 0\u21920, /);
+  // Named in allow_shrink, the same shrink goes out, with a warning in the log and on the run.
+  const allowed = enemyGate(tree => { tree.records = tree.records.slice(0, 1); }, true, { ARKPEDIA_ALLOW_SHRINK: 'enemies', GITHUB_ACTIONS: 'true' });
+  assert.equal(allowed.status, 0, allowed.output);
+  assert.match(allowed.output, /::warning title=Collection allowed to shrink::enemies shrank from 2 to 1 records \(more than 2%\) since the data this run loaded; allowed for this run by allow_shrink/);
+  assert.match(allowed.output, /no collection shrank by more than 2% but the ones allow_shrink names/);
 });
 test('unpublished enemy icons are listed once each and in order, and never count as errors', () => {
   const icon = (name: string) => `/enemies-icons/${name}.webp`;
@@ -90,7 +251,9 @@ test('unpublished enemy icons are listed once each and in order, and never count
   const catalogue = emptyCatalogue({ stageEnemies: new Map([...enemyRecords.keys()].map(slug => [slug, 'test-1'])), enemyRecords,
     enemyIndex: new Set(enemyRecords.keys()), assets: new Set(['enemies-icons/P.webp']) });
   assert.deepEqual(missingEnemyIcons(catalogue), ['enemies-icons/A.webp', 'enemies-icons/B.webp']);
-  assert.deepEqual(checkCompleteness(catalogue), []);
+  assert.deepEqual(holds(catalogue).map(entry => entry.key), ['enemy:a', 'enemy:b', 'enemy:b-elite']);
+  // checkCompleteness still lists every gap, blocking or not, one message each.
+  assert.equal(checkCompleteness(catalogue).length, 3);
 });
 // Surtr's cost lists, frozen in a fixture: the live record may change with any refresh.
 const costRecord = () => structuredClone(operatorFixture.operator);
@@ -132,7 +295,7 @@ test('the release-date guard makes the same call as the site', () => {
     .map(date => ({ characterInfo: { 'Release Date': date } }));
   const exact = ['2026-10-14T03:00:00Z', '2026-10-14T10:00:00+08:00', '2026-10-14T03:00:00', 'soon']
     .map(releaseAt => ({ releaseAt, characterInfo: { 'Release Date': null } }));
-  for (const op of [...input.operators, ...edges, ...exact, { characterInfo: null }]) {
+  for (const op of [operatorFixture.operator, ...edges, ...exact, { characterInfo: null }] as any[]) {
     assert.equal(hasRecordedRelease(op), operatorRelease(op) !== null, JSON.stringify({ releaseAt: op.releaseAt, date: op.characterInfo?.['Release Date'] }));
   }
 });

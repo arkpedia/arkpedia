@@ -3,8 +3,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { pinnedRef } from '../content/pin-upstream.mjs';
 
-const RAW = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel';
+// At the commit this run pinned (run-stage.mjs), else the branch.
+const RAW = `https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${pinnedRef('ArknightsAssets/ArknightsGamedata')}/en/gamedata/excel`;
 const LABELS = new Map([
   ['max_hp', 'HP'], ['atk', 'ATK'], ['def', 'DEF'], ['magic_resistance', 'RES'],
   ['attack_speed', 'ASPD'], ['cost', 'Cost'], ['respawn_time', 'Redeployment time'],

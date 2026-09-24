@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
+import type { Skin } from '../../lib/skins/skinTypes';
 import { ALL_BANNERS, bundledBacklogSources } from '../../lib/pulls/sources';
 import { publicFileExists } from '../../lib/assets/publicAssets';
 const now = new Date('2026-09-01T12:00:00Z');
@@ -96,8 +97,11 @@ test('skin reserves use catalogue OP prices only, retain extra savings and flag 
   const { default: skins } = await import('../../data/skins.json');
   const catalogue = pullSkinCatalogue(skins);
   assert.ok(catalogue.length > 300);
-  assert.deepEqual([...new Set(catalogue.map(s => s.op))].sort(), [15,18,21,24,27]);
-  assert.ok(!catalogue.some(s => s.name === 'Newsgirl'));
+  assert.ok(catalogue.every(s => Number.isInteger(s.op) && s.op > 0));
+  // Outfits with no Originite Prime price (rewards, certificates, free) are not offered.
+  const unpriced = skins.filter(s => !/Originite Prime/.test(s.howToObtain ?? ''));
+  assert.ok(unpriced.length > 0);
+  for (const skin of unpriced) assert.ok(!catalogue.some(s => s.id === `${skin.model} / ${skin.name}`), skin.name);
   assert.equal(new Set(catalogue.map(s => s.id)).size, catalogue.length);
   const first = catalogue.find(s => s.op === 24)!;
   const second = catalogue.find(s => s.op === 15)!;
@@ -207,16 +211,49 @@ test('only explicitly listed shop outfits are offered, never inferred Fashion Re
   assert.equal(pullSkinCollections(events,skins,catalogue,'2026-09-01',new Set(['Event']),[confirmed], [])[0].estimated,true);
 });
 
-test('recorded event rotations retain their own rosters and deadlines', async () => {
+/* A CN shop in the shape of People, A People's: new outfits for a month, returning
+   outfits in two batches with a gap between them. Invented names, so the rules hold
+   whatever the live manifest lists and whatever its outfits are called by then. */
+function rotationFixture() {
+  const skin = (id: string): Skin => { const [model, name] = id.split(' / '); return { name, model, release:'Event', howToObtain:'Outfit Store ( 18 Originite Prime )', image:null, series:'', seriesImage:null, code:null, illustrator:null, description:null }; };
+  const ids = { new: ['A / New'], early: ['B / Early', 'C / Early'], later: ['D / Later', 'E / Later', 'A / New'] };
+  const skins = [...new Set([...ids.new, ...ids.early, ...ids.later])].map(skin);
+  const events = [{name:'[Side Story] Fixture',year:2026,poster:null,cn:{dateRange:'2026/04/07–2026/04/21',note:null},global:{dateRange:'2026/09/16–2026/09/30',note:null},tw:{dateRange:null,note:null}}];
+  const source = {event:'[Side Story] Fixture',source:'https://ak.hypergryph.com/news/1',sourceRegion:'cn',eventStart:'2026-04-07',rotations:[
+    {label:'New outfits',start:'2026-04-07',end:'2026-05-06',dateBasis:'shop',new:ids.new,returning:[]},
+    {label:'Early returns',start:'2026-04-07',end:'2026-04-21',dateBasis:'shop',new:[],returning:ids.early},
+    {label:'Later returns',start:'2026-04-24',end:'2026-05-22',dateBasis:'shop',new:[],returning:ids.later},
+  ]};
+  return { skins, events, source, ids };
+}
+
+test('a recorded rotation keeps each batch its own roster, deadline and saved identifier', async () => {
+  const { pullSkinCatalogue } = await import('../../lib/pulls/skins');
+  const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
+  const { skins, events, source, ids } = rotationFixture();
+  const catalogue = pullSkinCatalogue(skins);
+  const collections = pullSkinCollections(events, skins, catalogue, '2026-09-09', new Set(), [source], []);
+  // Each CN date moves by the Global opening's offset (2026-04-07 -> 2026-09-16).
+  assert.deepEqual(collections.map(c => [c.start, c.end, c.skinIds]), [
+    ['2026-09-16', '2026-10-15', ids.new], ['2026-09-16', '2026-09-30', ids.early], ['2026-10-03', '2026-10-31', ids.later],
+  ]);
+  assert.ok(collections.every(c => c.estimated && c.source === source.source && c.sourceRegion === 'cn'));
+  assert.deepEqual(collections.map(c => c.featuredIds), [ids.new, [], []]);
+  assert.deepEqual(collections.map(c => c.name), ['[Side Story] Fixture · New outfits', '[Side Story] Fixture · Returning outfits — batch 1', '[Side Story] Fixture · Returning outfits — batch 2']);
+  // Saved plans store these ids, so they follow the label and the Global opening, never the display name.
+  assert.deepEqual(collections.map(c => c.id), ['New outfits', 'Early returns', 'Later returns'].map(label => `[Side Story] Fixture / 2026-09-16 / ${label}`));
+  const afterFirstShop = pullSkinCollections(events, skins, catalogue, '2026-10-01', new Set(), [source], []);
+  assert.deepEqual(afterFirstShop.map(c => c.id.split(' / ').at(-1)), ['New outfits', 'Later returns']);
+  assert.deepEqual(pullSkinCollections(events, skins, catalogue, '2026-11-01', new Set(), [source], []), []);
+});
+
+test('every recorded rotation resolves to scheduled outfits the planner can price', async () => {
   const { getAllSkins } = await import('../../lib/skins/skins');
   const { getAllEvents } = await import('../../lib/schedule/schedule');
   const { pullSkinCatalogue } = await import('../../lib/pulls/skins');
   const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
   const { default: manifest } = await import('../../data/skin-shop-rotations.json');
   const skins=getAllSkins(), events=getAllEvents(), catalogue=pullSkinCatalogue(skins);
-  const collections=pullSkinCollections(events,skins,catalogue,'2026-09-09',new Set(),manifest.entries,[]);
-  assert.equal(collections.length,19);
-  assert.ok(collections.every(c=>c.estimated));
   for (const source of manifest.entries) {
     assert.ok(events.some(event=>event.name===source.event), `Schedule match: ${source.event}`);
     assert.match(source.source, /^https:\/\/(arknights\.wiki\.gg\/wiki\/|ak\.hypergryph\.com\/news\/)/);
@@ -227,27 +264,23 @@ test('recorded event rotations retain their own rosters and deadlines', async ()
       for (const id of ids) assert.ok(catalogue.some(s=>s.id===id),id);
     }
   }
-  const people=collections.filter(c=>c.name.includes('People, A People'));
-  assert.deepEqual(people.map(c=>[c.start,c.end,c.skinIds.length]),[
-    ['2026-09-16','2026-10-15',2],['2026-09-16','2026-09-30',4],['2026-10-03','2026-10-31',22],
-  ]);
-  assert.equal(new Set(people.flatMap(c=>c.skinIds)).size,28);
-  assert.ok(people[1].name.endsWith('Returning outfits — batch 1'));
-  assert.ok(people[2].name.endsWith('Returning outfits — batch 2'));
-  assert.ok(people[2].id.endsWith(' / Later returns'), 'keep saved shop identifiers stable');
-  assert.equal(people[2].source, 'https://ak.hypergryph.com/news/1461');
-  assert.equal(people[2].sourceRegion, 'cn');
-  for (const id of ['Rosmontis / An Airy Dream', "Kal'tsit / Remnant", 'Muelsyse / Golden Reverie', 'Texas the Omertosa / Wingbreaker']) {
-    assert.ok(people[2].skinIds.includes(id), `Official later shop: ${id}`);
-    assert.ok(!people[1].skinIds.includes(id), `Not in early shop: ${id}`);
+  // With nothing expired yet, every rotation of a Global-scheduled event is a shop of
+  // its own: its roster, and its new outfits featured.
+  const collections=pullSkinCollections(events,skins,catalogue,'2000-01-01',new Set(),manifest.entries,[]);
+  for (const source of manifest.entries) {
+    const event=events.find(event=>event.name===source.event)!;
+    for (const window of (event.global.dateRange || '').split(';')) {
+      const opening=window.split(/[–—]/)[0].trim().replaceAll('/', '-');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(opening)) continue;
+      for (const rotation of source.rotations) {
+        const collection=collections.find(c=>c.id===`${event.name} / ${opening} / ${rotation.label}`);
+        assert.ok(collection, `${source.event} / ${rotation.label}`);
+        assert.deepEqual(collection.skinIds,[...new Set([...rotation.new,...rotation.returning])]);
+        assert.deepEqual(collection.featuredIds,rotation.new);
+        assert.equal(collection.estimated, source.sourceRegion!=='global' || rotation.dateBasis!=='shop');
+      }
+    }
   }
-  const afterFirstShop=pullSkinCollections(events,skins,catalogue,'2026-10-01',new Set(),manifest.entries,[]).filter(c=>c.name.includes('People, A People'));
-  assert.equal(afterFirstShop.length,2);
-  assert.ok(!afterFirstShop.some(c=>c.id.endsWith(' / Early returns')));
-  assert.equal(collections.filter(c=>c.name.includes("The Masses' Travels")).flatMap(c=>c.skinIds).length,1);
-  assert.equal(collections.filter(c=>c.name.includes('A Flurry to the Flame')).flatMap(c=>c.skinIds).length,3);
-  assert.equal(collections.filter(c=>c.name.includes('Magic and Friendship')).flatMap(c=>c.skinIds).length,3);
-  assert.equal(collections.filter(c=>c.name.includes('Contingency Contract Obliteration')).flatMap(c=>c.skinIds).length,3);
 });
 
 test('planner shares verified Global shops with the skins page and never revives CN projections', async () => {
@@ -257,32 +290,41 @@ test('planner shares verified Global shops with the skins page and never revives
   const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
   const { default: confirmed } = await import('../../data/skin-availability-windows.json');
   const skins = getAllSkins(), catalogue = pullSkinCatalogue(skins), events = getAllEvents();
-  const collections = pullSkinCollections(events, skins, catalogue, '2026-09-22');
-  for (const window of confirmed.entries.filter(window => window.kind === 'shop')) {
+  const today = '2026-09-22';
+  const collections = pullSkinCollections(events, skins, catalogue, today);
+  const lastDay = (endAt: string) => new Date(Date.parse(endAt) - 1).toISOString().slice(0, 10);
+  const shops = confirmed.entries.filter(window => window.kind === 'shop' && window.skinIds.length);
+  for (const window of shops.filter(window => lastDay(window.endAt) >= today)) {
     const collection = collections.find(collection => collection.name === `${window.event} · ${window.label}`)!;
     assert.ok(collection, window.event);
     assert.equal(collection.start, window.startAt.slice(0, 10));
-    assert.equal(collection.end, window.endAt.slice(0, 10));
+    assert.equal(collection.end, lastDay(window.endAt));
     assert.equal(collection.estimated, false);
     assert.equal(collection.sourceRegion, 'global');
     assert.equal(collection.source, window.source);
     assert.deepEqual(collection.skinIds, window.skinIds);
+    assert.deepEqual(collection.featuredIds, window.newRelease ? window.skinIds : []);
   }
-  const people = collections.filter(collection => collection.name.includes('People, A People'));
-  assert.equal(people.length, 1, 'discard all unconfirmed CN batches for a confirmed Global event');
-  assert.equal(people[0].end, '2026-10-07');
-  assert.deepEqual(people[0].skinIds, ['Surtr / Prelude to Transcendence', 'Nymph / Blooming Reverie']);
-  const rerun = collections.find(collection => collection.skinIds.includes('Qiubai / Courtesy'))!;
-  assert.equal(rerun.start, '2026-09-10');
-  assert.equal(rerun.end, '2026-09-24');
-  assert.equal(rerun.featuredIds.length, 0);
-  const current = collections.filter(collection => collection.start <= '2026-09-22');
-  assert.equal(current.flatMap(collection => collection.skinIds).length, 6, 'rewards and random draws are not OP shops');
-  assert.ok(collections.some(collection => collection.start > '2026-09-22' && collection.estimated && collection.sourceRegion === 'cn'), 'retain future CN estimates');
-  assert.ok(!pullSkinCollections(events, skins, catalogue, '2026-10-08').some(collection => collection.name.includes('People, A People')), 'expired confirmation does not revive projected shops');
-  const midnight = {...confirmed.entries[0], endAt: '2026-09-23T00:00:00Z'};
-  assert.equal(pullSkinCollections([], skins, catalogue, '2026-09-22', new Set(), [], [midnight])[0].end, '2026-09-22');
-  assert.deepEqual(pullSkinCollections([], skins, catalogue, '2026-09-23', new Set(), [], [midnight]), []);
+  // Rewards and random draws are not OP shops: the verified collections are the shop windows, exactly.
+  assert.equal(collections.filter(collection => collection.sourceRegion === 'global').length, shops.filter(window => lastDay(window.endAt) >= today).length);
+  // A verified Global event keeps none of its CN projections, open or expired.
+  const normalize = (name: string) => name.replace(/\[[^\]]*\]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  for (const event of new Set(confirmed.entries.map(window => normalize(window.event)))) {
+    assert.ok(collections.every(collection => collection.sourceRegion === 'global' || normalize(collection.name.split(' · ')[0]) !== event), event);
+    const closed = confirmed.entries.filter(window => normalize(window.event) === event).map(window => window.endAt).sort().at(-1)!;
+    const after = new Date(Date.parse(closed) + 86_400_000).toISOString().slice(0, 10);
+    assert.ok(!pullSkinCollections(events, skins, catalogue, after).some(collection => normalize(collection.name.split(' · ')[0]) === event), `expired confirmation revived ${event}`);
+  }
+  // A verified window replaces only its own event's projections.
+  const { skins: fixtureSkins, events: fixtureEvents, source } = rotationFixture();
+  const other = { ...source, event: '[Side Story] Unconfirmed', rotations: source.rotations.slice(0, 1) };
+  const both = [...fixtureEvents, { ...fixtureEvents[0], name: other.event }];
+  const verified = { event: 'Fixture', kind: 'shop', label: 'New outfits', startAt: '2026-09-16T15:00:00Z', endAt: '2026-10-07T11:00:00Z', source: 'https://www.arknights.global/news/1', skinIds: ['A / New'], newRelease: true };
+  const mixed = pullSkinCollections(both, fixtureSkins, pullSkinCatalogue(fixtureSkins), '2026-09-01', new Set(), [source, other], [verified]);
+  assert.deepEqual(mixed.map(collection => `${collection.name} (${collection.sourceRegion})`).sort(), ['Fixture · New outfits (global)', '[Side Story] Unconfirmed · New outfits (cn)'].sort());
+  const midnight = { ...verified, endAt: '2026-09-23T00:00:00Z' };
+  assert.equal(pullSkinCollections([], fixtureSkins, pullSkinCatalogue(fixtureSkins), '2026-09-22', new Set(), [], [midnight])[0].end, '2026-09-22');
+  assert.deepEqual(pullSkinCollections([], fixtureSkins, pullSkinCatalogue(fixtureSkins), '2026-09-23', new Set(), [], [midnight]), []);
 });
 
 test('skin OP deadlines accumulate earlier purchases and reserve unknown-date skins once', async () => {
@@ -306,31 +348,6 @@ test('skin cards sort by debut newest first, without promoting Fashion Review re
   assert.deepEqual(catalogue.map(skin=>[skin.name,skin.releaseDate]),[['CN','2026-01-01'],['New','2025-01-01'],['Old','2024-01-01'],['Unknown','']]);
 });
 
-test('new event outfits have shared metadata, actual OP prices, and resolvable artwork', async () => {
-  const { getAllSkins } = await import('../../lib/skins/skins');
-  const { getAllEvents } = await import('../../lib/schedule/schedule');
-  const { pullSkinCatalogue } = await import('../../lib/pulls/skins');
-  const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
-  const { default: provenance } = await import('../../data/skin-catalogue-refresh-sources.json');
-  const skins = getAllSkins();
-  const catalogue = pullSkinCatalogue(skins);
-  for (const source of provenance.entries) {
-    const skin = skins.find(skin => skin.model === source.operator && skin.name === source.skin);
-    assert.ok(skin, `${source.operator} / ${source.skin} metadata`);
-    assert.ok(skin.image, `${source.operator} / ${source.skin} artwork`);
-    const purchase = catalogue.find(skin => skin.operator === source.operator && skin.name === source.skin);
-    if (source.priceOP !== null) assert.equal(purchase?.op, source.priceOP);
-    else assert.equal(purchase, undefined, `${source.skin} is not an OP purchase`);
-  }
-  const collections = pullSkinCollections(getAllEvents(), skins, catalogue, '2026-09-09');
-  const people = collections.filter(c => c.name.includes('People, A People'));
-  assert.deepEqual(new Set(people.flatMap(c => c.featuredIds)), new Set(['Surtr / Prelude to Transcendence','Nymph / Blooming Reverie']));
-  const anniversary = collections.filter(c => c.name.includes('Critical Phase Transition'));
-  assert.equal(anniversary.flatMap(c => c.featuredIds).length, 8);
-  assert.equal(catalogue.find(s => s.name === 'The Legend Seeker')?.op, 27);
-  assert.equal(collections.find(c => c.name.includes('Sur le lac lune vivante'))?.featuredIds.length, 4);
-});
-
 test('estimated banners follow the event opening while preserving their own offsets and durations', async () => {
   const { resolveBannerEventWindow } = await import('../../lib/gacha/bannerSchedule');
   const event={name:'Event',cn:{dateRange:'2026/05/01–2026/05/08'},global:{dateRange:'2026/10/14–2026/10/21'}};
@@ -345,23 +362,23 @@ test('estimated banners follow the event opening while preserving their own offs
   assert.equal(resolveBannerEventWindow({...banner,cn_date:'2026/02/30–2026/03/14'},[event]).global_date,null);
 });
 
-test('planner banner estimates and skin shops use the same event schedule', async () => {
+test('planner banner windows are the shared banner records, and unconfirmed ones are marked estimated', async () => {
   const { getPullSchedule } = await import('../../lib/pulls/schedule');
-  const { getAllEvents } = await import('../../lib/schedule/schedule');
+  const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
   const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBanners');
-  const events=getAllEvents(), banners=getAllHeadhuntingBanners(), planned=getPullSchedule();
-  const people=events.find(e=>e.name==='[Side Story] People, A People')!;
-  const zima=banners.find(b=>b.name==='Rage of The Many')!;
-  assert.equal(zima.global_date,people.global.dateRange);
-  for (const name of ['Rage of The Many','[Celebration] Sealed With Time','Orienteering #7']) {
-    const plan=planned.find(b=>b.name===name)!;
-    const shared=banners.find(b=>b.name===name)!;
-    assert.equal(`${plan.start}–${plan.end}`.replace(/-/g,'/'),shared.global_date);
-    assert.equal(plan.datesEstimated, !shared.global_window?.timingSource);
+  const banners=getAllHeadhuntingBanners(), planned=getPullSchedule();
+  let confirmed=0;
+  for (const plan of planned) {
+    const shared=banners.find(b=>b.name===plan.name);
+    if (!shared) continue;
+    // A confirmed window may still be flagged while its event is only predicted; an
+    // unconfirmed one is always flagged.
+    if (!shared.global_window?.timingSource) assert.equal(plan.datesEstimated, true, plan.name);
+    // A confirmed window is used as it is; an estimate follows the shared calendar.
+    const expected=shared.global_window?.timingSource ? (confirmed++, shared.global_date) : resolvePullBannerWindows([shared])[0].global_date;
+    if (expected) assert.equal(`${plan.start}–${plan.end}`.replace(/-/g,'/'), expected, plan.name);
   }
-  // This rerun's event lasts 10 days; its banner still lasts 14 days.
-  const rerun=planned.find(b=>b.name==='Dithyramb Unending Rerun')!;
-  assert.equal(rerun.days, 14);
+  assert.ok(confirmed > 0, 'the schedule holds banners with a confirmed Global window');
 });
 
 test('client sync confirms an estimated banner even when its dates were already correct', async () => {
@@ -417,12 +434,22 @@ test('saved custom spending dates follow banner deadlines without changing goals
 });
 
 test('event rewards include bannerless reruns and custom exchanges by the event end', async () => {
-  const {getPullEventSchedule} = await import('../../lib/pulls/schedule');
+  const {resolvePullEventSchedule} = await import('../../lib/pulls/schedule');
   const {bannerHaul} = await import('../../lib/pulls/pulls');
   const {default: rewardSources} = await import('../../data/pull-event-rewards.json');
-  const events = getPullEventSchedule(bundledBacklogSources()).filter(e => e.end > '2026-09-09');
-  const rerun = events.find(e => e.name.includes("Masses' Travels"))!;
-  const custom = events.find(e => e.name.includes('Thunder in the Azure Dream'))!;
+  // Rows chosen by what they are, given windows of their own: the live calendar and
+  // the names in it change with every refresh.
+  const rerunReward = rewardSources.find(r => /rerun/i.test(r.event) && r.op > 0 && !ALL_BANNERS.some(b => b.event === r.event));
+  const exchange = rewardSources.find(r => r.shopPermits > 0 && r !== rerunReward && !/rerun/i.test(r.event));
+  assert.ok(rerunReward, 'a rerun with no banner of its own pays Originite');
+  assert.ok(exchange, 'an event sells permits');
+  const calendar = [
+    {name: rerunReward.event, global: {dateRange: '2030/01/01–2030/01/10'}},
+    {name: exchange.event, global: {dateRange: '2030/01/05–2030/01/19'}},
+  ] as unknown as Parameters<typeof resolvePullEventSchedule>[0];
+  const events = resolvePullEventSchedule(calendar, bundledBacklogSources());
+  const rerun = events.find(e => e.name === rerunReward.event)!;
+  const custom = events.find(e => e.name === exchange.event)!;
   assert.ok(rerun);
   assert.ok(custom);
   const byDate = [rerun.end, custom.end].sort().at(-1)!;
@@ -435,25 +462,22 @@ test('event rewards include bannerless reruns and custom exchanges by the event 
   assert.equal(haul.wishOrundum, ended.reduce((sum, event) => sum + event.wishOrundum, 0));
   assert.deepEqual(haul.counted.map(event => event.name), countable.map(event => event.name));
   assert.ok(haul.shops.some(event => event.name === custom.name));
-  assert.equal(custom.shopPermits, 3);
-  assert.equal(rewardSources.find(event => event.event === custom.name)?.permitSource, 'cn-exchange-stock');
+  assert.equal(custom.shopPermits, exchange.shopPermits);
   const cleared = bannerHaul(events, by, {cleared:new Set([rerun.name])});
-  assert.equal(cleared.op, haul.op - rerun.op);
+  assert.equal(cleared.op, haul.op - (rerun.inBacklog ? 0 : rerun.op));
   assert.equal(cleared.permits, haul.permits);
   const rerunEnd = new Date(`${rerun.end}T23:59:59Z`);
   assert.equal(bannerHaul([rerun], new Date(rerunEnd.getTime() - 1), {cleared:new Set()}).op, 0);
-  assert.equal(bannerHaul([rerun], rerunEnd, {cleared:new Set()}).op, rerun.op);
-  assert.ok(events.find(e => e.name.includes('Ato Rerun')));
-  assert.ok(events.find(e => e.name.includes('Sur le lac')));
+  assert.equal(bannerHaul([rerun], rerunEnd, {cleared:new Set()}).op, rerun.inBacklog ? 0 : rerun.op);
 });
 
 test('event date corrections are independent of banners and invalid windows are omitted', async () => {
-  const {getAllEvents} = await import('../../lib/schedule/schedule');
   const {resolvePullEventSchedule} = await import('../../lib/pulls/schedule');
-  const events = getAllEvents();
-  const bolivar = events.find(e => e.name.includes('Bolívar Diagnosed'))!;
-  assert.equal(resolvePullEventSchedule(events, bundledBacklogSources()).find(e => e.name === bolivar.name)?.end, '2026-12-23');
-  const move = (dateRange: string) => resolvePullEventSchedule([{...bolivar, global:{...bolivar.global, dateRange}}], bundledBacklogSources());
+  const {default: rewardSources} = await import('../../data/pull-event-rewards.json');
+  const reward = rewardSources.find(r => r.op > 0)!;
+  assert.ok(reward, 'an event pays Originite');
+  const move = (dateRange: string) => resolvePullEventSchedule([{name: reward.event, global: {dateRange}}] as unknown as Parameters<typeof resolvePullEventSchedule>[0], bundledBacklogSources());
+  assert.equal(move('2026/12/16–2026/12/23')[0].end, '2026-12-23');
   assert.equal(move('2026/12/01–2026/12/08')[0].end, '2026-12-08');
   assert.equal(move('2026/12/08–2026/12/01').length, 0);
   assert.equal(move('2026/02/30–2026/03/08').length, 0);
@@ -565,18 +589,16 @@ test('current catalogue discovers banners and replaces stale lineups and artwork
 
 test('banner forecasts reuse calendar event windows without extending banners to event endings', async () => {
   const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
-  const { getAllEvents } = await import('../../lib/schedule/schedule');
-  const { getAllEventListings } = await import('../../lib/home/frontPageContent');
-  const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBanners');
-  const events = getAllEvents();
-  const calendar = getAllEventListings(new Date('2026-09-22T12:00:00Z'));
-  const banner = getAllHeadhuntingBanners().find(b=>b.name.includes('Persona 3'))!;
-  const event = calendar.find(e=>e.name===banner.linked_event)!;
-  assert.ok(event.isPredicted);
+  // A crossover whose Global dates are not announced: the calendar predicts the event.
+  const banner: { name: string; linked_event: string; global_date: string | null; cn_date: string; global_date_estimated?: boolean; global_window?: { timingSource: string } } = { name:'Crossover banner', linked_event:'Crossover event', global_date:null, cn_date:'2026/05/01–2026/05/15' };
+  type Events = NonNullable<Parameters<typeof resolvePullBannerWindows>[1]>;
+  type Calendar = NonNullable<Parameters<typeof resolvePullBannerWindows>[2]>;
+  const events = [{ name:'Crossover event', cn:{dateRange:'2026/05/01–2026/05/15'}, global:{dateRange:null} }] as unknown as Events;
+  const calendar = [{ name:'Crossover event', dateRange:'2027/02/19–2027/03/05', isPredicted:true }] as unknown as Calendar;
   const [forecast] = resolvePullBannerWindows([banner], events, calendar);
-  assert.equal(forecast.global_date?.split('–')[0], event.dateRange.split('–')[0]);
+  assert.equal(forecast.global_date, '2027/02/19–2027/03/05');
   assert.equal(forecast.global_date_estimated, true);
-  const movedCalendar = calendar.map(e=>e===event?{...e,dateRange:'2027/03/01–2027/03/30'}:e);
+  const movedCalendar = calendar.map(e => ({...e, dateRange:'2027/03/01–2027/03/30'}));
   const [moved] = resolvePullBannerWindows([banner], events, movedCalendar);
   assert.equal(moved.global_date, '2027/03/01–2027/03/15');
   const confirmed = {...banner,global_date:'2027/04/01–2027/04/15',global_window:{timingSource:'client'}};

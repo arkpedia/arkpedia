@@ -1563,6 +1563,10 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                       <g key={unit.key} pointerEvents="none">
                         <circle cx={cx} cy={cy} r={11} fill="#0b0f14" stroke={colour} strokeWidth={1.6} />
                         {detail?.icon ? (
+                          /* An SVG <image> gets none of ContentImg's rewriting, and the
+                             bare path 307s to the asset commit of the last deploy -- so
+                             an enemy added since then was a blank disc here and nowhere
+                             else. Same release pin as every other image on the page. */
                           <image href={contentUrl(detail.icon)} x={cx - 9} y={cy - 9} width={18} height={18} clipPath="circle(9px at 9px 9px)" />
                         ) : (
                           /* Some spawns carry no name at all in the stage data, and a

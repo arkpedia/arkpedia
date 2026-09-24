@@ -10,7 +10,9 @@
  * matched across languages: a CN name that belongs to two IDs with different EN names,
  * or to an ID the EN client does not have yet, is left alone. A Chinese name that is in
  * neither CN table is a typo in the events data (straight quotes for the table's curly
- * ones, say) and would stay Chinese forever, so it fails the run instead.
+ * ones, say) and would stay Chinese forever. It keeps its CN name, the rest of the run
+ * goes on, and it is reported to the quarantine list under 'reward-names' until the
+ * events data is corrected.
  *
  * The CN name is kept as `cnName`. Reward icons are files named after the display name
  * (getMaterialIconPath), and the file that is already published is the CN-named one, so
@@ -27,6 +29,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { assetFileNames } from '../lib/public-assets.mjs';
+import { beginStage } from '../lib/quarantine.mjs';
 
 const chinese = value => /\p{Script=Han}/u.test(value ?? '');
 // The filter getMaterialIconPath applies, so a name maps to the file the page asks for.
@@ -80,6 +83,7 @@ export function localizeRewards(events, names, published, now = Date.now()) {
 }
 
 export function syncRewardNames(root, cnExcel, enExcel, now = Date.now()) {
+  const alerts = beginStage(root, 'reward-names', new Date(now));
   const read = (dir, file) => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
   const table = (dir, file) => {
     const value = read(dir, file);
@@ -96,9 +100,13 @@ export function syncRewardNames(root, cnExcel, enExcel, now = Date.now()) {
     renamed.push(...result.renamed); unknown.push(...result.unknown);
     if (JSON.stringify(result.events) !== JSON.stringify(events)) writes.push([path.join(directory, file), result.events]);
   }
-  if (unknown.length) throw new Error(`Event rewards on Global name no CN item or furniture, so they can never get an official name:\n${unknown.map(line => `- ${line}`).join('\n')}`);
   for (const [at, events] of writes) fs.writeFileSync(at, JSON.stringify(events, null, 2) + '\n');
-  return renamed;
+  for (const line of unknown) {
+    alerts.add({ key: `reward:${line}`, action: 'kept-previous',
+      reason: `The event reward ${line} is on Global but names no CN item or furniture, so it can never get an official name; it keeps its CN name until the events data spells it as the CN tables do.` });
+  }
+  alerts.commit();
+  return { renamed, unknown };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
@@ -106,9 +114,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const cnExcel = path.join(process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', 'gamedata/excel');
   const enExcel = path.join(process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata/en', 'gamedata/excel');
   try {
-    const renamed = syncRewardNames(root, cnExcel, enExcel);
+    const { renamed, unknown } = syncRewardNames(root, cnExcel, enExcel);
     for (const line of renamed) console.log(`  ${line}`);
     console.log(`${renamed.length} event reward name(s) replaced with official Global names.`);
+    if (unknown.length) console.warn(`${unknown.length} reward name(s) on Global are in neither CN table and stay Chinese (quarantined):\n${unknown.map(line => `  ! ${line}`).join('\n')}`);
   } catch (error) {
     console.error(error);
     process.exitCode = 1;

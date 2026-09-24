@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
+import { contentInput, releaseInput } from './release-input.mjs';
 const root = path.resolve(process.argv[2] || '.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const check = (value, message) => { if (!value) throw new Error(message); };
@@ -56,6 +57,35 @@ function checkOperator(name, op) {
   });
   check(op.isFuture === true || hasGlobalRelease(op), `${name}: needs a Global 'Release Date' (YYYY/MM/DD) or "isFuture": true, or the site lists it as released`);
 }
+// The two pipeline records published beside the game data. The next run reads both back
+// (its stages keep firstSeen from the quarantine; the pin falls back to the lock), so a
+// malformed one must stop here rather than break tomorrow's refresh.
+const day = /^\d{4}-\d{2}-\d{2}$/;
+function checkQuarantine(file) {
+  check(file?.version === 1 && Array.isArray(file.entries), 'data/quarantine.json must be {"version":1,"entries":[...]}');
+  const seen = new Set();
+  file.entries.forEach((entry, i) => {
+    const where = `data/quarantine.json entries[${i}]`;
+    check(plain(entry) && ['key', 'stage', 'reason'].every(field => typeof entry[field] === 'string' && entry[field].trim() !== ''), `${where} needs a key, stage and reason`);
+    check(['omitted-new', 'kept-previous', 'published-partial'].includes(entry.action), `${where} has an unknown action: ${entry.action}`);
+    check(day.test(entry.firstSeen), `${where} needs firstSeen as YYYY-MM-DD`);
+    // Written until 2026-09 (scripts/lib/quarantine.mjs); a stage that has not run since keeps it.
+    check(entry.lastSeen === undefined || (day.test(entry.lastSeen) && entry.firstSeen <= entry.lastSeen), `${where} needs firstSeen <= lastSeen as YYYY-MM-DD`);
+    check(entry.sourceRef === undefined || typeof entry.sourceRef === 'string', `${where} sourceRef must be a string`);
+    const id = `${entry.stage}\n${entry.key}`;
+    check(!seen.has(id), `${where} repeats ${entry.stage} ${entry.key}`);
+    seen.add(id);
+  });
+  const order = file.entries.map(entry => `${entry.stage}\n${entry.key}`);
+  check(order.every((id, i) => i === 0 || order[i - 1] < id), 'data/quarantine.json entries must be sorted by stage, then key');
+}
+function checkUpstreamLock(file) {
+  check(file?.version === 1 && plain(file.repositories), 'data/upstream.lock.json must be {"version":1,"repositories":{...}}');
+  for (const [repository, entry] of Object.entries(file.repositories)) {
+    check(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) && plain(entry) && typeof entry.branch === 'string'
+      && (entry.commit === null || gitSha.test(entry.commit)), `data/upstream.lock.json: invalid pin for ${repository}`);
+  }
+}
 const manifestBytes = fs.readFileSync(path.join(root, 'release/manifest.json'));
 const m = JSON.parse(manifestBytes);
 check(m.schema === 2 && hex.test(m.release) && gitSha.test(m.generator), 'Unsupported release metadata');
@@ -103,11 +133,18 @@ for (const file of walk(path.join(root, 'source')).sort()) {
   } else {
     const record = JSON.parse(bytes);
     if (/^data\/operators-\dstar\/[^/]+\.json$/.test(name)) checkOperator(name, record);
+    if (name === 'data/quarantine.json') checkQuarantine(record);
+    if (name === 'data/upstream.lock.json') checkUpstreamLock(record);
+    // A run's stage timings differ every day; published, they would make every day a new
+    // release. .gitignore keeps the file out of the export.
+    check(name !== 'data/stage-report.json', 'data/stage-report.json must not be published');
   }
   sources[name] = sha(bytes);
 }
 check(JSON.stringify(sources) === JSON.stringify(m.sourceHashes), 'Source records changed without regenerating the release');
-check(sha(JSON.stringify({ schema: 2, generator: m.generator, sourceHashes: sources })) === m.release, 'Release input fingerprint mismatch');
+check(releaseInput({ generator: m.generator, sourceHashes: sources }) === m.release, 'Release input fingerprint mismatch');
+// What the publish step compares: the same without the run's own records (release-input.mjs).
+check(m.content === contentInput({ generator: m.generator, sourceHashes: sources }), 'Release content fingerprint mismatch');
 for (const route of ['/', '/operators', '/planner', '/pulls', '/gacha', '/schedule', '/skins', '/stages', '/enemies']) check(m.pages[route], `Missing required page: ${route}`);
 // The pull planner counts the back catalogue in the browser from these props.
 // Without them the page falls back to the deploy's bundled copy, which lags

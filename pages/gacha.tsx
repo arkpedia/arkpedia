@@ -1,4 +1,4 @@
-import { RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
+import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -1742,6 +1742,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                   This banner&apos;s type couldn&apos;t be confidently determined from the scraped data, so no
                   simulator is available for it. Showing what&apos;s known below.
                 </p>
+                {isLineupPending(selectedBanner) && <p className="hint">{LINEUP_PENDING_NOTE}</p>}
                 <div className="gacha-featured-row" style={{ marginTop: 12 }}>
                   {selectedBanner.six_stars.map((name) => {
                     const found = pools.six.find((i) => i.name === name);
@@ -1765,7 +1766,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       {banner.label} <span className="gacha-banner-date">({bannerDateLabel(selectedBanner)})</span>
                     </h2>
                     {!selectedBanner?.global_date && <p className="hint">Global release date unannounced.</p>}
-                    {selectedBanner?.banner_image && (
+                    {selectedBanner?.banner_image ? (
                       <Image
                         src={selectedBanner.banner_image}
                         alt={banner.label}
@@ -1773,11 +1774,16 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         height={900}
                         className="gacha-banner-main-image"
                       />
+                    ) : (
+                      /* No art yet (null until the image repository publishes it): an
+                         empty frame the size the art will have, so switching between a
+                         banner with art and one without moves nothing below it. */
+                      <div className="gacha-banner-main-image gacha-banner-main-placeholder" aria-hidden="true" />
                     )}
 
                     <div className="gacha-content-group">
                     <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
-                    <div className="gacha-featured-row">
+                    {isLineupPending(selectedBanner) ? <p className="hint">{LINEUP_PENDING_NOTE}</p> : <div className="gacha-featured-row">
                       {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
                         const pct = sixStarOdds.find((o) => o.item.name === item.name);
                         const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
@@ -1804,7 +1810,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           />
                         );
                       })}
-                    </div>
+                    </div>}
                     {(banner.rateUpSixStars || []).length > 0 && <>
                       <h3 style={{ marginTop: 16, marginBottom: 4 }}>Returning limited operators</h3>
                       <p className="hint">{RETURNING_LIMITED_NOTE}</p>
@@ -2462,7 +2468,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   // confirmed unused both directly in this file and in every helper
   // function from realGachaBanners.ts this page relies on
   // (buildRealBannerConfig, getMechanicType, getDisplayFeaturedSixStars,
-  // parseBannerDate/EndDate). Every other field is read by one of those.
+  // parseBannerDate/EndDate). Every other field is read by one of those,
+  // and lineupSource by the page's own "lineup to be confirmed" note.
   const trimmedBanners: HeadhuntingBanner[] = banners.map((b) => ({
     name: b.name ?? '',
     category: '',
@@ -2473,6 +2480,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     ...(b.global_window ? { global_window: b.global_window } : {}),
     ...(b.cn_window ? { cn_window: b.cn_window } : {}),
     banner_image: b.banner_image ?? null,
+    ...(b.lineupSource ? { lineupSource: b.lineupSource } : {}),
     six_stars: b.six_stars ?? [],
     rate_up_six_stars: b.rate_up_six_stars ?? [],
     five_stars: b.five_stars ?? [],

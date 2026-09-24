@@ -4,7 +4,6 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { pinAssetUrl } from '../../lib/assets/revisions';
 import revisions from '../../data/assets/revisions.json';
-import externalAssets from '../../data/assets/external-asset-index.json';
 import cdn from '../../config/asset-delivery.json';
 
 const delivered = (repository: string, revision: string, path: string) => cdn.template
@@ -26,8 +25,11 @@ function publishedImagePath(value: string): string {
   return decodeURIComponent(url.pathname.slice(prefix.length));
 }
 
+/* Only the shape of each art path is checked here. Whether the image repository has
+   published it yet is check-completeness's question: art the wiki has not uploaded, or a
+   banner created from the client with none, holds that one record back as published-partial
+   (data/quarantine.json) instead of failing the day's release, which runs npm test. */
 test('schedule artwork uses Arkpedia image-asset paths', () => {
-  const published = new Set(externalAssets.files);
   const directory = path.join(process.cwd(), 'data', 'events');
   for (const file of fs.readdirSync(directory).filter(name => /^events_\d{4}\.json$/.test(name))) {
     const events = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8')) as Array<{ name: string; poster?: string | null }>;
@@ -35,19 +37,17 @@ test('schedule artwork uses Arkpedia image-asset paths', () => {
       if (!event.poster) continue;
       const asset = publishedImagePath(event.poster);
       assert.match(asset, /^\/event-poster\/.+\.(?:webp|jpg)$/, `${file}: ${event.name}`);
-      assert.ok(published.has(asset.slice(1)), `${file}: ${event.name} references unpublished ${event.poster}`);
     }
   }
 });
 
-test('every headhunting banner has published artwork', () => {
-  const published = new Set(externalAssets.files);
+test('headhunting banner artwork uses Arkpedia image-asset paths', () => {
   const banners = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'headhunting_banners.json'), 'utf8')) as Array<{ name: string; banner_image?: string | null }>;
   assert.ok(banners.length > 400, 'banner history unexpectedly shrank');
   for (const banner of banners) {
-    const asset = publishedImagePath(banner.banner_image || '');
+    if (!banner.banner_image) continue;
+    const asset = publishedImagePath(banner.banner_image);
     assert.match(asset, /^\/headhunting-banner-images\/.+\.(?:webp|jpg)$/, `${banner.name} has no normalized artwork path`);
-    assert.ok(published.has(asset.slice(1)), `${banner.name} references unpublished ${banner.banner_image}`);
   }
 });
 

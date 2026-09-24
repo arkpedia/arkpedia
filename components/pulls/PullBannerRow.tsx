@@ -27,7 +27,7 @@ export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRe
     <div className={styles.bannerRow}>
       <button className={styles.bannerIdentity} type="button" onClick={onExpand} aria-expanded={expanded} aria-label={`Edit ${row.goal.banner}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {row.banner?.image && <ContentImg src={row.banner.image} alt="" width="96" height="60" />}
+        {row.banner?.image ? <ContentImg src={row.banner.image} alt="" width="96" height="60" /> : <span className={styles.bannerArtPending} aria-hidden="true" />}
         <span><strong>{names}</strong><small>{row.goal.banner.replace(/^\[[^\]]*\]\s*/,'')}</small><em>{expanded?'Hide goals':'Edit goals'} <span aria-hidden="true">{expanded?'−':'+'}</span></em></span>
       </button>
       <div className={styles.date}><span className={styles.mobileLabel}>Until</span><b>{date}</b><small>{row.banner?.datesEstimated?'Estimated':''}</small></div>

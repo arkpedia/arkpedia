@@ -5,8 +5,11 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, wikiParseUrl, wikiText, safeName, rarityWord } from './catalogue-model.mjs';
-import { buildInventory } from './sync-content-inventory.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, safeName, rarityWord } from './catalogue-model.mjs';
+import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
+import { readWikiRows } from './wiki-pages.mjs';
+import { beginStage } from '../lib/quarantine.mjs';
+import { pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
 const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json' };
@@ -15,9 +18,14 @@ async function json(url) {
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   return response.json();
 }
-async function source(repo, branch, folder, cache) {
-  const {sha} = await json(`https://api.github.com/repos/${repo}/commits/${branch}`);
-  if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error(`Invalid revision: ${repo}`);
+/** The commit this run pinned for a mirror (run-stage.mjs), else its branch head from the API. */
+export const revision = (repo, env = process.env) => pinnedCommit(repo, async (repository, branch) => {
+  const {sha} = await json(`https://api.github.com/repos/${repository}/commits/${branch}`);
+  if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error(`Invalid revision: ${repository}`);
+  return sha;
+}, env);
+export async function source(repo, folder, cache, env = process.env) {
+  const sha = await revision(repo, env);
   const base = `https://raw.githubusercontent.com/${repo}/${sha}/${folder}`;
   const result = {source:base, revision:sha, repository:`https://github.com/${repo}`};
   // Bound concurrency and persist immutable inputs so a failed run is reproducible.
@@ -34,13 +42,6 @@ async function source(repo, branch, folder, cache) {
     throw new Error('Global mirror does not contain an English roster');
   result.voiceTables = [result.voices];
   return result;
-}
-export async function wiki(page, cache, now) {
-  const response = await json(wikiParseUrl(page));
-  const text = wikiText(page, response, now);
-  if (text) write(path.join(cache,'wiki',page.replaceAll('/','-')+'.json'),response);
-  else console.warn(`${page} does not exist on the wiki yet; reading it as no rows until the end of January (UTC).`);
-  return text;
 }
 export function assetPlan(operators, skins, cn, en, published, extra = []) {
   const planned = new Map(extra.filter(a => !published.has(a.path)).map(a => [a.path,a]));
@@ -83,16 +84,20 @@ export function assetPlan(operators, skins, cn, en, published, extra = []) {
   return [...planned.values()].sort((a,b)=>a.path.localeCompare(b.path));
 }
 export async function syncCatalogue(root, options={}) {
-  const cache=path.resolve(root,'.cache/catalogue');
+  const cache=path.resolve(root,'.cache/catalogue'), now=options.now ?? new Date();
+  // The wiki only enriches: a page it cannot serve today is read from its last good copy
+  // and reported under the 'wiki' stage, never thrown (wiki-pages.mjs).
+  const wikiStage=beginStage(root,'wiki',now);
   const sources=options.sources || await (async()=>{
     const [cn,en]=await Promise.all([
-      source('Kengxxiao/ArknightsGameData','master','zh_CN/gamedata/excel',cache),
-      source('ArknightsAssets/ArknightsGamedata','master','en/gamedata/excel',cache),
+      source('Kengxxiao/ArknightsGameData','zh_CN/gamedata/excel',cache),
+      source('ArknightsAssets/ArknightsGamedata','en/gamedata/excel',cache),
     ]);
-    const now=new Date();
-    const [upcoming,yearly,events]=await Promise.all([wiki('Headhunting/Banners/Upcoming',cache,now),wiki(`Headhunting/Banners/${now.getUTCFullYear()}`,cache,now),wiki('Event/Upcoming',cache,now)]);
-    const resource=await json('https://api.github.com/repos/yuanyan3060/ArknightsGameResource/commits/main');
-    return {cn,en,bannerRows:[...parseWikiRows(upcoming,'Banners cell'),...parseWikiRows(yearly,'Banners cell')],eventRows:parseWikiRows(events,'Upcoming events cell'),resourceRevision:resource.sha};
+    const read=(page,template)=>readWikiRows(root,page,template,{now,alerts:wikiStage,write:!options.dryRun});
+    const [upcoming,yearly,events]=await Promise.all([read('Headhunting/Banners/Upcoming','Banners cell'),read(`Headhunting/Banners/${now.getUTCFullYear()}`,'Banners cell'),read('Event/Upcoming','Upcoming events cell')]);
+    // The asset plan's revision: publish-catalogue-assets fetches every planned file at it.
+    const resourceRevision=await revision('yuanyan3060/ArknightsGameResource');
+    return {cn,en,bannerRows:[...upcoming,...yearly],eventRows:events,resourceRevision};
   })();
   const {cn,en}=sources;
   const operatorFiles=fs.readdirSync(path.join(root,'data')).filter(dir=>/^operators-\dstar$/.test(dir)).flatMap(dir=>fs.readdirSync(path.join(root,'data',dir)).filter(f=>f.endsWith('.json')).map(f=>path.join(root,'data',dir,f)));
@@ -100,7 +105,7 @@ export async function syncCatalogue(root, options={}) {
   const eventFiles=fs.readdirSync(path.join(root,'data/events')).filter(f=>/^events_\d+\.json$/.test(f)).map(f=>path.join(root,'data/events',f));
   const events=eventFiles.flatMap(read);
   const initial=reconcileOperators({operators,cn,en});
-  const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows});
+  const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows,now:now.getTime()});
   const updated=reconcileOperators({operators:initial.operators,cn,en,releases:operatorReleaseDates(initial.operators,calendars.banners,cn,en)});
   // Populate CN release dates for newly imported records too; reconciliation only revisits Global releases.
   const releases=operatorReleaseDates(updated.operators,calendars.banners,cn,en);
@@ -117,7 +122,11 @@ export async function syncCatalogue(root, options={}) {
   const inventory=buildInventory(cn.characters,cn.skins,{repository:cn.repository,revision:cn.revision,files:Object.fromEntries(['characters','skins'].map(k=>[tableFiles[k],createHash('sha256').update(JSON.stringify(cn[k])).digest('hex')]))});
   inventory.events=calendars.events.filter(e=>e.activityId).map(e=>({id:e.activityId,name:e.name}));
   inventory.banners=calendars.banners.filter(b=>b.cnPoolId).map(b=>({id:b.cnPoolId,name:b.name}));
-  const report={operatorsAdded:updated.operators.length-operators.length,outfitsAdded:outfits.skins.length-skins.length,eventsAdded:calendars.events.length-events.length,bannersAdded:calendars.banners.length-banners.length,renames:[...renames],assetsRequired:plan.files.length,sources:{cn:cn.revision,global:en.revision,resource:sources.resourceRevision}};
+  // Records a bad input left out, kept at their previous version or published partly.
+  const catalogueStage=beginStage(root,'catalogue',now);
+  // An operator held back by both reconcileOperators passes is one entry: add() keeps the first report of a key.
+  for (const entry of [...initial.quarantine,...updated.quarantine,...calendars.quarantine,...outfits.quarantine]) catalogueStage.add(entry);
+  const report={operatorsAdded:updated.operators.length-operators.length,outfitsAdded:outfits.skins.length-skins.length,eventsAdded:calendars.events.length-events.length,bannersAdded:calendars.banners.length-banners.length,poolIdsLinked:calendars.linked,renames:[...renames],assetsRequired:plan.files.length,quarantined:catalogueStage.entries.map(e=>e.key),sources:{cn:cn.revision,global:en.revision,resource:sources.resourceRevision}};
   write(path.join(cache,'asset-plan.json'),plan); write(path.join(cache,'report.json'),report);
   if (!options.dryRun) {
     for (const op of updated.operators) {
@@ -132,8 +141,12 @@ export async function syncCatalogue(root, options={}) {
     for (const file of ['skin-availability-windows.json','skin-shop-rotations.json']) {
       const at=path.join(root,'data',file); write(at,replace(read(at)));
     }
-    write(path.join(root,'data/content-inventory.json'),inventory);
+    const inventoryAt=path.join(root,'data/content-inventory.json');
+    write(inventoryAt,withStableSource(fs.existsSync(inventoryAt) ? read(inventoryAt) : null,inventory));
     write(path.join(root,'data/catalogue-sync.json'),report);
+    catalogueStage.commit();
+    // Given sources mean no page was read, so the stage did not run.
+    if (!options.sources) wikiStage.commit();
   }
   return report;
 }

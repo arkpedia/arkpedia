@@ -6,7 +6,7 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
-import { RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
+import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { getFeaturedOperatorRates, splitEventBannerRates, FeaturedOperatorRate } from '@/lib/gacha/eventBannerRates';
 import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
@@ -104,12 +104,15 @@ function computeRewardTotals(stores: ResolvedRewardStore[]): RewardTotal[] {
 
 interface Props {
   name: string;
-  poster: string;
+  /** null while the image repository has not published it (see publishedArt). */
+  poster: string | null;
   images: string[];
   dateRange: string;
   isPredicted: boolean;
   bannerName: string | null;
   bannerImage: string | null;
+  /** The linked banner is out before its lineup is known (lineupSource 'pending'). */
+  lineupPending: boolean;
   featuredOperators: FeaturedOperatorRate[];
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
@@ -182,6 +185,7 @@ export default function EventDetailPage({
   isPredicted,
   bannerName,
   bannerImage,
+  lineupPending,
   featuredOperators,
   skins,
   rewardStores,
@@ -297,13 +301,14 @@ export default function EventDetailPage({
             <section className="op-section">
               {bannerName ? (
                 <>
-                  {bannerImage && (
-                    <div className="event-detail-banner-art-wrap">
-                      <Image src={bannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />
-                    </div>
-                  )}
+                  {/* The frame stays when the art is not published yet, empty at the
+                      same size, rather than the section closing up around it. */}
+                  <div className="event-detail-banner-art-wrap">
+                    {bannerImage && <Image src={bannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+                  </div>
                   <p className="hint">{bannerName}</p>
-                  {Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
+                  {lineupPending && <p className="hint">{LINEUP_PENDING_NOTE}</p>}
+                  {!lineupPending && Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
                     <h3>{group === 'featured' ? 'Featured operators' : 'Returning limited operators'}</h3>
                     {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
                     <div className="event-detail-featured-ops">
@@ -491,7 +496,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const skins = getSkinsForEvent(event.name, allSkins, listings.map((e) => e.name));
 
   const cgImages = getEventCgImages(event.name);
-  const images = cgImages.length > 0 ? cgImages : [event.poster];
+  const images = cgImages.length > 0 ? cgImages : event.poster ? [event.poster] : [];
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
   const rawStores = getEventRewards(event.name);
@@ -527,6 +532,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       isPredicted: event.isPredicted,
       bannerName: banner?.name || null,
       bannerImage: banner?.banner_image || null,
+      lineupPending: banner ? isLineupPending(banner) : false,
       featuredOperators,
       skins,
       rewardStores,

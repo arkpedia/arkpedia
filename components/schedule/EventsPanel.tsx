@@ -73,8 +73,10 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
     <section className="front-panel front-events-panel">
       <h2>Events</h2>
       <button type="button" className="front-events-main" onClick={() => selectSlide(activeIndex)}>
+        {/* The box keeps its size without art: a poster the image repository has not
+            published yet is null (publishedArt), never a broken image. */}
         <div className="front-events-poster-wrap">
-          <Image src={active.event.poster} alt={active.event.name} fill sizes="600px" style={{ objectFit: 'contain' }} />
+          {active.event.poster && <Image src={active.event.poster} alt={active.event.name} fill sizes="600px" style={{ objectFit: 'contain' }} />}
         </div>
         <div className="front-events-info">
           <span className="front-events-name">{active.event.name}</span>

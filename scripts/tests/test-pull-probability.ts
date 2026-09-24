@@ -1,40 +1,83 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canComplete, formatChance, selectedRules, simulateOdds, sixStarChance, type BannerOdds, type OddsRequest } from '../../lib/pulls/probability';
-import { getBannerOdds } from '../../lib/pulls/bannerOdds';
+import { canComplete, formatChance, selectedRules, simulateOdds, sixStarChance, type BannerOdds, type OddsOperator, type OddsRequest } from '../../lib/pulls/probability';
+import { getBannerOdds, LIMITED_RULES, resolveLimitedRules } from '../../lib/pulls/bannerOdds';
 import { getPullSchedule } from '../../lib/pulls/schedule';
+import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBanners';
+import { getAllOperators } from '../../lib/operators/operators';
 import { parsePullPlan } from '../../lib/pulls/plan';
-const catalogue = getBannerOdds(getPullSchedule().filter(b => b.end >= '2026-09-09'));
-const limited = catalogue['[Celebration] Sealed With Time'];
+const schedule = getPullSchedule().filter(b => b.end >= '2026-09-09');
+const catalogue = getBannerOdds(schedule);
+const ofType = (type: BannerOdds['type']) => Object.values(catalogue).find(rules => rules.type === type)!;
 const target = (name: string, copies = 1) => ({ name, copies });
 const request = (rules: BannerOdds, pulls: number, names: string[], spark = false): OddsRequest => ({ rules, pulls, targets: names.map(n => target(n)), spark });
 
-test('all nine scheduled banners have rules; official limited rosters and five-star rates are banner-specific', () => {
-  assert.equal(Object.keys(catalogue).length, 9);
-  assert.equal(limited.operators.length, 14);
-  assert.equal(limited.operators.find(o => o.name === 'Crackborne')?.share, .5);
-  assert.equal(limited.operators.find(o => o.name === 'Specter the Unchained')?.spark, 200);
-  assert.equal(limited.operators.find(o => o.name === 'Texas the Omertosa')?.spark, 300);
-  assert.ok(!limited.operators.some(o => o.name === 'Nian'));
-  const summer = catalogue['[Carnival] Trails End Winds Rest'];
-  assert.equal(summer.operators.find(o => o.name === 'Gavial the Invincible')?.spark, 200);
-  assert.ok(!summer.operators.some(o => o.name === 'W'));
-  const boosted = limited.operators.find(o => o.name === "Wiš'adel")!;
-  const normal = limited.operators.find(o => o.name === 'W')!;
-  assert.ok(Math.abs(boosted.share / normal.share - 5) < 1e-12);
-  assert.ok(!limited.ordinarySix?.includes('Aphrissa'));
-  assert.ok(limited.ordinarySix?.includes('Zima the Raging Tide'));
-  assert.ok(!limited.ordinarySix?.includes('SilverAsh'));
-  assert.ok(!limited.ordinarySix?.includes('Amiya'));
-  const sixMass = limited.operators.filter(o => o.rarity === 6).reduce((s,o) => s+o.share,0) + limited.ordinarySix!.length * normal.share;
-  assert.ok(Math.abs(sixMass - 1) < 1e-10);
+/* The model's own rules, on a limited banner shaped like the verified ones in
+   LIMITED_RULES: two featured six-stars sharing 70% (one of them the 300-pull gift),
+   one featured five-star at 50%, and returning limited operators -- one rated up five
+   times -- sharing the remaining 30% with the ordinary pool. The names are invented,
+   so a rename or a new banner in the data can never move these numbers. */
+const featured = (name: string, rarity: 5 | 6, share: number, spark: number): OddsOperator => ({ name, rarity, share, kind: 'featured', icon: null, spark });
+const ordinarySix = ['Ordinary A', 'Ordinary B', 'Ordinary C'];
+const returningShare = (weight: number) => .3 * weight / (ordinarySix.length + 5 + 3);
+const limited: BannerOdds = {
+  id: 'LIMITED_TEST', type: 'limited', sources: [], bonus: 'Gift Six', ordinarySix,
+  operators: [
+    featured('Featured Six', 6, .35, 300), featured('Gift Six', 6, .35, 300), featured('Featured Five', 5, .5, 75),
+    { name: 'Rated-up Returner', rarity: 6, share: returningShare(5), kind: 'returning', icon: null, spark: 300 },
+    { name: 'Returner', rarity: 6, share: returningShare(1), kind: 'returning', icon: null, spark: 300 },
+    { name: 'Discount Returner', rarity: 6, share: returningShare(1), kind: 'returning', icon: null, spark: 200 },
+    { name: 'Second Discount Returner', rarity: 6, share: returningShare(1), kind: 'returning', icon: null, spark: 200 },
+  ],
+};
+const sum = (operators: OddsOperator[]) => operators.reduce((total, op) => total + op.share, 0);
+
+test('every verified limited pool in the schedule gets its official roster, sparks and rates', () => {
+  const byId = new Map(getAllOperators().map(op => [op.internalName, op.name]));
+  const banners = getAllHeadhuntingBanners();
+  const pools = Object.values(catalogue).filter(rules => rules.type === 'limited');
+  // Keyed by pool id: LIMITED_73_0_1 opens on Global in the committed schedule and stays in it.
+  assert.ok(pools.some(rules => rules.id === 'LIMITED_73_0_1'));
+  for (const rules of pools) {
+    const verified = LIMITED_RULES[rules.id];
+    assert.ok(verified, `${rules.id} has no verified limited rules`);
+    const raw = banners.find(banner => banner.name === schedule.find(entry => entry.poolId === rules.id)?.name)!;
+    const six = rules.operators.filter(o => o.rarity === 6), five = rules.operators.filter(o => o.rarity === 5);
+    const featuredSix = six.filter(o => o.kind === 'featured'), returning = six.filter(o => o.kind === 'returning');
+    assert.ok(Math.abs(sum(featuredSix) - .7) < 1e-12 && featuredSix.every(o => o.spark === 300), rules.id);
+    assert.ok(Math.abs(sum(five) - .5) < 1e-12 && five.every(o => o.kind === 'featured' && o.spark === 75), rules.id);
+    // The gift and the returning roster are the verified operators, whatever they are called today.
+    assert.ok(featuredSix.some(o => o.name === rules.bonus) && rules.bonus === byId.get(verified.bonus), `${rules.id} gift`);
+    const discounted = verified.returning200.map(id => byId.get(id));
+    assert.deepEqual(returning.map(o => o.name).sort(), [...verified.returning300, ...verified.returning200].map(id => byId.get(id)).sort(), rules.id);
+    for (const op of returning) assert.equal(op.spark, discounted.includes(op.name) ? 200 : 300, op.name);
+    const normal = Math.min(...returning.map(o => o.share));
+    for (const op of returning) assert.ok(Math.abs(op.share / normal - (raw.rate_up_six_stars?.includes(op.name) ? 5 : 1)) < 1e-9, op.name);
+    assert.ok(Math.abs(sum(six) + rules.ordinarySix!.length * normal - 1) < 1e-10, rules.id);
+    assert.ok(!rules.ordinarySix!.some(name => six.some(op => op.name === name)), `${rules.id} counts an operator twice`);
+  }
+  // The ordinary pool is the banner's own: released before it opens, obtainable from headhunting.
+  const [sealed] = pools.filter(rules => rules.id === 'LIMITED_73_0_1');
+  const named = (id: string) => byId.get(id)!;
+  assert.ok(sealed.ordinarySix!.includes(named('char_1051_headb2')), 'released three weeks earlier');
+  for (const id of ['char_4229_aphris', 'char_172_svrash', 'char_002_amiya']) assert.ok(!sealed.ordinarySix!.includes(named(id)), id);
 });
+test('a limited rule applies whole or not at all: an id no operator record has is named, never dropped', () => {
+  const rule = { bonus: 'char_gift', source: 'https://example.test/news', returning300: ['char_a', 'char_b'], returning200: ['char_c'] };
+  const everyone = new Map([['char_gift', 'Gift'], ['char_a', 'A'], ['char_b', 'B'], ['char_c', 'C']]);
+  assert.deepEqual(resolveLimitedRules(rule, everyone), { resolved: { source: rule.source, bonus: 'Gift', returning300: ['A', 'B'], returning200: ['C'] } });
+  // A returning operator's record missing (not imported yet, or quarantined) and the gift's.
+  const withoutB = new Map([...everyone].filter(([id]) => id !== 'char_b'));
+  assert.deepEqual(resolveLimitedRules(rule, withoutB), { missing: ['char_b'] });
+  assert.deepEqual(resolveLimitedRules(rule, new Map([...everyone].filter(([id]) => id !== 'char_gift'))), { missing: ['char_gift'] });
+});
+
 test('soft pity begins on pull 51, reaches certainty at 99 and resets after a six-star', () => {
   assert.equal(sixStarChance(49), .02); assert.equal(sixStarChance(50), .04);
   assert.equal(sixStarChance(51), .06); assert.equal(sixStarChance(98), 1); assert.equal(sixStarChance(0), .02);
 });
 test('sampled base rates agree with exact one-pull probabilities', () => {
-  const result = simulateOdds(request(limited, 1, ['Closure', 'Crackborne']), 200000);
+  const result = simulateOdds(request(limited, 1, ['Featured Six', 'Featured Five']), 200000);
   assert.ok(Math.abs(result.copies[0][0].probability - .007) < .0007);
   assert.ok(Math.abs(result.copies[1][0].probability - .04) < .0015);
   assert.equal(result.all.probability, 0); // cannot draw both in one pull
@@ -50,7 +93,7 @@ test('first-ten guarantee changes the no-five-or-six outcome, not every tenth pu
   assert.equal(result.copies[0][0].probability,1); assert.equal(result.copies[0][1].probability,0);
 });
 test('sparking thresholds 75/200/300 and separate 300-pull bonus', () => {
-  for (const [name, cost] of [['Crackborne',75],['W',200],['Closure',300]] as const) {
+  for (const [name, cost] of [['Featured Five',75],['Discount Returner',200],['Featured Six',300]] as const) {
     assert.equal(simulateOdds(request(limited,cost-1,[name],true),100).copies[0][0].certain,false);
     assert.equal(simulateOdds(request(limited,cost,[name],true),100).copies[0][0].certain,true);
   }
@@ -63,7 +106,7 @@ test('sparking thresholds 75/200/300 and separate 300-pull bonus', () => {
   assert.equal(simulateOdds(request(limited,600,[name]),100).copies[0][1].certain,false); // gift is once, not recurring
 });
 test('joint goals share contracts and never multiply marginal probabilities', () => {
-  const ops = ['W','Rosmontis'].map(n=>limited.operators.find(o=>o.name===n)!);
+  const ops = ['Discount Returner','Second Discount Returner'].map(n=>limited.operators.find(o=>o.name===n)!);
   const targets = ops.map(o=>target(o.name));
   assert.equal(canComplete([0,0],targets,ops,200),false);
   assert.equal(canComplete([0,0],targets,ops,400),true);
@@ -71,11 +114,11 @@ test('joint goals share contracts and never multiply marginal probabilities', ()
   const result=simulateOdds({...request(limited,200,ops.map(o=>o.name),true)},1000);
   assert.ok(result.copies.every(row=>row[0].certain));assert.equal(result.all.certain,false);
   assert.ok(result.all.probability<.5);
-  assert.equal(simulateOdds(request(limited,300,['Closure',limited.bonus!],true),100).all.certain,true);
-  assert.equal(simulateOdds(request(limited,0,['Closure'],true),100).all.impossible,true);
+  assert.equal(simulateOdds(request(limited,300,['Featured Six',limited.bonus!],true),100).all.certain,true);
+  assert.equal(simulateOdds(request(limited,0,['Featured Six'],true),100).all.impossible,true);
 });
 test('single safety net and recurring crossover guarantees use different boundaries', () => {
-  const single=catalogue['Rage of The Many']; const cross=catalogue['Hunters of the Umbral Wilds'];
+  const single=ofType('single'); const cross=ofType('crossover');
   assert.equal(simulateOdds(request(single,248,[single.operators[0].name]),100).all.certain,false);
   assert.equal(simulateOdds(request(single,249,[single.operators[0].name]),100).all.certain,true);
   const req=request(cross,240,[cross.operators[0].name]);req.targets[0].copies=2;
@@ -90,26 +133,27 @@ test('single safety net and recurring crossover guarantees use different boundar
   assert.equal(five.copies[0][0].probability,1); assert.equal(five.copies[0][1].probability,0);
 });
 test('Orienteering requires three of each rarity and only permits selected targets', () => {
-  const rules=catalogue['Orienteering #7'];const r=request(rules,100,[rules.operators[0].name]);
+  const rules=ofType('orienteering');const r=request(rules,100,[rules.operators[0].name]);
   assert.throws(()=>selectedRules(r),/three/);
   r.roster=[...rules.operators.filter(o=>o.rarity===6).slice(0,3),...rules.operators.filter(o=>o.rarity===5).slice(0,3)].map(o=>o.name);
   const resolved=selectedRules(r);assert.equal(resolved.operators[0].share,1/3);assert.equal(resolved.operators[3].share,.2);
-  assert.throws(()=>simulateOdds({...r,targets:[target('Typhon')]},1),/no longer available/);
+  const unselected=rules.operators.find(o=>!r.roster!.includes(o.name))!;
+  assert.throws(()=>simulateOdds({...r,targets:[target(unselected.name)]},1),/no longer available/);
 });
 test('results are deterministic, tails monotonic, and sampled extremes are not mislabeled guarantees', () => {
-  const r=request(limited,80,['Closure','Crackborne']);const first=simulateOdds(r,2000);
+  const r=request(limited,80,['Featured Six','Featured Five']);const first=simulateOdds(r,2000);
   assert.deepEqual(first,simulateOdds(r,2000));
   for(const row of first.copies) for(let i=1;i<6;i++) assert.ok(row[i].probability<=row[i-1].probability);
   assert.equal(formatChance({probability:1,certain:false,impossible:false}),'>99.9%');
   assert.equal(formatChance({probability:0,certain:false,impossible:false}),'<0.1%');
 });
 test('operator goals round-trip and imported probabilities cannot override the model', () => {
-  const p={version:1,orundum:'',originite:'',permits:'',reservedOP:'',until:'',manualEventDate:'',bannerName:'',monthlyCard:false,includeBacklog:false,annihilationDone:false,doneEvents:[],doneKeys:[],clearedReruns:[],future:{},goals:[{banner:'test',pulls:300,spendOn:'2026-11-01',targets:[{name:'W',copies:2}],includeSpark:true,rateUpRoster:[]}]};
+  const p={version:1,orundum:'',originite:'',permits:'',reservedOP:'',until:'',manualEventDate:'',bannerName:'',monthlyCard:false,includeBacklog:false,annihilationDone:false,doneEvents:[],doneKeys:[],clearedReruns:[],future:{},goals:[{banner:'test',pulls:300,spendOn:'2026-11-01',targets:[{name:'Returner',copies:2}],includeSpark:true,rateUpRoster:[]}]};
   assert.equal(parsePullPlan(JSON.stringify(p)).goals[0].targets?.[0].copies,2);
   assert.equal(parsePullPlan(JSON.stringify(p)).goals[0].includeSpark,true);
-  for(const copies of [0,7,1.5,'2',null]) assert.throws(()=>parsePullPlan(JSON.stringify({...p,goals:[{...p.goals[0],targets:[{name:'W',copies}]}]})));
+  for(const copies of [0,7,1.5,'2',null]) assert.throws(()=>parsePullPlan(JSON.stringify({...p,goals:[{...p.goals[0],targets:[{name:'Returner',copies}]}]})));
   assert.throws(()=>parsePullPlan(JSON.stringify({...p,goals:[{...p.goals[0],includeSpark:'yes'}]})));
-  assert.throws(()=>simulateOdds(request(limited,100,['Nian']),1),/no longer available/);
+  assert.throws(()=>simulateOdds(request(limited,100,['Not On This Banner']),1),/no longer available/);
 });
 
 test('Monte Carlo matches an independent exact pity/count recurrence through 120 pulls', () => {
@@ -126,7 +170,7 @@ test('Monte Carlo matches an independent exact pity/count recurrence through 120
     }
     state=next;
   }
-  const estimate=simulateOdds(request(limited,120,['Closure']),100000);
+  const estimate=simulateOdds(request(limited,120,['Featured Six']),100000);
   for(let n=1;n<=6;n++) {
     const exact=[...state].reduce((sum,[key,p])=>sum+(Number(key.split(',')[1])>=n?p:0),0);
     assert.ok(Math.abs(estimate.copies[0][n-1].probability-exact)<.006,`tail ${n}`);

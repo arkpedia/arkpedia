@@ -2,19 +2,31 @@
 /**
  * Add recurring Global Standard and Kernel banners from current sources.
  *
- * The client table is authoritative for exact start/end timestamps. It also
- * contains the Kernel rate-up character ids. Standard rate-ups are not present
- * in the client table, so those names come from the structured yearly banner
- * table on Arknights Terra Wiki and are accepted only when the row has an exact
- * matching client window. This prevents a stale or speculative wiki row from
- * becoming a live countdown.
+ * The client table is authoritative: a pool it ships is the banner, with its exact
+ * start/end timestamps and its pool id (globalPoolId), and for Kernel its rate-up
+ * character ids too. Standard rate-ups are not present in the client table, so those
+ * names come from the structured yearly banner table on Arknights Terra Wiki and are
+ * accepted only when the row has an exact matching client window. This prevents a
+ * stale or speculative wiki row from becoming a live countdown.
+ *
+ * The wiki only enriches. A pool it has no row for is still added when it follows a
+ * recorded one (numbered after it; the wiki's own number wins when there is a row),
+ * a Standard pool then with lineupSource 'pending' until the row arrives. A row that
+ * cannot be used -- an unknown name, not two 6-stars and three 5-stars, a Kernel
+ * lineup the client contradicts (the client wins) -- is reported to the quarantine
+ * list under 'recurring-banners', never thrown.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { wikiParseUrl, wikiText } from './catalogue-model.mjs';
+import { parseWikiRows } from './catalogue-model.mjs';
+import { readWikiRows } from './wiki-pages.mjs';
+import { beginStage } from '../lib/quarantine.mjs';
+import { pinnedRef } from '../content/pin-upstream.mjs';
 
-const CLIENT_BASE = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel';
+// At the commit this run pinned (run-stage.mjs), else the branch; a banner created from it
+// records that URL as its timingSource.
+const CLIENT_BASE = `https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${pinnedRef('ArknightsAssets/ArknightsGamedata')}/en/gamedata/excel`;
 const CLIENT_SOURCE = `${CLIENT_BASE}/gacha_table.json`;
 
 function serverDate(timestamp, utcOffsetHours = -7) {
@@ -27,19 +39,10 @@ function isoEnd(timestamp) {
   return new Date((timestamp + (timestamp % 60 === 59 ? 1 : 0)) * 1000).toISOString();
 }
 
-function parseFields(block) {
-  const fields = {};
-  for (const line of block.split('\n')) {
-    const match = /^\s*\|\s*([^=]+?)\s*=\s*(.*?)\s*$/.exec(line);
-    if (match) fields[match[1].trim()] = match[2].trim();
-  }
-  return fields;
-}
-
-export function parseRecurringWikiRows(wikitext) {
+/** The Standard and Kernel rows among the yearly page's parsed Banners cells. */
+export function recurringRows(cells) {
   const rows = [];
-  for (const match of wikitext.matchAll(/\{\{Banners cell\s*([\s\S]*?)\}\}/g)) {
-    const row = parseFields(match[1]);
+  for (const row of cells) {
     if (!['standard', 'kernel'].includes(row.type) || !/^\d+$/.test(row.no || '')) continue;
     const start = /^(\d{4}\/\d{2}\/\d{2})\s+\d{2}:\d{2}:\d{2}$/.exec(row.start || '');
     const end = /^(\d{4}\/\d{2}\/\d{2})\s+\d{2}:\d{2}:\d{2}$/.exec(row.end || '');
@@ -56,50 +59,111 @@ function clientRows(gachaTable, type) {
     && row.openTime && row.endTime && row.endTime - row.openTime <= 15 * 86400);
 }
 
-function operatorRarity(name, roster) {
-  const rarity = roster.get(name);
-  if (rarity !== 5 && rarity !== 6) throw new Error(`Recurring banner references an unknown 5/6-star operator: ${name}`);
-  return rarity;
-}
+// A pool with no wiki row is added only this long after it opens: enough to ride out a
+// wiki outage, never enough to mint the years of pools the bulk import named.
+const CREATE_WITHIN = 30 * 86400;
+const LABEL = { standard: 'Standard Pool', kernel: 'Kernel' };
+const nameFor = (type, number) => `${LABEL[type]} #${number} (Global)`;
+const numberOf = (type, name) => {
+  const match = new RegExp(`^${LABEL[type]} #(\\d+) \\(Global\\)$`).exec(name ?? '');
+  return match ? Number(match[1]) : null;
+};
 
+/** The Kernel rate-ups the client names, or null when its metadata is incomplete. */
 function namesFromKernelClient(row, characters) {
   const ids = [row.dynMeta?.main6RarityCharId, row.dynMeta?.sub6RarityCharId, ...(row.dynMeta?.rare5CharList || [])];
-  if (ids.some((id) => !id || !characters[id]?.name)) {
-    throw new Error(`Kernel client row ${row.gachaPoolId} has incomplete rate-up metadata`);
-  }
-  return ids.map((id) => characters[id].name);
+  return ids.length === 5 && ids.every((id) => id && characters[id]?.name) ? ids.map((id) => characters[id].name) : null;
 }
 
-export function reconcileRecurringBanners({ banners, gachaTable, characters, wikiRows, roster }) {
+/** Two known 6-stars and three known 5-stars, or why these names are not. */
+function splitLineup(names, roster) {
+  const unknown = names.filter((name) => ![5, 6].includes(roster.get(name)));
+  if (unknown.length) return { problem: `names ${unknown.join(', ')}, which no 5- or 6-star operator record matches` };
+  const sixStars = names.filter((name) => roster.get(name) === 6);
+  const fiveStars = names.filter((name) => roster.get(name) === 5);
+  if (sixStars.length !== 2 || fiveStars.length !== 3) return { problem: 'does not contain two 6-stars and three 5-stars' };
+  return { sixStars, fiveStars };
+}
+
+/** Why a banner has no lineup: its source's problem, else no usable source. Written the
+ *  same on the day the banner is added and every day after (a recorded banner still
+ *  pending, and the day-to-day loop below), since data/quarantine.json is a release input:
+ *  a change of words alone would make a new release. */
+const pendingReason = (name, type, split) => (split?.problem
+  ? `${name} is published without its rate-up lineup: the ${type === 'kernel' ? 'lineup' : 'wiki row'} ${split.problem}.`
+  : `${name} is published without its rate-up lineup, which only ${type === 'kernel' ? 'the client or the wiki\'s yearly banner page supplies' : 'the wiki\'s yearly banner page supplies'}.`);
+
+export const parseRecurringWikiRows = (wikitext) => recurringRows(parseWikiRows(wikitext, 'Banners cell'));
+
+export function reconcileRecurringBanners({ banners, gachaTable, characters, wikiRows, roster, now = Date.now() }) {
   const next = structuredClone(banners);
-  const additions = [];
-  const existing = new Set(next.map((banner) => banner.name));
+  const additions = [], quarantine = [];
+  let changed = false;
+  const report = (client, action, reason) => quarantine.push({ key: `banner:${client.gachaPoolId}`, action, reason, sourceRef: CLIENT_SOURCE });
 
   for (const type of ['standard', 'kernel']) {
-    const shipped = clientRows(gachaTable, type);
-    for (const wiki of wikiRows.filter((row) => row.type === type).sort((a, b) => a.number - b.number)) {
-      const name = `${type === 'standard' ? 'Standard Pool' : 'Kernel'} #${wiki.number} (Global)`;
-      if (existing.has(name)) continue;
-      const client = shipped.find((row) => serverDate(row.openTime) === wiki.start && serverDate(row.endTime) === wiki.end);
-      if (!client) continue;
-
-      if (type === 'kernel') {
-        const clientNames = new Set(namesFromKernelClient(client, characters));
-        if (clientNames.size !== wiki.operators.length || wiki.operators.some((operator) => !clientNames.has(operator))) {
-          throw new Error(`${name} rate-ups disagree between client data and the wiki`);
+    const shipped = clientRows(gachaTable, type).sort((a, b) => a.openTime - b.openTime);
+    const windowOf = (row) => `${serverDate(row.openTime)}–${serverDate(row.endTime)}`;
+    const recordOf = (client) => next.find((banner) => banner.globalPoolId === client.gachaPoolId)
+      ?? next.find((banner) => numberOf(type, banner.name) != null && banner.global_date === windowOf(client));
+    /* A Kernel pool's rate-ups as the client names them, when its metadata is complete. The
+       client wins, and a wiki row that disagrees is reported, every day it does. */
+    const clientLineup = (client, wiki, name) => {
+      const clientNames = type === 'kernel' ? namesFromKernelClient(client, characters) : null;
+      if (clientNames && wiki && (new Set(clientNames).size !== wiki.operators.length || wiki.operators.some((operator) => !clientNames.includes(operator)))) {
+        report(client, 'published-partial', `${name}: the wiki's rate-ups (${wiki.operators.join(', ')}) disagree with the client's (${clientNames.join(', ')}); the client's are published.`);
+      }
+      return clientNames;
+    };
+    /* The lineup a pool's banner takes, the same on the day it is added and every day after:
+       for Kernel the client's (clientLineup), else the wiki row's. */
+    const lineupOf = (client, wiki, name) => {
+      const clientNames = clientLineup(client, wiki, name);
+      const names = clientNames ?? wiki?.operators ?? null, source = clientNames ? 'client' : wiki ? 'wiki' : 'pending';
+      const split = names ? splitLineup(names, roster) : null;
+      if (!split || split.problem) {
+        // No split: the day-to-day loop below reports it, in the same words.
+        if (split) report(client, 'published-partial', pendingReason(name, type, split));
+        return { split, source: 'pending' };
+      }
+      return { split, source };
+    };
+    shipped.forEach((client, i) => {
+      const wiki = wikiRows.find((row) => row.type === type && row.start === serverDate(client.openTime) && row.end === serverDate(client.endTime));
+      const recorded = recordOf(client) ?? (wiki ? next.find((banner) => banner.name === nameFor(type, wiki.number)) : null);
+      if (recorded) {
+        // A banner added before its lineup was known takes it once it is: a Standard one
+        // from its wiki row, a Kernel one from the client, as when it was added.
+        if (recorded.lineupSource === 'pending') {
+          const { split, source } = lineupOf(client, wiki, recorded.name);
+          if (source !== 'pending') {
+            Object.assign(recorded, { five_stars: split.fiveStars, six_stars: split.sixStars, lineupSource: source });
+            changed = true;
+          }
+        } else if (recorded.lineupSource === 'client') {
+          // Published from the client: a wiki row that disagrees stays reported until it agrees.
+          clientLineup(client, wiki, recorded.name);
         }
+        return;
+      }
+      // With no wiki row, only a recent pool that follows a recorded one is added, and it
+      // takes the next number; anything older is history this importer never mints.
+      const previous = shipped[i - 1] && recordOf(shipped[i - 1]);
+      const number = wiki?.number ?? (numberOf(type, previous?.name) != null ? numberOf(type, previous.name) + 1 : null);
+      if (!wiki && client.openTime < Math.floor(now / 1000) - CREATE_WITHIN) return;
+      const name = number != null ? nameFor(type, number) : null;
+      if (!name || next.some((banner) => banner.name === name)) {
+        report(client, 'omitted-new', `${LABEL[type]} pool ${client.gachaPoolId} (${windowOf(client)}) has no wiki row, and ${name ? `${name} is already another window's name` : 'the pool before it has no record to number it after'}, so it is not added.`);
+        return;
       }
 
-      const sixStars = wiki.operators.filter((operator) => operatorRarity(operator, roster) === 6);
-      const fiveStars = wiki.operators.filter((operator) => operatorRarity(operator, roster) === 5);
-      if (sixStars.length !== 2 || fiveStars.length !== 3) throw new Error(`${name} does not contain two 6-stars and three 5-stars`);
-
+      const { split, source: lineupSource } = lineupOf(client, wiki, name);
       const imageName = name.replace('#', '');
-      const banner = {
+      next.push({
         name,
         category: type === 'standard' ? 'standard_pool' : 'kernel',
         cn_date: null,
-        global_date: `${wiki.start}–${wiki.end}`,
+        global_date: windowOf(client),
         global_date_estimated: false,
         global_window: {
           startAt: new Date(client.openTime * 1000).toISOString(),
@@ -107,20 +171,28 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
           timingSource: CLIENT_SOURCE,
         },
         banner_image: `/headhunting-banner-images/${imageName}.webp`,
-        year: Number(wiki.start.slice(0, 4)),
+        year: Number(serverDate(client.openTime).slice(0, 4)),
         four_stars: [],
-        five_stars: fiveStars,
+        five_stars: lineupSource === 'pending' ? [] : split.fiveStars,
         rate_up_six_stars: [],
-        six_stars: sixStars,
+        six_stars: lineupSource === 'pending' ? [] : split.sixStars,
         pull_type: type,
         linked_event: null,
-      };
-      next.push(banner);
-      existing.add(name);
+        globalPoolId: client.gachaPoolId,
+        lineupSource,
+      });
       additions.push(name);
+      changed = true;
+    });
+  }
+  // A lineup still pending stays on the list until the wiki row fills it in.
+  for (const banner of next) {
+    if (banner.lineupSource === 'pending' && banner.globalPoolId && !quarantine.some((entry) => entry.key === `banner:${banner.globalPoolId}`)) {
+      quarantine.push({ key: `banner:${banner.globalPoolId}`, action: 'published-partial', sourceRef: CLIENT_SOURCE,
+        reason: pendingReason(banner.name, banner.pull_type) });
     }
   }
-  return { banners: next, additions };
+  return { banners: next, additions, quarantine, changed };
 }
 
 async function json(url) {
@@ -153,28 +225,33 @@ export async function syncRecurringBanners(root = process.cwd(), now = new Date(
     }
   }
   // One clock names the year's page and decides whether its absence is excused, and
-  // the page is read under the same rule as sync-catalogue.mjs's copy of it.
+  // the page is read under the same rule as sync-catalogue.mjs's copy of it: a page the
+  // wiki cannot serve today is read from its last good copy and reported, not thrown.
+  const alerts = beginStage(root, 'recurring-banners', now);
   const page = `Headhunting/Banners/${now.getUTCFullYear()}`;
-  const [gachaTable, characters, wiki] = await Promise.all([
+  const [gachaTable, characters, cells] = await Promise.all([
     readTable(root, 'gacha_table.json'),
     readTable(root, 'character_table.json'),
-    json(wikiParseUrl(page)),
+    readWikiRows(root, page, 'Banners cell', { now, alerts }),
   ]);
-  const text = wikiText(page, wiki, now);
-  if (!text) console.warn(`${page} does not exist on the wiki yet; reading it as no rows until the end of January (UTC).`);
   const banners = JSON.parse(fs.readFileSync(bannersAt, 'utf8'));
   const result = reconcileRecurringBanners({
     banners,
     gachaTable,
     characters,
-    wikiRows: parseRecurringWikiRows(text),
+    wikiRows: recurringRows(cells),
     roster,
+    now: now.getTime(),
   });
-  if (result.additions.length) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);
+  if (result.changed) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);
+  for (const entry of result.quarantine) alerts.add(entry);
+  alerts.commit();
   return result.additions;
 }
 
+// No top-level await, so the tests can import this module as they compile it.
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const additions = await syncRecurringBanners();
-  console.log(additions.length ? `Added recurring banners:\n${additions.map((name) => `  + ${name}`).join('\n')}` : 'Recurring banners are current.');
+  syncRecurringBanners().then((additions) => {
+    console.log(additions.length ? `Added recurring banners:\n${additions.map((name) => `  + ${name}`).join('\n')}` : 'Recurring banners are current.');
+  }).catch((error) => { console.error(error); process.exitCode = 1; });
 }

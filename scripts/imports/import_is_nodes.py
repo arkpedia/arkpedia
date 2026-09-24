@@ -31,9 +31,17 @@ from the EN one. The renders come from fexli/ArknightsResource, the same source
 the rest of the preview set was built from; the commit is pinned so a re-run
 fetches the same files, and bumping it picks up new seasons.
 
+NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets
+(stages-images/<render>.webp), and a file in this repository's public/ is refused by
+check:assets, which the daily release runs. A render fetched here is staged in
+.cache/is-nodes/ instead, the form it belongs to is left out of is-nodes.json until the
+image repository publishes it, and it is reported under 'is-nodes' with the path it
+must be published at.
+
 Run:  python3 scripts/imports/import_is_nodes.py
 """
 from published_assets import published_assets
+from quarantine import report
 import json
 import os
 import ssl
@@ -54,7 +62,8 @@ EN_TABLE = f'{EN}/gamedata/excel/roguelike_topic_table.json'
 
 root = os.getcwd()
 stages_dir = os.path.join(root, 'data', 'stages')
-out_dir = os.path.join(root, 'public', 'stages-images')
+# Never public/: see the header.
+out_dir = os.path.join(root, '.cache', 'is-nodes')
 
 # This interpreter has no system CA bundle of its own, so the trust store is
 # named explicitly rather than fetching over an unverified connection.
@@ -108,11 +117,11 @@ def fetch(rogue_id):
     try:
         with urllib.request.urlopen(f'{RAW}/{rogue_id}.png', timeout=60, context=SSL_CONTEXT) as resp:
             raw = resp.read()
+        buf = BytesIO()
+        # Matching the rest of stages-images/, which averages 26KB of webp.
+        Image.open(BytesIO(raw)).convert('RGB').save(buf, 'WEBP', quality=80, method=6)
     except Exception as err:
         return None, f'{rogue_id}: {err}'
-    buf = BytesIO()
-    # Matching the rest of public/stages-images/, which averages 26KB of webp.
-    Image.open(BytesIO(raw)).convert('RGB').save(buf, 'WEBP', quality=80, method=6)
     return buf.getvalue(), None
 
 
@@ -150,22 +159,22 @@ def main():
                 entry['name'] = borrowed
         plan[slug] = entry
 
-    os.makedirs(out_dir, exist_ok=True)
     available = {rogue for rogue in wanted if f'stages-images/{rogue}.webp' in published_assets()}
     needed = sorted(wanted - available)
-    print(f'{len(plan)} IS stages resolve to {len(needed)} renders (normal and Emergency Ops); fetching')
-    written, problems = set(available), []
+    print(f'{len(plan)} IS stages resolve to {len(needed)} unpublished renders (normal and Emergency Ops); fetching')
+    written, problems, staged = set(available), [], []
     with ThreadPoolExecutor(max_workers=8) as pool:
         for rogue, (data, err) in zip(needed, pool.map(fetch, needed)):
             if err:
                 problems.append(err)
                 continue
+            os.makedirs(out_dir, exist_ok=True)
             with open(os.path.join(out_dir, f'{rogue}.webp'), 'wb') as fh:
                 fh.write(data)
-            written.add(rogue)
+            staged.append(rogue)
 
-    # A form whose render did not come through is dropped rather than pointing at
-    # a file that is not there.
+    # A form whose render is not published is dropped rather than pointing at a file
+    # readers cannot load.
     for slug, entry in list(plan.items()):
         if entry['render'][:-5] not in written:
             del plan[slug]
@@ -176,12 +185,16 @@ def main():
 
     with open(os.path.join(root, 'data', 'is-nodes.json'), 'w') as fh:
         json.dump(plan, fh, separators=(',', ':'), sort_keys=True)
-    print(f'{len(written)} renders available (published or newly generated)')
+    print(f'{len(written)} renders published; {len(staged)} new one(s) staged in .cache/is-nodes/ for arkpedia-image-assets')
     print(f'{len(plan)} stages have a render; '
           f'{sum(1 for e in plan.values() if e.get("emergency"))} also have an Emergency Ops form; '
           f'{sum(1 for e in plan.values() if e.get("name"))} borrow their name')
     if problems:
         print(f'{len(problems)} could not be fetched: ' + '; '.join(problems[:4]))
+    report('is-nodes', [{'key': f'is-render:{rogue}', 'action': 'published-partial', 'sourceRef': f'{RAW}/{rogue}.png',
+                         'reason': f'The Integrated Strategies render {rogue} is staged as .cache/is-nodes/{rogue}.webp, but nothing '
+                                   f'publishes it; its stage form is published without it until stages-images/{rogue}.webp is added '
+                                   'to arkpedia-image-assets.'} for rogue in staged])
 
 
 if __name__ == '__main__':

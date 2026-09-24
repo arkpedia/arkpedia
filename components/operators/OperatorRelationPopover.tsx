@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
-import Image from 'next/image';
+import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';

@@ -32,6 +32,11 @@
  *     and carry null on purpose. A new record gets the path the image sync
  *     publishes it under; see iconPath() and the naming note in main().
  *
+ * WHAT IT WILL NOT DO is fail the release over one enemy. A filed record whose
+ * handbook or database entry has vanished keeps its previous version, a new enemy with
+ * no database entry is left out, and a re-key that fits more than one content is not
+ * made; each goes on the quarantine list under 'enemies' instead.
+ *
  * A bundle or row is written only when what it SAYS changed. JSON.stringify does
  * not round-trip the gamedata's floats (10.0 comes back as 10), so rewriting an
  * unchanged file would churn 167 files in the data repo for nothing -- the reason
@@ -52,6 +57,7 @@ import path from 'node:path';
 import { excel, levelsDir } from '../stage-pipeline/lib/gamedata.mjs';
 import { asList, enemySlugs, plain } from '../stage-pipeline/lib/level.mjs';
 import { text } from '../stage-pipeline/lib/text.mjs';
+import { beginStage } from '../lib/quarantine.mjs';
 
 const ROOT = process.env.ARKPEDIA_ROOT || process.cwd();
 const BUNDLES = path.join(ROOT, 'data/enemies');
@@ -326,6 +332,7 @@ function main() {
   for (const required of [BUNDLES, APPEARANCES, STAGES, CONTENTS, INDEX]) {
     if (!fs.existsSync(required)) throw new Error(`missing ${path.relative(ROOT, required)}`);
   }
+  const alerts = beginStage(ROOT, 'enemies');
   const handbookTable = excel('enemy_handbook_table');
   const handbook = handbookTable.enemyData || {};
   const bands = asList(handbookTable.levelInfoList);
@@ -341,6 +348,7 @@ function main() {
   const filedIn = new Map();          // enemy id -> content id
   const position = new Map();         // enemy id -> its place in that bundle
   const iconOf = new Map();           // enemy id -> icon as recorded
+  const recorded = new Map();         // enemy id -> the record as filed, kept if its entries vanish
   for (const file of fs.readdirSync(BUNDLES).sort()) {
     if (!file.endsWith('.json')) continue;
     const bundle = readJson(path.join(BUNDLES, file));
@@ -351,6 +359,7 @@ function main() {
       filedIn.set(enemy.id, bundle.content.id);
       position.set(enemy.id, position.size);
       iconOf.set(enemy.id, enemy.icon ?? null);
+      recorded.set(enemy.id, enemy);
     }
   }
 
@@ -383,6 +392,9 @@ function main() {
   // enemy page lists the event twice -- once with no stages. So a bundle whose id
   // the stage dataset no longer has, facing exactly one content of the same kind,
   // label and name that has no bundle and no row of its own, takes that content's id.
+  // Facing several, it is left where it is and reported: which rerun it became is a
+  // question for a person. Facing none is normal -- Defense Protocols, Design of Strife
+  // and the first RA season were minted from mode tables no stage names.
   const registry = readJson(CONTENTS);
   const rows = new Map(readJson(APPEARANCES).map((row) => [row.id, row]));
   const same = (a, b) => a.kind === b.kind && a.name === b.name && (a.label ?? null) === (b.label ?? null);
@@ -391,6 +403,10 @@ function main() {
     if (registry[oldId]) continue;
     const matches = Object.values(registry)
       .filter((c) => !bundles.has(c.id) && !rows.has(c.id) && same(c, bundle.content));
+    if (matches.length > 1) {
+      alerts.add({ key: `enemy-bundle:${oldId}`, action: 'kept-previous',
+        reason: `The stage dataset no longer has content ${oldId} (${bundle.content.name}), and ${matches.length} contents of the same kind and name could have taken its place (${matches.map((c) => c.id).join(', ')}); data/enemies/${bundle.file} keeps its old id.` });
+    }
     if (matches.length !== 1) continue;
     const content = matches[0];
     bundles.delete(oldId);
@@ -421,7 +437,11 @@ function main() {
   const added = [];
   for (const [id, contentId] of firstFielding) {
     if (filedIn.has(id)) continue;
-    if (!database[id]) throw new Error(`${id} (${slugOf.get(id)}) is fielded but has no enemy_database entry`);
+    if (!database[id]) {
+      alerts.add({ key: `enemy:${id}`, action: 'omitted-new',
+        reason: `${id} (${slugOf.get(id)}) is fielded by ${contentId} but has no enemy_database entry, so it gets no record yet.` });
+      continue;
+    }
     filedIn.set(id, contentId);
     added.push(id);
     if (!bundles.has(contentId)) {
@@ -448,10 +468,16 @@ function main() {
     iconOf.set(id, icon);
   }
 
-  // Rebuild every record, bundle by bundle.
+  // Rebuild every record, bundle by bundle. One whose entries have vanished from the
+  // tables cannot be rebuilt, and keeps the version already filed.
+  const stale = new Set();
   for (const [id, contentId] of filedIn) {
-    if (!handbook[id]) throw new Error(`${id} has a record but no enemy_handbook_table entry`);
-    if (!database[id]) throw new Error(`${id} has a record but no enemy_database entry`);
+    const vanished = [!handbook[id] && 'enemy_handbook_table', !database[id] && 'enemy_database'].filter(Boolean);
+    if (vanished.length) {
+      stale.add(id);
+      alerts.add({ key: `enemy:${id}`, action: 'kept-previous',
+        reason: `${id} (${recorded.get(id)?.name ?? 'unnamed'}) has a record but no ${vanished.join(' or ')} entry; its previous record is kept.` });
+    }
     bundles.get(contentId).ids.push(id);
   }
   const taken = new Set();
@@ -460,9 +486,9 @@ function main() {
     if (taken.has(bundle.file)) throw new Error(`two contents want data/enemies/${bundle.file}`);
     taken.add(bundle.file);
     const enemies = bundle.ids
-      .map((id) => buildRecord(id, handbook[id], database[id], {
+      .map((id) => (stale.has(id) ? recorded.get(id) : buildRecord(id, handbook[id], database[id], {
         slugOf, races, bands, icon: iconOf.get(id),
-      }))
+      })))
       // Filed records keep their place -- the import's order is arbitrary but moving
       // it rewrites the file for nothing -- and new ones follow in handbook order.
       .sort((a, b) => (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity)
@@ -495,6 +521,7 @@ function main() {
     + `; ${grown} appearance row(s) added or grown, ${rekeyed.length} content(s) re-keyed`);
   for (const line of rekeyed) console.log(`  ~ ${line}: re-filed by the stage dataset`);
   for (const id of added) console.log(`  + ${slugOf.get(id)} -> ${bundles.get(filedIn.get(id)).file}`);
+  for (const entry of alerts.commit()) console.warn(`  ! ${entry.key} (${entry.action}): ${entry.reason}`);
 }
 
 main();

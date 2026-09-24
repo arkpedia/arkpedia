@@ -58,10 +58,11 @@ test('Amiya alternate forms use their own audio path and keep impossible promoti
 });
 
 test('the newest CN operators use recordings from the current asset inventory', () => {
+  // Jacinta: a CN release ships Japanese and Mandarin, and Global adds its own packs later.
   const jacinta = operators.char_4237_jcinta;
-  assert.deepEqual(jacinta.packs.map(pack => pack.id), ['jp', 'cn']);
+  for (const id of ['jp', 'cn']) assert.ok(jacinta.packs.some(pack => pack.id === id), id);
   assert.ok(jacinta.packs.every(pack => pack.audioTemplate?.includes('arkpedia/arkpedia-voice-')));
-  assert.ok(jacinta.packs.every(pack => pack.audioTemplate?.endsWith('/{voiceIdLower}.mp3')));
+  assert.ok(jacinta.packs.filter(pack => pack.status === 'current').every(pack => pack.audioTemplate?.endsWith('/{voiceIdLower}.mp3')));
 });
 
 test('the current Global operators include English transcripts and EN/KR recordings', () => {
@@ -129,9 +130,14 @@ test('Persona voice credits share Japanese actor identities with existing operat
   }
 });
 
-test('Persona voice headings are English while the original Chinese dialogue remains available', () => {
-  const lines = operators.char_4217_makoto.lines;
-  assert.deepEqual(lines.slice(0, 4).map(line => line.title), ['Appointed as Assistant', 'Talk 1', 'Talk 2', 'Talk 3']);
-  assert.equal(lines[0].text, '轮到我值日吗……明白了。');
-  assert.equal(operators.char_4217_makoto.textLocale, 'zh-CN');
+test('CN-only voice headings are English while the original Chinese dialogue remains available', () => {
+  // Every operator still on its Chinese transcript -- the Persona collaborators among
+  // them -- until Global's English replaces it, which the refresh does on its own.
+  const chinese = Object.entries(operators).filter(([, operator]) => operator.textLocale === 'zh-CN');
+  assert.deepEqual(operators.char_4217_makoto.lines.slice(0, 4).map(line => line.title), ['Appointed as Assistant', 'Talk 1', 'Talk 2', 'Talk 3']);
+  for (const [id, operator] of chinese) {
+    const lines = operator.lines.filter(line => line.status !== 'unused');
+    assert.ok(lines.length > 0 && lines.every(line => line.title && !/\p{Script=Han}/u.test(line.title)), `${id} has a Chinese heading`);
+    assert.match(lines[0].text ?? '', /\p{Script=Han}/u, id);
+  }
 });

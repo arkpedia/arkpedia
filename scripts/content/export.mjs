@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
+import { contentInput, releaseInput, SCHEMA } from './release-input.mjs';
 
 assertCompleteness();
 
@@ -30,8 +31,11 @@ for (const file of sourceFiles.sort()) {
   sourceHashes[file] = sha(bytes);
 }
 const generator = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-const schema = 2;
-const input = sha(JSON.stringify({ schema, generator, sourceHashes }));
+const schema = SCHEMA;
+const input = releaseInput({ generator, sourceHashes });
+// Without the run's own records (the upstream lock, the catalogue's report): the publish step
+// compares it, so a day that changes only them publishes nothing (release-input.mjs).
+const content = contentInput({ generator, sourceHashes });
 const previous = fs.existsSync(path.join(release, 'manifest.json')) ? JSON.parse(fs.readFileSync(path.join(release, 'manifest.json'), 'utf8')) : null;
 if (previous?.release === input && !process.argv.includes('--force')) {
   console.log('Content inputs unchanged; existing release retained.');
@@ -77,7 +81,7 @@ for (const file of publicFiles.sort()) {
   fs.writeFileSync(path.join(release, file), bytes);
   files[file.slice('public/'.length)] = { path: file, bytes: bytes.length, sha256: sha(bytes) };
 }
-const manifest = { schema, release: input, generator, generatedAt: new Date().toISOString(),
+const manifest = { schema, release: input, content, generator, generatedAt: new Date().toISOString(),
   assets: JSON.parse(fs.readFileSync('data/assets/revisions.json', 'utf8')), sourceHashes,
   pages: Object.fromEntries(Object.entries(pages).sort(([a], [b]) => a.localeCompare(b))), files };
 fs.writeFileSync(path.join(release, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

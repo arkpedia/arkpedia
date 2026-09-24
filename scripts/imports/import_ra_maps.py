@@ -23,14 +23,28 @@ Three naming forms, in the order tried here:
 102 distinct names cover all 106 stages -- four names are shared by two stages each,
 which take the same map.
 
-Output is public/stages-images/, the same folder and the same webp the rest of the
-preview set uses, keyed by stage slug so getStagePreviewFile finds it without a
-lookup table. Written back into each stage record's `preview` too, so the field means
-the same thing for RA as for everything else.
+A map is published as stages-images/<slug>.webp in arkpedia-image-assets, the same
+folder and the same webp the rest of the preview set uses, keyed by stage slug so
+getStagePreviewFile finds it without a lookup table; a published map is written back
+into its stage record's `preview`, so the field means the same thing for RA as for
+everything else.
+
+NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets, and a
+file in this repository's public/ is refused by check:assets, which the daily release
+runs: writing the map there turned every SUCCESSFUL download into a blocked release. A
+downloaded map is staged in .cache/ra-maps/<slug>.webp instead, its stage keeps
+preview: null, and it is reported under 'ra-maps' with its source and the path it must
+be published at, until the image repository has it.
+
+The wiki is only asked about stages whose map is not published yet -- none, once the
+season is imported -- and it can never fail the refresh: a stage it cannot serve (down,
+no upload yet, a failed download, an image that does not decode) keeps preview: null
+and goes on the quarantine list under 'ra-maps' until a later run imports its map.
 
 Run:  python3 scripts/imports/import_ra_maps.py
 """
 from published_assets import published_assets
+from quarantine import WIKI_API, report
 import json
 import os
 import ssl
@@ -42,14 +56,15 @@ from io import BytesIO
 import certifi
 from PIL import Image
 
-API = 'https://arknights.wiki.gg/api.php'
+API = WIKI_API
 # The wiki rejects a request with no User-Agent outright (403), as its API policy says
 # it will. Naming the project is also just the polite thing to do.
 UA = 'Arkpedia-import/1.0 (+https://arkpedia.net) python-urllib'
 
 root = os.getcwd()
 stages_dir = os.path.join(root, 'data', 'stages')
-out_dir = os.path.join(root, 'public', 'stages-images')
+# Never public/: see the header.
+out_dir = os.path.join(root, '.cache', 'ra-maps')
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
@@ -101,8 +116,6 @@ def resolve(names):
 
 
 def main():
-    os.makedirs(out_dir, exist_ok=True)
-
     records = {}
     for entry in sorted(os.listdir(stages_dir)):
         if not entry.endswith('.json'):
@@ -114,63 +127,86 @@ def main():
             continue
         records[stage['slug']] = (path, stage)
 
+    alerts = []
     if not records:
         print('no reclamation stages found -- nothing to do')
+        report('ra-maps', alerts)
         return 0
 
-    names = sorted({s.get('name') for _, s in records.values() if s.get('name')})
-    print(f'{len(records)} RA stages, {len(names)} distinct names')
-    urls = resolve(names)
-    print(f'  the wiki has a map for {len(urls)} of them')
+    # Published: the record's preview is all that needs restoring, which is the normal
+    # case after a pipeline run rewrites these records from the level files. Asking the
+    # wiki about 106 stages, or re-fetching their images, to arrive at the same bytes is
+    # rude to it and slow for us, and it would make every refresh depend on the wiki.
+    # ARKPEDIA_REFETCH=1 forces the download.
+    refetch = os.environ.get('ARKPEDIA_REFETCH')
+    unmapped = {slug for slug in records if refetch or f'stages-images/{slug}.webp' not in published_assets()}
+    names = sorted({records[slug][1].get('name') for slug in unmapped if records[slug][1].get('name')})
+    print(f'{len(records)} RA stages, {len(unmapped)} without a map, {len(names)} distinct names to ask the wiki for')
+    urls, unreachable = {}, None
+    if names:
+        try:
+            urls = resolve(names)
+            print(f'  the wiki has a map for {len(urls)} of them')
+        except Exception as exc:  # noqa: BLE001 -- the wiki is enrichment, never a gate
+            unreachable = exc
+            print(f'  the wiki could not be asked: {exc}', file=sys.stderr)
 
     fetched = {}
-    written = 0
+    written = staged = 0
     for slug, (path, stage) in sorted(records.items()):
         name = stage.get('name')
-        if f'stages-images/{slug}.webp' in published_assets() and not os.environ.get('ARKPEDIA_REFETCH'):
+        if slug not in unmapped:
             stage['preview'] = f'images/stages/{slug}.png'
             with open(path, 'w') as fh:
                 json.dump(stage, fh, ensure_ascii=False, separators=(',', ':'))
             written += 1
+            continue
+        # From here on a stage the wiki cannot serve keeps preview: null, is reported,
+        # and is tried again by the next run.
+        if unreachable:
+            alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': API,
+                           'reason': f'The wiki could not be asked for the map of {name} ({unreachable}); the stage is published without one.'})
             continue
         hit = urls.get(name)
         if not hit:
             print(f'  no map: {slug} ({name})')
+            alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial',
+                           'reason': f'The wiki has no map file for {name} yet ({", ".join(candidates(name))}); the stage is published without one.'})
             continue
         title, url = hit
-        # Already imported: the record's preview is all that needs restoring, which is
-        # the normal case after a pipeline run rewrites these records from the level
-        # files. Re-fetching 106 images off the wiki to arrive at the same bytes is
-        # rude to it and slow for us. ARKPEDIA_REFETCH=1 forces the download.
-        target = os.path.join(out_dir, f'{slug}.webp')
-        if os.path.exists(target) and not os.environ.get('ARKPEDIA_REFETCH'):
-            stage['preview'] = f'images/stages/{slug}.png'
-            with open(path, 'w') as fh:
-                json.dump(stage, fh, ensure_ascii=False, separators=(',', ':'))
-            written += 1
-            continue
-        if url not in fetched:
-            req = urllib.request.Request(url, headers={'User-Agent': UA})
-            try:
-                with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=90) as r:
-                    fetched[url] = r.read()
-            except Exception as exc:  # noqa: BLE001
-                print(f'  FAILED {title}: {exc}', file=sys.stderr)
-                continue
         # Keyed by slug, so two stages sharing a name each get their own file rather
         # than one of them pointing at the other's.
-        im = Image.open(BytesIO(fetched[url])).convert('RGB')
-        im.save(os.path.join(out_dir, f'{slug}.webp'), 'WEBP', quality=80, method=6)
+        target = os.path.join(out_dir, f'{slug}.webp')
+        if refetch or not os.path.exists(target):
+            if url not in fetched:
+                req = urllib.request.Request(url, headers={'User-Agent': UA})
+                try:
+                    with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=90) as r:
+                        fetched[url] = r.read()
+                except Exception as exc:  # noqa: BLE001
+                    print(f'  FAILED {title}: {exc}', file=sys.stderr)
+                    alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
+                                   'reason': f'Downloading {title} failed ({exc}); the stage is published without a map.'})
+                    continue
+            try:
+                im = Image.open(BytesIO(fetched[url])).convert('RGB')
+            except Exception as exc:  # noqa: BLE001 -- e.g. an HTML page answered 200
+                print(f'  UNREADABLE {title}: {exc}', file=sys.stderr)
+                alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
+                               'reason': f'{title} is not an image that decodes ({exc}); the stage is published without a map.'})
+                continue
+            os.makedirs(out_dir, exist_ok=True)
+            im.save(target, 'WEBP', quality=80, method=6)
+        # preview stays null: it would name a file readers cannot load yet.
+        staged += 1
+        alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
+                       'reason': f'The map of {name} is staged as .cache/ra-maps/{slug}.webp from {title}, but nothing '
+                                 f'publishes it; the stage is published without one until stages-images/{slug}.webp '
+                                 'is added to arkpedia-image-assets.'})
 
-        stage['preview'] = f'images/stages/{slug}.png'
-        # Minified and with no trailing newline, which is how the pipeline writes
-        # these -- anything else reformats all 106 files into a diff that hides the
-        # one field that actually changed.
-        with open(path, 'w') as fh:
-            json.dump(stage, fh, ensure_ascii=False, separators=(',', ':'))
-        written += 1
-
-    print(f'{written} maps -> public/stages-images/, and preview set on their records')
+    print(f'{written} published maps set as their records\' preview; {staged} new map(s) staged in .cache/ra-maps/ '
+          'for arkpedia-image-assets')
+    report('ra-maps', alerts)
     return 0
 
 

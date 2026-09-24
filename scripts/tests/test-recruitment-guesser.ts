@@ -6,6 +6,7 @@ import { newProgress, normalizeAnswer, pickNext, resolveOperator, submitAnswer }
 import { buildRecruitmentQuestions } from '../../lib/minigames/recruitmentLogic';
 import { getRecruitmentGameData } from '../../lib/minigames/recruitmentData';
 import { getAllOperators } from '../../lib/operators/operators';
+import snapshot from '../../data/recruitment-global.json';
 
 const game = getRecruitmentGameData();
 const op = (name: string, rarity: number, tags = ['DPS'], className = 'Sniper'): RecruitableOperator => ({ name, rarity, tags, class: className, position: 'Ranged', isFuture: false });
@@ -89,8 +90,15 @@ test('recruitment ships compact data and only released recruitable answers', () 
 });
 
 
-test('recruitment guesser never accepts headhunting-only Deepcolor', () => {
-  assert.ok(!game.operators.some((operator) => operator.name === 'Deepcolor'));
-  assert.ok(game.questions.every((question) => !question.answers.includes('Deepcolor')));
-  assert.ok(game.questions.some((question) => question.tags.includes('Summon') && question.answers.includes('Mayer')));
+test('recruitment guesser never accepts an operator outside the Global recruitment pool', () => {
+  // Headhunting-only operators such as Deepcolor are the case this guards: whoever is
+  // outside the reviewed pool today, by id, not by a name fixed here.
+  const pool = new Map(snapshot.operators.map(operator => [operator.id, operator]));
+  const outside = new Set(getAllOperators().filter(operator => !pool.has(operator.internalName!)).map(operator => operator.name));
+  assert.ok(outside.size > 0);
+  assert.ok(!game.operators.some((operator) => outside.has(operator.name)));
+  assert.ok(game.questions.every((question) => !question.answers.some(name => outside.has(name))));
+  const tagged = new Map(snapshot.operators.map(operator => [operator.name, operator.tags as string[]]));
+  const summon = game.questions.filter((question) => question.tags.includes('Summon'));
+  assert.ok(summon.length > 0 && summon.every((question) => question.answers.every(name => tagged.get(name)?.includes('Summon'))));
 });

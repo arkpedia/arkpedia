@@ -11,6 +11,12 @@
   margin: 0;
   border: 1px solid var(--line-soft);
 }
+/* Where the key art goes before the image repository has it: the banners' own
+   1024x559 proportions, so nothing below moves when switching to a banner with art. */
+.gacha-banner-main-placeholder {
+  aspect-ratio: 1024 / 559;
+  background: var(--panel-2);
+}
 
 .gacha-pity-row {
   display: flex;

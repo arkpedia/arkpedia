@@ -5,6 +5,15 @@ export interface BannerOperator {
   rarity: 6 | 5 | 4;
 }
 export const RETURNING_LIMITED_NOTE = 'Increased chance within the off-banner 6★ pool.';
+export const LINEUP_PENDING_NOTE = 'Lineup to be confirmed.';
+
+/** A banner published before anyone has named its lineup: a pool the game client or
+ * a recurring schedule announced, with no wiki row for its window yet. Its lineup
+ * arrays are empty rather than known to be empty, so it says so instead of listing
+ * no one. */
+export function isLineupPending(banner: Pick<HeadhuntingBanner, 'lineupSource'>): boolean {
+  return banner.lineupSource === 'pending';
+}
 
 /** Secondary rate-ups are returning limited operators, not the banner's
  * featured 6-stars. Keep the data's distinction in every lineup display. */

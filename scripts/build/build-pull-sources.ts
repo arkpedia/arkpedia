@@ -34,6 +34,10 @@ const EN_EXCEL = path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata/excel'
 const CAMPAIGN = path.join(EN_EXCEL, 'campaign_table.json');
 const ACTIVITY = path.join(EN_EXCEL, 'activity_table.json');
 const RETRO = path.join(EN_EXCEL, 'retro_table.json');
+// The commit the checkout above holds when a refresh pinned it (pin-upstream.mjs), else the
+// branch: what the missing-table hints below tell you to download.
+const ENGLISH_REF = /^[a-f0-9]{40}$/.test(process.env.ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSGAMEDATA ?? '')
+  ? process.env.ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSGAMEDATA : 'master';
 const BANNERS = path.join(ROOT, 'data', 'headhunting_banners.json');
 /* CN runs about half a year ahead, so every event global has not had yet has
    already happened there, stages and all. */
@@ -202,7 +206,7 @@ function eventBreakdown() {
       + '  It is what says which past events are still playable via Record\n'
       + '  Restoration; without it the back catalogue counts events that are gone.\n'
       + '  curl -sSL -o .cache/upstream/en-gamedata/en/gamedata/excel/retro_table.json \\\n'
-      + '    https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/retro_table.json',
+      + `    https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${ENGLISH_REF}/en/gamedata/excel/retro_table.json`,
     );
   }
   const retro = JSON.parse(fs.readFileSync(RETRO, 'utf8')) as {
@@ -663,7 +667,7 @@ function orundumFromAnnihilation() {
       `build-pull-sources: missing ${path.relative(ROOT, CAMPAIGN)}.\n`
       + '  It is the upstream gamedata cache; fetch it with\n'
       + '  curl -sSL -o .cache/upstream/en-gamedata/en/gamedata/excel/campaign_table.json \\\n'
-      + '    https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/campaign_table.json',
+      + `    https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${ENGLISH_REF}/en/gamedata/excel/campaign_table.json`,
     );
   }
   const table = JSON.parse(fs.readFileSync(CAMPAIGN, 'utf8')) as {

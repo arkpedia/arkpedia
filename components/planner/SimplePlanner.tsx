@@ -1,7 +1,7 @@
 import { addCostGroup, totalsToCostGroup } from "@/lib/planner/plannerLogic";
 import { PromotionIcon } from "./PromotionIcon";
 import { useMemo, useState } from "react";
-import Image from "next/image";
+import Image from "@/components/content/ContentImage";
 import type {
   PlannerOperator,
   PlannerOperatorSummary,

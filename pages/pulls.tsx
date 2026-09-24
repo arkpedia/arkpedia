@@ -350,7 +350,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
               <div className="pulls-day-options">{(['start', 'end'] as const).map(day => <button type="button" key={day} disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
             </div>
             {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
-              {picked.image && <ContentImg src={picked.image} alt="" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
+              {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
             <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Recurring income breakdown <span className="hint">{income.days} daily resets · {income.weeks} weekly resets</span></summary>
               <div className="pulls-lines">
             <Line what="Yellow certificate shop" sum="pulls from full monthly sets" amount={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) : 0} />

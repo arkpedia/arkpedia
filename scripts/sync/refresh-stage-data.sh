@@ -9,149 +9,177 @@
 #
 # Every step is idempotent, so running it twice is harmless. Point any step at a
 # local checkout instead with ARKPEDIA_CN / ARKPEDIA_EN.
+#
+# Each step is a stage (scripts/content/run-stage.mjs). A step that fails has what it
+# changed under data/ and public/ put back, the steps that --need it are skipped, and
+# every other step still runs; data/stage-report.json says what happened. A step that
+# finishes in place what the stage build wrote says so with --output: if it fails, the
+# build is rolled back with every step that ran on it, so a half-made dataset (the raw
+# index, CC# labels, RA records without their maps) is never what goes out. Only the
+# two upstream checkouts are --invariant: without them no step has a source, so their
+# failure stops the refresh. Run on its own, the refresh first pins one commit per
+# upstream mirror, and exits non-zero at the end if any step failed. Inside the daily
+# release (ARKPEDIA_STAGE_RUN=1) its stages join that run, which pinned them already
+# and decides what fails the release.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-# shellcheck source=lib/upstream.sh
-. scripts/lib/upstream.sh
 
-step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
+stage() { node scripts/content/run-stage.mjs run "$@"; }
+standalone=
+if [ -z "${ARKPEDIA_STAGE_RUN:-}" ]; then
+  standalone=1
+  node scripts/content/run-stage.mjs begin
+  stage pin-upstream -- node scripts/content/pin-upstream.mjs
+fi
 
-step 'Upstream data'
-# Every source is PUBLIC. Nothing here needs credentials or a sibling checkout,
-# which is the point: this repo is what gets deployed, so it has to be able to
-# rebuild its own data even if every other repo in the project goes away.
+# Upstream data. Every source is PUBLIC. Nothing here needs credentials or a sibling
+# checkout, which is the point: this repo is what gets deployed, so it has to be able
+# to rebuild its own data even if every other repo in the project goes away. Each
+# checkout is at the commit pinned for its repository (scripts/lib/upstream.sh).
 #
 # CN gamedata, the level files the devices come out of, CCB map renders, item icons.
-upstream_sync cn-resource https://github.com/yuanyan3060/ArknightsGameResource.git default \
+stage upstream-cn --invariant --timeout-minutes 20 -- bash scripts/lib/upstream.sh \
+  cn-resource https://github.com/yuanyan3060/ArknightsGameResource.git default \
   gamedata/excel gamedata/levels map item
 # EN gamedata: the whole stage dataset comes out of this one. excel/ for the
 # tables, levels/ for the maps, the waves and the enemy configurations.
-upstream_sync en-gamedata https://github.com/ArknightsAssets/ArknightsGamedata.git default \
+stage upstream-en --invariant --timeout-minutes 20 -- bash scripts/lib/upstream.sh \
+  en-gamedata https://github.com/ArknightsAssets/ArknightsGamedata.git default \
   en/gamedata/excel en/gamedata/levels
 
-step 'Verified Global recruitment pool'
-node scripts/sync/sync-recruitment.mjs
+# Verified Global recruitment pool.
+stage recruitment -- node scripts/sync/sync-recruitment.mjs
 
-step 'The stage dataset: records, geometry, contents, index'
-node scripts/stage-pipeline/build.mjs
+# The stage dataset: records, geometry, contents, index.
+stage stage-dataset -- node scripts/stage-pipeline/build.mjs
 
-# --- everything below is DERIVED from what the build just wrote --------------
+# --- everything below that --needs stage-dataset is DERIVED from what the build
+# just wrote. If the build fails, those steps are skipped, so the dataset and all
+# that is derived from it stay as they were, together. Three of them rewrite the
+# build's own files in place (--output below): if one of those fails, the build and
+# everything derived from it are rolled back to the same end.
 
-step 'Limited-time game modes to exclude'
-node scripts/build/build-mode-exclusions.mjs
+# Limited-time game modes to exclude.
+stage mode-exclusions --needs stage-dataset -- node scripts/build/build-mode-exclusions.mjs
 
-step 'Integrated Strategies nodes: renders, Emergency Ops, borrowed names'
-python3 scripts/imports/import_is_nodes.py
+# Integrated Strategies nodes: renders, Emergency Ops, borrowed names.
+stage is-nodes --needs stage-dataset -- python3 scripts/imports/import_is_nodes.py
 
-step 'Contingency Contract Battleplan: codes, names, renders, CCB labels'
-python3 scripts/imports/import_cc_stages.py
+# Contingency Contract Battleplan: codes, names, renders, CCB labels.
+# Relabels the build's data/stages-content.json in place (CC# -> CCB#).
+stage cc-stages --needs stage-dataset --output data/stages-content.json -- python3 scripts/imports/import_cc_stages.py
 
-step 'Reclamation Algorithm maps, which only the wiki has'
-python3 scripts/imports/import_ra_maps.py
+# Reclamation Algorithm maps, which only the wiki has.
+# Puts each map back on the RA stage records the build just rewrote without one.
+stage ra-maps --needs stage-dataset --output data/stages -- python3 scripts/imports/import_ra_maps.py
 
-step 'Pre-placed devices on each map'
-python3 scripts/imports/import_stage_devices.py
+# Pre-placed devices on each map.
+stage stage-devices --needs stage-dataset -- python3 scripts/imports/import_stage_devices.py
 
-step 'Supply stages: which permanent stage hands out which material'
+# Supply stages: which permanent stage hands out which material.
 # After the stage build, because it reads data/stages.json.
-node scripts/build/build-supply-stages.mjs
+stage supply-stages -- node scripts/build/build-supply-stages.mjs
 
-step "The depot screen's own item order"
-node scripts/build/build-ingame-order.mjs
+# The depot screen's own item order.
+stage ingame-order -- node scripts/build/build-ingame-order.mjs
 
-step "Base formulas (Workshop + Factory), for the planner's crafting"
+# Base formulas (Workshop + Factory), for the planner's crafting.
 # Reads the EN tables synced above. Not a stage step, but it is the only place the
 # EN gamedata is already on disk, and a formula table that ages silently is worse
 # than one that costs a few seconds here.
-node scripts/imports/import-base-formulas.mjs
+stage base-formulas -- node scripts/imports/import-base-formulas.mjs
 
-step 'Story groups: the acts and the 13 side-story lines'
-node scripts/build/build-story-groups.mjs
+# Story groups: the acts and the 13 side-story lines.
+stage story-groups --needs stage-dataset -- node scripts/build/build-story-groups.mjs
 
-step 'Annihilation rotation and SSS seasons'
-node scripts/build/build-mode-rotations.mjs
+# Annihilation rotation and SSS seasons.
+stage mode-rotations --needs stage-dataset -- node scripts/build/build-mode-rotations.mjs
 
+# Nation crests for the Annihilation cards.
 # After the build, because it reads the Annihilation contents to know which nations
 # to ask the wiki for. The hand-fed importers (import-story-marks.py,
 # import-act-marks.py, import-mode-marks.py) are NOT here on purpose: their input is
 # screenshots and traced art, not anything this script can fetch.
-step 'Nation crests for the Annihilation cards'
-python3 scripts/imports/import-nation-marks.py
+stage nation-marks --needs stage-dataset -- python3 scripts/imports/import-nation-marks.py
 
-step 'Run windows, for the Current group and the default chapter'
-node scripts/build/build-content-windows.mjs
+# Run windows, for the Current group and the default chapter.
+stage content-windows --needs stage-dataset -- node scripts/build/build-content-windows.mjs
 
-step 'Item icons for the drops'
-node scripts/imports/import-item-icons.mjs
+# Item icons for the drops. A new token's icon is staged in .cache/item-icons/ and
+# reported until the image repository publishes it; nothing is written under public/.
+stage item-icons --needs stage-dataset -- node scripts/imports/import-item-icons.mjs
 
+# Operators the map can deploy: ranges and DP per promotion.
 # Independent of the stage dataset -- it reads character_table and range_table, plus
 # our own operator records for the alter names -- but it belongs to the same refresh:
 # a new operator has to reach the map's deploy bar too.
-step 'Operators the map can deploy: ranges and DP per promotion'
-node scripts/build/build-operator-deploy.mjs
-step 'Amiya class forms: the Guard and Medic operator records'
-node scripts/build/build-amiya-forms.mjs
+stage operator-deploy -- node scripts/build/build-operator-deploy.mjs
+# Amiya class forms: the Guard and Medic operator records.
+stage amiya-forms -- node scripts/build/build-amiya-forms.mjs
+# Skills that change an operator attack range.
 # After the Amiya forms, not before: that step WRITES two operator records into
 # data/operators-5star, and this one reads every record in data/operators-* to decide
 # whose skills it has to look up. Run the other way round it would simply not see the
 # two forms and would leave their skill ranges out, silently -- it fails loudly on a
 # record it cannot match in the gamedata, but not on a record that is not there yet.
-step 'Skills that change an operator attack range'
-node scripts/build/build-skill-ranges.mjs
+# Not --needs amiya-forms: if that step fails, the records it would have written are
+# yesterday's, which this one reads just as well.
+stage skill-ranges -- node scripts/build/build-skill-ranges.mjs
 
-step 'Module stat bonuses from the Global client'
-node scripts/sync/sync-module-stats.mjs
+# Module stat bonuses from the Global client.
+stage module-stats -- node scripts/sync/sync-module-stats.mjs
 
+# Index enrichment (last step that writes the index).
 # Last of the steps that WRITE the index, and it has to be: it applies the exclusions
 # to the index and copies in what the steps above resolved -- variant links, the
 # names the source leaves blank, CCB codes and names, and the content labels. The
 # enemy steps below only READ it.
-step 'Index enrichment (last step that writes the index)'
-node scripts/build/enrich-stage-index.mjs
+# The build writes the index raw; this rewrites it in place.
+stage stage-index --needs stage-dataset --output public/stages-index.json -- node scripts/build/enrich-stage-index.mjs
 
 # After the enrichment, not before. The enemy steps take the index as the allowlist
 # of stages that get a page, and until the exclusions are applied it still lists the
 # limited-time modes that have none; the stage links also key on its variantOf and
 # read its CCB labels. In this order because each reads what the one before wrote:
 # the records and their appearance rows, then the stage links, then the grid's index.
-step 'Enemy records: new enemies filed, every record refreshed from the handbook'
-node scripts/build/build-enemy-records.mjs
-step 'Which stages field each enemy'
-node scripts/build/build-enemy-stage-appearances.mjs
-step 'Enemy index for the handbook grid'
-node scripts/build/build-enemies-index.mjs
+# Enemy records: new enemies filed, every record refreshed from the handbook.
+stage enemy-records --needs stage-index -- node scripts/build/build-enemy-records.mjs
+# Which stages field each enemy.
+stage enemy-appearances --needs enemy-records -- node scripts/build/build-enemy-stage-appearances.mjs
+# Enemy index for the handbook grid.
+stage enemy-index --needs enemy-records -- node scripts/build/build-enemies-index.mjs
 
+# Enemies of the running Stronghold Protocol event.
 # After the enemy index, since it reads the stat lines out of it, and after the stage
 # records, since it reads which enemies each stage fields.
-step 'Enemies of the running Stronghold Protocol event'
-node scripts/build/build-stronghold-enemies.mjs
+stage stronghold-enemies --needs enemy-index -- node scripts/build/build-stronghold-enemies.mjs
 
-step 'Event and banner calendars: real windows over estimates'
+# Event and banner calendars: real windows over estimates.
 # The events files are written from announcements and carry ESTIMATED dates for
 # the future; once the client ships an activity or gacha window, that window is
 # the truth. This keeps the home page's countdowns agreeing with the Terminal,
 # which reads the same client tables via build-content-windows.mjs.
-step 'Recurring Standard and Kernel banners'
-node scripts/sync/sync-recurring-banners.mjs
-node scripts/sync/sync-event-windows.mjs
+# Recurring Standard and Kernel banners first, so their windows are reconciled too.
+stage recurring-banners -- node scripts/sync/sync-recurring-banners.mjs
+stage event-windows -- node scripts/sync/sync-event-windows.mjs
 
-step 'Reward icons for events global has not received yet'
+# Reward icons for events global has not received yet.
 # CN-sourced art for the items the event stores name before the EN client ships
 # them -- the art is identical on both servers, and when global launches and the
 # data's names flip from CN to the official EN spellings, the same step fetches
 # them again under the new names. See the script's own header for the sources.
-python3 scripts/imports/import-reward-icons.py
+stage reward-icons -- python3 scripts/imports/import-reward-icons.py
 
-step 'Banner art: swap CN banners for the EN uploads once global has them'
-python3 scripts/sync/sync-banner-art.py
+# Banner art: swap CN banners for the EN uploads once global has them.
+stage banner-art -- python3 scripts/sync/sync-banner-art.py
 
-step 'Done'
 node -e '
 const fs = require("fs");
 const index = JSON.parse(fs.readFileSync("public/stages-index.json", "utf-8"));
 const count = (p) => fs.existsSync(p) ? fs.readdirSync(p).length : 0;
 console.log(`  ${index.length} stages in the index`);
 console.log(`  ${count("data/stages")} stage records, ${count("data/stage-geometry")} geometries`);
-console.log(`  ${count("public/stages-images")} renders, ${count("public/item-icons")} item icons`);
+console.log(`  ${Object.keys(JSON.parse(fs.readFileSync("data/item-icons.json", "utf-8"))).length} drop items mapped to a published icon`);
 console.log("  next: npm run build");
 '
+if [ -n "$standalone" ]; then node scripts/content/run-stage.mjs end --strict; fi

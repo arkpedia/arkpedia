@@ -20,9 +20,11 @@ import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
 import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
-import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
+import { confirmedGlobalRange, getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
+import { isLineupPending, LINEUP_PENDING_NOTE } from '@/lib/gacha/bannerLineup';
+import { publishedArt } from '@/lib/art/artVersion';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import { getEventColor } from '@/lib/schedule/eventColors';
@@ -34,7 +36,7 @@ import { Skin } from '@/lib/skins/skinTypes';
 /** A row of the Events list: what the old /events page rendered. */
 interface EventRow {
   name: string;
-  poster: string;
+  poster: string | null;
   dateRange: string;
   isPredicted: boolean;
   pullBannerName: string | null;
@@ -218,7 +220,7 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
       ? displayEvent.materials
       : Object.keys(getEventMaterials(displayEvent.name, materials) || {})
     : [];
-  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, displayEvent.global.dateRange, banners) : null;
+  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners) : null;
   const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
 
   const skinsTrackRef = useRef<HTMLDivElement>(null);
@@ -671,7 +673,13 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
                   Go to event page →
                 </Link>
 
-                {panelBanner && (panelBannerSixStars.length > 0 || panelBanner.five_stars.length > 0 || (panelBanner.four_stars || []).length > 0) && (
+                {panelBanner && isLineupPending(panelBanner) && (
+                  <div className="schedule-panel-pullable">
+                    <h3 className="char-file-subheading">Pullable Operators</h3>
+                    <p className="hint">{LINEUP_PENDING_NOTE}</p>
+                  </div>
+                )}
+                {panelBanner && !isLineupPending(panelBanner) && (panelBannerSixStars.length > 0 || panelBanner.five_stars.length > 0 || (panelBanner.four_stars || []).length > 0) && (
                   <div className="schedule-panel-pullable">
                     <h3 className="char-file-subheading">Pullable Operators</h3>
                     {pullBannerLinks[panelBanner.name.toLowerCase()] && (
@@ -949,7 +957,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   });
 
   return {
-    props: { events: getAllEvents(), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBannerLinks },
+    // The panel's poster, like every other: null until the image repository has it.
+    props: { events: getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster, e.name) })), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBannerLinks },
     /* The list carries "ongoing or upcoming", which is a claim about now, so the page
        cannot be built once and left. Twenty minutes, as the old events page had. */
     revalidate: 1200,

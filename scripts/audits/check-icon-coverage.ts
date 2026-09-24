@@ -16,14 +16,28 @@
  * the reason each one is still open; a clean run means nothing NEW is broken. Delete an
  * entry when its art is published -- an entry that no longer refers to a missing file
  * fails too, so the list cannot rot.
+ *
+ * Two modes:
+ *   npm run check:assets           (the Check workflow, every pull request) fails on a
+ *                                  released operator's missing icon. A pull request that
+ *                                  renames a record or changes a path helper is where that
+ *                                  mistake is made, where the app's bundled data is all
+ *                                  there is, and where it is cheapest to fix.
+ *   npm run check:assets:release   (--quarantine, the daily content release) passes, and
+ *                                  holds back only the icons: each such operator becomes a
+ *                                  published-partial entry in data/quarantine.json (stage
+ *                                  'icons', key operator:<id>, the missing paths in the
+ *                                  reason). On a Global launch the record takes its official
+ *                                  name the day the art under that name is still on its way,
+ *                                  and one late icon must never hold back the day's release.
  */
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isOperatorReleased } from '../../lib/operators/operatorAvailability';
 import { getEssentialIconPath } from '../../lib/operators/operatorIconPaths';
-
-const index = JSON.parse(fs.readFileSync(new URL('../../data/assets/external-asset-index.json', import.meta.url), 'utf8'));
-const published = new Set(index.files);
-const root = new URL('../../data/', import.meta.url);
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 
 // Every gap still open. Each needs art published to arkpedia-image-assets, not a code
 // change. Empty as of 2026-09-18: eleven entries lived here until their art was mapped
@@ -42,14 +56,6 @@ const FACTION_ICON_FILES: Record<string, string> = {
   "Laios's Party": 'Rhodes Island.webp', 'Ave Mujica': 'Rhodes Island.webp', 'S.E.E.S': 'Rhodes Island.webp',
 };
 const safe = (value: unknown) => String(value).replace(/[\\/*?:"<>|]/g, '').trim();
-
-const operators: any[] = [];
-for (const dir of fs.readdirSync(root).filter((name) => /^operators-\dstar$/.test(name))) {
-  for (const file of fs.readdirSync(new URL(`${dir}/`, root)).filter((name) => name.endsWith('.json'))) {
-    operators.push(JSON.parse(fs.readFileSync(new URL(`${dir}/${file}`, root), 'utf8')));
-  }
-}
-if (operators.length < 400) throw new Error(`Only ${operators.length} operator records found; the scan is not reading the roster.`);
 
 /** One entry per path a helper in lib/operators/ would build for this record. */
 function* expected(operator: any): Generator<[string, string]> {
@@ -73,42 +79,85 @@ function* expected(operator: any): Generator<[string, string]> {
   }
 }
 
-const missing = new Map<string, string>();
-// Gaps on operators not yet released on Global. Their art often lands after the record,
-// and the user has ruled that acceptable, so these are listed rather than failed.
-const deferred = new Map<string, string>();
-const unreleased = new Set<string>();
-let checked = 0;
-for (const operator of operators) {
-  const released = isOperatorReleased(operator);
-  if (!released) unreleased.add(operator.name);
-  for (const [path, kind] of expected(operator)) {
-    checked++;
-    if (published.has(path)) continue;
-    const where = `${kind} for ${operator.name}`;
-    if (released) { if (!missing.has(path)) missing.set(path, where); }
-    else if (!deferred.has(path)) deferred.set(path, where);
+/** Runs the check on the data under `root`; returns what it prints and how it exits. */
+export function checkIconCoverage({ root, now = defaultNow(), quarantine = false, minOperators = 400 }: { root: string; now?: Date; quarantine?: boolean; minOperators?: number }) {
+  const index = JSON.parse(fs.readFileSync(path.join(root, 'data/assets/external-asset-index.json'), 'utf8'));
+  const published = new Set(index.files);
+  const operators: any[] = [];
+  for (const dir of fs.readdirSync(path.join(root, 'data')).filter((name) => /^operators-\dstar$/.test(name))) {
+    for (const file of fs.readdirSync(path.join(root, 'data', dir)).filter((name) => name.endsWith('.json'))) {
+      operators.push(JSON.parse(fs.readFileSync(path.join(root, 'data', dir, file), 'utf8')));
+    }
   }
+  if (operators.length < minOperators) throw new Error(`Only ${operators.length} operator records found; the scan is not reading the roster.`);
+
+  const missing = new Map<string, string>();
+  // Every released operator's own gaps, for the quarantine: a shared icon (a new class
+  // branch, a faction emblem) is missing from each of their pages.
+  const gapsOf = new Map<string, { name: string; paths: string[] }>();
+  // Gaps on operators not yet released on Global. Their art often lands after the record,
+  // and the user has ruled that acceptable, so these are listed rather than failed.
+  const deferred = new Map<string, string>();
+  const unreleased = new Set<string>();
+  let checked = 0;
+  for (const operator of operators) {
+    const released = isOperatorReleased(operator, now.getTime());
+    if (!released) unreleased.add(operator.name);
+    for (const [file, kind] of expected(operator)) {
+      checked++;
+      if (published.has(file)) continue;
+      const where = `${kind} for ${operator.name}`;
+      if (!released) { if (!deferred.has(file)) deferred.set(file, where); continue; }
+      if (!missing.has(file)) missing.set(file, where);
+      if (KNOWN_GAPS.has(file)) continue;
+      const key = `operator:${operator.internalName || operator.name}`;
+      const gaps: { name: string; paths: string[] } = gapsOf.get(key) ?? { name: operator.name, paths: [] };
+      if (!gaps.paths.includes(file)) gaps.paths.push(file);
+      gapsOf.set(key, gaps);
+    }
+  }
+
+  const unexpected = [...missing].filter(([file]) => !KNOWN_GAPS.has(file));
+  const fixed = [...KNOWN_GAPS.keys()].filter((file) => !missing.has(file));
+  const out: string[] = [], errors: string[] = [];
+  let exitCode = 0;
+  if (quarantine) {
+    const holds = beginStage(root, 'icons', now);
+    for (const [key, { name, paths }] of gapsOf) {
+      holds.add({ key, action: 'published-partial', reason: `${name}: icon(s) not published yet, shown blank: ${paths.sort().join(', ')}` });
+    }
+    const written = holds.commit();
+    if (unexpected.length) {
+      out.push(`${unexpected.length} icon path(s) on ${written.length} released operator(s) are not published yet -- held back as quarantine entries (stage 'icons' in data/quarantine.json), not failed:`);
+      for (const [file, where] of unexpected) out.push(`  ${file}  (${where})`);
+    }
+    if (fixed.length) out.push(`${fixed.length} entr(y/ies) in KNOWN_GAPS now resolve; delete them from scripts/audits/check-icon-coverage.ts:`, ...fixed.map((file) => `  ${file}`));
+  } else if (unexpected.length) {
+    errors.push(`${unexpected.length} icon path(s) point at files that are not published:`);
+    for (const [file, where] of unexpected) errors.push(`  ${file}  (${where})`);
+    errors.push('\nPublish the art to the matching asset repository and add it to');
+    errors.push('data/assets/external-asset-index.json, or correct the record it is built from.');
+    errors.push('(The daily release runs this with --quarantine: there the gap holds back the icon, not the release.)');
+    exitCode = 1;
+  } else if (fixed.length) {
+    errors.push(`${fixed.length} entr(y/ies) in KNOWN_GAPS now resolve. Delete them from`);
+    errors.push('scripts/audits/check-icon-coverage.ts so the list keeps meaning something:');
+    for (const file of fixed) errors.push(`  ${file}`);
+    exitCode = 1;
+  }
+  if (!exitCode) {
+    if (deferred.size) {
+      out.push(`${deferred.size} icon path(s) missing on ${unreleased.size} operator(s) not yet released on Global -- reported, not failed:`);
+      for (const [file, where] of deferred) out.push(`  ${file}  (${where})`);
+    }
+    out.push(`Checked ${checked} icon paths across ${operators.length} operators (${unreleased.size} unreleased); ${KNOWN_GAPS.size} known gaps, ${unexpected.length ? `${unexpected.length} held back` : 'nothing new'}.`);
+  }
+  return { exitCode, out, errors };
 }
 
-const unexpected = [...missing].filter(([path]) => !KNOWN_GAPS.has(path));
-const fixed = [...KNOWN_GAPS.keys()].filter((path) => !missing.has(path));
-
-if (unexpected.length) {
-  console.error(`${unexpected.length} icon path(s) point at files that are not published:`);
-  for (const [path, where] of unexpected) console.error(`  ${path}  (${where})`);
-  console.error('\nPublish the art to the matching asset repository and add it to');
-  console.error('data/assets/external-asset-index.json, or correct the record it is built from.');
-  process.exit(1);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const { exitCode, out, errors } = checkIconCoverage({ root: fileURLToPath(new URL('../..', import.meta.url)), quarantine: process.argv.includes('--quarantine') });
+  for (const line of out) console.log(line);
+  for (const line of errors) console.error(line);
+  process.exit(exitCode);
 }
-if (fixed.length) {
-  console.error(`${fixed.length} entr(y/ies) in KNOWN_GAPS now resolve. Delete them from`);
-  console.error('scripts/audits/check-icon-coverage.mjs so the list keeps meaning something:');
-  for (const path of fixed) console.error(`  ${path}`);
-  process.exit(1);
-}
-if (deferred.size) {
-  console.log(`${deferred.size} icon path(s) missing on ${unreleased.size} operator(s) not yet released on Global -- reported, not failed:`);
-  for (const [path, where] of deferred) console.log(`  ${path}  (${where})`);
-}
-console.log(`Checked ${checked} icon paths across ${operators.length} operators (${unreleased.size} unreleased); ${KNOWN_GAPS.size} known gaps, nothing new.`);

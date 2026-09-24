@@ -24,6 +24,11 @@ node_modules/
 # 458MB of someone else's repo.
 .cache/
 
+# What each refresh stage did this run (scripts/content/run-stage.mjs). Durations differ
+# every run, so it stays out of the published source (export.mjs skips ignored files);
+# otherwise every day would be a new release. The run's summary and issue carry it.
+data/stage-report.json
+
 # Vercel CLI (if you ever run `vercel` locally)
 .vercel/
 

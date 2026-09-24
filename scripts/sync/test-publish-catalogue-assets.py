@@ -2,12 +2,14 @@
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qsl, urlparse
 sys.dont_write_bytecode = True
 from PIL import Image
 
@@ -81,6 +83,90 @@ class CatalogueImports(unittest.TestCase):
         self.assertNotIn('event-poster/Test.webp', image_map)
         self.assertEqual(skin_map, {'six-star-skins/Test - Base.webp': 'skin/char_900_test_1b.png'})
 
+    def test_art_the_wiki_cannot_serve_is_left_out_and_reported_while_the_rest_is_built(self):
+        avatar = png('#c03030')
+        icon_url = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{REVISION}/avatar/char_900_test.png'
+        fetched = []
+
+        def fetch(url):
+            fetched.append(url)
+            if url == icon_url:
+                return avatar
+            query = dict(parse_qsl(urlparse(url).query))
+            titles = query.get('titles', '')
+            if 'CN Down banner.png' in titles:
+                raise subprocess.CalledProcessError(7, ['curl'], output=b'', stderr=b'Failed to connect')
+            if 'CN Elsewhere banner.png' in titles:
+                return json.dumps({'query': {'pages': {'1': {'title': 'File:CN Elsewhere banner.png',
+                    'imageinfo': [{'url': 'https://images.example/Elsewhere.png', 'sha1': '0' * 40}]}}}}).encode()
+            # The API's answer for a file that has not been uploaded.
+            return json.dumps({'query': {'pages': {'-1': {'title': 'File:CN Missing banner.png', 'missing': ''}}}}).encode()
+
+        plan = {'sourceRepository': 'yuanyan3060/ArknightsGameResource', 'revision': REVISION, 'files': [
+            {'path': 'six-star-icons/Test - Base.webp', 'sourcePath': 'avatar/char_900_test.png'},
+            {'path': 'event-poster/Missing.webp', 'wikiFiles': ['CN Missing banner.png']},
+            {'path': 'headhunting-banner-images/Down.webp', 'wikiFiles': ['CN Down banner.png', 'Down banner.png']},
+            {'path': 'event-poster/Elsewhere.webp', 'wikiFiles': ['CN Elsewhere banner.png']},
+        ]}
+        with tempfile.TemporaryDirectory() as temporary:
+            image_root, skin_root, app = Path(temporary)/'image', Path(temporary)/'skin', Path(temporary)/'app'
+            asset_repository(image_root)
+            asset_repository(skin_root, ('build_artwork_variants.py', 'def build_one(job):\n    return job[0], {}\n'))
+            (app/'data').mkdir(parents=True)
+            (Path(temporary)/'plan.json').write_text(json.dumps(plan))
+            cwd = os.getcwd()
+            try:
+                os.chdir(app)
+                with patch.object(publish, 'fetch', fetch), patch.dict(os.environ, {'ARKPEDIA_NOW': '2026-09-23T20:00:00Z'}):
+                    publish.main([str(Path(temporary)/'plan.json'), str(image_root), str(skin_root)])
+            finally:
+                os.chdir(cwd)
+            manifest = json.loads((image_root/'asset-manifest.json').read_text())['files']
+            entries = json.loads((app/'data/quarantine.json').read_text())['entries']
+
+        self.assertEqual(list(manifest), ['six-star-icons/Test - Base.webp'])
+        self.assertEqual([(e['key'], e['stage'], e['action'], e['firstSeen']) for e in entries], [
+            ('art:event-poster/Elsewhere.webp', 'catalogue-art', 'published-partial', '2026-09-23'),
+            ('art:event-poster/Missing.webp', 'catalogue-art', 'published-partial', '2026-09-23'),
+            ('art:headhunting-banner-images/Down.webp', 'catalogue-art', 'published-partial', '2026-09-23'),
+        ])
+        reasons = {e['key']: e['reason'] for e in entries}
+        self.assertIn('has no upload for File:CN Missing banner.png yet', reasons['art:event-poster/Missing.webp'])
+        self.assertIn('could not be asked', reasons['art:headhunting-banner-images/Down.webp'])
+        self.assertIn('unexpected host (images.example)', reasons['art:event-poster/Elsewhere.webp'])
+        # An image on a host the importer does not trust is never requested.
+        self.assertNotIn('https://images.example/Elsewhere.png', fetched)
+
+
+    def test_a_mirror_file_that_fails_or_does_not_decode_is_left_out_and_reported_while_the_rest_is_built(self):
+        base = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{REVISION}'
+        responses = {f'{base}/avatar/char_900_test.png': png('#c03030'), f'{base}/avatar/char_901_html.png': b'<html>rate limited</html>'}
+
+        def fetch(url):
+            if url in responses:
+                return responses[url]
+            raise subprocess.CalledProcessError(22, ['curl'], output=b'', stderr=b'404')
+
+        plan = {'sourceRepository': 'yuanyan3060/ArknightsGameResource', 'revision': REVISION, 'files': [
+            {'path': 'six-star-icons/Test - Base.webp', 'sourcePath': 'avatar/char_900_test.png'},
+            {'path': 'six-star-icons/Renamed - Base.webp', 'sourcePath': 'avatar/char_902_renamed.png'},
+            {'path': 'six-star-icons/Html - Base.webp', 'sourcePath': 'avatar/char_901_html.png'},
+        ]}
+        alerts = []
+        with tempfile.TemporaryDirectory() as temporary:
+            image_root, skin_root = Path(temporary)/'image', Path(temporary)/'skin'
+            asset_repository(image_root)
+            asset_repository(skin_root, ('build_artwork_variants.py', 'def build_one(job):\n    return job[0], {}\n'))
+            with patch.object(publish, 'fetch', fetch):
+                publish.build(plan, image_root, skin_root, alerts)
+            manifest = json.loads((image_root/'asset-manifest.json').read_text())['files']
+        self.assertEqual(list(manifest), ['six-star-icons/Test - Base.webp'])
+        self.assertEqual([(a['key'], a['action'], a['sourceRef']) for a in alerts], [
+            ('art:six-star-icons/Renamed - Base.webp', 'published-partial', f'{base}/avatar/char_902_renamed.png'),
+            ('art:six-star-icons/Html - Base.webp', 'published-partial', f'{base}/avatar/char_901_html.png'),
+        ])
+        self.assertIn('Downloading avatar/char_902_renamed.png at aaaaaaaaaaaa failed', alerts[0]['reason'])
+        self.assertIn('is not an image that decodes', alerts[1]['reason'])
 
 if __name__ == '__main__':
     unittest.main()

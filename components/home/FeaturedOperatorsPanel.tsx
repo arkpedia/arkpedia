@@ -1,7 +1,7 @@
 import { operatorIconOverrides } from '@/lib/operators/operatorIconOverrides';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { getBannerLineup, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
+import { getBannerLineup, isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
 import { GachaBannerWithWindow } from '@/lib/home/frontPageContent';
 
 // Icon paths follow the same "<Name> - Base.webp" naming convention as
@@ -36,11 +36,12 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
 
   const { featured, returning } = getBannerLineup(banner);
 
-  if (featured.length === 0) {
+  // A banner out before its lineup is known says so, rather than "none listed".
+  if (featured.length === 0 || isLineupPending(banner)) {
     return (
       <section className="front-panel front-featured-ops-panel">
         <h2>Featured Operators</h2>
-        <p className="hint">No featured operators listed for this banner.</p>
+        <p className="hint">{isLineupPending(banner) ? LINEUP_PENDING_NOTE : 'No featured operators listed for this banner.'}</p>
       </section>
     );
   }

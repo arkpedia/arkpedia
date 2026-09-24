@@ -868,6 +868,7 @@
 .pulls-day-options :disabled { opacity: .4; cursor: default; }
 .pulls-target-preview { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .pulls-target-preview img { width: 84px; height: 44px; object-fit: cover; border-radius: 2px; }
+.pulls-target-preview .pulls-target-preview-art { flex-shrink: 0; width: 84px; height: 44px; border-radius: 2px; background: var(--panel-2); }
 .pulls-target-preview span { font-size: 13px; min-width: 0; }
 .pulls-target-preview small { display: block; color: var(--text-dim); margin-top: 4px; }
 .pulls-workspace-forecast { position: sticky; top: calc(var(--nav-h, 60px) + 180px); padding: 20px; border-top: 3px solid var(--teal); border-radius: 3px; background: var(--panel); min-width: 0; }

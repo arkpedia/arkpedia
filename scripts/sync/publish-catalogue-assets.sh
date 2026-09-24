@@ -14,7 +14,9 @@ for kind in image skin; do
   GIT_SSH_COMMAND="ssh -i $work/$kind-key -o IdentitiesOnly=yes -o UserKnownHostsFile=$work/known_hosts -o StrictHostKeyChecking=yes" \
     git ls-remote "git@github.com:arkpedia/arkpedia-$kind-assets.git" HEAD > /dev/null
 done
-if [ "$(node -p "require('./$plan').files.length")" = 0 ]; then exit 0; fi
+# Nothing to import still completes the stage: clear its quarantine entries, whose art
+# has since been published some other way.
+if [ "$(node -p "require('./$plan').files.length")" = 0 ]; then echo '[]' | node scripts/lib/quarantine.mjs catalogue-art; exit 0; fi
 for kind in image skin; do
   repo="arkpedia-$kind-assets"
   git clone --filter=blob:none --no-checkout --depth 1 "https://github.com/arkpedia/$repo.git" "$work/$kind"

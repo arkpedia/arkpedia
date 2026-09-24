@@ -8,11 +8,12 @@ import { Skin } from '../skins/skinTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
 import { activeEventFarming, getEventFarmingMaterials } from '../farming/eventFarming';
 import { FarmingMaterial } from '../farming/farmingTypes';
-import { withArtVersion } from '@/lib/art/artVersion';
+import { publishedArt } from '@/lib/art/artVersion';
 
 export interface GameEvent extends GameWindowTimes {
   name: string;
-  poster: string;
+  /** null while the image repository has not published it (see publishedArt). */
+  poster: string | null;
   year: number;
   dateRange: string;
   start: Date;
@@ -21,7 +22,7 @@ export interface GameEvent extends GameWindowTimes {
 
 interface RawEvent {
   name: string;
-  poster: string;
+  poster: string | null;
   year: number;
   global?: GameWindowTimes & { dateRange: string | null; note: string | null } | null;
   cn?: { dateRange: string | null; note: string | null } | null;
@@ -35,7 +36,7 @@ export function loadGameEvents(): GameEvent[] {
     if (!dateRange) continue;
     const window = parseGameWindow(dateRange, e.global ?? {});
     if (!window) continue;
-    events.push({ name: e.name, poster: withArtVersion(e.poster, e.name), year: e.year, ...e.global, dateRange, start: window.start, end: window.end });
+    events.push({ name: e.name, poster: publishedArt(e.poster, e.name), year: e.year, ...e.global, dateRange, start: window.start, end: window.end });
   }
   return events;
 }
@@ -184,7 +185,7 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
       if (!window) continue;
       result.push({
         name: e.name,
-        poster: withArtVersion(e.poster, e.name),
+        poster: publishedArt(e.poster, e.name),
         year: e.year,
         dateRange: globalRange,
         start: window.start,
@@ -206,7 +207,7 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
 
     result.push({
       name: e.name,
-      poster: withArtVersion(e.poster, e.name),
+      poster: publishedArt(e.poster, e.name),
       year: e.year,
       dateRange: formatDateRange(predictedStart, predictedEnd),
       start: predictedStart,

@@ -17,9 +17,13 @@
  * than ~45 days ago is history, already correct by definition of having
  * happened, and rewriting it would churn years of files for nothing.
  *
- * Matching is by folded name (case, punctuation, bracketed prefixes like
- * "[Rerun]" dropped), because the calendars and the client spell the same
- * event differently: "[Rerun] When Elegies Are Ashes Rerun" is the client's
+ * A banner that carries its Global pool id (globalPoolId) takes that pool's
+ * window: the id is its identity, whatever either side calls it. CN windows stay
+ * matched by name, which only the client's Chinese names meet: an id would reach
+ * the CN-first banners, whose hours come from official CN notices that apply()
+ * does not yet recognise as outranking the mirror. Everything else is matched by
+ * folded name (case, punctuation, bracketed prefixes like "[Rerun]" dropped),
+ * because the calendars and the client spell the same event differently: "[Rerun] When Elegies Are Ashes Rerun" is the client's
  * "When Elegies Are Ashes - Rerun". A name that matches several client
  * windows is resolved to the one nearest the entry's existing dates, or
  * skipped with a warning when there is nothing to be near.
@@ -36,13 +40,16 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { pinnedRef } from '../content/pin-upstream.mjs';
 
 const root = process.cwd();
 const EN = `${process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata/en'}/gamedata/excel`;
 const CN = `${process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource'}/gamedata/excel`;
+// At the commits this run pinned (run-stage.mjs), the ones the checkouts above hold, else
+// the branches. A window this changes records the URL as its timingSource.
 const RAW = {
-  en: 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel',
-  cn: 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/gamedata/excel',
+  en: `https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${pinnedRef('ArknightsAssets/ArknightsGamedata')}/en/gamedata/excel`,
+  cn: `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${pinnedRef('yuanyan3060/ArknightsGameResource')}/gamedata/excel`,
 };
 
 async function readTable(dir, urlBase, file) {
@@ -175,6 +182,12 @@ const enActs = windowsByName(acts(actEn), (a) => a.name, (a) => a.startTime, (a)
 const cnActs = windowsByName(acts(actCn), (a) => a.name, (a) => a.startTime, (a) => a.endTime);
 const enPools = windowsByName(gachaEn.gachaPoolClient || [], (p) => p.gachaPoolName, (p) => p.openTime, (p) => p.endTime);
 const cnPools = windowsByName(gachaCn.gachaPoolClient || [], (p) => p.gachaPoolName, (p) => p.openTime, (p) => p.endTime);
+/** A pool's window by its id, as the one candidate; null for an id the table lacks. */
+const poolById = (rows) => {
+  const byId = new Map(rows.filter((p) => p.gachaPoolId && p.openTime && p.endTime).map((p) => [p.gachaPoolId, [{ start: p.openTime, end: p.endTime }]]));
+  return (id) => (id && byId.get(id)) || null;
+};
+const enPoolById = poolById(gachaEn.gachaPoolClient || []);
 
 /* --- events_<year>.json ------------------------------------------------------ */
 
@@ -207,7 +220,7 @@ for (const b of banners) {
   // "Returned From A Pyre Rerun" is the pool the client calls "Returned From A
   // Pyre" -- a rerun banner reuses its original's pool name, so match both.
   const keys = [fold(b.name), fold(b.name).replace(/rerun$/, '')];
-  const enCands = keys.map((k) => enPools.get(k)).find(Boolean);
+  const enCands = enPoolById(b.globalPoolId) ?? keys.map((k) => enPools.get(k)).find(Boolean);
   const cnCands = keys.map((k) => cnPools.get(k)).find(Boolean);
   // The banner file keeps bare strings rather than {dateRange, note} blocks;
   // wrap and unwrap so apply() serves both shapes.

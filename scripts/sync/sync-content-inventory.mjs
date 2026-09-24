@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { pinnedCommit } from '../content/pin-upstream.mjs';
 
 export function buildInventory(characterTable, skinTable, source) {
   const operators = Object.entries(characterTable)
@@ -15,13 +16,28 @@ export function buildInventory(characterTable, skinTable, source) {
   return { source, operators, skins };
 }
 
+/**
+ * The inventory to write over `previous` (the file on record, or null): with the source it
+ * was last read from while what it lists is the same. The source names the CN mirror commit,
+ * which moves with every commit to the mirror, and the file is a release input, so rewriting
+ * it for that alone would make the day a new release. Both writers of the file go through it.
+ */
+export function withStableSource(previous, inventory) {
+  if (!previous?.source) return inventory;
+  const { source: _before, ...listedBefore } = previous, { source: _after, ...listed } = inventory;
+  return JSON.stringify(listedBefore) === JSON.stringify(listed) ? { ...inventory, source: previous.source } : inventory;
+}
+
 async function main() {
   const repo = 'Kengxxiao/ArknightsGameData';
-  const response = await fetch(`https://api.github.com/repos/${repo}/commits/master`, {
-    headers: process.env.GH_TOKEN ? { Authorization: `Bearer ${process.env.GH_TOKEN}` } : {}, signal: AbortSignal.timeout(30000),
+  // The commit this run pinned (run-stage.mjs), else the branch head.
+  const revision = await pinnedCommit(repo, async (repository, branch) => {
+    const response = await fetch(`https://api.github.com/repos/${repository}/commits/${branch}`, {
+      headers: process.env.GH_TOKEN ? { Authorization: `Bearer ${process.env.GH_TOKEN}` } : {}, signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error(`CN source revision: HTTP ${response.status}`);
+    return (await response.json()).sha;
   });
-  if (!response.ok) throw new Error(`CN source revision: HTTP ${response.status}`);
-  const { sha: revision } = await response.json();
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Invalid CN source revision');
   const files = ['character_table.json', 'skin_table.json'];
   const sources = await Promise.all(files.map(async file => {
@@ -35,11 +51,10 @@ async function main() {
     repository: `https://github.com/${repo}`, revision,
     files: Object.fromEntries(files.map((file, i) => [file, sources[i].sha256])),
   });
-  if (fs.existsSync('data/content-inventory.json')) {
-    const previous=JSON.parse(fs.readFileSync('data/content-inventory.json','utf8'));
-    for (const key of ['events','banners']) if (previous[key]) inventory[key]=previous[key];
-  }
-  fs.writeFileSync('data/content-inventory.json', `${JSON.stringify(inventory, null, 2)}\n`);
+  const previous = fs.existsSync('data/content-inventory.json') ? JSON.parse(fs.readFileSync('data/content-inventory.json','utf8')) : null;
+  if (previous) for (const key of ['events','banners']) if (previous[key]) inventory[key]=previous[key];
+  fs.writeFileSync('data/content-inventory.json', `${JSON.stringify(withStableSource(previous, inventory), null, 2)}\n`);
   console.log(`CN source inventory: ${inventory.operators.length} operators, ${inventory.skins.length} outfits at ${revision}`);
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
+// No top-level await, so the tests can import this module as they compile it.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(error => { console.error(error); process.exitCode = 1; });

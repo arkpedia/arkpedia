@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+import { pinnedRef } from '../content/pin-upstream.mjs';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const OUTPUT = process.env.ARKPEDIA_VOICE_OUTPUT || join(ROOT, 'data/operator-voice-lines.json');
@@ -31,10 +32,19 @@ const LEGACY_AUDIO_ROOTS = {
   voice_cn: 'https://raw.githubusercontent.com/arkpedia/arkpedia-voice-mandarin/main/legacy',
   voice_en: 'https://raw.githubusercontent.com/arkpedia/arkpedia-voice-english/main/legacy',
 };
+/* The game-data mirrors at a ref: the commit this run pinned (run-stage.mjs) when fetching,
+   the branch in the output's meta, which is rewritten every run and so would otherwise
+   change whenever a mirror moves; data/upstream.lock.json records the commits. */
+const MIRROR_FILES = {
+  en: ['ArknightsAssets/ArknightsGamedata', 'en/gamedata/excel/charword_table.json'],
+  enSupplemental: ['PuppiizSunniiz/ArknightsGameData_YoStar', 'en_US/gamedata/excel/charword_table.json'],
+  cn: ['Kengxxiao/ArknightsGameData', 'zh_CN/gamedata/excel/charword_table.json'],
+};
+const mirrorUrls = env => Object.fromEntries(Object.entries(MIRROR_FILES).map(([key, [repository, file]]) =>
+  [key, `https://raw.githubusercontent.com/${repository}/${pinnedRef(repository, env)}/${file}`]));
+const TRANSCRIPTS = mirrorUrls({});
 const URLS = {
-  en: 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/charword_table.json',
-  enSupplemental: 'https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/main/en_US/gamedata/excel/charword_table.json',
-  cn: 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/charword_table.json',
+  ...mirrorUrls(process.env),
   archive: 'https://codeload.github.com/PseudoMon/tlvr-source/zip/refs/heads/master',
   audioIndex: 'https://raw.githubusercontent.com/isHarryh/Ark-Voice/master/voice_data.json',
 };
@@ -302,7 +312,7 @@ for (const charId of [...operatorIds()].sort()) {
 
 writeFileSync(OUTPUT, `${JSON.stringify({
   meta: {
-    transcripts: [URLS.en, URLS.enSupplemental, URLS.cn],
+    transcripts: [TRANSCRIPTS.en, TRANSCRIPTS.enSupplemental, TRANSCRIPTS.cn],
     audio: AUDIO_ROOTS,
     legacyAudio: LEGACY_AUDIO_ROOTS,
     archive: 'https://github.com/PseudoMon/tlvr-source',

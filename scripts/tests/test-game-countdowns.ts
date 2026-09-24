@@ -11,9 +11,14 @@ import { getHomeGachaBanners, getOngoingGachaBanners, getOngoingEvents, loadGame
 
 const start = new Date('2026-09-16T15:00:00Z');
 const end = new Date('2026-09-30T11:00:00Z');
-test('People, A People and Rage of The Many share the announced opening, not midnight or reset', () => {
-  const event = loadGameEvents().find(e => e.name === '[Side Story] People, A People')!;
-  const banner = getAllHeadhuntingBanners().find(b => b.name === 'Rage of The Many')!;
+/* An event and its banner announced for 08:00 PDT on the 16th, closing at the 04:00
+   reset on the 30th -- People, A People and Rage of The Many, as fixtures, since the
+   live records are renamed and re-timed by the daily refresh. */
+const official = { startAt: '2026-09-16T15:00:00.000Z', endAt: '2026-09-30T11:00:00.000Z', timingSource: 'https://www.arknights.global/news/4635' };
+const eventWindow = parseGameWindow('2026/09/16–2026/09/30', official)!;
+const event = { name: '[Side Story] Fixture', poster: '', year: 2026, dateRange: '2026/09/16–2026/09/30', ...official, start: eventWindow.start, end: eventWindow.end } as ReturnType<typeof loadGameEvents>[number];
+const banner = { name: 'Fixture banner', category: 'featured', pull_type: 'featured', year: 2026, cn_date: null, global_date: '2026/09/16–2026/09/30', global_window: official, six_stars: [], five_stars: [], four_stars: [] } as unknown as ReturnType<typeof getAllHeadhuntingBanners>[number];
+test('an event and its banner share the announced opening, not midnight or reset', () => {
   assert.deepEqual(event.start, start);
   assert.deepEqual(event.end, end);
   assert.deepEqual(parseBannerDate(banner), start);
@@ -88,5 +93,19 @@ test('sync retains exact hours even when calendar days are unchanged, and is ide
     run();
     assert.equal(fs.readFileSync(eventFile, 'utf8') + fs.readFileSync(bannerFile, 'utf8'), announced);
 
+    // A banner that carries its pool id takes that pool's window even when no name
+    // matches, and a rerun takes its own pool rather than its original's.
+    const later = Date.UTC(year, 9, 14, 11) / 1000;
+    fs.writeFileSync(path.join(tmp, 'en/gamedata/excel/gacha_table.json'), JSON.stringify({ gachaPoolClient: [
+      { gachaPoolId: 'SINGLE_EN_1', gachaPoolName: 'Official Name', openTime: open, endTime: close },
+      { gachaPoolId: 'SINGLE_EN_2', gachaPoolName: 'Twice Run', openTime: open, endTime: close },
+      { gachaPoolId: 'SINGLE_EN_3', gachaPoolName: 'Twice Run', openTime: later, endTime: later + 14 * 86400 },
+    ] }));
+    fs.writeFileSync(bannerFile, JSON.stringify([{ name: 'Community Name', global_date: null, globalPoolId: 'SINGLE_EN_1' },
+      { name: 'Twice Run Rerun', global_date: range, globalPoolId: 'SINGLE_EN_3' }]));
+    run();
+    const [community, rerun] = JSON.parse(fs.readFileSync(bannerFile, 'utf8'));
+    assert.deepEqual([community.global_date, community.global_window.startAt], [range, event.startAt]);
+    assert.equal(rerun.global_window.startAt, new Date(later * 1000).toISOString());
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });

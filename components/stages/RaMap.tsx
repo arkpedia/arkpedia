@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useContentUrl } from '@/lib/content/context';
 
 /**
  * Reclamation Algorithm as a map, which is what it is.
@@ -266,6 +267,9 @@ export default function RaMap({
   list?: ReactNode;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  /** SVG <image> hrefs get no rewriting of their own. A bare path 307s to the asset
+   *  commit of the last deploy, not the content release the page was rendered from. */
+  const contentUrl = useContentUrl();
   /** Which tab: a map id, or LIST for the operations no map places. */
   const [tab, setTab] = useState<string>(data.maps[0]?.id);
   // Falls back to the first map on the list tab, so every measurement below keeps a
@@ -629,7 +633,7 @@ export default function RaMap({
           aria-label="Map of the Great Desert"
         >
           <image
-            href={map.art}
+            href={contentUrl(map.art)}
             x={-ART.width / 2}
             y={-ART.height / 2}
             width={ART.width}
@@ -723,7 +727,7 @@ export default function RaMap({
                       keeps white on the teal. */}
                   <image
                     className={`ra-glyph${market ? '' : ' ink'}`}
-                    href={`/ra-map/node/${node.type}.webp`}
+                    href={contentUrl(`/ra-map/node/${node.type}.webp`)}
                     x={-glyph / 2}
                     y={-glyph / 2}
                     width={glyph}
@@ -746,7 +750,7 @@ export default function RaMap({
                           <polygon className="ra-ring" points={polygon(r * 1.08, 6)} opacity={0.5} strokeWidth={theirs(0.14 * 0.4)} />
                           <image
                             className="ra-glyph"
-                            href={`/ra-map/res/${res.type}.webp`}
+                            href={contentUrl(`/ra-map/res/${res.type}.webp`)}
                             x={-theirs(CHIP.glyph) / 2}
                             y={-theirs(CHIP.glyph) / 2}
                             width={theirs(CHIP.glyph)}
@@ -780,7 +784,7 @@ export default function RaMap({
                     />
                     <image
                       className="ra-glyph"
-                      href="/ra-map/weather-normal.webp"
+                      href={contentUrl('/ra-map/weather-normal.webp')}
                       x={6 + L.chip * 0.22}
                       y={(L.height - L.chip * 0.56) / 2}
                       width={L.chip * 0.56}

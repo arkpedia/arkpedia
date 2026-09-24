@@ -26,9 +26,17 @@ keys them the same way the level path does (map/crisis_v2_01-02.png). That is wh
 they were missed: every other preview is named after a stage id, and these stages
 have none.
 
+NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets
+(stages-images/<key>.webp), and a file in this repository's public/ is refused by
+check:assets, which the daily release runs, so a new season's render written there
+would have blocked the release. It is staged in .cache/cc-stages/ instead, the stage
+gets no render until the image repository publishes it, and it is reported under
+'cc-stages' with the path it must be published at, as is a stage with no render at all.
+
 Run:  python3 scripts/imports/import_cc_stages.py
 """
 from published_assets import published_assets
+from quarantine import report
 import json
 import os
 import re
@@ -41,7 +49,8 @@ EN = os.environ.get('ARKPEDIA_EN', '.cache/upstream/en-gamedata/en') + '/gamedat
 
 root = os.getcwd()
 stages_dir = os.path.join(root, 'data', 'stages')
-out_dir = os.path.join(root, 'public', 'stages-images')
+# Never public/: see the header.
+out_dir = os.path.join(root, '.cache', 'cc-stages')
 
 
 def map_names():
@@ -61,9 +70,9 @@ def map_names():
 
 def main():
     names = map_names()
-    os.makedirs(out_dir, exist_ok=True)
     plan = {}
     missing = []
+    alerts = []
     for file in sorted(os.listdir(stages_dir)):
         if not file.endswith('.json'):
             continue
@@ -83,11 +92,20 @@ def main():
         if f'stages-images/{key}.webp' in published_assets():
             entry['render'] = f'{key}.webp'
         elif os.path.exists(src):
-            # Matching the rest of public/stages-images/, which is webp.
-            Image.open(src).convert('RGB').save(os.path.join(out_dir, f'{key}.webp'), 'WEBP', quality=80, method=6)
-            entry['render'] = f'{key}.webp'
+            # Webp, matching the rest of stages-images/.
+            try:
+                os.makedirs(out_dir, exist_ok=True)
+                Image.open(src).convert('RGB').save(os.path.join(out_dir, f'{key}.webp'), 'WEBP', quality=80, method=6)
+                why = (f'its render is staged as .cache/cc-stages/{key}.webp from map/{key}.png, but nothing publishes it; '
+                       f'it is published without one until stages-images/{key}.webp is added to arkpedia-image-assets')
+            except Exception as exc:  # noqa: BLE001 -- one bad file holds back one stage
+                why = f'map/{key}.png does not decode ({exc}), so it is published without a render'
+            alerts.append({'key': f'cc-render:{rec["slug"]}', 'action': 'published-partial', 'sourceRef': f'map/{key}.png',
+                           'reason': f'{entry["code"]} ({rec["slug"]}): {why}.'})
         else:
             missing.append(f'{rec["slug"]}: no render at map/{key}.png')
+            alerts.append({'key': f'cc-render:{rec["slug"]}', 'action': 'published-partial',
+                           'reason': f'{entry["code"]} ({rec["slug"]}): the resource checkout has no map/{key}.png, so it is published without a render.'})
         plan[rec['slug']] = entry
 
     with open(os.path.join(root, 'data', 'cc-stages.json'), 'w') as fh:
@@ -112,6 +130,7 @@ def main():
     print(f'{relabelled} seasons relabelled CCB#N')
     if missing:
         print(f'{len(missing)} gaps: ' + '; '.join(missing[:4]))
+    report('cc-stages', alerts)
 
 
 if __name__ == '__main__':

@@ -174,6 +174,10 @@ const nextConfig = {
     ],
   },
   async headers() {
+    // Every asset folder is a redirect to one commit of an asset repository, the
+    // commit pinned by the LAST DEPLOY -- see externalAssetRedirects. Read from the
+    // redirects themselves, so a folder added there is covered here too.
+    const assetRedirects = (await nextConfig.redirects()).filter(({ destination }) => /^https:\/\//.test(destination));
     return [
       {
         /* Security headers on every response.
@@ -248,6 +252,19 @@ const nextConfig = {
           },
         ],
       },
+      // ...except where the "file" is one of the asset redirects, which is every image
+      // path today: public/ holds no images. Vercel sends header rules on a redirect
+      // too (next dev and next start do not), so the rule above went out on the 307 by
+      // its extension, and a browser kept the redirect -- and with it the asset commit
+      // of whichever deploy it first saw -- for a year, and art published since never
+      // reached it. What the redirect points at is commit-pinned and never changes;
+      // the redirect itself changes with every deploy, so it may only be kept briefly.
+      // Header rules are applied in order and a later match replaces an earlier one's
+      // value, which is why these come after the broad rule rather than inside it.
+      ...assetRedirects.map(({ source }) => ({
+        source,
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=300' }],
+      })),
     ];
   },
 };

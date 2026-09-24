@@ -10,7 +10,8 @@ country they were about to be sent to.
 The crests are not in the gamedata dumps this project syncs (they are UI art, and no
 mirror it can reach carries ui/), but the wiki has all fourteen as File:<Nation>.png
 at 510x510, white on transparent. So they come from there, like the Reclamation
-Algorithm maps in import_ra_maps.py, and the committed webp is the artifact of record.
+Algorithm maps in import_ra_maps.py, and the webp published to arkpedia-image-assets as
+nation-marks/<slug>.webp is the artifact of record.
 
     python3 scripts/imports/import-nation-marks.py
 
@@ -26,8 +27,21 @@ emblems. Filenames are folded to ASCII (Bolívar -> bolivar, Ægir -> aegir) bec
 /_next/image answers 400 for a raw non-ASCII letter in a path and 200 for the same
 letter encoded -- and it does that in production only, so the blank card never shows
 up in dev.
+
+NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets, and a
+file in this repository's public/ is refused by check:assets, which the daily release
+runs: writing the crest there turned every SUCCESSFUL download into a blocked release.
+A downloaded crest is staged in .cache/nation-marks/ instead, and stays out of
+data/nation-marks.json -- the card keeps its fallback -- until the image repository
+publishes it; meanwhile it is reported under 'nation-marks' with its source and the path
+it must be published at.
+
+The wiki is only asked about crests that are not published yet -- none today -- and it
+never fails the refresh: a crest it cannot serve leaves that card on its fallback and
+goes on the quarantine list under 'nation-marks' until a later run imports it.
 """
 from published_assets import published_assets
+from quarantine import WIKI_API, report
 import json
 import os
 import re
@@ -41,7 +55,7 @@ from io import BytesIO
 import certifi
 from PIL import Image
 
-API = 'https://arknights.wiki.gg/api.php'
+API = WIKI_API
 # The wiki rejects a request with no User-Agent outright (403), as its API policy says
 # it will. Naming the project is also just the polite thing to do.
 UA = 'Arkpedia-import/1.0 (+https://arkpedia.net) python-urllib'
@@ -49,7 +63,8 @@ UA = 'Arkpedia-import/1.0 (+https://arkpedia.net) python-urllib'
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 root = os.getcwd()
-out_dir = os.path.join(root, 'public', 'nation-marks')
+# Never public/: see the header.
+out_dir = os.path.join(root, '.cache', 'nation-marks')
 index_file = os.path.join(root, 'data', 'nation-marks.json')
 
 # Æ is a letter, not an accent, so NFKD leaves it alone; the rest fold on their own.
@@ -114,40 +129,63 @@ def main() -> int:
     if not wanted:
         print('no annihilation contents in data/stages-content.json', file=sys.stderr)
         return 1
-    urls = resolve(wanted.values())
-    missing = sorted(set(wanted.values()) - set(urls))
-    os.makedirs(out_dir, exist_ok=True)
+    # Published crests need no request at all; only the rest are looked up.
+    unpublished = sorted({n for n in wanted.values() if f'nation-marks/{slug(n)}.webp' not in published_assets()})
+    urls, unreachable, alerts = {}, None, []
+    if unpublished:
+        try:
+            urls = resolve(unpublished)
+        except Exception as exc:  # noqa: BLE001 -- the wiki is enrichment, never a gate
+            unreachable = exc
+            print(f'  the wiki could not be asked: {exc}', file=sys.stderr)
+    missing = [] if unreachable else sorted(set(unpublished) - set(urls))
 
     index = {}
     fetched = 0
-    cache = {}
+    handled = set()
     for cid, nation in sorted(wanted.items()):
         file = f'{slug(nation)}.webp'
-        if f'nation-marks/{file}' in published_assets():
+        if nation not in unpublished:
             index[cid] = file
             continue
+        # One crest serves every content of its nation; it is reported once.
+        if nation in handled:
+            continue
+        handled.add(nation)
         url = urls.get(nation)
         if not url:
-            continue
-        file = f'{slug(nation)}.webp'
-        index[cid] = file
-        if nation in cache:
+            reason = (f'The wiki could not be asked for the {nation} crest ({unreachable})' if unreachable
+                      else f'The wiki has no File:{nation}.png')
+            alerts.append({'key': f'nation-mark:{slug(nation)}', 'action': 'published-partial', 'sourceRef': API,
+                           'reason': f'{reason}; its Annihilation cards are published without a crest.'})
             continue
         req = urllib.request.Request(url, headers={'User-Agent': UA})
-        with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=90) as r:
-            crest = mask(r.read())
+        try:
+            with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=90) as r:
+                crest = mask(r.read())
+        except Exception as exc:  # noqa: BLE001
+            print(f'  FAILED {nation}: {exc}', file=sys.stderr)
+            alerts.append({'key': f'nation-mark:{slug(nation)}', 'action': 'published-partial', 'sourceRef': url,
+                           'reason': f'Downloading the {nation} crest failed ({exc}); its Annihilation cards are published without it.'})
+            continue
+        os.makedirs(out_dir, exist_ok=True)
         crest.save(os.path.join(out_dir, file), 'WEBP', lossless=True, method=6)
-        cache[nation] = file
         fetched += 1
         size = os.path.getsize(os.path.join(out_dir, file))
         print(f'  {file:18} {crest.size[0]}x{crest.size[1]:<4} {round(size / 1024):3}KB  <- {nation}')
+        # Left out of the index: the card would point at a file readers cannot load yet.
+        alerts.append({'key': f'nation-mark:{slug(nation)}', 'action': 'published-partial', 'sourceRef': url,
+                       'reason': f'The {nation} crest is staged as .cache/nation-marks/{file}, but nothing publishes it; '
+                                 f'its Annihilation cards are published without it until nation-marks/{file} is added '
+                                 'to arkpedia-image-assets.'})
 
     with open(index_file, 'w', encoding='utf-8') as f:
         json.dump(index, f)
-    print(f'{fetched} crests -> public/nation-marks/, {len(index)} contents mapped '
-          f'-> data/nation-marks.json')
+    print(f'{fetched} new crest(s) staged in .cache/nation-marks/ for arkpedia-image-assets, '
+          f'{len(index)} contents mapped to published crests -> data/nation-marks.json')
     if missing:
         print(f'  the wiki has no crest for: {", ".join(missing)}')
+    report('nation-marks', alerts)
     return 0
 
 

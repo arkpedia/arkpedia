@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { pinnedCommit } from '../content/pin-upstream.mjs';
 
 const repository = 'ArknightsAssets/ArknightsGamedata';
 const tablePath = 'en/gamedata/excel';
@@ -69,9 +70,12 @@ export function validateLocalOperators(operators, local) {
 
 export async function syncRecruitment(root) {
   const headers = { Accept: 'application/vnd.github+json', ...(process.env.GH_TOKEN ? { Authorization: `Bearer ${process.env.GH_TOKEN}` } : {}) };
-  const response = await fetch(`https://api.github.com/repos/${repository}/commits/master`, { headers, signal: AbortSignal.timeout(30000) });
-  if (!response.ok) throw new Error(`Cannot resolve English game data: ${response.status}`);
-  const revision = (await response.json()).sha;
+  // The commit this run pinned (run-stage.mjs), else the branch head.
+  const revision = await pinnedCommit(repository, async (repo, branch) => {
+    const response = await fetch(`https://api.github.com/repos/${repo}/commits/${branch}`, { headers, signal: AbortSignal.timeout(30000) });
+    if (!response.ok) throw new Error(`Cannot resolve English game data: ${response.status}`);
+    return (await response.json()).sha;
+  });
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Invalid game-data revision');
   const tables = await Promise.all(['gacha_table', 'character_table'].map(async name => {
     const url = `https://raw.githubusercontent.com/${repository}/${revision}/${tablePath}/${name}.json`;

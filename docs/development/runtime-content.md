@@ -27,6 +27,18 @@ An asset-only refresh should change `source/data/assets/revisions.json` and
 `release/manifest.json`, without rewriting every operator page. The public PR
 summary identifies asset-only updates and reports the actual file counts.
 
+## What stops a release
+
+One bad input costs one record, not the day's release. A refresh stage that fails has its changes put back and the stages that need it skipped; one that finishes the stage build's own files in place takes the build back with it, so a half-made dataset never goes out. A record that is incomplete (art or a lineup not published yet, a CN operator not imported, an icon a Global rename moved) is published without the missing piece or held back, as an entry in `source/data/quarantine.json`. The `Content quarantined` issue lists every entry and every stage that did not run to the end, with how long each has been there; one older than three days is marked overdue.
+
+Only invariants stop the release: a record malformed by hand, a missing or duplicate outfit identity, `validate-release` and the code tests, and a collection that shrank by more than 2% since the data the run loaded. The collections are listed in `COLLECTIONS` in `scripts/content/check-completeness.mjs`: the operator, outfit, event, banner, enemy and stage records, the stage list and enemy grid rows, stage contents and maps, voice-line operators, songs, the recruitable pool, the pull planner's banners and the deployable operators.
+
+When a collection is meant to shrink (records removed on purpose, a mode newly excluded), run `Prepare content release` by hand with `allow_shrink` naming it, for example `allow_shrink=stageRows`. That run publishes the smaller collection and says so as a warning in its log and summary; the next run compares against it, so nothing stays allowed. Removing the records in a correction branch and dispatching it with `data_ref` works too, since the run then loads the smaller collection.
+
+## What makes a new release
+
+A day on which no record changed publishes nothing. The manifest carries two fingerprints of the app commit and the published source files (`scripts/content/release-input.mjs`): the release id covers every file, as arkpedia-data's own validator recomputes it, and the content id leaves out the two that describe the run itself, `data/upstream.lock.json` (the mirror commits it read) and `data/catalogue-sync.json` (the catalogue's report of the day). The publish step compares content ids, so a day that changes only those two files publishes nothing, and data `main` holds them as of the last release whose content changed. For the same reason nothing a record keeps changes with the mirrors alone: a window keeps the `timingSource` that confirmed it while its times are unchanged, the CN inventory keeps its `source` while what it lists is unchanged, a quarantine entry keeps the permalink it was first reported with, and no quarantine reason names a date or a count that grows by itself.
+
 ## Corrections and rollback
 
 To correct a record by hand:

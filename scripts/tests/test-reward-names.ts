@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 // @ts-expect-error JavaScript importer is also run directly by the refresh job.
-import { rewardNames, globalStart, localizeRewards, iconFile } from '../sync/sync-reward-names.mjs';
+import { rewardNames, globalStart, localizeRewards, iconFile, syncRewardNames } from '../sync/sync-reward-names.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { checkCompleteness } from '../content/check-completeness.mjs';
 import { emptyCatalogue } from './fixtures/catalogue';
@@ -73,13 +76,36 @@ test('an event is renamed once it has started on Global, keeping the CN name and
     [['Standard Wooden Basin', '制式木盆', undefined], ["'V Plameni Svechi'", '“烛火之中”', undefined]]);
 });
 
-test('a Chinese reward name in neither CN table is reported, so the run fails instead of keeping it', () => {
+test('a Chinese reward name in neither CN table is reported rather than renamed', () => {
   const typo = [{ name: '[Side Story] People, A People', global: { startAt: '2026-09-16T15:00:00.000Z' }, rewards: store([item('"烛火之中"')]) }];
   const result = localizeRewards(typo, rewardNames(cn, en), new Set(), now);
   assert.deepEqual(result.unknown, ['[Side Story] People, A People: "烛火之中"']);
   assert.equal(result.events[0].rewards.items[0].name, '"烛火之中"');
   // Not yet on Global, a CN-only name is expected and is nobody's error.
   assert.deepEqual(localizeRewards([{ ...typo[0], global: { dateRange: '2027/01/17–2027/02/06' } }], rewardNames(cn, en), new Set(), now).unknown, []);
+});
+
+test('the sync renames what it can and keeps a name in neither CN table, reporting it instead of failing the run', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-rewards-'));
+  try {
+    // The sync refuses tables this small as truncated, so pad them to the live sizes.
+    const padded = (rows: Record<string, { name: string }>) => ({ ...Object.fromEntries(Array.from({ length: 1000 }, (_, i) => [`pad_${i}`, { name: `pad ${i}` }])), ...rows });
+    const write = (file: string, value: unknown) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), JSON.stringify(value)); };
+    for (const [region, tables] of [['cn', cn], ['en', en]] as const) {
+      write(`${region}/item_table.json`, { items: padded(tables.items.items) });
+      write(`${region}/building_data.json`, { customData: { furnitures: padded(tables.building.customData.furnitures) } });
+    }
+    write('data/assets/external-asset-index.json', { files: ['material-icons/制式木盆.webp'] });
+    write('data/events/events_2026.json', [{ name: '[Side Story] People, A People', global: { startAt: '2026-09-16T15:00:00.000Z' }, rewards: store([item('制式木盆'), item('"烛火之中"')]) }]);
+    const { renamed, unknown } = syncRewardNames(root, path.join(root, 'cn'), path.join(root, 'en'), now);
+    assert.deepEqual([renamed, unknown], [['[Side Story] People, A People: 制式木盆 -> Standard Wooden Basin'], ['[Side Story] People, A People: "烛火之中"']]);
+    const items = JSON.parse(fs.readFileSync(path.join(root, 'data/events/events_2026.json'), 'utf8'))[0].rewards.items;
+    assert.deepEqual(items.map((i: any) => i.name), ['Standard Wooden Basin', '"烛火之中"']);
+    const { entries } = JSON.parse(fs.readFileSync(path.join(root, 'data/quarantine.json'), 'utf8'));
+    assert.deepEqual(entries.map((e: any) => [e.key, e.stage, e.action, e.firstSeen]), [['reward:[Side Story] People, A People: "烛火之中"', 'reward-names', 'kept-previous', '2026-09-23']]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('Global start is the client window when known, else the announced UTC−7 day', () => {

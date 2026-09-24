@@ -261,7 +261,9 @@ test('anniversary main-story releases retain chapter and phase identities', () =
 });
 
 test('MSR songs remain playable in the game and keep bilingual titles as player coverage grows', () => {
-  assert.equal(songs.length, 901);
+  // Every catalogued MSR recording is a choice; the library itself is edited by hand and grows.
+  const recordings = new Set(albums.flatMap((album) => album.songs.filter((song) => /^\d+$/.test(song.songId) && song.songName.trim()).map((song) => song.songId)));
+  assert.equal(songs.length, recordings.size);
   for (const id of ['125056', '125055', '697674', '779442', '514513', '880305', '779424']) {
     assert.ok(byId(id).inGame);
     assert.equal(judge(id, byId(id).title, 'titles'), 'correct');
@@ -691,11 +693,13 @@ test('reused music retains every event and CC connection, without duplicate song
 
 test('coverage lists are derived from playable songs and stay current as the selection expands', () => {
   const coverage = getMusicCoverage(songs);
-  assert.equal(coverage.events.length, 51);
-  assert.equal(coverage.chapters.length, 14);
-  assert.equal(coverage.contracts.length, 16);
+  // Floors, not counts: the reviewed associations are code, so coverage grows with them
+  // and can only fall if a recording they name leaves the library.
+  assert.ok(coverage.events.length >= 51);
+  assert.ok(coverage.chapters.length >= 14);
+  assert.ok(coverage.contracts.length >= 16);
   assert.ok(coverage.events.includes('Mansfield Break'));
-  assert.equal(coverage.vignettes.length, 14);
+  assert.ok(coverage.vignettes.length >= 14);
   assert.ok(coverage.contracts.includes('CCB4: Arclight'), 'MSR playback does not require a YouTube link');
   assert.deepEqual(getMusicCoverage([byId('048721')]).events, ["Dorothy's Vision", 'Lone Trail']);
   assert.deepEqual(getMusicCoverage([]), { events: [], vignettes: [], chapters: [], contracts: [] });

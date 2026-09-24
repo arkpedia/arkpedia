@@ -195,7 +195,7 @@ test('full catalogue covers usable released maps and custom unions without shipp
 
 
 test('Classics follows the supplied list, including tutorials and standalone H stages', () => {
-  assert.equal(questions.length, 231);
+  assert.equal(questions.length, curated.stages.length);
   for (const code of ['1-7', '1-12', 'TR-15', '3-7', 'H10-1', 'H14-4', 'H16-4', 'OF-6', 'CB-EX2', 'WB-EX-6', 'HE-EX-8']) {
     assert.ok(questions.some((q) => q.code === code), code);
   }

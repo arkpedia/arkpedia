@@ -49,6 +49,11 @@ jobs:
       - name: Catalogue media import tests
         run: python3 scripts/sync/test-publish-catalogue-assets.py
 
+      # The RA map, nation crest and reward icon importers against an unreachable wiki:
+      # each reports to the quarantine list and exits 0 instead of failing the release.
+      - name: Wiki importer degradation tests
+        run: python3 scripts/imports/test-degrading-importers.py
+
       - name: External asset coverage
         run: npm run check:assets && npm run check:published-assets
 

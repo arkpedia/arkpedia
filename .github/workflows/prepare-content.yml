@@ -14,6 +14,12 @@ on:
         description: Refresh supported upstream game data and asset revisions
         default: true
         type: boolean
+      # The one way past the record-count invariant, for a removal you intend: this run only,
+      # named collections only, and the log and job summary still say how much each one lost.
+      allow_shrink:
+        description: 'Collections this run may shrink by more than 2%, comma-separated (names in COLLECTIONS, scripts/content/check-completeness.mjs), for a removal you intend'
+        default: ''
+        type: string
 permissions:
   contents: read
   # Only for the failure reports at the end of the job.
@@ -31,12 +37,27 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      # The probe falls back to each repository's last known commit when it cannot reach
+      # one, so an outage of any single source never stops the day's run.
+      - name: Load the last known upstream revisions
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/refresh-fingerprint
+          key: refresh-fingerprint-${{ github.run_id }}
+          restore-keys: refresh-fingerprint-
       - name: Check upstream revisions
         id: upstream
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/content/refresh-fingerprint.mjs
+      - name: Remember the upstream revisions
+        if: github.event_name == 'schedule' && steps.upstream.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/refresh-fingerprint
+          key: refresh-fingerprint-${{ github.run_id }}
       - name: Reuse a successfully prepared input set
         id: prepared
         if: github.event_name == 'schedule'
@@ -68,6 +89,10 @@ jobs:
             fi
           fi
           node scripts/content/hydrate-source.mjs "$RUNNER_TEMP/arkpedia-data"
+          # What every collection held before any refresh step: check-completeness fails
+          # the release if one of them shrinks by more than 2% from here, unless this run
+          # was dispatched with allow_shrink naming it.
+          node scripts/content/check-completeness.mjs --record-baseline
       - uses: actions/setup-python@v7
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         with:
@@ -77,42 +102,69 @@ jobs:
       - run: python -m pip install pillow certifi
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
       - name: Refresh supported upstream records
+        id: refresh
         if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
         env:
           GH_TOKEN: ${{ github.token }}
           CATALOGUE_IMAGE_DEPLOY_KEY: ${{ secrets.CATALOGUE_IMAGE_DEPLOY_KEY }}
           CATALOGUE_SKIN_DEPLOY_KEY: ${{ secrets.CATALOGUE_SKIN_DEPLOY_KEY }}
+          # refresh-stage-data.sh adds its stages to this run instead of starting its own.
+          ARKPEDIA_STAGE_RUN: '1'
+          ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
         run: |
           set -euo pipefail
+          # Every command is a stage (scripts/content/run-stage.mjs). One that fails has what
+          # it changed under data/ and public/ put back, so its records stay as last published
+          # (one that finishes an earlier stage's output in place takes that stage back with
+          # it); the stages that --need it are skipped, the rest carry on, and
+          # data/stage-report.json and the 'Content quarantined' issue say what happened. Only
+          # an --invariant stage fails this step: the upstream checkouts no stage can do
+          # without, and the completeness invariants. Its quarantine holds are kept even then,
+          # so the issue and the evidence show the day's, not yesterday's.
+          stage() { node scripts/content/run-stage.mjs run "$@"; }
+          node scripts/content/run-stage.mjs begin
+          trap 'node scripts/content/run-stage.mjs end' EXIT
+          # One commit per upstream mirror for the whole run, in data/upstream.lock.json.
+          stage pin-upstream -- node scripts/content/pin-upstream.mjs
           supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
-          curl --fail --location --retry 3 \
-            https://raw.githubusercontent.com/PuppiizSunniiz/ArknightsGameData_YoStar/main/en_US/gamedata/excel/charword_table.json \
+          stage charwords --output "$supplemental_charwords" -- curl --fail --silent --show-error --location --retry 3 \
+            "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)" \
             --output "$supplemental_charwords"
-          npm run assets:update
-          node scripts/sync/sync-catalogue.mjs
-          bash scripts/sync/publish-catalogue-assets.sh
-          node scripts/sync/refresh-media-pins.mjs
-          npm run stages:refresh
-          npm run pulls:refresh
-          ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" node scripts/sync/sync-operator-english.mjs
-          node scripts/sync/sync-reward-names.mjs
-          ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
-            ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" \
-            npm run voices:refresh
-          npm run lyrics:refresh
-          node scripts/sync/sync-content-inventory.mjs
-          node scripts/sync/sync-event-farming.mjs
-          node scripts/content/check-completeness.mjs
+          stage asset-revisions -- npm run assets:update
+          stage catalogue -- node scripts/sync/sync-catalogue.mjs
+          # Publishes the media plan the catalogue stage wrote in this run, never an older one.
+          stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
+          stage media-pins -- node scripts/sync/refresh-media-pins.mjs
+          bash scripts/sync/refresh-stage-data.sh
+          stage pulls -- npm run pulls:refresh
+          # The supplement only adds voice credits here, so without it the English refresh
+          # still runs, reading an empty table and keeping each record's current credits.
+          supplement="$supplemental_charwords"
+          if [ ! -s "$supplement" ]; then supplement="$RUNNER_TEMP/no-supplemental-charwords.json"; echo '{}' > "$supplement"; fi
+          stage operator-english -- env ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplement" node scripts/sync/sync-operator-english.mjs
+          stage reward-names -- node scripts/sync/sync-reward-names.mjs
+          # The voice lines take newly released operators' English text from the supplement:
+          # without it they keep yesterday's lines rather than fall back to Chinese.
+          stage voices --needs charwords -- env ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
+            ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" npm run voices:refresh
+          stage lyrics -- npm run lyrics:refresh
+          stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
+          stage event-farming -- node scripts/sync/sync-event-farming.mjs
+          stage completeness --invariant --keep data/quarantine.json -- node scripts/content/check-completeness.mjs
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           ARKPEDIA_CONTENT_DISABLED: '1'
           NODE_ENV: production
+          ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
         run: |
           node scripts/content/check-completeness.mjs
           npx tsx scripts/build/build-operator-search.ts
           npm test
-          npm run check:assets
+          # check:assets, except that an icon a released operator's record names but the image
+          # repository has not published yet (a Global launch renames art the day it lands)
+          # holds back that icon, as a quarantine entry, instead of the release.
+          npm run check:assets:release
           npm run check:published-assets
           mkdir -p "$RUNNER_TEMP/prepared-content"
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
@@ -152,9 +204,12 @@ jobs:
             fi
           fi
           # Compare with the release main serves, not the one the checkout carries: a
-          # correction branch's own release/ is stale by design.
-          prepared_release=$(node -p "require('$RUNNER_TEMP/prepared-content/release/manifest.json').release")
-          current_release=$(git -C "$repo" show origin/main:release/manifest.json 2>/dev/null | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).release' 2>/dev/null || true)
+          # correction branch's own release/ is stale by design. Compare what they say (the
+          # content id, scripts/content/release-input.mjs): a release that differs only in the
+          # run's own records -- the upstream lock, the catalogue's report -- has nothing to
+          # publish. A manifest from before the content id falls back to its release id.
+          prepared_release=$(node -p "(m => m.content ?? m.release)(require('$RUNNER_TEMP/prepared-content/release/manifest.json'))")
+          current_release=$(git -C "$repo" show origin/main:release/manifest.json 2>/dev/null | node -p '(m => m.content ?? m.release)(JSON.parse(require("fs").readFileSync(0, "utf8")))' 2>/dev/null || true)
           if [ "$prepared_release" = "$current_release" ]; then
             if [ "$prepared_base" != "$current_base" ]; then
               echo '::warning::Data main already serves this release, so nothing was published: the correction branch changes no record the release is built from.'
@@ -187,6 +242,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          set -euo pipefail
           cutoff=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)
           failing=''
           for sync in arkpedia-image-assets/sync-images.yml arkpedia-skin-assets/sync-artwork.yml \
@@ -194,29 +250,50 @@ jobs:
             arkpedia-voice-korean/sync-voices.yml arkpedia-voice-mandarin/sync-voices.yml \
             arkpedia-voice-regional/sync-voices.yml; do
             repo=${sync%%/*} workflow=${sync#*/}
-            if run=$(gh api "repos/arkpedia/$repo/actions/workflows/$workflow/runs?event=schedule&status=completed&per_page=1" \
-              --jq '.workflow_runs[0] // {} | [.conclusion // "no finished run", .created_at // "", .html_url // ""] | @tsv'); then
+            # The latest finished run, scheduled or started by hand: a green manual rerun
+            # of a failed sync clears it.
+            if run=$(gh api "repos/arkpedia/$repo/actions/workflows/$workflow/runs?status=completed&per_page=20" \
+              --jq '[.workflow_runs[] | select(.event == "schedule" or .event == "workflow_dispatch")][0] // {} | [.conclusion // "no finished run", .created_at // "", .html_url // ""] | @tsv'); then
               IFS=$'\t' read -r conclusion created url <<< "$run"
               # A success older than three days means the schedule itself stopped.
               if [ "$conclusion" = success ] && [[ "$created" > "$cutoff" ]]; then continue; fi
               failing+="- arkpedia/$repo \`$workflow\`: $conclusion ${created:0:10} $url"$'\n'
             else
-              failing+="- arkpedia/$repo \`$workflow\`: its scheduled runs could not be read"$'\n'
+              failing+="- arkpedia/$repo \`$workflow\`: its runs could not be read"$'\n'
             fi
           done
-          title='Asset sync failing'
-          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
-            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          alert=(--alert asset-sync-failing --title 'Asset sync failing')
           if [ -n "$failing" ]; then
             echo "::warning::Asset syncs are failing; content releases pin each asset repository's current HEAD."
-            body=$(printf 'The latest finished scheduled run of each asset sync below failed or is more than three days old (checked by %s). Content releases do not wait for them; they pin the current commit of each repository.\n\n%s' "$RUN_URL" "$failing")
-            if [ -n "$number" ]; then
-              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
-            else
-              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
-            fi
-          elif [ -n "$number" ]; then
-            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Every asset sync's latest scheduled run succeeded: $RUN_URL"
+            body="$RUNNER_TEMP/asset-sync-report.md"
+            printf 'The latest finished run (scheduled or manual) of each asset sync below failed or is more than three days old (checked by %s). Content releases do not wait for them; they pin the current commit of each repository.\n\n%s' "$RUN_URL" "$failing" > "$body"
+            node scripts/content/alert-issue.mjs open "${alert[@]}" --body-file "$body"
+          else
+            node scripts/content/alert-issue.mjs close "${alert[@]}" --comment "Every asset sync's latest finished run succeeded: $RUN_URL"
+          fi
+      # One open issue while any record is held back or any refresh stage did not run to the
+      # end, rewritten by every run; a record held back, or a stage failing, for more than
+      # three days is marked overdue (the runner dates each stage in data/quarantine.json).
+      # It is commented on at most once a day, and only when its list changed; it closes
+      # after a published run whose stages all ran, with nothing to list. Never holds back
+      # or fails the release.
+      - name: Report quarantined content
+        if: ${{ !cancelled() && steps.prepared.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/quarantine-report"
+          state=$(node scripts/content/quarantine-report.mjs "$report")
+          alert=(--alert content-quarantined --title 'Content quarantined')
+          if [ "$state" = alert ]; then
+            node scripts/content/alert-issue.mjs open "${alert[@]}" --rewrite --body-file "$report/body.md" --comment-file "$report/comment.md"
+          elif [ "$state" = clear ] && [ "$JOB_STATUS" = success ]; then
+            node scripts/content/alert-issue.mjs close "${alert[@]}" --comment "Nothing is quarantined and every refresh stage ran: $RUN_URL"
           fi
       - name: Keep discovery evidence on failure
         if: failure()
@@ -226,12 +303,15 @@ jobs:
           path: |
             .cache/catalogue/report.json
             .cache/catalogue/asset-plan.json
+            data/stage-report.json
+            data/quarantine.json
           if-no-files-found: ignore
       - name: Remember successful preparation
         if: github.event_name == 'schedule' && steps.prepared.outputs.cache-hit != 'true'
         run: mkdir -p .cache/prepared-inputs && touch .cache/prepared-inputs/complete
-      # One open issue per outage: later failures comment on it, and the next good run
-      # closes it. A timeout counts as a cancellation, so it is reported too.
+      # One open issue per outage: later failures comment on it, at most once a day, and
+      # the next good run closes it. A timeout counts as a cancellation, so it is reported
+      # too. Found by a hidden marker, not the title (scripts/content/alert-issue.mjs).
       - name: Report the failed release
         if: failure() || cancelled()
         env:
@@ -239,15 +319,9 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
-          title='Content release failing'
-          body="Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL"
-          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
-            --jq "map(select(.title == \"$title\"))[0].number // empty")
-          if [ -n "$number" ]; then
-            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
-          fi
+          body="$RUNNER_TEMP/failed-release.md"
+          echo "Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL" > "$body"
+          node scripts/content/alert-issue.mjs open --alert content-release-failing --title 'Content release failing' --body-file "$body"
       - name: Close the failed-release report
         if: success()
         continue-on-error: true
@@ -255,9 +329,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          title='Content release failing'
-          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,title \
-            --jq "map(select(.title == \"$title\"))[0].number // empty")
-          if [ -n "$number" ]; then
-            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Recovered: $RUN_URL"
-          fi
+          node scripts/content/alert-issue.mjs close --alert content-release-failing --title 'Content release failing' --comment "Recovered: $RUN_URL"
