@@ -133,6 +133,25 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
   const [sortField, setSortField] = useState<SortField>('handbook');
   const [sortDir, setSortDir] = useState<SortDir>(NATURAL_DIR.handbook);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterActionsRef = useRef<HTMLSpanElement | null>(null);
+  const filterPopupRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (filterActionsRef.current?.contains(event.target as Node) || filterPopupRef.current?.contains(event.target as Node)) return;
+      setFiltersOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || (event.target instanceof Element && event.target.closest('.enemy-appear-list'))) return;
+      setFiltersOpen(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [filtersOpen]);
 
   // On a phone the grid sits ABOVE the detail rather than beside it, so choosing an
   // enemy leaves the thing you picked below the fold. Scroll it up under the nav so
@@ -271,13 +290,9 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
   if (wanted > highWater.current) highWater.current = wanted;
   const shownCount = highWater.current;
 
-  /* Whether anything is narrowing the list, ignoring the type tabs: those are visible
-     in the head as a lit tab, so they say so themselves and are not what a Clear is
-     for. Same rule as the panel's own Clear, which keeps type and resets the rest, so
-     the two cannot disagree about what clearing means. */
   const narrowed = (Object.keys(EMPTY_FILTERS) as (keyof Filters)[])
-    .some((k) => k !== 'type' && filters[k] !== EMPTY_FILTERS[k]);
-  const clearNarrowing = () => setFilters({ ...EMPTY_FILTERS, type: filters.type });
+    .some((key) => filters[key] !== EMPTY_FILTERS[key]);
+  const clearNarrowing = () => { setFilters(EMPTY_FILTERS); setFiltersOpen(false); };
 
   return (
     <div className="enemy-frame">
@@ -307,28 +322,45 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
             </button>
           ))}
         </span>
-        <button
-          type="button"
-          className={`enemy-filter-btn${filtersOpen ? ' current' : ''}`}
-          aria-expanded={filtersOpen}
-          onClick={() => setFiltersOpen((v) => !v)}
-        >
-          {/* The magnifier carries the meaning; the badge counting active filters was
-              a second number in a row of tabs that already ends in numbers, so it
-              read as a count of results. Same viewBox and stroke as the nav icons. */}
-          <svg
-            className="enemy-filter-btn-icon"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            aria-hidden="true"
+        <span className="enemy-filter-actions" ref={filterActionsRef}>
+          <button
+            type="button"
+            className={`enemy-filter-btn${filtersOpen ? ' current' : ''}${narrowed ? ' enemy-clear-btn' : ''}`}
+            aria-expanded={narrowed ? undefined : filtersOpen}
+            onClick={narrowed ? clearNarrowing : () => setFiltersOpen((value) => !value)}
           >
-            <circle cx="9" cy="9" r="5.5" />
-            <path d="M13 13 L17 17" strokeLinecap="round" />
-          </svg>
-          Search
-        </button>
+            {narrowed ? 'Clear' : 'Filter'}
+          </button>
+          {narrowed && (
+            <button
+              type="button"
+              className={`enemy-filter-btn enemy-filter-edit${filtersOpen ? ' current' : ''}`}
+              aria-label="Adjust filters"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((value) => !value)}
+            >
+              <svg className="enemy-filter-btn-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M3 5h14M3 10h14M3 15h14" />
+                <circle cx="7" cy="5" r="2" fill="var(--panel)" />
+                <circle cx="13" cy="10" r="2" fill="var(--panel)" />
+                <circle cx="9" cy="15" r="2" fill="var(--panel)" />
+              </svg>
+            </button>
+          )}
+        </span>
+        {filtersOpen && (
+          <div className="enemy-filter-popup" ref={filterPopupRef}>
+            <EnemyFilterPanel
+              filters={filters}
+              set={set}
+              races={races}
+              contentOptions={contentOptions}
+              contentTotal={rows.filter((enemy) => !enemy.hidden).length}
+              onClose={() => setFiltersOpen(false)}
+              shown={shown.length}
+            />
+          </div>
+        )}
       </div>
 
       <div className="enemy-frame-body">
@@ -405,64 +437,22 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
         </div>
 
         <div className="enemy-detail-pane" ref={detailRef}>
-        {/* One Clear, in one place, whether the filter panel is open or not.
-            It used to be two: the panel's own, buried where you had to reopen the panel
-            to reach it, and a second in the head that only existed while the panel was
-            shut. Same button now, in the panel's position, which is the top of the right
-            column -- empty above the enemy's own record, and exactly where the reader
-            last saw a Clear.
-            Absolutely positioned so it can sit over that space without the detail pane
-            having to leave a hole for it, and only drawn while something is narrowing. */}
-        {narrowed && !filtersOpen && (
-          <button
-            type="button"
-            className="enemy-filter-btn enemy-clear-btn enemy-clear-float"
-            onClick={clearNarrowing}
-            title="Show every enemy again"
-          >
-            <svg
-              className="enemy-filter-btn-icon"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              aria-hidden="true"
-            >
-              <path d="M6 6 L14 14 M14 6 L6 14" strokeLinecap="round" />
-            </svg>
-            Clear
-          </button>
-        )}
-          {filtersOpen ? (
-            <EnemyFilterPanel
-              filters={filters}
-              set={set}
-              races={races}
-              contentOptions={contentOptions}
-              contentTotal={rows.filter((e) => !e.hidden).length}
-              onReset={clearNarrowing}
-              onClose={() => setFiltersOpen(false)}
-              shown={shown.length}
-            />
-          ) : (
-            children
-          )}
+          {children}
         </div>
       </div>
     </div>
   );
 }
 
-/** The game's slide-in, as a panel over the detail rather than over the grid. */
+/** Filters stay in a compact popup while the enemy detail remains visible. */
 function EnemyFilterPanel({
-  filters, set, races, contentOptions, contentTotal, onReset, onClose, shown,
+  filters, set, races, contentOptions, contentTotal, onClose, shown,
 }: {
   filters: Filters;
   set: <K extends keyof Filters>(key: K, value: Filters[K]) => void;
   races: string[];
   contentOptions: ContentPickerOption[];
   contentTotal: number;
-  onReset: () => void;
   onClose: () => void;
   shown: number;
 }) {
@@ -493,33 +483,13 @@ function EnemyFilterPanel({
   return (
     <div className="enemy-filters">
       <div className="enemy-filters-head">
-        <h3 className="enemy-section-head">Search</h3>
+        <h3 className="enemy-section-head">Filters</h3>
         <span className="hint">{shown} matching</span>
-        {/* The same Clear the closed state shows, in the same place and the same shape,
-            so it does not move or change when the panel opens. Clear, not Close:
-            closing is what "Show N" does at the foot, and what the Search toggle does,
-            and what picking an enemy does. */}
-        <button
-          type="button"
-          className="enemy-filter-btn enemy-clear-btn"
-          onClick={onReset}
-        >
-          <svg
-            className="enemy-filter-btn-icon"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            aria-hidden="true"
-          >
-            <path d="M6 6 L14 14 M14 6 L6 14" strokeLinecap="round" />
-          </svg>
-          Clear
-        </button>
       </div>
       <input
         type="search"
         className="enemy-filter-search"
+        aria-label="Search enemies"
         placeholder="Search by name or code..."
         value={filters.search}
         onChange={(e) => set('search', e.target.value)}
@@ -560,6 +530,7 @@ function EnemyFilterPanel({
           countNounPlural="enemies"
           anyOption={{ id: 'all', name: 'Any content', count: contentTotal }}
           ariaLabel="Appears in"
+          searchable
         />
       </div>
       <div className="enemy-filters-foot">

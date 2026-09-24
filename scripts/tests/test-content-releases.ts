@@ -84,6 +84,7 @@ test('release URLs cover artwork sizes and lazy game data without redirecting ap
   const release = { release: 'a'.repeat(64), baseUrl: 'https://example.org/commit/release', assets: { 'arkpedia-image-assets': 'b'.repeat(40), 'arkpedia-skin-assets': 'c'.repeat(40) } };
   assert.equal(contentRoute('/operators/[name]', { name: 'Thorns the Lodestar' }), '/operators/Thorns%20the%20Lodestar');
   assert.equal(contentUrl('/six-star-icons/Test%20-%20Base.webp', release), delivered('arkpedia-image-assets', 'b'.repeat(40), 'six-star-icons/Test%20-%20Base.webp'));
+  assert.equal(contentUrl('/enemies-icons/New Enemy.webp', release), delivered('arkpedia-image-assets', 'b'.repeat(40), 'enemies-icons/New Enemy.webp'));
   assert.equal(contentUrl('/skin-variants/avif/w768/six-star-skins/Test.avif', release), delivered('arkpedia-skin-assets', 'c'.repeat(40), 'variants/avif/w768/six-star-skins/Test.avif'));
   assert.equal(contentUrl('/skin-originals/six-star-skins/Test.png', release), delivered('arkpedia-skin-assets', 'c'.repeat(40), 'originals/six-star-skins/Test.png'));
   assert.equal(contentUrl('/six-star-icons/Test%20-%20Base.webp'), delivered('arkpedia-image-assets', bundledRevisions['arkpedia-image-assets'], 'six-star-icons/Test%20-%20Base.webp'));

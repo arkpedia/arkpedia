@@ -554,6 +554,9 @@
    when the nav collapses. */
 .stage-list-col {
   position: sticky;
+  /* The fixed picker belongs to this sticky stacking context. Keep that whole
+     context above the adjacent map so the map cannot cover its options. */
+  z-index: 1;
   top: calc(var(--nav-h, 58px) + 12px);
   /* Sized for the pinned state, which is where the reader spends nearly all their time.
      The rail is one box and the two states genuinely have different space available:

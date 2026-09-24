@@ -1563,7 +1563,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                       <g key={unit.key} pointerEvents="none">
                         <circle cx={cx} cy={cy} r={11} fill="#0b0f14" stroke={colour} strokeWidth={1.6} />
                         {detail?.icon ? (
-                          <image href={detail.icon} x={cx - 9} y={cy - 9} width={18} height={18} clipPath="circle(9px at 9px 9px)" />
+                          <image href={contentUrl(detail.icon)} x={cx - 9} y={cy - 9} width={18} height={18} clipPath="circle(9px at 9px 9px)" />
                         ) : (
                           /* Some spawns carry no name at all in the stage data, and a
                              few name something the handbook has no art for. They used
@@ -1659,7 +1659,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                             </clipPath>
                             {unit.op.icon && (
                               <image
-                                href={unit.op.icon}
+                                href={contentUrl(unit.op.icon)}
                                 x={cx - R}
                                 y={cy - R}
                                 width={R * 2}

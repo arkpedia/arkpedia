@@ -409,10 +409,9 @@
    the icon's box on the text baseline and pushed it up out of the row. */
 .enemy-stat {
   display: grid;
-  grid-template-columns: 1em minmax(0, 1fr);
+  grid-template-columns: 1em minmax(0, 1fr) max-content 1.6em;
   align-items: center;
   column-gap: 8px;
-  row-gap: 2px;
   background: var(--panel);
   border: 1px solid var(--line-soft);
   border-radius: 4px;
@@ -422,10 +421,8 @@
    mixed case and only the acronyms in caps, so uppercasing everything made HP and
    Movement Speed look like different kinds of label than the game has them. The
    labels are written in the case they should render in. */
-/* nowrap in the grid: the label shares its row with a figure of unpredictable width,
-   so left to itself it broke wherever it happened to fit -- one line on one enemy and
-   two on the next. The two labels that DO take two lines carry their own <br>, which
-   nowrap does not suppress, so every enemy breaks them in the same place. */
+/* The figure and grade have their own columns, so labels keep their intended
+   line breaks without pushing either value onto a second row. */
 .enemy-stats .enemy-stat-label { white-space: nowrap; }
 /* All eight cells one height, and the height comes from the tallest of them rather
    than a number I picked: grid-auto-rows:1fr makes every row equal, so the two-line
@@ -904,8 +901,8 @@
   text-align: left;
   font-size: 12px;
   padding: 8px 10px;
-  background: var(--panel);
-  border: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--teal) 7%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--teal) 55%, var(--line));
   border-radius: 3px;
   color: var(--text);
   cursor: pointer;
@@ -915,7 +912,7 @@
 /* Pushed to the right so the count and the caret keep their places no matter how
    long the content name is. */
 .enemy-appear-trigger .enemy-section-aside { margin-left: auto; }
-.enemy-appear-caret { flex: none; color: var(--text-faint); font-size: 9px; }
+.enemy-appear-caret { flex: none; color: var(--teal); font-size: 9px; }
 
 /* Fixed, with left/top/width/maxHeight set by the component. Absolute meant the
    nearest scrolling ancestor clipped it, which cost 283px of the list when this
@@ -934,6 +931,7 @@
 .enemy-appear-list-head {
   position: sticky;
   top: 0;
+  z-index: 1;
   background: var(--panel-2, var(--panel));
   font-family: var(--font-mono);
   font-size: 9px;
@@ -942,6 +940,26 @@
   color: var(--text-faint);
   padding: 6px 6px 3px;
 }
+.enemy-appear-list.searchable .enemy-appear-list-head { top: 40px; }
+.enemy-appear-search-wrap {
+  position: sticky;
+  top: -5px;
+  z-index: 2;
+  padding: 5px;
+  background: var(--panel-2, var(--panel));
+}
+.enemy-appear-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text);
+  font: 12px var(--font-mono);
+}
+.enemy-appear-search:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.enemy-appear-empty { margin: 0; padding: 10px; color: var(--text-dim); font-size: 12px; }
 /* A three-column grid, which is the whole reason this is not a <select>: the
    label, the name and the stage count line up down the list instead of being laid
    out by the OS in its own font. */
@@ -1109,6 +1127,8 @@ main.enemy-page {
   min-height: 0;
 }
 .enemy-frame-head {
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1127,31 +1147,46 @@ main.enemy-page {
   padding: 6px 10px;
   height: 28px;
   background: var(--panel);
-  border: 1px solid var(--line-soft);
+  border: 1px solid color-mix(in srgb, var(--teal) 42%, var(--line));
   border-radius: 3px;
   color: var(--text-dim);
   cursor: pointer;
 }
 .enemy-sort:hover, .enemy-type-tab:hover, .enemy-filter-btn:hover { border-color: var(--teal); }
+.enemy-sort:focus-visible, .enemy-type-tab:focus-visible, .enemy-filter-btn:focus-visible,
+.enemy-appear-trigger:focus-visible, .enemy-filter-chips button:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
 /* Colour only on the selected state -- never metrics. */
 .enemy-sort.current, .enemy-type-tab.current, .enemy-filter-btn.current {
   border-color: var(--teal);
   background: color-mix(in srgb, var(--teal) 16%, transparent);
   color: var(--teal);
 }
-/* The magnifier sits on the text's own line, sized in em so it tracks the label
-   and stays put when the button turns teal on open. */
 .enemy-filter-btn { display: inline-flex; align-items: center; gap: 6px; }
-/* Beside Search, and quieter than it: Search is where you go, Clear is how you undo,
-   and it only exists while there is something to undo. Amber rather than teal, which
-   is the colour this site already uses for a state worth noticing. */
+.enemy-filter-actions { display: inline-flex; gap: 4px; }
+.enemy-filter-edit { width: 30px; justify-content: center; padding-inline: 6px; }
+.enemy-filter-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  box-sizing: border-box;
+  width: min(520px, 100%);
+  max-height: min(650px, calc(100dvh - var(--nav-h, 58px) - 88px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px;
+  border: 1px solid var(--teal);
+  border-radius: 5px;
+  background: var(--bg);
+  box-shadow: 0 14px 36px rgb(0 0 0 / 0.45);
+}
+/* Clear uses the site's amber undo affordance; adjustment stays next to it. */
 .enemy-clear-btn {
   color: var(--amber);
   border-color: color-mix(in srgb, var(--amber) 40%, transparent);
-  /* The width of the Search button it stands in for, measured, since "Clear" is a
-     shorter word than "Search" and the two sit one above the other: 83 against 76 read
-     as a mistake rather than as two buttons. */
-  min-width: 83px;
+  min-width: 54px;
   justify-content: center;
 }
 .enemy-clear-btn:hover {
@@ -1159,19 +1194,6 @@ main.enemy-page {
   border-color: var(--amber);
   background: color-mix(in srgb, var(--amber) 12%, transparent);
 }
-/* The closed-panel Clear, sitting where the open panel's one sits: the top of the right
-   column, which is empty above the enemy's record. Absolute rather than in the flow, so
-   the detail pane does not have to leave a hole for it, and opaque because it is over
-   content. The offsets match .enemy-filters' own padding so the button lands on the
-   same pixel whether the panel is open or shut. */
-.enemy-clear-float {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 3;
-  background: var(--panel);
-}
-.enemy-clear-float:hover { background: color-mix(in srgb, var(--amber) 12%, var(--panel)); }
 .enemy-filter-btn-icon {
   width: 1.15em;
   height: 1.15em;
@@ -1290,6 +1312,11 @@ main.enemy-page {
    and shoves every button after it along the row. Turning one on changes colour
    and nothing else. */
 .enemy-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.enemy-filter-chips button.ghost {
+  border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
+  background: color-mix(in srgb, var(--teal) 5%, var(--panel));
+}
+.enemy-filter-chips button.ghost:hover { border-color: var(--teal); color: var(--teal); }
 /* Left-aligned, deliberately. The music player is fixed at bottom:16px right:16px
    with z-index 100 on every page, so anything pushed to the bottom-right corner of
    this panel ends up underneath it -- which is what happened to "Show 125". */
@@ -1340,7 +1367,7 @@ main.enemy-page {
   .enemy-detail-pane { overflow-y: visible; min-height: 0; }
   .enemy-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
-  /* The head is 6 sort buttons, 3 tabs and Search -- 10 controls that cannot sit
+  /* The head is 6 sort buttons, 3 tabs and Filter -- 10 controls that cannot sit
      on one line of a phone. Sorts wrap as a group, and the tabs stop being pushed
      to the far right so they land under them rather than orphaned. */
   .enemy-frame-head { row-gap: 6px; }
@@ -1348,7 +1375,7 @@ main.enemy-page {
   .enemy-frame-tabs { margin-left: 0; }
   .enemy-frame-sorts { flex: 1 1 100%; }
 
-  /* The filter panel is a full screen of its own here rather than a column. */
+  /* The filter popup uses the full width of the stacked frame. */
   .enemy-filters { padding-right: 0; }
 
   /* --- The detail behaves like a screen of its own ---------------------------
@@ -1390,9 +1417,8 @@ main.enemy-page {
   /* 3. The tags and the first-appearance line scroll away under it. */
   /* 16px, or mobile Safari zooms the whole page in when the field takes focus --
      which reads as the entire UI changing size. The desktop rule keeps 12px.
-     Only the text field needs this now: the content dropdown is a button that opens
-     a listbox, so nothing there takes text focus. */
-  .enemy-filter-search { font-size: 16px; }
+     Both popup search fields now take focus. */
+  .enemy-filter-search, .enemy-appear-search { font-size: 16px; }
 }
 
 /* Three across under ~430px: four tiles inside a 375px viewport, after main's
