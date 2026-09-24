@@ -1823,7 +1823,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                             key={item.name}
                             item={item}
                             rarity={6}
-                            tags={isLimited ? ['rateUp', 'limited'] : ['rateUp']}
+                            tags={isLimited ? ['limited'] : undefined}
                             percent={pct ? pct.weight * 100 : undefined}
                             count={state.obtainedCounts[item.name]}
                           />
