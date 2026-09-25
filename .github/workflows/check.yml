@@ -21,8 +21,11 @@ jobs:
   check:
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
-    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 60 || 20 }}
+    # Dependabot pull requests install dependency versions nobody has reviewed yet. They run
+    # on GitHub's hosted runners, which start fresh and hold no secrets, never on a
+    # self-hosted runner, whose files persist into the next Deploy or release job.
+    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 20 || vars.ARKPEDIA_RUNNER && 60 || 20 }}
     steps:
       - uses: actions/checkout@v7
 
