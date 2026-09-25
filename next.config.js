@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const assetRevisions = require('./data/assets/revisions.json');
 const assetCdn = require('./config/asset-delivery.json');
 const assetUrl = (repository, path) => assetCdn.template.replace('{repository}', repository).replace('{revision}', assetRevisions[repository]).replace('{path}', path);
@@ -8,30 +6,6 @@ const { ClientDataGuard } = require('./scripts/build/client-bundle-guard.cjs');
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
-
-/**
- * /enemies is the handbook, and the handbook is the frame on /enemies/<slug>: a
- * grid of every enemy beside whichever one is open. So the section has no separate
- * browse page -- it opens the first enemy, the way the game's handbook opens on B1.
- *
- * The redirect lives here rather than in a page because `redirect` cannot be
- * returned from getStaticProps during prerendering: it works in dev and then fails
- * the production build. The destination is read out of the index rather than
- * hardcoded, so it follows the data if handbook order ever changes.
- */
-function firstEnemySlug() {
-  try {
-    const rows = JSON.parse(fs.readFileSync(path.join(__dirname, 'public/enemies-index.json'), 'utf8'));
-    const first = rows
-      .filter((e) => !e.hidden)
-      .sort((a, b) => a.sort - b.sort || a.slug.localeCompare(b.slug))[0];
-    return first ? first.slug : null;
-  } catch {
-    return null;
-  }
-}
-
-const ENEMY_HANDBOOK_ENTRY = firstEnemySlug();
 
 const SKIN_ASSET_FOLDERS = [
   'one-star-skins', 'two-star-skins', 'three-star-skins', 'four-star-skins',
@@ -79,13 +53,6 @@ const nextConfig = {
       '/api/dev/**': ['data/**/*', 'public/**/*', '.env*'],
     },
   },
-  // The redirect above serves anyone who ARRIVES at /enemies -- a typed URL, a
-  // bookmark, a search result. It cannot serve next/link: the client router looks
-  // for a /enemies page chunk, 404s on it, and falls back to window.location, so
-  // every in-app link to the section reloaded the whole app. In-app links point at
-  // the real page instead, and read the slug from here so the two cannot drift.
-  // See lib/enemies/handbookEntry.ts.
-  env: { NEXT_PUBLIC_ENEMY_HANDBOOK_ENTRY: ENEMY_HANDBOOK_ENTRY || '' },
   async redirects() {
     // /enemies used to be a redirect to the first enemy's own page, because the
     // handbook had no index route -- it was 1,585 pre-rendered pages that were
