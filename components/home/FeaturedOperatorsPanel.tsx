@@ -26,7 +26,7 @@ function OperatorRow({ operators }: { operators: BannerOperator[] }) {
 export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBannerWithWindow | null }) {
   if (!banner) {
     return (
-      <section className="front-panel front-featured-ops-panel">
+      <section className="front-panel front-home-panel front-featured-ops-panel">
         <h2>Featured Operators</h2>
         <p className="hint">No ongoing banner right now.</p>
       </section>
@@ -38,7 +38,7 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
   // A banner out before its lineup is known says so, rather than "none listed".
   if (featured.length === 0 || isLineupPending(banner)) {
     return (
-      <section className="front-panel front-featured-ops-panel">
+      <section className="front-panel front-home-panel front-featured-ops-panel">
         <h2>Featured Operators</h2>
         <p className="hint">{isLineupPending(banner) ? LINEUP_PENDING_NOTE : 'No featured operators listed for this banner.'}</p>
       </section>
@@ -46,7 +46,7 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
   }
 
   return (
-    <section className="front-panel front-featured-ops-panel">
+    <section className="front-panel front-home-panel front-featured-ops-panel">
       <h2>Featured Operators</h2>
       <OperatorRow operators={featured} />
       {returning.length > 0 && <div className="front-returning-ops">

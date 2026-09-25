@@ -60,7 +60,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
 
   if (slides.length === 0) {
     return (
-      <section className="front-panel front-events-panel">
+      <section className="front-panel front-home-panel front-events-panel">
         <h2>Events</h2>
         <p className="hint">No events to show right now.</p>
         {currentMaterials.length > 0 && <FarmableInline materials={currentMaterials} />}
@@ -71,7 +71,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
   const active = slides[Math.min(activeIndex, slides.length - 1)];
 
   return (
-    <section className="front-panel front-events-panel">
+    <section className="front-panel front-home-panel front-events-panel">
       <h2>Events</h2>
       {/* The event's own page. This was a button whose only effect was to pause the
           slideshow, which is not what a reader pressing an event expects. */}

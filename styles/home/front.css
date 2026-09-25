@@ -48,7 +48,9 @@ body.front-page-no-scroll {
   overflow-y: auto;
 }
 
-.front-panel {
+/* The home panels' own surface and padding, on a page class: restating the theme's
+   .front-panel put two stylesheets on one class. */
+.front-home-panel {
   background: var(--panel);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-frame);
@@ -57,7 +59,7 @@ body.front-page-no-scroll {
 }
 /* The site's section heading (.op-section h2): amber, 18px, uppercase. These were
    teal, and teal means "on" or "current". */
-.front-panel h2 {
+.front-home-panel h2 {
   margin: 0 0 12px;
   font-family: var(--font-display);
   font-size: 18px;
@@ -445,7 +447,7 @@ body.front-page-no-scroll {
   /* Belt and braces: a flex item's automatic minimum size is its content, so a
      max-content child can still force a panel wider than the screen even when the
      panel is told to stretch. The carousel's own viewport clips at this boundary. */
-  .front-panel { min-width: 0; }
+  .front-home-panel { min-width: 0; }
   .front-page-left,
   .front-page-right {
     display: contents;
