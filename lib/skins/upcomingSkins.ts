@@ -1,6 +1,6 @@
 import { ScheduleEvent } from '../schedule/scheduleTypes';
 import { Skin } from './skinTypes';
-import { parseDateRange } from '../schedule/schedule';
+import { parseDateRange } from '../schedule/scheduleDates';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
 
 /** Resolves an event to its skins -- prefers the explicit linkedSkinNames

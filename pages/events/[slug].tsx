@@ -18,25 +18,28 @@ import { getEventRewards } from '@/lib/events/loadEventsData';
 import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
-import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
+import { materialOrderFor } from '@/lib/farming/materialSortOrder';
+import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
+import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 
 const CAROUSEL_INTERVAL_MS = 8000;
 const PAUSE_AFTER_CLICK_MS = 30000;
 
-const MATERIAL_SORT_INDEX = new Map(MATERIAL_SORT_ORDER.map((n, i) => [n, i]));
 // Unlike lib/farming/materialSortOrder.ts's own sortMaterials()
 // (unknowns sort AFTER known materials -- correct there, since its
 // lists are pure materials and an "unknown" only ever means a genuine
 // data gap), this list mixes skins in with materials. Skin names are
-// never part of MATERIAL_SORT_ORDER, so they're always the
+// never in the material catalogue, so they're always the
 // "unknowns" here -- and per spec, skins sort ahead of everything
 // else, so the priority is flipped: unknown-vs-known now puts the
-// unknown (skin) first instead of last.
-function sortByMaterialOrder<T extends { name: string }>(items: T[]): T[] {
+// unknown (skin) first instead of last. `order` is the catalogue's
+// order for this event's rewards (props.materialOrder).
+function sortByMaterialOrder<T extends { name: string }>(items: T[], order: readonly string[]): T[] {
+  const index = new Map(order.map((n, i) => [n, i]));
   return [...items].sort((a, b) => {
-    const ai = MATERIAL_SORT_INDEX.get(a.name);
-    const bi = MATERIAL_SORT_INDEX.get(b.name);
+    const ai = index.get(a.name);
+    const bi = index.get(b.name);
     if (ai !== undefined && bi !== undefined) return ai - bi; // both known materials -- normal tier order
     if (ai === undefined && bi === undefined) return a.name.localeCompare(b.name); // both skins -- alphabetical among themselves
     if (ai === undefined) return -1; // a is a skin, b is a material -- skin first
@@ -88,7 +91,7 @@ interface RewardTotal {
  * it doesn't appear in "All" at all (it still shows normally under
  * its own store's tab, with the real "unlimited" stock visible
  * there). */
-function computeRewardTotals(stores: ResolvedRewardStore[]): RewardTotal[] {
+function computeRewardTotals(stores: ResolvedRewardStore[], order: readonly string[]): RewardTotal[] {
   const totals = new Map<string, RewardTotal>();
   for (const store of stores) {
     for (const item of store.items) {
@@ -100,7 +103,7 @@ function computeRewardTotals(stores: ResolvedRewardStore[]): RewardTotal[] {
       totals.set(item.name, { name: item.name, iconPath: item.iconPath, total: prevTotal + addAmount });
     }
   }
-  return sortByMaterialOrder(Array.from(totals.values()));
+  return sortByMaterialOrder(Array.from(totals.values()), order);
 }
 
 interface Props {
@@ -117,6 +120,9 @@ interface Props {
   featuredOperators: FeaturedOperatorRate[];
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
+  /** The release's material catalogue order (data/material-catalogue.json), for the reward
+   *  names this event lists: what the reward totals sort by. */
+  materialOrder: string[];
 }
 
 type SectionKey = 'banner' | 'rewards' | 'skins' | 'packs' | 'misc';
@@ -190,6 +196,7 @@ export default function EventDetailPage({
   featuredOperators,
   skins,
   rewardStores,
+  materialOrder,
 }: Props) {
   const [activeSection, setActiveSection] = useState<SectionKey>('banner');
   const [imgIndex, setImgIndex] = useState(0);
@@ -199,7 +206,7 @@ export default function EventDetailPage({
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   const [activeRewardTab, setActiveRewardTab] = useState<string>('all');
-  const rewardTotals = computeRewardTotals(rewardStores);
+  const rewardTotals = computeRewardTotals(rewardStores, materialOrder);
   const activeStoreItems = rewardStores.filter((s) => s.type === activeRewardTab).flatMap((s) => s.items);
 
   // Skin detail modal + zoom -- same pattern as SkinsCarousel.tsx
@@ -540,6 +547,13 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       featuredOperators,
       skins,
       rewardStores,
+      materialOrder: materialOrderFor(
+        checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
+        rewardStores.flatMap((store) => store.items.map((item) => item.name)),
+      ),
     },
   };
+}, {
+  // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
+  finalize: (props) => withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name))),
 });

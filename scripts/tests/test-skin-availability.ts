@@ -2,16 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import skins from '../../data/skins.json';
 import confirmed from '../../data/skin-availability-windows.json';
-import { compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, withLocalConfirmedSkinWindows, type SkinWindow } from '../../lib/skins/skinAvailability';
+import rotations from '../../data/skin-shop-rotations.json';
+import { compareCurrentSkins, computeSkinCountdowns, confirmedWindow, getSkinWindows, skinKey, type SkinWindow } from '../../lib/skins/skinAvailability';
+import { withLocalConfirmedSkinWindows } from '../../lib/skins/localSkinWindows';
 import { getAllEvents } from '../../lib/schedule/schedule';
 import type { Skin } from '../../lib/skins/skinTypes';
 
 const catalogue = skins as Skin[];
 const events = getAllEvents();
-const windows = getSkinWindows(catalogue, events);
-// computeSkinCountdowns's default, worked out once: the windows do not depend on the instant.
+const windows = getSkinWindows(catalogue, events, { confirmed, rotations });
+// The windows the page's data builder hands over, worked out once: they do not depend on the instant.
 const at = (time: string) => computeSkinCountdowns(catalogue, events, new Date(time), windows);
-const verified = confirmed.entries as SkinWindow[];
+const verified = confirmed.entries.map(confirmedWindow);
 
 test('all verified inventory entries resolve exactly once in the catalogue', () => {
   for (const window of verified) {
@@ -44,11 +46,11 @@ const fixtureSkin = (model: string, name: string) => ({ model, name, series: 'Fi
 const instant = '2026-09-22T12:00:00Z';
 const fixture: SkinWindow[] = [
   { event: 'Fixture', kind: 'shop', label: 'New outfits', startAt: '2026-09-16T15:00:00Z', endAt: '2026-09-30T11:00:00Z', skinIds: ['A / New'], newRelease: true },
-  { event: 'Fixture', kind: 'draw', label: 'Pool', startAt: '2026-09-10T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['A / New', 'B / Drawn'] },
+  { event: 'Fixture', kind: 'draw', label: 'Pool', startAt: '2026-09-10T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['A / New', 'B / Drawn'], newRelease: false },
   // A reissue that opened after the new outfits: by date alone it would come first.
   { event: 'Fixture', kind: 'shop', label: 'Returning outfits', startAt: '2026-09-18T15:00:00Z', endAt: '2026-09-24T11:00:00Z', skinIds: ['C / Old'], newRelease: false },
-  { event: 'Fixture', kind: 'shop', label: 'Projected', startAt: '2026-09-01T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['D / Forecast'], estimated: true },
-  { event: 'Fixture', kind: 'shop', label: 'Closed', startAt: '2026-08-01T15:00:00Z', endAt: '2026-08-15T11:00:00Z', skinIds: ['E / Gone'] },
+  { event: 'Fixture', kind: 'shop', label: 'Projected', startAt: '2026-09-01T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['D / Forecast'], estimated: true, newRelease: false },
+  { event: 'Fixture', kind: 'shop', label: 'Closed', startAt: '2026-08-01T15:00:00Z', endAt: '2026-08-15T11:00:00Z', skinIds: ['E / Gone'], newRelease: false },
 ];
 const openAt = (entries: SkinWindow[], time: string) => entries.filter(window => !window.estimated && Date.parse(window.startAt) <= Date.parse(time) && Date.parse(time) < Date.parse(window.endAt));
 
@@ -73,7 +75,7 @@ test('only verified windows open at an instant are live, with direct purchase ah
 });
 
 test('sales open at the announced instant and expire at the exclusive server reset', () => {
-  const window: SkinWindow = { event: 'Example', kind: 'shop', label: 'Returning outfits', startAt: '2026-09-10T15:00:00Z', endAt: '2026-09-24T11:00:00Z', skinIds: ['A / Outfit'] };
+  const window: SkinWindow = { event: 'Example', kind: 'shop', label: 'Returning outfits', startAt: '2026-09-10T15:00:00Z', endAt: '2026-09-24T11:00:00Z', skinIds: ['A / Outfit'], newRelease: false };
   const live = (time: string) => computeSkinCountdowns([], [], new Date(time), [window]).get('A / Outfit')?.live;
   assert.equal(live('2026-09-10T14:59:59Z'), false);
   assert.equal(live('2026-09-10T15:00:00Z'), true);
@@ -94,7 +96,7 @@ test('sales open at the announced instant and expire at the exclusive server res
 });
 
 test('CN schedules, release matches and Fashion Review flags never establish live stock', () => {
-  const forecast: SkinWindow = { event: 'Example', kind: 'shop', label: 'Projected', startAt: '2026-09-01T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['A / Outfit'], estimated: true };
+  const forecast: SkinWindow = { event: 'Example', kind: 'shop', label: 'Projected', startAt: '2026-09-01T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['A / Outfit'], estimated: true, newRelease: false };
   assert.equal(computeSkinCountdowns([], [], new Date(instant), [forecast]).size, 0);
   // Whatever the data holds, at any instant it names, nothing live is a forecast.
   for (const time of new Set(verified.map(window => window.startAt))) {
@@ -107,7 +109,7 @@ test('CN schedules, release matches and Fashion Review flags never establish liv
 });
 
 test('outfits with the same name remain distinct and direct purchase beats a draw', () => {
-  const window: SkinWindow = { event: 'Example', kind: 'draw', label: 'Pool', startAt: '2026-09-01T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['A / Shared', 'B / Shared'] };
+  const window: SkinWindow = { event: 'Example', kind: 'draw', label: 'Pool', startAt: '2026-09-01T15:00:00Z', endAt: '2026-10-01T11:00:00Z', skinIds: ['A / Shared', 'B / Shared'], newRelease: false };
   const result = computeSkinCountdowns([], [], new Date('2026-09-22T12:00:00Z'), [window, { ...window, kind: 'shop', skinIds: ['A / Shared'] }]);
   assert.equal(result.get('A / Shared')?.kind, 'shop');
   assert.equal(result.get('B / Shared')?.kind, 'draw');
@@ -119,7 +121,7 @@ test('expired build flags cannot revive a closed shop', () => {
   assert.equal([...computeSkinCountdowns(stale(fixtureSkins), [], new Date('2026-12-01T00:00:00Z'), fixture).values()].filter(window => window.live).length, 0);
   // The whole catalogue, a day after the last window the data knows of has closed.
   const after = new Date(Math.max(...windows.map(window => Date.parse(window.endAt))) + 86_400_000);
-  assert.equal([...computeSkinCountdowns(stale(catalogue), [], after).values()].filter(window => window.live).length, 0);
+  assert.equal([...computeSkinCountdowns(stale(catalogue), [], after, windows).values()].filter(window => window.live).length, 0);
 });
 
 test('new current outfits lead reissues', () => {
@@ -130,19 +132,13 @@ test('new current outfits lead reissues', () => {
   assert.deepEqual(direct.map(skinKey), ['A / New', 'C / Old']);
 });
 
-/* An older published payload has no newRelease on its windows, so the comparison falls back
-   to the verified windows the build ships with: checked on one the data holds, at its own
-   opening. A data set with no such window has nothing to check. */
-const released = verified.filter(window => window.newRelease && window.kind !== 'draw').sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))[0];
-test('new current outfits lead reissues in older published window metadata too', { skip: !released && 'the data has no verified new-release sale' }, () => {
-  // A reissue opening an hour after the new outfits, which by date alone would lead.
-  const opening = Date.parse(released.startAt);
-  const reissue: SkinWindow = { event: 'Fixture', kind: 'shop', label: 'Returning outfits', startAt: new Date(opening + 3_600_000).toISOString(),
-    endAt: released.endAt, skinIds: ['Z / Reissue'] };
-  const list = [fixtureSkin('Z', 'Reissue'), ...catalogue.filter(skin => released.skinIds.includes(skinKey(skin)))];
-  const result = computeSkinCountdowns(list, [], new Date(opening + 7_200_000), [reissue, released]);
-  for (const window of result.values()) delete window.newRelease;
-  const direct = list.filter(skin => result.get(skinKey(skin))?.live).sort((a, b) => compareCurrentSkins(a, b, result));
-  assert.deepEqual(direct.map(skinKey).slice(0, -1).sort(), [...released.skinIds].sort());
-  assert.equal(skinKey(direct.at(-1)!), 'Z / Reissue', 'the reissue comes after every new outfit');
+/* newRelease is stated on every window the page's data builder hands over, so "current" never
+   needs a lookup: it used to fall back on the verified windows compiled into the bundle. */
+test('every window states newRelease, and only a verified new-release sale is new', () => {
+  for (const window of windows) assert.equal(typeof window.newRelease, 'boolean', `${window.event} / ${window.label}`);
+  for (const window of windows.filter(window => window.estimated)) assert.equal(window.newRelease, false, window.label);
+  const newSales = windows.filter(window => window.newRelease);
+  assert.deepEqual(newSales.map(window => window.startAt).sort(), verified.filter(window => window.newRelease).map(window => window.startAt).sort());
+  // The SL-4b merge states it too, so a locally confirmed window sorts like a published one.
+  for (const window of withLocalConfirmedSkinWindows([])) assert.equal(typeof window.newRelease, 'boolean');
 });

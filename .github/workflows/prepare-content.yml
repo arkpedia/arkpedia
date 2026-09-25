@@ -171,6 +171,13 @@ jobs:
           supplement="$supplemental_charwords"
           if [ ! -s "$supplement" ]; then supplement="$RUNNER_TEMP/no-supplemental-charwords.json"; echo '{}' > "$supplement"; fi
           stage operator-english -- env ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplement" node scripts/sync/sync-operator-english.mjs
+          # The planner's material catalogue, from the operator records as they now stand (after
+          # the English refresh renames their costs), the recipes, the depot order and the item
+          # tables the stage refresh synced. Then the other planners' item ids for it: a
+          # catalogue with a material the aliases lack fails /planner's export, so if the
+          # aliases cannot be rebuilt the catalogue goes back to yesterday's with them (--output).
+          stage material-catalogue -- node scripts/build/build-material-catalogue.mjs
+          stage import-aliases --needs material-catalogue --output data/material-catalogue.json -- npx tsx scripts/build/build-import-aliases.ts
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
           # without it they keep yesterday's lines rather than fall back to Chinese.

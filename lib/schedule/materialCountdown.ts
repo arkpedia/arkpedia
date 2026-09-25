@@ -12,7 +12,7 @@ export type { CountdownWindow, FarmingWindows, MaterialCountdown } from './count
  * matching a specific event's materials list. No stage code applies
  * here since it's a store purchase, not a stage drop. Windows use the
  * shared game-window rules, so they open and close at the server's hour. */
-export function getFarmingWindows(): FarmingWindows {
+export function getFarmingWindows(eventMaterials: Record<string, Record<string, string>>): FarmingWindows {
   const materials: FarmingWindows['materials'] = {};
   const eventStore: CountdownWindow[] = [];
   for (const event of getAllEvents()) {
@@ -20,7 +20,7 @@ export function getFarmingWindows(): FarmingWindows {
     if (!window) continue;
     const span = { start: window.start.getTime(), end: window.end.getTime() };
     if (/\[(Side Story|Story Collection|Intermezzo|Rerun)/i.test(event.name)) eventStore.push(span);
-    for (const [material, stageCode] of Object.entries(getEventMaterials(event.name) ?? {})) {
+    for (const [material, stageCode] of Object.entries(getEventMaterials(event.name, eventMaterials) ?? {})) {
       (materials[material] ??= []).push({ ...span, stageCode });
     }
   }

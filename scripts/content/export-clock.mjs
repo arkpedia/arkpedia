@@ -11,10 +11,7 @@
  * sweep. A listed route that stops reading the clock fails too, so the list only
  * shrinks.
  */
-export const KNOWN_EXPORT_CLOCK_READS = {
-  '/operators/[name]': 'related-operator cards judge isFuture at export (pages/operators/[name].tsx)',
-  '/planner': 'the operator picker keeps only operators released at export (pages/planner.tsx)',
-};
+export const KNOWN_EXPORT_CLOCK_READS = {};
 
 /**
  * The same for the build scripts scripts/content/export.mjs runs before the pages, whose
@@ -22,7 +19,6 @@ export const KNOWN_EXPORT_CLOCK_READS = {
  * guard). Each entry is a known follow-up; the list only shrinks.
  */
 export const KNOWN_BUILD_CLOCK_READS = {
-  'scripts/build/build-operator-search.ts': 'isFuture, which picks the header search icon folder, is judged when operator-search.json is built',
   'scripts/build/build-stage-guesser.ts': 'the catalogue keeps the stages released by the day it is built (lib/minigames/stageGuesserData.ts)',
 };
 

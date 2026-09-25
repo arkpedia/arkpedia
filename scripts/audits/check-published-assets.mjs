@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { folderDrift } from '../lib/asset-folders.mjs';
 
 const read = async file => JSON.parse(await fs.readFile(new URL(`../../${file}`, import.meta.url), 'utf8'));
 const revisions = await read('data/assets/revisions.json');
@@ -18,6 +19,9 @@ for (const [repo, sha] of Object.entries(revisions)) {
 const manifests = await Promise.all(['arkpedia-image-assets', 'arkpedia-skin-assets'].map(async repo => ({
   repo, manifest: JSON.parse(await download(url(repo, 'asset-manifest.json'))),
 })));
+// Every folder each pinned repository publishes is one the site maps to it, and the reverse.
+const drift = folderDrift(await read('config/asset-folders.json'), Object.fromEntries(manifests.map(({ repo, manifest }) => [repo, manifest])));
+if (drift.length) throw new Error(`Asset folders and the pinned repositories disagree:\n  ${drift.join('\n  ')}`);
 const files = new Map(manifests.flatMap(({ repo, manifest }) => Object.entries(manifest.files).map(([path, row]) => [path, { repo, ...row }])));
 const missing = index.files.filter(path => !files.has(path));
 if (missing.length) throw new Error(`Published revision is missing ${missing.length} files: ${missing.slice(0, 15).join(', ')}`);
@@ -50,4 +54,4 @@ for (const repo of Object.keys(revisions).filter(repo => repo.startsWith('arkped
   const source = JSON.parse(await download(url(repo, 'source.json')));
   if (!source.sourceCommit) throw new Error(`Missing voice provenance: ${repo}`);
 }
-console.log(`Verified ${index.files.length} published image paths, ${rows.length} file hashes, palette JSON and all five voice revision records.`);
+console.log(`Verified the asset folder map, ${index.files.length} published image paths, ${rows.length} file hashes, palette JSON and all five voice revision records.`);

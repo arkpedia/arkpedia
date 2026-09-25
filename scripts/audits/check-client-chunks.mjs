@@ -1,55 +1,36 @@
 /**
- * No game table the content release carries may be compiled into a browser chunk.
+ * No data/ record may be compiled into a browser chunk, except the few
+ * scripts/build/client-bundle-guard.cjs allows.
  *
- * Each of these used to be imported by client code, so a page rendered from the live
- * release still answered from the copy the last deploy compiled in -- a new event in
- * the stage browser's raw "other" group, an operator on /base's text heuristics, the
- * whole banner list and the 453 KB asset index shipped to pages that never rendered
- * them -- until somebody redeployed. The pages now get them through their props
- * (__contentTables, lib/content/tables.mjs).
+ * A table in a client chunk is only as fresh as the deploy that built it: a page rendered from
+ * the live release still answered from the copy the last deploy compiled in -- a new event in
+ * the stage browser's raw "other" group, an operator on /base's text heuristics, the whole
+ * banner list and the 453 KB asset index shipped to pages that never rendered them -- until
+ * somebody redeployed. This check used to name twelve such tables, and eleven others sat in
+ * chunks unnoticed because nobody had listed them. It denies by default now: every data/ JSON
+ * file is looked for in every chunk.
  *
- * Two checks read this list. scripts/tests/test-client-game-tables.ts walks each page's
- * browser imports from the source, in `npm test`. This one reads what `next build`
- * actually emitted (postbuild, so CI and every deploy build run it): webpack writes a
- * JSON module as JSON.parse('<the file's JSON>'), so a chunk that carries a table
- * carries runs of the file's own text, and those are what it looks for.
+ * Three checks share the allowlist. The webpack guard (client-bundle-guard.cjs) fails the
+ * build on any data/ module in the browser compilation and names the import chain.
+ * scripts/tests/test-client-game-tables.ts walks each page's browser imports from the source,
+ * in `npm test`. This one reads what `next build` actually emitted (postbuild, so CI and every
+ * deploy build run it): webpack writes a JSON module as JSON.parse('<the file's JSON>'), so a
+ * chunk that carries a table carries runs of the file's own text, and those are what it looks
+ * for. A file too small or too repetitive to yield three distinctive runs cannot be recognised
+ * this way; the webpack guard, which sees module paths, is what covers it.
  *
  * Run after a build:  npm run check:client-chunks
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const RELEASE_ONLY_TABLES = [
-  // /stages/browse: the filter's headings (components/stages/StageList.tsx).
-  'data/stages-content.json',
-  'data/content-windows.json',
-  'data/story-groups.json',
-  // /base: slot chains from building_data and the group rosters (lib/base/baseGroupRosters.ts).
-  'data/base-skill-slots.json',
-  'data/base-group-rosters.json',
-  // /farming and the planner's "where it comes from" groups.
-  'data/farming-tiers.json',
-  // /planner: level costs, other planners' item ids, the depot's in-game order.
-  'data/operatorLevelExpLmd.json',
-  'data/import-aliases.json',
-  'data/item-sort-ids.json',
-  // Every asset path, 453 KB: availability is resolved at export, not in the browser.
-  'data/assets/public-asset-index.json',
-  // The banner list and its art versions (lib/gacha/headhuntingBannerData.ts).
-  'data/headhunting_banners.json',
-  'data/assets/banner_art_sources.json',
-];
-
-/* The one bundled copy that stays: /schedule's no-release fallback for the table the
-   release hands it (useContentTable in pages/schedule.tsx). As import edges for the
-   source walk, and as the pages whose chunks may carry it for this one. */
-export const NO_RELEASE_FALLBACKS = {
-  'data/headhunting_banners.json': { edges: ['pages/schedule.tsx -> data/headhunting_banners.json'], pages: ['/schedule'] },
-};
+const { CLIENT_ALLOWED, CLIENT_ALLOWED_EDGES } = createRequire(import.meta.url)('../build/client-bundle-guard.cjs');
 
 const SAMPLES = 12;
 const WIDTH = 48;
+const MIN_RUNS = 3;
 
 /**
  * Twelve runs of a table's own JSON text, spread evenly across it. Webpack emits a JSON
@@ -76,25 +57,61 @@ export function carries(text, runs) {
   return runs.filter((run) => text.includes(run)).length >= Math.ceil((runs.length * 2) / 3);
 }
 
+/** Every data/ JSON file under `root`, relative and sorted. */
+export function dataTables(root) {
+  const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const at = path.join(dir, entry.name);
+    return entry.isDirectory() ? walk(at) : entry.name.endsWith('.json') ? [at] : [];
+  });
+  return walk(path.join(root, 'data')).map(file => path.relative(root, file).split(path.sep).join('/')).sort();
+}
+
+/** The pages a table may appear in: everywhere (null), some pages, or none. */
+function allowedPages(table, allowed, edges) {
+  if (Object.hasOwn(allowed, table)) return null;
+  return edges[table]?.pages ?? [];
+}
+
 /**
  * Every (table, chunk) the build emitted that it should not have.
  * `chunks` are { file, text } relative to .next/; `pagesOf(file)` names the pages whose
- * initial load includes that chunk (none for a lazily loaded one).
+ * initial load includes that chunk (none for a lazily loaded one). `tables` defaults to every
+ * data/ JSON file. Returns the leaks and the tables too small to recognise.
+ *
+ * Built as one index of runs rather than a search per table: there are thousands of data
+ * files, and each chunk is read once, window by window, against all of their runs.
  */
-export function findTablesInChunks({ root, chunks, pagesOf, tables = RELEASE_ONLY_TABLES, fallbacks = NO_RELEASE_FALLBACKS }) {
-  const leaks = [];
+export function findTablesInChunks({ root, chunks, pagesOf, tables = dataTables(root), allowed = CLIENT_ALLOWED, edges = CLIENT_ALLOWED_EDGES }) {
+  const owners = new Map(); // run -> tables
+  const need = new Map(); // table -> how many of its runs a chunk must hold
+  const unrecognisable = [];
   for (const table of tables) {
     const runs = fingerprints(JSON.parse(fs.readFileSync(path.join(root, table), 'utf8')));
-    if (runs.length < 3) throw new Error(`${table}: too few distinctive runs to recognise it in a chunk`);
-    const allowed = fallbacks[table]?.pages ?? [];
-    for (const { file, text } of chunks) {
-      if (!carries(text, runs)) continue;
+    if (runs.length < MIN_RUNS) { unrecognisable.push(table); continue; }
+    need.set(table, Math.ceil((runs.length * 2) / 3));
+    for (const run of runs) owners.set(run, [...(owners.get(run) ?? []), table]);
+  }
+  const leaks = [];
+  for (const { file, text } of chunks) {
+    const seen = new Map(); // table -> runs found
+    const found = new Set();
+    for (let at = 0; at + WIDTH <= text.length; at++) {
+      const run = text.slice(at, at + WIDTH);
+      const tablesOf = owners.get(run);
+      if (!tablesOf || found.has(run)) continue;
+      found.add(run);
+      for (const table of tablesOf) seen.set(table, (seen.get(table) ?? 0) + 1);
+    }
+    for (const [table, count] of seen) {
+      if (count < need.get(table)) continue;
+      const pagesAllowed = allowedPages(table, allowed, edges);
+      if (pagesAllowed === null) continue;
       const pages = pagesOf(file);
-      if (pages.length && pages.every((page) => allowed.includes(page))) continue;
+      if (pages.length && pages.every((page) => pagesAllowed.includes(page))) continue;
       leaks.push({ table, file, pages });
     }
   }
-  return leaks;
+  return { leaks: leaks.sort((a, b) => a.table.localeCompare(b.table) || a.file.localeCompare(b.file)), unrecognisable };
 }
 
 function walk(dir) {
@@ -114,17 +131,18 @@ export function checkClientChunks(root) {
   }
   const chunks = walk(path.join(next, 'static/chunks')).filter((file) => file.endsWith('.js'))
     .map((file) => ({ file: path.relative(next, file).split(path.sep).join('/'), text: fs.readFileSync(file, 'utf8') }));
-  return { chunks: chunks.length, leaks: findTablesInChunks({ root, chunks, pagesOf: (file) => owners.get(file) ?? [] }) };
+  const tables = dataTables(root);
+  return { chunks: chunks.length, tables: tables.length, ...findTablesInChunks({ root, chunks, tables, pagesOf: (file) => owners.get(file) ?? [] }) };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = fileURLToPath(new URL('../..', import.meta.url));
-  const { chunks, leaks } = checkClientChunks(root);
+  const { chunks, tables, leaks, unrecognisable } = checkClientChunks(root);
   if (leaks.length) {
-    console.error(`${leaks.length} release-only game table(s) compiled into browser chunks:`);
+    console.error(`${leaks.length} data/ table(s) compiled into browser chunks:`);
     for (const { table, file, pages } of leaks) console.error(`  ${table} in ${file} (${pages.length ? pages.join(', ') : 'loaded lazily'})`);
-    console.error('\nRead the table from the page props (lib/content/tables.mjs), not from data/, in browser code.');
+    console.error('\nRead the table from the page props (lib/content/tables.mjs), not from data/, in browser code. The allowed few are in scripts/build/client-bundle-guard.cjs.');
     process.exit(1);
   }
-  console.log(`No release-only game table in ${chunks} browser chunks (${RELEASE_ONLY_TABLES.length} tables checked).`);
+  console.log(`No data/ table in ${chunks} browser chunks (${tables - unrecognisable.length} of ${tables} tables recognisable; the webpack guard covers the ${unrecognisable.length} too small to fingerprint).`);
 }

@@ -15,10 +15,11 @@
  * committed, the same way data/item-sort-ids.json is: the site must not depend on
  * a network fetch to read a file somebody pastes into a box.
  *
- * WHY THIS IS TYPESCRIPT, unlike its sibling build-ingame-order.mjs. It has to
- * agree with MATERIAL_SORT_ORDER about what a material is called, and the one
- * way to guarantee that is to import the list rather than restate it. Same
- * reason scripts/build/build-stage-details.ts is TypeScript.
+ * It has to agree with the planner's catalogue (data/material-catalogue.json,
+ * scripts/build/build-material-catalogue.mjs) about what a material is called, so it
+ * reads that table rather than restating it, and it names items the way the other
+ * material builders do (scripts/lib/material-items.mjs): the EN client, then
+ * data/material-names.json for the CN-only lines Global has not shipped.
  *
  * WHERE THE ARKGRAPH CODES COME FROM. Houdou/arkgraph's scripts/mapping.json is
  * itemId -> code, 97 entries. It is a third-party file and not derivable from
@@ -33,7 +34,9 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
+import { checkMaterialCatalogue, depotNames } from '@/lib/farming/materialCatalogue.mjs';
+// @ts-expect-error Plain Node helper shared with the .mjs builders.
+import { materialItems, readMaterialNames } from '../lib/material-items.mjs';
 
 const root = process.cwd();
 const upstream = process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata';
@@ -45,45 +48,37 @@ const ARKGRAPH_MAPPING_URL =
 if (!fs.existsSync(tablePath)) {
   console.error(
     `Missing ${tablePath}.\nRun scripts/sync/refresh-stage-data.sh to populate .cache/upstream, ` +
-    'or point ARKPEDIA_EN at a checkout of ArknightsAssets/ArknightsGamedata.',
+    'or point ARKPEDIA_EN at a checkout of the EN gamedata mirror the refresh pins.',
   );
   process.exit(1);
 }
 
 /**
- * Where this repo's name for a material differs from the game's.
- *
- * The same single entry build-ingame-order.mjs carries, for the same reason: the
- * game says "Information Fragments", the site has always said the singular, and
- * the icon on disk is filed under the singular.
- */
-const ALIASES: Record<string, string> = { 'Information Fragment': 'Information Fragments' };
-
-/**
  * EXP is a number an operator needs, not a thing you hold, so it has no depot
- * tile, no icon and no place in either map. Krooster's exports carry a row for
- * it ("EXP,Operator EXP,0,588286") and the importer drops that row by name --
- * see lib/planner/foreignImport.ts, which says so to the reader rather than
- * counting it as an unknown.
+ * tile, no icon and no place in either map (depotNames leaves it out). Krooster's
+ * exports carry a row for it ("EXP,Operator EXP,0,588286") and the importer drops
+ * that row by name -- see lib/planner/foreignImport.ts, which says so to the reader
+ * rather than counting it as an unknown.
  */
-const NOT_HELD = new Set(['EXP']);
-const holdable = MATERIAL_SORT_ORDER.filter((name) => !NOT_HELD.has(name));
+const catalogue = checkMaterialCatalogue(JSON.parse(fs.readFileSync(path.join(root, 'data', 'material-catalogue.json'), 'utf-8')));
+const holdable = depotNames(catalogue);
 
 const items = JSON.parse(fs.readFileSync(tablePath, 'utf-8')).items as Record<string, { name: string }>;
-
-/* First id wins. A handful of names are reused by event reprints, and the
-   original is the one with the lower id -- and the one another planner's export
-   will be keyed on, since they read the same table. */
-const idByName = new Map<string, string>();
-for (const [id, item] of Object.entries(items)) {
-  if (typeof item?.name === 'string' && !idByName.has(item.name)) idByName.set(item.name, id);
-}
+const cnTable = path.join(process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', 'gamedata', 'excel', 'item_table.json');
+/* The same resolution as the catalogue's: the EN client's name (first id wins, since
+   another planner's export is keyed on the original, lower id), the CN-only lines'
+   English names, then the CN client's own. */
+const resolve = materialItems({
+  enItems: items,
+  cnItems: fs.existsSync(cnTable) ? JSON.parse(fs.readFileSync(cnTable, 'utf-8')).items : {},
+  names: readMaterialNames(JSON.parse(fs.readFileSync(path.join(root, 'data', 'material-names.json'), 'utf-8'))),
+});
 
 const byItemId: Record<string, string> = {};
 const noItemId: string[] = [];
 for (const name of holdable) {
-  const id = idByName.get(ALIASES[name] ?? name);
-  if (id === undefined) noItemId.push(name);
+  const id = resolve.idOf(name);
+  if (!id) noItemId.push(name);
   else byItemId[id] = name;
 }
 
@@ -94,8 +89,8 @@ for (const name of holdable) {
 if (noItemId.length) {
   console.error(
     `No item_table entry for ${noItemId.length} holdable material(s): ${noItemId.join(', ')}.\n` +
-    'Either the game renamed it -- add an alias above, as Information Fragment(s) has one -- ' +
-    'or the name in MATERIAL_SORT_ORDER is wrong.',
+    'Either the game renamed it -- add an alias in scripts/lib/material-items.mjs, as Information ' +
+    'Fragment(s) has one -- or a CN-only material needs its English name in data/material-names.json.',
   );
   process.exit(1);
 }
@@ -118,16 +113,12 @@ async function main() {
   const mapping = await arkgraphMapping();
 
   const byArkgraph: Record<string, string> = {};
-  /* Codes whose itemId this repo has no name for. Four of them today, and all four
-     are the same thing: 31103/31104 and 31113/31114 are two CN-only material lines
-     (液化高能气体 / 液化醚吸聚体 and 电极单元 / 聚能动力单元) that global has not
-     shipped, so they are in the CN item_table and not the EN one. Reported, not
-     fatal -- the day EN ships them and they are added to MATERIAL_SORT_ORDER, this
-     script picks them up with no edit. */
+  /* Codes whose itemId this repo has no material for. Reported, not fatal: arkgraph
+     can know a material before any operator here costs it. */
   const unresolvable: string[] = [];
   for (const [id, code] of Object.entries(mapping)) {
     const name = byItemId[id];
-    if (name === undefined) unresolvable.push(`${code} (itemId ${id}${items[id] ? `, "${items[id].name}"` : ', absent from the EN item_table'})`);
+    if (name === undefined) unresolvable.push(`${code} (itemId ${id}${resolve.nameOf(id) ? `, "${resolve.nameOf(id)}"` : ', in neither item table'})`);
     else byArkgraph[code] = name;
   }
 

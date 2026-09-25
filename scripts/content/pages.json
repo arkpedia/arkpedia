@@ -34,5 +34,6 @@
   "/gamemodes/stronghold-protocol/stronghold-companion",
   "/music",
   "/music/discover",
-  "/games/music-guesser"
+  "/games/music-guesser",
+  "/results"
 ]

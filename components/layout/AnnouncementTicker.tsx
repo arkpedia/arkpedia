@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getActiveReminders, Reminder } from '@/lib/schedule/opsSchedules';
+import type { SssCycle } from '@/lib/schedule/sssCycle';
 
 // useLayoutEffect on the server is a no-op React warns about on every SSR'd page,
 // and this component rides _app so that was every page. On the server the swap is
@@ -13,7 +14,12 @@ const SEPARATOR = '\u00A0\u00A0\u00A0//\u00A0\u00A0\u00A0'; // "   //   " with n
 const PIXELS_PER_SECOND = 90; // scroll speed, tuned for the mono ticker font at 12px
 const MIN_DURATION_S = 4;
 
-export default function AnnouncementTicker() {
+/** `sssCycle` is the release's SSS cycle (data/sss-cycle.json), which the home page's props
+ *  carry (lib/content/tables.mjs). Required: it used to be a date typed into opsSchedules.ts. */
+export default function AnnouncementTicker({ sssCycle }: { sssCycle: SssCycle }) {
+  /* Read by the timer below, which is set up once; the ref keeps it on the latest props. */
+  const sssCycleRef = useRef(sssCycle);
+  sssCycleRef.current = sssCycle;
   const [visible, setVisible] = useState(false);
   const [text, setText] = useState('');
   const [duration, setDuration] = useState(MIN_DURATION_S);
@@ -36,7 +42,7 @@ export default function AnnouncementTicker() {
   // cycle, the bar just stays hidden until the next one.
   useEffect(() => {
     function runCycle() {
-      const reminders: Reminder[] = getActiveReminders(new Date());
+      const reminders: Reminder[] = getActiveReminders(new Date(), sssCycleRef.current);
       if (reminders.length === 0) {
         setVisible(false);
         return;

@@ -307,6 +307,11 @@ export interface PlannerOperatorSummary {
    *  alter of. Searched alongside the name so "phantom" finds Tragodia. Built by
    *  lib/operators/operatorAliases.ts; absent when there is no such name. */
   aliases?: string[];
+  /** When the operator becomes plannable (lib/operators/operatorAvailability.ts releaseMarker):
+   *  the picker is filtered per request with the page's `now`, not at export. Absent on a
+   *  payload from before markers, which was filtered at export already. */
+  releasedAt?: number | null;
+  isFuture?: true;
 }
 
 // Lightweight projection for the schedule/timeline page -- it only
