@@ -19,6 +19,10 @@ import { browserImports, pages, pathToTarget } from './browser-graph';
  * included. `production build` confirms the same on the emitted chunks.
  */
 export const RELEASE_ONLY_TABLES = [
+  // /stages/browse: the filter's headings (components/stages/StageList.tsx).
+  'data/stages-content.json',
+  'data/content-windows.json',
+  'data/story-groups.json',
   // Every asset path, 453 KB: availability is resolved at export, not in the browser.
   'data/assets/public-asset-index.json',
   // The banner list and its art versions (lib/gacha/headhuntingBannerData.ts).
@@ -40,6 +44,8 @@ test('no page compiles a release-only game table into its browser bundle', () =>
   // Not vacuous: the server half of these pages does read the tables.
   assert.equal(pathToTarget('pages/obtain-method.tsx', ['data/headhunting_banners.json'], { clientOnly: false })?.at(-1), 'data/headhunting_banners.json');
   assert.ok(browserImports('pages/obtain-method.tsx', true).includes('lib/gacha/limitedBannerType.ts'));
+  assert.equal(pathToTarget('pages/stages/browse.tsx', ['data/story-groups.json'], { clientOnly: false })?.at(-1), 'data/story-groups.json');
+  assert.ok(browserImports('pages/stages/browse.tsx', true).includes('components/stages/StageList.tsx'));
   const leaks = all.flatMap(page => RELEASE_ONLY_TABLES.flatMap(table => {
     const chain = pathToTarget(page, [table], { allowed: NO_RELEASE_FALLBACKS });
     return chain ? [chain.join(' -> ')] : [];

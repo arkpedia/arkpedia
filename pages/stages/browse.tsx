@@ -2348,5 +2348,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/st
 }, {
   tables: {
     'stage-tile-legend': async () => (await import('@/data/stage-tile-legend.json')).default,
+    // The stage rail's filter headings (components/stages/StageList.tsx).
+    'stages-content': async () => (await import('@/data/stages-content.json')).default,
+    'content-windows': async () => (await import('@/data/content-windows.json')).default,
+    'story-groups': async () => (await import('@/data/story-groups.json')).default,
   },
 });
