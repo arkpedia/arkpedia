@@ -145,7 +145,7 @@
   gap: 12px;
   padding: 9px 11px;
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--panel-2);
 }
 .pulls-event-row.on { border-color: var(--teal); }

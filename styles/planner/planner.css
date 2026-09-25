@@ -6,7 +6,7 @@
   flex: none;
   height: 3px;
   background: var(--line-soft);
-  border-radius: 2px;
+  border-radius: var(--radius);
   outline: none;
 }
 /* outline: none above kills the ring for pointer drags; keyboard focus gets
@@ -781,7 +781,7 @@
   height: 14px;
   flex: none;
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: var(--radius);
   font-style: normal;
 }
 .craft-toggle[aria-pressed="true"] {
@@ -1709,7 +1709,7 @@
   height: 16px;
   flex: none;
   border: 1px solid currentColor;
-  border-radius: 3px;
+  border-radius: var(--radius);
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 11px;
@@ -1817,7 +1817,7 @@
   bottom: -4px;
   white-space: nowrap;
   padding: 0 3px;
-  border-radius: 2px;
+  border-radius: var(--radius);
   background: var(--well);
   box-shadow: 0 0 0 1px var(--line-soft);
   font-family: var(--font-mono);
