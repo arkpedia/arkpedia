@@ -1,6 +1,6 @@
 # UI primitives and tokens
 
-This is the reference for building or migrating any Arkpedia page. It covers the design tokens, the shared components in `components/ui`, the global rules, and the two ratchet files that track the pages still to migrate. Follow it literally. When a page needs something this page does not cover, add it here and to the primitives. Do not solve it inside the page.
+This is the reference for building or migrating any Arkpedia page. It covers the design tokens, the shared components in `components/ui`, the global rules, and the style audit and page-bounds checks that hold every page to them. Follow it literally. When a page needs something this page does not cover, add it here and to the primitives. Do not solve it inside the page.
 
 The canonical style is the `/operators` list page plus `/gacha`, as decided on 2026-09-25:
 
@@ -297,23 +297,28 @@ It reserves exactly what the reader's position needs and gives the space back as
 
 `pages/404.tsx` and `pages/500.tsx` use `PageHeader` in the site frame on `--bg` in both themes. They are static on purpose.
 
-## The ratchets: what is still to migrate
+## The ratchets: what is left
 
-Two checked-in baselines list today's offenders. CI fails on a **new** offender and also on a **stale** one: a fixed case must be removed from its baseline so that it cannot come back. Each family migration shrinks both files, and the end state is empty lists.
+Two checked-in baselines listed the offenders while the page families migrated. CI fails on a **new** offender and also on a **stale** one: a fixed case must be removed from its baseline so that it cannot come back. Since the families landed (2026-09-25) most lists are empty, and an empty one is **strict**: it takes no entry, and regenerating the baseline refuses to add one.
+
+What still carries accepted cases, all in `scripts/audits/style-audit-baseline.json`:
+
+- `nativeControls` (3): the Stronghold companion's two language pickers (`StrongholdCompanion.tsx`, `role="listbox"`; the companion runs in a Document Picture-in-Picture window and `StyledSelect` portals its menu to the main document) and the development-only `pages/dev/index.tsx` `<select>`.
+- `collisions` (20) and `fontSizes` (21): scoped descendant rules the audit's heuristic flags, and deliberate sizes (16px iOS no-zoom inputs, the 88px tutorial emoji).
 
 ### 1. `scripts/audits/style-audit-baseline.json` (`npm run audit:styles`, a Check step)
 
 | Key | What it lists | What to do |
 |---|---|---|
-| `nativeControls` | `<select>` and `role="listbox"` outside `components/ui`, per file | Replace with `StyledSelect` (or `SearchInput` for suggestion lists). `StageDeployBar`'s operator strip is an inline strip where you arm one tile, not a dropdown. Make it a `role="group"` of `aria-pressed` tiles, or keep it listed with a reason. |
-| `rarityLiteral` | Colour literals in rarity, star and pull rules | Use `var(--rarity-N)`, `.rarity-N`, `.tier-N` or `.tier-fill-N` |
-| `oldTeal` | `#4de8d1` / `rgb(77 232 209)`, now only in `pages/stages/browse.tsx`'s map SVG | Use `var(--teal)` (pass it through CSS, or `currentColor`) |
-| `pills` | 999px radii | Use a radius token |
-| `h1Rules` | h1 size or case rules outside `shared.css` | Delete them and render `PageHeader` |
-| `fontWeights` | Rules asking a font for a weight it does not load | Keep it at 0 |
+| `nativeControls` | `<select>` and `role="listbox"` outside `components/ui`, per file | Replace with `StyledSelect` (or `SearchInput` for suggestion lists) |
+| `rarityLiteral` (strict) | Colour literals in rarity, star and pull rules, and in any custom property named for rarity | Use `var(--rarity-N)`, `.rarity-N`, `.tier-N` or `.tier-fill-N` |
+| `oldTeal` (strict) | `#4de8d1` / `rgb(77 232 209)` | Use `var(--teal)` (pass it through CSS, or `currentColor`) |
+| `pills` (strict) | 999px radii | Use a radius token |
+| `h1Rules` (strict) | h1 size or case rules outside `shared.css` | Delete them and render `PageHeader` |
+| `fontWeights` (strict) | Rules asking a font for a weight it does not load | Load the weight in `_document`, or use a loaded one |
 | `collisions` | A bare class styled in two global stylesheets | Scope the class to its page, or move a shared one to `core/` |
 | `fontSizes` | Sizes off the scale (9–13 body; 15/18/22/26/30 display) | Round to the scale |
-| `rawHex` | A hex literal that a token names | Use the token |
+| `rawHex` (strict) | A hex literal that a token names | Use the token |
 
 ```sh
 npm run audit:styles                 # check
@@ -331,12 +336,7 @@ For every page at 1440 and 390, the test measures:
 - `frame`: content lies outside 224–1216 at 1440, or outside 24–366 at 390.
 - `page-scroll-x`: the page itself scrolls sideways.
 
-The baseline maps each width to the routes with offences today. After fixing a page, regenerate the baseline against a production build and check that the diff only removes entries:
-
-```sh
-npm run build && npm run start -- -p 3192 &
-UPDATE_BOUNDS_BASELINE=1 npx playwright test tests/browser/page-bounds.spec.ts --project=desktop
-```
+The baseline is `{}` and the test is strict: every measured page passes at both widths, so any offence fails, and `UPDATE_BOUNDS_BASELINE=1` measures every page but refuses to write a non-empty baseline. Fix the page.
 
 The test also fails when a page file under `pages/` is neither measured nor excluded with a reason (dynamic pages need a sample address in `SAMPLES`). It also checks that the 404 page renders on `--bg` in both themes.
 
@@ -359,5 +359,5 @@ The test also fails when a page file under `pages/` is neither measured nor excl
 8. Horizontal rows use `ScrollRow` or `.sidescroll`. Nested vertical scrollers keep the default thumb. Put focus rings inside scrollers with `outline-offset: -2px`.
 9. Hide "Coming soon" placeholders until they have content.
 10. Density changes must obey the Anti-Page Jump rule. Measure them with `apj()`.
-11. Run `npm run audit:styles -- --update` and `UPDATE_BOUNDS_BASELINE=1 …`, and commit the shrunken baselines with the migration.
+11. Run `npm run audit:styles` and the page-bounds test. If a remaining ratchet list shrank, tighten it with `npm run audit:styles -- --update` and commit the smaller baseline with the change.
 12. Verify the rendered result at 1440 and 390, dark and light (the rig, or screenshots). A green build is not verification.

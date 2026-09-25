@@ -18,15 +18,14 @@ import { expect, test, type Page } from '@playwright/test';
  *                  (224-1216 at 1440; 24-366 at 390)
  *   page-scroll-x  the page itself scrolls sideways
  *
- * RATCHET. Pages that do not pass yet are listed, per width, with the offences they
- * have today, in tests/browser/page-bounds-baseline.json. A NEW offence fails. A
- * listed offence that no longer happens ALSO fails, so a fixed page has to leave the
- * baseline and cannot regress silently. The page-family migrations shrink that file
- * to {}. After fixing a page, regenerate it against a production build:
+ * STRICT since the page families landed (2026-09-25): every measured page passes at
+ * both widths, so tests/browser/page-bounds-baseline.json is {} and must stay so. Any
+ * offence fails, and regenerating the baseline cannot accept one either:
  *
  *   UPDATE_BOUNDS_BASELINE=1 npx playwright test tests/browser/page-bounds.spec.ts --project=desktop
  *
- * and review the diff: it should only ever lose entries.
+ * still measures every page, but fails instead of writing if any page has an offence.
+ * (It was a ratchet while the migrations shrank that file to {}.)
  *
  * Every page file under pages/ is either measured here or excluded below with a
  * reason, and a new page with neither fails the coverage test at the bottom.
@@ -246,6 +245,9 @@ for (const width of WIDTHS) {
 
 test.afterAll(() => {
   if (!UPDATE) return;
+  if (Object.keys(measured).length) {
+    throw new Error(`page bounds are strict; nothing written. Fix these pages instead: ${JSON.stringify(measured)}`);
+  }
   const ordered: Baseline = {};
   for (const key of Object.keys(measured).sort()) {
     ordered[key] = Object.fromEntries(Object.entries(measured[key]).sort(([a], [b]) => a.localeCompare(b)));
@@ -261,6 +263,7 @@ test('every page file is measured or excluded with a reason', ({}, info) => {
     .map(file => file.replace(/\.tsx$/, '').split(path.sep).join('/'));
   const unmeasured = files.filter(file => !EXCLUDED[file] && file.includes('[') && !SAMPLES[file]);
   expect(unmeasured, 'a dynamic page needs a sample address in SAMPLES, or a reason in EXCLUDED').toEqual([]);
+  expect(baseline, 'page bounds are strict: page-bounds-baseline.json stays {}; fix the page instead of listing it').toEqual({});
   const baselineRoutes = new Set(Object.values(baseline).flatMap(entry => Object.keys(entry)));
   const known = new Set(routes());
   expect([...baselineRoutes].filter(route => !known.has(route)), 'baseline lists a route that is no longer measured').toEqual([]);

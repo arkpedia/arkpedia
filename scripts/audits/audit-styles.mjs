@@ -45,6 +45,11 @@
  * --update is for (a) tightening after a fix and (b) a deliberate, reviewed
  * exception. Never run it to make new drift go away.
  *
+ * STRICT rules reached zero when the page families landed (2026-09-25) and take no
+ * baseline at all: any occurrence fails, --update refuses to accept one, and a
+ * baseline that lists one fails too. Fix the rule instead. The others (collisions,
+ * fontSizes, nativeControls) still carry accepted cases and stay ratchets.
+ *
  * Static analysis has limits, stated so nobody over-trusts a clean run: a weight on a
  * rule that inherits its font family, an <h1 className={styles.title}>, and a colour
  * set from TSX are invisible here. tests/browser/page-bounds.spec.ts and the
@@ -270,6 +275,8 @@ const LABELS = {
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
 };
 
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights'];
+
 function counts(list) {
   const m = new Map();
   for (const x of list) m.set(x, (m.get(x) || 0) + 1);
@@ -279,6 +286,15 @@ function counts(list) {
 const found = collect();
 
 if (process.argv.includes('--update')) {
+  const refused = STRICT.filter((key) => found[key].length);
+  if (refused.length) {
+    for (const key of refused) {
+      console.error(`\n${found[key].length} ${key} (strict, never accepted into the baseline): ${LABELS[key]}`);
+      for (const line of found[key]) console.error(`  ${line}`);
+    }
+    console.error('\nNothing written. Fix these first.');
+    process.exit(1);
+  }
   writeFileSync(baselinePath, `${JSON.stringify(found, null, 2)}\n`);
   const n = Object.values(found).reduce((a, v) => a + v.length, 0);
   console.log(`style baseline updated: ${n} accepted entries`);
@@ -295,6 +311,12 @@ try {
 }
 
 let failed = false;
+for (const key of STRICT) {
+  if ((baseline[key] || []).length) {
+    failed = true;
+    console.error(`\nThe baseline accepts ${baseline[key].length} ${key} entr${baseline[key].length === 1 ? 'y' : 'ies'}, but ${key} is strict: empty that list and fix the rule.`);
+  }
+}
 for (const key of Object.keys(LABELS)) {
   const have = counts(found[key] || []);
   const known = counts(baseline[key] || []);
