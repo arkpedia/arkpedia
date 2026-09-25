@@ -41,11 +41,11 @@ test('unknown or invalid release dates do not imply availability', () => {
 });
 
 test('the shared operator search catalogue uses the current release source', () => {
+  // No release state: a record is drawn from its name, rarity and portraitStatus. The isFuture
+  // it used to carry was judged by the clock of its build, and nothing read it.
   const expected = getAllOperators().map((operator) => ({
     name: operator.name,
     rarity: operator.rarity,
-    // The catalogue is written with the clock of its build (build-operator-search.ts).
-    isFuture: !isOperatorReleased(operator, Date.now()),
     ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
   }));
   assert.deepEqual(operatorSearch.operators, expected);

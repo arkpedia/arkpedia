@@ -21,7 +21,7 @@ import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from 
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
 import { getClassIconPath, getBranchIconPath, getFactionIconPath } from '@/lib/operators/classBranchIcons';
-import { isOperatorReleased, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
+import { operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { fetchVideoOEmbedInfo } from '@/lib/music/youtube';
 import {
@@ -55,14 +55,15 @@ import OperatorFilesPanel from '@/components/operators/OperatorFilesPanel';
 import OperatorVoiceLines from '@/components/operators/OperatorVoiceLines';
 import StyledSelect from '@/components/ui/StyledSelect';
 import pageStyles from '@/components/operators/OperatorPage.module.css';
-import { sortMaterials } from '@/lib/farming/materialSortOrder';
+import { materialOrderFor, sortMaterials } from '@/lib/farming/materialSortOrder';
+import { checkMaterialCatalogue, plannerCostNames } from '@/lib/farming/materialCatalogue.mjs';
+import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import { getOperatorVoiceData, OperatorVoiceData } from '@/lib/operators/operatorVoices';
 import OperatorRelationPopover, { RelatedOperator } from '@/components/operators/OperatorRelationPopover';
 
 interface SynergyMatchOperator {
   name: string;
   rarity: number | null;
-  isFuture: boolean | null;
 }
 
 interface AutoSynergyBadge {
@@ -119,6 +120,9 @@ interface Props {
   branchRelatedOperators: RelatedOperator[];
   relatedByArtist: Record<string, RelatedOperator[]>;
   relatedByVoiceActor: Record<string, RelatedOperator[]>;
+  /** The release's material catalogue order (data/material-catalogue.json), for the materials
+   *  this operator costs: what every cost row sorts by. */
+  materialOrder: string[];
 }
 
 /** One skill's effect on the range, from data/skill-ranges.json. */
@@ -197,9 +201,9 @@ function RangeGridBox({ range, label }: { range: CroppedRange | null; label?: st
   );
 }
 
-function CostRow({ cost, promotion = false }: { cost: CostGroup | null | undefined; promotion?: boolean }) {
+function CostRow({ cost, order, promotion = false }: { cost: CostGroup | null | undefined; order: readonly string[]; promotion?: boolean }) {
   if (!cost || cost.length === 0) return <p className="hint">No cost data.</p>;
-  const sorted = sortMaterials(cost);
+  const sorted = sortMaterials(cost, order);
   const renderItem = (item: CostGroup[number], index: number) => {
     const iconPath = getMaterialIconPath(item.name);
     return (
@@ -446,7 +450,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
   );
 }
 
-export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {} }: Props) {
+export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {}, materialOrder }: Props) {
   const contentUrl = useContentUrl();
   const router = useRouter();
 
@@ -1108,7 +1112,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             <StyledSelect id="skill-cost-scope" align="end" label="Skill material costs" className={pageStyles.costSelect}
                               value={showTotal ? 'total' : 'step'} onChange={value => setShowTotal(value === 'total')}
                               options={[{ value: 'step', label: 'Selected upgrade only' }, { value: 'total', label: `All skill levels up to ${activeStepLabel}` }]} />
-                            <CostRow cost={costForStep()} />
+                            <CostRow cost={costForStep()} order={materialOrder} />
                           </div>
                         )}
 
@@ -1238,7 +1242,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                               <StyledSelect id="module-cost-scope" align="end" label="Module material costs" className={pageStyles.costSelect}
                                 value={showModuleTotal ? 'total' : 'step'} onChange={value => setShowModuleTotal(value === 'total')}
                                 options={[{ value: 'step', label: 'Selected stage only' }, { value: 'total', label: `All stages up to stage ${activeModuleStage + 1}` }]} />
-                              <CostRow cost={costForModuleStage()} />
+                              <CostRow cost={costForModuleStage()} order={materialOrder} />
                             </div>
                           </div>
                         )}
@@ -1257,7 +1261,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     <h3><OperatorGameIcon label={tier.tier} size={36} /></h3>
                     {tier.prerequisite && <p><OperatorStatModifiers text={tier.prerequisite} /></p>}
                     {tier.upgrades.length > 0 && <ul>{tier.upgrades.map((upgrade, index) => <li key={index}>{upgrade}</li>)}</ul>}
-                    <CostRow cost={tier.cost} promotion />
+                    <CostRow cost={tier.cost} order={materialOrder} promotion />
                   </div>
                 ))}
               </section>
@@ -1560,7 +1564,7 @@ function buildOperatorRelationIndexes(allOperators: Operator[], skins: ReturnTyp
     if (!key) return;
     const rows = index.get(key) ?? [];
     if (!rows.some(row => row.name === candidate.name)) {
-      rows.push({ name: candidate.name, rarity: candidate.rarity, isFuture: candidate.isFuture ?? null, ...portraitStatus(candidate) });
+      rows.push({ name: candidate.name, rarity: candidate.rarity, ...portraitStatus(candidate) });
       index.set(key, rows);
     }
   };
@@ -1606,17 +1610,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     if (prices.length > 0) skinObtainByLabel[skin.name] = formatPrices(prices);
   }
 
-  // Related-operator cards need a current icon source. The scraped isFuture
-  // flag can outlive a Global release; derive it from the shared release source.
-  const allOperators = getAllOperators().map((op) => ({
-    ...op,
-    // Keep the established compact schema: `true` marks unavailable icons,
-    // while released operators omit the flag instead of serializing `false`
-    // into every operator page payload.
-    // Decided at content export, so it drifts until the next release; the export
-    // clock guard lists this route as a known exception (scripts/content/export-clock.mjs).
-    isFuture: isOperatorReleased(op, Date.now()) ? undefined : true,
-  }));
+  /* Related-operator cards carry no release state. They used to carry an isFuture judged at
+     content export, which froze until the next release -- and nothing on the page read it:
+     a card's icon comes from its name, rarity and portraitStatus. */
+  const allOperators = getAllOperators();
   const voiceData = getOperatorVoiceData(operator.internalName ?? operator.name);
   const relationIndexes = buildOperatorRelationIndexes(allOperators, skins);
   const withoutCurrent = (rows: RelatedOperator[] | undefined) => (rows ?? []).filter(row => row.name !== operator.name);
@@ -1643,7 +1640,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     // "unit" is an explicit, named list -- show all of them, not a
     // truncated roster match like branch/faction/tag.
     const limit = entry.type === 'unit' ? entry.values.length : entry.type === 'faction' ? 10 : 5;
-    return matches.slice(0, limit).map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null }));
+    return matches.slice(0, limit).map((op) => ({ name: op.name, rarity: op.rarity }));
   });
 
   // Auto-detected faction/class synergies -- scans EVERY operator's
@@ -1743,18 +1740,18 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     for (const tech of techniques) {
       if (tech.unit && !techniqueUnitIcons[tech.unit]) {
         const match = allOperators.find((op) => op.name === tech.unit);
-        if (match) techniqueUnitIcons[tech.unit] = { name: match.name, rarity: match.rarity, isFuture: match.isFuture ?? null, ...portraitStatus(match) };
+        if (match) techniqueUnitIcons[tech.unit] = { name: match.name, rarity: match.rarity, ...portraitStatus(match) };
       }
       if (tech.branch && !techniqueBranchOperators[tech.branch]) {
         const matches = allOperators.filter((op) => op.name !== operator.name && op.branch === tech.branch);
         matches.sort((a, b) => (b.rarity ?? 0) - (a.rarity ?? 0));
-        techniqueBranchOperators[tech.branch] = matches.slice(0, 5).map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null, ...portraitStatus(op) }));
+        techniqueBranchOperators[tech.branch] = matches.slice(0, 5).map((op) => ({ name: op.name, rarity: op.rarity, ...portraitStatus(op) }));
       }
       if (tech.group && tech.members && !techniqueGroupOperators[tech.group]) {
         techniqueGroupOperators[tech.group] = tech.members
           .map((name) => allOperators.find((op) => op.name === name))
           .filter((op): op is (typeof allOperators)[number] => !!op)
-          .map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null, ...portraitStatus(op) }));
+          .map((op) => ({ name: op.name, rarity: op.rarity, ...portraitStatus(op) }));
       }
     }
   }
@@ -1779,7 +1776,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
       if (others.length === 0) continue;
       const entries: SearchableOperator[] = others.slice(0, 4).map((e) => {
         const match = allOperators.find((op) => op.name === e.operatorName);
-        return { name: e.operatorName, rarity: e.rarity, isFuture: match?.isFuture ?? null, ...(match ? portraitStatus(match) : {}) };
+        return { name: e.operatorName, rarity: e.rarity, ...(match ? portraitStatus(match) : {}) };
       });
       techniqueRelatedOperators[tech.name] = { entries, totalCount: others.length };
     }
@@ -1804,5 +1801,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const skillTimings = (SKILL_TIMINGS.operators as unknown as Record<string, (SkillTiming | null)[][]>)[operator.internalName ?? ''] ?? [];
   const factionPath = getFactionIconPath(operator.faction);
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
-  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor } };
+  // The cost rows sort by the release's catalogue, not by a list compiled into the page.
+  const materialOrder = materialOrderFor(checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default), plannerCostNames(operator));
+  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder } };
+}, {
+  // A release exported before cost rows carried their order: this deployment's catalogue fills it in.
+  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)),
 });

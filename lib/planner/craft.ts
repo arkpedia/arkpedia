@@ -1,7 +1,4 @@
 import type { CostGroup } from '@/lib/operators/operatorTypes';
-import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
-import formulaData from '@/data/base-formulas.json';
-import recordData from '@/data/battle-records.json';
 import type { Depot } from './depot';
 
 /**
@@ -70,7 +67,16 @@ export interface Resolution {
   made: Record<string, number>;
 }
 
-export function createCraftTools(formulas: Record<string, Formula> = formulaData, records: { name: string; exp: number }[] = recordData) {
+/**
+ * The resolver over one release's tables: its recipes (data/base-formulas.json), its battle
+ * records (data/battle-records.json) and the order of its material catalogue
+ * (data/material-catalogue.json), which ranks the walk. Every one is required. There is no
+ * bundled instance: one would compile a deploy's copies into the browser bundle and answer
+ * from them on a page rendered from a newer release, which is what the module-level instance
+ * that used to sit at the bottom of this file did for any caller that forgot to pass the
+ * page's (usePlannerContent passes them).
+ */
+export function createCraftTools(formulas: Record<string, Formula>, records: readonly { name: string; exp: number }[], order: readonly string[]) {
 
 
 const FORMULAS = formulas;
@@ -87,8 +93,8 @@ const FORMULAS = formulas;
  */
 const WALKABLE = new Set(['F_EVOLVE', 'F_SKILL']);
 
-/** Highest tier first, which is the order the sort list already encodes. */
-const TIER_RANK = new Map(MATERIAL_SORT_ORDER.map((name, i) => [name, i]));
+/** Highest tier first, which is the order the catalogue already encodes. */
+const TIER_RANK = new Map(order.map((name, i) => [name, i]));
 
 /**
  * EXP is not a material you hold; battle records are.
@@ -99,7 +105,7 @@ const TIER_RANK = new Map(MATERIAL_SORT_ORDER.map((name, i) => [name, i]));
  * item_table.expItems, already sorted largest first, which is the order the greedy
  * conversion below spends them in.
  */
-const BATTLE_RECORDS: { name: string; exp: number }[] = records;
+const BATTLE_RECORDS: readonly { name: string; exp: number }[] = records;
 
 /** The records that cover `exp`, largest first. The last one over-shoots, which is
  *  what happens in game too -- a record cannot be spent by halves. */
@@ -357,4 +363,6 @@ function shortShares(resolution: Resolution): Map<string, number> {
 return { BATTLE_RECORDS, expToBattleRecords, resolveNeeds, isCraftable, formulaFor, shortShares };
 }
 
-export const { BATTLE_RECORDS, expToBattleRecords, resolveNeeds, isCraftable, formulaFor, shortShares } = createCraftTools();
+export type CraftTools = ReturnType<typeof createCraftTools>;
+/** The lookup createSourceTools takes: one release's recipe for a product, or null. */
+export type FormulaLookup = CraftTools['formulaFor'];

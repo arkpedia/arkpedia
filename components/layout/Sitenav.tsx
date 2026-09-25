@@ -1,5 +1,4 @@
 import { ContentImg, ContentArt } from '@/components/content/ContentImage';
-import { isGamePath } from '@/lib/minigames/catalogue';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
@@ -9,7 +8,7 @@ import MobileNavDrawer from './MobileNavDrawer';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
-import { ENEMY_HANDBOOK_HREF, ENEMY_HANDBOOK_SECTION } from '@/lib/enemies/handbookEntry';
+import { GROUPS, LOOSE, isActiveLink, type NavLink } from '@/lib/nav/navLinks';
 
 /**
  * A game icon drawn in the current text colour.
@@ -141,122 +140,10 @@ export const ICONS: Record<string, JSX.Element> = {
   ),
 };
 
-export interface NavLink {
-  href: string;
-  label: string;
-  icon: string;
-  /**
-   * The route prefix this entry stands for, where that is not its href. Only the
-   * Enemies entry needs it: it links to one enemy's page but means the handbook.
-   */
-  section?: string;
-}
-
-export const LINKS: NavLink[] = [
-  { href: '/operators', label: 'Operators', icon: 'roster' },
-  { href: '/skins', label: 'Skins', icon: 'skins' },
-  /* Not in the bar any more: the Events list is a view of the Schedule page. Kept in
-     LINKS because the event detail pages still live under /events/, and isActiveLink
-     reads this row to light the nav on them. */
-  { href: '/events', label: 'Events', icon: 'events' },
-  { href: '/farming', label: 'Farming', icon: 'farming' },
-  { href: '/stages', label: 'Stages', icon: 'stages' },
-  // Straight to the entry page, not to /enemies: that is a server redirect with no
-  // page behind it, and linking to it reloaded the app. See lib/enemies/handbookEntry.ts.
-  { href: ENEMY_HANDBOOK_HREF, label: 'Enemies', icon: 'enemies', section: ENEMY_HANDBOOK_SECTION },
-  { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
-  { href: '/base', label: 'Base', icon: 'base' },
-  { href: '/planner', label: 'Planner', icon: 'planner' },
-  { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
-  { href: '/community', label: 'Community', icon: 'community' },
-  { href: '/gacha', label: 'Gacha', icon: 'gacha' },
-  { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
-  { href: '/results', label: 'Power Scale', icon: 'rate' },
-  { href: '/games', label: 'Games', icon: 'grid' },
-  { href: '/schedule', label: 'Schedule', icon: 'timeline' },
-  { href: '/music', label: 'Music', icon: 'music' },
-  { href: '/support', label: 'Support', icon: 'support' },
-];
-
-/**
- * The bar's own shape: five menus and one bare link.
- *
- * Seventeen links measured 1707px of buttons inside a 1040px bar, so they had always
- * wrapped onto a second row, and the collapse existed to get that row back off the
- * screen. Grouping is what removes the need for it. The names below are the reader's
- * grouping, not a taxonomy invented here, and they are only an array: moving an entry
- * between menus is a line move.
- *
- * Support sits outside the menus because it is one destination and nothing groups with
- * it. Rules is what myrtle.moe does with Tier Lists, and it is right: a menu holding a
- * single item is a click in front of a link.
- */
-export interface NavGroup {
-  label: string;
-  items: NavLink[];
-}
-
-const at = (href: string): NavLink => {
-  const link = LINKS.find((l) => l.href === href);
-  if (!link) throw new Error(`nav group names a link that is not in LINKS: ${href}`);
-  return link;
-};
-
-export const GROUPS: NavGroup[] = [
-  { label: 'Database', items: [at('/operators'), at('/skins'), at(ENEMY_HANDBOOK_HREF), at('/stages')] },
-  { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha'), at('/pulls')] },
-  { label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
-];
-
-/* Not in a menu: one destination each, and a menu of one is a click in front of a
-   link. Planner joined them when Base, Recruitment and Gacha moved to Guides and left
-   it alone in Planning. Schedule joined them when the Events list became a view of the
-   Schedule page rather than a page of its own, which left that menu holding one thing
-   too. */
-export const LOOSE: NavLink[] = [at('/planner'), at('/schedule'), at('/support')];
-
-/**
- * Every destination the bar shows, in the order it shows them: each menu's contents in
- * menu order, then the loose links. The mobile drawer renders this rather than LINKS,
- * which is a registry in no particular order -- the drawer used to list Operators,
- * Skins, Events, Farming, Stages... while the bar read Operators, Skins, Enemies,
- * Stages, so the two navs disagreed about where everything was.
- *
- * Derived, not written out again. A second hand-maintained list is a second thing to
- * forget when an entry moves between menus.
- */
-export const NAV_ORDER: NavLink[] = [...GROUPS.flatMap((g) => g.items), ...LOOSE];
-
-/* Rows that are in LINKS on purpose while appearing in neither nav. Events is the only
-   one: the events LIST is a view of the Schedule page now, and this row survives so
-   isActiveLink can light Schedule on the /events/<slug> detail pages that still exist. */
-const NOT_IN_NAV = new Set<string>(['/events']);
-
-/* A row that is in no menu, no loose slot and not named above renders nowhere at all,
-   in either nav, and nothing else would say so. Same reasoning as at() above: fail the
-   build rather than quietly lose a destination. */
-const orphanLinks = LINKS.filter((l) => !NAV_ORDER.includes(l) && !NOT_IN_NAV.has(l.href));
-if (orphanLinks.length > 0) {
-  throw new Error(
-    `nav links belong to no menu and are not marked as deliberately hidden: ${orphanLinks
-      .map((l) => l.href)
-      .join(', ')}`
-  );
-}
-
-/**
- * Whether a nav entry's section contains the current route. A section's own detail
- * pages count as being in it: router.pathname is the ROUTE, so an enemy page reads
- * "/enemies/[slug]" and never equalled "/enemies" -- which left the nav unlit on
- * every detail page in the site. Home is excluded or "/" would prefix-match
- * everything. Shared with MobileNavDrawer, which had its own copy of this test and
- * disagreed with the desktop nav about which entry was lit.
- */
-export function isActiveLink(link: NavLink, pathname: string): boolean {
-  if (link.href === '/games') return isGamePath(pathname);
-  const section = link.section || link.href;
-  return pathname === section || (section !== '/' && pathname.startsWith(`${section}/`));
-}
+/* The registry of destinations -- LINKS, the menus, the loose links, NAV_ORDER and which
+   entry is lit -- is plain data in lib/nav/navLinks.ts, so a test can check every href
+   against the pages and the redirects without rendering the bar. */
+export { LINKS, GROUPS, LOOSE, NAV_ORDER, isActiveLink, type NavLink, type NavGroup } from '@/lib/nav/navLinks';
 
 export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }) {
   const router = useRouter();

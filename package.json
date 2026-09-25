@@ -35,7 +35,7 @@
     "audit:build": "npx tsx scripts/audits/audit-build.ts",
     "stages:refresh": "bash scripts/sync/refresh-stage-data.sh",
     "events:sync": "node scripts/sync/sync-event-windows.mjs",
-    "prebuild": "node scripts/audits/check-skin-catalogue.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts",
+    "prebuild": "node scripts/build/write-build-info.mjs && node scripts/audits/check-skin-catalogue.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts",
     "predev": "node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts",
     "test": "tsx --test scripts/tests/test-*.ts scripts/tests/test-*.mjs scripts/palettes/test-color-palette.ts",
     "check:styles": "node scripts/audits/check-unstyled-classes.mjs --strict",
@@ -76,6 +76,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",
+    "js-yaml": "^4.3.1",
     "tsx": "^4.23.13",
     "typescript": "^5.4.0"
   },

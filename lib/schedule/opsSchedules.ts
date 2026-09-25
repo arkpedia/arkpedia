@@ -1,3 +1,5 @@
+import { nextSssEnd, type SssCycle } from './sssCycle';
+
 // Reminder logic for the top-of-site announcement ticker: Annihilation
 // (weekly), SSS (4-weekly), and daily chip-shop availability.
 //
@@ -16,9 +18,8 @@ const RESET_HOUR_SGT = 19; // 7pm
 
 const WEEKDAY = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 } as const;
 
-// SSS's first end date in this cycle: 2026-08-17 (Monday) 19:00 SGT.
-const SSS_FIRST_END_SGT = { year: 2026, month: 8, day: 17, hour: 19, minute: 0 };
-const SSS_CYCLE_MS = 28 * DAY_MS; // 4 weeks
+// The SSS cycle is data (data/sss-cycle.json, lib/schedule/sssCycle.ts): the release carries
+// it in the home page's props, so a new cycle needs no redeploy.
 
 export interface Reminder {
   id: string;
@@ -32,8 +33,7 @@ function toSGTView(date: Date): Date {
 
 /** Converts SGT wall-clock fields back into the real (UTC-based) Date instant. */
 function fromSGTWallClock(year: number, month: number, day: number, hour: number, minute: number): Date {
-  // month here is 1-indexed to match how callers write it (matches the
-  // SSS_FIRST_END_SGT literal above); Date.UTC wants 0-indexed.
+  // month here is 1-indexed to match how callers write it; Date.UTC wants 0-indexed.
   return new Date(Date.UTC(year, month - 1, day, hour, minute) - SGT_OFFSET_MS);
 }
 
@@ -151,17 +151,10 @@ export function getAnnihilationNextEnd(now: Date): Date {
   return nextWeekdayTimeSGT(now, WEEKDAY.MON, RESET_HOUR_SGT);
 }
 
-export function getSSSNextEnd(now: Date): Date {
-  const base = fromSGTWallClock(
-    SSS_FIRST_END_SGT.year,
-    SSS_FIRST_END_SGT.month,
-    SSS_FIRST_END_SGT.day,
-    SSS_FIRST_END_SGT.hour,
-    SSS_FIRST_END_SGT.minute
-  );
-  if (now.getTime() <= base.getTime()) return base;
-  const cyclesElapsed = Math.ceil((now.getTime() - base.getTime()) / SSS_CYCLE_MS);
-  return new Date(base.getTime() + cyclesElapsed * SSS_CYCLE_MS);
+/** When the current SSS cycle ends. The cycle is the release's (data/sss-cycle.json), handed
+ *  in by the caller: required, so nothing falls back on a date compiled into the bundle. */
+export function getSSSNextEnd(now: Date, cycle: SssCycle): Date {
+  return nextSssEnd(now, cycle);
 }
 
 const REMINDER_WINDOW_MS = 3 * DAY_MS;
@@ -228,7 +221,8 @@ export function getCurrentlyAvailableChipClasses(now: Date): string[] {
   return CANONICAL_CLASS_ORDER.filter((c) => active.has(c));
 }
 
-export function getActiveReminders(now: Date = new Date()): Reminder[] {
+/** What the ticker says at `now`, counting SSS down to the release's cycle. */
+export function getActiveReminders(now: Date, sssCycle: SssCycle): Reminder[] {
   const reminders: Reminder[] = [];
 
   const annihilationEnd = getAnnihilationNextEnd(now);
@@ -237,8 +231,7 @@ export function getActiveReminders(now: Date = new Date()): Reminder[] {
     reminders.push({ id: 'annihilation', text: `Annihilation ends in ${formatRemaining(annihilationDiff)}` });
   }
 
-  const sssEnd = getSSSNextEnd(now);
-  const sssDiff = sssEnd.getTime() - now.getTime();
+  const sssDiff = getSSSNextEnd(now, sssCycle).getTime() - now.getTime();
   if (sssDiff > 0 && sssDiff <= REMINDER_WINDOW_MS) {
     reminders.push({ id: 'sss', text: `SSS ends in ${formatRemaining(sssDiff)}` });
   }

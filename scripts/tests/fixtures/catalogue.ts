@@ -4,8 +4,17 @@
  * depends on what the day's refresh left in data/: npm test runs in the release job
  * against freshly refreshed data, where any enemy icon or reward name may be new.
  */
+import { plannerCostNames } from '../../../lib/farming/materialCatalogue.mjs';
+import operatorFixture from './operator-costs.json';
+
+/** The planner's material catalogue for these fixtures: everything the fixture operator
+ *  (operator-costs.json, which most cases start from) costs, so no case trips the
+ *  catalogue hold unless it is about it. */
+export const fixtureMaterials = { order: ['EXP', ...plannerCostNames(operatorFixture.operator)] as string[] };
+
 export function emptyCatalogue(parts: object = {}) {
   return {
+    materials: fixtureMaterials,
     inventory: { operators: [], skins: [], events: [], banners: [] },
     operators: [], skins: [], banners: [], events: [], bundles: [],
     assets: new Set<string>(),

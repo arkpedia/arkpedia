@@ -58,9 +58,12 @@ test('a route with a known export clock read is recorded, not refused', () => {
 test('the export verdict fails a new clock read and a stale exception, and passes the rest', () => {
   assert.equal(exportClockVerdict('/farming', []), null);
   assert.match(exportClockVerdict('/farming', ['at getFarmingWindows (lib/schedule/materialCountdown.ts:48:14)']) ?? '', /\/farming read the clock 1 time\(s\).*\n.*materialCountdown\.ts:48/);
-  const [known] = Object.keys(KNOWN_EXPORT_CLOCK_READS);
-  assert.equal(exportClockVerdict(known, ['at somewhere']), null);
-  assert.match(exportClockVerdict(known, []) ?? '', /no longer reads the clock.*remove it/);
+  // Every route that used to decide release state at export now exports markers and decides per
+  // request (the /planner picker) or no longer carries the value at all (the operator page's
+  // related cards), so no route is an exception any more, and a read on any route fails.
+  assert.deepEqual(Object.keys(KNOWN_EXPORT_CLOCK_READS), []);
+  assert.match(exportClockVerdict('/planner', ['at getStaticProps (pages/planner.tsx:1)']) ?? '', /\/planner read the clock 1 time/);
+  assert.match(exportClockVerdict('/operators/[name]', ['at getStaticProps (pages/operators/[name].tsx:1)']) ?? '', /read the clock 1 time/);
 });
 
 test('release page data may not carry values the export decided from its clock', () => {

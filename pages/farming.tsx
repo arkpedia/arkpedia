@@ -149,7 +149,7 @@ function MaterialTile({ material, stages }: { material: FarmingMaterial; stages:
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/farming", async () => {
   return {
     props: {
-      windows: getFarmingWindows(),
+      windows: getFarmingWindows((await import('@/data/event_materials.json')).default),
     },
   };
 }, {

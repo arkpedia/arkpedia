@@ -10,7 +10,7 @@ import type { MonsterSirenSong } from '../../lib/music/albumsData';
 import musicGuesserAudio from '../../pages/api/music-guesser/[id]';
 
 const require = createRequire(import.meta.url);
-const { ClientDataGuard, forbiddenClientModules } = require('../build/client-bundle-guard.cjs');
+const { ClientDataGuard, deniedClientModules } = require('../build/client-bundle-guard.cjs');
 const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/release', assets: {} };
 
 function song(videoId: string, extra: Partial<MonsterSirenSong> = {}): MonsterSirenSong {
@@ -99,17 +99,24 @@ test('the player mounted on every page reaches no bundled album data', () => {
   assert.ok(reachable('lib/music/albumsData.ts').has('data/albums.json'));
 });
 
-test('the bundle guard fails a browser compilation that holds data/albums.json and names who imported it', () => {
+test('the bundle guard fails a browser compilation that holds any data/ record it does not allow, and names who imported it', () => {
   const root = path.resolve('/repo');
-  assert.deepEqual(forbiddenClientModules([`${root}/data/albums.json`, `${root}/data/albums.json?x`, `${root}/data/skins.json`, undefined], root), ['data/albums.json']);
-  assert.deepEqual(forbiddenClientModules([`${root}/lib/music/musicCatalogue.ts`], root), []);
+  const none = () => [];
+  // Denied by default: albums, and skins too, which the old named list never mentioned.
+  assert.deepEqual(deniedClientModules([`${root}/data/albums.json`, `${root}/data/albums.json?x`, `${root}/data/skins.json`, undefined], root, none), ['data/albums.json', 'data/skins.json']);
+  assert.deepEqual(deniedClientModules([`${root}/lib/music/musicCatalogue.ts`, `${root}/data/assets/revisions.json`, `${root}/data/final-poll-results.json`], root, none), []);
+  // SL-4b's table passes only through its one importer.
+  const windows = `${root}/data/skin-availability-windows.json`;
+  assert.deepEqual(deniedClientModules([windows], root, () => ['lib/skins/localSkinWindows.ts']), []);
+  assert.deepEqual(deniedClientModules([windows], root, () => ['lib/skins/localSkinWindows.ts', 'lib/skins/skinAvailability.ts']), ['data/skin-availability-windows.json']);
 
   const compile = (resources: string[]) => {
     const modules = resources.map(resource => ({ resource }));
     const issuers = new Map(modules.slice(1).map((module, i) => [module, modules[i]]));
     let onCompilation: (compilation: object) => void = () => {};
     let onFinish: (modules: object[]) => void = () => {};
-    const compilation = { errors: [] as Error[], moduleGraph: { getIssuer: (module: object) => issuers.get(module as { resource: string }) ?? null },
+    const compilation = { errors: [] as Error[], moduleGraph: { getIssuer: (module: object) => issuers.get(module as { resource: string }) ?? null,
+      getIncomingConnections: (module: object) => [{ originModule: issuers.get(module as { resource: string }) ?? null }] },
       hooks: { finishModules: { tap: (_: string, fn: typeof onFinish) => { onFinish = fn; } } } };
     new ClientDataGuard(root).apply({ hooks: { compilation: { tap: (_: string, fn: typeof onCompilation) => { onCompilation = fn; } } } });
     onCompilation(compilation);
@@ -121,6 +128,8 @@ test('the bundle guard fails a browser compilation that holds data/albums.json a
   assert.equal(errors.length, 1);
   assert.match(errors[0], /^data\/albums\.json is compiled into browser code \(imported by lib\/music\/albumsData\.ts <- lib\/music\/musicPlayerContext\.tsx <- pages\/_app\.tsx\)\. /);
   assert.deepEqual(compile([`${root}/pages/_app.tsx`, `${root}/lib/music/musicCatalogue.ts`]), []);
+  assert.deepEqual(compile([`${root}/pages/skins.tsx`, `${root}/lib/skins/localSkinWindows.ts`, `${root}/data/skin-availability-windows.json`]), []);
+  assert.match(compile([`${root}/pages/skins.tsx`, `${root}/lib/skins/skinAvailability.ts`, `${root}/data/skin-availability-windows.json`])[0], /^data\/skin-availability-windows\.json is compiled into browser code \(imported by lib\/skins\/skinAvailability\.ts/);
 });
 
 type Reply = { status: number; body: unknown; headers: Record<string, string> };

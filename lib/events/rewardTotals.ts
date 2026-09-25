@@ -1,5 +1,3 @@
-import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
-
 /** One listing in an event's reward store, as /events/[slug] receives it. */
 export interface ResolvedRewardItem {
   name: string;
@@ -50,15 +48,15 @@ export function parseRewardQuantity(q: number | string): number {
   return Math.round(base);
 }
 
-const MATERIAL_SORT_INDEX = new Map(MATERIAL_SORT_ORDER.map((n, i) => [n, i]));
-
-/** Skins first (they are never in MATERIAL_SORT_ORDER), alphabetically; then the
+/** Skins first (they are never in the material catalogue), alphabetically; then the
  *  materials in the game's tier order. The reverse of sortMaterials(), whose lists
- *  are pure materials and where an unknown name is a data gap. */
-export function sortByMaterialOrder<T extends { name: string }>(items: T[]): T[] {
+ *  are pure materials and where an unknown name is a data gap. `order` is the
+ *  release's catalogue order for this event's rewards (the page's materialOrder prop). */
+export function sortByMaterialOrder<T extends { name: string }>(items: T[], order: readonly string[]): T[] {
+  const index = new Map(order.map((n, i) => [n, i]));
   return [...items].sort((a, b) => {
-    const ai = MATERIAL_SORT_INDEX.get(a.name);
-    const bi = MATERIAL_SORT_INDEX.get(b.name);
+    const ai = index.get(a.name);
+    const bi = index.get(b.name);
     if (ai !== undefined && bi !== undefined) return ai - bi;
     if (ai === undefined && bi === undefined) return a.name.localeCompare(b.name);
     if (ai === undefined) return -1;
@@ -74,7 +72,7 @@ export function sortByMaterialOrder<T extends { name: string }>(items: T[]): T[]
  * totals at all (its own store tab still shows it). So no total is ever zero
  * because a listing had no limit.
  */
-export function computeRewardTotals(stores: ResolvedRewardStore[]): RewardTotal[] {
+export function computeRewardTotals(stores: ResolvedRewardStore[], order: readonly string[]): RewardTotal[] {
   const totals = new Map<string, RewardTotal>();
   for (const store of stores) {
     for (const item of store.items) {
@@ -85,5 +83,5 @@ export function computeRewardTotals(stores: ResolvedRewardStore[]): RewardTotal[
       totals.set(item.name, { name: item.name, iconPath: item.iconPath, total: prev + add });
     }
   }
-  return sortByMaterialOrder(Array.from(totals.values()));
+  return sortByMaterialOrder(Array.from(totals.values()), order);
 }

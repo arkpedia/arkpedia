@@ -1,5 +1,5 @@
 import type { FarmingTier } from '@/lib/farming/farmingTypes';
-import type { formulaFor } from './craft';
+import type { FormulaLookup } from './craft';
 
 /**
  * Where a material comes from.
@@ -27,7 +27,7 @@ export interface Source {
    recipe lookup and the release's farming guide (usePlannerContent). There is no
    module-level instance, because one would compile this deploy's copies of the tables
    into the browser bundle and answer from them. */
-export function createSourceTools(supply: Record<string, string[]>, lookupRecipe: typeof formulaFor, farmingTiers: readonly FarmingTier[]) {
+export function createSourceTools(supply: Record<string, string[]>, lookupRecipe: FormulaLookup, farmingTiers: readonly FarmingTier[]) {
 
 
 /**

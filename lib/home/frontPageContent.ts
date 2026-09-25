@@ -7,8 +7,6 @@ import { bannerSeriesFromName } from '../operators/operatorSeries';
 import { getAllSkins } from '../skins/skins';
 import { Skin } from '../skins/skinTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
-import { activeEventFarming, getEventFarmingMaterials } from '../farming/eventFarming';
-import { FarmingMaterial } from '../farming/farmingTypes';
 import { publishedArt } from '@/lib/art/artVersion';
 
 export interface GameEvent extends GameWindowTimes {
@@ -145,11 +143,6 @@ export function getOngoingSkins(now: Date, allSkins = getAllSkins(), events = lo
     }
   }
   return result;
-}
-
-/** Actual repeatable stage drops inside their confirmed Global battle windows. */
-export function getCurrentFarmableMaterials(now: Date): FarmingMaterial[] {
-  return activeEventFarming(getEventFarmingMaterials(), now.getTime());
 }
 
 // --- Full events listing, for the standalone /events pages ---------

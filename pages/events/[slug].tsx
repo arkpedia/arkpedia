@@ -18,6 +18,9 @@ import { getEventRewards } from '@/lib/events/loadEventsData';
 import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
+import { materialOrderFor } from '@/lib/farming/materialSortOrder';
+import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
+import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -45,6 +48,9 @@ interface Props {
   featuredOperators: FeaturedOperatorRate[];
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
+  /** The release's material catalogue order (data/material-catalogue.json), for the reward
+   *  names this event lists: what the reward totals sort by. */
+  materialOrder: string[];
 }
 
 type SectionKey = 'banner' | 'rewards' | 'skins';
@@ -144,6 +150,7 @@ export default function EventDetailPage({
   featuredOperators,
   skins,
   rewardStores,
+  materialOrder,
 }: Props) {
   const sections = SECTIONS.filter((section) => (
     section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 : skins.length > 0
@@ -200,7 +207,7 @@ export default function EventDetailPage({
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   const [activeRewardTab, setActiveRewardTab] = useState<string>('all');
-  const rewardTotals = computeRewardTotals(rewardStores);
+  const rewardTotals = computeRewardTotals(rewardStores, materialOrder);
   const activeStoreItems = rewardStores.filter((s) => s.type === activeRewardTab).flatMap((s) => s.items);
 
   // Skin detail modal + zoom -- same pattern as SkinsCarousel.tsx
@@ -482,6 +489,13 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       featuredOperators,
       skins,
       rewardStores,
+      materialOrder: materialOrderFor(
+        checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
+        rewardStores.flatMap((store) => store.items.map((item) => item.name)),
+      ),
     },
   };
+}, {
+  // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
+  finalize: (props) => withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name))),
 });

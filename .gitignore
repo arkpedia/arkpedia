@@ -54,6 +54,10 @@ public/stage-guesser
 # content release, and written by prebuild/predev as the deployment's fail-safe copy.
 # Ignored, so export.mjs never publishes it as a source record.
 public/music-catalogue.json
+# Which code a build is (scripts/build/write-build-info.mjs, the first step of prebuild),
+# served by the deployment for the content release gate. Ignored, so export.mjs never
+# publishes it as a source record and a deploy never becomes a new release id.
+public/build-info.json
 
 # Media is published from arkpedia-skin-assets or arkpedia-image-assets. Keep
 # generated/imported copies available to local tooling without allowing the

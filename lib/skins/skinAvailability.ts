@@ -1,5 +1,3 @@
-import confirmed from '@/data/skin-availability-windows.json';
-import rotations from '@/data/skin-shop-rotations.json';
 import type { Skin } from './skinTypes';
 import type { ScheduleEvent } from '../schedule/scheduleTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
@@ -18,19 +16,36 @@ export interface SkinWindow {
   inventorySource?: string;
   details?: string;
   estimated?: boolean;
-  newRelease?: boolean;
+  /** Whether the window sells outfits that are new, not reissues: what "current" sorts by.
+   *  Always stated. It used to be optional, and a window without it made the page look the
+   *  answer up in the verified windows compiled into its bundle -- the deploy's copy. */
+  newRelease: boolean;
 }
 export interface SkinCountdown extends SkinWindow {
   live: boolean;
 }
+/** data/skin-availability-windows.json: verified Global acquisition windows. */
+export interface ConfirmedSkinWindows {
+  entries: (Omit<SkinWindow, 'kind' | 'newRelease'> & { kind: string; newRelease?: boolean })[];
+}
+/** data/skin-shop-rotations.json: CN shop batches, projected onto Global event dates. */
+export interface SkinShopRotations {
+  entries: { event: string; eventStart: string; source?: string; rotations: { label: string; start: string; end: string; new: string[]; returning: string[] }[] }[];
+}
+/** A verified entry as a window, with newRelease stated. */
+export const confirmedWindow = (entry: ConfirmedSkinWindows['entries'][number]): SkinWindow =>
+  ({ ...entry, kind: entry.kind as AcquisitionKind, newRelease: entry.newRelease === true });
 export const skinKey = (skin: Pick<Skin, 'model' | 'name'>) => `${skin.model} / ${skin.name}`;
 const normalizeEvent = (name: string) => name.replace(/\[[^\]]*\]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 
 /** Verified acquisition windows win over release associations and CN projections.
  * A Fashion Review flag says nothing about an individual sale or draw pool.
- * Forecasts are useful for planning, but never establish "available now". */
-export function getSkinWindows(skins: Skin[], events: ScheduleEvent[]): SkinWindow[] {
-  const windows: SkinWindow[] = confirmed.entries.map(entry => ({ ...entry, kind: entry.kind as AcquisitionKind }));
+ * Forecasts are useful for planning, but never establish "available now".
+ * The two tables are the release's, handed in by the page's data builder: required, so no
+ * caller can fall back on a copy compiled into the browser bundle. */
+export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: { confirmed: ConfirmedSkinWindows; rotations: SkinShopRotations }): SkinWindow[] {
+  const { confirmed, rotations } = sources;
+  const windows: SkinWindow[] = confirmed.entries.map(confirmedWindow);
   const eventNames = events.map(event => event.name);
   const byId = new Map(skins.map(skin => [skinKey(skin), skin]));
   for (const source of rotations.entries) {
@@ -49,7 +64,7 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[]): SkinWind
           event: event.name, kind: 'shop', label: rotation.label, skinIds,
           startAt: new Date(Date.parse(rotation.start) + offset + 15 * 3600000).toISOString(),
           endAt: new Date(Date.parse(rotation.end) + offset + 11 * 3600000).toISOString(),
-          source: source.source, estimated: true,
+          source: source.source, estimated: true, newRelease: false,
         });
       }
     }
@@ -64,27 +79,13 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[]): SkinWind
       const id = skinKey(skin);
       if (windows.some(window => window.skinIds.includes(id) && normalizeEvent(window.event) === normalizeEvent(event.name))) continue;
       windows.push({ event: event.name, kind: /Outfit Store/i.test(skin.howToObtain || '') ? 'shop' : 'reward',
-        label: 'Expected release', skinIds: [id], startAt: range.start.toISOString(), endAt: range.end.toISOString(), estimated: true });
+        label: 'Expected release', skinIds: [id], startAt: range.start.toISOString(), endAt: range.end.toISOString(), estimated: true, newRelease: false });
     }
   }
   return windows;
 }
 
-/** The app can ship a newly verified sale before the next content release does.
- * Keep the published windows, adding only locally confirmed outfits absent from
- * them. Once the content release catches up, its record takes precedence. */
-export function withLocalConfirmedSkinWindows(windows: SkinWindow[]): SkinWindow[] {
-  const missing = confirmed.entries.flatMap(entry => {
-    const skinIds = entry.skinIds.filter(id => !windows.some(window =>
-      !window.estimated && window.kind === entry.kind
-      && window.startAt === entry.startAt && window.endAt === entry.endAt
-      && window.skinIds.includes(id)));
-    return skinIds.length ? [{ ...entry, kind: entry.kind as AcquisitionKind, skinIds }] : [];
-  });
-  return missing.length ? [...windows, ...missing] : windows;
-}
-
-export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date, windows = getSkinWindows(skins, events)): Map<string, SkinCountdown> {
+export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date, windows: SkinWindow[]): Map<string, SkinCountdown> {
   const result = new Map<string, SkinCountdown>();
   for (const window of windows) {
     const start = Date.parse(window.startAt), end = Date.parse(window.endAt);
@@ -108,8 +109,7 @@ export const acquisitionLabel = (window: SkinWindow) => window.kind === 'shop' ?
 /** Current releases precede reissues, independent of catalogue/scrape order. */
 export function compareCurrentSkins(a: Skin, b: Skin, availability: Map<string, SkinCountdown>): number {
   const first = availability.get(skinKey(a)), second = availability.get(skinKey(b));
-  const isNew = (skin: Skin, window: SkinCountdown | undefined) => window?.newRelease ?? confirmed.entries.some(entry =>
-    entry.newRelease && entry.startAt === window?.startAt && entry.kind === window?.kind && entry.skinIds.includes(skinKey(skin)));
-  return Number(isNew(b, second)) - Number(isNew(a, first))
+  const isNew = (window: SkinCountdown | undefined) => window?.newRelease === true;
+  return Number(isNew(second)) - Number(isNew(first))
     || Date.parse(second?.startAt ?? '1970-01-01') - Date.parse(first?.startAt ?? '1970-01-01');
 }

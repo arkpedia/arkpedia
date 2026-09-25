@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { computeRewardTotals, stockLimit, type ResolvedRewardStore } from '../../lib/events/rewardTotals';
 import { loadAllEventYears, type EventRewardBlock } from '../../lib/events/loadEventsData';
+import { materialOrderFor } from '../../lib/farming/materialSortOrder';
+import { checkMaterialCatalogue } from '../../lib/farming/materialCatalogue.mjs';
+import catalogue from '../../data/material-catalogue.json';
 
 /*
  * GE-15: an event store listing with unlimited stock printed "×0" in the All view.
@@ -29,7 +32,7 @@ test('an unlimited listing never becomes a zero total', () => {
     ['LMD', '5K', '∞'],
     ['Grindstone', 1, '∞'],
     ['Orirock Cube', 2, 'unlimited'],
-  ])]);
+  ])], ['Orirock Cube']);
   assert.deepEqual(totals, [], 'a material with only unlimited listings has nothing finite to total');
 });
 
@@ -37,8 +40,15 @@ test('a finite listing is totalled and an unlimited one beside it is left out', 
   const totals = computeRewardTotals([
     store([['LMD', '10K', '20'], ['Device', 1, '3']]),
     store([['LMD', '5K', '∞'], ['Device', 1, '2']]),
-  ]);
+  ], ['Device']);
   assert.deepEqual(totals.map((t) => [t.name, t.total]).sort(), [['Device', 5], ['LMD', 200000]]);
+});
+
+test('totals list what the catalogue does not know (skins) first, then materials in its order', () => {
+  const totals = computeRewardTotals([store([
+    ['Orirock Cube', 1, '1'], ['Device', 1, '1'], ['Zeta Skin', 1, '1'], ['Alpha Skin', 1, '1'],
+  ])], ['Orirock Cube', 'Device']);
+  assert.deepEqual(totals.map((t) => t.name), ['Alpha Skin', 'Zeta Skin', 'Orirock Cube', 'Device']);
 });
 
 test('no event in the bundled data totals a reward to zero or NaN', () => {
@@ -59,7 +69,8 @@ test('no event in the bundled data totals a reward to zero or NaN', () => {
         iconPath: null,
       })),
     }));
-    for (const total of computeRewardTotals(stores)) {
+    const order = materialOrderFor(checkMaterialCatalogue(catalogue), stores.flatMap((s) => s.items.map((item) => item.name)));
+    for (const total of computeRewardTotals(stores, order)) {
       checked += 1;
       assert.ok(Number.isFinite(total.total) && total.total > 0, `${event.name}: ${total.name} totals ${total.total}`);
     }

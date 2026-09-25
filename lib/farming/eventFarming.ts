@@ -1,8 +1,12 @@
-import data from '@/data/event-farming.json';
 import type { FarmingMaterial } from './farmingTypes';
 
-/** Keep windows in the page payload so an open tab follows stage openings/closures. */
-export function getEventFarmingMaterials(drops = data.drops): FarmingMaterial[] {
+/** One row of data/event-farming.json's drops. */
+export interface EventFarmingDrop { material: string; stage: string; startAt: string; endAt: string }
+
+/** Keep windows in the page payload so an open tab follows stage openings/closures.
+ *  `drops` is the release's data/event-farming.json, handed in by the page's data builder:
+ *  required, so browser code that uses this module never compiles the table in. */
+export function getEventFarmingMaterials(drops: readonly EventFarmingDrop[]): FarmingMaterial[] {
   const materials = new Map<string, FarmingMaterial>();
   for (const drop of drops) {
     const material = materials.get(drop.material) ?? {
