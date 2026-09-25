@@ -621,8 +621,9 @@
   /* offsetTop of a row is read against this box when the open stage is
      scrolled into view. */
   position: relative;
+  /* The thumb's colour is inherited from :root (--text-faint): the --line it was
+     overridden with here measured 1.31:1, a rail scrollbar nobody could see. */
   scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
 }
 .stage-rail-more { padding: 12px 11px; margin: 0; }
 .stage-list-col .stage-empty { padding: 16px 11px; }

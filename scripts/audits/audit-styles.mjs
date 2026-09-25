@@ -32,6 +32,10 @@
  *                  not load, which the browser then fakes (faux bold)
  *   nativeControls a native <select> or a role="listbox" outside components/ui --
  *                  components/ui/StyledSelect (and SuggestMenu) are the only ones
+ *   scrollbarThumb a scrollbar thumb in --line or --line-soft (scrollbar-color's
+ *                  first colour, or a ::-webkit-scrollbar-thumb background): a
+ *                  hairline alpha at 1.31:1, a scrollbar nobody can see. The thumb
+ *                  is --text-faint, inherited from :root
  *   primaryToggle  a class chosen between 'primary' and 'ghost' by a condition in
  *                  TSX (pages/dev excepted): that is a toggle whose "on" borrows the
  *                  primary action's fill. A toggle is a .filter-chip with
@@ -176,7 +180,7 @@ function collect() {
   const owners = new Map();   // class -> Set<file>
   const out = {
     collisions: [], fontSizes: [], rawHex: [], rarityLiteral: [], oldTeal: [],
-    pills: [], h1Rules: [], fontWeights: [], nativeControls: [], primaryToggle: [],
+    pills: [], h1Rules: [], fontWeights: [], nativeControls: [], scrollbarThumb: [], primaryToggle: [],
   };
   const tokens = tokenHexes();
   const weights = loadedWeights();
@@ -226,6 +230,9 @@ function collect() {
       }
       for (const d of decls) {
         if (d.prop.includes('radius') && /\b9{3,}px\b/.test(d.value)) out.pills.push(`${path}: ${selector}`);
+        const thumb = d.prop === 'scrollbar-color' ? d.value.trim().split(/\s+(?![^(]*\))/)[0]
+          : /::-webkit-scrollbar-thumb/.test(selector) && (d.prop === 'background' || d.prop === 'background-color') ? d.value : null;
+        if (thumb && /var\(\s*--line(?:-soft)?\s*[,)]/.test(thumb)) out.scrollbarThumb.push(`${path}: ${selector} { ${d.prop}: ${d.value} }`);
       }
       if (path !== join('styles', 'core', 'shared.css') && selector.split(',').some(h1Subject)) {
         for (const d of decls) {
@@ -283,10 +290,11 @@ const LABELS = {
   h1Rules: 'an h1 size or case outside styles/core/shared.css -- render components/ui/PageHeader',
   fontWeights: 'a webfont weight pages/_document.tsx does not load, so the browser fakes it',
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
+  scrollbarThumb: 'a scrollbar thumb in --line or --line-soft (1.31:1, invisible) -- drop the override and inherit :root\'s --text-faint',
   primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",
 };
 
-const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'primaryToggle'];
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle'];
 
 function counts(list) {
   const m = new Map();

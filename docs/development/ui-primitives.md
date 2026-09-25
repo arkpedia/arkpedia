@@ -100,7 +100,7 @@ These apply to every page with no opt-in:
 - `:root { accent-color: var(--teal) }` applies to native checkboxes, radios and ranges.
 - The theme's input rule is inside `:where()` and has zero specificity. A page class on an input always wins. Focus keeps the site's 2px teal outline. There is no `outline: none` and no halo.
 - `input`, `select` and `textarea` use `font: inherit`, so there is no browser Arial.
-- The scrollbar thumb rests at `--text-faint` everywhere (the `:root` default and the drawn `.sidescroll` bar). The drawn bar also turns teal on hover.
+- The scrollbar thumb rests at `--text-faint` everywhere (the `:root` default and the drawn `.sidescroll` bar). The drawn bar also turns teal on hover. `scrollbar-color` is inherited, so a nested vertical scroller sets at most `scrollbar-width` and takes the colour from `:root`. A thumb in `--line` or `--line-soft` (1.31:1) is rejected by `audit:styles` (`scrollbarThumb`).
 - `.site-nav-trigger` is in sentence case at weight 400, like the nav links.
 
 ## Components (`components/ui`)
@@ -320,6 +320,7 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `collisions` | A bare class styled in two global stylesheets | Scope the class to its page, or move a shared one to `core/` |
 | `fontSizes` | Sizes off the scale (9–13 body; 15/18/22/26/30 display) | Round to the scale |
 | `rawHex` (strict) | A hex literal that a token names | Use the token |
+| `scrollbarThumb` (strict) | A scrollbar thumb in `--line` or `--line-soft`, as `scrollbar-color`'s first colour or a `::-webkit-scrollbar-thumb` background | Drop the override and inherit `:root`'s `--text-faint` |
 | `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
 
 ```sh
