@@ -93,10 +93,10 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
           <div className="pulls-odds-headline"><span>{targets.length > 1 ? 'All goals' : 'Goal chance'}<small>Estimate · {goal.pulls.toLocaleString()} pulls · 0 pity</small></span><strong>{formatChance(result.all)}</strong></div>
           <details className="pulls-odds-details pulls-copy-details" open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)}>
           <summary>{goal.includeSpark && rules.type === 'limited' ? 'Chance when prioritising each operator' : 'Chances per operator'}</summary>
-          <p className="hint">{goal.includeSpark && rules.type === 'limited' && <>Each row can use the full spark budget. All goals share it. </>}At least N new copies{goal.includeSpark && rules.type === 'limited' ? ' · each operator prioritized' : ''}</p>
+          <p className="hint pulls-note">{goal.includeSpark && rules.type === 'limited' && <>Each row can use the full spark budget. All goals share it. </>}At least N new copies{goal.includeSpark && rules.type === 'limited' ? ' · each operator prioritized' : ''}</p>
           {targets.map((target, i) => <div className="pulls-copy-row" key={target.name}><b>{target.name}</b><dl>{result.copies[i].map((chance, j) => <div key={j}><dt>{j + 1}{j === 0 ? ' copy' : ' copies'}</dt><dd>{formatChance(chance)}</dd></div>)}</dl></div>)}
           </details>
-        </> : <p className="hint">Calculating chances…</p>}
+        </> : <p className="hint pulls-note">Calculating chances…</p>}
       </div>
     ) : <div className="pulls-odds-empty">Select an operator to see your chances.</div>}
     </div>

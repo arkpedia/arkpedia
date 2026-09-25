@@ -366,7 +366,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
             </div>
             {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
               {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
-            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Recurring income breakdown <span className="hint">{income.days} daily resets · {income.weeks} weekly resets</span></summary>
+            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Recurring income breakdown <span className="hint pulls-note">{income.days} daily resets · {income.weeks} weekly resets</span></summary>
               <div className="pulls-lines">
             <Line what="Yellow certificate shop" sum="pulls from full monthly sets" amount={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) : 0} />
             <Line what="Green cert shop" sum={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} amount={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} />
@@ -392,7 +392,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
             </div>
           </div>
 </details>
-            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure pulls-event-rewards" open><summary>Event rewards <span className="hint">{haul.op} OP · {haul.permits} permits by {until}</span></summary>
+            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure pulls-event-rewards" open><summary>Event rewards <span className="hint pulls-note">{haul.op} OP · {haul.permits} permits by {until}</span></summary>
           {haul.counted.length === 0 && haul.skipped.length === 0 ? (
             <p className="hint pulls-empty">
               No events end before this date.

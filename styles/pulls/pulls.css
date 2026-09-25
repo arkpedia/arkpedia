@@ -302,7 +302,7 @@
 .pulls-disclosure { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
 .pulls-disclosure > summary { cursor: pointer; color: var(--text); font: 600 15px/1.4 var(--font-body); }
 .pulls-disclosure > summary:hover { color: var(--teal); }
-.pulls-disclosure > summary .hint { display: inline-block; margin: 0 0 0 10px; font-weight: 400; }
+.pulls-disclosure > summary .pulls-note { display: inline-block; margin: 0 0 0 10px; font-weight: 400; }
 .pulls-disclosure[open] > summary { margin-bottom: 18px; }
 .pulls-disclosure { scroll-margin-top: 90px; }
 .pulls-skin-search { display: flex; flex-direction: column; gap: 8px; font-weight: 600; }
@@ -319,7 +319,7 @@
 
   .pulls-skin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pulls-skin-option img, .pulls-skin-noart { height: 160px; }
-  .pulls-disclosure > summary .hint { display: block; margin: 6px 0 0; }
+  .pulls-disclosure > summary .pulls-note { display: block; margin: 6px 0 0; }
 }
 
 .pulls-wishing-wall { min-width: 0; margin: 12px 0 0; padding: 0; border: 0; }
@@ -355,7 +355,7 @@
 .pulls-operator-count { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 4px; padding: 8px 10px; border-left: 1px solid var(--line); color: var(--text-dim); font-size: 11px; }
 .pulls-copy-details { border-top: 1px solid var(--line); padding-top: 6px; }
 .pulls-copy-details > summary { min-height: 32px; display: list-item; align-content: center; }
-.pulls-copy-details > .hint { font-size: 11px; letter-spacing: normal; }
+.pulls-copy-details > .pulls-note { font-size: 11px; letter-spacing: normal; }
 .pulls-operator-choice img { flex: none; width: 32px; height: 32px; object-fit: contain; }
 .pulls-operator-choice span { min-width: 0; overflow-wrap: anywhere; }
 .pulls-operator-choice b { font-size: 13px; font-weight: 600; }
@@ -371,7 +371,7 @@
 .pulls-goals-outcome { min-width: 0; padding-left: 24px; border-left: 1px solid var(--line); }
 .pulls-goals-outcome .pulls-plan-controls { margin-top: 0; }
 .pulls-odds-result { min-width: 0; padding-top: 18px; }
-.pulls-odds-result > .hint { font-size: 11px; margin: 12px 0 8px; letter-spacing: normal; }
+.pulls-odds-result > .pulls-note { font-size: 11px; margin: 12px 0 8px; letter-spacing: normal; }
 .pulls-odds-headline { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 14px; }
 .pulls-odds-headline span { font-size: 15px; }
 .pulls-odds-headline small { display: block; color: var(--text-dim); font-size: 12px; margin-top: 4px; }
@@ -416,7 +416,7 @@
 .pulls-help-heading h2 { margin: 0; font: 700 22px/1.2 var(--font-display); overflow-wrap: anywhere; }
 .pulls-help-heading button { flex: none; }
 .pulls-help-content { padding: 4px 20px 12px; }
-.pulls-help-content p, .pulls-help-content .hint, .pulls-help-content li { font: 15px/1.65 var(--font-body); letter-spacing: normal; color: var(--text-dim); }
+.pulls-help-content p, .pulls-help-content li { font: 15px/1.65 var(--font-body); letter-spacing: normal; color: var(--text-dim); }
 .pulls-help-content li + li { margin-top: 8px; }
 .pulls-help-content ol { padding-left: 22px; }
 .pulls-help-content h3 { margin: 18px 0 8px; font: 700 18px var(--font-display); }

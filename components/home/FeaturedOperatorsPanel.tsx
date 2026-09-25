@@ -51,7 +51,7 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
       <OperatorRow operators={featured} />
       {returning.length > 0 && <div className="front-returning-ops">
         <h3>Returning limited operators</h3>
-        <p className="hint">{RETURNING_LIMITED_NOTE}</p>
+        <p className="hint front-returning-note">{RETURNING_LIMITED_NOTE}</p>
         <OperatorRow operators={returning} />
       </div>}
     </section>

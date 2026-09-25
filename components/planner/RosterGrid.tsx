@@ -221,7 +221,7 @@ export function RosterGrid({
               Add a new operator
             </button>
           )}
-          <span className="hint roster-filters-count">
+          <span className="hint plan-hint roster-filters-count">
             {/* Derived from the tiles, both halves of it. */}
             {filtered ? `${shown.length} of ${operators.length} shown · ` : ''}{ownedCount} owned
           </span>
@@ -233,7 +233,7 @@ export function RosterGrid({
 
       <div className="wizard-body">
         {shown.length === 0 ? (
-          <p className="hint">
+          <p className="hint plan-hint">
             {query.trim()
               ? <>Nothing matches &ldquo;{query}&rdquo;{mode === 'goal' && ownedFilter === 'owned' ? ' among the operators you own — press Add a new operator to reach the rest' : ''}.</>
               : mode === 'goal' && ownedFilter === 'owned'

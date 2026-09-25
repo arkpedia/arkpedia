@@ -272,7 +272,7 @@ export function DepotGrid({
             <div key={g.tag} className="planner-depot-group open">
               <div className="planner-depot-grouphead">
                 <span className="label-tag planner-depot-grouptag">{g.tag}</span>
-                <span className="hint">{g.items.filter((i) => i.have > 0).length} of {g.items.length} held</span>
+                <span className="hint plan-hint">{g.items.filter((i) => i.have > 0).length} of {g.items.length} held</span>
               </div>
               <div className="depot-grid">
                 {g.items.map((item) => (
@@ -290,7 +290,7 @@ export function DepotGrid({
         ) : null}
 
         {!shown.length && (
-          <p className="hint">
+          <p className="hint plan-hint">
             {sort === 'needed'
               ? 'Nothing is planned yet, so nothing is needed. Add an operator above, or switch to Game order to fill the depot in.'
               : `Nothing matches “${query}”.`}

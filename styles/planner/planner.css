@@ -71,7 +71,7 @@
   border-bottom: 1px solid var(--line-soft);
   margin: 18px 0 10px;
 }
-.planner-depot-grouphead .hint { margin: 0; }
+.planner-depot-grouphead .plan-hint { margin: 0; }
 /* A group's name is now the only thing labelling it, so it takes a size that reads as
    a heading rather than as the ghosted half of a pair. Local, not on .label-tag --
    that token is 9.5px everywhere else on the site for good reasons. */
@@ -119,7 +119,7 @@
    shrink -- one long sentence pushing the strip 36px past a 390px viewport and
    giving the whole page a horizontal scrollbar. It may grow to its content and
    it may wrap; what it may not do is set the width. */
-.planner-need-stages .hint { margin: 0; flex: 0 1 auto; min-width: 0; }
+.planner-need-stages .plan-hint { margin: 0; flex: 0 1 auto; min-width: 0; }
 
 /* --- the build panel's head ---------------------------------------------------------
    Portrait, who, and the whole journey in one line. */
@@ -907,7 +907,7 @@
   flex-wrap: wrap;
   margin-top: 11px;
 }
-.recipe-foot .hint { margin: 0; }
+.recipe-foot .plan-hint { margin: 0; }
 .recipe-foot-acts { display: flex; align-items: center; gap: 8px; }
 /* A nested recipe is inset once, so depth is visible without a second style. */
 .recipe .recipe { margin: 5px 0 0 28px; }
@@ -1087,11 +1087,10 @@
   border-bottom: 1px solid var(--line-soft);
 }
 :root[data-theme="light"] .plan-panel-head { background: rgba(0, 0, 0, 0.03); }
-.plan-panel-head .label-pair { flex: 0 1 auto; min-width: 0; }
 /* Experimental mode's panel titles are the site's section heading (amber 18px,
    .op-section h2), the same as Simple mode's: the page had two heading voices. */
 .plan-panel-head .label-pair > h2 { font-size: 18px; letter-spacing: 0.03em; color: var(--amber); }
-.plan-panel-head .hint { margin: 0; }
+.plan-panel-head .plan-hint { margin: 0; }
 .plan-panel-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-panel-body { padding: 14px 16px 16px; }
 
@@ -1107,7 +1106,7 @@
   padding-top: 13px;
   border-top: 1px solid var(--line-soft);
 }
-.plan-panel-foot .hint { margin: 0; flex: 1 1 240px; min-width: 0; }
+.plan-panel-foot .plan-hint { margin: 0; flex: 1 1 240px; min-width: 0; }
 
 /* --- what to get next: one card per short material --------------------- */
 .need-cards {
@@ -1181,8 +1180,11 @@
 .need-card.met .need-card-count b { color: var(--text-dim); }
 
 .need-card-bar { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
-.need-card-bar .meter { flex: 1; }
-.need-card-bar span {
+/* The tally beside the meter. A class, not `.need-card-bar span`: the meter is a span
+   too, and without a planner rule of its own (gone, so .meter lives in the theme
+   alone) that selector would outrank the theme's `.meter { flex: 1 }` and shrink the
+   bar to nothing. */
+.need-card-tally {
   flex: none;
   font-family: var(--font-mono);
   font-weight: 500;
@@ -1270,7 +1272,7 @@
 .plan-arrow .unset { color: var(--text-faint); }
 
 .plan-progress { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.plan-progress .meter { flex: 1 1 90px; }
+.plan-progress-meter { flex: 1 1 90px; }
 .plan-progress .pct {
   flex: none;
   font-family: var(--font-mono);
@@ -1372,9 +1374,9 @@
    ground by 3.5% white, and measured on the real page that took the head's tag
    and hint to 4.42:1 -- just under AA, on the line that says what the panel is
    counting. */
-.plan-panel-head .hint,
-.plan-panel-head .label-tag,
-.plan-panel-foot .hint { color: var(--text-dim); }
+.plan-panel-head .plan-hint,
+.plan-panel-head .plan-panel-tag,
+.plan-panel-foot .plan-hint { color: var(--text-dim); }
 
 /* A 30px button with a 44px tappable box. The row is 62px tall and a 44px
    square in it would crowd the Edit beside it, so the hit area grows and the
@@ -1475,7 +1477,7 @@
   overscroll-behavior: contain;
   padding: 16px 18px;
 }
-.wizard-body > .hint { margin: 8px 0 12px; }
+.wizard-body > .plan-hint { margin: 8px 0 12px; }
 .wizard-search { width: 100%; }
 
 .wizard-foot {
@@ -1489,7 +1491,7 @@
   border-top: 1px solid var(--line-soft);
   background: var(--panel-2);
 }
-.wizard-foot .hint { margin: 0; flex: 1 1 200px; min-width: 0; }
+.wizard-foot .plan-hint { margin: 0; flex: 1 1 200px; min-width: 0; }
 .wizard-foot-acts { display: flex; align-items: center; gap: 8px; }
 
 /**
@@ -1726,7 +1728,7 @@
   padding-top: 14px;
   border-top: 1px solid var(--line-soft);
 }
-.wizard-drop .hint { margin: 0; }
+.wizard-drop .plan-hint { margin: 0; }
 
 /* --- building ------------------------------------------------------------- */
 /* Its own dialog, on the site's own overlay, so only the parts that are new to
@@ -1870,7 +1872,7 @@
   padding-top: 14px;
   border-top: 1px solid var(--line-soft);
 }
-.wizard-build .hint { margin: 0; }
+.wizard-build .plan-hint { margin: 0; }
 .wizard-build button { font-size: 12px; padding: 8px 14px; }
 
 @media (max-width: 760px) {
