@@ -9,7 +9,7 @@ import Image, { ContentImg } from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
-import { getAllHeadhuntingBanners, getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
+import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 import { buildRealBannerConfig, getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
@@ -2664,21 +2664,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   }));
 
   return { props: { pools, banners: trimmedBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
-}, {
-  // An already-published content release may still carry CN-only dates. Fill
-  // only those gaps; resolved estimates and confirmed Global dates in newer
-  // releases must remain authoritative rather than being recalculated from
-  // this app deployment's older calendar snapshot.
-  finalize: async props => {
-    const sourceAnchors = new Map(getAllHeadhuntingBanners().map(b => [b.name, b.linked_event]));
-    const unresolved = props.banners.filter(b => !b.global_date).map(b => ({
-      ...b, linked_event: b.linked_event || sourceAnchors.get(b.name) || null,
-    }));
-    const completed = new Map(resolveGachaSimulatorBanners(unresolved).map(b => [b.name, b]));
-    return {
-      ...props,
-      banners: props.banners.map(b => completed.get(b.name) || b)
-        .sort((a, b) => (parseBannerDate(b)?.getTime() ?? 0) - (parseBannerDate(a)?.getTime() ?? 0)),
-    };
-  },
+  // No request-time finalize: the content export runs this against the release's own
+  // banners and calendar, so every estimate above arrives with the release. The old
+  // hook re-estimated CN-only dates on each request from this deployment's bundled
+  // banners and events, which lag the release (411 banners against its 412).
 });
