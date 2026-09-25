@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import skins from '../../data/skins.json';
 import confirmed from '../../data/skin-availability-windows.json';
-import { compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '../../lib/skins/skinAvailability';
+import { compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, withLocalConfirmedSkinWindows, type SkinWindow } from '../../lib/skins/skinAvailability';
 import { getAllEvents } from '../../lib/schedule/schedule';
 import type { Skin } from '../../lib/skins/skinTypes';
 
@@ -19,6 +19,20 @@ test('all verified inventory entries resolve exactly once in the catalogue', () 
     assert.equal(new Set(window.skinIds).size, window.skinIds.length);
     for (const id of window.skinIds) assert.equal(catalogue.filter(skin => skinKey(skin) === id).length, 1, id);
   }
+});
+
+test('a new confirmed sale is visible while the published page still has older windows', () => {
+  const sale = verified.find(window => window.source === 'https://www.arknights.global/news/4683');
+  assert(sale);
+  const olderWindows = windows.filter(window => !window.skinIds.some(id => sale.skinIds.includes(id)) || window.estimated);
+  olderWindows.push({ ...sale, startAt: '2026-08-01T16:00:00Z', endAt: '2026-08-15T11:00:00Z' });
+  const merged = withLocalConfirmedSkinWindows(olderWindows);
+  const availability = computeSkinCountdowns(catalogue, events, new Date('2026-09-25T12:00:00Z'), merged);
+  for (const id of sale.skinIds) {
+    assert.equal(availability.get(id)?.live, true, id);
+    assert.equal(availability.get(id)?.kind, 'shop', id);
+  }
+  assert.equal(withLocalConfirmedSkinWindows(windows).length, windows.length, 'a current published sale is not duplicated');
 });
 
 /* The rules are checked on a fixture of windows at a fixed instant, and on the committed

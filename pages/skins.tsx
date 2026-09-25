@@ -5,7 +5,7 @@ import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useSta
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
-import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, withLocalConfirmedSkinWindows, type SkinWindow } from '@/lib/skins/skinAvailability';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -59,7 +59,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   }, []);
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
-  const windows = useMemo(() => availabilityWindows ?? getSkinWindows(skins, events), [skins, events, availabilityWindows]);
+  const windows = useMemo(() => withLocalConfirmedSkinWindows(availabilityWindows ?? getSkinWindows(skins, events)), [skins, events, availabilityWindows]);
   const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
   const currentSkins = useMemo(() => skins.filter(skin => availability.get(skinKey(skin))?.live).sort((a, b) => compareCurrentSkins(a, b, availability)), [skins, availability]);
   const directSkins = currentSkins.filter(skin => availability.get(skinKey(skin))?.kind !== 'draw');

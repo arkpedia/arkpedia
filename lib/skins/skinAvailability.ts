@@ -70,6 +70,20 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[]): SkinWind
   return windows;
 }
 
+/** The app can ship a newly verified sale before the next content release does.
+ * Keep the published windows, adding only locally confirmed outfits absent from
+ * them. Once the content release catches up, its record takes precedence. */
+export function withLocalConfirmedSkinWindows(windows: SkinWindow[]): SkinWindow[] {
+  const missing = confirmed.entries.flatMap(entry => {
+    const skinIds = entry.skinIds.filter(id => !windows.some(window =>
+      !window.estimated && window.kind === entry.kind
+      && window.startAt === entry.startAt && window.endAt === entry.endAt
+      && window.skinIds.includes(id)));
+    return skinIds.length ? [{ ...entry, kind: entry.kind as AcquisitionKind, skinIds }] : [];
+  });
+  return missing.length ? [...windows, ...missing] : windows;
+}
+
 export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date = new Date(), windows = getSkinWindows(skins, events)): Map<string, SkinCountdown> {
   const result = new Map<string, SkinCountdown>();
   for (const window of windows) {
