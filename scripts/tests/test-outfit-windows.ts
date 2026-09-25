@@ -94,4 +94,9 @@ test('publication holds each such outfit back as published-partial, naming the n
   assert.equal(held.quarantine[0].reason, 'Saria / Unstained Unshaken: on sale on Global with Duel Channel: Ivy Vine, but data/skin-availability-windows.json '
     + 'has no confirmed window for it, so /skins shows an estimate; add the Outfit Store window from https://www.arknights.global/news/4683');
   assert.deepEqual(review([confirmed]), { errors: [], quarantine: [] });
+  // A window synced from the client points at activity_table, which has no store dates.
+  const synced = { ...event, global: { ...event.global, timingSource: 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/master/en/gamedata/excel/activity_table.json' } };
+  const { quarantine } = reviewCompleteness(emptyCatalogue({ skins: skins.slice(0, 1), events: [synced], skinWindows: [], now }));
+  assert.deepEqual(quarantine.filter((entry: { reason: string }) => /confirmed window/.test(entry.reason)).map((entry: { reason: string }) => entry.reason.split('; ')[1]),
+    ['add the Outfit Store window from the official notice']);
 });

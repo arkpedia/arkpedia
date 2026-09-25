@@ -108,8 +108,10 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   }
   // A new outfit on sale on Global with no confirmed window reads as an estimate on /skins
   // until someone copies the notice's Outfit Store dates. See outfit-windows.mjs.
+  // Only a notice has the store's dates; a window synced from the client names activity_table.
   for (const { skin, event, key } of unconfirmedOutfitSales({ skins, events, windows: skinWindows, now })) {
-    hold(`skin:${skin.skinId ?? key}`, 'published-partial', `${key}: on sale on Global with ${event.name}, but data/skin-availability-windows.json has no confirmed window for it, so /skins shows an estimate; add the Outfit Store window from ${event.global.timingSource || 'the official notice'}`);
+    const notice = /^https:\/\/(?:www\.)?arknights\.global\/news\/\d+\/?$|^https:\/\/(?:x|twitter)\.com\/ArknightsEN\/status\/\d+\/?$/i.test(event.global.timingSource ?? '') ? event.global.timingSource : 'the official notice';
+    hold(`skin:${skin.skinId ?? key}`, 'published-partial', `${key}: on sale on Global with ${event.name}, but data/skin-availability-windows.json has no confirmed window for it, so /skins shows an estimate; add the Outfit Store window from ${notice}`);
   }
   for (const banner of banners) {
     for (const name of [...(banner.six_stars ?? []), ...(banner.rate_up_six_stars ?? []), ...(banner.five_stars ?? []), ...(banner.four_stars ?? [])]) {
