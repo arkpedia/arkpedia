@@ -28,7 +28,7 @@ CSS modules are used by the operator page, the games, the pulls workspace and `S
 
 ## The rules
 
-1. **Teal means "on" or "current", and nothing else.** Selected chips, the current tab, the active nav item, a focused control and hover all use teal. Headings, resting links, decoration, rarity and categories must not be teal.
+1. **Teal means "on" or "current", and nothing else.** Selected chips, the current tab, the active nav item, a focused control and hover all use teal. Headings, resting links, decoration, rarity and categories must not be teal. "On" has one look everywhere: the `--teal-dim` fill with teal border and text (`.filter-chip[aria-pressed="true"]`, `.tgl.is-on`, `.pick-card` when picked). The solid `--teal-fill` is `.primary`'s and never marks a state; `tests/browser/on-states.spec.ts` fails when a pressed, checked or `.is-on` control computes that fill.
 2. **One resting boundary for controls.** Anything that can be pressed, typed in or picked from has a `--control-border` border at rest. `--line` and `--line-soft` are for passive hairlines only (panels, dividers, table rules).
 3. **One hover rule.** On hover, the border and the text go to `--teal`. Destructive `.danger` controls are the exception: they stay red.
 4. **Rarity colour comes only from `--rarity-N`**, through `<Rarity>`, `.rarity-N`, `.tier-N` or `.tier-fill-N`. 5★ is never teal.
@@ -149,7 +149,8 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 
 - It renders a `role="group"` of `<button class="filter-chip" aria-pressed>`. Tests find each option with `getByRole('button', { name })`.
 - The pinned chip is 32px tall (36px at ≤720), with a `--control-border` border, `var(--radius)` and the button voice (Rajdhani 600, 12px, uppercase, 0.09em). When picked it has a `--teal-dim` fill, teal text and a teal border.
-- **Never** use `cond ? 'primary' : 'ghost'` for a pick-one control. `--teal-fill` is reserved for primary actions.
+- **Never** use `cond ? 'primary' : 'ghost'` for a pick-one control or a toggle. `--teal-fill` is reserved for primary actions. `audit:styles` rejects the swap in TSX (`primaryToggle`, strict; `pages/dev` excepted). A button whose label says its state ("Play" / "Pause") keeps one class and takes no `aria-pressed`.
+- `.tgl` (the toolbar and settings switch, mono 11px) takes `.is-on` together with `aria-pressed`. On is the chip's picked state, not a fill.
 - For filters that toggle independently (tags you can turn on together), render `.filter-chip` buttons directly with `aria-pressed`. The picked state reads `aria-pressed`, `aria-selected` or `aria-checked` (`.active` also works during migration).
 - Chip content can include `icon` (an 18px img or svg), `count`, and `ariaLabel` for icon-only chips.
 
@@ -319,6 +320,7 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `collisions` | A bare class styled in two global stylesheets | Scope the class to its page, or move a shared one to `core/` |
 | `fontSizes` | Sizes off the scale (9–13 body; 15/18/22/26/30 display) | Round to the scale |
 | `rawHex` (strict) | A hex literal that a token names | Use the token |
+| `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
 
 ```sh
 npm run audit:styles                 # check

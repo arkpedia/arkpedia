@@ -661,7 +661,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 /* --- toolbar -------------------------------------------------------------
    A row of display toggles behind one micro-label, then unrelated actions,
    then the language picker pinned right. Replaces the red-outline-for-off
-   treatment: off is neutral, on is the accent fill.
+   treatment: off is neutral, on is the chip's picked state.
 
      <div class="toolbar">
        <span class="label-tag">Show</span>
@@ -715,15 +715,17 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   cursor: pointer;
 }
 .tgl:hover { border-color: var(--teal); color: var(--teal); }
+/* On is the same state as a picked .filter-chip: --teal-dim fill, teal border and
+   text. It was the solid --teal-fill, which is .primary's -- so on /pulls a
+   switched-on "Daily missions" looked exactly like "+ Add banner" beside it, and the
+   site had two looks for "on". --teal-fill is for primary actions only
+   (tests/browser/on-states.spec.ts). */
 .tgl.is-on {
-  background: var(--teal-fill);
-  border-color: transparent;
-  color: var(--teal-ink);
+  background: var(--teal-dim);
+  border-color: var(--teal);
+  color: var(--teal);
   font-weight: 500;
 }
-/* Token, not the dark theme's mint literal -- see --teal-fill-hi in shared.css
-   for why the light theme has to go the other way. */
-.tgl.is-on:hover { background: var(--teal-fill-hi); }
 .tgl.is-quiet { color: var(--text-faint); }   /* enabled but not engaged */
 
 .caret {

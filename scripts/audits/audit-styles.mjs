@@ -32,6 +32,11 @@
  *                  not load, which the browser then fakes (faux bold)
  *   nativeControls a native <select> or a role="listbox" outside components/ui --
  *                  components/ui/StyledSelect (and SuggestMenu) are the only ones
+ *   primaryToggle  a class chosen between 'primary' and 'ghost' by a condition in
+ *                  TSX (pages/dev excepted): that is a toggle whose "on" borrows the
+ *                  primary action's fill. A toggle is a .filter-chip with
+ *                  aria-pressed (or a .tgl with .is-on); a button whose label says
+ *                  its state keeps one class
  *
  * It is a RATCHET. Today's accepted cases are counted in style-audit-baseline.json
  * next to this script. The run fails when anything is NEW (more occurrences of an
@@ -171,7 +176,7 @@ function collect() {
   const owners = new Map();   // class -> Set<file>
   const out = {
     collisions: [], fontSizes: [], rawHex: [], rarityLiteral: [], oldTeal: [],
-    pills: [], h1Rules: [], fontWeights: [], nativeControls: [],
+    pills: [], h1Rules: [], fontWeights: [], nativeControls: [], primaryToggle: [],
   };
   const tokens = tokenHexes();
   const weights = loadedWeights();
@@ -254,6 +259,11 @@ function collect() {
     const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
     for (const _ of code.matchAll(/<select[\s>]/g)) out.nativeControls.push(`${path}: <select>`);
     for (const _ of code.matchAll(/role(?:=|:\s*)["']listbox["']/g)) out.nativeControls.push(`${path}: role="listbox"`);
+    if (!path.startsWith(join('pages', 'dev') + '/')) {
+      for (const m of code.matchAll(/\?\s*(['"`])(primary|ghost)\1\s*:\s*(['"`])(primary|ghost)\3/g)) {
+        if (m[2] !== m[4]) out.primaryToggle.push(`${path}: ${m[0].replace(/\s+/g, ' ')}`);
+      }
+    }
   }
 
   out.collisions = [...owners.entries()]
@@ -273,9 +283,10 @@ const LABELS = {
   h1Rules: 'an h1 size or case outside styles/core/shared.css -- render components/ui/PageHeader',
   fontWeights: 'a webfont weight pages/_document.tsx does not load, so the browser fakes it',
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
+  primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",
 };
 
-const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights'];
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'primaryToggle'];
 
 function counts(list) {
   const m = new Map();

@@ -1208,7 +1208,8 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                 {hasBriefing && hasSchematic && (
                   <button
                     type="button"
-                    className={showingBriefing ? 'primary' : 'ghost'}
+                    className="filter-chip"
+                    aria-pressed={showingBriefing}
                     onClick={() => setBriefingOpen((v) => !v)}
                   >
                     Description
@@ -1220,7 +1221,8 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                 {hasSchematic && drawablePaths && (
                   <button
                     type="button"
-                    className={showRoutes && !showingBriefing ? 'primary' : 'ghost'}
+                    className="filter-chip"
+                    aria-pressed={showRoutes && !showingBriefing}
                     onClick={() => {
                       setBriefingOpen(false);
                       setShowRoutes((v) => (showingBriefing ? true : !v));
@@ -1232,7 +1234,8 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                 {hasSchematic && (
                   <button
                     type="button"
-                    className={legendOpen && !showingBriefing ? 'primary' : 'ghost'}
+                    className="filter-chip"
+                    aria-pressed={legendOpen && !showingBriefing}
                     onClick={() => {
                       setBriefingOpen(false);
                       setLegendOpen((v) => (showingBriefing ? true : !v));
@@ -1246,7 +1249,8 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                 {hasSchematic && (
                   <button
                     type="button"
-                    className={deployOpen && !showingBriefing ? 'primary' : 'ghost'}
+                    className="filter-chip"
+                    aria-pressed={deployOpen && !showingBriefing}
                     onClick={() => {
                       setBriefingOpen(false);
                       setDeployOpen((v) => (showingBriefing ? true : !v));
@@ -2017,7 +2021,10 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
 
             {!showingBriefing && playback && playback.spawns.length > 0 && (
               <div className="stage-playback">
-                <button type="button" className={playing ? 'primary' : 'ghost'} onClick={() => setPlaying((v) => !v)}>
+                {/* One look whether playing or not: the label says which, and a button
+                    whose label changes is not a toggle (no aria-pressed), so it must not
+                    borrow .primary's fill to mean "on" either. */}
+                <button type="button" className="ghost" onClick={() => setPlaying((v) => !v)}>
                   {playing ? 'Pause' : 'Play'}
                 </button>
                 <input

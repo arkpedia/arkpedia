@@ -54,5 +54,6 @@
     "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\"",
     "components/gamemodes/StrongholdCompanion.tsx: role=\"listbox\"",
     "pages/dev/index.tsx: <select>"
-  ]
+  ],
+  "primaryToggle": []
 }
