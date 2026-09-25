@@ -238,21 +238,23 @@ test('the readers that fetch a CN table by URL fetch it from the mirror and comm
   fs.mkdirSync(path.join(root, 'en/gamedata/excel'), { recursive: true });
   for (const file of ['item_table.json', 'building_data.json']) fs.writeFileSync(path.join(root, 'en/gamedata/excel', file), '{"items": {}}');
   const pins = Object.fromEntries(MIRRORS.map((mirror: { repository: string }, i: number) => [pinVariable(mirror.repository), commit(String(i + 1))]));
-  const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_'))) as NodeJS.ProcessEnv;
+  // GITHUB_ACTIONS changes what the scripts print, so the children run as they do on a laptop.
+  const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_') && name !== 'GITHUB_ACTIONS')) as NodeJS.ProcessEnv;
+  const said: Record<string, string> = {};
   const read = (settled: object | null) => Object.fromEntries([
     ['sync/sync-content-inventory.mjs', 'node'], ['build/build-operator-voices.mjs', 'node'], ['sync/sync-event-windows.mjs', 'node'], ['imports/import-reward-icons.py', 'python3'],
   ].map(([script, runtime]) => {
     fs.rmSync(log, { force: true });
-    spawnSync(runtime, [...(runtime === 'node' ? ['--import', preload] : []), path.resolve('scripts', script)], { cwd, encoding: 'utf8',
+    said[script] = spawnSync(runtime, [...(runtime === 'node' ? ['--import', preload] : []), path.resolve('scripts', script)], { cwd, encoding: 'utf8',
       env: { ...clean, ...pins, ...(settled ? { [CN_TABLES_VARIABLE]: JSON.stringify(settled) } : {}), FETCH_LOG: log, PYTHONPATH: sitecustomize,
-        ARKPEDIA_EN: path.join(root, script.endsWith('.py') ? 'en' : 'none'), ARKPEDIA_CN: path.join(root, 'none') } });
+        ARKPEDIA_EN: path.join(root, script.endsWith('.py') ? 'en' : 'none'), ARKPEDIA_CN: path.join(root, 'none') } }).stderr.slice(-1500);
     return [script, fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : []];
   }));
   // The fallback mirror: no stage fetches a CN table from the primary, and every one is at the commit settled on.
   const fallback = read({ repository: YUANYAN, commit: commit('9'), folder: 'gamedata', serialization: 'numeric' });
   for (const [script, urls] of Object.entries(fallback)) {
     const tables = urls.filter(url => url.includes('/gamedata/excel/') && !url.includes('/en/gamedata/') && !url.includes('/en_US/'));
-    assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}`);
+    assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}\n${said[script]}`);
     for (const url of tables) assert.ok(url.startsWith(`https://raw.githubusercontent.com/${YUANYAN}/${commit('9')}/gamedata/excel/`), `${script}: ${url}`);
     assert.ok(!urls.some(url => url.includes(KENGXXIAO)), `${script} read the primary mirror too: ${urls.join(', ')}`);
   }
@@ -260,14 +262,14 @@ test('the readers that fetch a CN table by URL fetch it from the mirror and comm
   const lastRun = read({ repository: KENGXXIAO, commit: commit('a'), folder: 'zh_CN/gamedata', serialization: 'named' });
   for (const [script, urls] of Object.entries(lastRun)) {
     const tables = urls.filter(url => url.includes(`/${KENGXXIAO}/`));
-    assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}`);
+    assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}\n${said[script]}`);
     for (const url of tables) assert.ok(url.startsWith(`https://raw.githubusercontent.com/${KENGXXIAO}/${commit('a')}/zh_CN/gamedata/excel/`), `${script}: ${url}`);
   }
   // Run by hand, with no tables settled: the primary at its pin, the Python script included.
   const byHand = read(null);
   for (const [script, urls] of Object.entries(byHand)) {
     const tables = urls.filter(url => url.includes('/gamedata/excel/') && !url.includes('/en/gamedata/') && !url.includes('/en_US/'));
-    assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}`);
+    assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}\n${said[script]}`);
     for (const url of tables) assert.ok(url.startsWith(`https://raw.githubusercontent.com/${KENGXXIAO}/${commit('1')}/zh_CN/gamedata/excel/`), `${script}: ${url}`);
   }
 }));
@@ -321,7 +323,8 @@ test('the catalogue refuses CN tables that number their enums, instead of misfil
 /* The stage command as the refresh runs it, with scripts/lib/upstream.sh cloning stand-in
    mirrors served over file:// under GitHub's URLs, as the pin test in test-upstream-pins does. */
 test('the upstream-cn and upstream-cn-art stages, end to end against mirrors that are up, down or moved past the pin', () => withRoot(root => {
-  const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_') && !name.startsWith('GIT_'))) as NodeJS.ProcessEnv;
+  // Without GITHUB_ACTIONS the stage writes warning: lines, not workflow annotations.
+  const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_') && !name.startsWith('GIT_') && name !== 'GITHUB_ACTIONS')) as NodeJS.ProcessEnv;
   const git = (cwd: string, ...args: string[]) => {
     const result = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...clean, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
     assert.equal(result.status, 0, `git ${args.join(' ')}: ${result.stderr}`);
@@ -383,7 +386,8 @@ test('the upstream-cn and upstream-cn-art stages, end to end against mirrors tha
   lock();
   run = stage([YUANYAN]);
   assert.equal(run.status, 0, run.output);
-  assert.match(run.output, /warning: Kengxxiao\/ArknightsGameData at [0-9a-f]{12} \(pinned\) could not be synced/);
+  // It names git's failure, not the advice git prints after it.
+  assert.match(run.output, /warning: Kengxxiao\/ArknightsGameData at [0-9a-f]{12} \(pinned\) could not be synced: fatal: '[^']*' does not appear to be a git repository/);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(app, 'data/upstream.lock.json'), 'utf8')).cnTables,
     { repository: YUANYAN, commit: yuanyanPin, folder: 'gamedata', serialization: 'numeric' });
   assert.equal(fs.readlinkSync(path.join(app, COMPOSED, 'gamedata')), path.join('..', TABLE_CHECKOUTS[YUANYAN], 'gamedata'));

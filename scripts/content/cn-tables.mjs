@@ -169,9 +169,9 @@ function run(command, args, options, timeoutMinutes) {
 
 /**
  * Syncs one checkout under .cache/upstream/ at `commit` (null: the branch head) with
- * scripts/lib/upstream.sh, and returns the commit it holds; throws with the last line git
- * printed. The commit is given to upstream.sh as the mirror's pin, which for the last run's
- * commit is not the pin of this run.
+ * scripts/lib/upstream.sh, and returns the commit it holds; throws with the first fatal: or
+ * error: line git printed, else its last line. The commit is given to upstream.sh as the
+ * mirror's pin, which for the last run's commit is not the pin of this run.
  */
 export async function upstreamSync(root, { repository, commit, checkout, folders }) {
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_HTTP_LOW_SPEED_LIMIT: '1000', GIT_HTTP_LOW_SPEED_TIME: '60' };
@@ -180,8 +180,10 @@ export async function upstreamSync(root, { repository, commit, checkout, folders
   const result = await run('bash', ['scripts/lib/upstream.sh', checkout, `https://github.com/${repository}.git`, 'default', ...folders],
     { cwd: root, env }, SYNC_TIMEOUT_MINUTES);
   if (result.code !== 0) {
-    const last = result.tail.split('\n').map(line => line.trim()).filter(Boolean).at(-1);
-    throw new Error(result.timedOut ? `no answer within ${SYNC_TIMEOUT_MINUTES} min` : last || `upstream.sh exited ${result.code}`);
+    // git's first fatal: or error: line names the failure; the lines after it are advice.
+    const lines = result.tail.split('\n').map(line => line.trim()).filter(Boolean);
+    const said = lines.find(line => /^(fatal|error):/.test(line)) ?? lines.at(-1);
+    throw new Error(result.timedOut ? `no answer within ${SYNC_TIMEOUT_MINUTES} min` : said || `upstream.sh exited ${result.code}`);
   }
   const head = await run('git', ['-C', path.join(UPSTREAM, checkout), 'rev-parse', 'HEAD'], { cwd: root, env }, 1);
   const at = head.tail.trim().split('\n').at(-1);
