@@ -158,7 +158,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
             <ContentImg className="gacha-pull-preview-art" src={art} alt={`${item.name} base artwork`} />
             <Link className="gacha-preview-link" href={`/operators/${encodeURIComponent(item.name)}`}>View operator page ↗</Link>
           </div>
-          <div className="gacha-preview-data">
+          <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
             {!details && !loadError && <p className="gacha-preview-loading" role="status">Loading operator details…</p>}
             {loadError && <p className="gacha-preview-loading" role="status">Details are unavailable right now. The operator page is still linked beside the artwork.</p>}
             {details?.stats && <section className="gacha-preview-section">
