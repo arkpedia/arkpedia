@@ -63,7 +63,8 @@
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 13px;
-  color: var(--teal);
+  /* The data voice at rest; teal only on the row that is open (below). */
+  color: var(--text-bright);
 }
 .stage-row-name { font-size: 13px; }
 .stage-row-zone {
@@ -81,11 +82,11 @@
 .stage-kind-badge,
 .stage-override-badge {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   border: 1px solid var(--line);
   color: var(--text-dim);
 }
@@ -177,7 +178,7 @@
   width: 100%;
   height: auto;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: #070b0f;
 }
 .stage-ingame figcaption { margin-top: 8px; }
@@ -197,7 +198,7 @@
      one. */
   width: 13px;
   height: 13px;
-  border-radius: 2px;
+  border-radius: var(--radius);
   margin-right: 5px;
   vertical-align: -1px;
 }
@@ -227,7 +228,7 @@
   min-height: 50px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 .stage-drop-text {
   display: flex;
@@ -242,7 +243,7 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   object-fit: contain;
 }
 .stage-drop-icon.operator {
@@ -260,7 +261,7 @@
 
 .stage-drop-icon.blank {
   border: 1px dashed var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 .stage-drop-name {
   font-size: 13px;
@@ -375,7 +376,7 @@
   height: 100%;
   object-fit: contain;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: #070b0f;
 }
 
@@ -423,7 +424,7 @@
 .stage-enemy-cards { display: flex; flex-direction: column; gap: 4px; }
 .stage-enemy-card {
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   overflow: hidden;
 }
@@ -456,7 +457,7 @@
 .stage-enemy-icon {
   width: 34px;
   height: 34px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   flex-shrink: 0;
   object-fit: cover;
   background: var(--panel);
@@ -599,7 +600,7 @@
   overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .stage-rail-head {
   flex: 0 0 auto;
@@ -644,8 +645,9 @@
   border-left-color: var(--teal);
   background: var(--panel-2);
 }
+.stage-row.selected .stage-row-code { color: var(--teal); }
 
-/* The grid cell the detail column sits in, with its height floor (pages/stages/browse). */
+/* The grid cell the detail column sits in (pages/stages/browse useStageSwitchFloor). */
 .stage-detail-slot { min-width: 0; }
 .stage-detail-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 /* .op-section carries a 36px bottom margin for stacked pages; in this column
@@ -699,8 +701,8 @@
 }
 .stage-variant-option {
   padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -782,7 +784,7 @@ button.stage-variant-option.current:hover {
    glyph beside it, and drawn in SVG user units, which the map scales with. */
 .stage-wait-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   paint-order: stroke;
   stroke: #0b0f14;
@@ -861,8 +863,8 @@ button.stage-variant-option.current:hover {
   display: flex;
   flex-direction: column;
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 5px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   overflow: hidden;
   color: var(--text);
   text-decoration: none;
@@ -899,11 +901,11 @@ button.stage-variant-option.current:hover {
   top: 6px;
   left: 6px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: var(--teal-dim);
   border: 1px solid var(--teal);
   color: var(--teal);
@@ -926,7 +928,7 @@ button.stage-variant-option.current:hover {
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 12px;
-  color: var(--teal);
+  color: var(--text-bright);
 }
 .stage-mode-name {
   font-family: var(--font-display);
@@ -963,8 +965,8 @@ button.stage-variant-option.current:hover {
   position: relative;
   display: block;
   aspect-ratio: 256 / 143;
-  border: 1px solid var(--line);
-  border-radius: 5px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--panel-2);
   color: var(--text);
@@ -1141,7 +1143,7 @@ button.stage-variant-option.current:hover {
   gap: 0;
   padding: 3px 4px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: rgb(11 14 19 / 0.82);
   backdrop-filter: blur(2px);
 }
@@ -1152,12 +1154,12 @@ button.stage-variant-option.current:hover {
   padding: 0 12px;
 }
 /* Between the readings, not before the first: the game rules them apart. */
-.stage-hud-bar-item + .stage-hud-bar-item { border-left: 1px solid var(--line); }
+.stage-hud-bar-item + .stage-hud-bar-item { border-left: 1px solid rgb(255 255 255 / 0.12); }
 .stage-hud-bar-value {
   font-family: var(--font-mono);
   font-size: 15px;
   font-weight: 600;
-  color: var(--text);
+  color: white; /* on the HUD's fixed dark plate, in both themes */
   /* Every digit the same width, which is what makes the reserved ch above exact. */
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -1177,7 +1179,7 @@ button.stage-variant-option.current:hover {
   gap: 7px;
   padding: 2px 10px 2px 8px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: rgb(11 14 19 / 0.82);
   backdrop-filter: blur(2px);
 }
@@ -1194,12 +1196,12 @@ button.stage-variant-option.current:hover {
 .stage-hud-limit {
   padding: 2px 8px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: rgb(11 14 19 / 0.82);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--text-dim);
+  color: rgb(255 255 255 / 0.72);
 }
 
 .stage-hud-chip {
@@ -1207,7 +1209,7 @@ button.stage-variant-option.current:hover {
   flex-direction: column;
   gap: 1px;
   padding: 4px 8px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   /* Over a render or a schematic in either theme, so these two do not come from
      the palette: the readings have to stay legible on top of whatever the map
      happens to be. */
@@ -1269,7 +1271,7 @@ button.stage-variant-option.current:hover {
   font-weight: 700;
   font-size: 18px;
   line-height: 1;
-  color: #FFFFFF;
+  color: white;
 }
 .stage-hud-chip.wide .stage-hud-value { font-size: 15px; }
 .stage-hud-chip.life .stage-hud-value { color: var(--danger); }
@@ -1329,14 +1331,14 @@ button.stage-variant-option.current:hover {
   /* The status plate and the DP block replaced the chips for enemies, life and DP, and
      inherited none of the sizing above -- so DP sat at 24px over a map a few hundred
      pixels wide. Everything here is the same reading, smaller. */
-  .stage-hud-bar { padding: 2px 2px; border-radius: 2px; }
+  .stage-hud-bar { padding: 2px 2px; border-radius: var(--radius); }
   .stage-hud-bar-item { gap: 4px; padding: 0 7px; }
   .stage-hud-bar-value { font-size: 12px; }
   .stage-hud-bar .stage-stat-glyph { width: 15px; height: 15px; }
   .stage-hud-dp { gap: 5px; padding: 1px 7px 1px 6px; }
   .stage-hud-dp-value { font-size: 18px; }
   .stage-hud-dp .stage-stat-glyph { width: 15px; height: 15px; }
-  .stage-hud-limit { padding: 1px 6px; font-size: 9px; }
+  .stage-hud-limit { padding: 1px 6px; font-size: 10px; }
 
 }
 
@@ -1403,6 +1405,9 @@ button.stage-variant-option.current:hover {
 .stage-tile {
   cursor: pointer;
 }
+/* A fixed near-black plate over the map in BOTH themes, so its text is fixed light
+   too. It used the themed --text-* colours, which in the light theme put dark ink on
+   the dark plate -- the bug the legend had (UI-04), in the tile popup and the HUD. */
 .stage-tile-pop {
   position: absolute;
   left: 7px;
@@ -1412,7 +1417,7 @@ button.stage-variant-option.current:hover {
   flex-direction: column;
   gap: 3px;
   padding: 8px 30px 9px 11px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: rgb(8 12 16 / 0.94);
   border: 1px solid var(--line);
 }
@@ -1425,10 +1430,10 @@ button.stage-variant-option.current:hover {
   border: 0;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-faint);
+  color: rgb(255 255 255 / 0.62);
   cursor: pointer;
 }
-.stage-tile-pop-close:hover { color: var(--text); }
+.stage-tile-pop-close:hover { color: white; }
 .stage-tile-pop-name {
   display: flex;
   align-items: baseline;
@@ -1436,19 +1441,19 @@ button.stage-variant-option.current:hover {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 15px;
-  color: #FFFFFF;
+  color: white;
 }
 .stage-tile-pop-at,
 .stage-tile-pop-facts {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 400;
-  color: var(--text-faint);
+  color: rgb(255 255 255 / 0.62);
 }
 .stage-tile-pop-desc {
   font-size: 11px;
   line-height: 1.35;
-  color: var(--text-dim);
+  color: rgb(255 255 255 / 0.78);
 }
 
 /* --- The briefing: the game's own screen for a stage ---------------------
@@ -1482,7 +1487,7 @@ button.stage-variant-option.current:hover {
   margin-left: 6px;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--text-faint);
+  color: rgb(255 255 255 / 0.62);
 }
 
 /* A unit standing on the clicked tile, under the tile's own description. */
@@ -1496,7 +1501,7 @@ button.stage-variant-option.current:hover {
 .stage-tile-pop-unit b {
   font-family: var(--font-display);
   font-size: 13px;
-  color: #FFFFFF;
+  color: white;
 }
 
 /* The "show more" foot under either card grid. */
@@ -1524,7 +1529,7 @@ button.stage-variant-option.current:hover {
   min-width: 0;
   padding: 6px 8px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: var(--panel);
 }
 /* Promotion is a SegmentedControl (the pinned .filter-chip); only its place in the row
@@ -1723,7 +1728,7 @@ button.stage-variant-option.current:hover {
   transform: translate(-50%, -50%);
   pointer-events: none;
   border: 1px solid rgb(233 238 242 / 0.5);
-  border-radius: 2px;
+  border-radius: var(--radius);
   background: rgb(11 14 19 / 0.7);
   line-height: 0;
   opacity: 0.75;

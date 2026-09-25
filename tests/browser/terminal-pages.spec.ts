@@ -105,6 +105,28 @@ test('the stage map legend is readable in the light theme', async ({ page }) => 
   const a = colours.bg[3] / 255;
   const ground = [0, 1, 2].map((i) => colours.bg[i] * a + 0 * (1 - a));
   expect(contrast(colours.text, ground)).toBeGreaterThanOrEqual(4.5);
+
+  // The same bug in the HUD: a fixed dark plate under themed text (the unit limit read
+  // dark grey on near-black in light). Composited over white, the lightest ground.
+  const limit = page.locator('.stage-hud-limit').first();
+  if (await limit.count()) {
+    const hud = await limit.evaluate((el) => {
+      const probe = document.createElement('canvas').getContext('2d')!;
+      const rgba = (css: string) => {
+        probe.clearRect(0, 0, 1, 1);
+        probe.fillStyle = '#000';
+        probe.fillStyle = css;
+        probe.fillRect(0, 0, 1, 1);
+        return Array.from(probe.getImageData(0, 0, 1, 1).data);
+      };
+      return { bg: rgba(getComputedStyle(el).backgroundColor), text: rgba(getComputedStyle(el).color) };
+    });
+    const k = hud.bg[3] / 255;
+    const plate = [0, 1, 2].map((i) => hud.bg[i] * k + 255 * (1 - k));
+    const t = hud.text[3] / 255;
+    const ink = [0, 1, 2].map((i) => hud.text[i] * t + plate[i] * (1 - t));
+    expect(contrast(ink, plate)).toBeGreaterThanOrEqual(4.5);
+  }
 });
 
 test('stage and chapter titles keep a space between code and name', async ({ page }) => {
@@ -137,19 +159,68 @@ test.describe('state changes near the foot of a page do not move what was presse
     // 166px at 1440 and up to 806px at 390 before the height floor on each group.
     await page.goto('/techniques');
     const toggle = page.locator('.technique-table-toggle').last();
-    const moved = await anchorMoved(page, toggle, [() => toggle.click(), () => toggle.click()], 500);
+    // Open the table, read down into it (the toggle near the top of the screen), then
+    // close it: the page loses the table's height under the reader.
+    await toggle.click();
+    await expect(toggle).toHaveText(/show icons/i);
+    const moved = await anchorMoved(page, toggle, [() => toggle.click()], 120);
+    await expect(toggle).toHaveText(/show table/i);
     expect(moved).toBeLessThan(4);
   });
 
-  test('enemies: switching the detail tab', async ({ page }) => {
-    // 55px at 390, where the detail pane flows in the page.
+  test('enemies: switching the detail tab', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'Above 900px the handbook is locked to the viewport and the pane scrolls inside itself.');
+    // 55px at 390, where the detail pane flows in the page: from the foot of the page,
+    // a switch to a shorter tab clamped the scroll and the tab row moved down.
     await page.goto('/enemies');
-    const tabs = page.getByRole('group', { name: 'Show' });
+    const tabs = page.locator('.enemy-tabs');
     await expect(tabs).toBeVisible();
-    const last = tabs.getByRole('button').last();
-    const first = tabs.getByRole('button').first();
-    const moved = await anchorMoved(page, tabs, [() => last.click(), () => first.click(), () => last.click()], 200);
-    expect(moved).toBeLessThan(4);
+    const buttons = tabs.locator('button');
+    const n = await buttons.count();
+    expect(n, 'the enemy has tabs to switch between').toBeGreaterThan(1);
+    // Find the tallest and the shortest tab for this enemy.
+    const heights: number[] = [];
+    for (let i = 0; i < n; i += 1) {
+      await buttons.nth(i).click();
+      await page.waitForTimeout(300);
+      heights.push(await page.evaluate(() => document.documentElement.scrollHeight));
+    }
+    const tallest = heights.indexOf(Math.max(...heights));
+    const shortest = heights.indexOf(Math.min(...heights));
+    expect(heights[tallest] - heights[shortest], 'the tabs differ in height, or this proves nothing').toBeGreaterThan(20);
+    // On the tallest, at the foot of the page, then switch to the shortest.
+    await buttons.nth(tallest).click();
+    await page.waitForTimeout(600);
+    await page.evaluate(() => window.scrollTo({ top: 1e6, behavior: 'instant' }));
+    await page.waitForTimeout(600);
+    const before = (await tabs.boundingBox())!.y;
+    await buttons.nth(shortest).click();
+    await page.waitForTimeout(900);
+    expect(Math.abs((await tabs.boundingBox())!.y - before)).toBeLessThan(4);
+  });
+
+  test('stages/browse: picking a shorter stage from the pinned rail', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'mobile', 'Below 900px the rail stacks above the stage and nothing is pinned.');
+    // 120px in the review (155px measured on the bundled data): the new stage's detail
+    // column is shorter, the page clamped, and the sticky rail went with it.
+    await page.goto('/stages/browse?s=1-7');
+    await expect(page.locator('.stage-detail-col .stage-brief')).toBeVisible();
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.scrollTo({ top: 1e6, behavior: 'instant' }));
+    await page.waitForTimeout(600);
+    const rail = page.locator('.stage-list-col');
+    const column = page.locator('.stage-detail-col');
+    const before = { rail: (await rail.boundingBox())!.y, column: (await column.boundingBox())!.height, y: await page.evaluate(() => window.scrollY) };
+    expect(before.y, 'the page is scrolled, so there is a position to lose').toBeGreaterThan(0);
+    await page.locator('.stage-rail .stage-row', { hasText: 'Rehearsal Day' }).first().click();
+    await expect(page.locator('h1')).toContainText('AD-1');
+    await page.waitForTimeout(900);
+    const after = { rail: (await rail.boundingBox())!.y, column: (await column.boundingBox())!.height, y: await page.evaluate(() => window.scrollY) };
+    expect(after.column, 'the new stage is shorter, or this test proves nothing').toBeLessThan(before.column);
+    // Neither the rail nor the reader's place moves: the review measured the scroll
+    // clamped by 120px, and where the grid is short the sticky rail goes with it.
+    expect(Math.abs(after.rail - before.rail)).toBeLessThan(4);
+    expect(Math.abs(after.y - before.y)).toBeLessThan(4);
   });
 
   test('Stronghold: narrowing the list keeps the pinned lookup bar where it is', async ({ page }) => {
@@ -158,7 +229,7 @@ test.describe('state changes near the foot of a page do not move what was presse
     await page.waitForTimeout(900);
     const bar = page.locator('.gm-lookup');
     const before = (await bar.boundingBox())!.y;
-    await page.getByRole('searchbox', { name: 'Search the whole mode' }).fill('Caper');
+    await page.getByLabel('Search the whole mode').fill('Caper');
     await page.waitForTimeout(900);
     const after = (await bar.boundingBox())!.y;
     expect(Math.abs(after - before)).toBeLessThan(4);

@@ -287,7 +287,7 @@ function TechniqueGroupCard({
                     )
                   )}
                 </div>
-                <span className="technique-entry-name">{e.operatorName}</span>
+                <span className="technique-entry-name" title={e.operatorName}>{e.operatorName}</span>
               </Link>
             );
           })}

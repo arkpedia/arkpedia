@@ -70,10 +70,11 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 10px 4px;
-  border: 0;
+  padding: 10px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   background: none;
-  color: var(--teal);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -81,6 +82,7 @@
   text-align: left;
   cursor: pointer;
 }
+.terminal-bar-toggle:hover { border-color: var(--teal); color: var(--teal); }
 /* Three bars, drawn rather than typed: a glyph would inherit the font's own metrics
    and sit off-centre. Pushed to the far end, where a thumb is. */
 .terminal-bar-burger {
@@ -403,7 +405,7 @@
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.06em;
-  color: var(--teal);
+  color: var(--text-dim);
 }
 .score-node-name {
   font-size: 13px;
@@ -449,7 +451,7 @@
      Three corners rather than four. The top-left carries the label tab below, clipped
      flush into the corner the way the game draws it, and rounding that corner would
      round the panel out from under the label and leave it overhanging. */
-  border-radius: 0 6px 6px 6px;
+  border-radius: 0 var(--radius-frame) var(--radius-frame) var(--radius-frame);
 }
 .terminal-panel.wide { grid-column: 1 / -1; }
 
@@ -474,7 +476,7 @@
   border-right: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--teal);
@@ -585,7 +587,7 @@
   margin-left: auto;
   flex: 0 0 auto;
   padding: 2px 7px;
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
@@ -624,7 +626,7 @@
 }
 .terminal-mode-kind {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--teal);
@@ -644,7 +646,7 @@
   margin-top: 4px;
   padding: 9px;
   background: var(--panel-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   text-align: center;
   text-decoration: none;
   font-family: var(--font-mono);
@@ -652,7 +654,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-dim);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .terminal-cta:hover {
   border-color: var(--teal);
@@ -672,7 +674,7 @@
   gap: 16px;
   padding: 14px 16px;
   margin-bottom: 14px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--control-border);
   border-left: 2px solid var(--teal);
   background:
     radial-gradient(120% 140% at 0% 50%, rgb(70 220 200 / 0.07), transparent 60%),
@@ -680,7 +682,7 @@
   text-decoration: none;
   color: inherit;
   transition: border-color 0.14s, background-color 0.14s;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 a.regular-now:hover { border-color: var(--teal); }
 a.regular-now:hover .regular-now-go { color: var(--teal); }
@@ -753,7 +755,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   grid-template-columns: 84px 1fr;
   align-items: stretch;
   gap: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   background: var(--panel);
   text-decoration: none;
   color: var(--text);
@@ -780,7 +782,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
    rather than being the only way to work it out. */
 .regular-tower-tag {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--teal);
@@ -1013,6 +1015,10 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
      are in, and the button opens the rest as a panel under it. The same 900px the site
      switches its own nav at, so the two change together. */
   .terminal-bar-toggle { display: flex; }
+  /* The collapsed bar keeps the page's gutter, so its button lines up with the header
+     and the scene under it; at 12px it started 12px left of everything else on the
+     page (the page-bounds test measures that edge). */
+  .terminal-bar-inner { padding: 0 var(--page-gutter); }
   .terminal-tabs {
     display: none;
     position: absolute;
@@ -1051,7 +1057,6 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   .score-rail { --node-w: 200px; }
   .score-line.act .score-rail { --node-w: 148px; }
   .score-line-name { font-size: 18px; }
-  .terminal-bar-inner { padding: 0 10px; }
   .terminal-tab { padding: 9px 10px 7px; gap: 6px; font-size: 10px; }
   .terminal-tab-mark { font-size: 15px; }
   .terminal-tab-mark.mode-mark { width: 16px; height: 16px; }
@@ -1121,7 +1126,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   border-top: 1px solid var(--line-soft);
   border-left: 1px solid var(--line-soft);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -1231,7 +1236,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 /* The markers, styled after their renderer: a near-white fill with a BLACK glyph, under
    a translucent ring of the same shape. Every colour here is one of theirs. */
 .ra-fill {
-  fill: #ffffff;
+  fill: white;
   transition: fill 0.12s;
 }
 .ra-ring {
@@ -1262,7 +1267,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-family: var(--font-mono);
 }
 .ra-tag-name {
-  fill: #ffffff;
+  fill: white;
   font-weight: 600;
 }
 .ra-map-credit { margin: 4px 0 0; }

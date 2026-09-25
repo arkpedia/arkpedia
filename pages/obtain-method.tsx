@@ -178,12 +178,13 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
         </header>
 
         <section className="op-section">
-          <div className="technique-filter-row">
+          <div className="seg-control technique-chip-row sidescroll" role="group" aria-label="How they are obtained">
             {MAIN_SECTIONS.map((s) => (
               <button
                 key={s.key}
                 type="button"
-                className={`technique-filter-btn${activeSection === s.key ? ' active' : ''}`}
+                className="filter-chip"
+                aria-pressed={activeSection === s.key}
                 onClick={() => setActiveSection(s.key)}
               >
                 {s.label}
@@ -193,10 +194,11 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
 
           {activeSection === 'limited' && (
             <>
-              <div className="technique-filter-row technique-subfilter-row">
+              <div className="seg-control technique-chip-row sidescroll" role="group" aria-label="Kind">
                 <button
                   type="button"
-                  className={`technique-filter-btn technique-subfilter-btn${limitedSubType === 'all' ? ' active' : ''}`}
+                  className="filter-chip"
+                aria-pressed={limitedSubType === 'all'}
                   onClick={() => setLimitedSubType('all')}
                 >
                   All
@@ -205,7 +207,8 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
                   <button
                     key={t}
                     type="button"
-                    className={`technique-filter-btn technique-subfilter-btn${limitedSubType === t ? ' active' : ''}`}
+                    className="filter-chip"
+                aria-pressed={limitedSubType === t}
                     onClick={() => setLimitedSubType(t)}
                   >
                     {t}
@@ -227,10 +230,11 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
 
           {activeSection === 'welfare' && (
             <>
-              <div className="technique-filter-row technique-subfilter-row">
+              <div className="seg-control technique-chip-row sidescroll" role="group" aria-label="Kind">
                 <button
                   type="button"
-                  className={`technique-filter-btn technique-subfilter-btn${welfareSubType === 'all' ? ' active' : ''}`}
+                  className="filter-chip"
+                aria-pressed={welfareSubType === 'all'}
                   onClick={() => setWelfareSubType('all')}
                 >
                   All
@@ -239,7 +243,8 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
                   <button
                     key={s.label}
                     type="button"
-                    className={`technique-filter-btn technique-subfilter-btn${welfareSubType === s.label ? ' active' : ''}`}
+                    className="filter-chip"
+                aria-pressed={welfareSubType === s.label}
                     onClick={() => setWelfareSubType(s.label)}
                   >
                     {s.label}

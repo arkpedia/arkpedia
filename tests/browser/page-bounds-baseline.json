@@ -9,36 +9,9 @@
     ],
     "/recruitment": [
       "h1-align"
-    ],
-    "/stages/exploration": [
-      "h1-align"
-    ],
-    "/stages/regular": [
-      "h1-align"
-    ],
-    "/stages/score": [
-      "h1-align"
-    ],
-    "/stages/seasonal": [
-      "h1-align"
-    ],
-    "/stages/supplies": [
-      "h1-align"
-    ],
-    "/synergies": [
-      "frame"
-    ],
-    "/techniques": [
-      "frame"
     ]
   },
   "d390": {
-    "/gamemodes": [
-      "frame"
-    ],
-    "/gamemodes/stronghold-protocol": [
-      "frame"
-    ],
     "/obtain-method": [
       "h1-align"
     ],
@@ -82,10 +55,6 @@
       "frame"
     ],
     "/stages/supplies": [
-      "h1-align",
-      "frame"
-    ],
-    "/techniques": [
       "h1-align",
       "frame"
     ]
