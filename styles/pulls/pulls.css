@@ -298,9 +298,6 @@
 .pulls-ticket-used { margin: 0 0 14px; }
 
 .pulls-page input, .pulls-page button, .pulls-page summary, #banner-plan-heading { scroll-margin-top: 190px; }
-.events-row-entry { min-width: 0; }
-.events-row-plan { display: block; width: fit-content; margin: 8px 0 16px auto; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; color: var(--teal); font-size: 12px; text-decoration: none; }
-.events-row-plan:hover { border-color: var(--teal); }
 
 .pulls-disclosure { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
 .pulls-disclosure > summary { cursor: pointer; color: var(--text); font: 600 15px/1.4 var(--font-body); }

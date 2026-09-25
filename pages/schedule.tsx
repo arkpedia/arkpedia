@@ -30,6 +30,10 @@ import { isLineupPending, LINEUP_PENDING_NOTE } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/artVersion';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import StyledSelect from '@/components/ui/StyledSelect';
+import ScrollRow from '@/components/ui/ScrollRow';
 import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
@@ -149,26 +153,6 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
     return Array.from(ys).sort((a, b) => a - b);
   }, [events, today]);
 
-  /** Which of the two pickers is open, or neither. One at a time. */
-  const [openPick, setOpenPick] = useState<'month' | 'year' | null>(null);
-  /* Escape and a press outside both close it, which is what a reader expects of an open
-     list and what a native select gives for free. 'click' rather than 'mousedown': the
-     option's own handler runs on click, and closing first would take the row out from
-     under the press. */
-  useEffect(() => {
-    if (!openPick) return;
-    const onClick = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement)?.closest?.('.cal-pick')) setOpenPick(null);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenPick(null); };
-    document.addEventListener('click', onClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('click', onClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [openPick]);
-
   const monthGrid = useMemo(() => generateMonths(new Date(year, month, 1), 1)[0], [year, month]);
 
   const barSources: WeekEventSource[] = useMemo(() => {
@@ -228,40 +212,6 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
   const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners) : null;
   const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
 
-  const skinsTrackRef = useRef<HTMLDivElement>(null);
-  const skinsOuterRef = useRef<HTMLDivElement>(null);
-  const [skinsScrollDistance, setSkinsScrollDistance] = useState(0);
-
-  useEffect(() => {
-    const track = skinsTrackRef.current;
-    const outer = skinsOuterRef.current;
-    if (!track || !outer) return;
-
-    function measure() {
-      if (!track || !outer) return;
-      const distance = track.scrollWidth - outer.clientWidth;
-      setSkinsScrollDistance(Math.max(0, distance));
-    }
-
-    // A one-time measurement can catch the panel mid open/close
-    // transition (its width still animating from 0), giving a wrong
-    // reading -- ResizeObserver re-measures whenever either element's
-    // actual size changes, so it settles on the real final value
-    // regardless of transition timing.
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(track);
-    observer.observe(outer);
-    return () => observer.disconnect();
-  }, [panelSkins]);
-
-  // Scroll speed stays roughly consistent regardless of skin count --
-  // more skins to scroll through means a longer total duration, rather
-  // than a fixed duration that looks too slow for 2 skins or too fast
-  // for 10.
-  const skinsScrollDuration = Math.max(6, panelSkins.length * 3);
-
-
   function openEvent(e: ScheduleEvent) {
     setDisplayEvent(e);
     setSelectedEvent(e);
@@ -310,48 +260,34 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
     <>
       <Head><title>Schedule — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Operations Calendar</div>
-        <h1>Schedule</h1>
-        {/* Two views of the same subject, so one heading rather than two pages. The
-            switcher says which, and each says how much it holds -- a tab that carries
-            its own count answers "is there anything in there" before being pressed. */}
-        <div className="schedule-views" role="tablist" aria-label="Schedule views">
-          {([
-            { key: 'events' as ViewKey, label: 'Events', hint: `${eventRows.length} ongoing or upcoming` },
-            { key: 'calendar' as ViewKey, label: 'Calendar', hint: 'Month by month' },
-          ]).map((v) => (
-            <button
-              key={v.key}
-              type="button"
-              role="tab"
-              id={`schedule-tab-${v.key}`}
-              aria-selected={view === v.key}
-              aria-controls={`schedule-panel-${v.key}`}
-              className={`schedule-view ${view === v.key ? 'primary' : 'ghost'}`}
-              onClick={() => showView(v.key)}
-            >
-              <b>{v.label}</b>
-              <em>{v.hint}</em>
-            </button>
-          ))}
-        </div>
-      </header>
+      {/* The site's page header; the view switch is a SegmentedControl in its actions
+          (it was a primary/ghost pair). Both views sit in the one 1040px frame: the
+          calendar used main-wide (1320px), so the page changed width with the view. */}
+      <PageHeader
+        eyebrow="Rhodes Island // Operations Calendar"
+        title="Schedule"
+        actions={<SegmentedControl<ViewKey>
+          label="Schedule view"
+          value={view}
+          onChange={showView}
+          options={[
+            { value: 'events', label: 'Events', count: eventRows.length, ariaLabel: `Events, ${eventRows.length} ongoing or upcoming` },
+            { value: 'calendar', label: 'Calendar' },
+          ]}
+        />}
+      />
 
-      {/* main-wide is 1320px, which the calendar grid needs and the events list does
-          not: at that width the rows ran 280px past every other page on the site, which
-          is what made them look unconfined. The class follows the view. */}
-      <main className={view === 'calendar' ? 'main-wide' : undefined}>
-        {/* Both views stay mounted, and CSS shows one.
+      <main>
+      {/* Both views stay mounted, and CSS shows one.
             The calendar holds a year, a month, two filters and an open event panel, and
             unmounting it would throw all of that away every time the reader looked at
             the list and came back. React 18 here, so no <Activity> to do this properly:
             hidden keeps it out of the accessibility tree and out of tab order, which is
             the part that matters, and the layout cost of a hidden subtree is nil. */}
         <div
-          role="tabpanel"
+          role="region"
           id="schedule-panel-events"
-          aria-labelledby="schedule-tab-events"
+          aria-label="Events"
           hidden={view !== 'events'}
         >
           {eventRows.length === 0 ? (
@@ -359,41 +295,46 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
               <h2>No ongoing or upcoming events right now</h2>
             </div>
           ) : (
+            /* One compact grid row per event: art | name and dates (and the rate-up) |
+               the plan link, inside the row. Each was a 992x101 row whose content ended
+               two thirds of the way across, with the plan link on a line of its own
+               under it. Two columns where the frame is wide enough. */
             <div className="events-list">
               {eventRows.map((e) => (
-                <div key={e.name} className="events-row-entry">
-                <Link prefetch={false} href={`/events/${encodeURIComponent(e.name)}`} className="events-row">
-                  <div className="events-row-poster-wrap">
-                    {e.poster && <Image src={e.poster} alt={e.name} fill sizes="240px" style={{ objectFit: 'cover' }} />}
-                    {e.isOngoing && <span className="events-row-live-badge">LIVE</span>}
-                  </div>
-                  <div className="events-row-info">
-                    <span className="events-row-name">{e.name}</span>
-                    <span className="events-row-date">
-                      {e.isPredicted ? 'Predicted release: ' : 'Release: '}
-                      {e.dateRange}
-                    </span>
-                    {e.featuredOperators.length > 0 && (
-                      <div className="events-row-ops">
-                        {e.featuredOperators.map((op) => (
-                          <Image
-                            key={op.name}
-                            src={iconPathFor(op.name, op.rarity)}
-                            alt={op.name}
-                            width={32}
-                            height={32}
-                            title={op.name}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-                {e.pullBannerName && (
-                  <Link prefetch={false} className="events-row-plan" href={{ pathname: '/pulls', query: { banner: e.pullBannerName } }}>
-                    Add to Pull Planner
+                <div key={e.name} className="events-row">
+                  <Link prefetch={false} href={`/events/${encodeURIComponent(e.name)}`} className="events-row-main">
+                    <div className="events-row-poster-wrap">
+                      {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: 'cover' }} />}
+                      {e.isOngoing && <span className="events-row-live-badge">LIVE</span>}
+                    </div>
+                    <div className="events-row-info">
+                      <span className="events-row-name">{e.name}</span>
+                      <span className="events-row-date">
+                        {e.isPredicted ? 'Predicted: ' : ''}
+                        {e.dateRange}
+                      </span>
+                      {e.featuredOperators.length > 0 && (
+                        <div className="events-row-ops">
+                          {e.featuredOperators.map((op) => (
+                            <Image
+                              key={op.name}
+                              src={iconPathFor(op.name, op.rarity)}
+                              alt={op.name}
+                              width={30}
+                              height={30}
+                              title={op.name}
+                              className={`tier-${op.rarity}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </Link>
-                )}
+                  {e.pullBannerName && (
+                    <Link prefetch={false} className="ghost btn-sm events-row-plan" href={{ pathname: '/pulls', query: { banner: e.pullBannerName } }}>
+                      Plan pulls
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>
@@ -401,9 +342,9 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
         </div>
 
         <div
-          role="tabpanel"
+          role="region"
           id="schedule-panel-calendar"
-          aria-labelledby="schedule-tab-calendar"
+          aria-label="Calendar"
           hidden={view !== 'calendar'}
         >
         {/* One header rather than three rows of controls.
@@ -437,68 +378,24 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 They also look pressable at rest now -- a chevron and a border -- where
                 before only a hover said so. */}
             <span className="cal-head-title">
-              <span className="cal-pick">
-                <button
-                  type="button"
-                  className={`cal-pick-btn cal-pick-month${openPick === 'month' ? ' open' : ''}`}
-                  aria-haspopup="listbox"
-                  aria-expanded={openPick === 'month'}
-                  onClick={() => setOpenPick((v) => (v === 'month' ? null : 'month'))}
-                >
-                  {MONTH_NAMES[month]}
-                  <svg viewBox="0 0 20 20" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                {openPick === 'month' && (
-                  <ul className="cal-picklist" role="listbox" aria-label="Month">
-                    {MONTH_NAMES.map((m, i) => (
-                      <li key={m}>
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={i === month}
-                          className={`cal-pickopt${i === month ? ' current' : ''}`}
-                          onClick={() => { setMonth(i); setOpenPick(null); }}
-                        >
-                          {m}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </span>
-              <span className="cal-pick">
-                <button
-                  type="button"
-                  className={`cal-pick-btn cal-pick-year${openPick === 'year' ? ' open' : ''}`}
-                  aria-haspopup="listbox"
-                  aria-expanded={openPick === 'year'}
-                  onClick={() => setOpenPick((v) => (v === 'year' ? null : 'year'))}
-                >
-                  {year}
-                  <svg viewBox="0 0 20 20" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                {openPick === 'year' && (
-                  <ul className="cal-picklist" role="listbox" aria-label="Year">
-                    {years.map((y) => (
-                      <li key={y}>
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={y === year}
-                          className={`cal-pickopt${y === year ? ' current' : ''}`}
-                          onClick={() => { setYear(y); setOpenPick(null); }}
-                        >
-                          {y}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </span>
+              <StyledSelect
+                label="Month"
+                size="title"
+                className="cal-pick-month"
+                menuMinWidth={180}
+                value={String(month)}
+                onChange={(value) => setMonth(Number(value))}
+                options={MONTH_NAMES.map((name, i) => ({ value: String(i), label: name }))}
+              />
+              <StyledSelect
+                label="Year"
+                size="title"
+                className="cal-pick-year"
+                menuMinWidth={120}
+                value={String(year)}
+                onChange={(value) => setYear(Number(value))}
+                options={years.map((y) => ({ value: String(y), label: String(y) }))}
+              />
             </span>
 
             <button
@@ -518,7 +415,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 walks past today. */}
             <span className="cal-today-slot">
               {(month !== today.month || year !== today.year) && (
-                <button type="button" className="cal-today" onClick={goToday}>
+                <button type="button" className="ghost btn-sm cal-today" onClick={goToday}>
                   Today
                 </button>
               )}
@@ -530,7 +427,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           <div className="cal-head-shows" role="group" aria-label="Show on the calendar">
             <button
               type="button"
-              className={`cal-toggle${showOfficialEvents ? ' on' : ''}`}
+              className="filter-chip"
               aria-pressed={showOfficialEvents}
               onClick={() => setShowOfficialEvents((v) => !v)}
             >
@@ -538,7 +435,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             </button>
             <button
               type="button"
-              className={`cal-toggle${showBirthdays ? ' on' : ''}`}
+              className="filter-chip"
               aria-pressed={showBirthdays}
               onClick={() => setShowBirthdays((v) => !v)}
             >
@@ -547,7 +444,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           </div>
         </div>
 
-        <div className={`schedule-layout${selectedEvent ? ' panel-open' : ''}`}>
+        <div className="schedule-layout">
           <div className="schedule-calendar-col">
             <div className="timeline-month timeline-month-large">
               {/* The header above says which month this is, so the grid does not repeat
@@ -621,7 +518,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                           <button
                             key={barKey}
                             type="button"
-                            className={`timeline-bar ${bar.colorClass} schedule-bar${isSelected ? ' selected' : ''}`}
+                            className={`btn-bare timeline-bar ${bar.colorClass} schedule-bar${isSelected ? ' selected' : ''}`}
                             /* The poster's colour as an ACCENT, not a fill.
                                It used to be the bar's whole background at full
                                saturation, so a month with six events was six solid
@@ -651,14 +548,15 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             </div>
           </div>
 
-          {/* Always rendered so the open/close transition can animate both
-              ways -- CSS handles hiding it via opacity/transform when
-              closed, rather than the element being removed from the DOM
-              instantly. Full-screen takeover rather than a side panel. */}
-          <div ref={panelRef} className={`schedule-fullscreen-panel${selectedEvent ? ' open' : ''}`}>
+          {/* The event's details open as a drawer over the page's right edge (a full
+              sheet on a phone), so opening one moves nothing: it used to slide the
+              whole calendar 180px left to make room beside it. Always rendered, so the
+              drawer can animate both ways; closed, it is visibility: hidden, which takes it
+              out of the tab order and the accessibility tree. */}
+          <div ref={panelRef} className={`schedule-fullscreen-panel${selectedEvent ? ' open' : ''}`} role="dialog" aria-label={displayEvent ? displayEvent.name : 'Event'}>
             {displayEvent && (
               <div className="schedule-panel">
-                <button type="button" className="schedule-panel-close-btn" onClick={closePanel} aria-label="Close">
+                <button type="button" className="btn-bare schedule-panel-close-btn" onClick={closePanel} aria-label="Close">
                   ✕
                 </button>
                 {displayEvent.poster && (
@@ -674,19 +572,19 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 )}
                 <h2 className="schedule-panel-title">{displayEvent.name}</h2>
                 <p className="hint">{displayEvent.global.dateRange}</p>
-                <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="hint">
-                  Go to event page →
+                <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">
+                  Event page
                 </Link>
 
                 {panelBanner && isLineupPending(panelBanner) && (
                   <div className="schedule-panel-pullable">
-                    <h3 className="char-file-subheading">Pullable Operators</h3>
+                    <h3 className="schedule-panel-subheading">Pullable Operators</h3>
                     <p className="hint">{LINEUP_PENDING_NOTE}</p>
                   </div>
                 )}
                 {panelBanner && !isLineupPending(panelBanner) && (panelBannerSixStars.length > 0 || panelBanner.five_stars.length > 0 || (panelBanner.four_stars || []).length > 0) && (
                   <div className="schedule-panel-pullable">
-                    <h3 className="char-file-subheading">Pullable Operators</h3>
+                    <h3 className="schedule-panel-subheading">Pullable Operators</h3>
                     {pullBannerLinks[panelBanner.name.toLowerCase()] && (
                       <p className="hint">
                         <Link prefetch={false} href={{ pathname: '/pulls', query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
@@ -701,11 +599,11 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                           <Link prefetch={false}
                             key={name}
                             href={`/operators/${encodeURIComponent(name)}`}
-                            className="schedule-panel-pullable-op pullable-six-star"
+                            className="schedule-panel-pullable-op"
                             title={name}
                           >
                             {op ? (
-                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} />
+                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} className="tier-6" />
                             ) : (
                               <div className="gacha-pull-icon-placeholder">6★</div>
                             )}
@@ -718,11 +616,11 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                           <Link prefetch={false}
                             key={name}
                             href={`/operators/${encodeURIComponent(name)}`}
-                            className="schedule-panel-pullable-op pullable-five-star"
+                            className="schedule-panel-pullable-op"
                             title={name}
                           >
                             {op ? (
-                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} />
+                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} className="tier-5" />
                             ) : (
                               <div className="gacha-pull-icon-placeholder">5★</div>
                             )}
@@ -735,11 +633,11 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                           <Link prefetch={false}
                             key={name}
                             href={`/operators/${encodeURIComponent(name)}`}
-                            className="schedule-panel-pullable-op pullable-four-star"
+                            className="schedule-panel-pullable-op"
                             title={name}
                           >
                             {op ? (
-                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} />
+                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} className="tier-4" />
                             ) : (
                               <div className="gacha-pull-icon-placeholder">4★</div>
                             )}
@@ -751,62 +649,55 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 )}
 
                 <div className="schedule-panel-skins-header">
-                  <h3 className="char-file-subheading">Skins</h3>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <h3 className="schedule-panel-subheading">Skins</h3>
+                  <div className="schedule-panel-skins-actions">
                     {fashionReviewSkins.length > 0 && (
                       <button
                         type="button"
-                        className={`ghost schedule-panel-show-all-btn${showNewestOnly ? ' active' : ''}`}
+                        className="filter-chip"
+                        aria-pressed={showNewestOnly}
                         onClick={() => setShowNewestOnly((v) => !v)}
                       >
-                        {showNewestOnly ? 'Showing Newest Only' : 'Show Newest Only'}
+                        Newest only
                       </button>
                     )}
                     {panelSkins.length > 0 && (
-                      <button type="button" className="ghost schedule-panel-show-all-btn" onClick={() => { setShowAllVisibleCount(20); setShowAllSkins(true); }}>
+                      <button type="button" className="ghost btn-sm" onClick={() => { setShowAllVisibleCount(20); setShowAllSkins(true); }}>
                         Show All
                       </button>
                     )}
                   </div>
                 </div>
                 {panelSkins.length > 0 ? (
-                  <div className="schedule-panel-skins-outer" ref={skinsOuterRef}>
-                    <div
-                      className={`schedule-panel-skins-track${skinsScrollDistance > 0 ? '' : ' no-scroll'}${activeSkin ? ' paused' : ''}`}
-                      ref={skinsTrackRef}
-                      style={
-                        {
-                          '--skins-scroll-duration': `${skinsScrollDuration}s`,
-                        } as CSSProperties
-                      }
-                    >
-                      {(skinsScrollDistance > 0 ? [...panelSkins, ...panelSkins] : panelSkins).map((s, i) => {
-                        const prices = parsePrices(s.howToObtain);
-                        return (
-                          <button
-                            key={`${s.name}-${i}`}
-                            type="button"
-                            className="schedule-panel-skin"
-                            onClick={() => setActiveSkin(s)}
-                          >
-                            {s.image && (
-                              <Image src={s.image} alt={s.name} width={110} height={147} />
-                            )}
-                            {prices.length > 0 && (
-                              <span className="schedule-panel-skin-price">{formatPrices(prices)}</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  /* A row the reader scrolls, each skin once. It was a marquee on an
+                     endless CSS loop, the same pattern the home page's skins row lost. */
+                  <ScrollRow label={`Skins for ${displayEvent.name}`} className="schedule-panel-skins-row">
+                    {panelSkins.map((s) => {
+                      const prices = parsePrices(s.howToObtain);
+                      return (
+                        <button
+                          key={s.name}
+                          type="button"
+                          className="btn-bare schedule-panel-skin"
+                          onClick={() => setActiveSkin(s)}
+                        >
+                          {s.image && (
+                            <Image src={s.image} alt={s.name} width={110} height={147} />
+                          )}
+                          {prices.length > 0 && (
+                            <span className="schedule-panel-skin-price">{formatPrices(prices)}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </ScrollRow>
                 ) : (
                   <p className="hint">No matched skins for this event.</p>
                 )}
 
                 {panelMaterials && panelMaterials.length > 0 && (
                   <>
-                    <h3 className="char-file-subheading">Materials to Farm</h3>
+                    <h3 className="schedule-panel-subheading">Materials to Farm</h3>
                     <div className="schedule-panel-materials-row">
                       {panelMaterials.map((m) => (
                         <Image key={m} src={`/material-icons/${m}.webp`} alt={m} title={m} className="schedule-panel-material-icon" width={48} height={48} />
@@ -815,16 +706,13 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   </>
                 )}
 
-                <h3 className="char-file-subheading">Pulls Needed</h3>
+                <h3 className="schedule-panel-subheading">Pulls Needed</h3>
                 {displayEvent.pullsNeeded ? (
                   <p className="hint">{displayEvent.pullsNeeded}</p>
                 ) : (
                   <p className="hint">Not available yet.</p>
                 )}
 
-                <button type="button" className="ghost schedule-panel-event-page-btn" disabled title="Event page coming soon">
-                  Go to Event Page
-                </button>
               </div>
             )}
           </div>
@@ -843,7 +731,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
               {panelSkins.slice(0, showAllVisibleCount).map((s) => {
                 const prices = parsePrices(s.howToObtain);
                 return (
-                  <button key={s.name} type="button" className="schedule-panel-skin" onClick={() => setActiveSkin(s)}>
+                  <button key={s.name} type="button" className="btn-bare schedule-panel-skin" onClick={() => setActiveSkin(s)}>
                     {s.image && (
                       <Image src={s.image} alt={s.name} width={110} height={147} />
                     )}
