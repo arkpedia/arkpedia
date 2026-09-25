@@ -5,9 +5,10 @@ import { getEventStatus, formatCountdown } from '@/lib/maps/mapProjection';
 const STATUS_PRIORITY: Record<'live' | 'upcoming' | 'ended', number> = { live: 0, upcoming: 1, ended: 2 };
 
 /** "19 Aug 2026 – 2 Sep 2026", or one date where the event is a single day.
- *  en-GB because "19 Aug" is the order the rest of the site's dates read in. */
-function formatRange(startTime: string, endTime?: string): string {
-  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+ *  en-GB because "19 Aug" is the order the rest of the site's dates read in. `timeZone` is
+ *  the zone the dates are read in: UTC until the page has mounted, the reader's own after. */
+function formatRange(startTime: string, endTime: string | undefined, timeZone: 'UTC' | undefined): string {
+  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
   const a = new Date(startTime);
   // Same default the rest of the schedule uses when an event has no end: a day.
   const b = endTime ? new Date(endTime) : new Date(a.getTime() + 24 * 60 * 60 * 1000);
@@ -17,11 +18,21 @@ function formatRange(startTime: string, endTime?: string): string {
   return from === to ? from : `${from} \u2013 ${to}`;
 }
 
-export default function EventListPanel({ events }: { events: CommunityEvent[] }) {
-  const [now, setNow] = useState(() => Date.now());
+/**
+ * `now` is the page's own clock (its getStaticProps). The server's HTML and the browser's
+ * first render must be the same text, or React throws that HTML away (errors #418, #423,
+ * #425) and every reader outside UTC saw the dates flash: so both render the statuses at
+ * the page's clock and the dates in UTC, and the reader's clock and zone take over once
+ * the page has mounted.
+ */
+export default function EventListPanel({ events, now: renderedAt }: { events: CommunityEvent[]; now: number }) {
+  const [clock, setClock] = useState<{ now: number; timeZone: 'UTC' | undefined }>({ now: renderedAt, timeZone: 'UTC' });
+  const { now, timeZone } = clock;
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 60000);
+    const tick = () => setClock({ now: Date.now(), timeZone: undefined });
+    tick();
+    const interval = setInterval(tick, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -81,7 +92,7 @@ export default function EventListPanel({ events }: { events: CommunityEvent[] })
           </span>
           {/* "Live now" says WHEN in the loosest possible sense. The actual
               window is the thing a reader is planning around. */}
-          <span className="hint event-list-range">{formatRange(ev.startTime, ev.endTime)}</span>
+          <span className="hint event-list-range">{formatRange(ev.startTime, ev.endTime, timeZone)}</span>
         </a>
       ))}
     </div>

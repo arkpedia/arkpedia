@@ -35,6 +35,10 @@ function make(label) {
   }
   const gacha = readPage('/gacha').props;
   gacha.banners[0].name = `Runtime Banner ${label.toUpperCase()}`;
+  // The newest Standard banner with its lineup not yet named, as Standard Pool #176 was on
+  // 2026-09-25: the page shows a note in place of the Featured chips.
+  const pending = gacha.banners.find(banner => banner.pull_type === 'standard' && banner !== gacha.banners[0]);
+  Object.assign(pending, { lineupSource: 'pending', six_stars: [], five_stars: [], four_stars: [], rate_up_six_stars: [] });
   gacha.pools.six[0].name = `Runtime Pool Operator ${label.toUpperCase()}`;
   setPage('/gacha', gacha);
   if (label === 'b') {
@@ -116,6 +120,23 @@ try {
     assert.ok(bannerImage?.includes(pinnedRevision('b'.repeat(40))), `${name} gacha banner artwork did not adopt the image release`);
     const operatorIcon = await page.locator('.gacha-featured-chip img').first().getAttribute('src');
     assert.ok(operatorIcon?.includes(pinnedRevision('b'.repeat(40))), `${name} gacha operator icon did not adopt the image release`);
+    // Choosing a banner whose lineup is still to be confirmed must not shorten the page: its
+    // note holds the height of the chip row it replaces (Anti-Page Jump). The reader sits at
+    // the bottom of the page, where a shorter document would clamp the scroll.
+    if (name === 'desktop') await page.locator('.gacha-category-row button', { hasText: /^Standard$/ }).click();
+    else await page.locator('.gacha-category-mobile').selectOption('standard');
+    const pendingNote = page.locator('.gacha-roster-section .gacha-lineup-pending', { hasText: 'Lineup to be confirmed.' });
+    await pendingNote.waitFor({ timeout: 10_000 });
+    const sidebarItems = page.locator('.gacha-banner-sidebar-item');
+    await sidebarItems.nth(1).click();
+    await page.locator('.gacha-roster-section .gacha-featured-chip').first().waitFor({ timeout: 10_000 });
+    const before = await page.evaluate(() => { window.scrollTo(0, document.documentElement.scrollHeight); return { height: document.documentElement.scrollHeight, y: Math.round(scrollY) }; });
+    await sidebarItems.nth(0).evaluate(button => button.click());
+    await pendingNote.waitFor({ timeout: 10_000 });
+    const after = await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() =>
+      resolve({ height: document.documentElement.scrollHeight, y: Math.round(scrollY) })))));
+    assert.ok(after.height >= before.height, `${name} choosing the pending banner shortened the page from ${before.height} to ${after.height}px`);
+    assert.equal(after.y, before.y, `${name} choosing the pending banner moved the reader's scroll`);
     await waitFor(async () => {
       await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
       return (await page.locator('body').innerText()).includes('Runtime Stage B');

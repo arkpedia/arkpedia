@@ -527,6 +527,9 @@
 @media (max-width: 600px) {
   .gacha-featured-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* A pending lineup's note, holding the chip row's height (min-height, set from the page).
+   flow-root keeps the note's own margins inside that height instead of past it. */
+.gacha-lineup-pending { display: flow-root; }
 .gacha-featured-chip {
   display: flex;
   align-items: center;

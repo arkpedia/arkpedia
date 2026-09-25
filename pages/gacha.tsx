@@ -1608,6 +1608,16 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
   const [state, setState] = useState<GachaState>(createInitialState());
   const [lastPulls, setLastPulls] = useState<PulledItem[]>([]);
+  // The Featured panel's chip row, measured after every render that shows one. A banner
+  // whose lineup is still to be confirmed shows a one-line note in its place, and the note
+  // holds the height of the row it replaced, so choosing that banner never shortens the page
+  // under the reader (Anti-Page Jump: 171px on desktop, more on a phone, for Standard Pool
+  // #176). Nothing is held on the first render, which the server's HTML must match.
+  const featuredRowRef = useRef<HTMLDivElement>(null);
+  const featuredRowHeight = useRef(0);
+  useLayoutEffect(() => {
+    if (featuredRowRef.current) featuredRowHeight.current = featuredRowRef.current.offsetHeight;
+  });
   const [previewedPull, setPreviewedPull] = useState<PreviewItem | null>(null);
 
   const [orienteeringSelected, setOrienteeringSelected] = useState<GachaItem[]>([]);
@@ -2355,7 +2365,11 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 <section className="op-section gacha-roster-section">
                     <div className="gacha-content-group">
                     <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
-                    {isLineupPending(selectedBanner) ? <p className="hint">{LINEUP_PENDING_NOTE}</p> : <div className="gacha-featured-row">
+                    {isLineupPending(selectedBanner) ? (
+                      <div className="gacha-lineup-pending" style={featuredRowHeight.current ? { minHeight: featuredRowHeight.current } : undefined}>
+                        <p className="hint">{LINEUP_PENDING_NOTE}</p>
+                      </div>
+                    ) : <div className="gacha-featured-row" ref={featuredRowRef}>
                       {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
                         const pct = sixStarOdds.find((o) => o.item?.name === item.name);
                         const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
