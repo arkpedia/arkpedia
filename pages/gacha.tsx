@@ -19,7 +19,7 @@ import { ReleaseDateLookup, deriveReleaseDatesFromBanners, getReleaseDate } from
 import { getAllOperators } from '@/lib/operators/operators';
 import type { GachaOperatorPreview } from '@/lib/gacha/operatorPreviewData';
 import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, GachaItem } from '@/lib/gacha/gachaTypes';
-import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
+import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, simulatorPullable, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 
 interface Props {
@@ -306,8 +306,10 @@ function BannerDetails({ banner, dateLabel, onClose, onSelect, previewOpen }: {
     return () => { document.removeEventListener('keydown', onKeyDown); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
   }, []);
 
-  const sixOdds = new Map(sixStarWeightedPool(banner).map(({ item, weight }) => [item.name, weight]));
-  const fiveOdds = new Map(fiveStarWeightedPool(banner).map(({ item, weight }) => [item.name, weight]));
+  // `item?.`: a pool entry without an operator is a lineup the engine should have
+  // dropped (allocate), and it must not take the whole page down with it.
+  const sixOdds = new Map(sixStarWeightedPool(banner).flatMap(({ item, weight }) => (item?.name ? [[item.name, weight] as const] : [])));
+  const fiveOdds = new Map(fiveStarWeightedPool(banner).flatMap(({ item, weight }) => (item?.name ? [[item.name, weight] as const] : [])));
   const openOperator = (item: GachaItem, rarity: 6 | 5 | 4 | 3) => onSelect({ ...item, rarity, isFeatured: false });
   const featuredGroups: { title: string; rarity: 6 | 5 | 4; items: GachaItem[]; odds?: Map<string, number>; note?: string }[] = [
     { title: banner.type === 'celebration' ? 'Available 6★' : 'Rate-up 6★', rarity: 6, items: banner.sixStarFeatured, odds: sixOdds },
@@ -1892,8 +1894,15 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
     return counts;
   }, [state.history]);
 
+  // A pending lineup (Standard Pool #176 on the day it opened) or a banner no 6★ can
+  // drop from: the controls stay where they are, disabled, and the Featured
+  // Operators panel says why. See simulatorPullable.
+  const pullable = !!banner && !!selectedBanner && simulatorPullable(selectedBanner, banner);
+  const unpullableReason = !banner || !selectedBanner || pullable ? undefined
+    : isLineupPending(selectedBanner) ? LINEUP_PENDING_NOTE : 'No 6★ operators can be pulled on this banner.';
+
   function pull(count: number) {
-    if (!banner) return;
+    if (!banner || !pullable) return;
     const result = doPulls(banner, state, count);
     setState(result.state);
     setLastPulls(result.items);
@@ -2320,10 +2329,10 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         <button type="button" className="gacha-action gacha-action-reset" onClick={reset}>
                           Reset
                         </button>
-                        <button type="button" className="gacha-action gacha-action-single" onClick={() => pull(1)} aria-label="Pull one operator">
+                        <button type="button" className="gacha-action gacha-action-single" onClick={() => pull(1)} aria-label="Pull one operator" disabled={!pullable} title={unpullableReason}>
                           x1
                         </button>
-                        <button type="button" className="gacha-action gacha-action-ten" onClick={() => pull(10)} aria-label="Pull ten operators">
+                        <button type="button" className="gacha-action gacha-action-ten" onClick={() => pull(10)} aria-label="Pull ten operators" disabled={!pullable} title={unpullableReason}>
                           x10
                         </button>
                       </div>
@@ -2348,7 +2357,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
                     {isLineupPending(selectedBanner) ? <p className="hint">{LINEUP_PENDING_NOTE}</p> : <div className="gacha-featured-row">
                       {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const pct = sixStarOdds.find((o) => o.item?.name === item.name);
                         const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
                         return (
                           <FeaturedChip
@@ -2362,7 +2371,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         );
                       })}
                       {banner.fiveStarFeatured.map((item) => {
-                        const pct = fiveStarOdds.find((o) => o.item.name === item.name);
+                        const pct = fiveStarOdds.find((o) => o.item?.name === item.name);
                         return (
                           <FeaturedChip
                             key={item.name}
@@ -2379,7 +2388,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       <p className="hint">{RETURNING_LIMITED_NOTE}</p>
                       <div className="gacha-featured-row">
                       {(banner.rateUpSixStars || []).map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const pct = sixStarOdds.find((o) => o.item?.name === item.name);
                         const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
                         return (
                           <FeaturedChip
@@ -2404,7 +2413,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           return state.obtainedCounts[item.name];
                         })
                         .map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const pct = sixStarOdds.find((o) => o.item?.name === item.name);
                         const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
                         return (
                           <FeaturedChip

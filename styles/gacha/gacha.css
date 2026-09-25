@@ -108,6 +108,10 @@
 .gacha-action:hover { box-shadow: 0 0 0 2px var(--teal); transform: translateY(-1px); }
 .gacha-action-reset:hover { box-shadow: 0 0 0 2px var(--amber); }
 .gacha-action:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+/* A banner the simulator cannot pull yet (its lineup is pending): the buttons keep
+   their place and size, so choosing it moves nothing on the page. */
+.gacha-action:disabled { opacity: 0.45; cursor: not-allowed; }
+.gacha-action:disabled:hover { box-shadow: none; transform: none; }
 @media (max-width: 760px) {
   .gacha-stats-rates { grid-template-columns: minmax(0, 1fr); }
   .gacha-rarity-label small { display: block; }
