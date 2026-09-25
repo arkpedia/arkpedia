@@ -490,9 +490,12 @@
 }
 
 .gacha-featured-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 172px);
   gap: 8px;
+}
+@media (max-width: 600px) {
+  .gacha-featured-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .gacha-featured-chip {
   display: flex;
@@ -504,13 +507,19 @@
   border: 1px solid var(--line-soft);
   font-size: 11px;
   text-align: left;
-  min-width: 142px;
-  max-width: 190px;
-  flex: 1 1 142px;
+  width: 100%;
+  min-width: 0;
   height: 90px;
   box-sizing: border-box;
   overflow: hidden;
+  color: var(--text);
+  font-family: inherit;
+  text-transform: none;
+  cursor: pointer;
+  box-shadow: inset 0 -2px 0 var(--line-soft);
 }
+.gacha-featured-chip:hover { background: var(--teal-dim); border-color: var(--teal); }
+.gacha-featured-chip:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .gacha-featured-chip img { width: 40px; height: 40px; flex-shrink: 0; border-radius: 4px; }
 .gacha-featured-info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .gacha-featured-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 2.4em; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }

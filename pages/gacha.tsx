@@ -32,6 +32,7 @@ interface Props {
 }
 
 type DisplayCategory = BannerType | 'other' | 'upcoming';
+type PreviewItem = Pick<PulledItem, 'name' | 'icon' | 'rarity'>;
 
 const CATEGORY_LABELS: Record<DisplayCategory, string> = {
   upcoming: 'Upcoming',
@@ -108,7 +109,7 @@ function PullTile({ item, onSelect, className = '', label }: { item: PulledItem;
   );
 }
 
-function PullPreview({ item, onClose }: { item: PulledItem; onClose: () => void }) {
+function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const [details, setDetails] = useState<GachaOperatorPreview | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -246,9 +247,9 @@ function PullHistory({ history, onSelect }: { history: PulledItem[]; onSelect: (
   );
 }
 
-function FeaturedChip({ item, rarity, percent, tags, count }: { item: GachaItem; rarity: 6 | 5; percent?: number; tags?: ('rateUp' | 'limited')[]; count?: number }) {
+function FeaturedChip({ item, rarity, percent, tags, count, onSelect }: { item: GachaItem; rarity: 6 | 5; percent?: number; tags?: ('rateUp' | 'limited')[]; count?: number; onSelect: (item: PreviewItem) => void }) {
   return (
-    <div className={`gacha-featured-chip gacha-featured-chip-${rarity}`}>
+    <button type="button" className={`gacha-featured-chip gacha-featured-chip-${rarity}`} onClick={() => onSelect({ ...item, rarity })} aria-label={`View ${item.name} operator details`}>
       {item.icon ? (
         <Image src={item.icon} alt={item.name} width={44} height={44} />
       ) : (
@@ -263,7 +264,7 @@ function FeaturedChip({ item, rarity, percent, tags, count }: { item: GachaItem;
         {tags?.includes('rateUp') && <span className="gacha-rate-up-tag">RATE-UP</span>}
         {tags?.includes('limited') && <span className="gacha-limited-tag">LIMITED</span>}
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -1591,7 +1592,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
   const [state, setState] = useState<GachaState>(createInitialState());
   const [lastPulls, setLastPulls] = useState<PulledItem[]>([]);
-  const [previewedPull, setPreviewedPull] = useState<PulledItem | null>(null);
+  const [previewedPull, setPreviewedPull] = useState<PreviewItem | null>(null);
 
   const [orienteeringSelected, setOrienteeringSelected] = useState<GachaItem[]>([]);
   const [orienteeringFiveSelected, setOrienteeringFiveSelected] = useState<GachaItem[]>([]);
@@ -1977,11 +1978,11 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 <div className="gacha-featured-row" style={{ marginTop: 12 }}>
                   {selectedBanner.six_stars.map((name) => {
                     const found = pools.six.find((i) => i.name === name);
-                    return <FeaturedChip key={name} item={found || { name, icon: null }} rarity={6} />;
+                    return <FeaturedChip key={name} item={found || { name, icon: null }} rarity={6} onSelect={setPreviewedPull} />;
                   })}
                   {selectedBanner.five_stars.map((name) => {
                     const found = pools.five.find((i) => i.name === name);
-                    return <FeaturedChip key={name} item={found || { name, icon: null }} rarity={5} />;
+                    return <FeaturedChip key={name} item={found || { name, icon: null }} rarity={5} onSelect={setPreviewedPull} />;
                   })}
                 </div>
               </section>
@@ -2339,7 +2340,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           <FeaturedChip
                             key={item.name}
                             item={item}
-                            rarity={6}
+                            rarity={6} onSelect={setPreviewedPull}
                             tags={isLimited ? ['limited'] : undefined}
                             percent={pct ? pct.weight * 100 : undefined}
                             count={state.obtainedCounts[item.name]}
@@ -2352,7 +2353,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           <FeaturedChip
                             key={item.name}
                             item={item}
-                            rarity={5}
+                            rarity={5} onSelect={setPreviewedPull}
                             percent={pct ? pct.weight * 100 : undefined}
                             count={state.obtainedCounts[item.name]}
                           />
@@ -2370,7 +2371,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           <FeaturedChip
                             key={item.name}
                             item={item}
-                            rarity={6}
+                            rarity={6} onSelect={setPreviewedPull}
                             tags={isLimited ? ['limited'] : undefined}
                             percent={pct ? pct.weight * 100 : undefined}
                             count={state.obtainedCounts[item.name]}
@@ -2395,7 +2396,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           <FeaturedChip
                             key={item.name}
                             item={item}
-                            rarity={6}
+                            rarity={6} onSelect={setPreviewedPull}
                             tags={banner.type === 'limited' && isLimited ? ['limited'] : undefined}
                             percent={pct ? pct.weight * 100 : undefined}
                             count={state.obtainedCounts[item.name]}
