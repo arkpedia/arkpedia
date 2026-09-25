@@ -186,7 +186,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                 <p>{talent.description}</p>
               </div>)}
             </section>}
-            {!!details?.skills.length && <section className="gacha-preview-section">
+            {!!details?.skills.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Skills</h3>
               <div className="gacha-preview-tabs" role="group" aria-label="Select skill">
                 {details.skills.map((entry, index) => <button key={index} type="button" className={index === selectedSkill ? 'active' : ''} aria-pressed={index === selectedSkill} onClick={() => setSelectedSkill(index)}>
@@ -200,7 +200,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                 <p>{skill.description || 'No skill description is available yet.'}</p>
               </div>}
             </section>}
-            {!!details?.modules.length && <section className="gacha-preview-section">
+            {!!details?.modules.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Modules</h3>
               <div className="gacha-preview-tabs gacha-preview-module-tabs" role="group" aria-label="Select module">
                 {details.modules.map((entry, index) => <button key={index} type="button" className={index === selectedModule ? 'active' : ''} aria-pressed={index === selectedModule} onClick={() => { setSelectedModule(index); setSelectedStage(Math.max(0, entry.stages.length - 1)); }}>{entry.name}</button>)}
@@ -215,6 +215,19 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                   {moduleStage.effect && <p>{moduleStage.effect}</p>}
                 </div>}
               </> : <p>Original trait; no module upgrades.</p>}
+            </section>}
+            {!!details?.baseSkills?.length && <section className="gacha-preview-section gacha-preview-ability-section">
+              <h3>Base Skills</h3>
+              <div className="gacha-preview-base-skills">
+                {details.baseSkills.map((baseSkill, index) => <div className="gacha-preview-base-skill" key={`${baseSkill.name}-${index}`}>
+                  {baseSkill.icon && <ContentImg src={baseSkill.icon} alt="" width={36} height={36} />}
+                  <div>
+                    <strong>{baseSkill.name}</strong>
+                    {(baseSkill.facility || baseSkill.unlock) && <div className="gacha-preview-meta">{[baseSkill.facility, baseSkill.unlock].filter(Boolean).join(' · ')}</div>}
+                    <p>{baseSkill.description}</p>
+                  </div>
+                </div>)}
+              </div>
             </section>}
           </div>
         </div>
