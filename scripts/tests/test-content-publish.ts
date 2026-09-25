@@ -24,6 +24,7 @@ function stepScript(name: string) {
 }
 const loadStep = stepScript('Load public source records');
 const publishStep = stepScript('Publish the validated public release');
+const heartbeatStep = stepScript('Record the heartbeat');
 
 // A local bare repository stands in for arkpedia-data. Both steps run unchanged: its
 // URLs are rewritten to the local one, and the deploy-key setup gets a dummy key and a
@@ -43,6 +44,15 @@ function dataRepository(root: string) {
     fs.writeFileSync(path.join(app, `scripts/content/${script}.mjs`),
       `import fs from 'node:fs';\nfs.appendFileSync(${JSON.stringify(scriptLog)}, [${JSON.stringify(script)}, ...process.argv.slice(2)].join(' ') + '\\n');\n`);
   }
+  // The release gate asks production over the network (test-release-gates.ts); here it notes
+  // what it was asked about, and holds when a case says so, as the real one does: exit 1 and
+  // the reason in --held-file.
+  fs.writeFileSync(path.join(app, 'scripts/content/deploy-gate.mjs'), [
+    "import fs from 'node:fs';",
+    `fs.appendFileSync(${JSON.stringify(scriptLog)}, ['deploy-gate', ...process.argv.slice(2)].join(' ') + '\\n');`,
+    "if (process.env.FAKE_GATE === 'hold') { fs.writeFileSync(process.argv[process.argv.indexOf('--held-file') + 1], 'production runs other code\\n'); process.exit(1); }",
+    '',
+  ].join('\n'));
   fs.writeFileSync(path.join(bin, 'curl'), '#!/bin/sh\necho \'{"ssh_keys":[]}\'\n', { mode: 0o755 });
   const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
   const deepenLog = path.join(root, 'deepen.log');
@@ -88,7 +98,13 @@ function dataRepository(root: string) {
       fs.writeFileSync(path.join(out, 'source/a.json'), JSON.stringify({ value }));
       fs.writeFileSync(path.join(out, 'release/manifest.json'), JSON.stringify({ release, ...(content ? { content } : {}) }));
     },
-    publish: () => step(publishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key' }),
+    publish: (extra: Record<string, string> = {}) => step(publishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', GITHUB_OUTPUT: path.join(runner, 'github-output'), ...extra }),
+    outputs: () => fs.existsSync(path.join(runner, 'github-output')) ? fs.readFileSync(path.join(runner, 'github-output'), 'utf8') : '',
+    heartbeat: (extra: Record<string, string> = {}) => step(heartbeatStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', GITHUB_EVENT_NAME: 'schedule', RUN_URL: 'https://example.invalid/run/1', PUSHED: '', ...extra }),
+    log: (ref: string) => git('-C', origin, 'log', '--format=%s', ref).split('\n'),
+    head: (ref: string) => git('-C', origin, 'rev-parse', ref),
+    file: (ref: string, file: string) => JSON.parse(git('-C', origin, 'show', `${ref}:${file}`)),
+    root,
     main: () => git('-C', origin, 'log', '--format=%s', 'main').split('\n'),
     deepened: () => fs.existsSync(deepenLog) ? fs.readFileSync(deepenLog, 'utf8').trim().split('\n') : [],
     scripts: () => fs.existsSync(scriptLog) ? fs.readFileSync(scriptLog, 'utf8').trim().split('\n') : [],
@@ -226,7 +242,7 @@ function validateSources(files: Record<string, unknown>) {
     const assets = Object.fromEntries(['image-assets', 'skin-assets', 'color-palette', 'voice-english', 'voice-japanese', 'voice-korean', 'voice-mandarin', 'voice-regional']
       .map(repo => [`arkpedia-${repo}`, 'a'.repeat(40)]));
     fs.mkdirSync(path.join(root, 'release'));
-    fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, release: 'b'.repeat(64), generator: 'c'.repeat(40), assets, pages: {}, files: {} }));
+    fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, release: 'b'.repeat(64), generator: 'c'.repeat(40), codeFingerprint: 'f'.repeat(64), assets, pages: {}, files: {} }));
     for (const [file, value] of Object.entries(files)) {
       fs.mkdirSync(path.dirname(path.join(root, 'source', file)), { recursive: true });
       fs.writeFileSync(path.join(root, 'source', file), JSON.stringify(value));
@@ -307,7 +323,7 @@ test('a day that changes only the upstream lock or the catalogue\'s run report p
       const assets = Object.fromEntries(['image-assets', 'skin-assets', 'color-palette', 'voice-english', 'voice-japanese', 'voice-korean', 'voice-mandarin', 'voice-regional']
         .map(repo => [`arkpedia-${repo}`, 'a'.repeat(40)]));
       fs.mkdirSync(path.join(root, 'release'));
-      fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, ...ids(files), generator, assets, pages: {}, files: {}, sourceHashes: hashes(files), ...manifest }));
+      fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, ...ids(files), generator, codeFingerprint: 'f'.repeat(64), assets, pages: {}, files: {}, sourceHashes: hashes(files), ...manifest }));
       for (const [file, text] of Object.entries(files)) {
         fs.mkdirSync(path.dirname(path.join(root, 'source', file)), { recursive: true });
         fs.writeFileSync(path.join(root, 'source', file), text);
@@ -367,4 +383,74 @@ test('the publish step fetches more history only when the loaded history does no
     assert.equal(repo.deepened().length, 2);
     assert.deepEqual(repo.main(), ['concurrent', 'main 2', 'main 1', 'main 0']);
   });
+});
+
+// The release gate (scripts/content/deploy-gate.mjs): production must run the code that
+// compiled a release before it goes out. On 2026-09-25 a release from main would have reached
+// a production two commits behind, which dereferenced props main no longer exported.
+test('a release production cannot be shown to read is not pushed', () => {
+  withDataRepository(repo => {
+    repo.load('main');
+    repo.prepare('r3');
+    const held = repo.publish({ FAKE_GATE: 'hold' });
+    assert.notEqual(held.status, 0, 'the step fails, so the run is reported and nothing is cached as prepared');
+    assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
+    assert.equal(repo.outputs(), '', 'no pushed commit for the live check');
+    const [gate] = repo.scripts().filter(line => line.startsWith('deploy-gate'));
+    assert.match(gate, /^deploy-gate --manifest \S+\/prepared-content\/release\/manifest\.json --held-file \S+\/release-held\.md$/, 'the gate is asked about the compiled release');
+    assert.equal(fs.readFileSync(path.join(repo.root, 'runner/release-held.md'), 'utf8'), 'production runs other code\n');
+    // Production catches up: the same release goes out, and names the commit it pushed.
+    const published = repo.publish();
+    assert.equal(published.status, 0, published.output);
+    assert.deepEqual(repo.main(), ['Refresh game content and prepared page data', 'main 2', 'main 1', 'main 0']);
+    assert.equal(repo.outputs(), `pushed=${repo.head('main')}\n`);
+  });
+  // Nothing to publish asks production nothing and names no commit: there is nothing to hold.
+  withDataRepository(repo => {
+    repo.load('main');
+    repo.prepare('r2');
+    const unchanged = repo.publish({ FAKE_GATE: 'hold' });
+    assert.equal(unchanged.status, 0, unchanged.output);
+    assert.match(unchanged.output, /Release inputs are unchanged/);
+    assert.deepEqual(repo.scripts().filter(line => line.startsWith('deploy-gate')), []);
+    assert.equal(repo.outputs(), '');
+  });
+});
+
+test('the gate is asked before anything runs, and again in the publish step before the push', () => {
+  const all = steps();
+  const index = (name: string) => all.findIndex(step => step.name === name);
+  const early = index('Hold the release while production runs other code');
+  assert.ok(early >= 0 && early < index('Load public source records') && early < index('Check upstream revisions'), 'before the probe, the load and the compile');
+  const earlyBlock = all[early].block.map(line => line.trim());
+  assert.ok(!earlyBlock.some(line => line.startsWith('if:')), 'for every event: schedule, dispatch and a data_ref correction alike');
+  assert.ok(earlyBlock.includes('run: node scripts/content/deploy-gate.mjs --ref HEAD --held-file "$RUNNER_TEMP/release-held.md"'));
+  const lines = publishStep.split('\n');
+  const at = (pattern: RegExp) => lines.findIndex(line => pattern.test(line));
+  const gate = at(/^node scripts\/content\/deploy-gate\.mjs --manifest /);
+  assert.ok(gate > at(/Release inputs are unchanged/), 'after the step knows there is something to publish');
+  assert.ok(gate < at(/checkout -B main/) && gate < at(/push origin HEAD:main/), 'before the commit and the push');
+  assert.ok(at(/pushed=/) > at(/push origin HEAD:main/), 'the pushed commit is named only once it is pushed');
+});
+
+// arkpedia-data's watchdog (release-heartbeat.yml there) alarms when neither a release nor a
+// heartbeat is newer than 26 hours, so a quiet day that published nothing is not an outage.
+test('every successful run leaves one heartbeat commit on a branch of its own', () => {
+  withDataRepository(repo => {
+    const first = repo.heartbeat();
+    assert.equal(first.status, 0, first.output);
+    assert.deepEqual(repo.log('heartbeat'), ['Prepare content release succeeded (schedule)']);
+    const beat = repo.file('heartbeat', 'heartbeat.json');
+    assert.deepEqual({ ...beat, at: 'x' }, { version: 1, at: 'x', event: 'schedule', run: 'https://example.invalid/run/1', published: null });
+    assert.ok(Math.abs(Date.parse(beat.at) - Date.now()) < 60_000);
+    const second = repo.heartbeat({ GITHUB_EVENT_NAME: 'workflow_dispatch', PUSHED: 'a'.repeat(40) });
+    assert.equal(second.status, 0, second.output);
+    assert.deepEqual(repo.log('heartbeat'), ['Prepare content release succeeded (workflow_dispatch)', 'Prepare content release succeeded (schedule)']);
+    assert.equal(repo.file('heartbeat', 'heartbeat.json').published, 'a'.repeat(40));
+    // Main, which the data repository's Content release publishes from, is untouched.
+    assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
+    assert.equal(fs.existsSync(path.join(repo.root, 'runner/heartbeat-key')), false, 'the key is removed');
+  });
+  const settings = steps().find(step => step.name === 'Record the heartbeat')!.block.map(line => line.trim());
+  assert.ok(settings.includes('if: success()') && settings.includes('continue-on-error: true'), 'only after a good run, and it never fails one');
 });

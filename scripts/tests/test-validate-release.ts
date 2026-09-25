@@ -20,7 +20,7 @@ function validate(edit: (op: any) => void) {
     edit(op);
     fs.mkdirSync(path.join(root, 'release'));
     fs.mkdirSync(path.join(root, 'source/data/operators-6star'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, release: 'b'.repeat(64), generator: 'c'.repeat(40), assets, pages: {}, files: {} }));
+    fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, release: 'b'.repeat(64), generator: 'c'.repeat(40), codeFingerprint: 'f'.repeat(64), assets, pages: {}, files: {} }));
     fs.writeFileSync(path.join(root, 'source/data/operators-6star/Surtr.json'), JSON.stringify(op));
     const run = spawnSync(process.execPath, ['scripts/content/validate-release.mjs', root], { encoding: 'utf8' });
     assert.notEqual(run.status, 0);

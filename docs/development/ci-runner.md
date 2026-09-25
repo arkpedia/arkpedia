@@ -51,8 +51,10 @@ and the same code that push to main.
 
 ## What differs on the self-hosted runners
 
-- Timeouts are longer (Check 60, Deploy 45, content release 60, stage refresh
-  30 minutes) for the smaller machines.
+- Timeouts are longer (Check 60, Deploy 45, content release 90, stage refresh
+  30 minutes) for the smaller machines. Up to 30 of the content release's minutes can
+  go to waiting for the public asset syncs, which run on GitHub's runners, so a Check
+  queued behind it on the same runner can wait that long too.
 - Playwright installs Chromium without `--with-deps`: the system libraries are
   installed on the machines once, and the runner user has no sudo. The NAS image pins
   the Playwright version it installs them for; bump it with `@playwright/test`.

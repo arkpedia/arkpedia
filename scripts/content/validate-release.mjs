@@ -96,6 +96,9 @@ function checkUpstreamLock(file) {
 const manifestBytes = fs.readFileSync(path.join(root, 'release/manifest.json'));
 const m = JSON.parse(manifestBytes);
 check(m.schema === 2 && hex.test(m.release) && gitSha.test(m.generator), 'Unsupported release metadata');
+// The generator's code fingerprint, which the publish step compares with the one production
+// serves before the release may go out (scripts/content/deploy-gate.mjs).
+check(hex.test(m.codeFingerprint ?? ''), 'The manifest has no code fingerprint (scripts/content/code-fingerprint.mjs), so the release gate cannot tell whether production reads it');
 check(m.assets && Object.keys(m.assets).length === 8, 'Expected eight media/palette repositories');
 for (const [repo, revision] of Object.entries(m.assets)) check(/^arkpedia-(image-assets|skin-assets|color-palette|voice-(english|japanese|korean|mandarin|regional))$/.test(repo) && gitSha.test(revision), `Invalid asset: ${repo}`);
 const expected = new Set(['manifest.json']);

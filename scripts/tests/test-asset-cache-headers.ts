@@ -67,3 +67,11 @@ test('real static files keep their year and data indexes their short window', as
   assert.equal(cacheControl(rules, '/stages-index.json'), 'public, max-age=300, stale-while-revalidate=86400');
   assert.equal(cacheControl(rules, '/operators/Amiya'), undefined);
 });
+
+// The content release job reads /build-info.json to learn which code production runs
+// (scripts/content/deploy-gate.mjs); a cached copy would answer for an older deploy.
+test('build-info is never cached, although every other .json is', async () => {
+  const rules = await config.headers();
+  assert.equal(cacheControl(rules, '/build-info.json'), 'no-store');
+  assert.equal(cacheControl(rules, '/build-info.json.bak'), undefined);
+});

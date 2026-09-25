@@ -272,6 +272,11 @@ const nextConfig = {
         source,
         headers: [{ key: 'Cache-Control', value: 'public, max-age=300' }],
       })),
+      // Which code this deployment runs (scripts/build/write-build-info.mjs). The content
+      // release job reads it before it publishes and holds a release compiled by other code;
+      // a copy kept by any cache would let a release through that the running build cannot
+      // read, or hold one it can. After the broad .json rule, so it replaces that value.
+      { source: '/build-info.json', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
     ];
   },
 };

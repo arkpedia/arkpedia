@@ -309,14 +309,20 @@ test('no address in a cell autolinks, whatever comes before or after it, and the
 });
 
 // The shell of a prepare-content step, as the runner gets it.
-function stepScript(name: string) {
-  const lines = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('\n');
+// A step's run: a `run: |` block, or a one-line `run:`, of any of the workflows.
+function stepScript(name: string, workflow = 'prepare-content') {
+  const lines = fs.readFileSync(`.github/workflows/${workflow}.yml`, 'utf8').split('\n');
   const start = lines.findIndex(line => line.trim() === `- name: ${name}`);
-  const run = lines.findIndex((line, i) => i > start && /^\s+run: \|$/.test(line));
-  assert.ok(start >= 0 && run > start, `prepare-content.yml has a '${name}' step with a run block`);
-  const indent = lines[run].search(/\S/) + 2;
+  assert.ok(start >= 0, `${workflow}.yml has a '${name}' step`);
+  const item = lines[start].search(/\S/);
+  const end = lines.findIndex((line, i) => i > start && line.trim() !== '' && line.search(/\S/) <= item);
+  const block = lines.slice(start + 1, end < 0 ? lines.length : end);
+  const run = block.findIndex(line => /^\s+run: /.test(line));
+  assert.ok(run >= 0, `${workflow}.yml's '${name}' step has a run`);
+  if (!/^\s+run: \|$/.test(block[run])) return block[run].replace(/^\s+run: /, '');
+  const indent = block[run].search(/\S/) + 2;
   const body: string[] = [];
-  for (const line of lines.slice(run + 1)) {
+  for (const line of block.slice(run + 1)) {
     if (line.trim() && line.search(/\S/) < indent) break;
     body.push(line.slice(indent));
   }
@@ -408,4 +414,133 @@ test('a failed release reports on the one open issue, and the next good run clos
     assert.equal(github.issues()[0].state, 'closed');
     assert.match(github.issues()[0].comments.at(-1)!.body, /^Recovered: https:\/\/example\.invalid\/run\/1$/);
   });
+});
+
+// A run the release gate held (scripts/content/deploy-gate.mjs wrote why) is not a broken
+// workflow: the fix is a deploy, so it gets an issue of its own, which a good run closes.
+test('a held release reports on its own issue, and a good run closes it with the failure report', () => {
+  withGitHub(github => {
+    const report = stepScript('Report the failed release'), close = stepScript('Close the failed-release report');
+    const held = path.join(github.root, 'release-held.md');
+    fs.writeFileSync(held, '**The content release was not published: production cannot be shown to read it.**\n\n- https://arkpedia-dev.vercel.app runs 821a98d4abcd, not the code of 7f236ea5abcd that compiles the release.\n');
+    const run = github.step(report, { FAKE_NOW: '2026-09-25T22:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'schedule' });
+    assert.equal(run.status, 0, run.output);
+    const [issue] = github.issues();
+    assert.equal(issue.title, 'Content release held');
+    assert.match(issue.body, /^<!-- arkpedia-alert:content-release-held -->\n\*\*The content release was not published/);
+    assert.match(issue.body, /runs 821a98d4abcd, not the code of 7f236ea5abcd/);
+    assert.match(issue.body, /Held by https:\/\/example\.invalid\/run\/1 \(schedule, /);
+    assert.equal(github.issues().length, 1, 'no "Content release failing" issue for a hold');
+    // Without the gate's file it is an ordinary failure, reported as before.
+    fs.rmSync(held);
+    github.step(report, { FAKE_NOW: '2026-09-25T22:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'schedule' });
+    assert.deepEqual(github.issues().map(entry => entry.title), ['Content release held', 'Content release failing']);
+    const closed = github.step(close);
+    assert.equal(closed.status, 0, closed.output);
+    assert.deepEqual(github.issues().map(entry => entry.state), ['closed', 'closed']);
+    assert.match(github.issues()[0].comments.at(-1)!.body, /^Production runs the code this run compiled with, and the run succeeded: https:\/\/example\.invalid\/run\/1$/);
+  });
+});
+
+// arkpedia-data's Content release moves the live pointer after its own validator passes; the
+// release job polls the live branch for the commit it pushed, and alerts when it stays put.
+test('a release that does not go live opens an issue, and one that does closes it', () => {
+  withGitHub(github => {
+    const script = stepScript('Confirm the release went live');
+    const origin = path.join(github.root, 'data.git'), seed = path.join(github.root, 'seed'), clone = path.join(github.root, 'arkpedia-data');
+    const gitconfig = path.join(github.root, 'gitconfig');
+    fs.writeFileSync(gitconfig, [`[url "file://${origin}"]`, '\tinsteadOf = https://github.com/arkpedia/arkpedia-data.git',
+      '[user]', '\tname = t', '\temail = t@example.invalid', '[init]', '\tdefaultBranch = main', ''].join('\n'));
+    const gitEnv = { ...process.env, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1' };
+    const git = (cwd: string, ...args: string[]) => {
+      const result = spawnSync('git', args, { cwd, env: gitEnv, encoding: 'utf8' });
+      assert.equal(result.status, 0, `git ${args.join(' ')}: ${result.stderr}`);
+      return result.stdout.trim();
+    };
+    git(github.root, 'init', '-q', '--bare', origin);
+    git(github.root, 'clone', '-q', `file://${origin}`, seed);
+    const commit = (branch: string, file: string, text: string) => {
+      git(seed, 'checkout', '-q', '-B', branch);
+      fs.writeFileSync(path.join(seed, file), text);
+      git(seed, 'add', '-A'); git(seed, 'commit', '-q', '-m', `${branch} ${text}`); git(seed, 'push', '-q', '--force', 'origin', `HEAD:${branch}`);
+      return git(seed, 'rev-parse', 'HEAD');
+    };
+    const first = commit('main', 'a.json', '1');
+    git(seed, 'checkout', '-q', '--orphan', 'live'); git(seed, 'rm', '-q', '-rf', '.');
+    commit('live', 'current.json', JSON.stringify({ schema: 2, release: 'r'.repeat(64), revision: first, manifestSha256: 'm'.repeat(64) }));
+    git(seed, 'checkout', '-q', 'main');
+    const pushed = commit('main', 'a.json', '2');
+    git(github.root, 'clone', '-q', `file://${origin}`, clone);
+    const run = () => github.step(script, { PUSHED: pushed, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1', ARKPEDIA_LIVE_TIMEOUT_SECONDS: '0' });
+    // The data repository's publish failed: live still names the previous commit.
+    const stuck = run();
+    assert.equal(stuck.status, 1, 'the step shows red; continue-on-error keeps the run going');
+    const [issue] = github.issues();
+    assert.equal(issue.title, 'Content release not live');
+    assert.match(issue.body, new RegExp(`^<!-- arkpedia-alert:content-release-not-live -->\\nThis run pushed the release as arkpedia-data \`${pushed}\` \\(https://example\\.invalid/run/1\\), but the live pointer did not move to it:`));
+    assert.match(issue.body, new RegExp(`Live has not moved to ${pushed} after 0 s: it still serves ${first}\\.`));
+    assert.match(issue.body, /Readers keep the previous release until it does\. .*actions\/workflows\/content\.yml$/m);
+    assert.match(stuck.output, /::warning::The live pointer did not move/);
+    // It moved: the issue closes.
+    git(seed, 'checkout', '-q', 'live');
+    commit('live', 'current.json', JSON.stringify({ schema: 2, release: 'r'.repeat(64), revision: pushed, manifestSha256: 'm'.repeat(64) }));
+    const live = run();
+    assert.equal(live.status, 0, live.output);
+    assert.match(live.output, new RegExp(`Live serves ${pushed}\\.`));
+    assert.equal(github.issues()[0].state, 'closed');
+  });
+  const settings = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('\n');
+  const start = settings.findIndex(line => line.trim() === '- name: Confirm the release went live');
+  const block = settings.slice(start, start + 6).map(line => line.trim());
+  assert.ok(block.includes("if: steps.publish.outputs.pushed != ''") && block.includes('continue-on-error: true'), 'only after a push, and never failing the run');
+});
+
+// Deploy follows only a green Check on main, and the release gate holds content while
+// production runs other code than main, so a red main stops both: one issue says so.
+test('a red Check on main opens one issue, a superseded run does not, and the next green run closes it', () => {
+  withGitHub(github => {
+    const report = stepScript('Report a red Check on main', 'check'), close = stepScript('Close the red-Check report', 'check');
+    const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    fs.writeFileSync(path.join(github.root, 'bin/git'), `#!/bin/sh\nif [ "$1" = ls-remote ]; then printf '%s\\trefs/heads/main\\n' "$FAKE_MAIN"; exit 0; fi\nexec '${realGit}' "$@"\n`, { mode: 0o755 });
+    const sha = 'a'.repeat(40);
+    const env = (status: string, main = sha) => ({ FAKE_NOW: '2026-09-25T12:00:00Z', JOB_STATUS: status, GITHUB_SHA: sha, FAKE_MAIN: main });
+    // Cancelled because a newer push superseded it: that run reports, this one says nothing.
+    const superseded = github.step(report, env('cancelled', 'b'.repeat(40)));
+    assert.equal(superseded.status, 0, superseded.output);
+    assert.deepEqual(github.issues(), []);
+    const failed = github.step(report, env('failure'));
+    assert.equal(failed.status, 0, failed.output);
+    assert.equal(github.issues()[0].title, 'Check failing on main');
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:check-failing-main -->\nCheck ended with failure on main at aaaaaaaaaaaa \(.*\): https:\/\/example\.invalid\/run\/1\. Nothing deploys until a Check on main passes/);
+    // Cancelled on main's current commit is a timeout, and news.
+    github.step(report, env('cancelled'));
+    assert.equal(github.issues().length, 1);
+    assert.equal(github.issues()[0].comments.length, 1);
+    assert.equal(github.step(close, { GITHUB_SHA: 'c'.repeat(40) }).status, 0);
+    assert.equal(github.issues()[0].state, 'closed');
+    assert.match(github.issues()[0].comments.at(-1)!.body, /^Green again at cccccccccccc: https:\/\/example\.invalid\/run\/1$/);
+  });
+  const check = fs.readFileSync('.github/workflows/check.yml', 'utf8');
+  for (const name of ['Report a red Check on main', 'Close the red-Check report']) {
+    const at = check.indexOf(`- name: ${name}`);
+    assert.match(check.slice(at, at + 200), /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/, `${name}: pushes to main only, never a pull request`);
+  }
+  assert.match(check, /^permissions:\n {2}contents: read\n( {2}#.*\n)* {2}issues: write$/m);
+});
+
+test('a failed deploy opens one issue that the next deploy closes, even when the token is missing', () => {
+  withGitHub(github => {
+    const report = stepScript('Report the failed deploy', 'deploy'), close = stepScript('Close the failed-deploy report', 'deploy');
+    const failed = github.step(report, { FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
+    assert.equal(failed.status, 0, failed.output);
+    assert.equal(github.issues()[0].title, 'Deploy failing');
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing -->\nDeploy ended with failure for dddddddddddd \(workflow_run, .*\): https:\/\/example\.invalid\/run\/1\. Production keeps its previous build/);
+    assert.equal(github.step(close, { DEPLOYING: 'e'.repeat(40) }).status, 0);
+    assert.equal(github.issues()[0].state, 'closed');
+    assert.match(github.issues()[0].comments.at(-1)!.body, /^Deployed eeeeeeeeeeee: https:\/\/example\.invalid\/run\/1$/);
+  });
+  // The report needs the checkout; the token check used to run first and fail without one.
+  const names = [...fs.readFileSync('.github/workflows/deploy.yml', 'utf8').matchAll(/^ {6}- (?:name: (.*)|uses: (actions\/checkout)@)/gm)].map(match => match[1] ?? match[2]);
+  assert.ok(names.indexOf('actions/checkout') < names.indexOf('Refuse to run without the deploy token'), names.join(' | '));
+  assert.deepEqual(names.slice(-2), ['Report the failed deploy', 'Close the failed-deploy report']);
 });
