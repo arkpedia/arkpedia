@@ -17,6 +17,10 @@ import type { RecruitmentGameOperator, RecruitmentQuestion } from '@/lib/minigam
 import styles from '@/styles/games/minigames.module.css';
 
 interface Props { operators: RecruitmentGameOperator[]; questions: RecruitmentQuestion[] }
+/** The round heading's wordings, all laid out so the tallest holds the height. */
+const ROUND_TITLES = [['playing', 'Name every possible operator'], ['won', 'Every operator found'], ['revealed', 'The possible recruits']] as const;
+const titleFor = (status: string) => (status === 'playing' || status === 'won' ? status : 'revealed');
+
 export default function RecruitmentGame({ operators, questions }: Props) {
   const [question, setQuestion] = useState<RecruitmentQuestion | null>(null);
   const [progress, setProgress] = useState(newProgress);
@@ -60,7 +64,7 @@ export default function RecruitmentGame({ operators, questions }: Props) {
     <PageHeader eyebrow={<GamesEyebrow />} title="Recruitment Guesser" sub="Name every operator a set of recruitment tags can give you." actions={<GameLinks />} />
     <main className={styles.page}>
       {!question ? <p className={styles.muted} role="status">{questions.length ? 'Preparing your first combination…' : 'No recruitment combinations available.'}</p> : <div ref={roundFloor.ref}><section className={`op-section ${styles.round}`} ref={roundRef} tabIndex={-1} aria-label="Recruitment challenge">
-        <div className={styles.roundTop}><h2>{playing ? 'Name every possible operator' : progress.status === 'won' ? 'Every operator found' : 'The possible recruits'}</h2><span>Round {roundNumber} · {progress.found.length}/{question.answers.length} found</span></div>
+        <div className={styles.roundTop}><h2 className={styles.roundTitle}>{ROUND_TITLES.map(([status, title]) => <span key={status} data-off={status !== titleFor(progress.status) || undefined}>{title}</span>)}</h2><span>Round {roundNumber} · {progress.found.length}/{question.answers.length} found</span></div>
         <details className={`${styles.disclosure} ${styles.rules}`}><summary>Which operators count?</summary><p>Only operators in the Global recruitment roster. Assume every displayed tag stays. There is no recruitment-time filter: Robots and Starters count too. Six-star operators require the Top Operator tag.</p><p>Correct answers stay found and don’t use a guess. You can make five wrong guesses. A combination with four or more possible answers is never used.</p></details>
         <div className={styles.tags} aria-label="Recruitment tags">{question.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
         <ul className={styles.results} aria-label="Matching operators">

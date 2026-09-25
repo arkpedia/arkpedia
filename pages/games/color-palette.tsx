@@ -23,6 +23,9 @@ const MODES: { value: PaletteMode; label: string; description: string }[] = [
   { value: 'elite2', label: 'Elite 2 Skin', description: 'The artwork unlocked at Elite 2.' },
 ];
 
+/** The round heading's wordings, all laid out so the tallest holds the height. */
+const ROUND_TITLES = [['playing', 'Who is this operator?'], ['won', 'Operator identified'], ['revealed', 'The answer']] as const;
+
 export default function PaletteGame({ operators: catalogue, now }: Props) {
   const operators = useMemo(() => playablePalettes(catalogue, now), [catalogue, now]);
   const [mode, setMode] = useState<PaletteMode>('base');
@@ -73,7 +76,7 @@ export default function PaletteGame({ operators: catalogue, now }: Props) {
         <p className={styles.muted}>Only released Global operators. Purchasable outfits are never included.</p>
         <div className={styles.start}><span className={styles.muted}>{eligible.length} operators</span><button type="button" className="primary" disabled={!eligible.length} onClick={startRound}>Start guessing</button></div>
       </section> : artwork && <section className={`op-section ${styles.round}`} ref={roundRef} tabIndex={-1} aria-label="Palette challenge">
-        <div className={styles.roundTop}><h2>{playing ? 'Who is this operator?' : progress.status === 'won' ? 'Operator identified' : 'The answer'}</h2><span>{modeLabel} · Round {roundNumber}</span></div>
+        <div className={styles.roundTop}><h2 className={styles.roundTitle}>{ROUND_TITLES.map(([status, title]) => <span key={status} data-off={status !== (playing || progress.status === 'won' ? progress.status : 'revealed') || undefined}>{title}</span>)}</h2><span>{modeLabel} · Round {roundNumber}</span></div>
         <figure className={styles.paletteClues}>
           <div className={styles.palette} role="img" aria-label={`Five-color palette: ${artwork.colors.map((color, i) => `${COLOR_LABELS[i]}: ${color}`).join('; ')}`}>
             {artwork.colors.map((color, i) => <span key={i} className={styles.swatch} aria-hidden="true" style={{ '--swatch-color': color } as CSSProperties} />)}

@@ -14,7 +14,13 @@
 .round { composes: panel; scroll-margin-top: calc(var(--nav-h, 54px) + 16px); outline: none; display: grid; gap: 22px; }
 .roundTop { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .roundTop h2 { margin: 0; }
-.roundTop span { font-size: 13px; color: var(--text-dim); }
+.roundTop > span { font-size: 13px; color: var(--text-dim); }
+/* A heading whose wording changes with the round's state: every wording sits in one
+   grid cell and the tallest sets the height, so a shorter one cannot pull the round
+   up the page (the recruitment guesser's reveal moved it 28px at 412px). */
+.roundTitle { display: grid; }
+.roundTitle > span { grid-area: 1 / 1; }
+.roundTitle > span[data-off] { visibility: hidden; }
 .paletteClues { display: grid; gap: 8px; margin: 0; }
 .palette { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: clamp(130px, 25vw, 210px); border: 1px solid var(--line); border-radius: var(--radius-frame); overflow: hidden; }
 .swatch { min-width: 0; background: var(--swatch-color); }

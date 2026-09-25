@@ -143,7 +143,10 @@ export function useHeightFloor(resetKey: unknown) {
 
   /* Before the browser paints the shortened page, so the short state is never
      drawn and there is no clamp to race. Every render, because the collapses
-     this defends against are all state changes in the owning component. */
+     this defends against are all state changes in the owning component. It sets
+     state only when the reserve changes, and each pass moves it to the value the
+     next pass computes, so the chain settles in one or two passes. */
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- every render, on purpose (above)
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -175,9 +178,15 @@ export function useHeightFloor(resetKey: unknown) {
   });
 
   useEffect(() => {
+    /* The content's height as it stands, not 0. This effect runs after the layout
+       effect of the same commit, so zeroing it here erased the measurement that
+       commit had just taken: when nothing re-rendered before the first collapse
+       (the recruitment guesser's first "Reveal answers" after a new question), the
+       collapse compared against 0, never read as a shrink, and the reader was
+       clamped up the page -- 67px at 1440, 83px at 390, measured. */
+    ownRef.current = ref.current ? ref.current.getBoundingClientRect().height - reserveRef.current : 0;
     reserveRef.current = 0;
     setReserve(0);
-    ownRef.current = 0;
     pressRef.current = 0;
     pressYRef.current = 0;
     restoreRef.current = null;
