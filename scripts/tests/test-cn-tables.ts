@@ -210,6 +210,14 @@ test('every stage after upstream-cn reads the CN tables it settled on, even at a
   // Run by hand, outside a refresh: the primary at its pin, else its branch, as before.
   assert.equal(cnTableUrl('excel', { [pinVariable(KENGXXIAO)]: commit('1') }), `https://raw.githubusercontent.com/${KENGXXIAO}/${commit('1')}/zh_CN/gamedata/excel`);
   assert.deepEqual(cnTables({}), { repository: KENGXXIAO, commit: null, ref: 'master', folder: 'zh_CN/gamedata', serialization: null });
+  // Python and shell ask pin-upstream.mjs for the same URL, so no script names a CN mirror itself.
+  const cli = (given: Record<string, string>) => spawnSync(process.execPath, ['scripts/content/pin-upstream.mjs', 'cn-table-url', 'excel'],
+    { encoding: 'utf8', env: { ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_'))), ...given } as NodeJS.ProcessEnv });
+  assert.equal(cli(fallback).stdout, `https://raw.githubusercontent.com/${YUANYAN}/${commit('3')}/gamedata/excel\n`);
+  assert.equal(cli({ [pinVariable(KENGXXIAO)]: commit('1') }).stdout, `https://raw.githubusercontent.com/${KENGXXIAO}/${commit('1')}/zh_CN/gamedata/excel\n`);
+  const broken = cli({ [CN_TABLES_VARIABLE]: 'yuanyan' });
+  assert.equal(broken.status, 1);
+  assert.match(broken.stderr, /does not name one of the CN table sources/);
   // A value that names no source is a broken refresh, never a quiet read of another mirror.
   assert.throws(() => cnTables({ [CN_TABLES_VARIABLE]: JSON.stringify({ repository: 'someone/else', commit: commit('3'), folder: 'gamedata', serialization: 'numeric' }) }), /does not name one of the CN table sources/);
   assert.throws(() => cnTables({ [CN_TABLES_VARIABLE]: 'yuanyan' }), /does not name one of the CN table sources/);
@@ -231,12 +239,12 @@ test('the readers that fetch a CN table by URL fetch it from the mirror and comm
   for (const file of ['item_table.json', 'building_data.json']) fs.writeFileSync(path.join(root, 'en/gamedata/excel', file), '{"items": {}}');
   const pins = Object.fromEntries(MIRRORS.map((mirror: { repository: string }, i: number) => [pinVariable(mirror.repository), commit(String(i + 1))]));
   const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_'))) as NodeJS.ProcessEnv;
-  const read = (settled: object) => Object.fromEntries([
+  const read = (settled: object | null) => Object.fromEntries([
     ['sync/sync-content-inventory.mjs', 'node'], ['build/build-operator-voices.mjs', 'node'], ['sync/sync-event-windows.mjs', 'node'], ['imports/import-reward-icons.py', 'python3'],
   ].map(([script, runtime]) => {
     fs.rmSync(log, { force: true });
     spawnSync(runtime, [...(runtime === 'node' ? ['--import', preload] : []), path.resolve('scripts', script)], { cwd, encoding: 'utf8',
-      env: { ...clean, ...pins, [CN_TABLES_VARIABLE]: JSON.stringify(settled), FETCH_LOG: log, PYTHONPATH: sitecustomize,
+      env: { ...clean, ...pins, ...(settled ? { [CN_TABLES_VARIABLE]: JSON.stringify(settled) } : {}), FETCH_LOG: log, PYTHONPATH: sitecustomize,
         ARKPEDIA_EN: path.join(root, script.endsWith('.py') ? 'en' : 'none'), ARKPEDIA_CN: path.join(root, 'none') } });
     return [script, fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : []];
   }));
@@ -254,6 +262,13 @@ test('the readers that fetch a CN table by URL fetch it from the mirror and comm
     const tables = urls.filter(url => url.includes(`/${KENGXXIAO}/`));
     assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}`);
     for (const url of tables) assert.ok(url.startsWith(`https://raw.githubusercontent.com/${KENGXXIAO}/${commit('a')}/zh_CN/gamedata/excel/`), `${script}: ${url}`);
+  }
+  // Run by hand, with no tables settled: the primary at its pin, the Python script included.
+  const byHand = read(null);
+  for (const [script, urls] of Object.entries(byHand)) {
+    const tables = urls.filter(url => url.includes('/gamedata/excel/') && !url.includes('/en/gamedata/') && !url.includes('/en_US/'));
+    assert.ok(tables.length, `${script} fetched no CN table: ${urls.join(', ')}`);
+    for (const url of tables) assert.ok(url.startsWith(`https://raw.githubusercontent.com/${KENGXXIAO}/${commit('1')}/zh_CN/gamedata/excel/`), `${script}: ${url}`);
   }
 }));
 

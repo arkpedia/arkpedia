@@ -465,12 +465,87 @@ test('every script a refresh stage runs reads the game-data mirrors at the run\'
     const text = fs.readFileSync(file, 'utf8');
     for (const { repository } of MIRRORS as { repository: string }[]) {
       const moving = new RegExp(`(?:raw\\.githubusercontent\\.com|api\\.github\\.com/repos)/${repository.replace(/[.]/g, '\\.')}/(?:commits/)?(?:main|master)\\b`);
-      assert.doesNotMatch(text, moving, `${file} reads ${repository} at its moving branch; build the URL from pinnedRef() (Python: the ARKPEDIA_PIN_ variable)`);
+      assert.doesNotMatch(text, moving, `${file} reads ${repository} at its moving branch; ${PINNED_ADVICE}`);
       if (text.includes(repository) && host.test(text)) {
-        assert.match(text, /pinnedRef\(|pinnedCommit\(|ARKPEDIA_PIN_/, `${file} reads ${repository} without the commit this run pinned`);
+        assert.match(text, /pinnedRef\(|pinnedCommit\(|ARKPEDIA_PIN_/, `${file} reads ${repository} without the commit this run pinned; ${PINNED_ADVICE}`);
       }
     }
   }
+});
+
+/*
+ * The CN tables come from ONE mirror at ONE commit per run: the source the upstream-cn stage
+ * settled on (scripts/content/cn-tables.mjs), which may be neither Kengxxiao nor its pin. A
+ * stage reads them from the checkout that stage composed, or by URL from cnTableUrl() or
+ * cnTables(). One that names a CN mirror's tables itself -- at that mirror's pin, as the check
+ * above asks of any other mirror -- reads another mirror, or another commit, than the rest of
+ * the run on a day upstream-cn fell back, or fails against the mirror that is down. Only the two
+ * scripts that settle the source may name it.
+ */
+const CN_TABLE_ADVICE = 'build a CN table\'s URL from cnTableUrl() or cnTables() (Python and shell: node scripts/content/pin-upstream.mjs cn-table-url <file>), or read it from .cache/upstream/cn-resource/gamedata';
+const PINNED_ADVICE = `for a CN table, ${CN_TABLE_ADVICE}; for any other file, build the URL from pinnedRef() (Python: the ARKPEDIA_PIN_ variable)`;
+const CN_TABLE_SETTLERS = ['scripts/content/pin-upstream.mjs', 'scripts/content/cn-tables.mjs'];
+/** How a script's text reads a CN table other than from the source the run settled on. */
+function cnTablesNotSettled(text: string): string[] {
+  const problems: string[] = [];
+  // Kengxxiao serves the refresh nothing but CN tables: naming it, or its pin, is reading them there.
+  if (/Kengxxiao\/ArknightsGameData|KENGXXIAO_ARKNIGHTSGAMEDATA/i.test(text)) problems.push('names Kengxxiao/ArknightsGameData, which serves the refresh nothing but CN tables');
+  // Which sources there are, and where each is checked out, is cn-tables.mjs's to know.
+  if (/\bCN_TABLE_SOURCES\b|\bTABLE_CHECKOUTS\b|\.cache\/upstream\/cn-tables/.test(text)) problems.push('reads the CN table sources or their checkouts, not the tables the run settled on');
+  // yuanyan3060's art (item/, map/) at its pin is right; anything under its gamedata/ is a CN table.
+  if (/yuanyan3060\/ArknightsGameResource(?:\$\{[^}]*\}|\{[^}]*\}|[\w.@/-])*?\/gamedata\b/i.test(text)) problems.push('reads a CN table from yuanyan3060/ArknightsGameResource by itself');
+  // A URL to any gamedata/ folder but Global's (en/, en_US/) is a CN table, however the rest is built.
+  const url = /(?:raw\.githubusercontent\.com|api\.github\.com\/repos|cdn\.jsdelivr\.net\/gh|github\.com)\/(?:\$\{[^}]*\}|\{[^}]*\}|[^\s'"`{}])*/g;
+  for (const [address] of text.matchAll(url)) {
+    if (/(?<!\/en|\/en_US)\/gamedata(?=\/|$)/.test(address)) problems.push(`builds a URL to a CN table: ${address}`);
+  }
+  // The same through pin-upstream's raw-url command or rawUrl(), or a checkout of its own.
+  for (const line of text.replace(/\\\n\s*/g, ' ').split('\n')) {
+    if (/raw-url|rawUrl\(|upstream\.sh|upstream_sync/.test(line) && /(?:^|[\s'"`,])(?:zh_CN\/)?gamedata(?=[/\s'"`,]|$)/.test(line)) {
+      problems.push(`reads a CN table at a mirror's pin: ${line.trim()}`);
+    }
+  }
+  return problems;
+}
+test('no refresh script reads a CN table from one mirror or at its pin, only from the tables upstream-cn settled on', () => {
+  const texts = [
+    ...refreshScripts().filter(file => !CN_TABLE_SETTLERS.includes(file)).map(file => [file, fs.readFileSync(file, 'utf8')]),
+    ...refreshStages().map(stage => [`stage ${stage.name}`, stage.command]),
+  ];
+  assert.ok(texts.some(([file]) => file === 'scripts/imports/import-reward-icons.py') && texts.some(([file]) => file === 'stage charwords'));
+  const problems = texts.flatMap(([file, text]) => cnTablesNotSettled(text).map(problem => `${file} ${problem}; ${CN_TABLE_ADVICE}`));
+  assert.deepEqual(problems, []);
+});
+test('the CN table check catches every way a script could read a CN table by itself, and passes art, Global and the settled source', () => {
+  const pin = "${pinnedRef('yuanyan3060/ArknightsGameResource')}";
+  const caught = [
+    // The review's own mutation of sync-reward-names.mjs.
+    `export const CN_TABLE = \`https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${pin}/gamedata/excel/item_table.json\`;`,
+    "const url = `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/${pinnedRef('Kengxxiao/ArknightsGameData')}/zh_CN/gamedata/excel/${file}`;",
+    "const ref = process.env.ARKPEDIA_PIN_KENGXXIAO_ARKNIGHTSGAMEDATA || 'master';",
+    "const [primary] = CN_TABLE_SOURCES; const base = `https://raw.githubusercontent.com/${primary.repository}/${pinnedRef(primary.repository)}/${primary.folder}`;",
+    "const REPO = 'yuanyan3060/ArknightsGameResource'; fetch(`https://raw.githubusercontent.com/${REPO}/${pinnedRef(REPO)}/gamedata/levels/obt/main/level_main_01-01.json`);",
+    "RAW = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{CN_REF}/gamedata/excel'",
+    "RAW = f'https://raw.githubusercontent.com/{REPO}/{ref}/gamedata'",
+    "const base = `https://cdn.jsdelivr.net/gh/${repo}@${ref}/zh_CN/gamedata/excel`;",
+    'curl "$(node scripts/content/pin-upstream.mjs raw-url yuanyan3060/ArknightsGameResource gamedata/excel/item_table.json)"',
+    "rawUrl(root, repository, 'gamedata/excel/item_table.json')",
+    'bash scripts/lib/upstream.sh cn-own https://github.com/yuanyan3060/ArknightsGameResource.git main \\\n  gamedata/excel gamedata/levels',
+    "const table = JSON.parse(fs.readFileSync('.cache/upstream/cn-tables-fallback/gamedata/excel/item_table.json'));",
+  ];
+  for (const text of caught) assert.ok(cnTablesNotSettled(text).length, `not caught: ${text}`);
+  const passed = [
+    "const SOURCE = `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${pinnedRef('yuanyan3060/ArknightsGameResource')}/item`;",
+    "ITEM_ART = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{CN_REF}/item'",
+    "const RAW = `https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${pinnedRef('ArknightsAssets/ArknightsGamedata')}/en/gamedata/excel`;",
+    'curl "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)"',
+    'bash scripts/lib/upstream.sh en-gamedata https://github.com/ArknightsAssets/ArknightsGamedata.git default \\\n  en/gamedata/excel en/gamedata/levels',
+    "cn: cnTableUrl('excel/charword_table.json', env),",
+    "const url = `https://raw.githubusercontent.com/${repo}/${revision}/${folder}/excel/${file}`;",
+    "const CN = `${process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource'}/gamedata/excel`;",
+    "RAW_CN = subprocess.run(['node', PIN_UPSTREAM, 'cn-table-url', 'excel'], capture_output=True, text=True).stdout.strip()",
+  ];
+  for (const text of passed) assert.deepEqual(cnTablesNotSettled(text), [], text);
 });
 test('the daily refresh runs every command as a uniquely named stage that needs only earlier ones', () => {
   const stages = refreshStages();

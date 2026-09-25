@@ -53,6 +53,7 @@ import json
 import os
 import re
 import ssl
+import subprocess
 import urllib.parse
 import urllib.request
 from io import BytesIO
@@ -75,19 +76,20 @@ def pinned(variable, branch):
     return commit if re.fullmatch(r'[0-9a-f]{40}', commit) else branch
 
 
+PIN_UPSTREAM = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'content', 'pin-upstream.mjs')
+
+
 def cn_tables():
     """The CN tables' raw folder: the mirror and commit this run settled on for every CN table
     (scripts/content/cn-tables.mjs; the stage runner passes them in as ARKPEDIA_CN_TABLES),
-    else the primary mirror at its pin, else its branch -- cnTableUrl() in pin-upstream.mjs."""
-    given = os.environ.get('ARKPEDIA_CN_TABLES')
-    if not given:
-        ref = pinned('ARKPEDIA_PIN_KENGXXIAO_ARKNIGHTSGAMEDATA', 'master')
-        return f'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/{ref}/zh_CN/gamedata/excel'
-    tables = json.loads(given)
-    if not re.fullmatch(r'[\w.-]+/[\w.-]+', tables.get('repository') or '') or not re.fullmatch(r'[0-9a-f]{40}', tables.get('commit') or '') \
-            or not re.fullmatch(r'[\w/]+', tables.get('folder') or ''):
-        raise SystemExit(f'ARKPEDIA_CN_TABLES does not name a mirror at a commit: {given}')
-    return f"https://raw.githubusercontent.com/{tables['repository']}/{tables['commit']}/{tables['folder']}/excel"
+    else -- run by hand -- the primary mirror at its pin, else its branch. pin-upstream.mjs
+    works it out (cnTableUrl()), so this script names no CN mirror and reads no mirror's pin
+    for a table: at one mirror's pin it would read another mirror, or another commit, than
+    the rest of the run on a day upstream-cn fell back."""
+    result = subprocess.run(['node', PIN_UPSTREAM, 'cn-table-url', 'excel'], capture_output=True, text=True)
+    if result.returncode:
+        raise SystemExit(f'Could not tell which CN tables this run reads:\n{result.stderr.strip()}')
+    return result.stdout.strip()
 
 
 EN_REF = pinned('ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSGAMEDATA', 'master')

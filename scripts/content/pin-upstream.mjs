@@ -6,6 +6,8 @@
  *
  *   node scripts/content/pin-upstream.mjs                       write data/upstream.lock.json
  *   node scripts/content/pin-upstream.mjs raw-url <repo> <path>  print a raw file URL at the pin
+ *   node scripts/content/pin-upstream.mjs cn-table-url <file>    print a CN table's raw URL, for a
+ *                                                                file under gamedata/ (cnTableUrl)
  *
  * The lock is published with the release, so the next run loads it with the rest of the
  * data and falls back to its commit for a mirror it cannot reach, with a warning instead of
@@ -14,14 +16,17 @@
  * Every stage run by run-stage.mjs gets one environment variable per mirror (pinVariable),
  * holding the commit. A script that reads a mirror builds its URL from pinnedRef() (or
  * pinnedCommit() when it records the commit), a Python one from the variable itself:
- *   os.environ.get('ARKPEDIA_PIN_KENGXXIAO_ARKNIGHTSGAMEDATA') or 'master'
+ *   os.environ.get('ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSGAMEDATA') or 'master'
  * and scripts/lib/upstream.sh reads the variable for its clone by itself.
  *
  * The CN game tables are the exception: they come from whichever of CN_TABLE_SOURCES the
  * run's upstream-cn stage settled on (scripts/content/cn-tables.mjs), recorded as `cnTables`
  * in the lock and passed to every later stage as ARKPEDIA_CN_TABLES. A script that fetches a
- * CN table builds its URL from cnTableUrl() (Python: that variable), never from a pin, so it
- * reads the same mirror at the same commit as the checkout every other stage reads.
+ * CN table builds its URL from cnTableUrl() or cnTables() (Python and shell: the cn-table-url
+ * command above), never from a mirror's pin -- neither Kengxxiao's nor yuanyan's, whose pin is
+ * for its art -- so it reads the same mirror at the same commit as the checkout every other
+ * stage reads (.cache/upstream/cn-resource/gamedata). A test holds every stage's scripts to
+ * this (test-stage-runner.ts).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -196,6 +201,11 @@ async function main(argv) {
   if (argv[0] === 'raw-url') {
     if (argv.length !== 3) throw new Error('usage: pin-upstream.mjs raw-url <owner/repo> <path>');
     console.log(rawUrl(root, argv[1], argv[2]));
+    return;
+  }
+  if (argv[0] === 'cn-table-url') {
+    if (argv.length !== 2) throw new Error('usage: pin-upstream.mjs cn-table-url <file under gamedata/, e.g. excel/item_table.json>');
+    console.log(cnTableUrl(argv[1]));
     return;
   }
   const { lock, warnings } = await pinUpstream({ previous: readLock(root), resolve: lsRemote, env: process.env });
