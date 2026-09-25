@@ -13,7 +13,7 @@
   padding: 10px 12px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-family: var(--font-mono);
   font-size: 11px;
 }
@@ -31,11 +31,7 @@
   position: relative;
   margin-top: 8px;
 }
-.base-resource-settings-btn {
-  width: 100%;
-  font-size: 11px !important;
-  padding: 6px 10px !important;
-}
+.base-resource-settings-btn { width: 100%; }
 .base-resource-settings-popup {
   margin-top: 6px;
   display: flex;
@@ -44,7 +40,7 @@
   padding: 10px 12px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 .base-resource-settings-row {
   display: flex;
@@ -56,10 +52,7 @@
   font-size: 12px;
   font-weight: 600;
 }
-.base-resource-settings-row button {
-  font-size: 11px !important;
-  padding: 4px 10px !important;
-}
+
 .base-resource-settings-hint {
   margin: 0 0 8px;
   font-size: 10px;
@@ -71,7 +64,7 @@
   flex: 0 0 340px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   padding: 12px;
   max-height: 680px;
   display: flex;
@@ -82,20 +75,25 @@
   padding: 7px 10px;
   background: var(--panel-2);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 11px;
 }
-.base-facility-explain-btn {
+/* The ? that explains a facility's figure: a round control with the control
+   border, drawn at least 24px on screen however far the map is zoomed out (see
+   .base-zoom-stage's --base-zoom). */
+.base-grid .base-facility-explain-btn {
   width: 22px;
   height: 22px;
-  padding: 0 !important;
+  padding: 0;
   min-width: 0;
+  border: 1px solid var(--control-border);
   border-radius: 50%;
-  font-size: 13px !important;
+  font-size: 13px;
   line-height: 1;
   margin-left: 4px;
+  transform: scale(var(--base-tap-scale, 1));
 }
 .base-breakdown-panel {
   display: flex;
@@ -121,7 +119,7 @@
 }
 .base-breakdown-override-note {
   background: var(--panel-2);
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 6px 8px;
   margin: 0;
 }
@@ -133,7 +131,7 @@
 }
 .base-breakdown-line-item {
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 6px 8px;
 }
 .base-breakdown-line-item.excluded {
@@ -189,7 +187,7 @@
   flex-direction: column;
   gap: 5px;
   padding: 7px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   cursor: grab;
   font-size: 12px;
   border: 1px solid var(--line-soft);
@@ -207,14 +205,14 @@
   font-family: var(--font-display);
   font-weight: 600;
 }
-.base-op-item img { width: 24px; height: 24px; border-radius: 3px; flex-shrink: 0; }
+.base-op-item img { width: 24px; height: 24px; border-radius: var(--radius); flex-shrink: 0; }
 .base-op-skill {
   display: flex;
   align-items: flex-start;
   gap: 6px;
   padding-left: 2px;
 }
-.base-op-skill-icon { width: 22px; height: 22px; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+.base-op-skill-icon { width: 22px; height: 22px; border-radius: var(--radius); flex-shrink: 0; margin-top: 1px; }
 .base-op-skill-desc {
   font-size: 11px;
   line-height: 1.45;
@@ -264,16 +262,16 @@
   gap: 8px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 20px;
+  border-radius: var(--radius);
   padding: 6px 10px;
 }
-.base-zoom-reset-btn {
-  width: 22px;
-  height: 22px;
-  padding: 0 !important;
+.base-zoom-controls .base-zoom-reset-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
   min-width: 0;
   border-radius: 50%;
-  font-size: 12px !important;
+  font-size: 12px;
   line-height: 1;
 }
 .base-zoom-slider {
@@ -292,7 +290,7 @@
   height: var(--base-view-height);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -318,7 +316,7 @@
 .base-room-panel-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 18px;
 }
 .base-room-panel-count {
   margin-left: auto;
@@ -344,27 +342,6 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
-}
-.base-elite-btn {
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 3px;
-  background: transparent;
-  border: 1px solid var(--line-soft);
-  color: var(--text-faint);
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-.base-elite-btn:hover {
-  border-color: var(--teal);
-  color: var(--teal);
-}
-.base-elite-btn.selected {
-  background: var(--teal-dim);
-  border-color: var(--teal);
-  color: var(--teal);
 }
 .base-room-panel-hint {
   margin: 0;
@@ -400,7 +377,7 @@
   min-height: 44px;
   padding: 5px 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   background: var(--panel-2);
 }
 /* The name is the only elastic part, so it is the part that gives way --
@@ -434,7 +411,7 @@
 .base-room-team-face {
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 .base-room-team-name {
   font-family: var(--font-display);
@@ -454,7 +431,7 @@
   border: 1px solid var(--line-soft);
   color: var(--text-faint);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 /* Segmented control: every button keeps all four borders and the shared edge is
    collapsed by pulling the next one 1px left. Taking the border OFF a neighbour
@@ -510,7 +487,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   border: 1px solid var(--line-soft);
   background: var(--panel-2);
   cursor: pointer;
@@ -531,7 +508,7 @@
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
-  border-radius: 9px;
+  border-radius: var(--radius-frame);
   background: var(--teal);
   color: var(--bg);
   font-family: var(--font-mono);
@@ -549,7 +526,7 @@
 .base-room-card-head img {
   width: 40px;
   height: 40px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   flex-shrink: 0;
 }
 .base-room-card-name {
@@ -579,7 +556,7 @@
 .base-room-card-skill-icon {
   width: 26px;
   height: 26px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -664,7 +641,7 @@
   position: relative;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -733,7 +710,7 @@
 .base-facility-portrait img {
   width: 28px;
   height: 28px;
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 .base-facility-portrait-elite-slot {
   width: 20px;
@@ -745,13 +722,13 @@
 .base-facility-label {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.2;
 }
 .base-facility-count {
   font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--teal);
+  font-size: 13px;
+  color: var(--text-bright);
   margin-top: 2px;
 }
 .base-facility-productivity {
@@ -768,7 +745,7 @@
   gap: 6px;
   margin-bottom: 10px;
 }
-.base-product-select button { font-size: 10px; padding: 5px 8px; flex: 1; }
+.base-product-select > button { flex: 1; justify-content: center; }
 .base-product-warning {
   color: var(--danger);
   font-size: 11px;
@@ -779,24 +756,28 @@
 /* Facility-kind color coding -- each room type gets its own dim
    tinted background + matching border + label color, same pattern
    Control Center already used. */
-.base-facility-tradingPost { background: rgba(125, 184, 235, 0.15); border-color: #7DB8EB; }
-.base-facility-tradingPost .base-facility-label { color: #7DB8EB; }
-.base-facility-factory { background: rgba(232, 197, 77, 0.15); border-color: #E8C54D; }
-.base-facility-factory .base-facility-label { color: #E8C54D; }
-.base-facility-powerPlant { background: rgba(95, 191, 107, 0.15); border-color: #5FBF6B; }
-.base-facility-powerPlant .base-facility-label { color: #5FBF6B; }
-.base-facility-dormitory { background: rgba(215, 224, 232, 0.12); border-color: #D5E0E8; }
+/* Facility kinds are categories, so they come from the --cat-* tokens, which carry
+   their own light-theme values: the labels were dark-theme hex with no light
+   override and measured 1.52-2.80:1 on the light panel (GE-04). Teal is kept for
+   what is on, so the Control Center is a neutral kind like the Office. */
+.base-facility-tradingPost { background: color-mix(in srgb, var(--cat-blue) 15%, transparent); border-color: var(--cat-blue); }
+.base-facility-tradingPost .base-facility-label { color: var(--cat-blue); }
+.base-facility-factory { background: color-mix(in srgb, var(--cat-yellow) 15%, transparent); border-color: var(--cat-yellow); }
+.base-facility-factory .base-facility-label { color: var(--cat-yellow); }
+.base-facility-powerPlant { background: color-mix(in srgb, var(--cat-green) 15%, transparent); border-color: var(--cat-green); }
+.base-facility-powerPlant .base-facility-label { color: var(--cat-green); }
+.base-facility-dormitory { background: color-mix(in srgb, var(--cat-grey) 10%, transparent); border-color: var(--cat-grey); }
 .base-facility-dormitory .base-facility-label { color: var(--text); }
-.base-facility-office { background: rgba(180, 190, 198, 0.15); border-color: #B4BEC6; }
+.base-facility-office { background: color-mix(in srgb, var(--cat-grey) 15%, transparent); border-color: var(--cat-grey); }
 .base-facility-office .base-facility-label { color: var(--text); }
-.base-facility-trainingRoom { background: rgba(232, 93, 93, 0.15); border-color: #E85D5D; }
-.base-facility-trainingRoom .base-facility-label { color: #E85D5D; }
-.base-facility-receptionRoom { background: rgba(232, 146, 60, 0.15); border-color: #E8923C; }
-.base-facility-receptionRoom .base-facility-label { color: #E8923C; }
-.base-facility-controlCenter { background: var(--teal-dim); border-color: var(--teal); }
-.base-facility-controlCenter .base-facility-label { color: var(--teal); font-size: 14px; }
-.base-facility-workshop { background: rgba(232, 197, 77, 0.15); border-color: #E8C54D; }
-.base-facility-workshop .base-facility-label { color: #E8C54D; }
+.base-facility-trainingRoom { background: color-mix(in srgb, var(--cat-red) 15%, transparent); border-color: var(--cat-red); }
+.base-facility-trainingRoom .base-facility-label { color: var(--cat-red); }
+.base-facility-receptionRoom { background: color-mix(in srgb, var(--cat-orange) 15%, transparent); border-color: var(--cat-orange); }
+.base-facility-receptionRoom .base-facility-label { color: var(--cat-orange); }
+.base-facility-controlCenter { background: color-mix(in srgb, var(--cat-grey) 18%, transparent); border-color: var(--cat-grey); }
+.base-facility-controlCenter .base-facility-label { color: var(--text-bright); font-size: 13px; }
+.base-facility-workshop { background: color-mix(in srgb, var(--cat-yellow) 15%, transparent); border-color: var(--cat-yellow); }
+.base-facility-workshop .base-facility-label { color: var(--cat-yellow); }
 /* Scenery. These are the lift shafts the real base draws between its room
    columns -- there is nothing to open and nothing to assign, so they take no
    pointer at all rather than lighting up on hover like every tile beside
@@ -808,7 +789,7 @@
   pointer-events: none;
 }
 .base-facility-elevator:hover { border-color: var(--line-soft); }
-.base-reset-btn { margin-top: 14px; font-size: 12px; }
+.base-reset-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 
 /* Popover anchored directly to the clicked facility, with a small arrow
    pointing back at it -- deliberately NOT a full-screen overlay, so the
@@ -832,7 +813,7 @@
   text-align: left;
   background: var(--panel);
   border: 1px solid var(--teal);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   padding: 12px;
   min-width: 220px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -939,7 +920,7 @@
   gap: 3px;
   background: var(--panel-2);
   border: 1px dashed var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   cursor: pointer;
   padding: 6px 4px;
 }
@@ -985,12 +966,12 @@
   padding: 12px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 .base-skill-icon {
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   flex-shrink: 0;
 }
 .base-skill-name {
@@ -1034,7 +1015,7 @@
   min-width: 60px;
 }
 
-.base-slot-portrait { width: 44px; height: 44px; border-radius: 3px; }
+.base-slot-portrait { width: 44px; height: 44px; border-radius: var(--radius); }
 .base-slot-elite {
   width: 20px;
   height: 20px;
@@ -1044,7 +1025,7 @@
   height: 18px;
   flex-shrink: 0;
 }
-.base-slot-skill-icon { width: 16px; height: 16px; border-radius: 2px; }
+.base-slot-skill-icon { width: 16px; height: 16px; border-radius: var(--radius); }
 
 .base-summary-panel {
   flex: 1;
@@ -1052,12 +1033,18 @@
   padding: 14px 16px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
 }
+/* Wraps: the label and its chips or figure share a line where they fit and stack
+   where they do not. It was a nowrap row, and the Login interval chips pushed the
+   whole page to 417px at 390 (GE-02). */
 .base-summary-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
   padding: 5px 0;
   border-bottom: 1px solid var(--line-soft);
   font-size: 13px;
@@ -1066,9 +1053,13 @@
 .base-summary-label { color: var(--text-dim); }
 .base-summary-value {
   font-family: var(--font-mono);
-  color: var(--teal);
+  color: var(--text-bright);
   font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
+.base-summary-extra { margin-left: 6px; color: var(--cat-orange); }
+.base-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .base-summary-ideal {
   font-size: 11px;
   color: var(--text-faint);
@@ -1081,14 +1072,14 @@
   font-size: 9px;
   background: var(--panel);
   border: 1px solid var(--amber);
-  border-radius: 3px;
+  border-radius: var(--radius);
   color: var(--text);
   text-align: center;
 }
 
 /* --- Base setup screen (layout choice + 2-5-2 facility levels) --- */
 .base-setup-screen {
-  max-width: 900px;
+  min-width: 0;
 }
 .base-setup-intro {
   margin-bottom: 18px;
@@ -1102,13 +1093,9 @@
   gap: 10px;
   margin-bottom: 18px;
 }
-/* Every one of these is pinned rather than inherited, and the selectors are
-   deliberately two classes deep so they outrank button.ghost.
-   button.ghost sets font-size: 12px and padding: 8px 14px while
-   button.primary keeps the 15px/12px 26px defaults, so selecting a card
-   changed its text size AND its padding -- the summary rewrapped onto a
-   different number of lines and the card visibly resized and shifted. Only
-   colour should change on selection. */
+/* A .btn-bare .pick-card: the frame, the hover and the picked state (teal border
+   over --teal-dim) are the primitive's, so selecting a card changes its colour and
+   nothing else. They were solid .primary teal blocks. */
 .base-setup-preset-cards .base-setup-preset-card {
   display: flex;
   flex-direction: column;
@@ -1117,12 +1104,11 @@
   gap: 6px;
   text-align: left;
   padding: 14px 16px;
-  white-space: normal;
   height: 100%;
   font-size: 13px;
-  letter-spacing: 0.02em;
-  text-transform: none;
+  color: var(--text);
 }
+.base-setup-preset-cards .base-setup-preset-card[aria-pressed="true"] .base-setup-preset-name { color: var(--teal); }
 .base-setup-preset-cards .base-setup-preset-name {
   font-family: var(--font-display);
   font-weight: 700;
@@ -1136,7 +1122,7 @@
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: 0;
-  opacity: 0.85;
+  color: var(--text-dim);
   text-transform: none;
 }
 .base-setup-tallies {
@@ -1154,7 +1140,7 @@
 .base-setup-kind-tally {
   padding: 4px 8px;
   border: 1px solid var(--line-soft);
-  border-radius: 20px;
+  border-radius: var(--radius);
 }
 /* A kind at its cap is stated rather than hidden, so it's clear WHY the
    buttons for it went dead in the other spots. */
@@ -1176,7 +1162,7 @@
   gap: 6px;
   padding: 10px;
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   background: var(--panel-2);
 }
 .base-setup-spot-name {
@@ -1207,7 +1193,7 @@
   flex-wrap: wrap;
   padding: 10px 12px;
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   margin-bottom: 12px;
 }
 .base-setup-power.short {
@@ -1317,6 +1303,10 @@
   cursor: pointer;
   opacity: 0.55;
   transition: opacity 0.12s, color 0.12s;
+  /* At least 24px on screen however far the map is zoomed out: at the phone's
+     0.35 it drew at 9px. Scaled from its corner, so it stays in the corner. */
+  transform: scale(var(--base-tap-scale, 1));
+  transform-origin: top left;
 }
 /* Dim rather than hidden until hovered. It was hover-only, which made a
    control you have to find before you can use it -- and hover-to-reveal is
@@ -1385,7 +1375,7 @@
   font-size: 12px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius);
   color: var(--text);
   text-align: center;
 }
@@ -1431,7 +1421,7 @@
   align-items: center;
   padding: 6px 10px;
   border: 1px solid var(--line-soft);
-  border-radius: 20px;
+  border-radius: var(--radius);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
@@ -1448,14 +1438,7 @@
    selection, not just colour -- the text jumps a size and the box grows.
    Every toggle group below therefore states its own metrics so both states
    share them. Any new primary/ghost pair needs the same treatment. */
-.base-view-controls button,
-.base-product-select button {
-  font-size: 12px;
-  padding: 8px 14px;
-}
-/* Inter's digits are not equal width -- "Elite 1" came out 2.7px narrower
-   than "Elite 0" and "Elite 2", so the three tabs never quite lined up.
-   Nothing to do with selection, but the same kind of jitter. */
-.base-elite-btn {
-  font-variant-numeric: tabular-nums;
-}
+.base-view-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.base-view-mode { display: flex; gap: 6px; }
+/* Equal-width digits, so "Elite 1" lines up with "Elite 0" and "Elite 2". */
+.base-room-elite-select > button { font-variant-numeric: tabular-nums; }

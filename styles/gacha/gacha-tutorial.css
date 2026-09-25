@@ -651,13 +651,13 @@
 /* --- Legacy/basics selection card (predates .gacha-tutorial-pick-slot,
    still used by the earliest Orienteering selection demo) --- */
 .prod-grey { color: var(--text-faint); }
-.prod-yellow { color: #E8C54D; font-weight: 700; }
+.prod-yellow { color: var(--cat-yellow); font-weight: 700; }
 .prod-danger {
   color: var(--danger);
   font-weight: 700;
 }
 .prod-green {
-  color: #5FBF6B;
+  color: var(--cat-green);
   font-weight: 700;
 }
 .orienteering-pick-grid {
