@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { clipUrl, hasRecording } from '../../lib/operators/voiceRecording.mjs';
 
 const read = async file => JSON.parse(await fs.readFile(new URL(`../../${file}`, import.meta.url), 'utf8'));
 const revisions = await read('data/assets/revisions.json');
@@ -50,4 +51,33 @@ for (const repo of Object.keys(revisions).filter(repo => repo.startsWith('arkped
   const source = JSON.parse(await download(url(repo, 'source.json')));
   if (!source.sourceCommit) throw new Error(`Missing voice provenance: ${repo}`);
 }
-console.log(`Verified ${index.files.length} published image paths, ${rows.length} file hashes, palette JSON and all five voice revision records.`);
+// Every clip an operator page offers in a legacy voice pack, asked for the way readers ask.
+// A legacy pack was recorded before the actor changed and may lack lines (Exusiai's legacy
+// English has no CN_043), so the voice builder narrows availablePacks to the files each
+// legacy folder holds; this fails if the page would still offer one that is not there.
+// Current packs are whole-game dumps and are covered by their revision records above.
+const voices = await read('data/operator-voice-lines.json');
+const clips = [];
+for (const [charId, operator] of Object.entries(voices.operators)) {
+  for (const pack of operator.packs.filter(pack => pack.status === 'legacy' && pack.audioTemplate)) {
+    const match = pack.audioTemplate.match(/^https:\/\/raw\.githubusercontent\.com\/arkpedia\/(arkpedia-voice-[a-z]+)\/(?:main|[a-f0-9]{40})\/(.+)$/);
+    if (!match || !revisions[match[1]]) throw new Error(`${charId} ${pack.id}: legacy voice template outside the pinned voice repositories: ${pack.audioTemplate}`);
+    for (const line of operator.lines) {
+      if (hasRecording(line, pack)) clips.push({ where: `${charId} ${pack.id} ${line.id}`, repo: match[1], path: decodeURIComponent(clipUrl(match[2], line.id)) });
+    }
+  }
+}
+const absent = [];
+for (let offset = 0; offset < clips.length; offset += 8) {
+  await Promise.all(clips.slice(offset, offset + 8).map(async clip => {
+    const address = url(clip.repo, clip.path);
+    const response = await fetch(address, { method: 'HEAD', signal: AbortSignal.timeout(30000) });
+    if (response.status === 404) absent.push(clip.where);
+    else if (!response.ok) throw new Error(`${response.status}: ${address}`);
+  }));
+}
+if (absent.length) {
+  throw new Error(`Operator pages offer ${absent.length} legacy voice clip(s) the pinned voice repositories do not have: ${absent.sort().slice(0, 15).join(', ')}. `
+    + 'Rebuild the voice lines (npm run voices:refresh), which leaves a clip out of availablePacks when its legacy folder lacks it.');
+}
+console.log(`Verified ${index.files.length} published image paths, ${rows.length} file hashes, palette JSON, all five voice revision records and ${clips.length} legacy voice clips.`);
