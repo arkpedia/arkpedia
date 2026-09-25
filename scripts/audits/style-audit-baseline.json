@@ -1,6 +1,5 @@
 {
   "collisions": [
-    "badge: arkpedia-theme.css, recruitment.css",
     "base-zoom-viewport: base.css, shared.css",
     "char-file-grid: operator-detail.css, shared.css",
     "event-rewards-scroll-grid: events.css, shared.css",
@@ -222,16 +221,6 @@
     "planner.css: 9.5px",
     "pulls-workspace.module.css: 23px",
     "pulls.css: 16px",
-    "recruitment.css: 14px",
-    "recruitment.css: 14px",
-    "recruitment.css: 14px",
-    "recruitment.css: 16px",
-    "recruitment.css: 17px",
-    "recruitment.css: 23px",
-    "recruitment.css: 23px",
-    "recruitment.css: 24px",
-    "recruitment.css: 28px",
-    "recruitment.css: 34px",
     "shared.css: 14px",
     "shared.css: 14px",
     "shared.css: 14px",
@@ -321,8 +310,6 @@
     "styles/gacha/gacha.css: .pullable-four-star { border-color: rgba(140, 160, 174, 0.35) }",
     "styles/gacha/gacha.css: .pullable-six-star { background: rgba(245, 166, 35, 0.15) }",
     "styles/gacha/gacha.css: .pullable-six-star { border-color: rgba(245, 166, 35, 0.4) }",
-    "styles/recruitment/recruitment.css: .rarity-super { border-color: #ff6b9d44 }",
-    "styles/recruitment/recruitment.css: .rarity-super { color: #ff6b9d }",
     "styles/stages/stages.css: .stage-deploy-op.r4 { border-color: #9a7fc4 }",
     "styles/stages/stages.css: .stage-deploy-op.r5 { border-color: #c9c04a }",
     "styles/stages/stages.css: .stage-deploy-op.r6 { border-color: #d9a13b }"
@@ -354,9 +341,6 @@
     "styles/operators/operator-detail.css: .op-detail-sticky-header h1 { font-size }",
     "styles/planner/planner.css: .planner-workspace-head h1 { font-size }",
     "styles/planner/planner.css: .simple-planner h2,.simple-planner h3,.planner-workspace-head h1,.planner-workspace-head button,.simple-planner button,.simple-wizard button { text-transform }",
-    "styles/recruitment/recruitment.css: .recruit-heading h1 { font-size }",
-    "styles/recruitment/recruitment.css: .recruit-heading h1 { font-size }",
-    "styles/recruitment/recruitment.css: .recruit-page-compact .recruit-heading h1 { font-size }",
     "styles/skins/skins.css: .skins-heading h1 { font-size }",
     "styles/stages/stages.css: .stages-head h1 { font-size }"
   ],
