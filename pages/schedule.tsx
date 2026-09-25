@@ -966,4 +966,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
        cannot be built once and left. Twenty minutes, as the old events page had. */
     revalidate: 1200,
   };
+}, {
+  tables: {
+    event_colors: async () => (await import('@/data/event_colors.json')).default,
+    event_materials: async () => (await import('@/data/event_materials.json')).default,
+    headhunting_banners: async () => (await import('@/data/headhunting_banners.json')).default,
+  },
 });

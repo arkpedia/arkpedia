@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
+import { PAGE_TABLES, missingPageTables } from '../../lib/content/tables.mjs';
 import { contentInput, releaseInput } from './release-input.mjs';
 import { cnTablesRecord } from './pin-upstream.mjs';
 const root = path.resolve(process.argv[2] || '.');
@@ -160,6 +161,14 @@ const pullSources = JSON.parse(fs.readFileSync(path.join(root, 'source/data/pull
 check(Array.isArray(pullsProps.backlogSources?.playable) && pullsProps.backlogSources.playable.length > 0
   && playableIds(pullsProps.backlogSources.playable) === playableIds(pullSources.events.list.filter(event => event.playable)),
 'The /pulls page does not carry this release\'s playable events (backlogSources)');
+// A game table a page's browser code reads travels in that page's props
+// (lib/content/tables.mjs). Without it the page serves the deployment's copy, which
+// lags every release until a redeploy.
+for (const route of Object.keys(PAGE_TABLES)) {
+  check(m.pages[route], `Missing page that carries game tables: ${route}`);
+  const missing = missingPageTables(route, JSON.parse(fs.readFileSync(path.join(root, 'release', m.pages[route].path))).props);
+  check(!missing.length, `The ${route} page does not carry this release's ${missing.join(', ')} (__contentTables)`);
+}
 check(Object.keys(m.pages).filter(route => route.startsWith('/operators/')).length > 100, 'Operator catalogue is incomplete');
 for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json', 'operator-search.json']) check(m.files[file], `Missing catalogue: ${file}`);
 if (untimestamped.length) console.warn(`Warning: ${untimestamped.length} lyric file(s) have no timestamps and render no lyrics: ${untimestamped.join(', ')}`);

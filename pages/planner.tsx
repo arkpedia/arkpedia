@@ -1966,4 +1966,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
   }
 
   return { props: { operators, depotCatalogue } };
+}, {
+  tables: {
+    'base-formulas': async () => (await import('@/data/base-formulas.json')).default,
+    'battle-records': async () => (await import('@/data/battle-records.json')).default,
+    'supply-stages': async () => (await import('@/data/supply-stages.json')).default,
+  },
 });

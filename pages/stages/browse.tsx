@@ -2345,4 +2345,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/st
       firstSlug: first,
     },
   };
+}, {
+  tables: {
+    'stage-tile-legend': async () => (await import('@/data/stage-tile-legend.json')).default,
+  },
 });

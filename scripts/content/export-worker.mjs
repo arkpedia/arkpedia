@@ -35,11 +35,9 @@ for (const item of paths) {
   const key = route.replace(/\[([^\]]+)\]/g, (_, name) => encodeURIComponent(params[name]));
   const result = await getStaticProps({ params, revalidateReason: 'build' });
   if (!('props' in result)) continue;
+  // The page's own getStaticProps attaches the tables its browser code reads
+  // (__contentTables, lib/content/tables.mjs), from this checkout's data/.
   const props = await result.props;
-  const tables = route === '/planner' ? ['base-formulas', 'battle-records', 'supply-stages']
-    : route === '/schedule' ? ['event_colors', 'event_materials', 'headhunting_banners']
-    : route === '/stages/browse' ? ['stage-tile-legend'] : [];
-  if (tables.length) props.__contentTables = Object.fromEntries(tables.map(name => [name, JSON.parse(fs.readFileSync(`data/${name}.json`, 'utf8'))]));
   const bytes = Buffer.from(JSON.stringify({ props }));
   // JSON.stringify must not silently erase unsupported top-level values.
   if (!props || typeof props !== 'object' || Array.isArray(props)) throw new Error(`Invalid props: ${key}`);

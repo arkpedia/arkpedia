@@ -1,5 +1,6 @@
 import { contentPageClock } from './pageClock';
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
+import { missingPageTables, pageTables } from './tables.mjs';
 import { createHash } from 'node:crypto';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
@@ -96,8 +97,39 @@ async function loadRelease(): Promise<Loaded | undefined> {
   return pending;
 }
 
+/** One loader per table a route declares in lib/content/tables.mjs, each importing its
+ *  data file. Written inside the getStaticProps call, so Next drops them from the
+ *  browser build along with it: the tables reach the browser only through props. */
+export type ContentTableLoaders = Record<string, () => Promise<unknown>>;
+
+const warnedTables = new Set<string>();
+/** Give props every table the route declares, without touching a cached payload. A
+ *  table the props already carry (the release's copy) always wins. */
+async function attachTables<P extends object>(template: string, props: P, loaders: ContentTableLoaders, release?: string): Promise<P> {
+  const missing = missingPageTables(template, props);
+  if (!missing.length) return props;
+  if (release) {
+    // A release exported before these joined the route's tables. The next content run
+    // re-exports every page (the generator commit is part of the release id), and
+    // validate-release refuses a release without them, so only an older one lands here.
+    const key = `${release}:${template}`;
+    if (!warnedTables.has(key)) { warnedTables.add(key); console.warn(`[content] Release ${release.slice(0, 12)} predates ${missing.join(', ')} on ${template}; using this deployment's copy.`); }
+  }
+  const tables = { ...(props as { __contentTables?: Record<string, unknown> }).__contentTables };
+  for (const name of missing) tables[name] = await loaders[name]();
+  return { ...props, __contentTables: tables };
+}
+
 /** Build and ISR use the same reader. No remote code or credentials are shipped. */
-export function withContentPage<P extends object>(template: string, bundled: GetStaticProps<P>, options: { finalize?: (props: P) => Promise<P>; revalidate?: number } = {}): GetStaticProps<P> {
+export function withContentPage<P extends object>(template: string, bundled: GetStaticProps<P>, options: { finalize?: (props: P) => Promise<P>; revalidate?: number; tables?: ContentTableLoaders } = {}): GetStaticProps<P> {
+  // The page and lib/content/tables.mjs must name the same tables: validate-release
+  // checks the list, and the browser reads what the loaders attach. Thrown at module
+  // load, so a mismatch fails the build and the export rather than a request.
+  const loaders = options.tables ?? {};
+  const declared = [...pageTables(template)].sort().join(', ');
+  if (Object.keys(loaders).sort().join(', ') !== declared) {
+    throw new Error(`${template} must pass a table loader for exactly: ${declared || '(none)'} (lib/content/tables.mjs)`);
+  }
   return async (context: GetStaticPropsContext): Promise<GetStaticPropsResult<P>> => {
     // Local source data is present while prerendering and in local development.
     // Vercel ISR functions intentionally exclude it from their file traces; at
@@ -113,14 +145,14 @@ export function withContentPage<P extends object>(template: string, bundled: Get
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
         if (!bundledFallbackAvailable) throw new Error(`Published content is missing ${route}`);
         const fallback = await bundled(context);
-        if ('props' in fallback) fallback.props = contentPageClock(template, await fallback.props);
+        if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props), loaders);
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props);
         return { ...fallback, revalidate: options.revalidate ?? 60 };
       }
       try {
         const props = await readPageProps(loaded, route);
         if (!props) throw new Error('Published content page disappeared');
-        const currentProps = contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P);
+        const currentProps = await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P), loaders, loaded.context.release);
         return { props: options.finalize ? await options.finalize(currentProps) : currentProps, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60) };
       } catch (error) {
         // An ISR failure preserves Next's previous valid page. A cold request can
@@ -131,7 +163,8 @@ export function withContentPage<P extends object>(template: string, bundled: Get
     }
     if (!bundledFallbackAvailable) throw new Error(`Published content is unavailable for ${contentRoute(template, context.params)}`);
     const fallback = await bundled(context);
-    if ('props' in fallback) fallback.props = contentPageClock(template, await fallback.props, process.env.ARKPEDIA_EXPORT_CONTENT === '1');
+    // The content export takes this path too, so this is where a release gets its tables.
+    if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, process.env.ARKPEDIA_EXPORT_CONTENT === '1'), loaders);
     if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props);
     return { ...fallback, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60) };
   };
