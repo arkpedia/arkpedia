@@ -5,7 +5,10 @@
 /* --- Farming guide --- */
 .farming-main { padding-top: 12px; }
 
-.farming-legend-top {
+/* Both classes, so this beats .farming-legend below: at equal specificity that rule
+   came later and won, and its border-top drew a second hairline 26px under the page
+   header's own (tests/browser/planning-pages.spec.ts). */
+.farming-legend.farming-legend-top {
   margin-top: 0;
   margin-bottom: 18px;
   padding-top: 0;

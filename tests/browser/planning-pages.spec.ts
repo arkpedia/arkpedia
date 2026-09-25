@@ -83,6 +83,18 @@ test.describe('/farming tiers (GE-01)', () => {
         await expect(tier3).toHaveAttribute('aria-expanded', 'false');
         expect(Math.abs(closed), 'closing Tier 3 moves its own header').toBeLessThan(4);
       });
+
+      test('one hairline under the page header, not two', async ({ page }) => {
+        // .farming-legend-top said border-top: none, but .farming-legend came later in
+        // the file at the same specificity and drew its own rule 26px under the header's.
+        await page.goto('/farming');
+        const rules = await page.evaluate(() => {
+          const header = document.querySelector('.page-header')!.getBoundingClientRect().bottom;
+          const legend = document.querySelector('.farming-legend-top')!;
+          return { legendTop: getComputedStyle(legend).borderTopStyle, gap: Math.round(legend.getBoundingClientRect().top - header) };
+        });
+        expect(rules.legendTop, `the legend ${rules.gap}px under the header draws a second rule`).toBe('none');
+      });
     });
   }
 });
