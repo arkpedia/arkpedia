@@ -99,8 +99,8 @@ test('operator search and planner entry are usable', async ({ page }) => {
   await page.goto('/planner');
   await expect(page.getByRole('heading', { name: 'Operator Planner' })).toBeVisible();
   await page.getByPlaceholder('Search operators…').fill('Penance');
-  await expect(page.getByRole('button', { name: /Penance/ }).first()).toBeVisible();
-  await page.getByRole('button', { name: /Penance/ }).first().click();
+  await expect(page.getByRole('option', { name: /Penance/ }).first()).toBeVisible();
+  await page.getByRole('option', { name: /Penance/ }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await withinBounds(page);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
