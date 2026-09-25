@@ -12,6 +12,7 @@ import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { getAllOperators } from '@/lib/operators/operators';
 import { releaseMarker } from '@/lib/operators/operatorAvailability';
 import { buildEnemyStatusCandidates, selectEnemyStatusOperators, type EnemyStatusCandidates, type EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
+import PageHeader from '@/components/ui/PageHeader';
 
 interface Props {
   /** Enough grid rows to paint immediately. The full 1,585 arrive from
@@ -119,10 +120,7 @@ export default function EnemiesPage({ siblings, contents, firstSlug, statusCandi
           an h1, the same shape as the operator roster. There is no breadcrumb: the
           grid beside this IS the handbook, so a link back led to the page you are
           already on. */}
-      <header>
-        <div className="eyebrow">Rhodes Island // Threat Assessment</div>
-        <h1>Enemy handbook</h1>
-      </header>
+      <PageHeader eyebrow="Rhodes Island // Threat Assessment" title="Enemy handbook" />
       {/* Locked to the viewport and sized from its own offset, so the nav can
           change height without this needing a new magic number. Below 900px the
           stylesheet lets the page scroll normally instead. */}

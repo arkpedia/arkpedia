@@ -2,7 +2,9 @@ import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
-import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
+import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import EnemyRangeMap from '@/components/enemies/EnemyRangeMap';
 import EnemyStatusPopover from '@/components/enemies/EnemyStatusPopover';
 import { ENEMY_STATUSES, type EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
@@ -13,6 +15,7 @@ import {
   EnemySkill,
   EnemyStageAppearance,
   EnemyTalent,
+  KIND_LABELS,
 } from '@/lib/enemies/enemyTypes';
 
 /**
@@ -57,7 +60,7 @@ const UNBLOCKABLE_BY_DATA = new Set([
  *
  * Names run from 1 to 46 characters: 935 of the 1,585 are under 20, 553 sit in the
  * twenties, 93 in the thirties and 4 above 40 ("'Samivilinn,' the Resolution of the
- * Very North"). At the h1's 30px, anything past about 20 characters pushed the rank
+ * Very North"). At the name's 26px, anything past about 20 characters pushed the rank
  * tag and the life-point cost onto a line of their own.
  *
  * Stepped off the character count rather than measured: it is decided during render,
@@ -256,9 +259,24 @@ function ModuleList({
   );
 }
 
+/** One content in the appearances picker: its shorthand and its name. */
+type AppearanceOption = SelectOption & { code: string | null; name: string };
+const appearanceRow = (o: AppearanceOption) => (
+  <>
+    {o.code && <span className="enemy-index enemy-appear-code">{o.code}</span>}
+    <span className="enemy-appear-option-name">{o.name}</span>
+  </>
+);
+
 export default function EnemyDetailPanel({ enemy, introducedBy, appearances, referenced, statusOperators = {} }: EnemyDetailData & { statusOperators?: EnemyStatusOperatorMap }) {
   const [levelIndex, setLevelIndex] = useState(0);
   const [tab, setTab] = useState<DetailTab>('resistances');
+  /* The tabs below swap content of very different heights (nine immunity rows against
+     a long list of stages), and on a phone the pane flows in the page: switching to a
+     shorter tab near the foot left the document too short for the reader's position,
+     the browser clamped it and the tab row jumped 55px down the screen (2026-09-25
+     review, UC-10). The floor holds what the position needs, per enemy. */
+  const tabFloor = useHeightFloor(enemy.slug);
   const level: EnemyLevel = enemy.levels[levelIndex] ?? enemy.levels[0];
   const s = level.stats;
   const g = level.stat_ranks;
@@ -423,9 +441,12 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
     setContentId(defaultContentId);
   }
   const selected = appearances.find((a) => a.id === contentId) || appearances[0];
-  const options: ContentPickerOption[] = useMemo(
-    () => appearances.map(({ kind, id, label, name, stages }) => ({
-      kind, id, label, name, count: stages.length,
+  /* On the site's one dropdown, grouped by kind the way the game files contents, with
+     the shorthand ("EP 08") in a column of its own. The label carries the shorthand
+     as well as the name, so typing "EP" finds the episodes. */
+  const options: AppearanceOption[] = useMemo(
+    () => appearances.map(({ kind, id, label, name }) => ({
+      value: id, label: label ? `${label} ${name}` : name, group: KIND_LABELS[kind], code: label, name,
     })),
     [appearances]
   );
@@ -473,7 +494,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
             <div className="enemy-race">{enemy.race || ''}</div>
             <div className="enemy-hero-name">
               {enemy.index && <span className="enemy-code">{enemy.index}</span>}
-              <h1 ref={nameRef} className={nameSizeClass(enemy.name)}>{enemy.name}</h1>
+              <h2 ref={nameRef} className={nameSizeClass(enemy.name)}>{enemy.name}</h2>
               <span className={`enemy-rank-tag rank-${enemy.rank.toLowerCase()}`}>{enemy.rank}</span>
               {/* The level switch and the life-point cost are grouped, and the group
                   is what carries margin-left:auto. Putting it on the level switch
@@ -495,18 +516,13 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                   Swordsman going 2,000 HP to 1,950. */}
               <span className="enemy-hero-name-right">
                 {enemy.levels.length > 1 && (
-                  <span className="enemy-level-tabs" role="group" aria-label="Stat level">
-                    {enemy.levels.map((lv, i) => (
-                      <button
-                        type="button"
-                        key={lv.level}
-                        className={i === levelIndex ? 'primary' : 'ghost'}
-                        onClick={() => setLevelIndex(i)}
-                      >
-                        Lv {lv.level}
-                      </button>
-                    ))}
-                  </span>
+                  <SegmentedControl
+                    className="enemy-level-tabs"
+                    label="Stat level"
+                    value={levelIndex}
+                    onChange={setLevelIndex}
+                    options={enemy.levels.map((lv, i) => ({ value: i, label: `Lv ${lv.level}` }))}
+                  />
                 )}
               </span>
             </div>
@@ -637,21 +653,15 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
             past collapsed headings to reach the next one; a tab strip means the
             pane only ever holds what was asked for. The identity above stays put,
             so you always know whose numbers these are. */}
-        <div className="enemy-tabs" role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={t.key === activeTab}
-              className={`enemy-tab${t.key === activeTab ? ' current' : ''}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="enemy-tabs"
+          label="Show"
+          value={activeTab ?? 'resistances'}
+          onChange={setTab}
+          options={tabs.map((t) => ({ value: t.key, label: t.label }))}
+        />
 
+        <div className="enemy-tab-body" ref={tabFloor.ref}>
         {/* The figures the handbook does not print. Kept because the data has them
             and someone planning around a stall needs the interval, but out of the
             grid, which is the game's eight and only those. */}
@@ -770,11 +780,15 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                   you change to pick that list. */}
               <div className="enemy-appear-filter">
                 <span className="enemy-appear-filter-label">Filter</span>
-                <ContentPicker
-                  options={options}
+                <StyledSelect<AppearanceOption>
+                  className="enemy-appear-select"
+                  label="Content to list stages for"
                   value={selected.id}
+                  options={options}
                   onChange={setContentId}
-                  ariaLabel="Content to list stages for"
+                  menuMinWidth={320}
+                  renderOption={appearanceRow}
+                  renderValue={appearanceRow}
                 />
               </div>
               {selected.stages.length === 0 && (
@@ -803,6 +817,8 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
         </section>
           </>
         )}
+        {tabFloor.spacer}
+        </div>
     </>
   );
 }

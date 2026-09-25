@@ -22,7 +22,7 @@
 }
 .enemy-hero-icon img { object-fit: contain; }
 .enemy-hero-text { min-width: 0; width: 100%; }
-.enemy-hero-text h1 { margin-top: 0; margin-bottom: 0; }
+.enemy-hero-text h2 { margin-top: 0; margin-bottom: 0; }
 /* One line, always. Wrapping a 46-character name pushed the rank tag and the
    life-point cost onto a row of their own and shoved the portrait down with them.
    The line-height is a fixed pixel value, NOT a multiplier: the size steps below
@@ -30,7 +30,11 @@
    line box with it, so the row -- and the portrait and every stat under it -- shifted
    by a few pixels as you clicked between a short name and a long one. 34px clears the
    tallest step's caps, so all four steps occupy exactly the same height. */
-.enemy-hero-name h1 {
+/* The enemy's name is the pane's heading, an h2: the page's one h1 is "Enemy
+   handbook" in the PageHeader (there used to be two). Sized as a title, on the
+   display scale. */
+.enemy-hero-name h2 {
+  font-size: 26px;
   white-space: nowrap;
   line-height: 34px;
   /* hidden, so a name can never be drawn over the tag beside it while the fit runs;
@@ -43,9 +47,9 @@
 /* The steps are scoped through .enemy-hero-text so they outrank the mobile rule
    further down that sets this h1 to 21px -- a long name needs shrinking on a phone
    more than on a desktop, not less. */
-.enemy-hero-text .enemy-hero-name h1.enemy-name-m { font-size: 23px; }
-.enemy-hero-text .enemy-hero-name h1.enemy-name-s { font-size: 19px; }
-.enemy-hero-text .enemy-hero-name h1.enemy-name-xs { font-size: 16px; }
+.enemy-hero-text .enemy-hero-name h2.enemy-name-m { font-size: 22px; }
+.enemy-hero-text .enemy-hero-name h2.enemy-name-s { font-size: 18px; }
+.enemy-hero-text .enemy-hero-name h2.enemy-name-xs { font-size: 15px; }
 
 /* The handbook stacks race, then code + name, then how it fights. */
 /* Holds the row when an enemy has no race -- 937 of them. line-height and
@@ -72,7 +76,7 @@
   flex-wrap: nowrap;
   gap: 10px;
 }
-.enemy-hero-name h1 { min-width: 0; }
+.enemy-hero-name h2 { min-width: 0; }
 .enemy-hero-name .enemy-lifepoints { margin-left: 0; }
 /* The game sets the code in a solid dark block against the name, not as an
    outlined tag -- it reads as a label stuck on rather than a piece of metadata. */
@@ -84,7 +88,7 @@
   color: var(--text);
   background: var(--panel-2);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   padding: 3px 8px;
   flex: none;
 }
@@ -110,7 +114,7 @@
   flex: none;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
   color: var(--danger);
 }
@@ -174,7 +178,7 @@
   text-transform: uppercase;
   color: var(--text-dim);
   border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   padding: 2px 7px;
 }
 .enemy-attack-badge .enemy-stat-icon svg { width: 12px; height: 12px; }
@@ -198,7 +202,7 @@
   text-transform: uppercase;
   color: var(--text-faint);
   border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   padding: 1px 6px;
 }
 .enemy-hero-tags {
@@ -208,14 +212,12 @@
   align-items: center;
   margin-bottom: 6px;
 }
- /* A chapter or event shorthand -- "EP 08", "IS", "CC" -- is a code, and codes are
-   teal mono everywhere else on the site (.stage-row-code and .stage-picker-code on
-   the stages page). This had no rule in any stylesheet, so it rendered as plain body
-   text in the appearance picker, in its options, and in the hero beside the name.
+ /* A chapter or event shorthand -- "EP 08", "IS", "CC" -- is a code: the data voice,
+   mono and dim, as the stage codes are. Not teal: teal is "on / current".
    white-space:pre so "EP 08" cannot break across its space. */
 .enemy-index {
   font-family: var(--font-mono);
-  color: var(--teal);
+  color: var(--text-dim);
   white-space: pre;
 }
 
@@ -227,11 +229,11 @@
    bordered chips. No positioning now -- it sits in the hero's tag row, not on art. */
 .enemy-rank-tag {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   border: 1px solid var(--line);
   background: var(--panel);
   color: var(--text-faint);
@@ -241,7 +243,7 @@
 
 .enemy-hero-tags > span:not(.enemy-index):not(.enemy-rank-tag) {
   border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   padding: 2px 7px;
   background: var(--panel-2);
 }
@@ -252,7 +254,7 @@
 }
 
 .enemy-flavour {
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.7;
   color: var(--text-dim);
   max-width: 78ch;
@@ -264,19 +266,24 @@
 }
 
 .enemy-section { margin-bottom: 28px; }
+/* The global h3 (shared.css) is the type; this is the layout and the hairline. It
+   was an 11px mono label standing in for a heading (2026-09-25 review, F). */
 .enemy-section-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-dim);
   margin: 0 0 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line-soft);
+}
+/* The filter panel's group labels are h4s under its "Filters" h3: the h3's voice. */
+h4.enemy-section-head {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 .enemy-section-aside {
   color: var(--text-faint);
@@ -291,28 +298,13 @@
    between selected and unselected via the shared button rule. */
 .enemy-level-tabs {
   margin-left: auto;
-  display: flex;
+  flex-wrap: nowrap;
   gap: 5px;
 }
-/* Sized to match .enemy-code, the shorthand tag beside the name ("PT" for
-   Patriot): same mono face, same 13px, same 3px/8px padding and radius. At the
-   shared button metrics they were half again as tall as everything else on the row.
-   The min-width is still a floor, because the digits in "Lv 0", "Lv 1" and "Lv 2"
-   have different advance widths in Rajdhani -- 52.2, 49.78 and 51.7px at the old
-   size -- so the row shifted as you switched. Tabular figures cannot fix that here:
-   set on the container the property never inherits, the UA setting `font:` on
-   button as a shorthand that resets it, and set on the buttons it applies but finds
-   no tnum feature in Rajdhani to select. A width floor needs no such luck. */
-.enemy-level-tabs button {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  padding: 3px 8px;
-  border-radius: 3px;
-  min-width: 46px;
-  text-align: center;
-}
+/* A SegmentedControl (the pinned .filter-chip). The min-width is a floor because the
+   digits in "Lv 0", "Lv 1" and "Lv 2" have different advance widths in Rajdhani, so
+   the row shifted as you switched; tabular figures find no tnum feature to select. */
+.enemy-level-tabs > button { min-width: 52px; justify-content: center; }
 
 /* What a tier is, in prose, beside the label -- the section head is uppercase mono,
    and this is a sentence, so it opts out of both. First thing to go when the row
@@ -380,7 +372,7 @@
   gap: 6px;
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 2px 8px;
 }
 .enemy-art-stat .enemy-stat-icon svg { width: 13px; height: 13px; }
@@ -414,7 +406,7 @@
   column-gap: 8px;
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 8px 11px;
 }
 /* No text-transform here. The handbook writes "Movement Speed" and "Effect Res" in
@@ -432,7 +424,7 @@
 .enemy-stats { grid-auto-rows: 1fr; }
 .enemy-stat-label {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--text-faint);
   flex: 1;
@@ -584,7 +576,7 @@
   row-gap: 2px;
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 7px 10px;
 }
 .enemy-resist-mark {
@@ -599,17 +591,20 @@
   grid-column: 2;
   flex: none;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .enemy-status-popover { min-width: 0; }
+/* A status row that opens the operators who apply it: a control, so the control
+   border is the button's own (the row inside it keeps only its fill), and the one
+   hover rule. It was the row's --line-soft hairline, 1.2:1. */
 .enemy-status-trigger {
   display: block;
   width: 100%;
   padding: 0;
-  border: 0;
-  border-radius: 4px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   background: transparent;
   color: inherit;
   text-align: inherit;
@@ -619,7 +614,7 @@
   letter-spacing: normal;
   text-transform: none;
 }
-.enemy-status-trigger > .enemy-resist { padding-right: 28px; }
+.enemy-status-trigger > .enemy-resist { padding-right: 28px; border-color: transparent; }
 .enemy-status-trigger > svg {
   position: absolute;
   top: 50%;
@@ -634,12 +629,12 @@
   transition: transform 120ms ease, color 120ms ease;
 }
 .enemy-status-trigger[aria-expanded='true'] > svg { transform: translateY(-50%) rotate(180deg); color: var(--teal); }
+.enemy-status-trigger:hover,
+.enemy-status-trigger:focus-visible,
+.enemy-status-trigger[aria-expanded='true'] { border-color: var(--teal); }
 .enemy-status-trigger:hover > .enemy-resist,
 .enemy-status-trigger:focus-visible > .enemy-resist,
-.enemy-status-trigger[aria-expanded='true'] > .enemy-resist {
-  border-color: var(--teal);
-  background: var(--panel-2);
-}
+.enemy-status-trigger[aria-expanded='true'] > .enemy-resist { background: var(--panel-2); }
 .enemy-status-trigger:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .enemy-status-menu {
   position: fixed;
@@ -647,7 +642,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--teal);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
 }
@@ -657,7 +652,7 @@
 }
 .enemy-status-menu-head > div { display: flex; flex-direction: column; min-width: 0; }
 .enemy-status-menu-head strong { font-family: var(--font-display); font-size: 15px; }
-.enemy-status-menu-head > div > span { color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.enemy-status-menu-head > div > span { color: var(--text-dim); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .enemy-status-operator-list { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line-soft); }
 .enemy-status-operator {
   min-width: 0;
@@ -673,11 +668,11 @@
 }
 .enemy-status-operator:hover,
 .enemy-status-operator:focus-visible { background: var(--teal-dim); color: var(--teal); }
-.enemy-status-operator > img:first-child { border-radius: 3px; background: var(--surface); }
+.enemy-status-operator > img:first-child { border-radius: var(--radius-frame); background: var(--surface); }
 .enemy-status-operator > span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 650; }
 .enemy-status-operator > img:first-child { grid-row: span 2; }
-.enemy-status-operator small { grid-column: 2; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); }
-.enemy-status-source-icon { display: inline-block; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+.enemy-status-operator small { grid-column: 2; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+.enemy-status-source-icon { display: inline-block; vertical-align: middle; margin-right: 5px; border-radius: var(--radius); }
 .enemy-status-more {
   display: flex;
   justify-content: space-between;
@@ -725,10 +720,19 @@
 
 /* Collapsed by default so the stat grid above is never pushed off the pane. */
 .enemy-flavour-drop { margin-bottom: 16px; }
+/* The disclosure is a control: 32px tall (it was 23px, under the tap-target floor),
+   the control border along its foot where the heading has a hairline, and the one
+   hover rule. */
 .enemy-flavour-drop > summary {
+  min-height: 32px;
+  box-sizing: border-box;
   cursor: pointer;
   list-style: none;
+  border-bottom-color: var(--control-border);
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
+.enemy-flavour-drop > summary:hover { color: var(--teal); border-bottom-color: var(--teal); }
+.enemy-flavour-drop > summary:hover::before { color: var(--teal); }
 .enemy-flavour-drop > summary::-webkit-details-marker { display: none; }
 .enemy-flavour-drop > summary::before {
   content: '\25B8';
@@ -793,7 +797,7 @@
 .enemy-mod {
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 10px 12px;
 }
 .enemy-mod-head {
@@ -805,7 +809,7 @@
 .enemy-mod-name {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.02em;
   display: flex;
   align-items: baseline;
@@ -833,7 +837,7 @@
   color: var(--text-dim);
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   padding: 2px 6px;
 }
 .enemy-kv > span {
@@ -848,11 +852,11 @@
 }
 .enemy-param {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text);
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   padding: 3px 7px;
 }
 .enemy-param i {
@@ -882,29 +886,37 @@
   text-transform: uppercase;
   color: var(--text-faint);
 }
-.enemy-appear-filter .enemy-appear-picker {
+.enemy-appear-filter .enemy-appear-select {
   flex: 0 1 340px;
   min-width: 0;
-  margin-bottom: 0;
 }
+/* The shorthand column in the StyledSelect rows and trigger, so every name starts in
+   one place. */
+.enemy-appear-code { flex: none; min-width: 6ch; }
 .enemy-appear-picker { position: relative; margin-bottom: 12px; }
+/* The filter panel's "Appears in" is the last ContentPicker (components/ui), kept for
+   the search box in its list, which StyledSelect does not have yet. Its trigger and
+   rows wear StyledSelect's paint so the two read as one control. */
 .enemy-appear-trigger {
   display: flex;
   align-items: center;
   gap: 9px;
   width: 100%;
+  min-height: 38px;
   text-align: left;
-  font-size: 12px;
+  font: 500 13px/1.3 var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--teal) 7%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--teal) 55%, var(--line));
-  border-radius: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   color: var(--text);
   cursor: pointer;
 }
-.enemy-appear-trigger:hover { border-color: var(--teal); }
+.enemy-appear-trigger:hover { border-color: var(--teal); color: var(--teal); }
 .enemy-appear-trigger-name { min-width: 0; overflow-wrap: anywhere; }
-.enemy-appear-caret { flex: none; margin-left: auto; color: var(--teal); font-size: 9px; }
+.enemy-appear-caret { flex: none; margin-left: auto; color: var(--teal); font-size: 10px; }
 
 /* Fixed, with left/top/width/maxHeight set by the component. Absolute meant the
    nearest scrolling ancestor clipped it, which cost 283px of the list when this
@@ -914,19 +926,20 @@
   position: fixed;
   z-index: 120;
   overflow-y: auto;
-  padding: 5px;
-  background: var(--panel-2, var(--panel));
+  padding: 4px;
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 4px;
-  box-shadow: 0 10px 26px rgb(0 0 0 / 45%);
+  border-top: 2px solid var(--teal);
+  border-radius: var(--radius-frame);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .22);
 }
 .enemy-appear-list-head {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--panel-2, var(--panel));
+  background: var(--panel);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -938,14 +951,14 @@
   top: -5px;
   z-index: 2;
   padding: 5px;
-  background: var(--panel-2, var(--panel));
+  background: var(--panel);
 }
 .enemy-appear-search {
   box-sizing: border-box;
   width: 100%;
   padding: 7px 10px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: var(--panel);
   color: var(--text);
   font: 12px var(--font-mono);
@@ -956,25 +969,27 @@
 .enemy-appear-option {
   display: grid;
   grid-template-columns: 62px minmax(0, 1fr);
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   width: 100%;
+  min-height: 40px;
   text-align: left;
-  font-size: 12px;
-  padding: 5px 6px;
+  font: 500 13px/1.35 var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 6px 10px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: none;
   color: var(--text-dim);
   cursor: pointer;
 }
 /* Colour only on both states -- a border width or padding change here would
    reflow every row below the one under the cursor. */
-.enemy-appear-option.active { background: color-mix(in srgb, var(--teal) 10%, transparent); }
+.enemy-appear-option.active { background: var(--panel); border-color: var(--control-border); }
 .enemy-appear-option.current {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
-  color: var(--text);
+  background: var(--teal-dim);
+  color: var(--teal);
 }
 .enemy-appear-option-name { min-width: 0; overflow-wrap: anywhere; }
 .enemy-appear-stages {
@@ -993,7 +1008,7 @@
   color: var(--text-dim);
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   padding: 5px 8px;
 }
 /* The code is the link. It is a placeholder on IS and Reclamation nodes, where
@@ -1018,11 +1033,11 @@
   margin-left: auto;
   flex: none;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   border: 1px solid var(--amber);
   color: var(--amber);
 }
@@ -1119,32 +1134,10 @@ main.enemy-page {
 .enemy-frame-sorts, .enemy-frame-tabs { display: flex; gap: 4px; }
 .enemy-frame-tabs { margin-left: auto; }
 
-/* Sort lives with the grid because it sorts the grid. Metrics are pinned so
-   picking a field cannot resize its button and shuffle the row. */
-.enemy-sort, .enemy-type-tab, .enemy-filter-btn {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  padding: 6px 10px;
-  height: 28px;
-  background: var(--panel);
-  border: 1px solid color-mix(in srgb, var(--teal) 42%, var(--line));
-  border-radius: 3px;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-.enemy-sort:hover, .enemy-type-tab:hover, .enemy-filter-btn:hover { border-color: var(--teal); }
-.enemy-sort:focus-visible, .enemy-type-tab:focus-visible, .enemy-filter-btn:focus-visible,
-.enemy-appear-trigger:focus-visible, .enemy-filter-chips button:focus-visible {
-  outline: 2px solid var(--teal);
-  outline-offset: 2px;
-}
-/* Colour only on the selected state -- never metrics. */
-.enemy-sort.current, .enemy-type-tab.current, .enemy-filter-btn.current {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
-  color: var(--teal);
-}
+/* Sort, rank and Filter are the site's .filter-chip: 32px (36 on a phone), the control
+   border at rest, teal when on. They were a local chip at 28px -- the one control on
+   the site that already cleared 3:1, with a recipe of its own. */
+.enemy-frame-sorts > button, .enemy-frame-tabs > button, .enemy-filter-btn { padding-inline: 10px; }
 .enemy-filter-btn { display: inline-flex; align-items: center; gap: 6px; }
 .enemy-filter-actions { display: inline-flex; gap: 4px; }
 .enemy-filter-edit { width: 30px; justify-content: center; padding-inline: 6px; }
@@ -1159,7 +1152,7 @@ main.enemy-page {
   overscroll-behavior: contain;
   padding: 14px;
   border: 1px solid var(--teal);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: var(--bg);
   box-shadow: 0 14px 36px rgb(0 0 0 / 0.45);
 }
@@ -1207,13 +1200,14 @@ main.enemy-page {
   gap: 6px;
   padding-right: 4px;
 }
+/* A tile is a link: the control border at rest, teal on hover. */
 .enemy-tile {
   position: relative;
   display: block;
   aspect-ratio: 1;
   background: var(--panel);
-  border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   overflow: hidden;
 }
 .enemy-tile:hover { border-color: var(--teal); }
@@ -1230,7 +1224,7 @@ main.enemy-page {
   left: 0;
   z-index: 1;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1;
   padding: 3px 4px;
   background: rgb(0 0 0 / 72%);
@@ -1251,37 +1245,13 @@ main.enemy-page {
    gutter, so it stacks flush under the Search button above it. */
 .enemy-filters-head .enemy-clear-btn { margin-left: auto; margin-right: -4px; }
 
-/* Matched to .roster-search, which is this site's search field. Before this the
-   rule was `width: 100%` and nothing else, so the browser drew its own input in
-   the system font -- white box, wrong typeface, no teal focus. */
-.enemy-filter-search {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.enemy-filter-search:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 30%, transparent); }
-.enemy-filter-search::placeholder { color: var(--text-faint); }
+/* The search is components/ui/SearchInput; only its place in the panel is here. */
+.enemy-filter-search { width: 100%; }
 
 .enemy-filter-group .enemy-section-head { margin-bottom: 8px; }
-/* The filter buttons are the site's own primary/ghost pair, which is what the
-   operators roster uses for its rarity filters -- so this page reads as the same
-   site rather than borrowing the techniques page's pills.
-   METRICS ARE PINNED ON BOTH STATES. button.ghost is 12px/8px 14px while the base
-   button is 15px/12px 26px, so an unpinned toggle grows the moment it is pressed
-   and shoves every button after it along the row. Turning one on changes colour
-   and nothing else. */
+/* The facets are .filter-chip buttons with aria-pressed, the site's one chip; the
+   primitive pins their metrics, so turning one on changes colour and nothing else. */
 .enemy-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.enemy-filter-chips button.ghost {
-  border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
-  background: color-mix(in srgb, var(--teal) 5%, var(--panel));
-}
-.enemy-filter-chips button.ghost:hover { border-color: var(--teal); color: var(--teal); }
 /* Left-aligned, deliberately. The music player is fixed at bottom:16px right:16px
    with z-index 100 on every page, so anything pushed to the bottom-right corner of
    this panel ends up underneath it -- which is what happened to "Show 125". */
@@ -1320,7 +1290,10 @@ main.enemy-page {
     height: auto;
   }
   .enemy-frame { height: auto; }
-  .enemy-frame-body { grid-template-columns: 1fr; }
+  /* minmax(0, ...), not 1fr: a 1fr track grows to its widest unbreakable row, and the
+     hero line (name, rank, level switch, life points) is nowrap -- it widened both panes
+     past a 390px screen, and the tiles and stats went with them. */
+  .enemy-frame-body { grid-template-columns: minmax(0, 1fr); }
   /* auto, not visible: a max-height with visible overflow spills the tiles over
      whatever follows instead of scrolling them, which is what it was doing. */
   .enemy-grid-pane {
@@ -1328,7 +1301,21 @@ main.enemy-page {
     overflow-y: auto;
     /* iOS clips a scroll box's last row against the rounded corner without this. */
     -webkit-overflow-scrolling: touch;
+    /* A box inside a page that scrolls, so it has to SAY it scrolls: the drawn bar
+       (as .sidescroll draws the sideways ones), with its gutter reserved, and a frame.
+       It was 1,540 tiles in a 338px box with an overlay thumb nobody could see
+       (2026-09-25 review, GE-12). scrollbar-width must be auto for Chromium to draw
+       the ::-webkit-scrollbar below at all. */
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+    padding: 6px 0 6px 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-frame);
   }
+  .enemy-grid-pane::-webkit-scrollbar { width: 10px; }
+  .enemy-grid-pane::-webkit-scrollbar-track { background: var(--panel-2); border-left: 1px solid var(--line); }
+  .enemy-grid-pane::-webkit-scrollbar-thumb { background: var(--text-faint); border-radius: var(--radius); }
+  .enemy-grid-pane::-webkit-scrollbar-thumb:hover { background: var(--teal); }
   .enemy-detail-pane { overflow-y: visible; min-height: 0; }
   .enemy-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
@@ -1373,17 +1360,17 @@ main.enemy-page {
      block, where the handbook has it -- so this rule was only shrinking it to 52px
      wherever it now lives. The sticky header is the name and the code, and the
      portrait keeps the size .enemy-statblock-art gives it. */
-  .enemy-detail-pane .enemy-hero h1 { font-size: 21px; margin: 0; }
+  .enemy-detail-pane .enemy-hero h2 { font-size: 22px; margin: 0; }
   /* The steps are absolute px, so the first one (23px) was LARGER than this 21px
      base -- a medium-length name came out bigger than a short one on a phone. Capped
      here; the two smaller steps are already under the base and stay as they are. */
-  .enemy-hero-text .enemy-hero-name h1.enemy-name-m { font-size: 20px; }
+  .enemy-hero-text .enemy-hero-name h2.enemy-name-m { font-size: 18px; }
 
   /* 3. The tags and the first-appearance line scroll away under it. */
   /* 16px, or mobile Safari zooms the whole page in when the field takes focus --
      which reads as the entire UI changing size. The desktop rule keeps 12px.
      Both popup search fields now take focus. */
-  .enemy-filter-search, .enemy-appear-search { font-size: 16px; }
+  .enemy-appear-search { font-size: 16px; }
 }
 
 /* Three across under ~430px: four tiles inside a 375px viewport, after main's
@@ -1391,44 +1378,16 @@ main.enemy-page {
 @media (max-width: 430px) {
   .enemy-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .enemy-grid-pane { max-height: 40vh; }
+  .enemy-level-tabs { gap: 4px; }
+  .enemy-level-tabs > button { min-width: 44px; padding-inline: 6px; }
   .enemy-frame-head { gap: 6px; }
-  .enemy-sort, .enemy-type-tab, .enemy-filter-btn { padding: 6px 8px; }
+  .enemy-frame-sorts > button, .enemy-frame-tabs > button, .enemy-filter-btn { padding-inline: 8px; }
 }
 
 /* --- The detail pane's tabs ------------------------------------------------
    Stats, Abilities, Stages: one at a time, with the identity block above them
    staying put. Replaces the folding sections, which still made the reader scroll
    past collapsed headings to reach the next one. */
-.enemy-tabs {
-  display: flex;
-  gap: 4px;
-  margin: 12px 0 14px;
-  border-bottom: 1px solid var(--line-soft);
-}
-.enemy-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 7px 12px;
-  background: none;
-  border: 0;
-  /* The underline is the selected state, so it exists on every tab and only
-     changes colour -- a border that appears on selection would shift the row. */
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-.enemy-tab:hover { color: var(--text-dim); }
-.enemy-tab.current {
-  color: var(--teal);
-  border-bottom-color: var(--teal);
-}
-
-@media (max-width: 430px) {
-  .enemy-tab { padding: 7px 8px; letter-spacing: 0.04em; }
-}
+/* A SegmentedControl: one tab's content at a time, with the identity block above it
+   staying put. Only its place in the pane is this file's. */
+.enemy-tabs { margin: 12px 0 14px; }

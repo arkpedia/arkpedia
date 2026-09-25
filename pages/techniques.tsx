@@ -5,6 +5,9 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '@/components/ui/PageHeader';
+import SearchInput from '@/components/ui/SearchInput';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { UMBRELLA_MEMBERS, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups, TechniqueGroup, TechniqueEntry } from '@/lib/techniques/buildTechniqueGroups';
 
@@ -38,8 +41,6 @@ function highlightKeyword(text: string | null, keyword: string | null, keywordEn
   while (end < text.length && /\w/.test(text[end])) end++;
   return (
     <>
-      <Head><title>Techniques — Arkpedia</title></Head>
-
       {text.slice(0, start)}
       <span className="technique-table-highlight">{text.slice(start, end)}</span>
       {text.slice(end)}
@@ -157,17 +158,30 @@ function TechniqueGroupCard({
   group,
   showTable,
   onToggleTable,
+  level,
 }: {
   group: TechniqueGroup;
   showTable: boolean;
   onToggleTable: () => void;
+  /** 2 for a technique that stands on its own in the list, 3 for one inside an
+   *  umbrella (whose own heading is the h2). Required: a standalone group drawn as
+   *  an h3 skips a level of the outline, and an umbrella member drawn as an h2 reads
+   *  as a sibling of its own umbrella. */
+  level: 2 | 3;
 }) {
+  /* Swapping the icon grid for the table (or back) can shorten this group by
+     hundreds of pixels; near the foot of the page that left the document too short
+     for the reader's scroll position, so the browser clamped it and the toggle just
+     pressed jumped 166px down the screen (806px on a phone). The floor holds what
+     the reader's position needs and hands it back as they scroll up. */
+  const floor = useHeightFloor(group.name);
+  const Heading = level === 2 ? 'h2' : 'h3';
   return (
-    <div className="technique-group">
+    <div className="technique-group" ref={floor.ref}>
       <div className="technique-group-header-row">
-        <h3 className="technique-group-name">{group.name}</h3>
-        <button type="button" className="ghost technique-table-toggle" onClick={onToggleTable}>
-          {showTable ? 'Show Icons' : 'Show Table'}
+        <Heading className="technique-group-name">{group.name}</Heading>
+        <button type="button" className="ghost btn-sm technique-table-toggle" aria-pressed={showTable} onClick={onToggleTable}>
+          {showTable ? 'Show icons' : 'Show table'}
         </button>
       </div>
       {group.definition && <p className="technique-group-definition">{group.definition}</p>}
@@ -273,12 +287,13 @@ function TechniqueGroupCard({
                     )
                   )}
                 </div>
-                <span className="technique-entry-name">{e.operatorName}</span>
+                <span className="technique-entry-name" title={e.operatorName}>{e.operatorName}</span>
               </Link>
             );
           })}
         </div>
       )}
+      {floor.spacer}
     </div>
   );
 }
@@ -364,49 +379,48 @@ export default function TechniquesPage({ groups }: Props) {
 
   const displayBlocks = activeFilter === 'all' ? blocks : blocks.filter((b) => b.blockName === activeFilter);
 
-  return (
-    <main className="main-wide">
-      <div className="op-page-header-search">
-        <Link prefetch={false} href="/operators" className="op-back-to-roster-btn" aria-label="Back to operators">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16">
-            <path d="M12 4 L6 10 L12 16" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Operators</span>
-        </Link>
-        <input
-          type="text"
-          placeholder="Search techniques or operators..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="op-header-search-input"
-        />
-      </div>
+  const chip = (on: boolean) => ({ type: 'button' as const, className: 'filter-chip', 'aria-pressed': on });
 
-      <section className="op-section">
-        <h1>Techniques</h1>
-        <p className="hint" style={{ marginBottom: 16 }}>
+  return (
+    <>
+      <Head><title>Techniques — Arkpedia</title></Head>
+      <PageHeader
+        /* The crumb is the way back to the roster (it was a separate back button
+           beside the search, in a second 1040px frame over a 1320px body). */
+        eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Skill effects'}</>}
+        title="Techniques"
+        sub={<>
           Every named technique across every operator&apos;s skills, grouped by name. {groups.length} technique
           {groups.length === 1 ? '' : 's'} total.
-        </p>
-
-        <div className="technique-filter-row">
+        </>}
+        actions={
+          <SearchInput
+            className="technique-search"
+            label="Search techniques or operators"
+            placeholder="Search techniques or operators..."
+            value={search}
+            onChange={setSearch}
+          />
+        }
+      />
+      <main>
+      <section className="op-section">
+        {/* Independent of the search, so chips rather than a SegmentedControl: "Show
+            all" also clears the search, which a pick-one control would ignore when it
+            is already the current option. On a phone the row scrolls sideways under
+            the drawn bar, which is what says it scrolls. */}
+        <div className="seg-control technique-chip-row sidescroll" role="group" aria-label="Technique">
           <button
-            type="button"
-            className={`technique-filter-btn${activeFilter === 'all' ? ' active' : ''}`}
+            {...chip(activeFilter === 'all')}
             onClick={() => {
               setActiveFilter('all');
               setSearch('');
             }}
           >
-            Show All
+            Show all
           </button>
           {filterButtonNames.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={`technique-filter-btn${activeFilter === name ? ' active' : ''}`}
-              onClick={() => setActiveFilter(name)}
-            >
+            <button key={name} {...chip(activeFilter === name)} onClick={() => setActiveFilter(name)}>
               {name}
             </button>
           ))}
@@ -422,10 +436,9 @@ export default function TechniquesPage({ groups }: Props) {
                 {UMBRELLA_DESCRIPTIONS[block.blockName] && (
                   <p className="technique-umbrella-description">{UMBRELLA_DESCRIPTIONS[block.blockName]}</p>
                 )}
-                <div className="technique-filter-row technique-subfilter-row">
+                <div className="seg-control technique-chip-row sidescroll" role="group" aria-label={`${block.blockName}: show`}>
                   <button
-                    type="button"
-                    className={`technique-filter-btn technique-subfilter-btn${(umbrellaSubFilters[block.blockName] || 'all') === 'all' ? ' active' : ''}`}
+                    {...chip((umbrellaSubFilters[block.blockName] || 'all') === 'all')}
                     onClick={() => setUmbrellaSubFilter(block.blockName, 'all')}
                   >
                     All
@@ -433,8 +446,7 @@ export default function TechniquesPage({ groups }: Props) {
                   {block.memberGroups.map((group) => (
                     <button
                       key={group.name}
-                      type="button"
-                      className={`technique-filter-btn technique-subfilter-btn${umbrellaSubFilters[block.blockName] === group.name ? ' active' : ''}`}
+                      {...chip(umbrellaSubFilters[block.blockName] === group.name)}
                       onClick={() => setUmbrellaSubFilter(block.blockName, group.name)}
                     >
                       {group.name}
@@ -447,6 +459,7 @@ export default function TechniquesPage({ groups }: Props) {
                     <TechniqueGroupCard
                       key={group.name}
                       group={group}
+                      level={3}
                       showTable={showTableGroups.has(group.name)}
                       onToggleTable={() => toggleTable(group.name)}
                     />
@@ -456,6 +469,7 @@ export default function TechniquesPage({ groups }: Props) {
               <TechniqueGroupCard
                 key={block.blockName}
                 group={block.memberGroups[0]}
+                level={2}
                 showTable={showTableGroups.has(block.blockName)}
                 onToggleTable={() => toggleTable(block.blockName)}
               />
@@ -463,7 +477,8 @@ export default function TechniquesPage({ groups }: Props) {
           )}
         </div>
       </section>
-    </main>
+      </main>
+    </>
   );
 }
 

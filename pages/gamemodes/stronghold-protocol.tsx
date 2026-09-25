@@ -4,6 +4,11 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
+import PageHeader from '@/components/ui/PageHeader';
+import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import SearchInput from '@/components/ui/SearchInput';
+import { useNavOffset } from '@/lib/hooks/useNavOffset';
 import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   StrongholdData,
@@ -150,6 +155,10 @@ type Anchor = 'keep' | 'top';
 /** One choice in a facet dropdown. */
 interface PickOption { id: string; name: string; n?: number | null; icon?: string | null; trail?: ReactNode }
 
+/** A facet row on the site's one dropdown: the badge, the count and the price ride
+ *  along in the render slots. */
+type PickRow = SelectOption & { icon?: string | null; n?: number | null; trail?: ReactNode };
+
 /**
  * One facet of the roster, as a dropdown that picks a single value.
  *
@@ -158,10 +167,11 @@ interface PickOption { id: string; name: string; n?: number | null; icon?: strin
  * looking rather than with anything looked at. A closed dropdown says what it filters
  * and what it is filtered TO, in the width of the words.
  *
- * A listbox of our own rather than a <select>, for the same reason ContentPicker is
- * one: a native popup is drawn by the OS, so the counts cannot line up down the right,
- * the alliance badges cannot appear at all, and the row a player is choosing from
- * would be the only part of this page in the system font.
+ * It is the site's StyledSelect (components/ui), which draws the alliance badges, the
+ * counts and the tier prices through its render slots. It was a hand-built listbox of
+ * its own, with 25px rows on the page's ground and the pre-token teal for the current
+ * row: one of seven dropdowns on the site (2026-09-25 review, UI-13). The "all" row is
+ * the first option (value ''), so clearing a facet is one more row of the same list.
  */
 function Pick({ label, value, options, onChange }: {
   label: string;
@@ -169,107 +179,37 @@ function Pick({ label, value, options, onChange }: {
   options: PickOption[];
   onChange: (id: string | null) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const box = useRef<HTMLDivElement>(null);
-  const list = useRef<HTMLUListElement>(null);
-  const chosen = options.find((o) => o.id === value) ?? null;
-  /* aria-activedescendant takes a single id, so the label cannot go in raw: "All
-     tiers-0" would be read as two ids and match neither. */
-  const ident = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-  /* Shut on Escape or on a press anywhere else. Bound only while open, so a page of
-     these is not a page of listeners. */
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    const onDown = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('pointerdown', onDown);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('pointerdown', onDown);
-    };
-  }, [open]);
-
-  /* Focus the list once, when it opens. An inline ref callback did this for a while
-     and ran on EVERY render -- so moving the pointer down the rows re-focused the list
-     on each step, which is a scroll jump per row on a 23-row alliance list. */
-  useEffect(() => { if (open) list.current?.focus(); }, [open]);
-
-  /* The "all" row is index 0 and the values follow it, so the arrow keys walk one
-     list and clearing the facet is reachable without leaving the keyboard. */
-  const rows: (PickOption | null)[] = [null, ...options];
-  const commit = (i: number) => {
-    onChange(rows[i]?.id ?? null);
-    setOpen(false);
-  };
-
+  const rows: PickRow[] = [
+    { value: '', label },
+    ...options.map((o) => ({ value: o.id, label: o.name, icon: o.icon, n: o.n, trail: o.trail })),
+  ];
   return (
-    <div className="gm-pickbox" ref={box}>
-      <button
-        type="button"
-        className={`gm-pickbtn${chosen ? ' set' : ''}${open ? ' open' : ''}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => {
-          setActive(Math.max(0, rows.findIndex((r) => (r?.id ?? null) === value)));
-          setOpen((v) => !v);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setActive(Math.max(0, rows.findIndex((r) => (r?.id ?? null) === value)));
-            setOpen(true);
-          }
-        }}
-      >
-        {chosen?.icon !== undefined && chosen?.icon !== null && <Badge name={chosen.name} icon={chosen.icon} />}
-        {/* title, because the button is a fixed width and the longer role names
-            ("Other Alliance Stacker") ellipsize inside it. */}
-        <span className="gm-pickbtnname" title={chosen ? chosen.name : label}>{chosen ? chosen.name : label}</span>
-        <i className="gm-pickcaret" aria-hidden="true" />
-      </button>
-      {open && (
-        <ul
-          className="gm-picklist"
-          role="listbox"
-          tabIndex={-1}
-          aria-label={label}
-          aria-activedescendant={`${ident}-${active}`}
-          /* The list takes the keys once it is open, so Down/Up walk it, Enter takes
-             the row under the cursor and Home/End reach the ends of a 23-row alliance
-             list without twenty-two presses. */
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(rows.length - 1, i + 1)); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
-            else if (e.key === 'Home') { e.preventDefault(); setActive(0); }
-            else if (e.key === 'End') { e.preventDefault(); setActive(rows.length - 1); }
-            else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); commit(active); }
-          }}
-          ref={list}
-        >
-          {rows.map((o, i) => (
-            <li
-              key={o?.id ?? '*'}
-              id={`${ident}-${i}`}
-              role="option"
-              aria-selected={(o?.id ?? null) === value}
-              className={`gm-pickopt${(o?.id ?? null) === value ? ' current' : ''}${i === active ? ' active' : ''}`}
-              onPointerEnter={() => setActive(i)}
-              onClick={() => commit(i)}
-            >
-              {o?.icon && <Badge name={o.name} icon={o.icon} />}
-              <span className="gm-pickoptname">{o ? o.name : label}</span>
-              {o?.trail}
-              {o?.n != null && <span className="gm-pick-n">{o.n}</span>}
-            </li>
-          ))}
-        </ul>
+    <StyledSelect<PickRow>
+      /* .set marks a facet that is narrowing the roster, in teal ("on"): the bar has
+         to say at a glance which of the five are doing something. */
+      className={`gm-pickbox${value ? ' set' : ''}`}
+      label={label}
+      value={value ?? ''}
+      options={rows}
+      onChange={(id) => onChange(id || null)}
+      menuMinWidth={220}
+      renderOption={(o) => (
+        <>
+          {o.icon && <Badge name={o.label} icon={o.icon} />}
+          <span className="gm-pickoptname">{o.label}</span>
+          {o.trail}
+          {o.n != null && <span className="gm-pick-n">{o.n}</span>}
+        </>
       )}
-    </div>
+      /* title, because the trigger is an equal share of the row and the longer role
+         names ("Other Alliance Stacker") ellipsize inside it. */
+      renderValue={(o) => (
+        <>
+          {o.icon && <Badge name={o.label} icon={o.icon} />}
+          <span className="gm-pickbtnname" title={o.label}>{o.label}</span>
+        </>
+      )}
+    />
   );
 }
 
@@ -396,6 +336,11 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
    * the same frame the sheet leaves, and a re-render is a frame too late.
    */
   const sceneRef = useRef<HTMLElement>(null);
+  /** The section bar, which sticks under the site nav, and a marker at its place in
+   *  the flow (the bar's own box is wherever it is stuck). */
+  const lookupRef = useRef<HTMLDivElement>(null);
+  const lookupAnchorRef = useRef<HTMLSpanElement>(null);
+  const navOffset = useNavOffset();
   const reserveRef = useRef(0);
   const basePadRef = useRef(0);
   /** Where the reader was before something shortened the page under them. */
@@ -425,11 +370,17 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
    * card back in above, and pushes everything down the screen. That reads as the page
    * jumping even though it went where it was told.
    *
-   * So the anchor is the scene: the last position at which the bar is still pinned.
-   * From anywhere below, the bar does not move at all and only the results under it
-   * change, which is what the reader just asked for. From above it, nothing moves.
-   * And it bounds the reserve, which no longer depends on how far down the reader had
-   * gone before typing.
+   * So the anchor is the first position at which the bar is pinned: where the bar
+   * sits in the flow, less the height it pins at (under the site nav). From anywhere
+   * below, the bar does not move at all and only the results under it change, which
+   * is what the reader just asked for. From above it, nothing moves. And it bounds
+   * the reserve, which no longer depends on how far down the reader had gone before
+   * typing.
+   *
+   * It used to be the top of the scene, which is 210px short of that: the bar dropped
+   * from pinned to 256px down the screen and the companion card came back in above
+   * it (2026-09-25 review, UC-10). Read from a zero-height marker in the flow just
+   * before the bar, because the bar's own box is wherever it is stuck.
    */
   const narrow = <T,>(set: (v: T) => void) => (v: T) => {
     hold('top');
@@ -482,14 +433,35 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
        positioned, so its offset is the same number whether or not the browser has
        already clamped the scroll out from under us. */
     const sceneTop = sceneRef.current.getBoundingClientRect().top + window.scrollY;
-    const target = was.anchor === 'top' ? Math.min(was.scroll, sceneTop) : was.scroll;
+    const marker = lookupAnchorRef.current;
+    const pinsAt = marker && lookupRef.current
+      ? marker.getBoundingClientRect().top + window.scrollY - (parseFloat(getComputedStyle(lookupRef.current).top) || 0)
+      : sceneTop;
+    const target = was.anchor === 'top' ? Math.min(was.scroll, Math.max(0, Math.round(pinsAt))) : was.scroll;
     /* What the page would measure with nothing reserved on it, and what a reader
        standing at the target needs it to reach. The gap between the two is the whole of
        the answer. Position zero is reachable on any page, so it never needs one. */
     const natural = document.documentElement.scrollHeight - reserveRef.current;
-    const reserve = target > 0 ? Math.max(0, target + window.innerHeight - natural) : 0;
-    reserveRef.current = reserve;
-    sceneRef.current.style.paddingBottom = reserve ? `${basePadRef.current + reserve}px` : '';
+    let reserve = target > 0 ? Math.max(0, target + window.innerHeight - natural) : 0;
+    const scene = sceneRef.current;
+    const apply = () => {
+      reserveRef.current = reserve;
+      scene.style.paddingBottom = reserve ? `${basePadRef.current + reserve}px` : '';
+    };
+    apply();
+    /* The page is never shorter than the viewport (a min-height on the layout), and
+       that floor swallows the first part of a reserve: narrowed to one operator the
+       content is 710px, the document measures its 1,000px floor, and a reserve worked
+       out from that measure left the page 250px short of the target -- the reader
+       landed at 0 and the pinned bar dropped 250px down the screen (measured
+       2026-09-25). So check what the document actually reaches and top up the
+       shortfall; once the content clears the floor, padding adds one for one. */
+    for (let pass = 0; pass < 3 && target > 0; pass += 1) {
+      const short = target + window.innerHeight - document.documentElement.scrollHeight;
+      if (short <= 0) break;
+      reserve += short;
+      apply();
+    }
     if (window.scrollY !== target) window.scrollTo(0, target);
   }, [holdTick]);
 
@@ -809,22 +781,20 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         />
       </Head>
 
-      <div className="terminal-head">
-        {/* The site's own page-level back link, same as a stage page's. */}
-        <Link prefetch={false} href="/gamemodes" className="stage-back">&lsaquo; Game Modes</Link>
-        <div className="eyebrow">Rhodes Island // Game Modes</div>
-        <h1>Stronghold Protocol</h1>
-        {/* No blurb. What the page holds is what the buttons below say it holds. */}
-        {/* The one way out to a run in progress, as against this page, which is the
-            reference you read beforehand. A button rather than a link: the companion
-            is a window THIS page owns, and the click that asks for it has to be the
-            click that opens it -- a hop to a second page spent the gesture on
-            navigating and then wanted another one.
-            Under the title rather than floated beside it: it is a banner the width of
-            the page now, and a float would have put it above the eyebrow it used to
-            sit level with. */}
-        <StrongholdCompanion data={data} picker={buildableAlliances(picker)} />
-      </div>
+      {/* The eyebrow's crumb is the way back to Game Modes: it was a separate
+          "< Game Modes" link above the eyebrow, saying the same thing twice.
+          No blurb. What the page holds is what the buttons below say it holds.
+          The companion banner is the header's action: the one way out to a run in
+          progress, as against this page, which is the reference you read beforehand.
+          A button rather than a link: the companion is a window THIS page owns, and
+          the click that asks for it has to be the click that opens it -- a hop to a
+          second page spent the gesture on navigating and then wanted another one. */}
+      <PageHeader
+        slim
+        eyebrow={<><Link prefetch={false} href="/gamemodes">Game Modes</Link>{' // Mode reference'}</>}
+        title="Stronghold Protocol"
+        actions={<StrongholdCompanion data={data} picker={buildableAlliances(picker)} />}
+      />
 
       {/* gm-mode scopes this page's larger icons. It must stay OFF the companion,
           which shares every gm- class with this page and is drawn at 390px. */}
@@ -835,45 +805,34 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           carries its hit count, so "Drone" says where the answer lives -- an enemy,
           a bounty, four operators -- without opening anything. Sticky, because it IS
           the tool and the sections under it are long. */}
-      <div className="gm-lookup">
-        <nav className="gm-tabs" aria-label="Sections">
-          {TABS.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              className={`terminal-tab gm-jumpbtn${tab === id ? ' current' : ''}`}
-              aria-pressed={tab === id}
-              onClick={() => goTab(id)}
-            >
-              {label}
-              {needle && <b className="gm-tabhits">{tabHits[id]}</b>}
-            </button>
-          ))}
-        </nav>
+      <span className="gm-lookup-anchor" ref={lookupAnchorRef} aria-hidden="true" />
+      {/* Sticks under the site nav, measured (lib/hooks/useNavOffset): at `top: 0` it
+          spent the page under the fixed nav, and not one of the seven tabs could be
+          clicked once it pinned. */}
+      <div className="gm-lookup" ref={lookupRef} style={navOffset == null ? undefined : { top: navOffset }}>
+        {/* The site's pick-one control: one section shows at a time. It was a
+            button of its own (28px, the pre-token teal); the chip is 32px (36 on a
+            phone) and says "current" the way every other one does. */}
+        <SegmentedControl
+          className="gm-tabs"
+          label="Sections"
+          value={tab}
+          onChange={goTab}
+          options={TABS.map(([id, label]) => ({ value: id, label, count: needle ? tabHits[id] : undefined }))}
+        />
         <div className="gm-searchrow">
-          <span className="gm-search">
-            {/* The browser is told to keep out of this field.
-                Without these it treats the box as a form it should be helpful about:
-                every string ever typed here is saved and offered back in a rounded
-                dropdown of the browser's own -- which is how markup pasted in once to
-                see what happened ("</body> -->") kept reappearing as a suggestion,
-                looking like the page rendering it. Nothing typed here is worth
-                remembering: it is a filter over a list on one page, not an address or
-                a name. spellCheck off with it, because operator names are not words
-                and a page of red underlines says they are all mistakes. */}
-            <input
-              type="text"
-              name="stronghold-search"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              value={query}
-              onChange={(e) => { hold('top'); setQuery(e.target.value); }}
-              placeholder="Search names, attributes, alliances, effects..."
-              aria-label="Search the whole mode"
-            />
-          </span>
+          {/* The site's one search field (components/ui/SearchInput), which also keeps
+              the browser out of it: autocomplete and spellcheck are off there, because
+              a remembered string once came back as a suggestion that looked like the
+              page rendering markup, and operator names are not words. */}
+          <SearchInput
+            className="gm-search"
+            name="stronghold-search"
+            label="Search the whole mode"
+            value={query}
+            onChange={(v) => { hold('top'); setQuery(v); }}
+            placeholder="Search names, attributes, alliances, effects..."
+          />
           <button type="button" className="ghost gm-clear" hidden={!filtersOn} onClick={clearAll}>
             Clear all
           </button>
@@ -886,8 +845,8 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
 
       {/* --- the roster ------------------------------------------------------- */}
       <section className="terminal-panel wide gm-anchor" data-tab="Operators" hidden={tab !== 'operators'}>
-        <div className="stage-section-head">
-          <h2 className="regular-sub">The roster, by dispatch tier</h2>
+        <div className="stage-section-head op-section">
+          <h2>The roster, by dispatch tier</h2>
           {/* The count, as the Items panel says it. "tier - cost - what it does" was a
               key to the columns, which the columns say for themselves. */}
           <span className="terminal-pill">
@@ -1011,8 +970,8 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
 
       {/* --- the alliances ---------------------------------------------------- */}
       <section className="terminal-panel wide" data-tab="Alliances" hidden={tab !== 'alliances'}>
-        <div className="stage-section-head">
-          <h2 className="regular-sub">What each alliance pays out</h2>
+        <div className="stage-section-head op-section">
+          <h2>What each alliance pays out</h2>
           <span className="terminal-pill">
             {needle ? `${shownAlliances.length} of ${picker.length}` : picker.length}
           </span>
@@ -1059,8 +1018,8 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
 
       {/* --- the other five --------------------------------------------------- */}
       <section className="terminal-panel wide" data-tab="Strategies" hidden={tab !== 'strategies'}>
-        <div className="stage-section-head">
-          <h2 className="regular-sub">Leaders and what they open with</h2>
+        <div className="stage-section-head op-section">
+          <h2>Leaders and what they open with</h2>
           <span className="terminal-pill">
             {needle ? `${shownStrategies.length} of ${data.strategies.length}` : data.strategies.length}
           </span>
@@ -1100,8 +1059,8 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       <section className="terminal-panel wide" data-tab="Items" hidden={tab !== 'items'}>
-        <div className="stage-section-head">
-          <h2 className="regular-sub">Equipment and what it costs</h2>
+        <div className="stage-section-head op-section">
+          <h2>Equipment and what it costs</h2>
           <span className="terminal-pill">
             {needle ? `${shownItems.length} of ${data.items.length}` : data.items.length}
           </span>
@@ -1169,8 +1128,8 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       <section className="terminal-panel wide" data-tab="Enemies" hidden={tab !== 'enemies'}>
-        <div className="stage-section-head">
-          <h2 className="regular-sub">The mode&rsquo;s own enemy groups</h2>
+        <div className="stage-section-head op-section">
+          <h2>The mode&rsquo;s own enemy groups</h2>
           <span className="terminal-pill">
             {needle ? `${shownGroups.length} of ${data.enemyGroups.length}` : data.enemyGroups.length}
           </span>
@@ -1202,8 +1161,8 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       <section className="terminal-panel wide" data-tab="Bosses" hidden={tab !== 'enemies'}>
-        <div className="stage-section-head">
-          <h2 className="regular-sub">What the whole run is building an answer to</h2>
+        <div className="stage-section-head op-section">
+          <h2>What the whole run is building an answer to</h2>
           <span className="terminal-pill">
             {data.bosses.filter((b) => spoilers || !b.hidden).length}
           </span>
@@ -1261,8 +1220,8 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           data-tab={group.title}
           hidden={tab !== (group.title === 'Bounty' ? 'bounty' : 'tactical')}
         >
-          <div className="stage-section-head">
-            <h2 className="regular-sub">{group.blurb}</h2>
+          <div className="stage-section-head op-section">
+            <h2>{group.blurb}</h2>
             <span className="terminal-pill">
               {needle
                 ? `${group.rows.filter((d) => has(d.name, d.effect, d.warning, d.enemy, d.affects)).length} of ${group.rows.length}`
@@ -1395,7 +1354,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
             if (!b) return null;
             return (
               <div className="gm-bosshp">
-                <p className="eyebrow">
+                <p className="eyebrow gm-bosshp-kicker">
                   {b.hidden ? `Hidden boss \u00b7 round ${b.round}` : `Boss \u00b7 round ${b.round}`}
                 </p>
                 <div className="gm-hptable">

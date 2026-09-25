@@ -3,7 +3,10 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import PageHeader from '@/components/ui/PageHeader';
+import SearchInput from '@/components/ui/SearchInput';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -26,8 +29,6 @@ function highlightKeyword(text: string | null, keyword: string | null) {
   const { start, end } = span;
   return (
     <>
-      <Head><title>Synergies — Arkpedia</title></Head>
-
       {text.slice(0, start)}
       <span className="technique-table-highlight">{text.slice(start, end)}</span>
       {text.slice(end)}
@@ -92,30 +93,27 @@ export default function SynergiesPage({ groups }: Props) {
   }, [groups, search]);
 
   return (
-    <main className="main-wide">
-      <div className="op-page-header-search">
-        <Link prefetch={false} href="/operators" className="op-back-to-roster-btn" aria-label="Back to operators">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16">
-            <path d="M12 4 L6 10 L12 16" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Operators</span>
-        </Link>
-        <input
-          type="text"
-          placeholder="Search synergies or operators..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="op-header-search-input"
-        />
-      </div>
-
-      <section className="op-section">
-        <h1>Synergies</h1>
-        <p className="hint" style={{ marginBottom: 16 }}>
+    <>
+      <Head><title>Synergies — Arkpedia</title></Head>
+      <PageHeader
+        eyebrow={<><Link prefetch={false} href="/operators">Operators</Link>{' // Faction and class buffs'}</>}
+        title="Synergies"
+        sub={<>
           Factions and classes that at least one operator&apos;s skill or talent grants a buff to. {groups.length} synergy
           {groups.length === 1 ? '' : 'ies'} total.
-        </p>
-
+        </>}
+        actions={
+          <SearchInput
+            className="technique-search"
+            label="Search synergies or operators"
+            placeholder="Search synergies or operators..."
+            value={search}
+            onChange={setSearch}
+          />
+        }
+      />
+      <main>
+      <section className="op-section">
         {filtered.length === 0 && <p className="hint">No synergy matches your search.</p>}
 
         <div className="technique-group-list">
@@ -128,13 +126,13 @@ export default function SynergiesPage({ groups }: Props) {
             const hasMore = group.entries.length > PAGE_SIZE;
 
             return (
-              <div key={key} className="technique-group">
+              <SynergyGroupFrame key={key} floorKey={key}>
                 <div className="technique-group-header-row">
-                  <h3 className="technique-group-name">
+                  <h2 className="technique-group-name">
                     {group.name} <span className="hint">({group.type})</span>
-                  </h3>
-                  <button type="button" className="ghost technique-table-toggle" onClick={() => toggleTable(key)}>
-                    {showTable ? 'Show Icons' : 'Show Table'}
+                  </h2>
+                  <button type="button" className="ghost btn-sm technique-table-toggle" aria-pressed={showTable} onClick={() => toggleTable(key)}>
+                    {showTable ? 'Show icons' : 'Show table'}
                   </button>
                 </div>
 
@@ -198,24 +196,42 @@ export default function SynergiesPage({ groups }: Props) {
                                 </div>
                               )}
                             </div>
-                            <span className="technique-entry-name">{e.operatorName}</span>
+                            <span className="technique-entry-name" title={e.operatorName}>{e.operatorName}</span>
                           </Link>
                         );
                       })}
                     </div>
                     {hasMore && (
-                      <button type="button" className="ghost technique-table-toggle" onClick={() => toggleExpanded(key)}>
-                        {expanded ? 'Show Less' : `Show More (${group.entries.length - PAGE_SIZE} more)`}
+                      <button type="button" className="ghost btn-sm technique-more" aria-expanded={expanded} onClick={() => toggleExpanded(key)}>
+                        {expanded ? 'Show less' : `Show more (${group.entries.length - PAGE_SIZE} more)`}
                       </button>
                     )}
                   </>
                 )}
-              </div>
+              </SynergyGroupFrame>
             );
           })}
         </div>
       </section>
-    </main>
+      </main>
+    </>
+  );
+}
+
+/**
+ * One synergy's block. A component of its own for the height floor: "Show table" and
+ * "Show less" both shorten the block, and near the foot of the page that leaves the
+ * document too short for the reader's scroll position -- the browser clamps it and
+ * the button just pressed jumps down the screen. The floor holds what the position
+ * needs and gives it back as the reader scrolls up (components/ui/useHeightFloor).
+ */
+function SynergyGroupFrame({ floorKey, children }: { floorKey: string; children: ReactNode }) {
+  const floor = useHeightFloor(floorKey);
+  return (
+    <div className="technique-group" ref={floor.ref}>
+      {children}
+      {floor.spacer}
+    </div>
   );
 }
 

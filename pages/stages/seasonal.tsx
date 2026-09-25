@@ -5,6 +5,7 @@ import ContentCardLink, { NoMapNote } from '@/components/ui/ContentCardLink';
 import Rail from '@/components/ui/Rail';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
 import { getSeasonalChallenge, SeasonalChallenge } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 
@@ -27,14 +28,15 @@ export default function SeasonalPage({ ccb, vector, trials }: Props) {
   return (
     <>
       <TerminalNav current="seasonal" />
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Terminal</div>
-        <h1><ModeMark name="contingency-contract.svg" className="head-mark" />Seasonal Challenge</h1>
-        <p className="sub">
+      <PageHeader
+        slim
+        eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />Terminal // Challenge modes</>}
+        title="Seasonal Challenge"
+        sub={<>
           The challenge modes: Contingency Contract Battleplan, Vector Breakthrough and
           Trials for Navigator, with every season each of them has run.
-        </p>
-      </div>
+        </>}
+      />
 
       <main className="terminal-scene">
         <Mode tab="Contingency Contract" cards={ccb} noun="operations" mark="contingency-contract.svg" />
