@@ -266,14 +266,14 @@
 .gacha-preview-link:hover { border-color: var(--teal); color: var(--teal); }
 .gacha-preview-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .gacha-preview-section { margin-bottom: 16px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-frame); background: var(--panel-2); overflow-wrap: anywhere; }
-.gacha-preview-section h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; color: var(--teal); font: 700 16px var(--font-display); text-transform: uppercase; }
+.gacha-preview-section h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; color: var(--text-bright); font: 700 16px var(--font-display); text-transform: uppercase; }
 .gacha-preview-section h3 span { color: var(--text-dim); font: 11px var(--font-mono); text-transform: none; }
 .gacha-preview-section p { margin: 7px 0 0; white-space: pre-line; line-height: 1.5; }
 .gacha-preview-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .gacha-preview-stat { display: flex; flex-direction: column; gap: 2px; padding: 7px; border: 1px solid var(--line-soft); border-radius: var(--radius); }
 .gacha-preview-stat span, .gacha-preview-meta { color: var(--text-dim); font: 11px var(--font-mono); }
 .gacha-preview-stat strong { font: 700 16px var(--font-mono); }
-.gacha-preview-stat small { color: var(--teal); font-size: 11px; }
+.gacha-preview-stat small { color: var(--text-dim); font-size: 11px; }
 .gacha-preview-entry + .gacha-preview-entry { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .gacha-preview-entry-title { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; }
 .gacha-preview-entry-title span { color: var(--text-dim); font: 11px var(--font-mono); }
@@ -310,18 +310,22 @@
 .gacha-details-header p { margin: 0 0 14px; color: var(--text-dim); }
 .gacha-details-rates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .gacha-details-rates div { display: flex; justify-content: space-between; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-frame); background: var(--panel-2); font-family: var(--font-mono); }
-.gacha-details-rates span { color: var(--teal); }
+.gacha-details-rates span { color: var(--text-bright); }
 .gacha-details-caption { margin: 8px 0; color: var(--text-dim); font-size: 13px; line-height: 1.45; }
 .gacha-details-section { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
-.gacha-details-section h3 { margin: 0 0 10px; color: var(--teal); font: 700 17px var(--font-display); text-transform: uppercase; }
+.gacha-details-section h3 { margin: 0 0 10px; color: var(--text-bright); font: 700 17px var(--font-display); text-transform: uppercase; }
 .gacha-details-featured-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .gacha-details-featured { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 66px; padding: 7px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--panel-2); color: var(--text); text-align: left; cursor: pointer; }
 .gacha-details-featured img, .gacha-details-featured .gacha-pull-icon-placeholder { flex: none; width: 50px; height: 50px; object-fit: contain; }
 .gacha-details-featured span:last-child { min-width: 0; }
 .gacha-details-featured strong { display: block; overflow-wrap: anywhere; }
-.gacha-details-featured small { display: block; color: var(--teal); font: 11px var(--font-mono); }
-.gacha-details-rarity-6 { border-color: var(--amber); }
-.gacha-details-rarity-5 { border-color: var(--teal); }
+.gacha-details-featured small { display: block; color: var(--text-dim); font: 11px var(--font-mono); }
+/* Rarity is the bottom edge and the rate's colour, from --rarity-N: 6-star was amber
+   and 5-star teal here, and teal means on or current. */
+.gacha-details-rarity-6 { box-shadow: inset 0 -3px 0 var(--rarity-6); }
+.gacha-details-rarity-5 { box-shadow: inset 0 -3px 0 var(--rarity-5); }
+.gacha-details-rarity-6 small { color: var(--rarity-6); }
+.gacha-details-rarity-5 small { color: var(--rarity-5); }
 .gacha-details-featured:hover, .gacha-details-name-list button:hover { border-color: var(--teal); background: var(--teal-dim); }
 .gacha-details-pool { margin-top: 15px; }
 .gacha-details-pool h4 { margin: 0 0 7px; color: var(--text-dim); font: 700 13px var(--font-mono); }

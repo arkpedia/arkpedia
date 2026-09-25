@@ -340,7 +340,7 @@ function BannerDetails({ banner, dateLabel, onClose, onSelect, previewOpen }: {
         <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close banner details">×</button>
       </div>
       <div className="gacha-details-rates" aria-label="Base rarity rates">
-        {([['6★', BASE_RATES.six], ['5★', BASE_RATES.five], ['4★', BASE_RATES.four], ['3★', BASE_RATES.three]] as const).map(([rarity, rate]) => <div key={rarity}><strong>{rarity}</strong><span>{(rate * 100).toFixed(0)}%</span></div>)}
+        {([[6, BASE_RATES.six], [5, BASE_RATES.five], [4, BASE_RATES.four], [3, BASE_RATES.three]] as const).map(([rarity, rate]) => <div key={rarity}><strong><Rarity n={rarity} /></strong><span>{(rate * 100).toFixed(0)}%</span></div>)}
       </div>
       <p className="gacha-details-caption">Base chance per pull. The 6★ chance rises with pity; operator percentages below are within that rarity.</p>
       {featuredGroups.filter((group) => group.items.length).map((group) => <section className="gacha-details-section" key={group.title}>
@@ -356,7 +356,7 @@ function BannerDetails({ banner, dateLabel, onClose, onSelect, previewOpen }: {
       <section className="gacha-details-section">
         <h3>Other possible operators</h3>
         {remainingGroups.map(({ rarity, items }) => <div className="gacha-details-pool" key={rarity}>
-          <h4>{rarity}★</h4>
+          <h4><Rarity n={rarityLevel(rarity)} /></h4>
           {items.length ? <div className="gacha-details-name-list">{[...items].sort((a, b) => a.name.localeCompare(b.name)).map((item) => <button type="button" key={item.name} onClick={() => openOperator(item, rarity)}>{item.name}</button>)}</div> : <p className="gacha-details-caption">No other {rarity}★ operators in this banner.</p>}
         </div>)}
       </section>

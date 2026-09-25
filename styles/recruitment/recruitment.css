@@ -32,8 +32,8 @@
 .recruit-section-heading h2 { margin: 0; }
 .recruit-selection-count { margin-left: 6px; font: 500 12px var(--font-mono); color: var(--text-dim); }
 /* An inline action inside a sentence (the pop-out notices): a text link. */
-.recruit-page .recruit-text-button { border: 0; padding: 0; min-height: 0; background: transparent; color: var(--teal); font: 500 12px/1.5 var(--font-body); text-transform: none; letter-spacing: 0; text-decoration: underline; text-underline-offset: 3px; }
-.recruit-page .recruit-text-button:hover { color: var(--text-bright); }
+.recruit-page .recruit-text-button { border: 0; padding: 0; min-height: 0; background: transparent; color: var(--text-bright); font: 500 12px/1.5 var(--font-body); text-transform: none; letter-spacing: 0; text-decoration: underline; text-underline-offset: 3px; }
+.recruit-page .recruit-text-button:hover { color: var(--teal); }
 .recruit-page button:disabled { opacity: 0.4; cursor: not-allowed; }
 .recruit-help { margin: 5px 0 16px; font-size: 12px; line-height: 1.6; color: var(--text-dim); max-width: 75ch; }
 /* The five chosen tags: each is on, so each is teal; pressing one removes it. */
@@ -89,7 +89,8 @@
 .recruit-sheet-pairing:hover { border-top-color: var(--teal); border-right-color: var(--teal); border-bottom-color: var(--teal); color: var(--teal); }
 .recruit-sheet-pairing > span:last-child { color: var(--recruit-rarity); font: 500 11px var(--font-mono); white-space: nowrap; }
 .recruit-window-notice { font-size: 12px; color: var(--text-dim); line-height: 1.6; padding: 12px; border: 1px solid var(--line); border-left: 3px solid var(--text-faint); border-radius: var(--radius); background: var(--panel); margin: 0 0 16px; }
-.recruit-window-notice a { color: var(--teal); }
+.recruit-window-notice a { color: var(--text-bright); text-decoration: underline; text-underline-offset: 3px; }
+.recruit-window-notice a:hover { color: var(--teal); }
 .recruit-compact-note { font-size: 11px; color: var(--text-dim); line-height: 1.5; margin: 12px 0 0; }
 
 /* This body belongs to recruitment, leaving the Stronghold PiP styles alone. */

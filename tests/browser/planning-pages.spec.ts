@@ -310,6 +310,26 @@ test.describe('/gacha', () => {
       return wrong;
     });
     expect(result).toEqual([]);
+
+    // The Details modal's featured rates: 5-star was teal there.
+    await page.getByRole('button', { name: 'Details', exact: true }).click();
+    const details = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      document.body.appendChild(probe);
+      const token = (n: number) => { probe.style.color = `var(--rarity-${n})`; return getComputedStyle(probe).color; };
+      const seen: string[] = [];
+      const wrong: string[] = [];
+      for (const n of [6, 5]) {
+        for (const rate of Array.from(document.querySelectorAll(`.gacha-details-rarity-${n} small`))) {
+          seen.push(String(n));
+          if (getComputedStyle(rate).color !== token(n)) wrong.push(`details ${n}: ${getComputedStyle(rate).color}`);
+        }
+      }
+      probe.remove();
+      return { seen: seen.length, wrong };
+    });
+    expect(details.seen, 'the Details modal lists featured operators').toBeGreaterThan(0);
+    expect(details.wrong).toEqual([]);
   });
 });
 

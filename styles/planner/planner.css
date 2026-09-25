@@ -164,7 +164,7 @@
 .planner-buildfromto em { font-style: normal; color: var(--text-faint); }
 /* The only teal on this line, because the target is the one part of it the reader
    chose. */
-.planner-buildfromto .planner-buildto { color: var(--teal); font-weight: 700; }
+.planner-buildfromto .planner-buildto { color: var(--text-bright); font-weight: 700; }
 
 /* The still-needed line: a tag and a count, both quiet. It used to lead with a 16px
    display-face heading, which made the material count the loudest thing on a panel
@@ -1266,7 +1266,7 @@
 }
 .plan-arrow b { font-weight: 500; color: var(--text-dim); }
 .plan-arrow em { font-style: normal; color: var(--line); }
-.plan-arrow .to { color: var(--teal); font-weight: 700; }
+.plan-arrow .to { color: var(--text-bright); font-weight: 700; }
 .plan-arrow .unset { color: var(--text-faint); }
 
 .plan-progress { display: flex; align-items: center; gap: 10px; min-width: 0; }
