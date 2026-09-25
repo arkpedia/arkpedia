@@ -18,7 +18,8 @@
  * - A new song, appended to its album, with its id, name and exact length (read from the
  *   WAV header of the audio, as the lyrics sync does for its drafts). Its videoId stays
  *   empty: the YouTube upload is not derivable, and a song without one still plays in the
- *   song guesser, which streams from Monster Siren. It is flagged, not held back.
+ *   song guesser, which streams from Monster Siren. It is flagged, not held back. Its
+ *   copyright flag is the catalogue's own default, "no" (COPYRIGHT_DEFAULT).
  * - A cover filename, for an album without one, once the image repository publishes the
  *   file under the catalogue's naming (spaces as underscores, as 286 of 293 are named).
  * - A release date in stored form (YYYY/MM/DD) where the record has it typed some other
@@ -39,7 +40,8 @@
  *   catalogue after this run (its detail did not load). This is the completeness check:
  *   the run's log also compares the two catalogues' album and song counts.
  * - song:<cid>, published-partial: a song this stage imported that still has no YouTube
- *   videoId, so the music player skips it. The flag stays until someone adds one. Songs
+ *   videoId, so the music player skips it. The flag stays until someone adds one, and says
+ *   to check the copyright flag when they do. Songs
  *   that were in the catalogue before this stage existed are not flagged: the 2026-09-08
  *   review (docs/archive/music-player-catalogue-review-2026-09-08.md) found no verified
  *   upload for them.
@@ -48,6 +50,9 @@
  *   OST. The song guesser's suite requires every such track to have a disposition (an
  *   in-game use, or an exclusion in data/music-guesser-review.json), so importing it bare
  *   would fail the release's tests; it waits for one instead. An excluded track goes in.
+ *   An exclusion written for such a waiting track holds even on a day this stage cannot
+ *   reach Monster Siren: the track is still missing then, and its entry here (kept, since
+ *   the stage did not run) is what the suite accepts it by (exclusionsOutsideLibrary).
  *
  * Usage: node scripts/sync/sync-albums.mjs [--dry-run]
  */
@@ -65,6 +70,11 @@ const ALBUMS = 'data/albums.json';
 const MIN_ALBUMS = 200;
 const MIN_SONGS = 500;
 const WIDTH = 80;
+// What a song's copyright flag says until someone checks its recording: every row the
+// catalogue had before this stage is "no" or "yes" (stream-safe mode leaves the "yes" ones
+// out, lib/music/albumsData.ts), the rows without a videoId included, so an import says "no"
+// too rather than a blank no reader of the file expects.
+export const COPYRIGHT_DEFAULT = 'no';
 // Album categories whose every track needs a song-guesser disposition
 // (scripts/tests/test-music-guesser.ts, 'every event and vignette album track ...').
 const REVIEWED_CATEGORIES = ['Event OST', 'Vignette OST'];
@@ -268,7 +278,7 @@ export function newSongRecord(song, albumId, length = null) {
     length: length ?? '',
     songCategory: [],
     songGenre: [],
-    copyright: '',
+    copyright: COPYRIGHT_DEFAULT,
   };
 }
 
@@ -337,7 +347,7 @@ export function reviewAlbumCoverage({ albums, msrAlbums, msrSongs, flagged, awai
     const found = localSongs.get(id);
     if (!found || found.song.videoId) continue;
     entries.push({ key: `song:${id}`, action: 'published-partial', sourceRef: `https://monster-siren.hypergryph.com/music/${id}`,
-      reason: `${found.song.songName} (album ${found.album.albumId}) has no YouTube videoId yet: the song guesser plays it, the music player skips it` });
+      reason: `${found.song.songName} (album ${found.album.albumId}) has no YouTube videoId yet: the song guesser plays it, the music player skips it. Its copyright flag is the default "${COPYRIGHT_DEFAULT}"; check it when adding the videoId` });
   }
   for (const album of albums) {
     if (album.coverFilename) continue;
@@ -345,6 +355,22 @@ export function reviewAlbumCoverage({ albums, msrAlbums, msrSongs, flagged, awai
       reason: `${album.albumAltName || album.albumName}: no cover in arkpedia-image-assets yet (album-covers/${coverFilenameFor(album.albumName)})` });
   }
   return entries;
+}
+
+/**
+ * The song-guesser exclusions (ids from data/music-guesser-review.json) that name no song in
+ * the catalogue and none this stage lists as waiting to come in (an omitted-new song entry
+ * in the quarantine). An exclusion is how a new track on an Event or Vignette OST album gets
+ * in, so on a day Monster Siren is down it names a song the catalogue does not have yet,
+ * and the suite that checks exclusions runs in the release job: without this it would fail
+ * the release over an outage.
+ */
+export function exclusionsOutsideLibrary({ excluded, albums, quarantine }) {
+  const library = new Set(albums.flatMap(album => (album.songs ?? []).map(song => String(song.songId))));
+  const waiting = new Set((quarantine?.entries ?? [])
+    .filter(entry => entry.stage === STAGE && entry.action === 'omitted-new' && entry.key.startsWith('song:'))
+    .map(entry => entry.key.slice('song:'.length)));
+  return [...excluded].map(String).filter(id => !library.has(id) && !waiting.has(id)).sort();
 }
 
 function readAssets(root) {

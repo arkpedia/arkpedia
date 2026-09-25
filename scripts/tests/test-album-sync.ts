@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Node import scripts are plain JavaScript.
-import { API, applyPlan, formatRecord, syncAlbums } from '../sync/sync-albums.mjs';
+import { API, applyPlan, COPYRIGHT_DEFAULT, exclusionsOutsideLibrary, formatRecord, newSongRecord, syncAlbums } from '../sync/sync-albums.mjs';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { readQuarantine } from '../lib/quarantine.mjs';
 
 /* A made-up catalogue in the file's own hand-formatted style -- one names list expanded,
    the category lists inline -- with an album dated in prose, one dated blank, and a song
@@ -89,7 +91,7 @@ const LATE_SONG = `,
         "length": "",
         "songCategory": [],
         "songGenre": [],
-        "copyright": ""
+        "copyright": "no"
       }`;
 const NEW_ALBUM = `,
   {
@@ -116,7 +118,7 @@ const NEW_ALBUM = `,
         "length": "02:52",
         "songCategory": [],
         "songGenre": [],
-        "copyright": ""
+        "copyright": "no"
       }
     ]
   }`;
@@ -298,4 +300,55 @@ test('a splice that would change anything but the plan stops the stage', () => {
   // The formatter keeps a short list on one line and breaks a long one, like the file.
   assert.equal(formatRecord({ names: ['A', 'B'] }), '{\n  "names": ["A", "B"]\n}');
   assert.equal(formatRecord({ names: ['x'.repeat(40), 'y'.repeat(40)] }), `{\n  "names": [\n    "${'x'.repeat(40)}",\n    "${'y'.repeat(40)}"\n  ]\n}`);
+});
+
+/* The planned-exclusion path, on a day Monster Siren is down. A new track on an Event OST
+   album waits (omitted-new) until an editor excludes it from the song guesser; the stage then
+   imports it. If the stage cannot reach Monster Siren that day, the exclusion names a song
+   albums.json does not have yet, and the guesser suite's "every exclusion exists" check --
+   which the release job runs -- failed the release over the outage. */
+test('an exclusion written for a waiting track holds through a Monster Siren outage, and only such a track', async () => {
+  const upstream = monsterSiren();
+  upstream.songs.push({ cid: '100005', name: 'Encore', albumCid: '1001' });
+  upstream.details[1001] = { cid: '1001', name: '测试OST', coverUrl: 'https://web.hycdn.cn/siren/pic/20240210/aaaa.jpg',
+    songs: [{ cid: '100001', name: '测试' }, { cid: '100005', name: 'Encore' }] };
+  const t = tree();
+  const outside = (excluded: string[]) => exclusionsOutsideLibrary({ excluded, albums: JSON.parse(t.albums()), quarantine: readQuarantine(t.root) });
+  try {
+    await run(t.root, upstream, '2026-09-25');
+    assert.ok(t.held().includes('song:100005 omitted-new 2026-09-25'), 'the track waits for its disposition');
+    // The editor excludes it (and, by mistake, a song Monster Siren never listed).
+    fs.writeFileSync(path.join(t.root, 'data/music-guesser-review.json'), JSON.stringify({ excludedTracks: { 100005: 'An encore track that plays nowhere in the game.' } }));
+    // Monster Siren is down: the stage fails before writing anything, so its entries stand.
+    const down = async () => { throw new TypeError('fetch failed'); };
+    await assert.rejects(() => syncAlbums({ root: t.root, fetcher: down, now: new Date('2026-09-26T20:00:00Z'), log: quiet }), /fetch failed/);
+    assert.ok(!JSON.parse(t.albums())[0].songs.some((song: { songId: string }) => song.songId === '100005'), 'not vacuous: the excluded song is still missing');
+    assert.deepEqual(outside(['100001', '100005']), [], 'the waiting track is accepted, so the release is not failed over the outage');
+    assert.deepEqual(outside(['100005', '999999']), ['999999'], 'an exclusion naming nothing Monster Siren lists still fails');
+    // Monster Siren is back: the track comes in and no longer needs the entry.
+    await run(t.root, upstream, '2026-09-27');
+    assert.ok(JSON.parse(t.albums())[0].songs.some((song: { songId: string }) => song.songId === '100005'));
+    assert.ok(!t.held().some((entry: string) => entry.startsWith('song:100005 omitted-new')));
+    assert.deepEqual(outside(['100005']), []);
+  } finally {
+    t.cleanup();
+  }
+});
+
+test('an imported song\'s copyright flag is the catalogue\'s own "no", which the site reads, and the flag says to check it', async () => {
+  const record = newSongRecord({ cid: 100009, name: 'Imported' }, '1001', '03:00');
+  assert.equal(record.copyright, 'no');
+  assert.equal(COPYRIGHT_DEFAULT, 'no');
+  // The lyrics sync's drafts, which an editor may paste in, use the same default.
+  const lyrics = fs.readFileSync('scripts/sync/sync-lyrics.mjs', 'utf8');
+  assert.match(lyrics, /copyright: COPYRIGHT_DEFAULT/);
+  assert.doesNotMatch(lyrics, /copyright: ''/);
+  const t = tree();
+  try {
+    await run(t.root, monsterSiren(), '2026-09-25');
+    const flag = readQuarantine(t.root).entries.find((entry: { key: string }) => entry.key === 'song:100003');
+    assert.match(flag.reason, /Its copyright flag is the default "no"; check it when adding the videoId/);
+  } finally {
+    t.cleanup();
+  }
 });
