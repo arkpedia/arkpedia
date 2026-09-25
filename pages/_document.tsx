@@ -1,5 +1,6 @@
 import { Html, Head, Main, NextScript } from 'next/document';
 import { COMPANION_PAGE } from '@/lib/gamemodes/companionRoute';
+import { THEME_COLOR } from '@/lib/nav/themeColor';
 
 export default function Document() {
   return (
@@ -14,19 +15,23 @@ export default function Document() {
              browser smearing the 400 sideways. At the sizes this site uses mono, 9px
              to 15px, that is not a heavier letter, it is a blurred one: the m of
              "37m" in the nav's reset countdown merged into a solid block and read as
-             a missing-glyph box. Rajdhani already loads every weight it is asked for,
-             and nothing asks Inter for more than 500. Two more subset files, once,
-             against 39 rules that were silently not getting what they asked for. */
-          href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500&display=swap"
+             a missing-glyph box. Rajdhani already loads every weight it is asked for.
+             Inter carries 600 and 700 for the same reason: the operator pages, /skins,
+             /schedule, /farming and the games ask for them (1,100+ characters on one
+             operator page), and with only 400/500 loaded every one was faux bold.
+             npm run audit:styles reads this URL and fails a rule that asks any of the
+             three families for a weight it does not list. */
+          href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        {/* Matches --panel: browser chrome (mobile URL bar, PWA title bar) takes
-            the nav's own ground instead of a default. ThemeToggle and the boot
-            script below keep it in step with the active theme. */}
-        <meta name="theme-color" content="#10161D" />
+        {/* Matches --bg, the page's own ground: browser chrome (mobile URL bar, PWA
+            title bar) continues the page instead of drawing a band of a colour no
+            token names. THEME_COLOR in lib/nav/themeColor.ts is the one source;
+            ThemeToggle and the boot script below keep it in step with the theme. */}
+        <meta name="theme-color" content={THEME_COLOR.dark} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content','#FFFFFF');}}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute('content',${JSON.stringify(THEME_COLOR.light)});}}}catch(e){}})();`,
           }}
         />
       </Head>

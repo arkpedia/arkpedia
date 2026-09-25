@@ -37,7 +37,7 @@
   cursor: pointer;
 }
 .gm-jumpbtn:hover { color: var(--text); border-color: var(--teal-dim); }
-.gm-jumpbtn.current { color: var(--teal); border-color: var(--teal); background: rgb(77 232 209 / 0.08); }
+.gm-jumpbtn.current { color: var(--teal); border-color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); }
 /* The hit count while a search is typed: where the answer lives, per tab. */
 .gm-tabhits {
   font-weight: 400;
@@ -65,7 +65,7 @@
 .gm-pick.current {
   border-color: var(--teal);
   border-bottom-color: var(--teal);
-  background: rgb(77 232 209 / 0.08);
+  background: color-mix(in srgb, var(--teal) 8%, transparent);
 }
 .gm-pick-n { font-family: var(--font-mono); font-size: 9px; color: var(--text-faint); }
 
@@ -258,7 +258,7 @@
   color: var(--text);
 }
 /* The row it came from keeps its highlight, so it is clear what the sheet belongs to. */
-.gm-row.open { border-color: var(--teal); background: rgb(77 232 209 / 0.06); }
+.gm-row.open { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 6%, transparent); }
 
 /* The label column of the boss sheet's HP table. */
 .gm-detaillabel {
@@ -389,7 +389,7 @@
 .gm-pickbtn:hover { border-color: var(--teal-dim); color: var(--text); }
 /* Filtered, as against merely present: the bar has to say at a glance which of the
    five are doing something, or you cannot tell a narrowed roster from a whole one. */
-.gm-pickbtn.set { border-color: var(--teal); color: var(--teal); background: rgb(77 232 209 / 0.08); }
+.gm-pickbtn.set { border-color: var(--teal); color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); }
 .gm-pickbtn.open { border-color: var(--teal); }
 .gm-pickbtnname {
   flex: 1 1 auto;
@@ -448,7 +448,7 @@
 .gm-pickoptname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Pointer and keyboard share one highlight, so the row the keys are on is the row a
    click would take -- two different marks for the same thing read as two cursors. */
-.gm-pickopt.active { background: rgb(77 232 209 / 0.1); color: var(--text); }
+.gm-pickopt.active { background: color-mix(in srgb, var(--teal) 10%, transparent); color: var(--text); }
 .gm-pickopt.current { color: var(--teal); }
 .gm-pickopt .gm-pick-n { margin-left: auto; }
 
@@ -478,7 +478,7 @@
 }
 .gm-pool img { width: 100%; height: 100%; object-fit: contain; }
 .gm-pool:hover, .gm-pool:focus-visible { border-color: var(--teal); }
-.gm-pool.open { border-color: var(--teal); background: rgb(77 232 209 / 0.06); }
+.gm-pool.open { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 6%, transparent); }
 /* The count rides the corner rather than sitting beside the glyph, which would put
    the tile back to being a row with a picture on it. */
 .gm-pool .gm-tag { position: absolute; right: 3px; bottom: 3px; }
@@ -647,7 +647,7 @@
   /* One teal edge down the side: how this site marks a block that DOES something
      rather than reports something. */
   border-left: 3px solid var(--teal);
-  background: linear-gradient(100deg, rgb(77 232 209 / 0.06), transparent 55%);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--teal) 6%, transparent), transparent 55%);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--teal);
@@ -656,7 +656,7 @@
 .gm-toplanner:hover {
   border-color: var(--teal);
   border-left-color: var(--teal);
-  background: linear-gradient(100deg, rgb(77 232 209 / 0.13), transparent 55%);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--teal) 13%, transparent), transparent 55%);
 }
 /* The launcher is a panel holding two choices, not a button, so it does not light up
    as one under the cursor. Its own buttons do. */
@@ -678,11 +678,11 @@
      It replaces the corner brackets, which were the wrong amount of ceremony for a
      band that sits between a title and a row of tabs. */
   border-left: 3px solid var(--teal);
-  background: linear-gradient(100deg, rgb(77 232 209 / 0.06), transparent 55%);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--teal) 6%, transparent), transparent 55%);
 }
 /* A panel holding two choices, not a button, so it does not light up as one under the
    cursor. Its own buttons do. */
-.gm-co-launch:hover { border-color: var(--teal-dim); border-left-color: var(--teal); background: linear-gradient(100deg, rgb(77 232 209 / 0.06), transparent 55%); }
+.gm-co-launch:hover { border-color: var(--teal-dim); border-left-color: var(--teal); background: linear-gradient(100deg, color-mix(in srgb, var(--teal) 6%, transparent), transparent 55%); }
 .gm-co-launch.current { border-color: var(--teal); }
 /* Takes the width the buttons do not, so the sentence sets the band's height and the
    buttons sit centred against it however long it runs. */
@@ -820,7 +820,7 @@
 }
 /* An alliance the reader has switched on in the filter bar. Border and tint only:
    nothing may change size, or filtering would reflow the list under the cursor. */
-.gm-oprow.lit { border-color: var(--teal); background: rgb(77 232 209 / 0.05); }
+.gm-oprow.lit { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 5%, transparent); }
 
 /**
  * flex-start is stated, not assumed.
@@ -910,7 +910,7 @@ button.gm-opwho-rec:focus-visible .gm-opname b { color: var(--teal); }
   white-space: nowrap;
 }
 /* One the reader is filtering by, so the row says which of its alliances matched. */
-.gm-feed.lit { border-color: var(--teal); color: var(--teal); background: rgb(77 232 209 / 0.07); }
+.gm-feed.lit { border-color: var(--teal); color: var(--teal); background: color-mix(in srgb, var(--teal) 7%, transparent); }
 
 /* The attribute text, spanning the row under the three columns. */
 .gm-opwhat { grid-column: 1 / -1; }
@@ -1326,7 +1326,7 @@ body:not(.gm-popout) .gm-co-page .gm-co-stepfoot { padding-right: 54px; }
   --gm-badge: 24px;
   border-radius: 5px;
 }
-.gm-co-threat.on { border-color: var(--teal); background: rgb(77 232 209 / 0.06); }
+.gm-co-threat.on { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 6%, transparent); }
 
 /* The pools you actually drew, on the run screen -- as against the seven you choose
    between in setup, which stay tall because they are things to aim a thumb at.
@@ -1531,7 +1531,7 @@ body:not(.gm-popout) .gm-co-page .gm-co-stepfoot { padding-right: 54px; }
   color: var(--text-faint);
 }
 .gm-co-band:hover { border-color: var(--teal); }
-.gm-co-band.current { border-color: var(--teal); background: rgb(77 232 209 / 0.07); }
+.gm-co-band.current { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 7%, transparent); }
 .gm-co-band.current b { color: var(--teal); }
 
 /* --- the alliance strip ---------------------------------------------------------- */
@@ -1664,7 +1664,7 @@ body:not(.gm-popout) .gm-co-page .gm-co-stepfoot { padding-right: 54px; }
   font-variant-numeric: tabular-nums;
 }
 /* Lit: enough different operators marked to switch it on. */
-.gm-co-ally.lit { border-color: var(--teal); background: rgb(77 232 209 / 0.07); }
+.gm-co-ally.lit { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 7%, transparent); }
 .gm-co-ally.lit b { color: var(--teal); }
 /* Now a button. It carried no press affordance before because it did nothing;
    it filters the bundles below now, so it needs the cursor, a hover, and a
@@ -1683,7 +1683,7 @@ body:not(.gm-popout) .gm-co-page .gm-co-stepfoot { padding-right: 54px; }
    declarations for the same reason: "what you're looking at" and "how
    complete it is" are independent facts, but the first is the one that has
    to read clearly regardless of the second. */
-.gm-co-ally.only { background: rgb(77 232 209 / 0.16); }
+.gm-co-ally.only { background: color-mix(in srgb, var(--teal) 16%, transparent); }
 /* Every other Core, once one of them has locked in -- dimmed rather than
    hidden, so the row still answers "what were the other options" without
    competing with the one the run actually picked. Also worn by an ordinary
@@ -2038,8 +2038,8 @@ div.gm-co-threat { cursor: default; }
   border-color: var(--teal);
   outline: 2px solid var(--teal);
   outline-offset: -2px;
-  background: rgb(77 232 209 / 0.16);
-  box-shadow: 0 0 12px rgb(77 232 209 / 0.45);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--teal) 45%, transparent);
 }
 .gm-co-strats .gm-pick.current::after {
   content: '\2713';
@@ -2303,7 +2303,7 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
 .gm-co-labeliso:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
 /* Active: at least one Isomorph pair marked equipped. Teal, matching every
    other "this is on" state on this screen. */
-.gm-co-labeliso.active { border-color: var(--teal); background: rgb(77 232 209 / 0.1); }
+.gm-co-labeliso.active { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 10%, transparent); }
 .gm-co-labeliso .gm-co-isoitem { --gm-badge: 18px; }
 .gm-co-labeliso .gm-co-plus { font-size: 9px; }
 /* The counter that grows out of the badge once active. Its own small pill so
@@ -2314,7 +2314,7 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
   padding: 0 4px;
   border: 1px solid var(--teal-dim);
   border-radius: 3px;
-  background: rgb(77 232 209 / 0.16);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
   color: var(--teal);
   font-family: var(--font-mono);
   font-size: 9px;
@@ -2322,7 +2322,7 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
   line-height: 1.4;
   cursor: pointer;
 }
-.gm-co-isocount:hover, .gm-co-isocount:focus-visible { background: rgb(77 232 209 / 0.28); }
+.gm-co-isocount:hover, .gm-co-isocount:focus-visible { background: color-mix(in srgb, var(--teal) 28%, transparent); }
 .gm-co-member { position: relative; }
 /* Filler, beside Recommended once a Core is fully committed: the same greyed
    treatment the shelf gives a stale mark elsewhere, just kept in view under
@@ -2478,7 +2478,7 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
   --gm-badge: 38px;
 }
 .gm-co-boss:hover, .gm-co-boss:focus-visible { border-color: var(--teal); }
-.gm-co-boss.on { border-color: var(--teal); background: rgb(77 232 209 / 0.1); }
+.gm-co-boss.on { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 10%, transparent); }
 /* Dimmed until chosen, so the one that IS chosen is the only bright face in the row.
    Seven boss portraits at full strength read as seven things to do. */
 .gm-co-boss .gm-badge img { opacity: 0.55; }
@@ -2570,7 +2570,7 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
   cursor: pointer;
 }
 .gm-co-tierbtn:hover { border-color: var(--teal); color: var(--teal); }
-.gm-co-tierbtn.current { border-color: var(--teal); color: var(--teal); background: rgb(77 232 209 / 0.1); }
+.gm-co-tierbtn.current { border-color: var(--teal); color: var(--teal); background: color-mix(in srgb, var(--teal) 10%, transparent); }
 
 /* Not advised yet: behind the run, or a unit the guide does not name at this tier.
    Dimmed and desaturated rather than hidden -- the shop deals what it deals, and a
@@ -3085,7 +3085,7 @@ body.gm-companionpage .gm-co-setup { min-height: 70dvh; }
   margin-top: 6px;
   padding: 7px 8px;
   border: 1px solid var(--teal);
-  background: rgb(77 232 209 / 0.05);
+  background: color-mix(in srgb, var(--teal) 5%, transparent);
   border-radius: 4px;
 }
 /* Solo and co-op differ in one respect that matters -- the shared operator pool -- so
@@ -3108,7 +3108,7 @@ body.gm-companionpage .gm-co-setup { min-height: 70dvh; }
   cursor: pointer;
 }
 .gm-co-guidetab:hover { border-color: var(--teal); }
-.gm-co-guidetab.current { border-color: var(--teal); color: var(--teal); background: rgb(77 232 209 / 0.1); }
+.gm-co-guidetab.current { border-color: var(--teal); color: var(--teal); background: color-mix(in srgb, var(--teal) 10%, transparent); }
 
 .gm-co-guidenote { margin: 0 0 7px; font-size: 11px; line-height: 1.4; color: var(--text-dim); }
 /* The lead-in on the notes that have one, on its own line so the paragraph under it
@@ -3169,7 +3169,7 @@ body.gm-companionpage .gm-co-setup { min-height: 70dvh; }
   line-height: 1;
   cursor: pointer;
 }
-.gm-co-size button:hover:not(:disabled) { color: var(--teal); background: rgb(77 232 209 / 0.08); }
+.gm-co-size button:hover:not(:disabled) { color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); }
 .gm-co-size button:disabled { color: var(--line); cursor: default; }
 /* Except the readout, which stays legible when it has nothing to do. It is disabled
    whenever the size is already the default -- which on a phone is most of the time,
@@ -3284,7 +3284,7 @@ body.gm-companionpage .gm-co-setup { min-height: 70dvh; }
   text-align: left;
   letter-spacing: 0.06em;
 }
-.gm-co-langbox .gm-pickopt:hover { background: rgb(77 232 209 / 0.1); color: var(--text); }
+.gm-co-langbox .gm-pickopt:hover { background: color-mix(in srgb, var(--teal) 10%, transparent); color: var(--text); }
 .gm-co-langbox .gm-co-banbtn { align-self: stretch; }
 .gm-co-langpush { margin-left: auto; }
 /* The trigger is the language's CODE and a chevron, not its name. Two reasons, and the
@@ -3499,7 +3499,7 @@ body.gm-pipbody .gm-co-pairings { grid-template-columns: minmax(0, 1fr); }
   padding: 3px 10px;
   border: 1px solid var(--teal);
   border-radius: 4px;
-  background: rgb(77 232 209 / 0.12);
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
   color: var(--teal);
   font-family: var(--font-mono);
   font-size: 10px;
@@ -3507,7 +3507,7 @@ body.gm-pipbody .gm-co-pairings { grid-template-columns: minmax(0, 1fr); }
   text-transform: uppercase;
   cursor: pointer;
 }
-.gm-co-hintcard button:hover { background: rgb(77 232 209 / 0.22); }
+.gm-co-hintcard button:hover { background: color-mix(in srgb, var(--teal) 22%, transparent); }
 /* The arrow, a small rotated square clipped to a triangle, pointing up at the
    target by default. Sits at the card's own top edge; .above flips both the
    arrow's position (to the card's bottom, pointing down) and its own direction,

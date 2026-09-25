@@ -74,7 +74,7 @@
 }
 .technique-fragility-umbrella:hover {
   border-color: var(--teal);
-  background: rgba(77, 232, 209, 0.05);
+  background: color-mix(in srgb, var(--teal) 5%, transparent);
 }
 .technique-group {
   border-bottom: 1px solid var(--line-soft);

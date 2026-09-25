@@ -137,7 +137,7 @@
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
-.cal-today:hover { border-color: var(--teal); background: rgb(77 232 209 / 0.1); }
+.cal-today:hover { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 10%, transparent); }
 
 /* Two toggles as one segmented control rather than two loose buttons: they are the same
    kind of choice about the same grid, and joining them says so. */

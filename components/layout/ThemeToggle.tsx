@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Image from '@/components/content/ContentImage';
+import { THEME_COLOR } from '@/lib/nav/themeColor';
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<'dark' | 'light' | null>(null);
@@ -23,10 +24,10 @@ export default function ThemeToggle() {
       // localStorage unavailable (private browsing, etc.) -- theme
       // just won't persist across visits, not worth failing over.
     }
-    // Keep browser chrome (mobile URL bar etc.) on the theme's --panel color;
-    // the boot script in _document does the same for the initial paint.
+    // Keep browser chrome (mobile URL bar etc.) on the theme's --bg; the boot
+    // script in _document does the same for the initial paint.
     document.querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', next === 'light' ? '#FFFFFF' : '#10161D');
+      ?.setAttribute('content', THEME_COLOR[next === 'light' ? 'light' : 'dark']);
   }
 
   // Avoid a server/client mismatch -- render nothing until mounted,
