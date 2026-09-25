@@ -57,7 +57,7 @@ const UNBLOCKABLE_BY_DATA = new Set([
  *
  * Names run from 1 to 46 characters: 935 of the 1,585 are under 20, 553 sit in the
  * twenties, 93 in the thirties and 4 above 40 ("'Samivilinn,' the Resolution of the
- * Very North"). At the h1's 30px, anything past about 20 characters pushed the rank
+ * Very North"). At the name's 26px, anything past about 20 characters pushed the rank
  * tag and the life-point cost onto a line of their own.
  *
  * Stepped off the character count rather than measured: it is decided during render,
@@ -473,7 +473,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
             <div className="enemy-race">{enemy.race || ''}</div>
             <div className="enemy-hero-name">
               {enemy.index && <span className="enemy-code">{enemy.index}</span>}
-              <h1 ref={nameRef} className={nameSizeClass(enemy.name)}>{enemy.name}</h1>
+              <h2 ref={nameRef} className={nameSizeClass(enemy.name)}>{enemy.name}</h2>
               <span className={`enemy-rank-tag rank-${enemy.rank.toLowerCase()}`}>{enemy.rank}</span>
               {/* The level switch and the life-point cost are grouped, and the group
                   is what carries margin-left:auto. Putting it on the level switch

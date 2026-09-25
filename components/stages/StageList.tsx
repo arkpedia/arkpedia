@@ -6,7 +6,70 @@ import { filterType, StageContentEntry, StageGroup, StageSummary, TYPE_LABELS, T
 import type { NavData } from '@/lib/stages/stageNav';
 import { compareStageSummaries } from '@/lib/stages/stageSort';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
-import StagePicker, { PickerGroup } from './StagePicker';
+import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
+import SearchInput from '@/components/ui/SearchInput';
+
+/** One choice in the rail's filters: a chapter or event has a code column
+ *  ("EP 04"), a stage type does not. */
+interface PickerOption {
+  id: string;
+  /** Short code shown in its own column, e.g. "EP 04". May be empty. */
+  code: string;
+  name: string;
+  count: number | null;
+}
+
+interface PickerGroup {
+  id: string;
+  /** Heading above the group. Empty for a single ungrouped list. */
+  label: string;
+  options: PickerOption[];
+}
+
+type RailOption = SelectOption & { code: string; name: string };
+
+/**
+ * The rail's two filters, on the site's one dropdown (components/ui/StyledSelect).
+ * The code and the name are two aligned columns -- the reason this was once a
+ * listbox of its own rather than a native select, whose OS-drawn popup cannot
+ * align anything -- and the chapter list is wider than the 264px rail.
+ */
+function RailFilter({ label, value, groups, onChange }: {
+  label: string;
+  value: string;
+  groups: PickerGroup[];
+  onChange: (id: string) => void;
+}) {
+  const options = useMemo<RailOption[]>(() => groups.flatMap((g) => g.options.map((o) => ({
+    value: o.id,
+    // What type-to-find matches: the code as well as the name, so "EP" finds the
+    // episodes.
+    label: o.code ? `${o.code} ${o.name}` : o.name,
+    group: g.label || undefined,
+    code: o.code,
+    name: o.name,
+  }))), [groups]);
+  /** The widest code decides the column, so every name starts in one place. */
+  const codeWidth = useMemo(() => options.reduce((w, o) => Math.max(w, o.code.length), 0), [options]);
+  const row = (o: RailOption) => (
+    <>
+      {codeWidth > 0 && <span className="stage-pick-code" style={{ minWidth: `${codeWidth}ch` }}>{o.code}</span>}
+      <span className="stage-pick-name">{o.name}</span>
+    </>
+  );
+  return (
+    <StyledSelect<RailOption>
+      className="stage-rail-filter"
+      label={label}
+      value={value}
+      options={options}
+      onChange={onChange}
+      menuMinWidth={420}
+      renderOption={row}
+      renderValue={row}
+    />
+  );
+}
 
 interface Props {
   /** The rows to start from. Every stage on the index route; only the open
@@ -393,23 +456,22 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
     <div className={`stage-list-col${filters.content ? ' scoped' : ''}`} ref={colRef}>
       <div className="stage-rail">
         <div className="stage-rail-head">
-          <input
-            type="search"
-            className="stage-search"
+          <SearchInput
+            label="Search stages"
             placeholder="Search by code or name..."
             value={filters.search}
-            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+            onChange={(search) => setFilters((f) => ({ ...f, search }))}
           />
           {/* Two selects rather than a chip per type: thirteen chips wrapped to
               ten rows in a column this narrow -- 290px of filters above a list
               that then started below the fold. */}
-          <StagePicker
+          <RailFilter
             label="Stage type"
             value={filters.type}
             groups={typeOptions}
             onChange={(type) => setFilters((f) => ({ ...f, type, content: firstContentOfType(f.content, type) }))}
           />
-          <StagePicker
+          <RailFilter
             label="Chapter or event"
             value={filters.content}
             groups={contentOptions}

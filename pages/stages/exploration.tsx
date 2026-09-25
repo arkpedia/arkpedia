@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Rail from '@/components/ui/Rail';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
 import { getModeCardsOfKind } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 
@@ -25,14 +26,15 @@ export default function ExplorationPage({ is, ra }: Props) {
   return (
     <>
       <TerminalNav current="exploration" />
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Terminal</div>
-        <h1><ModeMark name="integrated-strategies.svg" className="head-mark" />Long-Term Exploration</h1>
-        <p className="sub">
+      <PageHeader
+        slim
+        eyebrow={<><ModeMark name="integrated-strategies.svg" className="head-mark" />Terminal // Permanent modes</>}
+        title="Long-Term Exploration"
+        sub={<>
           The two modes that are always open: every Integrated Strategies theme, and every
           season of Reclamation Algorithm.
-        </p>
-      </div>
+        </>}
+      />
 
       <main className="terminal-scene">
         <Mode label="Integrated Strategies" cards={is} />

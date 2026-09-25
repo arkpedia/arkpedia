@@ -98,15 +98,20 @@ export default function CompanionPage({ data, picker }: Props) {
           150px block of heading. The reader would watch the whole companion jump up
           the screen a moment after every load. These are in the server markup, so
           the first paint is already right. */}
-      <div className="terminal-head gm-co-head">
-        <Link prefetch={false} href="/gamemodes/stronghold-protocol" className="stage-back">&lsaquo; Stronghold Protocol</Link>
-        <div className="eyebrow">Rhodes Island // Game Modes</div>
+      {/* The site's header markup (a bare <header>, so the shared rules draw it), kept
+          as markup of its own rather than PageHeader because this page is full-bleed:
+          the head widens with the tool (max-width: none, gamemodes.css) and stands down
+          on a phone. The eyebrow's crumb is the way back to the reference page. */}
+      <header className="gm-co-head">
+        <div className="eyebrow">
+          <Link prefetch={false} href="/gamemodes/stronghold-protocol">Stronghold Protocol</Link>{' // Run companion'}
+        </div>
         <h1>Run Companion</h1>
         <p className="sub">
           One screen for a run in progress. On a phone this page IS the companion;
           on a desktop the Stronghold page opens it in a window or a tab of its own.
         </p>
-      </div>
+      </header>
 
       <main className="terminal-scene gm-co-page">
         <section className="terminal-panel wide" data-tab="Companion">

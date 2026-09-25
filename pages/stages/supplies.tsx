@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
 import { getSupplyCards } from '@/lib/stages/terminal';
 import type { SupplyCard } from '@/lib/stages/terminal';
 import { WEEKDAYS } from '@/lib/stages/stageTypes';
@@ -49,16 +50,17 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
   return (
     <>
       <TerminalNav current="supplies" />
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Terminal</div>
-        <h1><ModeMark name="supplies.svg" className="head-mark" />Supplies</h1>
-        <p className="sub">
+      <PageHeader
+        slim
+        eyebrow={<><ModeMark name="supplies.svg" className="head-mark" />Terminal // Daily rotation</>}
+        title="Supplies"
+        sub={<>
           The rotating operations. Pick a day to see what it opens -- it starts on{' '}
           {today.toLowerCase()}, which is today on the Global server. The day turns over
           at 04:00 UTC-7, so it can still be yesterday in game while your own clock has
           moved on.
-        </p>
-      </div>
+        </>}
+      />
 
       <main className="terminal-scene">
         {/* The schedule strip. The game shows a rolling week; every weekday is more

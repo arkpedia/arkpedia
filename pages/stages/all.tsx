@@ -3,6 +3,7 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import StageModeBrowser from '@/components/stages/StageModeBrowser';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
 import { getModeCounts, getStageModeCards } from '@/lib/stages/stageContents';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 
@@ -19,18 +20,18 @@ export default function AllOperationsPage({ cards, counts, now }: Props) {
       <Head><title>All Operations — Arkpedia</title></Head>
 
       <TerminalNav current="all" />
-      {/* The same slim two-line head the stage pages carry. */}
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Terminal</div>
-        <h1>All Operations</h1>
-        <p className="sub">
-          Every chapter, event and mode the game has run -- 
+      <PageHeader
+        slim
+        eyebrow="Terminal // Every chapter and event"
+        title="All Operations"
+        sub={<>
+          Every chapter, event and mode the game has run --
           the Terminal&apos;s own sections show what is open and what is permanent, this shows
           the lot.
-        </p>
-      </div>
+        </>}
+      />
 
-      <main>
+      <main className="terminal-scene">
         <StageModeBrowser cards={cards} counts={counts} now={now} />
       </main>
     </>

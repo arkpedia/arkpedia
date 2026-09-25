@@ -8,6 +8,8 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import StageList from '@/components/stages/StageList';
 import { ExpandGlyph, GlyphName, HudBar, HudChip, HudDp, StatLabel } from '@/components/stages/StageHud';
+import PageHeader from '@/components/ui/PageHeader';
+import StageTitle from '@/components/stages/StageTitle';
 import StageDeployBar, { DeployData, DeployOperator, phaseAt } from '@/components/stages/StageDeployBar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStageBySlug, getStageSlugs, getStageGeometryFor, getStageEnemyDetails, getStageSiblings, getStageTypeCounts, getStagePreviewFile, getStageEmergency, getStageDevices } from '@/lib/stages/stages';
@@ -1405,7 +1407,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                         return (
                           <rect
                             key={`${r}-${c}`}
-                            className="stage-tile"
+                            className={open ? 'stage-tile stage-map-on' : 'stage-tile'}
                             data-tile-col={c}
                             data-tile-row={r}
                             data-tile-takes={tile.deployable}
@@ -1415,7 +1417,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                             height={CELL - 8}
                             rx={2}
                             fill="none"
-                            stroke={open ? '#4de8d1' : '#1c1c1e'}
+                            stroke={open ? undefined : '#1c1c1e'}
                             onClick={pick}
                           />
                         );
@@ -1446,7 +1448,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                           {/* The clicked tile keeps a ring, so the panel at the
                               bottom is tied to something you can see. */}
                           {open && (
-                            <rect x={px} y={py - lift} width={CELL} height={CELL} rx={2} fill="none" stroke="#4de8d1" strokeWidth={2} />
+                            <rect className="stage-map-on" x={px} y={py - lift} width={CELL} height={CELL} rx={2} fill="none" strokeWidth={2} />
                           )}
                         </g>
                       );
@@ -1480,11 +1482,11 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                           height={CELL - 10}
                           rx={3}
                           fill="none"
-                          stroke={d.kind === 'operator' ? '#4de8d1' : '#e0a63c'}
+                          className={d.kind === 'operator' ? 'stage-map-on' : 'stage-map-device'}
                           strokeWidth={1.8}
                           strokeDasharray={d.hidden ? '3 2' : undefined}
                         />
-                        <circle cx={px + CELL / 2} cy={py + CELL / 2} r={2.6} fill={d.kind === 'operator' ? '#4de8d1' : '#e0a63c'} />
+                        <circle className={d.kind === 'operator' ? 'stage-map-on-dot' : 'stage-map-device-dot'} cx={px + CELL / 2} cy={py + CELL / 2} r={2.6} />
                       </g>
                     );
                   })}
@@ -2280,42 +2282,29 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
           184px tall on a page whose left column wants every pixel of viewport it
           can get. */}
       {detail ? (
-        <div className="stages-head">
-          {detail.stage.content?.id && (
-            <Link prefetch={false} href={`/stages/content/${detail.stage.content.id}`} className="stage-back">
-              &lsaquo; {detail.stage.content.name}
-            </Link>
-          )}
-          <div className="eyebrow">
-            {/* Braced, so the separator cannot be read as a comment -- by the linter
-                or by anyone. It is the crumb divider the eyebrow uses throughout. */}
+        <PageHeader
+          slim
+          /* The crumbs are the way back: the chapter or event is a page of its own --
+             its stages as cards -- so the crumb that names it goes there. A stage
+             whose content the dataset does not name keeps the plain text. There used
+             to be a separate "< chapter" link above this saying the same thing. */
+          eyebrow={<>
             <Link prefetch={false} href="/stages">Stages</Link>{' // '}
-            {/* The chapter or event is a page of its own now -- its stages as
-                cards -- so the crumb that names it goes there. A stage whose
-                content the dataset does not name keeps the plain text. */}
             {detail.stage.content?.id ? (
               <Link prefetch={false} href={`/stages/content/${detail.stage.content.id}`}>{detail.stage.content.name}</Link>
             ) : (
               detail.stage.zone?.name || TYPE_LABELS[detail.stage.stage_type] || detail.stage.stage_type
             )}
-          </div>
-          {/* 166 mode levels have no code and 306 no name, and one stage
-              (level_rogue4_b-9) has neither -- it rendered an empty heading. Fall
-              back the way the list rows do, so a page always says what it is. */}
-          <h1>
-            {detail.stage.code || detail.stage.name || detail.stage.slug}
-            {detail.stage.code && detail.stage.name && (
-              <span className="stage-title-name">{detail.stage.name}</span>
-            )}
-          </h1>
-        </div>
+          </>}
+          /* 166 mode levels have no code and 306 no name, and one stage
+             (level_rogue4_b-9) has neither -- it rendered an empty heading. Fall back
+             the way the list rows do, so a page always says what it is. stageTitle()
+             puts a real space between code and name: they used to run together as
+             "AD-EX-1Dusty Prop Room" for screen readers and copy/paste. */
+          title={<StageTitle code={detail.stage.code} name={detail.stage.name} fallback={detail.stage.slug} lead="code" />}
+        />
       ) : (
-        <div className="stages-head">
-          <div className="eyebrow">
-            <Link prefetch={false} href="/stages">Stages</Link>
-          </div>
-          <h1>Stages</h1>
-        </div>
+        <PageHeader slim eyebrow={<Link prefetch={false} href="/stages">Stages</Link>} title="Stages" />
       )}
 
       <main>

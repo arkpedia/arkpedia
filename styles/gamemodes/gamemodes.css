@@ -9,12 +9,16 @@
 
 /* --- the lookup bar ------------------------------------------------------------ */
 
-/* The page's whole face: seven tabs, one search box, stuck to the top. The sections
-   are long and only one shows at a time, so this bar IS the navigation -- scrolling
-   away from it would take the tool away with it. */
+/* The page's whole face: seven tabs, one search box, stuck under the site nav. The
+   sections are long and only one shows at a time, so this bar IS the navigation --
+   scrolling away from it would take the tool away with it. The page sets `top` inline
+   from the nav's measured bottom (lib/hooks/useNavOffset); this is the first paint's
+   fallback. It was `top: 0`, under the fixed nav, where none of the tabs could be
+   clicked (tests/browser/terminal-pages.spec.ts). z-index stays under the nav's. */
+.gm-lookup-anchor { display: block; height: 0; }
 .gm-lookup {
   position: sticky;
-  top: 0;
+  top: var(--nav-h, 0px);
   z-index: 7;
   display: flex;
   flex-direction: column;
@@ -1024,7 +1028,7 @@ body.gm-popout .mobile-nav-bar,
 body.gm-popout .mobile-nav-spacer,
 body.gm-popout .scanbar,
 body.gm-popout .music-player,
-body.gm-popout .terminal-head { display: none; }
+body.gm-popout .gm-co-head { display: none; }
 body.gm-popout .terminal-scene { padding-bottom: 8px; }
 body.gm-popout .terminal-panel { border: 0; padding: 10px; }
 
@@ -1069,7 +1073,7 @@ body.gm-popout .gm-co-topbar {
    on a phone it IS the companion -- so it fills what it is given too, and the heading
    comes with it or it sits in a 1040px box above a panel twice its width. */
 body.gm-companionpage main,
-body.gm-companionpage .terminal-head { max-width: none; }
+body.gm-companionpage .gm-co-head { max-width: none; }
 
 
 /* On a phone this page IS the companion, so it gets the screen.
@@ -1096,7 +1100,7 @@ body.gm-companionpage .terminal-head { max-width: none; }
      no way back off this page at all; :has() means the head only stands down once
      something has stood up in its place. */
   body:has(.mobile-nav-bar-override) .gm-co-head { display: none; }
-  .gm-co-head .eyebrow,
+  /* The eyebrow stays: its crumb is the way back to the reference page. */
   .gm-co-head .sub { display: none; }
   .gm-co-head h1 {
     position: absolute;

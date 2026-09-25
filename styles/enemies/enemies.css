@@ -22,7 +22,7 @@
 }
 .enemy-hero-icon img { object-fit: contain; }
 .enemy-hero-text { min-width: 0; width: 100%; }
-.enemy-hero-text h1 { margin-top: 0; margin-bottom: 0; }
+.enemy-hero-text h2 { margin-top: 0; margin-bottom: 0; }
 /* One line, always. Wrapping a 46-character name pushed the rank tag and the
    life-point cost onto a row of their own and shoved the portrait down with them.
    The line-height is a fixed pixel value, NOT a multiplier: the size steps below
@@ -30,7 +30,11 @@
    line box with it, so the row -- and the portrait and every stat under it -- shifted
    by a few pixels as you clicked between a short name and a long one. 34px clears the
    tallest step's caps, so all four steps occupy exactly the same height. */
-.enemy-hero-name h1 {
+/* The enemy's name is the pane's heading, an h2: the page's one h1 is "Enemy
+   handbook" in the PageHeader (there used to be two). Sized as a title, on the
+   display scale. */
+.enemy-hero-name h2 {
+  font-size: 26px;
   white-space: nowrap;
   line-height: 34px;
   /* hidden, so a name can never be drawn over the tag beside it while the fit runs;
@@ -43,9 +47,9 @@
 /* The steps are scoped through .enemy-hero-text so they outrank the mobile rule
    further down that sets this h1 to 21px -- a long name needs shrinking on a phone
    more than on a desktop, not less. */
-.enemy-hero-text .enemy-hero-name h1.enemy-name-m { font-size: 23px; }
-.enemy-hero-text .enemy-hero-name h1.enemy-name-s { font-size: 19px; }
-.enemy-hero-text .enemy-hero-name h1.enemy-name-xs { font-size: 16px; }
+.enemy-hero-text .enemy-hero-name h2.enemy-name-m { font-size: 22px; }
+.enemy-hero-text .enemy-hero-name h2.enemy-name-s { font-size: 18px; }
+.enemy-hero-text .enemy-hero-name h2.enemy-name-xs { font-size: 15px; }
 
 /* The handbook stacks race, then code + name, then how it fights. */
 /* Holds the row when an enemy has no race -- 937 of them. line-height and
@@ -72,7 +76,7 @@
   flex-wrap: nowrap;
   gap: 10px;
 }
-.enemy-hero-name h1 { min-width: 0; }
+.enemy-hero-name h2 { min-width: 0; }
 .enemy-hero-name .enemy-lifepoints { margin-left: 0; }
 /* The game sets the code in a solid dark block against the name, not as an
    outlined tag -- it reads as a label stuck on rather than a piece of metadata. */
@@ -1373,11 +1377,11 @@ main.enemy-page {
      block, where the handbook has it -- so this rule was only shrinking it to 52px
      wherever it now lives. The sticky header is the name and the code, and the
      portrait keeps the size .enemy-statblock-art gives it. */
-  .enemy-detail-pane .enemy-hero h1 { font-size: 21px; margin: 0; }
+  .enemy-detail-pane .enemy-hero h2 { font-size: 22px; margin: 0; }
   /* The steps are absolute px, so the first one (23px) was LARGER than this 21px
      base -- a medium-length name came out bigger than a short one on a phone. Capped
      here; the two smaller steps are already under the base and stay as they are. */
-  .enemy-hero-text .enemy-hero-name h1.enemy-name-m { font-size: 20px; }
+  .enemy-hero-text .enemy-hero-name h2.enemy-name-m { font-size: 18px; }
 
   /* 3. The tags and the first-appearance line scroll away under it. */
   /* 16px, or mobile Safari zooms the whole page in when the field takes focus --

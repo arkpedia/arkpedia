@@ -9,32 +9,15 @@
    where every rail here scrolls sideways inside a page that stacks -- which is
    what the game does with its rails anyway, so a phone gets the same idea. */
 
-/* The site's own soft bounds. Every other page is 1040px wide with 24px of gutter
-   (see `main` in shared.css); .main-wide's 1320px belongs to the stage viewer, which
-   is a two-pane reader and needs the room. These scenes are not, and at 1240 they
-   stood proud of the events, farming and enemies pages either side of them. */
-/* The gutter a Terminal scene keeps, declared once for the three rules that have to
-   agree about it. The head is a SIBLING of the scene rather than a child, so nothing
-   makes them line up on its own -- a head at 16 over panels at 24 puts the title 8px
-   inside everything beneath it, which is invisible at 1040px and plain on a phone. And
-   .score-line's wash reaches the edge of the page by pulling itself out past the
-   gutter, so a wash that reaches further than the gutter is sideways scroll. `main` in
-   shared.css keeps its own 24px for every other page. */
-.terminal-head,
-.terminal-scene { --scene-gutter: 24px; }
-
-.terminal-head {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 26px var(--scene-gutter) 14px;
-}
-.terminal-head h1 { margin: 6px 0 8px; }
-
-/* Sides and bottom rather than the shorthand: the top is `main`'s own 24px in
-   shared.css, and only the phone wants that changed. */
+/* The site's own frame: a scene is a `main`, 1040px with the site's --page-gutter at
+   every width, under components/ui/PageHeader. The Terminal used to keep a head and a
+   gutter of its own (16px on a phone), and a head at one gutter over panels at another
+   put the title 8px off everything beneath it (/stages/all) -- the page-bounds test
+   measures that edge now.
+   --scene-gutter survives only as a name for the gutter .score-line's wash pulls
+   itself out past: a wash that reaches further than the gutter is sideways scroll. */
 .terminal-scene {
-  padding-left: var(--scene-gutter);
-  padding-right: var(--scene-gutter);
+  --scene-gutter: var(--page-gutter);
   padding-bottom: 40px;
 }
 
@@ -1073,15 +1056,9 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   }
 }
 @media (max-width: 700px) {
-  /* 24px each side of a 430px phone is a ninth of the screen spent on margin, on
-     scenes whose panels already want more width than is left. The head was alone in
-     knowing that; now the scene and the wash follow it. */
-  .terminal-head,
-  .terminal-scene { --scene-gutter: 16px; }
-  .terminal-head { padding: 18px var(--scene-gutter) 10px; }
-  /* And 24px of dead space between the title and the first panel, on top of the head's
-     own 10 and the h1's 8. Air at 1040px wide; a hole on a phone. */
-  .terminal-scene { padding-top: 10px; }
+  /* Less air between the slim header's hairline and the first panel: air at 1040px
+     wide, a hole on a phone. The side gutter stays the site's. */
+  .terminal-scene { padding-top: 14px; }
   .terminal-lead-name { font-size: 19px; }
   .explore-hero-name { font-size: 18px; }
   .score-rail { --node-w: 200px; }
@@ -1107,12 +1084,13 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   -webkit-mask-position: center;
   -webkit-mask-size: contain;
 }
-/* Beside a scene's name, at the cap height of the title it belongs to. */
+/* The scene's emblem, leading its eyebrow. It sat inside the h1, which started the
+   title's text 44px right of everything under it. */
 .head-mark {
-  width: 1.05em;
-  height: 1.05em;
-  margin-right: 0.42em;
-  vertical-align: -0.1em;
+  width: 1.5em;
+  height: 1.5em;
+  margin-right: 0.6em;
+  vertical-align: -0.45em;
   color: var(--teal);
 }
 /* And large in a panel's corner, the way the game watermarks its own -- behind

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Rail from '@/components/ui/Rail';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
 import { getRegularTasks, RegularTasks } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 
@@ -66,14 +67,15 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
   return (
     <>
       <TerminalNav current="regular" />
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Terminal</div>
-        <h1><ModeMark name="regular-tasks.svg" className="head-mark" />Regular Tasks</h1>
-        <p className="sub">
+      <PageHeader
+        slim
+        eyebrow={<><ModeMark name="regular-tasks.svg" className="head-mark" />Terminal // Always open</>}
+        title="Regular Tasks"
+        sub={<>
           The two modes that never close and never stay the same: Annihilation rotates its
           map, Stationary Security Service runs seasons.
-        </p>
-      </div>
+        </>}
+      />
 
       <main className="terminal-scene">
         <section className="terminal-panel" data-tab="Annihilation Operation">

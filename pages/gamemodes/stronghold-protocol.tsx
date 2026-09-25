@@ -4,6 +4,8 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
+import PageHeader from '@/components/ui/PageHeader';
+import { useNavOffset } from '@/lib/hooks/useNavOffset';
 import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   StrongholdData,
@@ -396,6 +398,11 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
    * the same frame the sheet leaves, and a re-render is a frame too late.
    */
   const sceneRef = useRef<HTMLElement>(null);
+  /** The section bar, which sticks under the site nav, and a marker at its place in
+   *  the flow (the bar's own box is wherever it is stuck). */
+  const lookupRef = useRef<HTMLDivElement>(null);
+  const lookupAnchorRef = useRef<HTMLSpanElement>(null);
+  const navOffset = useNavOffset();
   const reserveRef = useRef(0);
   const basePadRef = useRef(0);
   /** Where the reader was before something shortened the page under them. */
@@ -425,11 +432,17 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
    * card back in above, and pushes everything down the screen. That reads as the page
    * jumping even though it went where it was told.
    *
-   * So the anchor is the scene: the last position at which the bar is still pinned.
-   * From anywhere below, the bar does not move at all and only the results under it
-   * change, which is what the reader just asked for. From above it, nothing moves.
-   * And it bounds the reserve, which no longer depends on how far down the reader had
-   * gone before typing.
+   * So the anchor is the first position at which the bar is pinned: where the bar
+   * sits in the flow, less the height it pins at (under the site nav). From anywhere
+   * below, the bar does not move at all and only the results under it change, which
+   * is what the reader just asked for. From above it, nothing moves. And it bounds
+   * the reserve, which no longer depends on how far down the reader had gone before
+   * typing.
+   *
+   * It used to be the top of the scene, which is 210px short of that: the bar dropped
+   * from pinned to 256px down the screen and the companion card came back in above
+   * it (2026-09-25 review, UC-10). Read from a zero-height marker in the flow just
+   * before the bar, because the bar's own box is wherever it is stuck.
    */
   const narrow = <T,>(set: (v: T) => void) => (v: T) => {
     hold('top');
@@ -482,7 +495,11 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
        positioned, so its offset is the same number whether or not the browser has
        already clamped the scroll out from under us. */
     const sceneTop = sceneRef.current.getBoundingClientRect().top + window.scrollY;
-    const target = was.anchor === 'top' ? Math.min(was.scroll, sceneTop) : was.scroll;
+    const marker = lookupAnchorRef.current;
+    const pinsAt = marker && lookupRef.current
+      ? marker.getBoundingClientRect().top + window.scrollY - (parseFloat(getComputedStyle(lookupRef.current).top) || 0)
+      : sceneTop;
+    const target = was.anchor === 'top' ? Math.min(was.scroll, Math.max(0, Math.round(pinsAt))) : was.scroll;
     /* What the page would measure with nothing reserved on it, and what a reader
        standing at the target needs it to reach. The gap between the two is the whole of
        the answer. Position zero is reachable on any page, so it never needs one. */
@@ -809,22 +826,20 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         />
       </Head>
 
-      <div className="terminal-head">
-        {/* The site's own page-level back link, same as a stage page's. */}
-        <Link prefetch={false} href="/gamemodes" className="stage-back">&lsaquo; Game Modes</Link>
-        <div className="eyebrow">Rhodes Island // Game Modes</div>
-        <h1>Stronghold Protocol</h1>
-        {/* No blurb. What the page holds is what the buttons below say it holds. */}
-        {/* The one way out to a run in progress, as against this page, which is the
-            reference you read beforehand. A button rather than a link: the companion
-            is a window THIS page owns, and the click that asks for it has to be the
-            click that opens it -- a hop to a second page spent the gesture on
-            navigating and then wanted another one.
-            Under the title rather than floated beside it: it is a banner the width of
-            the page now, and a float would have put it above the eyebrow it used to
-            sit level with. */}
-        <StrongholdCompanion data={data} picker={buildableAlliances(picker)} />
-      </div>
+      {/* The eyebrow's crumb is the way back to Game Modes: it was a separate
+          "< Game Modes" link above the eyebrow, saying the same thing twice.
+          No blurb. What the page holds is what the buttons below say it holds.
+          The companion banner is the header's action: the one way out to a run in
+          progress, as against this page, which is the reference you read beforehand.
+          A button rather than a link: the companion is a window THIS page owns, and
+          the click that asks for it has to be the click that opens it -- a hop to a
+          second page spent the gesture on navigating and then wanted another one. */}
+      <PageHeader
+        slim
+        eyebrow={<><Link prefetch={false} href="/gamemodes">Game Modes</Link>{' // Mode reference'}</>}
+        title="Stronghold Protocol"
+        actions={<StrongholdCompanion data={data} picker={buildableAlliances(picker)} />}
+      />
 
       {/* gm-mode scopes this page's larger icons. It must stay OFF the companion,
           which shares every gm- class with this page and is drawn at 390px. */}
@@ -835,7 +850,11 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           carries its hit count, so "Drone" says where the answer lives -- an enemy,
           a bounty, four operators -- without opening anything. Sticky, because it IS
           the tool and the sections under it are long. */}
-      <div className="gm-lookup">
+      <span className="gm-lookup-anchor" ref={lookupAnchorRef} aria-hidden="true" />
+      {/* Sticks under the site nav, measured (lib/hooks/useNavOffset): at `top: 0` it
+          spent the page under the fixed nav, and not one of the seven tabs could be
+          clicked once it pinned. */}
+      <div className="gm-lookup" ref={lookupRef} style={navOffset == null ? undefined : { top: navOffset }}>
         <nav className="gm-tabs" aria-label="Sections">
           {TABS.map(([id, label]) => (
             <button
