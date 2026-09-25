@@ -30,9 +30,19 @@
  * its `type` so a consumer can tell the two apart, and the check below covers the
  * families that are meant to be walked.
  *
+ * AHEAD OF GLOBAL, the CN client's recipes fill in what the EN one lacks. A material line CN
+ * has added and Global has not (Liquified Ether Absorber and Concentrated Power Unit, made from
+ * Liquified High-Energy Gas and Electrode Unit, which Closure and Crackborne cost from
+ * 2026-10-14) is otherwise a Tier 4 the planner can never craft. Those recipes come from CN
+ * building_data under the same formula keys (the two clients number them alike), named through
+ * scripts/lib/material-items.mjs: the EN client's name, else data/material-names.json, else the
+ * CN one. A CN recipe that does not fully resolve to published icons is left out and named,
+ * rather than failing the whole table, because it describes something Global does not have yet.
+ *
  * Re-run after an upstream refresh:  node scripts/imports/import-base-formulas.mjs
  */
 import { assetFileNames } from '../lib/public-assets.mjs';
+import { materialItems, readMaterialNames } from '../lib/material-items.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -54,8 +64,17 @@ function readTable(name) {
 
 const building = readTable('building_data.json');
 const itemTable = readTable('item_table.json');
-
-const nameById = new Map(Object.entries(itemTable.items).map(([id, it]) => [id, it.name]));
+const cnExcel = path.join(process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', 'gamedata', 'excel');
+const readCn = (name) => {
+  const file = path.join(cnExcel, name);
+  if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf-8'));
+  console.warn(`No CN ${name} at ${file}: recipes Global has not shipped are left out this run.`);
+  return null;
+};
+const cnBuilding = readCn('building_data.json');
+const cnItems = readCn('item_table.json')?.items ?? {};
+const names = readMaterialNames(JSON.parse(fs.readFileSync(path.join(root, 'data', 'material-names.json'), 'utf-8')));
+const items = materialItems({ enItems: itemTable.items, cnItems, names });
 const iconsOnDisk = new Set(assetFileNames('material-icons', root).map((f) => path.parse(f).name));
 /** The same fold getMaterialIconPath applies before building a path. */
 const iconStem = (n) => n.replace(/[\\/*?:"<>|]/g, '').trim();
@@ -79,9 +98,9 @@ const PLANNER_FORMULA_TYPES = new Set(['F_EVOLVE', 'F_ASC', 'F_SKILL']);
    walk, and it cannot do that without knowing which they are. */
 const WALKABLE_TYPES = new Set(['F_EVOLVE', 'F_SKILL']);
 
-const formulas = {
+const plannerFormulas = (table) => ({
   ...Object.fromEntries(
-    Object.entries(building.workshopFormulas || {})
+    Object.entries(table.workshopFormulas || {})
       .filter(([, f]) => PLANNER_FORMULA_TYPES.has(f.formulaType))
       .map(([k, f]) => [`W${k}`, { ...f, room: 'WORKSHOP' }]),
   ),
@@ -91,24 +110,42 @@ const formulas = {
      knowing and not worth hiding. Keys are prefixed because the two tables number
      their formulas from 1 independently. */
   ...Object.fromEntries(
-    Object.entries(building.manufactFormulas || {})
+    Object.entries(table.manufactFormulas || {})
       .map(([k, f]) => [`M${k}`, { ...f, room: 'FACTORY', formulaType: 'MANUFACTURE' }]),
   ),
-};
+});
+const enFormulas = plannerFormulas(building);
+const enProducts = new Set(Object.values(enFormulas).map((f) => f.itemId));
+/* CN's recipes for products the EN client has no recipe for, under keys it does not use. */
+const cnFormulas = Object.fromEntries(Object.entries(cnBuilding ? plannerFormulas(cnBuilding) : {})
+  .filter(([k, f]) => !enFormulas[k] && !enProducts.has(f.itemId)));
+const formulas = { ...enFormulas, ...cnFormulas };
 const problems = [];
 const seen = new Map();
+/* A CN-only recipe's unresolved names: the recipe is skipped and named, never fatal. */
+const aheadOfGlobal = new Map();
 
-function nameOf(id, where) {
-  const n = nameById.get(id);
-  if (!n) { problems.push(`${where}: item id ${id} has no name in item_table`); return null; }
-  if (!iconsOnDisk.has(iconStem(n))) problems.push(`${where}: "${n}" has no icon in public/material-icons/`);
+function nameOf(id, where, key) {
+  const n = items.nameOf(id);
+  const fail = (why) => {
+    if (key && cnFormulas[key]) aheadOfGlobal.set(key, [...(aheadOfGlobal.get(key) ?? []), why]);
+    else problems.push(`${where}: ${why}`);
+  };
+  if (!n) { fail(`item id ${id} has no name in item_table`); return null; }
+  if (!iconsOnDisk.has(iconStem(n))) { fail(`"${n}" has no icon in public/material-icons/`); return null; }
   return n;
 }
+
+/* Resolve every CN-only recipe's names first, so one that cannot be named is dropped whole. */
+for (const [key, f] of Object.entries(cnFormulas)) {
+  for (const id of [f.itemId, ...(Array.isArray(f.costs) ? f.costs : []).map((c) => c.id)]) nameOf(id, `formula ${key}`, key);
+}
+for (const key of aheadOfGlobal.keys()) delete formulas[key];
 
 const out = {};
 for (const [key, f] of Object.entries(formulas)) {
   const where = `formula ${key}`;
-  const product = nameOf(f.itemId, where);
+  const product = nameOf(f.itemId, where, key);
   if (!product) continue;
   /* One entry per PRODUCT, because that is how the planner asks the question -- "can
      I make an Orirock Cluster". A product CAN have more than one recipe: the Factory
@@ -123,7 +160,7 @@ for (const [key, f] of Object.entries(formulas)) {
       out[product].alternatives.push({
         lmd: f.goldCost ?? 0,
         costs: (Array.isArray(f.costs) ? f.costs : [])
-          .map((c) => ({ name: nameOf(c.id, `${where} cost`), count: c.count }))
+          .map((c) => ({ name: nameOf(c.id, `${where} cost`, key), count: c.count }))
           .filter((c) => c.name),
       });
     }
@@ -146,12 +183,13 @@ for (const [key, f] of Object.entries(formulas)) {
     /* The Factory writes `{}` where the Workshop writes `[]` for "no ingredients", so
        neither field can be trusted to be a list without asking. */
     costs: (Array.isArray(f.costs) ? f.costs : [])
-      .map((c) => ({ name: nameOf(c.id, `${where} cost`), count: c.count }))
+      .map((c) => ({ name: nameOf(c.id, `${where} cost`, key), count: c.count }))
       .filter((c) => c.name),
     /* The bonus roll. Not counted toward anything the planner promises -- it is a
-       rate, not a yield -- but worth carrying so a UI can say "and sometimes". */
+       rate, not a yield -- but worth carrying so a UI can say "and sometimes". A
+       CN-only recipe's byproduct that cannot be named yet is dropped, not fatal. */
     byproducts: (Array.isArray(f.extraOutcomeGroup) ? f.extraOutcomeGroup : [])
-      .map((e) => ({ name: nameOf(e.itemId, `${where} byproduct`), count: e.itemCount, weight: e.weight }))
+      .map((e) => ({ name: cnFormulas[key] && !(items.nameOf(e.itemId) && iconsOnDisk.has(iconStem(items.nameOf(e.itemId)))) ? null : nameOf(e.itemId, `${where} byproduct`, key), count: e.itemCount, weight: e.weight }))
       .filter((e) => e.name),
     byproductRate: f.extraOutcomeRate ?? 0,
     /* Other ways to make the same thing. Empty for all but the Factory's two
@@ -212,16 +250,19 @@ const dest = path.join(root, 'data', 'base-formulas.json');
 fs.writeFileSync(dest, JSON.stringify(out, null, 2) + '\n');
 const recordDest = path.join(root, 'data', 'battle-records.json');
 fs.writeFileSync(recordDest, JSON.stringify(records, null, 2) + '\n');
-const items = new Set();
+const distinct = new Set();
 for (const [k, v] of Object.entries(out)) {
-  items.add(k);
-  v.costs.forEach((c) => items.add(c.name));
-  v.byproducts.forEach((b) => items.add(b.name));
+  distinct.add(k);
+  v.costs.forEach((c) => distinct.add(c.name));
+  v.byproducts.forEach((b) => distinct.add(b.name));
 }
 const byType = {};
 for (const v of Object.values(out)) byType[v.type] = (byType[v.type] || 0) + 1;
 console.log(
-  `Wrote ${Object.keys(out).length} formulas over ${items.size} distinct items ` +
+  `Wrote ${Object.keys(out).length} formulas over ${distinct.size} distinct items ` +
   `(${Object.entries(byType).map(([t, n]) => `${t} ${n}`).join(', ')}) -> ${path.relative(root, dest)}`,
 );
+const fromCn = Object.keys(cnFormulas).filter((k) => formulas[k]);
+if (fromCn.length) console.log(`  ${fromCn.length} of them from the CN client, ahead of Global: ${fromCn.map((k) => items.nameOf(formulas[k].itemId)).join(', ')}`);
+for (const [key, why] of aheadOfGlobal) console.warn(`  CN recipe ${key} left out until it can be named: ${[...new Set(why)].join('; ')}`);
 console.log(`Wrote ${records.length} battle records (${records.map((r) => r.exp).join('/')} EXP) -> ${path.relative(root, recordDest)}`);

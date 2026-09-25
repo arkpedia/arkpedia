@@ -19,11 +19,12 @@
 import { parseTransfer as parseWith, formatBundle } from '@/lib/planner/transfer';
 import { checkImportAliases } from '@/lib/planner/foreignImport';
 import importAliases from '@/data/import-aliases.json';
+import materialCatalogue from '@/data/material-catalogue.json';
 import { clampBuilderStates, knownPlanNames } from '@/lib/planner/builderStates';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 
 /* The planner reads the aliases from its props; this reads this checkout's copy. */
-const aliases = checkImportAliases(importAliases);
+const aliases = checkImportAliases(importAliases, materialCatalogue);
 const parseTransfer = (text: string) => parseWith(text, aliases);
 
 let failures = 0;

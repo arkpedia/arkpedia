@@ -1,4 +1,4 @@
-import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
+import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
 import type { Depot } from './depot';
 import { MAX_COUNT, ownString, shortLabel } from './untrusted';
 
@@ -59,24 +59,24 @@ export interface ImportAliases {
  */
 const KNOWN_NOT_HELD = new Set(['EXP']);
 
-/* The maps and the catalogue have to be talking about the same materials, and
-   nothing at runtime can notice that they stopped: a name renamed in
-   MATERIAL_SORT_ORDER without re-running the builder leaves an import quietly
-   dropping that material, with the file looking like it loaded. /planner's table
-   loader asserts it wherever the table is read from data/ -- the build's prerender
-   and the content export -- so a release that disagrees fails its export rather
-   than reaching anybody, the way it failed `next build` when this ran at import. */
-export function checkImportAliases(aliases: ImportAliases): ImportAliases {
-  const known = new Set(MATERIAL_SORT_ORDER);
+/* The maps and the material catalogue (data/material-catalogue.json) have to be
+   talking about the same materials, and nothing at runtime can notice that they
+   stopped: a material the catalogue gained without re-running the builder is one an
+   import quietly drops, with the file looking like it loaded. /planner's table loader
+   asserts it wherever the tables are read from data/ -- the build's prerender and the
+   content export -- so a release that disagrees fails its export rather than reaching
+   anybody. */
+export function checkImportAliases(aliases: ImportAliases, catalogue: Pick<MaterialCatalogue, 'order'>): ImportAliases {
+  const known = new Set(catalogue.order);
   const orphans = [...new Set([...Object.values(aliases.byItemId), ...Object.values(aliases.byArkgraph)])]
     .filter((name) => !known.has(name));
   const held = new Set(Object.values(aliases.byItemId));
-  const unmapped = MATERIAL_SORT_ORDER.filter((name) => !KNOWN_NOT_HELD.has(name) && !held.has(name));
+  const unmapped = depotNames(catalogue).filter((name) => !KNOWN_NOT_HELD.has(name) && !held.has(name));
   if (orphans.length || unmapped.length) {
     throw new Error(
-      'foreignImport: data/import-aliases.json and MATERIAL_SORT_ORDER disagree.' +
+      'foreignImport: data/import-aliases.json and data/material-catalogue.json disagree.' +
       (unmapped.length ? ` No itemId for: ${unmapped.join(', ')}.` : '') +
-      (orphans.length ? ` Maps a name the sort order does not have: ${orphans.join(', ')}.` : '') +
+      (orphans.length ? ` Maps a name the catalogue does not have: ${orphans.join(', ')}.` : '') +
       ' Re-run: npx tsx scripts/build/build-import-aliases.ts',
     );
   }

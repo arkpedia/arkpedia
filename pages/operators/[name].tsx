@@ -52,7 +52,8 @@ import OperatorFilesPanel from '@/components/operators/OperatorFilesPanel';
 import OperatorVoiceLines from '@/components/operators/OperatorVoiceLines';
 import StyledSelect from '@/components/ui/StyledSelect';
 import pageStyles from '@/components/operators/OperatorPage.module.css';
-import { sortMaterials } from '@/lib/farming/materialSortOrder';
+import { materialOrderFor, sortMaterials } from '@/lib/farming/materialSortOrder';
+import { checkMaterialCatalogue, plannerCostNames } from '@/lib/farming/materialCatalogue.mjs';
 import { getOperatorVoiceData, OperatorVoiceData } from '@/lib/operators/operatorVoices';
 import OperatorRelationPopover, { RelatedOperator } from '@/components/operators/OperatorRelationPopover';
 
@@ -116,6 +117,9 @@ interface Props {
   branchRelatedOperators: RelatedOperator[];
   relatedByArtist: Record<string, RelatedOperator[]>;
   relatedByVoiceActor: Record<string, RelatedOperator[]>;
+  /** The release's material catalogue order (data/material-catalogue.json), for the materials
+   *  this operator costs: what every cost row sorts by. */
+  materialOrder: string[];
 }
 
 /** One skill's effect on the range, from data/skill-ranges.json. */
@@ -194,9 +198,9 @@ function RangeGridBox({ range, label }: { range: CroppedRange | null; label?: st
   );
 }
 
-function CostRow({ cost, promotion = false }: { cost: CostGroup | null | undefined; promotion?: boolean }) {
+function CostRow({ cost, order, promotion = false }: { cost: CostGroup | null | undefined; order: readonly string[]; promotion?: boolean }) {
   if (!cost || cost.length === 0) return <p className="hint">No cost data.</p>;
-  const sorted = sortMaterials(cost);
+  const sorted = sortMaterials(cost, order);
   const renderItem = (item: CostGroup[number], index: number) => {
     const iconPath = getMaterialIconPath(item.name);
     return (
@@ -443,7 +447,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
   );
 }
 
-export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {} }: Props) {
+export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {}, materialOrder }: Props) {
   const contentUrl = useContentUrl();
   const router = useRouter();
 
@@ -1112,7 +1116,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             <StyledSelect id="skill-cost-scope" label="Skill material costs" className={pageStyles.costSelect}
                               value={showTotal ? 'total' : 'step'} onChange={value => setShowTotal(value === 'total')}
                               options={[{ value: 'step', label: 'Selected upgrade only' }, { value: 'total', label: `All skill levels up to ${activeStepLabel}` }]} />
-                            <CostRow cost={costForStep()} />
+                            <CostRow cost={costForStep()} order={materialOrder} />
                           </div>
                         )}
 
@@ -1252,7 +1256,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                               <StyledSelect id="module-cost-scope" label="Module material costs" className={pageStyles.costSelect}
                                 value={showModuleTotal ? 'total' : 'step'} onChange={value => setShowModuleTotal(value === 'total')}
                                 options={[{ value: 'step', label: 'Selected stage only' }, { value: 'total', label: `All stages up to stage ${activeModuleStage + 1}` }]} />
-                              <CostRow cost={costForModuleStage()} />
+                              <CostRow cost={costForModuleStage()} order={materialOrder} />
                             </div>
                           </div>
                         )}
@@ -1271,7 +1275,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     <h3><OperatorGameIcon label={tier.tier} size={36} /></h3>
                     {tier.prerequisite && <p><OperatorStatModifiers text={tier.prerequisite} /></p>}
                     {tier.upgrades.length > 0 && <ul>{tier.upgrades.map((upgrade, index) => <li key={index}>{upgrade}</li>)}</ul>}
-                    <CostRow cost={tier.cost} promotion />
+                    <CostRow cost={tier.cost} order={materialOrder} promotion />
                   </div>
                 ))}
               </section>
@@ -1818,5 +1822,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const skillTimings = (SKILL_TIMINGS.operators as unknown as Record<string, (SkillTiming | null)[][]>)[operator.internalName ?? ''] ?? [];
   const factionPath = getFactionIconPath(operator.faction);
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
-  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor } };
+  // The cost rows sort by the release's catalogue, not by a list compiled into the page.
+  const materialOrder = materialOrderFor(checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default), plannerCostNames(operator));
+  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder } };
 });

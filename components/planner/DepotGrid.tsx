@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHeightFloor } from './useHeightFloor';
-import { MATERIAL_GROUPS, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import { usePlannerContent } from '@/lib/content/planner';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import type { CostGroup } from '@/lib/operators/operatorTypes';
@@ -148,7 +147,7 @@ export function DepotGrid({
   const [sort, setSort] = useState<DepotSort>('ingame');
   const [query, setQuery] = useState('');
   /* The game's own depot order, from the release's item sortIds (usePlannerContent). */
-  const { inGameOrder } = usePlannerContent();
+  const { inGameOrder, catalogue: materials } = usePlannerContent();
   const inGameIndex = useMemo(() => new Map(inGameOrder.map((name, i) => [name, i])), [inGameOrder]);
   /* What this visit has touched. The highlight says "that keystroke landed" on
      a grid of ninety-three near-identical tiles. */
@@ -171,22 +170,22 @@ export function DepotGrid({
       if (item.name === 'EXP') continue;
       wanted.set(item.name, (wanted.get(item.name) || 0) + Math.ceil(Number(item.quantity) || 0));
     }
-    return MATERIAL_SORT_ORDER
+    return materials.order
       .filter((name) => name !== 'EXP' && inCatalogue.has(name))
       .map((name) => {
         const have = depot[name] || 0;
         const need = wanted.get(name) || 0;
         return { name, have, need, short: Math.max(0, need - have) };
       });
-  }, [catalogue, planNeeds, depot]);
+  }, [catalogue, materials, planNeeds, depot]);
 
   const byName = useMemo(() => new Map(held.map((h) => [h.name, h])), [held]);
 
   const groups = useMemo(
-    () => MATERIAL_GROUPS
+    () => materials.groups
       .map((g) => ({ tag: g.tag, items: g.names.map((n) => byName.get(n)).filter(Boolean) as Held[] }))
       .filter((g) => g.items.length > 0),
-    [byName],
+    [byName, materials],
   );
 
   /**

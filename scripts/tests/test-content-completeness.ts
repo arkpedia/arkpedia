@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/operators/operatorIcon';
 import farmingFixture from './fixtures/people-farming.json';
 import operatorFixture from './fixtures/operator-costs.json';
-import { emptyCatalogue } from './fixtures/catalogue';
+import { emptyCatalogue, fixtureMaterials } from './fixtures/catalogue';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { checkCompleteness, COLLECTIONS, countDrops, hasRecordedRelease, missingEnemyIcons, parseAllowShrink, reviewCompleteness, writeQuarantine } from '../content/check-completeness.mjs';
@@ -41,6 +41,23 @@ const holds = (catalogue: object): Hold[] => {
   assert.deepEqual(errors, [], 'a missing record or picture never blocks the release');
   return quarantine;
 };
+test('an operator who costs a material the planner\'s catalogue lacks is held back, not the release', () => {
+  const op = Object.assign(structuredClone(operatorFixture.operator), { name: 'Closure Test', internalName: 'char_9991_clstst' });
+  // Concentrated Power Unit, which Closure costs, before the catalogue had it.
+  op.promotion[1].cost.push({ name: 'Concentrated Power Unit', quantity: 5 });
+  op.skills.skillList[0].cost.m3.push({ name: 'Electrode Unit', quantity: 6 });
+  const held = holds(emptyCatalogue({ operators: [op] }));
+  assert.deepEqual(held.map(h => [h.key, h.action]), [['operator:char_9991_clstst', 'published-partial']]);
+  assert.match(held[0].reason, /^Closure Test: costs Concentrated Power Unit, Electrode Unit, which data\/material-catalogue\.json does not have, so \/planner cannot hold or craft them/);
+  // Potential tokens are not planner costs, so a token alone never trips it.
+  const tokenOnly = Object.assign(structuredClone(operatorFixture.operator), { potential: { totalCost: [{ name: 'Nobody\'s Token', quantity: 5 }] } });
+  assert.deepEqual(holds(emptyCatalogue({ operators: [tokenOnly] })), []);
+  // Once the catalogue has them, nothing is held.
+  assert.deepEqual(holds(emptyCatalogue({ operators: [op], materials: { order: [...fixtureMaterials.order, 'Concentrated Power Unit', 'Electrode Unit'] } })), []);
+  // And without a catalogue at all the review refuses to run rather than hold everyone.
+  assert.throws(() => reviewCompleteness({ ...emptyCatalogue({ operators: [op] }), materials: undefined }), /needs the material catalogue/);
+});
+
 test('a complete collaboration passes with nothing held back', () => {
   assert.deepEqual(reviewCompleteness(collaboration()), { errors: [], quarantine: [], allowed: [] });
 });
@@ -197,6 +214,7 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
     for (const file of ['data/skins.json', 'data/headhunting_banners.json', 'data/content-bundles.json', 'data/events/events_2026.json']) write(file, []);
     write('data/content-inventory.json', { operators: [], skins: [] });
     write('data/skin-availability-windows.json', { entries: [] });
+    write('data/material-catalogue.json', { version: 1, order: ['EXP'], groups: [], items: {} });
     write('data/stages/test-1.json', { slug: 'test-1', enemies: { by_rank: { normal: [{ slug: 'slug-a' }] }, conditional: { by_rank: { elite: [{ slug: 'slug-b' }] } } } });
     write('data/stages/unlisted.json', { slug: 'unlisted', enemies: { by_rank: { normal: [{ slug: 'slug-unlisted' }] } } });
     write('public/stages-index.json', [{ slug: 'test-1' }]);

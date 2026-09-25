@@ -20,8 +20,8 @@ import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import { highlightStats } from '@/components/ui/HighlightedText';
 import { PlannerOperator, PlannerOperatorSummary, Skill, OperatorModule, PromotionTier, getSkillList, type CostGroup } from '@/lib/operators/operatorTypes';
 import { buildAliasMap } from '@/lib/operators/operatorAliases';
-import { checkItemSortIds, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
-import baseFormulas from '@/data/base-formulas.json';
+import { checkItemSortIds } from '@/lib/farming/materialSortOrder';
+import { checkMaterialCatalogue, depotNames, uncataloguedCosts } from '@/lib/farming/materialCatalogue.mjs';
 import { DepotGrid } from '@/components/planner/DepotGrid';
 import { OperatorBill, ShortfallList } from '@/components/planner/ShortfallList';
 import { MaterialIcon } from '@/components/planner/MaterialIcon';
@@ -74,10 +74,6 @@ import {
 
 interface Props {
   operators: PlannerOperatorSummary[];
-  /** Every material the depot can hold: in MATERIAL_SORT_ORDER, and with an icon
-   *  actually on disk. Built in getStaticProps because getMaterialIconPath cannot
-   *  tell you the second part -- it builds a path and never looks. */
-  depotCatalogue: string[];
 }
 
 /** "E1L50SR5", or "E2L20 S1M3S2M1" once any mastery exists -- SR7 is
@@ -224,8 +220,10 @@ function costLine(cost: CostGroup): string {
 }
 
 
-export default function PlannerPage({ operators, depotCatalogue }: Props) {
-  const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder } = usePlannerContent();
+export default function PlannerPage({ operators }: Props) {
+  /* depotCatalogue: every material the depot can hold, from the release's catalogue
+     (data/material-catalogue.json), which only lists materials with a published icon. */
+  const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   const [simpleNewOperator, setSimpleNewOperator] = useState(false);
@@ -1877,47 +1875,38 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
   /**
    * The depot's catalogue, checked rather than assumed.
    *
-   * MATERIAL_SORT_ORDER names everything the planner can emit; public/material-icons/
-   * is what there is art for. The depot grid needs the intersection, because
-   * getMaterialIconPath builds `/material-icons/<name>.webp` from a name and never
-   * asks whether the file is there -- a miss is a 404 that renders as a blank square
-   * and says nothing. Checking here means the grid can only ever contain tiles that
-   * draw.
-   *
-   * It throws rather than filtering silently when the loss is large. A handful of
-   * sort-order entries with no art is ordinary (LMD and EXP are counters, not items);
-   * half the list missing means the folder moved, and a depot that quietly shrank to
-   * sixty tiles is the kind of wrong answer nothing reports.
+   * data/material-catalogue.json (scripts/build/build-material-catalogue.mjs) names
+   * every material a plan can ask for that has an icon published; the depot grid shows
+   * exactly those. getMaterialIconPath builds `/material-icons/<name>.webp` from a name and
+   * never asks whether the file is there -- a miss is a 404 that renders as a blank square
+   * and says nothing -- so the builder's promise is checked again here, against the index
+   * this export resolves art from.
    */
+  const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
   const iconStems = new Set(
     publicFiles('material-icons')
       .map((f) => path.parse(f).name),
   );
-  const depotCatalogue = MATERIAL_SORT_ORDER.filter(
-    (name) => iconStems.has(name.replace(/[\\/*?:"<>|]/g, '').trim()),
-  );
-  if (depotCatalogue.length < MATERIAL_SORT_ORDER.length * 0.8) {
+  const artless = depotNames(catalogue).filter((name) => !iconStems.has(name.replace(/[\\/*?:"<>|]/g, '').trim()));
+  if (artless.length) {
     throw new Error(
-      `planner: only ${depotCatalogue.length} of ${MATERIAL_SORT_ORDER.length} materials have an icon in ` +
-      'public/material-icons/. That is too few to be a data gap -- check the folder.',
+      `planner: data/material-catalogue.json lists ${artless.length} material(s) with no icon in material-icons/: ` +
+      `${artless.join(', ')}. Re-run node scripts/build/build-material-catalogue.mjs against this asset index.`,
     );
   }
 
   /**
    * Everything a base recipe mentions has to be somewhere a reader can count it.
    *
-   * The depot's catalogue is MATERIAL_SORT_ORDER intersected with the icons on disk,
-   * so a material absent from the sort order simply never gets a tile -- and the
-   * planner will still cheerfully tell you a Dualchip is made of two Chip Packs and a
-   * Chip Catalyst you have no way to record. That is exactly what happened when the
-   * Factory's table was added: three items (Chip Catalyst, Originium Shard, Pure Gold)
-   * came in with it and none of them could be entered.
-   *
-   * The importer cannot check this -- it is a .mjs script and the sort order is a TS
-   * module -- so the assertion lives here, where getStaticProps already reads both and
-   * a failure is a failed build rather than a missing tile.
+   * The planner will cheerfully tell you a Dualchip is made of two Chip Packs and a
+   * Chip Catalyst, so each of those needs a depot tile or the plan asks for something
+   * nobody can enter. That is exactly what happened when the Factory's table was added:
+   * three items (Chip Catalyst, Originium Shard, Pure Gold) came in with it and none of
+   * them could be entered. The catalogue builder takes every ingredient of a holdable
+   * product in; this is where a recipe table newer than the catalogue shows up.
    */
-  const holdable = new Set(depotCatalogue);
+  const baseFormulas = (await import('@/data/base-formulas.json')).default;
+  const holdable = new Set(depotNames(catalogue));
   const unrecordable = new Set<string>();
   for (const [product, recipe] of Object.entries(baseFormulas as Record<string, { costs: { name: string }[] }>)) {
     /* Only recipes for something a plan can actually ASK for. base-formulas.json covers
@@ -1933,8 +1922,26 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     throw new Error(
       `planner: ${unrecordable.size} material(s) named by data/base-formulas.json cannot be held in the ` +
       `depot, so the plan can ask for something nobody can enter: ${[...unrecordable].sort().join(', ')}. ` +
-      'Add them to MATERIAL_SORT_ORDER and MATERIAL_GROUPS in lib/farming/materialSortOrder.ts, ' +
-      'and check public/material-icons/ has art for each.',
+      'Re-run node scripts/build/build-material-catalogue.mjs after the formulas, ' +
+      'and check material-icons/ has art for each.',
+    );
+  }
+
+  /**
+   * Every material an operator in the picker costs has to be one the depot can hold.
+   *
+   * A cost the catalogue does not have is a bill row with no tile: the plan asks for it,
+   * nothing can record it, and the operator reads as blocked forever. Four materials were
+   * in that state for Closure, Crackborne and Kal'tsit - Esperanta, with nothing to say so.
+   * Such an operator is left out of the picker -- published without that piece, the way
+   * check-completeness holds it back (and names it in the daily issue) -- until the
+   * catalogue has the material.
+   */
+  const unplannable = new Map(allOps.map((op) => [op.name, uncataloguedCosts(op, catalogue)] as const).filter(([, names]) => names.length));
+  if (unplannable.size) {
+    console.warn(
+      `planner: ${unplannable.size} operator(s) cost a material data/material-catalogue.json does not have, so they are ` +
+      `left out of the picker: ${[...unplannable].map(([name, names]) => `${name} (${names.join(', ')})`).join('; ')}.`,
     );
   }
 
@@ -1966,7 +1973,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     );
   }
 
-  return { props: { operators, depotCatalogue } };
+  return { props: { operators: operators.filter((op) => !unplannable.has(op.name)) } };
 }, {
   tables: {
     'base-formulas': async () => (await import('@/data/base-formulas.json')).default,
@@ -1975,8 +1982,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     operatorLevelExpLmd: async () => (await import('@/data/operatorLevelExpLmd.json')).default,
     // Both checked against the material catalogue wherever they are read from data/,
     // so a release that disagrees fails its export (they used to fail at import).
-    'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default),
-    'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default),
+    'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
+    'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
+    // The depot's materials, their order and groups (scripts/build/build-material-catalogue.mjs).
+    'material-catalogue': async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
   },
 });
