@@ -66,33 +66,8 @@
 }
 
 /* --- Event detail page ---
-   The right side reuses .op-section / .op-section-tabs from
-   operator-detail.css directly (same tab-switcher pattern as the
-   operator page's own right panel: one active section shown at a
-   time, switched via primary/ghost buttons) -- so only the layout
-   wrapper and this page's own content pieces (header poster, carousel
-   dots, banner art, featured operator cards, skin cards, reward
-   cards) need their own rules here. */
-.event-detail-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.event-detail-header-poster {
-  position: relative;
-  width: 160px;
-  height: 70px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--panel-2);
-}
-.event-detail-header-poster img {
-  border-radius: 6px;
-}
-
+   PageHeader, then the event's art on the left and one section at a time on the
+   right, switched by a SegmentedControl. */
 .event-detail-layout {
   display: grid;
   grid-template-columns: 1fr 1.4fr;
@@ -103,11 +78,13 @@
   position: sticky;
   top: 20px;
 }
+/* Sized from the art (the page passes the ratio: 1024/328 for a poster, 16/9 for a
+   CG set); this default is the poster's, for a release exported before it did. */
 .event-detail-image-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  aspect-ratio: 1024 / 328;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
 }
@@ -137,11 +114,12 @@
 .event-detail-right {
   min-width: 0;
 }
+.event-detail-tabs { margin-bottom: 16px; }
 .event-detail-banner-art-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 7;
-  border-radius: 6px;
+  aspect-ratio: 1024 / 328;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
   margin-bottom: 10px;
@@ -161,44 +139,35 @@
   text-align: center;
 }
 .event-detail-featured-op img {
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel-2);
 }
+.event-detail-featured-meta { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.event-detail-featured-pct { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
 
 .event-detail-skins {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
+/* A skin opens its detail sheet: a card, so it carries the control border and the
+   teal hover like any other thing you can press. */
 .event-detail-skin-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  width: 120px;
+  width: 132px;
+  padding: 5px 5px 8px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--panel);
   font-size: 12px;
   text-align: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
-
-.event-detail-rewards-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.event-detail-reward-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 90px;
-  font-size: 11px;
-  text-align: center;
-}
-.event-detail-reward-item img {
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
-  background: var(--panel-2);
-}
+.event-detail-skin-item:hover { border-color: var(--teal); color: var(--teal); }
+.event-detail-skin-item img { border-radius: var(--radius); }
 
 @media (max-width: 900px) {
   .event-detail-layout {
@@ -209,18 +178,36 @@
   }
 }
 
-/* Append to styles/schedule/events.css -- Rewards section sub-tabs (All + one
-   per store type present) and the reward panels themselves. */
-.event-rewards-tabs {
+/* Rewards: the store picker is a SegmentedControl; All is a wrapping row of totals,
+   each with its name under the icon. */
+.event-rewards-tabs { margin-bottom: 14px; }
+.event-reward-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+.event-reward-total {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  text-align: center;
+  min-width: 0;
 }
-.event-rewards-tabs button {
-  padding: 5px 12px !important;
-  font-size: 12px !important;
+.event-reward-total-icon { width: 40px; height: 40px; line-height: 0; }
+.event-reward-total-icon img { width: 40px; height: 40px; object-fit: contain; }
+.event-reward-total-name {
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
 }
+.event-reward-total b { font-family: var(--font-mono); font-size: 12px; color: var(--amber); }
 
 /* 3 fixed rows, growing horizontally as items are added -- items fill
    down each column before starting the next, so a scroll to the right
@@ -234,7 +221,7 @@
   grid-auto-flow: column;
   grid-auto-columns: 210px;
   gap: 10px;
-  overflow-x: scroll;
+  overflow-x: auto;
   padding-bottom: 8px;
 }
 
@@ -246,7 +233,7 @@
   flex-shrink: 0;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 8px 10px;
 }
 /* The quantity over the corner of the icon it counts. Neither of these two had a
@@ -269,18 +256,18 @@
   right: -3px;
   bottom: -3px;
   padding: 1px 4px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: var(--panel);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.4;
   color: var(--text-dim);
 }
 
 .event-reward-panel img {
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .event-reward-panel-text {
@@ -296,21 +283,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* "500 Broken Poetry Verse" ran 14px past its card: it ellipsizes now, and the
+   full text is on the panel's title. */
 .event-reward-panel-meta {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
   white-space: nowrap;
-}
-
-/* Append to styles/schedule/events.css -- .event-detail-skin-item is now a
-   <button> (clickable, opens the skin detail modal), not a plain
-   <div>, so it needs the usual button-chrome reset. */
-.event-detail-skin-item {
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

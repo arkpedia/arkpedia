@@ -18,96 +18,25 @@ import { getEventRewards } from '@/lib/events/loadEventsData';
 import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
-import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import Rarity from '@/components/ui/Rarity';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
+import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
 
 const CAROUSEL_INTERVAL_MS = 8000;
 const PAUSE_AFTER_CLICK_MS = 30000;
-
-const MATERIAL_SORT_INDEX = new Map(MATERIAL_SORT_ORDER.map((n, i) => [n, i]));
-// Unlike lib/farming/materialSortOrder.ts's own sortMaterials()
-// (unknowns sort AFTER known materials -- correct there, since its
-// lists are pure materials and an "unknown" only ever means a genuine
-// data gap), this list mixes skins in with materials. Skin names are
-// never part of MATERIAL_SORT_ORDER, so they're always the
-// "unknowns" here -- and per spec, skins sort ahead of everything
-// else, so the priority is flipped: unknown-vs-known now puts the
-// unknown (skin) first instead of last.
-function sortByMaterialOrder<T extends { name: string }>(items: T[]): T[] {
-  return [...items].sort((a, b) => {
-    const ai = MATERIAL_SORT_INDEX.get(a.name);
-    const bi = MATERIAL_SORT_INDEX.get(b.name);
-    if (ai !== undefined && bi !== undefined) return ai - bi; // both known materials -- normal tier order
-    if (ai === undefined && bi === undefined) return a.name.localeCompare(b.name); // both skins -- alphabetical among themselves
-    if (ai === undefined) return -1; // a is a skin, b is a material -- skin first
-    return 1; // b is a skin, a is a material -- skin first
-  });
-}
-
-function parseRewardQuantity(q: number | string): number {
-  if (typeof q === 'number') return q;
-  const m = String(q).trim().match(/^(\d+(?:\.\d+)?)\s*([KkMm]?)$/);
-  if (!m) return parseFloat(String(q)) || 0;
-  const base = parseFloat(m[1]);
-  const suffix = m[2].toLowerCase();
-  if (suffix === 'k') return Math.round(base * 1000);
-  if (suffix === 'm') return Math.round(base * 1000000);
-  return Math.round(base);
-}
-
-interface ResolvedRewardItem {
-  name: string;
-  quantity: number | string;
-  price: number | null;
-  currency: string;
-  stock: string;
-  iconPath: string | null;
-}
-
-interface ResolvedRewardStore {
-  type: string;
-  name: string;
-  items: ResolvedRewardItem[];
-}
-
-interface RewardTotal {
-  name: string;
-  iconPath: string | null;
-  total: number;
-}
-
-/** Total obtainable of each material across every FINITE-stock reward
- * listing combined -- reward_quantity x stock, summed across however
- * many stores/listings offer that same material. Unlimited-stock
- * listings are excluded from this entirely: not added to the total,
- * and not allowed to override it either, so a material with both a
- * finite listing (e.g. 200000 LMD from one store) and a separate
- * unlimited listing still just shows the finite 200000 -- the
- * unlimited option simply isn't part of the equation. A material
- * whose ONLY listings are unlimited has nothing finite to report, so
- * it doesn't appear in "All" at all (it still shows normally under
- * its own store's tab, with the real "unlimited" stock visible
- * there). */
-function computeRewardTotals(stores: ResolvedRewardStore[]): RewardTotal[] {
-  const totals = new Map<string, RewardTotal>();
-  for (const store of stores) {
-    for (const item of store.items) {
-      if (item.stock === 'unlimited') continue;
-      const stockCount = parseInt(item.stock, 10) || 0;
-      const addAmount = parseRewardQuantity(item.quantity) * stockCount;
-      const existing = totals.get(item.name);
-      const prevTotal = existing?.total ?? 0;
-      totals.set(item.name, { name: item.name, iconPath: item.iconPath, total: prevTotal + addAmount });
-    }
-  }
-  return sortByMaterialOrder(Array.from(totals.values()));
-}
 
 interface Props {
   name: string;
   /** null while the image repository has not published it (see publishedArt). */
   poster: string | null;
   images: string[];
+  /** The carousel box's aspect ratio, from the art it shows: a CG set is 16:9, and
+   *  an event poster is the game's 1024x328 banner. A 16:9 box around the poster
+   *  left 43% of it as letterbox. */
+  artAspect: string;
   dateRange: string;
   isPredicted: boolean;
   bannerName: string | null;
@@ -119,15 +48,21 @@ interface Props {
   rewardStores: ResolvedRewardStore[];
 }
 
-type SectionKey = 'banner' | 'rewards' | 'skins' | 'packs' | 'misc';
+type SectionKey = 'banner' | 'rewards' | 'skins';
 
+/* Packs and Miscellaneous are gone until there is something to put in them: two
+   tabs that only ever said "Coming soon" pushed the row onto a second line at 390
+   and were the tallest-to-shortest switch on the page. A section with nothing
+   linked is left out the same way. */
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'banner', label: 'Banner' },
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
-  { key: 'packs', label: 'Packs' },
-  { key: 'misc', label: 'Miscellaneous' },
 ];
+
+/** The poster's shape: the game's event banner art is 1024x328. */
+const POSTER_ASPECT = '1024 / 328';
+const CG_ASPECT = '16 / 9';
 
 function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
   const folder = rarity === 6 ? 'six-star-icons' : rarity === 5 ? 'five-star-icons' : 'four-star-icons';
@@ -137,12 +72,16 @@ function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
 function RewardTotalsRow({ totals }: { totals: RewardTotal[] }) {
   if (totals.length === 0) return <p className="hint">Nothing here.</p>;
   return (
-    <div className="op-cost-row">
+    <div className="event-reward-totals">
       {totals.map((t, i) => (
-        <span key={i} className="op-cost-item" title={t.name}>
-          {/* No icon published yet: the name, or the chip would read "×1" alone. */}
-          {t.iconPath ? <Image src={t.iconPath} alt={t.name} width={36} height={36} /> : t.name}
-          <b>×{t.total}</b>
+        <span key={i} className="event-reward-total">
+          {/* No icon published yet: the frame holds its place. */}
+          <span className="event-reward-total-icon">
+            {t.iconPath && <Image src={t.iconPath} alt="" width={40} height={40} />}
+          </span>
+          {/* The name on the tile, not only in a tooltip a phone cannot reach. */}
+          <span className="event-reward-total-name">{t.name}</span>
+          <b>×{t.total.toLocaleString('en-US')}</b>
         </span>
       ))}
     </div>
@@ -168,7 +107,7 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
           </div>
           <div className="event-reward-panel-text">
             <span className="event-reward-panel-name">{item.name}</span>
-            <span className="event-reward-panel-meta">
+            <span className="event-reward-panel-meta" title={item.price !== null ? `${item.price} ${item.currency}` : undefined}>
               {item.price !== null ? `${item.price} ${item.currency}` : 'Free'}
             </span>
           </div>
@@ -180,8 +119,8 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
 
 export default function EventDetailPage({
   name,
-  poster,
   images,
+  artAspect,
   dateRange,
   isPredicted,
   bannerName,
@@ -191,7 +130,14 @@ export default function EventDetailPage({
   skins,
   rewardStores,
 }: Props) {
-  const [activeSection, setActiveSection] = useState<SectionKey>('banner');
+  const sections = SECTIONS.filter((section) => (
+    section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 : skins.length > 0
+  ));
+  const [activeSection, setActiveSection] = useState<SectionKey>(sections[0]?.key ?? 'banner');
+  /* Switching from Rewards (tall) to Skins (short) at the bottom of the page used to
+     clamp the scroll and throw the tab row 435px down the screen at 390. The panel
+     holds the reader's place through a shorter tab, per event. */
+  const floor = useHeightFloor(name);
   const [imgIndex, setImgIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -234,40 +180,17 @@ export default function EventDetailPage({
 
   return (
     <>
-      <header>
-        {/* Straight to the Schedule page rather than through /events, which redirects
-            there: a back link should not cost a round trip. Its default view is the
-            list, which is the page this came from. */}
-        <Link prefetch={false} href="/schedule" className="hint">
-          ← Back to Events
-        </Link>
-        <div className="eyebrow">Rhodes Island // Operation Log</div>
-        <div className="event-detail-header-row">
-          <div>
-            <h1>{name}</h1>
-            <p className="sub">
-              {isPredicted ? 'Predicted release: ' : 'Release: '}
-              {dateRange}
-            </p>
-          </div>
-          {poster && (
-            <div className="event-detail-header-poster">
-              <Image
-                src={poster}
-                alt={name}
-                fill
-                sizes="480px"
-                style={{ objectFit: 'cover', objectPosition: 'top right' }}
-              />
-            </div>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
+        title={name}
+        sub={`${isPredicted ? 'Predicted release: ' : 'Release: '}${dateRange}`}
+      />
 
       <main className="event-detail-layout">
         <div className="event-detail-carousel">
-          <div className="event-detail-image-wrap">
-            {activeImage && <Image src={activeImage} alt={name} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+          {/* The event's art, once: it used to be here AND as a poster in the header. */}
+          <div className="event-detail-image-wrap" style={{ aspectRatio: artAspect }}>
+            {activeImage && <Image src={activeImage} alt={name} fill sizes="600px" style={{ objectFit: 'cover' }} />}
           </div>
           {images.length > 1 && (
             <div className="event-detail-carousel-dots">
@@ -284,19 +207,17 @@ export default function EventDetailPage({
           )}
         </div>
 
-        <div className="event-detail-right">
-          <div className="op-section-tabs">
-            {SECTIONS.map((s) => (
-              <button
-                type="button"
-                key={s.key}
-                className={s.key === activeSection ? 'primary' : 'ghost'}
-                onClick={() => setActiveSection(s.key)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+        <div className="event-detail-right" ref={floor.ref}>
+          {sections.length > 1 && (
+            <SegmentedControl<SectionKey>
+              label="Event sections"
+              className="event-detail-tabs"
+              value={activeSection}
+              onChange={setActiveSection}
+              options={sections.map((section) => ({ value: section.key, label: section.label }))}
+            />
+          )}
+          {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
 
           {activeSection === 'banner' && (
             <section className="op-section">
@@ -314,9 +235,12 @@ export default function EventDetailPage({
                     {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
                     <div className="event-detail-featured-ops">
                       {operators.map(op => <div key={`${op.rarity}-${op.name}`} className="event-detail-featured-op">
-                        <Image src={iconPathFor(op.name, op.rarity)} alt={op.name} width={52} height={52} />
+                        <Image src={iconPathFor(op.name, op.rarity)} alt={op.name} width={52} height={52} className={`tier-${op.rarity}`} />
                         <span>{op.name}</span>
-                        <span className="hint">{op.percent !== null ? `${op.percent.toFixed(1)}%` : `${op.rarity}★`}</span>
+                        <span className="event-detail-featured-meta">
+                          <Rarity n={op.rarity} />
+                          {op.percent !== null && <span className="event-detail-featured-pct">{op.percent.toFixed(1)}%</span>}
+                        </span>
                       </div>)}
                     </div>
                   </div>)}
@@ -331,25 +255,13 @@ export default function EventDetailPage({
             <section className="op-section">
               {rewardStores.length > 0 ? (
                 <>
-                  <div className="event-rewards-tabs">
-                    <button
-                      type="button"
-                      className={activeRewardTab === 'all' ? 'primary' : 'ghost'}
-                      onClick={() => setActiveRewardTab('all')}
-                    >
-                      All
-                    </button>
-                    {rewardTypes.map((t) => (
-                      <button
-                        type="button"
-                        key={t}
-                        className={activeRewardTab === t ? 'primary' : 'ghost'}
-                        onClick={() => setActiveRewardTab(t)}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
+                  <SegmentedControl
+                    label="Reward store"
+                    className="event-rewards-tabs"
+                    value={activeRewardTab}
+                    onChange={setActiveRewardTab}
+                    options={[{ value: 'all', label: 'All' }, ...rewardTypes.map((t) => ({ value: t, label: t }))]}
+                  />
                   {activeRewardTab === 'all' ? (
                     <RewardTotalsRow totals={rewardTotals} />
                   ) : (
@@ -372,7 +284,7 @@ export default function EventDetailPage({
                       <button
                         type="button"
                         key={skin.name}
-                        className="event-detail-skin-item"
+                        className="btn-bare event-detail-skin-item"
                         onClick={() => setActiveSkin(skin)}
                       >
                         {skin.image && (
@@ -396,17 +308,7 @@ export default function EventDetailPage({
             </section>
           )}
 
-          {activeSection === 'packs' && (
-            <section className="op-section">
-              <p className="hint">Coming soon.</p>
-            </section>
-          )}
-
-          {activeSection === 'misc' && (
-            <section className="op-section">
-              <p className="hint">Coming soon.</p>
-            </section>
-          )}
+          {floor.spacer}
         </div>
       </main>
 
@@ -502,6 +404,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const cgImages = getEventCgImages(event.name);
   const images = cgImages.length > 0 ? cgImages : event.poster ? [event.poster] : [];
+  const artAspect = cgImages.length > 0 ? CG_ASPECT : POSTER_ASPECT;
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
   const rawStores = getEventRewards(event.name);
@@ -532,6 +435,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       name: event.name,
       poster: event.poster,
       images,
+      artAspect,
       dateRange: event.dateRange,
       isPredicted: event.isPredicted,
       bannerName: banner?.name || null,
