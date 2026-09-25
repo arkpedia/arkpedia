@@ -513,6 +513,8 @@ main {
   margin: 0 auto;
   padding: 24px var(--page-gutter);
 }
+/* pages/404.tsx and 500.tsx: where to go instead, as a row of buttons. */
+.error-page-links { display: flex; flex-wrap: wrap; gap: 10px; }
 .banner {
   display: flex;
   align-items: center;
@@ -1337,6 +1339,20 @@ a.primary:where(:has(~ a.ghost)),
 .stage-deploy-strip {
   scrollbar-color: auto;
 }
+
+/* components/ui/ScrollRow: one line of cards that never wraps, under the drawn bar
+   below. Children keep their own width; the gap is the site's 12px card rhythm.
+   The focus ring is drawn inside, because the scroller would clip one outside. */
+.scroll-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding-bottom: 6px;
+}
+.scroll-row > * { flex: none; }
+.scroll-row:focus-visible { outline-offset: -2px; }
 
 /* --- side-scrolling rows ----------------------------------------------------
    Every box on this site whose content runs off to the right gets a scrollbar that is

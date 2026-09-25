@@ -548,6 +548,51 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 :where(input, select, textarea):focus { border-color: var(--teal); }
 
+/* components/ui/SearchInput: the one search field. The magnifier and the clear
+   button sit inside the field's padding, so the box is exactly the input's box. */
+.search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+.search-input-wrap .search-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 34px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--well);
+  color: var(--text);
+  font: 400 13px/1.3 var(--font-mono);
+}
+.search-input-wrap .search-input::placeholder { color: var(--text-faint); opacity: 1; }
+.search-input-wrap .search-input:hover { border-color: var(--teal); }
+.search-input-wrap .search-input:focus { border-color: var(--teal); }
+.search-input-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.search-input-wrap .search-input-clear {
+  position: absolute;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  color: var(--text-dim);
+}
+.search-input-wrap .search-input-clear:hover { color: var(--teal); }
+@media (max-width: 720px) {
+  .search-input-wrap .search-input { min-height: 40px; font-size: 16px; }
+}
+
 /* --- rarity accents -------------------------------------------------------
    Rarity colour comes from --rarity-1..6 and from these classes, nowhere else
    (npm run audit:styles rejects a colour literal in any rule whose selector names

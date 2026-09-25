@@ -924,7 +924,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                 <div className="op-name-row">
                   <h1>{operator.name}</h1>
                   <nav className={pageStyles.sectionMenu} aria-label="Operator sections">
-                    <StyledSelect label="Jump to section" value={activeSection}
+                    <StyledSelect label="Jump to section" align="end" value={activeSection}
                       options={[
                         { value: 'artwork', label: 'Artwork' },
                         ...sectionGroups.flatMap(group => group.keys.flatMap(key => {
@@ -1109,7 +1109,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                         {(
                           <div className={pageStyles.costs}>
                             <label htmlFor="skill-cost-scope">Material costs</label>
-                            <StyledSelect id="skill-cost-scope" label="Skill material costs" className={pageStyles.costSelect}
+                            <StyledSelect id="skill-cost-scope" align="end" label="Skill material costs" className={pageStyles.costSelect}
                               value={showTotal ? 'total' : 'step'} onChange={value => setShowTotal(value === 'total')}
                               options={[{ value: 'step', label: 'Selected upgrade only' }, { value: 'total', label: `All skill levels up to ${activeStepLabel}` }]} />
                             <CostRow cost={costForStep()} />
@@ -1249,7 +1249,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             ))}
                             <div className={pageStyles.costs}>
                               <label htmlFor="module-cost-scope">Material costs</label>
-                              <StyledSelect id="module-cost-scope" label="Module material costs" className={pageStyles.costSelect}
+                              <StyledSelect id="module-cost-scope" align="end" label="Module material costs" className={pageStyles.costSelect}
                                 value={showModuleTotal ? 'total' : 'step'} onChange={value => setShowModuleTotal(value === 'total')}
                                 options={[{ value: 'step', label: 'Selected stage only' }, { value: 'total', label: `All stages up to stage ${activeModuleStage + 1}` }]} />
                               <CostRow cost={costForModuleStage()} />

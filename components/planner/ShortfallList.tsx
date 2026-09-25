@@ -7,7 +7,7 @@ import {
 } from '@/lib/planner/craft';
 import { SOURCE_LABELS, type Source } from '@/lib/planner/sources';
 import { MaterialIcon } from './MaterialIcon';
-import { useHeightFloor } from './useHeightFloor';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 
 /**
  * What to get next.

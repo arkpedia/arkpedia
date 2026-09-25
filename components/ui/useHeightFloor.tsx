@@ -4,7 +4,15 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
  * A container that holds the reader's place through a collapse -- and hands the
  * space back afterwards.
  *
- * The Anti-Page-Jump rule, as the one shape this page needs it in. Four things
+ * Site-wide since 2026-09-25 (it was the planner's): use it for a tab switch, a
+ * "show less", a collapsing panel -- any state change inside one container that can
+ * make the document shorter than the reader's scroll position needs. Not for a
+ * search that narrows a long list to a few rows (see the arkpedia-ui skill).
+ *
+ *     const floor = useHeightFloor(logicalPageKey);
+ *     <div ref={floor.ref}>{content}{floor.spacer}</div>
+ *
+ * The Anti-Page-Jump rule, as the one shape the planner needed it in. Four things
  * here can remove content: `All N materials` narrowing back to the short ones,
  * `Hide them` collapsing eleven roster rows, closing an operator's editor, and
  * the depot folding ninety-three tiles back to a strip. Each drops the

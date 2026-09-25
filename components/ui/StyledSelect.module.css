@@ -1,16 +1,94 @@
+/* The dropdown surface: StyledSelect's trigger and menu, and SuggestMenu's list (which
+   imports .menu, .option and .optionBody from here so the two are one surface).
+   Colours, borders and radii come from the tokens in styles/core/shared.css only. */
 .root { display: inline-flex; min-width: 0; max-width: 100%; }
-.root .trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2); color: var(--text); font: 500 13px/1.3 var(--font-body); text-align: left; cursor: pointer; text-transform: none; letter-spacing: normal; }
-.root .trigger:hover { border-color: var(--teal); }
+.root .trigger {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font: 500 13px/1.3 var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.root .trigger:hover { border-color: var(--teal); color: var(--teal); }
 .root .trigger[aria-expanded="true"] { border-color: var(--teal); background: var(--teal-dim); }
-.root .trigger:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.root .trigger:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.root .trigger:disabled { border-color: var(--line-soft); color: var(--text-faint); cursor: default; opacity: 0.55; }
+.root .trigger[data-placeholder="true"] .value { color: var(--text-dim); }
 .trigger > svg { flex-shrink: 0; color: var(--teal); }
-.value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu { position: fixed; z-index: 1200; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; padding: 5px; border: 1px solid var(--line); border-top: 2px solid var(--teal); border-radius: 6px; background: var(--panel); color: var(--text); box-shadow: 0 12px 32px rgb(0 0 0 / .22); font: 500 13px/1.4 var(--font-body); scrollbar-width: thin; }
-.option { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 36px; box-sizing: border-box; padding: 8px 10px; border: 1px solid transparent; border-radius: 3px; cursor: pointer; overflow-wrap: anywhere; }
-.option[data-active="true"] { background: var(--panel-2); border-color: var(--line); }
+.trigger:disabled > svg { color: currentColor; }
+.value { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The heading-sized trigger: the calendar's month and year read as the title they
+   are, and are still visibly a control -- a chevron and the resting border. */
+.title .trigger {
+  min-height: 40px;
+  padding: 4px 8px 4px 10px;
+  background: transparent;
+  font: 700 22px/1.1 var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.menu {
+  position: fixed;
+  z-index: 1200;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--teal);
+  border-radius: var(--radius-frame);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .22);
+  font: 500 13px/1.35 var(--font-mono);
+  scrollbar-width: thin;
+}
+.option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.optionBody { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+.option[data-active="true"] { background: var(--panel-2); border-color: var(--control-border); }
 .option[aria-selected="true"] { color: var(--teal); background: var(--teal-dim); }
+.option[aria-disabled="true"] { color: var(--text-faint); cursor: default; }
 .check { flex-shrink: 0; visibility: hidden; }
 .option[aria-selected="true"] .check { visibility: visible; }
-.group { padding: 10px 10px 5px; color: var(--text-dim); font-size: 11px; }
-.menu > div + div:has(> .group) { margin-top: 4px; border-top: 1px solid var(--line); }
-@media (max-width: 900px) { .root .trigger { min-height: 40px; } .option { min-height: 40px; } }
+.group {
+  padding: 10px 10px 5px;
+  color: var(--text-faint);
+  font: 500 11px/1.2 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.groupRun + .groupRun,
+.option + .groupRun { margin-top: 4px; border-top: 1px solid var(--line); }
+/* An empty state inside a menu: "No operators found." */
+.empty { padding: 10px; color: var(--text-dim); }
+
+/* SuggestMenu: the same surface, anchored under (or over) its search field instead of
+   fixed to the viewport. */
+.menu.suggest { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; max-height: 320px; }
+.menu.suggestUp { top: auto; bottom: calc(100% + 4px); }
