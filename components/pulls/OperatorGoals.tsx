@@ -1,4 +1,5 @@
-import { PlannerSelect } from './PlannerSelect';
+import StyledSelect from '@/components/ui/StyledSelect';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { SectionHelp } from './SectionHelp';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { BannerGoal } from '@/lib/pulls/plan';
@@ -36,24 +37,24 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
   const result = response?.key === key ? response.result : undefined;
   const error = response?.key === key ? response.error : undefined;
   const toggle = (name: string) => onChange({ ...goal, targets: targets.some(t => t.name === name) ? targets.filter(t => t.name !== name) : [...targets, { name, copies: 1 }] });
-  const chip = (op: OddsOperator, selection: string[], onClick: () => void, disabled = false) => <button key={op.name} type="button" className="pulls-operator-choice" aria-pressed={selection.includes(op.name)} onClick={onClick} disabled={disabled}>
+  const chip = (op: OddsOperator, selection: string[], onClick: () => void, disabled = false) => <button key={op.name} type="button" className="btn-bare pulls-operator-choice" aria-pressed={selection.includes(op.name)} onClick={onClick} disabled={disabled}>
     {/* eslint-disable-next-line @next/next/no-img-element */}
     {op.icon && <ContentImg src={op.icon} alt="" width="42" height="42" loading="lazy" />}
-    <span><b>{op.name}</b><small>{op.rarity}★{op.spark ? ` · ${op.spark} spark tokens` : ''}</small></span>
+    <span><b>{op.name}</b><small><Rarity n={rarityLevel(op.rarity)} />{op.spark ? ` · ${op.spark} spark tokens` : ''}</small></span>
   </button>;
   const goalChip = (op: OddsOperator) => {
     const target = targets.find(t => t.name === op.name);
     return <div key={op.name} className="pulls-operator-option" data-selected={!!target}>
       {chip(op, targets.map(t => t.name), () => toggle(op.name))}
       {target && <div className="pulls-operator-count">
-        <PlannerSelect label={`Copies wanted of ${op.name}`} value={String(target.copies)}
+        <StyledSelect label={`Copies wanted of ${op.name}`} menuMinWidth={72} value={String(target.copies)}
           onChange={value => onChange({ ...goal, targets: targets.map(t => t.name === op.name ? { ...t, copies: Number(value) } : t) })}
           options={[1, 2, 3, 4, 5, 6].map(n => ({ value: String(n), label: String(n) }))} />
       </div>}
     </div>;
   };
   return <section className="pulls-operator-goals" aria-label={`Operator goals for ${goal.banner}`}>
-    <div className="pulls-goals-heading"><h4>Operator goals</h4>    <SectionHelp title={`Operator goals: ${goal.banner.replace(/^\[[^\]]*\]\s*/, '')}`} links={[{label: 'pull budget', selector: '.pulls-plan-controls'}]}>
+    <div className="pulls-goals-heading"><h3>Operator goals</h3>    <SectionHelp title={`Operator goals: ${goal.banner.replace(/^\[[^\]]*\]\s*/, '')}`} links={[{label: 'pull budget', selector: '.pulls-plan-controls'}]}>
       <ol><li>{rules.type === 'orienteering' ? 'Choose three rate-up operators of each rarity, then select your goals.' : 'Select one or more operators.'}</li><li>Choose how many new copies you want.</li><li>Enter your pull budget to compare individual and combined chances.</li></ol>
       <p>Individual rows show at least the listed number of new copies. With sparking, each row spends all spark tokens on that operator. The combined chance shares one spark token balance across all your goals.</p>
       {rules.type === 'limited' && <p>One pull earns one spark token. Exchange costs appear on each operator. The extra {rules.bonus} at 300 pulls is always included, even with sparking off.</p>}
@@ -82,13 +83,13 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
       <div className="pulls-operator-choices pulls-goal-choices">{available.filter(op => op.kind === 'featured').map(goalChip)}</div>
       {available.some(op => op.kind === 'returning') && <details className="pulls-odds-details"><summary>Returning limited operators</summary><div className="pulls-operator-choices pulls-goal-choices">{available.filter(op => op.kind === 'returning').map(goalChip)}</div></details>}
     </>}
-    {rules.type === 'limited' && <><label className="pulls-ticket-used"><input type="checkbox" checked={goal.includeSpark ?? false} onChange={event => onChange({ ...goal, includeSpark: event.target.checked })} />Include sparking</label></>}
+    {rules.type === 'limited' && <><button type="button" className={`tgl pulls-ticket-used${goal.includeSpark ? ' is-on' : ''}`} aria-pressed={goal.includeSpark ?? false} onClick={() => onChange({ ...goal, includeSpark: !goal.includeSpark })}>Include sparking</button></>}
     </div>
     <div className="pulls-goals-outcome">
     {children}
     {targets.length > 0 ? (
       <div className="pulls-odds-result" aria-live="polite" aria-busy={!result && !error}>
-        {error ? <p className="pulls-plan-warning">{error} <button type="button" className="pulls-quick-btn" onClick={() => setRetry(n => n + 1)}>Retry</button></p> : result ? <>
+        {error ? <p className="pulls-plan-warning">{error} <button type="button" className="ghost btn-sm" onClick={() => setRetry(n => n + 1)}>Retry</button></p> : result ? <>
           <div className="pulls-odds-headline"><span>{targets.length > 1 ? 'All goals' : 'Goal chance'}<small>Estimate · {goal.pulls.toLocaleString()} pulls · 0 pity</small></span><strong>{formatChance(result.all)}</strong></div>
           <details className="pulls-odds-details pulls-copy-details" open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)}>
           <summary>{goal.includeSpark && rules.type === 'limited' ? 'Chance when prioritising each operator' : 'Chances per operator'}</summary>

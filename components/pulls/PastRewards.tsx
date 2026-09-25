@@ -29,7 +29,7 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, i
     <p className="hint">Tick completed content.</p>
     {groups.map(group => <details className="pulls-disclosure" key={group.id} open={open === group.id}>
       <summary onClick={event => { event.preventDefault(); setOpen(previous => previous === group.id ? '' : group.id); }}>{group.name}<span className="hint">{group.items.reduce((n,item) => n + (complete(group.id,item.id) ? 0 : item.amount),0).toLocaleString()} {group.unit} left</span></summary>
-      <div className="pulls-eventlist-acts"><button type="button" className="pulls-quick-btn" onClick={() => setCompleted(group, group.items.map(item => item.id), true)}>All completed</button><button type="button" className="pulls-quick-btn" onClick={() => setCompleted(group, group.items.map(item => item.id), false)}>None completed</button></div>
+      <div className="pulls-eventlist-acts"><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map(item => item.id), true)}>All completed</button><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map(item => item.id), false)}>None completed</button></div>
       <div className="pulls-eventgrid">{group.items.map(item => <button type="button" key={item.id} className={`pulls-eventchip${complete(group.id,item.id) ? ' on' : ''}`} aria-pressed={complete(group.id,item.id)} onClick={() => setCompleted(group,[item.id],!complete(group.id,item.id))}>
         <span className="pulls-eventchip-mark" aria-hidden="true">{complete(group.id,item.id) ? '✓' : ''}</span><span className="pulls-eventchip-name">{item.name}</span><span className="pulls-eventchip-op">{item.amount}</span>
       </button>)}</div>
