@@ -284,7 +284,7 @@
   color: var(--text);
 }
 .gacha-tutorial-pity-flow-x {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--danger);
   font-weight: 700;
 }
@@ -389,9 +389,6 @@
   width: 9px;
   height: 9px;
 }
-.gacha-tutorial-pull-card.small .gacha-tutorial-pull-card-label {
-  font-size: 7px;
-}
 .gacha-tutorial-pull-card .gacha-stars-icons {
   color: var(--amber);
 }
@@ -399,9 +396,10 @@
   display: flex;
   gap: 1px;
 }
+/* 10px, the site's floor, on the small guarantee card too (it was 7px there). */
 .gacha-tutorial-pull-card-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text);
 }
 .gacha-tutorial-pull-card-label.dim {
@@ -550,7 +548,7 @@
 }
 .gacha-tutorial-pick-status {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   color: var(--text);
   opacity: 0.8;
   text-transform: uppercase;
@@ -634,7 +632,7 @@
   justify-content: center;
 }
 .gacha-tutorial-equals {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--text-faint);
 }
 .gacha-tutorial-pct {
