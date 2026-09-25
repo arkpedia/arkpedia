@@ -31,6 +31,8 @@ const SEEDED_SOURCE_FILES = new Set([
   // every run) and the English names of CN-only materials it reads (kept by hand).
   'data/material-catalogue.json',
   'data/material-names.json',
+  // The announcement ticker's SSS cycle (lib/schedule/sssCycle.ts), kept by hand.
+  'data/sss-cycle.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

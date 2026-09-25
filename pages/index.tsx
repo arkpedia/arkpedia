@@ -8,6 +8,8 @@ import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { GetStaticProps } from 'next';
 import { useEffect, useState } from 'react';
 import AnnouncementTicker from '@/components/layout/AnnouncementTicker';
+import { useReleaseTable } from '@/lib/content/context';
+import { checkSssCycle, type SssCycle } from '@/lib/schedule/sssCycle';
 import EventsPanel from '@/components/schedule/EventsPanel';
 import GachaBannersPanel from '@/components/home/GachaBannersPanel';
 import FeaturedOperatorsPanel from '@/components/home/FeaturedOperatorsPanel';
@@ -75,11 +77,13 @@ export default function HomePage({
   // lineup for whichever banner is currently displayed on the left.
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const activeBanner = deserializedBanners[Math.min(activeBannerIndex, deserializedBanners.length - 1)] || null;
+  /* The release's SSS cycle, for the ticker's countdown (lib/content/tables.mjs). */
+  const sssCycle = useReleaseTable<SssCycle>('sss-cycle');
 
   return (
     <>
       {/* Home-page-only, not global -- see AnnouncementTicker.tsx. */}
-      <AnnouncementTicker />
+      <AnnouncementTicker sssCycle={sssCycle} />
       <main className="front-page-layout">
         {/* The page's visual identity is the nav's wordmark, so the document
             outline gets its h1 invisibly -- without it the outline started at
@@ -137,4 +141,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/',
   farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
   // Stored in the data release, consumed on the server, and never sent to the browser.
   __calendar: { events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins() },
-} }), { finalize: finalizeHome, revalidate: 1500 });
+} }), { finalize: finalizeHome, revalidate: 1500, tables: {
+  // Only what the ticker reads: the record's own "about" stays in data/.
+  'sss-cycle': async () => { const { version, cycleEnd, periodDays } = checkSssCycle((await import('@/data/sss-cycle.json')).default); return { version, cycleEnd, periodDays }; },
+} });
