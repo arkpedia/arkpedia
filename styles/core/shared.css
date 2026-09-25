@@ -987,15 +987,6 @@ a.primary:where(:has(~ a.ghost)),
    a consistent apparent scale across every card, since the crop adapts
    to each image's own proportions rather than cutting a flat percentage
    of whatever resolution that particular image happens to be. */
-.skin-image-wrap {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  overflow: hidden;
-  border-radius: 4px;
-  background: var(--panel-2);
-}
 
 
 .main-wide { max-width: 1320px; }
