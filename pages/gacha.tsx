@@ -269,11 +269,13 @@ function PullHistory({ history, onSelect }: { history: PulledItem[]; onSelect: (
 function FeaturedChip({ item, rarity, percent, tags, count, onSelect }: { item: GachaItem; rarity: 6 | 5; percent?: number; tags?: ('rateUp' | 'limited')[]; count?: number; onSelect: (item: PreviewItem) => void }) {
   return (
     <button type="button" className={`gacha-featured-chip gacha-featured-chip-${rarity}`} onClick={() => onSelect({ ...item, rarity })} aria-label={`View ${item.name} operator details`}>
-      {item.icon ? (
-        <Image src={item.icon} alt={item.name} width={44} height={44} />
-      ) : (
-        <div className="gacha-pull-icon-placeholder">{rarity}★</div>
-      )}
+      <span className="gacha-featured-portrait">
+        {item.icon ? (
+          <Image src={item.icon} alt="" width={44} height={44} />
+        ) : (
+          <span className="gacha-pull-icon-placeholder">{rarity}★</span>
+        )}
+      </span>
       <span className="gacha-featured-info">
         <span className="gacha-featured-name" title={item.name}>{item.name}</span>
         <span className="gacha-featured-meta">
