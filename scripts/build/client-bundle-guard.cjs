@@ -43,7 +43,9 @@ class ClientDataGuard {
           const module = list.find(candidate => typeof candidate.resource === 'string' && path.resolve(candidate.resource.split('?')[0]) === path.resolve(this.root, file));
           const chain = [];
           for (let at = module && compilation.moduleGraph.getIssuer(module); at && chain.length < 12; at = compilation.moduleGraph.getIssuer(at)) {
-            if (typeof at.resource === 'string') chain.push(path.relative(this.root, at.resource.split('?')[0]));
+            const relative = typeof at.resource === 'string' ? path.relative(this.root, at.resource.split('?')[0]) : '';
+            // Next's page entry resolves to the repository root itself: nothing to name.
+            if (relative) chain.push(relative.split(path.sep).join('/'));
           }
           const WebpackError = compiler.webpack?.WebpackError ?? Error;
           compilation.errors.push(new WebpackError(`${file} is compiled into browser code${chain.length ? ` (imported by ${chain.join(' <- ')})` : ''}. `

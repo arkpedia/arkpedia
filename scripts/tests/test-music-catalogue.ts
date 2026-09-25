@@ -116,9 +116,10 @@ test('the bundle guard fails a browser compilation that holds data/albums.json a
     onFinish(modules.reverse());
     return compilation.errors.map(error => error.message);
   };
-  const errors = compile([`${root}/pages/_app.tsx`, `${root}/lib/music/musicPlayerContext.tsx`, `${root}/lib/music/albumsData.ts`, `${root}/data/albums.json`]);
+  // Next's page entry module resolves to the repository root, which names nothing.
+  const errors = compile([root, `${root}/pages/_app.tsx`, `${root}/lib/music/musicPlayerContext.tsx`, `${root}/lib/music/albumsData.ts`, `${root}/data/albums.json`]);
   assert.equal(errors.length, 1);
-  assert.match(errors[0], /^data\/albums\.json is compiled into browser code \(imported by lib\/music\/albumsData\.ts <- lib\/music\/musicPlayerContext\.tsx <- pages\/_app\.tsx\)/);
+  assert.match(errors[0], /^data\/albums\.json is compiled into browser code \(imported by lib\/music\/albumsData\.ts <- lib\/music\/musicPlayerContext\.tsx <- pages\/_app\.tsx\)\. /);
   assert.deepEqual(compile([`${root}/pages/_app.tsx`, `${root}/lib/music/musicCatalogue.ts`]), []);
 });
 
