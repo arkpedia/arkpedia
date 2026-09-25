@@ -5,6 +5,7 @@ import { newProgress, normalizeAnswer, pickNext, resolveOperator, submitAnswer }
 import { buildRecruitmentQuestions } from '../../lib/minigames/recruitmentLogic';
 import { getRecruitmentGameData } from '../../lib/minigames/recruitmentData';
 import { getAllOperators } from '../../lib/operators/operators';
+import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER, rarityFromIconPath } from '../../lib/operators/operatorIcon';
 import snapshot from '../../data/recruitment-global.json';
 
 const game = getRecruitmentGameData();
@@ -101,4 +102,17 @@ test('recruitment guesser never accepts an operator outside the Global recruitme
   const tagged = new Map(snapshot.operators.map(operator => [operator.name, operator.tags as string[]]));
   const summon = game.questions.filter((question) => question.tags.includes('Summon'));
   assert.ok(summon.length > 0 && summon.every((question) => question.answers.every(name => tagged.get(name)?.includes('Summon'))));
+});
+
+test('the reveal reads each answer\'s rarity back from its icon, because the published props carry no rarity', () => {
+  // Page props come from the content release, shaped by the code that compiled it; a
+  // rarity field added to them was undefined in production until the next release and
+  // crashed every reveal. The icon path is in every release, and names the rarity.
+  const byName = new Map(getAllOperators().map((operator) => [operator.name, operator]));
+  for (const operator of game.operators) {
+    assert.equal(rarityFromIconPath(operator.icon), byName.get(operator.name)!.rarity, operator.name);
+  }
+  for (const rarity of [1, 2, 3, 4, 5, 6]) assert.equal(rarityFromIconPath(getOperatorIconPath({ name: 'Amiya', rarity })), rarity);
+  assert.equal(rarityFromIconPath(OPERATOR_PORTRAIT_PLACEHOLDER), null);
+  assert.throws(() => rarityFromIconPath('/skill-icons/Amiya - Chimera.webp'));
 });

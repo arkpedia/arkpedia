@@ -11,6 +11,7 @@ import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import OperatorAnswer from '@/components/minigames/OperatorAnswer';
 import RoundFeedback from '@/components/minigames/RoundFeedback';
 import { getRecruitmentGameData } from '@/lib/minigames/recruitmentData';
+import { rarityFromIconPath } from '@/lib/operators/operatorIcon';
 import { newProgress, pickNext, submitAnswer } from '@/lib/minigames/logic';
 import type { RecruitmentGameOperator, RecruitmentQuestion } from '@/lib/minigames/recruitmentLogic';
 import styles from '@/styles/games/minigames.module.css';
@@ -65,8 +66,10 @@ export default function RecruitmentGame({ operators, questions }: Props) {
         <ul className={styles.results} aria-label="Matching operators">
           {shownAnswers.map((name) => {
             const operator = roster.get(name)!;
-            const rarity = rarityLevel(operator.rarity);
-            return <li key={name} className={styles.result} data-found={progress.found.includes(name)}><Image className={`tier-${rarity}`} src={operator.icon} alt="" width={54} height={54} /><div><strong>{name}</strong><small><Rarity n={rarity} /> · {progress.found.includes(name) ? 'Found' : 'Not found'}</small></div></li>;
+            /* From the icon's folder: the published props carry the icon, not the rarity. */
+            const stars = rarityFromIconPath(operator.icon);
+            const rarity = stars === null ? null : rarityLevel(stars);
+            return <li key={name} className={styles.result} data-found={progress.found.includes(name)}><Image className={rarity ? `tier-${rarity}` : undefined} src={operator.icon} alt="" width={54} height={54} /><div><strong>{name}</strong><small>{rarity && <><Rarity n={rarity} /> · </>}{progress.found.includes(name) ? 'Found' : 'Not found'}</small></div></li>;
           })}
           {playing && Array.from({ length: question.answers.length - progress.found.length }, (_, i) => <li key={`empty-${i}`} className={`${styles.result} ${styles.emptySlot}`}>Operator still to find</li>)}
         </ul>
