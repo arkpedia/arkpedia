@@ -444,7 +444,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           </div>
         </div>
 
-        <div className="schedule-layout">
+        <div>
           <div className="schedule-calendar-col">
             <div className="timeline-month timeline-month-large">
               {/* The header above says which month this is, so the grid does not repeat

@@ -351,7 +351,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         </div>
         <div className={workspace.detailArea} hidden={!activeTab}>          <section role="region" id="panel-income" aria-labelledby="tab-income" hidden={activeTab !== 'income'} className={`op-section ${workspace.detailPanel}`}>
             <h2>Income</h2>
-            <div className="pulls-target-row"><StyledSelect<DetailOption> label="Forecast banner" className="pulls-banner-select" menuMinWidth={320} value={bannerName} onChange={name => { setBannerName(name); const banner = banners.find(b => b.name === name); if (banner) setUntil(banner.end); }}
+            <div className="pulls-target-row"><StyledSelect<DetailOption> label="Forecast banner" menuMinWidth={320} value={bannerName} onChange={name => { setBannerName(name); const banner = banners.find(b => b.name === name); if (banner) setUntil(banner.end); }}
               renderOption={option => <DetailOptionContent option={option} />} renderValue={option => <DetailOptionContent option={option} compact />}
               options={[{ value: '', label: 'Choose a banner…' }, ...banners.map((b): DetailOption => {
                 const rateUp = bannerOdds[b.name]?.operators.filter(operator => operator.kind === 'featured') ?? [];

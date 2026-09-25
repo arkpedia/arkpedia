@@ -137,7 +137,7 @@ export function SimplePlanner({
   const state = name ? states[name] : null;
   const pending = selectedNames.filter((n) => !bills[n]);
   return (
-    <div className="simple-planner">
+    <div>
       <div className="simple-search-row">
       {/* The site's search field with its suggestion list: it was a hand-built
           input and list of its own. Enter still takes the first match. */}

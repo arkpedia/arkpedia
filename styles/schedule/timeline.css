@@ -274,7 +274,6 @@
 
 /* The calendar fills the frame: seven fluid columns inside main (992px at 1440), not a
    fixed 950px column inside a 1320px main-wide. */
-.schedule-layout { position: relative; }
 .schedule-calendar-col { min-width: 0; }
 
 /* The event's details: a drawer over the right edge of the window, so opening one
