@@ -7,20 +7,10 @@ for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
 
-const SKIN_ASSET_FOLDERS = [
-  'one-star-skins', 'two-star-skins', 'three-star-skins', 'four-star-skins',
-  'five-star-skins', 'six-star-skins', 'skin-series-logos',
-];
-const IMAGE_ASSET_FOLDERS = [
-  'act-marks', 'album-covers', 'alliance-icons', 'base-skill-icons', 'branch-icons',
-  'cg-collection', 'class-icons', 'content-art', 'cursors', 'enemies-icons',
-  'enemy-stat-icons', 'essential-icons', 'event-poster', 'faction-icons',
-  'five-star-icons', 'four-star-icons', 'headhunting-banner-images', 'item-icons',
-  'material-icons', 'mode-marks', 'nation-marks', 'one-star-icons', 'ra-map',
-  'six-star-icons', 'skill-icons', 'stages-images', 'stat-icons', 'story-marks',
-  'stronghold-items', 'stronghold-stratagems', 'stronghold-types',
-  'three-star-icons', 'two-star-icons',
-];
+// Which repository serves each top-level art folder: the same list lib/content/urls.ts reads.
+const assetFolders = require('./config/asset-folders.json');
+const SKIN_ASSET_FOLDERS = assetFolders['arkpedia-skin-assets'];
+const IMAGE_ASSET_FOLDERS = assetFolders['arkpedia-image-assets'];
 
 function externalAssetRedirects(folders, repository) {
   return folders.map((folder) => ({

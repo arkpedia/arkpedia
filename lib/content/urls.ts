@@ -1,9 +1,13 @@
 import bundledRevisions from '@/data/assets/revisions.json';
+import assetFolders from '@/config/asset-folders.json';
 import type { ContentRelease } from './types';
 import { assetUrl, encodeAssetPath, PINNED_ART } from '@/lib/assets/assetUrl';
 
-const SKINS = new Set(['one-star-skins', 'two-star-skins', 'three-star-skins', 'four-star-skins', 'five-star-skins', 'six-star-skins', 'skin-series-logos']);
-const IMAGES = new Set(['act-marks', 'album-covers', 'alliance-icons', 'base-skill-icons', 'branch-icons', 'cg-collection', 'class-icons', 'content-art', 'cursors', 'enemies-icons', 'enemy-stat-icons', 'essential-icons', 'event-poster', 'faction-icons', 'five-star-icons', 'four-star-icons', 'headhunting-banner-images', 'item-icons', 'material-icons', 'mode-marks', 'nation-marks', 'one-star-icons', 'ra-map', 'six-star-icons', 'skill-icons', 'stages-images', 'stat-icons', 'story-marks', 'stronghold-items', 'stronghold-stratagems', 'stronghold-types', 'three-star-icons', 'two-star-icons']);
+/* Which repository serves each top-level art folder. One list, config/asset-folders.json,
+   which next.config.js's redirects read too; check-published-assets fails when the pinned
+   repositories' folders differ from it. */
+const SKINS = new Set(assetFolders['arkpedia-skin-assets']);
+const IMAGES = new Set(assetFolders['arkpedia-image-assets']);
 
 function artRevision(repository: string, release?: ContentRelease | null): string {
   // A newly deployed page can briefly fall back to its bundled data before
