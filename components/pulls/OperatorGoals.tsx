@@ -74,7 +74,7 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
     <div className="pulls-goals-inputs">
     {rules.type === 'orienteering' && <details className="pulls-odds-details" open={available.length === 0 ? true : undefined}>
       <summary>Set rate-up roster ({roster.length}/6)</summary>
-      {[6, 5].map(rarity => <div key={rarity}><p className="hint">{rarity}★ · {rules.operators.filter(op => op.rarity === rarity && roster.includes(op.name)).length}/3 selected</p><div className="pulls-operator-choices">{rules.operators.filter(op => op.rarity === rarity).map(op => chip(op, roster, () => {
+      {[6, 5].map(rarity => <div key={rarity}><p className="hint"><Rarity n={rarityLevel(rarity)} /> · {rules.operators.filter(op => op.rarity === rarity && roster.includes(op.name)).length}/3 selected</p><div className="pulls-operator-choices">{rules.operators.filter(op => op.rarity === rarity).map(op => chip(op, roster, () => {
         const next = roster.includes(op.name) ? roster.filter(n => n !== op.name) : [...roster, op.name];
         onChange({ ...goal, rateUpRoster: next, targets: targets.filter(t => next.includes(t.name)) });
       }, !roster.includes(op.name) && rules.operators.filter(o => o.rarity === rarity && roster.includes(o.name)).length >= 3))}</div></div>)}
