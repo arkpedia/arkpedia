@@ -1,4 +1,3 @@
-import { operatorIconOverrides } from '@/lib/operators/operatorIconOverrides';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { getBannerLineup, isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
@@ -9,7 +8,6 @@ import { GachaBannerWithWindow } from '@/lib/home/frontPageContent';
 // five_stars/four_stars are always that exact rarity, so the path can
 // be built directly without needing a server-only icon-pool read here.
 function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
-  if (operatorIconOverrides[name]) return operatorIconOverrides[name].icon;
   const folder = rarity === 6 ? 'six-star-icons' : rarity === 5 ? 'five-star-icons' : 'four-star-icons';
   return `/${folder}/${name} - Base.webp`;
 }

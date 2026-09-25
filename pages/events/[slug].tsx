@@ -1,4 +1,3 @@
-import { operatorIconOverrides } from '@/lib/operators/operatorIconOverrides';
 import { withContentPage } from '@/lib/content/server';
 import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
@@ -130,7 +129,6 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
 ];
 
 function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
-  if (operatorIconOverrides[name]) return operatorIconOverrides[name].icon;
   const folder = rarity === 6 ? 'six-star-icons' : rarity === 5 ? 'five-star-icons' : 'four-star-icons';
   return `/${folder}/${name} - Base.webp`;
 }
