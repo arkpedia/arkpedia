@@ -54,34 +54,9 @@
   gap: 8px;
   margin-top: 14px;
 }
-input.roster-search {
-  flex: 1 1 200px;
-  min-width: 160px;
-  padding: 8px 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-/* Replaces the global :focus-visible ring with the input focus halo --
-   a border swap alone (the old treatment) is too quiet to count as a
-   focus indicator once outline is suppressed. */
-input.roster-search:focus {
-  outline: none;
-  border-color: var(--teal);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 30%, transparent);
-}
-.roster-controls select {
-  padding: 8px 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
+/* The search takes the row's spare width; the faction menu a fixed share of it. */
+.roster-search { flex: 1 1 200px; min-width: 160px; width: auto; }
+.roster-faction { flex: 0 1 220px; min-width: 160px; }
 .roster-controls button { font-size: 12px; }
 .roster-rarity-class-row {
   display: flex;
@@ -95,19 +70,9 @@ input.roster-search:focus {
   flex-wrap: wrap;
   gap: 6px;
 }
-.roster-class-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  background: var(--panel-2);
-  border: 1px solid var(--line-soft);
-  border-radius: 4px;
-  cursor: pointer;
-}
-.roster-class-btn.active { border-color: var(--teal); background: var(--teal-dim); }
+/* Class chips are icon-only: the glyph at 24px reads, the chip rule's 18px does not. */
+.roster-icon-chip { width: 36px; padding: 0; }
+.roster-icon-chip > img { width: 24px; height: 24px; }
 .roster-branch-row {
   width: 100%;
   padding-top: 4px;
@@ -120,31 +85,10 @@ input.roster-search:focus {
   flex-wrap: wrap;
   gap: 8px;
 }
-/* Secondary reference links use the site's button base and roster control tokens. */
-.roster-techniques-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  color: var(--text);
-  text-decoration: none;
-  flex: 0 0 auto;
-  min-height: 44px;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 4px;
-  background: var(--panel-2);
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 13px;
-  letter-spacing: normal;
-  text-transform: none;
-  white-space: nowrap;
-}
+/* Secondary reference links: the site's .btn, sized to the controls row. */
+.roster-techniques-btn { flex: 0 0 auto; gap: 8px; padding: 8px 12px; font-size: 12px; white-space: nowrap; }
 .roster-techniques-btn svg { flex-shrink: 0; color: var(--text-dim); }
-.roster-techniques-btn:hover { border-color: var(--teal); color: var(--teal); }
 .roster-techniques-btn:hover svg { color: var(--teal); }
-.roster-techniques-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 
 /* --- Class / branch icons --- */
 .roster-class-branch {
@@ -170,36 +114,8 @@ input.roster-search:focus {
   object-fit: contain;
 }
 
-/* Append to styles/operators/roster.css -- branch filter row only (the class
-   filter row reuses .roster-class-btn too, but stays icon-only; this
-   is scoped under .roster-branch-row specifically so it doesn't
-   change that one). */
-.roster-branch-row .roster-class-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 2px;
-  height: auto;
-  width: auto;
-  min-width: 56px;
-  max-width: 92px;
-  padding: 6px 6px;
-}
-.roster-branch-btn-name {
-  /* 10px, not 8px -- 8px is below any readable floor. The button is
-     height: auto with wrapping text, so longer branch names just take
-     an extra line rather than overflowing the fixed 56-92px width. */
-  font-size: 10px;
-  line-height: 1.15;
-  white-space: normal;
-  overflow-wrap: break-word;
-  text-align: center;
-  color: var(--text-dim);
-}
-.roster-branch-row .roster-class-btn.active .roster-branch-btn-name {
-  color: inherit;
-}
+/* Branch chips: the branch glyph and its name. */
+.roster-branch-chip > img { width: 20px; height: 20px; }
 /* Keep the portrait edge-to-edge, with breathing room for identity and metadata. */
 .roster-card > .op-name { margin: 12px 12px 8px; line-height: 1.35; }
 .roster-card > .hint { margin: 0 12px 12px; line-height: 1.5; }

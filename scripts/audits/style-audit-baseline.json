@@ -27,7 +27,6 @@
     "planner-desc-text: planner-depot.css, planner.css",
     "planner-need-records: planner-depot.css, planner.css",
     "roster-button-group: planner-depot.css, roster.css",
-    "roster-class-btn: planner-depot.css, roster.css",
     "scanbar: arkpedia-theme.css, gamemodes.css",
     "score-rail: shared.css, stages-terminal.css",
     "seg-row: arkpedia-theme.css, planner-depot.css",
@@ -392,7 +391,6 @@
     "pages/dev/index.tsx: <select>",
     "pages/gacha.tsx: <select>",
     "pages/gamemodes/stronghold-protocol.tsx: role=\"listbox\"",
-    "pages/operators/index.tsx: <select>",
     "pages/schedule.tsx: role=\"listbox\"",
     "pages/schedule.tsx: role=\"listbox\""
   ]
