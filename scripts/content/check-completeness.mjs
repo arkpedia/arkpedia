@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 import { unconfirmedOutfitSales } from './outfit-windows.mjs';
+import { checkMaterialCatalogue, uncataloguedCosts } from '../../lib/farming/materialCatalogue.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 // A reward name that is a scrape's stand-in for a missing item, not the item.
@@ -66,7 +67,8 @@ export function artPath(value) {
  * quarantined' issue, and the rest of the day's content still goes out. The keys name
  * records by their source ids, the same way every stage's quarantine entries do.
  */
-export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, counts, baseline, allowShrink = [] }) {
+export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, materials, counts, baseline, allowShrink = [] }) {
+  if (!Array.isArray(materials?.order)) throw new Error('reviewCompleteness needs the material catalogue (data/material-catalogue.json)');
   const errors = [], quarantine = [], allowed = [];
   const hold = (key, action, reason) => quarantine.push({ key, action, reason });
   const byId = new Map(operators.map(op => [op.internalName, op]));
@@ -85,6 +87,16 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     // date, so a lagging EN mirror after a real Global launch never blocks a release.
     if (op.sourceRegion === 'CN' && op.isFuture !== true && !hasRecordedRelease(op)) {
       errors.push(`${op.name}: CN record has no release date and is not marked isFuture, so the site treats it as released`);
+    }
+    // Every material an operator's upgrades cost has to be one the planner can hold: a cost
+    // the catalogue lacks is a bill row no depot tile can ever cover. Liquified Ether
+    // Absorber, Concentrated Power Unit, Electrode Unit and Liquified High-Energy Gas sat in
+    // three records that way with nothing to say so. /planner leaves the operator out of its
+    // picker until the catalogue has them (build-material-catalogue.mjs says why it lacks
+    // one: no item id, which data/material-names.json supplies, or no published icon).
+    const uncatalogued = uncataloguedCosts(op, materials);
+    if (uncatalogued.length) {
+      hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: costs ${uncatalogued.join(', ')}, which data/material-catalogue.json does not have, so /planner cannot hold or craft ${uncatalogued.length === 1 ? 'it' : 'them'} and leaves ${op.name} out of its picker`);
     }
   }
   for (const expected of inventory.operators) {
@@ -255,6 +267,7 @@ export function readCompletenessInputs(root = process.cwd()) {
     bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
     albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
     skinWindows: read('data/skin-availability-windows.json').entries,
+    materials: checkMaterialCatalogue(read('data/material-catalogue.json')),
     stageEnemies, enemyRecords, enemyIndex: new Set(read('public/enemies-index.json').map(row => row.slug)) };
   input.counts = { operators: operators.length, skins: input.skins.length, events: input.events.length,
     banners: input.banners.length, enemies: enemyRecords.size, stages: stageFiles.length, ...collectionCounts(root) };

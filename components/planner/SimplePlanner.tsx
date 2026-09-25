@@ -17,7 +17,9 @@ import { plannerModules } from "@/lib/planner/build";
 import { MaterialIcon } from "./MaterialIcon";
 
 function Materials({ cost }: { cost: CostGroup }) {
-  const items = sortMaterials(cost.filter((c) => Number(c.quantity) > 0));
+  /* The release's catalogue order, which the page's props carry (usePlannerContent). */
+  const { catalogue } = usePlannerContent();
+  const items = sortMaterials(cost.filter((c) => Number(c.quantity) > 0), catalogue.order);
   return items.length ? (
     <ul className="simple-materials">
       {items.map((c) => (

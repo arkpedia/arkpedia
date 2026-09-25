@@ -10,7 +10,7 @@ import {
   skillMasteryCostRemaining,
   type LevelTable,
 } from '@/lib/planner/plannerLogic';
-import { BATTLE_RECORDS, resolveNeeds } from './craft';
+import type { CraftTools } from './craft';
 import type { Depot } from './depot';
 import type { Goal } from './goals';
 import type { Owned } from './roster';
@@ -184,7 +184,9 @@ export function applyGoal(goal: Goal, from: Owned): Owned {
 export function spendBattleRecords(
   exp: number,
   stock: Depot,
-  records = BATTLE_RECORDS,
+  /* The release's records (craftTools.BATTLE_RECORDS), largest first. Required: a default
+     would be this deploy's copy compiled into the planner's chunk. */
+  records: CraftTools['BATTLE_RECORDS'],
 ): { spent: Record<string, number>; wasted: number } | null {
   const need = Math.max(0, Math.ceil(exp));
   if (need === 0) return { spent: {}, wasted: 0 };
@@ -243,7 +245,9 @@ export function planBuild(
   cost: CostGroup,
   depot: Depot,
   opts: { crafting?: ReadonlySet<string>; autoCraft: boolean },
-  craftTools = { resolveNeeds, BATTLE_RECORDS },
+  /* The page's resolver over its release's tables (usePlannerContent). Required, for the
+     same reason as createCraftTools' arguments: nothing here may fall back on a bundled one. */
+  craftTools: Pick<CraftTools, 'resolveNeeds' | 'BATTLE_RECORDS'>,
 ): BuildPlan {
   const materials: CostGroup = [];
   let lmd = 0;

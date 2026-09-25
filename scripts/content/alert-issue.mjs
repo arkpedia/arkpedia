@@ -109,6 +109,8 @@ function main([action, ...args]) {
       now: opts.now ? new Date(opts.now) : new Date() });
   }
   if (action === 'close') return closeAlert({ repo, alert: opts.alert, title: opts.title, comment: opts.comment ?? 'Resolved.' });
-  throw new Error('usage: alert-issue.mjs open|close --alert <id> --title <title> ...');
+  // The open issue's number, or 'none': lets a workflow act on an alert another job raised.
+  if (action === 'find') return findIssue(repo, opts.alert, opts.title)?.number ?? 'none';
+  throw new Error('usage: alert-issue.mjs open|close|find --alert <id> --title <title> ...');
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) console.log(`${main(process.argv.slice(2))}`);

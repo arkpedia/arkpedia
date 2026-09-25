@@ -77,7 +77,7 @@ test('a banner whose lineup is pending says so instead of listing no one', () =>
 
   const page = (over: Partial<Parameters<typeof EventDetailPage>[0]>) => render(createElement(EventDetailPage, {
     name: 'Test Event', poster: null, images: [], dateRange: '2026/09/25–2026/10/09', isPredicted: false,
-    bannerName: 'Test Pool #1', bannerImage: null, lineupPending: true, skins: [], rewardStores: [],
+    bannerName: 'Test Pool #1', bannerImage: null, lineupPending: true, skins: [], rewardStores: [], materialOrder: [],
     featuredOperators: [{ name: 'Someone', rarity: 6, percent: 50 }], ...over,
   }));
   const held = page({});

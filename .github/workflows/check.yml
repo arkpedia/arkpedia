@@ -1,10 +1,17 @@
 name: Check
 
 on:
+  # A change to nothing but docs builds nothing and deploys nothing, so it skips Check (and
+  # with it Deploy, which follows a green Check). The list is config/docs-only-paths.json,
+  # which the content release gate's code fingerprint leaves out too
+  # (scripts/content/code-fingerprint.mjs): keep the two the same, a test holds them to it.
+  # A push or pull request that touches any other file still runs every step below.
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.
   workflow_dispatch:
@@ -16,6 +23,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Only for the red-main report at the end of the job.
+  issues: write
 
 jobs:
   check:
@@ -112,3 +121,33 @@ jobs:
 
       - name: Content updates and rollback without rebuilding
         run: npm run test:content-runtime
+
+      # A red Check on main deploys nothing (deploy.yml follows only a green one), and the
+      # content release is held while production runs other code than main
+      # (scripts/content/deploy-gate.mjs), so one issue stays open until main is green again.
+      # A run cancelled because a newer push superseded it is not news; one cancelled on
+      # main's current commit is (a timeout reads as a cancellation).
+      - name: Report a red Check on main
+        if: (failure() || cancelled()) && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          if [ "$JOB_STATUS" = cancelled ] && [ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$GITHUB_SHA" ]; then
+            echo "Superseded by a newer push to main, whose own run reports."
+            exit 0
+          fi
+          body="$RUNNER_TEMP/red-check.md"
+          echo "Check ended with $JOB_STATUS on main at ${GITHUB_SHA:0:12} ($(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Nothing deploys until a Check on main passes, and content releases stay held while production runs older code." > "$body"
+          node scripts/content/alert-issue.mjs open --alert check-failing-main --title 'Check failing on main' --body-file "$body"
+
+      - name: Close the red-Check report
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12}: $RUN_URL"

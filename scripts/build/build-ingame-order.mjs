@@ -14,9 +14,16 @@
  * Only materials the site has art for, which is the same set the depot can hold. That
  * keeps this to a hundred-odd numbers rather than the four thousand items in the table.
  *
+ * A material the EN client does not have yet (a CN line ahead of Global) is placed by the CN
+ * table, and so is everything else the CN table has: CN is the superset, its order on the
+ * materials both clients share is exactly the EN one, and it renumbers to fit a new line in, so
+ * mixing the two tables' numbers would interleave them wrongly (scripts/lib/material-items.mjs).
+ * The English names of those CN-only items are data/material-names.json.
+ *
  * Re-run after an upstream refresh:  node scripts/build/build-ingame-order.mjs
  */
 import { assetFileNames } from '../lib/public-assets.mjs';
+import { materialItems, readMaterialNames } from '../lib/material-items.mjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,33 +39,26 @@ if (!fs.existsSync(tablePath)) {
 }
 
 const items = JSON.parse(fs.readFileSync(tablePath, 'utf-8')).items;
-
-/**
- * Where this repo's name for a material differs from the game's.
- *
- * One entry, and it is a plural: the game calls it "Information Fragments", the site
- * has always called it "Information Fragment", and the icon on disk is filed under the
- * singular. Renaming the material to match would touch the sort order, the groups and
- * a committed image for the sake of an s.
- */
-const ALIASES = { 'Information Fragment': 'Information Fragments' };
-
-const sortIdByName = new Map();
-for (const item of Object.values(items)) {
-  /* First wins. A handful of names are reused by event reprints, and the original is
-     the one with the lower id and the real place in the depot. */
-  if (typeof item.sortId === 'number' && !sortIdByName.has(item.name)) {
-    sortIdByName.set(item.name, item.sortId);
-  }
-}
+const cnTable = path.join(process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', 'gamedata', 'excel', 'item_table.json');
+const cnItems = fs.existsSync(cnTable) ? JSON.parse(fs.readFileSync(cnTable, 'utf-8')).items : {};
+if (!Object.keys(cnItems).length) console.warn(`No CN item table at ${cnTable}: numbering from the EN table alone, and materials Global has not shipped get no place.`);
+/* The site's name for an item and back, including the one plural the site spells singular
+   (Information Fragment, filed under the singular) and the CN-only lines' English names. The
+   first id of a name wins: event reprints reuse a few names, and the original has the lower id
+   and the real place in the depot. */
+const resolve = materialItems({
+  enItems: items, cnItems,
+  names: readMaterialNames(JSON.parse(fs.readFileSync(path.join(root, 'data', 'material-names.json'), 'utf-8'))),
+});
 
 const stems = assetFileNames('material-icons', root).map((f) => path.parse(f).name);
 
 const out = {};
 const unmatched = [];
 for (const stem of stems.sort()) {
-  const id = sortIdByName.get(ALIASES[stem] ?? stem);
-  if (id === undefined) unmatched.push(stem);
+  const itemId = resolve.idOf(stem);
+  const id = itemId ? resolve.sortId(itemId) : null;
+  if (id === null) unmatched.push(stem);
   else out[stem] = id;
 }
 
@@ -72,8 +72,8 @@ fs.writeFileSync(dest, JSON.stringify(out, null, 2) + '\n');
 console.log(`Wrote ${Object.keys(out).length} sort ids -> ${path.relative(root, dest)}`);
 /* Reported, not fatal. public/material-icons/ holds furniture and event tokens that
    were never planner materials; a name in there with no item_table entry is expected.
-   What matters is that nothing in MATERIAL_SORT_ORDER is missing, which the planner
-   asserts at build time where it can see that list. */
+   What matters is that nothing in data/material-catalogue.json is missing, which the
+   planner's table loader asserts (checkItemSortIds). */
 if (unmatched.length) {
   console.log(`  ${unmatched.length} icon(s) with no item_table entry, which is normal for furniture and event tokens:`);
   for (const n of unmatched) console.log(`    ${n}`);

@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { withContentPage } from '@/lib/content/server';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
@@ -220,10 +221,13 @@ export default function Results({ iconMap }: Props) {
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+/* From the content release like every other page with game data: the operator icons resolve
+   against the release's asset pin, not the one this deploy's revisions.json carried. The poll
+   results themselves are a closed survey, bundled on purpose (lib/results/finalPollResults.ts). */
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/results', async () => {
   const iconMap: Record<string, string> = {};
   for (const op of getAllOperators()) {
     iconMap[op.name] = getOperatorIconPath(op);
   }
   return { props: { iconMap } };
-};
+});

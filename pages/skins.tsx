@@ -5,7 +5,8 @@ import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useSta
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
-import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, withLocalConfirmedSkinWindows, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -20,7 +21,9 @@ interface Props {
   skins: Skin[];
   seriesLogos: Record<string, string | null>;
   events: ScheduleEvent[];
-  availabilityWindows?: SkinWindow[];
+  /** Every acquisition window, from the release's tables (getSkinWindows in getStaticProps).
+   *  Required: the page used to rebuild them from bundled copies when a payload lacked them. */
+  availabilityWindows: SkinWindow[];
   /** The build's clock, in unix milliseconds, rounded to the minute. */
   now: number;
 }
@@ -59,7 +62,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   }, []);
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
-  const windows = useMemo(() => withLocalConfirmedSkinWindows(availabilityWindows ?? getSkinWindows(skins, events)), [skins, events, availabilityWindows]);
+  // SL-4b: the bundled confirmed windows still merge in here until the maintainer decides.
+  const windows = useMemo(() => withLocalConfirmedSkinWindows(availabilityWindows), [availabilityWindows]);
   const availability = useMemo(() => computeSkinCountdowns(skins, events, new Date(clock), windows), [skins, events, clock, windows]);
   const currentSkins = useMemo(() => skins.filter(skin => availability.get(skinKey(skin))?.live).sort((a, b) => compareCurrentSkins(a, b, availability)), [skins, availability]);
   const directSkins = currentSkins.filter(skin => availability.get(skinKey(skin))?.kind !== 'draw');
@@ -463,5 +467,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
   // `now`, the countdowns' first paint, is the request's clock from contentPageClock
   // (lib/content/pageClock.ts), rounded to the minute. The component re-picks the
   // reader's real time on mount (see the clock state above).
-  return { props: { skins, seriesLogos, events, availabilityWindows: getSkinWindows(skins, events) } };
+  const availabilityWindows = getSkinWindows(skins, events, {
+    confirmed: (await import('@/data/skin-availability-windows.json')).default,
+    rotations: (await import('@/data/skin-shop-rotations.json')).default,
+  });
+  return { props: { skins, seriesLogos, events, availabilityWindows } };
 });

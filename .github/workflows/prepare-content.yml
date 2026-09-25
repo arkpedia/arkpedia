@@ -32,13 +32,34 @@ jobs:
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 60 || 40 }}
+    # Up to 30 of these minutes may go to waiting for the asset syncs (below).
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 90 || 70 }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
+      # A release goes live only while production runs the code that compiles it: the publish
+      # step asks production (one GET of its /build-info.json) and holds anything else
+      # (scripts/content/deploy-gate.mjs). Asked here too, so a run that could not publish
+      # stops now instead of after the compile; the report at the end says why.
+      - name: Hold the release while production runs other code
+        run: node scripts/content/deploy-gate.mjs --ref HEAD --held-file "$RUNNER_TEMP/release-held.md"
+      # The release pins each asset repository at the commit its sync has reached. The syncs'
+      # crons come three and a half hours before this one, but GitHub starts every scheduled
+      # run 2-4 hours late, so that order held by a margin, not by design. A scheduled release
+      # waits, up to 30 minutes, until each sync has finished its run of the day
+      # (scripts/content/asset-syncs.mjs); a dispatched one does not wait. Before the upstream
+      # probe, so its fingerprint sees what the syncs committed. Never fails the run: after the
+      # wait the release pins what the syncs have reached, and the report below names a failure.
+      - name: Wait for the asset syncs' runs of the day
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        timeout-minutes: 35
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/content/asset-syncs.mjs wait --timeout-minutes 30
       # The probe falls back to each repository's last known commit when it cannot reach
       # one, so an outage of any single source never stops the day's run.
       - name: Load the last known upstream revisions
@@ -150,6 +171,13 @@ jobs:
           supplement="$supplemental_charwords"
           if [ ! -s "$supplement" ]; then supplement="$RUNNER_TEMP/no-supplemental-charwords.json"; echo '{}' > "$supplement"; fi
           stage operator-english -- env ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplement" node scripts/sync/sync-operator-english.mjs
+          # The planner's material catalogue, from the operator records as they now stand (after
+          # the English refresh renames their costs), the recipes, the depot order and the item
+          # tables the stage refresh synced. Then the other planners' item ids for it: a
+          # catalogue with a material the aliases lack fails /planner's export, so if the
+          # aliases cannot be rebuilt the catalogue goes back to yesterday's with them (--output).
+          stage material-catalogue -- node scripts/build/build-material-catalogue.mjs
+          stage import-aliases --needs material-catalogue --output data/material-catalogue.json -- npx tsx scripts/build/build-import-aliases.ts
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
           # without it they keep yesterday's lines rather than fall back to Chinese.
@@ -190,6 +218,7 @@ jobs:
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
           node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
       - name: Publish the validated public release
+        id: publish
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
@@ -237,6 +266,11 @@ jobs:
             fi
             exit 0
           fi
+          # Production must run the code that compiled this release, or it may not be able to
+          # read it (scripts/content/deploy-gate.mjs). Asked again here, after the compile,
+          # because a deploy can land in between; a hold fails the step, and the report at the
+          # end opens the 'Content release held' issue with the reason.
+          node scripts/content/deploy-gate.mjs --manifest "$RUNNER_TEMP/prepared-content/release/manifest.json" --held-file "$RUNNER_TEMP/release-held.md"
           git -C "$repo" checkout -B main "$prepared_base"
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
@@ -249,6 +283,41 @@ jobs:
           if [ "$(git -C "$repo" rev-parse HEAD)" = "$current_base" ]; then echo 'Content unchanged.'; exit 0; fi
           # Never forced: if main moves after the check above, the push is refused.
           git -C "$repo" push origin HEAD:main
+          # For the live check below: the commit arkpedia-data's Content release must point at.
+          echo "pushed=$(git -C "$repo" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      # arkpedia-data's Content release workflow validates what was pushed and only then moves
+      # the live pointer (live/current.json). When it fails, readers keep the previous release
+      # and nothing here would say so. Polls the live branch through git: raw.githubusercontent
+      # keeps current.json in its cache for five minutes. Never fails the run: the data is on
+      # data main either way, and the issue says what is missing.
+      - name: Confirm the release went live
+        if: steps.publish.outputs.pushed != ''
+        continue-on-error: true
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSHED: ${{ steps.publish.outputs.pushed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          alert=(--alert content-release-not-live --title 'Content release not live')
+          if node scripts/content/await-live.mjs --revision "$PUSHED" --repo "$RUNNER_TEMP/arkpedia-data" > "$RUNNER_TEMP/live-state.txt"; then
+            cat "$RUNNER_TEMP/live-state.txt"
+            node scripts/content/alert-issue.mjs close "${alert[@]}" --comment "The live pointer serves the release pushed as $PUSHED: $RUN_URL"
+          else
+            cat "$RUNNER_TEMP/live-state.txt"
+            body="$RUNNER_TEMP/not-live.md"
+            { printf 'This run pushed the release as arkpedia-data `%s` (%s), but the live pointer did not move to it:\n\n' "$PUSHED" "$RUN_URL"
+              cat "$RUNNER_TEMP/live-state.txt"
+              cat <<'EOF'
+
+          Readers keep the previous release until it does. The **Content release** workflow of arkpedia-data validates each push to main and then moves `live/current.json`; its run for this commit says why it did not: https://github.com/arkpedia/arkpedia-data/actions/workflows/content.yml
+          EOF
+            } > "$body"
+            node scripts/content/alert-issue.mjs open "${alert[@]}" --body-file "$body"
+            echo "::warning::The live pointer did not move to $PUSHED."
+            exit 1
+          fi
       # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
       # here on its own. Report it, but never hold back the day's content over it: this
       # runs after the publish step, and a slow or failing GitHub API call only fails
@@ -264,10 +333,9 @@ jobs:
           set -euo pipefail
           cutoff=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)
           failing=''
-          for sync in arkpedia-image-assets/sync-images.yml arkpedia-skin-assets/sync-artwork.yml \
-            arkpedia-voice-english/sync-voices.yml arkpedia-voice-japanese/sync-voices.yml \
-            arkpedia-voice-korean/sync-voices.yml arkpedia-voice-mandarin/sync-voices.yml \
-            arkpedia-voice-regional/sync-voices.yml; do
+          # The syncs the release waits for before it starts (scripts/content/asset-syncs.mjs).
+          syncs=$(node scripts/content/asset-syncs.mjs list)
+          for sync in $syncs; do
             repo=${sync%%/*} workflow=${sync#*/}
             # The latest finished run, scheduled or started by hand: a green manual rerun
             # of a failed sync clears it.
@@ -338,6 +406,14 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
+          # Held by the release gate (deploy-gate.mjs wrote why): its own issue, since the fix is
+          # a deploy, not this workflow. Nothing else fails a run after a hold.
+          if [ -s "$RUNNER_TEMP/release-held.md" ]; then
+            body="$RUNNER_TEMP/held-release.md"
+            { cat "$RUNNER_TEMP/release-held.md"; echo; echo "Held by $RUN_URL ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC'))."; } > "$body"
+            node scripts/content/alert-issue.mjs open --alert content-release-held --title 'Content release held' --body-file "$body"
+            exit 0
+          fi
           body="$RUNNER_TEMP/failed-release.md"
           echo "Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL" > "$body"
           node scripts/content/alert-issue.mjs open --alert content-release-failing --title 'Content release failing' --body-file "$body"
@@ -349,3 +425,43 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node scripts/content/alert-issue.mjs close --alert content-release-failing --title 'Content release failing' --comment "Recovered: $RUN_URL"
+          node scripts/content/alert-issue.mjs close --alert content-release-held --title 'Content release held' --comment "Production runs the code this run compiled with, and the run succeeded: $RUN_URL"
+      # The public watchdog in arkpedia-data (.github/workflows/release-heartbeat.yml) opens an
+      # issue there when neither a release nor a heartbeat is newer than 26 hours: the one
+      # alarm that needs no job here to start, so it also covers a runner that is offline or
+      # jobs GitHub refuses to run. A day with nothing new to publish leaves only this commit,
+      # so it is not taken for an outage. One small commit on the heartbeat branch, which
+      # arkpedia-data's Content release ignores (it runs for main). Never fails the run.
+      - name: Record the heartbeat
+        if: success()
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
+          PUSHED: ${{ steps.publish.outputs.pushed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          test -n "$CONTENT_DATA_DEPLOY_KEY"
+          key="$RUNNER_TEMP/heartbeat-key"
+          umask 077
+          printf '%s\n' "$CONTENT_DATA_DEPLOY_KEY" > "$key"
+          trap 'rm -f "$key"' EXIT
+          mkdir -p "$HOME/.ssh"
+          curl --fail --silent --show-error https://api.github.com/meta | node -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>{for(const key of JSON.parse(s).ssh_keys)console.log("github.com "+key)})' > "$HOME/.ssh/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          beat="$RUNNER_TEMP/heartbeat"
+          rm -rf "$beat"
+          git init --quiet "$beat"
+          git -C "$beat" remote add origin git@github.com:arkpedia/arkpedia-data.git
+          # On top of the last heartbeat; the first one starts the branch.
+          if git -C "$beat" fetch --quiet --depth 1 origin heartbeat; then
+            git -C "$beat" checkout --quiet -B heartbeat FETCH_HEAD
+          else
+            git -C "$beat" checkout --quiet --orphan heartbeat
+          fi
+          node -e 'console.log(JSON.stringify({ version: 1, at: new Date().toISOString(), event: process.env.GITHUB_EVENT_NAME, run: process.env.RUN_URL, published: process.env.PUSHED || null }, null, 2))' > "$beat/heartbeat.json"
+          git -C "$beat" add heartbeat.json
+          git -C "$beat" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet -m "Prepare content release succeeded ($GITHUB_EVENT_NAME)"
+          git -C "$beat" push --quiet origin HEAD:heartbeat

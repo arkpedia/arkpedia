@@ -35,9 +35,15 @@ import {
   type LevelTable,
 } from '@/lib/planner/plannerLogic';
 import levelData from '@/data/operatorLevelExpLmd.json';
+import formulaData from '@/data/base-formulas.json';
+import recordData from '@/data/battle-records.json';
+import catalogueData from '@/data/material-catalogue.json';
+import { createCraftTools, type Formula } from '@/lib/planner/craft';
 
-/* The planner reads the level table from its props; this reads this checkout's copy. */
+/* The planner reads the level table, the recipes, the records and the material catalogue
+   from its props; this reads this checkout's copies. */
 const levels = levelData as LevelTable;
+const craftTools = createCraftTools(formulaData as Record<string, Formula>, recordData, catalogueData.order);
 
 let failures = 0;
 function check(label: string, cond: boolean, saw = '') {
@@ -109,7 +115,7 @@ const cases: Case[] = [
 ];
 
 for (const c of cases) {
-  const plan = planBuild(c.cost, c.depot, { autoCraft: c.autoCraft ?? true, crafting: new Set(c.crafting ?? []) });
+  const plan = planBuild(c.cost, c.depot, { autoCraft: c.autoCraft ?? true, crafting: new Set(c.crafting ?? []) }, craftTools);
   if (c.short) {
     check(c.label, !plan.ok && same(plan.short, c.short), plan.ok ? 'ok' : J(plan.short));
     continue;
@@ -131,8 +137,8 @@ for (const c of cases) {
 }
 
 /* The record spender on its own: a shelf that cannot reach it says so. */
-check('spendBattleRecords: nothing to spend is nothing spent', same(spendBattleRecords(0, { 'Drill Battle Record': 1 }), { spent: {}, wasted: 0 }));
-check('spendBattleRecords: an empty shelf is null', spendBattleRecords(1, {}) === null);
+check('spendBattleRecords: nothing to spend is nothing spent', same(spendBattleRecords(0, { 'Drill Battle Record': 1 }, craftTools.BATTLE_RECORDS), { spent: {}, wasted: 0 }));
+check('spendBattleRecords: an empty shelf is null', spendBattleRecords(1, {}, craftTools.BATTLE_RECORDS) === null);
 
 /* --- the goal walk, on a real operator. Texas is 5-star: E0/E1/E2 cap at
    50/70/80, one plannable module, unlocking at E2 Lv50. */

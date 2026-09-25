@@ -24,6 +24,10 @@ concurrency:
 
 permissions:
   contents: read
+  # Only for the failed-deploy report at the end of the job.
+  issues: write
+  # Only to start a content release that was held for this deploy (the last step).
+  actions: write
 
 jobs:
   deploy:
@@ -45,14 +49,8 @@ jobs:
       VERCEL_CLI_VERSION: 59.23.1
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - name: Refuse to run without the deploy token
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::VERCEL_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
-            exit 1
-          fi
+      # Checked out before anything can fail, so the report at the end has its script even
+      # when the token is missing (the 2026-09-21 outage).
       - uses: actions/checkout@v7
         with:
           # Deploy the commit Check actually verified, not whatever main is by now.
@@ -62,6 +60,14 @@ jobs:
           # Matches the runtime the functions declare (nodejs24.x).
           node-version: '24'
           cache: npm
+      - name: Refuse to run without the deploy token
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
       - run: npm ci
       - name: Link the project and pull production settings
         env:
@@ -77,3 +83,42 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes "vercel@$VERCEL_CLI_VERSION" deploy --prebuilt --prod --archive=tgz --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+      # One open issue per outage, found by its marker (scripts/content/alert-issue.mjs): the
+      # 09-18..09-22 outage was nine red runs that only the Actions tab showed. Production keeps
+      # its last build meanwhile, and content releases stay held while it runs other code than
+      # main (scripts/content/deploy-gate.mjs). The next successful deploy closes it.
+      - name: Report the failed deploy
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+          DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          body="$RUNNER_TEMP/failed-deploy.md"
+          echo "Deploy ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs main's code." > "$body"
+          node scripts/content/alert-issue.mjs open --alert deploy-failing --title 'Deploy failing' --body-file "$body"
+      - name: Close the failed-deploy report
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          node scripts/content/alert-issue.mjs close --alert deploy-failing --title 'Deploy failing' --comment "Deployed ${DEPLOYING:0:12}: $RUN_URL"
+      # A release is held while production runs other code than the one compiling it
+      # (scripts/content/deploy-gate.mjs), and nothing else retries it. On one runner that is
+      # easy to hit: a push near the nightly run lets the release take the runner before this
+      # Deploy, and the site would miss a day of content. Production runs this build now, so
+      # start the release again, a full refresh like the scheduled one.
+      - name: Release again if one was held for this deploy
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          held=$(node scripts/content/alert-issue.mjs find --alert content-release-held --title 'Content release held')
+          if [ "$held" = none ]; then echo "No content release is held."; exit 0; fi
+          echo "Content release held (issue #$held): production runs this deploy now, so Prepare content release starts again."
+          gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref main -f refresh_upstream=true

@@ -11,7 +11,6 @@ import styles from './OperatorPage.module.css';
 export interface RelatedOperator {
   name: string;
   rarity: number | null;
-  isFuture: boolean | null;
   portraitPending?: boolean;
 }
 
