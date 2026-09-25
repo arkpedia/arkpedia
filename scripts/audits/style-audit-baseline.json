@@ -33,7 +33,6 @@
     "seg-row: arkpedia-theme.css, planner-depot.css",
     "seg: arkpedia-theme.css, planner-depot.css",
     "site-nav: gamemodes.css, nav.css",
-    "skin-image-wrap: shared.css, skins.css",
     "stage-deploy-strip: shared.css, stages.css",
     "stage-mapwrap: shared.css, stages.css",
     "stage-mode-art: stages-terminal.css, stages.css",
@@ -143,12 +142,6 @@
     "gamemodes.css: 8px",
     "gamemodes.css: 8px",
     "gamemodes.css: 8px",
-    "music.css: 14px",
-    "music.css: 14px",
-    "music.css: 16px",
-    "music.css: 19px",
-    "music.css: 48px",
-    "music.css: 8px",
     "nav.css: 17px",
     "operator-detail.css: 14px",
     "operator-detail.css: 14px",
@@ -270,10 +263,8 @@
     "shared.css: 14px",
     "shared.css: 14px",
     "shared.css: 14px",
-    "shared.css: 14px",
     "shared.css: 24px",
     "shared.css: 8px",
-    "skins.css: 14px",
     "stages-terminal.css: 17px",
     "stages-terminal.css: 19px",
     "stages-terminal.css: 21px",
@@ -303,7 +294,6 @@
     "timeline.css: 14px",
     "timeline.css: 14px",
     "timeline.css: 20px",
-    "video.css: 14px",
     "world.css: 16px"
   ],
   "rawHex": [
@@ -389,7 +379,6 @@
     "styles/recruitment/recruitment.css: .recruit-heading h1 { font-size }",
     "styles/recruitment/recruitment.css: .recruit-heading h1 { font-size }",
     "styles/recruitment/recruitment.css: .recruit-page-compact .recruit-heading h1 { font-size }",
-    "styles/skins/skins.css: .skins-heading h1 { font-size }",
     "styles/stages/stages.css: .stages-head h1 { font-size }"
   ],
   "fontWeights": [],
@@ -405,8 +394,6 @@
     "pages/gamemodes/stronghold-protocol.tsx: role=\"listbox\"",
     "pages/operators/index.tsx: <select>",
     "pages/schedule.tsx: role=\"listbox\"",
-    "pages/schedule.tsx: role=\"listbox\"",
-    "pages/skins.tsx: <select>",
-    "pages/skins.tsx: <select>"
+    "pages/schedule.tsx: role=\"listbox\""
   ]
 }

@@ -5,7 +5,11 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import PageHeader from '@/components/ui/PageHeader';
+import ScrollRow from '@/components/ui/ScrollRow';
+import SearchInput from '@/components/ui/SearchInput';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum } from '@/lib/music/albumsDataServer';
@@ -39,6 +43,16 @@ interface FacetState {
   albumId: string | null;
 }
 const EMPTY_FACETS: FacetState = { character: null, artist: null, origin: null, albumId: null };
+
+/** A browse collection: a ScrollRow of previews, or every item wrapped once "Show all"
+ *  is on. The row scrolls under the site's drawn bar; its old overlay bar was invisible
+ *  and the "room for the scrollbar" padding under it reserved nothing. */
+function Collection({ id, label, expanded, cloud = false, children }: { id: string; label: string; expanded: boolean; cloud?: boolean; children: ReactNode }) {
+  const className = `music-discover-row${cloud ? ' music-discover-cloud-row' : ''}`;
+  return expanded
+    ? <div id={id} className={`${className} expanded`}>{children}</div>
+    : <div id={id}><ScrollRow label={label} className={className}>{children}</ScrollRow></div>;
+}
 
 export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums }: Props) {
   const { playTrackByVideoId } = useMusicPlayer();
@@ -181,40 +195,40 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   const visibleArtists = browseCollection === 'artists' ? artists : artists.slice(0, ROW_PREVIEW_COUNT);
 
   const activeFacetLabel = facets.character || facets.origin || facets.artist || (facets.albumId && resultAlbums[0]?.albumName) || null;
+  /* "Show less" folds a wrapped collection (hundreds of tiles) back to one row. Pressed
+     from low on the page it took 373px (1440) / 344px (390) out from under the reader;
+     the floor holds their place and gives the space back as they scroll up. One browse
+     view is one logical page; a search or a facet is another. */
+  const browseFloor = useHeightFloor(isBrowsing ? 'browse' : `${query}|${facetParam}`);
+  const showAllButton = (collection: string, controls: string) => (
+    <button type="button" className="ghost btn-sm" aria-expanded={browseCollection === collection} aria-controls={controls}
+      onClick={() => setBrowseCollection(browseCollection === collection ? '' : collection)}>
+      {browseCollection === collection ? 'Show less' : 'Show all'}
+    </button>
+  );
 
   return (
     <>
       <Head><title>Discover — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Sound Archive</div>
-        <h1>Discover</h1>
-      </header>
-
-      <main className="music-discover-page">
-        <p className="hint" style={{ marginBottom: 16 }}>Know these tracks by heart? <Link href={GAME_PATHS.music} prefetch={false}>Play Music Guesser</Link></p>
-        <div className="music-discover-search-row">
+      <PageHeader eyebrow="Rhodes Island // Sound Archive" title="Discover"
+        sub={<>Know these tracks by heart? <Link href={GAME_PATHS.music} prefetch={false}>Play Music Guesser</Link></>}
+        actions={<div className="music-discover-search-row">
           {!isBrowsing && (
             <button type="button" className="ghost music-discover-back-btn" onClick={backToBrowse} aria-label="Back to browse">
               ‹ Back
             </button>
           )}
-          <input
-            type="search"
-            name="discover-search"
-            className="music-discover-search"
-            placeholder="Search songs, characters, artists, albums…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search songs, characters, artists, albums"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
+          <SearchInput label="Search songs, characters, artists, albums" name="discover-search"
+            placeholder="Search songs, characters, artists, albums…" value={query} onChange={setQuery} />
+        </div>} />
+
+      <main className="music-discover-page">
+        <div ref={browseFloor.ref} className="music-discover-body">
 
         {!isBrowsing ? (
           <div className="music-discover-results">
-            <section className="music-discover-section">
+            <section className="op-section music-discover-section">
               <h2>
                 Songs
                 {activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
@@ -224,7 +238,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
               ) : (
                 <div className="music-discover-song-list">
                   {visibleFilteredSongs.map((s) => (
-                    <button key={s.videoId} type="button" className="music-discover-song-row" onClick={() => playSong(s.videoId)}>
+                    <button key={s.videoId} type="button" className="btn-bare music-discover-song-row" onClick={() => playSong(s.videoId)}>
                       <div className="music-discover-song-cover">
                         {s.coverPath && <Image src={s.coverPath} alt="" width={44} height={44} />}
                       </div>
@@ -251,14 +265,14 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
             </section>
 
             {resultAlbums.length > 0 && (
-              <section className="music-discover-section">
+              <section className="op-section music-discover-section">
                 <h2>Albums</h2>
-                <div className="music-discover-row">
+                <ScrollRow label="Albums in these results" className="music-discover-row">
                   {resultAlbums.map((a) => (
                     <button
                       key={a.albumId}
                       type="button"
-                      className="music-discover-album-tile"
+                      className="btn-bare music-discover-album-tile"
                       onClick={() => setFacets({ ...EMPTY_FACETS, albumId: a.albumId })}
                       title={a.albumName}
                     >
@@ -270,32 +284,32 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       <span className="music-discover-album-tile-name">{a.albumName}</span>
                     </button>
                   ))}
-                </div>
+                </ScrollRow>
               </section>
             )}
 
             {resultArtists.length > 0 && (
-              <section className="music-discover-section">
+              <section className="op-section music-discover-section">
                 <h2>Artists</h2>
-                <div className="music-discover-row">
+                <ScrollRow label="Artists in these results" className="music-discover-row">
                   {resultArtists.map((name) => (
-                    <button key={name} type="button" className="music-discover-artist-pill" onClick={() => setFacets({ ...EMPTY_FACETS, artist: name })}>
+                    <button key={name} type="button" className="filter-chip music-discover-artist-pill" onClick={() => setFacets({ ...EMPTY_FACETS, artist: name })}>
                       {name}
                     </button>
                   ))}
-                </div>
+                </ScrollRow>
               </section>
             )}
 
             {resultCharacters.length > 0 && (
-              <section className="music-discover-section">
+              <section className="op-section music-discover-section">
                 <h2>Characters</h2>
-                <div className="music-discover-row">
+                <ScrollRow label="Characters in these results" className="music-discover-row">
                   {resultCharacters.map((name) => (
                     <button
                       key={name}
                       type="button"
-                      className="music-discover-character-tile"
+                      className="btn-bare music-discover-character-tile"
                       onClick={() => setFacets({ ...EMPTY_FACETS, character: name })}
                     >
                       <div className="music-discover-character-portrait">
@@ -304,22 +318,22 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       <span className="music-discover-character-name">{name}</span>
                     </button>
                   ))}
-                </div>
+                </ScrollRow>
               </section>
             )}
           </div>
         ) : (
           <>
-            <section className="music-discover-section">
+            <section className="op-section music-discover-section">
               <div className="music-discover-section-heading">
                 <h2>Recently added</h2>
               </div>
-              <div className="music-discover-row">
+              <ScrollRow label="Recently added albums" className="music-discover-row">
                 {recentAlbums.map((a) => (
                   <button
                     key={a.albumId}
                     type="button"
-                    className="music-discover-album-tile"
+                    className="btn-bare music-discover-album-tile"
                     onClick={() => setFacets({ ...EMPTY_FACETS, albumId: a.albumId })}
                     title={a.albumAltName}
                   >
@@ -331,30 +345,20 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                     <span className="music-discover-album-tile-name">{a.albumAltName}</span>
                   </button>
                 ))}
-              </div>
+              </ScrollRow>
             </section>
 
-            <section className="music-discover-section">
+            <section className="op-section music-discover-section">
               <div className="music-discover-section-heading">
                 <h2>Browse by character</h2>
-                {characters.length > ROW_PREVIEW_COUNT && (
-                  <button
-                    type="button"
-                    className="music-discover-show-all"
-                    aria-expanded={browseCollection === 'characters'}
-                    aria-controls="discover-characters"
-                    onClick={() => setBrowseCollection(browseCollection === 'characters' ? '' : 'characters')}
-                  >
-                    {browseCollection === 'characters' ? 'Show less' : 'Show all'}
-                  </button>
-                )}
+                {characters.length > ROW_PREVIEW_COUNT && showAllButton('characters', 'discover-characters')}
               </div>
-              <div id="discover-characters" className={`music-discover-row${browseCollection === 'characters' ? ' expanded' : ''}`}>
+              <Collection id="discover-characters" label="Characters" expanded={browseCollection === 'characters'}>
                 {visibleCharacters.map((c) => (
                   <button
                     key={c.name}
                     type="button"
-                    className="music-discover-character-tile"
+                    className="btn-bare music-discover-character-tile"
                     onClick={() => setFacets({ ...EMPTY_FACETS, character: c.name })}
                     title={`${c.count} song${c.count === 1 ? '' : 's'}`}
                   >
@@ -362,31 +366,21 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                     <span className="music-discover-character-name">{c.name}</span>
                   </button>
                 ))}
-              </div>
+              </Collection>
             </section>
 
             {origins.length > 0 && (
-              <section className="music-discover-section">
+              <section className="op-section music-discover-section">
                 <div className="music-discover-section-heading">
                   <h2>Browse by story</h2>
-                  {origins.length > ROW_PREVIEW_COUNT && (
-                    <button
-                      type="button"
-                      className="music-discover-show-all"
-                      aria-expanded={browseCollection === 'origins'}
-                      aria-controls="discover-origins"
-                      onClick={() => setBrowseCollection(browseCollection === 'origins' ? '' : 'origins')}
-                    >
-                      {browseCollection === 'origins' ? 'Show less' : 'Show all'}
-                    </button>
-                  )}
+                  {origins.length > ROW_PREVIEW_COUNT && showAllButton('origins', 'discover-origins')}
                 </div>
-                <div id="discover-origins" className={`music-discover-row music-discover-cloud-row${browseCollection === 'origins' ? ' expanded' : ''}`}>
+                <Collection id="discover-origins" label="Stories" expanded={browseCollection === 'origins'} cloud>
                   {visibleOrigins.map((o) => (
                     <button
                       key={o.name}
                       type="button"
-                      className="music-discover-origin-pill"
+                      className="btn-bare music-discover-origin-pill"
                       style={{ fontSize: weightedPillSize(o.count, maxOriginCount) }}
                       onClick={() => setFacets({ ...EMPTY_FACETS, origin: o.name })}
                       title={`${o.count} song${o.count === 1 ? '' : 's'}`}
@@ -394,35 +388,27 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       {o.name}
                     </button>
                   ))}
-                </div>
+                </Collection>
               </section>
             )}
 
-            <section className="music-discover-section">
+            <section className="op-section music-discover-section">
               <div className="music-discover-section-heading">
                 <h2>Featured artists</h2>
-                {artists.length > ROW_PREVIEW_COUNT && (
-                  <button
-                    type="button"
-                    className="music-discover-show-all"
-                    aria-expanded={browseCollection === 'artists'}
-                    aria-controls="discover-artists"
-                    onClick={() => setBrowseCollection(browseCollection === 'artists' ? '' : 'artists')}
-                  >
-                    {browseCollection === 'artists' ? 'Show less' : 'Show all'}
-                  </button>
-                )}
+                {artists.length > ROW_PREVIEW_COUNT && showAllButton('artists', 'discover-artists')}
               </div>
-              <div id="discover-artists" className={`music-discover-row${browseCollection === 'artists' ? ' expanded' : ''}`}>
+              <Collection id="discover-artists" label="Artists" expanded={browseCollection === 'artists'}>
                 {visibleArtists.map((a) => (
-                  <button key={a.name} type="button" className="music-discover-artist-pill" onClick={() => setFacets({ ...EMPTY_FACETS, artist: a.name })}>
+                  <button key={a.name} type="button" className="filter-chip music-discover-artist-pill" onClick={() => setFacets({ ...EMPTY_FACETS, artist: a.name })}>
                     {a.name}
                   </button>
                 ))}
-              </div>
+              </Collection>
             </section>
           </>
         )}
+        {browseFloor.spacer}
+        </div>
       </main>
     </>
   );
