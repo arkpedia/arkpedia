@@ -196,6 +196,7 @@ jobs:
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
           node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
       - name: Publish the validated public release
+        id: publish
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
@@ -260,6 +261,41 @@ jobs:
           if [ "$(git -C "$repo" rev-parse HEAD)" = "$current_base" ]; then echo 'Content unchanged.'; exit 0; fi
           # Never forced: if main moves after the check above, the push is refused.
           git -C "$repo" push origin HEAD:main
+          # For the live check below: the commit arkpedia-data's Content release must point at.
+          echo "pushed=$(git -C "$repo" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      # arkpedia-data's Content release workflow validates what was pushed and only then moves
+      # the live pointer (live/current.json). When it fails, readers keep the previous release
+      # and nothing here would say so. Polls the live branch through git: raw.githubusercontent
+      # keeps current.json in its cache for five minutes. Never fails the run: the data is on
+      # data main either way, and the issue says what is missing.
+      - name: Confirm the release went live
+        if: steps.publish.outputs.pushed != ''
+        continue-on-error: true
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSHED: ${{ steps.publish.outputs.pushed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          alert=(--alert content-release-not-live --title 'Content release not live')
+          if node scripts/content/await-live.mjs --revision "$PUSHED" --repo "$RUNNER_TEMP/arkpedia-data" > "$RUNNER_TEMP/live-state.txt"; then
+            cat "$RUNNER_TEMP/live-state.txt"
+            node scripts/content/alert-issue.mjs close "${alert[@]}" --comment "The live pointer serves the release pushed as $PUSHED: $RUN_URL"
+          else
+            cat "$RUNNER_TEMP/live-state.txt"
+            body="$RUNNER_TEMP/not-live.md"
+            { printf 'This run pushed the release as arkpedia-data `%s` (%s), but the live pointer did not move to it:\n\n' "$PUSHED" "$RUN_URL"
+              cat "$RUNNER_TEMP/live-state.txt"
+              cat <<'EOF'
+
+          Readers keep the previous release until it does. The **Content release** workflow of arkpedia-data validates each push to main and then moves `live/current.json`; its run for this commit says why it did not: https://github.com/arkpedia/arkpedia-data/actions/workflows/content.yml
+          EOF
+            } > "$body"
+            node scripts/content/alert-issue.mjs open "${alert[@]}" --body-file "$body"
+            echo "::warning::The live pointer did not move to $PUSHED."
+            exit 1
+          fi
       # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
       # here on its own. Report it, but never hold back the day's content over it: this
       # runs after the publish step, and a slow or failing GitHub API call only fails

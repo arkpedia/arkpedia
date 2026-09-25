@@ -307,3 +307,53 @@ test('the gate reads the deployments config/production.json lists', async () => 
   }
   assert.deepEqual(urls, ['https://arkpedia-dev.vercel.app/build-info.json']);
 });
+
+// arkpedia-data's Content release moves the live pointer only after its own validator passes;
+// the release job polls the live branch through git (no CDN in the way) for the pushed commit.
+test('the live check waits for the pointer to name the pushed commit, or a later one containing it', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-live-'));
+  try {
+    const origin = path.join(root, 'origin.git'), seed = path.join(root, 'seed'), clone = path.join(root, 'clone');
+    fs.writeFileSync(path.join(root, 'gitconfig'), [`[url "file://${origin}"]`, '\tinsteadOf = https://github.com/arkpedia/arkpedia-data.git',
+      '[user]', '\tname = t', '\temail = t@example.invalid', '[init]', '\tdefaultBranch = main', ''].join('\n'));
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: path.join(root, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' };
+    const git = (cwd: string, ...args: string[]) => {
+      const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
+      assert.equal(result.status, 0, `git ${args.join(' ')}: ${result.stderr}`);
+      return result.stdout.trim();
+    };
+    git(root, 'init', '-q', '--bare', origin);
+    git(root, 'clone', '-q', `file://${origin}`, seed);
+    const mainCommit = (n: number) => { fs.writeFileSync(path.join(seed, 'a.json'), `${n}`); git(seed, 'add', '-A'); git(seed, 'commit', '-q', '-m', `main ${n}`); git(seed, 'push', '-q', 'origin', 'HEAD:main'); return git(seed, 'rev-parse', 'HEAD'); };
+    const publish = (revision: string) => {
+      const live = path.join(root, 'live');
+      fs.rmSync(live, { recursive: true, force: true });
+      git(root, 'init', '-q', live);
+      fs.writeFileSync(path.join(live, 'current.json'), JSON.stringify({ schema: 2, release: 'r'.repeat(64), revision, manifestSha256: 'm'.repeat(64) }));
+      git(live, 'add', '-A'); git(live, 'commit', '-q', '-m', `Publish content from ${revision}`); git(live, 'push', '-q', '--force', `file://${origin}`, 'HEAD:live');
+    };
+    const first = mainCommit(1);
+    git(root, 'clone', '-q', `file://${origin}`, clone);
+    const check = (revision: string) => {
+      const result = spawnSync(process.execPath, ['scripts/content/await-live.mjs', '--revision', revision, '--repo', clone, '--timeout-seconds', '0'], { env, encoding: 'utf8' });
+      return { status: result.status, output: (result.stdout + result.stderr).trim() };
+    };
+    // No live branch yet (a first release): not advanced, and it says why.
+    assert.deepEqual(check(first), { status: 1, output: `Live has not moved to ${first} after 0 s: fetching the live branch of arkpedia-data failed (fatal: couldn't find remote ref refs/heads/live).` });
+    publish(first);
+    assert.deepEqual(check(first), { status: 0, output: `Live serves ${first}.` });
+    // The Content release run for the push failed: live still names the previous commit.
+    const second = mainCommit(2);
+    const stuck = check(second);
+    assert.equal(stuck.status, 1);
+    assert.equal(stuck.output, `Live has not moved to ${second} after 0 s: it still serves ${first}.`);
+    // A later push superseded this one, and live names that: the pushed release is in it.
+    const third = mainCommit(3);
+    publish(third);
+    assert.deepEqual(check(second), { status: 0, output: `Live serves ${third}, a later data main commit that contains ${second}.` });
+    // The clone's own branches are left alone: the checks fetch into refs of their own.
+    assert.equal(git(clone, 'rev-parse', 'origin/main'), first);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

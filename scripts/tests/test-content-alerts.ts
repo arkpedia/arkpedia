@@ -441,3 +441,56 @@ test('a held release reports on its own issue, and a good run closes it with the
     assert.match(github.issues()[0].comments.at(-1)!.body, /^Production runs the code this run compiled with, and the run succeeded: https:\/\/example\.invalid\/run\/1$/);
   });
 });
+
+// arkpedia-data's Content release moves the live pointer after its own validator passes; the
+// release job polls the live branch for the commit it pushed, and alerts when it stays put.
+test('a release that does not go live opens an issue, and one that does closes it', () => {
+  withGitHub(github => {
+    const script = stepScript('Confirm the release went live');
+    const origin = path.join(github.root, 'data.git'), seed = path.join(github.root, 'seed'), clone = path.join(github.root, 'arkpedia-data');
+    const gitconfig = path.join(github.root, 'gitconfig');
+    fs.writeFileSync(gitconfig, [`[url "file://${origin}"]`, '\tinsteadOf = https://github.com/arkpedia/arkpedia-data.git',
+      '[user]', '\tname = t', '\temail = t@example.invalid', '[init]', '\tdefaultBranch = main', ''].join('\n'));
+    const gitEnv = { ...process.env, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1' };
+    const git = (cwd: string, ...args: string[]) => {
+      const result = spawnSync('git', args, { cwd, env: gitEnv, encoding: 'utf8' });
+      assert.equal(result.status, 0, `git ${args.join(' ')}: ${result.stderr}`);
+      return result.stdout.trim();
+    };
+    git(github.root, 'init', '-q', '--bare', origin);
+    git(github.root, 'clone', '-q', `file://${origin}`, seed);
+    const commit = (branch: string, file: string, text: string) => {
+      git(seed, 'checkout', '-q', '-B', branch);
+      fs.writeFileSync(path.join(seed, file), text);
+      git(seed, 'add', '-A'); git(seed, 'commit', '-q', '-m', `${branch} ${text}`); git(seed, 'push', '-q', '--force', 'origin', `HEAD:${branch}`);
+      return git(seed, 'rev-parse', 'HEAD');
+    };
+    const first = commit('main', 'a.json', '1');
+    git(seed, 'checkout', '-q', '--orphan', 'live'); git(seed, 'rm', '-q', '-rf', '.');
+    commit('live', 'current.json', JSON.stringify({ schema: 2, release: 'r'.repeat(64), revision: first, manifestSha256: 'm'.repeat(64) }));
+    git(seed, 'checkout', '-q', 'main');
+    const pushed = commit('main', 'a.json', '2');
+    git(github.root, 'clone', '-q', `file://${origin}`, clone);
+    const run = () => github.step(script, { PUSHED: pushed, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1', ARKPEDIA_LIVE_TIMEOUT_SECONDS: '0' });
+    // The data repository's publish failed: live still names the previous commit.
+    const stuck = run();
+    assert.equal(stuck.status, 1, 'the step shows red; continue-on-error keeps the run going');
+    const [issue] = github.issues();
+    assert.equal(issue.title, 'Content release not live');
+    assert.match(issue.body, new RegExp(`^<!-- arkpedia-alert:content-release-not-live -->\\nThis run pushed the release as arkpedia-data \`${pushed}\` \\(https://example\\.invalid/run/1\\), but the live pointer did not move to it:`));
+    assert.match(issue.body, new RegExp(`Live has not moved to ${pushed} after 0 s: it still serves ${first}\\.`));
+    assert.match(issue.body, /Readers keep the previous release until it does\. .*actions\/workflows\/content\.yml$/m);
+    assert.match(stuck.output, /::warning::The live pointer did not move/);
+    // It moved: the issue closes.
+    git(seed, 'checkout', '-q', 'live');
+    commit('live', 'current.json', JSON.stringify({ schema: 2, release: 'r'.repeat(64), revision: pushed, manifestSha256: 'm'.repeat(64) }));
+    const live = run();
+    assert.equal(live.status, 0, live.output);
+    assert.match(live.output, new RegExp(`Live serves ${pushed}\\.`));
+    assert.equal(github.issues()[0].state, 'closed');
+  });
+  const settings = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('\n');
+  const start = settings.findIndex(line => line.trim() === '- name: Confirm the release went live');
+  const block = settings.slice(start, start + 6).map(line => line.trim());
+  assert.ok(block.includes("if: steps.publish.outputs.pushed != ''") && block.includes('continue-on-error: true'), 'only after a push, and never failing the run');
+});

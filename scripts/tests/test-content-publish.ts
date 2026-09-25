@@ -97,8 +97,10 @@ function dataRepository(root: string) {
       fs.writeFileSync(path.join(out, 'source/a.json'), JSON.stringify({ value }));
       fs.writeFileSync(path.join(out, 'release/manifest.json'), JSON.stringify({ release, ...(content ? { content } : {}) }));
     },
-    publish: (extra: Record<string, string> = {}) => step(publishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', ...extra }),
+    publish: (extra: Record<string, string> = {}) => step(publishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', GITHUB_OUTPUT: path.join(runner, 'github-output'), ...extra }),
+    outputs: () => fs.existsSync(path.join(runner, 'github-output')) ? fs.readFileSync(path.join(runner, 'github-output'), 'utf8') : '',
     log: (ref: string) => git('-C', origin, 'log', '--format=%s', ref).split('\n'),
+    head: (ref: string) => git('-C', origin, 'rev-parse', ref),
     file: (ref: string, file: string) => JSON.parse(git('-C', origin, 'show', `${ref}:${file}`)),
     root,
     main: () => git('-C', origin, 'log', '--format=%s', 'main').split('\n'),
@@ -391,15 +393,17 @@ test('a release production cannot be shown to read is not pushed', () => {
     const held = repo.publish({ FAKE_GATE: 'hold' });
     assert.notEqual(held.status, 0, 'the step fails, so the run is reported and nothing is cached as prepared');
     assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
+    assert.equal(repo.outputs(), '', 'no pushed commit for the live check');
     const [gate] = repo.scripts().filter(line => line.startsWith('deploy-gate'));
     assert.match(gate, /^deploy-gate --manifest \S+\/prepared-content\/release\/manifest\.json --held-file \S+\/release-held\.md$/, 'the gate is asked about the compiled release');
     assert.equal(fs.readFileSync(path.join(repo.root, 'runner/release-held.md'), 'utf8'), 'production runs other code\n');
-    // Production catches up: the same release goes out.
+    // Production catches up: the same release goes out, and names the commit it pushed.
     const published = repo.publish();
     assert.equal(published.status, 0, published.output);
     assert.deepEqual(repo.main(), ['Refresh game content and prepared page data', 'main 2', 'main 1', 'main 0']);
+    assert.equal(repo.outputs(), `pushed=${repo.head('main')}\n`);
   });
-  // Nothing to publish asks production nothing: there is nothing to hold.
+  // Nothing to publish asks production nothing and names no commit: there is nothing to hold.
   withDataRepository(repo => {
     repo.load('main');
     repo.prepare('r2');
@@ -407,6 +411,7 @@ test('a release production cannot be shown to read is not pushed', () => {
     assert.equal(unchanged.status, 0, unchanged.output);
     assert.match(unchanged.output, /Release inputs are unchanged/);
     assert.deepEqual(repo.scripts().filter(line => line.startsWith('deploy-gate')), []);
+    assert.equal(repo.outputs(), '');
   });
 });
 
@@ -423,4 +428,5 @@ test('the gate is asked before anything runs, and again in the publish step befo
   const gate = at(/^node scripts\/content\/deploy-gate\.mjs --manifest /);
   assert.ok(gate > at(/Release inputs are unchanged/), 'after the step knows there is something to publish');
   assert.ok(gate < at(/checkout -B main/) && gate < at(/push origin HEAD:main/), 'before the commit and the push');
+  assert.ok(at(/pushed=/) > at(/push origin HEAD:main/), 'the pushed commit is named only once it is pushed');
 });
