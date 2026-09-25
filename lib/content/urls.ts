@@ -54,3 +54,21 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
   }
   return src;
 }
+
+/**
+ * A URL wrapped for CSS `url()`, for art set from a component: a mask, a backdrop,
+ * a cursor. A stylesheet cannot say `url(/story-marks/...)` itself -- that path 307s
+ * to the asset commit of the last deploy, not the page's release -- so the component
+ * resolves it with useContentUrl() and hands it over as a custom property
+ * (test-css-asset-urls).
+ *
+ * An unquoted url() cannot hold an apostrophe, a bracket or whitespace -- CSS drops
+ * the whole declaration, silently. One event poster has an apostrophe in its name
+ * ("Grani and the Knights' Treasure"), which is why the Glimpse of the Depths line
+ * had no backdrop while the other sixteen did: encodeURIComponent leaves ' alone, so
+ * percent-encoding the spaces was not enough. Quoted, with quotes and backslashes
+ * escaped, any filename works.
+ */
+export function cssUrl(url: string): string {
+  return `url("${url.replace(/["\\]/g, '\\$&')}")`;
+}

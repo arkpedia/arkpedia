@@ -1,4 +1,5 @@
 import { useContentUrl, useContentTable } from '@/lib/content/context';
+import { cssUrl } from '@/lib/content/urls';
 import { ContentImg } from '@/components/content/ContentImage';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -1186,7 +1187,13 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
           /* The ref is what goes fullscreen: the whole section, so the play button and
              the scrubber come with the map rather than the reader being locked out of
              the controls at the moment the map is worth watching. */
-          <section className="op-section" ref={simulator}>
+          <section
+            className="op-section"
+            ref={simulator}
+            /* The game's pointer for fullscreen (see .op-section:fullscreen), pinned to
+               the page's release like every other piece of art. */
+            style={{ ['--stage-cursor' as string]: `${cssUrl(contentUrl('/cursors/prts.png'))} 6 5, default` }}
+          >
             <div className="stage-section-head">
               {/* A stage with no schematic and no render has no map to head --
                   what the section holds there is the briefing itself. */}

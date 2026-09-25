@@ -327,8 +327,12 @@
      not. 81x64, which is inside the 128px browsers cap and draws at about half that on
      a 2x screen. The 6 5 is the hotspot, measured rather than guessed -- the opaque
      pixel nearest the top-left corner, which is the point of the arrow. `default`
-     stays as the fallback, so a missing file degrades instead of breaking. */
-  cursor: url('/cursors/prts.png') 6 5, default;
+     stays as the fallback, so a missing file degrades instead of breaking.
+
+     The value is set on the section by pages/stages/browse.tsx: the image has to come
+     from the page's content release, which a stylesheet cannot name
+     (test-css-asset-urls). Unset, it is the system cursor. */
+  cursor: var(--stage-cursor, default);
 }
 .op-section:fullscreen .stage-map-area {
   flex: 1 1 auto;

@@ -1,5 +1,6 @@
 import { getModuleStageEffects } from '@/lib/operators/moduleEffects';
 import { useContentUrl } from '@/lib/content/context';
+import { cssUrl } from '@/lib/content/urls';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -871,7 +872,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       }}>
           <section id="operator-artwork" tabIndex={-1} aria-label="Operator artwork" className={pageStyles.gallery}>
             <div className="op-carousel-main">
-              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: `url("${contentUrl(factionEmblem)}")`, WebkitMaskImage: `url("${contentUrl(factionEmblem)}")` }} />}
+              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: cssUrl(contentUrl(factionEmblem)), WebkitMaskImage: cssUrl(contentUrl(factionEmblem)) }} />}
               {prevAppearance?.fullPath && (
                 <div key={`prev-img-${prevAppearance.label}`} className="op-carousel-main-img op-carousel-img-exit">
                   <ResponsiveSkinArtwork src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes="(max-width: 900px) 100vw, 40vw" />

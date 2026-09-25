@@ -1,4 +1,5 @@
 import { useContentUrl } from '@/lib/content/context';
+import { cssUrl } from '@/lib/content/urls';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -28,20 +29,6 @@ const YEAR = (unix: number | null) => (unix ? new Date(unix * 1000).getUTCFullYe
 /** By act number, from 0: the mark's file, and what to call it out loud. The game
  *  does not number the first act -- it marks it `initium` -- so this is not a
  *  roman-numeral function. */
-/**
- * A path wrapped for CSS `url()`.
- *
- * An unquoted url() cannot hold an apostrophe, a bracket or whitespace -- CSS drops
- * the whole declaration, silently. One event poster has an apostrophe in its name
- * ("Grani and the Knights' Treasure"), which is why the Glimpse of the Depths line
- * had no backdrop while the other sixteen did: encodeURIComponent leaves ' alone, so
- * percent-encoding the spaces was not enough. Quoted, with quotes and backslashes
- * escaped, any filename works.
- */
-function cssUrl(path: string): string {
-  return `url("${path.replace(/["\\]/g, '\\$&')}")`;
-}
-
 const ACT_MARKS: [file: string, label: string][] = [
   ['initium', 'initium'],
   ['i', 'I'],
@@ -50,6 +37,7 @@ const ACT_MARKS: [file: string, label: string][] = [
 ];
 
 export default function ScorePage({ lines }: Props) {
+  const contentUrl = useContentUrl();
   const acts = lines.filter((l) => l.mainline);
   const stories = lines.filter((l) => !l.mainline);
   return (
@@ -67,7 +55,11 @@ export default function ScorePage({ lines }: Props) {
       <main className="terminal-scene">
         <section className="score-block">
           <h2 className="score-block-title">
-            <span className="score-block-emblem" aria-hidden="true" />
+            <span
+              className="score-block-emblem"
+              style={{ ['--score-emblem' as string]: cssUrl(contentUrl('/story-marks/main-story.webp')) }}
+              aria-hidden="true"
+            />
             Main Theme
           </h2>
           {acts.map((line) => <Line key={line.id} line={line} act />)}

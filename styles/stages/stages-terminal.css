@@ -264,8 +264,9 @@
   width: 18px;
   height: 18px;
   background: var(--teal);
-  mask-image: url(/story-marks/main-story.webp);
-  -webkit-mask-image: url(/story-marks/main-story.webp);
+  /* Set by pages/stages/score.tsx from the page's content release. */
+  mask-image: var(--score-emblem);
+  -webkit-mask-image: var(--score-emblem);
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
