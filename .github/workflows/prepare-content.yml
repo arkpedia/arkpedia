@@ -158,6 +158,11 @@ jobs:
           stage lyrics -- npm run lyrics:refresh
           stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
           stage event-farming -- node scripts/sync/sync-event-farming.mjs
+          # What the guessers send to readers, measured once every stage that adds records has
+          # run. It writes nothing: over budget fails only this stage, so the daily issue names
+          # it until the payload is trimmed or the budget raised, and the release still goes
+          # out (scripts/audits/check-payload-budgets.ts).
+          stage payload-budgets -- npm run check:payload-budgets
           stage completeness --invariant --keep data/quarantine.json -- node scripts/content/check-completeness.mjs
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'

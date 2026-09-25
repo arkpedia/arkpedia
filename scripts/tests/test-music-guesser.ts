@@ -3,7 +3,6 @@ import review from '../../data/music-guesser-review.json';
 import { MAIN_STORY_MUSIC } from '../../lib/music-guesser/mainStory';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gzipSync } from 'node:zlib';
 import { creditArtistNames, getSongChoices } from '../../lib/music-guesser/catalogue';
 import { getAllSongsFull } from '../../lib/music/albumsData';
 import { acceptsTitle, isInstrumentalVersion, buildAnswerIndex, judgeAnswer, getMusicCoverage, searchAnswers, selectMusicPool, clipStage, selectClip, clampClipPosition, randomClipStart, makeAttempt, normalizeTitle, pickSong, searchSongs, CLIP_SECONDS } from '../../lib/music-guesser/game';
@@ -348,7 +347,6 @@ test('every catalogue song accepts and can be searched by both of its stored tit
       assert.ok(searchSongs(songs, title).some((match) => acceptsTitle(match, title)));
     }
   }
-  assert.ok(gzipSync(JSON.stringify(songs)).length < 50000, 'keep the catalogue with artist names under 50 KB gzip');
 });
 
 test('normalization accepts translations, punctuation, diacritics and full-width characters without dropping versions', () => {
@@ -442,7 +440,6 @@ test('every recording is selectable and CN filtering follows confirmed Global re
   assert.equal(isGlobalGroup(people, '2026-09-16'), true);
   assert.equal(isGlobalGroup(selection.groups.find((group) => group.name === 'Crossing')!, selectionDate), true);
   assert.equal(isGlobalGroup(selection.groups.find((group) => group.id === 'story:17')!, selectionDate), false);
-  assert.ok(gzipSync(JSON.stringify(selection)).length < 65000, 'group metadata must stay small alongside the catalogue');
 });
 
 test('calendar parsing rejects estimates, unknown and invalid dates, and handles event prefixes and reruns', () => {

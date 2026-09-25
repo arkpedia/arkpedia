@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gzipSync } from 'node:zlib';
 import { computeTagCombos, RecruitableOperator } from '../../lib/gacha/recruitmentCalc';
 import { newProgress, normalizeAnswer, pickNext, resolveOperator, submitAnswer } from '../../lib/minigames/logic';
 import { buildRecruitmentQuestions } from '../../lib/minigames/recruitmentLogic';
@@ -81,8 +80,9 @@ test('small pools cycle without immediate repeats and empty selections are safe'
   assert.equal(pickNext([], [], String), null);
 });
 
-test('recruitment ships compact data and only released recruitable answers', () => {
-  assert.ok(gzipSync(JSON.stringify(game)).length < 30000);
+// Its size budget is scripts/audits/check-payload-budgets.ts: npm test runs in the release
+// job too, where a budget on real data would fail a release over data growth.
+test('recruitment ships only released recruitable answers', () => {
   const names = new Set(game.operators.map(operator => operator.name));
   assert.ok(game.questions.every(q => q.answers.every(name => names.has(name))));
   assert.ok(!names.has('Amiya'));

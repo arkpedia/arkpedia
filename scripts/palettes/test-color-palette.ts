@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { gzipSync } from 'node:zlib';
 import { publicFileExists } from '../../lib/assets/publicAssets';
 import { applyCommunityPaletteOverrides, getPaletteCatalogue } from '../../lib/minigames/data';
 import { playablePalettes } from '../../lib/minigames/logic';
@@ -144,9 +143,9 @@ test('recognizable hair, clothing and small accessories survive palette extracti
   assert.ok(hr > hg * 1.6 && hr > hb * 1.2, 'Surtr has red hair');
 });
 
-test('palette data stays compact and excludes future-only operators', () => {
-  // The page ships the whole catalogue and filters it at render.
-  assert.ok(gzipSync(JSON.stringify(catalogue)).length < 65000);
+// The page ships the whole catalogue and filters it at render; its size budget is
+// scripts/audits/check-payload-budgets.ts, since npm test also runs in the release job.
+test('palette data excludes future-only operators', () => {
   assert.equal(playablePalettes(catalogue, Date.parse('2019-01-01')).length, 0);
 });
 

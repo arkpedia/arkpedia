@@ -48,6 +48,15 @@ image decoding/hash verification lives in the public asset repositories. Voice
 syncs verify every changed clip against its upstream Git blob and decode it before
 publishing; they do not delete removed/legacy recordings automatically.
 
+`npm run check:payload-budgets` holds what the guessers and the palette game send to
+readers (their page props and lazy catalogues) to size budgets, measured on the real
+catalogue (`scripts/audits/check-payload-budgets.ts`). Check fails a change that goes
+over. It is not part of `npm test`, because the release job runs that suite on the
+day's data and the catalogues only grow: there the same command is the
+`payload-budgets` refresh stage, and a payload over budget costs only that stage, which
+the daily 'Content quarantined' issue then names until the payload is trimmed or the
+budget raised. The release is never held back by it.
+
 ## Local checks
 
 ```sh
@@ -58,6 +67,7 @@ python3 -m pip install pillow certifi
 python3 scripts/palettes/test-color-palettes.py
 npm run check:assets
 npm run check:published-assets
+npm run check:payload-budgets
 npm run lint -- --max-warnings 15
 npm run check:styles
 npm run content:export
