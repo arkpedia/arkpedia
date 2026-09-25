@@ -13,6 +13,8 @@ import { DOCS_ONLY_PATHS, codeFingerprint, globToRegExp, isDocsOnly, uncommitted
 import { judge, main as gate, releaseFromRef } from '../content/deploy-gate.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { SCHEMA } from '../content/release-input.mjs';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { ASSET_SYNCS, awaitSyncs, syncState } from '../content/asset-syncs.mjs';
 import { CONTENT_SCHEMA } from '../../lib/content/types';
 
 /*
@@ -356,4 +358,62 @@ test('the live check waits for the pointer to name the pushed commit, or a later
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+// The release pins each asset repository at whatever its sync reached; GitHub starts both the
+// syncs and the release 2-4 hours late, so "syncs first" held only by a 1.2-2.5 hour margin.
+test('a sync counts as done once its run of the day has finished, whatever its conclusion', () => {
+  const now = Date.parse('2026-09-25T22:00:00Z');
+  const run = (event: string, created: string, status = 'completed', conclusion = 'success') => ({ event, created_at: created, status, conclusion });
+  assert.deepEqual(syncState([run('schedule', '2026-09-25T19:57:00Z')], now), { done: true, detail: 'its run of 2026-09-25T19:57:00Z ended with success' });
+  assert.equal(syncState([run('schedule', '2026-09-25T19:57:00Z', 'completed', 'failure')], now).done, true, "a failure is the report's business, not a reason to wait");
+  assert.deepEqual(syncState([run('schedule', '2026-09-25T21:40:00Z', 'in_progress', '')], now), { done: false, detail: 'its run of 2026-09-25T21:40:00Z is in_progress' });
+  // Yesterday's run is not today's: the day's run has not started yet.
+  assert.deepEqual(syncState([run('schedule', '2026-09-24T19:57:00Z')], now), { done: false, detail: 'no run in the last 20 hours (the newest started 2026-09-24T19:57:00Z)' });
+  assert.equal(syncState([], now).done, false);
+  // A run started by hand counts, as in the 'Asset sync failing' report; a push-triggered one does not.
+  assert.equal(syncState([run('workflow_dispatch', '2026-09-25T15:00:00Z')], now).done, true);
+  assert.equal(syncState([run('push', '2026-09-25T21:00:00Z'), run('schedule', '2026-09-24T19:57:00Z')], now).done, false);
+});
+
+test('the release waits for every sync until the timeout, then goes ahead and says which it did not wait for', async () => {
+  let clock = Date.parse('2026-09-25T22:00:00Z');
+  const polls: Record<string, number> = {};
+  const read = async (sync: string) => {
+    polls[sync] = (polls[sync] ?? 0) + 1;
+    if (sync === 'late/sync.yml') return polls[sync] >= 3 ? [{ event: 'schedule', created_at: '2026-09-25T21:50:00Z', status: 'completed', conclusion: 'success' }] : [{ event: 'schedule', created_at: '2026-09-25T21:50:00Z', status: 'in_progress' }];
+    if (sync === 'never/sync.yml') return [{ event: 'schedule', created_at: '2026-09-24T19:00:00Z', status: 'completed', conclusion: 'success' }];
+    if (sync === 'broken/sync.yml') throw new Error('HTTP 502');
+    return [{ event: 'schedule', created_at: '2026-09-25T20:00:00Z', status: 'completed', conclusion: 'success' }];
+  };
+  const sleep = async (ms: number) => { clock += ms; };
+  const result = await awaitSyncs({ syncs: ['ok/sync.yml', 'late/sync.yml', 'never/sync.yml', 'broken/sync.yml'], read, now: () => clock, sleep, timeoutMs: 30 * 60_000, intervalMs: 60_000 });
+  assert.deepEqual([...result.done.keys()].sort(), ['broken/sync.yml', 'late/sync.yml', 'ok/sync.yml']);
+  assert.match(result.done.get('broken/sync.yml'), /could not be read \(HTTP 502\)/, 'an unreadable sync is not waited for');
+  assert.deepEqual([...result.pending.keys()], ['never/sync.yml']);
+  assert.equal(polls['ok/sync.yml'], 1, 'a finished sync is not asked again');
+  assert.equal(polls['late/sync.yml'], 3);
+  assert.ok(clock - Date.parse('2026-09-25T22:00:00Z') <= 30 * 60_000, 'never past the timeout');
+  assert.equal(polls['never/sync.yml'], 31, 'once a minute, from the start to the 30th minute');
+});
+
+test('only a scheduled release waits, before the upstream probe, and the report reads the same syncs', () => {
+  const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
+  const names = [...workflow.matchAll(/^ {6}- name: (.*)$/gm)].map(match => match[1]);
+  const wait = names.indexOf("Wait for the asset syncs' runs of the day");
+  assert.ok(wait > names.indexOf('Hold the release while production runs other code') && wait < names.indexOf('Check upstream revisions'), 'after the gate (a held run does not wait), before the probe');
+  const block = workflow.slice(workflow.indexOf("- name: Wait for the asset syncs' runs of the day"), workflow.indexOf('- name: Load the last known upstream revisions'));
+  assert.match(block, /if: github\.event_name == 'schedule'\n/);
+  assert.match(block, /continue-on-error: true\n/);
+  assert.match(block, /timeout-minutes: 35\n[\s\S]*run: node scripts\/content\/asset-syncs\.mjs wait --timeout-minutes 30\n/);
+  // The job has room for the wait on top of a compile (about 8 minutes) and the live check.
+  const [runner, hosted] = workflow.match(/timeout-minutes: \$\{\{ vars\.ARKPEDIA_RUNNER && (\d+) \|\| (\d+) \}\}/)!.slice(1).map(Number);
+  assert.ok(runner >= 75 && hosted >= 60, `${runner}/${hosted}`);
+  // One list: the report after the publish checks exactly the syncs the release waited for.
+  const report = workflow.slice(workflow.indexOf('- name: Report failing asset syncs'), workflow.indexOf('- name: Report quarantined content'));
+  assert.match(report, /syncs=\$\(node scripts\/content\/asset-syncs\.mjs list\)/);
+  assert.doesNotMatch(report, /sync-images\.yml/);
+  const listed = spawnSync(process.execPath, ['scripts/content/asset-syncs.mjs', 'list'], { encoding: 'utf8' }).stdout.trim().split('\n');
+  assert.deepEqual(listed, ASSET_SYNCS);
+  assert.equal(ASSET_SYNCS.length, 7);
 });

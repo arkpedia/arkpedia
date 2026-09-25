@@ -32,7 +32,8 @@ jobs:
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 60 || 40 }}
+    # Up to 30 of these minutes may go to waiting for the asset syncs (below).
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 90 || 70 }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -45,6 +46,20 @@ jobs:
       # stops now instead of after the compile; the report at the end says why.
       - name: Hold the release while production runs other code
         run: node scripts/content/deploy-gate.mjs --ref HEAD --held-file "$RUNNER_TEMP/release-held.md"
+      # The release pins each asset repository at the commit its sync has reached. The syncs'
+      # crons come three and a half hours before this one, but GitHub starts every scheduled
+      # run 2-4 hours late, so that order held by a margin, not by design. A scheduled release
+      # waits, up to 30 minutes, until each sync has finished its run of the day
+      # (scripts/content/asset-syncs.mjs); a dispatched one does not wait. Before the upstream
+      # probe, so its fingerprint sees what the syncs committed. Never fails the run: after the
+      # wait the release pins what the syncs have reached, and the report below names a failure.
+      - name: Wait for the asset syncs' runs of the day
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        timeout-minutes: 35
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/content/asset-syncs.mjs wait --timeout-minutes 30
       # The probe falls back to each repository's last known commit when it cannot reach
       # one, so an outage of any single source never stops the day's run.
       - name: Load the last known upstream revisions
@@ -311,10 +326,9 @@ jobs:
           set -euo pipefail
           cutoff=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)
           failing=''
-          for sync in arkpedia-image-assets/sync-images.yml arkpedia-skin-assets/sync-artwork.yml \
-            arkpedia-voice-english/sync-voices.yml arkpedia-voice-japanese/sync-voices.yml \
-            arkpedia-voice-korean/sync-voices.yml arkpedia-voice-mandarin/sync-voices.yml \
-            arkpedia-voice-regional/sync-voices.yml; do
+          # The syncs the release waits for before it starts (scripts/content/asset-syncs.mjs).
+          syncs=$(node scripts/content/asset-syncs.mjs list)
+          for sync in $syncs; do
             repo=${sync%%/*} workflow=${sync#*/}
             # The latest finished run, scheduled or started by hand: a green manual rerun
             # of a failed sync clears it.

@@ -28,8 +28,10 @@ nothing deploys and the daily content release stops until the month resets.
 
 ## What differs on the self-hosted runner
 
-- Timeouts are longer (Check 60, Deploy 45, content release 60, stage refresh
-  30 minutes): the machine has 2 vCPUs and about 3 GB of memory for jobs.
+- Timeouts are longer (Check 60, Deploy 45, content release 90, stage refresh
+  30 minutes): the machine has 2 vCPUs and about 3 GB of memory for jobs. Up to 30 of
+  the content release's minutes can go to waiting for the public asset syncs, which run
+  on GitHub's runners, so a Check queued behind it can wait that long too.
 - Playwright installs Chromium without `--with-deps`: the system libraries are
   installed on the machine once, and the runner user has no sudo.
 - One job runs at a time. A Check, a Deploy and a content release queue behind each
