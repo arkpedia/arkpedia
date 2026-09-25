@@ -7,6 +7,7 @@ import { buildMaterialCatalogue } from '../build/build-material-catalogue.mjs';
 import { itemTier, materialItems, readMaterialNames } from '../lib/material-items.mjs';
 import { checkMaterialCatalogue, plannerCostNames } from '../../lib/farming/materialCatalogue.mjs';
 import { materialOrderFor, sortMaterials } from '../../lib/farming/materialSortOrder';
+import { withMaterialOrder } from '../../lib/content/materialOrderFallback';
 
 /*
  * The planner's material catalogue is derived from the game's item tables, not typed out.
@@ -115,4 +116,14 @@ test('the checked-in catalogue and names are well formed, and the release job bu
   assert.ok(at('stage import-aliases') < at('stage completeness'));
   const hydrate = fs.readFileSync('scripts/content/hydrate-source.mjs', 'utf8');
   for (const file of ['data/material-catalogue.json', 'data/material-names.json']) assert.match(hydrate, new RegExp(`'${file}'`));
+});
+
+test('a page from a release older than materialOrder gets it from the deployment, never crashes', async () => {
+  const names = () => ['Electrode Unit', 'LMD', 'Nobody Heard Of This'];
+  const upgraded = await withMaterialOrder({ value: 1 } as { value: number; materialOrder?: string[] }, names);
+  assert.deepEqual(upgraded.materialOrder, ['LMD', 'Electrode Unit']);
+  // A payload that carries its own is left alone: the release's order wins.
+  const own = { value: 2, materialOrder: ['Electrode Unit', 'LMD'] };
+  assert.equal(await withMaterialOrder(own, names), own);
+  for (const page of ['pages/operators/[name].tsx', 'pages/events/[slug].tsx']) assert.match(fs.readFileSync(page, 'utf8'), /finalize: \(props\) => withMaterialOrder\(props, /, page);
 });

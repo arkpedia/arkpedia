@@ -20,6 +20,7 @@ import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
+import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 
 const CAROUSEL_INTERVAL_MS = 8000;
@@ -552,4 +553,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       ),
     },
   };
+}, {
+  // A release exported before reward totals carried their order: this deployment's catalogue fills it in.
+  finalize: (props) => withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name))),
 });

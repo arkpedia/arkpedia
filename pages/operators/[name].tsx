@@ -54,6 +54,7 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import pageStyles from '@/components/operators/OperatorPage.module.css';
 import { materialOrderFor, sortMaterials } from '@/lib/farming/materialSortOrder';
 import { checkMaterialCatalogue, plannerCostNames } from '@/lib/farming/materialCatalogue.mjs';
+import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import { getOperatorVoiceData, OperatorVoiceData } from '@/lib/operators/operatorVoices';
 import OperatorRelationPopover, { RelatedOperator } from '@/components/operators/OperatorRelationPopover';
 
@@ -1817,4 +1818,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   // The cost rows sort by the release's catalogue, not by a list compiled into the page.
   const materialOrder = materialOrderFor(checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default), plannerCostNames(operator));
   return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder } };
+}, {
+  // A release exported before cost rows carried their order: this deployment's catalogue fills it in.
+  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)),
 });
