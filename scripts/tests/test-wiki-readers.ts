@@ -238,13 +238,14 @@ test('an Upcoming page is judged by half the most rows it held within a week, so
     assert.deepEqual(await entries(root), []);
     const before = cache();
     // Half of yesterday's 11, but not half of the 20 held this week: kept, and reported, and the
-    // peak it was judged by is marked as holding it back, so it cannot run out meanwhile.
+    // hold is marked in the cache with its words, so it holds past the peak's week, whatever the count.
     answer = page(6, 14);
     assert.equal(await read('2026-09-03'), 11);
     const [entry] = await entries(root);
     assert.deepEqual([entry.key, entry.action], [`wiki:${upcoming}`, 'kept-previous']);
     assert.match(entry.reason, /fewer than half the "Banners cell" rows it recently held parse, not counting rows that moved nowhere; most of the page has probably been reformatted/);
-    assert.deepEqual(JSON.parse(cache()).peak, { rows: 20, since: '2026-09-02', held: true });
+    assert.deepEqual(JSON.parse(cache()).peak, { rows: 20, since: '2026-09-02' });
+    assert.equal(JSON.parse(cache()).held, entry.reason.match(/cannot be used: (.*?)\. If it really lost them/)?.[1]);
     assert.equal(JSON.parse(cache()).rows.length, 11, 'the good copy survives');
     assert.equal(PEAK_DAYS, 7);
     // The page comes back: the hold ends and its mark comes off. From then on an unchanged page
@@ -421,10 +422,10 @@ test('a held-back Upcoming shrink ends when the page serves the rows it kept aga
     assert.equal(await read(1), 11);
     answer = bannerPage(range(14, 20));
     assert.equal(await read(2), 11);
-    assert.equal(cache().peak.held, true);
+    assert.match(cache().held, /fewer than half/);
     // The wiki reverts the edit: the page serves exactly the rows the good copy kept. Nothing
-    // about the rows changes, but the hold is over and its mark must come off, or the peak it
-    // marks never runs out and judges every later shrink by a count from weeks before.
+    // about the rows changes, but the hold is over and its mark must come off, or any later row
+    // that leaves without turning up where the wiki moves it would be held back, however few.
     answer = bannerPage(range(9, 20));
     assert.equal(await read(3), 11);
     assert.deepEqual(await entries(root), []);
@@ -434,6 +435,146 @@ test('a held-back Upcoming shrink ends when the page serves the rows it kept aga
     answer = bannerPage(range(14, 20));
     assert.equal(await read(10), 6);
     assert.deepEqual(await entries(root), []);
+  });
+});
+
+/* A hold ends only when the rows it lost are accounted for -- served again, or found where the
+   wiki moves them -- or a maintainer deletes the cache file. Never because the count recovered:
+   CN announces a banner or an event every week or two, and the new rows would hide the lost ones. */
+test('an Upcoming shrink held back from a steady page stays held while new rows bring the count back, until the rows it lost turn up', async t => {
+  const { readWikiRows } = await wikiPages();
+  const { beginStage } = await quarantine();
+  const { onYearlyPage, parseWikiRows } = await catalogueModel();
+  const upcoming = 'Headhunting/Banners/Upcoming';
+  await temporary(async root => {
+    let answer: unknown = bannerPage(range(0, 20));
+    let yearly: object[] = [];
+    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(answer), { status: 200 }));
+    t.mock.method(console, 'warn', () => {});
+    const day = (n: number) => new Date(Date.UTC(2027, 2, 1 + n, 20));
+    const read = async (n: number) => {
+      const alerts = beginStage(root, 'wiki', day(n));
+      const rows = await readWikiRows(root, upcoming, 'Banners cell', { now: day(n), alerts, movedTo: { name: 'to Headhunting/Banners/2027', has: onYearlyPage(yearly) } });
+      alerts.commit();
+      return rows.length;
+    };
+    const file = () => fs.readFileSync(path.join(root, 'data/quarantine.json'), 'utf8');
+    const cache = () => fs.readFileSync(cacheOf(root, upcoming), 'utf8');
+    assert.equal(await read(0), 20);
+    assert.equal(JSON.parse(cache()).peak, undefined, 'a steady page keeps no peak: only the hold itself can keep it held');
+    // Just over half the rows stop parsing: held back and reported, and the hold is marked in the cache.
+    answer = bannerPage(range(11, 20));
+    assert.equal(await read(1), 20);
+    assert.equal((await entries(root)).length, 1);
+    const reported = file(), held = cache();
+    assert.match(JSON.parse(held).held, /fewer than half the "Banners cell" rows it recently held parse/);
+    // CN announces a banner: the nine and the new row are half the 20 again, and later more than
+    // 20. None of the eleven turned up anywhere, so the page stays held back, with the same entry
+    // and the same cache, byte for byte: no day of it is a new release.
+    const days: [number, number[]][] = [[2, [...range(11, 20), 25]], [3, [...range(11, 20), 25]], [4, [...range(11, 20), ...range(25, 40)]]];
+    for (const [n, indices] of days) {
+      answer = bannerPage(indices);
+      assert.equal(await read(n), 20, `day ${n}: ${indices.length} rows parse`);
+      assert.equal(file(), reported, `day ${n}: the same entry`);
+      assert.equal(cache(), held, `day ${n}: the same good copy and mark`);
+    }
+    // Six of the eleven land on the yearly page; five are still nowhere: held.
+    yearly = parseWikiRows(bannerPage(range(0, 6)).parse.wikitext['*'], 'Banners cell');
+    assert.equal(await read(5), 20);
+    assert.equal(file(), reported);
+    // The other five parse again: every row of the good copy is on the page or where it moved.
+    // Taken, the alert gone, the mark off.
+    answer = bannerPage([...range(6, 20), ...range(25, 40)]);
+    assert.equal(await read(6), 29);
+    assert.deepEqual(await entries(root), []);
+    assert.deepEqual(Object.keys(JSON.parse(cache())), ['page', 'template', 'rows']);
+  });
+});
+
+test('an Upcoming shrink held back by its week\'s peak stays held when new rows bring the count back to half, past the week too', async t => {
+  const { readWikiRows, PEAK_DAYS } = await wikiPages();
+  const { beginStage } = await quarantine();
+  const upcoming = 'Headhunting/Banners/Upcoming';
+  await temporary(async root => {
+    let answer: unknown = bannerPage(range(0, 20));
+    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(answer), { status: 200 }));
+    t.mock.method(console, 'warn', () => {});
+    const day = (n: number) => new Date(Date.UTC(2027, 2, 1 + n, 20));
+    const read = async (n: number) => {
+      const alerts = beginStage(root, 'wiki', day(n));
+      const rows = await readWikiRows(root, upcoming, 'Banners cell', { now: day(n), alerts, movedTo: nowhere });
+      alerts.commit();
+      return rows.length;
+    };
+    const file = () => fs.readFileSync(path.join(root, 'data/quarantine.json'), 'utf8');
+    const cache = () => fs.readFileSync(cacheOf(root, upcoming), 'utf8');
+    assert.equal(await read(0), 20);
+    answer = bannerPage(range(9, 20));
+    assert.equal(await read(1), 11);
+    answer = bannerPage(range(14, 20));
+    assert.equal(await read(2), 11);
+    const reported = file(), held = cache();
+    assert.equal(await read(3), 11);
+    // The same six and four new rows: half the peak of 20 again, but five rows the good copy
+    // kept are still missing. Held, byte for byte, and still once the peak's week is over.
+    answer = bannerPage([...range(14, 20), ...range(30, 34)]);
+    assert.ok(12 - 1 > PEAK_DAYS);
+    for (const n of [4, 5, 12]) {
+      assert.equal(await read(n), 11, `day ${n}`);
+      assert.equal(file(), reported, `day ${n}: the same entry`);
+      assert.equal(cache(), held, `day ${n}: the same good copy and mark`);
+    }
+    // Three of the five parse again; two are still missing: held.
+    answer = bannerPage([...range(12, 20), ...range(30, 34)]);
+    assert.equal(await read(13), 11);
+    assert.equal(file(), reported);
+    // All eleven are served again, with the four new rows: taken.
+    answer = bannerPage([...range(9, 20), ...range(30, 34)]);
+    assert.equal(await read(14), 15);
+    assert.deepEqual(await entries(root), []);
+    assert.equal(JSON.parse(cache()).held, undefined);
+  });
+});
+
+test('a year\'s banner page held back stays held when a new row brings the count back, in the words it was held back with', async t => {
+  const { readWikiRows } = await wikiPages();
+  const { beginStage } = await quarantine();
+  const page = 'Headhunting/Banners/2026';
+  const cells = (indices: number[]) => ({ parse: { wikitext: { '*': indices.map(i => `{{Banners cell\n|type = special\n|name = Banner ${i}\n|cnstart = 2026/01/01\n}}`).join('\n') } } });
+  await temporary(async root => {
+    let answer: unknown = cells(range(0, 57));
+    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(answer), { status: 200 }));
+    t.mock.method(console, 'warn', () => {});
+    const day = (n: number) => new Date(Date.UTC(2026, 8, 20 + n, 20));
+    const read = async (n: number) => {
+      const alerts = beginStage(root, 'wiki', day(n));
+      const rows = await readWikiRows(root, page, 'Banners cell', { now: day(n), alerts });
+      alerts.commit();
+      return rows.map((row: { name: string }) => row.name);
+    };
+    const file = () => fs.readFileSync(path.join(root, 'data/quarantine.json'), 'utf8');
+    const cache = () => fs.readFileSync(cacheOf(root, page), 'utf8');
+    assert.equal((await read(0)).length, 57);
+    // The template is renamed: no row parses. Held back.
+    answer = { parse: { wikitext: { '*': '{{Headhunting row\n|name = Banner 0\n}}' } } };
+    assert.equal((await read(1)).length, 57);
+    const reported = file(), held = cache();
+    assert.match(JSON.parse(reported).entries[0].reason, /no "Banners cell" row that parses, where the last good read had 57/);
+    // Rows parse again, all but one, and a new banner makes it 57 again. The row it lost is
+    // still lost: held, and in the same words, so the day is no new release.
+    answer = cells([...range(0, 56), 57]);
+    const rows = await read(2);
+    assert.ok(rows.includes('Banner 56') && !rows.includes('Banner 57'), 'the good copy is read');
+    assert.equal(file(), reported);
+    assert.equal(cache(), held);
+    answer = cells([...range(1, 57), 57, 58]);
+    assert.equal((await read(3)).length, 57, 'another row lost, two new: still the good copy');
+    assert.equal(file(), reported);
+    // Every row the good copy had is served again: taken.
+    answer = cells(range(0, 59));
+    assert.equal((await read(4)).length, 59);
+    assert.deepEqual(await entries(root), []);
+    assert.deepEqual(Object.keys(JSON.parse(cache())), ['page', 'template', 'rows']);
   });
 });
 
