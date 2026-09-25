@@ -9,6 +9,8 @@ import Link from 'next/link';
 import StageList from '@/components/stages/StageList';
 import { ExpandGlyph, GlyphName, HudBar, HudChip, HudDp, StatLabel } from '@/components/stages/StageHud';
 import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import StageTitle from '@/components/stages/StageTitle';
 import StageDeployBar, { DeployData, DeployOperator, phaseAt } from '@/components/stages/StageDeployBar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -2035,19 +2037,13 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                 </span>
                 {/* Metrics identical across the three, so changing rate cannot
                     shift the row. */}
-                <span className="stage-playback-rates">
-                  {[1, 2, 4].map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`stage-playback-rate${rate === option ? ' current' : ''}`}
-                      aria-pressed={rate === option}
-                      onClick={() => setRate(option)}
-                    >
-                      {option}x
-                    </button>
-                  ))}
-                </span>
+                <SegmentedControl
+                  className="stage-playback-rates"
+                  label="Playback speed"
+                  value={rate}
+                  onChange={setRate}
+                  options={[1, 2, 4].map((option) => ({ value: option, label: `${option}x`, ariaLabel: `${option} times speed` }))}
+                />
                 <button type="button" className="ghost" onClick={() => scrub(0)}>Reset</button>
               </div>
             )}
@@ -2249,6 +2245,7 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
   const slug = typeof router.query.s === 'string' && router.query.s ? router.query.s : firstSlug;
   const [detail, setDetail] = useState<StageDetailData | null>(null);
   const [failed, setFailed] = useState(false);
+  const detailFloor = useHeightFloor('stages-browse');
 
   useEffect(() => {
     let live = true;
@@ -2313,15 +2310,24 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
             instead of once per stage. */}
         <div className="stage-shell">
           <StageList stages={stages} typeCounts={typeCounts} now={now} selectedSlug={slug} />
-          {detail ? (
-            /* Keyed on the slug so the panel's own state -- playback, open
-               cards, the variant toggle -- starts fresh for each stage. */
-            <StageDetailPanel key={detail.stage.slug} {...detail} now={now} />
-          ) : (
-            <div className="stage-detail-col">
-              <p className="hint">{failed ? 'That stage could not be loaded.' : 'Loading...'}</p>
-            </div>
-          )}
+          {/* One height floor across stage changes (components/ui/useHeightFloor): a
+              stage picked from the pinned rail, two screens down, is often shorter
+              than the one it replaces, and the page clamped under the reader -- the
+              rail jumped 120px (2026-09-25 review, UC-10). The panel's own floor
+              resets per stage, because it is keyed on the slug, so this one lives
+              here, around it. */}
+          <div className="stage-detail-slot" ref={detailFloor.ref}>
+            {detail ? (
+              /* Keyed on the slug so the panel's own state -- playback, open
+                 cards, the variant toggle -- starts fresh for each stage. */
+              <StageDetailPanel key={detail.stage.slug} {...detail} now={now} />
+            ) : (
+              <div className="stage-detail-col">
+                <p className="hint">{failed ? 'That stage could not be loaded.' : 'Loading...'}</p>
+              </div>
+            )}
+            {detailFloor.spacer}
+          </div>
         </div>
       </main>
     </>

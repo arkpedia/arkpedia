@@ -3,6 +3,8 @@ import Image from '@/components/content/ContentImage';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
 import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import EnemyRangeMap from '@/components/enemies/EnemyRangeMap';
 import EnemyStatusPopover from '@/components/enemies/EnemyStatusPopover';
 import { ENEMY_STATUSES, type EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
@@ -259,6 +261,12 @@ function ModuleList({
 export default function EnemyDetailPanel({ enemy, introducedBy, appearances, referenced, statusOperators = {} }: EnemyDetailData & { statusOperators?: EnemyStatusOperatorMap }) {
   const [levelIndex, setLevelIndex] = useState(0);
   const [tab, setTab] = useState<DetailTab>('resistances');
+  /* The tabs below swap content of very different heights (nine immunity rows against
+     a long list of stages), and on a phone the pane flows in the page: switching to a
+     shorter tab near the foot left the document too short for the reader's position,
+     the browser clamped it and the tab row jumped 55px down the screen (2026-09-25
+     review, UC-10). The floor holds what the position needs, per enemy. */
+  const tabFloor = useHeightFloor(enemy.slug);
   const level: EnemyLevel = enemy.levels[levelIndex] ?? enemy.levels[0];
   const s = level.stats;
   const g = level.stat_ranks;
@@ -495,18 +503,13 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                   Swordsman going 2,000 HP to 1,950. */}
               <span className="enemy-hero-name-right">
                 {enemy.levels.length > 1 && (
-                  <span className="enemy-level-tabs" role="group" aria-label="Stat level">
-                    {enemy.levels.map((lv, i) => (
-                      <button
-                        type="button"
-                        key={lv.level}
-                        className={i === levelIndex ? 'primary' : 'ghost'}
-                        onClick={() => setLevelIndex(i)}
-                      >
-                        Lv {lv.level}
-                      </button>
-                    ))}
-                  </span>
+                  <SegmentedControl
+                    className="enemy-level-tabs"
+                    label="Stat level"
+                    value={levelIndex}
+                    onChange={setLevelIndex}
+                    options={enemy.levels.map((lv, i) => ({ value: i, label: `Lv ${lv.level}` }))}
+                  />
                 )}
               </span>
             </div>
@@ -637,21 +640,15 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
             past collapsed headings to reach the next one; a tab strip means the
             pane only ever holds what was asked for. The identity above stays put,
             so you always know whose numbers these are. */}
-        <div className="enemy-tabs" role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={t.key === activeTab}
-              className={`enemy-tab${t.key === activeTab ? ' current' : ''}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="enemy-tabs"
+          label="Show"
+          value={activeTab ?? 'resistances'}
+          onChange={setTab}
+          options={tabs.map((t) => ({ value: t.key, label: t.label }))}
+        />
 
+        <div className="enemy-tab-body" ref={tabFloor.ref}>
         {/* The figures the handbook does not print. Kept because the data has them
             and someone planning around a stall needs the interval, but out of the
             grid, which is the game's eight and only those. */}
@@ -803,6 +800,8 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
         </section>
           </>
         )}
+        {tabFloor.spacer}
+        </div>
     </>
   );
 }

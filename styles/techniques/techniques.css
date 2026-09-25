@@ -16,7 +16,7 @@
     overscroll-behavior-x: contain;
     padding-bottom: 6px;
   }
-  .technique-chip-row > .filter-chip { flex: none; }
+  .technique-chip-row > button { flex: none; }
 }
 .technique-umbrella-section > .technique-chip-row { margin-bottom: 0; }
 

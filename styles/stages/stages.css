@@ -51,7 +51,11 @@
 .stage-row:hover {
   background: var(--panel-2);
   border-left-color: var(--teal);
+  color: var(--text);
 }
+/* Inside the rail's scroller the site's 2px ring, offset outward, was clipped to a
+   line along the bottom: drawn inside the row instead. */
+.stage-row:focus-visible { outline-offset: -2px; }
 .stage-row-code {
   display: flex;
   align-items: center;
@@ -133,7 +137,7 @@
 .stage-stat-value {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 18px;
 }
 
 .stage-section-head {
@@ -475,7 +479,7 @@
 }
 .stage-enemy-chevron {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-faint);
   width: 14px;
   text-align: center;
@@ -531,8 +535,9 @@
   padding-top: 10px;
   border-top: 1px solid var(--line-soft);
 }
-.stage-playback button { font-size: 12px; padding: 7px 14px; }
-.stage-scrub { flex: 1; min-width: 180px; accent-color: var(--teal); }
+/* The scrubber's hit box is 32px tall: the bare range input was 16px, under the 24px
+   floor for a tap target (2026-09-25 review, H). */
+.stage-scrub { flex: 1; min-width: 180px; height: 32px; margin: 0; accent-color: var(--teal); cursor: pointer; }
 .stage-clock {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -628,8 +633,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.stage-list-col .stage-row-name { font-size: 12.5px; color: var(--text-dim); }
-.stage-list-col .stage-row-code { font-size: 12.5px; }
+.stage-list-col .stage-row-name { font-size: 12px; color: var(--text-dim); }
+.stage-list-col .stage-row-code { font-size: 13px; }
 .stage-list-col .stage-row-zone { font-size: 10px; color: var(--text-faint); }
 /* One column, now that nothing sits to the right of the name. */
 .stage-list-col .stage-row { grid-template-columns: minmax(0, 1fr); }
@@ -640,6 +645,8 @@
   background: var(--panel-2);
 }
 
+/* The grid cell the detail column sits in, with its height floor (pages/stages/browse). */
+.stage-detail-slot { min-width: 0; }
 .stage-detail-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 /* .op-section carries a 36px bottom margin for stacked pages; in this column
    the flex gap already spaces the sections. */
@@ -805,28 +812,10 @@ button.stage-variant-option.current:hover {
 
 /* Playback rate. Fixed width so 1x, 2x and 4x occupy the same space and the
    controls beside them never move. */
-.stage-playback-rates { display: flex; gap: 4px; }
-button.stage-playback-rate {
-  width: 34px;
-  padding: 5px 0;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-button.stage-playback-rate:hover { border-color: var(--teal-dim); color: var(--text); background: var(--panel-2); }
-button.stage-playback-rate.current,
-button.stage-playback-rate.current:hover {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
-  color: var(--teal);
-}
+/* A SegmentedControl. Fixed width so 1x, 2x and 4x occupy the same space and the
+   controls beside them never move. */
+.stage-playback-rates { flex-wrap: nowrap; gap: 4px; }
+.stage-playback-rates > button { width: 40px; padding: 0; justify-content: center; }
 
 /* --- Stages landing page --------------------------------------------------
    The modes as tabs and everything the game runs as its own banner, newest
@@ -942,7 +931,7 @@ button.stage-playback-rate.current:hover {
 .stage-mode-name {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1194,7 +1183,7 @@ button.stage-playback-rate.current:hover {
 }
 .stage-hud-dp-value {
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.1;
   font-weight: 700;
   color: var(--amber);
@@ -1228,7 +1217,7 @@ button.stage-playback-rate.current:hover {
 }
 .stage-hud-label {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: rgb(255 255 255 / 0.55);
@@ -1278,11 +1267,11 @@ button.stage-playback-rate.current:hover {
 .stage-hud-value {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1;
   color: #FFFFFF;
 }
-.stage-hud-chip.wide .stage-hud-value { font-size: 14px; }
+.stage-hud-chip.wide .stage-hud-value { font-size: 15px; }
 .stage-hud-chip.life .stage-hud-value { color: var(--danger); }
 .stage-hud-chip.dp .stage-hud-value { color: var(--teal); }
 
@@ -1345,7 +1334,7 @@ button.stage-playback-rate.current:hover {
   .stage-hud-bar-value { font-size: 12px; }
   .stage-hud-bar .stage-stat-glyph { width: 15px; height: 15px; }
   .stage-hud-dp { gap: 5px; padding: 1px 7px 1px 6px; }
-  .stage-hud-dp-value { font-size: 17px; }
+  .stage-hud-dp-value { font-size: 18px; }
   .stage-hud-dp .stage-stat-glyph { width: 15px; height: 15px; }
   .stage-hud-limit { padding: 1px 6px; font-size: 9px; }
 
@@ -1446,7 +1435,7 @@ button.stage-playback-rate.current:hover {
   gap: 8px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   color: #FFFFFF;
 }
 .stage-tile-pop-at,

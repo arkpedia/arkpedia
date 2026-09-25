@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /*
  * The catalogue and terminal pages -- /stages/*, /gamemodes*, /enemies, /techniques,
@@ -17,20 +17,24 @@ function contrast(a: number[], b: number[]): number {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
-/** Puts `selector` at `topPx` from the viewport's top, runs `act`, and returns how far
- *  it moved on screen afterwards -- the Anti-Page Jump measure (arkpedia-ui skill). */
-async function anchorMoved(page: Page, selector: string, act: () => Promise<void>, topPx = 160): Promise<number> {
-  await page.locator(selector).first().waitFor({ state: 'attached' });
-  await page.evaluate(({ selector, topPx }) => {
-    const el = document.querySelector(selector)!;
+/** Puts `target` at `topPx` from the viewport's top, runs each step of `act`, and
+ *  returns the largest distance it moved on screen after any of them -- the Anti-Page
+ *  Jump measure (arkpedia-ui skill). Measured on the element itself, so a selector
+ *  that matches several elements cannot measure one and press another. */
+async function anchorMoved(page: Page, target: Locator, act: (() => Promise<void>)[], topPx = 160): Promise<number> {
+  await target.waitFor({ state: 'visible' });
+  await target.evaluate((el, topPx) => {
     window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - topPx), behavior: 'instant' });
-  }, { selector, topPx });
+  }, topPx);
   await page.waitForTimeout(500);
-  const before = await page.evaluate((s) => document.querySelector(s)!.getBoundingClientRect().top, selector);
-  await act();
-  await page.waitForTimeout(900);
-  const after = await page.evaluate((s) => document.querySelector(s)!.getBoundingClientRect().top, selector);
-  return Math.abs(after - before);
+  const before = (await target.boundingBox())!.y;
+  let moved = 0;
+  for (const step of act) {
+    await step();
+    await page.waitForTimeout(900);
+    moved = Math.max(moved, Math.abs((await target.boundingBox())!.y - before));
+  }
+  return moved;
 }
 
 test('Stronghold section tabs stay clickable once the lookup bar pins under the nav', async ({ page }) => {
@@ -130,12 +134,21 @@ test('each terminal page has one h1, in a page header that lines up with its con
 
 test.describe('state changes near the foot of a page do not move what was pressed', () => {
   test('techniques: the last group\'s table toggle', async ({ page }) => {
+    // 166px at 1440 and up to 806px at 390 before the height floor on each group.
     await page.goto('/techniques');
-    const last = '.technique-group:last-of-type .technique-table-toggle';
-    const moved = await anchorMoved(page, last, async () => {
-      await page.locator(last).last().click();
-      await page.locator(last).last().click();
-    }, 500);
+    const toggle = page.locator('.technique-table-toggle').last();
+    const moved = await anchorMoved(page, toggle, [() => toggle.click(), () => toggle.click()], 500);
+    expect(moved).toBeLessThan(4);
+  });
+
+  test('enemies: switching the detail tab', async ({ page }) => {
+    // 55px at 390, where the detail pane flows in the page.
+    await page.goto('/enemies');
+    const tabs = page.getByRole('group', { name: 'Show' });
+    await expect(tabs).toBeVisible();
+    const last = tabs.getByRole('button').last();
+    const first = tabs.getByRole('button').first();
+    const moved = await anchorMoved(page, tabs, [() => last.click(), () => first.click(), () => last.click()], 200);
     expect(moved).toBeLessThan(4);
   });
 

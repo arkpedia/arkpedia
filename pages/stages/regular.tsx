@@ -103,7 +103,7 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
               </span>
             </Link>
           )}
-          <h3 className="regular-sub">Every zone</h3>
+          <h3>Every zone</h3>
           <ModeRail cards={zones} />
         </section>
 
@@ -148,7 +148,7 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
               )}
             </div>
           )}
-          <h3 className="regular-sub">Every tower</h3>
+          <h3>Every tower</h3>
           <ModeRail cards={towers} />
         </section>
       </main>

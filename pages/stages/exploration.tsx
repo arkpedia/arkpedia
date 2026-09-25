@@ -48,7 +48,7 @@ function Mode({ label, cards }: { label: string; cards: StageModeCard[] }) {
   if (!cards.length) return null;
   const [latest, ...rest] = cards;
   return (
-    <section className="explore-mode">
+    <section className="explore-mode op-section">
       <h2 className="score-block-title">{label}</h2>
 
       {/* The newest theme at the size the game gives it, the rest as a rail under it.

@@ -55,7 +55,7 @@ export default function ScorePage({ lines }: Props) {
       />
 
       <main className="terminal-scene">
-        <section className="score-block">
+        <section className="score-block op-section">
           <h2 className="score-block-title">
             <span
               className="score-block-emblem"
@@ -67,7 +67,7 @@ export default function ScorePage({ lines }: Props) {
           {acts.map((line) => <Line key={line.id} line={line} act />)}
         </section>
 
-        <section className="score-block">
+        <section className="score-block op-section">
           <h2 className="score-block-title">Story Lines</h2>
           {stories.map((line) => <Line key={line.id} line={line} />)}
         </section>

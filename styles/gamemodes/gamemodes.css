@@ -28,28 +28,9 @@
   background: var(--bg);
   border-bottom: 1px solid var(--line-soft);
 }
-/* Wraps rather than scrolls: on a phone two rows of buttons beat a rail hiding four. */
-.gm-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.gm-jumpbtn {
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-  padding: 6px 12px;
-  cursor: pointer;
-}
-.gm-jumpbtn:hover { color: var(--text); border-color: var(--teal-dim); }
-.gm-jumpbtn.current { color: var(--teal); border-color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); }
-/* The hit count while a search is typed: where the answer lives, per tab. */
-.gm-tabhits {
-  font-weight: 400;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--amber);
-  font-variant-numeric: tabular-nums;
-}
+/* The section tabs are a SegmentedControl (components/ui): the pinned .filter-chip,
+   wrapping rather than scrolling -- on a phone two rows of chips beat a rail hiding
+   four. While a search is typed each chip carries its hit count. */
 
 /* --- the pickers ----------------------------------------------------------- */
 
@@ -71,7 +52,7 @@
   border-bottom-color: var(--teal);
   background: color-mix(in srgb, var(--teal) 8%, transparent);
 }
-.gm-pick-n { font-family: var(--font-mono); font-size: 9px; color: var(--text-faint); }
+.gm-pick-n { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
 
 /* --- alliance badges ------------------------------------------------------- */
 
@@ -136,7 +117,7 @@
    under a panel of chips -- and in a flex row they did exactly what they say: pushed
    it 6px down and opted it out of the row's own alignment. Both edges were off by
    the same 6px and it read as sloppy rather than as a rule fighting a rule. */
-.gm-clear { font-size: 10px; padding: 5px 10px; display: inline-flex; align-items: center; }
+.gm-clear { flex: none; }
 /* Reserve its box: [hidden] would remove it from the layout and the panel
    would shrink back the moment the last alliance is cleared. */
 .gm-clear[hidden] { display: inline-flex; visibility: hidden; }
@@ -335,7 +316,7 @@
 .gm-mode .gm-row { --gm-badge: 46px; min-height: 58px; }
 .gm-mode .gm-opwho { --gm-badge: 52px; gap: 11px; }
 .gm-mode .gm-sheethead { --gm-badge: 60px; }
-.gm-mode .gm-opname b { font-size: 14px; }
+.gm-mode .gm-opname b { font-size: 15px; }
 .gm-mode .gm-rowname { font-size: 13px; }
 .gm-mode .gm-optier { min-width: 28px; font-size: 12px; }
 .gm-mode .gm-feed { font-size: 10px; padding: 2px 7px; }
@@ -359,63 +340,28 @@
    a single enormous dropdown. Sized to its content instead. */
 .gm-itemfilter { flex-wrap: wrap; }
 .gm-itemfilter .gm-pickbox { flex: 0 1 210px; }
-.gm-pickbox { position: relative; flex: 1 1 0; min-width: 0; }
+.gm-pickbox { flex: 1 1 0; min-width: 0; }
 /* Below this the five shares are too narrow to read a label in, so they stack full
    width instead -- one line of five unreadable boxes is not better than five rows. */
 @media (max-width: 700px) {
   .gm-filterbar { flex-wrap: wrap; }
   .gm-pickbox { flex: 1 1 100%; }
 }
-/* One width for all five, held whether the button says "All nation alliances" or
-   "Yan". Sized to its own content, these jumped about as you filtered -- picking a
-   short alliance collapsed the box to a third of its width and shoved the four beside
-   it sideways, so the bar never stood still long enough to aim at twice. The width
-   itself comes from the equal share .gm-pickbox takes of the row; anything too long
-   for it ellipsizes and keeps its full text in the tooltip. */
-.gm-pickbtn {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--panel-2);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  --gm-badge: 18px;
-}
-.gm-pickbtn:hover { border-color: var(--teal-dim); color: var(--text); }
-/* Filtered, as against merely present: the bar has to say at a glance which of the
-   five are doing something, or you cannot tell a narrowed roster from a whole one. */
-.gm-pickbtn.set { border-color: var(--teal); color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); }
-.gm-pickbtn.open { border-color: var(--teal); }
-.gm-pickbtnname {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-/* margin-left:auto is what pins the caret to the right edge on a fixed-width button,
-   so all five carets line up in a column however long the labels are. */
-.gm-pickcaret {
-  flex: none;
-  width: 0;
-  height: 0;
-  margin-left: auto;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid currentColor;
-  opacity: 0.7;
-}
+/* The facets are StyledSelect (components/ui); only their share of the row is this
+   file's. One width for all five, held whether the trigger says "All nation alliances"
+   or "Yan": sized to their content they jumped about as you filtered and shoved the
+   four beside them sideways. Anything too long for the share ellipsizes and keeps its
+   full text in the tooltip. */
+.gm-pickbox { --gm-badge: 18px; }
+.gm-pickbtnname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A facet that is narrowing the roster, as against merely present: teal is "on", and
+   the bar has to say at a glance which of the five are doing something. */
+.gm-pickbox.set > button[aria-haspopup] { border-color: var(--teal); color: var(--teal); }
 
+/* The companion's language list (components/gamemodes/StrongholdCompanion) still hangs
+   these off its own trigger: StyledSelect portals its menu into the main document, and
+   the companion also runs in a Picture-in-Picture window, where that menu would open in
+   the wrong window. */
 .gm-picklist {
   position: absolute;
   z-index: 30;
@@ -454,7 +400,7 @@
    click would take -- two different marks for the same thing read as two cursors. */
 .gm-pickopt.active { background: color-mix(in srgb, var(--teal) 10%, transparent); color: var(--text); }
 .gm-pickopt.current { color: var(--teal); }
-.gm-pickopt .gm-pick-n { margin-left: auto; }
+.gm-pickoptname + .gm-pick-n, .gm-pickoptname ~ .gm-pick-n { margin-left: auto; }
 
 /* --- the mode's enemy pools, as the game draws them ----------------------------- */
 
@@ -546,7 +492,7 @@
   border: 0;
   background: none;
   color: var(--text-dim);
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
 }
@@ -700,7 +646,7 @@
   align-items: baseline;
   gap: 10px;
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--teal);
@@ -781,7 +727,7 @@
 .gm-toplanner b {
   display: block;
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -812,6 +758,13 @@
    row exists, so it gets the width rather than a third of it. Inherited from the
    planner's row, which had the same shape for the same reason. */
 .gm-oplist { display: flex; flex-direction: column; gap: 4px; }
+/* Two columns on a wide screen: each row is a short sentence and its costs, and one
+   full-width column left 112 rows of about 113px mostly empty on the right -- 12.7k of
+   a 13.6k page (2026-09-25 review, GM-12). Only on the page (.gm-mode): the companion
+   draws the same rows at 390px. */
+@media (min-width: 1100px) {
+  .gm-mode .gm-oplist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-items: start; }
+}
 .gm-oprow {
   display: grid;
   grid-template-columns: minmax(0, 3fr) auto minmax(0, 2fr);
@@ -881,7 +834,7 @@ button.gm-opwho-rec:focus-visible .gm-opname b { color: var(--teal); }
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line-soft);
 }
-.gm-bosshp .eyebrow { margin: 0 0 8px; }
+.gm-bosshp-kicker { margin: 0 0 8px; }
 .gm-opname { display: flex; flex-direction: column; min-width: 0; }
 .gm-opname b {
   font-weight: 400;
@@ -938,8 +891,7 @@ button.gm-opwho-rec:focus-visible .gm-opname b { color: var(--teal); }
    sizes, so centring them lines up their middles and leaves both edges ragged.
    Stretched, they are the same height and all four edges agree. */
 .gm-searchrow { display: flex; align-items: stretch; gap: 8px; margin-bottom: 8px; }
-.gm-searchrow .gm-search { flex: 1 1 auto; }
-.gm-searchrow .gm-search input { width: 100%; }
+.gm-searchrow .gm-search { flex: 1 1 auto; min-width: 0; }
 
 /* Below the breakpoint the three columns cannot each hold their content, so the row
    becomes two lines: who it is, then cost and feeds together under it. */
@@ -948,46 +900,9 @@ button.gm-opwho-rec:focus-visible .gm-opname b { color: var(--teal); }
   .gm-opfeeds { grid-column: 1 / -1; justify-content: flex-start; }
 }
 
-/* --- the roster search ------------------------------------------------------ */
-
-.gm-search { position: relative; display: inline-flex; align-items: center; }
-.gm-search input {
-  /* Wide enough for the placeholder, and fixed: a field that grew with what you typed
-     would shove the pill beside it a character at a time. */
-  width: 210px;
-  max-width: 100%;
-  /* 8px both sides now. The 24px on the right was clearance for the clear-× that used
-     to sit inside the box, and with that gone it was just a dead inch of field. */
-  padding: 5px 8px;
-  border: 1px solid var(--line-soft);
-  border-radius: 5px;
-  background: var(--panel-2);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text);
-}
-.gm-search input::placeholder { color: var(--text-faint); }
-/* The site's input focus halo rather than a bare outline:none, which left the field's
-   focus riding on a one-pixel border tint alone. */
-.gm-search input:focus {
-  outline: none;
-  border-color: var(--teal);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 30%, transparent);
-}
-/* Ours rather than WebKit's, which draws itself on top of the right border. */
-/* The × that used to sit in the search box is gone: Clear all stands beside it and
-   does more, and two clear affordances a centimetre apart is one of them asking to be
-   misread. Its rule went with it, and this heading's preamble with that -- the reason
-   it described (shared.css dresses a bare `button` as a 15px page CTA, which is wrong
-   for a 26px control) now lives on .gm-co-size button, the one rule that still needs
-   to say it. */
-.gm-search input::-webkit-search-cancel-button { display: none; }
-@media (max-width: 800px) {
-  /* The field takes the line to itself rather than being squeezed to nothing beside
-     the button; stage-section-head only wraps below 700. */
-  .gm-search { flex: 1 1 auto; }
-  .gm-search input { width: 100%; }
-}
+/* --- the roster search ------------------------------------------------------
+   components/ui/SearchInput: the field is the site's; only its share of the row is
+   this file's. */
 
 /* --- the companion as its own page ------------------------------------------- */
 
@@ -1529,7 +1444,7 @@ body:not(.gm-popout) .gm-co-page .gm-co-stepfoot { padding-right: 54px; }
 .gm-co-band em {
   font-style: normal;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0;
   white-space: nowrap;
   color: var(--text-faint);
@@ -1780,7 +1695,7 @@ body:not(.gm-popout) .gm-co-page .gm-co-stepfoot { padding-right: 54px; }
   padding: 1px 5px;
   border: 1px dashed var(--danger);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--danger);
@@ -2283,13 +2198,13 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
   margin-left: 0;
   margin-bottom: 2px;
   padding: 0 3px;
-  font-size: 8px;
+  font-size: 9px;
   white-space: nowrap;
   background: var(--bg, #0B0F14);
   z-index: 1;
 }
 .gm-co-facewithiso .gm-co-isoitem { --gm-badge: 14px; }
-.gm-co-facewithiso .gm-co-isocount { font-size: 8px; padding: 0 3px; }
+.gm-co-facewithiso .gm-co-isocount { font-size: 9px; padding: 0 3px; }
 /* The alliance's Isomorph pairing, riding the header rather than a block of its
    own. Smaller than the standalone tiles were -- here it is an annotation on a
    line of text, not a section. */
@@ -2819,7 +2734,6 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
 .gm-co-strip,
 .gm-co-ally,
 .gm-co-size,
-.gm-pickbtn,
 .gm-isoopen,
 /* The setup step's own two: the enemy-group tiles and the ban picks. Same kit as the
    run's controls, because the reader meets these first and the two screens should not
@@ -3166,7 +3080,7 @@ body.gm-companionpage .gm-co-setup { min-height: 70dvh; }
   background: none;
   color: var(--text-dim);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;

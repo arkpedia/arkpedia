@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import { getSupplyCards } from '@/lib/stages/terminal';
 import type { SupplyCard } from '@/lib/stages/terminal';
 import { WEEKDAYS } from '@/lib/stages/stageTypes';
@@ -65,20 +66,24 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
       <main className="terminal-scene">
         {/* The schedule strip. The game shows a rolling week; every weekday is more
             use on a site, where the question is as often "when next" as "what now". */}
-        <div className="supply-schedule" role="group" aria-label="Weekday">
-          {WEEKDAYS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              className={`supply-day${d === day ? ' current' : ''}${d === today ? ' today' : ''}`}
-              aria-pressed={d === day}
-              onClick={() => setPicked(d === today ? null : d)}
-            >
-              <span className="supply-day-abbr">{d.slice(0, 3)}</span>
-              {d === today && <span className="supply-day-mark">Today</span>}
-            </button>
-          ))}
-        </div>
+        {/* The site's pick-one control (the pinned .filter-chip). Picking today
+            goes back to following the clock. */}
+        <SegmentedControl
+          className="supply-schedule"
+          label="Weekday"
+          value={day}
+          onChange={(d) => setPicked(d === today ? null : d)}
+          options={WEEKDAYS.map((d) => ({
+            value: d,
+            ariaLabel: d === today ? `${d}, today` : d,
+            label: (
+              <>
+                <span className="supply-day-abbr">{d.slice(0, 3)}</span>
+                {d === today && <span className="supply-day-mark">Today</span>}
+              </>
+            ),
+          }))}
+        />
 
         <div className="supply-grid">
           {cards.map((card) => {

@@ -528,7 +528,7 @@ export default function RaMap({
             <button
               key={m.id}
               type="button"
-              className={`ra-map-tab${m.id === tab ? ' current' : ''}`}
+              className="filter-chip ra-map-tab"
               aria-pressed={m.id === tab}
               onClick={() => {
                 setTab(m.id);
@@ -542,7 +542,7 @@ export default function RaMap({
           {list && (
             <button
               type="button"
-              className={`ra-map-tab${tab === LIST ? ' current' : ''}`}
+              className="filter-chip ra-map-tab"
               aria-pressed={tab === LIST}
               onClick={() => { setTab(LIST); setHover(null); }}
             >

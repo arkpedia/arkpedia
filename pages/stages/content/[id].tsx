@@ -133,7 +133,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
      this behind the map's second tab while every other content shows it as the page. */
   const body = (
     <>
-      <div className="stage-section-head">
+      <div className="stage-section-head op-section">
         {/* Counts what is actually below, not what the content holds: with the map
             taking 84 of Reclamation Algorithm's 102, a heading reading 102 over 18
             cards is just wrong. */}
