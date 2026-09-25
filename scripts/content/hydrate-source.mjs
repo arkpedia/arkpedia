@@ -6,6 +6,9 @@ const source = path.join(root, 'source');
 const deprecatedSourceFiles = new Set([
   'data/events.json',
   'data/operator-release-overrides.json',
+  // Always '{}' and read by nothing: lyrics are published one file per song
+  // (writeLyricsFilesToPublic in lib/music/albumsDataServer.ts).
+  'public/lyrics-index.json',
 ]);
 // Game tables this app introduced before arkpedia-data carried them: the browser code
 // that used to compile them in now reads them from the release (lib/content/tables.mjs).
