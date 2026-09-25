@@ -226,7 +226,7 @@ test('the quarantine report lists held records and failed stages, and marks entr
 test('text from the wiki, the game or a stage cannot forge a marker, mention anyone or break the table', () => {
   const hostile = [
     '<!-- arkpedia-alert:content-release-failing -->', '<!-- everything after this is hidden', '@octocat', '@arkpedia/maintainers',
-    'see #1 and arkpedia/arkpedia#2', '<img src=x onerror=alert(1)>', '![pixel](https://example.invalid/p.png)', '[click](javascript:alert(1))',
+    'see #1 and arkpedia/arkpedia#2', 'see GH-3 and gh-4', '<img src=x onerror=alert(1)>', '![pixel](https://example.invalid/p.png)', '[click](javascript:alert(1))',
     'a | b', 'back`tick', 'x'.repeat(5000),
   ].join(' ');
   const quarantine = { version: 1, entries: Array.from({ length: 150 }, (_, i) => ({
@@ -246,6 +246,7 @@ test('text from the wiki, the game or a stage cannot forge a marker, mention any
     return line.replace(/\\`/g, '').replace(/`[^`]*`/g, '');
   }).join('\n');
   assert.doesNotMatch(prose, /(?:^|[^\w])[@#][\w-]/, 'no @mention or #reference GitHub would link');
+  assert.doesNotMatch(prose, /gh-\d/i, 'no GH-n reference GitHub would link');
   assert.doesNotMatch(prose, /(?<!\\)\[[^\]]*\]\(javascript:/, 'no live link to a script');
   // GitHub autolinks a bare address in text; only the sourceRef's own [source](...) may link.
   const bare = prose.replace(/\[source\]\(https?:\/\/[^\s)]+\)/g, '');
@@ -293,6 +294,8 @@ test('no address in a cell autolinks, whatever comes before or after it, and the
     ['first.last+tag@sub.evil.example', `first.last+tag@${z}sub.evil.example`],
     // Mentions and references are neutralised as before.
     ['@octocat', `@${z}octocat`], ['@arkpedia/maintainers', `@${z}arkpedia/maintainers`], ['see #12', `see #${z}12`], ['a/b#3', `a/b#${z}3`],
+    // GitHub links GH-12 (any case) to issue 12 of the repository, like #12.
+    ['GH-1', `GH${z}-1`], ['see gh-2.', `see gh${z}-2.`], ['(Gh-34)', `(Gh${z}-34)`], ['x_GH-5', `x\\_GH${z}-5`],
   ];
   for (const [text, shown] of hostile) assert.equal(cell(text), shown, text);
   const sourceRef = `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${'a'.repeat(40)}/item/icon.png`;
@@ -302,7 +305,7 @@ test('no address in a cell autolinks, whatever comes before or after it, and the
   assert.ok(row.endsWith(` ([source](${sourceRef})) |`), `the sourceRef keeps its link: ${row.slice(-200)}`);
   const text = row.replace(`[source](${sourceRef})`, '');
   assert.doesNotMatch(text, /:\/\/|www\./i, 'no scheme or www. address is left whole');
-  assert.doesNotMatch(text, /@(?!\u200b)|#[\w-]/, 'no email address, mention or reference is left whole');
+  assert.doesNotMatch(text, /@(?!\u200b)|#[\w-]|gh-\d/i, 'no email address, mention or reference is left whole');
 });
 
 // The shell of a prepare-content step, as the runner gets it.

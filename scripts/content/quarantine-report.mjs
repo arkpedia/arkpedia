@@ -38,16 +38,16 @@ const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
  * Untrusted text in a table cell. It must not open an HTML comment (that hides the rest of
  * the body, and one shaped like <!-- arkpedia-alert:... --> could pass for another alert's
  * marker), start raw HTML, a link or an image, ping anyone (@name, @org/team), make GitHub
- * cross-reference another issue (#12, owner/repo#12), turn a bare address into a link
- * (https://..., www...., mailto:, someone@example.org), or split the row. A zero-width
- * space keeps the text as it reads while GitHub no longer links it: after every @ (a mention
- * needs its name, an email address its domain, right after it) and after a # before a name or
- * number; inside every "://" and after every "mailto:" and "xmpp:"; and between "www" and its
- * dot. Each goes in whatever comes before or after it: GitHub finds a scheme by reading back
- * over the letters before "://", so "1https://..." and "_https://..." link; it links a "www."
- * that follows "_", "*", "~" or "(" as well as a space; and an email address's domain may
- * begin with "_" (escaped to "\_" above) or ".". A word boundary, or a lookahead for a name,
- * misses them all.
+ * cross-reference another issue (#12, owner/repo#12, GH-12 in any case), turn a bare address
+ * into a link (https://..., www...., mailto:, someone@example.org), or split the row. A
+ * zero-width space keeps the text as it reads while GitHub no longer links it: after every @
+ * (a mention needs its name, an email address its domain, right after it) and after a #
+ * before a name or number; between "GH" and the "-" of a GH-number; inside every "://" and
+ * after every "mailto:" and "xmpp:"; and between "www" and its dot. Each goes in whatever
+ * comes before or after it: GitHub finds a scheme by reading back over the letters before
+ * "://", so "1https://..." and "_https://..." link; it links a "www." that follows "_", "*",
+ * "~" or "(" as well as a space; and an email address's domain may begin with "_" (escaped to
+ * "\_" above) or ".". A word boundary, or a lookahead for a name, misses them all.
  */
 const flat = (text, limit) => {
   const one = String(text ?? '').replace(/\s+/g, ' ').trim();
@@ -58,6 +58,7 @@ export const cell = (text, limit = 300) => flat(text, limit)
   .replace(/[\\`*_[\]|]/g, match => `\\${match}`)
   .replace(/@/g, '@\u200b')
   .replace(/#(?=[\w-])/g, '#\u200b')
+  .replace(/(gh)(?=-\d)/gi, '$1\u200b')
   .replace(/:\/\//g, ':\u200b//')
   .replace(/(mailto|xmpp):/gi, '$1:\u200b')
   .replace(/(www)\./gi, '$1\u200b.');
