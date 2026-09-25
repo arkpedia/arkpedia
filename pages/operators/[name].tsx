@@ -1070,10 +1070,10 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     {activeStep && (
                       <div className="op-skill-step-detail">
                         <dl className={pageStyles.skillMetrics}>
-                          <div><dt>SP recovery</dt><dd>{activeSkill.recoveryType?.replace(/ Recovery$/i, '') || '—'}</dd></div>
-                          <div><dt>Activation</dt><dd>{activeSkill.activationType || '—'}</dd></div>
-                          <div><dt>Initial SP</dt><dd>{activeStep.initialSp ?? '—'}</dd></div>
-                          <div><dt>SP cost</dt><dd>{activeStep.spCost ?? '—'}</dd></div>
+                          <div className={/^auto\b/i.test(activeSkill.recoveryType || '') ? pageStyles.skillMetricAuto : undefined}><dt>SP recovery</dt><dd>{activeSkill.recoveryType?.replace(/ Recovery$/i, '') || '—'}</dd></div>
+                          <div className={/^auto\b/i.test(activeSkill.activationType || '') ? pageStyles.skillMetricAuto : /^manual\b/i.test(activeSkill.activationType || '') ? pageStyles.skillMetricManual : undefined}><dt>Activation</dt><dd>{activeSkill.activationType || '—'}</dd></div>
+                          <div className={pageStyles.skillMetricSp}><dt>Initial SP</dt><dd>{activeStep.initialSp ?? '—'}</dd></div>
+                          <div className={pageStyles.skillMetricSp}><dt>SP cost</dt><dd>{activeStep.spCost ?? '—'}</dd></div>
                           <div><dt>{skillTiming.label}</dt><dd>{skillTiming.value}</dd></div>
                         </dl>
                         <p>{highlightStats(activeStep.description)}</p>
