@@ -193,6 +193,19 @@ test.describe('state changes near the foot of a page do not move what was presse
     await page.waitForTimeout(600);
     await page.evaluate(() => window.scrollTo({ top: 1e6, behavior: 'instant' }));
     await page.waitForTimeout(600);
+    // A reader presses the tab row where they can see it. At the very foot it can sit
+    // under the enemy hero, which is pinned below the nav at this width (it did once the
+    // music widget's 84px reserve went under main), and a click on a covered button
+    // scrolls it into view first -- a move the test would then blame on the page. Come
+    // up just far enough to uncover the row.
+    await page.evaluate(() => {
+      const row = document.querySelector('.enemy-tabs')!.getBoundingClientRect();
+      const cover = document.querySelector('.enemy-detail-pane .enemy-hero')?.getBoundingClientRect().bottom ?? 0;
+      if (row.top < cover + 4) window.scrollBy({ top: row.top - cover - 8, behavior: 'instant' });
+    });
+    await page.waitForTimeout(300);
+    // Still past where the shorter tab would end the page, or this proves nothing.
+    expect(await page.evaluate(() => scrollY + innerHeight)).toBeGreaterThan(heights[shortest] + 20);
     const before = (await tabs.boundingBox())!.y;
     await buttons.nth(shortest).click();
     await page.waitForTimeout(900);
