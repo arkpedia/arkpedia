@@ -15,7 +15,7 @@ const secondary: { key: StatKey; label: string; unit?: string }[] = [
 const format = (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: 3 });
 
 /** Parent keys this by operator so client navigation cannot carry over an invalid elite/level. */
-export default function OperatorStatsPanel({ stats, modules = [], hidden, compact = false }: { stats: OperatorStats; modules?: OperatorModule[]; hidden?: boolean; compact?: boolean }) {
+export default function OperatorStatsPanel({ stats, modules = [], hidden }: { stats: OperatorStats; modules?: OperatorModule[]; hidden?: boolean }) {
   const id = useId();
   const levelId = `${id}-level`, trustId = `${id}-trust`, helpId = `${id}-trust-help`;
   const upgradeModules = modules.filter(module => module.type === 'Upgrade' && module.stages.length > 0);
@@ -47,7 +47,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
   };
 
   return (
-    <section className={`${styles.stats}${compact ? ` ${styles.compact}` : ''}`} aria-label="Operator stats" hidden={hidden}>
+    <section className={styles.stats} aria-label="Operator stats" hidden={hidden}>
       <h2>Stats</h2>
       <div className={styles.buildControls}>
         <fieldset className={styles.promotion}>

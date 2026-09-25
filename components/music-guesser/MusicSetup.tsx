@@ -89,7 +89,7 @@ export function MusicSetup({ songs, groups, settings, setSettings, asOf, count, 
       </div>
     </div>
     <section className={styles.configuration} aria-label="Music selection">
-      <div className={styles.musicPicker} ref={floor.ref}>
+      <div ref={floor.ref}>
         <SearchInput id="music-selection-search" label="Find events, chapters, EPs or releases" value={query} onChange={setQuery} placeholder="Search events, chapters, EPs…" />
         <div className={styles.selectionTools}>
           <button type="button" className="ghost btn-sm" onClick={() => choose(visible.map((group) => group.id), true)}>{query ? 'Select results' : 'Select all'}</button>
