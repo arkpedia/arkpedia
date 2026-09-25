@@ -1,6 +1,6 @@
 # Self-hosted runners
 
-How the two self-hosted runners in [docs/development/ci-runner.md](../../docs/development/ci-runner.md)
+How the two self-hosted runners (the NAS takes every job, the VPS stands by) in [docs/development/ci-runner.md](../../docs/development/ci-runner.md)
 are built. Both are registered to arkpedia/arkpedia only, run jobs as an unprivileged
 user, and keep jobs off the machine's private networks and own services.
 

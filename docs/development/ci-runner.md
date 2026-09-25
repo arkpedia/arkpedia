@@ -8,21 +8,27 @@ repository variable `ARKPEDIA_RUNNER` names:
 runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
 ```
 
-- **Set** (`arkpedia-self` since 2026-09-25): the jobs run on two self-hosted runners
-  that are registered to this repository only, and whichever is free takes the next job:
-  - `hetzner-vps`: a maintainer's VPS, 2 vCPUs, about 3 GB for jobs.
-  - `truenas`: a container on a maintainer's NAS, 6 of 8 cores, 8 GB.
+- **Set**: the jobs run on the self-hosted runners that carry that label. Two are
+  registered, to this repository only:
+  - `truenas` (labels `arkpedia-nas`, `arkpedia-self`): a container on a maintainer's NAS,
+    6 of 8 cores, 8 GB. A full Check takes about 7 minutes.
+  - `hetzner-vps` (labels `arkpedia-vps`, `arkpedia-self`): a maintainer's VPS, 2 vCPUs,
+    about 3 GB. A full Check takes about 19 minutes.
+
+  Since 2026-09-25 the variable is `arkpedia-nas`: the NAS takes every job and the VPS
+  stands by. GitHub has no runner priority, so with `arkpedia-self` an idle VPS would take
+  some jobs and run them almost three times slower. If the NAS is down, set the variable
+  to `arkpedia-self` (both) or `arkpedia-vps`.
 
   The public repositories keep GitHub's hosted runners, which are free for them.
 - **Unset**: the jobs run on GitHub's hosted runners and count against the
   organization's 2,000 private minutes a month ([automation.md](automation.md#cost-limits)).
 
 Switching is a settings change, not a commit: **Settings → Secrets and variables →
-Actions → Variables**, or `gh variable set ARKPEDIA_RUNNER --body arkpedia-self` /
-`gh variable delete ARKPEDIA_RUNNER`. Each runner also has its own label (`arkpedia-vps`,
-`arkpedia-nas`), so the variable can pin every job to one of them. A job queued for
-runners that are all offline waits up to 24 hours before failing, so check **Settings →
-Actions → Runners** first if runs sit in *Queued*.
+Actions → Variables**, or `gh variable set ARKPEDIA_RUNNER --body <label>` /
+`gh variable delete ARKPEDIA_RUNNER`. A job queued for a label whose runners are all
+offline waits up to 24 hours before failing, so check **Settings → Actions → Runners**
+first if runs sit in *Queued*.
 
 ## Why
 
