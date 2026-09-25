@@ -1,393 +1,248 @@
-.page {
-  width: 100%; max-width: 1040px; margin: 0 auto; padding: 8px 24px 24px;
-  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 32px;
-  height: calc(100dvh - 124px); min-height: 580px; color: var(--text);
-}
-.page *, .page *::before, .page *::after { box-sizing: border-box; }
-.page a { color: var(--teal); }
-.page a:focus-visible, .page button:focus-visible, .page select:focus-visible, .page summary:focus-visible, .area:focus-visible {
-  outline: 2px solid var(--teal); outline-offset: 3px;
-}
-.page :global(a.primary) { color: var(--bg); }
-.page :global(button), .page :global(a.primary), .page :global(a.ghost) { text-transform: none; letter-spacing: normal; }
-.details { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.panelHeader { flex-shrink: 0; background: var(--bg); }
-.hero { padding: 12px 0 20px; }
-.identity { min-width: 0; }
-.identity h1 { font-family: var(--font-display); font-size: clamp(30px, 2.7vw, 42px); line-height: 1.1; margin: 0; }
-.identity :global(.op-name-row) { flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 12px; }
-.identity :global(.op-planner-toggle-wrap button) { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 8px 12px; font-size: 12px; }
-.identity :global(.op-planner-toggle-wrap svg) { width: 16px; height: 16px; }
-.identity :global(.op-sticky-meta) { font-size: 13px; gap: 8px; }
-.identity :global(.op-header-flex) { gap: 16px; align-items: center; }
-.navigation { display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
-.navigation button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: var(--text-dim); min-height: 50px; padding: 10px 8px; font-family: var(--font-display); font-size: 20px; font-weight: 600; cursor: pointer; }
-.navigation button:hover { background: var(--panel-2); color: var(--text); }
-.navigation button[aria-selected="true"] { color: var(--teal); border-bottom-color: var(--teal); }
-.viewNavigation { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.viewNavigation button { background: transparent; color: var(--text-dim); border: 1px solid transparent; border-radius: 4px; padding: 8px 12px; min-height: 40px; font-family: inherit; font-size: 13px; cursor: pointer; }
-.viewNavigation button:hover { color: var(--text); background: var(--panel-2); }
-.viewNavigation button[aria-pressed="true"] { color: var(--text); background: var(--panel-2); border-color: var(--line); }
-/* Anchor absolute accessibility labels inside the scrolling panel. */
-.area { position: relative; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; overscroll-behavior-y: contain; padding: 24px 16px 32px 0; outline: none; }
-.content { display: flex; flex-direction: column; gap: 36px; }
-.content h2 { font-family: var(--font-display); font-size: 26px; margin: 0 0 20px; }
-.content h3 { font-family: var(--font-display); font-size: 20px; margin: 0 0 12px; }
-.content p { line-height: 1.7; }
-.section { scroll-margin-top: 126px; min-width: 0; outline: none; width: 100%; max-width: 820px; }
-.section[hidden] { display: none; }
+/* The operator page (pages/operators/[name].tsx): a bounded workspace under a slim
+   PageHeader -- the artwork on the left, the information panel on the right, the
+   panel scrolling inside itself on a desktop, the document scrolling on a phone.
 
-.overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
-.review { margin: 0 0 28px; font-size: 16px; max-width: 68ch; }
-.trait { margin-top: 0; font-size: 16px; }
-.obtain { color: var(--text-dim); font-size: 14px; margin: 24px 0; }
-.obtain b { color: var(--text); font-weight: 500; }
-.quickStats { border-top: 1px solid var(--line); padding-top: 24px; }
-.quickStats p { font-size: 12px; color: var(--text-dim); }
-.quickStats dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
-.quickStats dt { font-size: 12px; color: var(--text-dim); }
-.quickStats dd { margin: 4px 0 0; font-family: var(--font-display); font-size: 30px; font-variant-numeric: tabular-nums; }
-.quickStats a { display: inline-block; padding: 8px 0; font-size: 14px; text-underline-offset: 4px; }
-.directory { min-width: 0; }
-.directory > a { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); color: var(--text); font-size: 16px; text-decoration: none; }
-.directory > a:hover { color: var(--teal); }
-.directory small { display: block; font-size: 12px; line-height: 1.7; color: var(--text-dim); }
-.directory b { font-weight: 500; }
-.directory > a img { flex-shrink: 0; }
-.costs { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
-.costs > div { flex-basis: 100%; }
-.costs label { font-size: 14px; }
-.page select { color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; font-size: 14px; min-height: 44px; padding: 8px 30px 8px 10px; max-width: 100%; }
-.guidance { margin: 16px 0 24px; border-block: 1px solid var(--line); }
-.guidance summary { padding: 16px 0; color: var(--teal); cursor: pointer; min-height: 44px; }
-.guidance p { max-width: 70ch; }
-.promotionTier { margin: 24px 0; }
-.promotionTier li { font-size: 14px; line-height: 1.7; }
-.gallery { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+   This module lays the workspace out. The paint is the site's: section headings are
+   the canonical .op-section h2 (the sections carry that class), buttons keep the
+   site's button voice, dropdowns are StyledSelect, the search is SearchInput, and
+   radii come from the tokens. It used to be six stacked redesigns that restated the
+   same selectors up to six times -- sentence-case teal-rule headings, Inter
+   buttons, 5-8px radii, a 16px phone gutter and a frame narrowed at 1280-1407px to
+   "reserve gutters for ads". scripts/tests/test-module-css-usage.ts now fails on a
+   selector written twice or a class nothing renders. */
+
+/* --- the frame: header + workspace, the viewport under the nav ------------------ */
+.frame { display: flex; flex-direction: column; width: 100%; height: calc(100dvh - var(--nav-h, 52px) - 2px); min-height: 0; }
+.frame > header { flex-shrink: 0; width: 100%; }
+/* On a desktop the jump-to-operator search sits beside the title instead of under
+   it: the workspace below is bounded to the viewport, so every header pixel is
+   taken from the artwork. The h1 itself is PageHeader's, untouched. */
+@media (min-width: 901px) {
+  .frame > header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); align-items: end; column-gap: 24px; }
+  .frame > header > :global(.eyebrow), .frame > header > h1 { grid-column: 1; }
+  .frame > header > :global(.page-header-actions) { grid-column: 2; grid-row: 1 / span 2; align-self: end; margin: 0 0 4px; }
+  .frame > header > :global(.page-header-actions) > * { flex: 1; }
+}
+.page {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 7fr) 28px minmax(0, 5fr);
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  color: var(--text);
+}
+.page.infoExpanded { grid-template-columns: minmax(0, 3fr) 28px minmax(0, 9fr); }
+/* Plain links in the panel's prose: text colour and an underline at rest, teal on
+   hover. Teal at rest was saying "on" about every link. */
+.page a:not([class]) { color: var(--text); text-decoration: underline; text-decoration-color: var(--text-faint); text-underline-offset: 3px; }
+.page a:not([class]):hover { color: var(--teal); text-decoration-color: currentColor; }
+
+/* --- artwork ---------------------------------------------------------------------- */
+.gallery {
+  display: flex;
+  flex-direction: column;
+  grid-column: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  border-radius: var(--radius-frame);
+  background: radial-gradient(ellipse at 50% 55%, var(--panel-2), transparent 70%);
+  scroll-margin-top: 64px;
+}
 .gallery :global(.op-carousel-main) { flex: 1; min-height: 0; height: auto; }
+.artworkEmblem { position: absolute; top: 8%; left: 2.5%; width: 95%; height: 70%; color: var(--text); background-color: currentColor; mask-repeat: no-repeat; mask-position: center; mask-size: contain; mask-mode: luminance; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; -webkit-mask-size: contain; -webkit-mask-source-type: luminance; opacity: 0.055; pointer-events: none; }
 .artworkCaption { display: grid; flex-shrink: 0; padding: 8px 12px 0; }
-.artworkCaptionVariant { grid-area: 1 / 1; display: grid; grid-template-columns: minmax(0, 1fr) fit-content(40%); align-items: baseline; gap: 4px 12px; min-width: 0; }
+.artworkCaptionVariant { display: grid; grid-area: 1 / 1; grid-template-columns: minmax(0, 1fr) fit-content(40%); align-items: baseline; gap: 4px 12px; min-width: 0; }
 .artworkName { min-width: 0; color: var(--text); font: 600 13px/1.5 var(--font-body); overflow-wrap: anywhere; }
 .artworkPrice { min-width: 0; color: var(--text-dim); font: 600 12px/1.5 var(--font-mono); text-align: right; overflow-wrap: anywhere; }
-.facts { display: flex; flex-direction: column; gap: 12px; }
-.page :global(.op-skill-tab-btn) { min-height: 44px; text-align: left; }
-.page :global(.op-skill-slider-row) { flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-.page :global(.op-skill-slider-row label) { font-size: 14px; }
-.page :global(.op-skill-step-detail), .page :global(.op-module-detail) { padding: 20px; }
-.page :global(.op-skill-step-detail p), .page :global(.op-talent-row-text), .page :global(.op-module-stage-detail p), .page :global(.op-base-skill-card p) { font-size: 15px; line-height: 1.8; }
-.page :global(.op-skill-step-detail > a) { display: inline-block; margin: 14px 0 4px; font-size: 14px; text-underline-offset: 4px; }
-.page :global(.op-char-info-block p) { font-size: 14px; line-height: 1.8; }
-.page :global(.video-scroller) { min-width: 0; max-width: 100%; }
-@media (max-width: 1100px) and (min-width: 901px) {
-  .page { gap: 20px; padding-inline: 20px; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.3fr); }
-  .viewNavigation button { padding-inline: 8px; }
+
+/* The optional split: widen the information panel, and back. */
+.splitRail { position: relative; display: flex; grid-column: 2; align-items: center; justify-content: center; min-width: 0; }
+.splitRail::before { content: ''; position: absolute; inset-block: 8px; left: 50%; width: 1px; background: var(--line); }
+.splitRail button { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 44px; min-height: 44px; padding: 0; border-radius: var(--radius); }
+
+/* --- the information panel ------------------------------------------------------------ */
+.details {
+  display: flex;
+  flex-direction: column;
+  grid-column: 3;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--teal);
+  border-radius: var(--radius-frame);
+  background: var(--panel);
+  container: operatorDetails / inline-size;
 }
-@media (max-width: 900px) {
-  .page { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; gap: 16px; padding: 8px 16px 24px; }
-  .gallery { height: min(55svh, 480px); }
-  .details { min-height: calc(100dvh - 52px); }
-  .panelHeader { position: sticky; top: 52px; z-index: 8; }
-  .hero { padding: 8px 0 16px; }
-  .identity h1 { font-size: 30px; }
-  .identity :global(.op-header-flex) { flex-wrap: wrap; gap: 12px; }
-  .identity :global(.op-form-switch) { gap: 4px; }
-  .identity :global(.op-form-switch a) { padding: 6px 8px; }
-  .navigation button { font-size: 17px; min-height: 48px; padding: 10px 4px; }
-  .viewNavigation { flex-wrap: nowrap; overflow-x: auto; }
-  .viewNavigation button { flex-shrink: 0; white-space: nowrap; padding: 8px 10px; }
-  .area { flex: none; overflow: visible; min-height: calc(100dvh - 230px); padding: 20px 0 24px; }
-  .content { gap: 24px; }
-  .page :global(.op-skill-step-detail), .page :global(.op-module-detail) { padding: 16px; }
-  .page :global(.op-skill-slider) { flex-basis: 100%; }
+.panelHeader { position: relative; z-index: 8; flex-shrink: 0; border-bottom: 1px solid var(--line-soft); background: var(--panel); }
+.hero { padding: 12px 16px 10px; }
+.identity { min-width: 0; }
+.identity :global(.op-header-flex) { align-items: center; gap: 16px; }
+.identity :global(.op-header-text) { min-width: 0; }
+/* Rarity, class and branch beside the section menu. */
+.identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: 12px; margin: 0 0 6px; }
+.identity :global(.op-sticky-meta) { min-height: 24px; margin-block: 0; gap: 10px; font-size: 13px; }
+/* The headline star row: body face at 15px, where the mono default draws the star
+   at a few pixels. The colour stays .rarity-N's. */
+.identity :global(.op-sticky-meta) > :global(.rarity) { font-family: var(--font-body); font-size: 15px; letter-spacing: 0.06em; }
+.sectionMenu { min-width: 0; }
+.sectionMenu > div { width: 100%; }
+.classLabel { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+
+/* The reading area. Scrolls inside the panel on a desktop; its bottom padding keeps
+   the last controls clear of the floating music button. */
+.area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 12px 64px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  outline: none;
+  overscroll-behavior-y: contain;
+  scroll-padding-bottom: 64px;
+  scrollbar-gutter: stable;
+  --operator-player-inset: 26px;
+  --operator-player-sticky-top: -12px;
 }
-@media (prefers-reduced-motion: reduce) {
-  .gallery :global(.op-carousel-img-enter), .gallery :global(.op-carousel-img-exit), .gallery :global(.op-carousel-label-enter), .gallery :global(.op-carousel-label-exit) { animation: none; }
-}
-.content h2, .content h3 { text-transform: none; letter-spacing: normal; }
-.talent + .talent { margin-top: 28px; }
-.talentRow { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: baseline; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
-.talentRow span { font-size: 13px; color: var(--text-dim); }
-.talentRow p { font-size: 15px; margin: 0; }
-@media (max-width: 700px) {
-  .talentRow { grid-template-columns: 1fr; gap: 4px; }
-}
-
-.range { float: right; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0 0 16px 20px; }
-.range small { color: var(--text-dim); font-size: 11px; }
-.quickStats { clear: both; margin-top: 24px; }
-
-/* A compact reference view keeps an operator's numbers beside their abilities. */
-.skillMetrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
-.skillMetrics dt { color: var(--text-dim); font-size: 12px; }
-.skillMetrics dd { margin: 4px 0 0; font-family: var(--font-display); font-size: 22px; font-variant-numeric: tabular-nums; }
-.content .selectedSkill { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 22px; margin-bottom: 10px; }
-
-.page :global(.op-skill-slider) { min-width: 0; }
-@media (min-width: 1200px) {
-  .overview { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; }
-  .quickStats dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-.mechanics { margin-top: 16px; border-top: 1px solid var(--line); }
-.mechanics summary { min-height: 44px; padding: 12px 0; color: var(--text-dim); font-size: 13px; cursor: pointer; }
-.mechanics summary:hover, .mechanics[open] summary { color: var(--text); }
-
-/* Primary reference controls stay in one place while content changes. */
-.directNavigation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 8px 0; border-block: 1px solid var(--line); }
-.directNavigation button, .directNavigation select { min-width: 0; min-height: 40px; width: 100%; padding: 7px 5px; border: 1px solid transparent; border-radius: 4px; font: 600 14px var(--font-display); color: var(--text-dim); background: transparent; cursor: pointer; }
-.directNavigation select { padding-right: 18px; border-color: var(--line); }
-.directNavigation button:hover, .directNavigation button[aria-pressed="true"] { background: var(--panel-2); color: var(--teal); border-color: var(--teal); }
-.inlineIcons { display: inline-flex; align-items: center; gap: 8px; }
-.talentRow { grid-template-columns: 76px minmax(0, 1fr); align-items: start; gap: 12px; }
-.page :global(.op-potential-row) { min-height: 52px; padding: 8px 0; margin: 0; border-bottom: 1px solid var(--line); gap: 16px; font-size: 15px; }
-.page :global(.op-skill-tab-btn) { width: 56px; height: 56px; padding: 7px; justify-content: center; }
-.area { padding-top: 18px; }
-@media (max-width: 900px) {
-  .details { grid-row: 2; }
-  .gallery { grid-row: 1; height: min(70svh, 560px); }
-  .directNavigation button, .directNavigation select { font-size: 14px; }
-}
-
-.talentOptions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.talentOptions button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; height: 44px; padding: 5px 8px; background: var(--row-grad); border: 1px solid var(--line); color: var(--text); border-radius: 4px; cursor: pointer; }
-.talentOptions button[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); background: var(--row-grad-hi); }
-.talentDescriptions { display: grid; }
-.talentDescriptions p { grid-area: 1 / 1; margin: 0; font-size: 15px; line-height: 1.7; }
-.talent + .talent { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
-.hero { padding-bottom: 12px; }
-.quickStats { padding-top: 16px; margin-top: 16px; }
-.quickStats dl { margin: 10px 0; }
-.directory > a { padding: 10px 0; }
-.gallery { scroll-margin-top: 64px; }
-@media (min-width: 1200px) { .quickStats dl { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (max-width: 450px) { .talentOptions { gap: 4px; } .talentOptions button { padding-inline: 4px; } }
-
-.page :global(.op-skill-step-detail > p:first-child) { margin-top: 0; }
-.page :global(.op-skill-step-detail > p:last-child) { margin-bottom: 0; }
-
-.identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 12px; }
-.identity :global(.op-planner-toggle-wrap button) { width: 44px; height: 44px; padding: 10px; justify-content: center; }
-.identity :global(.op-planner-toggle-wrap button[aria-pressed="true"]) { color: var(--teal); border-color: var(--teal); }
-@media (max-width: 450px) { .identity h1 { font-size: 26px; } }
-
-.skillLevelControl { display: grid; grid-template-columns: auto 72px minmax(0, 1fr); align-items: center; gap: 12px; margin: 16px 0; }
-.skillLevelControl label { font-size: 14px; color: var(--text-dim); }
-.skillLevelValue { display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.skillLevelControl input { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 0; accent-color: var(--teal); }
-
-/* Continuous reference: document scrolling with an anchored section navigator. */
-.page { grid-template-columns: minmax(240px, .8fr) minmax(0, 2fr); height: auto; min-height: 0; align-items: start; gap: 24px; }
-.gallery { position: sticky; top: 68px; height: calc(100dvh - 88px); }
-.details { display: block; }
-.panelHeader { position: static; }
-.directNavigation { position: sticky; top: 52px; z-index: 8; background: var(--bg); }
-.directNavigation button[aria-current="location"] { background: var(--panel-2); color: var(--teal); border-color: var(--teal); }
-.area { overflow: visible; min-height: 0; padding: 0; }
-.content { gap: 0; }
-.content h2 { font-size: 23px; margin: 0 0 12px; }
-.content h3 { font-size: 18px; margin-bottom: 8px; }
-.section { max-width: none; padding: 18px 0; border-top: 1px solid var(--line); }
-.overview { display: block; padding: 16px 0; }
-.overview .trait { font-size: 14px; margin: 0 0 10px; line-height: 1.6; }
-.overview .obtain { margin: 8px 0 0; font-size: 13px; }
-.range { margin: 0 0 8px 16px; gap: 4px; }
-.page :global(#operator-skills) { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 14px; }
-.page :global(#operator-skills) > * { grid-column: 1 / -1; }
-.page :global(#operator-skills) > h2 { grid-row: 1; }
-.page :global(#operator-skills > .op-skill-tabs) { grid-column: 1; grid-row: 2; margin: 0; gap: 4px; }
-.page :global(#operator-skills) > .selectedSkill { grid-column: 2; grid-row: 2; margin: 0; align-self: center; font-size: 22px; line-height: 1.2; }
-.page :global(.op-skill-tab-btn) { width: 44px; height: 44px; min-height: 44px; padding: 4px; }
-.page :global(.op-skill-tab-btn img) { width: 34px; height: 34px; }
-.skillLevelControl { margin: 8px 0; gap: 8px; }
-.skillMetrics { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 0 0 10px; margin: 0 0 10px; border-top: 0; border-bottom: 1px solid var(--line); }
-.skillMetrics dt { font-size: 11px; margin-bottom: 4px; }
-.skillMetrics dd { font-family: var(--font-body, inherit); font-size: 14px; line-height: 1.35; margin: 0; font-weight: 600; }
-.skillMetrics > div { min-width: 0; padding: 7px 8px; border: 1px solid var(--line-soft); border-radius: 3px; background: var(--panel-2); }
-.skillMetrics > .skillMetricAuto { border-color: color-mix(in srgb, var(--teal) 55%, transparent); background: var(--teal-dim); color: var(--teal); }
-.skillMetrics > .skillMetricAmber { border-color: color-mix(in srgb, var(--amber) 60%, transparent); background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
-.skillMetrics > .skillMetricSp { border-color: color-mix(in srgb, #8fc8f4 60%, transparent); background: rgba(143, 200, 244, .13); color: #8fc8f4; }
-.skillMetrics > .skillMetricAuto dt, .skillMetrics > .skillMetricAmber dt, .skillMetrics > .skillMetricSp dt { color: inherit; }
-:global(:root[data-theme="light"]) .skillMetrics > .skillMetricSp { border-color: rgba(36, 93, 136, .5); background: rgba(36, 93, 136, .1); color: #245d88; }
-.page :global(.op-skill-step-detail), .page :global(.op-module-detail) { padding: 12px; }
-.page :global(.op-skill-step-detail p), .page :global(.op-module-stage-detail p), .page :global(.op-base-skill-card p) { font-size: 14px; line-height: 1.65; }
-.page :global(.op-skill-step-detail .op-skill-range) { padding: 0; border: 0; background: transparent; }
-.costs { margin-top: 12px; padding-top: 10px; gap: 8px; }
-.costs label { font-size: 12px; }
-.costs select { font-size: 12px; min-height: 36px; padding-block: 4px; }
-.costs > div { flex-basis: auto; }
-.page :global(.op-cost-row) { gap: 8px 12px; }
-.guidance { margin: 12px 0 0; border-bottom: 0; }
-.guidance summary, .mechanics summary { padding: 10px 0; min-height: 40px; font-size: 13px; }
-.page :global(.op-potential-row) { min-height: 44px; padding: 4px 0; }
-.promotionTier { margin: 16px 0; }
-.promotionTier p, .promotionTier li { font-size: 13px; }
-.page :global(.op-base-skill-card) { padding: 12px; }
-@media (max-width: 900px) {
-  .page { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .gallery { position: static; height: min(70svh, 560px); }
-  .details { min-height: 0; }
-  .directNavigation { top: 52px; }
-}
-@media (max-width: 540px) {
-  .page :global(#operator-skills) { gap: 0 10px; }
-  .page :global(#operator-skills) > .selectedSkill { font-size: 18px; }
-  .skillMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .skillMetrics > div:nth-child(3) { grid-column: 1; grid-row: 2; }
-  .skillMetrics > div:nth-child(4) { grid-column: 2; grid-row: 2; }
-  .skillMetrics > div:nth-child(5) { grid-column: 3; grid-row: 1; }
-}
-
-@media (min-width: 901px) { .directNavigation { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
-
-.overview > div { display: flow-root; }
-@media (min-width: 1100px) {
-  .page :global(#operator-talents), .page :global(#operator-promotion), .page :global(#operator-characterInfo) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
-  .page :global(#operator-talents) > h2, .page :global(#operator-promotion) > h2, .page :global(#operator-characterInfo) > h2, .page :global(#operator-characterInfo) > .facts, .page :global(#operator-characterInfo) > .review { grid-column: 1 / -1; }
-  .page :global(#operator-talents) .talent { margin: 0; padding: 0; border: 0; }
-  .promotionTier { margin: 0; }
-  .page :global(.op-base-skill-list) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-}
-
-/* Mastery guidance is independent of the selected skill. */
-.masteryGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.masteryCard { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 12px; min-width: 0; }
-.masteryHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
-.masterySkill { display: inline-flex; gap: 6px; align-items: center; min-height: 36px; text-decoration: none; font-weight: 600; }
-.masterySkill:hover { text-decoration: underline; }
-.priorityOrder { color: var(--text-dim); font-family: var(--font-display); font-size: 15px; }
-.priorityKind { margin-left: auto; color: var(--text-dim); font-size: 12px; }
-.masteryCard p { font-size: 14px; line-height: 1.6; margin: 8px 0 0; }
-@media (max-width: 600px) { .masteryGrid { grid-template-columns: minmax(0, 1fr); } }
-
-/* All skill headers participate in sizing; only the selected one is visible. */
-.page :global(#operator-skills) > .selectedSkill { display: grid; align-self: stretch; gap: 0; }
-.skillTitleVariant { grid-area: 1 / 1; display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
-.page :global(#operator-skills > .op-skill-tabs) { align-self: start; }
-
-/* Keep promotion materials together when the LMD + materials line must wrap. */
-.promotionCosts { align-items: flex-start; }
-.promotionMaterials { display: flex; flex-wrap: wrap; gap: 8px 12px; width: max-content; max-width: 100%; }
-
-/* Showcase preview: the artwork and section controls each keep their own space. */
-.page { max-width: 1280px; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); gap: 32px; height: calc(100dvh - 140px); min-height: 0; align-items: stretch; }
-.gallery { position: static; height: 100%; }
-.details { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.hero { padding: 12px 0 22px; }
-.identity :global(.op-name-row) { display: block; margin: 0 0 16px; }
-.identity :global(.op-sticky-meta) { gap: 10px; }
-.directNavigation { position: static; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 0; flex-shrink: 0; }
-.directNavigation button, .directNavigation select { min-height: 44px; font-size: 14px; padding: 8px; }
-.directNavigation select { padding-right: 26px; }
-.area { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 22px 12px 24px 0; }
 .area [hidden] { display: none !important; }
-.section { border-top: 0; padding: 0; }
-.overview { padding: 0; }
-.page :global(#operator-talents), .page :global(#operator-promotion), .page :global(#operator-characterInfo) { display: block; }
-.page :global(#operator-talents) .talent + .talent { padding-top: 22px; margin-top: 22px; border-top: 1px solid var(--line); }
-.promotionTier + .promotionTier { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
-.masteryGrid { grid-template-columns: minmax(0, 1fr); }
-@media (max-width: 900px) {
-  .page { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; gap: 20px; }
-  .gallery { height: min(70svh, 600px); }
-  .details { height: auto; display: block; }
-  .directNavigation { position: sticky; top: 52px; }
-  .area { overflow: visible; min-height: calc(100svh - 170px); padding: 22px 0 24px; }
-}
+.content { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.content p { line-height: 1.7; }
+/* Each section is one surface, heading and controls included. */
+.content > [data-operator-section] { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--bg); }
+.content > [data-operator-section] + [data-operator-section] { margin-top: 16px; }
+.content h2 { margin-top: 0; }
+.content h3 { margin-top: 0; }
+.section { min-width: 0; outline: none; scroll-margin-top: 126px; }
 
-.searchHeader { max-width: 1280px; }
-
-/* Shared talent requirements, with stable cards for each matching effect. */
-.talentControls { margin-bottom: 14px; }
-.content .talentControls h2 { margin: 0 0 10px; font-size: 23px; }
-.talentSelectors { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 12px; }
-.talentControls .talentOptions { flex: 0 0 auto; max-width: 100%; gap: 4px; margin: 0; }
-.talentControls .talentOptions button { flex-shrink: 0; gap: 2px; width: 44px; min-width: 44px; height: 40px; min-height: 40px; padding: 4px 2px; white-space: nowrap; font: 600 11px/1 var(--font-body); }
-.talentCard { min-width: 0; padding: 4px 0 0; }
-.talentCard + .talentCard { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-.talentHeading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.talentHeading h3 { min-width: 0; overflow-wrap: anywhere; margin: 0; font-size: 18px; }
-.talentBadges { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.talentPotentialBadge { display: inline-flex; width: 25px; height: 25px; }
-.talentCard .mechanics { margin-top: 12px; border-top: 1px solid var(--line); }
-.talentCard .mechanics summary { color: var(--text-dim); text-align: center; }
-
-/* Let text shrink to the panel width instead of enlarging grid tracks. */
-.content, .talentDescriptions { min-width: 0; }
-.talentDescriptions { grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; }
-
-.credits { clear: both; border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }
-.credits h3 { margin-bottom: 12px; font-size: 18px; }
+/* --- overview ----------------------------------------------------------------------- */
+.overview > div { display: flow-root; }
+.review { max-width: 68ch; margin: 0 0 20px; font-size: 15px; }
+.trait { margin: 0 0 10px; font-size: 13px; line-height: 1.6; }
+.obtain { margin: 8px 0 0; color: var(--text-dim); font-size: 13px; }
+.obtain b { color: var(--text); font-weight: 500; }
+.range { float: right; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0 0 8px 16px; }
+.range small { color: var(--text-dim); font-size: 11px; }
+.facts { display: flex; flex-direction: column; gap: 12px; }
+.credits { clear: both; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
+.credits h3 { margin-bottom: 12px; }
 .creditGroups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px 24px; }
-.creditGroups dl { display: grid; align-content: start; gap: 12px; margin: 0; min-width: 0; }
-.creditGroups dl > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: start; gap: 8px; font-size: 14px; line-height: 1.5; }
-.creditGroups dt { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; color: var(--text-dim); font-size: 12px; }
+.creditGroups dl { display: grid; align-content: start; gap: 12px; min-width: 0; margin: 0; }
+.creditGroups dl > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: start; gap: 8px; font-size: 13px; line-height: 1.5; }
+.creditGroups dt { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--text-dim); font-size: 12px; }
 .creditGroups svg { flex-shrink: 0; }
 .creditGroups dd { margin: 0; overflow-wrap: anywhere; }
 .creditValue { display: grid; }
 .creditValue > span { grid-area: 1 / 1; min-width: 0; }
 
-/* Bounded operator workspace: artwork and information have independent space. */
-.frame { display: flex; flex-direction: column; width: 100%; max-width: 1040px; margin-inline: auto; height: calc(100dvh - var(--nav-h, 52px) - 2px); min-height: 0; }
-/* Reserve both outer gutters for future ads; the search and artwork belong
-   to the same central workspace as the information panel. */
-@media (min-width: 1280px) {
-  .frame { width: calc(100% - 2 * (160px + 24px)); }
-}
-.frame .searchHeader { width: 100%; flex-shrink: 0; padding-block: 10px; }
-/* Match Aceship's seven-column artwork / five-column information balance. */
-.frame .page { flex: 1; height: auto; min-height: 0; padding-top: 4px; padding-bottom: 16px; gap: 24px; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
-.details { border: 1px solid var(--line); border-top: 2px solid var(--teal); border-radius: 8px; background: var(--panel); overflow: hidden; container-type: inline-size; container-name: operatorDetails; }
-/* The search row belongs to the artwork column. Lift the information panel into
-   that row so both primary controls begin on the same visual baseline. */
-@media (min-width: 901px) {
-  .frame .details { margin-top: -53px; height: calc(100% + 53px); }
-}
-.panelHeader { background: transparent; }
-.hero { padding: 12px 16px 8px; border: 0; background: transparent; }
-.identity h1 { font-size: clamp(26px, 2.5vw, 36px); line-height: 1.15; overflow-wrap: anywhere; }
-.identity :global(.op-name-row) { margin-bottom: 6px; }
-.identity :global(.op-sticky-meta) { min-height: 24px; margin-block: 0; }
-.identity :global(.op-header-text) { min-width: 0; }
-.area { padding: 12px 12px 20px; scrollbar-width: thin; scrollbar-color: var(--text-dim) transparent; }
-.content { overflow-wrap: anywhere; }
-/* Each continuous section owns one surface, including its heading and controls. */
-.content > [data-operator-section] {
-  min-width: 0;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--bg);
-}
-.content > [data-operator-section] + [data-operator-section] { margin-top: 16px; }
-.content h2 { font-size: 23px; margin-bottom: 14px; }
-.content > [data-operator-section] > h2,
-.content > [data-operator-section] > section > h2,
-.content .talentControls h2 {
-  padding: 0 0 0 10px;
-  margin: 0 0 16px;
-  border-left: 3px solid var(--teal);
-  color: var(--text);
-  font: 600 20px/1.3 var(--font-display);
-}
+/* --- skills ------------------------------------------------------------------------- */
+.page :global(#operator-skills) { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 14px; }
+.page :global(#operator-skills) > * { grid-column: 1 / -1; }
+.page :global(#operator-skills) > h2 { grid-row: 1; }
+.page :global(#operator-skills > .op-skill-tabs) { grid-column: 1; grid-row: 2; align-self: start; gap: 4px; margin: 0; }
+/* Every skill's title takes part in sizing; only the selected one is visible. */
+.page :global(#operator-skills) > .selectedSkill { display: grid; grid-column: 2; grid-row: 2; align-self: stretch; gap: 0; margin: 0; color: var(--text); font: 600 22px/1.2 var(--font-display); }
+.skillTitleVariant { display: flex; flex-wrap: wrap; grid-area: 1 / 1; align-content: flex-start; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.page :global(.op-skill-tab-btn) { flex-direction: column; justify-content: center; gap: 3px; width: 56px; height: 62px; min-height: 44px; padding: 4px 3px; }
+.page :global(.op-skill-tab-btn img) { width: 34px; height: 34px; }
+/* Under the icon in a 56px chip: mono without the chip's tracking, or "SKILL 1" spills. */
+.skillNumber { font: 600 10px/1 var(--font-mono); letter-spacing: 0; }
+.skillLevelControl { display: grid; grid-template-columns: auto 72px minmax(0, 1fr); align-items: center; gap: 8px; margin: 8px 0; }
+.skillLevelControl label { color: var(--text-dim); font-size: 13px; }
+.skillLevelControl input { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 0; }
+.skillLevelValue { display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* The skill's numbers. Recovery and activation kinds are categories, so they take
+   the --cat-* colours (auto green, manual orange, SP blue): teal is "on", and a
+   manual skill is not "on". */
+.skillMetrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; padding: 0 0 10px; border-bottom: 1px solid var(--line-soft); }
+.skillMetrics > div { min-width: 0; padding: 7px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); }
+.skillMetrics dt { margin-bottom: 4px; color: var(--text-dim); font-size: 11px; }
+.skillMetrics dd { margin: 0; font: 600 13px/1.35 var(--font-body); }
+/* The skill facts' colours, the same on /gacha's operator preview (.gacha-preview-skill-fact):
+   automatic is teal, manual activation and offensive/defensive recovery are amber, SP is blue. */
+.skillMetrics > .skillMetricAuto { border-color: color-mix(in srgb, var(--teal) 55%, transparent); background: var(--teal-dim); color: var(--teal); }
+.skillMetrics > .skillMetricAmber { border-color: color-mix(in srgb, var(--amber) 60%, transparent); background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
+.skillMetrics > .skillMetricSp { border-color: color-mix(in srgb, var(--cat-blue) 55%, transparent); background: color-mix(in srgb, var(--cat-blue) 12%, transparent); color: var(--cat-blue); }
+.skillMetrics > .skillMetricAuto dt, .skillMetrics > .skillMetricAmber dt, .skillMetrics > .skillMetricSp dt { color: inherit; }
+.page :global(.op-skill-step-detail), .page :global(.op-module-detail) { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.page :global(.op-skill-step-detail p), .page :global(.op-module-stage-detail p), .page :global(.op-base-skill-card p) { font-size: 13px; line-height: 1.65; }
+.page :global(.op-skill-step-detail > p:first-child) { margin-top: 0; }
+.page :global(.op-skill-step-detail > p:last-child) { margin-bottom: 0; }
+.page :global(.op-skill-step-detail > a) { display: inline-block; margin: 14px 0 4px; font-size: 13px; text-underline-offset: 4px; }
+.page :global(.op-skill-step-detail .op-skill-range) { padding: 0; border: 0; background: transparent; }
+.costs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.costs label { font-size: 12px; }
+.costSelect { width: 250px; max-width: 100%; }
+.page :global(.op-cost-row) { gap: 8px 12px; }
+.mechanics { margin-top: 16px; border-top: 1px solid var(--line-soft); }
+.mechanics summary { min-height: 40px; padding: 10px 0; color: var(--text-dim); font-size: 13px; cursor: pointer; }
+.mechanics summary:hover, .mechanics[open] summary { color: var(--text); }
+
+/* --- talents (components/operators/OperatorTalents.tsx) ---------------------------- */
 .content > [data-operator-section] > .talentControls { margin: 0 0 16px; }
-.content .talentControls h2 { margin: 0 0 10px; }
-.content .selectedSkill { font: 600 21px/1.3 var(--font-display); color: var(--text); margin: 0 0 14px; }
-.review { font-size: 15px; margin-bottom: 20px; }
-.gallery { border-radius: 8px; background: radial-gradient(ellipse at 50% 55%, var(--panel-2), transparent 70%); }
-.classLabel { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
-.artworkEmblem { position: absolute; width: 95%; height: 70%; top: 8%; left: 2.5%; color: var(--text); background-color: currentColor; mask-repeat: no-repeat; mask-position: center; mask-size: contain; mask-mode: luminance; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; -webkit-mask-size: contain; -webkit-mask-source-type: luminance; opacity: .055; pointer-events: none; }
-.page :global(.op-skill-tab-btn) { flex-direction: column; gap: 3px; width: 52px; height: 62px; padding: 5px; }
-.skillNumber { font: 600 11px/1 var(--font-body); }
-.page :global(.op-skill-step-detail), .page :global(.op-module-detail) { background: transparent; border: 0; border-radius: 0; padding: 0; min-width: 0; }
-.masteryCard, .page :global(.op-base-skill-card) { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 12px 0 0; }
-.page :global(.op-base-skill-card) { min-width: 0; overflow-wrap: anywhere; }
+.talentControls h2 { margin: 0 0 10px; }
+.talentSelectors { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
+/* Elite and potential pickers: .filter-chip toggles, sized as icon tiles. */
+.talentOptions { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 0; }
+.talentOptions > button { flex-shrink: 0; width: 44px; min-width: 44px; height: 40px; min-height: 40px; padding: 4px 2px; }
+.talentDescriptions { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }
+.talentDescriptions p { grid-area: 1 / 1; margin: 0; font-size: 13px; line-height: 1.7; }
+.talentCard { min-width: 0; padding: 4px 0 0; }
+.talentCard + .talentCard { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
+.talentHeading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.talentHeading h3 { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.talentBadges { display: flex; flex-shrink: 0; align-items: center; gap: 4px; }
+.talentPotentialBadge { display: inline-flex; width: 25px; height: 25px; }
+.talentCard .mechanics { margin-top: 12px; }
+.talentCard .mechanics summary { text-align: center; }
+
+/* --- upgrades ------------------------------------------------------------------------- */
+.masteryGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.masteryCard { min-width: 0; padding: 12px 0 0; border-top: 1px solid var(--line-soft); }
+.masteryHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.masterySkill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-weight: 600; text-decoration: none; }
+.masterySkill:hover { text-decoration: underline; }
+.priorityOrder { color: var(--text-dim); font-family: var(--font-display); font-size: 15px; }
+.priorityKind { margin-left: auto; color: var(--text-dim); font-size: 12px; }
+.masteryCard p { margin: 8px 0 0; font-size: 13px; line-height: 1.6; }
+.promotionTier { margin: 0; }
+.promotionTier + .promotionTier { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line-soft); }
+.promotionTier p, .promotionTier li { font-size: 13px; line-height: 1.7; }
+/* Keep promotion materials together when the LMD + materials line must wrap. */
+.promotionCosts { align-items: flex-start; }
+.promotionMaterials { display: flex; flex-wrap: wrap; gap: 8px 12px; width: max-content; max-width: 100%; }
+.page :global(.op-potential-row) { gap: 16px; min-height: 44px; margin: 0; padding: 4px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.page :global(.op-base-skill-card) { min-width: 0; padding: 12px 0 0; border: 0; border-top: 1px solid var(--line-soft); border-radius: 0; background: transparent; overflow-wrap: anywhere; }
 .page :global(.op-module-list), .page :global(.op-module-stage-buttons) { flex-wrap: wrap; }
 .page :global(.op-module-card) { min-width: 0; max-width: 100%; }
-.costs { min-width: 0; }
-.costs select { max-width: 100%; }
+.page :global(.op-char-info-block p) { font-size: 13px; line-height: 1.8; }
+.page :global(.video-scroller) { min-width: 0; max-width: 100%; }
+
+/* --- related-operator popovers (branch, artist, voice actor) ------------------------ */
+.relationPopover { position: relative; display: inline-block; min-width: 0; }
+.relationPopover > button { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-height: 28px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: none; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; cursor: pointer; }
+.relationPopover > button:hover, .relationPopover > button[aria-expanded="true"] { color: var(--teal); text-decoration-color: currentColor; }
+.relationPopover > button > svg { flex-shrink: 0; transition: transform 0.15s ease; }
+.relationPopover > button[aria-expanded="true"] > svg { transform: rotate(180deg); }
+/* On StyledSelect's menu surface: --panel, a 2px teal top edge, the frame radius. */
+.relationMenu { position: fixed; z-index: 120; overflow: auto; padding: 12px; border: 1px solid var(--line); border-top: 2px solid var(--teal); border-radius: var(--radius-frame); background: var(--panel); box-shadow: 0 18px 48px rgb(0 0 0 / 0.38); overscroll-behavior: contain; }
+.relationHeading { padding: 2px 2px 10px; border-bottom: 1px solid var(--line-soft); }
+.relationHeading b { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.relationGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-top: 10px; }
+.relationGrid a { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; min-height: 48px; padding: 5px; border: 1px solid var(--control-border); border-radius: var(--radius); color: var(--text); text-decoration: none; }
+.relationGrid a:hover, .relationGrid a:focus-visible { border-color: var(--teal); color: var(--teal); }
+.relationGrid img { border-radius: var(--radius); background: var(--panel-2); }
+.relationGrid a span { min-width: 0; font-size: 12px; line-height: 1.25; overflow-wrap: anywhere; }
+
 @container operatorDetails (max-width: 540px) {
   .page :global(#operator-skills > .op-skill-tabs) { grid-column: 1 / -1; grid-row: 2; margin-bottom: 12px; }
-  .page :global(#operator-skills) > .selectedSkill { grid-column: 1 / -1; grid-row: 3; font-size: 21px; }
+  .page :global(#operator-skills) > .selectedSkill { grid-column: 1 / -1; grid-row: 3; }
   .skillMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
   .skillMetrics > div:nth-child(3) { grid-column: 1; grid-row: 2; }
   .skillMetrics > div:nth-child(4) { grid-column: 2; grid-row: 2; }
@@ -395,114 +250,42 @@
   .page :global(.op-base-skill-list) { display: grid; grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 900px) {
+  /* A phone reads down the document: the artwork (a captured height, so the address
+     bar hiding cannot resize it mid-scroll), then the panel, its header pinned. */
   .frame { height: auto; }
-  .frame .page { flex: none; gap: 20px; grid-template-columns: minmax(0, 1fr); }
-  .details { display: block; overflow: visible; height: auto; }
-  .hero { padding: 18px 14px 14px; }
-  .content > [data-operator-section] { padding: 12px; }
-  .area { padding: 12px 8px 20px; overflow: visible; min-height: calc(100svh - var(--nav-h, 52px) - 132px); }
-  /* The page captures this height once per phone orientation. Address-bar and
-     keyboard height changes therefore cannot resize the artwork mid-scroll. */
+  .page, .page.infoExpanded { flex: none; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .gallery, .details { grid-column: 1; }
   .gallery { height: var(--operator-mobile-art-height, min(70svh, 600px)); }
-  .talentControls .talentOptions button { min-height: 44px; }
-}
-
-@media (max-width: 360px) {
-  .content > [data-operator-section] { padding-inline: 8px; }
-}
-
-/* Keep the final controls readable above the site's floating music button. */
-.frame .area { padding-bottom: 64px; scroll-padding-bottom: 64px; }
-
-/* Popovers must fit the viewport too, including landscape phones. */
-.searchHeader :global(.op-header-search-results) {
-  max-height: min(320px, calc(100dvh - var(--nav-h, 52px) - 76px));
-  overscroll-behavior: contain;
-}
-.searchHeader :global(.op-header-search-result) { min-width: 0; }
-.searchHeader :global(.op-header-search-result img) { flex-shrink: 0; }
-.searchHeader :global(.op-header-search-result span) { min-width: 0; overflow-wrap: anywhere; }
-
-/* A fixed workspace needs room for content below its identity and navigation.
-   In short desktop windows, scroll the document instead of clipping that content. */
-@media (min-width: 901px) and (max-height: 600px) {
-  .frame { height: auto; }
-  .frame .page { flex: none; align-items: start; }
+  .splitRail { display: none; }
   .details { display: block; height: auto; overflow: visible; }
-  .area { overflow: visible; min-height: 0; }
-  .gallery { position: sticky; top: calc(var(--nav-h, 52px) + 12px); height: calc(100dvh - var(--nav-h, 52px) - 24px); }
+  .hero { padding: 14px; }
+  .identity :global(.op-header-flex) { flex-wrap: wrap; gap: 12px; }
+  .identity :global(.op-form-switch) { gap: 4px; }
+  .area { min-height: calc(100svh - var(--nav-h, 52px) - 132px); padding: 12px 8px 64px; overflow: visible; --operator-player-inset: 21px; }
+  .content > [data-operator-section] { padding: 12px; }
+  .talentOptions > button { min-height: 44px; }
 }
-
-/* The section picker shares the name row and the header stays available while reading. */
-.panelHeader { position: relative; top: auto; z-index: 8; background: var(--panel); border-bottom: 1px solid var(--line); }
-.identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 128px; align-items: start; gap: 12px; }
-.identity h1 { min-width: 0; }
-.sectionMenu { min-width: 0; padding-top: 1px; }
-.sectionMenu > div { width: 100%; }
-.costSelect { width: 250px; max-width: 100%; }
 @media (max-width: 900px), (max-height: 600px) {
   .panelHeader { position: sticky; top: var(--nav-h, 52px); }
 }
-@media (max-width: 540px) {
-  .identity :global(.op-name-row) { grid-template-columns: minmax(0, 1fr) 108px; gap: 8px; }
-  .hero { padding: 12px; }
-  .sectionMenu button { font-size: 12px; }
+/* A short desktop window scrolls the document rather than clipping the panel. */
+@media (min-width: 901px) and (max-height: 600px) {
+  .frame { height: auto; }
+  .page { flex: none; align-items: start; }
+  .gallery { position: sticky; top: calc(var(--nav-h, 52px) + 12px); height: calc(100dvh - var(--nav-h, 52px) - 24px); }
+  .details { display: block; height: auto; overflow: visible; }
+  .area { min-height: 0; overflow: visible; }
 }
-
-/* The voice transport fills the reading panel when pinned below its header. */
-.area { --operator-player-inset: 26px; --operator-player-sticky-top: -12px; }
-@media (max-width: 900px) {
-  .area { --operator-player-inset: 21px; }
+@media (max-width: 540px) {
+  .identity :global(.op-name-row) { grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; }
+  .hero { padding: 12px; }
+  .page :global(#operator-skills) { gap: 0 10px; }
+  .page :global(#operator-skills) > .selectedSkill { font-size: 18px; }
 }
 @media (max-width: 360px) {
   .area { --operator-player-inset: 17px; }
+  .content > [data-operator-section] { padding-inline: 8px; }
 }
-
-/* Optional desktop split control. The normal 7:5 artwork-to-information balance
-   remains the default; widening information is reversible and never changes the
-   overall bounded workspace or the reserved ad gutters. */
-.frame .page { grid-template-columns: minmax(0, 7fr) 28px minmax(0, 5fr); gap: 8px; }
-.frame .page.infoExpanded { grid-template-columns: minmax(0, 3fr) 28px minmax(0, 9fr); }
-.gallery { grid-column: 1; }
-.splitRail { grid-column: 2; position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; }
-.splitRail::before { content: ''; position: absolute; inset-block: 8px; left: 50%; width: 1px; background: var(--line); }
-.splitRail button { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 5px; color: var(--text-dim); background: var(--panel-2); cursor: pointer; }
-.splitRail button:hover, .splitRail button:focus-visible { color: var(--teal); border-color: var(--teal); }
-.details { grid-column: 3; }
-
-/* Compact, bounded related-operator popovers for branch and credit discovery. */
-.relationPopover { position: relative; display: inline-block; min-width: 0; }
-.relationPopover > button { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-height: 28px; color: inherit; cursor: pointer; border: 0; padding: 0; background: transparent; font: inherit; letter-spacing: inherit; text-transform: none; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
-.relationPopover > button:hover, .relationPopover > button[aria-expanded="true"] { color: var(--teal); text-decoration-color: currentColor; }
-.relationPopover > button > svg { flex-shrink: 0; transition: transform .15s ease; }
-.relationPopover > button[aria-expanded="true"] > svg { transform: rotate(180deg); }
-.relationMenu { position: fixed; z-index: 120; overflow: auto; overscroll-behavior: contain; padding: 12px; border: 1px solid var(--teal); border-radius: 7px; background: var(--panel); box-shadow: 0 18px 48px rgb(0 0 0 / .38); }
-.relationHeading { padding: 2px 2px 10px; border-bottom: 1px solid var(--line); }
-.relationHeading b { min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
-.relationGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-top: 10px; }
-.relationGrid a { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; min-height: 48px; padding: 5px; border: 1px solid transparent; border-radius: 5px; color: var(--text); text-decoration: none; }
-.relationGrid a:hover, .relationGrid a:focus-visible { border-color: var(--teal); background: var(--panel-2); }
-.relationGrid img { border-radius: 4px; background: var(--panel-2); }
-.relationGrid a span { min-width: 0; font-size: 12px; line-height: 1.25; overflow-wrap: anywhere; }
-
-@media (max-width: 900px) {
-  .frame .page, .frame .page.infoExpanded { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .gallery, .details { grid-column: 1; }
-  .splitRail { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .gallery :global(.op-carousel-img-enter), .gallery :global(.op-carousel-img-exit) { animation: none; }
 }
-
-/* Search occupies exactly the artwork column, even when the reading pane grows. */
-@media (min-width: 901px) {
-  .frame .searchHeader { width: calc((100% - 44px) * 7 / 12); margin-inline: 0; padding-inline: 0; }
-  .frameExpanded .searchHeader { width: calc((100% - 44px) / 4); }
-}
-.searchTrigger { display: grid; place-items: center; width: 36px; height: 33px; padding: 0; border: 1px solid var(--line-soft); border-radius: 6px; color: var(--text-dim); background: var(--panel-2); cursor: pointer; }
-.searchTrigger:hover, .searchTrigger:focus-visible { color: var(--teal); border-color: var(--teal); }
-.searchDialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 18px; box-sizing: border-box; overflow: auto; border: 1px solid var(--teal); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 18px 48px #0006; }
-.searchDialog::backdrop { background: #0008; }
-.searchDialog header { padding: 0; border: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-.searchDialog h2 { margin: 0; font: 600 24px var(--font-display); }
-.searchDialog header button { padding: 0; min-width: 36px; min-height: 36px; font-size: 24px; }
-.searchDialog :global(.op-header-search-results) { position: static; width: 100%; max-height: 320px; margin-top: 8px; box-shadow: none; }
-.searchDialog :global(.op-header-search-result) { min-height: 44px; justify-content: flex-start; text-transform: none; letter-spacing: normal; font: 400 14px var(--font-body); }
-.searchDialog :global(.op-header-search-result span) { overflow-wrap: anywhere; }

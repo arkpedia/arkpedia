@@ -1,8 +1,10 @@
 {
   "d1440": {
-    "/operators/Amiya": [
-      "h1-align",
-      "frame"
+    "/obtain-method": [
+      "h1-align"
+    ],
+    "/recruitment": [
+      "h1-align"
     ],
     "/stages/exploration": [
       "h1-align"
@@ -33,7 +35,13 @@
     "/gamemodes/stronghold-protocol": [
       "frame"
     ],
-    "/operators/Amiya": [
+    "/obtain-method": [
+      "h1-align"
+    ],
+    "/pulls": [
+      "frame"
+    ],
+    "/recruitment": [
       "h1-align",
       "frame"
     ],

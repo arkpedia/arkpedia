@@ -1,404 +1,13 @@
-/* Split from globals.css -- operator-detail.css */
+/* The operator detail page's global rules (pages/operators/[name].tsx), plus a few
+   classes other pages borrow (cost chips, optimizer groups; the /results tier rows
+   moved to styles/survey/boxplot.css). Layout and
+   paint for the page itself live in components/operators/OperatorPage.module.css. */
 
-
-.op-name {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 15px;
-  margin: 0 0 10px;
-  letter-spacing: 0.01em;
-  min-height: 20px;
-}
-/* --- Operator detail page --- */
-.op-hero {
-  display: flex;
-  gap: 24px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--line-soft);
-  margin-bottom: 24px;
-}
-@media (max-width: 640px) {
-  .op-hero { flex-direction: column; }
-}
-.op-hero-icon {
-  width: 140px;
-  height: 140px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  overflow: hidden;
-}
-.op-hero-icon img { width: 100%; height: 100%; object-fit: cover; }
-.op-hero-info h1 { margin-top: 2px; }
-.op-badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 10px;
-}
-.op-branch-inline {
-  color: var(--text-dim);
-  font-weight: 400;
-}
-
-.talent-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 14px;
-  margin-bottom: 12px;
-}
-.talent-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--teal);
-  margin: 0 0 8px;
-}
-.talent-row {
-  display: flex;
-  gap: 12px;
-  padding: 6px 0;
-  border-top: 1px solid var(--line-soft);
-}
-.talent-row:first-of-type { border-top: none; }
-.talent-row-req {
-  flex: 0 0 110px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--amber);
-}
-.talent-row-desc { font-size: 13px; line-height: 1.5; }
-
-.op-skin-carousel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-}
-.op-skin-nav-btn {
-  font-size: 22px;
-  padding: 10px 16px;
-  flex-shrink: 0;
-}
-.op-skin-card { text-align: center; width: 240px; }
-.op-skin-image-wrap {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  margin-bottom: 8px;
-  position: relative;
-}
-.op-skin-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.op-skin-name {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 14px;
-  margin: 0 0 2px;
-}
-.op-skin-dots {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 12px;
-}
-.op-skin-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  background: var(--line-soft);
-  cursor: pointer;
-}
-.op-skin-dot.active { background: var(--teal); }
-.op-trait {
-  font-size: 14px;
-  color: var(--text);
-  margin: 4px 0 8px;
-}
-.op-trait-tier-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--amber);
-  text-transform: uppercase;
-}
 
 .op-section.gacha-featured-section {
   margin-bottom: 12px;
 }
 
-
-.potential-compact-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
-}
-.potential-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 6px 0;
-}
-.potential-row-label {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--teal);
-  flex-shrink: 0;
-}
-.potential-row-fill {
-  flex: 1;
-  border-bottom: 1px dashed var(--line-soft);
-  height: 0;
-  align-self: center;
-  min-width: 16px;
-}
-.potential-row-benefit {
-  font-size: 13px;
-  color: var(--text);
-  text-align: right;
-  max-width: 70%;
-}
-
-.potential-promotion-row {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  margin-bottom: 28px;
-}
-.potential-promotion-row .op-section {
-  flex: 1;
-  min-width: 280px;
-  margin-bottom: 0;
-}
-
-.promotion-compact-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 16px;
-}
-
-/* --- Skills + info flip card side by side --- */
-.skills-info-row {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-.skills-info-skills { flex: 2; min-width: 320px; margin-bottom: 0; }
-.skills-info-flipcard { flex: 1; min-width: 260px; }
-.promotion-toggle-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.promotion-compact-card ul {
-  margin: 0 0 10px;
-  padding-left: 18px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-.promotion-compact-card li { margin-bottom: 4px; }
-
-.skill-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.skill-level-scroller {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 14px 16px;
-  max-width: 520px;
-}
-.skill-level-scroller-head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 10px;
-}
-.skill-level-badge {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--teal);
-  flex-shrink: 0;
-  min-width: 40px;
-}
-.skill-level-slider {
-  flex: 1;
-  accent-color: var(--teal);
-}
-.skill-level-desc {
-  font-size: 13px;
-  line-height: 1.5;
-  margin-bottom: 10px;
-}
-.skill-level-stats {
-  display: flex;
-  gap: 16px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
-.cost-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
-  margin-bottom: 6px;
-}
-.cost-groups {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.cost-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.cost-or {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--amber);
-}
-.cost-item {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--line-soft);
-  border-radius: 3px;
-  padding: 4px 8px;
-  color: var(--text);
-}
-.cost-qty { color: var(--teal); }
-
-.op-quicknav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line-soft);
-}
-.op-quicknav a {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  text-decoration: none;
-  padding: 5px 10px;
-  border-radius: 20px;
-  border: 1px solid var(--line-soft);
-  background: var(--panel);
-}
-.op-quicknav a:hover { color: var(--teal); border-color: var(--teal-dim); }
-
-/* --- Character file / basic info / physical exam --- */
-.char-file-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-}
-.char-file-subheading {
-  font-family: var(--font-display);
-  font-size: 14px;
-  text-transform: uppercase;
-  color: var(--teal);
-  margin: 18px 0 10px;
-}
-
-/* --- Skill icons --- */
-.skill-tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.skill-tab-icon { width: 20px; height: 20px; border-radius: 3px; }
-.skill-detail-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 4px;
-  margin-right: 4px;
-}
-
-/* --- Operator modules --- */
-.module-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 14px;
-  margin-bottom: 14px;
-}
-.module-card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.module-icon { width: 40px; height: 40px; border-radius: 4px; }
-.module-stages-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-.module-stage {
-  flex: 1;
-  min-width: 160px;
-  padding: 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--line-soft);
-  border-radius: 4px;
-}
-.module-stage-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--amber);
-  margin: 0 0 4px;
-}
-.op-hero-class-icon, .op-hero-branch-icon {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-  vertical-align: middle;
-  margin-left: 6px;
-}
-
-.skill-recommendation {
-  font-size: 12px;
-  margin-left: 4px;
-}
-
-/* --- Operator Detail Page Redesign --- */
-body.op-detail-no-scroll {
-  overflow: hidden;
-  height: 100vh;
-}
-.op-detail-layout {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 24px;
-  align-items: stretch;
-  height: calc(100vh - 190px);
-}
-
-.op-detail-left {
-  position: relative;
-}
 .op-carousel-main {
   position: relative;
   width: 100%;
@@ -429,257 +38,22 @@ body.op-detail-no-scroll {
   color: var(--text-faint);
   font-size: 13px;
 }
-.op-carousel-label-wrap {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 34px;
-  overflow: hidden;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
-}
-.op-carousel-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 8px 12px;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  overflow: hidden;
-}
-.op-carousel-label-enter {
-  animation: op-label-slide-in 0.45s ease forwards;
-}
-.op-carousel-label-exit {
-  animation: op-label-slide-out 0.45s ease forwards;
-}
-@keyframes op-label-slide-in {
-  from { opacity: 0; transform: translateX(30px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes op-label-slide-out {
-  from { opacity: 1; transform: translateX(0); }
-  to { opacity: 0; transform: translateX(-30px); }
-}
-.op-carousel-thumbs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 10px;
-}
-.op-carousel-thumb {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 2px solid var(--line-soft);
-  background: var(--panel-2);
-  cursor: pointer;
-  padding: 0;
-}
-.op-carousel-thumb.active { border-color: var(--teal); }
-.op-carousel-thumb-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--text-dim);
-}
-.op-carousel-play-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  border: 2px solid var(--teal);
-  background: var(--teal-dim);
-  color: var(--teal);
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  line-height: 1;
-}
-
-.op-detail-right {
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
-.op-detail-scroll-area {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  /* The scrollbar's WIDTH must never toggle -- that was the actual bug
-     here (see the comment on .scrolling below for the full mechanism).
-     scrollbar-gutter keeps Firefox's own thin gutter reserved at all
-     times too, matching the always-6px approach used for WebKit below,
-     so content width genuinely never changes between the two states. */
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-.op-detail-scroll-area::-webkit-scrollbar {
-  width: 6px;
-}
-.op-detail-scroll-area::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 3px;
-}
-.op-detail-scroll-area::-webkit-scrollbar-track {
-  background: transparent;
-}
-/* Only the THUMB's color toggles here -- never display/width. The
-   previous version toggled the scrollbar's own display/width between
-   states, which genuinely changed the content area's available width
-   by 6px every time scrolling started or stopped. That reflowed text
-   (line-wrapping shifts slightly at a different width), which could
-   change scrollHeight, which -- when scrolled near the bottom --
-   makes the browser auto-adjust scrollTop to stay within the new
-   bounds, firing another native scroll event, which re-triggered this
-   same class toggle: a genuine feedback loop, not a cosmetic glitch,
-   which is why the scrollbar wouldn't settle and the text visibly
-   jittered. A pure color change can never cause reflow, so this
-   can't recreate that loop no matter how it's toggled. */
-.op-detail-scroll-area.scrolling {
-  scrollbar-color: var(--line) transparent;
-}
-.op-detail-scroll-area.scrolling::-webkit-scrollbar-thumb {
-  background: var(--line);
-}
-.op-detail-sticky-header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line-soft);
-  padding-bottom: 12px;
-  margin-bottom: 16px;
-}
-.op-detail-sticky-header h1 {
-  margin: 0 0 8px;
-  font-family: var(--font-display);
-  font-size: 28px;
-}
-.op-page-header-search {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 10px 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.op-header-search-wrap {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  max-width: 320px;
-}
-.op-back-to-roster-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  padding: 7px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
-  background: var(--panel-2);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-decoration: none;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-.op-back-to-roster-btn:hover {
-  border-color: var(--teal);
-  color: var(--teal);
-}
 .op-synergy-icons {
   position: relative;
   width: 40px;
   height: 40px;
 }
 .op-synergy-icons img:first-child {
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .op-synergy-icons .technique-entry-badge-row {
   bottom: -3px;
   right: -3px;
 }
 .op-synergy-icons .technique-entry-badge-talent {
-  min-width: 15px;
-  height: 15px;
-  font-size: 8px;
-}
-input.op-header-search-input {
-  width: 100%;
-  flex: 1;
-  min-width: 0;
-  padding: 7px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
-  background: var(--row-grad);
-  color: var(--text);
-  font-size: 13px;
-}
-.op-header-search-results {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  width: 100%;
-  z-index: 10;
-  background: var(--panel);
-  border: 1px solid var(--line-soft);
-  border-radius: 6px;
-  max-height: 320px;
-  overflow-y: auto;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
-}
-.op-header-search-result {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  background: none;
-  border: none;
-  text-align: left;
-  color: var(--text);
-  font-size: 13px;
-  cursor: pointer;
-}
-.op-header-search-result img {
-  border-radius: 4px;
-}
-.op-header-search-result:hover,
-.op-header-search-result.active {
-  background: var(--panel-2);
-}
-.op-header-search-empty {
-  padding: 10px;
-  font-size: 12px;
-  color: var(--text-dim);
-}
-.op-sticky-collapsible {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: max-height 0.32s ease, opacity 0.24s ease, margin-top 0.32s ease;
-}
-.op-sticky-collapsible.open {
-  max-height: 260px;
-  opacity: 1;
-  margin-top: 2px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
 }
 .op-sticky-meta {
   display: flex;
@@ -704,12 +78,6 @@ input.op-header-search-input {
   font-weight: 700;
 }
 
-.op-detail-body {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
 .op-skill-tabs, .op-module-list {
   display: flex;
   flex-wrap: wrap;
@@ -719,7 +87,7 @@ input.op-header-search-input {
 .op-skill-step-detail {
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   padding: 12px 14px;
 }
 .op-skill-step-detail h4 {
@@ -742,42 +110,22 @@ input.op-header-search-input {
   color: var(--text-dim);
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 4px 8px;
 }
 .op-cost-item b { color: var(--amber); }
 
-.op-talent-block { margin-bottom: 14px; }
-.op-talent-block h3 { margin: 0 0 6px; font-size: 15px; }
-
-.op-module-card {
-  padding: 8px 14px;
-  border-radius: 4px;
-  border: 1px solid var(--line-soft);
-  background: var(--panel-2);
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 13px;
-}
-.op-module-card.active {
-  border-color: var(--teal);
-  color: var(--teal);
-  background: var(--teal-dim);
-}
+/* The module picker is .filter-chip toggles (pages/operators/[name].tsx). */
 .op-module-detail {
   margin-top: 10px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   padding: 12px 14px;
 }
 .op-module-mission { margin-bottom: 12px; }
 .op-module-mission h4 { margin: 0 0 6px; font-size: 12px; color: var(--text-faint); text-transform: uppercase; }
-.op-module-stage-buttons {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
+.op-module-stage-buttons { margin-bottom: 10px; }
 .op-module-stage-detail h4 { margin: 10px 0 4px; font-size: 12px; color: var(--text-faint); text-transform: uppercase; }
 
 .op-char-info-block { margin-bottom: 14px; }
@@ -786,41 +134,10 @@ input.op-header-search-input {
   color: var(--text);
   font-weight: 600;
 }
-.op-skill-meta-line {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text);
-  margin-bottom: 18px;
-}
 
-.op-section-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.op-section-tabs button {
-  padding: 6px 12px !important;
-  font-size: 12px !important;
-}
-
-.op-skill-tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px 6px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--line-soft);
-  background: var(--panel-2);
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 13px;
-}
-.op-skill-tab-btn.active {
-  border-color: var(--teal);
-  color: var(--teal);
-  background: var(--teal-dim);
-}
+/* The skill picker: .filter-chip toggles sized as icon tiles (the tile size is in
+   OperatorPage.module.css). */
+.op-skill-tab-btn { border-radius: var(--radius-control); }
 
 .op-skill-recommend-stack {
   display: flex;
@@ -838,57 +155,11 @@ input.op-header-search-input {
 .op-skill-recommend-mastery {
   font-size: 10px;
   font-weight: 700;
-  color: var(--teal);
+  color: var(--text);
 }
 .op-skill-recommend-dot {
   color: var(--text-faint);
 }
-.op-skill-recommend { font-size: 13px; }
-
-.op-priority-guide-btn {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 6px 12px !important;
-  font-size: 12px !important;
-}
-.op-priority-guide-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-.op-priority-guide-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.op-priority-guide-order {
-  font-size: 14px;
-  font-family: var(--font-display);
-  color: var(--teal);
-  margin: 0;
-  border-bottom: 1px solid var(--line-soft);
-  padding-bottom: 4px;
-}
-.op-priority-guide-row {
-  border: 1px solid var(--line-soft);
-  border-radius: 6px;
-  padding: 10px 12px;
-}
-.op-priority-guide-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--teal);
-  margin-bottom: 6px;
-}
-.op-priority-guide-explanation {
-  font-size: 13px;
-  color: var(--text-dim);
-  margin: 0;
-}
-
 
 .op-base-skill-list {
   display: flex;
@@ -898,7 +169,7 @@ input.op-header-search-input {
 .op-base-skill-card {
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   padding: 12px 14px;
 }
 .op-base-skill-header {
@@ -909,56 +180,6 @@ input.op-header-search-input {
 }
 .op-base-skill-header p { margin: 0; }
 
-.op-skill-slider-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 14px 0;
-}
-.op-skill-slider-current {
-  flex-shrink: 0;
-  min-width: 32px;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--teal);
-  text-align: center;
-}
-.op-skill-slider {
-  flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 2px;
-  background: var(--line-soft);
-  border-radius: 2px;
-  outline: none;
-  cursor: pointer;
-}
-/* outline: none above kills the ring for pointer drags; keyboard focus gets
-   the site ring back. */
-.op-skill-slider:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
-.op-skill-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--teal);
-  border: 2px solid var(--bg);
-  box-shadow: 0 0 0 1px var(--teal);
-  cursor: grab;
-}
-.op-skill-slider::-webkit-slider-thumb:active { cursor: grabbing; }
-.op-skill-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--teal);
-  border: 2px solid var(--bg);
-  box-shadow: 0 0 0 1px var(--teal);
-  cursor: grab;
-}
-
 .op-stat-highlight {
   color: #5b9dff;
   font-weight: 600;
@@ -968,21 +189,20 @@ input.op-header-search-input {
   color: #235bb5;
 }
 
+/* Tags are data, not state: no teal (teal is "on"), and a token radius, not a pill.
+   The position tag leads the row in the brighter text colour. */
 .op-tag-pill {
   display: inline-block;
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: var(--teal-dim);
-  border: 1px solid var(--teal);
-  color: var(--teal);
-  font-size: 11px;
-  font-weight: 600;
-}
-.op-tag-pill-position {
+  padding: 3px 8px;
+  border-radius: var(--radius);
   background: var(--panel-2);
-  border-color: var(--line-soft);
+  border: 1px solid var(--line);
   color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
 }
+.op-tag-pill-position { color: var(--text); }
 .op-sticky-tag-row { gap: 6px; }
 
 .op-carousel-main-img {
@@ -1004,8 +224,6 @@ input.op-header-search-input {
   from { opacity: 1; }
   to { opacity: 0; }
 }
-
-.op-skill-slider-current img { display: block; }
 .op-potential-row {
   display: flex;
   align-items: center;
@@ -1018,7 +236,7 @@ input.op-header-search-input {
 }
 .op-synergy-entry {
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   padding: 12px 14px;
 }
 .op-synergy-header {
@@ -1053,98 +271,36 @@ input.op-header-search-input {
   margin: 0;
 }
 .op-synergy-source-name {
-  color: var(--teal);
-  text-decoration: none;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--text-faint);
+  text-underline-offset: 3px;
   font-weight: 600;
 }
 .op-synergy-source-name:hover {
-  text-decoration: underline;
+  color: var(--teal);
+  text-decoration-color: currentColor;
 }
 .op-synergy-operators {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
+/* Operator portraits that are links: the control boundary, teal on hover. */
 .op-synergy-operator {
   display: block;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   overflow: hidden;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--control-border);
   transition: border-color 0.15s;
 }
 .op-synergy-operator:hover {
   border-color: var(--teal);
 }
-.op-talent-potential-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.op-talent-potential-toggle button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px;
-  font-size: 11px;
-}
-.op-talent-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0 0 10px;
-  font-size: 13px;
-}
-.op-talent-row-labels {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-.op-talent-row-icon-slot {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.op-talent-row-text {
-  flex: 1;
-  min-width: 0;
-}
-.op-build-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.op-build-toggle-row .op-cost-toggle {
-  margin-bottom: 0;
-}
-.op-cost-toggle {
-  font-size: 11px;
-  padding: 4px 10px;
-  margin-bottom: 8px;
-}
 .op-base-skill-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.op-skill-step-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: center;
-  margin: 8px 0 10px;
-  font-size: 12px;
-  color: var(--text-dim);
-}
-.op-skill-step-stats b { color: var(--teal); }
-.op-stats-build-btn {
-  padding: 3px 10px !important;
-  font-size: 11px !important;
 }
 .op-skill-techniques {
   margin-top: 10px;
@@ -1155,7 +311,7 @@ input.op-header-search-input {
   font-size: 13px;
   margin: 0 0 6px;
 }
-.op-skill-technique-row b { color: var(--teal); }
+.op-skill-technique-row b { color: var(--text-bright); }
 .op-skill-technique-row:last-child { margin-bottom: 0; }
 .op-skill-technique-block {
   margin-bottom: 8px;
@@ -1183,14 +339,15 @@ input.op-header-search-input {
   margin-top: 6px;
 }
 .op-skill-technique-branch-op-icon {
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control-border);
   transition: border-color 0.15s;
 }
 .op-skill-technique-branch-op-icon:hover {
   border-color: var(--teal);
 }
 .op-skill-technique-clickable .op-skill-technique-row:hover b {
+  color: var(--teal);
   text-decoration: underline;
 }
 .op-skill-technique-related-row {
@@ -1201,8 +358,8 @@ input.op-header-search-input {
 }
 .op-skill-technique-related-op {
   display: block;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control-border);
   overflow: hidden;
   flex-shrink: 0;
   transition: border-color 0.15s;
@@ -1218,10 +375,10 @@ input.op-header-search-input {
   width: 40px;
   height: 40px;
   flex-shrink: 0;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control-border);
   background: var(--panel-2);
-  color: var(--teal);
+  color: var(--text);
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 11px;
@@ -1232,17 +389,17 @@ input.op-header-search-input {
 }
 .op-skill-technique-related-more:hover {
   border-color: var(--teal);
-  background: var(--teal-dim);
+  color: var(--teal);
 }
 .op-skill-technique-related-more span {
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: var(--text-dim);
 }
 .op-skill-technique-unit-icon {
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control-border);
   transition: border-color 0.15s;
 }
 .op-skill-technique-unit-icon:hover {
@@ -1327,202 +484,17 @@ input.op-header-search-input {
    this file's own unconditional base rules, since operator-detail.css
    loads after shared.css in _app.tsx. --- */
 @media (max-width: 900px) {
-  .op-detail-layout {
-    position: relative;
-    /* dvh, not vh. On a phone browser 100vh is the LARGE viewport -- the height the
-       page would have if the URL bar were hidden -- so this panel was taller than what
-       you could actually see, by however tall that bar is. Two bugs came out of that
-       one unit, and both were reported from real phones rather than found here:
-
-       the panel is overflow:hidden and its last row is the skin thumbnails, so on a
-       short screen they sat below the fold with no way to scroll to them -- "it's just
-       the carousel";
-
-       and the document ended up taller than the visible viewport, which made a page
-       that should not scroll scroll by exactly the height of the URL bar, sliding the
-       static search row up under the fixed 52px nav bar -- which is why it only
-       happened "sometimes", that being whenever the bar was showing.
-
-       dvh is the visible viewport and tracks the bar as it comes and goes.
-       styles/enemies/enemies.css already sizes its mobile panes this way. */
-    height: calc(100dvh - 110px);
-    overflow: hidden;
-    display: block;
-    /* This element IS the page's <main> tag, which carries a
-       site-wide padding: 24px; max-width: 1040px; rule -- without
-       overriding it here, that padding eats into all four edges of
-       what's supposed to be a true full-viewport swipeable panel,
-       producing a squeezed/inset look instead. */
-    padding: 0;
-    max-width: none;
-    margin: 0;
-    width: 100%;
-  }
-  .op-detail-left,
-  .op-detail-right {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 100%;
-    transition: transform 0.35s ease;
-  }
-  .op-detail-left { transform: translateY(0); }
-  .op-detail-right { transform: translateY(100%); }
-  .op-mobile-view-info .op-detail-left { transform: translateY(-100%); }
-  .op-mobile-view-info .op-detail-right { transform: translateY(0); }
-  .op-detail-left {
-    display: flex;
-    flex-direction: column;
-    padding: 12px 16px;
-  }
   .op-carousel-main {
     min-height: 0;
     flex: 1;
   }
-  .op-detail-scroll-area {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .op-detail-sticky-header {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  /* The section tabs sit between the sticky header and the scroll area, and were the
-     one child of .op-detail-right that never got this inset -- so INTRO and POTENTIAL
-     started hard against the screen edge while the name above them and the panel below
-     them were both 16px in. Measured at 390, 360 and 320: the tabs at x=0, everything
-     around them at x=16. */
-  .op-section-tabs {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .op-detail-mobile-swipe-hint {
-    display: block;
-  }
 }
-.op-detail-mobile-swipe-hint {
-  display: none;
-  text-align: center;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  margin-top: 10px;
-  animation: opSwipeHintBounce 1.8s ease-in-out infinite;
-}
-@keyframes opSwipeHintBounce {
-  0%, 100% { transform: translateY(0); opacity: 0.7; }
-  50% { transform: translateY(-4px); opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .op-detail-mobile-swipe-hint { animation: none; }
-}
-@media (max-width: 720px) {
-  .op-carousel-thumbs {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    scrollbar-width: thin;
-  }
-  .op-carousel-thumb {
-    flex-shrink: 0;
-  }
-}
-
-/* --- Planner toggle button (add to styles/operators/operator-detail.css) --- */
-
-.op-planner-toggle-wrap {
-  position: relative;
-  display: inline-flex;
-}
-.op-planner-toggle-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--panel-2);
-  border: 1px solid var(--line-soft);
-  color: var(--text-dim);
-  cursor: pointer;
-  padding: 0;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-.op-planner-toggle-btn svg { width: 14px; height: 14px; }
-.op-planner-toggle-btn:hover { border-color: var(--teal); color: var(--teal); }
-.op-planner-toggle-btn.active {
-  background: var(--teal-dim);
-  border-color: var(--teal);
-  color: var(--teal);
-}
-.op-planner-toast {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  white-space: nowrap;
-  color: var(--text);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 5;
-  pointer-events: none;
-  animation: op-planner-toast-in 0.15s ease;
-}
-@keyframes op-planner-toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
 /* --- Release countdown, shown next to "How to obtain" for unreleased operators --- */
 .op-release-countdown {
   color: var(--amber);
   font-family: var(--font-mono);
   font-size: 12px;
 }
-
-/* --- Skin "how to obtain" rotator, bottom-right of the skin carousel ---
-   Shares the same bottom strip as .op-carousel-label-wrap (same
-   position: absolute; bottom:0; left:0; right:0; height:34px box
-   above), just right-aligned instead of left-aligned, so it sits on
-   top of that same dark gradient without needing one of its own.
-   Deliberately full-width (left:0;right:0) rather than shrink-to-fit
-   off just `right:0` -- the inner text is itself position:absolute
-   (out of flow), so a shrink-to-fit wrap has nothing in-flow to size
-   around and collapses toward zero width, clipping most of the text
-   under overflow:hidden (this was the earlier "just OP, no number" bug). */
-.op-carousel-obtain-wrap {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 34px;
-  overflow: hidden;
-  pointer-events: none;
-}
-.op-carousel-obtain {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 8px 12px;
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: right;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-/* Append to styles/operators/operator-detail.css */
 
 .op-header-flex {
   display: flex;
@@ -1540,23 +512,11 @@ input.op-header-search-input {
   align-items: center;
   gap: 10px;
 }
-/* Same specificity as .op-detail-sticky-header h1 (one class, one
-   element each) -- wins on source order since it comes later in this
-   file. Kept as a defensive constraint (shrink-to-fit rather than any
-   stretch behavior) even though .op-detail-sticky-header h1 itself
-   doesn't set a width -- harmless either way, and guards against the
-   button drifting away from the name if anything upstream ever does
-   give h1 stretch behavior in this context. */
-.op-name-row h1 {
-  width: auto;
-  flex: 0 1 auto;
-  margin: 0;
-}
 
 /* --- Amiya's class forms -------------------------------------------------------------
-   Only the row's layout lives here. The options themselves are a.primary and a.ghost from
-   shared.css, the same pair every toggle group on the site uses, so they follow a theme
-   change and a future restyle without this file knowing. */
+   Only the row's layout lives here. The options are .filter-chip links, the current form
+   marked aria-current="page"; the class glyphs are masks in currentColor, so they take
+   the chip's text colour in both themes. */
 .op-form-switch {
   display: flex;
   align-items: center;
@@ -1564,26 +524,6 @@ input.op-header-search-input {
   gap: 6px;
   margin-top: 8px;
 }
-/* The same small-caps treatment as .op-skill-range-label below, written out rather than
-   shared with it. They are two unrelated components that happen to agree on how a tiny
-   label looks, and joining them into one selector list is what made this a merge
-   conflict in the first place -- each block owns its own. */
-.op-form-switch-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin-right: 2px;
-}
-/* The class icons are white glyphs, so on the selected option they sat white-on-teal and
-   read as a smudge while the label beside them was near-black. Darkened to match the
-   label rather than shipping a second set of files in another colour. */
-.op-form-switch a.primary img { filter: brightness(0); opacity: 0.82; }
-/* Light mode inverts --teal to a DARK #097565 and turns the label white, so darkening the
-   glyph there would hide it on its own background -- the same defect, mirrored. The white
-   original is already the right colour on dark teal. */
-:root[data-theme="light"] .op-form-switch a.primary img { filter: none; opacity: 1; }
 
 /* --- a skill's effect on the range ----------------------------------------------
    Shown as the change, not only the result: a grid on its own does not say whether the
@@ -1596,12 +536,12 @@ input.op-header-search-input {
   margin: 12px 0 4px;
   padding: 10px 12px;
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   background: var(--panel-2);
 }
 .op-skill-range-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -1612,7 +552,7 @@ input.op-header-search-input {
 .op-skill-range-pair .op-range-grid-wrap:first-child { opacity: 0.55; }
 .op-skill-range-arrow {
   font-size: 15px;
-  color: var(--teal);
+  color: var(--text-dim);
   line-height: 1;
 }
 .op-skill-range-note {
@@ -1626,20 +566,22 @@ input.op-header-search-input {
   flex-shrink: 0;
   padding: 6px;
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
 }
 .op-range-grid {
   display: grid;
   gap: 2px;
 }
+/* --blue was never defined, so the #378ADD fallback always drew it; --cat-blue is
+   the site's blue in both themes. */
 .op-range-cell {
   width: 16px;
   height: 16px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: none;
-  border: 1px solid var(--blue, #378ADD);
+  border: 1px solid var(--cat-blue);
 }
 .op-range-cell-self {
-  background: var(--blue, #378ADD);
-  border-color: var(--blue, #378ADD);
+  background: var(--cat-blue);
+  border-color: var(--cat-blue);
 }

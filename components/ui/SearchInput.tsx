@@ -68,6 +68,9 @@ export default function SearchInput<T>(props: SearchInputProps<T>) {
   const showList = !!suggest && open && value.trim() !== '' && (items.length > 0 || suggest.emptyText !== undefined);
 
   function keyDown(event: KeyboardEvent<HTMLInputElement>) {
+    /* While an IME is composing (Japanese, Chinese, Korean titles), Enter confirms
+       the composition and the arrows move its candidates; none of them are ours. */
+    if (event.nativeEvent.isComposing) return;
     if (event.key === 'Escape') {
       if (showList) { event.preventDefault(); setOpen(false); nav.setHighlightedIndex(-1); }
       else if (value) { event.preventDefault(); onChange(''); }

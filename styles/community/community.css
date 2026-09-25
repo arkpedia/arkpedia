@@ -1,82 +1,62 @@
-/* Split from globals.css -- community.css */
+/* The Community Hub (/community) and its stream cards. Headings are the site's
+   .op-section h2; buttons are the site variants. */
 
-
-
-.community-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: start;
+/* --- events: the list beside the map ---------------------------------------- */
+.community-map-row {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
 }
-@media (max-width: 900px) {
-  .community-grid {
-    grid-template-columns: 1fr;
-  }
+/* The one scroller for the list: it outgrows the map's height, and without its own
+   scroll context it painted over the stream sections below. */
+.community-event-panel {
+  flex: 0 0 260px;
+  max-height: 480px;
+  overflow-y: auto;
 }
-.community-grid-panel {
-  min-width: 0;
+.community-map-main { flex: 1; min-width: 0; }
+.community-events-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
 }
-
-.tongbao-group { margin-bottom: 28px; }
-.tongbao-group h3 {
-  font-family: var(--font-display);
-  font-size: 15px;
-  text-transform: uppercase;
-  color: var(--teal);
-  margin: 0 0 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line-soft);
+.community-event-list { display: flex; flex-direction: column; gap: 6px; }
+/* Each event opens its organiser's page: a link card with the control boundary. */
+.community-event-item {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--row-grad);
+  color: var(--text);
+  text-decoration: none;
 }
-.live-now-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 2;
-  background: var(--danger);
-  color: #fff;
+.community-event-item:hover { border-color: var(--teal); }
+.community-event-item:focus-visible { outline-offset: -2px; }
+.community-event-name { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.community-event-item:hover .community-event-name { color: var(--teal); }
+/* The event's real window, under its status. Quieter than the status line
+   above it: that says whether to care, this says when. */
+.event-list-range {
   font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 700;
-  padding: 3px 7px;
-  border-radius: 3px;
-  letter-spacing: 0.03em;
+  opacity: 0.8;
 }
-.live-now-badge-twitch { background: #9146FF; }
-.creator-name-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 11px;
-  padding: 3px 7px;
-  border-radius: 3px;
-  max-width: 65%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.viewer-count-badge {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  z-index: 2;
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 3px 7px;
-  border-radius: 3px;
-}
-.live-section-heading { color: var(--danger) !important; }
-/* Twitch purple, nudged per theme to clear 4.5:1 -- the brand value measured
-   4.17:1 on our dark panel and 4.36:1 on the light one, failing both. */
-.live-section-heading-twitch { color: #A970FF !important; }
-:root[data-theme="light"] .live-section-heading-twitch { color: #7B2FF7 !important; }
 
+/* --- streams and videos --------------------------------------------------------- */
+.community-feeds {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 20px;
+}
+.community-feeds > section { flex: 1 1 400px; min-width: 0; }
 .live-section-heading-row {
   display: flex;
   align-items: center;
@@ -85,10 +65,63 @@
   margin-bottom: 10px;
 }
 .live-section-heading-row h2 { margin: 0; }
-/* The event's real window, under its status. Quieter than the status line
-   above it: that says whether to care, this says when. */
-.event-list-range {
+
+/* Badges drawn over a stream thumbnail: white on a dark scrim in both themes. */
+.live-now-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 3px 7px;
+  border-radius: var(--radius);
+  background: var(--danger-solid);
+  color: #fff;
   font-family: var(--font-mono);
   font-size: 10px;
-  opacity: 0.8;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+/* Twitch's brand purple, behind white text. */
+.live-now-badge-twitch { background: #772ce8; }
+.creator-name-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  max-width: 65%;
+  overflow: hidden;
+  padding: 3px 7px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viewer-count-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  padding: 3px 7px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* --- /community/videos: the page grows 24 cards at a time ------------------------ */
+.video-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+@media (max-width: 640px) {
+  .community-map-row { flex-direction: column; }
+  .community-map-main { order: -1; }   /* map first, the list below it */
+  .community-event-panel { flex: 0 0 auto; max-height: 320px; }
 }

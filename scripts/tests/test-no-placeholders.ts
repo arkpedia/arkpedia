@@ -12,14 +12,11 @@ import { test } from 'node:test';
  * It reads the code the reader can be shown: every .tsx under pages/ and components/,
  * with comments removed, so a comment that explains why a placeholder went is fine.
  *
- * ALLOWED lists the placeholders still on the site, owned by pages another migration
- * covers. It is a ratchet: a new one fails, and so does a count that has dropped, so
- * lower the number (or delete the line) in the commit that removes one.
+ * ALLOWED is empty: the last ones (/community's Art and Cosplayer panels and /music's
+ * playlists note) went with the media and community migration, so any placeholder now
+ * fails. Keep it empty; hide the panel until it has content instead of adding a line.
  */
-const ALLOWED: Record<string, number> = {
-  'pages/community.tsx': 2,     // Art and Cosplayer panels
-  'pages/music/index.tsx': 1,   // "Playlists are coming soon!"
-};
+const ALLOWED: Record<string, number> = {};
 
 const PLACEHOLDER = /coming soon/gi;
 const root = join(__dirname, '..', '..');

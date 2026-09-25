@@ -5,7 +5,10 @@ import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
-import GameLinks from '@/components/minigames/GameLinks';
+import GameLinks, { GamesEyebrow } from '@/components/minigames/GameLinks';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import OperatorAnswer from '@/components/minigames/OperatorAnswer';
 import RoundFeedback from '@/components/minigames/RoundFeedback';
 import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteCatalogue } from '@/lib/minigames/data';
@@ -15,6 +18,13 @@ import styles from '@/styles/games/minigames.module.css';
 /** `now` is the request's clock (contentPageClock); who is released follows from it. */
 interface Props { operators: PaletteOperator[]; now: number }
 const COLOR_LABELS = ['Hair', 'Clothing 1', 'Clothing 2', 'Skin / clothing 3', 'Accent'];
+const MODES: { value: PaletteMode; label: string; description: string }[] = [
+  { value: 'base', label: 'Base Skin', description: 'The original operator artwork.' },
+  { value: 'elite2', label: 'Elite 2 Skin', description: 'The artwork unlocked at Elite 2.' },
+];
+
+/** The round heading's wordings, all laid out so the tallest holds the height. */
+const ROUND_TITLES = [['playing', 'Who is this operator?'], ['won', 'Operator identified'], ['revealed', 'The answer']] as const;
 
 export default function PaletteGame({ operators: catalogue, now }: Props) {
   const operators = useMemo(() => playablePalettes(catalogue, now), [catalogue, now]);
@@ -54,22 +64,19 @@ export default function PaletteGame({ operators: catalogue, now }: Props) {
   }
   return <>
     <Head><title>Color Palette — Arkpedia</title><meta name="description" content="Guess Arknights operators from five colors in their Base or Elite 2 artwork. No purchasable outfits." /></Head>
+    <PageHeader eyebrow={<GamesEyebrow />} title="Color Palette" sub="Five colors. One operator." actions={<GameLinks />} />
     <main className={styles.page}>
-      <header className={styles.header}><div><h1>Color Palette</h1><p>Five colors. One operator.</p></div></header>
-      <GameLinks />
-      {!target ? <section className={`${styles.panel} ${styles.setup}`} aria-labelledby="palette-setup-title">
+      {!target ? <section className={`op-section ${styles.panel} ${styles.setup}`} aria-labelledby="palette-setup-title">
         <div className={styles.intro}><h2 id="palette-setup-title">Know them by their colors?</h2><p className={styles.muted}>Name the operator from their artwork colors. You have five guesses, with optional rarity and class hints.</p></div>
-        <div className={styles.options} role="group" aria-label="Artwork mode">
-          {(['base', 'elite2'] as const).map((value) => <button key={value} className={styles.option} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}>
-            <strong>{value === 'base' ? 'Base Skin' : 'Elite 2 Skin'}</strong>
-            <span>{value === 'base' ? 'The original operator artwork.' : 'The artwork unlocked at Elite 2.'}</span>
-          </button>)}
+        <div className={styles.intro}>
+          <SegmentedControl label="Artwork mode" value={mode} options={MODES.map(({ value, label }) => ({ value, label }))} onChange={setMode} />
+          <p className={styles.muted}>{MODES.find((entry) => entry.value === mode)?.description}</p>
         </div>
-        <details className={styles.rules}><summary>How the five colors are chosen</summary><p>From left to right: hair, clothing 1, clothing 2, skin or clothing 3, then an accent or prominent item. The fourth color uses skin when it covers a substantial visible area; otherwise, it uses another clothing color. When hair is covered or absent, the first color comes from visible headgear, fur, or shell.</p></details>
+        <details className={`${styles.disclosure} ${styles.rules}`}><summary>How the five colors are chosen</summary><p>From left to right: hair, clothing 1, clothing 2, skin or clothing 3, then an accent or prominent item. The fourth color uses skin when it covers a substantial visible area; otherwise, it uses another clothing color. When hair is covered or absent, the first color comes from visible headgear, fur, or shell.</p></details>
         <p className={styles.muted}>Only released Global operators. Purchasable outfits are never included.</p>
-        <div className={styles.start}><span className={styles.muted}>{eligible.length} operators</span><button type="button" className={styles.primary} disabled={!eligible.length} onClick={startRound}>Start guessing</button></div>
-      </section> : artwork && <section className={styles.round} ref={roundRef} tabIndex={-1} aria-label="Palette challenge">
-        <div className={styles.roundTop}><h2>{playing ? 'Who is this operator?' : progress.status === 'won' ? 'Operator identified' : 'The answer'}</h2><span>{modeLabel} · Round {roundNumber}</span></div>
+        <div className={styles.start}><span className={styles.muted}>{eligible.length} operators</span><button type="button" className="primary" disabled={!eligible.length} onClick={startRound}>Start guessing</button></div>
+      </section> : artwork && <section className={`op-section ${styles.round}`} ref={roundRef} tabIndex={-1} aria-label="Palette challenge">
+        <div className={styles.roundTop}><h2 className={styles.roundTitle}>{ROUND_TITLES.map(([status, title]) => <span key={status} data-off={status !== (playing || progress.status === 'won' ? progress.status : 'revealed') || undefined}>{title}</span>)}</h2><span>{modeLabel} · Round {roundNumber}</span></div>
         <figure className={styles.paletteClues}>
           <div className={styles.palette} role="img" aria-label={`Five-color palette: ${artwork.colors.map((color, i) => `${COLOR_LABELS[i]}: ${color}`).join('; ')}`}>
             {artwork.colors.map((color, i) => <span key={i} className={styles.swatch} aria-hidden="true" style={{ '--swatch-color': color } as CSSProperties} />)}
@@ -78,12 +85,12 @@ export default function PaletteGame({ operators: catalogue, now }: Props) {
         </figure>
         {(playing || hintsUsed > 0) && <div className={styles.paletteHints}>
           {playing && <div className={styles.hintControls}>
-            <button type="button" className={styles.secondary} disabled={hintsUsed >= 2} aria-describedby="palette-hint-help" onClick={() => setHintsUsed((current) => Math.min(2, current + 1))}>{hintsUsed === 0 ? 'Hint 1: rarity' : hintsUsed === 1 ? 'Hint 2: class' : 'Both hints revealed'}</button>
+            <button type="button" disabled={hintsUsed >= 2} aria-describedby="palette-hint-help" onClick={() => setHintsUsed((current) => Math.min(2, current + 1))}>{hintsUsed === 0 ? 'Hint 1: rarity' : hintsUsed === 1 ? 'Hint 2: class' : 'Both hints revealed'}</button>
             <p id="palette-hint-help" className={styles.muted}>Optional. Hints don’t use guesses.</p>
           </div>}
           <div aria-live="polite" aria-atomic="true">
             {hintsUsed > 0 && <dl className={styles.revealedHints} aria-label="Revealed hints">
-              <div><dt>Rarity</dt><dd>{target.rarity ? `${target.rarity}-star` : 'Unknown'}</dd></div>
+              <div><dt>Rarity</dt><dd>{target.rarity ? <Rarity n={rarityLevel(target.rarity)} format="stars" /> : 'Unknown'}</dd></div>
               {hintsUsed > 1 && <div><dt>Class</dt><dd>{target.class || 'Unknown'}</dd></div>}
             </dl>}
           </div>
@@ -91,13 +98,13 @@ export default function PaletteGame({ operators: catalogue, now }: Props) {
         {playing ? <>
           <OperatorAnswer key={roundNumber} operators={eligible} onGuess={guess} />
           <RoundFeedback progress={progress} notice={notice} />
-          <div className={styles.actions}><button type="button" className={styles.secondary} onClick={() => { setProgress({ ...progress, status: 'revealed' }); setNotice('Answer revealed.'); }}>Reveal answer</button><button type="button" className={styles.secondary} onClick={changeMode}>Change mode</button></div>
+          <div className={styles.actions}><button type="button" className="ghost" onClick={() => { setProgress({ ...progress, status: 'revealed' }); setNotice('Answer revealed.'); }}>Reveal answer</button><button type="button" className="ghost" onClick={changeMode}>Change mode</button></div>
         </> : <>
           <div className={styles.reveal}>
             <Image className={styles.artwork} src={encodeURI(artwork.image)} alt={`${target.name} — ${modeLabel}`} width={500} height={500} sizes="(max-width: 600px) 90vw, 440px" />
-            <div className={styles.revealText}><h2>{target.name}</h2><p className={styles.muted}>{progress.status === 'won' ? `Found in ${progress.wrong.length + 1} ${progress.wrong.length ? 'guesses' : 'guess'}.` : progress.status === 'lost' ? 'No guesses left. Try another palette.' : 'Compare the colors with the original artwork.'} {hintsUsed ? `${hintsUsed} ${hintsUsed === 1 ? 'hint' : 'hints'} used.` : 'No hints used.'}</p><Link href={`/operators/${encodeURIComponent(target.name)}`} prefetch={false}>View operator</Link></div>
+            <div className={styles.revealText}><h2>{target.name}</h2><p className={styles.muted}>{progress.status === 'won' ? `Found in ${progress.wrong.length + 1} ${progress.wrong.length ? 'guesses' : 'guess'}.` : progress.status === 'lost' ? 'No guesses left. Try another palette.' : 'Compare the colors with the original artwork.'} {hintsUsed ? `${hintsUsed} ${hintsUsed === 1 ? 'hint' : 'hints'} used.` : 'No hints used.'}</p><Link href={`/operators/${encodeURIComponent(target.name)}`} prefetch={false} className="btn">View operator</Link></div>
           </div>
-          <div className={styles.actions}><button type="button" className={styles.primary} onClick={startRound}>Next palette</button><button type="button" className={styles.secondary} onClick={changeMode}>Change mode</button></div>
+          <div className={styles.actions}><button type="button" className="primary" onClick={startRound}>Next palette</button><button type="button" className="ghost" onClick={changeMode}>Change mode</button></div>
         </>}
       </section>}
     </main>

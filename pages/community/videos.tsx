@@ -1,28 +1,28 @@
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Link from 'next/link';
+import { useState } from 'react';
 import { getLatestVideos, enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
-import { VideoCard } from '@/components/community/StreamCards';
+import { CommunityEyebrow, VideoCard } from '@/components/community/StreamCards';
+import PageHeader from '@/components/ui/PageHeader';
+
+/** Cards per page: six rows of four in the frame. The whole feed was 61 cards and
+ *  16,886px tall on a phone; the rest is one press away. */
+const PAGE = 24;
 
 interface Props {
   videos: YouTubeVideo[];
 }
 
 export default function VideosPage({ videos }: Props) {
+  const [shown, setShown] = useState(PAGE);
+  const left = videos.length - shown;
   return (
     <>
       <Head><title>Videos — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Broadcast Feed</div>
-        <Link prefetch={false} href="/community" className="hint">
-          ← Back to Community Hub
-        </Link>
-        <h1>Videos</h1>
-        <p className="sub">{videos.length} videos from the configured channels.</p>
-      </header>
+      <PageHeader eyebrow={<CommunityEyebrow />} title="Videos" sub={`${videos.length} videos from the configured channels.`} />
 
       <main>
         {videos.length === 0 ? (
@@ -30,11 +30,20 @@ export default function VideosPage({ videos }: Props) {
             <h2>No videos found</h2>
           </div>
         ) : (
-          <div className="video-grid">
-            {videos.map((v) => (
-              <VideoCard key={v.videoId} v={v} />
-            ))}
-          </div>
+          <>
+            <div className="video-grid">
+              {videos.slice(0, shown).map((v) => (
+                <VideoCard key={v.videoId} v={v} />
+              ))}
+            </div>
+            {left > 0 && (
+              <div className="video-more">
+                <button type="button" onClick={() => setShown((n) => n + PAGE)}>
+                  Show {Math.min(PAGE, left)} more ({left} left)
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
     </>

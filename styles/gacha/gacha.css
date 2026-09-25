@@ -295,8 +295,7 @@
 .gacha-preview-skill-fact { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--text-dim); font: 11px var(--font-mono); line-height: 1.3; }
 .gacha-preview-skill-fact.auto { border-color: color-mix(in srgb, var(--teal) 55%, transparent); background: var(--teal-dim); color: var(--teal); }
 .gacha-preview-skill-fact.amber { border-color: color-mix(in srgb, var(--amber) 60%, transparent); background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
-.gacha-preview-skill-fact.sp { border-color: color-mix(in srgb, #8fc8f4 60%, transparent); background: rgba(143, 200, 244, .13); color: #8fc8f4; }
-:root[data-theme="light"] .gacha-preview-skill-fact.sp { border-color: rgba(36, 93, 136, .5); background: rgba(36, 93, 136, .1); color: #245d88; }
+.gacha-preview-skill-fact.sp { border-color: color-mix(in srgb, var(--cat-blue) 55%, transparent); background: color-mix(in srgb, var(--cat-blue) 12%, transparent); color: var(--cat-blue); }
 .gacha-preview-base-skills { display: grid; }
 .gacha-preview-base-skill { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; }
 .gacha-preview-base-skill + .gacha-preview-base-skill { border-top: 1px solid var(--line); }

@@ -5,24 +5,23 @@
 .track[data-scrollable] { cursor: grab; }
 .track::-webkit-scrollbar { display: none; }
 .track[data-scrollable]:active { cursor: grabbing; }
-.picker .thumbnail { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 0; height: 90px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--text-dim); cursor: inherit; user-select: none; }
+/* Each outfit is a .btn-bare .pick-card: the control boundary, the teal hover, and
+   teal on --teal-dim for the one showing. This module only lays it out. */
+.picker .thumbnail { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 0; height: 90px; padding: 4px 2px; border-radius: var(--radius-control); color: var(--text-dim); cursor: inherit; user-select: none; }
 .thumbnail img, .fallback { width: 68px; height: 46px; flex-shrink: 0; object-fit: contain; }
 .fallback { display: grid; place-items: center; font: 700 24px var(--font-display); }
 .name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 100%; margin-block: auto; font: 500 11px/1.3 var(--font-body); text-align: center; overflow-wrap: anywhere; }
-.picker .thumbnail[aria-pressed="true"] { color: var(--teal); border-color: var(--teal); background: var(--teal-dim); }
+.picker .thumbnail[aria-pressed="true"], .picker .thumbnail:hover { color: var(--teal); }
 .picker .thumbnail:focus-visible { outline: 2px solid var(--teal); outline-offset: -3px; }
-.picker .thumbnail:hover { border-color: var(--teal); color: var(--teal); }
 .controls { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; align-items: center; gap: 4px; }
 .dots { grid-column: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
-.picker .play { display: grid; place-items: center; width: 32px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--teal); cursor: pointer; }
-.picker .play:hover { border-color: var(--teal); background: var(--teal-dim); }
-.picker .play:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+/* Arrows and play are the site's button (boundary, teal hover), sized as icon tiles. */
+.picker .play, .picker .arrow { display: grid; place-items: center; padding: 0; border-radius: var(--radius-control); }
+.picker .play { width: 32px; height: 32px; }
 .controls.withArrows { grid-template-columns: 40px minmax(0, 1fr) 40px 40px; }
 .withArrows .dots { gap: 2px; }
 .withArrows .dots :global(.front-events-dot) { width: 24px; height: 32px; flex-shrink: 0; }
-.picker .arrow { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--teal); cursor: pointer; }
+.picker .arrow { width: 40px; height: 40px; }
 .previous { grid-column: 1; }
 .next { grid-column: 3; }
 .withArrows .play { grid-column: 4; width: 40px; height: 40px; }
-.picker .arrow:hover { border-color: var(--teal); background: var(--teal-dim); }
-.picker .arrow:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }

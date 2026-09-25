@@ -1,325 +1,124 @@
-/* Split from globals.css -- skins.css */
+/* The skins gallery (/skins). The header is PageHeader, its controls are
+   SearchInput, StyledSelect, SegmentedControl and .filter-chip, and every card is a
+   .btn-bare button (the base button voice made skin names uppercase faux bold). */
 
-
-
-/* --- Skins gallery --- */
-.skin-grid {
+/* --- header controls ------------------------------------------------------------ */
+.skins-controls { display: grid; gap: 10px; }
+.skins-toolbar {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 200px) minmax(150px, 180px) auto;
+  align-items: center;
+  gap: 8px;
 }
+.skins-wishlist-filter { min-height: 38px; }
+.skins-wishlist-total { margin: 0; color: var(--text-dim); font: 11px var(--font-mono); }
+
+/* --- the "Available now" shelf: a ScrollRow of outfits ---------------------------- */
+.skins-current-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.skins-current-heading h2 { margin: 0; }
+.skins-current-count { margin-left: 6px; color: var(--text-dim); font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; }
+.skins-current-item {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 184px;
+  width: 184px;
+  overflow: hidden;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-frame);
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.skins-current-item:hover { border-color: var(--teal); }
+.skins-current-item:focus-visible { outline-offset: -2px; }
+.skins-current-item img { display: block; width: 100%; height: 156px; object-fit: contain; }
+.skins-current-item > span { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; padding: 7px 9px; border-top: 1px solid var(--line-soft); background: var(--panel); }
+.skins-current-item strong { font-size: 12px; font-weight: 600; }
+.skins-current-item span span { min-height: 2.5em; font-size: 13px; line-height: 1.25; }
+.skins-current-item small { color: var(--text-dim); font-size: 10px; }
+.skins-current-item small:first-of-type { color: var(--text); }
+.skins-current-item:hover strong { color: var(--teal); }
+
+/* --- results ------------------------------------------------------------------------ */
+.skins-results:focus { outline: none; }
+.skins-result-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.skins-acquisition-note { margin: 0 0 12px; color: var(--text-dim); font-size: 13px; }
+.skins-load-sentinel { height: 1px; }
+.skin-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.skin-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-frame);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.skin-card:hover { border-color: var(--teal); }
+.skin-card:hover .skin-card-name { color: var(--teal); }
+.skin-image-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.skin-image-wrap img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+.skin-image-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-faint); font: 11px var(--font-mono); }
+.skin-card-info { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; padding: 10px; border-top: 1px solid var(--line-soft); }
+.skin-card-operator { min-height: 1.3em; color: var(--text-dim); font-size: 11px; }
+.skin-card-name { min-height: 2.4em; font: 700 15px/1.2 var(--font-display); overflow-wrap: anywhere; }
+.skin-card-price { min-height: 1.3em; color: var(--text); font-size: 11px; }
+.skin-card-status { min-height: 2.8em; color: var(--text-dim); font-size: 10px; line-height: 1.4; }
+/* On sale now: a current state. */
+.skin-card-status.is-live { color: var(--teal); }
+
+/* --- the detail dialog ---------------------------------------------------------------- */
+.skin-modal { position: relative; max-width: 520px; }
+.skin-wishlist-btn { position: absolute; top: 12px; right: 12px; z-index: 5; }
+.skin-modal-image-wrap-full {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: 60vh;
+  margin-bottom: 16px;
+  overflow: hidden;
+  border-radius: var(--radius-frame);
+  background: var(--panel-2);
+}
+.skin-modal-image-wrap-full img { display: block; width: auto; height: auto; max-width: 100%; max-height: 60vh; object-fit: contain; }
+.skin-modal-info { min-width: 0; }
+.skin-modal-image-clickable { cursor: zoom-in; }
+.skin-acquisition { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-frame); font-size: 13px; }
+.skin-acquisition p { margin: 6px 0; }
+.skin-acquisition a { color: var(--text); text-underline-offset: 3px; }
+.skin-acquisition a:hover { color: var(--teal); }
+
+/* --- full-screen zoom ----------------------------------------------------------------- */
+.skin-zoom-overlay { position: fixed; inset: 0; z-index: 500; display: flex; flex-direction: column; background: rgba(4, 7, 10, 0.95); }
+.skin-zoom-viewport { display: flex; flex: 1; align-items: center; justify-content: center; overflow: hidden; touch-action: none; }
+.skin-zoom-image { max-width: 90vw; max-height: 80vh; object-fit: contain; transition: transform 0.05s linear; user-select: none; }
+.skin-zoom-controls { display: flex; justify-content: center; gap: 12px; padding: 16px; }
+
 @media (max-width: 1100px) {
   .skin-grid { grid-template-columns: repeat(4, 1fr); }
 }
 @media (max-width: 720px) {
+  .skins-toolbar { grid-template-columns: 1fr 1fr; }
+  .skins-toolbar > :first-child { grid-column: 1 / -1; }
   .skin-grid { grid-template-columns: repeat(3, 1fr); }
+  .skin-card-info { padding: 8px; }
 }
 @media (max-width: 480px) {
   .skin-grid { grid-template-columns: repeat(2, 1fr); }
 }
-
-.skin-card {
-  position: relative;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px;
-  text-align: left;
-  cursor: pointer;
-  font-family: inherit;
-  color: inherit;
-  transition: border-color 0.15s;
-  overflow: hidden;
-}
-.skin-card:hover { border-color: var(--teal); }
-.skin-image-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-}
-.skin-image-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
-}
-
-/* Name + price overlaid directly on the skin image, right-aligned, over
-   a gradient scrim so the text stays legible over any artwork. */
-.skin-card-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  padding: 18px 8px 8px;
-  background: linear-gradient(to top, rgba(4, 7, 10, 0.88), transparent);
-  text-align: right;
-  pointer-events: none;
-}
-.skin-card-overlay-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 13px;
-  color: #fff;
-  margin: 0;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.skin-card-overlay-price {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--teal);
-  margin: 2px 0 0;
-}
-.skin-card-overlay-availability {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--amber);
-  margin: 2px 0 0;
-}
-
-.skin-modal { max-width: 520px; position: relative; }
-.skin-wishlist-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 5;
-  padding: 6px 12px;
-  font-size: 11px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  color: var(--text);
-  border-radius: var(--radius, 2px);
-  cursor: pointer;
-}
-.skin-wishlist-btn.active {
-  border-color: var(--amber);
-  color: var(--amber);
-}
-.skin-wishlist-btn:hover { border-color: var(--teal); }
-.skin-modal-image-wrap-full {
-  width: 100%;
-  max-height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 4px;
-  background: var(--panel-2);
-  margin-bottom: 16px;
-}
-.skin-modal-image-wrap-full img {
-  max-width: 100%;
-  max-height: 60vh;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  display: block;
-}
-.skin-modal-info { min-width: 0; }
-
-.skin-modal-image-clickable {
-  cursor: zoom-in;
-}
-
-.skin-zoom-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 500;
-  background: rgba(4, 7, 10, 0.95);
-  display: flex;
-  flex-direction: column;
-}
-.skin-zoom-viewport {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  touch-action: none;
-}
-.skin-zoom-image {
-  max-width: 90vw;
-  max-height: 80vh;
-  object-fit: contain;
-  transition: transform 0.05s linear;
-  user-select: none;
-}
-.skin-zoom-controls {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px;
-}
-
-/* --- In Store Now banner --- */
-.in-store-now-banner {
-  background: var(--panel);
-  border: 1px solid var(--teal);
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin: 16px 0;
-}
-.in-store-now-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.in-store-now-close { font-size: 11px; padding: 4px 10px; }
-.in-store-now-viewport {
-  overflow: hidden;
-  padding-bottom: 4px;
-}
-.in-store-now-row {
-  display: flex;
-  gap: 10px;
-  width: max-content;
-}
-.in-store-now-row.scrolling {
-  animation: inStoreNowScroll 40s linear infinite;
-}
-/* A marquee that can't be stopped is unreadable and unclickable -- the
-   items are moving targets. Pause it while the pointer is over the row
-   or keyboard focus is anywhere inside it, so the skins can actually be
-   read and picked. */
-.in-store-now-row.scrolling:hover,
-.in-store-now-row.scrolling:focus-within {
-  animation-play-state: paused;
-}
-.in-store-now-row.static {
-  flex-wrap: wrap;
-}
-@keyframes inStoreNowScroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-.in-store-now-item {
-  flex: 0 0 90px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: center;
-  padding: 0;
-}
-.in-store-now-item img {
-  width: 90px;
-  aspect-ratio: 3 / 4;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--line-soft);
-}
-.in-store-now-item span {
-  font-size: 11px;
-  color: var(--text-dim);
-  text-align: center;
-  white-space: normal;
-  overflow-wrap: break-word;
-}
-.in-store-now-future-link {
-  display: inline-block;
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--teal);
-}
-/* The buyable window, under the Available line on a card. Quieter than the
-   line above it -- that says whether you can act, this says until when. */
-.skin-card-overlay-window {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-dim);
-}
-
-/* Gallery controls stay in place when the result set or wishlist changes. */
-.skins-header { padding-bottom: 12px; }
-.skins-heading { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
-.skins-heading h1 { margin: 0; }
-.skins-toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(130px, 190px) minmax(130px, 180px) auto; gap: 8px; }
-.skins-toolbar input, .skins-toolbar select {
-  width: 100%; min-width: 0; min-height: 42px; margin: 0; padding: 8px 10px;
-  background: var(--panel); color: var(--text); border: 1px solid var(--line);
-  border-radius: 5px; font: inherit; font-size: 13px;
-}
-.skins-toolbar button { min-height: 42px; white-space: nowrap; }
-.skins-toolbar button span { display: inline-block; min-width: 2ch; font-variant-numeric: tabular-nums; }
-.skins-filters { margin-top: 10px; }
-.skins-toolbar .active { color: var(--teal); border-color: var(--teal); background: var(--panel); }
-.skins-current { max-width: 992px; width: calc(100% - 48px); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); padding: 12px; margin: 0 auto 16px; min-width: 0; }
-.skins-current-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.skins-current-heading h2 { margin: 0; font-size: 18px; }
-.skins-current-heading h2 span { color: var(--teal); margin-left: 6px; font-variant-numeric: tabular-nums; }
-.skins-current-heading button { min-height: 36px; font-size: 11px; padding: 6px 10px; }
-.skins-current-viewport { overflow-x: auto; scrollbar-width: none; }
-.skins-current-viewport::-webkit-scrollbar { display: none; }
-.skins-current-row { display: flex; gap: 10px; width: max-content; padding: 2px; }
-.skins-current-item { display: flex; flex-direction: column; flex: 0 0 184px; width: 184px; align-items: stretch; gap: 0; text-align: left; border: 1px solid var(--line); border-radius: var(--radius); padding: 0; overflow: hidden; background: var(--panel-2); color: var(--text); cursor: pointer; font: inherit; }
-.skins-current-item:hover { border-color: var(--teal); }
-.skins-current-item img { display: block; width: 100%; height: 156px; object-fit: contain; }
-.skins-current-item > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 7px 9px; border-top: 1px solid var(--line); background: var(--panel); flex: 1; }
-.skins-current-item strong { font-size: 12px; }
-.skins-current-item span span { font-size: 13px; line-height: 1.25; min-height: 2.5em; }
-.skins-current-item small { font-size: 10px; color: var(--text-dim); }
-.skins-current-item small:first-of-type { color: var(--teal); }
-.skins-results { padding-top: 0; }
-.skins-result-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.skins-result-summary button { font-size: 10px; min-height: 36px; padding: 6px 10px; }
-.skins-result-summary button:disabled { opacity: .4; cursor: default; }
-.skins-acquisition-note { font-size: 13px; margin: 0 0 12px; color: var(--text-dim); }
-.skins-results .skin-card { display: flex; flex-direction: column; padding: 0; min-width: 0; }
-.skins-results .skin-image-wrap { width: 100%; aspect-ratio: 4 / 5; height: auto; margin: 0; border-radius: 0; }
-.skins-results .skin-image-wrap img { object-fit: contain; }
-.skin-card-info { display: flex; flex-direction: column; gap: 4px; padding: 10px; width: 100%; min-width: 0; border-top: 1px solid var(--line); }
-.skin-card-operator { font-size: 11px; color: var(--text-dim); min-height: 1.3em; }
-.skin-card-name { font-family: var(--font-display); font-size: 15px; line-height: 1.2; font-weight: 700; min-height: 2.4em; overflow-wrap: anywhere; }
-.skin-card-price { font-size: 11px; color: var(--text); min-height: 1.3em; }
-.skin-card-status { font-size: 10px; color: var(--text-dim); line-height: 1.4; min-height: 2.8em; }
-.skin-card-status.is-live { color: var(--teal); }
-.skin-acquisition { padding: 12px; border: 1px solid var(--teal); border-radius: 6px; margin: 12px 0; font-size: 13px; }
-.skin-acquisition p { margin: 6px 0; }
-.skin-acquisition a { color: var(--teal); }
-.skins-header :focus-visible, .skins-current :focus-visible, .skins-results :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
-@media (max-width: 720px) {
-  .skins-toolbar { grid-template-columns: 1fr 1fr; }
-  .skins-heading { gap: 8px; margin-bottom: 10px; }
-  .skins-heading h1 { font-size: 30px; }
-  .skins-heading .hint { font-size: 12px; }
-  .skins-filters .seg { flex: 1 0 auto; }
-  .skins-current { padding: 10px; }
-  .skin-card-info { padding: 8px; }
-  .skin-card-name { font-size: 14px; }
-}
 @media (prefers-reduced-motion: reduce) {
   .skins-results .skin-card-enter { animation: none; }
 }
-
-.skins-current-item, .skins-results .skin-card { text-transform: none; letter-spacing: normal; }
-
-/* This track stays visible even when the OS hides native overlay scrollbars. */
-.skins-scroll-controls { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
-.skins-scroll-controls button { flex: 0 0 38px; width: 38px; height: 36px; padding: 0; line-height: 1; }
-.skins-scrollbar { appearance: none; -webkit-appearance: none; flex: 1; width: 0; min-width: 0; height: 36px; padding: 0; margin: 0; border: 0; background: transparent; cursor: pointer; }
-.skins-scrollbar::-webkit-slider-runnable-track { height: 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--well); }
-.skins-scrollbar::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; height: 8px; width: max(28px, var(--skin-scroll-thumb)); margin-top: -2px; border: 0; border-radius: var(--radius); background: var(--text-faint); cursor: grab; }
-.skins-scrollbar::-moz-range-track { height: 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--well); }
-.skins-scrollbar::-moz-range-thumb { height: 8px; width: max(28px, var(--skin-scroll-thumb)); border: 0; border-radius: var(--radius); background: var(--text-faint); cursor: grab; }
-.skins-scrollbar:active::-webkit-slider-thumb { cursor: grabbing; }
-.skins-scrollbar:disabled { opacity: .35; cursor: default; }
-
-/* Match the quiet page scrollbar while retaining a persistent horizontal control. */
-html:has(.skins-header) { scrollbar-width: thin; }
-
-.skins-load-sentinel { height: 1px; }
-.skins-results:focus { outline: none; }

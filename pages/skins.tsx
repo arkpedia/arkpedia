@@ -9,7 +9,11 @@ import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWi
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
-import SkinShelfScroller from '@/components/skins/SkinShelfScroller';
+import PageHeader from '@/components/ui/PageHeader';
+import ScrollRow from '@/components/ui/ScrollRow';
+import SearchInput from '@/components/ui/SearchInput';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import StyledSelect from '@/components/ui/StyledSelect';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
@@ -26,6 +30,17 @@ interface Props {
 }
 
 const WISHLIST_STORAGE_KEY = 'skinWishlist_v1';
+const AVAILABILITY_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'now', label: 'Available now' },
+  { value: 'shop', label: 'Shop' },
+  { value: 'reward', label: 'Rewards' },
+  { value: 'upcoming', label: 'Upcoming' },
+];
+const SORT_OPTIONS = [
+  { value: '', label: 'Catalogue order' },
+  { value: 'available', label: 'Availability' },
+];
 
 export default function SkinsGallery({ skins, events, now, availabilityWindows }: Props) {
   // The open skin lives in the URL, addressed by name (the same key the
@@ -250,7 +265,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
         <button
           key={`${keyPrefix}${skin.series}-${skin.name}-${i}`}
           type="button"
-          className="skin-card skin-card-enter"
+          className="btn-bare skin-card skin-card-enter"
           style={{ animationDelay: `${Math.min(i * 25, 600)}ms` }}
           onClick={() => openSkin(skin)}
         >
@@ -289,56 +304,47 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
     <>
       <Head><title>Skins Gallery — Arkpedia</title></Head>
 
-      <header className="skins-header">
-        <div className="skins-heading">
-          <h1>Skins</h1>
-          <span className="hint">{skins.length} outfits · Global availability</span>
-        </div>
-        <div className="skins-toolbar">
-          <input type="search" name="skin-search" aria-label="Search skins" autoComplete="off" spellCheck={false}
-            placeholder="Operator or outfit…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select aria-label="Skin series" value={selectedSeries === 'WISHLIST' ? '' : seriesOptions.find(series => seriesKey(series) === seriesKey(selectedSeries)) ?? selectedSeries ?? ''} onChange={e => setSelectedSeries(e.target.value || null)}>
-            <option value="">All series</option>
-            {seriesOptions.map(series => <option key={series} value={series}>{series}</option>)}
-          </select>
-          <select aria-label="Sort skins" value={sortByAvailableDate ? 'available' : ''} onChange={e => setSortByAvailableDate(e.target.value === 'available')}>
-            <option value="">Catalogue order</option><option value="available">Availability</option>
-          </select>
-          <button type="button" className={`ghost${wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? ' active' : ''}`}
-            aria-pressed={wishlistOnly === '1' || selectedSeries === 'WISHLIST'} onClick={() => {
-              if (selectedSeries === 'WISHLIST') setSelectedSeries(null);
-              setWishlistOnly(wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? '' : '1');
-            }}>☆ Wishlist <span>{wishlist.size}</span></button>
-        </div>
-        <div className="seg-row seg-row-compact skins-filters" role="group" aria-label="Skin availability">
-          {([['', 'All'], ['now', 'Available now'], ['shop', 'Shop'], ['reward', 'Rewards'], ['upcoming', 'Upcoming']] as const).map(([value, label]) => (
-            <button key={value} type="button" className="seg" aria-pressed={availabilityFilter === value} onClick={() => setAvailabilityFilter(value)}>{label}</button>
-          ))}
-        </div>
-        {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="hint">{wishlist.size} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total</p>}
-      </header>
-
-      {currentShelfOpen && directSkins.length > 0 && (
-        <section className="skins-current" aria-label="Available now">
-          <div className="skins-current-heading">
-            <h2>Available now <span>{directSkins.length}</span></h2>
-            <button className="ghost" type="button" onClick={closeCurrentShelf}>Close</button>
+      <PageHeader eyebrow="Rhodes Island // Wardrobe" title="Skins" sub={`${skins.length} outfits · Global availability`}
+        actions={<div className="skins-controls">
+          <div className="skins-toolbar">
+            <SearchInput label="Search skins" name="skin-search" placeholder="Operator or outfit…" value={search} onChange={setSearch} />
+            <StyledSelect label="Skin series" placeholder="All series"
+              value={selectedSeries === 'WISHLIST' ? '' : seriesOptions.find(series => seriesKey(series) === seriesKey(selectedSeries)) ?? selectedSeries ?? ''}
+              options={[{ value: '', label: 'All series' }, ...seriesOptions.map(series => ({ value: series, label: series }))]}
+              onChange={value => setSelectedSeries(value || null)} />
+            <StyledSelect label="Sort skins" value={sortByAvailableDate ? 'available' : ''} options={SORT_OPTIONS}
+              onChange={value => setSortByAvailableDate(value === 'available')} />
+            <button type="button" className="filter-chip skins-wishlist-filter"
+              aria-pressed={wishlistOnly === '1' || selectedSeries === 'WISHLIST'} onClick={() => {
+                if (selectedSeries === 'WISHLIST') setSelectedSeries(null);
+                setWishlistOnly(wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? '' : '1');
+              }}>☆ Wishlist <span className="filter-chip-count">{wishlist.size}</span></button>
           </div>
-          <SkinShelfScroller>
-            {directSkins.map(skin => {
-              const window = availability.get(skinKey(skin))!;
-              return <button type="button" key={skinKey(skin)} className="skins-current-item" onClick={() => openSkin(skin)}>
-                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt="" width={180} height={156} sizes="180px" />}
-                <span><strong>{skin.model}</strong><span>{skin.name}</span><small>{acquisitionLabel(window)}</small><small>Until {shortDate(window.endAt)}</small></span>
-              </button>;
-            })}
-          </SkinShelfScroller>
-        </section>
-      )}
+          <SegmentedControl label="Skin availability" value={availabilityFilter} options={AVAILABILITY_OPTIONS} onChange={setAvailabilityFilter} />
+          {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="skins-wishlist-total">{wishlist.size} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total</p>}
+        </div>} />
 
       <main className="skins-results" id="skin-results" ref={resultsRef} tabIndex={-1} aria-label="Skin gallery">
+        {currentShelfOpen && directSkins.length > 0 && (
+          <section className="op-section skins-current" aria-labelledby="skins-current-title">
+            <div className="skins-current-heading">
+              <h2 id="skins-current-title">Available now <span className="skins-current-count">{directSkins.length}</span></h2>
+              <button className="ghost btn-sm" type="button" onClick={closeCurrentShelf}>Close</button>
+            </div>
+            <ScrollRow label="Outfits available now">
+              {directSkins.map(skin => {
+                const window = availability.get(skinKey(skin))!;
+                return <button type="button" key={skinKey(skin)} className="btn-bare skins-current-item" onClick={() => openSkin(skin)}>
+                  {skin.image && <ResponsiveSkinArtwork src={skin.image} alt="" width={180} height={156} sizes="180px" />}
+                  <span><strong>{skin.model}</strong><span>{skin.name}</span><small>{acquisitionLabel(window)}</small><small>Until {shortDate(window.endAt)}</small></span>
+                </button>;
+              })}
+            </ScrollRow>
+          </section>
+        )}
+
         <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
-          <button type="button" className="ghost" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); }}>Reset filters</button>
+          <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); }}>Reset filters</button>
         </div>
         {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}
         {filteredSkins.length === 0 ? (
@@ -376,7 +382,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
             </button>
             <button
               type="button"
-              className={`skin-wishlist-btn${wishlist.has(active.name) ? ' active' : ''}`}
+              className="filter-chip skin-wishlist-btn"
+              aria-pressed={wishlist.has(active.name)}
               onClick={() => toggleWishlist(active.name)}
             >
               {wishlist.has(active.name) ? '★ Wishlisted' : '☆ Wishlist'}

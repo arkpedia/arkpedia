@@ -55,7 +55,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
           <div className={styles.promotionOptions}>
             {stats.phases.map((item, index) => (
               <button type="button" key={item.elite} aria-pressed={index === phaseIndex}
-                className={index === phaseIndex ? 'primary' : 'ghost'} aria-label={`Elite ${item.elite}`} title={`Elite ${item.elite}`}
+                className="filter-chip" aria-label={`Elite ${item.elite}`} title={`Elite ${item.elite}`}
                 onClick={() => {
                   setPhaseIndex(index);
                   if (index !== maxPhaseIndex) setModuleIndex(null);
@@ -73,7 +73,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
             <div className={styles.moduleRow}>
               <div className={styles.moduleOptions} role="group" aria-label="Module">
                 {upgradeModules.map((module, index) => (
-                  <button type="button" key={module.name ?? index} className={moduleIndex === index ? 'primary' : 'ghost'}
+                  <button type="button" key={module.name ?? index} className="filter-chip"
                     aria-pressed={moduleIndex === index} disabled={phaseIndex !== maxPhaseIndex}
                     aria-label={moduleLabel(module, index)}
                     title={phaseIndex === maxPhaseIndex
@@ -94,7 +94,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
                 <div className={styles.moduleLevels} role="group" aria-label={`${activeModule.name ?? 'Module'} level`}>
                   <span>Level</span>
                   {activeModule.stages.map((stage, index) => (
-                    <button type="button" key={stage.stage ?? index} className={moduleStageIndex === index ? 'primary' : 'ghost'}
+                    <button type="button" key={stage.stage ?? index} className="filter-chip"
                       aria-pressed={moduleStageIndex === index} onClick={() => setModuleStageIndex(index)}>{index + 1}</button>
                   ))}
                 </div>
