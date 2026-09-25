@@ -242,8 +242,8 @@
    reveals more columns while always keeping exactly 3 rows tall.
    Panels keep their own fixed width via grid-auto-columns rather than
    shrinking to fit, so they stay a consistent size regardless of how
-   many are visible in the viewport. */
-.event-rewards-scroll-grid {
+   many are visible in the viewport. The drawn bar is .sidescroll's. */
+.event-rewards-grid {
   display: grid;
   grid-template-rows: repeat(3, auto);
   grid-auto-flow: column;

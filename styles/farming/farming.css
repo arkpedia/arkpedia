@@ -73,14 +73,18 @@
   max-height: 0;
   overflow: hidden;
   min-height: 0;
-  transition: grid-template-rows 0.35s ease, max-height 0.35s ease;
 }
+/* Opening eases in; closing is instant. A collapse that animates shrinks the page
+   over the frames after React has rendered, where the accordion's height floor
+   (useHeightFloor) cannot see it, so the browser clamped the scroll a little at a
+   time and the header the reader had just pressed slid down the screen. */
 .farming-accordion-body-wrap.open {
   grid-template-rows: 1fr;
   max-height: 3000px;
+  transition: grid-template-rows 0.35s ease, max-height 0.35s ease;
 }
 @media (prefers-reduced-motion: reduce) {
-  .farming-accordion-body-wrap { transition: none; }
+  .farming-accordion-body-wrap.open { transition: none; }
 }
 .farming-accordion-body-wrap > .farming-accordion-body {
   overflow: hidden;

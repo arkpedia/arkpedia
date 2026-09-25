@@ -22,7 +22,6 @@ import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import Rarity from '@/components/ui/Rarity';
-import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
 
 const CAROUSEL_INTERVAL_MS = 8000;
@@ -96,7 +95,7 @@ function RewardTotalsRow({ totals }: { totals: RewardTotal[] }) {
 function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
   if (items.length === 0) return <p className="hint">Nothing here.</p>;
   return (
-    <div className="event-rewards-scroll-grid">
+    <div className="sidescroll event-rewards-grid">
       {items.map((item, i) => (
         <div key={`${item.name}-${i}`} className="event-reward-panel" title={item.name}>
           <div className="event-reward-icon-wrap">
@@ -117,6 +116,22 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
   );
 }
 
+/** The panel's height without any hold: from its top to the bottom of its last child. */
+function panelContentHeight(el: HTMLElement): number {
+  const last = el.lastElementChild as HTMLElement | null;
+  if (!last) return 0;
+  const style = getComputedStyle(el);
+  return last.getBoundingClientRect().bottom + parseFloat(getComputedStyle(last).marginBottom || '0')
+    - el.getBoundingClientRect().top + parseFloat(style.paddingBottom || '0') + parseFloat(style.borderBottomWidth || '0');
+}
+
+/** The least height the panel can have and still leave the document reaching the bottom
+ *  of the reader's screen, worked out fresh against the page as it is now. */
+function panelHoldNeeded(el: HTMLElement): number {
+  const roomBelow = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+  return el.getBoundingClientRect().height - roomBelow;
+}
+
 export default function EventDetailPage({
   name,
   images,
@@ -134,10 +149,43 @@ export default function EventDetailPage({
     section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 : skins.length > 0
   ));
   const [activeSection, setActiveSection] = useState<SectionKey>(sections[0]?.key ?? 'banner');
-  /* Switching from Rewards (tall) to Skins (short) at the bottom of the page used to
-     clamp the scroll and throw the tab row 435px down the screen at 390. The panel
-     holds the reader's place through a shorter tab, per event. */
-  const floor = useHeightFloor(name);
+  /* Switching from Rewards (tall) to Skins (short) near the bottom of the page used to
+     clamp the scroll and throw the tab row 435px down the screen at 390. The Anti-Page
+     Jump rule's handler pattern (arkpedia-ui skill): the press works out how tall the
+     panel must stay for the document to still reach the bottom of the reader's screen,
+     and that hold is applied as the panel's min-height in the same render as the new
+     tab, so the page is never shorter than the reader's position and there is nothing
+     to clamp. It is only what this position needs (nothing at the top of the page), and
+     it melts as the reader scrolls back up. useHeightFloor, which reserves after the
+     switch, lost the race with the clamp here and still moved the tab row 150px at 390;
+     holding the tallest tab for good left a screen of nothing under Banner. Per event. */
+  const rightRef = useRef<HTMLDivElement | null>(null);
+  const [hold, setHold] = useState<{ event: string; px: number } | null>(null);
+  const holdPx = hold && hold.event === name ? hold.px : undefined;
+  function changeSection(next: SectionKey) {
+    const el = rightRef.current;
+    if (el) {
+      const px = Math.ceil(panelHoldNeeded(el));
+      setHold(px > 0 ? { event: name, px } : null);
+    }
+    setActiveSection(next);
+  }
+  useEffect(() => {
+    if (holdPx === undefined) return;
+    const release = () => {
+      const el = rightRef.current;
+      if (!el) return;
+      const need = Math.ceil(panelHoldNeeded(el));
+      if (need <= panelContentHeight(el) + 1) setHold(null);
+      else if (need < holdPx) setHold({ event: name, px: need });
+    };
+    window.addEventListener('scroll', release, { passive: true });
+    window.addEventListener('resize', release);
+    return () => {
+      window.removeEventListener('scroll', release);
+      window.removeEventListener('resize', release);
+    };
+  }, [holdPx, name]);
   const [imgIndex, setImgIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,13 +255,13 @@ export default function EventDetailPage({
           )}
         </div>
 
-        <div className="event-detail-right" ref={floor.ref}>
+        <div className="event-detail-right" ref={rightRef} style={holdPx ? { minHeight: holdPx } : undefined}>
           {sections.length > 1 && (
             <SegmentedControl<SectionKey>
               label="Event sections"
               className="event-detail-tabs"
               value={activeSection}
-              onChange={setActiveSection}
+              onChange={changeSection}
               options={sections.map((section) => ({ value: section.key, label: section.label }))}
             />
           )}
@@ -308,7 +356,6 @@ export default function EventDetailPage({
             </section>
           )}
 
-          {floor.spacer}
         </div>
       </main>
 
