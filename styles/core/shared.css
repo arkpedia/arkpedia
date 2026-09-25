@@ -184,7 +184,7 @@
      measured 2.9-3.4:1 on light grounds, under AA.
      --teal-ink flips to white, matching the .primary:not(button) fix below. */
   --teal: #07695a;
-  --teal-dim: rgba(9, 117, 101, 0.12);
+  --teal-dim: rgba(7, 105, 90, 0.12);
   --teal-ink: #FFFFFF;
   /* Taken down from #097565 so the selected state -- teal text on --teal-dim --
      clears 4.5:1 on --panel-2 (4.74, was 4.02) and on --panel (5.44). That pairing

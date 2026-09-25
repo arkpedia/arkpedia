@@ -54,6 +54,7 @@
 button:where(:not(.btn-bare)),
 a.ghost,
 a.primary,
+a.danger,
 .btn {
   display: inline-flex;
   align-items: center;
@@ -75,6 +76,7 @@ a.primary,
 button:where(:not(.btn-bare)):hover,
 a.ghost:hover,
 a.primary:hover,
+a.danger:hover,
 .btn:hover { border-color: var(--teal); color: var(--teal); }
 
 button.primary,
