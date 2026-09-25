@@ -11,7 +11,9 @@ import { CommunityEvent } from '@/lib/schedule/eventTypes';
 import WorldMapEvents from '@/components/schedule/WorldMapEvents';
 import EventListPanel from '@/components/schedule/EventListPanel';
 import FadeCarousel from '@/components/ui/FadeCarousel';
+import PageHeader from '@/components/ui/PageHeader';
 import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
+import { getEventStatus } from '@/lib/maps/mapProjection';
 
 const CAROUSEL_MAX_ITEMS = 4;
 
@@ -34,15 +36,16 @@ export default function CommunityHub({
   hasTwitchCreds,
 }: Props) {
   const nothingAtAll = videos.length === 0 && twitchStreams.length === 0;
+  /* Events still worth travelling to, at the page's clock. When every configured event
+     has ended the page used to open on a 480px block of them plus a map labelled
+     "Ended"; it now says so in one line and points at the schedule. */
+  const activeEvents = events.filter((ev) => getEventStatus(ev.startTime, ev.endTime, now) !== 'ended');
 
   return (
     <>
       <Head><title>Community Hub — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Broadcast Feed</div>
-        <h1>Community Hub</h1>
-      </header>
+      <PageHeader eyebrow="Rhodes Island // Broadcast Feed" title="Community Hub" sub="Community events, live streams and videos." />
 
       <main>
         {nothingAtAll && (
@@ -52,58 +55,33 @@ export default function CommunityHub({
           </div>
         )}
 
-        {/* Map + events: event list as a left panel, map as the main
-            area to its right -- stacks to map-on-top, events-below on
-            mobile instead of squeezing both into a narrow row. */}
-        <section className="op-section" style={{ marginBottom: 20 }}>
-          <div className="community-map-row">
-            <div className="community-event-panel">
-              <EventListPanel events={events} now={now} />
+        {/* Map + events: the event list as a left panel, the map to its right;
+            on a phone the map comes first and the list below it. */}
+        <section className="op-section community-events" aria-labelledby="community-events-title">
+          <h2 id="community-events-title">Community events</h2>
+          {activeEvents.length > 0 ? (
+            <div className="community-map-row">
+              <div className="community-event-panel">
+                <EventListPanel events={activeEvents} now={now} />
+              </div>
+              <div className="community-map-main">
+                <WorldMapEvents events={activeEvents} now={now} />
+              </div>
             </div>
-            <div className="community-map-main">
-              <WorldMapEvents events={events} now={now} />
-            </div>
-          </div>
+          ) : (
+            <p className="community-events-empty">
+              No upcoming community events. <Link prefetch={false} href="/schedule" className="ghost btn-sm">See the schedule</Link>
+            </p>
+          )}
         </section>
-
-        <style jsx>{`
-          .community-map-row {
-            display: flex;
-            gap: 16px;
-            align-items: stretch;
-          }
-          .community-event-panel {
-            flex: 0 0 260px;
-            max-height: 480px;
-            /* The list outgrows the cap; without its own scroll context it
-               paints straight over the Twitch/YouTube sections below. */
-            overflow-y: auto;
-          }
-          .community-map-main {
-            flex: 1;
-            min-width: 0;
-          }
-          @media (max-width: 640px) {
-            .community-map-row {
-              flex-direction: column;
-            }
-            .community-map-main {
-              order: -1; /* map first, events panel below it */
-            }
-            .community-event-panel {
-              flex: 0 0 auto;
-              max-height: 320px;
-            }
-          }
-        `}</style>
 
         {/* Twitch + YouTube: each its own fade-carousel, up to 4 items
             shown 2 at a time, rather than a click-to-scroll row. */}
-        <div style={{ display: 'flex', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
-          <section className="op-section" style={{ flex: '1 1 400px', minWidth: 0 }}>
+        <div className="community-feeds">
+          <section className="op-section">
             <div className="live-section-heading-row">
-              <h2 className="live-section-heading live-section-heading-twitch">● Live on Twitch</h2>
-              <Link prefetch={false} href="/community/twitch" className="see-more-link">
+              <h2>Live on Twitch</h2>
+              <Link prefetch={false} href="/community/twitch" className="ghost btn-sm">
                 Show all
               </Link>
             </div>
@@ -118,10 +96,10 @@ export default function CommunityHub({
             )}
           </section>
 
-          <section className="op-section" style={{ flex: '1 1 400px', minWidth: 0 }}>
+          <section className="op-section">
             <div className="live-section-heading-row">
-              <h2>YouTube Videos</h2>
-              <Link prefetch={false} href="/community/videos" className="see-more-link">
+              <h2>YouTube videos</h2>
+              <Link prefetch={false} href="/community/videos" className="ghost btn-sm">
                 Show all
               </Link>
             </div>
@@ -137,19 +115,9 @@ export default function CommunityHub({
           </section>
         </div>
 
-        {/* Art + Cosplayer: both coming soon. */}
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          <section className="op-section" style={{ flex: '1 1 400px', minWidth: 0 }}>
-            <h2>Art</h2>
-            <p className="hint">Coming soon.</p>
-          </section>
-          <section className="op-section" style={{ flex: '1 1 400px', minWidth: 0 }}>
-            <h2>Cosplayer</h2>
-            <p className="hint">Coming soon.</p>
-          </section>
-        </div>
-
-        {(!hasYouTubeApiKey || !hasTwitchCreds) && !nothingAtAll && (
+        {/* Setup notes for whoever runs the site, never for readers: they named
+            environment variables and a source file on the public page. */}
+        {process.env.NODE_ENV === 'development' && (!hasYouTubeApiKey || !hasTwitchCreds) && !nothingAtAll && (
           <div className="hint" style={{ marginTop: 16 }}>
             {!hasYouTubeApiKey && (
               <p>

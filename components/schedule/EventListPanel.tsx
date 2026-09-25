@@ -56,34 +56,16 @@ export default function EventListPanel({ events, now: renderedAt }: { events: Co
     );
   }
 
+  /* One column of event links. It does not scroll itself: the panel that holds it
+     is the one scroller (a second one inside it left two thumbs on one list). */
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+    <div className="community-event-list">
       {sorted.map((ev, i) => (
-        <a
-          key={i}
-          href={ev.url}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            padding: '10px 12px',
-            border: '1px solid var(--line-soft, #333)',
-            // Collapses shared borders between stacked boxes instead of
-            // doubling up, while still keeping zero visual gap between
-            // them -- every box after the first only contributes its
-            // own bottom/side borders.
-            borderTop: i === 0 ? '1px solid var(--line-soft, #333)' : 'none',
-            textDecoration: 'none',
-            color: 'inherit',
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <a key={i} href={ev.url} target="_blank" rel="noreferrer" className="community-event-item">
+          <span className="community-event-name">
             <span className={`event-status-dot event-status-${ev.status}`} />
-            <span style={{ fontWeight: 600 }}>{ev.name}</span>
-          </div>
+            <span>{ev.name}</span>
+          </span>
           <span className="hint">{ev.country}</span>
           <span className="hint">
             {ev.status === 'live' && 'Live now'}

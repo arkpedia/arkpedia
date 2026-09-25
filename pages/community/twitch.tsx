@@ -1,9 +1,9 @@
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Link from 'next/link';
 import { getLiveTwitchStreams, TwitchStream } from '@/lib/community/twitch';
 import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
-import { TwitchCard } from '@/components/community/StreamCards';
+import { CommunityEyebrow, TwitchCard } from '@/components/community/StreamCards';
+import PageHeader from '@/components/ui/PageHeader';
 
 interface Props {
   twitchStreams: TwitchStream[];
@@ -15,14 +15,8 @@ export default function TwitchLivePage({ twitchStreams, hasTwitchCreds }: Props)
     <>
       <Head><title>Live on Twitch — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Broadcast Feed</div>
-        <Link prefetch={false} href="/community" className="hint">
-          ← Back to Community Hub
-        </Link>
-        <h1>Live on Twitch</h1>
-        <p className="sub">{hasTwitchCreds ? `${twitchStreams.length} streams live right now in the Arknights category.` : 'Arknights streams from the community.'}</p>
-      </header>
+      <PageHeader eyebrow={<CommunityEyebrow />} title="Live on Twitch"
+        sub={hasTwitchCreds ? `${twitchStreams.length} streams live right now in the Arknights category.` : 'Arknights streams from the community.'} />
 
       <main>
         {twitchStreams.length === 0 ? (
