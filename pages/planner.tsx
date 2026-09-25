@@ -38,6 +38,8 @@ import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
 import { CRAFTING_EVENT, readCrafting, writeCrafting } from '@/lib/planner/crafting';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import {
   ROSTER_EVENT,
   UNBUILT,
@@ -1217,13 +1219,21 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
     <>
       <Head><title>Operator Planner — Arkpedia</title></Head>
 
-      <div className="planner-workspace-head">
-        <h1>Operator Planner</h1>
-        <div className="planner-mode" role="group" aria-label="Planner mode">
-          {(['simple', 'experimental'] as const).map((mode) => <button key={mode} type="button" aria-pressed={plannerMode === mode} onClick={() => { setPlannerMode(mode); setWizard(null); }}>{mode === 'simple' ? 'Simple' : 'Experimental'}</button>)}
-        </div>
-        <button type="button" className="ghost" aria-expanded={transferOpen} onClick={() => setTransferOpen(v => !v)}>Export / import</button>
-      </div>
+      {/* The site's page header: it was a 40px sentence-case h1 in a row of its own,
+          with no eyebrow and no hairline. The mode switch is a SegmentedControl. */}
+      <PageHeader
+        eyebrow="Rhodes Island // Operator Development"
+        title="Operator Planner"
+        actions={<div className="planner-head-actions">
+          <SegmentedControl
+            label="Planner mode"
+            value={plannerMode}
+            onChange={(mode) => { setPlannerMode(mode); setWizard(null); }}
+            options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
+          />
+          <button type="button" className="ghost" aria-expanded={transferOpen} onClick={() => setTransferOpen(v => !v)}>Export / import</button>
+        </div>}
+      />
 
       <main>
         {/* Not a nicety. This browser's storage is the only copy there is, so
