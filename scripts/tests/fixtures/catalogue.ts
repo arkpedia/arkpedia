@@ -8,7 +8,10 @@ export function emptyCatalogue(parts: object = {}) {
   return {
     inventory: { operators: [], skins: [], events: [], banners: [] },
     operators: [], skins: [], banners: [], events: [], bundles: [],
-    assets: new Set<string>(), stageEnemies: new Map<string, string>(),
+    assets: new Set<string>(),
+    // No confirmed outfit windows, at a fixed instant: never the real date.
+    skinWindows: [] as object[], now: new Date('2026-09-23T00:00:00Z'),
+    stageEnemies: new Map<string, string>(),
     enemyRecords: new Map<string, { name: string; icon?: string }>(), enemyIndex: new Set<string>(),
     ...parts,
   };

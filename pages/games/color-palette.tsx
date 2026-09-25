@@ -8,14 +8,16 @@ import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import GameLinks from '@/components/minigames/GameLinks';
 import OperatorAnswer from '@/components/minigames/OperatorAnswer';
 import RoundFeedback from '@/components/minigames/RoundFeedback';
-import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteOperators } from '@/lib/minigames/data';
-import { newProgress, PaletteMode, PaletteOperator, pickNext, submitAnswer } from '@/lib/minigames/logic';
+import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteCatalogue } from '@/lib/minigames/data';
+import { newProgress, PaletteMode, PaletteOperator, pickNext, playablePalettes, submitAnswer } from '@/lib/minigames/logic';
 import styles from '@/styles/games/minigames.module.css';
 
-interface Props { operators: PaletteOperator[] }
+/** `now` is the request's clock (contentPageClock); who is released follows from it. */
+interface Props { operators: PaletteOperator[]; now: number }
 const COLOR_LABELS = ['Hair', 'Clothing 1', 'Clothing 2', 'Skin / clothing 3', 'Accent'];
 
-export default function PaletteGame({ operators }: Props) {
+export default function PaletteGame({ operators: catalogue, now }: Props) {
+  const operators = useMemo(() => playablePalettes(catalogue, now), [catalogue, now]);
   const [mode, setMode] = useState<PaletteMode>('base');
   const [target, setTarget] = useState<PaletteOperator | null>(null);
   const [progress, setProgress] = useState(newProgress);
@@ -116,5 +118,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     // The generated catalog remains a complete offline fallback if GitHub is
     // temporarily unavailable while Arkpedia is building.
   }
-  return { props: { operators: applyCommunityPaletteOverrides(getPaletteOperators(), overrides) } };
+  return { props: { operators: applyCommunityPaletteOverrides(getPaletteCatalogue(), overrides) } };
 });

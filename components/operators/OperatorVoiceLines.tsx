@@ -3,6 +3,7 @@ import { useContentUrl } from '@/lib/content/context';
 import StyledSelect from '../ui/StyledSelect';
 import { renderGameText } from '../ui/HighlightedText';
 import { OperatorVoiceData, OperatorVoiceLine } from '@/lib/operators/operatorVoices';
+import { clipUrl, hasRecording } from '@/lib/operators/voiceRecording.mjs';
 import styles from './OperatorVoiceLines.module.css';
 
 function formatTime(value: number) {
@@ -29,9 +30,7 @@ function VolumeIcon() {
 }
 
 function audioUrl(template: string | null, line: OperatorVoiceLine) {
-  return template
-    ?.replace('{voiceId}', encodeURIComponent(line.id))
-    .replace('{voiceIdLower}', encodeURIComponent(line.id.toLowerCase())) ?? null;
+  return clipUrl(template, line.id);
 }
 
 const PACK_CODES: Record<string, string> = {
@@ -41,15 +40,6 @@ const PACK_CODES: Record<string, string> = {
 
 function packCode(id: string) {
   return PACK_CODES[id] ?? PACK_CODES[id.replace(/^old_/, '')] ?? id.replace(/^old_/, '').slice(0, 2).toUpperCase();
-}
-
-function hasRecording(line: OperatorVoiceLine | undefined, pack: OperatorVoiceData['packs'][number] | undefined) {
-  if (!line || !pack || !pack.audioTemplate) return false;
-  if (!line.availablePacks) return true;
-  if (line.availablePacks.includes(pack.id)) return true;
-  return pack.status === 'current'
-    && line.availablePacks.includes('custom')
-    && !['en', 'jp', 'cn', 'kr'].includes(pack.id);
 }
 
 export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }) {

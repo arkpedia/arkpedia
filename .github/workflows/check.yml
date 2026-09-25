@@ -34,14 +34,16 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Application regression tests
-        run: npm test
-
+      # Before npm test: it runs the Python importers too (test-cn-tables.ts), and they
+      # import Pillow and certifi at the top.
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - run: python -m pip install pillow certifi
+
+      - name: Application regression tests
+        run: npm test
 
       - name: Palette import tests
         run: python3 scripts/palettes/test-color-palettes.py
@@ -56,6 +58,13 @@ jobs:
 
       - name: External asset coverage
         run: npm run check:assets && npm run check:published-assets
+
+      # Size ceilings on what the guessers send to readers, measured on the bundled data.
+      # They are not in npm test: the release job runs that suite on the day's data, which
+      # only grows, and there the same check is the payload-budgets refresh stage, which
+      # reports a payload over budget and never holds back a release.
+      - name: Page payload budgets
+        run: npm run check:payload-budgets
 
       # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
       # in the four big pages, plus two ARIA roles), every one of them a judgement

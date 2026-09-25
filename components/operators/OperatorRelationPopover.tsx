@@ -12,6 +12,7 @@ export interface RelatedOperator {
   name: string;
   rarity: number | null;
   isFuture: boolean | null;
+  portraitPending?: boolean;
 }
 
 export default function OperatorRelationPopover({ label, title, operators, children }: {

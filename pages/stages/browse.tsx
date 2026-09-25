@@ -1,4 +1,5 @@
 import { useContentUrl, useContentTable } from '@/lib/content/context';
+import { cssUrl } from '@/lib/content/urls';
 import { ContentImg } from '@/components/content/ContentImage';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -1186,7 +1187,13 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
           /* The ref is what goes fullscreen: the whole section, so the play button and
              the scrubber come with the map rather than the reader being locked out of
              the controls at the moment the map is worth watching. */
-          <section className="op-section" ref={simulator}>
+          <section
+            className="op-section"
+            ref={simulator}
+            /* The game's pointer for fullscreen (see .op-section:fullscreen), pinned to
+               the page's release like every other piece of art. */
+            style={{ ['--stage-cursor' as string]: `${cssUrl(contentUrl('/cursors/prts.png'))} 6 5, default` }}
+          >
             <div className="stage-section-head">
               {/* A stage with no schematic and no render has no map to head --
                   what the section holds there is the briefing itself. */}
@@ -2341,8 +2348,16 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/st
       // for the rest, exactly as it did when this was 3,786 pages.
       stages: getStageSiblings(first),
       typeCounts: getStageTypeCounts(),
-      now: Math.floor(Date.now() / 1000),
+      // `now` is the request's, from contentPageClock (lib/content/pageClock.ts).
       firstSlug: first,
     },
   };
+}, {
+  tables: {
+    'stage-tile-legend': async () => (await import('@/data/stage-tile-legend.json')).default,
+    // The stage rail's filter headings (components/stages/StageList.tsx).
+    'stages-content': async () => (await import('@/data/stages-content.json')).default,
+    'content-windows': async () => (await import('@/data/content-windows.json')).default,
+    'story-groups': async () => (await import('@/data/story-groups.json')).default,
+  },
 });

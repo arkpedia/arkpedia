@@ -1,6 +1,13 @@
 import type { GameWindowTimes } from '@/lib/schedule/gameWindow';
-import bannersData from '@/data/headhunting_banners.json';
-import { publishedArt } from '@/lib/art/artVersion';
+
+/*
+ * The banner record and the helpers a page can run in the browser. No data here: the
+ * list itself, and the art check that resolves each banner_image, are in
+ * headhuntingBannerData.ts, which only server code imports. A page's browser half that
+ * reached ALL_BANNERS compiled the whole deploy-time list (and the asset index behind
+ * publishedArt) into its chunk; /events/[slug] and /obtain-method never rendered from
+ * it, and /schedule reads the release's copy from its props.
+ */
 
 /** Where a banner's featured lineup came from, as scripts/sync/catalogue-model.mjs and
  *  sync-recurring-banners.mjs record it: the wiki's row, the six-stars the game client
@@ -40,17 +47,6 @@ export interface HeadhuntingBanner {
   linked_event: string | null; // computed once at scrape time against the per-year event records
 }
 
-// banner_image is resolved here, at the single point every consumer reads
-// banners from: null while the image repository has not published the art (a
-// banner can go out before it), and versioned once it has, because
-// sync-banner-art.py overwrites the art in place while the URL stays put -- see
-// lib/art/artVersion.ts. Safe at this layer: every banner_image consumer feeds
-// it to <Image>, none resolves it on disk.
-const ALL_BANNERS = (bannersData as HeadhuntingBanner[]).map((b) => ({
-  ...b,
-  banner_image: publishedArt(b.banner_image, b.name),
-}));
-
 function normalize(s: string): string {
   return s
     .toLowerCase()
@@ -68,21 +64,17 @@ function parseStartDate(range: string | null | undefined): number | null {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
 }
 
-export function getAllHeadhuntingBanners(): HeadhuntingBanner[] {
-  return ALL_BANNERS;
-}
-
 /** Banners sorted newest-first by Global date start, for the Gacha
  * page's banner picker. */
-export function getBannersSortedByDate(): HeadhuntingBanner[] {
+export function sortBannersByDate<T extends HeadhuntingBanner>(banners: readonly T[]): T[] {
   function startDate(b: HeadhuntingBanner): number {
     return parseStartDate(b.global_date || b.cn_date) || 0;
   }
-  return [...ALL_BANNERS].sort((a, b) => startDate(b) - startDate(a));
+  return [...banners].sort((a, b) => startDate(b) - startDate(a));
 }
 
 /** An event's Global date range as evidence for getBannerForEvent: null while it is only
- * an estimate (the note says so -- the test getAllEventListings uses for isPredicted). */
+ * an estimate (the note says so -- the test getEventCalendar uses for isPredicted). */
 export function confirmedGlobalRange(global: { dateRange?: string | null; note?: string | null } | null | undefined): string | null {
   return /estimated|predicted/i.test(global?.note || '') ? null : global?.dateRange ?? null;
 }
@@ -104,7 +96,7 @@ export function confirmedGlobalRange(global: { dateRange?: string | null; note?:
  * matched a Chinese-named banner, which normalises to "", to every event: the day a CN
  * pool reached the client before the wiki had a row for it, that CN-only banner became
  * the headhunting banner of every Global event page that has none. */
-export function getBannerForEvent(eventName: string, eventGlobalDateRange?: string | null, banners: HeadhuntingBanner[] = ALL_BANNERS): HeadhuntingBanner | null {
+export function getBannerForEvent(eventName: string, eventGlobalDateRange: string | null | undefined, banners: readonly HeadhuntingBanner[]): HeadhuntingBanner | null {
   const target = normalize(eventName);
   if (target) {
     const explicitMatch = banners.find((b) => b.linked_event && normalize(b.linked_event) === target);

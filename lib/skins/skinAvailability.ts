@@ -70,7 +70,7 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[]): SkinWind
   return windows;
 }
 
-export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date = new Date(), windows = getSkinWindows(skins, events)): Map<string, SkinCountdown> {
+export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date, windows = getSkinWindows(skins, events)): Map<string, SkinCountdown> {
   const result = new Map<string, SkinCountdown>();
   for (const window of windows) {
     const start = Date.parse(window.startAt), end = Date.parse(window.endAt);

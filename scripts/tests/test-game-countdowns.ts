@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseGameWindow, windowCountdown } from '@/lib/schedule/gameWindow';
 import { parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
-import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { getHomeGachaBanners, getOngoingGachaBanners, getOngoingEvents, loadGameEvents } from '@/lib/home/frontPageContent';
 
 const start = new Date('2026-09-16T15:00:00Z');

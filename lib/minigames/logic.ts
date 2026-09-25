@@ -1,9 +1,16 @@
+import { isReleasedAt, type ReleaseMarker } from '@/lib/operators/operatorAvailability';
 import { normalizeForSearch } from '@/lib/search/searchNormalize';
 
 export interface GameOperator { name: string; aliases: string[] }
 export type PaletteMode = 'base' | 'elite2';
 export interface PaletteArtwork { image: string; colors: string[] }
-export interface PaletteOperator extends GameOperator { rarity: number | null; class: string | null; base: PaletteArtwork | null; elite2: PaletteArtwork | null }
+/** `release` decides at render whether the operator is playable yet; releases exported
+ * before it existed carry only operators already released then. */
+export interface PaletteOperator extends GameOperator { rarity: number | null; class: string | null; base: PaletteArtwork | null; elite2: PaletteArtwork | null; release?: ReleaseMarker }
+/** The palettes of the operators released on Global at `now` (the page's request clock). */
+export function playablePalettes(operators: readonly PaletteOperator[], now: number): PaletteOperator[] {
+  return operators.filter((operator) => isReleasedAt(operator.release, now));
+}
 export interface Progress { found: string[]; wrong: string[]; status: 'playing' | 'won' | 'lost' | 'revealed' }
 export const MAX_MISTAKES = 5;
 export const newProgress = (): Progress => ({ found: [], wrong: [], status: 'playing' });

@@ -132,7 +132,7 @@ class CatalogueImports(unittest.TestCase):
         ])
         reasons = {e['key']: e['reason'] for e in entries}
         self.assertIn('has no upload for File:CN Missing banner.png yet', reasons['art:event-poster/Missing.webp'])
-        self.assertIn('could not be asked', reasons['art:headhunting-banner-images/Down.webp'])
+        self.assertIn('could not be reached to ask for File:CN Down banner.png', reasons['art:headhunting-banner-images/Down.webp'])
         self.assertIn('unexpected host (images.example)', reasons['art:event-poster/Elsewhere.webp'])
         # An image on a host the importer does not trust is never requested.
         self.assertNotIn('https://images.example/Elsewhere.png', fetched)
@@ -165,8 +165,65 @@ class CatalogueImports(unittest.TestCase):
             ('art:six-star-icons/Renamed - Base.webp', 'published-partial', f'{base}/avatar/char_902_renamed.png'),
             ('art:six-star-icons/Html - Base.webp', 'published-partial', f'{base}/avatar/char_901_html.png'),
         ])
-        self.assertIn('Downloading avatar/char_902_renamed.png at aaaaaaaaaaaa failed', alerts[0]['reason'])
+        self.assertIn('Downloading avatar/char_902_renamed.png from yuanyan3060/ArknightsGameResource failed', alerts[0]['reason'])
         self.assertIn('is not an image that decodes', alerts[1]['reason'])
+    def test_the_same_art_failing_on_two_days_of_an_outage_writes_the_same_quarantine_file(self):
+        # data/quarantine.json is a release input. The same files failing the same way must
+        # leave it byte for byte the same whatever the day's error said, and whatever commit
+        # the mirror moved to overnight; the error goes to the log.
+        def day(revision, wiki_error, mirror_error, html):
+            base = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{revision}'
+            def fetch(url):
+                if url.startswith(publish.quarantine.WIKI_API):
+                    if 'CN Down banner.png' in dict(parse_qsl(urlparse(url).query))['titles']:
+                        raise subprocess.CalledProcessError(wiki_error, ['curl', url], output=b'', stderr=b'')
+                    return json.dumps({'query': {'pages': {'1': {'title': 'File:CN Gone banner.png',
+                        'imageinfo': [{'url': 'https://arknights.wiki.gg/images/CN_Gone_banner.png?0a1b2c', 'sha1': '0' * 40}]}}}}).encode()
+                if url == f'{base}/avatar/char_901_html.png':
+                    return html
+                raise subprocess.CalledProcessError(mirror_error, ['curl', url], output=b'', stderr=b'')
+            plan = {'sourceRepository': 'yuanyan3060/ArknightsGameResource', 'revision': revision, 'files': [
+                {'path': 'six-star-icons/Renamed - Base.webp', 'sourcePath': 'avatar/char_902_renamed.png'},
+                {'path': 'six-star-icons/Html - Base.webp', 'sourcePath': 'avatar/char_901_html.png'},
+                {'path': 'headhunting-banner-images/Down.webp', 'wikiFiles': ['CN Down banner.png']},
+                {'path': 'event-poster/Gone.webp', 'wikiFiles': ['CN Gone banner.png']},
+            ]}
+            return fetch, plan
+
+        with tempfile.TemporaryDirectory() as temporary:
+            app = Path(temporary)/'app'
+            (app/'data').mkdir(parents=True)
+            files, logs = [], []
+            for now, (fetch, plan) in (('2026-09-23T20:00:00Z', day('a' * 40, 7, 22, b'<html>maintenance</html>')),
+                                       ('2026-09-24T20:00:00Z', day('b' * 40, 28, 56, b'<html>rate limited</html>'))):
+                image_root, skin_root = Path(temporary)/now/'image', Path(temporary)/now/'skin'
+                asset_repository(image_root)
+                asset_repository(skin_root, ('build_artwork_variants.py', 'def build_one(job):\n    return job[0], {}\n'))
+                (Path(temporary)/'plan.json').write_text(json.dumps(plan))
+                cwd, log = os.getcwd(), io.StringIO()
+                try:
+                    os.chdir(app)
+                    with patch.object(publish, 'fetch', fetch), patch.dict(os.environ, {'ARKPEDIA_NOW': now}), patch.object(sys, 'stderr', log):
+                        publish.main([str(Path(temporary)/'plan.json'), str(image_root), str(skin_root)])
+                finally:
+                    os.chdir(cwd)
+                files.append((app/'data/quarantine.json').read_text())
+                logs.append(log.getvalue())
+            entries = json.loads(files[1])['entries']
+
+        self.assertEqual(files[1], files[0])
+        self.assertEqual({e['key']: e['reason'] for e in entries}, {
+            'art:event-poster/Gone.webp': 'Downloading https://arknights.wiki.gg/images/CN_Gone_banner.png?0a1b2c failed; the record is published without event-poster/Gone.webp until a later run imports it.',
+            'art:headhunting-banner-images/Down.webp': 'The wiki could not be reached to ask for File:CN Down banner.png; the record is published without headhunting-banner-images/Down.webp until a later run imports it.',
+            'art:six-star-icons/Html - Base.webp': 'avatar/char_901_html.png is not an image that decodes; the record is published without six-star-icons/Html - Base.webp until a later run imports it.',
+            'art:six-star-icons/Renamed - Base.webp': 'Downloading avatar/char_902_renamed.png from yuanyan3060/ArknightsGameResource failed; the record is published without six-star-icons/Renamed - Base.webp until a later run imports it.',
+        })
+        # The mirror's permalink stays the one first reported (scripts/lib/quarantine.mjs).
+        self.assertTrue(all('b' * 40 not in e.get('sourceRef', '') for e in entries))
+        self.assertIn('exit status 7', logs[0])
+        self.assertIn('exit status 28', logs[1])
+        self.assertIn('exit status 56', logs[1])
+
 
 if __name__ == '__main__':
     unittest.main()

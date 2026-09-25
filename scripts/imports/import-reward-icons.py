@@ -32,7 +32,10 @@ store data; it is skipped and reported so the scrape gets fixed instead.
 
 None of these sources can fail the refresh. A name no source resolves, or whose
 download fails, renders without an icon and goes on the quarantine list under
-'reward-icons'; the next run tries it again.
+'reward-icons'; the next run tries it again. The reason says which step failed and
+never the day's error text, which goes to the log: data/quarantine.json is a release
+input, and an outage that answers 502 one day and refuses the connection the next must
+not publish a release each day.
 
 NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets,
 and a file in this repository's public/ is refused by check:assets, which the
@@ -50,6 +53,7 @@ import json
 import os
 import re
 import ssl
+import subprocess
 import urllib.parse
 import urllib.request
 from io import BytesIO
@@ -72,10 +76,26 @@ def pinned(variable, branch):
     return commit if re.fullmatch(r'[0-9a-f]{40}', commit) else branch
 
 
+PIN_UPSTREAM = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'content', 'pin-upstream.mjs')
+
+
+def cn_tables():
+    """The CN tables' raw folder: the mirror and commit this run settled on for every CN table
+    (scripts/content/cn-tables.mjs; the stage runner passes them in as ARKPEDIA_CN_TABLES),
+    else -- run by hand -- the primary mirror at its pin, else its branch. pin-upstream.mjs
+    works it out (cnTableUrl()), so this script names no CN mirror and reads no mirror's pin
+    for a table: at one mirror's pin it would read another mirror, or another commit, than
+    the rest of the run on a day upstream-cn fell back."""
+    result = subprocess.run(['node', PIN_UPSTREAM, 'cn-table-url', 'excel'], capture_output=True, text=True)
+    if result.returncode:
+        raise SystemExit(f'Could not tell which CN tables this run reads:\n{result.stderr.strip()}')
+    return result.stdout.strip()
+
+
 EN_REF = pinned('ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSGAMEDATA', 'master')
 CN_REF = pinned('ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE', 'main')
 RAW_EN = f'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/{EN_REF}/en/gamedata/excel'
-RAW_CN = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{CN_REF}/gamedata/excel'
+RAW_CN = cn_tables()
 ITEM_ART = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{CN_REF}/item'
 FURNI_ART = 'https://torappu.prts.wiki/assets/furniture'
 WIKI_API = WIKI_API_URL
@@ -176,6 +196,12 @@ def wiki_file(name):
     return None
 
 
+# Why a name has no icon yet, in words that stay the same while the problem does.
+NOT_FOUND = 'has no icon from the item tables, the furniture art or the EN wiki'
+WIKI_DOWN = 'has no icon from the item tables or the furniture art, and the EN wiki could not be reached to ask for one'
+FAILED = 'has an icon at {host}, but downloading it failed'
+UNREADABLE = 'has an icon at {host}, but it is not an image that decodes'
+
 fetched, unresolved = [], []
 for name, event in sorted(missing.items()):
     url = None
@@ -190,15 +216,24 @@ for name, event in sorted(missing.items()):
             try:
                 url = wiki_file(name)
             except Exception as e:  # noqa: BLE001 -- the wiki is enrichment, never a gate
-                unresolved.append((name, f'{event} (the wiki could not be asked: {e})'))
+                print(f'  the wiki could not be asked about "{name}": {e}')
+                unresolved.append((name, event, WIKI_DOWN))
                 continue
     if not url:
-        unresolved.append((name, event))
+        unresolved.append((name, event, NOT_FOUND))
+        continue
+    host = url.split('/')[2]
+    try:
+        blob = fetch(url)
+    except Exception as e:  # noqa: BLE001 -- a 404 here is data, not a crash
+        print(f'  FAILED "{name}" from {url}: {e}')
+        unresolved.append((name, event, FAILED.format(host=host)))
         continue
     try:
-        im = Image.open(BytesIO(fetch(url))).convert('RGBA')
-    except Exception as e:  # noqa: BLE001 -- a 404 here is data, not a crash
-        unresolved.append((name, f'{event} (fetch failed: {e})'))
+        im = Image.open(BytesIO(blob)).convert('RGBA')
+    except Exception as e:  # noqa: BLE001 -- e.g. an HTML page answered 200
+        print(f'  UNREADABLE "{name}" from {url}: {e}')
+        unresolved.append((name, event, UNREADABLE.format(host=host)))
         continue
     # 96px: crisp at the 36px the reward rows render, retina included, without
     # carrying the mirrors' full-size art in the repo.
@@ -207,14 +242,14 @@ for name, event in sorted(missing.items()):
     out = os.path.join(out_dir, f'{safe(name)}.webp')
     im.save(out, 'WEBP', quality=90)
     fetched.append((name, event, url))
-    print(f'  + {safe(name)}.webp  ({im.size[0]}x{im.size[1]}, from {url.split("/")[2]})')
+    print(f'  + {safe(name)}.webp  ({im.size[0]}x{im.size[1]}, from {host})')
 
 print(f'{len(fetched)} fetched, {len(unresolved)} unresolved')
-for name, why in unresolved:
-    print(f'  ? "{name}" ({why}) -- not in the item tables, furniture data, or the EN wiki yet')
+for name, event, why in unresolved:
+    print(f'  ? "{name}" of {event} {why}')
 report('reward-icons', [{'key': f'reward-icon:{name}', 'action': 'published-partial',
-                         'reason': f'The reward "{name}" of {why} has no icon from the item tables, the furniture art '
-                                   'or the EN wiki; it renders without one until a later run finds it.'} for name, why in unresolved]
+                         'reason': f'The reward "{name}" of {event} {why}; it renders without one until a later run finds it.'}
+                        for name, event, why in unresolved]
        + [{'key': f'reward-icon:{name}', 'action': 'published-partial', 'sourceRef': url,
            'reason': f'The reward "{name}" of {event} has an icon at {url.split("/")[2]}, staged as '
                      f'.cache/reward-icons/{safe(name)}.webp, but nothing publishes it; it renders without one '

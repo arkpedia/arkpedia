@@ -38,10 +38,28 @@ Images and audio are delivered directly from GitHub, without proxying their bodi
 
 `npm run check:published-assets` verifies every indexed image path against the pinned
 manifests, downloads a sample from every image category plus responsive variants,
-checks their SHA-256 and sizes, and verifies pinned palette/voice metadata. Complete
+checks their SHA-256 and sizes, and verifies pinned palette/voice metadata. It then
+runs `scripts/audits/check-voice-clips.mjs`, which asks for every clip a legacy voice
+pack offers on an operator page and fails on any the pinned repository lacks (a clip
+the host does not answer for is asked three times first). That half checks
+`data/operator-voice-lines.json`, which the voices stage rebuilds, so the release job's
+asset-revisions stage (which runs before it) checks only the files at its new pins. The
+release job's Validate step runs `npm run check:published-assets:release` instead, whose
+clip check (`--quarantine`) holds back a missing or unanswerable clip rather than the
+release: the line stops offering that pack and the pack becomes a published-partial
+entry in `data/quarantine.json` (stage `voice-clips`). Complete
 image decoding/hash verification lives in the public asset repositories. Voice
 syncs verify every changed clip against its upstream Git blob and decode it before
 publishing; they do not delete removed/legacy recordings automatically.
+
+`npm run check:payload-budgets` holds what the guessers and the palette game send to
+readers (their page props and lazy catalogues) to size budgets, measured on the real
+catalogue (`scripts/audits/check-payload-budgets.ts`). Check fails a change that goes
+over. It is not part of `npm test`, because the release job runs that suite on the
+day's data and the catalogues only grow: there the same command is the
+`payload-budgets` refresh stage, and a payload over budget costs only that stage, which
+the daily 'Content quarantined' issue then names until the payload is trimmed or the
+budget raised. The release is never held back by it.
 
 ## Local checks
 
@@ -53,6 +71,7 @@ python3 -m pip install pillow certifi
 python3 scripts/palettes/test-color-palettes.py
 npm run check:assets
 npm run check:published-assets
+npm run check:payload-budgets
 npm run lint -- --max-warnings 15
 npm run check:styles
 npm run content:export

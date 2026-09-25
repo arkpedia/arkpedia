@@ -6,6 +6,8 @@
  *
  *   node scripts/content/pin-upstream.mjs                       write data/upstream.lock.json
  *   node scripts/content/pin-upstream.mjs raw-url <repo> <path>  print a raw file URL at the pin
+ *   node scripts/content/pin-upstream.mjs cn-table-url <file>    print a CN table's raw URL, for a
+ *                                                                file under gamedata/ (cnTableUrl)
  *
  * The lock is published with the release, so the next run loads it with the rest of the
  * data and falls back to its commit for a mirror it cannot reach, with a warning instead of
@@ -14,8 +16,17 @@
  * Every stage run by run-stage.mjs gets one environment variable per mirror (pinVariable),
  * holding the commit. A script that reads a mirror builds its URL from pinnedRef() (or
  * pinnedCommit() when it records the commit), a Python one from the variable itself:
- *   os.environ.get('ARKPEDIA_PIN_KENGXXIAO_ARKNIGHTSGAMEDATA') or 'master'
+ *   os.environ.get('ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSGAMEDATA') or 'master'
  * and scripts/lib/upstream.sh reads the variable for its clone by itself.
+ *
+ * The CN game tables are the exception: they come from whichever of CN_TABLE_SOURCES the
+ * run's upstream-cn stage settled on (scripts/content/cn-tables.mjs), recorded as `cnTables`
+ * in the lock and passed to every later stage as ARKPEDIA_CN_TABLES. A script that fetches a
+ * CN table builds its URL from cnTableUrl() or cnTables() (Python and shell: the cn-table-url
+ * command above), never from a mirror's pin -- neither Kengxxiao's nor yuanyan's, whose pin is
+ * for its art -- so it reads the same mirror at the same commit as the checkout every other
+ * stage reads (.cache/upstream/cn-resource/gamedata). A test holds every stage's scripts to
+ * this (test-stage-runner.ts).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,10 +41,31 @@ export const MIRRORS = [
   { repository: 'yuanyan3060/ArknightsGameResource', branch: 'main' },
   { repository: 'PuppiizSunniiz/ArknightsGameData_YoStar', branch: 'main' },
 ];
+/*
+ * Where the CN tables (gamedata/excel and gamedata/levels) may come from, in order: ALL of
+ * them from one per run, at one commit (scripts/content/cn-tables.mjs). The two serialize
+ * the same dump differently -- the first names each enum ("TIER_6") and writes an empty list
+ * as null, the second numbers them and writes [] -- which the stage readers take either way
+ * and the catalogue does not (sync-catalogue.mjs source()).
+ */
+export const CN_TABLE_SOURCES = [
+  { repository: 'Kengxxiao/ArknightsGameData', folder: 'zh_CN/gamedata' },
+  { repository: 'yuanyan3060/ArknightsGameResource', folder: 'gamedata' },
+];
+/** The run's CN tables as run-stage.mjs hands them to every stage: the lock's `cnTables`, as JSON. */
+export const CN_TABLES_VARIABLE = 'ARKPEDIA_CN_TABLES';
 const sha = /^[a-f0-9]{40}$/;
 // Names the runner filled in from the lock itself, which pinUpstream must not read back as
 // a commit someone chose: that would freeze every run on the first lock it ever wrote.
 export const INJECTED = 'ARKPEDIA_PINS_INJECTED';
+
+/** A `cnTables` record -- {repository, commit, folder, serialization} -- that names one of
+ * CN_TABLE_SOURCES at a commit, or null. */
+export function cnTablesRecord(value) {
+  const source = CN_TABLE_SOURCES.find(entry => entry.repository === value?.repository);
+  if (!source || !sha.test(value.commit ?? '') || value.folder !== source.folder || !['named', 'numeric'].includes(value.serialization)) return null;
+  return { repository: source.repository, commit: value.commit, folder: source.folder, serialization: value.serialization };
+}
 
 /** ARKPEDIA_PIN_<OWNER>_<REPO>, upper case, every other character run an underscore. */
 export const pinVariable = repository => `ARKPEDIA_PIN_${repository.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
@@ -57,6 +89,9 @@ export function pinEnvironment(root, env = process.env) {
     if (sha.test(entry?.commit ?? '') && !env[name]) pins[name] = entry.commit;
   }
   if (Object.keys(pins).length) pins[INJECTED] = Object.keys(pins).join(',');
+  // Once the upstream-cn stage has settled on them, every later stage reads the same tables.
+  const tables = cnTablesRecord(lock?.cnTables);
+  if (tables && !env[CN_TABLES_VARIABLE]) pins[CN_TABLES_VARIABLE] = JSON.stringify(tables);
   return pins;
 }
 
@@ -90,7 +125,11 @@ export async function pinUpstream({ previous = null, resolve, env = {}, mirrors 
     }
     repositories[repository] = { branch, commit, variable, source };
   }
-  return { lock: { version: 1, repositories }, warnings };
+  // Which CN tables the previous run read is this run's to settle again (cn-tables.mjs), and
+  // no stage may read them before it has: the record is kept only as where they last came
+  // from, which that stage falls back to when the primary mirror's pinned commit is unusable.
+  const last = cnTablesRecord(previous?.cnTables) ?? cnTablesRecord(previous?.lastCnTables);
+  return { lock: { version: 1, repositories, ...(last ? { lastCnTables: last } : {}) }, warnings };
 }
 
 const run = promisify(execFile);
@@ -121,6 +160,34 @@ export async function pinnedCommit(repository, head, env = process.env) {
   return sha.test(ref) ? ref : head(repository, ref);
 }
 
+/**
+ * The CN tables this run reads: the ones the upstream-cn stage settled on, which run-stage.mjs
+ * passes to every later stage, else -- a script run by hand -- the primary mirror at its pin,
+ * else its branch, as before. {repository, commit (null for a branch), ref, folder}, where
+ * folder holds excel/ and levels/. A value that is set but names no source is a mistake in
+ * the refresh, and fails loudly rather than reading another mirror than the rest of the run.
+ */
+export function cnTables(env = process.env) {
+  const given = env[CN_TABLES_VARIABLE];
+  if (given) {
+    let parsed = null;
+    try { parsed = JSON.parse(given); } catch { /* reported below */ }
+    const tables = cnTablesRecord(parsed);
+    if (!tables) throw new Error(`${CN_TABLES_VARIABLE} does not name one of the CN table sources at a commit: ${given}`);
+    return { ...tables, ref: tables.commit };
+  }
+  const [primary] = CN_TABLE_SOURCES;
+  const ref = pinnedRef(primary.repository, env);
+  return { repository: primary.repository, commit: sha.test(ref) ? ref : null, ref, folder: primary.folder, serialization: null };
+}
+
+/** https://raw.githubusercontent.com/<CN tables mirror>/<its commit>/<its folder>/<file>, for a
+ * file under gamedata/: cnTableUrl('excel/charword_table.json'). */
+export function cnTableUrl(file, env = process.env) {
+  const { repository, ref, folder } = cnTables(env);
+  return `https://raw.githubusercontent.com/${repository}/${ref}/${folder}/${file}`;
+}
+
 /** https://raw.githubusercontent.com/<repo>/<pinned commit, else branch>/<path> */
 export function rawUrl(root, repository, file, env = process.env) {
   const mirror = MIRRORS.find(entry => entry.repository === repository);
@@ -134,6 +201,11 @@ async function main(argv) {
   if (argv[0] === 'raw-url') {
     if (argv.length !== 3) throw new Error('usage: pin-upstream.mjs raw-url <owner/repo> <path>');
     console.log(rawUrl(root, argv[1], argv[2]));
+    return;
+  }
+  if (argv[0] === 'cn-table-url') {
+    if (argv.length !== 2) throw new Error('usage: pin-upstream.mjs cn-table-url <file under gamedata/, e.g. excel/item_table.json>');
+    console.log(cnTableUrl(argv[1]));
     return;
   }
   const { lock, warnings } = await pinUpstream({ previous: readLock(root), resolve: lsRemote, env: process.env });

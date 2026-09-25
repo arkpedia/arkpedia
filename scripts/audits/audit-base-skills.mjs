@@ -131,14 +131,8 @@ function specialKeys(file) {
 }
 
 function slotTable() {
-  const src = fs.readFileSync(path.join(REPO, 'lib', 'base', 'baseSkillSlots.ts'), 'utf8');
-  const out = new Map();
-  const re = /^ {2}'((?:[^'\\]|\\.)*)': \{ slot: (\d+), phase: (\d+), level: (\d+) \},/gm;
-  let m;
-  while ((m = re.exec(src)) !== null) {
-    out.set(m[1].replace(/\\'/g, "'"), { slot: +m[2], phase: +m[3], level: +m[4] });
-  }
-  return out;
+  // data/base-skill-slots.json, the game table /base reads from its props.
+  return new Map(Object.entries(JSON.parse(fs.readFileSync(path.join(REPO, 'data', 'base-skill-slots.json'), 'utf8'))));
 }
 
 /** Mirrors the slot-table branch of combinedSkillsForElite() in pages/base.tsx. */
@@ -179,8 +173,9 @@ function main() {
   // computeResourcePools() rather than a facility map -- Senshi's Monster
   // Meals, Czerny's and Iris's resource conversions. They are handled, just
   // not somewhere the two checks above can see, so match them by name.
-  // baseSkillSlots.ts is excluded deliberately: it is keyed by EVERY skill
-  // name, so including it would mark everything as handled and hide real gaps.
+  // baseSkillSlots.ts is excluded deliberately: the slot table it documents
+  // (data/base-skill-slots.json) is keyed by EVERY skill name, so including it
+  // would mark everything as handled and hide real gaps.
   let elsewhereSrc = fs.readFileSync(path.join(REPO, 'pages', 'base.tsx'), 'utf8');
   for (const f of fs.readdirSync(path.join(REPO, 'lib', 'base')).filter((f) => f.endsWith('.ts') && f !== 'baseSkillSlots.ts')) {
     elsewhereSrc += fs.readFileSync(path.join(REPO, 'lib', 'base', f), 'utf8');

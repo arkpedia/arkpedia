@@ -16,11 +16,11 @@
 # finishes in place what the stage build wrote says so with --output: if it fails, the
 # build is rolled back with every step that ran on it, so a half-made dataset (the raw
 # index, CC# labels, RA records without their maps) is never what goes out. Only the
-# two upstream checkouts are --invariant: without them no step has a source, so their
+# two sets of game tables are --invariant: without them no step has a source, so their
 # failure stops the refresh. Run on its own, the refresh first pins one commit per
-# upstream mirror, and exits non-zero at the end if any step failed. Inside the daily
-# release (ARKPEDIA_STAGE_RUN=1) its stages join that run, which pinned them already
-# and decides what fails the release.
+# upstream mirror and settles where the CN tables come from, and exits non-zero at the
+# end if any step failed. Inside the daily release (ARKPEDIA_STAGE_RUN=1) its stages
+# join that run, which did both already and decides what fails the release.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -30,6 +30,9 @@ if [ -z "${ARKPEDIA_STAGE_RUN:-}" ]; then
   standalone=1
   node scripts/content/run-stage.mjs begin
   stage pin-upstream -- node scripts/content/pin-upstream.mjs
+  # The CN tables, every one from the same mirror at one commit, with a fallback mirror
+  # (scripts/content/cn-tables.mjs). The daily release runs this before its catalogue.
+  stage upstream-cn --invariant --timeout-minutes 30 -- node scripts/content/cn-tables.mjs
 fi
 
 # Upstream data. Every source is PUBLIC. Nothing here needs credentials or a sibling
@@ -37,10 +40,10 @@ fi
 # to rebuild its own data even if every other repo in the project goes away. Each
 # checkout is at the commit pinned for its repository (scripts/lib/upstream.sh).
 #
-# CN gamedata, the level files the devices come out of, CCB map renders, item icons.
-stage upstream-cn --invariant --timeout-minutes 20 -- bash scripts/lib/upstream.sh \
-  cn-resource https://github.com/yuanyan3060/ArknightsGameResource.git default \
-  gamedata/excel gamedata/levels map item
+# CN art: the CCB map renders and the item icons, which only yuanyan3060 carries. Not
+# an invariant: without it, item-icons is skipped and cc-stages publishes the renders
+# the image repository has; the tables still come from the mirror upstream-cn chose.
+stage upstream-cn-art --timeout-minutes 20 -- node scripts/content/cn-tables.mjs art
 # EN gamedata: the whole stage dataset comes out of this one. excel/ for the
 # tables, levels/ for the maps, the waves and the enemy configurations.
 stage upstream-en --invariant --timeout-minutes 20 -- bash scripts/lib/upstream.sh \
@@ -107,7 +110,8 @@ stage content-windows --needs stage-dataset -- node scripts/build/build-content-
 
 # Item icons for the drops. A new token's icon is staged in .cache/item-icons/ and
 # reported until the image repository publishes it; nothing is written under public/.
-stage item-icons --needs stage-dataset -- node scripts/imports/import-item-icons.mjs
+# Without the CN art it keeps its map and its reports as they were.
+stage item-icons --needs stage-dataset,upstream-cn-art -- node scripts/imports/import-item-icons.mjs
 
 # Operators the map can deploy: ranges and DP per promotion.
 # Independent of the stage dataset -- it reads character_table and range_table, plus

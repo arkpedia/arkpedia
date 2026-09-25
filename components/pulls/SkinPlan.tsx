@@ -3,6 +3,7 @@ import { SkinsHelp } from './PlannerHelp';
 import { useMemo, useState, type ReactNode } from 'react';
 import { skinReservation, skinPurchasePlan, type PlannedSkin } from '@/lib/pulls/skins';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
+import { openSkinCollections } from '@/lib/pulls/currentPlan';
 import { ContentImg } from '@/components/content/ContentImage';
 
 export function SkinPlan({ catalogue, collections, today, ids, onChange, heldOP, extraOP, extraField, forecastOP }: {
@@ -14,7 +15,7 @@ export function SkinPlan({ catalogue, collections, today, ids, onChange, heldOP,
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(12);
   const [collectionId, setCollectionId] = useState('');
-  const upcoming = useMemo(() => collections.filter(collection => !today || collection.end >= today), [collections, today]);
+  const upcoming = useMemo(() => today ? openSkinCollections(collections, today) : collections, [collections, today]);
   const collection = upcoming.find(value => value.id === collectionId) ?? upcoming[0];
   const selection = useMemo(() => skinReservation(ids, catalogue, extraOP), [ids, catalogue, extraOP]);
   const purchases = useMemo(() => skinPurchasePlan(selection.skins, upcoming, extraOP), [selection.skins, upcoming, extraOP]);

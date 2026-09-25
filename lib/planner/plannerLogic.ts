@@ -1,4 +1,3 @@
-import levelData from '@/data/operatorLevelExpLmd.json';
 import { Operator, CostGroup, OperatorModule, getSkillList, getSkillCost } from '../operators/operatorTypes';
 
 // Level caps per rarity, per elite tier -- confirmed limits, not derived
@@ -74,21 +73,23 @@ export function defaultTarget(rarity: number): { elite: number; level: number } 
 
 const ELITE_KEYS = ['Elite0', 'Elite1', 'Elite2'] as const;
 
-interface LevelDataShape {
+/** data/operatorLevelExpLmd.json: EXP and LMD per level, per elite tier. A game table the
+ *  release carries -- the planner reads it from its props (usePlannerContent) and passes
+ *  it in, so this module never compiles a copy into the browser bundle. */
+export interface LevelTable {
   [tier: string]: { [level: string]: { EXP: number; LMD: number } };
 }
-const LEVEL_DATA = levelData as unknown as LevelDataShape;
 
 /** Cumulative EXP/LMD from Level 1, Elite 0 all the way to the given
  * target -- every lower elite tier is summed in full (levels 2 through
  * that tier's own cap), since it must be fully maxed before the next
  * tier unlocks, then the target tier is summed only up to the chosen
  * level. */
-export function computeLevelCost(rarity: number, targetElite: number, targetLevel: number): { exp: number; lmd: number } {
+export function computeLevelCost(levels: LevelTable, rarity: number, targetElite: number, targetLevel: number): { exp: number; lmd: number } {
   let exp = 0;
   let lmd = 0;
   for (let e = 0; e <= targetElite; e++) {
-    const tierData = LEVEL_DATA[ELITE_KEYS[e]];
+    const tierData = levels[ELITE_KEYS[e]];
     if (!tierData) continue;
     const capAtThisTier = e === targetElite ? targetLevel : maxLevelForElite(rarity, e);
     for (let lvl = 2; lvl <= capAtThisTier; lvl++) {
@@ -212,14 +213,15 @@ export function moduleStageCostRemaining(
  * numbers directly; it has to go through the full cumulative
  * computation for both points and subtract. */
 export function computeLevelCostRemaining(
+  levels: LevelTable,
   rarity: number,
   startElite: number,
   startLevel: number,
   targetElite: number,
   targetLevel: number
 ): { exp: number; lmd: number } {
-  const targetCost = computeLevelCost(rarity, targetElite, targetLevel);
-  const startCost = computeLevelCost(rarity, startElite, startLevel);
+  const targetCost = computeLevelCost(levels, rarity, targetElite, targetLevel);
+  const startCost = computeLevelCost(levels, rarity, startElite, startLevel);
   return {
     exp: Math.max(0, targetCost.exp - startCost.exp),
     lmd: Math.max(0, targetCost.lmd - startCost.lmd),

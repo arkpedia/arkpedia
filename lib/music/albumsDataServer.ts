@@ -10,6 +10,7 @@ import albumsRaw from '@/data/albums.json';
 import { getAllSongsFull, MonsterSirenSong, RawCredit } from './albumsData';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorAppearances } from '@/lib/operators/operatorAppearances';
+import { normalizeReleaseDate, parseReleaseDate } from './releaseDate.mjs';
 
 export interface CharacterArt {
   name: string;
@@ -160,7 +161,9 @@ function getAllAlbums(): AlbumSummary[] {
       albumName: a.albumName,
       albumAltName: a.albumAltName || a.albumName,
       coverPath: a.coverFilename ? `/album-covers/${a.coverFilename}` : null,
-      releaseDate: a.releaseDate || '',
+      // Stored form (YYYY/MM/DD) or '' -- a date written any other way that still names a
+      // day is read as that day; one that names none counts as unknown.
+      releaseDate: normalizeReleaseDate(a.releaseDate) ?? '',
       albumCategory: a.albumCategory || [],
       albumGenre: a.albumGenre || [],
       characters: a.characters || [],
@@ -309,6 +312,25 @@ export interface DiscoverPageData {
 
 const RECENT_ALBUMS_LIMIT = 12;
 
+/** The day as a number to sort by; an unknown date sorts after every known one. */
+function releaseDay(date: string): number {
+  return parseReleaseDate(date) ?? Number.NEGATIVE_INFINITY;
+}
+
+/**
+ * The albums with a known release date, newest first -- by the day each names, not by
+ * the text: comparing the strings put "October 8, 2025" above every 2026 album. An album
+ * with no readable date has no place in a list ordered by recency, so it is left out
+ * (the album sync fills a blank date from its cover's upload day, see releaseDate.mjs).
+ */
+export function newestFirst<T extends { releaseDate: string }>(albums: T[]): T[] {
+  return albums
+    .map((album) => ({ album, day: parseReleaseDate(normalizeReleaseDate(album.releaseDate)) }))
+    .filter((row): row is { album: T; day: number } => row.day !== null)
+    .sort((a, b) => b.day - a.day)
+    .map((row) => row.album);
+}
+
 function countBy(values: string[]): DiscoverFacet[] {
   const counts = new Map<string, number>();
   for (const v of values) counts.set(v, (counts.get(v) || 0) + 1);
@@ -347,10 +369,9 @@ export function getDiscoverPageData(): DiscoverPageData {
   // would just redundantly re-check the same date once per song on a
   // multi-song album.
   const characterRecency = new Map<string, string>();
-  for (const album of albums) {
+  for (const album of newestFirst(albums)) {
     for (const name of album.characters) {
-      const existing = characterRecency.get(name);
-      if (!existing || album.releaseDate > existing) characterRecency.set(name, album.releaseDate);
+      if (!characterRecency.has(name)) characterRecency.set(name, album.releaseDate);
     }
   }
   const characterCounts = countBy(allCharacterNames);
@@ -366,11 +387,9 @@ export function getDiscoverPageData(): DiscoverPageData {
       artPath: artPathByName.get(c.name) || null,
       mostRecentDate: characterRecency.get(c.name) || '',
     }))
-    .sort((a, b) => b.mostRecentDate.localeCompare(a.mostRecentDate)); // YYYY/MM/DD sorts correctly as a plain string
+    .sort((a, b) => releaseDay(b.mostRecentDate) - releaseDay(a.mostRecentDate));
 
-  const recentAlbums: DiscoverAlbum[] = albums
-    .filter((a) => a.releaseDate)
-    .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)) // YYYY/MM/DD sorts correctly as a plain string
+  const recentAlbums: DiscoverAlbum[] = newestFirst(albums)
     .slice(0, RECENT_ALBUMS_LIMIT)
     .map((a) => ({
       albumId: a.albumId,

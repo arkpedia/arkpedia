@@ -243,7 +243,10 @@ export default function MusicPage({ songLookup }: Props) {
   const detailByVideoId = useMemo(() => new Map(songLookup.map((s) => [s.videoId, s])), [songLookup]);
   const currentDetail = detailByVideoId.get(videoId);
   const currentTrack = queue.find((t) => t.id === videoId);
-  const hasLyrics = Boolean(currentTrack?.hasLyrics);
+  // From this page's release props, like the credits: a lyric file is published for exactly
+  // the songs whose lyrics parse, which is what this flag says, so the Lyrics button never
+  // offers a file the release does not have.
+  const hasLyrics = Boolean(currentDetail?.hasLyrics);
 
   // If the currently-playing song has no lyrics, force back to the
   // album art view. Without this, a listener viewing lyrics for one

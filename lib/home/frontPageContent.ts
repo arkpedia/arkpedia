@@ -1,6 +1,7 @@
 import { parseGameWindow, type GameWindowTimes } from '@/lib/schedule/gameWindow';
 import { loadAllEventYears } from '../events/loadEventsData';
-import { getBannersSortedByDate, HeadhuntingBanner } from '../gacha/headhuntingBanners';
+import type { HeadhuntingBanner } from '../gacha/headhuntingBanners';
+import { getBannersSortedByDate } from '../gacha/headhuntingBannerData';
 import { parseBannerDate, parseBannerEndDate } from '../gacha/realGachaBanners';
 import { bannerSeriesFromName } from '../operators/operatorSeries';
 import { getAllSkins } from '../skins/skins';
@@ -28,6 +29,9 @@ interface RawEvent {
   cn?: { dateRange: string | null; note: string | null } | null;
 }
 
+// Every "which events/banners/skins are current" helper below takes `now` without a
+// default: the home page passes the request's clock (finalizeHome), and a defaulted
+// clock is how the content export used to freeze its own moment into pages.
 export function loadGameEvents(): GameEvent[] {
   const raw = loadAllEventYears() as RawEvent[];
   const events: GameEvent[] = [];
@@ -41,7 +45,7 @@ export function loadGameEvents(): GameEvent[] {
   return events;
 }
 
-export function getOngoingEvents(now: Date = new Date(), events = loadGameEvents()): GameEvent[] {
+export function getOngoingEvents(now: Date, events = loadGameEvents()): GameEvent[] {
   return events
     .filter((e) => e.start <= now && now < e.end)
     .sort((a, b) => a.end.getTime() - b.end.getTime());
@@ -49,7 +53,7 @@ export function getOngoingEvents(now: Date = new Date(), events = loadGameEvents
 
 /** The single soonest upcoming event -- guarantees there's always at
  * least one banner to show, even with zero ongoing events. */
-export function getNextUpcomingEvent(now: Date = new Date(), events = loadGameEvents()): GameEvent | null {
+export function getNextUpcomingEvent(now: Date, events = loadGameEvents()): GameEvent | null {
   const upcoming = events
     .filter((e) => e.start > now)
     .sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -95,7 +99,7 @@ function bannerCategoryRank(banner: HeadhuntingBanner): number {
  * the SAME functions the Gacha page's own "Upcoming" category already
  * uses to correctly identify currently-active banners.
  */
-export function getOngoingGachaBanners(now: Date = new Date(), banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
+export function getOngoingGachaBanners(now: Date, banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const result: GachaBannerWithWindow[] = [];
   for (const b of banners) {
     if (!b.global_date) continue; // CN-only pools are not active on Global.
@@ -114,7 +118,7 @@ export function getOngoingGachaBanners(now: Date = new Date(), banners = getBann
 }
 
 /** Keep the next Global banner visible with a start countdown. */
-export function getHomeGachaBanners(now: Date = new Date(), banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
+export function getHomeGachaBanners(now: Date, banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const ongoing = getOngoingGachaBanners(now, banners);
   const next = banners.filter(banner => banner.global_date).map(banner => {
     const start = parseBannerDate(banner), end = parseBannerEndDate(banner);
@@ -126,7 +130,7 @@ export function getHomeGachaBanners(now: Date = new Date(), banners = getBanners
 
 /** Skins tied to a currently-ongoing event, via each skin's own
  * "release" field matching that event's name. */
-export function getOngoingSkins(now: Date = new Date(), allSkins = getAllSkins(), events = loadGameEvents()): Skin[] {
+export function getOngoingSkins(now: Date, allSkins = getAllSkins(), events = loadGameEvents()): Skin[] {
   const ongoingEvents = getOngoingEvents(now, events);
   /* Every event name, not just the ongoing ones: the point of the list is to let a
      release be recognised as belonging to some OTHER event than this one. */
@@ -144,14 +148,16 @@ export function getOngoingSkins(now: Date = new Date(), allSkins = getAllSkins()
 }
 
 /** Actual repeatable stage drops inside their confirmed Global battle windows. */
-export function getCurrentFarmableMaterials(now: Date = new Date()): FarmingMaterial[] {
+export function getCurrentFarmableMaterials(now: Date): FarmingMaterial[] {
   return activeEventFarming(getEventFarmingMaterials(), now.getTime());
 }
 
 // --- Full events listing, for the standalone /events pages ---------
 
+/** One event on the Global calendar, confirmed or predicted. Clock-free: whether
+ * it is ongoing, upcoming or over is a question for the moment of reading, never
+ * something the content export decides once. */
 export interface GameEventListing extends GameEvent {
-  isOngoing: boolean;
   isPredicted: boolean; // true when there's no confirmed Global date yet -- start/end are estimated from the CN date plus a fixed average localization gap
 }
 
@@ -169,12 +175,14 @@ function formatDateRange(start: Date, end: Date): string {
   return `${fmt(start)}\u2013${fmt(end)}`;
 }
 
-/** Every currently-ongoing or future event, including a best-effort
- * predicted window (see PREDICTED_GAP_DAYS) for events that only have
- * a CN date on record so far. Powers the /events list and detail
- * pages -- broader than getOngoingEvents/getNextUpcomingEvent above,
- * which only ever surface real, Global-confirmed dates. */
-export function getAllEventListings(now: Date = new Date()): GameEventListing[] {
+/** Every event with a Global window, including a best-effort predicted
+ * window (see PREDICTED_GAP_DAYS) for events that only have a CN date on
+ * record so far, oldest first. Past events stay in: an event page exists for
+ * as long as its record does, and "ongoing or upcoming" is decided at the
+ * moment of reading (lib/schedule/eventRows.ts). Broader than
+ * getOngoingEvents/getNextUpcomingEvent above, which only ever surface real,
+ * Global-confirmed dates. */
+export function getEventCalendar(): GameEventListing[] {
   const raw = loadAllEventYears() as RawEvent[];
   const result: GameEventListing[] = [];
 
@@ -190,7 +198,6 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
         dateRange: globalRange,
         start: window.start,
         end: window.end,
-        isOngoing: window.start <= now && now < window.end,
         isPredicted: /estimated|predicted/i.test(e.global?.note || ''),
       });
       continue;
@@ -203,7 +210,6 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
     if (!cnWindow) continue;
     const predictedStart = new Date(cnWindow.start.getTime() + PREDICTED_GAP_DAYS * 86400000);
     const predictedEnd = new Date(cnWindow.end.getTime() + PREDICTED_GAP_DAYS * 86400000);
-    if (predictedEnd.getTime() < now.getTime()) continue; // predicted window already passed -- likely just a missing/stale Global entry rather than a genuinely future event
 
     result.push({
       name: e.name,
@@ -212,12 +218,9 @@ export function getAllEventListings(now: Date = new Date()): GameEventListing[] 
       dateRange: formatDateRange(predictedStart, predictedEnd),
       start: predictedStart,
       end: predictedEnd,
-      isOngoing: predictedStart <= now && now < predictedEnd,
       isPredicted: true,
     });
   }
 
-  return result
-    .filter((e) => e.end.getTime() > now.getTime())
-    .sort((a, b) => a.start.getTime() - b.start.getTime());
+  return result.sort((a, b) => a.start.getTime() - b.start.getTime());
 }

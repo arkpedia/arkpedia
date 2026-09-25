@@ -122,6 +122,6 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/supplies", async () => ({
   props: {
     cards: getSupplyCards(),
-    buildDay: serverWeekday(),
+    // `buildDay` is the request's server day, from contentPageClock (lib/content/pageClock.ts).
   },
 }));

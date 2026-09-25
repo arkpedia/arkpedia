@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
+import { PAGE_TABLES, missingPageTables } from '../../lib/content/tables.mjs';
 import { contentInput, releaseInput } from './release-input.mjs';
+import { cnTablesRecord } from './pin-upstream.mjs';
+import { findClockFields, findPublicClockFields } from './clock-fields.mjs';
 const root = path.resolve(process.argv[2] || '.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const check = (value, message) => { if (!value) throw new Error(message); };
@@ -85,6 +88,10 @@ function checkUpstreamLock(file) {
     check(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) && plain(entry) && typeof entry.branch === 'string'
       && (entry.commit === null || gitSha.test(entry.commit)), `data/upstream.lock.json: invalid pin for ${repository}`);
   }
+  // Where the run's CN tables came from (scripts/content/cn-tables.mjs), and the last run's.
+  for (const key of ['cnTables', 'lastCnTables']) {
+    check(file[key] === undefined || cnTablesRecord(file[key]) !== null, `data/upstream.lock.json: ${key} must name a CN table source at a commit`);
+  }
 }
 const manifestBytes = fs.readFileSync(path.join(root, 'release/manifest.json'));
 const m = JSON.parse(manifestBytes);
@@ -96,6 +103,9 @@ for (const [route, file] of Object.entries(m.pages)) {
   check(file.path === pageFilePath(route), `Invalid page: ${route}`);
 }
 for (const [name, file] of Object.entries(m.files)) check(safe(name) && file.path === `public/${name}`, `Invalid public file: ${name}`);
+// What each output is, for the clock-field check: a page's route, or a public file's name.
+const routeOf = new Map(Object.entries(m.pages).map(([route, file]) => [file.path, route]));
+const publicNameOf = new Map(Object.entries(m.files).map(([name, file]) => [file.path, name]));
 for (const file of [...Object.values(m.pages), ...Object.values(m.files)]) {
   check(safe(file.path) && hex.test(file.sha256) && file.bytes > 0 && file.bytes <= 25_000_000, `Invalid file metadata: ${file.path}`);
   check(!expected.has(file.path), `Duplicate output: ${file.path}`);
@@ -107,6 +117,14 @@ for (const file of [...Object.values(m.pages), ...Object.values(m.files)]) {
   if (file.path.startsWith('pages/')) {
     check(json.props && typeof json.props === 'object' && !Array.isArray(json.props) && !json.props.__contentRelease, `Invalid page props: ${file.path}`);
     check(!/https:\/\/(?:cdn\.jsdelivr\.net|arknights\.wiki\.gg\/images)\//.test(bytes.toString()), `Page bypasses Arkpedia asset delivery: ${file.path}`);
+    // A value decided by the export's clock stays in the release, and wrong, until the
+    // next one (scripts/content/clock-fields.mjs).
+    const frozen = findClockFields(json.props, routeOf.get(file.path));
+    check(!frozen.length, `Page carries values decided by the export's clock (${frozen.slice(0, 5).join(', ')}${frozen.length > 5 ? ', ...' : ''}); export raw windows and decide at render from \`now\`: ${file.path}`);
+  } else {
+    // The same for the public JSON a build script writes as its own object.
+    const frozen = findPublicClockFields(json, publicNameOf.get(file.path));
+    check(!frozen.length, `Public data carries values decided by the export's clock (${frozen.slice(0, 5).join(', ')}); decide at render from \`now\`: ${file.path}`);
   }
 }
 const actual = walk(path.join(root, 'release')).map(file => path.relative(path.join(root, 'release'), file));
@@ -155,8 +173,18 @@ const pullSources = JSON.parse(fs.readFileSync(path.join(root, 'source/data/pull
 check(Array.isArray(pullsProps.backlogSources?.playable) && pullsProps.backlogSources.playable.length > 0
   && playableIds(pullsProps.backlogSources.playable) === playableIds(pullSources.events.list.filter(event => event.playable)),
 'The /pulls page does not carry this release\'s playable events (backlogSources)');
+// A game table a page's browser code reads travels in that page's props
+// (lib/content/tables.mjs). Without it the page serves the deployment's copy, which
+// lags every release until a redeploy.
+for (const route of Object.keys(PAGE_TABLES)) {
+  check(m.pages[route], `Missing page that carries game tables: ${route}`);
+  const missing = missingPageTables(route, JSON.parse(fs.readFileSync(path.join(root, 'release', m.pages[route].path))).props);
+  check(!missing.length, `The ${route} page does not carry this release's ${missing.join(', ')} (__contentTables)`);
+}
 check(Object.keys(m.pages).filter(route => route.startsWith('/operators/')).length > 100, 'Operator catalogue is incomplete');
-for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json', 'operator-search.json']) check(m.files[file], `Missing catalogue: ${file}`);
+// music-catalogue.json is the music player's queue: without it, songs the release adds
+// never reach the player on any page (lib/music/musicCatalogue.ts).
+for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json', 'operator-search.json', 'music-catalogue.json']) check(m.files[file], `Missing catalogue: ${file}`);
 if (untimestamped.length) console.warn(`Warning: ${untimestamped.length} lyric file(s) have no timestamps and render no lyrics: ${untimestamped.join(', ')}`);
 console.log(`Validated ${Object.keys(m.pages).length} pages, ${Object.keys(m.files).length} data files and ${Object.keys(sources).length} source records.`);
 console.log(`Manifest SHA-256: ${sha(manifestBytes)}`);

@@ -19,11 +19,12 @@ const clientCreated = [
 ];
 const own = banner({ name: 'Rage of The Many', global_date: '2026/09/16–2026/09/30', linked_event: '[Side Story] People, A People' });
 
-/* The event pages call getBannerForEvent with the banners the module loaded, so the
+/* The event pages call getBannerForEvent with the banners the data module loaded, so the
    client-created records go into that data first -- as sync-catalogue writes them into
    data/headhunting_banners.json -- and the module is loaded after. */
 (loadedBanners as unknown as HeadhuntingBanner[]).push(...clientCreated);
 const linker = import('../../lib/gacha/headhuntingBanners').then(module => module.getBannerForEvent);
+const loaded = import('../../lib/gacha/headhuntingBannerData').then(module => module.getAllHeadhuntingBanners());
 
 test('a banner created under its Chinese name is never the banner of an unrelated Global event', async () => {
   const getBannerForEvent = await linker;
@@ -33,8 +34,9 @@ test('a banner created under its Chinese name is never the banner of an unrelate
     ['Contingency Contract Obliteration', '2026/10/13–2026/10/27'], ['Positional Football Championship', '2026/11/01–2026/11/15'],
     ['[Crossover] Magic and Friendship', null], ["[Event] Dolly's Playground", null], ["[Rerun] The Masses' Travels Rerun", '2026/10/24–2026/11/03'],
   ];
+  const pageBanners = await loaded;
   for (const [name, range] of events) {
-    assert.equal(getBannerForEvent(name, range), null, name); // an event page: the loaded data
+    assert.equal(getBannerForEvent(name, range, pageBanners), null, name); // an event page: the loaded data
     assert.equal(getBannerForEvent(name, range, [...clientCreated, own]), null, name); // the schedule: its live table
   }
   // The event that has a banner still finds it.

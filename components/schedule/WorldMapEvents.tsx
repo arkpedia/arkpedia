@@ -34,9 +34,12 @@ function shortStatusLabel(status: 'upcoming' | 'live' | 'ended', startTime: stri
   return formatCountdown(startTime, now);
 }
 
-export default function WorldMapEvents({ events }: { events: CommunityEvent[] }) {
+/** `now` is the page's own clock: the pins' status labels render from it on the server and
+ *  in the browser's first render, which must match, and from the reader's clock once
+ *  mounted (EventListPanel does the same). */
+export default function WorldMapEvents({ events, now: renderedAt }: { events: CommunityEvent[]; now: number }) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(renderedAt);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   /**
    * The pin whose tooltip has been CLICKED open, as against merely hovered.
@@ -109,6 +112,7 @@ export default function WorldMapEvents({ events }: { events: CommunityEvent[] })
   }, [pinnedIndex]);
 
   useEffect(() => {
+    setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);

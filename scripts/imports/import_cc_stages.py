@@ -24,7 +24,9 @@ Three things were wrong or missing for the 16 CCB stages:
 Renders come from the local ArknightsGameResource checkout, whose map/ directory
 keys them the same way the level path does (map/crisis_v2_01-02.png). That is why
 they were missed: every other preview is named after a stage id, and these stages
-have none.
+have none. The checkout is the refresh's upstream-cn-art stage, which is not an
+invariant: on a day it fails there is no map/ at all, and this still names and
+labels every stage and keeps every render the image repository publishes.
 
 NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets
 (stages-images/<key>.webp), and a file in this repository's public/ is refused by
@@ -99,9 +101,17 @@ def main():
                 why = (f'its render is staged as .cache/cc-stages/{key}.webp from map/{key}.png, but nothing publishes it; '
                        f'it is published without one until stages-images/{key}.webp is added to arkpedia-image-assets')
             except Exception as exc:  # noqa: BLE001 -- one bad file holds back one stage
-                why = f'map/{key}.png does not decode ({exc}), so it is published without a render'
+                # The error names the checkout's path and the day's wording: the log gets it,
+                # the reason (a release input) only the kind.
+                print(f'  UNREADABLE map/{key}.png: {exc}', file=sys.stderr)
+                why = f'map/{key}.png does not decode, so it is published without a render'
             alerts.append({'key': f'cc-render:{rec["slug"]}', 'action': 'published-partial', 'sourceRef': f'map/{key}.png',
                            'reason': f'{entry["code"]} ({rec["slug"]}): {why}.'})
+        elif not os.path.isdir(os.path.join(RES, 'map')):
+            missing.append(f'{rec["slug"]}: no CN art this run')
+            alerts.append({'key': f'cc-render:{rec["slug"]}', 'action': 'published-partial',
+                           'reason': f'{entry["code"]} ({rec["slug"]}): the CN art (map/) could not be synced this run, so its render cannot be staged; '
+                                     f'it is published without one until stages-images/{key}.webp is added to arkpedia-image-assets.'})
         else:
             missing.append(f'{rec["slug"]}: no render at map/{key}.png')
             alerts.append({'key': f'cc-render:{rec["slug"]}', 'action': 'published-partial',

@@ -1,4 +1,5 @@
 import { ContentContext, ContentTablesContext } from '@/lib/content/context';
+import { contentUrl } from '@/lib/content/urls';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import '@/styles/core/shared.css';
@@ -46,12 +47,12 @@ import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
 export default function App({ Component, pageProps }: AppProps) {
   // Dedicated compact tools declare their layout before the server's first paint.
   const hideSiteChrome = (Component as typeof Component & { hideSiteChrome?: boolean }).hideSiteChrome === true;
+  /* The logo is art like any other: pinned to the page's content release rather than
+     left as /essential-icons/..., which 307s to the asset commit of the last deploy.
+     App renders the content provider, so it resolves with the page's release directly.
+     The result is already absolute, which is what a link preview needs. */
   const logoPath = getEssentialIconPath('Arkpedia');
-  /* NEXT_PUBLIC_SITE_URL if someone sets it, else the deployment Vercel is building.
-     Both are absent in local development, where link previews are not a thing. */
-  const origin = process.env.NEXT_PUBLIC_SITE_URL
-    || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '');
-  const ogImage = origin && logoPath ? `${origin}${logoPath}` : '';
+  const logoUrl = logoPath ? contentUrl(logoPath, pageProps.__contentRelease ?? null) : null;
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
@@ -89,16 +90,13 @@ export default function App({ Component, pageProps }: AppProps) {
         />
         <meta name="twitter:card" content="summary" />
       </Head>
-      {logoPath && (
+      {logoUrl && (
         <Head>
-          <link rel="icon" href={logoPath} />
+          <link rel="icon" href={logoUrl} />
           {/* Absolute, because a preview card is fetched by someone else's server and a
-              relative path means nothing to it. The origin comes from Vercel at build
-              time rather than being hardcoded, so a preview deployment advertises its
-              own art and not production's. Omitted entirely when neither is set: a
-              missing og:image just means no thumbnail, while a broken one is a broken
-              card. */}
-          {ogImage && <meta property="og:image" content={ogImage} />}
+              relative path means nothing to it. contentUrl gives the full address of the
+              published file, the same one the favicon uses. */}
+          <meta property="og:image" content={logoUrl} />
         </Head>
       )}
       {/* First tab stop on every page -- lets keyboard users jump the nav.

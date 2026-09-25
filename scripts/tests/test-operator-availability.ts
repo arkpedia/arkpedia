@@ -36,15 +36,16 @@ test('unknown or invalid release dates do not imply availability', () => {
   for (const date of ['', 'N/A', '2026/02/30']) assert.equal(operatorRelease({ characterInfo: { 'Release Date': date } }), null);
   assert.equal(operatorRelease({ releaseAt: '2026-09-16T08:00:00' }), null);
   assert.ok(operatorRelease({ characterInfo: { 'Release Date': 'October 24, 2023' } }));
-  assert.equal(isOperatorReleased({ isFuture: true }), false);
-  assert.equal(isOperatorReleased({ isFuture: false }), true);
+  assert.equal(isOperatorReleased({ isFuture: true }, opening), false);
+  assert.equal(isOperatorReleased({ isFuture: false }, opening), true);
 });
 
 test('the shared operator search catalogue uses the current release source', () => {
   const expected = getAllOperators().map((operator) => ({
     name: operator.name,
     rarity: operator.rarity,
-    isFuture: !isOperatorReleased(operator),
+    // The catalogue is written with the clock of its build (build-operator-search.ts).
+    isFuture: !isOperatorReleased(operator, Date.now()),
     ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
   }));
   assert.deepEqual(operatorSearch.operators, expected);

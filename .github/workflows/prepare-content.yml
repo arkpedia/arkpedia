@@ -118,14 +118,20 @@ jobs:
           # (one that finishes an earlier stage's output in place takes that stage back with
           # it); the stages that --need it are skipped, the rest carry on, and
           # data/stage-report.json and the 'Content quarantined' issue say what happened. Only
-          # an --invariant stage fails this step: the upstream checkouts no stage can do
-          # without, and the completeness invariants. Its quarantine holds are kept even then,
-          # so the issue and the evidence show the day's, not yesterday's.
+          # an --invariant stage fails this step: the game tables no stage can do without (CN
+          # from any one of its mirrors, EN) and the completeness invariants. Its quarantine
+          # holds are kept even then, so the issue and the evidence show the day's, not
+          # yesterday's.
           stage() { node scripts/content/run-stage.mjs run "$@"; }
           node scripts/content/run-stage.mjs begin
           trap 'node scripts/content/run-stage.mjs end' EXIT
           # One commit per upstream mirror for the whole run, in data/upstream.lock.json.
           stage pin-upstream -- node scripts/content/pin-upstream.mjs
+          # The CN tables, every one from the same mirror at one commit (Kengxxiao, else
+          # yuanyan3060), before anything reads them: the catalogue, voices and inventory here
+          # fetch theirs from the mirror this settles on, the stages of refresh-stage-data.sh
+          # read its checkout (scripts/content/cn-tables.mjs).
+          stage upstream-cn --invariant --timeout-minutes 30 -- node scripts/content/cn-tables.mjs
           supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
           stage charwords --output "$supplemental_charwords" -- curl --fail --silent --show-error --location --retry 3 \
             "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)" \
@@ -147,9 +153,16 @@ jobs:
           # without it they keep yesterday's lines rather than fall back to Chinese.
           stage voices --needs charwords -- env ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
             ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" npm run voices:refresh
+          # Monster Siren's new albums and songs, before the lyrics that key on them.
+          stage albums -- npm run albums:refresh
           stage lyrics -- npm run lyrics:refresh
           stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
           stage event-farming -- node scripts/sync/sync-event-farming.mjs
+          # What the guessers send to readers, measured once every stage that adds records has
+          # run. It writes nothing: over budget fails only this stage, so the daily issue names
+          # it until the payload is trimmed or the budget raised, and the release still goes
+          # out (scripts/audits/check-payload-budgets.ts).
+          stage payload-budgets -- npm run check:payload-budgets
           stage completeness --invariant --keep data/quarantine.json -- node scripts/content/check-completeness.mjs
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
@@ -165,7 +178,11 @@ jobs:
           # repository has not published yet (a Global launch renames art the day it lands)
           # holds back that icon, as a quarantine entry, instead of the release.
           npm run check:assets:release
-          npm run check:published-assets
+          # check:published-assets, except that a legacy voice clip an operator page offers
+          # but the pinned voice repository lacks (a day the voices stage failed, or a newly
+          # adopted voice revision that dropped one) holds back that clip, as a quarantine
+          # entry, instead of the release.
+          npm run check:published-assets:release
           mkdir -p "$RUNNER_TEMP/prepared-content"
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"

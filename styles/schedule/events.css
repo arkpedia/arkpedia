@@ -258,6 +258,11 @@
   position: relative;
   flex-shrink: 0;
   line-height: 0;
+  /* The icon's own size, held when there is no icon: an item whose icon is not
+     published yet (rewardIconPath) keeps its box, badge and text where every other
+     panel has them, instead of collapsing to the badge. */
+  width: 40px;
+  height: 40px;
 }
 .event-reward-qty-badge {
   position: absolute;

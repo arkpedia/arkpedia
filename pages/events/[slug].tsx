@@ -1,11 +1,11 @@
-import { operatorIconOverrides } from '@/lib/operators/operatorIconOverrides';
 import { withContentPage } from '@/lib/content/server';
 import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { getAllEventListings } from '@/lib/home/frontPageContent';
+import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { getFeaturedOperatorRates, splitEventBannerRates, FeaturedOperatorRate } from '@/lib/gacha/eventBannerRates';
 import { getAllSkins } from '@/lib/skins/skins';
@@ -15,7 +15,8 @@ import { parsePrices } from '@/lib/skins/skinPrice';
 import PriceDisplay from '@/components/ui/PriceDisplay';
 import { getEventCgImages } from '@/lib/events/eventCg';
 import { getEventRewards } from '@/lib/events/loadEventsData';
-import { getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
+import { rewardIconPath } from '@/lib/events/rewardIcons';
+import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
@@ -129,7 +130,6 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
 ];
 
 function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
-  if (operatorIconOverrides[name]) return operatorIconOverrides[name].icon;
   const folder = rarity === 6 ? 'six-star-icons' : rarity === 5 ? 'five-star-icons' : 'four-star-icons';
   return `/${folder}/${name} - Base.webp`;
 }
@@ -140,7 +140,8 @@ function RewardTotalsRow({ totals }: { totals: RewardTotal[] }) {
     <div className="op-cost-row">
       {totals.map((t, i) => (
         <span key={i} className="op-cost-item" title={t.name}>
-          {t.iconPath && <Image src={t.iconPath} alt={t.name} width={36} height={36} />}
+          {/* No icon published yet: the name, or the chip would read "×1" alone. */}
+          {t.iconPath ? <Image src={t.iconPath} alt={t.name} width={36} height={36} /> : t.name}
           <b>×{t.total}</b>
         </span>
       ))}
@@ -475,8 +476,12 @@ export default function EventDetailPage({
   );
 }
 
+/* Every event on the calendar has a page, past ones included. The set used to be the
+   events ongoing or upcoming when the content was exported, so a release published
+   after an event ended dropped its page and every link to it hit a 404 while the
+   record was still there. Only a record that is gone now leaves no page. */
 export const getStaticPaths: GetStaticPaths = async () => {
-  const listings = getAllEventListings();
+  const listings = getEventCalendar();
   return {
     paths: listings.map((e) => ({ params: { slug: e.name } })),
     fallback: 'blocking',
@@ -485,11 +490,11 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
-  const listings = getAllEventListings();
+  const listings = getEventCalendar();
   const event = listings.find((e) => e.name === name);
   if (!event) return { notFound: true };
 
-  const banner = getBannerForEvent(event.name, event.isPredicted ? null : event.dateRange);
+  const banner = getBannerForEvent(event.name, event.isPredicted ? null : event.dateRange, getAllHeadhuntingBanners());
   const featuredOperators = banner ? getFeaturedOperatorRates(banner) : [];
 
   const allSkins = getAllSkins();
@@ -516,10 +521,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       price: item.price ?? item.price_cork_stoppers ?? null,
       currency: store.currency || '',
       stock: item.stock ?? '1',
-      iconPath:
-        item.type === 'skin'
-          ? findSkinIconPath(item.name) || skinImageByName.get(item.name) || null
-          : getMaterialIconPath(item.iconName ?? item.name),
+      // Null while the image repository has not published the icon: the row keeps its
+      // box without a broken image, and the release quarantines it (rewardIconPath).
+      iconPath: rewardIconPath(item, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
     })),
   }));
 
@@ -537,6 +541,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       skins,
       rewardStores,
     },
-    revalidate: 1200,
   };
 });

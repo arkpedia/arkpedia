@@ -1,5 +1,5 @@
 import { parseDepotExport, type Depot } from './depot';
-import { parseForeign, unheldSummary, type ForeignShape } from './foreignImport';
+import { parseForeign, unheldSummary, type ForeignShape, type ImportAliases } from './foreignImport';
 import { parseRosterExport, type Roster } from './roster';
 import { MAX_IMPORT_BYTES } from './untrusted';
 
@@ -122,14 +122,14 @@ export function bundleFilename(now = new Date()): string {
  * every real foreign export carries a few -- operator EXP, materials CN has and
  * global does not. A malformed COUNT still fails the file.
  */
-export function parseTransfer(text: string): ParsedTransfer | null {
+export function parseTransfer(text: string, aliases: ImportAliases): ParsedTransfer | null {
   /* Size before shape. JSON.parse on a hundred megabytes is a hung tab before
      a single check has run, and nothing this reads is a tenth of the limit. */
   if (text.length > MAX_IMPORT_BYTES) return null;
 
   /* Foreign first. Each of the three says what it is in its own first bytes, and
      one of them is not JSON at all, so nothing below can see it. */
-  const foreign = parseForeign(text);
+  const foreign = parseForeign(text, aliases);
   if (foreign) {
     return {
       depot: foreign.depot,

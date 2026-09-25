@@ -16,6 +16,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.parse
 from pathlib import Path
 
 from PIL import Image
@@ -110,7 +111,7 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertIsNone(json.loads((Path(root)/'data/stages/ra-new-season-1.json').read_text())['preview'])
             [entry] = entries(root)
             self.assertEqual((entry['key'], entry['stage'], entry['action']), ('ra-map:ra-new-season-1', 'ra-maps', 'published-partial'))
-            self.assertIn('could not be asked for the map of Nowhere Sands', entry['reason'])
+            self.assertIn('could not be reached to ask for the map of Nowhere Sands', entry['reason'])
 
     def test_nation_marks_keeps_published_crests_and_reports_the_one_it_cannot_fetch(self):
         with tempfile.TemporaryDirectory() as root:
@@ -124,7 +125,7 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertEqual(json.loads((Path(root)/'data/nation-marks.json').read_text()), {'camp_zone_1': 'yan.webp', 'camp_zone_3': 'ursus.webp'})
             [entry] = entries(root)
             self.assertEqual((entry['key'], entry['stage'], entry['action']), ('nation-mark:atlantis', 'nation-marks', 'published-partial'))
-            self.assertIn('could not be asked for the Atlantis crest', entry['reason'])
+            self.assertIn('could not be reached to ask for the Atlantis crest', entry['reason'])
 
     def test_reward_icons_reports_a_reward_the_wiki_cannot_be_asked_about(self):
         with tempfile.TemporaryDirectory() as root:
@@ -135,7 +136,7 @@ class WikiImportersDegrade(unittest.TestCase):
             run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'))
             [entry] = entries(root)
             self.assertEqual((entry['key'], entry['stage'], entry['action']), ('reward-icon:Imaginary Widget', 'reward-icons', 'published-partial'))
-            self.assertIn('the wiki could not be asked', entry['reason'])
+            self.assertIn('the EN wiki could not be reached to ask for one', entry['reason'])
             # Once nothing is missing the stage still reports, which clears the entry.
             write(root, 'data/events/events_2099.json', [{'name': '[Side Story] Test', 'rewards': {'items': []}}])
             run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'))
@@ -160,7 +161,7 @@ class WikiImportersDegrade(unittest.TestCase):
                 PYTHONPATH=str(offline), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE=pin)
             self.assertEqual(log.read_text().split(), [f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{pin}/item/MTL_WIDGET.png'])
             [entry] = entries(root)
-            self.assertIn('fetch failed', entry['reason'])
+            self.assertIn('has an icon at raw.githubusercontent.com, but downloading it failed', entry['reason'])
 
     def test_reward_icons_stages_a_fetched_icon_outside_public_and_reports_it(self):
         # A wiki that has the upload. The icon is found, and must still stay out of public/:
@@ -262,6 +263,23 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertIn('until stages-images/crisis_v2_09-01.webp is added to arkpedia-image-assets', entries(root)[0]['reason'])
             self.assertIn('has no map/crisis_v2_09-02.png', entries(root)[1]['reason'])
 
+    def test_cc_stages_names_every_stage_on_a_day_without_the_cn_art(self):
+        # The art is a stage of its own (upstream-cn-art); on a day it fails, cn-resource has
+        # no map/ at all, and the stages are still named and labelled, published renders kept.
+        with tempfile.TemporaryDirectory() as root:
+            published = next(f[len('stages-images/'):-len('.webp')] for f in PUBLISHED if f.startswith('stages-images/crisis_v2_'))
+            write(root, 'data/stages/ccb-a.json', {'slug': 'ccb-a', 'stage_type': 'contingency_contract', 'id': f'obt/crisis/v2/level_{published}'})
+            write(root, 'data/stages/ccb-9-2.json', {'slug': 'ccb-9-2', 'stage_type': 'contingency_contract', 'id': 'obt/crisis/v2/level_crisis_v2_09-02'})
+            write(root, 'data/stages-content.json', {'crisis_v2_s9': {'kind': 'contingency_contract', 'label': 'CC#9'}})
+            write(root, 'en/gamedata/excel/medal_table.json', {'medalList': []})
+            (Path(root)/'cn').mkdir()
+            run('import_cc_stages.py', root, ARKPEDIA_CN=str(Path(root)/'cn'), ARKPEDIA_EN=str(Path(root)/'en'))
+            self.assertEqual(json.loads((Path(root)/'data/cc-stages.json').read_text())['ccb-a']['render'], f'{published}.webp')
+            self.assertEqual(json.loads((Path(root)/'data/stages-content.json').read_text())['crisis_v2_s9']['label'], 'CCB#9')
+            [entry] = entries(root)
+            self.assertEqual((entry['key'], entry['action']), ('cc-render:ccb-9-2', 'published-partial'))
+            self.assertIn('the CN art (map/) could not be synced this run', entry['reason'])
+
     def test_is_nodes_stages_a_fetched_render_outside_public_and_leaves_its_form_out(self):
         with tempfile.TemporaryDirectory() as root:
             # The render source answers every request with one PNG; no network is used.
@@ -321,6 +339,156 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertEqual(json.loads((Path(root)/'data/item-icons.json').read_text())['act99side_token_new'], 'act99side_token_new.png')
             self.assertEqual(entries(root), [])
             self.assertFalse((Path(root)/'public').exists())
+
+
+class Outage:
+    """A local wiki whose answers change from one day to the next, as an outage's do. The API
+    answers imageinfo for the asked titles that are in `titles`, each with a URL on itself, or
+    `api` when that is a status; `uploads[i]` answers the i-th title's file: (status, body),
+    or None to drop the connection unanswered. close() leaves the port refusing connections."""
+
+    def __init__(self, titles=()):
+        self.titles, self.api, self.uploads = list(titles), 200, {}
+
+    def __enter__(self):
+        outage = self
+
+        class Wiki(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                url = urllib.parse.urlparse(self.path)
+                if url.path == '/api.php':
+                    if outage.api != 200:
+                        return self.answer(outage.api, b'<html>Bad gateway</html>')
+                    asked = urllib.parse.parse_qs(url.query).get('titles', [''])[0].split('|')
+                    pages = {str(i): {'title': t, 'imageinfo': [{'url': f'{outage.base}/upload/{i}.png'}]}
+                             for i, t in enumerate(outage.titles) if t in asked}
+                    return self.answer(200, json.dumps({'query': {'pages': pages}}).encode())
+                answer = outage.uploads.get(int(url.path.split('/')[-1].split('.')[0]), (404, b'not found'))
+                if answer is not None:
+                    self.answer(*answer)
+
+            def answer(self, status, body):
+                self.send_response(status)
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Wiki)
+        self.base = f'http://127.0.0.1:{self.server.server_port}'
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        return self
+
+    def close(self):
+        if self.server:
+            self.server.shutdown()
+            self.server.server_close()
+            self.server = None
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+class OutageReasonsStayTheSame(unittest.TestCase):
+    """data/quarantine.json is a release input: the same records failing the same way on two
+    days of one outage must leave it byte for byte the same, whatever each day's error said,
+    or every day of the outage publishes a release. The error itself goes to the log."""
+
+    def two_days(self, script, root, first, second, **env):
+        """Runs `script` on two days, `first` and `second` setting up each day's failure; the
+        file must not change between them. Returns the entries and each day's log."""
+        logs = []
+        for day, setup in (('2026-09-23T20:00:00Z', first), ('2026-09-24T20:00:00Z', second)):
+            day_env = setup() or {}
+            result = run(script, root, ARKPEDIA_NOW=day, **{**env, **day_env})
+            logs.append(result.stdout + result.stderr)
+            if len(logs) == 1:
+                before = (Path(root)/'data/quarantine.json').read_bytes()
+        self.assertEqual((Path(root)/'data/quarantine.json').read_bytes().decode(), before.decode())
+        self.assertTrue(all(e['firstSeen'] == '2026-09-23' for e in entries(root)))
+        return {e['key']: e['reason'] for e in entries(root)}, logs
+
+    def unreachable(self, outage):
+        """502 on the first day, the connection refused on the second."""
+        return (lambda: setattr(outage, 'api', 502)), outage.close
+
+    def test_ra_maps(self):
+        with tempfile.TemporaryDirectory() as root, Outage(['File:Nowhere Sands map.png', 'File:Glass Dunes map.png']) as wiki:
+            for slug, name in (('ra-new-season-1', 'Nowhere Sands'), ('ra-new-season-2', 'Glass Dunes')):
+                write(root, f'data/stages/{slug}.json', {'slug': slug, 'name': name, 'preview': None, 'content': {'kind': 'reclamation'}})
+            # The download fails differently each day; the second file is a different non-image each day.
+            days = [{0: (500, b'oops'), 1: (200, b'<html>maintenance</html>')}, {0: None, 1: (200, b'<html>rate limited</html>')}]
+            reasons, logs = self.two_days('import_ra_maps.py', root, lambda: setattr(wiki, 'uploads', days[0]),
+                                          lambda: setattr(wiki, 'uploads', days[1]), ARKPEDIA_WIKI_BASE=wiki.base)
+            self.assertEqual(reasons, {
+                'ra-map:ra-new-season-1': 'Downloading File:Nowhere Sands map.png failed; the stage is published without a map.',
+                'ra-map:ra-new-season-2': 'File:Glass Dunes map.png is not an image that decodes; the stage is published without a map.'})
+            self.assertIn('HTTP Error 500', logs[0])
+            self.assertIn('Remote end closed connection without response', logs[1])
+            # The wiki itself goes down: a 502, then a refused connection.
+            reasons, logs = self.two_days('import_ra_maps.py', root, *self.unreachable(wiki), ARKPEDIA_WIKI_BASE=wiki.base)
+            self.assertEqual(set(reasons.values()), {
+                f'The wiki could not be reached to ask for the map of {name}; the stage is published without one.' for name in ('Nowhere Sands', 'Glass Dunes')})
+            self.assertIn('HTTP Error 502', logs[0])
+            self.assertIn('Connection refused', logs[1])
+
+    def test_nation_marks(self):
+        with tempfile.TemporaryDirectory() as root, Outage(['File:Atlantis.png', 'File:Lemuria.png']) as wiki:
+            write(root, 'data/stages-content.json', {
+                'camp_zone_3': {'kind': 'annihilation', 'name': 'Ursus'},
+                'camp_zone_98': {'kind': 'annihilation', 'name': 'Lemuria'},
+                'camp_zone_99': {'kind': 'annihilation', 'name': 'Atlantis'},
+            })
+            days = [{0: (503, b'busy'), 1: (200, b'<html>maintenance</html>')}, {0: None, 1: (200, b'GIF89a')}]
+            reasons, logs = self.two_days('import-nation-marks.py', root, lambda: setattr(wiki, 'uploads', days[0]),
+                                          lambda: setattr(wiki, 'uploads', days[1]), ARKPEDIA_WIKI_BASE=wiki.base)
+            self.assertEqual(reasons, {
+                'nation-mark:atlantis': 'Downloading the Atlantis crest failed; its Annihilation cards are published without it.',
+                'nation-mark:lemuria': 'The Lemuria crest the wiki serves is not an image that decodes; its Annihilation cards are published without it.'})
+            self.assertIn('HTTP Error 503', logs[0])
+            self.assertIn('Remote end closed connection without response', logs[1])
+            reasons, logs = self.two_days('import-nation-marks.py', root, *self.unreachable(wiki), ARKPEDIA_WIKI_BASE=wiki.base)
+            self.assertEqual(reasons['nation-mark:atlantis'], 'The wiki could not be reached to ask for the Atlantis crest; its Annihilation cards are published without a crest.')
+            self.assertIn('HTTP Error 502', logs[0])
+            self.assertIn('Connection refused', logs[1])
+
+    def test_reward_icons(self):
+        with tempfile.TemporaryDirectory() as root, Outage(['File:Imaginary Widget.png', 'File:Paper Crown.png']) as wiki:
+            for region in ('en', 'cn'):
+                write(root, f'{region}/gamedata/excel/item_table.json', {'items': {}})
+                write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': {}}})
+            write(root, 'data/events/events_2099.json', [{'name': '[Side Story] Test', 'rewards': {'items': [
+                {'name': 'Imaginary Widget', 'type': 'material'}, {'name': 'Paper Crown', 'type': 'material'}]}}])
+            env = {'ARKPEDIA_EN': str(Path(root)/'en'), 'ARKPEDIA_CN': str(Path(root)/'cn'), 'ARKPEDIA_WIKI_BASE': wiki.base}
+            days = [{0: (500, b'oops'), 1: (200, b'<html>maintenance</html>')}, {0: None, 1: (200, b'<html>rate limited</html>')}]
+            reasons, logs = self.two_days('import-reward-icons.py', root, lambda: setattr(wiki, 'uploads', days[0]),
+                                          lambda: setattr(wiki, 'uploads', days[1]), **env)
+            host = wiki.base.split('/')[2]
+            self.assertEqual(reasons, {
+                'reward-icon:Imaginary Widget': f'The reward "Imaginary Widget" of [Side Story] Test has an icon at {host}, but downloading it failed; it renders without one until a later run finds it.',
+                'reward-icon:Paper Crown': f'The reward "Paper Crown" of [Side Story] Test has an icon at {host}, but it is not an image that decodes; it renders without one until a later run finds it.'})
+            self.assertIn('HTTP Error 500', logs[0])
+            self.assertIn('Remote end closed connection without response', logs[1])
+            reasons, logs = self.two_days('import-reward-icons.py', root, *self.unreachable(wiki), **env)
+            self.assertIn('the EN wiki could not be reached to ask for one', reasons['reward-icon:Paper Crown'])
+            self.assertIn('HTTP Error 502', logs[0])
+            self.assertIn('Connection refused', logs[1])
+
+    def test_cc_stages(self):
+        with tempfile.TemporaryDirectory() as root:
+            write(root, 'data/stages/ccb-9-1.json', {'slug': 'ccb-9-1', 'stage_type': 'contingency_contract', 'id': 'obt/crisis/v2/level_crisis_v2_09-01'})
+            write(root, 'data/stages-content.json', {})
+            write(root, 'en/gamedata/excel/medal_table.json', {'medalList': []})
+            # The same broken render, in a checkout at another path the next day: the error names the path.
+            for day, body in (('1', b'not a png'), ('2', b'still not a png')):
+                (Path(root)/f'cn-{day}/map').mkdir(parents=True)
+                (Path(root)/f'cn-{day}/map/crisis_v2_09-01.png').write_bytes(body)
+            reasons, logs = self.two_days('import_cc_stages.py', root, lambda: {'ARKPEDIA_CN': str(Path(root)/'cn-1')},
+                                          lambda: {'ARKPEDIA_CN': str(Path(root)/'cn-2')}, ARKPEDIA_EN=str(Path(root)/'en'))
+            self.assertEqual(reasons, {'cc-render:ccb-9-1': 'CCB#9-1 (ccb-9-1): map/crisis_v2_09-01.png does not decode, so it is published without a render.'})
+            self.assertIn('cn-1', logs[0])
+            self.assertIn('cn-2', logs[1])
 
 
 if __name__ == '__main__':

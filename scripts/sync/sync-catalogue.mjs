@@ -5,11 +5,11 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, safeName, rarityWord } from './catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
 import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
-import { pinnedCommit } from '../content/pin-upstream.mjs';
+import { cnTables, pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
 const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json' };
@@ -24,8 +24,10 @@ export const revision = (repo, env = process.env) => pinnedCommit(repo, async (r
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error(`Invalid revision: ${repository}`);
   return sha;
 }, env);
-export async function source(repo, folder, cache, env = process.env) {
-  const sha = await revision(repo, env);
+/** The tables of one regional mirror under `folder`, at `commit`, else the commit this run
+ * pinned for it, else its branch head. */
+export async function source(repo, folder, cache, env = process.env, commit = null) {
+  const sha = commit ?? await revision(repo, env);
   const base = `https://raw.githubusercontent.com/${repo}/${sha}/${folder}`;
   const result = {source:base, revision:sha, repository:`https://github.com/${repo}`};
   // Bound concurrency and persist immutable inputs so a failed run is reproducible.
@@ -40,8 +42,22 @@ export async function source(repo, folder, cache, env = process.env) {
     || !result.activity?.basicInfo || !Array.isArray(result.constants?.evolveGoldCost)) throw new Error(`Truncated or changed regional source schema: ${repo}`);
   if (folder.startsWith('en/') && Object.values(result.characters).filter(c=>c.name && !/\p{Script=Han}/u.test(c.name)).length < 300)
     throw new Error('Global mirror does not contain an English roster');
+  // Everything below reads enums by name ("TIER_6", "LIMITED"). The CN fallback mirror numbers
+  // them, and read as names they would misfile every operator and banner: refuse it, and this
+  // stage keeps its records as last published until the primary mirror is back. By the most of
+  // them, not every one: a mirror that names enums still numbers a value its decoder does not
+  // know yet (the Global mirror's RETURN_EN_41_0_1 pool is gachaRuleType 11 in 2026-09).
+  const numbered = values => values.filter(value => typeof value === 'number').length * 2 > values.length;
+  if (numbered(Object.values(result.characters).map(c => c?.rarity)) || numbered(result.gacha.gachaPoolClient.map(p => p.gachaRuleType)))
+    throw new Error(`${repo} numbers the game's enums, and the catalogue reads them by name: its records stay as last published`);
   result.voiceTables = [result.voices];
   return result;
+}
+/** The CN tables at the mirror and commit this run settled on (scripts/content/cn-tables.mjs):
+ * the same bytes every stage of the run reads from its checkout. */
+export function cnSource(cache, env = process.env) {
+  const tables = cnTables(env);
+  return source(tables.repository, `${tables.folder}/excel`, cache, env, tables.commit);
 }
 export function assetPlan(operators, skins, cn, en, published, extra = []) {
   const planned = new Map(extra.filter(a => !published.has(a.path)).map(a => [a.path,a]));
@@ -83,6 +99,14 @@ export function assetPlan(operators, skins, cn, en, published, extra = []) {
   }
   return [...planned.values()].sort((a,b)=>a.path.localeCompare(b.path));
 }
+/** The wiki's calendar pages (wiki-pages.mjs). A row leaves an Upcoming page when Global catches up on it, and where
+ * it went tells that from a loss, so the yearly page is read first and the Global client's activity table is at hand. */
+export async function readCalendarPages(root, {now,cn,en,alerts,write}) {
+  const read=(page,template,movedTo)=>readWikiRows(root,page,template,{now,alerts,write,movedTo});
+  const yearlyPage=`Headhunting/Banners/${now.getUTCFullYear()}`,yearly=await read(yearlyPage,'Banners cell');
+  const [upcoming,events]=await Promise.all([read('Headhunting/Banners/Upcoming','Banners cell',{name:`to ${yearlyPage}`,has:onYearlyPage(yearly)}),read('Event/Upcoming','Upcoming events cell',{name:'into the Global client\'s activity table',has:inGlobalClient(cn,en)})]);
+  return {upcoming,yearly,events};
+}
 export async function syncCatalogue(root, options={}) {
   const cache=path.resolve(root,'.cache/catalogue'), now=options.now ?? new Date();
   // The wiki only enriches: a page it cannot serve today is read from its last good copy
@@ -90,11 +114,10 @@ export async function syncCatalogue(root, options={}) {
   const wikiStage=beginStage(root,'wiki',now);
   const sources=options.sources || await (async()=>{
     const [cn,en]=await Promise.all([
-      source('Kengxxiao/ArknightsGameData','zh_CN/gamedata/excel',cache),
+      cnSource(cache),
       source('ArknightsAssets/ArknightsGamedata','en/gamedata/excel',cache),
     ]);
-    const read=(page,template)=>readWikiRows(root,page,template,{now,alerts:wikiStage,write:!options.dryRun});
-    const [upcoming,yearly,events]=await Promise.all([read('Headhunting/Banners/Upcoming','Banners cell'),read(`Headhunting/Banners/${now.getUTCFullYear()}`,'Banners cell'),read('Event/Upcoming','Upcoming events cell')]);
+    const {upcoming,yearly,events}=await readCalendarPages(root,{now,cn,en,alerts:wikiStage,write:!options.dryRun});
     // The asset plan's revision: publish-catalogue-assets fetches every planned file at it.
     const resourceRevision=await revision('yuanyan3060/ArknightsGameResource');
     return {cn,en,bannerRows:[...upcoming,...yearly],eventRows:events,resourceRevision};

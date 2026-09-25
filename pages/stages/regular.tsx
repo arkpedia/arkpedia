@@ -187,5 +187,6 @@ function ModeRail({ cards }: { cards: StageModeCard[] }) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/regular", async () => ({
-  props: { ...getRegularTasks(), now: Math.floor(Date.now() / 1000) },
+  // `now` is the request's, from contentPageClock (lib/content/pageClock.ts).
+  props: getRegularTasks(),
 }));

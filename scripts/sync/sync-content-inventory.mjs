@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { pinnedCommit } from '../content/pin-upstream.mjs';
+import { cnTables } from '../content/pin-upstream.mjs';
 
 export function buildInventory(characterTable, skinTable, source) {
   const operators = Object.entries(characterTable)
@@ -29,19 +29,20 @@ export function withStableSource(previous, inventory) {
 }
 
 async function main() {
-  const repo = 'Kengxxiao/ArknightsGameData';
-  // The commit this run pinned (run-stage.mjs), else the branch head.
-  const revision = await pinnedCommit(repo, async (repository, branch) => {
-    const response = await fetch(`https://api.github.com/repos/${repository}/commits/${branch}`, {
+  // The CN tables this run settled on (scripts/content/cn-tables.mjs, passed on by run-stage.mjs),
+  // else the primary mirror at its pin, else its branch head.
+  const { repository: repo, commit, ref, folder } = cnTables();
+  const revision = commit ?? await (async () => {
+    const response = await fetch(`https://api.github.com/repos/${repo}/commits/${ref}`, {
       headers: process.env.GH_TOKEN ? { Authorization: `Bearer ${process.env.GH_TOKEN}` } : {}, signal: AbortSignal.timeout(30000),
     });
     if (!response.ok) throw new Error(`CN source revision: HTTP ${response.status}`);
     return (await response.json()).sha;
-  });
+  })();
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Invalid CN source revision');
   const files = ['character_table.json', 'skin_table.json'];
   const sources = await Promise.all(files.map(async file => {
-    const url = `https://raw.githubusercontent.com/${repo}/${revision}/zh_CN/gamedata/excel/${file}`;
+    const url = `https://raw.githubusercontent.com/${repo}/${revision}/${folder}/excel/${file}`;
     const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
     if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
     const bytes = await response.text();

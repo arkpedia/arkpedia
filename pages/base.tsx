@@ -4,7 +4,8 @@ import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
-import { BASE_SKILL_SLOTS, BaseSkillSlot } from '@/lib/base/baseSkillSlots';
+import type { BaseSkillSlot, BaseSkillSlots } from '@/lib/base/baseSkillSlots';
+import { useReleaseTable } from '@/lib/content/context';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getBaseSkillIconPath, getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
@@ -36,7 +37,7 @@ import {
 import { BaseAssignments, FactoryProduct, FactoryProducts, DormitoryAmbience, SlotAssignment, BaseLayout, FacilityLevels, ProductionKind, ProductionSpots } from '@/lib/base/baseTypes';
 import { calcProductivity, calcCapacity, calcCapacityPerOperator, calcOrderLimit, calcMorale, calcClueSpeed, calcReceptionRoomBaseSpeed, receptionRoomBaseContribution, calcDroneRate, calcFullTime, calcDeadTime, calcDailyProduction, calcControlCenterEffects, clueCollectionBonusFrom, calcControlCenterMoraleRelief, calcOffice, calcTradingPostFullTime, calcTradingPostGoldPerHourStandardized, calcTradingPostGoldAndLmdPerHour, formatHours, ControlCenterEffects, calcGreyProductivity, factoryYellowContribution, tradingPostYellowContribution, calcDormitoryRecovery, defaultDormitoryAmbience, dormitoryAmbienceCap } from '@/lib/base/baseProductivity';
 import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from '@/lib/base/factorySpecialSkills';
-import { ELITE_OPERATOR, ABYSSAL_HUNTERS, OPERATION_PLATFORM, BLACKSTEEL_WORLDWIDE, TEAM_RAINBOW, DURIN, PINUS_SYLVESTRIS, WANDERING_MEDIC, SUI, KNIGHTS, LATERANO, RHINE_LAB } from '@/lib/base/baseGroupRosters';
+import { checkBaseRosters, toBaseRosters, type BaseRosterData } from '@/lib/base/baseGroupRosters';
 import { DORMITORY_SPECIAL_SKILLS, DORMITORY_PREFERRED_TARGET } from '@/lib/base/dormitorySpecialSkills';
 import { RECEPTION_ROOM_SPECIAL_SKILLS, ReceptionRoomContext } from '@/lib/base/receptionRoomSpecialSkills';
 import { POWER_PLANT_SPECIAL_SKILLS } from '@/lib/base/powerPlantSpecialSkills';
@@ -101,6 +102,14 @@ function matchingSkills(op: BaseOperator, facilityLabel: string): BaseSkill[] {
 }
 
 export default function BasePage({ operators }: Props) {
+  // The game's slot chains and the group rosters: game tables from this page's props
+  // (lib/content/tables.mjs), so they follow the content release. Every calculation
+  // below reads the rosters from here, and the special-skill handlers get them in
+  // their context.
+  const skillSlots = useReleaseTable<BaseSkillSlots>('base-skill-slots');
+  const rosterData = useReleaseTable<BaseRosterData>('base-group-rosters');
+  const rosters = useMemo(() => toBaseRosters(rosterData), [rosterData]);
+  const { ELITE_OPERATOR, ABYSSAL_HUNTERS, OPERATION_PLATFORM, BLACKSTEEL_WORLDWIDE, TEAM_RAINBOW, DURIN, PINUS_SYLVESTRIS, WANDERING_MEDIC, SUI, KNIGHTS, LATERANO, RHINE_LAB } = rosters;
   // --- Base formation setup: chosen once before the simulation begins,
   // with a reset available to redo it. 2-4-3 needs no further input.
   // 2-5-2 requires the player to set every settable facility's level
@@ -656,9 +665,9 @@ export default function BasePage({ operators }: Props) {
   // never actually reach.
   useEffect(() => {
     if (!ROTATION_EXPERIMENT_ENABLED) return;
-    initializeOptimizerData(operators);
-    initializeRotationExperimentData(operators);
-  }, [operators]);
+    initializeOptimizerData(operators, rosters);
+    initializeRotationExperimentData(operators, rosters);
+  }, [operators, rosters]);
 
   // The rotation experiment's own room structure is fixed (2 Trading
   // Posts, 2 Precious-Metal Factories, 2 Battle-Records Factories) --
@@ -1167,14 +1176,15 @@ export default function BasePage({ operators }: Props) {
     }
     // Where the game's own slot data covers this operator, it is
     // authoritative and the text heuristics below are skipped entirely --
-    // see lib/base/baseSkillSlots.ts for what a "slot" is. It also
+    // see lib/base/baseSkillSlots.ts for what a "slot" is (the table itself is
+    // data/base-skill-slots.json, from this page's props). It also
     // supersedes the scraped elite tag, which is occasionally wrong:
     // Varkáris's Pride of a Hero β is tagged Elite 2 here but the game
     // unlocks it at Elite 1, so an Elite 1 Varkáris was showing the weaker
     // α. Anything the table doesn't cover (Ukusik, and any operator added
     // after the last gamedata refresh) still falls through to the
     // heuristics.
-    const slotted = facilitySkills.map((bs) => ({ bs, meta: BASE_SKILL_SLOTS[`${op.name}|${cleanSkillName(bs.name)}|${bs.eliteLevel || 'Base'}`] }));
+    const slotted = facilitySkills.map((bs) => ({ bs, meta: skillSlots[`${op.name}|${cleanSkillName(bs.name)}|${bs.eliteLevel || 'Base'}`] }));
     if (slotted.length > 0 && slotted.every((entry) => entry.meta)) {
       const bestBySlot = new Map<number, { bs: BaseSkill; meta: BaseSkillSlot }>();
       for (const entry of slotted) {
@@ -1389,6 +1399,7 @@ export default function BasePage({ operators }: Props) {
       descriptions = genericDescriptions;
 
       const baseCtx: Omit<FactorySkillContext, 'manualValue' | 'othersProductivitySum' | 'otherOperatorsCapacity' | 'totalFactoryCapacityIncrease' | 'eliteLevel'> = {
+        rosters,
         selectedProduct: factoryProducts[f.id] || null,
         sameFactoryOperatorNames,
         sameFactorySkillNames,
@@ -1671,6 +1682,7 @@ export default function BasePage({ operators }: Props) {
       descriptions = genericDescriptions;
 
       const baseTPCtx: Omit<TradingPostContext, 'manualValue' | 'othersOrderEfficiencySum' | 'othersOrderLimitSum'> = {
+        rosters,
         sameRoomOperatorNames,
         filledCountThisRoom: filled.length,
         dormitoryOperatorCount: dormitoryOperatorNames.size,
@@ -1978,6 +1990,7 @@ export default function BasePage({ operators }: Props) {
       const pendingReceptionSelfMorale: Record<string, number> = {};
       for (const { slot, handler } of pendingReceptionEntries) {
         const result = handler({
+          rosters,
           manualValue: slot.manualValue,
           sameRoomOperatorNames,
           filledCountThisRoom: filled.length,
@@ -2011,6 +2024,7 @@ export default function BasePage({ operators }: Props) {
         const worstRate = Math.max(...filled.map((s) => ownRate(s.operatorName)));
         const rampWindowHours = rampWindow(worstRate > 0 ? 24 / worstRate : Infinity);
         const result = inesEntry.handler({
+          rosters,
           manualValue: inesEntry.slot.manualValue,
           sameRoomOperatorNames,
           filledCountThisRoom: filled.length,
@@ -2083,6 +2097,7 @@ export default function BasePage({ operators }: Props) {
       }
       for (const { slot, sk, handler } of pendingReceptionEntries) {
         const result = handler({
+          rosters,
           manualValue: slot.manualValue,
           sameRoomOperatorNames,
           filledCountThisRoom: filled.length,
@@ -2525,6 +2540,7 @@ export default function BasePage({ operators }: Props) {
       const handler = CONTROL_CENTER_SPECIAL_SKILLS[key];
       if (!handler) continue;
       const result = handler({
+        rosters,
         manualValue: slot.manualValue,
         ccOperatorNames,
         // Wang's Expedience compares Factories against Power Plants +
@@ -2707,6 +2723,7 @@ export default function BasePage({ operators }: Props) {
       const handler = CONTROL_CENTER_SPECIAL_SKILLS[`${slot.operatorName}|${sk.name}`];
       if (!handler) continue;
       const result = handler({
+        rosters,
         manualValue: slot.manualValue,
         ccOperatorNames,
         // Wang's Expedience compares Factories against Power Plants +
@@ -2863,6 +2880,7 @@ export default function BasePage({ operators }: Props) {
         const handler = DORMITORY_SPECIAL_SKILLS[`${s.operatorName}|${sk.name}`];
         if (!handler) continue;
         const result = handler({
+          rosters,
           manualValue: s.manualValue,
           sameRoomOperatorNames: roomNames,
           filledCountThisRoom: slots.length,
@@ -4767,4 +4785,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ba
   }));
 
   return { props: { operators } };
+}, {
+  tables: {
+    'base-skill-slots': async () => (await import('@/data/base-skill-slots.json')).default,
+    // Checked against the rosters the calculations name wherever it is read from data/.
+    'base-group-rosters': async () => checkBaseRosters((await import('@/data/base-group-rosters.json')).default),
+  },
 });

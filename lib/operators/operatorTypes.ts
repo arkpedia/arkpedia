@@ -244,6 +244,10 @@ export interface Operator {
   // in the roster with just their name/icon since full wiki data doesn't
   // exist for them yet (not released / not yet scraped).
   isFuture?: boolean;
+  /** True while the image repository has no roster portrait for this operator, so
+   *  getOperatorIconPath shows the placeholder. Resolved on the server against the
+   *  release's asset index (lib/operators/operatorPortrait.ts); omitted when false. */
+  portraitPending?: boolean;
 }
 
 // A lightweight projection of Operator for pages that only need
@@ -253,6 +257,7 @@ export interface Operator {
 // ...) to the client when a page never reads any of that.
 export interface RosterOperator {
   sourceRegion?: 'CN' | 'Global';
+  portraitPending?: boolean;
   name: string;
   rarity: number | null;
   class: string | null;
@@ -314,6 +319,7 @@ export interface TimelineOperator {
   name: string;
   rarity: number | null;
   isFuture: boolean;
+  portraitPending?: boolean;
   basicInfo: { 'Date of Birth'?: string } | null;
 }
 
@@ -350,6 +356,7 @@ export interface GuesserOperator {
   howToObtain: string | HowToObtainInfo | null;
   tags: string[];
   isFuture?: boolean;
+  portraitPending?: boolean;
   talents?: GuesserTalent[];
   baseSkills?: Pick<BaseSkill, 'name'>[];
   basicInfo?: Record<string, string> | null;

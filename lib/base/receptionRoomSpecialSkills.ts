@@ -1,7 +1,9 @@
-import { SAMI, BLACKSTEEL_WORLDWIDE } from './baseGroupRosters';
+import type { BaseRosters } from './baseGroupRosters';
 import { EXTRA_RECRUIT_SLOTS } from './baseResources';
 
 export interface ReceptionRoomContext {
+  /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
+  rosters: BaseRosters;
   manualValue?: number;
   sameRoomOperatorNames: string[]; // includes self
   filledCountThisRoom: number;
@@ -67,14 +69,14 @@ export const RECEPTION_ROOM_SPECIAL_SKILLS: Record<string, Handler> = {
 
   // Same-room pairing / faction conditions.
   'Surfer|Networking Expert': (ctx) => {
-    const hasBlacksteel = ctx.sameRoomOperatorNames.some((n) => n !== 'Surfer' && BLACKSTEEL_WORLDWIDE.has(n));
+    const hasBlacksteel = ctx.sameRoomOperatorNames.some((n) => n !== 'Surfer' && ctx.rosters.BLACKSTEEL_WORLDWIDE.has(n));
     return {
       clueSpeed: 0.1 + (hasBlacksteel ? 0.15 : 0),
       selfMorale: hasBlacksteel ? 0.5 : 0,
     };
   },
   'Surfer|Information Gathering': (ctx) => ({
-    clueSpeed: 0.1 + (ctx.sameRoomOperatorNames.some((n) => n !== 'Surfer' && BLACKSTEEL_WORLDWIDE.has(n)) ? 0.2 : 0),
+    clueSpeed: 0.1 + (ctx.sameRoomOperatorNames.some((n) => n !== 'Surfer' && ctx.rosters.BLACKSTEEL_WORLDWIDE.has(n)) ? 0.2 : 0),
   }),
   'Valarqvin|Foresight': (ctx) => {
     const hasTyphon = ctx.sameRoomOperatorNames.includes('Typhon');
@@ -92,7 +94,7 @@ export const RECEPTION_ROOM_SPECIAL_SKILLS: Record<string, Handler> = {
     };
   },
   'Typhon|Icefield Navigation': (ctx) => {
-    const hasSami = ctx.sameRoomOperatorNames.some((n) => n !== 'Typhon' && SAMI.has(n));
+    const hasSami = ctx.sameRoomOperatorNames.some((n) => n !== 'Typhon' && ctx.rosters.SAMI.has(n));
     return {
       clueSpeed: 0.1 + (hasSami ? 0.05 : 0),
       selfMorale: hasSami ? 0.5 : 0,

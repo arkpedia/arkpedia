@@ -10,8 +10,13 @@ its record is published without it, and it goes on the quarantine list under
 'catalogue-art'. The record keeps its planned path, so the next run's plan asks again.
 So does any one file that cannot be fetched from the mirror, or does not decode to a
 sane image: it holds back that file, not every other file of the plan.
+
+A reason names the file and which step failed, never the day's error text (the log gets
+that) nor the plan's revision (the sourceRef carries it): data/quarantine.json is a
+release input, so an outage that answers 502 one day and refuses the connection the
+next, or a mirror that commits overnight, must not make each day a new release.
 """
-import argparse, hashlib, importlib.util, io, json, re, subprocess, urllib.parse
+import argparse, hashlib, importlib.util, io, json, re, subprocess, sys, urllib.parse
 from pathlib import Path
 from PIL import Image
 
@@ -47,15 +52,17 @@ def build(plan, image_root, skin_root, alerts=None):
             continue
         source = entry.get('sourcePath')
         titles = ['File:'+t for t in entry.get('wikiFiles') or []]
-        left_out = lambda why, ref=(source or (titles[0] if titles else None)): alerts.append({'key':f'art:{target}','action':'published-partial',
-            **({'sourceRef':ref} if ref else {}),'reason':f'{why}; the record is published without {target} until a later run imports it.'})
+        def left_out(why, ref=(source or (titles[0] if titles else None)), error=None):
+            if error is not None: print(f'Left out {target}: {why}: {error}', file=sys.stderr)
+            alerts.append({'key':f'art:{target}','action':'published-partial',
+                **({'sourceRef':ref} if ref else {}),'reason':f'{why}; the record is published without {target} until a later run imports it.'})
         if source:
             if source.startswith('/') or '..' in Path(source).parts: raise ValueError('Unsafe source path')
             url = f'https://raw.githubusercontent.com/{plan["sourceRepository"]}/{plan["revision"]}/{urllib.parse.quote(source)}'
             try:
                 data = fetch(url)
             except Exception as exc:
-                left_out(f'Downloading {source} at {plan["revision"][:12]} failed ({exc})', url);continue
+                left_out(f'Downloading {source} from {plan["sourceRepository"]} failed', url, exc);continue
         else:
             query = urllib.parse.urlencode({'action':'query','prop':'imageinfo','iiprop':'url|sha1','format':'json','titles':'|'.join(titles)})
             try:
@@ -63,7 +70,7 @@ def build(plan, image_root, skin_root, alerts=None):
                 available = {p['title']:p['imageinfo'][0] for p in response['query']['pages'].values() if p.get('imageinfo')}
                 normalized = {p['from']:p['to'] for p in response['query'].get('normalized',[])}
             except Exception as exc:
-                left_out(f'The wiki could not be asked for {", ".join(titles)} ({exc})');continue
+                left_out(f'The wiki could not be reached to ask for {", ".join(titles)}', error=exc);continue
             info = next((available[normalized.get(t,t)] for t in titles if normalized.get(t,t) in available),None)
             if not info:
                 left_out(f'The wiki has no upload for {", ".join(titles)} yet');continue
@@ -74,13 +81,15 @@ def build(plan, image_root, skin_root, alerts=None):
             try:
                 data = fetch(url)
             except Exception as exc:
-                left_out(f'Downloading {url} failed ({exc})');continue
+                left_out(f'Downloading {url} failed', error=exc);continue
+        # The mirror's URL names the plan's revision; the file is named by its path instead.
+        name = source or url
         try:
             image = Image.open(io.BytesIO(data));image.load()
         except Exception as exc:
-            left_out(f'{url} is not an image that decodes ({exc})', url);continue
+            left_out(f'{name} is not an image that decodes', url, exc);continue
         if not (0 < image.width <= 16384 and 0 < image.height <= 16384):
-            left_out(f'{url} is {image.width}x{image.height}, which no art is', url);continue
+            left_out(f'{name} is {image.width}x{image.height}, which no art is', url);continue
         image = image.convert('RGBA')
         dest = root/target;dest.parent.mkdir(parents=True,exist_ok=True)
         if kind == 'skin':

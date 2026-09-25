@@ -5,7 +5,6 @@ import path from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import StageLayoutMap from '../../components/minigames/StageLayoutMap';
-import { gzipSync } from 'node:zlib';
 import { getStageGuesserQuestions, isStageGuesserVersion } from '../../lib/minigames/stageGuesserData';
 import { guessStage, newStageRound, revealStageHint, resolveStageAnswer, searchStageAnswers, STAGE_HINTS, STAGE_MISTAKES } from '../../lib/minigames/stageGuesser';
 import { normalizeAnswer, pickNext } from '../../lib/minigames/logic';
@@ -169,7 +168,6 @@ test('full catalogue covers usable released maps and custom unions without shipp
   const wrong = guessStage(newStageRound(), outsideQuiz.slug, '1-7');
   assert.deepEqual(wrong.wrong, [outsideQuiz.slug]);
   assert.equal(guessStage(wrong, outsideQuiz.slug, '1-7'), wrong);
-  assert.ok(gzipSync(JSON.stringify({ entries, answers })).length < 200_000, 'Full answer search remains a compact lazy payload');
 
   assert.equal(filterStagePool(entries, 'all', []).length, entries.length);
   assert.equal(filterStagePool(entries, 'classic', []).length, curated.stages.length);
@@ -188,8 +186,7 @@ test('full catalogue covers usable released maps and custom unions without shipp
   const custom = filterStagePool(entries, 'custom', selected.map((g) => g.id));
   assert.equal(custom.length, selected.reduce((sum, g) => sum + g.count, 0));
   assert.ok(custom.some((e) => e.code === 'JT8-3') && custom.some((e) => e.code === 'SV-EX-8'));
-  assert.equal(gzipSync(JSON.stringify(entries)).length < 150_000, true, 'Lazy catalogue stays under 150KB gzip');
-  assert.ok(Buffer.byteLength(JSON.stringify({ groups })) < 30_000, 'Initial page contains only setup metadata');
+  // The catalogue's size budgets are scripts/audits/check-payload-budgets.ts.
   assert.equal(buildStageGuesserCatalogue(new Date('2020-01-15T23:59:59Z')).entries.length, 0);
 });
 

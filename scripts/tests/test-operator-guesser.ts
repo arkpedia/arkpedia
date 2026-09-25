@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gzipSync } from 'node:zlib';
 import { getAllOperators } from '../../lib/operators/operators';
 import { getSkillList } from '../../lib/operators/operatorTypes';
 import type { GuesserOperator } from '../../lib/operators/operatorTypes';
@@ -82,15 +81,9 @@ test('array and nested skill schemas retain first M3 and last talent description
   }
 });
 
-test('the guesser stays within its initial data budget', () => {
-  const payload = JSON.stringify({ operators: operators.map(toGuesserOperator), skins });
-  const raw = Buffer.byteLength(payload);
-  const gzip = gzipSync(payload).length;
-  // Allow modest catalogue growth while catching accidental full-record imports.
-  assert.ok(raw < 850 * 1024, `raw payload: ${raw} bytes`);
-  assert.ok(gzip < 160 * 1024, `gzip payload: ${gzip} bytes`);
-  console.log(`Guesser page props: ${raw} bytes raw, ${gzip} bytes gzip`);
-});
+// The guesser's data budget (raw and gzip) is scripts/audits/check-payload-budgets.ts: npm
+// test runs in the release job too, where a budget on real data would fail a release over
+// data growth.
 
 
 test('Base Skill Name uses unique Base facility skills, redacts names, and never falls back to Skill 1', () => {

@@ -36,6 +36,9 @@ try {
   await fs.writeFile(new URL(paths[0], root), JSON.stringify(next, null, 2) + '\n');
   await fs.writeFile(new URL(paths[1], root), JSON.stringify(index) + '\n');
   execFileSync(process.execPath, ['scripts/build/build-public-asset-index.cjs'], { stdio: 'inherit' });
+  // The asset files at the new pins. Not the voice lines: the voices stage, which runs after
+  // this one, rebuilds them against these pins; the Validate step's check:published-assets
+  // checks the result.
   execFileSync(process.execPath, ['scripts/audits/check-published-assets.mjs'], { stdio: 'inherit' });
 } catch (error) {
   await Promise.all(paths.map((path, i) => fs.writeFile(new URL(path, root), previous[i])));

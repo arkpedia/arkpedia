@@ -32,7 +32,7 @@ Pages remain in `pages/` because their paths define public URLs. Their component
 | Skins | `pages/skins.tsx` | `components/skins/` | `lib/skins/` | `styles/skins/` |
 | Recruitment | `pages/recruitment.tsx`, `pages/recruitment/` | `components/recruitment/` | `lib/gacha/recruitment*.ts` | `styles/recruitment/` |
 | Base | `pages/base.tsx`, `pages/bases/` | Page-local UI | `lib/base/` | `styles/base/` |
-| Survey | `pages/results.tsx`, `pages/api/submit.ts` | `components/survey/` | `lib/results/`, `lib/survey/`, `lib/server/` | `styles/survey/` |
+| Survey | `pages/results.tsx` | `components/survey/` | `lib/results/`, `lib/survey/` | `styles/survey/` |
 
 ## Public repository ownership
 

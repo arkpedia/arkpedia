@@ -6,14 +6,20 @@ import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { isOperatorReleased, operatorRelease } from '@/lib/operators/operatorAvailability';
+import { operatorRelease } from '@/lib/operators/operatorAvailability';
 import { RosterOperator, isWelfareUnit, getWelfareInfo } from '@/lib/operators/operatorTypes';
-import { getLimitedBannerInfoLookup, getCelebrationBannerDates, dateStringValue, LimitedBannerType, LimitedOperatorInfo } from '@/lib/gacha/limitedBannerType';
+import { getLimitedBannerInfoLookup, getCelebrationBannerDates, LimitedBannerType, LimitedOperatorInfo } from '@/lib/gacha/limitedBannerType';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
+import { portraitStatus } from '@/lib/operators/operatorPortrait';
+import { limitedOperatorNote } from '@/lib/gacha/limitedRerunNotes';
 
 interface Props {
   operators: RosterOperator[];
   limitedBannerInfo: Record<string, LimitedOperatorInfo>;
   celebrationBannerDates: string[];
+  /** The request's clock (contentPageClock). Every day count renders from it, so the
+   *  server HTML and hydration agree in any reader's timezone. */
+  now: number;
 }
 
 type MainSection = 'limited' | 'standard' | 'kernel' | 'recruitment' | 'welfare';
@@ -88,81 +94,10 @@ function releaseDateValue(op: RosterOperator): number {
   return operatorRelease(op)?.at ?? -Infinity;
 }
 
-// Limited banners (Celebration/Festival/Carnival especially) broadly
-// track annual calendar events and tend to rerun roughly once a year,
-// though not on an exact schedule -- there's no published future
-// rerun date to pull from. This projects forward from the operator's
-// most recent appearance's exact calendar date (same month/day),
-// advancing by one year at a time until landing on a future date, as
-// an ESTIMATE of when they might become available again, not a
-// confirmed date. Using the real calendar date rather than a flat
-// 365-day step handles leap years correctly and works the same way
-// whether they last appeared last year or several years ago.
-function daysUntil(dateStr: string): number {
-  const [y, m, d] = dateStr.split('/').map(Number);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const target = new Date(y, m - 1, d);
-  return Math.max(0, Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-}
+// Limited notes (days until an announced rerun, or an estimate of the next one) are
+// worked out by lib/gacha/limitedRerunNotes.ts from `now`, in the server's calendar.
 
-// Festival always estimates to the next occurrence of July 17,
-// Carnival to the next occurrence of January 17 -- fixed calendar
-// dates per your specification, not derived from any operator's own
-// history.
-function nextOccurrenceOf(month: number, day: number): string {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  let candidate = new Date(now.getFullYear(), month - 1, day);
-  if (candidate <= now) {
-    candidate = new Date(now.getFullYear() + 1, month - 1, day);
-  }
-  return `${candidate.getFullYear()}/${String(candidate.getMonth() + 1).padStart(2, '0')}/${String(candidate.getDate()).padStart(2, '0')}`;
-}
-
-function monthsSince(dateStr: string): number {
-  const [y, m, d] = dateStr.split('/').map(Number);
-  const now = new Date();
-  let months = (now.getFullYear() - y) * 12 + (now.getMonth() - (m - 1));
-  if (now.getDate() < d) months -= 1;
-  return months;
-}
-
-function addMonths(dateStr: string, monthsToAdd: number): string {
-  const [y, m, d] = dateStr.split('/').map(Number);
-  const result = new Date(y, m - 1 + monthsToAdd, d);
-  return `${result.getFullYear()}/${String(result.getMonth() + 1).padStart(2, '0')}/${String(result.getDate()).padStart(2, '0')}`;
-}
-
-/**
- * Celebration estimate, per your spec: normally the next incoming
- * Celebration banner. If the operator hasn't been released for at
- * least 10 months yet, that next incoming one doesn't count for them
- * -- they target the SECOND next one instead. Either way, if the
- * targeted banner isn't actually in the known schedule (not enough
- * future dates on record), the fallback is 6 months added to the most
- * recent known Celebration banner date, whether that banner has
- * already happened or is itself a future/announced one.
- */
-function estimateCelebrationRerun(releaseDate: string | null, celebrationDates: string[]): string | null {
-  if (celebrationDates.length === 0) return null;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const nowValue = now.getTime();
-
-  const futureDates = celebrationDates.filter((d) => dateStringValue(d) > nowValue); // celebrationDates is already sorted ascending
-  const tooNew = releaseDate ? monthsSince(releaseDate) < 10 : false;
-  const targetIndex = tooNew ? 1 : 0; // "next" vs "second next"
-
-  if (futureDates.length > targetIndex) {
-    return futureDates[targetIndex];
-  }
-
-  const lastKnown = celebrationDates[celebrationDates.length - 1]; // sorted ascending -- last entry is the most recent known, past or future
-  return addMonths(lastKnown, 6);
-}
-
-export default function ObtainMethodPage({ operators, limitedBannerInfo, celebrationBannerDates }: Props) {
+export default function ObtainMethodPage({ operators, limitedBannerInfo, celebrationBannerDates, now }: Props) {
   const [activeSection, setActiveSection] = useState<MainSection>('limited');
   const [limitedSubType, setLimitedSubType] = useState<LimitedBannerType | 'all'>('all');
   const [welfareSubType, setWelfareSubType] = useState<string>('all');
@@ -279,45 +214,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
               </div>
               <OperatorGrid
                 operators={limitedList}
-                getNote={(op) => {
-                  const info = limitedBannerInfo[op.name];
-                  if (!info) return null;
-
-                  // An actually-announced future banner appearance always
-                  // wins over an estimate, regardless of type -- this is
-                  // real data, not a guess. But it's only a RERUN if the
-                  // operator has already been released before -- for an
-                  // operator whose own release date hasn't happened yet,
-                  // this incoming banner is their debut, not a return
-                  // appearance, and labeling it "rerun" would be wrong.
-                  if (info.nextScheduledDate) {
-                    const notYetReleased = !isOperatorReleased(op);
-                    const label = notYetReleased ? 'release' : 'scheduled rerun';
-                    return `${info.type} \u2014 ${daysUntil(info.nextScheduledDate)} days until ${label}`;
-                  }
-
-                  // Crossover reruns depend on external collab
-                  // agreements, not a predictable internal calendar --
-                  // there's no reasonable basis to estimate one the way
-                  // there is for Celebration/Festival/Carnival, so this
-                  // deliberately shows no countdown rather than a
-                  // misleading guess.
-                  if (info.type === 'Crossover') return info.type;
-
-                  if (info.type === 'Festival') {
-                    return `${info.type} \u2014 est. ${daysUntil(nextOccurrenceOf(7, 17))} days until next rerun`;
-                  }
-                  if (info.type === 'Carnival') {
-                    return `${info.type} \u2014 est. ${daysUntil(nextOccurrenceOf(1, 17))} days until next rerun`;
-                  }
-
-                  // Celebration: based on the real banner schedule, not
-                  // a fixed date -- see estimateCelebrationRerun.
-                  const releaseDate = op.characterInfo?.['Release Date'] || null;
-                  const estimated = estimateCelebrationRerun(releaseDate, celebrationBannerDates);
-                  if (!estimated) return info.type;
-                  return `${info.type} \u2014 est. ${daysUntil(estimated)} days until next rerun`;
-                }}
+                getNote={(op) => limitedOperatorNote(op, limitedBannerInfo[op.name], celebrationBannerDates, now)}
               />
             </>
           )}
@@ -381,13 +278,15 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ob
     faction: op.faction,
     howToObtain: op.howToObtain,
     isFuture: op.isFuture ?? false,
+    ...portraitStatus(op),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     // Only 'Release Date' is actually read anywhere on this page --
     // the full characterInfo object (description, position, tags,
     // etc.) is a large chunk of unused payload otherwise.
     characterInfo: op.characterInfo?.['Release Date'] ? { 'Release Date': op.characterInfo['Release Date'] } : null,
   }));
-  const limitedBannerInfo = getLimitedBannerInfoLookup();
-  const celebrationBannerDates = getCelebrationBannerDates();
+  const banners = getAllHeadhuntingBanners();
+  const limitedBannerInfo = getLimitedBannerInfoLookup(banners);
+  const celebrationBannerDates = getCelebrationBannerDates(banners);
   return { props: { operators, limitedBannerInfo, celebrationBannerDates } };
 });

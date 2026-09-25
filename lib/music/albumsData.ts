@@ -1,10 +1,10 @@
-// Client-safe song data -- plain JSON import only, NO filesystem
-// access anywhere in this file. musicPlayerContext.tsx loads this module
-// dynamically when music is used, keeping the catalogue out of every
-// page's initial bundle. Character base-skin ART
-// and LYRICS TEXT both need a filesystem read and live in the separate
-// lib/music/albumsDataServer.ts instead, which must only ever be
-// imported from getStaticProps.
+// The song list, flattened from data/albums.json -- plain JSON import, no filesystem
+// access in this file. Read at build and export time only: by getStaticProps (through
+// lib/music/albumsDataServer.ts), the song guesser's catalogue, and
+// scripts/build/build-music-catalogue.ts, which publishes the player's queue in the content
+// release. It must never reach the browser: the player used to import it, which shipped the
+// whole catalogue as a 421 kB chunk and froze the queue at the deploy's copy of the data.
+// next.config.js fails the build if data/albums.json reaches a client chunk again.
 import albumsData from '@/data/albums.json';
 
 export interface RawCredit {
@@ -119,18 +119,4 @@ export function getAllSongsFull(): MonsterSirenSong[] {
   }
   cachedSongs = songs;
   return songs;
-}
-
-export interface GetAllSongsOptions {
-  excludeCopyrighted?: boolean;
-}
-
-/** Main entry point for the music player's queue. Stream-safe mode
- * (excludeCopyrighted) filters out the small handful of songs (11 of
- * 897 in the current catalog) that are actually copyrighted, so
- * streamers using the site can avoid them entirely. */
-export function getAllSongs(options: GetAllSongsOptions = {}): MonsterSirenSong[] {
-  const all = getAllSongsFull();
-  if (options.excludeCopyrighted) return all.filter((s) => !s.copyright);
-  return all;
 }

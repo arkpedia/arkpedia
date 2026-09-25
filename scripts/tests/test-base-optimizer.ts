@@ -13,6 +13,8 @@ import {
   runRotationExperiment,
   type RoomAssignment,
 } from '../../lib/base/baseRotationExperiment';
+import { checkBaseRosters, toBaseRosters } from '../../lib/base/baseGroupRosters';
+import rosterData from '../../data/base-group-rosters.json';
 
 const releasedOperators = getAllOperators().filter((operator) => !operator.isFuture);
 const releasedNames = new Set(releasedOperators.map((operator) => operator.name));
@@ -23,8 +25,10 @@ const baseOperators = releasedOperators.map(({ name, rarity, faction, baseSkills
   baseSkills,
 }));
 
-initializeOptimizerData(baseOperators);
-initializeRotationExperimentData(baseOperators);
+// The rosters the page reads from its props; this checkout's copy here.
+const rosters = toBaseRosters(checkBaseRosters(rosterData));
+initializeOptimizerData(baseOperators, rosters);
+initializeRotationExperimentData(baseOperators, rosters);
 
 function assertUnique(values: string[], context: string) {
   assert.equal(new Set(values).size, values.length, `${context} double-books an operator`);

@@ -1,5 +1,6 @@
 import { getModuleStageEffects } from '@/lib/operators/moduleEffects';
 import { useContentUrl } from '@/lib/content/context';
+import { cssUrl } from '@/lib/content/urls';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
@@ -9,6 +10,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
+import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import OperatorSearch from '@/components/operators/OperatorSearch';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
@@ -870,7 +872,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       }}>
           <section id="operator-artwork" tabIndex={-1} aria-label="Operator artwork" className={pageStyles.gallery}>
             <div className="op-carousel-main">
-              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: `url("${contentUrl(factionEmblem)}")`, WebkitMaskImage: `url("${contentUrl(factionEmblem)}")` }} />}
+              {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: cssUrl(contentUrl(factionEmblem)), WebkitMaskImage: cssUrl(contentUrl(factionEmblem)) }} />}
               {prevAppearance?.fullPath && (
                 <div key={`prev-img-${prevAppearance.label}`} className="op-carousel-main-img op-carousel-img-exit">
                   <ResponsiveSkinArtwork src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes="(max-width: 900px) 100vw, 40vw" />
@@ -1572,7 +1574,7 @@ function buildOperatorRelationIndexes(allOperators: Operator[], skins: ReturnTyp
     if (!key) return;
     const rows = index.get(key) ?? [];
     if (!rows.some(row => row.name === candidate.name)) {
-      rows.push({ name: candidate.name, rarity: candidate.rarity, isFuture: candidate.isFuture ?? null });
+      rows.push({ name: candidate.name, rarity: candidate.rarity, isFuture: candidate.isFuture ?? null, ...portraitStatus(candidate) });
       index.set(key, rows);
     }
   };
@@ -1625,7 +1627,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     // Keep the established compact schema: `true` marks unavailable icons,
     // while released operators omit the flag instead of serializing `false`
     // into every operator page payload.
-    isFuture: isOperatorReleased(op) ? undefined : true,
+    // Decided at content export, so it drifts until the next release; the export
+    // clock guard lists this route as a known exception (scripts/content/export-clock.mjs).
+    isFuture: isOperatorReleased(op, Date.now()) ? undefined : true,
   }));
   const voiceData = getOperatorVoiceData(operator.internalName ?? operator.name);
   const relationIndexes = buildOperatorRelationIndexes(allOperators, skins);
@@ -1753,18 +1757,18 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     for (const tech of techniques) {
       if (tech.unit && !techniqueUnitIcons[tech.unit]) {
         const match = allOperators.find((op) => op.name === tech.unit);
-        if (match) techniqueUnitIcons[tech.unit] = { name: match.name, rarity: match.rarity, isFuture: match.isFuture ?? null };
+        if (match) techniqueUnitIcons[tech.unit] = { name: match.name, rarity: match.rarity, isFuture: match.isFuture ?? null, ...portraitStatus(match) };
       }
       if (tech.branch && !techniqueBranchOperators[tech.branch]) {
         const matches = allOperators.filter((op) => op.name !== operator.name && op.branch === tech.branch);
         matches.sort((a, b) => (b.rarity ?? 0) - (a.rarity ?? 0));
-        techniqueBranchOperators[tech.branch] = matches.slice(0, 5).map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null }));
+        techniqueBranchOperators[tech.branch] = matches.slice(0, 5).map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null, ...portraitStatus(op) }));
       }
       if (tech.group && tech.members && !techniqueGroupOperators[tech.group]) {
         techniqueGroupOperators[tech.group] = tech.members
           .map((name) => allOperators.find((op) => op.name === name))
           .filter((op): op is (typeof allOperators)[number] => !!op)
-          .map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null }));
+          .map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null, ...portraitStatus(op) }));
       }
     }
   }
@@ -1789,7 +1793,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
       if (others.length === 0) continue;
       const entries: SearchableOperator[] = others.slice(0, 4).map((e) => {
         const match = allOperators.find((op) => op.name === e.operatorName);
-        return { name: e.operatorName, rarity: e.rarity, isFuture: match?.isFuture ?? null };
+        return { name: e.operatorName, rarity: e.rarity, isFuture: match?.isFuture ?? null, ...(match ? portraitStatus(match) : {}) };
       });
       techniqueRelatedOperators[tech.name] = { entries, totalCount: others.length };
     }

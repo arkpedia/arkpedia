@@ -4,6 +4,7 @@ const assetRevisions = require('./data/assets/revisions.json');
 const assetCdn = require('./config/asset-delivery.json');
 const assetUrl = (repository, path) => assetCdn.template.replace('{repository}', repository).replace('{revision}', assetRevisions[repository]).replace('{path}', path);
 const contentPageRoutes = require('./scripts/content/pages.json');
+const { ClientDataGuard } = require('./scripts/build/client-bundle-guard.cjs');
 for (const [repository, revision] of Object.entries(assetRevisions)) {
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error(`Invalid asset revision: ${repository}`);
 }
@@ -57,6 +58,12 @@ function externalAssetRedirects(folders, repository) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The browser bundle may not carry a game record the content release publishes (such as
+  // data/albums.json): the build fails, naming the import chain. See the guard's header.
+  webpack(config, { isServer }) {
+    if (!isServer) config.plugins.push(new ClientDataGuard(__dirname));
+    return config;
+  },
   experimental: {
     // These routes use local records only while Next prerenders the bundled
     // fallback. In production their ISR functions read the signed release from

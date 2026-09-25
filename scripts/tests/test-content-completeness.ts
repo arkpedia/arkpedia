@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
+import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/operators/operatorIcon';
 import farmingFixture from './fixtures/people-farming.json';
 import operatorFixture from './fixtures/operator-costs.json';
 import { emptyCatalogue } from './fixtures/catalogue';
@@ -73,6 +73,18 @@ test('a missing record or picture quarantines that one record and blocks nothing
   Object.assign(empty, { operators: [], skins: [], events: [], banners: [] });
   assert.deepEqual([...new Set(holds(empty).map(entry => entry.key))].sort(),
     ['banner:LINKAGE_99_0_1', 'bundle:act99side', 'event:act99side', 'operator:char_9990_test', 'skin:char_9990_test@test#1']);
+});
+test('an album whose release date is not written YYYY/MM/DD is held, and blocks nothing', () => {
+  // Sorted as text, "October 8, 2025" ranked above every 2026 album in Recently added, and a
+  // blank date left the album out of it. The album sync writes YYYY/MM/DD; this catches the rest.
+  const album = (albumId: string, releaseDate: unknown) => ({ albumId, albumName: `专辑${albumId}`, albumAltName: `Album ${albumId}`, releaseDate });
+  const held = holds(emptyCatalogue({ albums: [album('1', '2026/09/03'), album('2', 'October 8, 2025'), album('3', ''),
+    album('4', '2026/02/30'), album('5', '2026-09-03'), album('6', undefined)] }));
+  assert.deepEqual(held.map(entry => `${entry.key} ${entry.action}`),
+    ['album:2 published-partial', 'album:3 published-partial', 'album:4 published-partial', 'album:5 published-partial', 'album:6 published-partial']);
+  assert.equal(held[0].reason, 'Album 2: release date "October 8, 2025" is not written YYYY/MM/DD');
+  assert.equal(held[1].reason, 'Album 3: no release date, so Recently added leaves it out');
+  assert.equal(held[2].reason, 'Album 4: release date "2026/02/30" is not written YYYY/MM/DD');
 });
 test('malformed hand-written records and outfit identities still block the release', () => {
   const blocked = (edit: (c: any) => void) => { const c = collaboration(); edit(c); return reviewCompleteness(c).errors.join('\n'); };
@@ -184,6 +196,7 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
     };
     for (const file of ['data/skins.json', 'data/headhunting_banners.json', 'data/content-bundles.json', 'data/events/events_2026.json']) write(file, []);
     write('data/content-inventory.json', { operators: [], skins: [] });
+    write('data/skin-availability-windows.json', { entries: [] });
     write('data/stages/test-1.json', { slug: 'test-1', enemies: { by_rank: { normal: [{ slug: 'slug-a' }] }, conditional: { by_rank: { elite: [{ slug: 'slug-b' }] } } } });
     write('data/stages/unlisted.json', { slug: 'unlisted', enemies: { by_rank: { normal: [{ slug: 'slug-unlisted' }] } } });
     write('public/stages-index.json', [{ slug: 'test-1' }]);
@@ -322,6 +335,8 @@ test('farming importer ignores shop currency, first clears, CN guesses and non-r
 });
 
 test('a new runtime CN record can use published portrait art without a website rebuild',()=>{
-  assert.equal(getOperatorIconPath({name:'Future imported operator',rarity:6,isFuture:true,sourceRegion:'CN'}),'/six-star-icons/Future%20imported%20operator%20-%20Base.webp');
-  assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,isFuture:true}),'/future_operator_icons/Unverified%20placeholder.webp');
+  assert.equal(getOperatorIconPath({name:'Future imported operator',rarity:6}),'/six-star-icons/Future%20imported%20operator%20-%20Base.webp');
+  // The server marks a record whose portrait the release's asset index lacks; the browser
+  // shows the image repository's placeholder, never a path with no file behind it.
+  assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,portraitPending:true}),OPERATOR_PORTRAIT_PLACEHOLDER);
 });

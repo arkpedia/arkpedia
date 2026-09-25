@@ -24,6 +24,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { COPYRIGHT_DEFAULT } from './sync-albums.mjs';
 
 const API = 'https://monster-siren.hypergryph.com/api';
 const ROOT = path.resolve(import.meta.dirname, '../..');
@@ -230,7 +231,7 @@ if (added.length) {
         length: detail?.sourceUrl ? (await trackLength(detail.sourceUrl)) ?? '' : '',
         songCategory: [],
         songGenre: [],
-        copyright: '',
+        copyright: COPYRIGHT_DEFAULT, // the catalogue's default (sync-albums.mjs)
       },
       upstream: { artists: song.artists ?? detail?.artists ?? [], sourceUrl: detail?.sourceUrl ?? null, mvUrl: detail?.mvUrl ?? null },
       albumMissing: album && {
