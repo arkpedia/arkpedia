@@ -29,6 +29,9 @@ interface RawEvent {
   cn?: { dateRange: string | null; note: string | null } | null;
 }
 
+// Every "which events/banners/skins are current" helper below takes `now` without a
+// default: the home page passes the request's clock (finalizeHome), and a defaulted
+// clock is how the content export used to freeze its own moment into pages.
 export function loadGameEvents(): GameEvent[] {
   const raw = loadAllEventYears() as RawEvent[];
   const events: GameEvent[] = [];
@@ -42,7 +45,7 @@ export function loadGameEvents(): GameEvent[] {
   return events;
 }
 
-export function getOngoingEvents(now: Date = new Date(), events = loadGameEvents()): GameEvent[] {
+export function getOngoingEvents(now: Date, events = loadGameEvents()): GameEvent[] {
   return events
     .filter((e) => e.start <= now && now < e.end)
     .sort((a, b) => a.end.getTime() - b.end.getTime());
@@ -50,7 +53,7 @@ export function getOngoingEvents(now: Date = new Date(), events = loadGameEvents
 
 /** The single soonest upcoming event -- guarantees there's always at
  * least one banner to show, even with zero ongoing events. */
-export function getNextUpcomingEvent(now: Date = new Date(), events = loadGameEvents()): GameEvent | null {
+export function getNextUpcomingEvent(now: Date, events = loadGameEvents()): GameEvent | null {
   const upcoming = events
     .filter((e) => e.start > now)
     .sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -96,7 +99,7 @@ function bannerCategoryRank(banner: HeadhuntingBanner): number {
  * the SAME functions the Gacha page's own "Upcoming" category already
  * uses to correctly identify currently-active banners.
  */
-export function getOngoingGachaBanners(now: Date = new Date(), banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
+export function getOngoingGachaBanners(now: Date, banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const result: GachaBannerWithWindow[] = [];
   for (const b of banners) {
     if (!b.global_date) continue; // CN-only pools are not active on Global.
@@ -115,7 +118,7 @@ export function getOngoingGachaBanners(now: Date = new Date(), banners = getBann
 }
 
 /** Keep the next Global banner visible with a start countdown. */
-export function getHomeGachaBanners(now: Date = new Date(), banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
+export function getHomeGachaBanners(now: Date, banners = getBannersSortedByDate()): GachaBannerWithWindow[] {
   const ongoing = getOngoingGachaBanners(now, banners);
   const next = banners.filter(banner => banner.global_date).map(banner => {
     const start = parseBannerDate(banner), end = parseBannerEndDate(banner);
@@ -127,7 +130,7 @@ export function getHomeGachaBanners(now: Date = new Date(), banners = getBanners
 
 /** Skins tied to a currently-ongoing event, via each skin's own
  * "release" field matching that event's name. */
-export function getOngoingSkins(now: Date = new Date(), allSkins = getAllSkins(), events = loadGameEvents()): Skin[] {
+export function getOngoingSkins(now: Date, allSkins = getAllSkins(), events = loadGameEvents()): Skin[] {
   const ongoingEvents = getOngoingEvents(now, events);
   /* Every event name, not just the ongoing ones: the point of the list is to let a
      release be recognised as belonging to some OTHER event than this one. */
@@ -145,7 +148,7 @@ export function getOngoingSkins(now: Date = new Date(), allSkins = getAllSkins()
 }
 
 /** Actual repeatable stage drops inside their confirmed Global battle windows. */
-export function getCurrentFarmableMaterials(now: Date = new Date()): FarmingMaterial[] {
+export function getCurrentFarmableMaterials(now: Date): FarmingMaterial[] {
   return activeEventFarming(getEventFarmingMaterials(), now.getTime());
 }
 
