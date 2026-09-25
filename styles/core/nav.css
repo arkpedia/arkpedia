@@ -391,7 +391,7 @@
   height: 52px;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 var(--page-gutter);
   /* The mobile half of .site-nav's layer, and for the same reason: a tap in the
      Stronghold companion snapshots the screen, and anything the companion names
      rides in a layer of its own while everything unnamed -- this bar included --
@@ -479,13 +479,14 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control-border);
   background: var(--panel-2);
   color: var(--text-dim);
   cursor: pointer;
 }
 .mobile-nav-menu-btn:hover { border-color: var(--teal); color: var(--teal); }
+
 .mobile-nav-bar-side {
   display: flex;
   align-items: center;
