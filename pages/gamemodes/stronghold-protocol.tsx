@@ -814,7 +814,6 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
             button of its own (28px, the pre-token teal); the chip is 32px (36 on a
             phone) and says "current" the way every other one does. */}
         <SegmentedControl
-          className="gm-tabs"
           label="Sections"
           value={tab}
           onChange={goTab}

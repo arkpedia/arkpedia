@@ -78,7 +78,7 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
             ariaLabel: d === today ? `${d}, today` : d,
             label: (
               <>
-                <span className="supply-day-abbr">{d.slice(0, 3)}</span>
+                <span>{d.slice(0, 3)}</span>
                 {d === today && <span className="supply-day-mark">Today</span>}
               </>
             ),

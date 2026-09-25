@@ -40,7 +40,6 @@ export default function OperatorSearch() {
 
   return (
     <SearchInput
-      className="operator-jump-search"
       label="Search operators"
       name="operator-jump"
       placeholder="Search operators…"

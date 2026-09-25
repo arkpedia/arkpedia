@@ -661,7 +661,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
           options={tabs.map((t) => ({ value: t.key, label: t.label }))}
         />
 
-        <div className="enemy-tab-body" ref={tabFloor.ref}>
+        <div ref={tabFloor.ref}>
         {/* The figures the handbook does not print. Kept because the data has them
             and someone planning around a stall needs the interval, but out of the
             grid, which is the game's eight and only those. */}
