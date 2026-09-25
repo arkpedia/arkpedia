@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { contentInput, releaseInput, SCHEMA } from './release-input.mjs';
+import { codeFingerprint } from './code-fingerprint.mjs';
 
 assertCompleteness();
 
@@ -31,6 +32,10 @@ for (const file of sourceFiles.sort()) {
   sourceHashes[file] = sha(bytes);
 }
 const generator = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+// The generator's code, less docs (code-fingerprint.mjs): the publish step holds the release
+// until production serves a build with the same one (deploy-gate.mjs). Not part of the
+// release id, which the generator commit already fixes.
+const generatorCode = codeFingerprint(generator);
 const schema = SCHEMA;
 const input = releaseInput({ generator, sourceHashes });
 // Without the run's own records (the upstream lock, the catalogue's report): the publish step
@@ -84,7 +89,7 @@ for (const file of publicFiles.sort()) {
   fs.writeFileSync(path.join(release, file), bytes);
   files[file.slice('public/'.length)] = { path: file, bytes: bytes.length, sha256: sha(bytes) };
 }
-const manifest = { schema, release: input, content, generator, generatedAt: new Date().toISOString(),
+const manifest = { schema, release: input, content, generator, codeFingerprint: generatorCode, generatedAt: new Date().toISOString(),
   assets: JSON.parse(fs.readFileSync('data/assets/revisions.json', 'utf8')), sourceHashes,
   pages: Object.fromEntries(Object.entries(pages).sort(([a], [b]) => a.localeCompare(b))), files };
 fs.writeFileSync(path.join(release, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

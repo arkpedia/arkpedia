@@ -309,14 +309,20 @@ test('no address in a cell autolinks, whatever comes before or after it, and the
 });
 
 // The shell of a prepare-content step, as the runner gets it.
-function stepScript(name: string) {
-  const lines = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('\n');
+// A step's run: a `run: |` block, or a one-line `run:`, of any of the workflows.
+function stepScript(name: string, workflow = 'prepare-content') {
+  const lines = fs.readFileSync(`.github/workflows/${workflow}.yml`, 'utf8').split('\n');
   const start = lines.findIndex(line => line.trim() === `- name: ${name}`);
-  const run = lines.findIndex((line, i) => i > start && /^\s+run: \|$/.test(line));
-  assert.ok(start >= 0 && run > start, `prepare-content.yml has a '${name}' step with a run block`);
-  const indent = lines[run].search(/\S/) + 2;
+  assert.ok(start >= 0, `${workflow}.yml has a '${name}' step`);
+  const item = lines[start].search(/\S/);
+  const end = lines.findIndex((line, i) => i > start && line.trim() !== '' && line.search(/\S/) <= item);
+  const block = lines.slice(start + 1, end < 0 ? lines.length : end);
+  const run = block.findIndex(line => /^\s+run: /.test(line));
+  assert.ok(run >= 0, `${workflow}.yml's '${name}' step has a run`);
+  if (!/^\s+run: \|$/.test(block[run])) return block[run].replace(/^\s+run: /, '');
+  const indent = block[run].search(/\S/) + 2;
   const body: string[] = [];
-  for (const line of lines.slice(run + 1)) {
+  for (const line of block.slice(run + 1)) {
     if (line.trim() && line.search(/\S/) < indent) break;
     body.push(line.slice(indent));
   }
@@ -407,5 +413,31 @@ test('a failed release reports on the one open issue, and the next good run clos
     assert.equal(github.step(close).status, 0);
     assert.equal(github.issues()[0].state, 'closed');
     assert.match(github.issues()[0].comments.at(-1)!.body, /^Recovered: https:\/\/example\.invalid\/run\/1$/);
+  });
+});
+
+// A run the release gate held (scripts/content/deploy-gate.mjs wrote why) is not a broken
+// workflow: the fix is a deploy, so it gets an issue of its own, which a good run closes.
+test('a held release reports on its own issue, and a good run closes it with the failure report', () => {
+  withGitHub(github => {
+    const report = stepScript('Report the failed release'), close = stepScript('Close the failed-release report');
+    const held = path.join(github.root, 'release-held.md');
+    fs.writeFileSync(held, '**The content release was not published: production cannot be shown to read it.**\n\n- https://arkpedia-dev.vercel.app runs 821a98d4abcd, not the code of 7f236ea5abcd that compiles the release.\n');
+    const run = github.step(report, { FAKE_NOW: '2026-09-25T22:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'schedule' });
+    assert.equal(run.status, 0, run.output);
+    const [issue] = github.issues();
+    assert.equal(issue.title, 'Content release held');
+    assert.match(issue.body, /^<!-- arkpedia-alert:content-release-held -->\n\*\*The content release was not published/);
+    assert.match(issue.body, /runs 821a98d4abcd, not the code of 7f236ea5abcd/);
+    assert.match(issue.body, /Held by https:\/\/example\.invalid\/run\/1 \(schedule, /);
+    assert.equal(github.issues().length, 1, 'no "Content release failing" issue for a hold');
+    // Without the gate's file it is an ordinary failure, reported as before.
+    fs.rmSync(held);
+    github.step(report, { FAKE_NOW: '2026-09-25T22:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'schedule' });
+    assert.deepEqual(github.issues().map(entry => entry.title), ['Content release held', 'Content release failing']);
+    const closed = github.step(close);
+    assert.equal(closed.status, 0, closed.output);
+    assert.deepEqual(github.issues().map(entry => entry.state), ['closed', 'closed']);
+    assert.match(github.issues()[0].comments.at(-1)!.body, /^Production runs the code this run compiled with, and the run succeeded: https:\/\/example\.invalid\/run\/1$/);
   });
 });

@@ -39,6 +39,12 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      # A release goes live only while production runs the code that compiles it: the publish
+      # step asks production (one GET of its /build-info.json) and holds anything else
+      # (scripts/content/deploy-gate.mjs). Asked here too, so a run that could not publish
+      # stops now instead of after the compile; the report at the end says why.
+      - name: Hold the release while production runs other code
+        run: node scripts/content/deploy-gate.mjs --ref HEAD --held-file "$RUNNER_TEMP/release-held.md"
       # The probe falls back to each repository's last known commit when it cannot reach
       # one, so an outage of any single source never stops the day's run.
       - name: Load the last known upstream revisions
@@ -237,6 +243,11 @@ jobs:
             fi
             exit 0
           fi
+          # Production must run the code that compiled this release, or it may not be able to
+          # read it (scripts/content/deploy-gate.mjs). Asked again here, after the compile,
+          # because a deploy can land in between; a hold fails the step, and the report at the
+          # end opens the 'Content release held' issue with the reason.
+          node scripts/content/deploy-gate.mjs --manifest "$RUNNER_TEMP/prepared-content/release/manifest.json" --held-file "$RUNNER_TEMP/release-held.md"
           git -C "$repo" checkout -B main "$prepared_base"
           rm -rf "$repo/source" "$repo/release"
           cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
@@ -338,6 +349,14 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
+          # Held by the release gate (deploy-gate.mjs wrote why): its own issue, since the fix is
+          # a deploy, not this workflow. Nothing else fails a run after a hold.
+          if [ -s "$RUNNER_TEMP/release-held.md" ]; then
+            body="$RUNNER_TEMP/held-release.md"
+            { cat "$RUNNER_TEMP/release-held.md"; echo; echo "Held by $RUN_URL ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC'))."; } > "$body"
+            node scripts/content/alert-issue.mjs open --alert content-release-held --title 'Content release held' --body-file "$body"
+            exit 0
+          fi
           body="$RUNNER_TEMP/failed-release.md"
           echo "Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL" > "$body"
           node scripts/content/alert-issue.mjs open --alert content-release-failing --title 'Content release failing' --body-file "$body"
@@ -349,3 +368,4 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node scripts/content/alert-issue.mjs close --alert content-release-failing --title 'Content release failing' --comment "Recovered: $RUN_URL"
+          node scripts/content/alert-issue.mjs close --alert content-release-held --title 'Content release held' --comment "Production runs the code this run compiled with, and the run succeeded: $RUN_URL"

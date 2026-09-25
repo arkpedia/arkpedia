@@ -1,0 +1,4 @@
+{
+  "about": "Files no build and no content release reads. A push or pull request that changes only these skips Check (paths-ignore in .github/workflows/check.yml, which must list exactly these), so it never deploys; the code fingerprint (scripts/content/code-fingerprint.mjs) leaves them out for the same reason, so the release gate still sees production as running the code a release was compiled from. GitHub's paths-filter glob syntax: ** crosses folders, * does not.",
+  "paths": ["docs/**", "**/*.md"]
+}
