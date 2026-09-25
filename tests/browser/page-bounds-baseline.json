@@ -1,0 +1,93 @@
+{
+  "d1440": {
+    "/obtain-method": [
+      "h1-align"
+    ],
+    "/operators/Amiya": [
+      "h1-align",
+      "frame"
+    ],
+    "/recruitment": [
+      "h1-align"
+    ],
+    "/stages/exploration": [
+      "h1-align"
+    ],
+    "/stages/regular": [
+      "h1-align"
+    ],
+    "/stages/score": [
+      "h1-align"
+    ],
+    "/stages/seasonal": [
+      "h1-align"
+    ],
+    "/stages/supplies": [
+      "h1-align"
+    ],
+    "/synergies": [
+      "frame"
+    ],
+    "/techniques": [
+      "frame"
+    ]
+  },
+  "d390": {
+    "/gamemodes": [
+      "frame"
+    ],
+    "/gamemodes/stronghold-protocol": [
+      "frame"
+    ],
+    "/obtain-method": [
+      "h1-align"
+    ],
+    "/operators/Amiya": [
+      "h1-align",
+      "frame"
+    ],
+    "/pulls": [
+      "frame"
+    ],
+    "/recruitment": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages/all": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages/content/act49side": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages/exploration": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages/regular": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages/score": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages/seasonal": [
+      "h1-align",
+      "frame"
+    ],
+    "/stages/supplies": [
+      "h1-align",
+      "frame"
+    ],
+    "/techniques": [
+      "h1-align",
+      "frame"
+    ]
+  }
+}
