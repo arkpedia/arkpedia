@@ -365,7 +365,7 @@ test('estimated banners follow the event opening while preserving their own offs
 test('planner banner windows are the shared banner records, and unconfirmed ones are marked estimated', async () => {
   const { getPullSchedule } = await import('../../lib/pulls/schedule');
   const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
-  const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBanners');
+  const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBannerData');
   const banners=getAllHeadhuntingBanners(), planned=getPullSchedule();
   let confirmed=0;
   for (const plan of planned) {

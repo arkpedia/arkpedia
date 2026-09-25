@@ -1,6 +1,7 @@
 import { parseGameWindow, type GameWindowTimes } from '@/lib/schedule/gameWindow';
 import { loadAllEventYears } from '../events/loadEventsData';
-import { getBannersSortedByDate, HeadhuntingBanner } from '../gacha/headhuntingBanners';
+import type { HeadhuntingBanner } from '../gacha/headhuntingBanners';
+import { getBannersSortedByDate } from '../gacha/headhuntingBannerData';
 import { parseBannerDate, parseBannerEndDate } from '../gacha/realGachaBanners';
 import { bannerSeriesFromName } from '../operators/operatorSeries';
 import { getAllSkins } from '../skins/skins';

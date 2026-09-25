@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { canComplete, formatChance, selectedRules, simulateOdds, sixStarChance, type BannerOdds, type OddsOperator, type OddsRequest } from '../../lib/pulls/probability';
 import { getBannerOdds, LIMITED_RULES, resolveLimitedRules } from '../../lib/pulls/bannerOdds';
 import { getPullSchedule } from '../../lib/pulls/schedule';
-import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { getAllOperators } from '../../lib/operators/operators';
 import { parsePullPlan } from '../../lib/pulls/plan';
 const schedule = getPullSchedule().filter(b => b.end >= '2026-09-09');

@@ -1,5 +1,5 @@
 /** Server-only catalogue. Exchange rosters are tied to pool IDs, never inferred from age. */
-import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { getGachaIconPools } from '@/lib/gacha/gachaIconPools';
 import { buildEligiblePool } from '@/lib/gacha/gachaOperatorEligibility';
 import { deriveReleaseDatesFromBanners } from '@/lib/operators/operatorReleaseDates';

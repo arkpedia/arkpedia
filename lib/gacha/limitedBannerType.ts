@@ -1,4 +1,9 @@
-import { getAllHeadhuntingBanners, HeadhuntingBanner } from './headhuntingBanners';
+import type { HeadhuntingBanner } from './headhuntingBanners';
+
+/* Pure: the page's browser half uses dateStringValue and classifyLimitedBanner, so this
+   module must not reach the banner list itself. The lookups take the banners the
+   caller already holds -- getStaticProps passes getAllHeadhuntingBanners() from
+   headhuntingBannerData.ts, which the content export runs against the release. */
 
 export type LimitedBannerType = 'Celebration' | 'Festival' | 'Carnival' | 'Crossover';
 
@@ -70,9 +75,9 @@ export interface LimitedOperatorInfo {
  * basis for estimating one the way there is for Celebration/Festival/
  * Carnival.
  */
-export function getLimitedBannerInfoLookup(): Record<string, LimitedOperatorInfo> {
+export function getLimitedBannerInfoLookup(banners: readonly HeadhuntingBanner[]): Record<string, LimitedOperatorInfo> {
   const lookup: Record<string, LimitedOperatorInfo> = {};
-  const limitedBanners = getAllHeadhuntingBanners().filter((b) => b.pull_type === 'limited');
+  const limitedBanners = banners.filter((b) => b.pull_type === 'limited');
   const todayValue = (() => {
     const t = new Date();
     t.setHours(0, 0, 0, 0);
@@ -122,10 +127,10 @@ export function getLimitedBannerInfoLookup(): Record<string, LimitedOperatorInfo
  * estimating a Celebration operator's next rerun means looking at
  * this real schedule directly rather than projecting a fixed date.
  */
-export function getCelebrationBannerDates(): string[] {
+export function getCelebrationBannerDates(banners: readonly HeadhuntingBanner[]): string[] {
   const dates: string[] = [];
-  const banners = getAllHeadhuntingBanners().filter((b) => b.pull_type === 'limited' && classifyLimitedBanner(b) === 'Celebration');
-  for (const banner of banners) {
+  const celebrations = banners.filter((b) => b.pull_type === 'limited' && classifyLimitedBanner(b) === 'Celebration');
+  for (const banner of celebrations) {
     const date = parseGlobalStartDate(banner);
     if (date) dates.push(date);
   }

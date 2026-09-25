@@ -6,6 +6,7 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { getFeaturedOperatorRates, splitEventBannerRates, FeaturedOperatorRate } from '@/lib/gacha/eventBannerRates';
 import { getAllSkins } from '@/lib/skins/skins';
@@ -489,7 +490,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const event = listings.find((e) => e.name === name);
   if (!event) return { notFound: true };
 
-  const banner = getBannerForEvent(event.name, event.isPredicted ? null : event.dateRange);
+  const banner = getBannerForEvent(event.name, event.isPredicted ? null : event.dateRange, getAllHeadhuntingBanners());
   const featuredOperators = banner ? getFeaturedOperatorRates(banner) : [];
 
   const allSkins = getAllSkins();

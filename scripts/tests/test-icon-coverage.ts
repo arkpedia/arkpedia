@@ -18,7 +18,7 @@ function roster(root: string) {
   };
   const released = { name: 'Frontline', internalName: 'char_901_front', rarity: 6, class: 'Guard', characterInfo: { 'Release Date': '2019/04/30' }, skills: { skillList: [{ name: 'Charge' }] } };
   const upcoming = { name: 'Newcomer', internalName: 'char_902_new', rarity: 5, class: 'Guard', faction: 'Nowhere', characterInfo: { 'Release Date': '2026-10-01' } };
-  const files = ['six-star-icons/Frontline - Base.webp', 'skill-icons/Frontline - Charge.webp', 'class-icons/Guard.webp', 'five-star-icons/Newcomer - Base.webp'];
+  const files = ['six-star-icons/Frontline - Base.webp', 'skill-icons/Frontline - Charge.webp', 'class-icons/Guard.webp', 'five-star-icons/Newcomer - Base.webp', 'essential-icons/Arkpedia.webp'];
   const save = () => {
     write('data/operators-6star/Frontline.json', released);
     write('data/operators-5star/Newcomer.json', upcoming);
@@ -65,6 +65,16 @@ test('on a Global launch rename a released operator\'s missing icons fail a pull
     roster.files.push('six-star-icons/Frontline the Official - Base.webp', 'skill-icons/Frontline the Official - Charge.webp');
     assert.equal(roster.run(true).exitCode, 0);
     assert.deepEqual(roster.held(), []);
+  });
+});
+
+test('the portrait placeholder every unpublished operator shows must itself be published', () => {
+  withRoster(roster => {
+    roster.files.splice(roster.files.indexOf('essential-icons/Arkpedia.webp'), 1);
+    const strict = roster.run(false);
+    assert.equal(strict.exitCode, 1);
+    assert.match(strict.errors.join('\n'), /essential-icons\/Arkpedia\.webp {2}\(portrait placeholder for every operator without one\)/);
+    assert.equal(roster.run(true).exitCode, 0, 'reported, never what stops the daily release');
   });
 });
 

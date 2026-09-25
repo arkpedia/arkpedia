@@ -2,7 +2,7 @@ import eventRewards from '@/data/pull-event-rewards.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import type { BacklogSources, PullEventReward } from './pulls';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
-import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import type { UpcomingBanner } from './pulls';
 import { ALL_BANNERS } from './sources';
 import { pullArtworkUrl } from './artwork';

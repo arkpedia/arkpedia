@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '../../lib/gacha/gachaBannerWindows';
 import { getAllEvents } from '../../lib/schedule/schedule';
 import { getAllEventListings } from '../../lib/home/frontPageContent';

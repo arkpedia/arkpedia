@@ -5,6 +5,7 @@ export interface SearchableOperatorRecord {
   name: string;
   rarity: number | null;
   isFuture: boolean | null;
+  portraitPending?: boolean;
 }
 
 type FetchOperatorSearch = (input: string, init?: RequestInit) => Promise<Pick<Response, 'ok' | 'status' | 'json'>>;

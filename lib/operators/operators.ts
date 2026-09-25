@@ -3,6 +3,7 @@ import path from 'path';
 import { Operator } from './operatorTypes';
 import { getScheduledOperatorRelease } from './operatorReleaseSchedule';
 import { getCurrentOperatorVoiceCredits } from './operatorVoices';
+import { isPortraitPending } from './operatorPortrait';
 
 const FUTURE_ICONS_DIR = path.join(process.cwd(), 'public', 'future_operator_icons');
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -186,6 +187,9 @@ export function getAllOperators(): Operator[] {
   const future = getFutureOperators().filter((op) => !releasedNames.has(op.name));
 
   cachedOperators = [...released, ...future].map(op => {
+    // Decided here, where the release's asset index is, and carried with the record:
+    // the browser renders the placeholder from the flag instead of loading the index.
+    if (isPortraitPending(op)) op = { ...op, portraitPending: true };
     const releaseAt = getScheduledOperatorRelease(op);
     if (!releaseAt) return op;
     return { ...op, releaseAt, characterInfo: {

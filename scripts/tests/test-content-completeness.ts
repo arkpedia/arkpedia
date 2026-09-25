@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
+import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/operators/operatorIcon';
 import farmingFixture from './fixtures/people-farming.json';
 import operatorFixture from './fixtures/operator-costs.json';
 import { emptyCatalogue } from './fixtures/catalogue';
@@ -322,6 +322,8 @@ test('farming importer ignores shop currency, first clears, CN guesses and non-r
 });
 
 test('a new runtime CN record can use published portrait art without a website rebuild',()=>{
-  assert.equal(getOperatorIconPath({name:'Future imported operator',rarity:6,isFuture:true,sourceRegion:'CN'}),'/six-star-icons/Future%20imported%20operator%20-%20Base.webp');
-  assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,isFuture:true}),'/future_operator_icons/Unverified%20placeholder.webp');
+  assert.equal(getOperatorIconPath({name:'Future imported operator',rarity:6}),'/six-star-icons/Future%20imported%20operator%20-%20Base.webp');
+  // The server marks a record whose portrait the release's asset index lacks; the browser
+  // shows the image repository's placeholder, never a path with no file behind it.
+  assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,portraitPending:true}),OPERATOR_PORTRAIT_PLACEHOLDER);
 });

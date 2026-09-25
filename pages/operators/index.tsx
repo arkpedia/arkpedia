@@ -7,6 +7,7 @@ import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
+import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
@@ -575,6 +576,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     connectedFactions: op.connectedFactions || [],
     howToObtain: null,
     isFuture: op.isFuture ?? false,
+    ...portraitStatus(op),
     ...(op.sourceRegion ? { sourceRegion: op.sourceRegion } : {}),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     characterInfo: op.characterInfo ? { 'Release Date': op.characterInfo['Release Date'] || '' } : null,

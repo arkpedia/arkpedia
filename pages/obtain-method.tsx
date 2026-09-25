@@ -9,6 +9,8 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { isOperatorReleased, operatorRelease } from '@/lib/operators/operatorAvailability';
 import { RosterOperator, isWelfareUnit, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { getLimitedBannerInfoLookup, getCelebrationBannerDates, dateStringValue, LimitedBannerType, LimitedOperatorInfo } from '@/lib/gacha/limitedBannerType';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
+import { portraitStatus } from '@/lib/operators/operatorPortrait';
 
 interface Props {
   operators: RosterOperator[];
@@ -381,13 +383,15 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ob
     faction: op.faction,
     howToObtain: op.howToObtain,
     isFuture: op.isFuture ?? false,
+    ...portraitStatus(op),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     // Only 'Release Date' is actually read anywhere on this page --
     // the full characterInfo object (description, position, tags,
     // etc.) is a large chunk of unused payload otherwise.
     characterInfo: op.characterInfo?.['Release Date'] ? { 'Release Date': op.characterInfo['Release Date'] } : null,
   }));
-  const limitedBannerInfo = getLimitedBannerInfoLookup();
-  const celebrationBannerDates = getCelebrationBannerDates();
+  const banners = getAllHeadhuntingBanners();
+  const limitedBannerInfo = getLimitedBannerInfoLookup(banners);
+  const celebrationBannerDates = getCelebrationBannerDates(banners);
   return { props: { operators, limitedBannerInfo, celebrationBannerDates } };
 });

@@ -21,6 +21,8 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
 import { confirmedGlobalRange, getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
+import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getAllEventListings } from '@/lib/home/frontPageContent';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
 import { isLineupPending, LINEUP_PENDING_NOTE } from '@/lib/gacha/bannerLineup';
@@ -920,6 +922,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
     name: op.name,
     rarity: op.rarity ?? null,
     isFuture: !isOperatorReleased(op),
+    ...portraitStatus(op),
     basicInfo: op.basicInfo?.['Date of Birth'] ? { 'Date of Birth': op.basicInfo['Date of Birth'] } : null,
   }));
 
@@ -939,7 +942,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
       .map((banner) => [banner.name.toLowerCase(), banner.name]),
   );
   const eventRows: EventRow[] = getAllEventListings(new Date()).map((e) => {
-    const banner = getBannerForEvent(e.name, e.isPredicted ? null : e.dateRange);
+    const banner = getBannerForEvent(e.name, e.isPredicted ? null : e.dateRange, getAllHeadhuntingBanners());
     const featuredOperators: { name: string; rarity: 6 | 5 }[] = [];
     if (banner) {
       (banner.six_stars || []).forEach((name) => featuredOperators.push({ name, rarity: 6 }));

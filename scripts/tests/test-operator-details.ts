@@ -5,7 +5,8 @@ import { applyModuleStatBonuses, getBaseStats, getTrustBonus, clampInteger, pars
 import { Operator } from '../../lib/operators/operatorTypes';
 import { readCsv } from '../lib/operator-csv';
 import { getBaseSkillIconPath, getSkillIconPath, baseSkillDisplayName, talentDisplayName, getEssentialIconPath } from '../../lib/operators/operatorIconPaths';
-import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
+import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/operators/operatorIcon';
+import { isPortraitPending } from '../../lib/operators/operatorPortrait';
 import { getOperatorSearchResults, loadOperatorSearch } from '../../lib/operators/operatorSearch';
 import { getOperatorAppearances } from '../../lib/operators/operatorAppearances';
 import { getOperatorArtworkCredits } from '../../lib/operators/operatorArtworkCredits';
@@ -14,7 +15,6 @@ import { getOperatorAttackRanges } from '../../lib/operators/operatorAttackRange
 import type { CroppedRange } from '../../lib/operators/branchRanges';
 import OPERATOR_DEPLOY from '../../public/operator-deploy.json';
 import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
-import { publicFileExists } from '../../lib/assets/publicAssets';
 import { getAllOperators } from '../../lib/operators/operators';
 
 const operators: Operator[] = [1, 2, 3, 4, 5, 6].flatMap(star => {
@@ -400,13 +400,17 @@ test('operator portraits preserve names through URL encoding for every rarity an
     assert.equal(parsed.hash, '');
     assert.equal(parsed.search, '');
     const name = operator.name.replace(/[\\/*?:"<>|]/g, '').trim();
-    const hasPublishedPortrait = publicFileExists(`${operator.rarity ? ['', 'one', 'two', 'three', 'four', 'five', 'six'][operator.rarity] : 'six'}-star-icons/${name} - Base.webp`);
-    assert.equal(decodeURIComponent(parsed.pathname.split('/').pop()!), operator.isFuture && !hasPublishedPortrait ? `${operator.name}.webp` : `${name} - Base.webp`);
+    assert.equal(decodeURIComponent(parsed.pathname.split('/').pop()!), `${name} - Base.webp`);
   }
   assert.equal(getOperatorIconPath(op("Wiš'adel")), "/six-star-icons/Wi%C5%A1'adel%20-%20Base.webp");
-  const future = getOperatorIconPath({ name: 'Test é #1 & 50%', rarity: 6, isFuture: true });
-  assert.equal(decodeURIComponent(future), '/future_operator_icons/Test é #1 & 50%.webp');
-  assert.equal(new URL(future, 'http://localhost').hash, '');
+  // An unpublished portrait is the server's call (isPortraitPending, against the
+  // release's asset index); the browser only reads the flag it leaves on the record.
+  assert.equal(getOperatorIconPath({ name: 'Test é #1 & 50%', rarity: 6 }), '/six-star-icons/Test%20%C3%A9%20%231%20%26%2050%25%20-%20Base.webp');
+  assert.equal(getOperatorIconPath({ name: 'Test é #1 & 50%', rarity: 6, portraitPending: true }), OPERATOR_PORTRAIT_PLACEHOLDER);
+  assert.equal(isPortraitPending({ name: 'Test é #1 & 50%', rarity: 6 }), true);
+  assert.equal(isPortraitPending(op("Wiš'adel")), false);
+  // Resolved once, where the records are loaded, and carried with them.
+  for (const record of getAllOperators()) assert.equal(record.portraitPending ?? false, isPortraitPending(record), record.name);
 });
 
 test('operator quick search accepts plain spellings, accents, apostrophes and partial names', () => {
