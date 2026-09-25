@@ -5,6 +5,9 @@
 .page { composes: page from './guesser-shared.module.css'; }
 .disclosure { composes: disclosure from './guesser-shared.module.css'; }
 .console:focus { outline: none; }
+/* The link out to the library sits at the far end of the header's row, apart from
+   the game switcher it would otherwise read as a sixth game of. */
+.libraryLink { margin-left: auto; }
 .footer { margin: 20px 0 0; color: var(--text-dim); font-size: 11px; text-align: center; }
 .footer a { color: var(--text-dim); text-underline-offset: 4px; }
 .footer a:hover { color: var(--teal); }
@@ -12,7 +15,7 @@
 /* --- setup ---------------------------------------------------------------- */
 .setup { display: flex; flex-direction: column; gap: 16px; }
 /* The round settings stay in reach while the reader scrolls the long music list. */
-.setupBar { position: sticky; top: var(--nav-h, 64px); z-index: 35; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 0; border-block: 1px solid var(--line-soft); background: var(--bg); }
+.setupBar { position: sticky; top: var(--nav-h, 64px); z-index: 35; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); background: var(--bg); }
 .clipStartLabel { color: var(--text-dim); font: 11px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .setupBar .action { margin-left: auto; }
 .setupFooter { display: flex; flex-basis: 100%; align-items: flex-start; justify-content: space-between; gap: 16px; }

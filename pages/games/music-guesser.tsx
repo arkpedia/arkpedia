@@ -109,7 +109,7 @@ export default function SongGuesser({ songs, groups, now }: { songs: SongChoice[
   return <>
     <Head><title>Music Guesser — Arkpedia</title><meta name="description" content="Recognize Arknights music from a short clip. Guess with song titles, artists, characters, events, chapters or stages." /></Head>
     <PageHeader eyebrow={<GamesEyebrow />} title="Music Guesser" sub="Name the track from a few seconds of it."
-      actions={<><GameLinks /><Link className="ghost btn-sm" href="/music" prefetch={false}>Music library</Link></>} />
+      actions={<><GameLinks /><Link className={`ghost btn-sm ${styles.libraryLink}`} href="/music" prefetch={false}>Music library</Link></>} />
     <main className={styles.page} data-setup={!round}>
       <div hidden={Boolean(round)}><MusicSetup songs={songs} groups={groups} settings={settings} setSettings={setSettings} asOf={asOf} count={eligible.length} ready={ready} start={start} /></div>
       {round && <section className={styles.console} ref={roundRef} tabIndex={-1} aria-label="Song challenge">

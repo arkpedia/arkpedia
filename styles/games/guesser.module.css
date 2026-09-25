@@ -10,7 +10,7 @@
 /* --- setup ---------------------------------------------------------------- */
 .setup { display: flex; flex-direction: column; gap: 20px; }
 /* The round settings stay pinned under the nav while the hint list scrolls. */
-.roundSetup { position: sticky; top: var(--nav-h, 64px); z-index: 35; display: grid; gap: 12px; padding: 12px 0; border-block: 1px solid var(--line-soft); background: var(--bg); }
+.roundSetup { position: sticky; top: var(--nav-h, 64px); z-index: 35; display: grid; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); background: var(--bg); }
 .setupControls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .numberSetting { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 13px; color: var(--text); }
 .revealSetting { display: flex; align-items: center; min-width: 0; margin: 0; padding: 0; border: 0; }
