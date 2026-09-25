@@ -117,8 +117,9 @@ export default function SynergiesPage({ groups }: Props) {
         {filtered.length === 0 && <p className="hint">No synergy matches your search.</p>}
 
         <div className="technique-group-list">
-          {filtered.map((group) => {
+          {filtered.map((group, index) => {
             const key = `${group.type}-${group.name}`;
+            const listId = `synergy-group-${index}`;
             const showTable = showTableGroups.has(key);
             const contributors = group.entries.filter((e) => e.isContributor);
             const expanded = expandedGroups.has(key);
@@ -131,9 +132,21 @@ export default function SynergiesPage({ groups }: Props) {
                   <h2 className="technique-group-name">
                     {group.name} <span className="hint">({group.type})</span>
                   </h2>
-                  <button type="button" className="ghost btn-sm technique-table-toggle" aria-pressed={showTable} onClick={() => toggleTable(key)}>
-                    {showTable ? 'Show icons' : 'Show table'}
-                  </button>
+                  <div className="technique-group-actions">
+                    {/* Up here beside the table toggle, not under the list: pressed
+                        there as "Show less", it took the rows above it out and moved
+                        up the screen with them, 264px at 1440 and 824px at 390 --
+                        off the top on a phone. Above the list, nothing it changes
+                        is above it (tests/browser/terminal-pages.spec.ts). */}
+                    {hasMore && !showTable && (
+                      <button type="button" className="ghost btn-sm technique-more" aria-expanded={expanded} aria-controls={listId} onClick={() => toggleExpanded(key)}>
+                        {expanded ? 'Show less' : `Show all (${group.entries.length})`}
+                      </button>
+                    )}
+                    <button type="button" className="ghost btn-sm technique-table-toggle" aria-pressed={showTable} onClick={() => toggleTable(key)}>
+                      {showTable ? 'Show icons' : 'Show table'}
+                    </button>
+                  </div>
                 </div>
 
                 {showTable ? (
@@ -160,7 +173,7 @@ export default function SynergiesPage({ groups }: Props) {
                   </div>
                 ) : (
                   <>
-                    <div className="technique-group-entries">
+                    <div className="technique-group-entries" id={listId}>
                       {visibleEntries.map((e) => {
                         const MAX_VISIBLE_BADGES = 3;
                         const overflow = e.badges.length > MAX_VISIBLE_BADGES;
@@ -201,11 +214,6 @@ export default function SynergiesPage({ groups }: Props) {
                         );
                       })}
                     </div>
-                    {hasMore && (
-                      <button type="button" className="ghost btn-sm technique-more" aria-expanded={expanded} onClick={() => toggleExpanded(key)}>
-                        {expanded ? 'Show less' : `Show more (${group.entries.length - PAGE_SIZE} more)`}
-                      </button>
-                    )}
                   </>
                 )}
               </SynergyGroupFrame>

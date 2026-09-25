@@ -204,6 +204,25 @@ test.describe('state changes near the foot of a page do not move what was presse
     expect(moved).toBeLessThan(4);
   });
 
+  test('synergies: "Show less" on a group in the middle of the page', async ({ page }, testInfo) => {
+    // The toggle sat under the group's list, so "Show less" took the rows above it out
+    // and went up the screen with them: 264px at 1440 and 824px at 390, off the top
+    // of a phone's screen (production measured 270 and 872). It sits in the group's
+    // heading row now, above everything it folds.
+    if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/synergies');
+    const groups = page.locator('.technique-group').filter({ has: page.locator('.technique-more') });
+    const n = await groups.count();
+    expect(n, 'groups long enough to fold').toBeGreaterThan(2);
+    const toggle = groups.nth(Math.floor(n / 2)).locator('.technique-more');
+    await toggle.click();
+    await expect(toggle).toHaveText(/show less/i);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const moved = await anchorMoved(page, toggle, [() => toggle.click()], 300);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(moved).toBeLessThan(4);
+  });
+
   test('enemies: switching the detail tab', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'Above 900px the handbook is locked to the viewport and the pane scrolls inside itself.');
     // 55px at 390, where the detail pane flows in the page: from the foot of the page,

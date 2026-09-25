@@ -78,7 +78,20 @@
 /* .ghost.btn-sm: the primitive's 32px, where the 24px override was under the
    reference's tap target. */
 .technique-table-toggle { flex-shrink: 0; }
-.technique-more { margin-top: 12px; }
+/* /synergies: "Show all" / "Show less" beside the table toggle, above the list it
+   folds, so pressing it never moves it (the Anti-Page Jump rule). On a phone the pair
+   drops under the name rather than squeezing it. */
+.technique-group-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+.technique-more { flex-shrink: 0; }
+@media (max-width: 560px) {
+  .technique-group-header-row:has(.technique-more) { flex-wrap: wrap; }
+}
 .technique-table-grid {
   display: grid;
   grid-template-columns: 1fr;
