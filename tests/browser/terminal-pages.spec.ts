@@ -80,6 +80,42 @@ test('stage cards keep their names on a phone when the stage has other forms', a
   expect(measured.filter((m) => m.formsOverflow > 0), 'a forms label past the card edge').toEqual([]);
 });
 
+test('nothing on a stage card runs past its edge on a phone, and the code stays on one line', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'Measured at 390, where the cards are two abreast.');
+  // The forms label above was fixed while the "Adverse Environment" badge kept
+  // reaching x=374 on a card ending at 366 on every boss H-stage of main_10 to
+  // main_14, and pushed the code onto two lines ("H14-" / "4"). The card clips its
+  // overflow, so only a measurement shows it. Every descendant, not one class, so the
+  // next label added to the card is held to the same edge.
+  await page.setViewportSize({ width: 390, height: 844 });
+  let badged = 0;
+  for (const id of ['main_10', 'main_11', 'main_12', 'main_13', 'main_14']) {
+    await page.goto(`/stages/content/${id}`);
+    const cards = page.locator('.stage-card');
+    await expect(cards.first()).toBeVisible();
+    const measured = await cards.evaluateAll((els) => els.map((card) => {
+      const box = card.getBoundingClientRect();
+      const code = card.querySelector('.stage-card-code');
+      const over = Array.from(card.querySelectorAll('*'))
+        .map((el) => ({ el, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.width > 0 && r.right > box.right + 0.5)
+        .map(({ el, r }) => `${el.className || el.tagName} +${Math.round(r.right - box.right)}px`);
+      const text = code ? Array.from(code.childNodes).find((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim()) : null;
+      let lines = 1;
+      if (text) {
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        lines = new Set(Array.from(range.getClientRects()).map((r) => Math.round(r.top))).size;
+      }
+      return { code: text?.textContent?.trim() ?? '', over, lines, badge: !!card.querySelector('.stage-variant-badge') };
+    }));
+    badged += measured.filter((m) => m.badge).length;
+    expect(measured.filter((m) => m.over.length > 0), `${id}: something past a card's right edge`).toEqual([]);
+    expect(measured.filter((m) => m.lines > 1).map((m) => m.code), `${id}: a stage code broken over two lines`).toEqual([]);
+  }
+  expect(badged, 'the pages have cards with a variant badge, or this proves nothing').toBeGreaterThan(0);
+});
+
 test('the stage map legend is readable in the light theme', async ({ page }) => {
   // UI-04: a fixed near-black scrim under themed text measured 1.32:1 in light.
   await page.addInitScript(() => { try { localStorage.setItem('theme', 'light'); } catch { /* private mode */ } });

@@ -1004,14 +1004,21 @@ button.stage-variant-option.current:hover {
   filter: saturate(0.65);
   object-fit: cover;
 }
+/* The code never breaks ("H14-" over "4" is what a phone showed), and the badges
+   beside it go to a line of their own when there is no room, then ellipsise rather
+   than run off the card: a boss H-stage on main_10 to main_14 carries "Boss" and
+   "Adverse Environment", which at 390 reached 8px past the card's edge
+   (tests/browser/terminal-pages.spec.ts). */
 .stage-card-code {
   position: absolute;
   top: 8px;
   left: 9px;
   right: 9px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  gap: 4px 5px;
+  white-space: nowrap;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 22px;
@@ -1023,6 +1030,9 @@ button.stage-variant-option.current:hover {
 }
 .stage-card-code .stage-boss-badge,
 .stage-card-code .stage-variant-badge {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 10px;
   align-self: flex-start;
   background: rgb(0 0 0 / 0.4);
