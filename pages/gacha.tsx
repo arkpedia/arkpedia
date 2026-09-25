@@ -198,8 +198,8 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
               {skill && <div className="gacha-preview-entry">
                 <div className="gacha-preview-entry-title"><strong>{skill.name}</strong><span>{skill.rank}</span></div>
                 <div className="gacha-preview-skill-facts">
-                  {skill.recovery && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.recovery) ? ' auto' : ''}`}>{skill.recovery}</span>}
-                  {skill.activation && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.activation) ? ' auto' : /^manual/i.test(skill.activation) ? ' manual' : ''}`}>{skill.activation}</span>}
+                  {skill.recovery && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.recovery) ? ' auto' : /^(?:offensive|defensive)/i.test(skill.recovery) ? ' amber' : ''}`}>{skill.recovery}</span>}
+                  {skill.activation && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.activation) ? ' auto' : /^manual/i.test(skill.activation) ? ' amber' : ''}`}>{skill.activation}</span>}
                   {skill.spCost !== null && <span className="gacha-preview-skill-fact sp">{skill.initialSp ?? 0}/{skill.spCost} SP</span>}
                   {skill.duration !== null && <span className="gacha-preview-skill-fact">{typeof skill.duration === 'number' || /^\d+(?:\.\d+)?$/.test(String(skill.duration)) ? `${skill.duration}s` : skill.duration}</span>}
                 </div>

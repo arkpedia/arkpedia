@@ -204,9 +204,9 @@
 .skillMetrics dd { font-family: var(--font-body, inherit); font-size: 14px; line-height: 1.35; margin: 0; font-weight: 600; }
 .skillMetrics > div { min-width: 0; padding: 7px 8px; border: 1px solid var(--line-soft); border-radius: 3px; background: var(--panel-2); }
 .skillMetrics > .skillMetricAuto { border-color: color-mix(in srgb, var(--teal) 55%, transparent); background: var(--teal-dim); color: var(--teal); }
-.skillMetrics > .skillMetricManual { border-color: color-mix(in srgb, var(--amber) 60%, transparent); background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
+.skillMetrics > .skillMetricAmber { border-color: color-mix(in srgb, var(--amber) 60%, transparent); background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
 .skillMetrics > .skillMetricSp { border-color: color-mix(in srgb, #8fc8f4 60%, transparent); background: rgba(143, 200, 244, .13); color: #8fc8f4; }
-.skillMetrics > .skillMetricAuto dt, .skillMetrics > .skillMetricManual dt, .skillMetrics > .skillMetricSp dt { color: inherit; }
+.skillMetrics > .skillMetricAuto dt, .skillMetrics > .skillMetricAmber dt, .skillMetrics > .skillMetricSp dt { color: inherit; }
 :global(:root[data-theme="light"]) .skillMetrics > .skillMetricSp { border-color: rgba(36, 93, 136, .5); background: rgba(36, 93, 136, .1); color: #245d88; }
 .page :global(.op-skill-step-detail), .page :global(.op-module-detail) { padding: 12px; }
 .page :global(.op-skill-step-detail p), .page :global(.op-module-stage-detail p), .page :global(.op-base-skill-card p) { font-size: 14px; line-height: 1.65; }
