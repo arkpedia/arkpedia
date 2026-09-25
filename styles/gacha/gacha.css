@@ -114,9 +114,12 @@
 .gacha-action:disabled:hover { box-shadow: none; transform: none; }
 @media (max-width: 760px) {
   .gacha-stats-rates { grid-template-columns: minmax(0, 1fr); }
-  .gacha-rarity-label small { display: block; }
   .gacha-pull-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .gacha-action { width: 100%; }
+}
+@media (max-width: 600px) {
+  .gacha-pity-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 10px; }
+  .gacha-pity-stat { min-height: 44px; }
 }
 
 .gacha-pull-grid {
@@ -533,6 +536,10 @@
 }
 @media (max-width: 600px) {
   .gacha-featured-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gacha-featured-row .gacha-featured-chip { height: 80px; }
+}
+@media (max-width: 360px) {
+  .gacha-featured-row { grid-template-columns: minmax(0, 1fr); }
 }
 /* A pending lineup's note, holding the chip row's height (min-height, set from the page).
    flow-root keeps the note's own margins inside that height instead of past it. */
@@ -540,6 +547,7 @@
 .gacha-featured-chip {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 7px;
   padding: 6px;
   border-radius: 6px;
@@ -562,7 +570,7 @@
 .gacha-featured-portrait { display: block; flex: none; width: 48px; height: 48px; padding: 3px; border: 2px solid var(--gacha-rarity-border); border-radius: 4px; background: var(--panel); box-sizing: border-box; }
 .gacha-featured-portrait img, .gacha-featured-portrait .gacha-pull-icon-placeholder { display: block; width: 100%; height: 100%; border-radius: 2px; object-fit: cover; }
 .gacha-featured-portrait .gacha-pull-icon-placeholder { display: flex; }
-.gacha-featured-info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.gacha-featured-info { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 2px; }
 .gacha-featured-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 2.4em; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .gacha-featured-meta { display: flex; flex-direction: column; align-items: flex-start; min-height: 2.4em; gap: 1px; }
 .gacha-featured-section { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
