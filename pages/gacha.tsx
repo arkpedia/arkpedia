@@ -2056,8 +2056,8 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       <div className="gacha-banner-main-image gacha-banner-main-placeholder" aria-hidden="true" />
                     )}
                     <div className="gacha-banner-actions">
-                      <button type="button" className="gacha-banner-action" onClick={() => setShowDetails(true)}>Details</button>
-                      <button type="button" className="gacha-banner-action" onClick={() => { setShowGuide(true); setGuidePhase('question'); setGuidePageIndex(0); }}>How does this work?</button>
+                      <button type="button" className="ghost btn-sm gacha-banner-action" onClick={() => setShowDetails(true)}>Details</button>
+                      <button type="button" className="ghost btn-sm gacha-banner-action" onClick={() => { setShowGuide(true); setGuidePhase('question'); setGuidePageIndex(0); }}>How does this work?</button>
                       {banner.type === 'limited' && <button type="button" className="gacha-spark-store-btn" onClick={() => setShowSparkStore(true)}>Spark Store</button>}
                     </div>
                   </section>
