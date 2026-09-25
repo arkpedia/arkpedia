@@ -26,6 +26,8 @@ permissions:
   contents: read
   # Only for the failed-deploy report at the end of the job.
   issues: write
+  # Only to start a content release that was held for this deploy (the last step).
+  actions: write
 
 jobs:
   deploy:
@@ -105,3 +107,18 @@ jobs:
           DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           node scripts/content/alert-issue.mjs close --alert deploy-failing --title 'Deploy failing' --comment "Deployed ${DEPLOYING:0:12}: $RUN_URL"
+      # A release is held while production runs other code than the one compiling it
+      # (scripts/content/deploy-gate.mjs), and nothing else retries it. On one runner that is
+      # easy to hit: a push near the nightly run lets the release take the runner before this
+      # Deploy, and the site would miss a day of content. Production runs this build now, so
+      # start the release again, a full refresh like the scheduled one.
+      - name: Release again if one was held for this deploy
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          held=$(node scripts/content/alert-issue.mjs find --alert content-release-held --title 'Content release held')
+          if [ "$held" = none ]; then echo "No content release is held."; exit 0; fi
+          echo "Content release held (issue #$held): production runs this deploy now, so Prepare content release starts again."
+          gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref main -f refresh_upstream=true

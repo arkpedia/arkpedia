@@ -68,6 +68,13 @@ test("Check sends Dependabot's pull requests to hosted runners, runner and timeo
   assert.ok(String(job['timeout-minutes']).startsWith(`\${{ ${dependabot} && 20 ||`), `timeout-minutes: ${job['timeout-minutes']}`);
 });
 
+test('Deploy may start a held content release again', () => {
+  const deploy = load('deploy.yml') as unknown as { permissions?: Record<string, string>; jobs: Record<string, { steps?: { name?: string; run?: string }[] }> };
+  assert.equal(deploy.permissions?.actions, 'write', 'deploy.yml needs actions: write to dispatch prepare-content.yml');
+  const step = deploy.jobs.deploy.steps?.find(entry => entry.name === 'Release again if one was held for this deploy');
+  assert.ok(step?.run?.includes('gh workflow run prepare-content.yml'), 'deploy.yml re-dispatches a held release');
+});
+
 test("only a green Check of a push to this repository's main deploys", () => {
   const condition = String(load('deploy.yml').jobs!.deploy.if).replace(/\s+/g, ' ');
   for (const part of [

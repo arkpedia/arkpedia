@@ -32,6 +32,7 @@ else if (args[1] === 'create') state.issues.push({ number: state.issues.length +
 else if (args[1] === 'edit') issue().body = fs.readFileSync(opt('--body-file'), 'utf8');
 else if (args[1] === 'comment') issue().comments.push({ body: fs.readFileSync(opt('--body-file'), 'utf8') });
 else if (args[1] === 'close') { issue().state = 'closed'; issue().comments.push({ body: opt('--comment') }); }
+else if (args[0] === 'workflow' && args[1] === 'run') { /* logged above */ }
 else { console.error('fake gh: unsupported ' + args.join(' ')); process.exit(2); }
 fs.writeFileSync(file, JSON.stringify(state));
 `;
@@ -442,6 +443,25 @@ test('a held release reports on its own issue, and a good run closes it with the
   });
 });
 
+test('a successful deploy starts a held release again, and does nothing when none is held', () => {
+  withGitHub(github => {
+    const again = stepScript('Release again if one was held for this deploy', 'deploy');
+    const held = ['--alert', 'content-release-held', '--title', 'Content release held'];
+    // Nothing held: no release is started.
+    let run = github.step(again);
+    assert.equal(run.status, 0, run.output);
+    assert.match(run.output, /No content release is held/);
+    assert.ok(!github.calls().some(call => call.startsWith('workflow run')), github.calls().join(', '));
+    assert.equal(github.alert(['find', ...held]), 'none');
+    // Held by the gate: the next successful deploy dispatches it.
+    github.seed([{ title: 'Content release held', body: '<!-- arkpedia-alert:content-release-held -->\nheld\n' }]);
+    assert.equal(github.alert(['find', ...held]), '1');
+    run = github.step(again);
+    assert.equal(run.status, 0, run.output);
+    assert.ok(github.calls().includes('workflow run prepare-content.yml'), github.calls().join(', '));
+  });
+});
+
 // arkpedia-data's Content release moves the live pointer after its own validator passes; the
 // release job polls the live branch for the commit it pushed, and alerts when it stays put.
 test('a release that does not go live opens an issue, and one that does closes it', () => {
@@ -542,5 +562,6 @@ test('a failed deploy opens one issue that the next deploy closes, even when the
   // The report needs the checkout; the token check used to run first and fail without one.
   const names = [...fs.readFileSync('.github/workflows/deploy.yml', 'utf8').matchAll(/^ {6}- (?:name: (.*)|uses: (actions\/checkout)@)/gm)].map(match => match[1] ?? match[2]);
   assert.ok(names.indexOf('actions/checkout') < names.indexOf('Refuse to run without the deploy token'), names.join(' | '));
-  assert.deepEqual(names.slice(-2), ['Report the failed deploy', 'Close the failed-deploy report']);
+  // The reports follow every deploy step; restarting a held release comes last, after a success.
+  assert.deepEqual(names.slice(-3), ['Report the failed deploy', 'Close the failed-deploy report', 'Release again if one was held for this deploy']);
 });
