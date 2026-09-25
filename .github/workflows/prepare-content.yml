@@ -153,6 +153,8 @@ jobs:
           # without it they keep yesterday's lines rather than fall back to Chinese.
           stage voices --needs charwords -- env ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
             ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" npm run voices:refresh
+          # Monster Siren's new albums and songs, before the lyrics that key on them.
+          stage albums -- npm run albums:refresh
           stage lyrics -- npm run lyrics:refresh
           stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
           stage event-farming -- node scripts/sync/sync-event-farming.mjs
