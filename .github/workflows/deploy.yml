@@ -29,8 +29,10 @@ jobs:
   deploy:
     # Only a green Check on main deploys; a manual run trusts the operator.
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
+    # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
+    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 45 || 30 }}
     env:
       VERCEL_ORG_ID: team_PdK2g24xbV0rLWIQrHvkTNnN
       VERCEL_PROJECT_ID: prj_rGdk34hEbAky1IniF9GLXeRCFtSj

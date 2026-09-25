@@ -19,8 +19,10 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
+    # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
+    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 60 || 20 }}
     steps:
       - uses: actions/checkout@v7
 
@@ -99,7 +101,8 @@ jobs:
         run: npm run check:deployment-traces
 
       - name: Install Chromium only
-        run: npx playwright install --with-deps chromium
+        # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
+        run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
 
       - name: Desktop and mobile browser regressions
         run: npm run test:browser
