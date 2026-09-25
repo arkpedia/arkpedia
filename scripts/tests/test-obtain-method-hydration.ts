@@ -66,11 +66,14 @@ test('/obtain-method renders the same HTML on a UTC server and in a reader\'s ti
   ] as const) {
     assert.equal(renderAs(zone, Date.parse(clock)), server, `${zone} at ${clock} would not hydrate`);
   }
-  // And the notes are the request's, counted in whole server days.
+  // And the notes are the request's, counted in whole server days. The page glues each
+  // dash to the word before it with a no-break space, so no wrapped line starts with
+  // one; the words are compared with ordinary spaces.
+  const text = server.replace(/\u00a0/g, ' ');
   for (const note of [
     'Festival — est. 296 days until next rerun',
     'Carnival — est. 115 days until next rerun',
     'Celebration — est. 47 days until next rerun',
     'Celebration — 47 days until scheduled rerun',
-  ]) assert.ok(server.includes(note), `missing "${note}"`);
+  ]) assert.ok(text.includes(note), `missing "${note}"`);
 });

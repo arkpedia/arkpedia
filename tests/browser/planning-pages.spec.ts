@@ -87,6 +87,49 @@ test.describe('/farming tiers (GE-01)', () => {
   }
 });
 
+test.describe('/obtain-method', () => {
+  for (const width of [{ key: '1440', use: { viewport: { width: 1440, height: 900 } } }, { key: '390', use: PHONE }]) {
+    test.describe(`at ${width.key}`, () => {
+      test.use(width.use);
+      test('no line of a card\'s rarity and note starts with a dash', async ({ page }) => {
+        // The rarity and the note were two flex items in a wrapping flex row, so the
+        // note wrapped onto a line of its own that began with "\u2014" on every card, at
+        // every width. Checked two ways: no flex item starts with the dash, and no dash
+        // is drawn at the start of a line (a single run can still wrap before one).
+        await page.goto('/obtain-method');
+        await expect(page.locator('.roster-class-branch', { hasText: /days until/ }).first()).toBeVisible();
+        const found = await page.locator('.roster-class-branch').evaluateAll((rows) => {
+          const problems: string[] = [];
+          let dashes = 0;
+          for (const row of rows) {
+            const box = row.getBoundingClientRect();
+            const style = getComputedStyle(row);
+            const lineStart = box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+            for (const item of Array.from(row.childNodes)) {
+              if (/^\s*\u2014/.test(item.textContent ?? '')) problems.push(`flex item "${item.textContent!.trim().slice(0, 30)}"`);
+            }
+            const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              const text = node.textContent ?? '';
+              for (let i = text.indexOf('\u2014'); i >= 0; i = text.indexOf('\u2014', i + 1)) {
+                dashes += 1;
+                const range = document.createRange();
+                range.setStart(node, i);
+                range.setEnd(node, i + 1);
+                const left = range.getBoundingClientRect().left;
+                if (left - lineStart < 1) problems.push(`"${row.textContent!.trim().slice(0, 40)}" has a line starting with the dash`);
+              }
+            }
+          }
+          return { problems, dashes, rows: rows.length };
+        });
+        expect(found.dashes, 'the cards carry notes, or this proves nothing').toBeGreaterThan(0);
+        expect(found.problems).toEqual([]);
+      });
+    });
+  }
+});
+
 test.describe('/results', () => {
   test.use(PHONE);
 

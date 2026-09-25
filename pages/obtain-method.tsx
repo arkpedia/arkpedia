@@ -70,9 +70,16 @@ function OperatorCard({ op, note, index }: { op: RosterOperator; note?: string |
         <Image src={getOperatorIconPath(op)} alt={op.name} fill sizes="160px" />
       </div>
       <p className="op-name">{op.name}</p>
+      {/* One flex item, not two: .roster-class-branch is a wrapping flex row, and with
+          the rarity and the note as siblings the note wrapped onto a line of its own
+          that began with the dash. Each dash is glued to the word before it with a
+          no-break space, so however the note wraps no line starts with one
+          (tests/browser/planning-pages.spec.ts). */}
       <p className="hint roster-class-branch">
-        {op.rarity ? <Rarity n={rarityLevel(op.rarity)} /> : null}
-        {note ? ` \u2014 ${note}` : ''}
+        <span>
+          {op.rarity ? <Rarity n={rarityLevel(op.rarity)} /> : null}
+          {note ? `${op.rarity ? '\u00a0\u2014 ' : ''}${note.replace(/ \u2014 /g, '\u00a0\u2014 ')}` : ''}
+        </span>
       </p>
     </Link>
   );
