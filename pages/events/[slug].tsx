@@ -140,7 +140,8 @@ function RewardTotalsRow({ totals }: { totals: RewardTotal[] }) {
     <div className="op-cost-row">
       {totals.map((t, i) => (
         <span key={i} className="op-cost-item" title={t.name}>
-          {t.iconPath && <Image src={t.iconPath} alt={t.name} width={36} height={36} />}
+          {/* No icon published yet: the name, or the chip would read "×1" alone. */}
+          {t.iconPath ? <Image src={t.iconPath} alt={t.name} width={36} height={36} /> : t.name}
           <b>×{t.total}</b>
         </span>
       ))}
