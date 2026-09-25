@@ -15,7 +15,8 @@ import { parsePrices } from '@/lib/skins/skinPrice';
 import PriceDisplay from '@/components/ui/PriceDisplay';
 import { getEventCgImages } from '@/lib/events/eventCg';
 import { getEventRewards } from '@/lib/events/loadEventsData';
-import { getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
+import { rewardIconPath } from '@/lib/events/rewardIcons';
+import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
@@ -519,10 +520,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       price: item.price ?? item.price_cork_stoppers ?? null,
       currency: store.currency || '',
       stock: item.stock ?? '1',
-      iconPath:
-        item.type === 'skin'
-          ? findSkinIconPath(item.name) || skinImageByName.get(item.name) || null
-          : getMaterialIconPath(item.iconName ?? item.name),
+      // Null while the image repository has not published the icon: the row keeps its
+      // box without a broken image, and the release quarantines it (rewardIconPath).
+      iconPath: rewardIconPath(item, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
     })),
   }));
 

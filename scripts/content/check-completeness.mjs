@@ -4,6 +4,8 @@ import { pathToFileURL } from 'node:url';
 import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
+// A reward name that is a scrape's stand-in for a missing item, not the item.
+const PLACEHOLDER = /not found|^\?+$|^(?:tbd|tba|unknown|null|undefined|placeholder|n\/a)$/i;
 const words = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 const list = x => Array.isArray(x) ? x : [];
 // Every material list is a flat [{ name, quantity }] list: the site, the tests and the public
@@ -70,6 +72,9 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   const names = new Set(operators.flatMap(op => [op.name, op.recordName]));
   const skinIds = new Set();
   const missing = file => !assets.has(file);
+  // The rule findSkinIconPath applies: an outfit's icon is <Operator> - <Outfit>.webp in a
+  // rarity folder, matched by the outfit name alone, ignoring case.
+  const outfitIcons = new Set([...assets].map(file => file.match(/^(?:one|two|three|four|five|six)-star-icons\/[^/]*? - (.+)\.webp$/i)?.[1].trim().toLowerCase()).filter(Boolean));
   for (const op of operators) {
     for (const [field, cost] of costLists(op)) {
       if (!Array.isArray(cost) || !cost.every(isCostItem)) errors.push(`${op.name}: ${field} is not a flat [{ name, quantity }] list`);
@@ -115,11 +120,15 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     if (art && missing(art)) hold(eventKey(event), 'published-partial', `${event.name}: missing asset ${art}`);
   }
   for (const expected of inventory.events ?? []) if (!events.some(e=>e.activityId===expected.id)) hold(eventKey({ activityId: expected.id }), 'omitted-new', `Discovered event missing: ${expected.name}`);
-  // A reward renamed from its CN name must still resolve to a published icon: the page
-  // asks for material-icons/<iconName ?? name>, and a miss renders as a blank square.
+  // Every reward an event page lists needs a real name and a published icon: the page asks
+  // for material-icons/<iconName ?? name> (an outfit: its icon in a rarity folder) and leaves
+  // out an icon that is not published (rewardIconPath). "Furniture not found", the wiki's
+  // placeholder, sat in a store as an item drawing a broken image, and nothing reported it.
   for (const event of events) for (const block of [event.rewards ?? []].flat()) for (const item of block?.items ?? []) {
-    const file = `material-icons/${safe(item.iconName ?? item.name)}.webp`;
-    if (item.cnName && item.type !== 'skin' && missing(file)) hold(eventKey(event), 'published-partial', `${event.name} reward ${item.name}: missing asset ${file}`);
+    const name = typeof item?.name === 'string' ? item.name.trim() : '';
+    if (!name || PLACEHOLDER.test(name)) hold(eventKey(event), 'published-partial', `${event.name} reward "${item?.name ?? ''}": a placeholder, not an item name`);
+    else if (item.type === 'skin') { if (!outfitIcons.has(name.toLowerCase())) hold(eventKey(event), 'published-partial', `${event.name} reward outfit ${name}: no published outfit icon`); }
+    else if (missing(`material-icons/${safe(item.iconName ?? name)}.webp`)) hold(eventKey(event), 'published-partial', `${event.name} reward ${name}: missing asset material-icons/${safe(item.iconName ?? name)}.webp`);
   }
   for (const expected of inventory.banners ?? []) if (!banners.some(b=>b.cnPoolId===expected.id)) hold(bannerKey({ cnPoolId: expected.id }), 'omitted-new', `Discovered banner missing: ${expected.name}`);
   for (const bundle of bundles) {

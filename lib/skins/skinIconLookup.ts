@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { publicFiles } from '@/lib/assets/publicAssets';
 
 // Skin icons live alongside operator base icons in the same rarity-
 // tiered folders, named "<Operator Name> - <Skin Name>.webp" -- e.g.
@@ -7,9 +6,16 @@ import path from 'path';
 // Kestrel is a 5-star operator. A reward listing only ever gives us
 // the skin's own name (e.g. "Charm of the Tiles"), not which operator
 // it belongs to or their rarity, so there's no way to construct the
-// exact path directly -- this scans every rarity folder once and
-// indexes each file by its skin-name suffix instead, so any skin
-// resolves regardless of which tier it's actually in.
+// exact path directly -- this indexes every rarity folder once by each
+// file's skin-name suffix instead, so any skin resolves regardless of
+// which tier it's actually in.
+//
+// The folders are read from the asset index, not from public/: the art
+// lives in arkpedia-image-assets, and a directory scan of public/ found
+// nothing once it moved, so every outfit reward lost its icon (and one
+// whose name differs from its record by case lost it altogether).
+// scripts/content/check-completeness.mjs applies the same rule to decide
+// which outfit rewards to hold back as missing their icon.
 const RARITY_ICON_FOLDERS = [
   'one-star-icons',
   'two-star-icons',
@@ -21,17 +27,11 @@ const RARITY_ICON_FOLDERS = [
 
 let cachedIndex: Map<string, string> | null = null; // lowercased skin name -> web path, built once and reused for the rest of the build
 
-function buildIndex(): Map<string, string> {
+/** The index findSkinIconPath reads, from the file names each rarity folder holds. */
+export function buildSkinIconIndex(filesIn: (folder: string) => string[]): Map<string, string> {
   const index = new Map<string, string>();
   for (const folder of RARITY_ICON_FOLDERS) {
-    const dir = path.join(process.cwd(), 'public', folder);
-    let files: string[] = [];
-    try {
-      files = fs.readdirSync(dir);
-    } catch {
-      continue; // folder doesn't exist -- skip, same defensive pattern used elsewhere for optional data folders
-    }
-    for (const file of files) {
+    for (const file of filesIn(folder)) {
       if (!file.toLowerCase().endsWith('.webp')) continue;
       const base = file.slice(0, -'.webp'.length);
       const sepIndex = base.indexOf(' - ');
@@ -54,6 +54,6 @@ function buildIndex(): Map<string, string> {
  * (e.g. "the Tiles" vs "The Tiles"). Returns null if no file matches
  * in any folder. */
 export function findSkinIconPath(skinName: string): string | null {
-  if (!cachedIndex) cachedIndex = buildIndex();
+  if (!cachedIndex) cachedIndex = buildSkinIconIndex(publicFiles);
   return cachedIndex.get(skinName.trim().toLowerCase()) || null;
 }
