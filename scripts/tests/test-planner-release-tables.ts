@@ -7,6 +7,8 @@ import { createCraftTools } from '../../lib/planner/craft';
 import { checkImportAliases, parseForeign, type ImportAliases } from '../../lib/planner/foreignImport';
 import { computeLevelCost, computeLevelCostRemaining, type LevelTable } from '../../lib/planner/plannerLogic';
 import { createSourceTools } from '../../lib/planner/sources';
+import { contentPageClock } from '../../lib/content/pageClock';
+import { isReleasedAt, releaseMarker } from '../../lib/operators/operatorAvailability';
 
 /*
  * The planner answers from the tables its page props carry, not from copies compiled
@@ -79,4 +81,16 @@ test('the resolver walks the release\'s catalogue order, so a new material craft
   const tight = tools.resolveNeeds([{ name: 'Concentrated Power Unit', quantity: 2 }, { name: 'Electrode Unit', quantity: 1 }], { ...held, 'Electrode Unit': 2 }, { autoCraft: true });
   assert.equal(tight.rows.find(r => r.name === 'Concentrated Power Unit')?.short, 0);
   assert.equal(tight.rows.find(r => r.name === 'Electrode Unit')?.short, 1);
+});
+
+test('the planner picker is judged per request from release markers, not at export', () => {
+  // The export carries no clock; every request gets its `now`, rounded to the minute.
+  assert.deepEqual(contentPageClock('/planner', { operators: [] }, { exporting: true }), { operators: [] });
+  assert.equal((contentPageClock('/planner', { operators: [] }, { now: Date.UTC(2026, 9, 14, 12, 0, 30) }) as { now?: number }).now, Date.UTC(2026, 9, 14, 12, 0));
+  // Closure's record: Global date 2026/10/14 (UTC-7), so plannable from the day after, never before.
+  const closure = releaseMarker({ characterInfo: { 'Release Date': '2026/10/14' } });
+  assert.equal(isReleasedAt(closure, Date.UTC(2026, 8, 25)), false);
+  assert.equal(isReleasedAt(closure, Date.UTC(2026, 9, 15, 8)), true);
+  // A payload from before markers was filtered at export, so it stays as it was.
+  assert.equal(isReleasedAt({}, 0), true);
 });

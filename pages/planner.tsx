@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
-import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
+import { isReleasedAt, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import { highlightStats } from '@/components/ui/HighlightedText';
@@ -73,7 +73,10 @@ import {
 } from '@/lib/planner/plannerLogic';
 
 interface Props {
+  /** Every plannable operator, released or not, each with its release marker. */
   operators: PlannerOperatorSummary[];
+  /** The request's clock (contentPageClock): who is released follows from it. */
+  now: number;
 }
 
 /** "E1L50SR5", or "E2L20 S1M3S2M1" once any mastery exists -- SR7 is
@@ -220,7 +223,10 @@ function costLine(cost: CostGroup): string {
 }
 
 
-export default function PlannerPage({ operators }: Props) {
+export default function PlannerPage({ operators: exportedOperators, now }: Props) {
+  /* Released as of this request, not as of the content export: an operator whose Global day
+     comes between two releases appears on it. */
+  const operators = useMemo(() => exportedOperators.filter((op) => isReleasedAt(op, now)), [exportedOperators, now]);
   /* depotCatalogue: every material the depot can hold, from the release's catalogue
      (data/material-catalogue.json), which only lists materials with a published icon. */
   const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
@@ -1762,9 +1768,9 @@ function trimModule(mod: OperatorModule) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/planner", async () => {
-  // Decided at content export, so a newly released operator waits for the next release;
-  // the export clock guard lists this route as a known exception (scripts/content/export-clock.mjs).
-  const allOps = getAllOperators().filter((op) => isOperatorReleased(op, Date.now()));
+  // Every operator, with a release marker: the page filters by its request's `now`
+  // (contentPageClock), so a release day between two content releases is not missed.
+  const allOps = getAllOperators();
 
   // Lightweight props -- just enough for the search picker and
   // selected-operator chips. Full promotion/skills/modules build data
@@ -1788,6 +1794,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     className: op.class ?? null,
     art: (() => { const src = getOperatorIconPath(op).replace('-star-icons/', '-star-skins/'); return publicFileExists(decodeURIComponent(src)) ? src : getOperatorIconPath(op); })(),
     ...(aliases[op.name] ? { aliases: aliases[op.name] } : {}),
+    ...releaseMarker(op),
   }));
 
   /**
@@ -1801,9 +1808,12 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
    * failure mode this codebase keeps paying for: where there was a warning the
    * gap got fixed, where there wasn't nobody looked.
    *
-   * A failed build rather than a warning, because the grid is ENTIRELY portraits
-   * and there is nothing else on a tile to carry the operator. The fix is a
-   * command, so the message says which one.
+   * The grid is ENTIRELY portraits, so an operator without one is left out of it rather
+   * than shown as a blank square. This used to fail the export, which was right while the
+   * picker held only operators released at export; it now carries operators not released
+   * yet (judged per request), and a CN record's art arrives with the image sync after the
+   * record does. check-completeness holds every operator whose portrait is unpublished
+   * (published-partial), so the daily issue names it; the fix is a command.
    */
   const RARITY_WORDS: Record<number, string> = { 6: 'six', 5: 'five', 4: 'four', 3: 'three', 2: 'two', 1: 'one' };
   const faceless = allOps.filter((op) => {
@@ -1812,12 +1822,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     const safe = op.name.replace(/[\\/*?:"<>|]/g, '').trim();
     return !publicFileExists(`/${word}-star-icons/${safe} - Base.webp`);
   });
+  const unfaced = new Set(faceless.map((op) => op.name));
   if (faceless.length) {
-    throw new Error(
-      `planner: ${faceless.length} operator(s) have no portrait in public/<rarity>-star-icons/, so the `
-      + `roster grid would show a blank square for them here and on /operators, the guesser, `
-      + `recruitment, the base and the timeline: ${faceless.map((o) => `${o.name} (${o.rarity}\u2605)`).join(', ')}. `
-      + 'Run: python3 scripts/imports/import-operator-avatars.py',
+    console.warn(
+      `planner: ${faceless.length} operator(s) have no portrait in <rarity>-star-icons/, so the picker leaves them out: `
+      + `${faceless.map((o) => `${o.name} (${o.rarity}\u2605)`).join(', ')}. Run: python3 scripts/imports/import-operator-avatars.py`,
     );
   }
 
@@ -1973,7 +1982,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     );
   }
 
-  return { props: { operators: operators.filter((op) => !unplannable.has(op.name)) } };
+  return { props: { operators: operators.filter((op) => !unplannable.has(op.name) && !unfaced.has(op.name)) } };
 }, {
   tables: {
     'base-formulas': async () => (await import('@/data/base-formulas.json')).default,

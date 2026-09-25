@@ -18,7 +18,7 @@ import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from 
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
 import { getClassIconPath, getBranchIconPath, getFactionIconPath } from '@/lib/operators/classBranchIcons';
-import { isOperatorReleased, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
+import { operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { fetchVideoOEmbedInfo } from '@/lib/music/youtube';
 import {
@@ -60,7 +60,6 @@ import OperatorRelationPopover, { RelatedOperator } from '@/components/operators
 interface SynergyMatchOperator {
   name: string;
   rarity: number | null;
-  isFuture: boolean | null;
 }
 
 interface AutoSynergyBadge {
@@ -1578,7 +1577,7 @@ function buildOperatorRelationIndexes(allOperators: Operator[], skins: ReturnTyp
     if (!key) return;
     const rows = index.get(key) ?? [];
     if (!rows.some(row => row.name === candidate.name)) {
-      rows.push({ name: candidate.name, rarity: candidate.rarity, isFuture: candidate.isFuture ?? null, ...portraitStatus(candidate) });
+      rows.push({ name: candidate.name, rarity: candidate.rarity, ...portraitStatus(candidate) });
       index.set(key, rows);
     }
   };
@@ -1624,17 +1623,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     if (prices.length > 0) skinObtainByLabel[skin.name] = formatPrices(prices);
   }
 
-  // Related-operator cards need a current icon source. The scraped isFuture
-  // flag can outlive a Global release; derive it from the shared release source.
-  const allOperators = getAllOperators().map((op) => ({
-    ...op,
-    // Keep the established compact schema: `true` marks unavailable icons,
-    // while released operators omit the flag instead of serializing `false`
-    // into every operator page payload.
-    // Decided at content export, so it drifts until the next release; the export
-    // clock guard lists this route as a known exception (scripts/content/export-clock.mjs).
-    isFuture: isOperatorReleased(op, Date.now()) ? undefined : true,
-  }));
+  /* Related-operator cards carry no release state. They used to carry an isFuture judged at
+     content export, which froze until the next release -- and nothing on the page read it:
+     a card's icon comes from its name, rarity and portraitStatus. */
+  const allOperators = getAllOperators();
   const voiceData = getOperatorVoiceData(operator.internalName ?? operator.name);
   const relationIndexes = buildOperatorRelationIndexes(allOperators, skins);
   const withoutCurrent = (rows: RelatedOperator[] | undefined) => (rows ?? []).filter(row => row.name !== operator.name);
@@ -1661,7 +1653,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     // "unit" is an explicit, named list -- show all of them, not a
     // truncated roster match like branch/faction/tag.
     const limit = entry.type === 'unit' ? entry.values.length : entry.type === 'faction' ? 10 : 5;
-    return matches.slice(0, limit).map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null }));
+    return matches.slice(0, limit).map((op) => ({ name: op.name, rarity: op.rarity }));
   });
 
   // Auto-detected faction/class synergies -- scans EVERY operator's
@@ -1761,18 +1753,18 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     for (const tech of techniques) {
       if (tech.unit && !techniqueUnitIcons[tech.unit]) {
         const match = allOperators.find((op) => op.name === tech.unit);
-        if (match) techniqueUnitIcons[tech.unit] = { name: match.name, rarity: match.rarity, isFuture: match.isFuture ?? null, ...portraitStatus(match) };
+        if (match) techniqueUnitIcons[tech.unit] = { name: match.name, rarity: match.rarity, ...portraitStatus(match) };
       }
       if (tech.branch && !techniqueBranchOperators[tech.branch]) {
         const matches = allOperators.filter((op) => op.name !== operator.name && op.branch === tech.branch);
         matches.sort((a, b) => (b.rarity ?? 0) - (a.rarity ?? 0));
-        techniqueBranchOperators[tech.branch] = matches.slice(0, 5).map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null, ...portraitStatus(op) }));
+        techniqueBranchOperators[tech.branch] = matches.slice(0, 5).map((op) => ({ name: op.name, rarity: op.rarity, ...portraitStatus(op) }));
       }
       if (tech.group && tech.members && !techniqueGroupOperators[tech.group]) {
         techniqueGroupOperators[tech.group] = tech.members
           .map((name) => allOperators.find((op) => op.name === name))
           .filter((op): op is (typeof allOperators)[number] => !!op)
-          .map((op) => ({ name: op.name, rarity: op.rarity, isFuture: op.isFuture ?? null, ...portraitStatus(op) }));
+          .map((op) => ({ name: op.name, rarity: op.rarity, ...portraitStatus(op) }));
       }
     }
   }
@@ -1797,7 +1789,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
       if (others.length === 0) continue;
       const entries: SearchableOperator[] = others.slice(0, 4).map((e) => {
         const match = allOperators.find((op) => op.name === e.operatorName);
-        return { name: e.operatorName, rarity: e.rarity, isFuture: match?.isFuture ?? null, ...(match ? portraitStatus(match) : {}) };
+        return { name: e.operatorName, rarity: e.rarity, ...(match ? portraitStatus(match) : {}) };
       });
       techniqueRelatedOperators[tech.name] = { entries, totalCount: others.length };
     }
