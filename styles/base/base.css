@@ -232,6 +232,31 @@
 .base-facility.active { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
 
 .base-grid-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+/* The zoomable panel itself. Its footprint is set by --base-view-height
+   rather than by the grid inside it, so it reads as its own distinct
+   "beautiful navigable base"; the grid is zoomed to fit that footprint
+   instead of the panel being sized to the grid. overflow:hidden clips the
+   scaled/panned stage to this viewport; cursor communicates the
+   click-and-drag panning. (It lived in shared.css; /base is its only user.) */
+.base-zoom-viewport {
+  position: relative;
+  height: var(--base-view-height);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-frame);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.base-zoom-viewport.fullscreen {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  z-index: 300;
+  border-radius: 0;
+  border: none;
+}
+
 .base-zoom-viewport:active { cursor: grabbing; }
 .base-zoom-stage {
   position: absolute;
@@ -1295,34 +1320,25 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border: none;
-  background: transparent;
+  /* A control you can see at rest: the control border on the panel, like the ?
+     beside the room's name (it was borderless at 55% opacity, 1.00:1). */
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--panel);
   color: var(--text-dim);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
-  opacity: 0.55;
-  transition: opacity 0.12s, color 0.12s;
+  transition: border-color 0.12s, color 0.12s;
   /* At least 24px on screen however far the map is zoomed out: at the phone's
      0.35 it drew at 9px. Scaled from its corner, so it stays in the corner. */
   transform: scale(var(--base-tap-scale, 1));
   transform-origin: top left;
 }
-/* Dim rather than hidden until hovered. It was hover-only, which made a
-   control you have to find before you can use it -- and hover-to-reveal is
-   no help at all on a touch screen. */
-.base-facility:hover .base-facility-settings-btn,
+.base-facility-settings-btn:hover,
 .base-facility-settings-btn:focus-visible {
-  opacity: 1;
+  border-color: var(--teal);
   color: var(--teal);
-}
-.base-facility-settings-btn:hover {
-  color: var(--teal);
-}
-/* An unbuilt plot has nothing else in it, so its gear is the only affordance
-   there is -- it stays visible rather than waiting for a hover. */
-.base-facility-unbuilt .base-facility-settings-btn {
-  opacity: 0.8;
 }
 
 .base-popover-subtitle {
