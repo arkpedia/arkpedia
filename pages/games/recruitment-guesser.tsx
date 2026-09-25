@@ -32,10 +32,12 @@ export default function RecruitmentGame({ operators, questions }: Props) {
   const roster = useMemo(() => new Map(operators.map((operator) => [operator.name, operator])), [operators]);
   const playing = progress.status === 'playing';
   /* Revealing swaps the answer field and feedback (taller) for one line of result, so
-     a reader at the bottom of the round was clamped up 100-160px every reveal, then
-     pushed back down by the next round. The floor holds the round's height through
-     the reveal; a new question is a new logical page. */
-  const roundFloor = useHeightFloor(question?.id ?? '');
+     a reader at the bottom of the round was clamped up 100-160px every reveal; and a
+     new combination can have fewer answers than the last, so "Next combination" could
+     do the same. One floor for the whole game, not one per question: keyed per
+     question it released its reserve at every "Next" and the page dropped 66px under
+     a reader at 390, measured. The reserve still melts as the reader scrolls up. */
+  const roundFloor = useHeightFloor('recruitment-rounds');
   useEffect(() => {
     if (roundNumber < 2) return;
     roundRef.current?.focus({ preventScroll: true });

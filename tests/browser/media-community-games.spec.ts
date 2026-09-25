@@ -111,7 +111,9 @@ test('the recruitment guesser holds its place through reveal and next', async ({
   await page.goto('/games/recruitment-guesser');
   const tags = page.getByLabel('Recruitment tags');
   await expect(tags).toBeVisible();
-  for (const label of ['Reveal answers', 'Next combination']) {
+  // Four rounds: combinations are drawn at random and differ in how many answers they
+  // have, which is what makes "Next" shorten the page some of the time.
+  for (const label of ['Reveal answers', 'Next combination', 'Reveal answers', 'Next combination', 'Reveal answers', 'Next combination', 'Reveal answers', 'Next combination']) {
     await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
     await page.waitForTimeout(400);
     const before = await tags.evaluate(el => el.getBoundingClientRect().top);
