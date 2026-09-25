@@ -515,7 +515,7 @@
 .mobile-nav-back:hover { color: var(--teal); }
 .mobile-nav-back-chev {
   flex: none;
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1;
   color: var(--text-dim);
 }

@@ -12,6 +12,9 @@ import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import OperatorSearch from '@/components/operators/OperatorSearch';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
@@ -853,16 +856,12 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
   return (
     <>
-      <div className={`${pageStyles.frame}${infoExpanded ? ` ${pageStyles.frameExpanded}` : ''}`} ref={frameRef}>
-      <div className={`op-page-header-search ${pageStyles.searchHeader}`}>
-        <Link prefetch={false} href="/operators" className="op-back-to-roster-btn" aria-label="Back to operators">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16">
-            <path d="M12 4 L6 10 L12 16" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Operators</span>
-        </Link>
-        <OperatorSearch compact={infoExpanded} />
-      </div>
+      {/* The frame is the viewport under the nav: the header, then the workspace
+          (artwork | information) filling what is left, so on a desktop the page itself
+          never scrolls and the information panel scrolls inside it. */}
+      <div className={pageStyles.frame} ref={frameRef}>
+      <PageHeader slim eyebrow={<>Rhodes Island // <Link prefetch={false} href="/operators">Operator roster</Link></>}
+        title={operator.name} actions={<OperatorSearch />} />
 
       <main className={`${pageStyles.page}${infoExpanded ? ` ${pageStyles.infoExpanded}` : ''}`} onClick={(event) => {
         const link = (event.target as HTMLElement).closest('a[href^="#"]');
@@ -917,12 +916,22 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
           <div className={pageStyles.details}>
           <div ref={navigationRef} className={pageStyles.panelHeader}>
-          <header className={pageStyles.hero}>
+          <div className={pageStyles.hero}>
             <div className={pageStyles.identity}>
             <div className="op-header-flex">
               <div className="op-header-text">
                 <div className="op-name-row">
-                  <h1>{operator.name}</h1>
+                  <div className="op-sticky-meta">
+                    {operator.rarity ? <Rarity n={rarityLevel(operator.rarity)} format="stars" /> : null}
+                    {getClassIconPath(operator.class) && (
+                      <span className={pageStyles.classLabel}><OperatorGameIcon src={getClassIconPath(operator.class)!} label={operator.class || 'Class'} size={20} /><span>{operator.class}</span></span>
+                    )}
+                    {getBranchIconPath(operator.branch) && (
+                      <OperatorRelationPopover label={operator.branch || 'Branch'} title={`Other ${operator.branch} operators`} operators={branchRelatedOperators}>
+                        <span className={pageStyles.classLabel}><OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={20} /><span>{operator.branch}</span></span>
+                      </OperatorRelationPopover>
+                    )}
+                  </div>
                   <nav className={pageStyles.sectionMenu} aria-label="Operator sections">
                     <StyledSelect label="Jump to section" align="end" value={activeSection}
                       options={[
@@ -934,18 +943,6 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       ]}
                       onChange={view => selectView(view, true)} />
                   </nav>
-                </div>
-
-                <div className="op-sticky-meta">
-                  <span>{operator.rarity ? '★'.repeat(operator.rarity) : ''}</span>
-                  {getClassIconPath(operator.class) && (
-                    <span className={pageStyles.classLabel}><OperatorGameIcon src={getClassIconPath(operator.class)!} label={operator.class || 'Class'} size={20} /><span>{operator.class}</span></span>
-                  )}
-                  {getBranchIconPath(operator.branch) && (
-                    <OperatorRelationPopover label={operator.branch || 'Branch'} title={`Other ${operator.branch} operators`} operators={branchRelatedOperators}>
-                      <span className={pageStyles.classLabel}><OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={20} /><span>{operator.branch}</span></span>
-                    </OperatorRelationPopover>
-                  )}
                 </div>
 
                 {/* Amiya's class forms. Real navigations rather than a tab, because each
@@ -965,16 +962,15 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                         </>
                       );
                       /* All three stay links, with aria-current marking the one you are
-                         on, because the styling that makes a selected option look selected
-                         is a.primary and a.ghost -- element-scoped, so a span would come
-                         out unstyled. A self-link in a nav is the ordinary pattern for
-                         this and costs nothing. */
+                         on: .filter-chip reads aria-current="page" as picked (teal on
+                         teal-dim), the same chip every pick-one control on the site uses.
+                         A self-link in a nav is the ordinary pattern for this. */
                       return (
                         <Link
                           key={f.name}
                           prefetch={false}
                           href={`/operators/${encodeURIComponent(f.name)}`}
-                          className={isCurrent ? 'primary' : 'ghost'}
+                          className="filter-chip"
                           aria-current={isCurrent ? 'page' : undefined}
                         >
                           {inner}
@@ -988,12 +984,12 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             </div>
 
             </div>
-          </header>
+          </div>
           </div>
           <div id="operator-detail-panel" ref={areaRef} className={pageStyles.area}>
             <div className={pageStyles.content}>
             {(
-              <section id="operator-overview" data-operator-section="overview" tabIndex={-1} className={pageStyles.overview} aria-label="Overview">
+              <section id="operator-overview" data-operator-section="overview" tabIndex={-1} className={`op-section ${pageStyles.overview}`} aria-label="Overview">
                 <h2>Overview</h2>
                 <div>
                   {operator.review?.official && <p className={pageStyles.review}>{highlightStats(operator.review.official)}</p>}
@@ -1015,7 +1011,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
               </section>
             )}
             {sectionVisible('skills') && (
-              <section id="operator-skills" data-operator-section="skills" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-skills" data-operator-section="skills" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Skills</h2>
                 <div className="op-skill-tabs">
                   {skillList.map((s, i) => {
@@ -1025,7 +1021,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       <button
                         type="button"
                         key={s.name || i}
-                        className={`op-skill-tab-btn${isActive ? ' active' : ''}`}
+                        className="filter-chip op-skill-tab-btn"
                         aria-pressed={isActive}
                         aria-label={`Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}`}
                         title={s.name || `Skill ${i + 1}`}
@@ -1140,13 +1136,13 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             )}
 
             {operator.stats?.phases.length ? (
-              <div id="operator-stats" data-operator-section="stats" tabIndex={-1} className={pageStyles.section}>
+              <div id="operator-stats" data-operator-section="stats" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorStatsPanel key={`stats-${operator.name}`} stats={operator.stats} modules={operator.modules} compact />
               </div>
             ) : null}
 
             {sectionVisible('talents') && operator.talents && (
-              <section id="operator-talents" data-operator-section="talents" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-talents" data-operator-section="talents" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorTalents key={operator.name} talents={operator.talents}
                   elites={operator.stats?.phases.map(phase => phase.elite) ?? []}
                   renderDetails={(talent, unlocked) => {
@@ -1159,7 +1155,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             )}
 
             {priorityGuideGroups.length > 0 && (
-              <section id="operator-mastery" data-operator-section="mastery" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-mastery" data-operator-section="mastery" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Mastery priorities</h2>
                 <div className={pageStyles.masteryGrid}>
                   {priorityGuideGroups.flatMap(group => group.entries.map((row, index) => (
@@ -1182,9 +1178,9 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
             {/* ---- Modules ---- */}
             {sectionVisible('modules') && (
-              <section id="operator-modules" data-operator-section="modules" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-modules" data-operator-section="modules" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Modules</h2>
-                <div className="op-module-list">
+                <div className="op-module-list" role="group" aria-label="Modules">
                   {modules.map((m, i) => {
                     const isActive = i === activeModuleIndex;
                     const shortName = m.name?.includes(':') ? m.name.split(':')[0].trim() : m.name;
@@ -1192,7 +1188,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       <button
                         type="button"
                         key={i}
-                        className={`op-module-card${isActive ? ' active' : ''}`}
+                        className="filter-chip op-module-card"
                         aria-pressed={isActive}
                         onClick={() => selectModule(i)}
                       >
@@ -1223,19 +1219,9 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
                     {activeModule.stages.length > 0 && (
                       <>
-                        <div className="op-module-stage-buttons">
-                          {activeModule.stages.map((_, i) => (
-                            <button
-                              type="button"
-                              key={i}
-                              className={i === activeModuleStage ? 'primary' : 'ghost'}
-                              aria-pressed={i === activeModuleStage}
-                              aria-label={`Module stage ${i + 1}`} onClick={() => setActiveModuleStage(i)}
-                            >
-                              {i + 1}
-                            </button>
-                          ))}
-                        </div>
+                        <SegmentedControl label="Module stage" className="op-module-stage-buttons"
+                          value={activeModuleStage} onChange={setActiveModuleStage}
+                          options={activeModule.stages.map((_, i) => ({ value: i, label: i + 1, ariaLabel: `Module stage ${i + 1}` }))} />
 
                         {activeStage && (
                           <div className="op-module-stage-detail">
@@ -1264,7 +1250,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             )}
 
             {sectionVisible('promotion') && (
-              <section id="operator-promotion" data-operator-section="promotion" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-promotion" data-operator-section="promotion" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Promotion</h2>
                 {operator.promotion.map((tier, index) => (
                   <div key={index} className={pageStyles.promotionTier}>
@@ -1279,7 +1265,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
             {/* ---- Potential ---- */}
             {sectionVisible('potential') && (
-              <section id="operator-potential" data-operator-section="potential" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-potential" data-operator-section="potential" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Potential</h2>
                 {operator.potential.levels.map((p, i) => {
                   const iconPath = p.level >= 2 && p.level <= 6 ? getEssentialIconPath(`Potential ${p.level}`) : null;
@@ -1299,7 +1285,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
             {/* ---- Base Skills ---- */}
             {sectionVisible('baseSkills') && operator.baseSkills && (
-              <section id="operator-baseSkills" data-operator-section="baseSkills" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-baseSkills" data-operator-section="baseSkills" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Base skills</h2>
                 <div className="op-base-skill-list">
                   {operator.baseSkills.map((bs, i) => {
@@ -1328,7 +1314,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
             {/* ---- Synergy ---- */}
             {sectionVisible('synergy') && (
-              <section id="operator-synergy" data-operator-section="synergy" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-synergy" data-operator-section="synergy" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Synergy</h2>
                 {operator.synergies && (
                 <div className="op-synergy-list">
@@ -1449,7 +1435,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
             {/* ---- Character Info ---- */}
             {sectionVisible('characterInfo') && (
-              <section id="operator-characterInfo" data-operator-section="characterInfo" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-characterInfo" data-operator-section="characterInfo" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Profile</h2>
                   <div className={pageStyles.facts}>
                     <div className="op-sticky-meta op-sticky-meta-factions">
@@ -1510,19 +1496,19 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             )}
 
             {operator.files?.length ? (
-              <div id="operator-files" data-operator-section="files" tabIndex={-1} className={pageStyles.section}>
+              <div id="operator-files" data-operator-section="files" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorFilesPanel key={`files-${operator.name}`} files={operator.files} />
               </div>
             ) : null}
 
             {voiceData?.lines.length ? (
-              <div id="operator-voiceLines" data-operator-section="voiceLines" tabIndex={-1} className={pageStyles.section}>
+              <div id="operator-voiceLines" data-operator-section="voiceLines" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorVoiceLines key={`voices-${operator.internalName}`} data={voiceData} />
               </div>
             ) : null}
 
             {sectionVisible('guides') && (
-              <section id="operator-guides" data-operator-section="guides" tabIndex={-1} className={pageStyles.section}>
+              <section id="operator-guides" data-operator-section="guides" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Guides</h2>
                 {operator.guides && operator.guides.length > 0 ? (
                   <div className="video-scroller">

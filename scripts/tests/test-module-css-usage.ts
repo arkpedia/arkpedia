@@ -22,7 +22,7 @@ import { test } from 'node:test';
  * modules have not been swept, or the suite fails for someone else's dead class.
  */
 const ROOT = process.cwd();
-const OWNED = ['styles/games'];
+const OWNED = ['styles/games', 'components/operators'];
 const SOURCE_DIRS = ['pages', 'components', 'lib'];
 
 function walk(dir: string, keep: (file: string) => boolean, out: string[] = []): string[] {
@@ -150,4 +150,60 @@ test('no stylesheet imported by _app is a games stylesheet', () => {
   // page of the site for four routes' benefit, and is how guesser.css went dead unseen.
   const app = fs.readFileSync(path.join(ROOT, 'pages/_app.tsx'), 'utf8');
   assert.equal(/import\s+['"]@\/styles\/games\//.test(app), false);
+});
+
+/*
+ * The same rot in the global stylesheets, where there is no import to follow: the
+ * operator page's operator-detail.css was 1,683 lines, of which 109 classes (six old
+ * layouts: a sticky header with its own h1 rule, a swipe hint, a planner toast, a
+ * thumbnail carousel) were rendered by nothing, and its CSS module still styled five of
+ * them through :global(). A class is live when some page, component or lib file
+ * names it -- literally, or as the fixed prefix of a template (`site-nav-clock-${x}`).
+ *
+ * Scope: the stylesheets of the pages migrated with this test (games, media,
+ * community, the operator pages, skins, the nav). Extend it as other families' sheets
+ * are swept.
+ */
+const OWNED_GLOBAL = [
+  'styles/operators/operator-detail.css',
+  'styles/operators/roster.css',
+  'styles/music/music.css',
+  'styles/skins/skins.css',
+  'styles/community/community.css',
+  'styles/community/video.css',
+  'styles/maps/world.css',
+  'styles/core/nav.css',
+];
+
+const sourceText = sources.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function rendered(name: string): boolean {
+  if (new RegExp(`(?<![\\w-])${escape(name)}(?![\\w-])`).test(sourceText)) return true;
+  const cut = name.lastIndexOf('-');
+  return cut > 0 && sourceText.includes(`${name.slice(0, cut + 1)}\${`);
+}
+
+test('every class a migrated global stylesheet styles is rendered somewhere', () => {
+  const dead: string[] = [];
+  for (const file of OWNED_GLOBAL) {
+    const names = new Set<string>();
+    for (const { selector } of rules(fs.readFileSync(path.join(ROOT, file), 'utf8'))) {
+      if (/^(from|to|\d+%)/.test(selector)) continue;
+      for (const m of selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) names.add(m[1]);
+    }
+    for (const name of names) if (!rendered(name)) dead.push(`${file}: .${name}`);
+  }
+  assert.deepEqual(dead, [], 'Delete these rules (or the markup that should use them is missing):');
+});
+
+test('every class an owned CSS module reaches through :global() is rendered somewhere', () => {
+  const dead: string[] = [];
+  for (const file of modules) {
+    for (const { selector } of rules(fs.readFileSync(file, 'utf8'))) {
+      for (const g of selector.matchAll(/:global\(([^)]*)\)/g)) {
+        for (const m of g[1].matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) if (!rendered(m[1])) dead.push(`${path.relative(ROOT, file)}: :global(.${m[1]})`);
+      }
+    }
+  }
+  assert.deepEqual([...new Set(dead)], [], 'Delete these selectors (the markup they styled is gone):');
 });
