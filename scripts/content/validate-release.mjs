@@ -5,7 +5,7 @@ import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { PAGE_TABLES, missingPageTables } from '../../lib/content/tables.mjs';
 import { contentInput, releaseInput } from './release-input.mjs';
 import { cnTablesRecord } from './pin-upstream.mjs';
-import { findClockFields } from './clock-fields.mjs';
+import { findClockFields, findPublicClockFields } from './clock-fields.mjs';
 const root = path.resolve(process.argv[2] || '.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const check = (value, message) => { if (!value) throw new Error(message); };
@@ -103,6 +103,9 @@ for (const [route, file] of Object.entries(m.pages)) {
   check(file.path === pageFilePath(route), `Invalid page: ${route}`);
 }
 for (const [name, file] of Object.entries(m.files)) check(safe(name) && file.path === `public/${name}`, `Invalid public file: ${name}`);
+// What each output is, for the clock-field check: a page's route, or a public file's name.
+const routeOf = new Map(Object.entries(m.pages).map(([route, file]) => [file.path, route]));
+const publicNameOf = new Map(Object.entries(m.files).map(([name, file]) => [file.path, name]));
 for (const file of [...Object.values(m.pages), ...Object.values(m.files)]) {
   check(safe(file.path) && hex.test(file.sha256) && file.bytes > 0 && file.bytes <= 25_000_000, `Invalid file metadata: ${file.path}`);
   check(!expected.has(file.path), `Duplicate output: ${file.path}`);
@@ -116,8 +119,12 @@ for (const file of [...Object.values(m.pages), ...Object.values(m.files)]) {
     check(!/https:\/\/(?:cdn\.jsdelivr\.net|arknights\.wiki\.gg\/images)\//.test(bytes.toString()), `Page bypasses Arkpedia asset delivery: ${file.path}`);
     // A value decided by the export's clock stays in the release, and wrong, until the
     // next one (scripts/content/clock-fields.mjs).
-    const frozen = findClockFields(json.props);
+    const frozen = findClockFields(json.props, routeOf.get(file.path));
     check(!frozen.length, `Page carries values decided by the export's clock (${frozen.slice(0, 5).join(', ')}${frozen.length > 5 ? ', ...' : ''}); export raw windows and decide at render from \`now\`: ${file.path}`);
+  } else {
+    // The same for the public JSON a build script writes as its own object.
+    const frozen = findPublicClockFields(json, publicNameOf.get(file.path));
+    check(!frozen.length, `Public data carries values decided by the export's clock (${frozen.slice(0, 5).join(', ')}); decide at render from \`now\`: ${file.path}`);
   }
 }
 const actual = walk(path.join(root, 'release')).map(file => path.relative(path.join(root, 'release'), file));

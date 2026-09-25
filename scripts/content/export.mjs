@@ -46,13 +46,15 @@ fs.mkdirSync(release, { recursive: true });
 const env = { ...process.env, NODE_ENV: 'production', ARKPEDIA_EXPORT_CONTENT: '1' };
 // A removed operator must not leave an obsolete planner payload behind.
 fs.rmSync('public/planner-data', { recursive: true, force: true });
-for (const [command, args] of [
-  ['node', ['scripts/build/build-enemy-details.mjs']],
-  ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-stage-details.ts', '--force']],
-  ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-stage-guesser.ts']],
-  ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-operator-search.ts']],
-  ['node', ['node_modules/tsx/dist/cli.mjs', 'scripts/build/build-music-catalogue.ts']],
-]) execFileSync(command, args, { env, stdio: 'inherit' });
+// The public JSON these write is published with the pages, so they run under the same clock
+// guard as the page builders (export-build.mjs, KNOWN_BUILD_CLOCK_READS in export-clock.mjs).
+for (const script of [
+  ['scripts/build/build-enemy-details.mjs'],
+  ['scripts/build/build-stage-details.ts', '--force'],
+  ['scripts/build/build-stage-guesser.ts'],
+  ['scripts/build/build-operator-search.ts'],
+  ['scripts/build/build-music-catalogue.ts'],
+]) execFileSync('node', ['node_modules/tsx/dist/cli.mjs', 'scripts/content/export-build.mjs', ...script], { env, stdio: 'inherit' });
 
 let cursor = 0;
 async function worker() {
