@@ -643,11 +643,6 @@
   color: var(--teal);
 }
 
-/* --- Fallback for unbuilt banner tutorials --- */
-.gacha-tutorial-coming-soon {
-  font-size: 40px;
-}
-
 /* --- Legacy/basics selection card (predates .gacha-tutorial-pick-slot,
    still used by the earliest Orienteering selection demo) --- */
 .prod-grey { color: var(--text-faint); }

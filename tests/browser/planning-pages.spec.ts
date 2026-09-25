@@ -16,6 +16,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  *   4.3 A  the /schedule calendar slid 180px left when an event opened.
  *   4.3 G  /gacha pull tiles and featured rates used their own palette (5-star teal).
  *   4.3 H  /base facility gear and ? were 8-9px on a phone.
+ *   4.3 C  /gacha's guide ended on a "coming soon" page for trio and crossover banners
+ *          (placeholders stay hidden until they have content).
  *
  * These set their own viewports, so they run in the desktop project only.
  */
@@ -330,6 +332,33 @@ test.describe('/gacha', () => {
     });
     expect(details.seen, 'the Details modal lists featured operators').toBeGreaterThan(0);
     expect(details.wrong).toEqual([]);
+  });
+
+  // A banner type with no tutorial of its own (trio, crossover) used to end its guide on
+  // a "coming soon" page. Placeholders stay hidden until they have content, so its guide
+  // is the Basics alone and ends on Done.
+  test('a banner without its own tutorial opens its guide on the Basics, with no placeholder', async ({ page }) => {
+    await page.goto('/gacha');
+    // "The Front That Was" banners are trio and the Crossover category is crossover
+    // (getMechanicType in lib/gacha/realGachaBanners.ts): neither type has pages of its
+    // own. Not a skip when one is missing -- a guard that can skip itself guards nothing.
+    const categories = page.getByRole('group', { name: 'Banner category' });
+    const trio = categories.getByRole('button', { name: 'The Front That Was', exact: true });
+    const category = await trio.count() ? trio : categories.getByRole('button', { name: 'Crossover', exact: true });
+    await category.click();
+    await page.getByRole('region', { name: 'Banners' }).getByRole('button').first().click();
+    await page.getByRole('button', { name: 'How does this work?' }).first().click();
+    const guide = page.locator('.gacha-guide-modal');
+    await expect(guide.locator('.gacha-tutorial-progress')).toHaveText(/^Basics 1 \/ \d+$/);
+    await expect(guide.getByText('Do you understand the basics', { exact: false })).toHaveCount(0);
+    for (let i = 0; i < 20 && await guide.getByRole('button', { name: /^Next/ }).count(); i += 1) {
+      await expect(guide).not.toContainText(/coming soon/i);
+      await guide.getByRole('button', { name: /^Next/ }).click();
+    }
+    await expect(guide).not.toContainText(/coming soon/i);
+    await expect(guide.getByRole('button', { name: /^Continue/ }), 'nothing to continue into').toHaveCount(0);
+    await guide.getByRole('button', { name: 'Done' }).click();
+    await expect(guide).toHaveCount(0);
   });
 });
 

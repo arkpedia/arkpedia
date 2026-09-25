@@ -1534,13 +1534,6 @@ const LIMITED_PAGES: { Visual: () => JSX.Element; text: string }[] = [
   },
 ];
 
-function ComingSoonVisual() {
-  return <div className="gacha-tutorial-coming-soon">🚧</div>;
-}
-const DEFAULT_BANNER_PAGES: { Visual: () => JSX.Element; text: string }[] = [
-  { Visual: ComingSoonVisual, text: 'A tutorial for this banner type is coming soon!' },
-];
-
 const BANNER_TUTORIAL_PAGES: Partial<Record<BannerType, { Visual: () => JSX.Element; text: string }[]>> = {
   orienteering: ORIENTEERING_PAGES,
   celebration: CELEBRATION_PAGES,
@@ -1551,6 +1544,13 @@ const BANNER_TUTORIAL_PAGES: Partial<Record<BannerType, { Visual: () => JSX.Elem
   joint: JOINT_PAGES,
   featured: FEATURED_PAGES,
 };
+
+/** The banner's own tutorial, or null when its type has none (crossover, trio). Such a
+ *  banner gets the Basics alone, never a "coming soon" page: placeholders stay hidden
+ *  until they have content (the 2026-09-25 decision). */
+function bannerTutorialPages(banner: BannerConfig | null) {
+  return (banner && BANNER_TUTORIAL_PAGES[banner.type]) || null;
+}
 
 export default function GachaSimulator({ pools, banners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap }: Props) {
   const router = useRouter();
@@ -1897,6 +1897,14 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
     howToObtainLookup,
   ]);
 
+  // A banner with its own tutorial asks whether the reader knows the basics first; one
+  // without goes straight to the Basics, which then end on Done.
+  const openGuide = () => {
+    setShowGuide(true);
+    setGuidePhase(bannerTutorialPages(banner) ? 'question' : 'basics');
+    setGuidePageIndex(0);
+  };
+
   const sixStarOdds = useMemo(() => {
     if (!banner) return [];
     const pool = sixStarWeightedPool(banner);
@@ -2057,7 +2065,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     )}
                     <div className="gacha-banner-actions">
                       <button type="button" className="ghost btn-sm gacha-banner-action" onClick={() => setShowDetails(true)}>Details</button>
-                      <button type="button" className="ghost btn-sm gacha-banner-action" onClick={() => { setShowGuide(true); setGuidePhase('question'); setGuidePageIndex(0); }}>How does this work?</button>
+                      <button type="button" className="ghost btn-sm gacha-banner-action" onClick={openGuide}>How does this work?</button>
                       {banner.type === 'limited' && <button type="button" className="gacha-spark-store-btn" onClick={() => setShowSparkStore(true)}>Spark Store</button>}
                     </div>
                   </section>
@@ -2121,11 +2129,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       <button
                         type="button"
                         className="ghost gacha-other-toggle"
-                        onClick={() => {
-                          setShowGuide(true);
-                          setGuidePhase('question');
-                          setGuidePageIndex(0);
-                        }}
+                        onClick={openGuide}
                       >
                         How does this work?
                       </button>
@@ -2199,11 +2203,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       <button
                         type="button"
                         className="ghost gacha-other-toggle"
-                        onClick={() => {
-                          setShowGuide(true);
-                          setGuidePhase('question');
-                          setGuidePageIndex(0);
-                        }}
+                        onClick={openGuide}
                       >
                         How does this work?
                       </button>
@@ -2589,11 +2589,12 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
             )}
 
             {guidePhase !== 'question' && (() => {
-              const bannerPages = banner ? BANNER_TUTORIAL_PAGES[banner.type] || DEFAULT_BANNER_PAGES : DEFAULT_BANNER_PAGES;
-              const pages = guidePhase === 'basics' ? BASICS_PAGES : bannerPages;
+              const bannerPages = bannerTutorialPages(banner);
+              const pages = guidePhase === 'basics' || !bannerPages ? BASICS_PAGES : bannerPages;
               const { Visual } = pages[guidePageIndex];
               const isLastPage = guidePageIndex === pages.length - 1;
-              const isLastBasicsPage = guidePhase === 'basics' && isLastPage;
+              // Continue into the banner's own pages only when it has some.
+              const isLastBasicsPage = guidePhase === 'basics' && isLastPage && bannerPages !== null;
               return (
                 <div className="gacha-tutorial-page">
                   <div className="gacha-tutorial-visual">
