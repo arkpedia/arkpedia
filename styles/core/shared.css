@@ -35,6 +35,15 @@
      on any surface beneath it: panel, panel-2, well, or an image. */
   --line: rgba(255, 255, 255, 0.10);
   --line-soft: rgba(255, 255, 255, 0.06);
+  /* The RESTING boundary of anything that can be pressed, typed into or picked
+     from: buttons, chips, toggles, inputs, selects. --line and --line-soft are
+     passive hairlines (panels, dividers, table rules) and measure 1.16-1.31:1,
+     which is why 2,742 of 2,970 controls read as flat labels rather than as
+     things you can click. This clears 3:1 (WCAG 1.4.11) against every surface a
+     control sits on -- --bg, --panel, --panel-2, --well, both --row-grad stops and
+     --row-grad-hi -- and scripts/tests/test-ui-tokens.ts holds it there. Neutral
+     on purpose: teal is "on / current" and a resting control is neither. */
+  --control-border: rgba(255, 255, 255, 0.38);
 
   --teal: #5fd9c6;
   --teal-dim: rgba(95, 217, 198, 0.14);
@@ -60,6 +69,28 @@
   --rarity-5: #E8B93A;
   --rarity-4: #B58AC4;
   --rarity-3: #6E9BC4;
+  --rarity-2: #B7C45A;
+  --rarity-1: #A8B3BA;
+  /* The same hues as SURFACES behind near-black ink (.tier-fill-N), which is what
+     the game does. Deliberately not restated in the light block: the light
+     --rarity-N are darkened to work as TEXT, and dark ink on them would not. */
+  --rarity-fill-6: #F0803C;
+  --rarity-fill-5: #E8B93A;
+  --rarity-fill-4: #B58AC4;
+  --rarity-fill-3: #6E9BC4;
+  --rarity-fill-2: #B7C45A;
+  --rarity-fill-1: #A8B3BA;
+
+  /* Category hues: a KIND of thing, shared by /base (facility types) and /farming
+     (stage kinds), which used to carry two sets of hex literals with no light-theme
+     twin (1.52-2.80:1 on white). Data colour like rarity, never state. Tint a
+     surface with color-mix(in srgb, var(--cat-blue) 15%, transparent). */
+  --cat-blue: #7DB8EB;
+  --cat-yellow: #E8C54D;
+  --cat-orange: #E8923C;
+  --cat-green: #5FBF6B;
+  --cat-red: #E85D5D;
+  --cat-grey: #B4BEC6;
 
   /* Text, lifted off white -- the brightness was the other half of the
      harshness. On --panel: --text 8.6:1, --text-dim 5.4:1, --text-faint 4.5:1.
@@ -84,9 +115,20 @@
      the same thing is a second vocabulary for one idea. */
   --row-grad-hi: linear-gradient(180deg, #232d37, #1d2630);
 
-  /* One radius for the whole system. 3px only on an outermost frame. */
+  /* Radii come from the 2-4px family and nowhere else. --radius is the default
+     for every control and surface, --radius-frame (3px) is an outermost frame or a
+     floating menu, --radius-control (4px) is the ceiling, allowed on a control
+     that is a tile (an icon button, a large action). Never a literal. */
   --radius: 2px;
   --radius-frame: 3px;
+  --radius-control: 4px;
+
+  /* The page frame, which the nav, every <header> and every <main> share: content
+     spans --frame-max less two gutters, so 224-1216 at 1440 and 24-366 at 390.
+     One gutter at every width -- per-feature gutters (16, 12, 10px) are what made
+     pages stop lining up with the nav on phones. */
+  --frame-max: 1040px;
+  --page-gutter: 24px;
 
   --font-mono: 'JetBrains Mono', monospace;
   --font-display: 'Rajdhani', sans-serif;
@@ -132,16 +174,24 @@
 
   --line: rgba(0, 0, 0, 0.12);
   --line-soft: rgba(0, 0, 0, 0.07);
+  /* Solid, not a black alpha: even rgba(0,0,0,.40) only reaches 2.81:1 on these
+     grounds. 3.2:1 on --well, 3.45 on --panel-2, 4.0 on --panel. */
+  --control-border: #727f89;
 
   /* The accent has to be dark enough to be TEXT here (5.0:1 on --panel-2),
      which is why it is not the dark theme's hue value. Darkened from #0C9C86 /
      #C67A0A / #7C8FA0: as 12px text -- active nav links, tags, hints -- those
      measured 2.9-3.4:1 on light grounds, under AA.
      --teal-ink flips to white, matching the .primary:not(button) fix below. */
-  --teal: #097565;
-  --teal-dim: rgba(9, 117, 101, 0.12);
+  --teal: #07695a;
+  --teal-dim: rgba(7, 105, 90, 0.12);
   --teal-ink: #FFFFFF;
-  --teal-fill: linear-gradient(180deg, #0b8b77, #097565);
+  /* Taken down from #097565 so the selected state -- teal text on --teal-dim --
+     clears 4.5:1 on --panel-2 (4.74, was 4.02) and on --panel (5.44). That pairing
+     is the one active style for chips, segments, tabs and picked cards, so it has
+     to pass on the surfaces they sit on. The top fill stop likewise went from
+     #0b8b77 (4.22:1 under white ink) to #0a7f6c (4.92). */
+  --teal-fill: linear-gradient(180deg, #0a7f6c, #097565);
   /* And DOWN the scale here, because the ink on it is white. Lightening a
      light-theme fill on hover is what took the old #0B8B77 to 4.22:1 under
      white; going darker instead lands at 5.7:1 on the top stop and 7.4:1 on
@@ -150,23 +200,31 @@
 
   --amber: #8F5808;
   --danger: #C33D30;
-  --danger-dim: rgba(195, 61, 48, 0.12);
+  --danger-dim: #FBE2DF;
   --danger-solid: #C33D30;
 
-  /* The same rarity hues taken down to clear 4.5:1 as TEXT on --panel-2. As a
-     background FILL -- an operator card's colour block -- use the dark theme's
-     values above with near-black ink, which is what the game itself does. */
-  --rarity-6: #C2551A;
-  --rarity-5: #8A6708;
+  /* The same rarity hues taken down to clear 4.5:1 as TEXT on --panel-2 (they did
+     not: -6 was 3.83 and -5 4.38 before this). As a background FILL -- an operator
+     card's colour block -- use --rarity-fill-N with near-black ink, which is what
+     the game itself does. */
+  --rarity-6: #A8470F;
+  --rarity-5: #7C5C06;
   --rarity-4: #7B4E8C;
   --rarity-3: #3D6A94;
+  --rarity-2: #5B6B1A;
+  --rarity-1: #5A6770;
+
+  /* Category hues taken down to clear 4.5:1 as text on --panel. */
+  --cat-blue: #1F6392;
+  --cat-yellow: #7A5B00;
+  --cat-orange: #94480F;
+  --cat-green: #22693C;
+  --cat-red: #B0302A;
+  --cat-grey: #5A6770;
 
   --text: #26333c;
   --text-dim: #51677A;
   --text-faint: #566C7F;
-  --danger: #C33D30;
-  --danger-dim: #FBE2DF;
-  --danger-solid: #C33D30;
   /* Same idea the other way up the scale: the light still comes from above, so the top
      stop is the lighter one. A wider absolute step than the dark pair needs, because a
      few points of difference near white is a smaller proportion of the eye's range
@@ -237,6 +295,24 @@ input, textarea, [contenteditable="true"] {
    but nothing may remove this without replacing it. */
 :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
+/* Native checkboxes, radios, ranges and progress bars take the accent instead of
+   the browser's blue. Inherited, so a control that means something else (the
+   results page's amber "unable" box) still sets its own. */
+:root { accent-color: var(--teal); }
+
+/* Code is data, and data is mono on this site. There was no rule at all, so <code>
+   fell back to the browser's generic monospace -- Courier on most machines. */
+code, kbd, samp { font-family: var(--font-mono); }
+
+/* A classed anchor is a card, a tile, a chip or a button, and takes its colour from
+   what it is -- never the browser's link blue (#9e9eff on dark, #0000ee on light),
+   which leaked onto 1,306 technique tiles, the enemy tiles and the home gacha poster.
+   :where() keeps this at zero specificity: it beats only the browser's own default,
+   so any single-class rule that does colour an anchor (.see-more-link, .skip-link,
+   .support-social-link) still wins. A bare <a> in running text keeps its link colour
+   from the .sub a / .hint a rules below. */
+:where(a[class]) { color: inherit; }
+
 /* In-page anchors land BELOW the fixed nav instead of under it. --nav-h is
    published by Sitenav's ResizeObserver; the fallback covers first paint. */
 [id] { scroll-margin-top: calc(var(--nav-h, 60px) + 12px); }
@@ -300,11 +376,31 @@ html { scrollbar-gutter: stable; }
      hairline), so there is nothing left to hold still. */
   .card.invalid { animation: none; }
 }
-header {
-  padding: 28px 24px 20px;
+/* The page header: eyebrow, h1, optional .sub and actions, and a hairline under it.
+   Render it with components/ui/PageHeader, as a SIBLING of <main> -- never inside
+   it, or it starts a gutter to the right of the content (the /obtain-method bug).
+   The bare element selector is what every page written before PageHeader relies on;
+   .page-header is the component's own hook for the modifiers below. */
+header,
+.page-header {
+  padding: 28px var(--page-gutter) 20px;
   border-bottom: 1px solid var(--line-soft);
-  max-width: 1040px;
+  max-width: var(--frame-max);
   margin: 0 auto;
+}
+/* A tool page that needs its first screen for the tool: same eyebrow, same h1 size,
+   less air around them. */
+.page-header.page-header-slim { padding-top: 16px; padding-bottom: 12px; }
+.page-header.page-header-slim h1 { margin-bottom: 4px; }
+.page-header > .sub { margin: 0; }
+/* Controls that belong to the page as a whole (search, filters, a primary action)
+   sit under the title, inside the header's frame. */
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
 }
 .header-top {
   display: flex;
@@ -413,10 +509,12 @@ h3 {
   line-height: 1.6;
 }
 main {
-  max-width: 1040px;
+  max-width: var(--frame-max);
   margin: 0 auto;
-  padding: 24px;
+  padding: 24px var(--page-gutter);
 }
+/* pages/404.tsx and 500.tsx: where to go instead, as a row of buttons. */
+.error-page-links { display: flex; flex-wrap: wrap; gap: 10px; }
 .banner {
   display: flex;
   align-items: center;
@@ -504,62 +602,11 @@ select.power-select:disabled { opacity: 0.35; }
    fill at 3.01:1. Both the hover backgrounds now come from --teal-fill-hi. */
 :root[data-theme="light"] .primary:not(button):not(a) { color: #FFFFFF; }
 
-/* Anchor twin of button.ghost. Several pages put class="ghost" on a <Link>
-   (Discover on /music, Back to Base on the optimizers, See all skins)
-   expecting the ghost-button look, but every rule above is scoped to
-   button.* -- so those anchors rendered as bare browser links, default
-   blue underline and all. Mirrors the base button + button.ghost
-   declarations at the same (0,1,1) specificity, plus the anchor-only
-   resets: text-decoration, and inline-flex so an icon + label pair sits
-   on one line with padding that actually takes effect vertically. */
-a.ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  padding: 8px 14px;
-  border-radius: 3px;
-  border: 1px solid var(--line-soft);
-  background: transparent;
-  color: var(--text-faint);
-  text-decoration: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-a.ghost:hover { border-color: var(--teal); color: var(--teal); }
-
-/* Anchor twin of button.primary, added for the same reason a.ghost was: a toggle group
-   written the site's usual way, `cond ? 'primary' : 'ghost'`, renders the selected option
-   as a bare browser link when the group is made of <Link>s rather than <button>s. a.ghost
-   existed already, so such a group came out half styled. First needed by the Amiya form
-   switcher, where the options are real navigations and so have to be links.
-
-   Mirrors button + button.primary at the same (0,1,1) specificity, plus the anchor-only
-   resets a.ghost also needed: text-decoration, and inline-flex so an icon and a label sit
-   on one line with padding that takes effect vertically. Light mode is already handled --
-   `.primary:not(button)` in the block above catches this too. */
-a.primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  padding: 12px 26px;
-  border-radius: 3px;
-  border: 1px solid var(--teal);
-  background: var(--teal);
-  color: #06211C;
-  text-decoration: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-a.primary:hover { background: #6FF0DC; color: #06211C; }
-:root[data-theme="light"] a.primary:hover { background: #0B8B77; }
+/* The anchor twins of .ghost and .primary live in arkpedia-theme.css, in the base
+   button selector itself (`button, a.ghost, a.primary, .btn`), so an anchor-button
+   takes every property a button does. The copies that used to sit here were fully
+   overridden by that rule -- except that their light-theme hover, at higher
+   specificity, painted #0B8B77 under white ink at 4.22:1. */
 
 /* A selected toggle keeps its neighbours' size. Toggles are written across the site
    as `cond ? 'primary' : 'ghost'`, so the selected option is a .primary among .ghost
@@ -598,9 +645,9 @@ a.primary:where(:has(~ a.ghost)),
 .chip {
   width: 72px;
   height: 72px;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--control-border);
   overflow: hidden;
   cursor: grab;
   user-select: none;
@@ -959,7 +1006,7 @@ a.primary:where(:has(~ a.ghost)),
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--control-border);
   background: var(--panel-2);
   color: var(--text-dim);
   cursor: pointer;
@@ -1109,10 +1156,10 @@ a.primary:where(:has(~ a.ghost)),
 
 .modal-back-btn {
   background: var(--panel-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   color: var(--text);
   padding: 8px 14px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   font-size: 13px;
   margin-bottom: 14px;
@@ -1168,9 +1215,9 @@ a.primary:where(:has(~ a.ghost)),
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--teal);
-  background: linear-gradient(135deg, rgba(77, 232, 209, 0.12), transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 12%, transparent), transparent);
   color: var(--teal);
   font-family: var(--font-display);
   font-weight: 600;
@@ -1181,8 +1228,8 @@ a.primary:where(:has(~ a.ghost)),
   transition: box-shadow 0.2s ease, background 0.2s ease, transform 0.15s ease;
 }
 .support-social-link:hover {
-  background: linear-gradient(135deg, rgba(77, 232, 209, 0.22), rgba(77, 232, 209, 0.04));
-  box-shadow: 0 0 14px rgba(77, 232, 209, 0.35);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 22%, transparent), color-mix(in srgb, var(--teal) 4%, transparent));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--teal) 35%, transparent);
   transform: translateY(-1px);
 }
 .support-social-column {
@@ -1268,12 +1315,14 @@ a.primary:where(:has(~ a.ghost)),
 }
 
 /* --- every other scrollbar, in the site's own colors -------------------------
-   One inherited declaration: thumb in --line on the page's own ground, both themes,
-   Chromium and Firefox alike. Safari ignores scrollbar-color and keeps its overlay
-   bar, which is invisible until used anyway -- an acceptable miss, where forcing the
-   ::-webkit route on everything would turn macOS's overlay page bar into a permanent
-   12px gutter. */
-:root { scrollbar-color: var(--line) transparent; }
+   One inherited declaration: thumb in --text-faint on the page's own ground, both
+   themes, Chromium and Firefox alike. It was --line, a hairline alpha that measured
+   1.31:1 -- a vertical list with a thumb nobody could see. --text-faint is 4.7:1 on
+   --panel-2 and 5.5:1 on --bg (dark), 4.6 and 4.9 (light). Safari ignores
+   scrollbar-color and keeps its overlay bar, which is invisible until used anyway --
+   an acceptable miss, where forcing the ::-webkit route on everything would turn
+   macOS's overlay page bar into a permanent 12px gutter. */
+:root { scrollbar-color: var(--text-faint) transparent; }
 
 /* The side-scrolling rows below draw their own gutter bars through
    ::-webkit-scrollbar, and an inherited non-auto scrollbar-color switches Chromium
@@ -1290,6 +1339,20 @@ a.primary:where(:has(~ a.ghost)),
 .stage-deploy-strip {
   scrollbar-color: auto;
 }
+
+/* components/ui/ScrollRow: one line of cards that never wraps, under the drawn bar
+   below. Children keep their own width; the gap is the site's 12px card rhythm.
+   The focus ring is drawn inside, because the scroller would clip one outside. */
+.scroll-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding-bottom: 6px;
+}
+.scroll-row > * { flex: none; }
+.scroll-row:focus-visible { outline-offset: -2px; }
 
 /* --- side-scrolling rows ----------------------------------------------------
    Every box on this site whose content runs off to the right gets a scrollbar that is
@@ -1348,7 +1411,10 @@ a.primary:where(:has(~ a.ghost)),
 .timeline-month-tabs::-webkit-scrollbar-thumb,
 .stage-mapwrap::-webkit-scrollbar-thumb,
 .stage-deploy-strip::-webkit-scrollbar-thumb {
-  background: var(--teal-dim);
+  /* Visible at rest: --teal-dim measured 1.37:1 (dark) and 1.17:1 (light), so the
+     bar that says "this row scrolls" said nothing until hovered. Teal is kept for
+     the hover, the moment the bar is actually being used. */
+  background: var(--text-faint);
   border-radius: 2px;
 }
 .sidescroll::-webkit-scrollbar-thumb:hover,
@@ -1378,6 +1444,6 @@ a.primary:where(:has(~ a.ghost)),
   .stage-mapwrap,
   .stage-deploy-strip {
     scrollbar-width: thin;
-    scrollbar-color: var(--teal-dim) var(--panel-2);
+    scrollbar-color: var(--text-faint) var(--panel-2);
   }
 }

@@ -324,8 +324,8 @@
 .gacha-details-featured span:last-child { min-width: 0; }
 .gacha-details-featured strong { display: block; overflow-wrap: anywhere; }
 .gacha-details-featured small { display: block; color: var(--teal); font: 11px var(--font-mono); }
-.gacha-details-rarity-6 { --gacha-rarity-border: var(--amber); }
-.gacha-details-rarity-5 { --gacha-rarity-border: #F5D547; }
+.gacha-details-rarity-6 { --gacha-rarity-border: var(--rarity-6); }
+.gacha-details-rarity-5 { --gacha-rarity-border: var(--rarity-5); }
 .gacha-details-featured:hover { background: color-mix(in srgb, var(--gacha-rarity-border, var(--teal)) 9%, var(--panel-2)); }
 .gacha-details-name-list button:hover { border-color: var(--teal); background: var(--teal-dim); }
 .gacha-details-pool { margin-top: 15px; }
@@ -352,9 +352,9 @@
 .pullable-five-star {
   width: 56px;
   height: 56px;
-  background: rgba(77, 232, 209, 0.12);
-  color: var(--teal);
-  border-color: rgba(77, 232, 209, 0.35);
+  background: color-mix(in srgb, var(--rarity-5) 12%, transparent);
+  color: var(--rarity-5);
+  border-color: color-mix(in srgb, var(--rarity-5) 35%, transparent);
 }
 .pullable-four-star {
   width: 56px;
@@ -575,9 +575,8 @@
 .gacha-featured-meta { display: flex; flex-direction: column; align-items: flex-start; min-height: 2.4em; gap: 1px; }
 .gacha-featured-section { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
 .gacha-featured-section > .gacha-content-group { min-width: 0; }
-.gacha-featured-chip-6 { --gacha-rarity-border: var(--amber); }
-.gacha-featured-chip-5 { --gacha-rarity-border: #F5D547; }
-:root[data-theme="light"] .gacha-featured-chip-5, :root[data-theme="light"] .gacha-details-rarity-5 { --gacha-rarity-border: #6F5C06; }
+.gacha-featured-chip-6 { --gacha-rarity-border: var(--rarity-6); }
+.gacha-featured-chip-5 { --gacha-rarity-border: var(--rarity-5); }
 
 .gacha-featured-percent {
   font-family: var(--font-mono);

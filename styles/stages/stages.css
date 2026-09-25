@@ -1633,7 +1633,7 @@ button.stage-playback-rate.current:hover {
 .stage-deploy-elite-btn.current {
   border-color: var(--teal);
   color: var(--teal);
-  background: rgb(77 232 209 / 0.08);
+  background: color-mix(in srgb, var(--teal) 8%, transparent);
 }
 .stage-deploy-search { flex: none; width: 210px; font-size: 12px; padding: 6px 9px; }
 

@@ -22,11 +22,12 @@ npm run typecheck
 npm test
 npm run lint -- --max-warnings 15
 npm run check:styles
+npm run audit:styles
 npm run check:assets
 npm run build
 ```
 
-The lint warning ceiling preserves existing warnings. Do not raise it to accommodate new warnings. `npm run audit:styles` is a separate historical style-ratchet report; it is not a substitute for the rendered-class check.
+The lint warning ceiling preserves existing warnings. Do not raise it to accommodate new warnings. `npm run audit:styles` is a CI gate: a ratchet over style drift (rarity literals, the pre-token teal, pill radii, h1 overrides, unloaded font weights, native selects and hand-built listboxes) against `scripts/audits/style-audit-baseline.json`. It fails on anything new and on a fixed entry left in the baseline; it is not a substitute for the rendered-class check. UI work follows [UI primitives and tokens](ui-primitives.md), which also documents the page-bounds ratchet in the browser tests.
 
 ## Deploy
 

@@ -213,7 +213,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
       <div ref={playerAnchorRef} aria-hidden="true" />
       <div ref={playerRef} className={styles.player} data-stuck={playerStuck || undefined} aria-label="Voice line player">
         <div className={styles.packRow}>
-          <StyledSelect label="Voice language" value={pack?.id ?? ''} className={styles.packSelect}
+          <StyledSelect label="Voice language" align="end" value={pack?.id ?? ''} className={styles.packSelect}
             options={data.packs.map(item => ({
               value: item.id,
               label: item.id === 'linkage' ? ({ Japanese: 'JP', English: 'EN', Mandarin: 'CN', Korean: 'KR' }[item.label] ?? 'CO') : packCode(item.id),

@@ -30,9 +30,9 @@
    over it. myrtle.moe runs its header full width and gets away with it, but their nav
    sits immediately beside the logo rather than being spread across the bar. */
 .site-nav-inner {
-  max-width: 1040px;
+  max-width: var(--frame-max);
   margin: 0 auto;
-  padding: 10px 24px;
+  padding: 10px var(--page-gutter);
   display: flex;
   align-items: center;
   gap: 20px;
@@ -273,6 +273,12 @@
   gap: 6px;
   font-family: var(--font-mono);
   font-size: 12px;
+  /* The trigger is a <button>, so it inherited the button primitive's uppercase,
+     0.09em tracking and weight 600 -- "DATABASE ⌄ GUIDES ⌄" beside sentence-case
+     links in the same bar. A menu trigger is a nav item, not an action. */
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--text-dim);
   background: none;
   padding: 7px 12px;

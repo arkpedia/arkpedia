@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useHeightFloor } from './useHeightFloor';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { MATERIAL_GROUPS, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import { usePlannerContent } from '@/lib/content/planner';
 import { matchesSearch } from '@/lib/search/searchNormalize';
