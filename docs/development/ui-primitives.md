@@ -100,7 +100,7 @@ These apply to every page with no opt-in:
 - `:root { accent-color: var(--teal) }` applies to native checkboxes, radios and ranges.
 - The theme's input rule is inside `:where()` and has zero specificity. A page class on an input always wins. Focus keeps the site's 2px teal outline. There is no `outline: none` and no halo.
 - `input`, `select` and `textarea` use `font: inherit`, so there is no browser Arial.
-- The scrollbar thumb rests at `--text-faint` everywhere (the `:root` default and the drawn `.sidescroll` bar) and turns teal on hover.
+- The scrollbar thumb rests at `--text-faint` everywhere (the `:root` default and the drawn `.sidescroll` bar). The drawn bar also turns teal on hover.
 - `.site-nav-trigger` is in sentence case at weight 400, like the nav links.
 
 ## Components (`components/ui`)
@@ -305,7 +305,7 @@ Two checked-in baselines list today's offenders. CI fails on a **new** offender 
 
 | Key | What it lists | What to do |
 |---|---|---|
-| `nativeControls` | `<select>` and `role="listbox"` outside `components/ui`, per file | Replace with `StyledSelect` (or `SearchInput` for suggestion lists). `StageDeployBar`'s strip is a multi-select, not a dropdown. Keep it listed with a reason, or make it a group of `aria-pressed` buttons. |
+| `nativeControls` | `<select>` and `role="listbox"` outside `components/ui`, per file | Replace with `StyledSelect` (or `SearchInput` for suggestion lists). `StageDeployBar`'s operator strip is an inline strip where you arm one tile, not a dropdown. Make it a `role="group"` of `aria-pressed` tiles, or keep it listed with a reason. |
 | `rarityLiteral` | Colour literals in rarity, star and pull rules | Use `var(--rarity-N)`, `.rarity-N`, `.tier-N` or `.tier-fill-N` |
 | `oldTeal` | `#4de8d1` / `rgb(77 232 209)`, now only in `pages/stages/browse.tsx`'s map SVG | Use `var(--teal)` (pass it through CSS, or `currentColor`) |
 | `pills` | 999px radii | Use a radius token |
