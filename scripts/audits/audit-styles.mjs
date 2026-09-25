@@ -20,7 +20,9 @@
  *   fontSizes      a font-size off the site's scale, including fractional nudges
  *   rawHex         a hex literal for a colour a token in shared.css already names
  *   rarityLiteral  a colour literal in a rule whose selector names rarity, a star,
- *                  a pull tile or .r1-.r6 -- rarity colour comes from --rarity-N only
+ *                  a pull tile or .r1-.r6, or in a custom property named for rarity
+ *                  under any selector but a :root token block -- rarity colour
+ *                  comes from --rarity-N only
  *   oldTeal        the pre-token teal, rgb(77 232 209) / #4de8d1, anywhere (CSS or
  *                  TSX): it ignores the light theme
  *   pills          a 999px (pill) radius; radii come from the 2-4px token family
@@ -151,6 +153,7 @@ function declarations(body) {
 
 const SUBJECT = /^\.([a-zA-Z][\w-]*)(?::{1,2}[\w()-]+)?$/;
 /* "star" as a word or a hyphenated part (.six-star, .star-row), not inside "start". */
+const TOKEN_BLOCK = /^:root(?:\[[^\]]*\]|:not\([^)]*\))*$/;
 const RARITY_SELECTOR = /rarity|(?:^|[^a-z])stars?(?![a-z])|pull-|\.r[1-6]\b/i;
 const COLOUR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\([^)]*\)/g;
 const OLD_TEAL = /#4de8d1\b|rgba?\(\s*77[\s,]+232[\s,]+209\b/gi;
@@ -199,9 +202,13 @@ function collect() {
 
     for (const { selector, body } of rules(raw)) {
       const decls = declarations(body);
-      if (RARITY_SELECTOR.test(selector) && !selector.startsWith(':root')) {
+      // A rarity rule's colours, and a custom property named for rarity anywhere
+      // (--gacha-rarity-border: #F5D547 on .gacha-featured-chip-5 hid a literal behind a
+      // selector that does not say rarity). Only the token blocks may hold the hex.
+      if (!TOKEN_BLOCK.test(selector)) {
+        const raritySelector = RARITY_SELECTOR.test(selector);
         for (const d of decls) {
-          if (d.prop.startsWith('--')) continue;
+          if (!raritySelector && !(d.prop.startsWith('--') && /rarity/i.test(d.prop))) continue;
           for (const lit of d.value.matchAll(COLOUR_LITERAL)) {
             out.rarityLiteral.push(`${path}: ${selector} { ${d.prop}: ${lit[0]} }`);
           }
