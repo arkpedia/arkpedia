@@ -686,47 +686,6 @@ a.primary:where(:has(~ a.ghost)),
   text-transform: uppercase;
   color: var(--teal);
 }
-.stats-table {
-  margin-top: 20px;
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-align: left;
-}
-.stats-table th, .stats-table td {
-  border-bottom: 1px solid var(--line-soft);
-  padding: 8px 10px;
-  vertical-align: middle;
-}
-.stats-table-boxplot-btn {
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: block;
-}
-.stats-table-boxplot-btn:hover .power-boxplot-svg { opacity: 0.8; }
-/* The distribution curve. Sized by its own width/height attributes, but an inline
-   svg sits on the text baseline and leaves the descender gap under itself -- 4px of
-   it, under every chart on /results. */
-.power-distribution-svg { display: block; }
-.stats-table th { color: var(--text-faint); font-weight: 500; }
-.stats-table-sortable {
-  cursor: pointer;
-  user-select: none;
-}
-.stats-table-sortable:hover {
-  color: var(--teal);
-}
-.stats-table img {
-  width: 28px;
-  height: 28px;
-  object-fit: cover;
-  border-radius: 3px;
-  vertical-align: middle;
-  margin-right: 8px;
-}
 .waiting-box {
   text-align: center;
   padding: 80px 20px;
@@ -746,14 +705,6 @@ a.primary:where(:has(~ a.ghost)),
   height: 1px;
   opacity: 0;
   pointer-events: none;
-}
-.view-toggle {
-  display: flex;
-  gap: 8px;
-}
-.view-toggle button {
-  font-size: 12px;
-  padding: 8px 16px;
 }
 .num-highlight {
   color: var(--teal);
