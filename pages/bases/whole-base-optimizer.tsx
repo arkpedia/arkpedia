@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import type { WholeBaseResult } from '@/lib/base/wholeBaseOptimizer';
+import { devOnlyStaticProps } from '@/lib/dev/devOnly';
+
+export const getStaticProps = devOnlyStaticProps;
 
 interface WholeBaseResults {
   generatedAt: string;
@@ -75,7 +78,7 @@ export default function WholeBaseOptimizerPage() {
   async function loadCachedResults() {
     setLoading(true);
     try {
-      const res = await fetch('/api/whole-base-optimizer-results');
+      const res = await fetch('/api/dev/whole-base-optimizer-results');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResults(data);

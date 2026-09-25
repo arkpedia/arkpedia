@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
+import { devOnlyStaticProps } from '@/lib/dev/devOnly';
+
+export const getStaticProps = devOnlyStaticProps;
 
 const FILES = [
   'skins.json',
