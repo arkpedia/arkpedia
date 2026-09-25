@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 const words = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -56,12 +57,13 @@ export function artPath(value) {
  *
  * Everything else is one record's problem -- a new CN operator or outfit not imported yet,
  * a discovered event or banner the catalogue left out, art (key art too) or a reward icon
- * the image sync has not published, a stage enemy without its record -- so it becomes an
+ * the image sync has not published, a stage enemy without its record, an album whose
+ * release date is not written YYYY/MM/DD -- so it becomes an
  * entry in data/quarantine.json (stage 'completeness') and a line in the daily 'Content
  * quarantined' issue, and the rest of the day's content still goes out. The keys name
  * records by their source ids, the same way every stage's quarantine entries do.
  */
-export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], assets, stageEnemies, enemyRecords, enemyIndex, counts, baseline, allowShrink = [] }) {
+export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, stageEnemies, enemyRecords, enemyIndex, counts, baseline, allowShrink = [] }) {
   const errors = [], quarantine = [], allowed = [];
   const hold = (key, action, reason) => quarantine.push({ key, action, reason });
   const byId = new Map(operators.map(op => [op.internalName, op]));
@@ -143,6 +145,17 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   for (const [slug, record] of [...enemyRecords].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     if (unpublished.has(record.icon?.slice(1))) hold(`enemy:${slug}`, 'published-partial', `${record.name}: icon ${record.icon.slice(1)} not published yet`);
   }
+  // An album's release date is what orders Recently added on /music/discover, and it is
+  // stored YYYY/MM/DD (lib/music/releaseDate.mjs), the form the album sync writes. A date
+  // typed any other way, or a blank the sync had no cover date to fill, is that one album's
+  // problem: it is held, and every other album still goes out.
+  for (const album of albums) {
+    if (parseReleaseDate(album.releaseDate) !== null) continue;
+    const title = album.albumAltName || album.albumName || album.albumId;
+    hold(`album:${album.albumId}`, 'published-partial', album.releaseDate
+      ? `${title}: release date ${JSON.stringify(album.releaseDate)} is not written YYYY/MM/DD`
+      : `${title}: no release date, so Recently added leaves it out`);
+  }
   const unknown = allowShrink.filter(name => !COLLECTIONS.includes(name));
   if (unknown.length) errors.push(`allow_shrink names no collection: ${unknown.join(', ')} (the collections: ${COLLECTIONS.join(', ')})`);
   if (baseline) {
@@ -223,6 +236,7 @@ export function readCompletenessInputs(root = process.cwd()) {
   const input = { inventory: read('data/content-inventory.json'), operators, skins: read('data/skins.json'),
     banners: read('data/headhunting_banners.json'), events: eventFiles.flatMap(file => read(`data/events/${file}`)),
     bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
+    albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
     stageEnemies, enemyRecords, enemyIndex: new Set(read('public/enemies-index.json').map(row => row.slug)) };
   input.counts = { operators: operators.length, skins: input.skins.length, events: input.events.length,
     banners: input.banners.length, enemies: enemyRecords.size, stages: stageFiles.length, ...collectionCounts(root) };

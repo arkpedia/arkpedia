@@ -74,6 +74,18 @@ test('a missing record or picture quarantines that one record and blocks nothing
   assert.deepEqual([...new Set(holds(empty).map(entry => entry.key))].sort(),
     ['banner:LINKAGE_99_0_1', 'bundle:act99side', 'event:act99side', 'operator:char_9990_test', 'skin:char_9990_test@test#1']);
 });
+test('an album whose release date is not written YYYY/MM/DD is held, and blocks nothing', () => {
+  // Sorted as text, "October 8, 2025" ranked above every 2026 album in Recently added, and a
+  // blank date left the album out of it. The album sync writes YYYY/MM/DD; this catches the rest.
+  const album = (albumId: string, releaseDate: unknown) => ({ albumId, albumName: `专辑${albumId}`, albumAltName: `Album ${albumId}`, releaseDate });
+  const held = holds(emptyCatalogue({ albums: [album('1', '2026/09/03'), album('2', 'October 8, 2025'), album('3', ''),
+    album('4', '2026/02/30'), album('5', '2026-09-03'), album('6', undefined)] }));
+  assert.deepEqual(held.map(entry => `${entry.key} ${entry.action}`),
+    ['album:2 published-partial', 'album:3 published-partial', 'album:4 published-partial', 'album:5 published-partial', 'album:6 published-partial']);
+  assert.equal(held[0].reason, 'Album 2: release date "October 8, 2025" is not written YYYY/MM/DD');
+  assert.equal(held[1].reason, 'Album 3: no release date, so Recently added leaves it out');
+  assert.equal(held[2].reason, 'Album 4: release date "2026/02/30" is not written YYYY/MM/DD');
+});
 test('malformed hand-written records and outfit identities still block the release', () => {
   const blocked = (edit: (c: any) => void) => { const c = collaboration(); edit(c); return reviewCompleteness(c).errors.join('\n'); };
   assert.match(blocked(c => { c.operators[0].potential.totalCost = [[{ name: 'Token', quantity: 5 }]]; }), /Test Operator: potential\.totalCost is not a flat/);
