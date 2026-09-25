@@ -18,9 +18,13 @@ import { useSongClip } from '@/lib/music-guesser/useSongClip';
 import { useSongQueue } from '@/lib/music-guesser/useSongQueue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useKeyboardListNav } from '@/lib/hooks/useKeyboardListNav';
+import { serverDate } from '@/lib/time/serverDay';
 import styles from '@/styles/games/song-guesser.module.css';
 
-export default function SongGuesser({ songs, groups, asOf }: { songs: SongChoice[]; groups: MusicGroup[]; asOf: string }) {
+/** `now` is the request's clock (contentPageClock). Which groups count as released on
+ * Global follows from it at render; the export used to fix that date once. */
+export default function SongGuesser({ songs, groups, now }: { songs: SongChoice[]; groups: MusicGroup[]; now: number }) {
+  const asOf = useMemo(() => serverDate(new Date(now)), [now]);
   const router = useRouter();
   const [round, setRound] = useState<Round | null>(null);
   const [roundNumber, setRoundNumber] = useState(0);
@@ -169,5 +173,5 @@ export default function SongGuesser({ songs, groups, asOf }: { songs: SongChoice
 }
 
 export const getStaticProps: GetStaticProps = withContentPage("/games/music-guesser", async () => ({
-  props: { ...getMusicSelectionCatalogue(getSongChoices()), asOf: new Date().toISOString().slice(0, 10) },
+  props: getMusicSelectionCatalogue(getSongChoices()),
 }), { revalidate: 3600 });

@@ -1626,7 +1626,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     // Keep the established compact schema: `true` marks unavailable icons,
     // while released operators omit the flag instead of serializing `false`
     // into every operator page payload.
-    isFuture: isOperatorReleased(op) ? undefined : true,
+    // Decided at content export, so it drifts until the next release; the export
+    // clock guard lists this route as a known exception (scripts/content/export-clock.mjs).
+    isFuture: isOperatorReleased(op, Date.now()) ? undefined : true,
   }));
   const voiceData = getOperatorVoiceData(operator.internalName ?? operator.name);
   const relationIndexes = buildOperatorRelationIndexes(allOperators, skins);

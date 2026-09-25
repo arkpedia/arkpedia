@@ -1,7 +1,7 @@
 import eventRewards from '@/data/pull-event-rewards.json';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import type { BacklogSources, PullEventReward } from './pulls';
-import { getAllEventListings } from '@/lib/home/frontPageContent';
+import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import type { UpcomingBanner } from './pulls';
 import { ALL_BANNERS } from './sources';
@@ -47,7 +47,7 @@ export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current:
   });
 }
 export function getPullSchedule(): UpcomingBanner[] {
-  const estimated = new Set(getAllEventListings().filter(event => event.isPredicted).map(event => pullBannerKey(event.name)));
+  const estimated = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => pullBannerKey(event.name)));
   return resolvePullSchedule(ALL_BANNERS, resolvePullBannerWindows(getAllHeadhuntingBanners())).map(banner => ({
     ...banner, image: pullArtworkUrl(banner.image), datesEstimated: banner.datesEstimated || (!!banner.event && estimated.has(pullBannerKey(banner.event))),
   }));

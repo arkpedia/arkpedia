@@ -1,8 +1,8 @@
-import { contentPageClock } from './pageClock';
+import { contentPageClock, type PageClockField, type PageClockMoment } from './pageClock';
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { missingPageTables, pageTables } from './tables.mjs';
 import { createHash } from 'node:crypto';
-import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult } from 'next';
+import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
 
 const DEFAULT_ORIGIN = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data';
@@ -120,8 +120,24 @@ async function attachTables<P extends object>(template: string, props: P, loader
   return { ...props, __contentTables: tables };
 }
 
+/**
+ * What a page's own data builder returns. No `revalidate`: a page served from the
+ * release never calls its builder, so an interval set there silently never reached
+ * Next (/schedule's 1200 did nothing). Pass it as withContentPage's option. No clock
+ * fields either: contentPageClock sets `now`/`buildDay` per request, and a builder
+ * that read the clock would freeze the export's moment into the release.
+ */
+export type ContentPageBuilder<P> = (context: GetStaticPropsContext) => Promise<
+  | { props: P | Omit<P, PageClockField> | Promise<P | Omit<P, PageClockField>>; revalidate?: never }
+  | { notFound: true; revalidate?: never }
+  | { redirect: Redirect; revalidate?: never }
+>;
+
+// Exports stay clock-free; every other path is a request and gets its moment.
+const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
+
 /** Build and ISR use the same reader. No remote code or credentials are shipped. */
-export function withContentPage<P extends object>(template: string, bundled: GetStaticProps<P>, options: { finalize?: (props: P) => Promise<P>; revalidate?: number; tables?: ContentTableLoaders } = {}): GetStaticProps<P> {
+export function withContentPage<P extends object>(template: string, builder: ContentPageBuilder<P>, options: { finalize?: (props: P) => Promise<P>; revalidate?: number; tables?: ContentTableLoaders } = {}): GetStaticProps<P> {
   // The page and lib/content/tables.mjs must name the same tables: validate-release
   // checks the list, and the browser reads what the loaders attach. Thrown at module
   // load, so a mismatch fails the build and the export rather than a request.
@@ -130,6 +146,13 @@ export function withContentPage<P extends object>(template: string, bundled: Get
   if (Object.keys(loaders).sort().join(', ') !== declared) {
     throw new Error(`${template} must pass a table loader for exactly: ${declared || '(none)'} (lib/content/tables.mjs)`);
   }
+  const revalidate = () => process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60);
+  const bundled = async (context: GetStaticPropsContext): Promise<GetStaticPropsResult<P>> => {
+    const result = await builder(context);
+    if (!('props' in result)) return result;
+    if ('revalidate' in result) throw new Error(`${template}: set revalidate as a withContentPage option, not in the page data`);
+    return { props: await result.props as P };
+  };
   return async (context: GetStaticPropsContext): Promise<GetStaticPropsResult<P>> => {
     // Local source data is present while prerendering and in local development.
     // Vercel ISR functions intentionally exclude it from their file traces; at
@@ -145,15 +168,15 @@ export function withContentPage<P extends object>(template: string, bundled: Get
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
         if (!bundledFallbackAvailable) throw new Error(`Published content is missing ${route}`);
         const fallback = await bundled(context);
-        if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props), loaders);
+        if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props);
-        return { ...fallback, revalidate: options.revalidate ?? 60 };
+        return { ...fallback, revalidate: revalidate() };
       }
       try {
         const props = await readPageProps(loaded, route);
         if (!props) throw new Error('Published content page disappeared');
-        const currentProps = await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P), loaders, loaded.context.release);
-        return { props: options.finalize ? await options.finalize(currentProps) : currentProps, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60) };
+        const currentProps = await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P, moment()), loaders, loaded.context.release);
+        return { props: options.finalize ? await options.finalize(currentProps) : currentProps, revalidate: revalidate() };
       } catch (error) {
         // An ISR failure preserves Next's previous valid page. A cold request can
         // use the shipped snapshot; existing pages must not be replaced by stale data.
@@ -164,8 +187,8 @@ export function withContentPage<P extends object>(template: string, bundled: Get
     if (!bundledFallbackAvailable) throw new Error(`Published content is unavailable for ${contentRoute(template, context.params)}`);
     const fallback = await bundled(context);
     // The content export takes this path too, so this is where a release gets its tables.
-    if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, process.env.ARKPEDIA_EXPORT_CONTENT === '1'), loaders);
+    if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
     if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props);
-    return { ...fallback, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60) };
+    return { ...fallback, revalidate: revalidate() };
   };
 }

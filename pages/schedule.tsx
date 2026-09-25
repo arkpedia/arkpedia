@@ -16,14 +16,16 @@ import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule
 import { getAllEvents, getOperatorBirthdays, parseDateRange, OperatorBirthday } from '@/lib/schedule/schedule';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
+import { releaseMarker } from '@/lib/operators/operatorAvailability';
 import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
 import { confirmedGlobalRange, getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
-import { getAllEventListings } from '@/lib/home/frontPageContent';
+import { getEventCalendar } from '@/lib/home/frontPageContent';
+import { currentEventRows, currentPullBannerLinks, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
+import { toServerTime } from '@/lib/time/serverDay';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
 import { isLineupPending, LINEUP_PENDING_NOTE } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/artVersion';
@@ -32,29 +34,22 @@ import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
-import { TimelineOperator } from '@/lib/operators/operatorTypes';
 import { Skin } from '@/lib/skins/skinTypes';
-
-/** A row of the Events list: what the old /events page rendered. */
-interface EventRow {
-  name: string;
-  poster: string | null;
-  dateRange: string;
-  isPredicted: boolean;
-  pullBannerName: string | null;
-  isOngoing: boolean;
-  featuredOperators: { name: string; rarity: 6 | 5 }[];
-}
 
 interface Props {
   events: ScheduleEvent[];
-  operators: TimelineOperator[];
+  operators: ExportedTimelineOperator[];
   skins: Skin[];
   releaseLookup: ReleaseDateLookup;
-  /** The Events list's rows. Named apart from `events`, which is the calendar's
-   *  schedule data and a different shape entirely. */
-  eventRows: EventRow[];
-  pullBannerLinks: Record<string, string>;
+  /** The Events list's rows: every calendar event with its window. Named apart from
+   *  `events`, which is the calendar's schedule data and a different shape entirely.
+   *  Which rows are ongoing or upcoming is decided at render, from `now`. */
+  eventRows: (EventRow | EventRowView)[];
+  pullBanners?: PullBannerWindows;
+  /** Releases exported before pullBanners: the banners still in the planner then. */
+  pullBannerLinks?: Record<string, string>;
+  /** The request's clock (contentPageClock), shared by the server render and hydration. */
+  now: number;
 }
 
 /** The two views. In the URL as ?view=, so a link can point at either. */
@@ -83,12 +78,22 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-export default function SchedulePage({ events, operators, skins, releaseLookup, eventRows, pullBannerLinks }: Props) {
+export default function SchedulePage({ events, operators: exportedOperators, skins, releaseLookup, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now }: Props) {
   const colors = useContentTable('event_colors', contentColors);
   const materials = useContentTable('event_materials', contentMaterials);
   const banners = useContentTable('headhunting_banners', contentBanners) as HeadhuntingBanner[];
   const router = useRouter();
-  const today = useMemo(() => new Date(), []);
+  /* Everything that depends on the moment comes from `now`, the request's clock, so
+     the server render and hydration agree and a release never freezes it. */
+  const operators = useMemo(() => timelineOperatorsAt(exportedOperators, now), [exportedOperators, now]);
+  const eventRows = useMemo(() => currentEventRows(calendarRows, now), [calendarRows, now]);
+  const pullBannerLinks = useMemo(() => currentPullBannerLinks(pullBanners, legacyPullBannerLinks, now), [pullBanners, legacyPullBannerLinks, now]);
+  /* The game's day, not the host's: the server's rollover (lib/time/serverDay.ts), read
+     with UTC getters so a reader in any timezone hydrates the same month and marker. */
+  const today = useMemo(() => {
+    const day = toServerTime(new Date(now));
+    return { year: day.getUTCFullYear(), month: day.getUTCMonth(), key: day.toISOString().slice(0, 10) };
+  }, [now]);
 
   /**
    * Which of the two views is showing, read from the URL rather than held in state.
@@ -108,10 +113,10 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
       { shallow: true, scroll: false },
     );
   };
-  const [year, setYear] = useState(today.getFullYear());
+  const [year, setYear] = useState(today.year);
   const [showBirthdays, setShowBirthdays] = useState(false);
   const [showOfficialEvents, setShowOfficialEvents] = useState(true);
-  const [month, setMonth] = useState(today.getMonth()); // 0-11
+  const [month, setMonth] = useState(today.month); // 0-11
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   // Keeps the last-viewed event's data around during the close animation,
   // so the panel's content doesn't vanish mid-slide-out -- only the
@@ -141,8 +146,8 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
      is scheduled in it; an empty grid is a real answer. */
   const years = useMemo(() => {
     const ys = new Set(events.map((e) => e.year));
-    ys.add(today.getFullYear());
-    ys.add(today.getFullYear() + 1);
+    ys.add(today.year);
+    ys.add(today.year + 1);
     return Array.from(ys).sort((a, b) => a - b);
   }, [events, today]);
 
@@ -299,8 +304,8 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
     }
   }
   function goToday() {
-    setYear(today.getFullYear());
-    setMonth(today.getMonth());
+    setYear(today.year);
+    setMonth(today.month);
   }
 
   return (
@@ -514,7 +519,7 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
                 Its slot is held either way, so the header does not reflow as the reader
                 walks past today. */}
             <span className="cal-today-slot">
-              {(month !== today.getMonth() || year !== today.getFullYear()) && (
+              {(month !== today.month || year !== today.year) && (
                 <button type="button" className="cal-today" onClick={goToday}>
                   Today
                 </button>
@@ -560,7 +565,7 @@ export default function SchedulePage({ events, operators, skins, releaseLookup, 
                 {monthGrid.weeks.map((week, wi) => {
                   const bars = computeWeekBars(week, barSources);
                   const laneCount = Math.max(1, bars.reduce((max, b) => Math.max(max, b.lane + 1), 0));
-                  const todayKey = today.toISOString().slice(0, 10);
+                  const todayKey = today.key;
 
                   return (
                     <div
@@ -918,10 +923,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   // since none of it is actually used on this page.
   const allOperators = getAllOperators();
 
-  const trimmedOperators: TimelineOperator[] = allOperators.map((op) => ({
+  const trimmedOperators: ExportedTimelineOperator[] = allOperators.map((op) => ({
     name: op.name,
     rarity: op.rarity ?? null,
-    isFuture: !isOperatorReleased(op),
+    // Released or not is judged at render against `now` (timelineOperatorsAt).
+    release: releaseMarker(op),
     ...portraitStatus(op),
     basicInfo: op.basicInfo?.['Date of Birth'] ? { 'Date of Birth': op.basicInfo['Date of Birth'] } : null,
   }));
@@ -935,13 +941,14 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   /* The Events list's rows, which used to be their own page's getStaticProps. Built here
      because the list is now a view of this page, and both views are wanted before the
      first paint: switching between them is a tab, not a navigation, so neither may
-     arrive late. */
-  const pullBannerLinks = Object.fromEntries(
-    getPullSchedule()
-      .filter((banner) => new Date(`${banner.end}T23:59:59Z`) > new Date())
-      .map((banner) => [banner.name.toLowerCase(), banner.name]),
+     arrive late. Every calendar event goes out with its window; "ongoing or upcoming"
+     is a claim about now, so the page decides it at render (currentEventRows), and a
+     release can no longer keep an ended event LIVE. A pull-planner banner leaves the
+     planner at the end of its last day, the same instant /pulls drops it. */
+  const pullBanners: PullBannerWindows = Object.fromEntries(
+    getPullSchedule().map((banner) => [banner.name.toLowerCase(), { name: banner.name, end: Date.parse(`${banner.end}T23:59:59Z`) }]),
   );
-  const eventRows: EventRow[] = getAllEventListings(new Date()).map((e) => {
+  const eventRows: EventRow[] = getEventCalendar().map((e) => {
     const banner = getBannerForEvent(e.name, e.isPredicted ? null : e.dateRange, getAllHeadhuntingBanners());
     const featuredOperators: { name: string; rarity: 6 | 5 }[] = [];
     if (banner) {
@@ -953,20 +960,19 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
       poster: e.poster,
       dateRange: e.dateRange,
       isPredicted: e.isPredicted,
-      pullBannerName: banner ? pullBannerLinks[banner.name.toLowerCase()] ?? null : null,
-      isOngoing: e.isOngoing,
+      start: e.start.getTime(),
+      end: e.end.getTime(),
+      pullBanner: banner ? pullBanners[banner.name.toLowerCase()] ?? null : null,
       featuredOperators,
     };
   });
 
   return {
     // The panel's poster, like every other: null until the image repository has it.
-    props: { events: getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster, e.name) })), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBannerLinks },
-    /* The list carries "ongoing or upcoming", which is a claim about now, so the page
-       cannot be built once and left. Twenty minutes, as the old events page had. */
-    revalidate: 1200,
+    props: { events: getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster, e.name) })), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
   };
 }, {
+  finalize: async (props) => pruneScheduleProps(props),
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,
     event_materials: async () => (await import('@/data/event_materials.json')).default,

@@ -125,22 +125,22 @@ test('voice playback resolves stable and old pinned templates against each page 
 
 test('content snapshots omit presentation clocks and old or new snapshots get fresh clocks without mutation', () => {
   const time = Date.UTC(2026, 8, 16, 15, 12, 34);
-  for (const route of ['/operators', '/skins', '/stages', '/stages/all', '/stages/browse', '/stages/regular']) {
+  const seconds = ['/stages', '/stages/all', '/stages/browse', '/stages/regular'];
+  for (const route of ['/operators', '/skins', ...seconds, '/schedule', '/farming', '/obtain-method', '/enemies', '/games/color-palette', '/games/music-guesser']) {
     const old = { value: 'game record', now: 1 };
-    const snapshot = contentPageClock(route, old, true, time);
+    const snapshot = contentPageClock(route, old, { exporting: true });
     assert.deepEqual(snapshot, { value: 'game record' });
-    assert.deepEqual(contentPageClock(route, old, true, time + 86_400_000), snapshot);
-    const current = contentPageClock(route, snapshot, false, time);
-    assert.equal(current.now, ['/operators', '/skins'].includes(route) ? Math.floor(time / 60000) * 60000 : Math.floor(time / 1000));
-    assert.deepEqual(contentPageClock(route, old, false, time), current);
+    const current = contentPageClock(route, snapshot, { now: time });
+    assert.equal(current.now, seconds.includes(route) ? Math.floor(time / 1000) : Math.floor(time / 60000) * 60000, route);
+    assert.deepEqual(contentPageClock(route, old, { now: time }), current);
     assert.deepEqual(old, { value: 'game record', now: 1 });
     assert.deepEqual(snapshot, { value: 'game record' });
   }
   const supplies = { cards: [], buildDay: 'Friday' };
-  const supplySnapshot = contentPageClock('/stages/supplies', supplies, true, time);
+  const supplySnapshot = contentPageClock('/stages/supplies', supplies, { exporting: true });
   assert.deepEqual(supplySnapshot, { cards: [] });
-  assert.deepEqual(contentPageClock('/stages/supplies', supplySnapshot, false, time), { cards: [], buildDay: 'Wednesday' });
+  assert.deepEqual(contentPageClock('/stages/supplies', supplySnapshot, { now: time }), { cards: [], buildDay: 'Wednesday' });
   assert.deepEqual(supplies, { cards: [], buildDay: 'Friday' });
   const unrelated = { now: 123 };
-  assert.equal(contentPageClock('/events/[slug]', unrelated, true), unrelated);
+  assert.equal(contentPageClock('/events/[slug]', unrelated, { exporting: true }), unrelated);
 });

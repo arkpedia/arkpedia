@@ -6,10 +6,10 @@ import ts from 'typescript';
 import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '../../lib/gacha/gachaBannerWindows';
 import { getAllEvents } from '../../lib/schedule/schedule';
-import { getAllEventListings } from '../../lib/home/frontPageContent';
+import { getEventCalendar } from '../../lib/home/frontPageContent';
 
 test('simulator follows calendar forecasts and keeps confirmed Global dates', () => {
-  const calendar = getAllEventListings(new Date('2026-09-24T12:00:00Z'));
+  const calendar = getEventCalendar();
   const source = getAllHeadhuntingBanners();
   const persona = source.find(b => b.name.includes('Persona 3 Reload'))!;
   const joint = source.find(b => b.name === '[jo] Joint Operation 23')!;
@@ -28,7 +28,7 @@ test('simulator follows calendar forecasts and keeps confirmed Global dates', ()
 });
 
 test('a moved calendar forecast changes the simulator order', () => {
-  const calendar = getAllEventListings(new Date('2026-09-24T12:00:00Z'));
+  const calendar = getEventCalendar();
   const source = getAllHeadhuntingBanners();
   const persona = source.find(b => b.name.includes('Persona 3 Reload'))!;
   const joint = source.find(b => b.name === '[jo] Joint Operation 23')!;

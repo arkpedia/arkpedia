@@ -2,19 +2,27 @@ import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TIER_1_2_FOOTNOTE, LEGEND } from '@/lib/farming/farmingConfig';
 import { FarmingMaterial, FarmingStage, FarmingTier } from '@/lib/farming/farmingTypes';
 import { useReleaseTable } from '@/lib/content/context';
-import { getMaterialCountdowns, getEventStoreCountdown, MaterialCountdown } from '@/lib/schedule/materialCountdown';
+import { getFarmingWindows } from '@/lib/schedule/materialCountdown';
+import { resolveEventStoreCountdown, resolveMaterialCountdowns, type FarmingWindows, type MaterialCountdown } from '@/lib/schedule/countdownWindows';
 
 interface Props {
-  countdowns: Record<string, MaterialCountdown>;
-  eventStoreCountdown: MaterialCountdown | null;
+  /** The event windows; "NOW" and "N days" are worked out at render from `now`. */
+  windows?: FarmingWindows;
+  /** Releases exported before `windows`: the countdowns as they stood at that export. */
+  countdowns?: Record<string, MaterialCountdown>;
+  eventStoreCountdown?: MaterialCountdown | null;
+  /** The request's clock (contentPageClock), shared by the server render and hydration. */
+  now: number;
 }
 
-export default function FarmingPage({ countdowns, eventStoreCountdown }: Props) {
+export default function FarmingPage({ windows, countdowns: exportedCountdowns, eventStoreCountdown: exportedEventStoreCountdown, now }: Props) {
   const [openTier, setOpenTier] = useState<1 | 2 | 3 | null>(null);
+  const countdowns = useMemo(() => windows ? resolveMaterialCountdowns(windows, now) : exportedCountdowns ?? {}, [windows, exportedCountdowns, now]);
+  const eventStoreCountdown = useMemo(() => windows ? resolveEventStoreCountdown(windows, now) : exportedEventStoreCountdown ?? null, [windows, exportedEventStoreCountdown, now]);
 
   // Table fades in first, then the accordion opens itself shortly after --
   // matches the fade-in's own animation duration so the "self-opening"
@@ -129,8 +137,7 @@ function MaterialTile({ material, stages }: { material: FarmingMaterial; stages:
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/farming", async () => {
   return {
     props: {
-      countdowns: getMaterialCountdowns(),
-      eventStoreCountdown: getEventStoreCountdown(),
+      windows: getFarmingWindows(),
     },
   };
 }, {

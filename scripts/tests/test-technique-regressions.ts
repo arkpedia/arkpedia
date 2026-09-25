@@ -68,7 +68,7 @@ test('enemy status recommendations come from the shared technique index', () => 
 
 test('enemy status recommendations remain populated after filtering to released operators', () => {
   const releasedNames = new Set(getAllOperators()
-    .filter(operator => isOperatorReleased(operator))
+    .filter(operator => isOperatorReleased(operator, Date.parse('2026-09-24T12:00:00Z')))
     .map(operator => operator.name));
   const statusOperators = buildEnemyStatusOperatorMap(buildTechniqueGroups(), releasedNames);
   for (const status of ENEMY_STATUSES) {

@@ -1764,7 +1764,9 @@ function trimModule(mod: OperatorModule) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/planner", async () => {
-  const allOps = getAllOperators().filter((op) => isOperatorReleased(op));
+  // Decided at content export, so a newly released operator waits for the next release;
+  // the export clock guard lists this route as a known exception (scripts/content/export-clock.mjs).
+  const allOps = getAllOperators().filter((op) => isOperatorReleased(op, Date.now()));
 
   // Lightweight props -- just enough for the search picker and
   // selected-operator chips. Full promotion/skills/modules build data

@@ -1,15 +1,16 @@
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { getAllOperators } from '@/lib/operators/operators';
-import { isOperatorReleased, operatorRelease } from '@/lib/operators/operatorAvailability';
+import { operatorRelease, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { Operator } from '@/lib/operators/operatorTypes';
 import { GameOperator, PaletteArtwork, PaletteOperator } from './logic';
 import palettes from '@/data/color-palettes.json';
 
 const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 
-function releasedOperators(now = new Date()): Operator[] {
-  return getAllOperators().filter((operator) => operatorRelease(operator) !== null
-    && isOperatorReleased(operator, now.getTime()));
+/** Operators with a known Global release, released or not yet: which of them can be
+ * played is a question for the moment of reading (playablePalettes). */
+function datedOperators(): Operator[] {
+  return getAllOperators().filter((operator) => operatorRelease(operator) !== null);
 }
 function toGameOperator(operator: Operator): GameOperator {
   return {
@@ -18,9 +19,12 @@ function toGameOperator(operator: Operator): GameOperator {
   };
 }
 
-export function getPaletteOperators(now = new Date()): PaletteOperator[] {
+/** Every dated operator with palette artwork, each carrying its release marker. This is
+ * what the page exports; the export used to keep only the operators released at that
+ * moment, so one released afterwards stayed out of the game until the next release. */
+export function getPaletteCatalogue(): PaletteOperator[] {
   const artworks = palettes.artworks as Record<string, { colors: string[] }>;
-  return releasedOperators(now).map((operator) => {
+  return datedOperators().map((operator) => {
     function art(label: 'Base' | 'Elite 2'): PaletteArtwork | null {
       if (!operator.rarity || (label === 'Elite 2' && operator.rarity < 4)) return null;
       const safeName = operator.name.replace(/[\\/*?:"<>|]/g, '').trim();
@@ -29,7 +33,7 @@ export function getPaletteOperators(now = new Date()): PaletteOperator[] {
       if (!palette || !publicFileExists(image)) return null;
       return { image, colors: palette.colors };
     }
-    return { ...toGameOperator(operator), rarity: operator.rarity, class: operator.class, base: art('Base'), elite2: art('Elite 2') };
+    return { ...toGameOperator(operator), rarity: operator.rarity, class: operator.class, base: art('Base'), elite2: art('Elite 2'), release: releaseMarker(operator) };
   }).filter((operator) => operator.base || operator.elite2);
 }
 

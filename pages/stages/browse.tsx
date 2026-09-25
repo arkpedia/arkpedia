@@ -2341,7 +2341,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/st
       // for the rest, exactly as it did when this was 3,786 pages.
       stages: getStageSiblings(first),
       typeCounts: getStageTypeCounts(),
-      now: Math.floor(Date.now() / 1000),
+      // `now` is the request's, from contentPageClock (lib/content/pageClock.ts).
       firstSlug: first,
     },
   };

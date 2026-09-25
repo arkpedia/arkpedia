@@ -6,7 +6,7 @@ import { getBannerForEvent } from '../../lib/gacha/headhuntingBanners';
 import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { getFeaturedOperatorRates } from '../../lib/gacha/eventBannerRates';
 import { getGachaIconPools } from '../../lib/gacha/gachaIconPools';
-import { getAllEventListings } from '../../lib/home/frontPageContent';
+import { getEventCalendar } from '../../lib/home/frontPageContent';
 import { getAllSkins } from '../../lib/skins/skins';
 import { matchesSearch } from '../../lib/search/searchNormalize';
 
@@ -35,7 +35,7 @@ test('Persona links the banner and portraits, with evidence for any Global date'
 
 test('Persona event estimates remain labelled and all four searchable outfits have artwork', () => {
   const source = rawEvent();
-  const event = getAllEventListings().find(e => e.name === source.name)!;
+  const event = getEventCalendar().find(e => e.name === source.name)!;
   assert.ok(event);
   if (!source.global?.startAt) assert.ok(event.isPredicted);
   else assert.ok(source.global.timingSource);

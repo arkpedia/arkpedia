@@ -613,9 +613,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     );
   }
 
-  // The build's clock, for the release-date countdowns' first paint --
-  // the component re-picks the reader's real time on mount (see the
-  // clock state above). The browser then keeps the availability badge live.
-  const now = Math.floor(Date.now() / 60000) * 60000;
-  return { props: { operators, now } };
+  // `now`, the release-date countdowns' first paint, is the request's clock from
+  // contentPageClock (lib/content/pageClock.ts). The component re-picks the reader's
+  // real time on mount (see the clock state above) and keeps the badge live.
+  return { props: { operators } };
 });

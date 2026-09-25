@@ -1,4 +1,4 @@
-import { PREDICTED_GAP_DAYS, getAllEventListings } from '@/lib/home/frontPageContent';
+import { PREDICTED_GAP_DAYS, getEventCalendar } from '@/lib/home/frontPageContent';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { resolvePullBannerWindows } from '@/lib/pulls/bannerWindows';
 import { estimateBannerFromCn } from './bannerSchedule';
@@ -11,7 +11,7 @@ import type { HeadhuntingBanner } from './headhuntingBanners';
 export function resolveGachaSimulatorBanners<T extends HeadhuntingBanner>(
   banners: readonly T[],
   events = getAllEvents(),
-  calendar = getAllEventListings(),
+  calendar = getEventCalendar(),
 ): T[] {
   return resolvePullBannerWindows(banners, events, calendar)
     .map(banner => estimateBannerFromCn(banner, PREDICTED_GAP_DAYS))

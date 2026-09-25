@@ -27,6 +27,15 @@ export function toServerTime(now: Date = new Date()): Date {
 }
 
 /**
+ * The game's calendar date, YYYY-MM-DD, for comparing against the Global release
+ * dates records carry (a group or event dated "2026-10-14" is out once the server's
+ * 2026-10-14 begins, not at the reader's or UTC midnight).
+ */
+export function serverDate(now: Date): string {
+  return toServerTime(now).toISOString().slice(0, 10);
+}
+
+/**
  * The weekday the game is on, as a name from WEEKDAYS.
  *
  * getUTCDay, not getDay: the shifted moment is only meaningful read in UTC, and reading

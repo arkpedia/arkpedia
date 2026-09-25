@@ -1,4 +1,4 @@
-import type { GetStaticProps } from 'next';
+import type { ContentPageBuilder } from '@/lib/content/server';
 import { getGlobalRecruitmentOperators } from './recruitmentPool';
 import { computeGuaranteedCombos, type GuaranteedCombo, type RecruitableOperator } from './recruitmentCalc';
 
@@ -8,7 +8,7 @@ export interface RecruitmentProps {
   guaranteedCombos5: GuaranteedCombo[];
 }
 
-export const getRecruitmentPageProps: GetStaticProps<RecruitmentProps> = async () => {
+export const getRecruitmentPageProps: ContentPageBuilder<RecruitmentProps> = async () => {
   const operators = getGlobalRecruitmentOperators();
   const guaranteedCombos4 = computeGuaranteedCombos(operators, 4);
   const guaranteedCombos5 = computeGuaranteedCombos(operators, 5);

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { getAllEventListings } from '@/lib/home/frontPageContent';
+import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
@@ -476,8 +476,12 @@ export default function EventDetailPage({
   );
 }
 
+/* Every event on the calendar has a page, past ones included. The set used to be the
+   events ongoing or upcoming when the content was exported, so a release published
+   after an event ended dropped its page and every link to it hit a 404 while the
+   record was still there. Only a record that is gone now leaves no page. */
 export const getStaticPaths: GetStaticPaths = async () => {
-  const listings = getAllEventListings();
+  const listings = getEventCalendar();
   return {
     paths: listings.map((e) => ({ params: { slug: e.name } })),
     fallback: 'blocking',
@@ -486,7 +490,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
-  const listings = getAllEventListings();
+  const listings = getEventCalendar();
   const event = listings.find((e) => e.name === name);
   if (!event) return { notFound: true };
 
@@ -538,6 +542,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       skins,
       rewardStores,
     },
-    revalidate: 1200,
   };
 });
