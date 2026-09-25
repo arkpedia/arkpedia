@@ -148,7 +148,14 @@ export default function EventDetailPage({
   const sections = SECTIONS.filter((section) => (
     section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 : skins.length > 0
   ));
-  const [activeSection, setActiveSection] = useState<SectionKey>(sections[0]?.key ?? 'banner');
+  const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
+  /* The section on screen: the one chosen if this event has it, else the event's
+     first. Null only when nothing is linked at all -- that event shows its one hint
+     and no section body. It fell back to 'banner' before, so an event with nothing
+     linked said "No banner, reward store or skins are linked" AND "No banner linked
+     to this event" (scripts/tests/test-event-page-sections.ts). Derived rather than
+     stored, so it also follows a client-side move to an event with other sections. */
+  const activeSection = sections.find((section) => section.key === chosenSection)?.key ?? sections[0]?.key ?? null;
   /* Switching from Rewards (tall) to Skins (short) near the bottom of the page used to
      clamp the scroll and throw the tab row 435px down the screen at 390. The Anti-Page
      Jump rule's handler pattern (arkpedia-ui skill): the press works out how tall the
@@ -256,7 +263,7 @@ export default function EventDetailPage({
         </div>
 
         <div className="event-detail-right" ref={rightRef} style={holdPx ? { minHeight: holdPx } : undefined}>
-          {sections.length > 1 && (
+          {sections.length > 1 && activeSection && (
             <SegmentedControl<SectionKey>
               label="Event sections"
               className="event-detail-tabs"
@@ -267,92 +274,76 @@ export default function EventDetailPage({
           )}
           {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
 
-          {activeSection === 'banner' && (
+          {activeSection === 'banner' && bannerName && (
             <section className="op-section">
-              {bannerName ? (
-                <>
-                  {/* The frame stays when the art is not published yet, empty at the
-                      same size, rather than the section closing up around it. */}
-                  <div className="event-detail-banner-art-wrap">
-                    {bannerImage && <Image src={bannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
-                  </div>
-                  <p className="hint">{bannerName}</p>
-                  {lineupPending && <p className="hint">{LINEUP_PENDING_NOTE}</p>}
-                  {!lineupPending && Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
-                    <h3>{group === 'featured' ? 'Featured operators' : 'Returning limited operators'}</h3>
-                    {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
-                    <div className="event-detail-featured-ops">
-                      {operators.map(op => <div key={`${op.rarity}-${op.name}`} className="event-detail-featured-op">
-                        <Image src={iconPathFor(op.name, op.rarity)} alt={op.name} width={52} height={52} className={`tier-${op.rarity}`} />
-                        <span>{op.name}</span>
-                        <span className="event-detail-featured-meta">
-                          <Rarity n={op.rarity} />
-                          {op.percent !== null && <span className="event-detail-featured-pct">{op.percent.toFixed(1)}%</span>}
-                        </span>
-                      </div>)}
-                    </div>
+              {/* The frame stays when the art is not published yet, empty at the
+                  same size, rather than the section closing up around it. */}
+              <div className="event-detail-banner-art-wrap">
+                {bannerImage && <Image src={bannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+              </div>
+              <p className="hint">{bannerName}</p>
+              {lineupPending && <p className="hint">{LINEUP_PENDING_NOTE}</p>}
+              {!lineupPending && Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
+                <h3>{group === 'featured' ? 'Featured operators' : 'Returning limited operators'}</h3>
+                {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
+                <div className="event-detail-featured-ops">
+                  {operators.map(op => <div key={`${op.rarity}-${op.name}`} className="event-detail-featured-op">
+                    <Image src={iconPathFor(op.name, op.rarity)} alt={op.name} width={52} height={52} className={`tier-${op.rarity}`} />
+                    <span>{op.name}</span>
+                    <span className="event-detail-featured-meta">
+                      <Rarity n={op.rarity} />
+                      {op.percent !== null && <span className="event-detail-featured-pct">{op.percent.toFixed(1)}%</span>}
+                    </span>
                   </div>)}
-                </>
-              ) : (
-                <p className="hint">No banner linked to this event.</p>
-              )}
+                </div>
+              </div>)}
             </section>
           )}
 
           {activeSection === 'rewards' && (
             <section className="op-section">
-              {rewardStores.length > 0 ? (
-                <>
-                  <SegmentedControl
-                    label="Reward store"
-                    className="event-rewards-tabs"
-                    value={activeRewardTab}
-                    onChange={setActiveRewardTab}
-                    options={[{ value: 'all', label: 'All' }, ...rewardTypes.map((t) => ({ value: t, label: t }))]}
-                  />
-                  {activeRewardTab === 'all' ? (
-                    <RewardTotalsRow totals={rewardTotals} />
-                  ) : (
-                    <RewardStorePanelGrid items={activeStoreItems} />
-                  )}
-                </>
+              <SegmentedControl
+                label="Reward store"
+                className="event-rewards-tabs"
+                value={activeRewardTab}
+                onChange={setActiveRewardTab}
+                options={[{ value: 'all', label: 'All' }, ...rewardTypes.map((t) => ({ value: t, label: t }))]}
+              />
+              {activeRewardTab === 'all' ? (
+                <RewardTotalsRow totals={rewardTotals} />
               ) : (
-                <p className="hint">No reward store linked to this event.</p>
+                <RewardStorePanelGrid items={activeStoreItems} />
               )}
             </section>
           )}
 
           {activeSection === 'skins' && (
             <section className="op-section">
-              {skins.length > 0 ? (
-                <div className="event-detail-skins">
-                  {skins.map((skin) => {
-                    const prices = parsePrices(skin.howToObtain);
-                    return (
-                      <button
-                        type="button"
-                        key={skin.name}
-                        className="btn-bare event-detail-skin-item"
-                        onClick={() => setActiveSkin(skin)}
-                      >
-                        {skin.image && (
-                          <Image src={skin.image} alt={skin.name} width={120} height={160} style={{ objectFit: 'cover' }} />
-                        )}
-                        <span>{skin.model ? `${skin.model} - ${skin.name}` : skin.name}</span>
-                        {prices.length > 0 ? (
-                          <span className="hint">
-                            <PriceDisplay prices={prices} />
-                          </span>
-                        ) : skin.howToObtain ? (
-                          <span className="hint">{skin.howToObtain}</span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="hint">No skins linked to this event.</p>
-              )}
+              <div className="event-detail-skins">
+                {skins.map((skin) => {
+                  const prices = parsePrices(skin.howToObtain);
+                  return (
+                    <button
+                      type="button"
+                      key={skin.name}
+                      className="btn-bare event-detail-skin-item"
+                      onClick={() => setActiveSkin(skin)}
+                    >
+                      {skin.image && (
+                        <Image src={skin.image} alt={skin.name} width={120} height={160} style={{ objectFit: 'cover' }} />
+                      )}
+                      <span>{skin.model ? `${skin.model} - ${skin.name}` : skin.name}</span>
+                      {prices.length > 0 ? (
+                        <span className="hint">
+                          <PriceDisplay prices={prices} />
+                        </span>
+                      ) : skin.howToObtain ? (
+                        <span className="hint">{skin.howToObtain}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
             </section>
           )}
 
