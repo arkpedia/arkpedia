@@ -5,6 +5,7 @@ import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { PAGE_TABLES, missingPageTables } from '../../lib/content/tables.mjs';
 import { contentInput, releaseInput } from './release-input.mjs';
 import { cnTablesRecord } from './pin-upstream.mjs';
+import { findClockFields } from './clock-fields.mjs';
 const root = path.resolve(process.argv[2] || '.');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const check = (value, message) => { if (!value) throw new Error(message); };
@@ -113,6 +114,10 @@ for (const file of [...Object.values(m.pages), ...Object.values(m.files)]) {
   if (file.path.startsWith('pages/')) {
     check(json.props && typeof json.props === 'object' && !Array.isArray(json.props) && !json.props.__contentRelease, `Invalid page props: ${file.path}`);
     check(!/https:\/\/(?:cdn\.jsdelivr\.net|arknights\.wiki\.gg\/images)\//.test(bytes.toString()), `Page bypasses Arkpedia asset delivery: ${file.path}`);
+    // A value decided by the export's clock stays in the release, and wrong, until the
+    // next one (scripts/content/clock-fields.mjs).
+    const frozen = findClockFields(json.props);
+    check(!frozen.length, `Page carries values decided by the export's clock (${frozen.slice(0, 5).join(', ')}${frozen.length > 5 ? ', ...' : ''}); export raw windows and decide at render from \`now\`: ${file.path}`);
   }
 }
 const actual = walk(path.join(root, 'release')).map(file => path.relative(path.join(root, 'release'), file));
