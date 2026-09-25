@@ -175,7 +175,9 @@ for (const route of Object.keys(PAGE_TABLES)) {
   check(!missing.length, `The ${route} page does not carry this release's ${missing.join(', ')} (__contentTables)`);
 }
 check(Object.keys(m.pages).filter(route => route.startsWith('/operators/')).length > 100, 'Operator catalogue is incomplete');
-for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json', 'operator-search.json']) check(m.files[file], `Missing catalogue: ${file}`);
+// music-catalogue.json is the music player's queue: without it, songs the release adds
+// never reach the player on any page (lib/music/musicCatalogue.ts).
+for (const file of ['stages-index.json', 'enemies-index.json', 'operator-deploy.json', 'operator-search.json', 'music-catalogue.json']) check(m.files[file], `Missing catalogue: ${file}`);
 if (untimestamped.length) console.warn(`Warning: ${untimestamped.length} lyric file(s) have no timestamps and render no lyrics: ${untimestamped.join(', ')}`);
 console.log(`Validated ${Object.keys(m.pages).length} pages, ${Object.keys(m.files).length} data files and ${Object.keys(sources).length} source records.`);
 console.log(`Manifest SHA-256: ${sha(manifestBytes)}`);

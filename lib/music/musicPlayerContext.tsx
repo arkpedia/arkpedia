@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { MUSIC_CHANNEL_ID, getUploadsPlaylistId } from './musicConfig';
 import { fetchVideoOEmbedInfo } from './youtube';
-import type { RawCredit } from './albumsData';
+import { useContentUrl } from '@/lib/content/context';
+import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } from './musicCatalogue';
 
 export interface YTPlayer {
   playVideo(): void;
@@ -47,15 +48,17 @@ export function loadYouTubeApi(): Promise<void> {
 
 export type RepeatMode = 'off' | 'one' | 'all';
 
+// What a queue row shows. Credits, characters and whether a song has lyrics belong to the
+// /music page's release props (its songLookup), which carry them for every song.
 export interface QueueTrack {
   id: string;
   title: string;
   altTitle?: string | null;
   artist?: string | null;
-  composer?: string | null;
-  credits?: RawCredit[]; // every credited role -- artist/composer above are just a convenience subset, this is the complete list
-  characters?: string[];
-  hasLyrics?: boolean;
+}
+
+function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
+  return { id: song.videoId, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null };
 }
 
 interface MusicPlayerContextValue {
@@ -110,7 +113,18 @@ export function useMusicPlayer(): MusicPlayerContextValue {
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const playerRef = useRef<YTPlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const catalogRef = useRef<typeof import('./albumsData') | null>(null);
+  const catalogRef = useRef<MusicCatalogueSong[] | null>(null);
+  const catalogPromiseRef = useRef<Promise<MusicCatalogueSong[]> | null>(null);
+  // The queue catalogue belongs to the content release, like every other game record: the
+  // release of the page being read, or of the last page that had one (the community pages
+  // have none). Mirrored into a ref like the settings below, because the queue loader is
+  // created once. Only with no release seen at all does it fall to the deployment's copy.
+  const contentUrl = useContentUrl();
+  const catalogueUrlRef = useRef(contentUrl(MUSIC_CATALOGUE_PATH));
+  useEffect(() => {
+    const url = contentUrl(MUSIC_CATALOGUE_PATH);
+    if (url !== MUSIC_CATALOGUE_PATH) catalogueUrlRef.current = url;
+  }, [contentUrl]);
 
   // Load the catalogue and YouTube only when music is opened or used.
   // This provider remains mounted across routes, preserving playback
@@ -232,21 +246,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function buildQueueFromCatalog(): Promise<QueueTrack[]> {
-    const catalog = catalogRef.current ?? await import('./albumsData');
+    // Concurrent requests share one download; a failed one is retried on the next request.
+    if (!catalogPromiseRef.current) {
+      catalogPromiseRef.current = loadMusicCatalogue(catalogueUrlRef.current).catch((error) => {
+        catalogPromiseRef.current = null;
+        throw error;
+      });
+    }
+    const catalog = catalogRef.current ?? await catalogPromiseRef.current;
     catalogRef.current = catalog;
     // Read the latest preference after loading: it may have changed
     // while the catalogue was downloading.
-    const songs = catalog.getAllSongs({ excludeCopyrighted: excludeCopyrightedRef.current });
-    return songs.map((s) => ({
-      id: s.videoId,
-      title: s.title,
-      altTitle: s.altTitle,
-      artist: s.artist,
-      composer: s.composer,
-      credits: s.credits,
-      characters: s.characters,
-      hasLyrics: s.hasLyrics,
-    }));
+    const songs = excludeCopyrightedRef.current ? catalog.filter((s) => !s.copyright) : catalog;
+    return songs.map(toQueueTrack);
   }
 
   function setExcludeCopyrighted(v: boolean) {
@@ -269,7 +281,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // keeps its position.
     const oldQueue = queueRef.current;
     const currentId = oldQueue[queueIndexRef.current]?.id;
-    const fullCatalog = catalogRef.current?.getAllSongs({ excludeCopyrighted: false });
+    const fullCatalog = catalogRef.current;
     // Until loading finishes, the preference above is all we need:
     // buildQueueFromCatalog will apply it to the initial queue.
     if (!fullCatalog) return;
@@ -298,7 +310,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const existingIds = new Set(oldQueue.map((t) => t.id));
       const toAdd = fullCatalog
         .filter((s) => !existingIds.has(s.videoId))
-        .map((s) => ({ id: s.videoId, title: s.title, artist: s.artist, composer: s.composer, characters: s.characters, hasLyrics: s.hasLyrics }));
+        .map(toQueueTrack);
       nextQueue = [...oldQueue, ...toAdd];
     }
 
@@ -348,7 +360,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setQueueLoading(true);
     try {
       const built = await buildQueueFromCatalog();
-      // Concurrent requests share the dynamic import. Only the first
+      // Concurrent requests share the catalogue download. Only the first
       // completion should create the queue and choose its shuffle order.
       if (queueRef.current.length > 0) {
         setQueueLoading(false);

@@ -41,6 +41,10 @@ function make(label) {
     const detail = JSON.parse(fs.readFileSync(path.join(root, 'public/stage-detail/1-7.json')));
     detail.stage.slug = 'runtime-stage'; detail.stage.name = 'Runtime Stage B'; detail.stage.code = 'RT-1';
     overrides.set('public/stage-detail/runtime-stage.json', JSON.stringify(detail));
+    // A song only this release has: the music player's queue must pick it up with no rebuild.
+    const catalogue = JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json')));
+    catalogue.songs.push({ videoId: 'RuntimeSngB', title: 'Runtime Song B' });
+    overrides.set('public/music-catalogue.json', JSON.stringify(catalogue));
   }
   const body = JSON.stringify(manifest);
   overrides.set('manifest.json', body);
@@ -118,13 +122,27 @@ try {
     }, `${name} new stage`, 75_000);
     const servedNow = await page.evaluate(() => window.__NEXT_DATA__.props.pageProps.now);
     assert.ok(Math.abs(servedNow - Date.now() / 1000) < 120, `${name} runtime stage clock is stale`);
+    // The player's queue, song count and search come from the release's catalogue.
+    const songs = JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs.length;
+    const catalogueRequests = [];
+    const noteCatalogue = request => { if (request.url().includes('/public/music-catalogue.json')) catalogueRequests.push(request.url()); };
+    page.on('request', noteCatalogue);
+    await waitFor(async () => {
+      await page.goto('http://localhost:3193/music?view=queue');
+      await page.locator('.music-queue-panel h2', { hasText: `Songs (${songs + 1})` }).waitFor({ timeout: 10_000 });
+      return true;
+    }, `${name} music queue from release B`, 75_000);
+    await page.locator('.music-queue-search').fill('Runtime Song B');
+    await page.locator('.music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
+    assert.ok(catalogueRequests.some(url => url.startsWith(`http://127.0.0.1:3204/${'b'.repeat(40)}/release/public/`)), `${name} music catalogue was not read from release B: ${catalogueRequests.join(', ')}`);
+    page.off('request', noteCatalogue);
     active = 'a';
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} rollback`);
     await checkVoice('a');
     active = 'b'; corrupt = true;
     await waitFor(async () => (await visit()).includes('Approved content release A'), `${name} corrupt pointer retains previous content`);
     assert.deepEqual(errors, [], `${name} client errors`);
-    console.log(`${name}: existing operator updated, new operator and stage appeared, banners updated, rollback and corruption fallback passed`);
+    console.log(`${name}: existing operator updated, new operator, stage and song appeared, banners updated, rollback and corruption fallback passed`);
     await context.close();
   }
   assert.equal(fs.readFileSync('.next/BUILD_ID', 'utf8'), buildId);
