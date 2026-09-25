@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "npm run check:deployment-traces",
+    "postbuild": "npm run check:deployment-traces && npm run check:client-chunks",
     "deploy:vercel": "bash scripts/deploy/vercel-production.sh",
     "typecheck": "tsc --noEmit",
     "test:operators": "tsx --test scripts/tests/test-operator-details.ts",
@@ -42,6 +42,7 @@
     "check:assets:release": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts --quarantine",
     "check:published-assets": "node scripts/audits/check-published-assets.mjs",
     "check:deployment-traces": "node scripts/audits/check-deployment-traces.mjs",
+    "check:client-chunks": "node scripts/audits/check-client-chunks.mjs",
     "assets:update": "node scripts/sync/update-asset-revisions.mjs",
     "test:browser": "playwright test",
     "content:export": "node scripts/content/export.mjs",

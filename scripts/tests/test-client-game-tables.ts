@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import { browserImports, pages, pathToTarget } from './browser-graph';
+// @ts-expect-error Plain Node audit script.
+import { findTablesInChunks, fingerprints, NO_RELEASE_FALLBACKS, RELEASE_ONLY_TABLES } from '../audits/check-client-chunks.mjs';
 
 /*
  * Game tables the content release carries, which no browser bundle may compile in.
@@ -16,36 +20,16 @@ import { browserImports, pages, pathToTarget } from './browser-graph';
  *
  * The walk reads each page the way Next builds its browser half: getStaticProps and
  * everything only it uses are dropped, every other import is followed, lazy import()s
- * included. `production build` confirms the same on the emitted chunks.
+ * included. scripts/audits/check-client-chunks.mjs confirms the same on what `next build`
+ * emitted, after every build.
  */
-export const RELEASE_ONLY_TABLES = [
-  // /stages/browse: the filter's headings (components/stages/StageList.tsx).
-  'data/stages-content.json',
-  'data/content-windows.json',
-  'data/story-groups.json',
-  // /base: slot chains from building_data and the group rosters (lib/base/baseGroupRosters.ts).
-  'data/base-skill-slots.json',
-  'data/base-group-rosters.json',
-  // /farming and the planner's "where it comes from" groups.
-  'data/farming-tiers.json',
-  // /planner: level costs, other planners' item ids, the depot's in-game order.
-  'data/operatorLevelExpLmd.json',
-  'data/import-aliases.json',
-  'data/item-sort-ids.json',
-  // Every asset path, 453 KB: availability is resolved at export, not in the browser.
-  'data/assets/public-asset-index.json',
-  // The banner list and its art versions (lib/gacha/headhuntingBannerData.ts).
-  'data/headhunting_banners.json',
-  'data/assets/banner_art_sources.json',
-];
-
-/* The one bundled copy that stays: /schedule's no-release fallback for the table the
-   release hands it (useContentTable). Named as an edge, so the same file arriving
-   through any other import still fails. */
-const NO_RELEASE_FALLBACKS = ['pages/schedule.tsx -> data/headhunting_banners.json'];
+/* The tables and the one allowed fallback (/schedule's useContentTable copy of the banner
+   list) are listed once, in the post-build chunk check, which reads the same list. */
+const ALLOWED_EDGES = (Object.values(NO_RELEASE_FALLBACKS) as { edges: string[] }[]).flatMap(fallback => fallback.edges);
+const TABLES = RELEASE_ONLY_TABLES as string[];
 
 test('the release-only game tables exist as data, so the release can carry them', () => {
-  for (const file of RELEASE_ONLY_TABLES) assert.ok(fs.existsSync(file), `${file} is missing`);
+  for (const file of TABLES) assert.ok(fs.existsSync(file), `${file} is missing`);
 });
 
 test('no page compiles a release-only game table into its browser bundle', () => {
@@ -60,9 +44,40 @@ test('no page compiles a release-only game table into its browser bundle', () =>
   }
   assert.ok(browserImports('pages/operators/[name].tsx', true).includes('lib/farming/materialSortOrder.ts'));
   assert.ok(browserImports('pages/base.tsx', true).includes('lib/base/controlCenterSpecialSkills.ts'));
-  const leaks = all.flatMap(page => RELEASE_ONLY_TABLES.flatMap(table => {
-    const chain = pathToTarget(page, [table], { allowed: NO_RELEASE_FALLBACKS });
+  const leaks = all.flatMap(page => TABLES.flatMap(table => {
+    const chain = pathToTarget(page, [table], { allowed: ALLOWED_EDGES });
     return chain ? [chain.join(' -> ')] : [];
   }));
   assert.deepEqual(leaks, [], 'Browser code must read these tables from the page props, which carry the content release.');
+});
+
+/* The post-build half: what `next build` emitted. A made-up table, compiled the way
+   webpack compiles a JSON module, in the chunks a made-up build manifest names. */
+test('the post-build check finds a release-only table in any chunk but its page\'s own fallback', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-chunks-'));
+  try {
+    const table = { 'Release Operator|Skill|Base': { slot: 0, phase: 0, level: 1 }, 'Another Operator|Other Skill|Elite 2': { slot: 1, phase: 2, level: 1 },
+      'Third Operator|Third Skill|Elite 1': { slot: 0, phase: 1, level: 1 } };
+    fs.mkdirSync(path.join(root, 'data'));
+    fs.writeFileSync(path.join(root, 'data/table.json'), JSON.stringify(table, null, 2));
+    const compiled = `(self.webpackChunk=self.webpackChunk||[]).push([[1],{1:e=>{e.exports=JSON.parse('${JSON.stringify(table)}')}}]);`;
+    const chunks = [
+      { file: 'static/chunks/pages/base.js', text: compiled },
+      { file: 'static/chunks/pages/schedule.js', text: compiled },
+      { file: 'static/chunks/42.lazy.js', text: compiled },
+      { file: 'static/chunks/pages/other.js', text: 'console.log("no tables here")' },
+    ];
+    const pagesOf = (file: string) => ({ 'static/chunks/pages/base.js': ['/base'], 'static/chunks/pages/schedule.js': ['/schedule'], 'static/chunks/pages/other.js': ['/other'] } as Record<string, string[]>)[file] ?? [];
+    const leaks = findTablesInChunks({ root, chunks, pagesOf, tables: ['data/table.json'], fallbacks: { 'data/table.json': { edges: [], pages: ['/schedule'] } } });
+    assert.deepEqual(leaks.map((leak: { file: string }) => leak.file), ['static/chunks/pages/base.js', 'static/chunks/42.lazy.js']);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('every listed table can be recognised in a chunk, and every build runs the check', () => {
+  for (const table of TABLES) assert.ok(fingerprints(JSON.parse(fs.readFileSync(table, 'utf8'))).length >= 8, table);
+  const scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
+  assert.match(scripts.postbuild, /npm run check:client-chunks/);
+  assert.equal(scripts['check:client-chunks'], 'node scripts/audits/check-client-chunks.mjs');
 });
