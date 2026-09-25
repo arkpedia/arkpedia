@@ -131,10 +131,6 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'static-cdn.jtvnw.net', // Twitch stream preview thumbnails (live-content)
       },
-      {
-        protocol: 'https',
-        hostname: 'arknights.wiki.gg', // Main Theme / Supply group cover images -- temporary until these get downloaded and converted to local webp like stage maps already are
-      },
     ],
   },
   async headers() {

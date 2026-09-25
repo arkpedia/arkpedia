@@ -57,3 +57,9 @@ test('a folder a repository gains, or one the config assigns to the wrong reposi
   // The published-assets check, which runs in Check and in the release job, applies it at the pins.
   assert.match(fs.readFileSync('scripts/audits/check-published-assets.mjs', 'utf8'), /folderDrift\(await read\('config\/asset-folders\.json'\)/);
 });
+
+test('no image host is allowed that nothing renders', () => {
+  // arknights.wiki.gg was listed as "temporary" long after every image stopped coming from it.
+  const hosts = config.images.remotePatterns.map(pattern => pattern.hostname);
+  assert.ok(!hosts.some(host => /wiki/.test(host)), hosts.join(', '));
+});
