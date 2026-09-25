@@ -109,10 +109,11 @@ export function checkPayloadBudgets(measured: Measured[]) {
     out.push(`${row.bytes >= row.limit ? 'OVER' : 'ok  '} ${row.name}: ${row.bytes} of ${row.limit} bytes ${row.unit} (${Math.round((row.bytes / row.limit) * 100)}%), ${row.shipped}`);
   }
   if (over.length) {
-    errors.push(`${over.length} payload(s) over budget:`);
     for (const row of over) errors.push(`  ${row.name}: ${row.bytes} bytes ${row.unit}, budget ${row.limit} (${row.why})`);
-    errors.push('Trim what the page ships, or raise the budget in scripts/audits/check-payload-budgets.ts and say why.');
-    errors.push('(In the release job this is the payload-budgets stage: a hold in the daily issue, never a lost release.)');
+    errors.push('Trim what the page ships, or raise the budget in scripts/audits/check-payload-budgets.ts and say why. '
+      + '(In the release job this is the payload-budgets stage: a hold in the daily issue, never a lost release.)');
+    // Last, because the stage report and the daily issue quote a failed stage's last line.
+    errors.push(`${over.length} payload(s) over budget: ${over.map((row) => `${row.name} ${row.bytes} of ${row.limit} bytes ${row.unit}`).join('; ')}`);
   }
   return { exitCode: over.length ? 1 : 0, out, errors };
 }

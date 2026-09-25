@@ -5,6 +5,8 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { getSongChoices } from '../../lib/music-guesser/catalogue';
 import type { SongChoice } from '../../lib/music-guesser/game';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { failureLine } from '../content/run-stage.mjs';
 import { checkPayloadBudgets, MUSIC_CATALOGUE, MUSIC_SELECTION, musicCataloguePayload, musicSelectionPayload, payloadBytes } from '../audits/check-payload-budgets';
 
 /*
@@ -27,8 +29,10 @@ test('a payload at or over its budget fails the check and names it; under budget
     const over = checkPayloadBudgets([row(1), row(bytes)]);
     assert.equal(over.exitCode, 1);
     assert.match(over.out[1], /^OVER music guesser catalogue/);
-    assert.match(over.errors.join('\n'), new RegExp(`1 payload\\(s\\) over budget:\\n  music guesser catalogue: ${bytes} bytes gzip, budget 50000`));
+    assert.match(over.errors.join('\n'), new RegExp(`  music guesser catalogue: ${bytes} bytes gzip, budget 50000 \\(every song`));
     assert.match(over.errors.join('\n'), /release job this is the payload-budgets stage/);
+    // The line a failed stage is reported by, in the stage report and the daily issue.
+    assert.equal(failureLine(over.errors.join('\n')), `1 payload(s) over budget: music guesser catalogue ${bytes} of 50000 bytes gzip`);
   }
 });
 
