@@ -142,27 +142,30 @@
 }
 .gacha-pull-tile:hover { filter: brightness(1.2); transform: translateY(-2px); }
 .gacha-pull-tile:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
-.gacha-pull-tile.pull-six { border-color: var(--amber); }
-.gacha-pull-tile.pull-five { border-color: #F5D547; }
-.gacha-pull-tile.pull-four { border-color: #8A7EF8; }
-.gacha-pull-tile.pull-three { border-color: #FFFFFF; }
-:root[data-theme="light"] .gacha-pull-tile.pull-three { border-color: var(--text); }
-:root[data-theme="light"] .gacha-pull-tile.pull-four { border-color: #4C39F4; }
-:root[data-theme="light"] .gacha-pull-tile.pull-five { border-color: #6F5C06; }
+/* Rarity from the --rarity-N tokens, which carry their own light values: this was a
+   palette of its own (amber, #F5D547, #8A7EF8, white) with light overrides. */
+.gacha-pull-tile.pull-six { border-color: var(--rarity-6); box-shadow: 0 0 10px color-mix(in srgb, var(--rarity-6) 18%, transparent); }
+.gacha-pull-tile.pull-five { border-color: var(--rarity-5); }
+.gacha-pull-tile.pull-four { border-color: var(--rarity-4); }
+.gacha-pull-tile.pull-three { border-color: var(--rarity-3); }
+/* Before the first pull, Latest pull holds ten empty frames of the same size, so a
+   Reset never takes the section away from under the reader. */
+.gacha-pull-tile.gacha-pull-tile-empty { border-style: dashed; border-color: var(--line); background: transparent; cursor: default; }
+.gacha-pull-tile.gacha-pull-tile-empty:hover { filter: none; transform: none; }
 /* The rarity halo follows the portrait frame and only appears on the latest pull. */
 .gacha-pull-grid .gacha-pull-tile:is(.pull-six, .pull-five) {
   position: relative;
   overflow: visible;
 }
 .gacha-pull-grid .gacha-pull-tile.pull-six {
-  --halo-edge: #ff7143;
-  --halo-glow: rgba(255, 91, 41, 0.62);
-  --halo-core: rgba(255, 199, 121, 0.9);
+  --halo-edge: var(--rarity-6);
+  --halo-glow: color-mix(in srgb, var(--rarity-6) 62%, transparent);
+  --halo-core: color-mix(in srgb, var(--rarity-fill-6) 90%, transparent);
 }
 .gacha-pull-grid .gacha-pull-tile.pull-five {
-  --halo-edge: #e7c736;
-  --halo-glow: rgba(245, 213, 71, 0.48);
-  --halo-core: rgba(255, 239, 150, 0.78);
+  --halo-edge: var(--rarity-5);
+  --halo-glow: color-mix(in srgb, var(--rarity-5) 48%, transparent);
+  --halo-core: color-mix(in srgb, var(--rarity-fill-5) 78%, transparent);
 }
 .gacha-pull-grid .gacha-pull-tile:is(.pull-six, .pull-five)::before {
   content: '';
@@ -227,10 +230,6 @@
   font-size: 14px;
   color: var(--text-faint);
 }
-.pull-six { border-color: var(--amber); box-shadow: 0 0 10px rgba(245, 166, 35, 0.13); }
-.pull-five { border-color: #F5D547; }
-.pull-four { border-color: #8A7EF8; }
-.pull-three { border-color: #FFFFFF; }
 
 .gacha-history-toggle {
   font-size: 18px;
@@ -253,7 +252,7 @@
 .gacha-pull-preview { display: flex; flex-direction: column; max-width: min(1050px, 100%); height: min(90vh, 900px); max-height: 90vh; padding: 18px; overflow: hidden; }
 .gacha-pull-preview-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .gacha-pull-preview-header h2 { margin: 2px 0 10px; overflow-wrap: anywhere; }
-.gacha-pull-preview-rarity { color: var(--teal); font: 700 12px var(--font-mono); text-transform: uppercase; }
+.gacha-pull-preview-rarity { color: var(--text-dim); font: 700 12px var(--font-mono); text-transform: uppercase; }
 .gacha-preview-close { width: 40px; height: 40px; flex: none; border: 1px solid var(--line); border-radius: 4px; background: var(--panel-2); color: var(--text); font-size: 26px; cursor: pointer; }
 .gacha-preview-close:hover { border-color: var(--teal); color: var(--teal); }
 .gacha-preview-close:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
@@ -338,27 +337,6 @@
   .gacha-preview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 420px) { .gacha-details-rates { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gacha-details-featured-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gacha-details-featured { flex-direction: column; align-items: start; } }
-.pullable-six-star {
-  width: 56px;
-  height: 56px;
-  background: rgba(245, 166, 35, 0.15);
-  color: var(--amber);
-  border-color: rgba(245, 166, 35, 0.4);
-}
-.pullable-five-star {
-  width: 56px;
-  height: 56px;
-  background: color-mix(in srgb, var(--rarity-5) 12%, transparent);
-  color: var(--rarity-5);
-  border-color: color-mix(in srgb, var(--rarity-5) 35%, transparent);
-}
-.pullable-four-star {
-  width: 56px;
-  height: 56px;
-  background: rgba(140, 160, 174, 0.12);
-  color: var(--text-dim);
-  border-color: rgba(140, 160, 174, 0.35);
-}
 
 .gacha-banner-list {
   flex-wrap: wrap;
@@ -375,23 +353,10 @@
   gap: 8px;
   margin-bottom: 12px;
 }
-.gacha-category-row button { min-height: 38px; padding: 7px 12px; }
-.gacha-category-mobile { display: none; }
+.gacha-main .gacha-category-mobile { display: none; }
 @media (max-width: 720px) {
   .gacha-category-row { display: none; }
-  .gacha-category-mobile {
-    display: block;
-    width: 100%;
-    min-height: 44px;
-    margin-bottom: 12px;
-    padding: 8px 12px;
-    color: var(--teal);
-    background: var(--panel-2);
-    border: 1px solid var(--teal);
-    border-radius: 5px;
-    font: 700 14px var(--font-display);
-  }
-  .gacha-category-mobile:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .gacha-main .gacha-category-mobile { display: flex; width: 100%; margin-bottom: 12px; }
 }
 
 .gacha-mobile-view-toggle {
@@ -565,14 +530,17 @@
 .gacha-featured-meta { display: flex; flex-direction: column; align-items: flex-start; min-height: 2.4em; gap: 1px; }
 .gacha-featured-section { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
 .gacha-featured-section > .gacha-content-group { min-width: 0; }
-.gacha-featured-chip-6 { border-color: rgba(245, 166, 35, 0.4); }
+.gacha-featured-chip-6 { border-color: color-mix(in srgb, var(--rarity-6) 40%, transparent); }
 .gacha-featured-chip-5 { border-color: color-mix(in srgb, var(--rarity-5) 35%, transparent); }
 
+/* The rate in the chip's rarity colour: it was teal on every chip, 5-star included. */
 .gacha-featured-percent {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--teal);
+  color: var(--text-dim);
 }
+.gacha-featured-chip-6 .gacha-featured-percent { color: var(--rarity-6); }
+.gacha-featured-chip-5 .gacha-featured-percent { color: var(--rarity-5); }
 /* Beside the percent, and quieter than it. Unstyled, "Obtained: 0" came out as
    11px Inter at full text brightness -- the loudest thing in a chip whose actual
    subject is the rate above it. */

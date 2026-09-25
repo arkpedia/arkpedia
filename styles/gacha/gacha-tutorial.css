@@ -378,8 +378,8 @@
   gap: 2px;
 }
 .gacha-tutorial-pull-card.highlight {
-  border-color: var(--amber);
-  background: linear-gradient(135deg, rgba(245, 166, 35, 0.28), rgba(245, 166, 35, 0.05));
+  border-color: var(--rarity-6);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rarity-6) 28%, transparent), color-mix(in srgb, var(--rarity-6) 5%, transparent));
 }
 .gacha-tutorial-pull-card.small {
   width: 22px;

@@ -21,6 +21,10 @@ import type { GachaOperatorPreview } from '@/lib/gacha/operatorPreviewData';
 import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, GachaItem } from '@/lib/gacha/gachaTypes';
 import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, simulatorPullable, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
+import StyledSelect from '@/components/ui/StyledSelect';
+import PageHeader from '@/components/ui/PageHeader';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 
 interface Props {
   pools: GachaIconPools;
@@ -151,7 +155,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
     <div className="modal-overlay gacha-operator-overlay" onClick={onClose}>
       <div className="modal-box gacha-pull-preview" role="dialog" aria-modal="true" aria-labelledby="gacha-pull-preview-title" onClick={(event) => event.stopPropagation()}>
         <div className="gacha-pull-preview-header">
-          <div><span className="gacha-pull-preview-rarity">{item.rarity}★ Operator{details?.className ? ` · ${details.className}` : ''}{details?.branch ? ` / ${details.branch}` : ''}</span><h2 id="gacha-pull-preview-title">{item.name}</h2></div>
+          <div><span className="gacha-pull-preview-rarity"><Rarity n={rarityLevel(item.rarity)} /> Operator{details?.className ? ` · ${details.className}` : ''}{details?.branch ? ` / ${details.branch}` : ''}</span><h2 id="gacha-pull-preview-title">{item.name}</h2></div>
           <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close operator preview">×</button>
         </div>
         <div className="gacha-preview-body">
@@ -1613,6 +1617,12 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
   const [state, setState] = useState<GachaState>(createInitialState());
   const [lastPulls, setLastPulls] = useState<PulledItem[]>([]);
+  /* Reset at the bottom of the page emptied Latest pull and the history and moved
+     everything 341px down the screen. Latest pull now stays mounted (ten empty tiles
+     before the first pull) and the history header stays mounted, so the page keeps
+     most of its height; this floor holds the reader through whatever is left, such as
+     an open history list emptying. Per banner. */
+  const pullFloor = useHeightFloor(selectedBanner?.name);
   // The Featured panel's chip row, measured after every render that shows one. A banner
   // whose lineup is still to be confirmed shows a one-line note in its place, and the note
   // holds the height of the row it replaced, so choosing that banner never shortens the page
@@ -1932,18 +1942,15 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
     <>
       <Head><title>Gacha Simulator — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Headhunting Simulation</div>
-        <h1>Gacha Simulator</h1>
-      </header>
+      <PageHeader eyebrow="Rhodes Island // Headhunting Simulation" title="Gacha Simulator" />
 
       <main className="gacha-main">
-        <div className="gacha-category-row">
+        <div className="gacha-category-row" role="group" aria-label="Banner category">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               type="button"
-              className={cat === category ? 'primary' : 'ghost'}
+              className="filter-chip"
               onClick={() => changeCategory(cat)}
               disabled={bannersByCategory[cat].length === 0}
               aria-pressed={cat === category}
@@ -1952,16 +1959,14 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
             </button>
           ))}
         </div>
-        <select
+        {/* The site's dropdown on a phone; it was a native <select>. */}
+        <StyledSelect
+          label="Banner category"
           className="gacha-category-mobile"
-          aria-label="Banner category"
           value={category}
-          onChange={(event) => changeCategory(event.target.value as DisplayCategory)}
-        >
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat} disabled={bannersByCategory[cat].length === 0}>{CATEGORY_LABELS[cat]}</option>
-          ))}
-        </select>
+          onChange={(value) => changeCategory(value as DisplayCategory)}
+          options={CATEGORIES.map((cat) => ({ value: cat, label: CATEGORY_LABELS[cat], disabled: bannersByCategory[cat].length === 0 }))}
+        />
 
         <div className="gacha-layout">
           <div className="gacha-banner-sidebar" ref={bannerWindow.scrollerRef} role="region" aria-label="Banners" tabIndex={0}>
@@ -2334,7 +2339,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                             { rarity: 3, rate: current.three },
                           ] as const).map(({ rarity, rate }) => (
                             <div className="gacha-rarity-stat" key={rarity}>
-                              <span className="gacha-rarity-label">{rarity}★ <small>({(rate * 100).toFixed(decimals)}%)</small></span>
+                              <span className="gacha-rarity-label"><Rarity n={rarity} /> <small>({(rate * 100).toFixed(decimals)}%)</small></span>
                               <strong className="gacha-rarity-count">{stats[rarity]}</strong>
                             </div>
                           ));
@@ -2355,21 +2360,25 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                   </section>
                 )}
 
-                {lastPulls.length > 0 && (
-                  <section className="op-section">
-                    <h2>Latest pull</h2>
-                    <div className="gacha-pull-grid">
-                      {lastPulls.map((item, i) => {
+                <div ref={pullFloor.ref}>
+                <section className="op-section">
+                  <h2>Latest pull</h2>
+                  <div className="gacha-pull-grid">
+                    {lastPulls.length > 0
+                      ? lastPulls.map((item, i) => {
                         const slideDirection = lastPulls.length === 1 || i % 2 === 0 ? 'gacha-pull-slide-bottom' : 'gacha-pull-slide-top';
                         return <PullTile key={`${state.pullCount}-${i}`} item={item} onSelect={setPreviewedPull} className={slideDirection} />;
-                      })}
-                    </div>
-                  </section>
-                )}
+                      })
+                      : Array.from({ length: 10 }, (_, i) => <span key={i} className="gacha-pull-tile gacha-pull-tile-empty" aria-hidden="true" />)}
+                  </div>
+                  {lastPulls.length === 0 && <p className="visually-hidden">No pulls yet.</p>}
+                </section>
 
+                {/* A sibling of Latest pull, so the same heading level (it was an h3
+                    beside an h2); its groups below are h3. */}
                 <section className="op-section gacha-roster-section">
                     <div className="gacha-content-group">
-                    <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
+                    <h2>Featured Operators</h2>
                     {isLineupPending(selectedBanner) ? (
                       <div className="gacha-lineup-pending" style={featuredRowHeight.current ? { minHeight: featuredRowHeight.current } : undefined}>
                         <p className="hint">{LINEUP_PENDING_NOTE}</p>
@@ -2451,20 +2460,22 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     </div>
                 </section>
 
-                {state.history.length > 0 && (
-                  <section className="op-section">
-                    <button
-                      type="button"
-                      className="ghost gacha-history-toggle"
-                      onClick={() => setShowHistory((v) => !v)}
-                    >
-                      {showHistory ? '▾' : '▸'} Pull history
-                    </button>
-                    {showHistory && (
-                      <PullHistory history={state.history} onSelect={setPreviewedPull} />
-                    )}
-                  </section>
-                )}
+                <section className="op-section">
+                  <button
+                    type="button"
+                    className="ghost gacha-history-toggle"
+                    aria-expanded={showHistory && state.history.length > 0}
+                    disabled={state.history.length === 0}
+                    onClick={() => setShowHistory((v) => !v)}
+                  >
+                    {showHistory && state.history.length > 0 ? '▾' : '▸'} Pull history{state.history.length > 0 ? ` (${state.history.length})` : ''}
+                  </button>
+                  {showHistory && state.history.length > 0 && (
+                    <PullHistory history={state.history} onSelect={setPreviewedPull} />
+                  )}
+                </section>
+                {pullFloor.spacer}
+                </div>
                 </div>
               </>
             )}

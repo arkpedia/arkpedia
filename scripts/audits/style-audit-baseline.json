@@ -254,8 +254,6 @@
     "world.css: 16px"
   ],
   "rawHex": [
-    "gacha.css: #ffffff is var(--teal-ink)",
-    "gacha.css: #ffffff is var(--teal-ink)",
     "stages-terminal.css: #ffffff is var(--teal-ink)",
     "stages-terminal.css: #ffffff is var(--teal-ink)",
     "stages.css: #ffffff is var(--teal-ink)",
@@ -265,19 +263,6 @@
     "stages.css: #ffffff is var(--teal-ink)"
   ],
   "rarityLiteral": [
-    "styles/gacha/gacha-tutorial.css: .gacha-tutorial-pull-card.highlight { background: rgba(245, 166, 35, 0.05) }",
-    "styles/gacha/gacha-tutorial.css: .gacha-tutorial-pull-card.highlight { background: rgba(245, 166, 35, 0.28) }",
-    "styles/gacha/gacha.css: .gacha-pull-tile.pull-five { border-color: #F5D547 }",
-    "styles/gacha/gacha.css: .gacha-pull-tile.pull-four { border-color: #8A7EF8 }",
-    "styles/gacha/gacha.css: .gacha-pull-tile.pull-three { border-color: #FFFFFF }",
-    "styles/gacha/gacha.css: .pull-five { border-color: #F5D547 }",
-    "styles/gacha/gacha.css: .pull-four { border-color: #8A7EF8 }",
-    "styles/gacha/gacha.css: .pull-six { box-shadow: rgba(245, 166, 35, 0.13) }",
-    "styles/gacha/gacha.css: .pull-three { border-color: #FFFFFF }",
-    "styles/gacha/gacha.css: .pullable-four-star { background: rgba(140, 160, 174, 0.12) }",
-    "styles/gacha/gacha.css: .pullable-four-star { border-color: rgba(140, 160, 174, 0.35) }",
-    "styles/gacha/gacha.css: .pullable-six-star { background: rgba(245, 166, 35, 0.15) }",
-    "styles/gacha/gacha.css: .pullable-six-star { border-color: rgba(245, 166, 35, 0.4) }",
     "styles/stages/stages.css: .stage-deploy-op.r4 { border-color: #9a7fc4 }",
     "styles/stages/stages.css: .stage-deploy-op.r5 { border-color: #c9c04a }",
     "styles/stages/stages.css: .stage-deploy-op.r6 { border-color: #d9a13b }"
@@ -320,7 +305,6 @@
     "components/stages/StageDeployBar.tsx: role=\"listbox\"",
     "components/stages/StagePicker.tsx: role=\"listbox\"",
     "pages/dev/index.tsx: <select>",
-    "pages/gacha.tsx: <select>",
     "pages/gamemodes/stronghold-protocol.tsx: role=\"listbox\"",
     "pages/games/music-guesser.tsx: role=\"listbox\"",
     "pages/games/operator-guesser.tsx: role=\"listbox\"",
