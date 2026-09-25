@@ -1,7 +1,9 @@
 import { ResourcePools } from './baseResources';
-import { SOUBO_ADVENTURERS, TEAM_RAINBOW, URSUS_STUDENT_SELF_GOVERNING_GROUP, ALTERNATE_OPERATOR, MINOS, SARGON, LUNGMEN_GUARD_DEPARTMENT, KARLAN_TRADE, GLASGOW, KNIGHTS } from './baseGroupRosters';
+import type { BaseRosters } from './baseGroupRosters';
 
 export interface ControlCenterContext {
+  /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
+  rosters: BaseRosters;
   manualValue?: number;
   ccOperatorNames: string[]; // includes self
   // BUILT counts from the player's own layout, for Wang's Expedience --
@@ -77,31 +79,31 @@ export const CONTROL_CENTER_SPECIAL_SKILLS: Record<string, Handler> = {
   // Per-faction-count-in-CC morale bonuses -- these read "each Operator
   // from [faction] increases Morale... by +0.05/hr", which is NOT a flat
   // +0.05 -- it scales with how many of that faction are in CC.
-  'Blitz|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => TEAM_RAINBOW.has(n)).length }),
-  'Frost|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => TEAM_RAINBOW.has(n)).length }),
-  'Tachanka|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => TEAM_RAINBOW.has(n)).length }),
-  'Ash|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => TEAM_RAINBOW.has(n)).length }),
+  'Blitz|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.TEAM_RAINBOW.has(n)).length }),
+  'Frost|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.TEAM_RAINBOW.has(n)).length }),
+  'Tachanka|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.TEAM_RAINBOW.has(n)).length }),
+  'Ash|Team Rainbow': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.TEAM_RAINBOW.has(n)).length }),
   'Tachanka|Ursus Specialty Beverage': (ctx) => ({
-    ursusSpecialtyBeverage: ctx.ccOperatorNames.filter((n) => URSUS_STUDENT_SELF_GOVERNING_GROUP.has(n)).length,
+    ursusSpecialtyBeverage: ctx.ccOperatorNames.filter((n) => ctx.rosters.URSUS_STUDENT_SELF_GOVERNING_GROUP.has(n)).length,
   }),
-  'Hibiscus the Purifier|Alternate Operator': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ALTERNATE_OPERATOR.has(n)).length }),
-  'Kroos the Keen Glint|Alternate Operator': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ALTERNATE_OPERATOR.has(n)).length }),
-  'Lava the Purgatory|Alternate Operator': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ALTERNATE_OPERATOR.has(n)).length }),
-  "Ch'en|Integrity & Capability": (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => LUNGMEN_GUARD_DEPARTMENT.has(n)).length }),
-  'Rosa|Student Council President': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => URSUS_STUDENT_SELF_GOVERNING_GROUP.has(n)).length }),
+  'Hibiscus the Purifier|Alternate Operator': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.ALTERNATE_OPERATOR.has(n)).length }),
+  'Kroos the Keen Glint|Alternate Operator': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.ALTERNATE_OPERATOR.has(n)).length }),
+  'Lava the Purgatory|Alternate Operator': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.ALTERNATE_OPERATOR.has(n)).length }),
+  "Ch'en|Integrity & Capability": (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.LUNGMEN_GUARD_DEPARTMENT.has(n)).length }),
+  'Rosa|Student Council President': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.URSUS_STUDENT_SELF_GOVERNING_GROUP.has(n)).length }),
   "Hung|Adamantly Easygoing": (ctx) => ({
     ccMoraleBonus: 0.2 * ctx.ccOperatorNames.filter((n) => ctx.operatorFaction(n) === "Lee's Detective Agency").length,
     note: 'Also restores extra Morale specifically for Lee\'s Detective Agency operators -- that per-faction bonus isn\'t modeled, only the flat CC-wide part.',
   }),
-  'Gnosis|Hidden Mastermind': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => KARLAN_TRADE.has(n)).length }),
+  'Gnosis|Hidden Mastermind': (ctx) => ({ ccMoraleBonus: 0.05 * ctx.ccOperatorNames.filter((n) => ctx.rosters.KARLAN_TRADE.has(n)).length }),
   'Gnosis|Precise Calculations': (ctx) => ({
     perTradingPostOrderEfficiency: ctx.tradingPostFactionCounts.map((tp) => ({
       facilityId: tp.facilityId,
-      amount: -0.15 * tp.operatorNames.filter((n) => KARLAN_TRADE.has(n)).length,
+      amount: -0.15 * tp.operatorNames.filter((n) => ctx.rosters.KARLAN_TRADE.has(n)).length,
     })),
     perTradingPostOrderLimit: ctx.tradingPostFactionCounts.map((tp) => ({
       facilityId: tp.facilityId,
-      amount: 6 * tp.operatorNames.filter((n) => KARLAN_TRADE.has(n)).length,
+      amount: 6 * tp.operatorNames.filter((n) => ctx.rosters.KARLAN_TRADE.has(n)).length,
     })),
   }),
 
@@ -113,13 +115,13 @@ export const CONTROL_CENTER_SPECIAL_SKILLS: Record<string, Handler> = {
   'Hoshiguma the Breacher|Downtown Connections': () => ({ trainingSpeedBonus: 0.05 }),
   'Pudding|Overclock': (ctx) => (ctx.robotPowerPlantCount >= 2 ? { factoryBonusCandidate: 0.02 } : {}),
   "Hoshiguma the Breacher|Camaraderie": (ctx) =>
-    ctx.ccOperatorNames.filter((n) => LUNGMEN_GUARD_DEPARTMENT.has(n)).length >= 1 ? { factoryBonusCandidate: 0.03 } : {},
+    ctx.ccOperatorNames.filter((n) => ctx.rosters.LUNGMEN_GUARD_DEPARTMENT.has(n)).length >= 1 ? { factoryBonusCandidate: 0.03 } : {},
   'Kirin R Yato|Leading By Example': (ctx) =>
-    ctx.ccOperatorNames.filter((n) => SOUBO_ADVENTURERS.has(n)).length >= 2
+    ctx.ccOperatorNames.filter((n) => ctx.rosters.SOUBO_ADVENTURERS.has(n)).length >= 2
       ? { factoryBonusCandidate: 0.02 }
       : {},
   'Rathalos S Noir Corne|Esoteric Negotiations': (ctx) =>
-    ctx.ccOperatorNames.filter((n) => SOUBO_ADVENTURERS.has(n)).length >= 2
+    ctx.ccOperatorNames.filter((n) => ctx.rosters.SOUBO_ADVENTURERS.has(n)).length >= 2
       ? { tradingPostBonusCandidate: 0.07 }
       : {},
   'Wang|Expedience': (ctx) => {
@@ -135,13 +137,13 @@ export const CONTROL_CENTER_SPECIAL_SKILLS: Record<string, Handler> = {
       : { factoryBonusCandidate: 0.02 };
   },
   'Varkáris|Pride of a Hero α': (ctx) => ({
-    clueCollectionBonusCandidate: Math.min(0.2, 0.04 * ctx.allPlacedNames.filter((n) => MINOS.has(n)).length),
-    selfMorale: ctx.ccOperatorNames.some((n) => n !== 'Varkáris' && SARGON.has(n)) ? 0.02 : 0,
+    clueCollectionBonusCandidate: Math.min(0.2, 0.04 * ctx.allPlacedNames.filter((n) => ctx.rosters.MINOS.has(n)).length),
+    selfMorale: ctx.ccOperatorNames.some((n) => n !== 'Varkáris' && ctx.rosters.SARGON.has(n)) ? 0.02 : 0,
     note: 'Minos count excludes Assistants/Activity Room use, which this simulator has no data for -- may overcount slightly.',
   }),
   'Varkáris|Pride of a Hero β': (ctx) => ({
-    clueCollectionBonusCandidate: Math.min(0.25, 0.05 * ctx.allPlacedNames.filter((n) => MINOS.has(n)).length),
-    selfMorale: ctx.ccOperatorNames.some((n) => n !== 'Varkáris' && SARGON.has(n)) ? 0.02 : 0,
+    clueCollectionBonusCandidate: Math.min(0.25, 0.05 * ctx.allPlacedNames.filter((n) => ctx.rosters.MINOS.has(n)).length),
+    selfMorale: ctx.ccOperatorNames.some((n) => n !== 'Varkáris' && ctx.rosters.SARGON.has(n)) ? 0.02 : 0,
     note: 'Minos count excludes Assistants/Activity Room use, which this simulator has no data for -- may overcount slightly.',
   }),
 
@@ -206,7 +208,7 @@ export const CONTROL_CENTER_SPECIAL_SKILLS: Record<string, Handler> = {
   'Delphine|Master Strategist': (ctx) => ({
     perTradingPostOrderEfficiency: ctx.tradingPostFactionCounts.map((tp) => ({
       facilityId: tp.facilityId,
-      amount: 0.1 * tp.operatorNames.filter((n) => GLASGOW.has(n)).length,
+      amount: 0.1 * tp.operatorNames.filter((n) => ctx.rosters.GLASGOW.has(n)).length,
     })),
   }),
   'SilverAsh the Reignfrost|Land of Business': (ctx) => ({
@@ -341,7 +343,7 @@ export const CONTROL_CENTER_SPECIAL_SKILLS: Record<string, Handler> = {
   'Dusk|"Unmoved by Loss"': () => ({ selfMorale: -0.5 }), // "decreases OWN morale consumption" -- self-only, not room-wide. Perception Information generation now time-weighted (see resourceState.duskFractionAbove12)
   'Ash|Intelligence Reserve': () => ({}), // pure Intelligence Reserve generator, no bonus of her own -- generation now handled by computeResourcePools
   'Rathalos S Noir Corne|Teamwork': (ctx) => ({
-    felvine: 2 * ctx.ccOperatorNames.filter((n) => SOUBO_ADVENTURERS.has(n)).length,
+    felvine: 2 * ctx.ccOperatorNames.filter((n) => ctx.rosters.SOUBO_ADVENTURERS.has(n)).length,
   }),
   'Kirin R Yato|Endurance Recovery': () => ({ selfMorale: 0.5, felvine: 8 }),
 };

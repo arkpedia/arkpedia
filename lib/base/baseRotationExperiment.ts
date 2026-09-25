@@ -11,7 +11,7 @@ import {
   DynamicContextOverrides,
 } from './optimizerLogic';
 import { calcClueSpeed, calcOffice, calcDroneRate, calcControlCenterEffects, calcDeadTime } from './baseProductivity';
-import { OPERATION_PLATFORM, RHINE_LAB, BLACKSTEEL_WORLDWIDE, WANDERING_MEDIC, SUI, ELITE_OPERATOR, URSUS_STUDENT_SELF_GOVERNING_GROUP } from './baseGroupRosters';
+import { toBaseRosters, type BaseRosters } from './baseGroupRosters';
 
 // Was `const allOperators = getAllOperators();` -- same fix as
 // optimizerLogic.ts, for the same reason (server-only fs access at
@@ -19,8 +19,10 @@ import { OPERATION_PLATFORM, RHINE_LAB, BLACKSTEEL_WORLDWIDE, WANDERING_MEDIC, S
 // module from optimizerLogic.ts though, so it needs its own injected
 // copy -- base.tsx calls both initializers.
 let allOperators: BaseOperator[] = [];
-export function initializeRotationExperimentData(operators: BaseOperator[]) {
+let rosters: BaseRosters = toBaseRosters({});
+export function initializeRotationExperimentData(operators: BaseOperator[], groupRosters: BaseRosters) {
   allOperators = operators;
+  rosters = groupRosters;
 }
 
 export type RosterMode = 'eliteZero' | 'eliteTwo';
@@ -520,8 +522,8 @@ function deriveOverridesFromPlacement(result: RotationExperimentResult): Dynamic
   const powerPlantWorkingNames = result.powerPlant.flatMap((r) => r.workingSet);
   const ccWorkingNames = result.controlCenter?.workingSet ?? [];
 
-  const countRoomsWithMember = (roster: Set<string>): number => rooms.filter((room) => room.some((name) => roster.has(name))).length;
-  const countMembers = (roster: Set<string>): number => allWorkingNames.filter((name) => roster.has(name)).length;
+  const countRoomsWithMember = (roster: ReadonlySet<string>): number => rooms.filter((room) => room.some((name) => roster.has(name))).length;
+  const countMembers = (roster: ReadonlySet<string>): number => allWorkingNames.filter((name) => roster.has(name)).length;
 
   // Felvine's real formula (from optimizerLogic.ts's own FELVINE constant):
   // Kirin R Yato contributes a flat +8, Rathalos S Noir Corne contributes
@@ -535,12 +537,12 @@ function deriveOverridesFromPlacement(result: RotationExperimentResult): Dynamic
     gummyInTradingPost: tpWorkingNames.includes('Gummy'),
     ulpianusInBase: allWorkingNames.includes('Ulpianus'),
     allPlacedNames: allWorkingNames,
-    robotPowerPlantCount: powerPlantWorkingNames.filter((name) => OPERATION_PLATFORM.has(name)).length,
-    rhineLabCountInBase: countMembers(RHINE_LAB),
-    blacksteelWorldwideCountInBase: countMembers(BLACKSTEEL_WORLDWIDE),
-    facilitiesWithSuiOperator: countRoomsWithMember(new Set([...SUI, ...WANDERING_MEDIC])),
-    facilitiesWithEliteOperator: countRoomsWithMember(ELITE_OPERATOR),
-    ursusSpecialtyBeverageTotal: countMembers(URSUS_STUDENT_SELF_GOVERNING_GROUP),
+    robotPowerPlantCount: powerPlantWorkingNames.filter((name) => rosters.OPERATION_PLATFORM.has(name)).length,
+    rhineLabCountInBase: countMembers(rosters.RHINE_LAB),
+    blacksteelWorldwideCountInBase: countMembers(rosters.BLACKSTEEL_WORLDWIDE),
+    facilitiesWithSuiOperator: countRoomsWithMember(new Set([...rosters.SUI, ...rosters.WANDERING_MEDIC])),
+    facilitiesWithEliteOperator: countRoomsWithMember(rosters.ELITE_OPERATOR),
+    ursusSpecialtyBeverageTotal: countMembers(rosters.URSUS_STUDENT_SELF_GOVERNING_GROUP),
     gnosisInControlCenter: ccWorkingNames.includes('Gnosis'),
     felvineTotal,
   };

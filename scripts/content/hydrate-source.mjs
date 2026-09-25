@@ -14,6 +14,8 @@ const deprecatedSourceFiles = new Set([
 // every other record, and from the next run on the data repository's copy wins. Edit
 // them in arkpedia-data once they are there.
 const SEEDED_SOURCE_FILES = new Set([
+  'data/base-group-rosters.json',
+  'data/base-skill-slots.json',
   'data/farming-tiers.json',
 ]);
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

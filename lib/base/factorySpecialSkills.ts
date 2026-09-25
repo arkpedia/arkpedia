@@ -1,9 +1,11 @@
 import { categoriesFor } from './factorySkillCategories';
 import { FactoryProduct } from './baseTypes';
-import { A1_DETACHMENT } from './baseGroupRosters';
+import type { BaseRosters } from './baseGroupRosters';
 import { ResourcePools } from './baseResources';
 
 export interface FactorySkillContext {
+  /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
+  rosters: BaseRosters;
   eliteLevel: string | null;
   manualValue?: number; // meaning depends on the specific skill -- see comments below
   selectedProduct: FactoryProduct | null;
@@ -242,7 +244,7 @@ export const FACTORY_SPECIAL_SKILLS: Record<string, Handler> = {
   }),
   // Same-Factory roster counting: A1 Detachment.
   'Fang the Fire-Sharpened|Time of Reunion': (ctx) => ({
-    productivity: 0.1 * ctx.sameFactoryOperatorNames.filter((n) => A1_DETACHMENT.has(n)).length,
+    productivity: 0.1 * ctx.sameFactoryOperatorNames.filter((n) => ctx.rosters.A1_DETACHMENT.has(n)).length,
   }),
 
   // Dormitory-level dependent -- assumes Level 5 (max), matching the
