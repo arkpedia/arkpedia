@@ -103,4 +103,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
-        run: node scripts/content/alert-issue.mjs close --alert deploy-failing --title 'Deploy failing' --comment "Deployed ${DEPLOYING:0:12}: $RUN_URL"
+        run: |
+          node scripts/content/alert-issue.mjs close --alert deploy-failing --title 'Deploy failing' --comment "Deployed ${DEPLOYING:0:12}: $RUN_URL"

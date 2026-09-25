@@ -149,4 +149,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12}: $RUN_URL"
+        run: |
+          node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12}: $RUN_URL"
