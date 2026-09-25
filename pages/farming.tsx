@@ -3,8 +3,9 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import { useEffect, useState } from 'react';
-import { FARMING_TIERS, TIER_1_2_FOOTNOTE, LEGEND } from '@/lib/farming/farmingConfig';
-import { FarmingMaterial, FarmingStage } from '@/lib/farming/farmingTypes';
+import { TIER_1_2_FOOTNOTE, LEGEND } from '@/lib/farming/farmingConfig';
+import { FarmingMaterial, FarmingStage, FarmingTier } from '@/lib/farming/farmingTypes';
+import { useReleaseTable } from '@/lib/content/context';
 import { getMaterialCountdowns, getEventStoreCountdown, MaterialCountdown } from '@/lib/schedule/materialCountdown';
 
 interface Props {
@@ -24,7 +25,8 @@ export default function FarmingPage({ countdowns, eventStoreCountdown }: Props) 
     return () => clearTimeout(timer);
   }, []);
 
-  const [tier1, tier2, tier3] = FARMING_TIERS;
+  // The guide itself is a game record: the release's data/farming-tiers.json, in props.
+  const [tier1, tier2, tier3] = useReleaseTable<FarmingTier[]>('farming-tiers');
   const tiers = [
     { n: 3 as const, tier: tier3 },
     { n: 2 as const, tier: tier2 },
@@ -131,4 +133,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/fa
       eventStoreCountdown: getEventStoreCountdown(),
     },
   };
+}, {
+  tables: {
+    'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
+  },
 });

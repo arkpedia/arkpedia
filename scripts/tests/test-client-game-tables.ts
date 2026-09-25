@@ -23,6 +23,12 @@ export const RELEASE_ONLY_TABLES = [
   'data/stages-content.json',
   'data/content-windows.json',
   'data/story-groups.json',
+  // /farming and the planner's "where it comes from" groups.
+  'data/farming-tiers.json',
+  // /planner: level costs, other planners' item ids, the depot's in-game order.
+  'data/operatorLevelExpLmd.json',
+  'data/import-aliases.json',
+  'data/item-sort-ids.json',
   // Every asset path, 453 KB: availability is resolved at export, not in the browser.
   'data/assets/public-asset-index.json',
   // The banner list and its art versions (lib/gacha/headhuntingBannerData.ts).
@@ -46,6 +52,10 @@ test('no page compiles a release-only game table into its browser bundle', () =>
   assert.ok(browserImports('pages/obtain-method.tsx', true).includes('lib/gacha/limitedBannerType.ts'));
   assert.equal(pathToTarget('pages/stages/browse.tsx', ['data/story-groups.json'], { clientOnly: false })?.at(-1), 'data/story-groups.json');
   assert.ok(browserImports('pages/stages/browse.tsx', true).includes('components/stages/StageList.tsx'));
+  for (const [page, table] of [['pages/farming.tsx', 'data/farming-tiers.json'], ['pages/planner.tsx', 'data/item-sort-ids.json'], ['pages/planner.tsx', 'data/import-aliases.json']]) {
+    assert.equal(pathToTarget(page, [table], { clientOnly: false })?.at(-1), table, `${page} should read ${table} on the server`);
+  }
+  assert.ok(browserImports('pages/operators/[name].tsx', true).includes('lib/farming/materialSortOrder.ts'));
   const leaks = all.flatMap(page => RELEASE_ONLY_TABLES.flatMap(table => {
     const chain = pathToTarget(page, [table], { allowed: NO_RELEASE_FALLBACKS });
     return chain ? [chain.join(' -> ')] : [];

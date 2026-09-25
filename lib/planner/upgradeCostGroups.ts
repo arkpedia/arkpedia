@@ -9,15 +9,18 @@ import {
   skillLevelCostRemaining,
   skillMasteryCostRemaining,
   moduleStageCostRemaining,
+  type LevelTable,
 } from "@/lib/planner/plannerLogic";
 
 /** One cost calculation shared by the overview, wizard, and depot bill. */
 export function upgradeCostGroups(
   op: PlannerOperator,
   b: BuilderState,
+  levels: LevelTable,
 ): { name: string; cost: CostGroup }[] {
   const leveling = new Map<string, number>();
   const level = computeLevelCostRemaining(
+    levels,
     op.rarity || 1,
     b.startingElite,
     b.startingLevel,

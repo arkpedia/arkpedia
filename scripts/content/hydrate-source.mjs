@@ -7,6 +7,15 @@ const deprecatedSourceFiles = new Set([
   'data/events.json',
   'data/operator-release-overrides.json',
 ]);
+// Game tables this app introduced before arkpedia-data carried them: the browser code
+// that used to compile them in now reads them from the release (lib/content/tables.mjs).
+// While the data repository lacks one, the app's own copy is kept rather than deleted,
+// so the export can still read it; that export then publishes it into source/ like
+// every other record, and from the next run on the data repository's copy wins. Edit
+// them in arkpedia-data once they are there.
+const SEEDED_SOURCE_FILES = new Set([
+  'data/farming-tiers.json',
+]);
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
   if (entry.isSymbolicLink()) throw new Error(`Source symlink: ${entry.name}`);
   const file = path.join(dir, entry.name);
@@ -52,12 +61,16 @@ for (const required of ['data/headhunting_banners.json', 'data/skins.json', 'dat
 if (incoming.size < 1000) throw new Error('Incomplete source snapshot');
 // Work only in the disposable CI checkout. Deleted game records must not survive
 // silently in the bundled fallback and reappear in the next generated release.
+const seeded = [];
 for (const file of walk('data').filter(file => (file.endsWith('.json') || file.endsWith('.lrc')) && !file.includes('final-poll-results'))) {
-  if (!incoming.has(file)) fs.unlinkSync(file);
+  if (incoming.has(file)) continue;
+  if (SEEDED_SOURCE_FILES.has(file)) { seeded.push(file); continue; }
+  fs.unlinkSync(file);
 }
 for (const [file, bytes] of incoming) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, bytes);
 }
+if (seeded.length) console.warn(`arkpedia-data does not carry ${seeded.join(', ')} yet; this release publishes the app's copy.`);
 if (untimestamped.length) console.warn(`${untimestamped.length} lyric file(s) have no timestamps and will render no lyrics: ${untimestamped.join(', ')}`);
 console.log(`Loaded ${incoming.size} public source records.`);
