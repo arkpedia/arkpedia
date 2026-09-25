@@ -25,38 +25,6 @@
     "/recruitment": [
       "h1-align",
       "frame"
-    ],
-    "/stages": [
-      "h1-align",
-      "frame"
-    ],
-    "/stages/all": [
-      "h1-align",
-      "frame"
-    ],
-    "/stages/content/act49side": [
-      "h1-align",
-      "frame"
-    ],
-    "/stages/exploration": [
-      "h1-align",
-      "frame"
-    ],
-    "/stages/regular": [
-      "h1-align",
-      "frame"
-    ],
-    "/stages/score": [
-      "h1-align",
-      "frame"
-    ],
-    "/stages/seasonal": [
-      "h1-align",
-      "frame"
-    ],
-    "/stages/supplies": [
-      "h1-align",
-      "frame"
     ]
   }
 }

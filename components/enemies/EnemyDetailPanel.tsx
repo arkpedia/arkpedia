@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
-import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
+import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import EnemyRangeMap from '@/components/enemies/EnemyRangeMap';
@@ -15,6 +15,7 @@ import {
   EnemySkill,
   EnemyStageAppearance,
   EnemyTalent,
+  KIND_LABELS,
 } from '@/lib/enemies/enemyTypes';
 
 /**
@@ -258,6 +259,15 @@ function ModuleList({
   );
 }
 
+/** One content in the appearances picker: its shorthand and its name. */
+type AppearanceOption = SelectOption & { code: string | null; name: string };
+const appearanceRow = (o: AppearanceOption) => (
+  <>
+    {o.code && <span className="enemy-index enemy-appear-code">{o.code}</span>}
+    <span className="enemy-appear-option-name">{o.name}</span>
+  </>
+);
+
 export default function EnemyDetailPanel({ enemy, introducedBy, appearances, referenced, statusOperators = {} }: EnemyDetailData & { statusOperators?: EnemyStatusOperatorMap }) {
   const [levelIndex, setLevelIndex] = useState(0);
   const [tab, setTab] = useState<DetailTab>('resistances');
@@ -431,9 +441,12 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
     setContentId(defaultContentId);
   }
   const selected = appearances.find((a) => a.id === contentId) || appearances[0];
-  const options: ContentPickerOption[] = useMemo(
-    () => appearances.map(({ kind, id, label, name, stages }) => ({
-      kind, id, label, name, count: stages.length,
+  /* On the site's one dropdown, grouped by kind the way the game files contents, with
+     the shorthand ("EP 08") in a column of its own. The label carries the shorthand
+     as well as the name, so typing "EP" finds the episodes. */
+  const options: AppearanceOption[] = useMemo(
+    () => appearances.map(({ kind, id, label, name }) => ({
+      value: id, label: label ? `${label} ${name}` : name, group: KIND_LABELS[kind], code: label, name,
     })),
     [appearances]
   );
@@ -767,11 +780,15 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                   you change to pick that list. */}
               <div className="enemy-appear-filter">
                 <span className="enemy-appear-filter-label">Filter</span>
-                <ContentPicker
-                  options={options}
+                <StyledSelect<AppearanceOption>
+                  className="enemy-appear-select"
+                  label="Content to list stages for"
                   value={selected.id}
+                  options={options}
                   onChange={setContentId}
-                  ariaLabel="Content to list stages for"
+                  menuMinWidth={320}
+                  renderOption={appearanceRow}
+                  renderValue={appearanceRow}
                 />
               </div>
               {selected.stages.length === 0 && (

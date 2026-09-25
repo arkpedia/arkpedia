@@ -212,14 +212,12 @@
   align-items: center;
   margin-bottom: 6px;
 }
- /* A chapter or event shorthand -- "EP 08", "IS", "CC" -- is a code, and codes are
-   teal mono everywhere else on the site (.stage-row-code and .stage-picker-code on
-   the stages page). This had no rule in any stylesheet, so it rendered as plain body
-   text in the appearance picker, in its options, and in the hero beside the name.
+ /* A chapter or event shorthand -- "EP 08", "IS", "CC" -- is a code: the data voice,
+   mono and dim, as the stage codes are. Not teal: teal is "on / current".
    white-space:pre so "EP 08" cannot break across its space. */
 .enemy-index {
   font-family: var(--font-mono);
-  color: var(--teal);
+  color: var(--text-dim);
   white-space: pre;
 }
 
@@ -888,27 +886,35 @@ h4.enemy-section-head {
   text-transform: uppercase;
   color: var(--text-faint);
 }
-.enemy-appear-filter .enemy-appear-picker {
+.enemy-appear-filter .enemy-appear-select {
   flex: 0 1 340px;
   min-width: 0;
-  margin-bottom: 0;
 }
+/* The shorthand column in the StyledSelect rows and trigger, so every name starts in
+   one place. */
+.enemy-appear-code { flex: none; min-width: 6ch; }
 .enemy-appear-picker { position: relative; margin-bottom: 12px; }
+/* The filter panel's "Appears in" is the last ContentPicker (components/ui), kept for
+   the search box in its list, which StyledSelect does not have yet. Its trigger and
+   rows wear StyledSelect's paint so the two read as one control. */
 .enemy-appear-trigger {
   display: flex;
   align-items: center;
   gap: 9px;
   width: 100%;
+  min-height: 38px;
   text-align: left;
-  font-size: 12px;
+  font: 500 13px/1.3 var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--teal) 7%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--teal) 55%, var(--line));
-  border-radius: var(--radius-frame);
+  background: var(--panel-2);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   color: var(--text);
   cursor: pointer;
 }
-.enemy-appear-trigger:hover { border-color: var(--teal); }
+.enemy-appear-trigger:hover { border-color: var(--teal); color: var(--teal); }
 .enemy-appear-trigger-name { min-width: 0; overflow-wrap: anywhere; }
 .enemy-appear-caret { flex: none; margin-left: auto; color: var(--teal); font-size: 10px; }
 
@@ -920,17 +926,18 @@ h4.enemy-section-head {
   position: fixed;
   z-index: 120;
   overflow-y: auto;
-  padding: 5px;
-  background: var(--panel-2, var(--panel));
+  padding: 4px;
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  box-shadow: 0 10px 26px rgb(0 0 0 / 45%);
+  border-top: 2px solid var(--teal);
+  border-radius: var(--radius-frame);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .22);
 }
 .enemy-appear-list-head {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--panel-2, var(--panel));
+  background: var(--panel);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -944,7 +951,7 @@ h4.enemy-section-head {
   top: -5px;
   z-index: 2;
   padding: 5px;
-  background: var(--panel-2, var(--panel));
+  background: var(--panel);
 }
 .enemy-appear-search {
   box-sizing: border-box;
@@ -962,12 +969,15 @@ h4.enemy-section-head {
 .enemy-appear-option {
   display: grid;
   grid-template-columns: 62px minmax(0, 1fr);
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   width: 100%;
+  min-height: 40px;
   text-align: left;
-  font-size: 12px;
-  padding: 5px 6px;
+  font: 500 13px/1.35 var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 6px 10px;
   border: 1px solid transparent;
   border-radius: var(--radius-frame);
   background: none;
@@ -976,11 +986,10 @@ h4.enemy-section-head {
 }
 /* Colour only on both states -- a border width or padding change here would
    reflow every row below the one under the cursor. */
-.enemy-appear-option.active { background: color-mix(in srgb, var(--teal) 10%, transparent); }
+.enemy-appear-option.active { background: var(--panel); border-color: var(--control-border); }
 .enemy-appear-option.current {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
-  color: var(--text);
+  background: var(--teal-dim);
+  color: var(--teal);
 }
 .enemy-appear-option-name { min-width: 0; overflow-wrap: anywhere; }
 .enemy-appear-stages {
