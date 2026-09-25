@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
+import SearchInput from '@/components/ui/SearchInput';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import { MATERIAL_GROUPS, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import { usePlannerContent } from '@/lib/content/planner';
 import { matchesSearch } from '@/lib/search/searchNormalize';
@@ -238,31 +240,22 @@ export function DepotGrid({
   return (
     <>
       <div className="planner-depot-controls">
-        <input
-          type="search"
+        <SearchInput
           className="planner-depot-filter"
+          label="Find a material by name"
           placeholder="Find an item..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Find a material by name"
+          onChange={setQuery}
         />
-        <span className="tabs planner-depot-views">
-          {SORTS.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              /* aria-pressed alone. The class this used to carry, `is-active`,
-                 matched no rule in the theme -- only `.tab.active` existed --
-                 so the chosen arrangement had no highlight. The attribute is
-                 both the announcement and the paint now. */
-              className="tab"
-              aria-pressed={sort === id}
-              onClick={() => setSort(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </span>
+        {/* Pick one arrangement: the site's SegmentedControl (it was a strip of
+            underline .tab buttons with the page's own metrics). */}
+        <SegmentedControl<DepotSort>
+          label="Arrange the depot"
+          className="planner-depot-views"
+          value={sort}
+          onChange={setSort}
+          options={SORTS.map(([id, label]) => ({ value: id, label }))}
+        />
       </div>
 
       <div className="key-hint">

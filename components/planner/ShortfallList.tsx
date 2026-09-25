@@ -8,6 +8,7 @@ import {
 import { SOURCE_LABELS, type Source } from '@/lib/planner/sources';
 import { MaterialIcon } from './MaterialIcon';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 
 /**
  * What to get next.
@@ -446,14 +447,13 @@ export function ShortfallList({
            * is a `.filter-chip` -- the site's own idiom for a toggle that stands
            * on its own -- set apart from it.
            */}
-          <span className="tabs planner-need-mode" role="group" aria-label="Whether the Workshop counts">
-            <button type="button" className="tab" aria-pressed={autoCraft} onClick={() => onAutoCraft(true)}>
-              Craft what I can
-            </button>
-            <button type="button" className="tab" aria-pressed={!autoCraft} onClick={() => onAutoCraft(false)}>
-              Raw only
-            </button>
-          </span>
+          <SegmentedControl<'craft' | 'raw'>
+            label="Whether the Workshop counts"
+            className="planner-need-mode"
+            value={autoCraft ? 'craft' : 'raw'}
+            onChange={(mode) => onAutoCraft(mode === 'craft')}
+            options={[{ value: 'craft', label: 'Craft what I can' }, { value: 'raw', label: 'Raw only' }]}
+          />
           {/* Nothing planned means nothing to show all OF -- "Show all 0" is a
               control that cannot do anything, which is the thing this strip was
               just fixed for. */}

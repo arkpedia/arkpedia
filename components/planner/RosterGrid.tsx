@@ -6,6 +6,8 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import type { Roster } from '@/lib/planner/roster';
+import SearchInput from '@/components/ui/SearchInput';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 
 /**
  * Every operator, as a face.
@@ -144,24 +146,25 @@ export function RosterGrid({
   return (
     <>
       <div className="wizard-tools">
-        <input
-          ref={searchRef}
-          type="search"
-          className="planner-depot-filter wizard-search"
+        <SearchInput
+          inputRef={searchRef}
+          className="wizard-search"
+          label="Search operators"
           placeholder="Search every operator..."
           value={query}
-          onChange={(e) => set({ query: e.target.value })}
-          aria-label="Search operators"
+          onChange={(value) => set({ query: value })}
         />
+        {/* Independent filters, each pressed again to let go: .filter-chip with
+            aria-pressed, not the primary/ghost pair (--teal-fill is for actions). */}
         <div className="roster-filters">
-          <span className="roster-button-group" role="group" aria-label="Class">
+          <span className="wizard-filter-group" role="group" aria-label="Class">
             {classes.map((c) => {
               const icon = getClassIconPath(c);
               return (
                 <button
                   type="button"
                   key={c}
-                  className={`roster-class-btn${classFilter === c ? ' active' : ''}`}
+                  className="filter-chip wizard-class-chip"
                   aria-label={c}
                   title={c}
                   aria-pressed={classFilter === c}
@@ -172,24 +175,24 @@ export function RosterGrid({
               );
             })}
           </span>
-          <span className="roster-button-group" role="group" aria-label="Rarity">
+          <span className="wizard-filter-group" role="group" aria-label="Rarity">
             {rarities.map((r) => (
               <button
                 type="button"
                 key={r}
-                className={rarityFilter === r ? 'primary' : 'ghost'}
+                className="filter-chip"
                 aria-pressed={rarityFilter === r}
                 onClick={() => set({ rarity: rarityFilter === r ? null : r })}
               >
-                {r}&#9733;
+                <Rarity n={rarityLevel(r)} />
               </button>
             ))}
           </span>
           {mode === 'roster' ? (
-            <span className="roster-button-group" role="group" aria-label="Ownership">
+            <span className="wizard-filter-group" role="group" aria-label="Ownership">
               <button
                 type="button"
-                className={ownedFilter === 'owned' ? 'primary' : 'ghost'}
+                className="filter-chip"
                 aria-pressed={ownedFilter === 'owned'}
                 onClick={() => set({ owned: ownedFilter === 'owned' ? 'all' : 'owned' })}
               >
@@ -197,7 +200,7 @@ export function RosterGrid({
               </button>
               <button
                 type="button"
-                className={ownedFilter === 'unowned' ? 'primary' : 'ghost'}
+                className="filter-chip"
                 aria-pressed={ownedFilter === 'unowned'}
                 onClick={() => set({ owned: ownedFilter === 'unowned' ? 'all' : 'unowned' })}
               >
@@ -210,7 +213,7 @@ export function RosterGrid({
                and the operator you want may be one you have not recorded. */
             <button
               type="button"
-              className={`filter-chip roster-widen${ownedFilter === 'all' ? ' active' : ''}`}
+              className="filter-chip roster-widen"
               aria-pressed={ownedFilter === 'all'}
               onClick={() => set({ owned: ownedFilter === 'all' ? 'owned' : 'all' })}
             >
@@ -247,7 +250,7 @@ export function RosterGrid({
                   type="button"
                   key={op.name}
                   ref={(el) => { if (el) tileRefs.current.set(op.name, el); else tileRefs.current.delete(op.name); }}
-                  className={`roster-tile${state ? ' owned' : ''}${planned ? ' planned' : ''}`}
+                  className={`btn-bare roster-tile${state ? ' owned' : ''}${planned ? ' planned' : ''}`}
                   aria-label={`${op.name} — ${state ? `owned, ${state}` : 'not owned'}${planned ? ', in the plan' : ''}`}
                   title={planned ? `${op.name} · in the plan` : op.name}
                   onClick={() => onOpen(op.name, order)}
