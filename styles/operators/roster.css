@@ -204,3 +204,9 @@ input.roster-search:focus {
 .roster-card > .op-name { margin: 12px 12px 8px; line-height: 1.35; }
 .roster-card > .hint { margin: 0 12px 12px; line-height: 1.5; }
 .roster-card > .avatar { margin-bottom: 0; }
+
+/* --- /obtain-method ---
+   Its two filter rows are SegmentedControls (components/ui). It used to borrow the
+   /techniques page's 999px pills. */
+.obtain-method .obtain-filter-row { margin-bottom: 14px; }
+.obtain-method .obtain-subfilter-row { margin-top: -4px; }
