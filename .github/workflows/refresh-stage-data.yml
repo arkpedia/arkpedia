@@ -10,8 +10,10 @@ concurrency:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
+    # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
+    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 30 || 15 }}
     permissions:
       contents: write
       pull-requests: write
@@ -120,14 +122,14 @@ jobs:
             echo "_Last refreshed $(date -u +'%Y-%m-%d %H:%M') UTC. This branch is reused:"
             echo 'a later run with the same result changes nothing, and a run with a new_'
             echo '_result updates this pull request in place rather than opening another._'
-          } > /tmp/pr-body.md
+          } > "$RUNNER_TEMP/pr-body.md"
 
           # One pull request, updated in place. `gh pr create` fails when one is
           # already open for the branch, which is the normal case now.
-          if gh pr create --title "Refresh stage data" --body-file /tmp/pr-body.md 2>/dev/null; then
+          if gh pr create --title "Refresh stage data" --body-file "$RUNNER_TEMP/pr-body.md" 2>/dev/null; then
             echo "Opened a pull request."
           else
-            gh pr edit "$branch" --body-file /tmp/pr-body.md \
+            gh pr edit "$branch" --body-file "$RUNNER_TEMP/pr-body.md" \
               && echo "Updated the pull request already open." \
               || { echo "::error::Refresh branch published, but GitHub blocked the PR. Enable Actions PR creation in organization/repository settings, or open the PR manually."; exit 1; }
           fi

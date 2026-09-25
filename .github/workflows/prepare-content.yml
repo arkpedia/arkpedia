@@ -29,8 +29,10 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
+    # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
+    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 60 || 40 }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

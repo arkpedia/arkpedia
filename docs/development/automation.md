@@ -10,6 +10,9 @@ The organization is on GitHub Free. Its Actions budget was verified as **$0 with
 it stops billable Actions usage after the included allowance is exhausted. Private
 CI can stop until the allowance resets; free does not mean unlimited private runs.
 
+- Since 2026-09-25 the private workflows run on a self-hosted runner while the
+  `ARKPEDIA_RUNNER` variable is set, so they use none of the included minutes; see
+  [ci-runner.md](ci-runner.md). The limits below apply when it is unset.
 - Private app: one Ubuntu job per PR update and main push, 20-minute timeout,
   one Chromium installation, desktop and phone projects in the same job. A newer
   update cancels its previous check. No uploaded build, screenshot or video artifacts.
