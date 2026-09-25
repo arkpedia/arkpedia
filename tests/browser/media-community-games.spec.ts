@@ -124,3 +124,85 @@ test('the recruitment guesser holds its place through reveal and next', async ({
   }
   await expect(page.getByRole('button', { name: 'Reveal answers' })).toBeVisible();
 });
+
+/**
+ * Every .rarity-N (and the glyphs inside it) against the colour --rarity-N resolves to
+ * here, read off a probe painted with the token itself -- the custom property's raw
+ * value can be a color-mix(), not the rgb() getComputedStyle reports. `frames` are
+ * portraits that must carry the tier-N edge in the same colour.
+ */
+async function rarityMismatches(page: Page, frames?: string) {
+  return page.evaluate((frameSelector) => {
+    const probe = document.createElement('span');
+    document.body.appendChild(probe);
+    const token = (n: string) => { probe.style.color = `var(--rarity-${n})`; return getComputedStyle(probe).color; };
+    const out: string[] = [];
+    const marks = Array.from(document.querySelectorAll<HTMLElement>('[class*="rarity-"]'))
+      .filter((el) => /(?:^|\s)rarity-[1-6](?:\s|$)/.test(el.className) && el.getClientRects().length > 0);
+    for (const el of marks) {
+      const n = el.className.match(/(?:^|\s)rarity-([1-6])(?:\s|$)/)![1];
+      const want = token(n);
+      for (const part of [el, ...Array.from(el.querySelectorAll<HTMLElement>('[aria-hidden="true"]'))]) {
+        const got = getComputedStyle(part).color;
+        if (got !== want) out.push(`${el.textContent!.trim()}: ${got}, not --rarity-${n} ${want}`);
+      }
+    }
+    let framed = 0;
+    for (const img of frameSelector ? Array.from(document.querySelectorAll<HTMLElement>(frameSelector)) : []) {
+      const n = img.className.match(/(?:^|\s)tier-([1-6])(?:\s|$)/)?.[1];
+      if (!n) { out.push(`portrait without a tier-N frame: ${img.outerHTML.slice(0, 80)}`); continue; }
+      const s = getComputedStyle(img);
+      if (s.borderBottomWidth !== '3px' || s.borderBottomColor !== token(n)) out.push(`portrait frame ${s.borderBottomWidth} ${s.borderBottomColor}, not 3px --rarity-${n}`);
+      framed += 1;
+    }
+    probe.remove();
+    return { out, marks: marks.length, framed };
+  }, frames ?? null);
+}
+
+test('every guesser that prints a rarity prints it in --rarity-N, in both themes, after a round', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'colour, not layout: once is enough');
+  test.setTimeout(90000);
+  // The operator guesser's answer card painted it --text-dim: '.answerCard span span'
+  // (0,1,2) outranked .rarity-N (0,1,0) and caught the glyph span inside <Rarity>. The
+  // rig missed it because the answer appears only after a round. The stage and music
+  // guessers print no rarity.
+  for (const theme of ['dark', 'light'] as const) {
+    await page.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch { /* private mode */ } }, theme);
+    const rounds: { name: string; path: string; play: () => Promise<void>; frames?: string }[] = [
+      {
+        name: 'operator guesser', path: '/games/operator-guesser', frames: '[class*="answerCard"] > img',
+        play: async () => {
+          await page.getByRole('button', { name: 'Start round' }).click();
+          await page.getByRole('button', { name: 'Give up and reveal answer' }).click();
+          await expect(page.locator('[class*="answerCard"] .rarity')).toBeVisible();
+        },
+      },
+      {
+        name: 'recruitment guesser', path: '/games/recruitment-guesser', frames: '[data-found] > img',
+        play: async () => {
+          await page.getByRole('button', { name: 'Reveal answers' }).click();
+          await expect(page.locator('[data-found] .rarity').first()).toBeVisible();
+        },
+      },
+      {
+        name: 'colour palette', path: '/games/color-palette',
+        play: async () => {
+          await page.getByRole('button', { name: 'Start guessing' }).click();
+          await page.getByRole('button', { name: 'Hint 1: rarity' }).click();
+          await page.getByRole('button', { name: 'Reveal answer' }).click();
+          await expect(page.getByLabel('Revealed hints').locator('.rarity')).toBeVisible();
+        },
+      },
+    ];
+    for (const round of rounds) {
+      await page.goto(round.path);
+      expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme') ?? 'dark'), `${round.name} is in the ${theme} theme`).toBe(theme);
+      await round.play();
+      const found = await rarityMismatches(page, round.frames);
+      expect(found.marks, `${round.name}: prints a rarity, or this proves nothing`).toBeGreaterThan(0);
+      if (round.frames) expect(found.framed, `${round.name}: a framed portrait`).toBeGreaterThan(0);
+      expect(found.out, `${round.name} (${theme})`).toEqual([]);
+    }
+  }
+});

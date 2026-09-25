@@ -428,8 +428,8 @@ export default function GuesserPage({ operators, skins }: Props) {
                   <div className={styles.result} data-outcome={status}>
                     <p className={styles.resultHeading}>{status === 'won' ? 'Operator identified' : status === 'lost' ? 'Out of guesses' : 'Answer revealed'}</p>
                     <Link prefetch={false} href={`/operators/${encodeURIComponent(target.name)}`} className={styles.answerCard}>
-                      <Image src={getOperatorIconPath(target)} alt="" width={88} height={88} />
-                      <span><strong>{target.name}</strong><span>{target.rarity ? <><Rarity n={rarityLevel(target.rarity)} /> · </> : null}{target.class}</span><small>View operator profile</small></span>
+                      <Image className={target.rarity ? `tier-${rarityLevel(target.rarity)}` : undefined} src={getOperatorIconPath(target)} alt="" width={88} height={88} />
+                      <span><strong>{target.name}</strong><span className={styles.answerMeta}>{target.rarity ? <><Rarity n={rarityLevel(target.rarity)} /> · </> : null}{target.class}</span><small>View operator profile</small></span>
                     </Link>
                     <p>{status === 'won' ? `Found with ${wrongCount + 1} ${wrongCount === 0 ? 'guess' : 'guesses'} and ${shownCount} ${shownCount === 1 ? 'clue' : 'clues'}.` : 'Try another operator, or adjust the challenge.'}</p>
                   </div>

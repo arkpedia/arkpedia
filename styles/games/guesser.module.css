@@ -78,7 +78,11 @@
 .answerCard > img { width: 76px; height: 76px; object-fit: contain; border-radius: var(--radius); background: var(--panel-2); }
 .answerCard > span { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .answerCard strong { font: 700 22px/1.1 var(--font-display); overflow-wrap: anywhere; }
-.answerCard span span, .answerCard small { font-size: 11px; color: var(--text-dim); }
+/* The rarity and class line. Its own class, not `.answerCard span span`: that
+   selector (0,1,2) outranked .rarity-N (0,1,0) and also caught the glyph span inside
+   <Rarity>, so the answer's rarity printed in --text-dim -- the one place on the site
+   it did not take --rarity-N (tests/browser/media-community-games.spec.ts). */
+.answerMeta, .answerCard small { font-size: 11px; color: var(--text-dim); }
 .answerCard:hover small { color: var(--teal); text-decoration: underline; }
 .result > p:last-child { margin: 12px 0 0; font-size: 12px; color: var(--text-dim); }
 .resultActions { display: grid; gap: 8px; margin-top: 20px; }
