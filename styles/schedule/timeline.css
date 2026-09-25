@@ -156,7 +156,10 @@
      glance across a month. This is enough for the hue to read as itself while the dates
      underneath stay legible. */
   background: color-mix(in srgb, var(--bar-accent, var(--teal)) 28%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--bar-accent, var(--teal)) 45%, transparent);
+  /* The bar is a button: its edge is the accent pulled towards the text colour, which
+     keeps the event's hue and clears 3:1 in both themes whatever the poster colour
+     (a 45% accent measured 1.2:1 on the dark posters). */
+  border: 1px solid color-mix(in srgb, var(--bar-accent, var(--teal)) 55%, var(--text));
   border-left: 3px solid var(--bar-accent, var(--teal));
   color: var(--text);
   transition: background-color 0.15s ease, border-color 0.15s ease;
@@ -165,11 +168,12 @@
    all of them being loud at once. */
 .timeline-bar:hover {
   background: color-mix(in srgb, var(--bar-accent, var(--teal)) 48%, var(--panel));
-  border-color: color-mix(in srgb, var(--bar-accent, var(--teal)) 75%, transparent);
+  border-color: var(--teal);
 }
+/* The open event is the current one: its edge goes teal, the fill keeps its hue. */
 .timeline-bar.selected {
   background: color-mix(in srgb, var(--bar-accent, var(--teal)) 58%, var(--panel));
-  border-color: var(--bar-accent, var(--teal));
+  border-color: var(--teal);
 }
 /* In-game against community: the kind of thing, which the bar falls back to when the
    event has no colour of its own. These used to set the background, the border and the
@@ -182,51 +186,6 @@
    throwing the poster colour away. */
 .timeline-bar.timeline-pill-ingame { --bar-accent: var(--amber); }
 .timeline-bar.timeline-pill-community { --bar-accent: var(--teal); }
-
-.series-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-}
-.series-logo-btn {
-  width: 68px;
-  height: 68px;
-  padding: 6px;
-  border-radius: 8px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: border-color 0.15s;
-}
-.series-logo-btn:hover { border-color: var(--teal-dim); }
-.series-logo-btn.active {
-  border-color: var(--teal);
-  background: var(--teal-dim);
-}
-.series-logo-btn img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.series-logo-all {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-dim);
-}
-.series-logo-btn.active .series-logo-all { color: var(--teal); }
-.series-logo-fallback {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-faint);
-  text-align: center;
-  line-height: 1.25;
-  overflow: hidden;
-}
 
 .map-pin { cursor: pointer; }
 .map-pin-timer {
