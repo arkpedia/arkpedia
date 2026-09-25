@@ -14,6 +14,16 @@ const root = path.resolve(process.argv[2] || '.cache/content-export/release');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const initial = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json')));
 const states = {};
+// Two Standard banners whose windows are over (never the Upcoming tab's default), the older
+// with its lineup not yet named, as Standard Pool #176 was on 2026-09-25: the page shows a
+// note in place of its Featured chips.
+const ended = banner => {
+  const match = String(banner.global_date ?? '').match(/\d{4}\/\d{1,2}\/\d{1,2}\D+(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  return Boolean(match) && Date.UTC(+match[1], match[2] - 1, +match[3]) < Date.now() - 86_400_000;
+};
+const [shownBanner, pendingBanner] = JSON.parse(fs.readFileSync(path.join(root, initial.pages['/gacha'].path))).props.banners
+  .filter((banner, index) => index > 0 && banner.pull_type === 'standard' && banner.six_stars?.length && ended(banner)).map(banner => banner.name);
+assert.ok(shownBanner && pendingBanner, 'two past Standard banners to switch between');
 function make(label) {
   const manifest = structuredClone(initial), overrides = new Map();
   manifest.release = label.repeat(64);
@@ -35,10 +45,7 @@ function make(label) {
   }
   const gacha = readPage('/gacha').props;
   gacha.banners[0].name = `Runtime Banner ${label.toUpperCase()}`;
-  // The newest Standard banner with its lineup not yet named, as Standard Pool #176 was on
-  // 2026-09-25: the page shows a note in place of the Featured chips.
-  const pending = gacha.banners.find(banner => banner.pull_type === 'standard' && banner !== gacha.banners[0]);
-  Object.assign(pending, { lineupSource: 'pending', six_stars: [], five_stars: [], four_stars: [], rate_up_six_stars: [] });
+  Object.assign(gacha.banners.find(banner => banner.name === pendingBanner), { lineupSource: 'pending', six_stars: [], five_stars: [], four_stars: [], rate_up_six_stars: [] });
   gacha.pools.six[0].name = `Runtime Pool Operator ${label.toUpperCase()}`;
   setPage('/gacha', gacha);
   if (label === 'b') {
@@ -125,14 +132,13 @@ try {
     // the bottom of the page, where a shorter document would clamp the scroll.
     if (name === 'desktop') await page.locator('.gacha-category-row button', { hasText: /^Standard$/ }).click();
     else await page.locator('.gacha-category-mobile').selectOption('standard');
-    const pendingNote = page.locator('.gacha-roster-section .gacha-lineup-pending', { hasText: 'Lineup to be confirmed.' });
-    await pendingNote.waitFor({ timeout: 10_000 });
-    const sidebarItems = page.locator('.gacha-banner-sidebar-item');
-    await sidebarItems.nth(1).click();
+    const sidebarItem = bannerName => page.locator(`.gacha-banner-sidebar-item[title="${bannerName.replace(/\s*\(Global\)\s*$/i, '')}"]`);
+    await sidebarItem(shownBanner).click();
     await page.locator('.gacha-roster-section .gacha-featured-chip').first().waitFor({ timeout: 10_000 });
     const before = await page.evaluate(() => { window.scrollTo(0, document.documentElement.scrollHeight); return { height: document.documentElement.scrollHeight, y: Math.round(scrollY) }; });
-    await sidebarItems.nth(0).evaluate(button => button.click());
-    await pendingNote.waitFor({ timeout: 10_000 });
+    // Clicked in place, so reaching the button does not scroll the page first.
+    await sidebarItem(pendingBanner).evaluate(button => button.click());
+    await page.locator('.gacha-roster-section', { hasText: 'Lineup to be confirmed.' }).waitFor({ timeout: 10_000 });
     const after = await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() =>
       resolve({ height: document.documentElement.scrollHeight, y: Math.round(scrollY) })))));
     assert.ok(after.height >= before.height, `${name} choosing the pending banner shortened the page from ${before.height} to ${after.height}px`);
