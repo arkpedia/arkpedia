@@ -1,8 +1,8 @@
 /* /techniques and /synergies. Both sit in the site's 1040px frame under a PageHeader
    (they had a 1320px body of their own under a 1040px search row), use the primitive
    .filter-chip for their filter rows and the global headings for their section names.
-   /obtain-method borrows the chip rows (.technique-chip-row); its 999px pills
-   (.technique-filter-btn) went with the move to .filter-chip. */
+   The 999px pills (.technique-filter-btn) went with the move to .filter-chip;
+   /obtain-method, which borrowed them, now has SegmentedControl rows of its own. */
 
 /* The search field in the PageHeader's actions row. */
 .technique-search { flex: 1 1 320px; max-width: 480px; }
