@@ -16,6 +16,8 @@ CI can stop until the allowance resets; free does not mean unlimited private run
 - Private app: one Ubuntu job per PR update and main push, 20-minute timeout,
   one Chromium installation, desktop and phone projects in the same job. A newer
   update cancels its previous check. No uploaded build, screenshot or video artifacts.
+  A push or PR that changes only `docs/**` or Markdown files skips Check, and so
+  Deploy (`config/docs-only-paths.json`; any other file runs every step).
 - Private daily content preparation: one job, 20-minute timeout, one rolling PR in the public data repository; no website build.
 - Public assets: standard Ubuntu runners only. Image/skin/voice syncs have explicit
   timeouts, avoid artifact uploads, and run several hours after Global reset.
