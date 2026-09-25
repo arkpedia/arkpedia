@@ -115,8 +115,10 @@ export default function StyledSelect<T extends SelectOption>({
     if (option.value !== value) onChange(option.value);
   }
 
-  useClientLayoutEffect(() => {
-    if (!open || !triggerRef.current) return;
+  /** Where the fixed menu goes, from where the trigger is now. */
+  const placeRef = useRef<() => void>(() => {});
+  placeRef.current = () => {
+    if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const below = window.innerHeight - rect.bottom - 16;
     const above = rect.top - 16;
@@ -129,6 +131,10 @@ export default function StyledSelect<T extends SelectOption>({
       width,
       maxHeight: Math.max(80, Math.min(560, upward ? above : below)),
     });
+  };
+
+  useClientLayoutEffect(() => {
+    if (open) placeRef.current();
   }, [open, align, menuMinWidth]);
 
   useEffect(() => {
@@ -138,9 +144,15 @@ export default function StyledSelect<T extends SelectOption>({
       if (!triggerRef.current?.contains(target) && !listRef.current?.contains(target)) setOpen(false);
     };
     const close = () => setOpen(false);
+    /* A page scroll follows the trigger rather than closing the menu: on a phone,
+       focusing the trigger scrolls it into view and the site nav then collapses,
+       which is a scroll too, and closing on that shut the list the moment it opened.
+       It closes only once the trigger has left the screen. */
     const scroll = (event: Event) => {
       if (event.target instanceof Node && listRef.current?.contains(event.target)) return;
-      close();
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) close();
+      else placeRef.current();
     };
     document.addEventListener('pointerdown', outside);
     window.addEventListener('resize', close);
