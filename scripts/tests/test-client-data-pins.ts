@@ -165,10 +165,10 @@ test('the walker follows what the browser loads and drops what Next strips', () 
 
 test('client code bundles no data file whose asset pins the release does not own', () => {
   const reached = clientDataFiles();
-  // Not vacuous: the schedule's banner fallback and the event calendar are client data, and
-  // each holds a pinned Persona address. (The stage browser's tables left client code for
-  // the page props: lib/content/tables.mjs.)
-  assert.ok(reached.has('data/headhunting_banners.json') && reached.has('data/events/events_2027.json'), [...reached.keys()].join('\n'));
+  // Not vacuous: the walk does reach client data. Only the few scripts/build/client-bundle-guard.cjs
+  // allows are left (the schedule's banner fallback and the event calendar, which held pinned
+  // Persona addresses, left client code for the page props: lib/content/tables.mjs).
+  assert.ok(reached.has('data/assets/revisions.json') && reached.has('data/skin-availability-windows.json'), [...reached.keys()].join('\n'));
   const problems: string[] = [];
   for (const [file, chain] of reached) {
     const pins = fs.readFileSync(path.join(ROOT, file), 'utf8').match(PINNED) ?? [];

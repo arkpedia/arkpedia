@@ -1,4 +1,4 @@
-import { useContentUrl, useContentTable } from '@/lib/content/context';
+import { useContentUrl, useReleaseTable } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
 import { ContentImg } from '@/components/content/ContentImage';
 import { withContentPage } from '@/lib/content/server';
@@ -13,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStageBySlug, getStageSlugs, getStageGeometryFor, getStageEnemyDetails, getStageSiblings, getStageTypeCounts, getStagePreviewFile, getStageEmergency, getStageDevices } from '@/lib/stages/stages';
 import { buildPlaybackPaths, buildSchedule, stateAt, PlaybackPath } from '@/lib/stages/stagePlayback';
 import { Stage, StageDevice, StageDrop, StageGeometry, StageEnemyDetail, StageEnemyEntry, StageSummary, TileLegend, TYPE_LABELS, RARITY_ORDER, UNRANKED, VARIANT_ORDER, baseFormLabel, rosterRank, variantLabel } from '@/lib/stages/stageTypes';
-import tileLegendData from '@/data/stage-tile-legend.json';
 import { tileStyle, stageTileMark, ROUTE_COLORS, TileMark } from '@/lib/stages/stageTiles';
 import { stageProperties, stageTokens } from '@/lib/stages/stageProperties';
 import { getDropIcons } from '@/lib/stages/dropIcon';
@@ -226,18 +225,6 @@ interface Props {
   firstSlug: string;
 }
 
-/**
- * The game's names and descriptions for tile types -- 77 keys, 10.4 kB, the same on
- * every stage in the game.
- *
- * Imported rather than passed through getStaticProps, which is where it used to come
- * from: identical props are not free, they are copied into all 3,786 stage payloads.
- * That one was 10.4 kB per page and 39 MB of the static export, re-downloaded on
- * every stage-to-stage navigation. As an import it lands in the route's own JS chunk,
- * which the browser fetches once and caches.
- */
-const defaultTileLegend = tileLegendData as TileLegend;
-
 const CELL = 34;
 const GAP = 2;
 const PAD = 16;
@@ -344,7 +331,9 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
    * first time the bar is shown, which today means the first time fullscreen is opened.
    */
   const contentUrl = useContentUrl();
-  const tileLegend = useContentTable('stage-tile-legend', defaultTileLegend);
+  /* The game's names and descriptions for tile types, the same on every stage: the release
+     hands it to the route once (lib/content/tables.mjs) rather than to each stage payload. */
+  const tileLegend = useReleaseTable<TileLegend>('stage-tile-legend');
   const [deployData, setDeployData] = useState<DeployData | null>(() => operatorCacheUrl === contentUrl('/operator-deploy.json') ? operatorCache : null);
   const [elite, setElite] = useState(2);
   const [armed, setArmed] = useState<DeployOperator | null>(null);

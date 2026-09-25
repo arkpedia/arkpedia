@@ -9,12 +9,9 @@ export function useContentUrl() {
 }
 
 export const ContentTablesContext = createContext<Record<string, unknown>>({});
-/** A table the page's props carry, or the bundled copy passed as `fallback`. Only for
- *  the tables that already had a bundled browser fallback; new ones use useReleaseTable. */
-export function useContentTable<T>(name: string, fallback: T): T {
-  const tables = useContext(ContentTablesContext);
-  return (tables[name] as T | undefined) ?? fallback;
-}
+/* There is no bundled fallback any more (useContentTable took one and answered from the last
+   deploy whenever a table was missing): browser code may not import data/ at all
+   (scripts/build/client-bundle-guard.cjs). */
 /** A table the page's props carry, with no bundled copy behind it. withContentPage
  *  attaches every table the route declares in lib/content/tables.mjs on every path, so a
  *  missing one is a page that never declared it -- said loudly rather than rendered empty. */

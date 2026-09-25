@@ -134,7 +134,7 @@ async function finalizeHome(props: Props): Promise<Props> {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/', async () => ({ props: {
   ongoingEvents: [], upcomingEvent: null, ongoingBanners: [], ongoingSkins: [],
-  farmableMaterials: getEventFarmingMaterials(), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
+  farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
   // Stored in the data release, consumed on the server, and never sent to the browser.
   __calendar: { events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins() },
 } }), { finalize: finalizeHome, revalidate: 1500 });

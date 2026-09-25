@@ -1,7 +1,4 @@
-import { useContentTable } from '@/lib/content/context';
-import contentColors from '@/data/event_colors.json';
-import contentMaterials from '@/data/event_materials.json';
-import contentBanners from '@/data/headhunting_banners.json';
+import { useReleaseTable } from '@/lib/content/context';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -12,7 +9,8 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, CSSProperties } from 'react';
 import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule/timelineUtils';
-import { getAllEvents, getOperatorBirthdays, parseDateRange, OperatorBirthday } from '@/lib/schedule/schedule';
+import { getAllEvents } from '@/lib/schedule/schedule';
+import { getOperatorBirthdays, parseDateRange, type OperatorBirthday } from '@/lib/schedule/scheduleDates';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { releaseMarker } from '@/lib/operators/operatorAvailability';
@@ -77,9 +75,12 @@ const MONTH_NAMES = [
 ];
 
 export default function SchedulePage({ events, operators: exportedOperators, skins, releaseLookup, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now }: Props) {
-  const colors = useContentTable('event_colors', contentColors);
-  const materials = useContentTable('event_materials', contentMaterials);
-  const banners = useContentTable('headhunting_banners', contentBanners) as HeadhuntingBanner[];
+  /* The release's tables, which the page's props always carry (lib/content/tables.mjs). The
+     bundled copies behind them are gone: a page rendered from a newer release read them
+     whenever a table was missing, and the banner list alone was 223 KB of the chunk. */
+  const colors = useReleaseTable<typeof import('@/data/event_colors.json')>('event_colors');
+  const materials = useReleaseTable<typeof import('@/data/event_materials.json')>('event_materials');
+  const banners = useReleaseTable<HeadhuntingBanner[]>('headhunting_banners');
   const router = useRouter();
   /* Everything that depends on the moment comes from `now`, the request's clock, so
      the server render and hydration agree and a release never freezes it. */
