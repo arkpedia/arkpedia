@@ -41,7 +41,7 @@
     "check:styles": "node scripts/audits/check-unstyled-classes.mjs --strict",
     "check:assets": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts",
     "check:assets:release": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts --quarantine",
-    "check:published-assets": "node scripts/audits/check-published-assets.mjs",
+    "check:published-assets": "node scripts/audits/check-published-assets.mjs && node scripts/audits/check-voice-clips.mjs",
     "check:deployment-traces": "node scripts/audits/check-deployment-traces.mjs",
     "check:client-chunks": "node scripts/audits/check-client-chunks.mjs",
     "assets:update": "node scripts/sync/update-asset-revisions.mjs",

@@ -38,7 +38,12 @@ Images and audio are delivered directly from GitHub, without proxying their bodi
 
 `npm run check:published-assets` verifies every indexed image path against the pinned
 manifests, downloads a sample from every image category plus responsive variants,
-checks their SHA-256 and sizes, and verifies pinned palette/voice metadata. Complete
+checks their SHA-256 and sizes, and verifies pinned palette/voice metadata. It then
+runs `scripts/audits/check-voice-clips.mjs`, which asks for every clip a legacy voice
+pack offers on an operator page and fails on any the pinned repository lacks. That
+half checks `data/operator-voice-lines.json`, which the voices stage rebuilds, so the
+release job's asset-revisions stage (which runs before it) checks only the files at
+its new pins. Complete
 image decoding/hash verification lives in the public asset repositories. Voice
 syncs verify every changed clip against its upstream Git blob and decode it before
 publishing; they do not delete removed/legacy recordings automatically.
