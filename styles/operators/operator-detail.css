@@ -9,44 +9,6 @@
   letter-spacing: 0.01em;
   min-height: 20px;
 }
-.tier-row {
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--line-soft);
-  padding: 14px 0;
-  min-height: 92px;
-}
-.tier-row.unrated { border-top: 2px solid var(--line); margin-top: 18px; padding-top: 16px; }
-.tier-label {
-  width: 64px;
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--amber);
-  font-weight: 500;
-}
-.tier-drop {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 46px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-.tier-drop.dragover { background: var(--teal-dim); }
-.tier-drop.selectable {
-  background: var(--teal-dim);
-  cursor: pointer;
-}
-.tier-actions {
-  margin-top: 24px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 /* --- Operator detail page --- */
 .op-hero {
   display: flex;

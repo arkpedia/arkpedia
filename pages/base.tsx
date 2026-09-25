@@ -47,6 +47,7 @@ import { CONTROL_CENTER_SPECIAL_SKILLS, ControlCenterContext } from '@/lib/base/
 import { computeResourcePools, consumerBonuses, BaseResourceState, pureGoldProductionLineCount, ResourcePools, LayoutCounts } from '@/lib/base/baseResources';
 import { RotationExperimentResult, runRotationExperiment, RotationFacilityLevels, initializeRotationExperimentData } from '@/lib/base/baseRotationExperiment';
 import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
+import PageHeader from '@/components/ui/PageHeader';
 
 
 // The manual-value input mechanism (see needsManualValue / setManualValue
@@ -3325,15 +3326,13 @@ export default function BasePage({ operators }: Props) {
     return (
       <>
         <div>
-          <header>
-            <div className="eyebrow">Rhodes Island // Base Layout</div>
-            <h1>{editingExistingLayout ? 'Edit Base Layout' : 'Base Formation'}</h1>
-            <p className="sub">
-              {editingExistingLayout
-                ? 'Change what stands in each production spot and how far each facility is built. Operators stay where they are, except in a spot whose facility type changes.'
-                : 'Build your base before starting the simulation. Start from a familiar split, then change anything you like.'}
-            </p>
-          </header>
+          <PageHeader
+            eyebrow="Rhodes Island // Base Layout"
+            title={editingExistingLayout ? 'Edit Base Layout' : 'Base Formation'}
+            sub={editingExistingLayout
+              ? 'Change what stands in each production spot and how far each facility is built. Operators stay where they are, except in a spot whose facility type changes.'
+              : 'Build your base before starting the simulation. Start from a familiar split, then change anything you like.'}
+          />
           <main>
             <section className="op-section base-setup-screen">
               <p className="hint base-setup-intro">
@@ -3348,12 +3347,16 @@ export default function BasePage({ operators }: Props) {
               {/* Three presets and a way past them. Each preset is a whole
                   base -- arrangement and levels -- so picking one is the
                   entire decision; Custom is for building it by hand. */}
-              <div className="base-setup-preset-cards">
+              {/* Selectable cards (.btn-bare .pick-card), picked in the teal selected
+                  state; they were solid .primary blocks, which is the look of the one
+                  action that matters on a screen. */}
+              <div className="base-setup-preset-cards" role="group" aria-label="Base formation">
                 {BASE_PRESET_IDS.map((preset) => (
                   <button
                     key={preset}
                     type="button"
-                    className={chosenPreset === preset ? 'primary base-setup-preset-card' : 'ghost base-setup-preset-card'}
+                    className="btn-bare pick-card base-setup-preset-card"
+                    aria-pressed={chosenPreset === preset}
                     onClick={() => applyPreset(preset)}
                   >
                     <span className="base-setup-preset-name">{BASE_PRESETS[preset].label}</span>
@@ -3365,7 +3368,8 @@ export default function BasePage({ operators }: Props) {
                   // Highlighted only once the custom controls are actually
                   // open -- keying it on "no preset chosen" made Custom look
                   // selected on a fresh setup screen where nothing is.
-                  className={showCustomControls ? 'primary base-setup-preset-card' : 'ghost base-setup-preset-card'}
+                  className="btn-bare pick-card base-setup-preset-card"
+                  aria-pressed={showCustomControls}
                   onClick={() => {
                     setShowCustomControls(true);
                     setChosenPreset(null);
@@ -3403,7 +3407,7 @@ export default function BasePage({ operators }: Props) {
                     <span className="base-setup-spot-name">
                       Floor {spot.row} &middot; {['Left', 'Middle', 'Right'][spot.column - 1]}
                     </span>
-                    <div className="base-setup-spot-kinds">
+                    <div className="base-setup-spot-kinds" role="group" aria-label={`Floor ${spot.row} ${['left', 'middle', 'right'][spot.column - 1]} spot`}>
                       {PRODUCTION_KINDS.map((kind) => {
                         const chosen = spotsDraft[spot.id] === kind;
                         const allowed = canSetSpotKind(spotsDraft, spot.id, kind);
@@ -3411,7 +3415,7 @@ export default function BasePage({ operators }: Props) {
                           <button
                             key={kind}
                             type="button"
-                            className={chosen ? 'primary' : 'ghost'}
+                            className="filter-chip" aria-pressed={chosen}
                             disabled={!allowed}
                             title={
                               allowed
@@ -3436,13 +3440,13 @@ export default function BasePage({ operators }: Props) {
                   {levelEditableFacilities(spotsDraft).map((f) => (
                     <div key={f.id} className="base-setup-level-row">
                       <span className="base-setup-level-label">{f.label}</span>
-                      <div className="base-setup-level-buttons">
+                      <div className="base-setup-level-buttons" role="group" aria-label={`${f.label} level`}>
                         {/* 0 is "not built" -- an empty plot is a legitimate base. */}
                         {Array.from({ length: f.maxLevel + 1 }, (_, i) => i).map((lvl) => (
                           <button
                             key={lvl}
                             type="button"
-                            className={draftLevelFor(f.id, f.maxLevel) === lvl ? 'primary' : 'ghost'}
+                            className="filter-chip" aria-pressed={draftLevelFor(f.id, f.maxLevel) === lvl}
                             title={lvl === 0 ? 'Not built' : `Level ${lvl}`}
                             onClick={() => updateDraftLevel(f.id, lvl)}
                           >
@@ -3534,31 +3538,28 @@ export default function BasePage({ operators }: Props) {
       <Head><title>Base — Arkpedia</title></Head>
 
       <div>
-      <header>
-        <div className="eyebrow">Rhodes Island // Base Layout</div>
-        <h1>Base</h1>
-        <p className="sub">
-          Click a facility, then click an operator&apos;s skill to place them immediately in the
-          next open slot. Click a filled slot to remove.
-        </p>
-        {/* base-view-controls pins the button metrics -- see the note in
-            base.css. stages-category-row is shared with other pages, so the
-            fix cannot live on it. */}
-        <div className="stages-category-row base-view-controls" style={{ marginTop: 10 }}>
-          <button
-            type="button"
-            className={viewMode === 'cumulated' ? 'primary' : 'ghost'}
-            onClick={() => setViewMode('cumulated')}
-          >
-            Cumulated
-          </button>
-          <button
-            type="button"
-            className={viewMode === 'separated' ? 'primary' : 'ghost'}
-            onClick={() => setViewMode('separated')}
-          >
-            Separated
-          </button>
+      <PageHeader
+        eyebrow="Rhodes Island // Base Layout"
+        title="Base"
+        sub={<>Click a facility, then click an operator&apos;s skill to place them immediately in the
+          next open slot. Click a filled slot to remove.</>}
+        actions={<div className="base-view-controls">
+          <div className="base-view-mode" role="group" aria-label="Figures">
+            <button
+              type="button"
+              className="filter-chip" aria-pressed={viewMode === 'cumulated'}
+              onClick={() => setViewMode('cumulated')}
+            >
+              Cumulated
+            </button>
+            <button
+              type="button"
+              className="filter-chip" aria-pressed={viewMode === 'separated'}
+              onClick={() => setViewMode('separated')}
+            >
+              Separated
+            </button>
+          </div>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside
               the per-building gears for changing many rooms at once. */}
@@ -3577,8 +3578,8 @@ export default function BasePage({ operators }: Props) {
               Rotation Experiment (Elite 0)
             </button>
           )}
-        </div>
-      </header>
+        </div>}
+      />
 
       <main>
         {ROTATION_EXPERIMENT_ENABLED && showRotationPanel && (
@@ -3589,11 +3590,11 @@ export default function BasePage({ operators }: Props) {
                 Close
               </button>
             </div>
-            <div className="stages-category-row" style={{ marginBottom: 10 }}>
-              <button type="button" className={rotationMode === 'eliteZero' ? 'primary' : 'ghost'} onClick={() => switchRotationMode('eliteZero')}>
+            <div className="base-chip-row" role="group" aria-label="Rotation mode" style={{ marginBottom: 10 }}>
+              <button type="button" className="filter-chip" aria-pressed={rotationMode === 'eliteZero'} onClick={() => switchRotationMode('eliteZero')}>
                 Elite 0 only
               </button>
-              <button type="button" className={rotationMode === 'eliteTwo' ? 'primary' : 'ghost'} onClick={() => switchRotationMode('eliteTwo')}>
+              <button type="button" className="filter-chip" aria-pressed={rotationMode === 'eliteTwo'} onClick={() => switchRotationMode('eliteTwo')}>
                 Elite 2 (max investment)
               </button>
             </div>
@@ -3795,7 +3796,8 @@ export default function BasePage({ operators }: Props) {
                           <button
                             key={lvl}
                             type="button"
-                            className={`base-elite-btn${roomPanelEliteLevel === lvl ? ' selected' : ''}`}
+                            className="filter-chip"
+                            aria-pressed={roomPanelEliteLevel === lvl}
                             onClick={() => setRoomPanelEliteLevel(lvl)}
                           >
                             {lvl === 'Base' ? 'Elite 0' : lvl}
@@ -3805,12 +3807,12 @@ export default function BasePage({ operators }: Props) {
                     </div>
 
                     {facility.kind === 'factory' && (
-                      <div className="base-product-select">
+                      <div className="base-product-select" role="group" aria-label="Factory product">
                         {(['Battle Records', 'Precious Metals'] as FactoryProduct[]).map((product) => (
                           <button
                             key={product}
                             type="button"
-                            className={factoryProducts[facility.id] === product ? 'primary' : 'ghost'}
+                            className="filter-chip" aria-pressed={factoryProducts[facility.id] === product}
                             onClick={() => persistProduct(facility.id, product)}
                           >
                             {product}
@@ -4012,7 +4014,10 @@ export default function BasePage({ operators }: Props) {
                 style={{
                   transform: `translate(-50%, -50%) translate(${basePan.x}px, ${basePan.y}px) scale(${baseZoom})`,
                   willChange: baseInteracting ? 'transform' : 'auto',
-                }}
+                  /* How much a facility's gear and ? grow so they stay at least 24px on
+                     screen when the map is zoomed out (9px at a phone's 0.35 before). */
+                  '--base-tap-scale': Math.min(3.2, Math.max(1, 1.1 / baseZoom)),
+                } as CSSProperties}
               >
                 <div className="base-grid" ref={baseGridRef}>
                   {FACILITIES.map((f) => {
@@ -4382,14 +4387,14 @@ export default function BasePage({ operators }: Props) {
                             {PRODUCTION_SPOT_IDS.includes(f.id) ? (
                               <div className="base-facility-settings-group">
                                 <span className="base-facility-settings-label">Build</span>
-                                <div className="base-facility-settings-buttons">
+                                <div className="base-facility-settings-buttons" role="group" aria-label="Build">
                                   {PRODUCTION_KINDS.map((kind) => {
                                     const allowed = canSetSpotKind(productionSpots, f.id, kind);
                                     return (
                                       <button
                                         key={kind}
                                         type="button"
-                                        className={productionSpots[f.id] === kind ? 'primary' : 'ghost'}
+                                        className="filter-chip" aria-pressed={productionSpots[f.id] === kind}
                                         disabled={!allowed}
                                         title={
                                           allowed
@@ -4412,12 +4417,12 @@ export default function BasePage({ operators }: Props) {
 
                             <div className="base-facility-settings-group">
                               <span className="base-facility-settings-label">Level</span>
-                              <div className="base-facility-settings-buttons base-facility-settings-level">
+                              <div className="base-facility-settings-buttons base-facility-settings-level" role="group" aria-label="Level">
                                 {Array.from({ length: MAX_LEVEL_BY_KIND[f.kind] + 1 }, (_, i) => i).map((lvl) => (
                                   <button
                                     key={lvl}
                                     type="button"
-                                    className={f.level === lvl ? 'primary' : 'ghost'}
+                                    className="filter-chip" aria-pressed={f.level === lvl}
                                     title={lvl === 0 ? 'Not built' : `Level ${lvl}`}
                                     onClick={() => setFacilityLevel(f.id, lvl)}
                                   >
@@ -4459,12 +4464,12 @@ export default function BasePage({ operators }: Props) {
                           {f.kind === 'factory' && f.level > 0 && (
                             <div className="base-facility-settings-group">
                               <span className="base-facility-settings-label">Makes</span>
-                              <div className="base-facility-settings-buttons">
+                              <div className="base-facility-settings-buttons" role="group" aria-label="Makes">
                                 {(['Battle Records', 'Precious Metals'] as FactoryProduct[]).map((product) => (
                                   <button
                                     key={product}
                                     type="button"
-                                    className={factoryProducts[f.id] === product ? 'primary' : 'ghost'}
+                                    className="filter-chip" aria-pressed={factoryProducts[f.id] === product}
                                     onClick={() => persistProduct(f.id, product)}
                                   >
                                     {product}
@@ -4590,7 +4595,7 @@ export default function BasePage({ operators }: Props) {
                           <span className="base-resource-settings-label">Clue Exchange</span>
                           <button
                             type="button"
-                            className={clueExchangeActive ? 'primary' : 'ghost'}
+                            className="filter-chip" aria-pressed={clueExchangeActive}
                             onClick={() => persistSettings({ clueExchangeActive: !clueExchangeActive, moraleAbove12, swapPolicy })}
                           >
                             {clueExchangeActive ? 'On' : 'Off'}
@@ -4602,7 +4607,7 @@ export default function BasePage({ operators }: Props) {
                           <span className="base-resource-settings-label">Morale</span>
                           <button
                             type="button"
-                            className={moraleAbove12 ? 'primary' : 'ghost'}
+                            className="filter-chip" aria-pressed={moraleAbove12}
                             onClick={() => persistSettings({ clueExchangeActive, moraleAbove12: !moraleAbove12, swapPolicy })}
                           >
                             {moraleAbove12 ? 'Above 12' : 'Below 12'}
@@ -4614,7 +4619,7 @@ export default function BasePage({ operators }: Props) {
                           <span className="base-resource-settings-label">Swap operators</span>
                           <button
                             type="button"
-                            className={swapPolicy === 'onLogin' ? 'primary' : 'ghost'}
+                            className="filter-chip" aria-pressed={swapPolicy === 'onLogin'}
                             onClick={() =>
                               persistSettings({
                                 clueExchangeActive,
@@ -4642,12 +4647,12 @@ export default function BasePage({ operators }: Props) {
             <div className="base-summary-panel">
               <div className="base-summary-row">
                 <span className="base-summary-label">Login interval</span>
-                <div className="stages-category-row">
+                <div className="base-chip-row" role="group" aria-label="Login interval">
                   {LOGIN_INTERVAL_OPTIONS.map((h) => (
                     <button
                       key={h}
                       type="button"
-                      className={loginInterval === h ? 'primary' : 'ghost'}
+                      className="filter-chip" aria-pressed={loginInterval === h}
                       onClick={() => setLoginInterval(h)}
                     >
                       {h}h
@@ -4660,12 +4665,12 @@ export default function BasePage({ operators }: Props) {
               </p>
               <div className="base-summary-row">
                 <span className="base-summary-label">Period</span>
-                <div className="stages-category-row">
+                <div className="base-chip-row" role="group" aria-label="Period">
                   {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((p) => (
                     <button
                       key={p}
                       type="button"
-                      className={statsPeriod === p ? 'primary' : 'ghost'}
+                      className="filter-chip" aria-pressed={statsPeriod === p}
                       onClick={() => setStatsPeriod(p)}
                     >
                       {p[0].toUpperCase() + p.slice(1)}
@@ -4708,7 +4713,7 @@ export default function BasePage({ operators }: Props) {
                                 (n) => `${n.toFixed(1)}/${unit}`
                               )}
                               {dailyGoldFromProvisoGreen > 0 && (
-                                <span style={{ color: '#e08a2e', marginLeft: 6 }}>
+                                <span className="base-summary-extra">
                                   +{(dailyGoldFromProvisoGreen * mult).toFixed(1)} from Proviso
                                 </span>
                               )}
@@ -4733,12 +4738,12 @@ export default function BasePage({ operators }: Props) {
                                 (n) => `${Math.round(n).toLocaleString()} LMD/${unit}`
                               )}
                               {dailyExtraLmdFromTequilaGreen > 0 && (
-                                <span style={{ color: '#e08a2e', marginLeft: 6 }}>
+                                <span className="base-summary-extra">
                                   +{Math.round(dailyExtraLmdFromTequilaGreen * mult).toLocaleString()} from Tequila
                                 </span>
                               )}
                               {dailyGoldFromProvisoGreen > 0 && (
-                                <span style={{ color: '#e08a2e', marginLeft: 6 }}>
+                                <span className="base-summary-extra">
                                   +{Math.round(dailyGoldFromProvisoGreen * 500 * mult).toLocaleString()} from Proviso&apos;s extra gold
                                 </span>
                               )}
@@ -4758,12 +4763,16 @@ export default function BasePage({ operators }: Props) {
             </div>
             </div>
 
-            <button type="button" className="ghost base-reset-btn" onClick={resetBase}>
-              Reset base
-            </button>
-            <button type="button" className="ghost base-reset-btn" onClick={resetToSetup}>
-              Start over (choose new formation)
-            </button>
+            {/* Both throw work away, so they are .danger, side by side at their own
+                width -- they were two full-width neutral ghosts. */}
+            <div className="base-reset-row">
+              <button type="button" className="danger" onClick={resetBase}>
+                Reset base
+              </button>
+              <button type="button" className="danger" onClick={resetToSetup}>
+                Start over (choose new formation)
+              </button>
+            </div>
           </div>
         </div>
       </main>

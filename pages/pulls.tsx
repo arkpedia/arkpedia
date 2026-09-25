@@ -19,7 +19,10 @@ import { getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
 import { bundledBacklogSources } from '@/lib/pulls/sources';
 import { useRouter } from 'next/router';
 import { getAllSkins } from '@/lib/skins/skins';
-import { PlannerSelect } from '@/components/pulls/PlannerSelect';
+import StyledSelect from '@/components/ui/StyledSelect';
+import PageHeader from '@/components/ui/PageHeader';
+import { DetailOptionContent, type DetailOption } from '@/components/pulls/DetailOption';
+import { IncludePastSwitch } from '@/components/pulls/IncludePastSwitch';
 import { SkinPlan } from '@/components/pulls/SkinPlan';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, MAX_PLAN_FILE_SIZE, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
@@ -310,15 +313,22 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates);
   return <>
     <Head><title>Pull Planner — Arkpedia</title></Head>
-    <main className={`pulls-page ${workspace.page}`}>
-      <header className={workspace.header}><div><h1>Pull Planner</h1></div><div className={workspace.headerActions}>
-        <button type="button" className="pulls-quick-btn" onClick={exportPlan}>Export</button><button type="button" className="pulls-quick-btn" onClick={() => fileInput.current?.click()}>Import</button>
+    {/* The site's page header, outside <main> like every page's: it was a 34px
+        sentence-case h1 inside main, 12px from the edge on a phone. Export and Import
+        are ordinary secondary buttons, with the control border. */}
+    <PageHeader
+      eyebrow="Rhodes Island // Headhunting Budget"
+      title="Pull Planner"
+      actions={<div className={workspace.headerActions}>
+        <button type="button" className="ghost btn-sm" onClick={exportPlan}>Export</button><button type="button" className="ghost btn-sm" onClick={() => fileInput.current?.click()}>Import</button>
         <input ref={fileInput} type="file" accept=".json" hidden aria-label="Import pull plan file" onChange={e => { const file = e.target.files?.[0]; if (file) void importPlan(file); e.target.value = ''; }} />
-      </div></header>
+      </div>}
+    />
+    <main className={`pulls-page ${workspace.page}`}>
       {notice && <p role="status">{notice}</p>}
       {(saveBlocked || saveStatus.startsWith('Device storage')) && <p role="alert" className="pulls-plan-warning">{saveStatus}</p>}
       <div className={workspace.sections}>
-      <section className={workspace.overview} aria-labelledby="pull-resources-heading">
+      <section className={`op-section ${workspace.overview}`} aria-labelledby="pull-resources-heading">
         <h2 id="pull-resources-heading" className={workspace.resourceHeading}>Resources &amp; income</h2>
         <div className={workspace.wallet}>
           <Field label="Orundum" unit="" icon="/material-icons/Orundum.webp" value={orundum} onChange={setOrundum} />
@@ -327,19 +337,23 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
           <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} />
         </div>
         {skinBudget.missing.length > 0 && <p className="pulls-plan-warning">Some selected skins have missing prices. Review your wishlist.</p>}
-        <div className={workspace.incomeRow}>            <div className="pulls-recurring-grid">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} /><span>{label}</span><small>{rate}</small></label>)}<label className={workspace.monthly}><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label></div>
+        <div className={workspace.incomeRow}>            {/* Six independent switches, each a .tgl with aria-pressed: they were native
+            17px checkboxes in the browser's own drawing. */}
+            <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <button type="button" key={key} className={`tgl${incomeSettings[key] ? ' is-on' : ''}`} aria-pressed={!!incomeSettings[key]} title={rate} onClick={() => setIncomeSettings(previous => ({ ...previous, [key]: !previous[key] }))}>{label}</button>)}<button type="button" className={`tgl${monthlyCard ? ' is-on' : ''}`} aria-pressed={monthlyCard} onClick={() => setMonthlyCard(on => !on)}>Monthly card</button></div>
 <div className={workspace.rate}><strong>{monthlyIncome.toLocaleString(undefined,{maximumFractionDigits:1})}</strong><span>pulls / 30 days</span></div></div>
         <div className={workspace.utilities}>
           <button type="button" id="tab-income" aria-controls="panel-income" aria-expanded={activeTab === 'income'} onClick={() => setActiveTab(activeTab === 'income' ? '' : 'income')}><span>Income & events</span><span>{activeTab === 'income' ? '−' : '+'}</span></button>
           <div className={workspace.pastUtility}>
-            <label title="Include past rewards in forecast"><input type="checkbox" aria-label="Include past rewards in forecast" checked={includeBacklog} onChange={e => setIncludeBacklog(e.target.checked)} /></label>
             <button type="button" id="tab-past" aria-controls="panel-past" aria-expanded={activeTab === 'past'} onClick={() => setActiveTab(activeTab === 'past' ? '' : 'past')}><span>Past events</span><span aria-hidden="true">{activeTab === 'past' ? '−' : '+'}</span></button>
+            <IncludePastSwitch checked={includeBacklog} onChange={setIncludeBacklog} />
           </div>
           <button type="button" id="tab-skins" aria-controls="panel-skins" aria-expanded={activeTab === 'skins'} onClick={() => setActiveTab(activeTab === 'skins' ? '' : 'skins')}><span>Skin wishlist <b>{skinIds.length}</b></span><span>{reserve} OP reserved {activeTab === 'skins' ? '−' : '+'}</span></button>
         </div>
-        <div className={workspace.detailArea} hidden={!activeTab}>          <section role="region" id="panel-income" aria-labelledby="tab-income" hidden={activeTab !== 'income'} className={workspace.detailPanel}>
+        <div className={workspace.detailArea} hidden={!activeTab}>          <section role="region" id="panel-income" aria-labelledby="tab-income" hidden={activeTab !== 'income'} className={`op-section ${workspace.detailPanel}`}>
             <h2>Income</h2>
-            <div className="pulls-target-row"><PlannerSelect label="Forecast banner" value={bannerName} onChange={name => { setBannerName(name); const banner = banners.find(b => b.name === name); if (banner) setUntil(banner.end); }} options={[{ value: '', label: 'Choose a banner…' }, ...banners.map(b => {
+            <div className="pulls-target-row"><StyledSelect<DetailOption> label="Forecast banner" menuMinWidth={320} value={bannerName} onChange={name => { setBannerName(name); const banner = banners.find(b => b.name === name); if (banner) setUntil(banner.end); }}
+              renderOption={option => <DetailOptionContent option={option} />} renderValue={option => <DetailOptionContent option={option} compact />}
+              options={[{ value: '', label: 'Choose a banner…' }, ...banners.map((b): DetailOption => {
                 const rateUp = bannerOdds[b.name]?.operators.filter(operator => operator.kind === 'featured') ?? [];
                 const dateLabel = (date: string, year: boolean) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' as const } : {}), timeZone: 'UTC' });
                 return { value: b.name, label: (rateUp.length ? rateUp.map(operator => operator.name) : b.sixStars).join(' · ') || b.name,
@@ -348,11 +362,11 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
                   portraits: rateUp.filter(operator => operator.icon).map(operator => ({ name: operator.name, src: operator.icon! })) };
               })]} />
               <input id="forecast-date" type="date" className="pulls-date" aria-label="Forecast date" max="2099-12-31" value={until} min={now?.toISOString().slice(0, 10)} onChange={e => { if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName(''); }} />
-              <div className="pulls-day-options">{(['start', 'end'] as const).map(day => <button type="button" key={day} disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
+              <div className="pulls-day-options" role="group" aria-label="Forecast day">{(['start', 'end'] as const).map(day => <button type="button" key={day} className="filter-chip" disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
             </div>
             {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
               {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
-            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Recurring income breakdown <span className="hint">{income.days} daily resets · {income.weeks} weekly resets</span></summary>
+            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Recurring income breakdown <span className="hint pulls-note">{income.days} daily resets · {income.weeks} weekly resets</span></summary>
               <div className="pulls-lines">
             <Line what="Yellow certificate shop" sum="pulls from full monthly sets" amount={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) : 0} />
             <Line what="Green cert shop" sum={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} amount={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} />
@@ -378,7 +392,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
             </div>
           </div>
 </details>
-            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure pulls-event-rewards" open><summary>Event rewards <span className="hint">{haul.op} OP · {haul.permits} permits by {until}</span></summary>
+            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure pulls-event-rewards" open><summary>Event rewards <span className="hint pulls-note">{haul.op} OP · {haul.permits} permits by {until}</span></summary>
           {haul.counted.length === 0 && haul.skipped.length === 0 ? (
             <p className="hint pulls-empty">
               No events end before this date.
@@ -451,13 +465,13 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
 
           </section>
-          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={workspace.detailPanel}><PastRewards backlog={backlogSources} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} include={includeBacklog} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} onInclude={setIncludeBacklog} /></section>
-          <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={workspace.detailPanel}>        <SkinPlan collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} heldOP={held.originitePrime} extraOP={readNumber(reservedOP)} forecastOP={date => totalAt(new Date(`${date}T23:59:59Z`)).grossOP}
+          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={`op-section ${workspace.detailPanel}`}><PastRewards backlog={backlogSources} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} include={includeBacklog} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} onInclude={setIncludeBacklog} /></section>
+          <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={`op-section ${workspace.detailPanel}`}>        <SkinPlan collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} heldOP={held.originitePrime} extraOP={readNumber(reservedOP)} forecastOP={date => totalAt(new Date(`${date}T23:59:59Z`)).grossOP}
           extraField={<Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} />} />
 </section>
 </div>
       </section>
-      <section className={workspace.forecast} aria-label="Pull calculation">
+      <section className={`op-section ${workspace.forecast}`} aria-label="Pull calculation">
         <div className={workspace.calculationHeading}><h2>Pull calculation</h2><div className={workspace.forecastDate}><label htmlFor="pull-calculation-date">Until</label><input id="pull-calculation-date" type="date" value={until} onChange={e => {if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName('');}} /></div></div>
         <dl>
           <div><dt>Available now</dt><dd>{today.pulls}</dd></div>
@@ -466,8 +480,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
           <div className={workspace.forecastTotal}><dt>Before spending</dt><dd><span aria-hidden="true">=</span>{forecastSavings}<small> pulls</small></dd></div>
         </dl>
       </section>
-      <section className={workspace.plan} aria-label="Your banner plan">
-        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={workspace.add} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
+      <section className={`op-section ${workspace.plan}`} aria-label="Your banner plan">
+        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary ${workspace.add}`} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
         {choosingBanner && <BannerPicker banners={banners} selected={goals.map(goal => goal.banner)} odds={bannerOdds} onAdd={addGoal} />}
         <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
         {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}

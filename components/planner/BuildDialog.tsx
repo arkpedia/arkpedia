@@ -172,14 +172,14 @@ export function BuildDialog({
 
         <div className="build-body">
           {steps.length === 0 ? (
-            <p className="hint">
+            <p className="hint plan-hint">
               Everything this plan targets is done. Set a further target on <b>{name}</b> and the
               steps to it appear here.
             </p>
           ) : (
             <>
               {/* Derived from the rows below, not asserted. */}
-              <p className="hint build-lede">
+              <p className="hint plan-hint build-lede">
                 {steps.length} {steps.length === 1 ? 'step' : 'steps'} to go &middot;{' '}
                 {ready > 0
                   ? `${ready} you can build right now`
@@ -228,7 +228,7 @@ export function BuildDialog({
         </div>
 
         <div className="wizard-foot">
-          <p className="hint build-note" role="status">
+          <p className="hint plan-hint build-note" role="status">
             {note ?? 'Building spends the materials and moves the operator, one step at a time.'}
           </p>
           <span className="wizard-foot-acts">

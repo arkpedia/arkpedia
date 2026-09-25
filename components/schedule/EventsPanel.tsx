@@ -1,5 +1,6 @@
 import { activeEventFarming } from '@/lib/farming/eventFarming';
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import CountdownTimer from '../ui/CountdownTimer';
 import { GameEvent } from '@/lib/home/frontPageContent';
@@ -59,7 +60,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
 
   if (slides.length === 0) {
     return (
-      <section className="front-panel front-events-panel">
+      <section className="front-panel front-home-panel front-events-panel">
         <h2>Events</h2>
         <p className="hint">No events to show right now.</p>
         {currentMaterials.length > 0 && <FarmableInline materials={currentMaterials} />}
@@ -70,9 +71,11 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
   const active = slides[Math.min(activeIndex, slides.length - 1)];
 
   return (
-    <section className="front-panel front-events-panel">
+    <section className="front-panel front-home-panel front-events-panel">
       <h2>Events</h2>
-      <button type="button" className="front-events-main" onClick={() => selectSlide(activeIndex)}>
+      {/* The event's own page. This was a button whose only effect was to pause the
+          slideshow, which is not what a reader pressing an event expects. */}
+      <Link prefetch={false} href={`/events/${encodeURIComponent(active.event.name)}`} className="front-events-main">
         {/* The box keeps its size without art: a poster the image repository has not
             published yet is null (publishedArt), never a broken image. */}
         <div className="front-events-poster-wrap">
@@ -82,7 +85,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Pr
           <span className="front-events-name">{active.event.name}</span>
           <CountdownTimer start={active.event.start} target={active.event.end} />
         </div>
-      </button>
+      </Link>
 
       {slides.length > 1 && (
         <div className="front-events-dots">

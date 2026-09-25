@@ -686,47 +686,6 @@ a.primary:where(:has(~ a.ghost)),
   text-transform: uppercase;
   color: var(--teal);
 }
-.stats-table {
-  margin-top: 20px;
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-align: left;
-}
-.stats-table th, .stats-table td {
-  border-bottom: 1px solid var(--line-soft);
-  padding: 8px 10px;
-  vertical-align: middle;
-}
-.stats-table-boxplot-btn {
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: block;
-}
-.stats-table-boxplot-btn:hover .power-boxplot-svg { opacity: 0.8; }
-/* The distribution curve. Sized by its own width/height attributes, but an inline
-   svg sits on the text baseline and leaves the descender gap under itself -- 4px of
-   it, under every chart on /results. */
-.power-distribution-svg { display: block; }
-.stats-table th { color: var(--text-faint); font-weight: 500; }
-.stats-table-sortable {
-  cursor: pointer;
-  user-select: none;
-}
-.stats-table-sortable:hover {
-  color: var(--teal);
-}
-.stats-table img {
-  width: 28px;
-  height: 28px;
-  object-fit: cover;
-  border-radius: 3px;
-  vertical-align: middle;
-  margin-right: 8px;
-}
 .waiting-box {
   text-align: center;
   padding: 80px 20px;
@@ -746,14 +705,6 @@ a.primary:where(:has(~ a.ghost)),
   height: 1px;
   opacity: 0;
   pointer-events: none;
-}
-.view-toggle {
-  display: flex;
-  gap: 8px;
-}
-.view-toggle button {
-  font-size: 12px;
-  padding: 8px 16px;
 }
 .num-highlight {
   color: var(--teal);
@@ -813,31 +764,6 @@ a.primary:where(:has(~ a.ghost)),
   .recruit-combo-tags {
     min-width: 0;
   }
-}
-
-/* The zoomable panel itself. Its footprint is set by --base-view-height
-   rather than by the grid inside it, so it reads as its own distinct
-   "beautiful navigable base"; the grid is zoomed to fit that footprint
-   instead of the panel being sized to the grid. overflow:hidden clips the
-   scaled/panned stage to this viewport; cursor communicates the
-   click-and-drag panning. */
-.base-zoom-viewport {
-  position: relative;
-  height: var(--base-view-height);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  overflow: hidden;
-  cursor: grab;
-  touch-action: none;
-}
-.base-zoom-viewport.fullscreen {
-  position: fixed;
-  inset: 0;
-  height: 100vh;
-  z-index: 300;
-  border-radius: 0;
-  border: none;
 }
 
 @media (max-width: 900px) {

@@ -15,6 +15,9 @@ import { usePlannerContent } from "@/lib/content/planner";
 import { sortMaterials } from "@/lib/farming/materialSortOrder";
 import { plannerModules } from "@/lib/planner/build";
 import { MaterialIcon } from "./MaterialIcon";
+import SegmentedControl from "@/components/ui/SegmentedControl";
+import SearchInput from "@/components/ui/SearchInput";
+import Rarity, { rarityLevel } from "@/components/ui/Rarity";
 
 function Materials({ cost }: { cost: CostGroup }) {
   const items = sortMaterials(cost.filter((c) => Number(c.quantity) > 0));
@@ -55,9 +58,13 @@ export function SimpleMaterialGroups({
   }, [groups]);
   return (
     <div className="simple-cost-groups">
-      <div className="simple-material-view" role="group" aria-label="Material display">
-        {(['total', 'separate'] as const).map(mode => <button key={mode} type="button" aria-pressed={view === mode} onClick={() => setView(mode)}>{mode === 'total' ? 'Total' : 'Separate'}</button>)}
-      </div>
+      <SegmentedControl
+        label="Material display"
+        className="simple-material-view"
+        value={view}
+        onChange={setView}
+        options={[{ value: 'total', label: 'Total' }, { value: 'separate', label: 'Separate' }]}
+      />
       {view === 'total' ? <Materials cost={total} /> : groups.map(g => (
         <section key={g.name}>
           <h3>{g.name}</h3>
@@ -106,7 +113,6 @@ export function SimplePlanner({
   onRetry: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const matches = useMemo(
     () =>
       operators
@@ -131,83 +137,40 @@ export function SimplePlanner({
   const state = name ? states[name] : null;
   const pending = selectedNames.filter((n) => !bills[n]);
   return (
-    <div className="simple-planner">
+    <div>
       <div className="simple-search-row">
-      <div
+      {/* The site's search field with its suggestion list: it was a hand-built
+          input and list of its own. Enter still takes the first match. */}
+      <SearchInput
+        id="planner-search"
         className="simple-search"
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setSearchOpen(false);
-        }}
-      >
-        <label htmlFor="planner-search" className="visually-hidden">
-          Search operators
-        </label>
-        <input
-          id="planner-search"
-          type="search"
-          placeholder="Search operators…"
-          value={query}
-          autoComplete="off"
-          aria-controls="planner-search-results"
-          onFocus={() => setSearchOpen(!!query.trim())}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setSearchOpen(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setSearchOpen(false);
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              document
-                .querySelector<HTMLButtonElement>(
-                  "#planner-search-results button",
-                )
-                ?.focus();
-            }
-            if (e.key === "Enter" && matches[0]) {
-              e.preventDefault();
-              onEdit(matches[0].name);
-              setSearchOpen(false);
-              setQuery("");
-            }
-          }}
-        />
-        {searchOpen && (
-          <div id="planner-search-results" className="simple-search-results">
-            {matches.length ? (
-              matches.map((o) => (
-                <button
-                  key={o.name}
-                  type="button"
-                  onClick={() => {
-                    setSearchOpen(false);
-                    setQuery("");
-                    onEdit(o.name);
-                  }}
-                >
-                  <Image
-                    src={getOperatorIconPath(o)}
-                    alt=""
-                    width={42}
-                    height={42}
-                  />
-                  <span>
-                    <b>{o.name}</b>
-                    <small>
-                      {o.rarity}★ {o.className}
-                    </small>
-                  </span>
-                  <span className="simple-search-add">
-                    {selectedNames.includes(o.name) ? "Edit" : "+"}
-                  </span>
-                </button>
-              ))
-            ) : (
-              <p>No operators found</p>
-            )}
-          </div>
+        label="Search operators"
+        placeholder="Search operators…"
+        value={query}
+        onChange={setQuery}
+        suggestions={matches}
+        getKey={(o) => o.name}
+        suggestLabel="Matching operators"
+        emptyText="No operators found"
+        renderSuggestion={(o) => (
+          <>
+            <Image src={getOperatorIconPath(o)} alt="" width={36} height={36} className={o.rarity ? `tier-${rarityLevel(o.rarity)}` : undefined} />
+            <span className="simple-search-text">
+              <b>{o.name}</b>
+              <small>{o.rarity ? <Rarity n={rarityLevel(o.rarity)} /> : null} {o.className}</small>
+            </span>
+            <span className="simple-search-add">{selectedNames.includes(o.name) ? "Edit" : "+"}</span>
+          </>
         )}
-      </div>
+        onPick={(o) => { setQuery(""); onEdit(o.name); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.defaultPrevented && matches[0]) {
+            e.preventDefault();
+            onEdit(matches[0].name);
+            setQuery("");
+          }
+        }}
+      />
       {clearControl}</div>
       {selectedNames.length > 0 ? (
         <>
@@ -266,7 +229,7 @@ export function SimplePlanner({
                 />
                 <div className="simple-portrait-caption">
                   <span>
-                    {summary.rarity}★ {summary.className}
+                    {summary.rarity ? <Rarity n={rarityLevel(summary.rarity)} /> : null} {summary.className}
                   </span>
                   <h2>{name}</h2>
                 </div>
@@ -274,7 +237,7 @@ export function SimplePlanner({
               <div className="simple-dossier-content">
                 <div className="simple-build-overview">
                   <div className="simple-build-summary">
-                    <button type="button" className="simple-state-link" onClick={() => onEdit(name, "current")}>
+                    <button type="button" className="btn-bare simple-state-link" onClick={() => onEdit(name, "current")}>
                       <small>Current Level</small>
                       <b>
                         <Level
@@ -285,7 +248,7 @@ export function SimplePlanner({
                       <span className="simple-state-action">Set current</span>
                     </button>
                     <span aria-hidden="true">→</span>
-                    <button type="button" className="simple-state-link" onClick={() => onEdit(name, "goal")}>
+                    <button type="button" className="btn-bare simple-state-link" onClick={() => onEdit(name, "goal")}>
                       <small>Goal</small>
                       <b>
                         <Level elite={state.elite} level={state.level} />

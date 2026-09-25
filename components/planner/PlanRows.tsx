@@ -100,7 +100,7 @@ function Row({
       <span className="plan-progress">
         {view.toLabel && !view.pending && (
           <>
-            <span className="meter">
+            <span className="meter plan-progress-meter">
               <span className="meter-fill" style={{ width: `${pct}%` }} />
             </span>
             <span className="pct">{pct}%</span>
@@ -197,11 +197,11 @@ export function PlanRows({
     <>
       <div className="plan-panel-head">
         <span className="label-pair">
-          <span className="label-tag">Who you are building</span>
+          <span className="label-tag plan-panel-tag">Who you are building</span>
           <h2>Your plan</h2>
         </span>
         {/* Derived from the rows beneath it, which is now all this panel holds. */}
-        <span className="hint">
+        <span className="hint plan-hint">
           &middot; {planned.length} {planned.length === 1 ? 'operator' : 'operators'} with goals
         </span>
         <span className="plan-panel-acts">{clearControl}
@@ -221,7 +221,7 @@ export function PlanRows({
 
       <div className="plan-panel-body" ref={floor.ref}>
         {planned.length === 0 ? (
-          <p className="hint">
+          <p className="hint plan-hint">
             Nothing here yet. Open <b>Your roster</b> and press whoever you own to say how
             far along they are &mdash; then <b>+ Add a goal</b> for the ones you are
             building, and everything else on this page fills in from that.
@@ -235,7 +235,7 @@ export function PlanRows({
         )}
 
         {rosterCount === 0 && planned.length > 0 && (
-          <p className="hint">
+          <p className="hint plan-hint">
             Nothing is recorded in your roster yet, so every plan here starts from E0 Lv1.
             Press <b>Edit</b> on a row and set where they actually are.
           </p>

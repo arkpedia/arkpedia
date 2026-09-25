@@ -105,7 +105,9 @@ export function OperatorStateForm({
           </span>
         </div>
 
-        <div className="seg-row">
+        {/* .filter-chip rows: the site's pick-one chips with the control border (the
+            theme's .seg is borderless, 1.00:1). */}
+        <div className="state-elite-row">
           {[0, 1, 2].map((e) => {
             const eliteCap = LEVEL_CAPS[rarity]?.[e as 0 | 1 | 2];
             if (eliteCap === undefined) return null;
@@ -114,7 +116,7 @@ export function OperatorStateForm({
               <button
                 type="button"
                 key={e}
-                className="seg"
+                className="filter-chip state-elite-chip"
                 aria-pressed={elite === e}
                 disabled={below}
                 title={below ? `Below the promotion you have already recorded (E${minElite})` : `Elite ${e}`}
@@ -218,12 +220,12 @@ export function OperatorStateForm({
                     </button>
                   ) : label}
                 </span>
-                <span className="seg-row seg-row-compact">
+                <span className="state-pips">
                   {[1, 2, 3].map((m) => (
                     <button
                       type="button"
                       key={m}
-                      className="seg"
+                      className="filter-chip state-pip"
                       aria-pressed={current === m}
                       disabled={!masteryOpen || m < floor}
                       onClick={() => onMastery(i, current === m ? floor : m)}
@@ -275,12 +277,12 @@ export function OperatorStateForm({
                   </button>
                 ) : label}
               </span>
-              <span className="seg-row seg-row-compact">
+              <span className="state-pips">
                 {Array.from({ length: mod.stages }, (_, s) => (
                   <button
                     type="button"
                     key={s}
-                    className="seg"
+                    className="filter-chip state-pip"
                     aria-pressed={current === s}
                     disabled={!moduleOpen || s < floor}
                     aria-label={`${label} level ${s + 1}`}
