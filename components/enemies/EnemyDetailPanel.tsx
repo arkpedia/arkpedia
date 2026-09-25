@@ -240,7 +240,7 @@ function ModuleList({
                       <span className="enemy-param" key={k}>
                         <i>{paramKey(k)}</i>
                         {hit ? (
-                          <Link prefetch={false} href={`/enemies/${encodeURIComponent(hit.slug)}`}>{hit.name}</Link>
+                          <Link prefetch={false} href={`/enemies?e=${encodeURIComponent(hit.slug)}`}>{hit.name}</Link>
                         ) : typeof v === 'number' ? (
                           num(v)
                         ) : (
