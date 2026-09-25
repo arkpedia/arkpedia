@@ -151,6 +151,19 @@ export function useHeightFloor(resetKey: unknown) {
        was reserved for is reachable again. Instant, and before paint. */
     if (restoreRef.current !== null) {
       const want = restoreRef.current;
+      /* html and body carry min-height: 100vh, so while the content is shorter than
+         the viewport the document does not grow by the reserve: the spacer fills the
+         min-height's slack first. `scrollHeight - reserve` then overstates the
+         natural height and the reserve comes out short -- measured on the operator
+         guesser, a 104px reserve left the document at exactly 900px and the reader
+         at 0. Top up by what is still missing and try again on the next pass; each
+         pass adds exactly the shortfall, so it settles in one or two. */
+      const short = Math.ceil(want + window.innerHeight - document.documentElement.scrollHeight);
+      if (short > 0) {
+        reserveRef.current += short;
+        setReserve(reserveRef.current);
+        return;
+      }
       restoreRef.current = null;
       if (window.scrollY < want) window.scrollTo(0, want);
       bottomRef.current = window.scrollY + window.innerHeight;
