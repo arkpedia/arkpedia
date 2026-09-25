@@ -178,7 +178,11 @@ jobs:
           # repository has not published yet (a Global launch renames art the day it lands)
           # holds back that icon, as a quarantine entry, instead of the release.
           npm run check:assets:release
-          npm run check:published-assets
+          # check:published-assets, except that a legacy voice clip an operator page offers
+          # but the pinned voice repository lacks (a day the voices stage failed, or a newly
+          # adopted voice revision that dropped one) holds back that clip, as a quarantine
+          # entry, instead of the release.
+          npm run check:published-assets:release
           mkdir -p "$RUNNER_TEMP/prepared-content"
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
