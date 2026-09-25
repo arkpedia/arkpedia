@@ -464,8 +464,9 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    the button voice (Rajdhani 600 uppercase, 0.09em). Picked is --teal-dim fill,
    teal text, teal border -- --teal-fill is reserved for primary ACTIONS, so a
    selected filter never looks like the button that runs something.
-   The selection lives in aria-pressed (or aria-selected/aria-checked); .active is
-   an alias for markup that has not moved yet.
+   The selection lives in aria-pressed (or aria-selected/aria-checked); a chip that
+   is a navigation link (the game switcher) marks the current page with
+   aria-current="page". .active is an alias for markup that has not moved yet.
    -------------------------------------------------------------------------*/
 .filter-chip {
   box-sizing: border-box;
@@ -491,6 +492,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 .filter-chip:hover { border-color: var(--teal); color: var(--teal); }
 .filter-chip.active,
+.filter-chip[aria-current="page"],
 .filter-chip[aria-pressed="true"],
 .filter-chip[aria-selected="true"],
 .filter-chip[aria-checked="true"] {

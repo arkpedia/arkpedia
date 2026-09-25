@@ -1,7 +1,9 @@
 import { getEffectiveTags, RecruitableOperator } from '@/lib/gacha/recruitmentCalc';
 import type { GameOperator } from './logic';
 
-export interface RecruitmentGameOperator extends GameOperator { icon: string }
+/** `rarity` is the star count (1-6), shown on every revealed answer: rarity is what the
+ *  tags are for, so a reveal without it hid the point of the round. */
+export interface RecruitmentGameOperator extends GameOperator { icon: string; rarity: number }
 export interface RecruitmentQuestion { id: string; tags: string[]; answers: string[] }
 
 /** Exhaustive pairs and triplets, counting the FULL pool, including Robots/Starters.

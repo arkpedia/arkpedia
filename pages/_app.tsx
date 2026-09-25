@@ -13,7 +13,6 @@ import '@/styles/base/base.css';
 import '@/styles/schedule/events.css';
 import '@/styles/gacha/gacha.css';
 import '@/styles/gacha/gacha-tutorial.css';
-import '@/styles/games/guesser.css';
 import '@/styles/skins/skins.css';
 import '@/styles/operators/roster.css';
 import '@/styles/operators/operator-detail.css';

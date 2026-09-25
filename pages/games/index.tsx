@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import PageHeader from '@/components/ui/PageHeader';
 import { ICONS } from '@/components/layout/Sitenav';
 import { GAMES } from '@/lib/minigames/catalogue';
 import styles from '@/styles/games/games.module.css';
@@ -10,11 +11,8 @@ export default function GamesPage() {
       <title>Games — Arkpedia</title>
       <meta name="description" content="Play Arkpedia’s guessing games." />
     </Head>
-    <main className={styles.page}>
-      <header className={styles.header}>
-        <h1>Games</h1>
-        <p>Choose a game to get started.</p>
-      </header>
+    <PageHeader eyebrow="Rhodes Island // Games" title="Games" sub="Choose a game to get started." />
+    <main>
       <ul className={styles.games} aria-label="Choose a game">
         {GAMES.map((game) => <li key={game.href}>
           <Link href={game.href} prefetch={false} className={styles.card} aria-labelledby={`game-${game.icon}`}>
