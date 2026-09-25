@@ -36,7 +36,8 @@ test('no page compiles a release-only game table into its browser bundle', () =>
   const all = pages();
   // Not vacuous: the server half of these pages does read the tables.
   assert.equal(pathToTarget('pages/obtain-method.tsx', ['data/headhunting_banners.json'], { clientOnly: false })?.at(-1), 'data/headhunting_banners.json');
-  assert.ok(browserImports('pages/obtain-method.tsx', true).includes('lib/gacha/limitedBannerType.ts'));
+  // The browser half does the Limited date math (lib/gacha/limitedRerunNotes.ts) beside that data.
+  assert.ok(browserImports('pages/obtain-method.tsx', true).includes('lib/gacha/limitedRerunNotes.ts'));
   assert.equal(pathToTarget('pages/stages/browse.tsx', ['data/story-groups.json'], { clientOnly: false })?.at(-1), 'data/story-groups.json');
   assert.ok(browserImports('pages/stages/browse.tsx', true).includes('components/stages/StageList.tsx'));
   for (const [page, table] of [['pages/base.tsx', 'data/base-skill-slots.json'], ['pages/base.tsx', 'data/base-group-rosters.json'], ['pages/farming.tsx', 'data/farming-tiers.json'], ['pages/planner.tsx', 'data/item-sort-ids.json'], ['pages/planner.tsx', 'data/import-aliases.json']]) {

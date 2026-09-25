@@ -74,7 +74,7 @@ export function sortBannersByDate<T extends HeadhuntingBanner>(banners: readonly
 }
 
 /** An event's Global date range as evidence for getBannerForEvent: null while it is only
- * an estimate (the note says so -- the test getAllEventListings uses for isPredicted). */
+ * an estimate (the note says so -- the test getEventCalendar uses for isPredicted). */
 export function confirmedGlobalRange(global: { dateRange?: string | null; note?: string | null } | null | undefined): string | null {
   return /estimated|predicted/i.test(global?.note || '') ? null : global?.dateRange ?? null;
 }

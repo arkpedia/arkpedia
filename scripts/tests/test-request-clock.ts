@@ -153,7 +153,9 @@ test('withContentPage takes revalidate as an option, and exports carry no clock 
   process.env.ARKPEDIA_CONTENT_DISABLED = '1';
   try {
     const context = { revalidateReason: 'build' as const };
-    const page = withContentPage<{ value: string; now: number }>('/schedule', async () => ({ props: { value: 'record' } }), { revalidate: 1200 });
+    // /schedule declares tables (lib/content/tables.mjs); withContentPage refuses it without their loaders.
+    const tables = { event_colors: async () => ({}), event_materials: async () => ({}), headhunting_banners: async () => [] };
+    const page = withContentPage<{ value: string; now: number }>('/schedule', async () => ({ props: { value: 'record' } }), { revalidate: 1200, tables });
     const result = await page(context);
     assert.ok('props' in result);
     assert.equal(result.revalidate, 1200, 'the option reaches Next');
@@ -162,13 +164,13 @@ test('withContentPage takes revalidate as an option, and exports carry no clock 
     assert.equal(props.now % 60_000, 0);
     // An interval inside the page data never reached Next when the page came from a
     // release; the type refuses it, and so does the runtime for untyped callers.
-    const inner = withContentPage('/schedule', (async () => ({ props: { value: 'record' }, revalidate: 1200 })) as never);
+    const inner = withContentPage('/schedule', (async () => ({ props: { value: 'record' }, revalidate: 1200 })) as never, { tables });
     await assert.rejects(async () => inner(context), /set revalidate as a withContentPage option/);
 
     process.env.ARKPEDIA_EXPORT_CONTENT = '1';
     const exported = await page(context);
     assert.ok('props' in exported);
-    assert.deepEqual(await exported.props, { value: 'record' }, 'no clock field in exported data');
+    assert.deepEqual(await exported.props, { value: 'record', __contentTables: { event_colors: {}, event_materials: {}, headhunting_banners: [] } }, 'no clock field in exported data');
   } finally {
     if (saved.disabled === undefined) delete process.env.ARKPEDIA_CONTENT_DISABLED; else process.env.ARKPEDIA_CONTENT_DISABLED = saved.disabled;
     if (saved.exporting === undefined) delete process.env.ARKPEDIA_EXPORT_CONTENT; else process.env.ARKPEDIA_EXPORT_CONTENT = saved.exporting;

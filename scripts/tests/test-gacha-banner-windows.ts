@@ -44,7 +44,7 @@ test('a moved calendar forecast changes the simulator order', () => {
    /gacha one re-estimated banner dates from the deployment's bundled banners and
    calendar, which lagged the release it was finalizing (411 banners to its 412). The
    estimate belongs in getStaticProps, which the content export runs on the release. */
-const DEPLOYMENT_RECORDS = /\b(?:getAllHeadhuntingBanners|getBannersSortedByDate|resolveGachaSimulatorBanners|getAllEvents|getAllEventListings|loadGameEvents)\s*\(/;
+const DEPLOYMENT_RECORDS = /\b(?:getAllHeadhuntingBanners|getBannersSortedByDate|resolveGachaSimulatorBanners|getAllEvents|getEventCalendar|loadGameEvents)\s*\(/;
 
 function finalizeHooks(file: string): string[] {
   const source = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);

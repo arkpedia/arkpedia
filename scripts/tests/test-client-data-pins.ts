@@ -165,8 +165,10 @@ test('the walker follows what the browser loads and drops what Next strips', () 
 
 test('client code bundles no data file whose asset pins the release does not own', () => {
   const reached = clientDataFiles();
-  // Not vacuous: the stage browser's tables and the schedule's banner fallback are client data.
-  assert.ok(reached.has('data/stages-content.json') && reached.has('data/headhunting_banners.json'), [...reached.keys()].join('\n'));
+  // Not vacuous: the schedule's banner fallback and the event calendar are client data, and
+  // each holds a pinned Persona address. (The stage browser's tables left client code for
+  // the page props: lib/content/tables.mjs.)
+  assert.ok(reached.has('data/headhunting_banners.json') && reached.has('data/events/events_2027.json'), [...reached.keys()].join('\n'));
   const problems: string[] = [];
   for (const [file, chain] of reached) {
     const pins = fs.readFileSync(path.join(ROOT, file), 'utf8').match(PINNED) ?? [];
