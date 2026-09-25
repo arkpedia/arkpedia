@@ -16,6 +16,7 @@ import { buildEligiblePool } from '@/lib/gacha/gachaOperatorEligibility';
 import { KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
 import { ReleaseDateLookup, deriveReleaseDatesFromBanners, getReleaseDate } from '@/lib/operators/operatorReleaseDates';
 import { getAllOperators } from '@/lib/operators/operators';
+import type { GachaOperatorPreview } from '@/lib/gacha/operatorPreviewData';
 import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, GachaItem } from '@/lib/gacha/gachaTypes';
 import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
@@ -109,24 +110,113 @@ function PullTile({ item, onSelect, className = '', label }: { item: PulledItem;
 
 function PullPreview({ item, onClose }: { item: PulledItem; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null);
+  const [details, setDetails] = useState<GachaOperatorPreview | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState(0);
+  const [selectedModule, setSelectedModule] = useState(0);
+  const [selectedStage, setSelectedStage] = useState(0);
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     closeButton.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKeyDown);
-    return () => { document.removeEventListener('keydown', onKeyDown); previousFocus?.focus(); };
+    return () => { document.removeEventListener('keydown', onKeyDown); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
   }, [onClose]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setDetails(null);
+    setLoadError(false);
+    fetch(`/api/gacha-operator/${encodeURIComponent(item.name)}`, { signal: controller.signal })
+      .then((response) => { if (!response.ok) throw new Error('Operator details unavailable'); return response.json() as Promise<GachaOperatorPreview>; })
+      .then((operator) => {
+        setDetails(operator);
+        const moduleIndex = operator.modules.findIndex((module) => module.type === 'Upgrade');
+        const nextModule = moduleIndex < 0 ? 0 : moduleIndex;
+        setSelectedModule(nextModule);
+        setSelectedStage(Math.max(0, (operator.modules[nextModule]?.stages.length ?? 1) - 1));
+      })
+      .catch((error: unknown) => { if (!(error instanceof Error && error.name === 'AbortError')) setLoadError(true); });
+    return () => controller.abort();
+  }, [item.name]);
   const artFolder = item.rarity === 6 ? 'six' : item.rarity === 5 ? 'five' : item.rarity === 4 ? 'four' : 'three';
   const art = `/${artFolder}-star-skins/${encodeURIComponent(`${item.name} - Base.webp`)}`;
+  const selectedModuleData = details?.modules[selectedModule];
+  const moduleStage = selectedModuleData?.stages[selectedStage];
+  const skill = details?.skills[selectedSkill];
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay gacha-operator-overlay" onClick={onClose}>
       <div className="modal-box gacha-pull-preview" role="dialog" aria-modal="true" aria-labelledby="gacha-pull-preview-title" onClick={(event) => event.stopPropagation()}>
         <div className="gacha-pull-preview-header">
-          <div><span className="gacha-pull-preview-rarity">{item.rarity}★ Operator</span><h2 id="gacha-pull-preview-title">{item.name}</h2></div>
+          <div><span className="gacha-pull-preview-rarity">{item.rarity}★ Operator{details?.className ? ` · ${details.className}` : ''}{details?.branch ? ` / ${details.branch}` : ''}</span><h2 id="gacha-pull-preview-title">{item.name}</h2></div>
           <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close operator preview">×</button>
         </div>
-        <ContentImg className="gacha-pull-preview-art" src={art} alt={`${item.name} base artwork`} />
-        <Link className="gacha-preview-link" href={`/operators/${encodeURIComponent(item.name)}`}>View operator page ↗</Link>
+        <div className="gacha-preview-body">
+          <div className="gacha-preview-portrait">
+            <ContentImg className="gacha-pull-preview-art" src={art} alt={`${item.name} base artwork`} />
+            <Link className="gacha-preview-link" href={`/operators/${encodeURIComponent(item.name)}`}>View operator page ↗</Link>
+          </div>
+          <div className="gacha-preview-data">
+            {!details && !loadError && <p className="gacha-preview-loading" role="status">Loading operator details…</p>}
+            {loadError && <p className="gacha-preview-loading" role="status">Details are unavailable right now. The operator page is still linked beside the artwork.</p>}
+            {details?.stats && <section className="gacha-preview-section">
+              <h3>Stats <span>E{details.stats.elite} Lv {details.stats.level} · max trust</span></h3>
+              <div className="gacha-preview-stats">
+                {([
+                  ['HP', details.stats.values.hp, details.stats.trust.hp],
+                  ['ATK', details.stats.values.atk, details.stats.trust.atk],
+                  ['DEF', details.stats.values.def, details.stats.trust.def],
+                  ['RES', `${details.stats.values.res}%`, null],
+                  ['DP', details.stats.values.dp, null],
+                  ['Block', details.stats.values.block, null],
+                  ['Interval', `${details.stats.values.interval}s`, null],
+                  ['Redeploy', `${details.stats.values.redeploy}s`, null],
+                ] as const).map(([label, value, trust]) => (
+                  <div key={label} className="gacha-preview-stat"><span>{label}</span><strong>{value}{trust ? <small> +{trust}</small> : null}</strong></div>
+                ))}
+              </div>
+            </section>}
+            {details?.trait && <section className="gacha-preview-section"><h3>Trait</h3><p>{details.trait}</p></section>}
+            {!!details?.talents.length && <section className="gacha-preview-section">
+              <h3>Talents</h3>
+              {details.talents.map((talent, index) => <div className="gacha-preview-entry" key={`${talent.name}-${index}`}>
+                <div className="gacha-preview-entry-title"><strong>{talent.name}</strong>{talent.stage && <span>{talent.stage}</span>}</div>
+                <p>{talent.description}</p>
+              </div>)}
+            </section>}
+            {!!details?.skills.length && <section className="gacha-preview-section">
+              <h3>Skills</h3>
+              <div className="gacha-preview-tabs" role="group" aria-label="Select skill">
+                {details.skills.map((entry, index) => <button key={index} type="button" className={index === selectedSkill ? 'active' : ''} aria-pressed={index === selectedSkill} onClick={() => setSelectedSkill(index)}>
+                  {entry.icon && <ContentImg src={entry.icon} alt="" width={28} height={28} />}
+                  <span>S{index + 1}</span>
+                </button>)}
+              </div>
+              {skill && <div className="gacha-preview-entry">
+                <div className="gacha-preview-entry-title"><strong>{skill.name}</strong><span>{skill.rank}</span></div>
+                <div className="gacha-preview-meta">{[skill.recovery, skill.activation, skill.spCost !== null ? `${skill.initialSp ?? 0}/${skill.spCost} SP` : null, skill.duration !== null ? typeof skill.duration === 'number' || /^\d+(?:\.\d+)?$/.test(String(skill.duration)) ? `${skill.duration}s` : skill.duration : null].filter(Boolean).join(' · ')}</div>
+                <p>{skill.description || 'No skill description is available yet.'}</p>
+              </div>}
+            </section>}
+            {!!details?.modules.length && <section className="gacha-preview-section">
+              <h3>Modules</h3>
+              <div className="gacha-preview-tabs gacha-preview-module-tabs" role="group" aria-label="Select module">
+                {details.modules.map((entry, index) => <button key={index} type="button" className={index === selectedModule ? 'active' : ''} aria-pressed={index === selectedModule} onClick={() => { setSelectedModule(index); setSelectedStage(Math.max(0, entry.stages.length - 1)); }}>{entry.name}</button>)}
+              </div>
+              {selectedModuleData?.stages.length ? <>
+                <div className="gacha-preview-tabs" role="group" aria-label="Select module stage">
+                  {selectedModuleData.stages.map((entry, index) => <button key={index} type="button" className={index === selectedStage ? 'active' : ''} aria-pressed={index === selectedStage} onClick={() => setSelectedStage(index)}>{entry.stage}</button>)}
+                </div>
+                {moduleStage && <div className="gacha-preview-entry">
+                  {moduleStage.attributes && <div className="gacha-preview-meta">{moduleStage.attributes}</div>}
+                  {moduleStage.label && <strong>{moduleStage.label}</strong>}
+                  {moduleStage.effect && <p>{moduleStage.effect}</p>}
+                </div>}
+              </> : <p>Original trait; no module upgrades.</p>}
+            </section>}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -175,6 +265,77 @@ function FeaturedChip({ item, rarity, percent, tags, count }: { item: GachaItem;
       </span>
     </div>
   );
+}
+
+function BannerDetails({ banner, dateLabel, onClose, onSelect, previewOpen }: {
+  banner: BannerConfig;
+  dateLabel: string;
+  onClose: () => void;
+  onSelect: (item: PulledItem) => void;
+  previewOpen: boolean;
+}) {
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const closeAction = useRef(onClose);
+  const previewActive = useRef(previewOpen);
+  closeAction.current = onClose;
+  previewActive.current = previewOpen;
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButton.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !previewActive.current) closeAction.current();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+  }, []);
+
+  const sixOdds = new Map(sixStarWeightedPool(banner).map(({ item, weight }) => [item.name, weight]));
+  const fiveOdds = new Map(fiveStarWeightedPool(banner).map(({ item, weight }) => [item.name, weight]));
+  const openOperator = (item: GachaItem, rarity: 6 | 5 | 4 | 3) => onSelect({ ...item, rarity, isFeatured: false });
+  const featuredGroups: { title: string; rarity: 6 | 5 | 4; items: GachaItem[]; odds?: Map<string, number>; note?: string }[] = [
+    { title: banner.type === 'celebration' ? 'Available 6★' : 'Rate-up 6★', rarity: 6, items: banner.sixStarFeatured, odds: sixOdds },
+    { title: 'Rate-up 5★', rarity: 5, items: banner.fiveStarFeatured, odds: fiveOdds, note: banner.type === 'crossover' ? 'These percentages apply before the crossover 5★ guarantee changes the pool.' : undefined },
+    { title: 'Rate-up 4★', rarity: 4, items: banner.fourStarFeatured ?? [] },
+    { title: 'Returning limited 6★', rarity: 6, items: banner.rateUpSixStars ?? [], odds: sixOdds, note: 'In the off-banner pool at a higher chance than other 6★ operators.' },
+  ];
+  const remainingGroups: { rarity: 6 | 5 | 4 | 3; items: GachaItem[] }[] = [
+    { rarity: 6, items: banner.otherSixStarPool },
+    { rarity: 5, items: banner.otherFiveStarPool },
+    { rarity: 4, items: banner.fourStarPool },
+    { rarity: 3, items: banner.threeStarPool },
+  ];
+
+  return <div className="modal-overlay gacha-details-overlay" aria-hidden={previewOpen} onClick={() => { if (!previewOpen) onClose(); }}>
+    <div className="modal-box gacha-details-modal" role="dialog" aria-modal={!previewOpen} aria-labelledby="gacha-details-title" onClick={(event) => event.stopPropagation()}>
+      <div className="gacha-details-header">
+        <div><span className="gacha-pull-preview-rarity">{dateLabel}</span><h2 id="gacha-details-title">Banner details</h2><p>{banner.label}</p></div>
+        <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close banner details">×</button>
+      </div>
+      <div className="gacha-details-rates" aria-label="Base rarity rates">
+        {([['6★', BASE_RATES.six], ['5★', BASE_RATES.five], ['4★', BASE_RATES.four], ['3★', BASE_RATES.three]] as const).map(([rarity, rate]) => <div key={rarity}><strong>{rarity}</strong><span>{(rate * 100).toFixed(0)}%</span></div>)}
+      </div>
+      <p className="gacha-details-caption">Base chance per pull. The 6★ chance rises with pity; operator percentages below are within that rarity.</p>
+      {featuredGroups.filter((group) => group.items.length).map((group) => <section className="gacha-details-section" key={group.title}>
+        <h3>{group.title}</h3>
+        {group.note && <p className="gacha-details-caption">{group.note}</p>}
+        <div className="gacha-details-featured-list">
+          {group.items.map((item) => <button key={item.name} type="button" className={`gacha-details-featured gacha-details-rarity-${group.rarity}`} onClick={() => openOperator(item, group.rarity)}>
+            {item.icon ? <Image src={item.icon} alt="" width={54} height={54} /> : <span className="gacha-pull-icon-placeholder">{group.rarity}★</span>}
+            <span><strong>{item.name}</strong>{group.odds?.has(item.name) && <small>{((group.odds.get(item.name) ?? 0) * 100).toFixed(2)}% of {group.rarity}★</small>}</span>
+          </button>)}
+        </div>
+      </section>)}
+      <section className="gacha-details-section">
+        <h3>Other possible operators</h3>
+        {remainingGroups.map(({ rarity, items }) => <div className="gacha-details-pool" key={rarity}>
+          <h4>{rarity}★</h4>
+          {items.length ? <div className="gacha-details-name-list">{[...items].sort((a, b) => a.name.localeCompare(b.name)).map((item) => <button type="button" key={item.name} onClick={() => openOperator(item, rarity)}>{item.name}</button>)}</div> : <p className="gacha-details-caption">No other {rarity}★ operators in this banner.</p>}
+        </div>)}
+      </section>
+    </div>
+  </div>;
 }
 
 // Draws `count` star icons in a row -- used throughout the FAQ modal
@@ -1419,7 +1580,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   const categoryBanners = bannersByCategory[category];
   const bannerWindow = useVirtualRows(categoryBanners.length, bannerRowLayout, { columns: 1, rowStride: BANNER_ROW_STRIDE }, 2);
   const [selectedBannerName, setSelectedBannerName] = useState<string>(categoryBanners[0]?.name || '');
-  const [openInfoPanel, setOpenInfoPanel] = useState<'other' | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSparkStore, setShowSparkStore] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -1485,6 +1646,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   }, [isOrienteering, selectedBanner, pools.five]);
 
   function changeCategory(next: DisplayCategory) {
+    setShowDetails(false);
     bannerWindow.scrollerRef.current?.scrollTo({ top: 0 });
     setCategory(next);
     const firstInCategory = bannersByCategory[next][0];
@@ -1502,6 +1664,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   }
 
   function changeBanner(name: string) {
+    setShowDetails(false);
     setSelectedBannerName(name);
     setState(createInitialState());
     setLastPulls([]);
@@ -1848,7 +2011,11 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                          banner with art and one without moves nothing below it. */
                       <div className="gacha-banner-main-image gacha-banner-main-placeholder" aria-hidden="true" />
                     )}
-
+                    <div className="gacha-banner-actions">
+                      <button type="button" className="gacha-banner-action" onClick={() => setShowDetails(true)}>Details</button>
+                      <button type="button" className="gacha-banner-action" onClick={() => { setShowGuide(true); setGuidePhase('question'); setGuidePageIndex(0); }}>How does this work?</button>
+                      {banner.type === 'limited' && <button type="button" className="gacha-spark-store-btn" onClick={() => setShowSparkStore(true)}>Spark Store</button>}
+                    </div>
                   </section>
                 )}
 
@@ -2238,52 +2405,6 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     </div>
                     </>}
 
-                    <div className="gacha-info-toggle-row">
-                      <button
-                        type="button"
-                        className="ghost gacha-other-toggle"
-                        onClick={() => setOpenInfoPanel((v) => (v === 'other' ? null : 'other'))}
-                      >
-                        {openInfoPanel === 'other' ? '▾' : '▸'} Other operators
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost gacha-other-toggle"
-                        onClick={() => {
-                          setShowGuide(true);
-                          setGuidePhase('question');
-                          setGuidePageIndex(0);
-                        }}
-                      >
-                        How does this work?
-                      </button>
-                      {banner.type === 'limited' && (
-                        <button type="button" className="gacha-spark-store-btn" onClick={() => setShowSparkStore(true)}>
-                          Spark Store
-                        </button>
-                      )}
-                    </div>
-                    {openInfoPanel === 'other' && (
-                      <div className="gacha-other-list">
-                        {[
-                          { label: '6 star', pool: banner.otherSixStarPool },
-                          { label: '5 star', pool: banner.otherFiveStarPool },
-                          { label: '4 star', pool: banner.fourStarPool },
-                          { label: '3 star', pool: banner.threeStarPool },
-                        ].map(
-                          ({ label, pool }) =>
-                            pool.length > 0 && (
-                              <p key={label} className="gacha-other-row">
-                                <span className="gacha-other-row-label">{label}:</span>{' '}
-                                {pool
-                                  .map((o) => o.name)
-                                  .sort((a, b) => a.localeCompare(b))
-                                  .join(' / ')}
-                              </p>
-                            )
-                        )}
-                      </div>
-                    )}
                     </div>
                 </section>
 
@@ -2308,6 +2429,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
         </div>
       </main>
 
+      {showDetails && banner && <BannerDetails banner={banner} dateLabel={bannerDateLabel(selectedBanner)} onClose={() => setShowDetails(false)} onSelect={setPreviewedPull} previewOpen={!!previewedPull} />}
       {previewedPull && <PullPreview item={previewedPull} onClose={() => setPreviewedPull(null)} />}
 
       {showSparkStore && banner && (

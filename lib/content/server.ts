@@ -14,6 +14,29 @@ let checkedAt = 0;
 let pending: Promise<Loaded | undefined> | undefined;
 const pageCache = new Map<string, Record<string, unknown>>();
 
+async function readPageProps(loaded: Loaded, route: string): Promise<Record<string, unknown> | null> {
+  const file = loaded.manifest.pages[route];
+  if (!file || !validFile(route, file)) return null;
+  const cacheKey = `${loaded.context.release}:${route}`;
+  let props = pageCache.get(cacheKey);
+  if (!props) {
+    const bytes = await read(`${loaded.context.baseUrl}/${contentFileUrlPath(file.path)}`, file.bytes);
+    if (bytes.length !== file.bytes || digest(bytes) !== file.sha256) throw new Error('Content page checksum mismatch');
+    const parsed = JSON.parse(bytes.toString()) as { props?: Record<string, unknown> };
+    if (!parsed.props || Array.isArray(parsed.props) || typeof parsed.props !== 'object') throw new Error('Invalid content page');
+    props = parsed.props;
+    if (pageCache.size >= 64) pageCache.delete(pageCache.keys().next().value!);
+    pageCache.set(cacheKey, props);
+  }
+  return props;
+}
+
+/** Read one verified page from the same published release used by ISR. */
+export async function readPublishedContentPageProps<P extends object>(route: string): Promise<P | null> {
+  const loaded = await loadRelease();
+  return loaded ? await readPageProps(loaded, route) as P | null : null;
+}
+
 function origin(): string {
   const value = process.env.ARKPEDIA_CONTENT_URL || DEFAULT_ORIGIN;
   const parsed = new URL(value);
@@ -94,18 +117,9 @@ export function withContentPage<P extends object>(template: string, bundled: Get
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props);
         return { ...fallback, revalidate: options.revalidate ?? 60 };
       }
-      const cacheKey = `${loaded.context.release}:${route}`;
       try {
-        let props = pageCache.get(cacheKey);
-        if (!props) {
-          const bytes = await read(`${loaded.context.baseUrl}/${contentFileUrlPath(file.path)}`, file.bytes);
-          if (bytes.length !== file.bytes || digest(bytes) !== file.sha256) throw new Error('Content page checksum mismatch');
-          const parsed = JSON.parse(bytes.toString()) as { props?: Record<string, unknown> };
-          if (!parsed.props || Array.isArray(parsed.props) || typeof parsed.props !== 'object') throw new Error('Invalid content page');
-          props = parsed.props;
-          if (pageCache.size >= 64) pageCache.delete(pageCache.keys().next().value!);
-          pageCache.set(cacheKey, props);
-        }
+        const props = await readPageProps(loaded, route);
+        if (!props) throw new Error('Published content page disappeared');
         const currentProps = contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P);
         return { props: options.finalize ? await options.finalize(currentProps) : currentProps, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60) };
       } catch (error) {
