@@ -5,13 +5,15 @@
 .recruit-page { color: var(--text); }
 
 /* The pop-out and always-on-top window: full-bleed by design, with a compact header
-   of its own (the full page uses PageHeader). */
+   of its own (the full page uses PageHeader). Full-bleed means a 12px gutter in the
+   narrow window it is made for. The header keeps the global header's frame, as the
+   pop-out's main keeps main's, so in a wide tab the title still starts where the tool
+   does. */
 .recruit-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  max-width: none;
   padding: 12px;
 }
 .recruit-heading { display: flex; align-items: center; gap: 7px; min-width: 0; }
