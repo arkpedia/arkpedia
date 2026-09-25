@@ -8,7 +8,8 @@ import { useRouter } from 'next/router';
 import Image, { ContentImg } from '@/components/content/ContentImage';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
-import { getAllHeadhuntingBanners, getBannersSortedByDate, HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
+import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
+import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 import { buildRealBannerConfig, getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
@@ -18,7 +19,7 @@ import { ReleaseDateLookup, deriveReleaseDatesFromBanners, getReleaseDate } from
 import { getAllOperators } from '@/lib/operators/operators';
 import type { GachaOperatorPreview } from '@/lib/gacha/operatorPreviewData';
 import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, GachaItem } from '@/lib/gacha/gachaTypes';
-import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
+import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, simulatorPullable, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 
 interface Props {
@@ -310,8 +311,10 @@ function BannerDetails({ banner, dateLabel, onClose, onSelect, previewOpen }: {
     return () => { document.removeEventListener('keydown', onKeyDown); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
   }, []);
 
-  const sixOdds = new Map(sixStarWeightedPool(banner).map(({ item, weight }) => [item.name, weight]));
-  const fiveOdds = new Map(fiveStarWeightedPool(banner).map(({ item, weight }) => [item.name, weight]));
+  // `item?.`: a pool entry without an operator is a lineup the engine should have
+  // dropped (allocate), and it must not take the whole page down with it.
+  const sixOdds = new Map(sixStarWeightedPool(banner).flatMap(({ item, weight }) => (item?.name ? [[item.name, weight] as const] : [])));
+  const fiveOdds = new Map(fiveStarWeightedPool(banner).flatMap(({ item, weight }) => (item?.name ? [[item.name, weight] as const] : [])));
   const openOperator = (item: GachaItem, rarity: 6 | 5 | 4 | 3) => onSelect({ ...item, rarity, isFeatured: false });
   const featuredGroups: { title: string; rarity: 6 | 5 | 4; items: GachaItem[]; odds?: Map<string, number>; note?: string }[] = [
     { title: banner.type === 'celebration' ? 'Available 6★' : 'Rate-up 6★', rarity: 6, items: banner.sixStarFeatured, odds: sixOdds },
@@ -1610,6 +1613,16 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
 
   const [state, setState] = useState<GachaState>(createInitialState());
   const [lastPulls, setLastPulls] = useState<PulledItem[]>([]);
+  // The Featured panel's chip row, measured after every render that shows one. A banner
+  // whose lineup is still to be confirmed shows a one-line note in its place, and the note
+  // holds the height of the row it replaced, so choosing that banner never shortens the page
+  // under the reader (Anti-Page Jump: 171px on desktop, more on a phone, for Standard Pool
+  // #176). Nothing is held on the first render, which the server's HTML must match.
+  const featuredRowRef = useRef<HTMLDivElement>(null);
+  const featuredRowHeight = useRef(0);
+  useLayoutEffect(() => {
+    if (featuredRowRef.current) featuredRowHeight.current = featuredRowRef.current.offsetHeight;
+  });
   const [previewedPull, setPreviewedPull] = useState<PreviewItem | null>(null);
 
   const [orienteeringSelected, setOrienteeringSelected] = useState<GachaItem[]>([]);
@@ -1896,8 +1909,15 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
     return counts;
   }, [state.history]);
 
+  // A pending lineup (Standard Pool #176 on the day it opened) or a banner no 6★ can
+  // drop from: the controls stay where they are, disabled, and the Featured
+  // Operators panel says why. See simulatorPullable.
+  const pullable = !!banner && !!selectedBanner && simulatorPullable(selectedBanner, banner);
+  const unpullableReason = !banner || !selectedBanner || pullable ? undefined
+    : isLineupPending(selectedBanner) ? LINEUP_PENDING_NOTE : 'No 6★ operators can be pulled on this banner.';
+
   function pull(count: number) {
-    if (!banner) return;
+    if (!banner || !pullable) return;
     const result = doPulls(banner, state, count);
     setState(result.state);
     setLastPulls(result.items);
@@ -2324,10 +2344,10 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         <button type="button" className="gacha-action gacha-action-reset" onClick={reset}>
                           Reset
                         </button>
-                        <button type="button" className="gacha-action gacha-action-single" onClick={() => pull(1)} aria-label="Pull one operator">
+                        <button type="button" className="gacha-action gacha-action-single" onClick={() => pull(1)} aria-label="Pull one operator" disabled={!pullable} title={unpullableReason}>
                           x1
                         </button>
-                        <button type="button" className="gacha-action gacha-action-ten" onClick={() => pull(10)} aria-label="Pull ten operators">
+                        <button type="button" className="gacha-action gacha-action-ten" onClick={() => pull(10)} aria-label="Pull ten operators" disabled={!pullable} title={unpullableReason}>
                           x10
                         </button>
                       </div>
@@ -2350,9 +2370,13 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 <section className="op-section gacha-roster-section">
                     <div className="gacha-content-group">
                     <h3 style={{ marginBottom: 8 }}>Featured Operators</h3>
-                    {isLineupPending(selectedBanner) ? <p className="hint">{LINEUP_PENDING_NOTE}</p> : <div className="gacha-featured-row">
+                    {isLineupPending(selectedBanner) ? (
+                      <div className="gacha-lineup-pending" style={featuredRowHeight.current ? { minHeight: featuredRowHeight.current } : undefined}>
+                        <p className="hint">{LINEUP_PENDING_NOTE}</p>
+                      </div>
+                    ) : <div className="gacha-featured-row" ref={featuredRowRef}>
                       {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const pct = sixStarOdds.find((o) => o.item?.name === item.name);
                         const isLimited = banner.type === 'limited' && howToObtainLookup[item.name]?.Limited === 'Yes';
                         return (
                           <FeaturedChip
@@ -2366,7 +2390,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         );
                       })}
                       {banner.fiveStarFeatured.map((item) => {
-                        const pct = fiveStarOdds.find((o) => o.item.name === item.name);
+                        const pct = fiveStarOdds.find((o) => o.item?.name === item.name);
                         return (
                           <FeaturedChip
                             key={item.name}
@@ -2383,7 +2407,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       <p className="hint">{RETURNING_LIMITED_NOTE}</p>
                       <div className="gacha-featured-row">
                       {(banner.rateUpSixStars || []).map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const pct = sixStarOdds.find((o) => o.item?.name === item.name);
                         const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
                         return (
                           <FeaturedChip
@@ -2408,7 +2432,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                           return state.obtainedCounts[item.name];
                         })
                         .map((item) => {
-                        const pct = sixStarOdds.find((o) => o.item.name === item.name);
+                        const pct = sixStarOdds.find((o) => o.item?.name === item.name);
                         const isLimited = howToObtainLookup[item.name]?.Limited === 'Yes';
                         return (
                           <FeaturedChip
@@ -2668,21 +2692,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   }));
 
   return { props: { pools, banners: trimmedBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
-}, {
-  // An already-published content release may still carry CN-only dates. Fill
-  // only those gaps; resolved estimates and confirmed Global dates in newer
-  // releases must remain authoritative rather than being recalculated from
-  // this app deployment's older calendar snapshot.
-  finalize: async props => {
-    const sourceAnchors = new Map(getAllHeadhuntingBanners().map(b => [b.name, b.linked_event]));
-    const unresolved = props.banners.filter(b => !b.global_date).map(b => ({
-      ...b, linked_event: b.linked_event || sourceAnchors.get(b.name) || null,
-    }));
-    const completed = new Map(resolveGachaSimulatorBanners(unresolved).map(b => [b.name, b]));
-    return {
-      ...props,
-      banners: props.banners.map(b => completed.get(b.name) || b)
-        .sort((a, b) => (parseBannerDate(b)?.getTime() ?? 0) - (parseBannerDate(a)?.getTime() ?? 0)),
-    };
-  },
+  // No request-time finalize: the content export runs this against the release's own
+  // banners and calendar, so every estimate above arrives with the release. The old
+  // hook re-estimated CN-only dates on each request from this deployment's bundled
+  // banners and events, which lag the release (411 banners against its 412).
 });

@@ -2,11 +2,12 @@
 
 import { englishVoiceTitles, englishVoiceTitle } from '../lib/voice-line-titles.mjs';
 import { actorAliases, normalizeVoicePack } from '../lib/voice-pack-metadata.mjs';
+import { listLegacyClips, restrictToRecordedClips } from '../lib/voice-clip-availability.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { pinnedRef } from '../content/pin-upstream.mjs';
+import { cnTableUrl, pinnedRef } from '../content/pin-upstream.mjs';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const OUTPUT = process.env.ARKPEDIA_VOICE_OUTPUT || join(ROOT, 'data/operator-voice-lines.json');
@@ -26,6 +27,9 @@ const AUDIO_DIRECTORY_APIS = Object.fromEntries(Object.entries(VOICE_REPOSITORIE
   directory,
   `https://api.github.com/repos/arkpedia/${repository}/contents/current`,
 ]));
+// The legacy folders' file lists, from the contents API unless a local index stands in
+// ({ "<repository>/<folder>": [names] }; see scripts/lib/voice-clip-availability.mjs).
+const LEGACY_CLIP_INDEX = process.env.ARKPEDIA_VOICE_LEGACY_INDEX ? JSON.parse(readFileSync(process.env.ARKPEDIA_VOICE_LEGACY_INDEX, 'utf8')) : null;
 const LEGACY_AUDIO_ROOTS = {
   voice: 'https://raw.githubusercontent.com/arkpedia/arkpedia-voice-japanese/main/legacy',
   voice_old: 'https://raw.githubusercontent.com/arkpedia/arkpedia-voice-japanese/main/legacy',
@@ -34,14 +38,18 @@ const LEGACY_AUDIO_ROOTS = {
 };
 /* The game-data mirrors at a ref: the commit this run pinned (run-stage.mjs) when fetching,
    the branch in the output's meta, which is rewritten every run and so would otherwise
-   change whenever a mirror moves; data/upstream.lock.json records the commits. */
+   change whenever a mirror moves; data/upstream.lock.json records the commits. The CN table
+   comes from the mirror the run settled on for every CN table (cnTableUrl), which the meta,
+   read with no run's environment, names as the primary one's branch whichever it was. */
 const MIRROR_FILES = {
   en: ['ArknightsAssets/ArknightsGamedata', 'en/gamedata/excel/charword_table.json'],
   enSupplemental: ['PuppiizSunniiz/ArknightsGameData_YoStar', 'en_US/gamedata/excel/charword_table.json'],
-  cn: ['Kengxxiao/ArknightsGameData', 'zh_CN/gamedata/excel/charword_table.json'],
 };
-const mirrorUrls = env => Object.fromEntries(Object.entries(MIRROR_FILES).map(([key, [repository, file]]) =>
-  [key, `https://raw.githubusercontent.com/${repository}/${pinnedRef(repository, env)}/${file}`]));
+const mirrorUrls = env => ({
+  ...Object.fromEntries(Object.entries(MIRROR_FILES).map(([key, [repository, file]]) =>
+    [key, `https://raw.githubusercontent.com/${repository}/${pinnedRef(repository, env)}/${file}`])),
+  cn: cnTableUrl('excel/charword_table.json', env),
+});
 const TRANSCRIPTS = mirrorUrls({});
 const URLS = {
   ...mirrorUrls(process.env),
@@ -303,9 +311,12 @@ for (const charId of [...operatorIds()].sort()) {
       if (template) packs.push({ id, label: PACK_LABELS[type], actors: archive.actors?.[id] ? [archive.actors[id].global || archive.actors[id].native] : [], status: 'current', audioTemplate: template });
     }
   }
+  // A legacy pack recorded before the actor changed may lack some lines: offer only the
+  // clips its folder holds, so the page says "No recording" rather than playing a 404.
+  const recorded = restrictToRecordedClips(lines, packs, await listLegacyClips(packs, { revisions: ASSET_REVISIONS, localIndex: LEGACY_CLIP_INDEX }));
   if (lines.length) operators[charId] = {
     textLocale: enWords.length || supplementalEnWords.length || fallback.length ? 'en' : 'zh-CN',
-    lines: lines.map(line => ({ ...line, title: englishVoiceTitle(line.id, line.title, titles) })),
+    lines: recorded.map(line => ({ ...line, title: englishVoiceTitle(line.id, line.title, titles) })),
     packs: packs.map(pack => normalizeVoicePack(pack, aliases)),
   };
 }

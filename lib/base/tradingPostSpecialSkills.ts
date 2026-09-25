@@ -1,6 +1,8 @@
-import { LATERANO, GLASGOW } from './baseGroupRosters';
+import type { BaseRosters } from './baseGroupRosters';
 
 export interface TradingPostContext {
+  /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
+  rosters: BaseRosters;
   manualValue?: number;
   sameRoomOperatorNames: string[]; // includes self
   filledCountThisRoom: number;
@@ -109,15 +111,15 @@ export const TRADING_POST_SPECIAL_SKILLS: Record<string, Handler> = {
     orderEfficiency: 0.2 + (ctx.sameRoomOperatorNames.some((n) => n === 'Exusiai' || n === 'Exusiai the New Covenant') ? 0.25 : 0),
   }),
   'Exusiai the New Covenant|Same-City Express Order': (ctx) => {
-    const count = ctx.sameRoomOperatorNames.filter((n) => LATERANO.has(n)).length;
+    const count = ctx.sameRoomOperatorNames.filter((n) => ctx.rosters.LATERANO.has(n)).length;
     return { orderEfficiency: 0.15 * count };
   },
   'Morgan|Gang Compass': (ctx) => {
-    const glasgowCount = ctx.sameRoomOperatorNames.filter((n) => GLASGOW.has(n)).length;
+    const glasgowCount = ctx.sameRoomOperatorNames.filter((n) => ctx.rosters.GLASGOW.has(n)).length;
     return { orderEfficiency: 0.2 * glasgowCount + (ctx.sameRoomOperatorNames.includes('Siege') ? 0.35 : 0) };
   },
   'Vina Victoria|Resolution on Foreign Trade β': (ctx) => ({
-    orderEfficiency: 0.3 + (ctx.sameRoomOperatorNames.some((n) => GLASGOW.has(n)) ? 0.1 : 0),
+    orderEfficiency: 0.3 + (ctx.sameRoomOperatorNames.some((n) => ctx.rosters.GLASGOW.has(n)) ? 0.1 : 0),
   }),
 
   // "Other operators here get a bonus" -- modeled as per-other-operator.

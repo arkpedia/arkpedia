@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
+import { exportClockVerdict, guardExportClock, KNOWN_EXPORT_CLOCK_READS } from './export-clock.mjs';
 const [route, destination] = process.argv.slice(2);
 if (!route || !destination) throw new Error('Expected route and output directory');
 process.env.ARKPEDIA_EXPORT_CONTENT = '1';
@@ -16,6 +17,8 @@ const bundle = path.resolve('.cache/content', createHash('sha256').update(route)
 await build({
   stdin: { contents: `export { getStaticProps${dynamic ? ', getStaticPaths' : ''} } from './${page}';`, resolveDir: process.cwd() },
   outfile: bundle, bundle: true, platform: 'node', format: 'cjs', packages: 'external',
+  // So the clock guard's errors name lib/ and pages/ lines rather than bundle offsets.
+  sourcemap: 'inline',
   jsx: 'automatic', logLevel: 'warning', treeShaking: true,
   // Client components may declare Web Workers with import.meta.url. Content
   // export executes getStaticProps only; Next's browser build owns those
@@ -26,6 +29,13 @@ await build({
   } }],
   define: { 'process.env.ARKPEDIA_EXPORT_CONTENT': '"1"' },
 });
+// Page code may not read the clock here (scripts/content/export-clock.mjs). Its frames
+// are the bundle's, or with source maps the repo's own files; Node and dependencies
+// keep their clock.
+process.setSourceMapsEnabled(true);
+const root = `${process.cwd()}${path.sep}`;
+const clock = guardExportClock(frame => frame.includes(root) && !frame.includes(`${path.sep}node_modules${path.sep}`) && !frame.includes('export-worker.mjs'),
+  { refuse: !Object.hasOwn(KNOWN_EXPORT_CLOCK_READS, route) });
 const { getStaticProps, getStaticPaths } = createRequire(import.meta.url)(bundle);
 const paths = dynamic ? (await getStaticPaths({})).paths : [{ params: {} }];
 const entries = {};
@@ -35,11 +45,9 @@ for (const item of paths) {
   const key = route.replace(/\[([^\]]+)\]/g, (_, name) => encodeURIComponent(params[name]));
   const result = await getStaticProps({ params, revalidateReason: 'build' });
   if (!('props' in result)) continue;
+  // The page's own getStaticProps attaches the tables its browser code reads
+  // (__contentTables, lib/content/tables.mjs), from this checkout's data/.
   const props = await result.props;
-  const tables = route === '/planner' ? ['base-formulas', 'battle-records', 'supply-stages']
-    : route === '/schedule' ? ['event_colors', 'event_materials', 'headhunting_banners']
-    : route === '/stages/browse' ? ['stage-tile-legend'] : [];
-  if (tables.length) props.__contentTables = Object.fromEntries(tables.map(name => [name, JSON.parse(fs.readFileSync(`data/${name}.json`, 'utf8'))]));
   const bytes = Buffer.from(JSON.stringify({ props }));
   // JSON.stringify must not silently erase unsupported top-level values.
   if (!props || typeof props !== 'object' || Array.isArray(props)) throw new Error(`Invalid props: ${key}`);
@@ -49,5 +57,8 @@ for (const item of paths) {
   fs.writeFileSync(path.join(destination, file), bytes);
   entries[key] = { path: file, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
+clock.restore();
+const clockError = exportClockVerdict(route, clock.reads);
+if (clockError) throw new Error(clockError);
 fs.writeFileSync(path.join(destination, `entries-${createHash('sha256').update(route).digest('hex')}.json`), JSON.stringify(entries));
 console.log(`${route}: ${Object.keys(entries).length} pages`);

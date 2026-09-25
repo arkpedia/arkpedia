@@ -18,10 +18,9 @@ import { isOperatorReleased } from '@/lib/operators/operatorAvailability';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import { highlightStats } from '@/components/ui/HighlightedText';
-import { IN_GAME_ORDER } from '@/lib/farming/materialSortOrder';
 import { PlannerOperator, PlannerOperatorSummary, Skill, OperatorModule, PromotionTier, getSkillList, type CostGroup } from '@/lib/operators/operatorTypes';
 import { buildAliasMap } from '@/lib/operators/operatorAliases';
-import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
+import { checkItemSortIds, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import baseFormulas from '@/data/base-formulas.json';
 import { DepotGrid } from '@/components/planner/DepotGrid';
 import { OperatorBill, ShortfallList } from '@/components/planner/ShortfallList';
@@ -32,7 +31,7 @@ import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWi
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
 import { bundleFilename, describeTransfer, formatBundle, parseTransfer } from '@/lib/planner/transfer';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
-import { unheldSummary } from '@/lib/planner/foreignImport';
+import { checkImportAliases, unheldSummary } from '@/lib/planner/foreignImport';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { hasFilePicker, hasFolderPicker, loadFromFile, saveToFile, showFolder } from '@/lib/planner/fileTransfer';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
@@ -226,7 +225,7 @@ function costLine(cost: CostGroup): string {
 
 
 export default function PlannerPage({ operators, depotCatalogue }: Props) {
-  const { resolveNeeds, shortShares, planBuild } = usePlannerContent();
+  const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   const [simpleNewOperator, setSimpleNewOperator] = useState(false);
@@ -609,7 +608,7 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
       setTransferNote(`That is ${(text.length / 1048576).toFixed(1)} MB -- far larger than any planner file, so it was not read. (${source})`);
       return;
     }
-    const parsed = parseTransfer(text);
+    const parsed = parseTransfer(text, importAliases);
     if (!parsed) {
       setTransferNote(`That is not a planner file this can read -- nothing changed. (${source})`);
       return;
@@ -855,7 +854,7 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
     const rarity = summary.rarity || 1;
     const now = currentOf(name);
     if (!goalReady(goal, now, rarity)) return;
-    const plan = planBuild(priceGoal(goal, op, rarity, now), depot, { crafting, autoCraft });
+    const plan = planBuild(priceGoal(goal, op, rarity, now, levels), depot, { crafting, autoCraft });
     if (!plan.ok) {
       setBuildNote({ name, text: `${goal.label} is short of ${plan.short.join(', ')} -- nothing changed.` });
       return;
@@ -915,16 +914,16 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
     const now = currentOf(name);
     return goalsOf(rarity, op, now, b).map((goal) => {
       const ready = goalReady(goal, now, rarity);
-      const cost = priceGoal(goal, op, rarity, now);
+      const cost = priceGoal(goal, op, rarity, now, levels);
       const plan: BuildPlan | null = ready ? planBuild(cost, depot, { crafting, autoCraft }) : null;
       return { goal, ready, blocker: ready ? '' : goalBlocker(goal, now, rarity), cost, plan };
     });
     // currentOf reads roster and builderStates, both listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [build, detailCache, roster, builderStates, depot, crafting, autoCraft]);
+  }, [build, detailCache, roster, builderStates, depot, crafting, autoCraft, levels]);
 
   const levelCost = activeOp && builder
-    ? computeLevelCostRemaining(activeOp.rarity || 1, builder.startingElite, builder.startingLevel, builder.elite, builder.level)
+    ? computeLevelCostRemaining(levels, activeOp.rarity || 1, builder.startingElite, builder.startingLevel, builder.elite, builder.level)
     : null;
   const promotions = activeOp && builder ? promotionCostsNeeded(activeOp, builder.elite, builder.startingElite) : [];
   const promotionTotals = useMemo(() => {
@@ -1025,11 +1024,11 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
       const b = builderStates[name];
       if (!op || !b) continue;
       const totals = new Map<string, number>();
-      for (const group of upgradeCostGroups(op, b)) addCostGroup(totals, group.cost);
+      for (const group of upgradeCostGroups(op, b, levels)) addCostGroup(totals, group.cost);
       out[name] = totalsToCostGroup(totals);
     }
     return out;
-  }, [selectedNames, builderStates, detailCache]);
+  }, [selectedNames, builderStates, detailCache, levels]);
 
   /**
    * How many steps each planned operator has left, for the row's Build button
@@ -1191,7 +1190,7 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
       if (item.name === 'EXP') continue;
       wanted.set(item.name, (wanted.get(item.name) || 0) + Math.ceil(Number(item.quantity) || 0));
     }
-    return IN_GAME_ORDER
+    return inGameOrder
       .filter((name) => wanted.has(name))
       .map((name) => ({
         name,
@@ -1199,7 +1198,7 @@ export default function PlannerPage({ operators, depotCatalogue }: Props) {
         need: wanted.get(name) || 0,
         short: (shares.get(name) ?? 0) > 0 || (name === 'LMD' && (depot.LMD || 0) < lmdTotal),
       }));
-  }, [combinedBill, depot, shares, lmdTotal]);
+  }, [combinedBill, depot, shares, lmdTotal, inGameOrder]);
 
   const clearControl = (section: 'simple' | 'goals' | 'roster' | 'depot') => <ClearControl
     label="Clear"
@@ -1765,7 +1764,9 @@ function trimModule(mod: OperatorModule) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/planner", async () => {
-  const allOps = getAllOperators().filter((op) => isOperatorReleased(op));
+  // Decided at content export, so a newly released operator waits for the next release;
+  // the export clock guard lists this route as a known exception (scripts/content/export-clock.mjs).
+  const allOps = getAllOperators().filter((op) => isOperatorReleased(op, Date.now()));
 
   // Lightweight props -- just enough for the search picker and
   // selected-operator chips. Full promotion/skills/modules build data
@@ -1966,4 +1967,16 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
   }
 
   return { props: { operators, depotCatalogue } };
+}, {
+  tables: {
+    'base-formulas': async () => (await import('@/data/base-formulas.json')).default,
+    'battle-records': async () => (await import('@/data/battle-records.json')).default,
+    'supply-stages': async () => (await import('@/data/supply-stages.json')).default,
+    operatorLevelExpLmd: async () => (await import('@/data/operatorLevelExpLmd.json')).default,
+    // Both checked against the material catalogue wherever they are read from data/,
+    // so a release that disagrees fails its export (they used to fail at import).
+    'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default),
+    'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default),
+    'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
+  },
 });

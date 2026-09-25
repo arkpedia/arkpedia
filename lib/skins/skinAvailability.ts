@@ -84,7 +84,7 @@ export function withLocalConfirmedSkinWindows(windows: SkinWindow[]): SkinWindow
   return missing.length ? [...windows, ...missing] : windows;
 }
 
-export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date = new Date(), windows = getSkinWindows(skins, events)): Map<string, SkinCountdown> {
+export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], asOf: Date, windows = getSkinWindows(skins, events)): Map<string, SkinCountdown> {
   const result = new Map<string, SkinCountdown>();
   for (const window of windows) {
     const start = Date.parse(window.startAt), end = Date.parse(window.endAt);

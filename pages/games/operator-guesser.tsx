@@ -39,7 +39,8 @@ const NO_REPEAT_ROUNDS = 50;
 export default function GuesserPage({ operators, skins }: Props) {
   const realOperators = useMemo(
     () =>
-      operators.filter((operator) => operatorRelease(operator) !== null && isOperatorReleased(operator)),
+      // The reader's clock: the answer pool is only used once a round starts, after hydration.
+      operators.filter((operator) => operatorRelease(operator) !== null && isOperatorReleased(operator, Date.now())),
     [operators]
   );
 

@@ -460,9 +460,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
     if (!(series in seriesLogos)) seriesLogos[series] = null;
   }
 
-  // The build's clock, for the countdowns' first paint -- the component
-  // re-picks the reader's real time on mount (see the clock state
-  // above). Rounded to the minute, matching that re-pick.
-  const now = Math.floor(Date.now() / 60000) * 60000;
-  return { props: { skins, seriesLogos, events, now, availabilityWindows: getSkinWindows(skins, events) } };
+  // `now`, the countdowns' first paint, is the request's clock from contentPageClock
+  // (lib/content/pageClock.ts), rounded to the minute. The component re-picks the
+  // reader's real time on mount (see the clock state above).
+  return { props: { skins, seriesLogos, events, availabilityWindows: getSkinWindows(skins, events) } };
 });

@@ -1,4 +1,6 @@
+import { isLineupPending } from './bannerLineup';
 import { BannerConfig, GachaItem, GachaState, PulledItem, Rarity } from './gachaTypes';
+import type { HeadhuntingBanner } from './headhuntingBanners';
 
 export const BASE_RATES = { six: 0.02, five: 0.08, four: 0.5, three: 0.4 };
 
@@ -30,10 +32,58 @@ function pickWeighted<T>(items: { item: T; weight: number }[], rand: number): T 
   return items[items.length - 1].item;
 }
 
+/** What a pull lands on when a rarity has no one to give: a banner whose lineup is
+ * not known yet, or whose only listed operator the eligibility rules removed. The
+ * page does not offer pulls then (simulatorPullable), so this only keeps a stray call
+ * from throwing on `undefined.name`. */
+const UNKNOWN_OPERATOR: GachaItem = { name: 'Unknown Operator', icon: null };
+
 function pickFromPool(pool: GachaItem[], rand: number): GachaItem {
-  if (pool.length === 0) return { name: 'Unknown Operator', icon: null };
+  if (pool.length === 0) return UNKNOWN_OPERATOR;
   const idx = Math.min(pool.length - 1, Math.floor(rand * pool.length));
   return pool[idx];
+}
+
+type SixStarTag = 'featured' | 'rateUp' | 'other';
+export type WeightedSixStar = { item: GachaItem; weight: number; tag: SixStarTag };
+
+/** Weights that add up to 1, or an empty pool. Every rate the page shows as "% of
+ * 6★" is read straight off these, so a lineup shorter than its banner type expects
+ * must not leave the shares summing to less than 1. */
+function normalise<T extends { weight: number }>(pool: T[]): T[] {
+  const total = pool.reduce((sum, p) => sum + p.weight, 0);
+  return total > 0 ? pool.map((p) => ({ ...p, weight: p.weight / total })) : [];
+}
+
+/**
+ * Featured slots at their stated share, and the rest of the pool sharing what is left.
+ *
+ * A slot's share belongs to the operator in it. A slot the lineup does not fill -- a
+ * Standard banner out before its two rate-ups are named, a Celebration Kernel banner
+ * with no 6★ rate-up at all, a kernel banner whose listed operator is not
+ * kernel-eligible -- has no one to land on, so its share goes back to the rest of the
+ * pool, in the rest's own proportions (a Limited banner's 5x rate-ups keep their 5x).
+ * It does not go to the other featured operator: one rate-up on a Standard banner is
+ * 25%, whether or not the second has been announced. With no rest to take it, the
+ * featured operators that exist share the whole.
+ *
+ * `rest` weights are relative to each other only.
+ */
+function allocate(
+  slots: { item: GachaItem | undefined; share: number }[],
+  rest: { item: GachaItem; weight: number; tag: SixStarTag }[],
+): WeightedSixStar[] {
+  const featured = slots.flatMap(({ item, share }) => (item ? [{ item, weight: share, tag: 'featured' as const }] : []));
+  const assigned = featured.reduce((sum, p) => sum + p.weight, 0);
+  const restTotal = rest.reduce((sum, p) => sum + p.weight, 0);
+  const remaining = Math.max(0, 1 - assigned);
+  const shared = restTotal > 0 ? rest.map((p) => ({ ...p, weight: (p.weight / restTotal) * remaining })) : [];
+  return normalise([...featured, ...shared]);
+}
+
+/** Every one of `items` at an equal share: the featured-only banner types. */
+function evenly(items: GachaItem[]): WeightedSixStar[] {
+  return normalise(items.filter(Boolean).map((item) => ({ item, weight: 1, tag: 'featured' as const })));
 }
 
 /**
@@ -68,68 +118,51 @@ function rollRarity(softPitySince6: number, forcedFivePlus: boolean, rand: numbe
 /** Builds the weighted six-star pool for a given banner, exactly as
  * pickSixStar uses it -- exported so the UI can compute "if you got a
  * 6-star, what's the chance it's this one" for each operator shown. */
-export function sixStarWeightedPool(banner: BannerConfig): { item: GachaItem; weight: number; tag: 'featured' | 'rateUp' | 'other' }[] {
+export function sixStarWeightedPool(banner: BannerConfig): WeightedSixStar[] {
   const feat = banner.sixStarFeatured;
-  const others = banner.otherSixStarPool;
+  const others = banner.otherSixStarPool.map((item) => ({ item, weight: 1, tag: 'other' as const }));
   const rateUp = banner.rateUpSixStars || [];
 
   switch (banner.type) {
     case 'featured':
-      return [
-        { item: feat[0], weight: 0.5, tag: 'featured' },
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length), tag: 'other' as const })),
-      ];
-    case 'limited': {
-      const rateUpWeight = 0.3 * (rateUp.length > 0 ? 5 / (5 * rateUp.length + others.length) : 0);
-      const otherWeight = 0.3 * (others.length > 0 ? 1 / (5 * rateUp.length + others.length) : 0);
-      return [
-        { item: feat[0], weight: 0.35, tag: 'featured' },
-        { item: feat[1], weight: 0.35, tag: 'featured' },
-        ...rateUp.map((o) => ({ item: o, weight: rateUpWeight, tag: 'rateUp' as const })),
-        ...others.map((o) => ({ item: o, weight: otherWeight, tag: 'other' as const })),
-      ];
-    }
+    case 'crossover':
+      return allocate([{ item: feat[0], share: 0.5 }], others);
+    case 'limited':
+      // The two featured at 35% each; the remaining 30% (plus any unfilled featured
+      // slot) split 5:1 between the returning rate-ups and everyone else.
+      return allocate(
+        [{ item: feat[0], share: 0.35 }, { item: feat[1], share: 0.35 }],
+        [...rateUp.map((item) => ({ item, weight: 5, tag: 'rateUp' as const })), ...others],
+      );
     case 'standard':
     case 'kernel':
-      return [
-        { item: feat[0], weight: 0.25, tag: 'featured' },
-        { item: feat[1], weight: 0.25, tag: 'featured' },
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length), tag: 'other' as const })),
-      ];
+      return allocate([{ item: feat[0], share: 0.25 }, { item: feat[1], share: 0.25 }], others);
     case 'joint':
-      return feat.slice(0, 4).map((o) => ({ item: o, weight: 0.25, tag: 'featured' as const }));
+      return evenly(feat.slice(0, 4));
     case 'orienteering':
-      return feat.slice(0, 3).map((o) => ({ item: o, weight: 1 / 3, tag: 'featured' as const }));
-    case 'celebration':
-      return feat.map((o) => ({ item: o, weight: 1 / Math.max(1, feat.length), tag: 'featured' as const }));
-    case 'crossover':
-      return [
-        { item: feat[0], weight: 0.5, tag: 'featured' },
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length), tag: 'other' as const })),
-      ];
     case 'trio':
-      return feat.slice(0, 3).map((o) => ({ item: o, weight: 1 / 3, tag: 'featured' as const }));
+      return evenly(feat.slice(0, 3));
     case 'kernelLocating':
-      return [
-        ...feat.map((o) => ({ item: o, weight: 0.5 / Math.max(1, feat.length), tag: 'featured' as const })),
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length), tag: 'other' as const })),
-      ];
+      return allocate(feat.map((item) => ({ item, share: 0.5 / Math.max(1, feat.length) })), others);
+    case 'celebration':
     default:
-      return feat.map((o) => ({ item: o, weight: 1 / Math.max(1, feat.length), tag: 'featured' as const }));
+      return evenly(feat);
   }
 }
 
 function pickSixStar(banner: BannerConfig, state: GachaState, rand: number): { item: GachaItem; isFeatured: boolean; isRateUp: boolean } {
   const feat = banner.sixStarFeatured;
 
-  if (banner.type === 'featured' && !state.featuredGuaranteeUsed && state.pullsSinceFeatured6Star >= 150) {
+  // A guarantee grants the featured operator, so there must be one to grant.
+  if (banner.type === 'featured' && feat[0] && !state.featuredGuaranteeUsed && state.pullsSinceFeatured6Star >= 150) {
     return { item: feat[0], isFeatured: true, isRateUp: false };
   }
-  if (banner.type === 'crossover' && !state.crossoverGuaranteeUsed && state.pullsSinceCrossover6Star >= 120) {
+  if (banner.type === 'crossover' && feat[0] && !state.crossoverGuaranteeUsed && state.pullsSinceCrossover6Star >= 120) {
     return { item: feat[0], isFeatured: true, isRateUp: false };
   }
 
   const pool = sixStarWeightedPool(banner);
+  if (pool.length === 0) return { item: UNKNOWN_OPERATOR, isFeatured: false, isRateUp: false };
   const picked = pickWeighted(
     pool.map((p) => ({ item: p, weight: p.weight })),
     rand
@@ -146,6 +179,16 @@ function pickFourStar(banner: BannerConfig, rand: number): { item: GachaItem; is
   return { item: pickFromPool(banner.fourStarPool, rand), isFeatured: false };
 }
 
+/** Two groups sharing a rarity's chance: `featured` split evenly over `share`, and
+ * `others` split evenly over the rest. When either group is empty the other takes
+ * the whole, the same reading allocate() gives the six-stars. */
+function split(featured: GachaItem[], share: number, others: GachaItem[]): { item: GachaItem; weight: number }[] {
+  return normalise([
+    ...featured.map((item) => ({ item, weight: share / featured.length })),
+    ...others.map((item) => ({ item, weight: (1 - share) / others.length })),
+  ]);
+}
+
 /** Same idea as sixStarWeightedPool, for five-stars -- exported so the
  * UI can show "if you got a 5-star, what's the chance it's this one"
  * for each featured operator too. */
@@ -157,10 +200,10 @@ export function fiveStarWeightedPool(banner: BannerConfig, crossoverObtainedName
     case 'featured':
     case 'limited':
     case 'celebration':
-      return [
-        ...feat.map((o) => ({ item: o, weight: 0.5 / Math.max(1, feat.length) })),
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length) })),
-      ];
+    case 'standard':
+    case 'kernel':
+    case 'kernelLocating':
+      return split(feat, 0.5, others);
     case 'crossover': {
       // Two featured 5-stars that guarantee-complete each other: once
       // one is obtained, every subsequent 5-star roll is 100% the other
@@ -174,83 +217,53 @@ export function fiveStarWeightedPool(banner: BannerConfig, crossoverObtainedName
       // it's 1 or 2 of them), with the other 50% going to off-banner
       // 5-stars -- confirmed: they do NOT take 100% just because
       // there's no "others" mixing once you already have one.
-      return [
-        ...feat.slice(0, 2).map((o) => ({ item: o, weight: 0.5 / Math.max(1, feat.length) })),
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length) })),
-      ];
+      return split(feat.slice(0, 2), 0.5, others);
     }
-    case 'standard':
-    case 'kernel':
-      return [
-        ...feat.map((o) => ({ item: o, weight: 0.5 / Math.max(1, feat.length) })),
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length) })),
-      ];
     case 'joint':
-      return feat.slice(0, 6).map((o) => ({ item: o, weight: 1 / 6 }));
+      return split(feat.slice(0, 6), 1, []);
     case 'orienteering':
       // The 3 chosen share 60%; the 3 NOT chosen stay pullable too,
       // sharing the remaining 40% -- unlike six-stars, five-stars here
       // aren't all-or-nothing on the player's picks.
-      return [
-        ...feat.map((o) => ({ item: o, weight: 0.6 / Math.max(1, feat.length) })),
-        ...others.map((o) => ({ item: o, weight: 0.4 / Math.max(1, others.length) })),
-      ];
+      return split(feat, 0.6, others);
     case 'trio':
-      return feat.slice(0, 3).map((o) => ({ item: o, weight: 1 / 3 }));
-    case 'kernelLocating':
-      return [
-        ...feat.map((o) => ({ item: o, weight: 0.5 / Math.max(1, feat.length) })),
-        ...others.map((o) => ({ item: o, weight: 0.5 / Math.max(1, others.length) })),
-      ];
+      return split(feat.slice(0, 3), 1, []);
     default:
-      return feat.map((o) => ({ item: o, weight: 1 / Math.max(1, feat.length) }));
+      return split(feat, 1, []);
   }
 }
 
 function pickFiveStar(banner: BannerConfig, state: GachaState, rand: number): { item: GachaItem; isFeatured: boolean } {
   const feat = banner.fiveStarFeatured;
-  const others = banner.otherFiveStarPool;
+  const isFeatured = (item: GachaItem) => feat.some((f) => f.name === item.name);
 
   switch (banner.type) {
-    case 'featured':
-    case 'limited':
-    case 'celebration': {
-      const pool = fiveStarWeightedPool(banner);
+    // A fixed count of featured five-stars, one of which every 5★ is. The count is
+    // what the lineup holds, not what the banner type promises: a Joint banner
+    // listed with five of its six would otherwise land on feat[5], undefined.
+    case 'joint':
+      return { item: pickFromPool(feat.slice(0, 6), rand), isFeatured: true };
+    case 'trio':
+    case 'kernelLocating':
+      return { item: pickFromPool(feat.slice(0, 3), rand), isFeatured: true };
+    default: {
+      const pool = fiveStarWeightedPool(banner, banner.type === 'crossover' ? state.crossoverFiveStarObtainedName : null);
+      if (pool.length === 0) return { item: UNKNOWN_OPERATOR, isFeatured: false };
       const picked = pickWeighted(pool, rand);
-      return { item: picked, isFeatured: banner.fiveStarFeatured.some((f) => f.name === picked.name) };
-    }
-    case 'crossover': {
-      const pool = fiveStarWeightedPool(banner, state.crossoverFiveStarObtainedName);
-      const picked = pickWeighted(pool, rand);
-      return { item: picked, isFeatured: banner.fiveStarFeatured.some((f) => f.name === picked.name) };
-    }
-    case 'standard':
-    case 'kernel': {
-      const pool = fiveStarWeightedPool(banner);
-      const picked = pickWeighted(
-        pool.map((p) => ({ item: p, weight: p.weight })),
-        rand
-      );
-      return { item: picked.item, isFeatured: banner.fiveStarFeatured.some((f) => f.name === picked.item.name) };
-    }
-    case 'joint': {
-      const idx = Math.min(5, Math.floor(rand * 6));
-      return { item: feat[idx], isFeatured: true };
-    }
-    case 'orienteering': {
-      const pool = fiveStarWeightedPool(banner);
-      const picked = pickWeighted(pool, rand);
-      return { item: picked, isFeatured: feat.some((f) => f.name === picked.name) };
-    }
-    case 'trio': {
-      const idx = Math.min(2, Math.floor(rand * 3));
-      return { item: feat[idx], isFeatured: true };
-    }
-    case 'kernelLocating': {
-      const idx = Math.min(2, Math.floor(rand * 3));
-      return { item: feat[idx], isFeatured: true };
+      return { item: picked, isFeatured: isFeatured(picked) };
     }
   }
+}
+
+/** Whether the simulator offers pulls on a banner. Not while its lineup is
+ * pending: the banner is announced but its rate-ups are not named, and a
+ * simulation without them would show every operator at the wrong rate -- the
+ * whole point of a banner is who it features. Not when no 6★ can drop at all
+ * either. A banner whose featured list is merely short (a Celebration Kernel
+ * banner lists no 6★ rate-up) is pullable: the unfilled slots' share goes to the
+ * rest of the pool (allocate). */
+export function simulatorPullable(source: Pick<HeadhuntingBanner, 'lineupSource'>, banner: BannerConfig): boolean {
+  return !isLineupPending(source) && sixStarWeightedPool(banner).length > 0;
 }
 
 /**

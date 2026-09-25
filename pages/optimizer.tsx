@@ -1,14 +1,9 @@
 import { useEffect, useState, ReactNode } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { GetStaticProps } from 'next';
+import { devOnlyStaticProps } from '@/lib/dev/devOnly';
 
-export const getStaticProps: GetStaticProps = async () => {
-  if (process.env.NODE_ENV !== 'development') {
-    return { notFound: true };
-  }
-  return { props: {} };
-};
+export const getStaticProps = devOnlyStaticProps;
 
 interface TpResult {
   combo: string[];

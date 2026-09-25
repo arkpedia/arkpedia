@@ -11,6 +11,7 @@ import { getOperatorIconPath } from "@/lib/operators/operatorIcon";
 import { matchesSearch, searchRelevance } from "@/lib/search/searchNormalize";
 import type { BuilderState } from "@/lib/planner/builderStates";
 import { upgradeCostGroups } from "@/lib/planner/upgradeCostGroups";
+import { usePlannerContent } from "@/lib/content/planner";
 import { sortMaterials } from "@/lib/farming/materialSortOrder";
 import { plannerModules } from "@/lib/planner/build";
 import { MaterialIcon } from "./MaterialIcon";
@@ -45,7 +46,8 @@ export function SimpleMaterialGroups({
   state: BuilderState;
 }) {
   const [view, setView] = useState<'total' | 'separate'>('total');
-  const groups = useMemo(() => upgradeCostGroups(op, state), [op, state]);
+  const { levels } = usePlannerContent();
+  const groups = useMemo(() => upgradeCostGroups(op, state, levels), [op, state, levels]);
   const total = useMemo(() => {
     const quantities = new Map<string, number>();
     groups.forEach(group => addCostGroup(quantities, group.cost));

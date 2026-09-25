@@ -1,5 +1,6 @@
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import type { GuesserOperator, Operator } from '@/lib/operators/operatorTypes';
+import { portraitStatus } from '@/lib/operators/operatorPortrait';
 
 function pickFields(record: Record<string, string> | null | undefined, keys: string[]): Record<string, string> {
   return Object.fromEntries(keys.filter((key) => record?.[key] !== undefined).map((key) => [key, record![key]]));
@@ -17,6 +18,7 @@ export function toGuesserOperator(op: Operator): GuesserOperator {
     howToObtain: op.howToObtain,
     tags: op.tags,
     isFuture: op.isFuture ?? false,
+    ...portraitStatus(op),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     skills: getSkillList(op).map((skill) => {
       const m3 = skill.levels?.find((level) => level.mastery === 3);

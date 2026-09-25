@@ -19,6 +19,8 @@ interface Props {
   videos: YouTubeVideo[];
   twitchStreams: TwitchStream[];
   events: CommunityEvent[];
+  /** When these props were made: the event panels render from it until they mount. */
+  now: number;
   hasYouTubeApiKey: boolean;
   hasTwitchCreds: boolean;
 }
@@ -27,6 +29,7 @@ export default function CommunityHub({
   videos,
   twitchStreams,
   events,
+  now,
   hasYouTubeApiKey,
   hasTwitchCreds,
 }: Props) {
@@ -55,10 +58,10 @@ export default function CommunityHub({
         <section className="op-section" style={{ marginBottom: 20 }}>
           <div className="community-map-row">
             <div className="community-event-panel">
-              <EventListPanel events={events} />
+              <EventListPanel events={events} now={now} />
             </div>
             <div className="community-map-main">
-              <WorldMapEvents events={events} />
+              <WorldMapEvents events={events} now={now} />
             </div>
           </div>
         </section>
@@ -191,6 +194,7 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       videos,
       twitchStreams,
       events: EVENTS,
+      now: Date.now(),
       hasYouTubeApiKey: Boolean(youtubeApiKey),
       hasTwitchCreds: Boolean(twitchClientId && twitchClientSecret),
     },

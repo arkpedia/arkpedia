@@ -2,7 +2,7 @@ import { useContentUrl } from '@/lib/content/context';
 import { ContentImg } from '@/components/content/ContentImage';
 /* eslint-disable @next/next/no-img-element -- picture sources are prebuilt in the asset repository. */
 import { CSSProperties, MouseEventHandler } from 'react';
-import { getSkinArtworkSources } from '@/lib/assets/skinArtwork';
+import { getSkinArtworkSources, skinArtworkSrcSet } from '@/lib/assets/skinArtwork';
 
 interface Props {
   src: string;
@@ -38,10 +38,8 @@ export default function ResponsiveSkinArtwork({
 
   return (
     <picture>
-      <source type="image/avif" sizes={sizes}
-        srcSet={`${url(sources.avif[320])} 320w, ${url(sources.avif[768])} 768w, ${url(sources.avif[1280])} 1280w`} />
-      <source type="image/webp" sizes={sizes}
-        srcSet={`${url(sources.webp[320])} 320w, ${url(sources.webp[768])} 768w, ${url(sources.webp[1280])} 1280w`} />
+      <source type="image/avif" sizes={sizes} srcSet={skinArtworkSrcSet(sources.avif, url)} />
+      <source type="image/webp" sizes={sizes} srcSet={skinArtworkSrcSet(sources.webp, url)} />
       <ContentImg src={sources.fallback} alt={alt} className={className} style={imageStyle} width={width} height={height}
         loading={priority ? 'eager' : 'lazy'} decoding="async" onClick={onClick} />
     </picture>

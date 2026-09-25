@@ -36,6 +36,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isOperatorReleased } from '../../lib/operators/operatorAvailability';
 import { getEssentialIconPath } from '../../lib/operators/operatorIconPaths';
+import { OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/operators/operatorIcon';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 
@@ -60,7 +61,8 @@ const safe = (value: unknown) => String(value).replace(/[\\/*?:"<>|]/g, '').trim
 /** One entry per path a helper in lib/operators/ would build for this record. */
 function* expected(operator: any): Generator<[string, string]> {
   const word = RARITY_WORDS[operator.rarity] || 'six';
-  // getOperatorIconPath -- guarded for future operators only, so still worth checking.
+  // getOperatorIconPath -- an unpublished portrait shows OPERATOR_PORTRAIT_PLACEHOLDER
+  // (checked once, below), but a released operator's own is still worth checking.
   if (!operator.isFuture) yield [`${word}-star-icons/${safe(operator.name)} - Base.webp`, 'roster icon'];
   if (operator.class) yield [`class-icons/${safe(operator.class)}.webp`, 'class icon'];
   if (operator.branch) yield [`branch-icons/${safe(operator.branch)}.webp`, 'branch icon'];
@@ -117,6 +119,10 @@ export function checkIconCoverage({ root, now = defaultNow(), quarantine = false
     }
   }
 
+  // Every operator whose portrait is not published yet shows this one file instead, so
+  // it is a gap on all of them at once.
+  const placeholder = OPERATOR_PORTRAIT_PLACEHOLDER.slice(1);
+  if (!published.has(placeholder)) missing.set(placeholder, 'portrait placeholder for every operator without one');
   const unexpected = [...missing].filter(([file]) => !KNOWN_GAPS.has(file));
   const fixed = [...KNOWN_GAPS.keys()].filter((file) => !missing.has(file));
   const out: string[] = [], errors: string[] = [];

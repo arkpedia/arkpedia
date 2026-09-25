@@ -29,8 +29,10 @@ const shiftDate = (date: string, offset: number) => new Date(Date.parse(`${date}
 /** Only explicit shop inventories establish availability. A release association,
  * rerun, or Fashion Review flag is not evidence that an outfit is sold for OP.
  * CN rotations follow the scheduled Global event opening, retaining each shop's
- * own offsets. Both inventory and timing remain estimates until verified Global. */
-export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], catalogue: PlannedSkin[], today: string, predicted: ReadonlySet<string> = new Set(), sources: SkinShopSource[] = shopRotations.entries, confirmed: ConfirmedSkinWindow[] = confirmedAvailability.entries): SkinCollection[] {
+ * own offsets. Both inventory and timing remain estimates until verified Global.
+ * Shops that are already over stay in: which ones are over is decided per request
+ * (lib/pulls/currentPlan.ts) and again in the browser (SkinPlan), never here. */
+export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], catalogue: PlannedSkin[], predicted: ReadonlySet<string> = new Set(), sources: SkinShopSource[] = shopRotations.entries, confirmed: ConfirmedSkinWindow[] = confirmedAvailability.entries): SkinCollection[] {
   const paid = new Set(catalogue.map(skin => skin.id));
   // Keep expired confirmations too: an old CN projection must never resurrect
   // a shop after its verified Global window has closed.
@@ -44,7 +46,6 @@ export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], cat
     const start = new Date(startTime).toISOString().slice(0, 10);
     // endAt is exclusive, including a shop closing exactly at midnight.
     const end = new Date(endTime - 1).toISOString().slice(0, 10);
-    if (end < today) return [];
     const skinIds = [...new Set(window.skinIds)];
     for (const id of skinIds) if (!paid.has(id)) throw new Error(`Shop outfit missing OP metadata: ${id}`);
     return skinIds.length ? [{
@@ -69,8 +70,6 @@ export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], cat
         const start = shiftDate(rotation.start, offset);
         const end = shiftDate(rotation.end, offset);
         if (end < start) throw new Error(`Invalid shop window: ${source.event} / ${rotation.label}`);
-        // Filter the shop, not the event: outfits may remain on sale afterwards.
-        if (end < today) return [];
         const skinIds = [...new Set([...rotation.new, ...rotation.returning])];
         for (const id of skinIds) if (!paid.has(id)) throw new Error(`Shop outfit missing OP metadata: ${id}`);
         return skinIds.length ? [{

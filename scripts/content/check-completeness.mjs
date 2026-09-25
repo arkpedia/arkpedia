@@ -1,8 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
+import { unconfirmedOutfitSales } from './outfit-windows.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
+// A reward name that is a scrape's stand-in for a missing item, not the item.
+const PLACEHOLDER = /not found|^\?+$|^(?:tbd|tba|unknown|null|undefined|placeholder|n\/a)$/i;
 const words = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 const list = x => Array.isArray(x) ? x : [];
 // Every material list is a flat [{ name, quantity }] list: the site, the tests and the public
@@ -56,18 +60,22 @@ export function artPath(value) {
  *
  * Everything else is one record's problem -- a new CN operator or outfit not imported yet,
  * a discovered event or banner the catalogue left out, art (key art too) or a reward icon
- * the image sync has not published, a stage enemy without its record -- so it becomes an
+ * the image sync has not published, a stage enemy without its record, an album whose
+ * release date is not written YYYY/MM/DD -- so it becomes an
  * entry in data/quarantine.json (stage 'completeness') and a line in the daily 'Content
  * quarantined' issue, and the rest of the day's content still goes out. The keys name
  * records by their source ids, the same way every stage's quarantine entries do.
  */
-export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], assets, stageEnemies, enemyRecords, enemyIndex, counts, baseline, allowShrink = [] }) {
+export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, counts, baseline, allowShrink = [] }) {
   const errors = [], quarantine = [], allowed = [];
   const hold = (key, action, reason) => quarantine.push({ key, action, reason });
   const byId = new Map(operators.map(op => [op.internalName, op]));
   const names = new Set(operators.flatMap(op => [op.name, op.recordName]));
   const skinIds = new Set();
   const missing = file => !assets.has(file);
+  // The rule findSkinIconPath applies: an outfit's icon is <Operator> - <Outfit>.webp in a
+  // rarity folder, matched by the outfit name alone, ignoring case.
+  const outfitIcons = new Set([...assets].map(file => file.match(/^(?:one|two|three|four|five|six)-star-icons\/[^/]*? - (.+)\.webp$/i)?.[1].trim().toLowerCase()).filter(Boolean));
   for (const op of operators) {
     for (const [field, cost] of costLists(op)) {
       if (!Array.isArray(cost) || !cost.every(isCostItem)) errors.push(`${op.name}: ${field} is not a flat [{ name, quantity }] list`);
@@ -98,6 +106,13 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   for (const skin of inventory.skins) {
     if (!skinIds.has(skin.id)) hold(`skin:${skin.id}`, 'omitted-new', `CN outfit missing: ${skin.id} (${skin.name})`);
   }
+  // A new outfit on sale on Global with no confirmed window reads as an estimate on /skins
+  // until someone copies the notice's Outfit Store dates. See outfit-windows.mjs.
+  // Only a notice has the store's dates; a window synced from the client names activity_table.
+  for (const { skin, event, key } of unconfirmedOutfitSales({ skins, events, windows: skinWindows, now })) {
+    const notice = /^https:\/\/(?:www\.)?arknights\.global\/news\/\d+\/?$|^https:\/\/(?:x|twitter)\.com\/ArknightsEN\/status\/\d+\/?$/i.test(event.global.timingSource ?? '') ? event.global.timingSource : 'the official notice';
+    hold(`skin:${skin.skinId ?? key}`, 'published-partial', `${key}: on sale on Global with ${event.name}, but data/skin-availability-windows.json has no confirmed window for it, so /skins shows an estimate; add the Outfit Store window from ${notice}`);
+  }
   for (const banner of banners) {
     for (const name of [...(banner.six_stars ?? []), ...(banner.rate_up_six_stars ?? []), ...(banner.five_stars ?? []), ...(banner.four_stars ?? [])]) {
       if (!names.has(name)) hold(bannerKey(banner), 'published-partial', `Banner operator missing: ${banner.name} / ${name}`);
@@ -113,11 +128,15 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     if (art && missing(art)) hold(eventKey(event), 'published-partial', `${event.name}: missing asset ${art}`);
   }
   for (const expected of inventory.events ?? []) if (!events.some(e=>e.activityId===expected.id)) hold(eventKey({ activityId: expected.id }), 'omitted-new', `Discovered event missing: ${expected.name}`);
-  // A reward renamed from its CN name must still resolve to a published icon: the page
-  // asks for material-icons/<iconName ?? name>, and a miss renders as a blank square.
+  // Every reward an event page lists needs a real name and a published icon: the page asks
+  // for material-icons/<iconName ?? name> (an outfit: its icon in a rarity folder) and leaves
+  // out an icon that is not published (rewardIconPath). "Furniture not found", the wiki's
+  // placeholder, sat in a store as an item drawing a broken image, and nothing reported it.
   for (const event of events) for (const block of [event.rewards ?? []].flat()) for (const item of block?.items ?? []) {
-    const file = `material-icons/${safe(item.iconName ?? item.name)}.webp`;
-    if (item.cnName && item.type !== 'skin' && missing(file)) hold(eventKey(event), 'published-partial', `${event.name} reward ${item.name}: missing asset ${file}`);
+    const name = typeof item?.name === 'string' ? item.name.trim() : '';
+    if (!name || PLACEHOLDER.test(name)) hold(eventKey(event), 'published-partial', `${event.name} reward "${item?.name ?? ''}": a placeholder, not an item name`);
+    else if (item.type === 'skin') { if (!outfitIcons.has(name.toLowerCase())) hold(eventKey(event), 'published-partial', `${event.name} reward outfit ${name}: no published outfit icon`); }
+    else if (missing(`material-icons/${safe(item.iconName ?? name)}.webp`)) hold(eventKey(event), 'published-partial', `${event.name} reward ${name}: missing asset material-icons/${safe(item.iconName ?? name)}.webp`);
   }
   for (const expected of inventory.banners ?? []) if (!banners.some(b=>b.cnPoolId===expected.id)) hold(bannerKey({ cnPoolId: expected.id }), 'omitted-new', `Discovered banner missing: ${expected.name}`);
   for (const bundle of bundles) {
@@ -142,6 +161,17 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   const unpublished = new Set(missingEnemyIcons({ enemyRecords, assets }));
   for (const [slug, record] of [...enemyRecords].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     if (unpublished.has(record.icon?.slice(1))) hold(`enemy:${slug}`, 'published-partial', `${record.name}: icon ${record.icon.slice(1)} not published yet`);
+  }
+  // An album's release date is what orders Recently added on /music/discover, and it is
+  // stored YYYY/MM/DD (lib/music/releaseDate.mjs), the form the album sync writes. A date
+  // typed any other way, or a blank the sync had no cover date to fill, is that one album's
+  // problem: it is held, and every other album still goes out.
+  for (const album of albums) {
+    if (parseReleaseDate(album.releaseDate) !== null) continue;
+    const title = album.albumAltName || album.albumName || album.albumId;
+    hold(`album:${album.albumId}`, 'published-partial', album.releaseDate
+      ? `${title}: release date ${JSON.stringify(album.releaseDate)} is not written YYYY/MM/DD`
+      : `${title}: no release date, so Recently added leaves it out`);
   }
   const unknown = allowShrink.filter(name => !COLLECTIONS.includes(name));
   if (unknown.length) errors.push(`allow_shrink names no collection: ${unknown.join(', ')} (the collections: ${COLLECTIONS.join(', ')})`);
@@ -223,6 +253,8 @@ export function readCompletenessInputs(root = process.cwd()) {
   const input = { inventory: read('data/content-inventory.json'), operators, skins: read('data/skins.json'),
     banners: read('data/headhunting_banners.json'), events: eventFiles.flatMap(file => read(`data/events/${file}`)),
     bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
+    albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
+    skinWindows: read('data/skin-availability-windows.json').entries,
     stageEnemies, enemyRecords, enemyIndex: new Set(read('public/enemies-index.json').map(row => row.slug)) };
   input.counts = { operators: operators.length, skins: input.skins.length, events: input.events.length,
     banners: input.banners.length, enemies: enemyRecords.size, stages: stageFiles.length, ...collectionCounts(root) };
@@ -300,7 +332,7 @@ export function writeQuarantine(root, stage, found, now = new Date()) {
 
 export function assertCompleteness(root = process.cwd(), { now = new Date(), allowShrink = parseAllowShrink(process.env.ARKPEDIA_ALLOW_SHRINK) } = {}) {
   const input = readCompletenessInputs(root);
-  const { errors, quarantine, allowed } = reviewCompleteness({ ...input, allowShrink });
+  const { errors, quarantine, allowed } = reviewCompleteness({ ...input, allowShrink, now });
   // Written before any throw: the day's holds are true whether or not an invariant stops it.
   // The refresh runs this as a stage with --keep data/quarantine.json, so the runner's
   // restore after that throw leaves them for the day's issue and the failure evidence.

@@ -16,7 +16,12 @@ import {
   skillLevelCostRemaining,
   skillMasteryCostRemaining,
   moduleStageCostRemaining,
+  type LevelTable,
 } from "../../lib/planner/plannerLogic";
+import levelData from "../../data/operatorLevelExpLmd.json";
+
+/* The planner reads the level table from its props; this reads this checkout's copy. */
+const levels = levelData as LevelTable;
 
 const op = JSON.parse(
   fs.readFileSync("public/planner-data/M%C5%82ynar.json", "utf8"),
@@ -38,7 +43,7 @@ const sum = (cost: { name: string; quantity: number | string }[]) => {
   return totals;
 };
 assert.deepEqual(
-  upgradeCostGroups(op, initial).flatMap((g) => positive(g.cost)),
+  upgradeCostGroups(op, initial, levels).flatMap((g) => positive(g.cost)),
   [],
   "Unchanged operator costs nothing",
 );
@@ -50,7 +55,7 @@ const leveling = {
   level: 80,
 };
 assert.deepEqual(
-  sum(upgradeCostGroups(op, leveling)[0].cost),
+  sum(upgradeCostGroups(op, leveling, levels)[0].cost),
   { EXP: 161200, LMD: 171616 },
   "E2 70 to 80 excludes already paid promotions and levels",
 );
@@ -65,7 +70,7 @@ const mastery: BuilderState = {
   masteryTargets: { 0: 3 },
 };
 assert.deepEqual(
-  sum(upgradeCostGroups(op, mastery)[1].cost),
+  sum(upgradeCostGroups(op, mastery, levels)[1].cost),
   sum(skillMasteryCostRemaining(0, op, 1, 3)),
   "Only unpaid mastery stages are counted",
 );
@@ -78,7 +83,7 @@ const mod: BuilderState = {
   moduleStageTargets: { 0: 2 },
 };
 assert.deepEqual(
-  sum(upgradeCostGroups(op, mod)[2].cost),
+  sum(upgradeCostGroups(op, mod, levels)[2].cost),
   sum(moduleStageCostRemaining(modules[0], 0, 2)),
   "Owned module unlock is subtracted",
 );
@@ -101,7 +106,7 @@ for (const file of fs
     masteryTargets: elite === 2 ? { 0: 3 } : {},
     moduleStageTargets: plannerModules(operator).length ? { 0: 2 } : {},
   };
-  const lc = computeLevelCostRemaining(rarity, 0, 1, elite, 30);
+  const lc = computeLevelCostRemaining(levels, rarity, 0, 1, elite, 30);
   const previous = [
     { name: "EXP", quantity: lc.exp },
     { name: "LMD", quantity: lc.lmd },
@@ -113,7 +118,7 @@ for (const file of fs
   const module = plannerModules(operator)[0];
   if (module) previous.push(...moduleStageCostRemaining(module, -1, 2));
   assert.deepEqual(
-    sum(upgradeCostGroups(operator, target).flatMap((g) => g.cost)),
+    sum(upgradeCostGroups(operator, target, levels).flatMap((g) => g.cost)),
     sum(previous),
     `${operator.name}: grouped costs match original bill`,
   );
@@ -141,7 +146,7 @@ for (const [rarity, level] of [[4, 40], [5, 50], [6, 60]]) {
   assert.equal(target.startingLevel, low.startingLevel);
   assert.equal(withModulePrerequisites(leveling, rarity).level, 80);
 }
-assert.ok(upgradeCostGroups(op, promoted)[0].cost.some(c => c.name === 'Guard Dualchip'), 'Automatic mastery promotion is priced');
+assert.ok(upgradeCostGroups(op, promoted, levels)[0].cost.some(c => c.name === 'Guard Dualchip'), 'Automatic mastery promotion is priced');
 console.log('Automatic mastery and module prerequisite checks passed.');
 
 import { withSkillRankPrerequisites } from '../../lib/planner/goalPrerequisites';

@@ -7,6 +7,7 @@ import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllOperators } from '@/lib/operators/operators';
+import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
@@ -575,6 +576,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     connectedFactions: op.connectedFactions || [],
     howToObtain: null,
     isFuture: op.isFuture ?? false,
+    ...portraitStatus(op),
     ...(op.sourceRegion ? { sourceRegion: op.sourceRegion } : {}),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     characterInfo: op.characterInfo ? { 'Release Date': op.characterInfo['Release Date'] || '' } : null,
@@ -611,9 +613,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     );
   }
 
-  // The build's clock, for the release-date countdowns' first paint --
-  // the component re-picks the reader's real time on mount (see the
-  // clock state above). The browser then keeps the availability badge live.
-  const now = Math.floor(Date.now() / 60000) * 60000;
-  return { props: { operators, now } };
+  // `now`, the release-date countdowns' first paint, is the request's clock from
+  // contentPageClock (lib/content/pageClock.ts). The component re-picks the reader's
+  // real time on mount (see the clock state above) and keeps the badge live.
+  return { props: { operators } };
 });

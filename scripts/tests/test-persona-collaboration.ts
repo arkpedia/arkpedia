@@ -3,9 +3,10 @@ import test from 'node:test';
 import fs from 'node:fs';
 import { getAllOperators } from '../../lib/operators/operators';
 import { getBannerForEvent } from '../../lib/gacha/headhuntingBanners';
+import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { getFeaturedOperatorRates } from '../../lib/gacha/eventBannerRates';
 import { getGachaIconPools } from '../../lib/gacha/gachaIconPools';
-import { getAllEventListings } from '../../lib/home/frontPageContent';
+import { getEventCalendar } from '../../lib/home/frontPageContent';
 import { getAllSkins } from '../../lib/skins/skins';
 import { matchesSearch } from '../../lib/search/searchNormalize';
 
@@ -14,7 +15,7 @@ const pinned = /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/[^/]+\/[a-f0-9
 const rawEvent = () => fs.readdirSync('data/events').filter(file => /^events_\d+\.json$/.test(file)).flatMap(file => JSON.parse(fs.readFileSync(`data/events/${file}`, 'utf8'))).find(event => event.activityId === 'act54side');
 
 test('Persona links the banner and portraits, with evidence for any Global date', () => {
-  const banner = getBannerForEvent(rawEvent().name)!;
+  const banner = getBannerForEvent(rawEvent().name, undefined, getAllHeadhuntingBanners())!;
   assert.ok(banner);
   if (banner.global_date) assert.ok(banner.global_window?.timingSource, 'Global release must have source evidence');
   assert.match(banner.banner_image!, pinned);
@@ -34,7 +35,7 @@ test('Persona links the banner and portraits, with evidence for any Global date'
 
 test('Persona event estimates remain labelled and all four searchable outfits have artwork', () => {
   const source = rawEvent();
-  const event = getAllEventListings().find(e => e.name === source.name)!;
+  const event = getEventCalendar().find(e => e.name === source.name)!;
   assert.ok(event);
   if (!source.global?.startAt) assert.ok(event.isPredicted);
   else assert.ok(source.global.timingSource);

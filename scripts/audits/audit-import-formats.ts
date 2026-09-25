@@ -3,8 +3,8 @@
  * Checks that the three foreign planner formats still read.
  *
  * WHY THIS EXISTS. data/import-aliases.json drifting away from
- * MATERIAL_SORT_ORDER already fails the build -- lib/planner/foreignImport.ts
- * asserts it at module load. What nothing catches is the PARSERS going wrong:
+ * MATERIAL_SORT_ORDER already fails the build and the content export --
+ * /planner's table loader runs checkImportAliases in lib/planner/foreignImport.ts. What nothing catches is the PARSERS going wrong:
  * Krooster's CSV finds its columns by header name, ark-nights' crafting list is
  * the one field beyond the inventory that maps to anything here, and an absent
  * crafting section has to stay distinguishable from an empty one. Break any of
@@ -16,9 +16,15 @@
  *
  * Run:  npm run audit:import
  */
-import { parseTransfer, formatBundle } from '@/lib/planner/transfer';
+import { parseTransfer as parseWith, formatBundle } from '@/lib/planner/transfer';
+import { checkImportAliases } from '@/lib/planner/foreignImport';
+import importAliases from '@/data/import-aliases.json';
 import { clampBuilderStates, knownPlanNames } from '@/lib/planner/builderStates';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
+
+/* The planner reads the aliases from its props; this reads this checkout's copy. */
+const aliases = checkImportAliases(importAliases);
+const parseTransfer = (text: string) => parseWith(text, aliases);
 
 let failures = 0;
 function check(label: string, cond: boolean, saw = '') {

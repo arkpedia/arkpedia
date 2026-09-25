@@ -8,6 +8,7 @@ import {
   promotionCostsNeeded,
   skillLevelCostRemaining,
   skillMasteryCostRemaining,
+  type LevelTable,
 } from '@/lib/planner/plannerLogic';
 import { BATTLE_RECORDS, resolveNeeds } from './craft';
 import type { Depot } from './depot';
@@ -130,12 +131,12 @@ export function goalBlocker(goal: Goal, from: Owned, rarity: number): string {
  * as items named 'LMD' and 'EXP', which is how the gamedata writes them and
  * how `planBuild` tells them apart.
  */
-export function priceGoal(goal: Goal, op: PlannerOperator, rarity: number, from: Owned): CostGroup {
+export function priceGoal(goal: Goal, op: PlannerOperator, rarity: number, from: Owned, levels: LevelTable): CostGroup {
   switch (goal.kind) {
     case 'elite':
       return promotionCostsNeeded(op, goal.elite, goal.elite - 1).flatMap((p) => p.cost);
     case 'level': {
-      const { exp, lmd } = computeLevelCostRemaining(rarity, from.elite, from.level, goal.elite, goal.to);
+      const { exp, lmd } = computeLevelCostRemaining(levels, rarity, from.elite, from.level, goal.elite, goal.to);
       return [{ name: 'EXP', quantity: exp }, { name: 'LMD', quantity: lmd }];
     }
     case 'skill':

@@ -1,0 +1,537 @@
+{
+ "source": "Every asset path in arkpedia-data release 7f1ac550 (revision 7d363718) release/pages, one per asset folder and combination of URL-significant characters (space, #, comma, &, apostrophe, brackets, parentheses, !, non-ASCII, pre-encoded, ?v= cache-buster, full pinned URL), with the page it came from",
+ "paths": [
+  {
+   "path": "/album-covers/Speed_of_Light_cover.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/album-covers/Before_&_After_cover.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/album-covers/March_On!_cover.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/album-covers/Slowly_Flow,_Hearthlight_Glow_cover.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/album-covers/促融共竞#1_OST_cover.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/album-covers/明日方舟OST1_cover.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/album-covers/ACHE_in_PULSE_(Monster_Siren_Records)_cover.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/alliance-icons/yan.webp?v=ec8208f0",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/branch-icons/Executor.webp",
+   "page": "techniques.json"
+  },
+  {
+   "path": "/branch-icons/Sentry Protector.webp",
+   "page": "techniques.json"
+  },
+  {
+   "path": "/content-art/act6bossrush.webp",
+   "page": "stages.json"
+  },
+  {
+   "path": "/enemies-icons/Hound.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/enemies-icons/'Pompeii'.webp",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/enemies-icons/'Samivilinn,' the Resolution of the Very North.webp",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/enemies-icons/'Eyes of the Sankta'.webp",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/enemies-icons/Zaaro, Signore dei Lupi.webp",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/enemies-icons/Blocker–P.webp",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/enemies-icons/Originium Slug α.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/enemies-icons/Originium Slug.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/event-poster/Shatterpoint.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/event-poster/[Side Story – Celebration] The Masses' Travels.webp",
+   "page": "events/[Rerun] The Masses' Travels Rerun.json"
+  },
+  {
+   "path": "/event-poster/[Side Story] Grani and the Knights' Treasure.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/event-poster/Sui's Garden of Grotesqueries Mission Event.webp?v=d46d7412",
+   "page": "index.json"
+  },
+  {
+   "path": "/event-poster/%5BSide%20Story%20%E2%80%93%20Celebration%5D%20The%20Masses'%20Travels.webp",
+   "page": "stages.json"
+  },
+  {
+   "path": "/event-poster/Dolly's Playground.webp",
+   "page": "events/[Event] Dolly's Playground.json"
+  },
+  {
+   "path": "/event-poster/Paddles Up! Login Event.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/event-poster/[Side Story – Festival] Such is the Joy of Our Reunion.webp?v=5fe4e449",
+   "page": "index.json"
+  },
+  {
+   "path": "/event-poster/[Crossover] Languid Sentiment.webp?v=b3dfd4fc",
+   "page": "index.json"
+  },
+  {
+   "path": "/event-poster/[Side Story – Carnival] So Long, Adele Home Away From Home.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/event-poster/[Side Story] People, A People.webp",
+   "page": "events/[Side Story] People, A People.json"
+  },
+  {
+   "path": "/event-poster/[Side Story – Crossover] A Flurry to the Flame.webp",
+   "page": "events/[Rerun] A Flurry to the Flame Rerun.json"
+  },
+  {
+   "path": "/event-poster/[Celebration] Critical Phase Transition.webp",
+   "page": "events/[Celebration] Critical Phase Transition.json"
+  },
+  {
+   "path": "/event-poster/Stronghold Protocol Alliance 2nd Half.webp?v=ea262d3b",
+   "page": "events/Stronghold Protocol Alliance 2nd Half.json"
+  },
+  {
+   "path": "https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/a9888580b9cb7787a96f598bb7027a951bb2d002/event-poster/Persona%203%20Reload%20-%20Sur%20le%20lac%20lune%20vivante.jpg",
+   "page": "events/[Side Story ‐ Crossover] Sur le lac lune vivante.json"
+  },
+  {
+   "path": "/event-poster/%5BSide%20Story%5D%20People%2C%20A%20People.webp",
+   "page": "stages.json"
+  },
+  {
+   "path": "/event-poster/Contingency Contract Obliteration.webp",
+   "page": "events/Contingency Contract Obliteration.json"
+  },
+  {
+   "path": "/faction-icons/Columbia.webp",
+   "page": "operators/Aciddrop.json"
+  },
+  {
+   "path": "/faction-icons/Lee's Detective Agency.webp",
+   "page": "operators/Aak.json"
+  },
+  {
+   "path": "/faction-icons/Bolívar.webp",
+   "page": "operators/Caper.json"
+  },
+  {
+   "path": "/faction-icons/Rhodes Island.webp",
+   "page": "operators/12F.json"
+  },
+  {
+   "path": "/five-star-icons/Pramanix%20-%20Caster's%20Frost.webp",
+   "page": "operators/Pramanix.json"
+  },
+  {
+   "path": "https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/a9888580b9cb7787a96f598bb7027a951bb2d002/five-star-icons/Aegis%20-%20Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/five-star-icons/Varkáris - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/five-star-icons/Amiya%20(Guard)%20-%20Base.webp",
+   "page": "operators/Amiya (Guard).json"
+  },
+  {
+   "path": "/five-star-icons/Amiya (Guard) - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/five-star-icons/Lappland%20-%20Base.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/five-star-icons/Absinthe - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/five-star-skins/Pramanix%20-%20Caster's%20Frost.webp",
+   "page": "operators/Pramanix.json"
+  },
+  {
+   "path": "/five-star-skins/Pramanix - Caster's Frost.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/five-star-skins/Franka - Rainforest, Me, Rainbow.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/eb9f58b6cde119e7d65a15d0906579bd67073c7a/five-star-skins/Record%20Keeper%20-%20The%20Lands%20Illuminated.webp",
+   "page": "events/[Event] Dolly's Playground.json"
+  },
+  {
+   "path": "/five-star-skins/Varkáris - Base.webp",
+   "page": "games/color-palette.json"
+  },
+  {
+   "path": "/five-star-skins/Amiya%20(Guard)%20-%20Base.webp",
+   "page": "operators/Amiya (Guard).json"
+  },
+  {
+   "path": "/five-star-skins/Amiya (Guard) - Base.webp",
+   "page": "games/color-palette.json"
+  },
+  {
+   "path": "/five-star-skins/Istina%20-%20Base.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/five-star-skins/Scene - Unseen Terrain.webp",
+   "page": "events/Contingency Contract Obliteration.json"
+  },
+  {
+   "path": "/four-star-icons/Meteor%20-%20Bard's%20Holiday.webp",
+   "page": "operators/Meteor.json"
+  },
+  {
+   "path": "/four-star-icons/Aciddrop%20-%20Base.webp",
+   "page": "games/recruitment-guesser.json"
+  },
+  {
+   "path": "/four-star-icons/Aciddrop - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/four-star-skins/Meteor%20-%20Bard's%20Holiday.webp",
+   "page": "operators/Meteor.json"
+  },
+  {
+   "path": "/four-star-skins/Meteor - Bard's Holiday.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/four-star-skins/Estelle - La Valse Couronnée de Fleurs.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/four-star-skins/Ethan%20-%20Base.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/four-star-skins/Humus - Blazing Street View.webp",
+   "page": "events/Stronghold Protocol Alliance 2nd Half.json"
+  },
+  {
+   "path": "/headhunting-banner-images/[Limited-Time] Keeper of the Lock & Keys.webp?v=b45826c3",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/[Limited-Time] Keeper of the Lock & Keys Rerun.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Celebration & Hope.webp?v=9844f946",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Celebration & Vision.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/[Limited-Time] And the Canoe'll Carry Us to You.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/[Festival] Ashes to Ashes, Ages on Ages.webp?v=c444dafa",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/[Limited-Time] Returned From A Pyre Rerun.webp?v=98052c15",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/[Limited-Time] Confirmation, Completion, Conduction Rerun.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/[Celebration] Sealed With Time.webp",
+   "page": "events/[Celebration] Critical Phase Transition.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Kernel Locating #10 (Global).webp?v=2a59468c",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Standard Pool 173 (Global).webp?v=f872cf4c",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Joint Operation 21.webp?v=1e1930c9",
+   "page": "gacha.json"
+  },
+  {
+   "path": "https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/a9888580b9cb7787a96f598bb7027a951bb2d002/headhunting-banner-images/Persona%203%20Reload%20-%20Some%20Evening%20of%20White%20and%20Mystic%20Blue.jpg",
+   "page": "events/[Side Story ‐ Crossover] Sur le lac lune vivante.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Kernel Locating #10 (Global).webp",
+   "page": "schedule.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Standard%20Pool%20175%20(Global).webp",
+   "page": "pulls.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Standard Pool 176 (Global).webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/headhunting-banner-images/%5BLimited-Time%5D%20Rage%20of%20The%20Many.webp",
+   "page": "pulls.json"
+  },
+  {
+   "path": "/headhunting-banner-images/Joint Operation 23.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/item-icons/carbon_pack.png",
+   "page": "stages/supplies.json"
+  },
+  {
+   "path": "/material-icons/Aketon.webp",
+   "page": "events/Contingency Contract Obliteration.json"
+  },
+  {
+   "path": "/material-icons/Timeslot's Token.webp",
+   "page": "events/[Side Story – Carnival] Till the Lands Become an Orange.json"
+  },
+  {
+   "path": "/material-icons/胶片照明灯.webp",
+   "page": "events/[Celebration] Critical Phase Transition.json"
+  },
+  {
+   "path": "/material-icons/Furniture not found.webp",
+   "page": "events/Contingency Contract Obliteration.json"
+  },
+  {
+   "path": "/mode-marks/solid-defense.webp",
+   "page": "stages/supplies.json"
+  },
+  {
+   "path": "/nation-marks/kazdel.webp",
+   "page": "stages/regular.json"
+  },
+  {
+   "path": "/one-star-icons/Castle-3%20-%20Base.webp",
+   "page": "games/recruitment-guesser.json"
+  },
+  {
+   "path": "https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/eb9f58b6cde119e7d65a15d0906579bd67073c7a/one-star-skins/Koromaru%20-%20Over%20the%20City%20of%20Sweetness.webp",
+   "page": "events/[Side Story ‐ Crossover] Sur le lac lune vivante.json"
+  },
+  {
+   "path": "/one-star-skins/Friston-3%20-%20Base.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/one-star-skins/Terra Research Commission - Fly Into the Street.webp",
+   "page": "events/[Rerun] A Flurry to the Flame Rerun.json"
+  },
+  {
+   "path": "/ra-map/main.webp",
+   "page": "stages/content/sandbox_1.json"
+  },
+  {
+   "path": "/six-star-icons/Wiš'adel - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/six-star-icons/Ho'olheyak%20-%20Base.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/six-star-icons/Ch'en - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/a9888580b9cb7787a96f598bb7027a951bb2d002/six-star-icons/Makoto%20Yuki%20-%20Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/six-star-icons/Eyjafjalla the Hvít Aska - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/six-star-icons/Crownslayer%20-%20Base.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/six-star-icons/Aak - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/six-star-skins/Marcille - Terra & Traveller.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/six-star-skins/Wiš'adel - Supernova.webp",
+   "page": "events/[Rerun] The Masses' Travels Rerun.json"
+  },
+  {
+   "path": "/six-star-skins/Ch'en%20-%20Base.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/six-star-skins/Ch'en the Holungday - Holiday HD79.webp",
+   "page": "events/[Rerun] Ato Rerun.json"
+  },
+  {
+   "path": "/six-star-skins/Aak - Healing Hand, Evil Heart.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/eb9f58b6cde119e7d65a15d0906579bd67073c7a/six-star-skins/Makoto%20Yuki%20-%20In%20Witness%20of%20Glory.webp",
+   "page": "events/[Side Story ‐ Crossover] Sur le lac lune vivante.json"
+  },
+  {
+   "path": "/six-star-skins/Młynar - Roar Against The Wilds.webp",
+   "page": "events/[Rerun] The Masses' Travels Rerun.json"
+  },
+  {
+   "path": "/six-star-skins/Blaze%20-%20Base.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/six-star-skins/Lemuen - Requiem Vesperis.webp",
+   "page": "events/Duel Channel%3A Ivy Vine.json"
+  },
+  {
+   "path": "/skill-icons/Thumpy%20-%20You%20Can't%20Leave!.webp",
+   "page": "techniques.json"
+  },
+  {
+   "path": "/skill-icons/Erato%20-%20Lullaby's%20Meter.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/skill-icons/Kichisei%20-%20Lucky%20Star%2C%20Shining%20Bright!.webp",
+   "page": "techniques.json"
+  },
+  {
+   "path": "/skill-icons/Amiya%20(Medic)%20-%20Vision%20of%20Mercy.webp",
+   "page": "techniques.json"
+  },
+  {
+   "path": "/skill-icons/Crownslayer%20-%20Smokescreen%20Execution.webp",
+   "page": "enemies.json"
+  },
+  {
+   "path": "/skin-series-logos/MARTHE.webp",
+   "page": "events/Positional Football Championship.json"
+  },
+  {
+   "path": "/skin-series-logos/Ambience Synesthesia.webp",
+   "page": "events/Duel Channel%3A Ivy Vine.json"
+  },
+  {
+   "path": "/stages-images/kazdel.webp",
+   "page": "stages/all.json"
+  },
+  {
+   "path": "/story-marks/the-ark.webp",
+   "page": "stages/score.json"
+  },
+  {
+   "path": "/stronghold-items/acarm066.webp",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/stronghold-stratagems/warfarin.webp?v=9a1ec794",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/stronghold-types/special.webp?v=2d693f22",
+   "page": "gamemodes/stronghold-protocol.json"
+  },
+  {
+   "path": "/three-star-icons/Midnight%20-%20Seventh%20Night's%20Awakened.webp",
+   "page": "operators/Midnight.json"
+  },
+  {
+   "path": "/three-star-icons/Adnachiel%20-%20Base.webp",
+   "page": "games/recruitment-guesser.json"
+  },
+  {
+   "path": "/three-star-icons/Adnachiel - Base.webp",
+   "page": "gacha.json"
+  },
+  {
+   "path": "/three-star-skins/Midnight%20-%20Seventh%20Night's%20Awakened.webp",
+   "page": "operators/Midnight.json"
+  },
+  {
+   "path": "/three-star-skins/Popukar - Witch's Swing.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/three-star-skins/Ansel - Nighttime Café.webp",
+   "page": "index.json"
+  },
+  {
+   "path": "/three-star-skins/Vanilla%20-%20Base.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/three-star-skins/Spot - Professional.webp",
+   "page": "events/[Celebration] Critical Phase Transition.json"
+  },
+  {
+   "path": "/two-star-icons/12F%20-%20Base.webp",
+   "page": "games/recruitment-guesser.json"
+  },
+  {
+   "path": "/two-star-skins/Durin%20-%20Base.webp",
+   "page": "music.json"
+  },
+  {
+   "path": "/two-star-skins/12F - Base.webp",
+   "page": "games/color-palette.json"
+  }
+ ]
+}

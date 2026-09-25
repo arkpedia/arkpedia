@@ -50,6 +50,10 @@ public/enemy-detail
 public/stage-detail
 
 public/stage-guesser
+# The music player's queue (scripts/build/build-music-catalogue.ts): published in the
+# content release, and written by prebuild/predev as the deployment's fail-safe copy.
+# Ignored, so export.mjs never publishes it as a source record.
+public/music-catalogue.json
 
 # Media is published from arkpedia-skin-assets or arkpedia-image-assets. Keep
 # generated/imported copies available to local tooling without allowing the

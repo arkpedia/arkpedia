@@ -1,7 +1,9 @@
 import { EXTRA_RECRUIT_SLOTS } from './baseResources';
-import { LATERANO, SAMI, WANDERING_MEDIC, SUI } from './baseGroupRosters';
+import type { BaseRosters } from './baseGroupRosters';
 
 export interface DormitorySkillContext {
+  /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
+  rosters: BaseRosters;
   manualValue?: number;
   sameRoomOperatorNames: string[]; // includes self, in SLOT ORDER (left to right)
   filledCountThisRoom: number;
@@ -210,7 +212,7 @@ export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
   // target belongs to a specific faction, or a genuinely specific named
   // operator (checked via DORMITORY_PREFERRED_TARGET, see below).
   'Santalla|Born of the Biting Cold': (ctx) => ({
-    singleTargetBonus: ctx.targetIfSelected && SAMI.has(ctx.targetIfSelected) ? 0.55 + 0.45 : 0.55,
+    singleTargetBonus: ctx.targetIfSelected && ctx.rosters.SAMI.has(ctx.targetIfSelected) ? 0.55 + 0.45 : 0.55,
   }),
   'Tomimi|Barbecue Master': (ctx) => ({
     singleTargetBonus: ctx.targetIfSelected === 'Gavial' ? 0.55 + 0.45 : 0.55,
@@ -220,7 +222,7 @@ export const DORMITORY_SPECIAL_SKILLS: Record<string, Handler> = {
   }),
   'Exusiai the New Covenant|Natural Optimist': () => ({ singleTargetBonus: 0.55 }),
   'Exusiai the New Covenant|Funny Holy City Stories': (ctx) => ({
-    singleTargetBonus: ctx.targetIfSelected && LATERANO.has(ctx.targetIfSelected) ? 0.55 + 0.45 : 0.55,
+    singleTargetBonus: ctx.targetIfSelected && ctx.rosters.LATERANO.has(ctx.targetIfSelected) ? 0.55 + 0.45 : 0.55,
   }),
 
   // Coldshot's real text distributes a fixed 0.8 pool evenly across every

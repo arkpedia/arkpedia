@@ -5,7 +5,7 @@ import {
   type NeedRow,
   type Resolution,
 } from '@/lib/planner/craft';
-import { SOURCE_LABELS, sourceFor } from '@/lib/planner/sources';
+import { SOURCE_LABELS, type Source } from '@/lib/planner/sources';
 import { MaterialIcon } from './MaterialIcon';
 import { useHeightFloor } from './useHeightFloor';
 
@@ -40,7 +40,7 @@ import { useHeightFloor } from './useHeightFloor';
  * same fact said twice, in a chip, in the space where a stage code would have
  * told the reader where to go.
  */
-function sourceTags(name: string, short: number, lookup = sourceFor): { text: string }[] {
+function sourceTags(name: string, short: number, lookup: (name: string) => Source): { text: string }[] {
   const source = lookup(name);
   if (source.kind === 'farm') return source.stages.slice(0, 3).map((code) => ({ text: code }));
   if (source.buy) {
@@ -59,7 +59,7 @@ function sourceTags(name: string, short: number, lookup = sourceFor): { text: st
 
 /** The same, for a row that has no other place to say where a material comes
  *  from -- so it never comes back empty. */
-function whereChips(name: string, short: number, lookup = sourceFor): { text: string }[] {
+function whereChips(name: string, short: number, lookup: (name: string) => Source): { text: string }[] {
   const tags = sourceTags(name, short, lookup);
   return tags.length ? tags : [{ text: SOURCE_LABELS[lookup(name).kind].tag }];
 }
@@ -586,6 +586,9 @@ export function OperatorBill({
   shares: Map<string, number>;
   depot: Depot;
 }) {
+  /* The release's lookup, like every other card here. This one used to fall back to
+     the module-level sourceFor, which answered from the deploy's bundled tables. */
+  const { sourceFor } = usePlannerContent();
   const rows = useMemo(() => {
     const out: { name: string; need: number; short: number }[] = [];
     for (const item of bill) {

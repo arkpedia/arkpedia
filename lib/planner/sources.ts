@@ -1,6 +1,5 @@
-import { FARMING_TIERS } from '@/lib/farming/farmingConfig';
-import supplyStages from '@/data/supply-stages.json';
-import { formulaFor } from './craft';
+import type { FarmingTier } from '@/lib/farming/farmingTypes';
+import type { formulaFor } from './craft';
 
 /**
  * Where a material comes from.
@@ -24,7 +23,11 @@ export interface Source {
   buy?: { currency: string; price?: number };
 }
 
-export function createSourceTools(supply: Record<string, string[]> = supplyStages, lookupRecipe: typeof formulaFor = formulaFor) {
+/* Every input is the page's: the planner hands in the release's supply stages, its own
+   recipe lookup and the release's farming guide (usePlannerContent). There is no
+   module-level instance, because one would compile this deploy's copies of the tables
+   into the browser bundle and answer from them. */
+export function createSourceTools(supply: Record<string, string[]>, lookupRecipe: typeof formulaFor, farmingTiers: readonly FarmingTier[]) {
 
 
 /**
@@ -62,7 +65,7 @@ const SUPPLY: Record<string, string[]> = supply;
  *  one exception: "Event Store", which is a shop rather than a stage. */
 const EVENT_STORE = 'Event Store';
 const FARMING = new Map(
-  FARMING_TIERS.flatMap((t) => t.materials).map((m) => [m.name, m.stages.map((s) => s.label)]),
+  farmingTiers.flatMap((t) => t.materials).map((m) => [m.name, m.stages.map((s) => s.label)]),
 );
 
 function sourceFor(name: string): Source {
@@ -96,17 +99,7 @@ function sourceFor(name: string): Source {
   return { kind: 'unknown', stages: [] };
 }
 
-const SOURCE_LABELS: Record<SourceKind, { tag: string; title: string; note: string }> = {
-  workshop: { tag: 'Workshop', title: 'Craft or promote', note: 'no stage runs needed' },
-  factory: { tag: 'Factory', title: 'Make in the base', note: 'no stage runs needed' },
-  certificate: { tag: 'Certificate store', title: 'Buy with certificates', note: 'always open' },
-  event: { tag: 'Event store', title: 'Buy with event currency', note: 'before the event ends' },
-  farm: { tag: 'Farm', title: 'Run these stages', note: 'codes are the drop sources' },
-  unknown: { tag: 'Elsewhere', title: 'No listed source', note: 'not in the farming guide' },
-};
 
-/** The order the groups are shown in: cheapest route first. */
-const SOURCE_ORDER: SourceKind[] = ['workshop', 'factory', 'certificate', 'event', 'farm', 'unknown'];
 
 /**
  * The SHORTEST list of stages that covers a set of farmables, best run first.
@@ -157,7 +150,17 @@ function stagesToRun(names: string[]): { codes: string[]; covers: number } {
   }
   return { codes, covers: farmables };
 }
-return { sourceFor, SOURCE_LABELS, SOURCE_ORDER, stagesToRun };
+return { sourceFor, stagesToRun };
 }
 
-export const { sourceFor, SOURCE_LABELS, SOURCE_ORDER, stagesToRun } = createSourceTools();
+export const SOURCE_LABELS: Record<SourceKind, { tag: string; title: string; note: string }> = {
+  workshop: { tag: 'Workshop', title: 'Craft or promote', note: 'no stage runs needed' },
+  factory: { tag: 'Factory', title: 'Make in the base', note: 'no stage runs needed' },
+  certificate: { tag: 'Certificate store', title: 'Buy with certificates', note: 'always open' },
+  event: { tag: 'Event store', title: 'Buy with event currency', note: 'before the event ends' },
+  farm: { tag: 'Farm', title: 'Run these stages', note: 'codes are the drop sources' },
+  unknown: { tag: 'Elsewhere', title: 'No listed source', note: 'not in the farming guide' },
+};
+
+/** The order the groups are shown in: cheapest route first. */
+export const SOURCE_ORDER: SourceKind[] = ['workshop', 'factory', 'certificate', 'event', 'farm', 'unknown'];

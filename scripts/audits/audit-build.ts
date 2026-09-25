@@ -32,7 +32,12 @@ import {
   skillLevelCostRemaining,
   skillMasteryCostRemaining,
   totalsToCostGroup,
+  type LevelTable,
 } from '@/lib/planner/plannerLogic';
+import levelData from '@/data/operatorLevelExpLmd.json';
+
+/* The planner reads the level table from its props; this reads this checkout's copy. */
+const levels = levelData as LevelTable;
 
 let failures = 0;
 function check(label: string, cond: boolean, saw = '') {
@@ -156,14 +161,14 @@ check('the mastery says what it is waiting for', goalBlocker(all.find((g) => g.k
 /* Prices, one goal each, against the operator's own data. */
 const byLabel = (label: string) => all.find((g) => g.label === label)!;
 check('E1 promotion costs the promotion table\'s E1 row',
-  same(priceGoal(byLabel('E1 promotion'), texas, rarity, { ...start, level: 50 }), texas.promotion[0].cost), J(priceGoal(byLabel('E1 promotion'), texas, rarity, start)));
+  same(priceGoal(byLabel('E1 promotion'), texas, rarity, { ...start, level: 50 }, levels), texas.promotion[0].cost), J(priceGoal(byLabel('E1 promotion'), texas, rarity, start, levels)));
 check('E0 to Lv 50 costs the level table from where the operator stands',
-  same(priceGoal(byLabel('E0 to Lv 50'), texas, rarity, { ...start, level: 20 }),
-    (() => { const { exp, lmd } = computeLevelCostRemaining(rarity, 0, 20, 0, 50); return cost(['EXP', exp], ['LMD', lmd]); })()));
-check('Skill rank 2 costs skillCost["2"]', same(priceGoal(byLabel('Skill rank 2'), texas, rarity, start), skillLevelCostRemaining(texas, 1, 2)));
-check('S1 M1 costs the skill\'s m1', same(priceGoal(byLabel('S1 M1'), texas, rarity, start), skillMasteryCostRemaining(0, texas, 0, 1)));
+  same(priceGoal(byLabel('E0 to Lv 50'), texas, rarity, { ...start, level: 20 }, levels),
+    (() => { const { exp, lmd } = computeLevelCostRemaining(levels, rarity, 0, 20, 0, 50); return cost(['EXP', exp], ['LMD', lmd]); })()));
+check('Skill rank 2 costs skillCost["2"]', same(priceGoal(byLabel('Skill rank 2'), texas, rarity, start, levels), skillLevelCostRemaining(texas, 1, 2)));
+check('S1 M1 costs the skill\'s m1', same(priceGoal(byLabel('S1 M1'), texas, rarity, start, levels), skillMasteryCostRemaining(0, texas, 0, 1)));
 const modGoal = all.find((g) => g.kind === 'module')!;
-check('module S1 costs the module\'s first stage', same(priceGoal(modGoal, texas, rarity, start), moduleStageCostRemaining(plannerModules(texas)[0], -1, 0)));
+check('module S1 costs the module\'s first stage', same(priceGoal(modGoal, texas, rarity, start, levels), moduleStageCostRemaining(plannerModules(texas)[0], -1, 0)));
 
 /* Walk it: always the first pressable goal, until none is. */
 let now: Owned = start;
@@ -175,7 +180,7 @@ for (;;) {
   const next = goals.find((g) => goalReady(g, now, rarity));
   if (!next) break;
   if (goals.length !== all.length - steps) { check('every step removes exactly one goal from the list', false, `${goals.length} left after ${steps}`); break; }
-  addCostGroup(walkTotals, priceGoal(next, texas, rarity, now));
+  addCostGroup(walkTotals, priceGoal(next, texas, rarity, now, levels));
   order.push(next.label);
   now = applyGoal(next, now);
   if (++steps > 40) break;
@@ -189,7 +194,7 @@ check('the walk\'s order is the game\'s: run, promote, run, promote, run, then t
 /* And the walk costs exactly what the plan prices as a whole -- the same
    materials, counted by the page's own method. */
 const whole = new Map<string, number>();
-const lc = computeLevelCostRemaining(rarity, start.elite, start.level, target.elite, target.level);
+const lc = computeLevelCostRemaining(levels, rarity, start.elite, start.level, target.elite, target.level);
 addCostGroup(whole, cost(['EXP', lc.exp], ['LMD', lc.lmd]));
 for (const p of promotionCostsNeeded(texas, target.elite, start.elite)) addCostGroup(whole, p.cost);
 addCostGroup(whole, skillLevelCostRemaining(texas, start.skillLevel, target.skillLevel));
@@ -200,7 +205,7 @@ check('building every goal costs exactly the whole plan', same(totalsToCostGroup
 
 /* A goal that is not ready is not priced as free. */
 const goalAtE0: Goal = { kind: 'mastery', label: 'S1 M1', skill: 0, mastery: 1 };
-check('an unready goal still has its price', priceGoal(goalAtE0, texas, rarity, start).length > 0);
+check('an unready goal still has its price', priceGoal(goalAtE0, texas, rarity, start, levels).length > 0);
 
 console.log(failures ? `\n${failures} check(s) failed.` : '\nAll build checks passed.');
 process.exit(failures ? 1 : 0);

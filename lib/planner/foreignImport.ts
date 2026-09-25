@@ -1,4 +1,3 @@
-import aliases from '@/data/import-aliases.json';
 import { MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
 import type { Depot } from './depot';
 import { MAX_COUNT, ownString, shortLabel } from './untrusted';
@@ -38,14 +37,19 @@ import { MAX_COUNT, ownString, shortLabel } from './untrusted';
  * WHY THE MAPS ARE GENERATED. Krooster keys on the gamedata's itemId and
  * ark-nights on arkgraph's shorthand codes, and neither is derivable from an
  * English name -- "M-4-8" is Manganese Trihydrate and there is no rule that
- * says so. Both maps are built by scripts/build/build-import-aliases.ts and committed,
- * so reading a pasted file needs no network.
+ * says so. Both maps are built by scripts/build/build-import-aliases.ts into
+ * data/import-aliases.json, a game record the content release carries: the planner
+ * reads it from its props (usePlannerContent) and passes it in, so reading a pasted
+ * file needs no network and no copy compiled into the browser bundle.
  */
 
 export type ForeignShape = 'krooster-csv' | 'penguin-stats' | 'ark-nights';
 
-const BY_ITEM_ID: Record<string, string> = aliases.byItemId;
-const BY_ARKGRAPH: Record<string, string> = aliases.byArkgraph;
+/** data/import-aliases.json: other planners' item keys, mapped to this planner's names. */
+export interface ImportAliases {
+  byItemId: Record<string, string>;
+  byArkgraph: Record<string, string>;
+}
 
 /**
  * EXP is a number an operator needs, not a thing you hold, so there is no tile
@@ -58,14 +62,15 @@ const KNOWN_NOT_HELD = new Set(['EXP']);
 /* The maps and the catalogue have to be talking about the same materials, and
    nothing at runtime can notice that they stopped: a name renamed in
    MATERIAL_SORT_ORDER without re-running the builder leaves an import quietly
-   dropping that material, with the file looking like it loaded. Asserted at
-   module load, the same way MATERIAL_GROUPS and IN_GAME_ORDER are -- /planner is
-   prerendered, so this fails `next build` rather than reaching anybody. */
-{
+   dropping that material, with the file looking like it loaded. /planner's table
+   loader asserts it wherever the table is read from data/ -- the build's prerender
+   and the content export -- so a release that disagrees fails its export rather
+   than reaching anybody, the way it failed `next build` when this ran at import. */
+export function checkImportAliases(aliases: ImportAliases): ImportAliases {
   const known = new Set(MATERIAL_SORT_ORDER);
-  const orphans = [...new Set([...Object.values(BY_ITEM_ID), ...Object.values(BY_ARKGRAPH)])]
+  const orphans = [...new Set([...Object.values(aliases.byItemId), ...Object.values(aliases.byArkgraph)])]
     .filter((name) => !known.has(name));
-  const held = new Set(Object.values(BY_ITEM_ID));
+  const held = new Set(Object.values(aliases.byItemId));
   const unmapped = MATERIAL_SORT_ORDER.filter((name) => !KNOWN_NOT_HELD.has(name) && !held.has(name));
   if (orphans.length || unmapped.length) {
     throw new Error(
@@ -75,6 +80,7 @@ const KNOWN_NOT_HELD = new Set(['EXP']);
       ' Re-run: npx tsx scripts/build/build-import-aliases.ts',
     );
   }
+  return aliases;
 }
 
 export interface ForeignImport {
@@ -112,7 +118,7 @@ function count(raw: unknown): number | null {
  * result is not a row we can read wrongly-but-plausibly -- it is a count taken
  * from the middle of a word. Refusing says so; guessing would not.
  */
-function parseKroosterCsv(text: string): ForeignImport | null {
+function parseKroosterCsv(text: string, { byItemId }: ImportAliases): ForeignImport | null {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return null;
   const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
@@ -129,8 +135,8 @@ function parseKroosterCsv(text: string): ForeignImport | null {
     const id = cells[idCol].trim();
     const owned = count(cells[ownedCol]);
     if (!id || owned === null) return null;
-    /* Own entries only: `BY_ITEM_ID['constructor']` is `Object`, and truthy. */
-    const name = ownString(BY_ITEM_ID, id);
+    /* Own entries only: `byItemId['constructor']` is `Object`, and truthy. */
+    const name = ownString(byItemId, id);
     if (!name) {
       /* The id for the ones we can explain, the file's own label for the rest.
          `EXP` is filed under the label "Operator EXP", and unheldSummary reads
@@ -145,7 +151,7 @@ function parseKroosterCsv(text: string): ForeignImport | null {
 }
 
 /** Krooster's penguin-stats JSON. Same itemIds, `have` instead of `owned`. */
-function parsePenguin(obj: Record<string, unknown>): ForeignImport | null {
+function parsePenguin(obj: Record<string, unknown>, { byItemId }: ImportAliases): ForeignImport | null {
   const items = obj.items;
   if (!Array.isArray(items)) return null;
   const depot: Depot = {};
@@ -156,7 +162,7 @@ function parsePenguin(obj: Record<string, unknown>): ForeignImport | null {
     const id = typeof row.id === 'string' ? row.id : typeof row.id === 'number' ? String(row.id) : '';
     const have = count(row.have);
     if (!id || have === null) return null;
-    const name = ownString(BY_ITEM_ID, id);
+    const name = ownString(byItemId, id);
     if (!name) { unheld.push(id); continue; }
     if (have > 0) depot[name] = have;
   }
@@ -164,7 +170,7 @@ function parsePenguin(obj: Record<string, unknown>): ForeignImport | null {
 }
 
 /** ark-nights' own export, keyed on arkgraph's codes. */
-function parseArkNights(obj: Record<string, unknown>): ForeignImport | null {
+function parseArkNights(obj: Record<string, unknown>, { byArkgraph }: ImportAliases): ForeignImport | null {
   const stock = obj.stock;
   if (!stock || typeof stock !== 'object' || Array.isArray(stock)) return null;
   const depot: Depot = {};
@@ -172,7 +178,7 @@ function parseArkNights(obj: Record<string, unknown>): ForeignImport | null {
   for (const [code, raw] of Object.entries(stock as Record<string, unknown>)) {
     const n = count(raw);
     if (n === null) return null;
-    const name = ownString(BY_ARKGRAPH, code);
+    const name = ownString(byArkgraph, code);
     if (!name) { unheld.push(code); continue; }
     if (n > 0) depot[name] = n;
   }
@@ -187,7 +193,7 @@ function parseArkNights(obj: Record<string, unknown>): ForeignImport | null {
     for (const entry of obj.compound_materials) {
       const id = entry && typeof entry === 'object' ? (entry as { id?: unknown }).id : entry;
       if (typeof id !== 'string') return null;
-      const name = ownString(BY_ARKGRAPH, id);
+      const name = ownString(byArkgraph, id);
       if (name) names.add(name);
       else if (!unheld.includes(id)) unheld.push(id);
     }
@@ -207,13 +213,13 @@ function parseArkNights(obj: Record<string, unknown>): ForeignImport | null {
  * depot on a mispaste. Somebody who genuinely owns nothing has Clear depot,
  * which is next to this and says what it does.
  */
-export function parseForeign(text: string): ForeignImport | null {
+export function parseForeign(text: string, aliases: ImportAliases): ForeignImport | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
   let result: ForeignImport | null = null;
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
-    result = parseKroosterCsv(trimmed);
+    result = parseKroosterCsv(trimmed, aliases);
   } else {
     let parsed: unknown;
     try {
@@ -225,8 +231,8 @@ export function parseForeign(text: string): ForeignImport | null {
     const obj = parsed as Record<string, unknown>;
     /* Each signature is the format's own self-description, so neither can be
        mistaken for the other or for this planner's bundle. */
-    if (obj['@type'] === '@penguin-statistics/planner/config') result = parsePenguin(obj);
-    else if (typeof obj.version === 'string' && obj.stock !== undefined) result = parseArkNights(obj);
+    if (obj['@type'] === '@penguin-statistics/planner/config') result = parsePenguin(obj, aliases);
+    else if (typeof obj.version === 'string' && obj.stock !== undefined) result = parseArkNights(obj, aliases);
   }
 
   if (!result || Object.keys(result.depot).length === 0) return null;

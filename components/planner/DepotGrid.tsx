@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHeightFloor } from './useHeightFloor';
-import { IN_GAME_ORDER, MATERIAL_GROUPS, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
+import { MATERIAL_GROUPS, MATERIAL_SORT_ORDER } from '@/lib/farming/materialSortOrder';
+import { usePlannerContent } from '@/lib/content/planner';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import type { CostGroup } from '@/lib/operators/operatorTypes';
 import type { Depot } from '@/lib/planner/depot';
@@ -37,8 +38,6 @@ interface Held {
   need: number;
   short: number;
 }
-
-const IN_GAME_INDEX = new Map(IN_GAME_ORDER.map((name, i) => [name, i]));
 
 /**
  * One material in the catalogue.
@@ -148,6 +147,9 @@ export function DepotGrid({
 }) {
   const [sort, setSort] = useState<DepotSort>('ingame');
   const [query, setQuery] = useState('');
+  /* The game's own depot order, from the release's item sortIds (usePlannerContent). */
+  const { inGameOrder } = usePlannerContent();
+  const inGameIndex = useMemo(() => new Map(inGameOrder.map((name, i) => [name, i])), [inGameOrder]);
   /* What this visit has touched. The highlight says "that keystroke landed" on
      a grid of ninety-three near-identical tiles. */
   const [changed, setChanged] = useState<Set<string>>(new Set());
@@ -208,14 +210,14 @@ export function DepotGrid({
     }
     if (sort === 'az') return [...list].sort((a, b) => a.name.localeCompare(b.name));
     /* The game's own order. Anything the transcription does not cover would
-       sort last rather than vanish -- the import-time check in
-       materialSortOrder.ts means there is nothing in that position today. */
+       sort last rather than vanish -- checkItemSortIds in materialSortOrder.ts,
+       run on every table the export reads, means there is nothing there today. */
     return [...list].sort((a, b) => {
-      const ai = IN_GAME_INDEX.get(a.name) ?? Infinity;
-      const bi = IN_GAME_INDEX.get(b.name) ?? Infinity;
+      const ai = inGameIndex.get(a.name) ?? Infinity;
+      const bi = inGameIndex.get(b.name) ?? Infinity;
       return ai - bi || a.name.localeCompare(b.name);
     });
-  }, [held, query, sort]);
+  }, [held, query, sort, inGameIndex]);
 
   /* By tier keeps the game's own headings, so it is grouped rather than sorted
      -- but it still obeys the filters above it. */

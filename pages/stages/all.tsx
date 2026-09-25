@@ -39,5 +39,6 @@ export default function AllOperationsPage({ cards, counts, now }: Props) {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/all", async () => {
   const cards = getStageModeCards();
-  return { props: { cards, counts: getModeCounts(cards), now: Math.floor(Date.now() / 1000) } };
+  // `now` is the request's, from contentPageClock (lib/content/pageClock.ts).
+  return { props: { cards, counts: getModeCounts(cards) } };
 });

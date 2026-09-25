@@ -1,4 +1,10 @@
-import { getAllHeadhuntingBanners, HeadhuntingBanner } from './headhuntingBanners';
+import type { HeadhuntingBanner } from './headhuntingBanners';
+import { dateStringValue } from './limitedRerunNotes';
+
+/* Pure: the page's browser half uses classifyLimitedBanner, so this module must not
+   reach the banner list itself. The lookups take the banners the caller already
+   holds -- getStaticProps passes getAllHeadhuntingBanners() from
+   headhuntingBannerData.ts, which the content export runs against the release. */
 
 export type LimitedBannerType = 'Celebration' | 'Festival' | 'Carnival' | 'Crossover';
 
@@ -38,51 +44,45 @@ function parseGlobalStartDate(banner: HeadhuntingBanner): string | null {
   return m ? m[1] : null;
 }
 
-export function dateStringValue(s: string): number {
-  const [y, m, d] = s.split('/').map(Number);
-  return new Date(y, m - 1, d).getTime();
+
+/**
+ * An operator's Limited sub-type and the Global start date (YYYY/MM/DD) of every
+ * Limited banner that features them, oldest first. Which appearance is the latest
+ * past one and which an announced future one depends on the day it is read, so
+ * lib/gacha/limitedRerunNotes.ts splits them at render.
+ */
+export interface LimitedAppearances {
+  type: LimitedBannerType;
+  appearances: string[];
 }
 
-export interface LimitedOperatorInfo {
+/** What releases exported before `appearances` carry: the split made at their export. */
+export interface ExportedLimitedSplit {
   type: LimitedBannerType;
-  // "YYYY/MM/DD" strings (not Date objects -- getStaticProps can't
-  // serialize those), kept raw so the page can compute day-counts
-  // client-side at render time and stay accurate between deploys.
   lastBannerDate: string | null; // most recent PAST appearance
   nextScheduledDate: string | null; // earliest known FUTURE appearance, if any -- an actually-announced rerun, not an estimate
 }
 
+export type LimitedOperatorInfo = LimitedAppearances | ExportedLimitedSplit;
+
 /**
- * Operator name -> their Limited sub-type, most recent past
- * appearance, and earliest known future (already-scheduled) rerun if
- * one exists in the data -- built in one pass over every Limited
- * banner's featured lineup (both six_stars slots, any off-banner
- * rate_up_six_stars, and any featured five_stars/four_stars). The
- * type is taken from the FIRST banner an operator is found in --
- * reruns of the same operator's original banner classify to the same
- * sub-type in every case checked against the real data, even when a
- * rerun uses a different bracket label. lastBannerDate tracks the
- * LATEST past appearance; nextScheduledDate tracks the EARLIEST
- * future one, if the data actually contains an announced rerun --
- * these are genuinely different things, especially for Crossover
- * operators, whose reruns depend on external collab agreements rather
- * than a predictable internal calendar, so there's no reasonable
- * basis for estimating one the way there is for Celebration/Festival/
- * Carnival.
+ * Operator name -> their Limited sub-type and every Limited banner appearance,
+ * built in one pass over every Limited banner's featured lineup (both six_stars
+ * slots, any off-banner rate_up_six_stars, and any featured five_stars/four_stars).
+ * The type is taken from the FIRST banner an operator is found in -- reruns of the
+ * same operator's original banner classify to the same sub-type in every case
+ * checked against the real data, even when a rerun uses a different bracket label.
+ * Crossover operators' reruns depend on external collab agreements rather than a
+ * predictable internal calendar, so there's no reasonable basis for estimating one
+ * the way there is for Celebration/Festival/Carnival.
  */
-export function getLimitedBannerInfoLookup(): Record<string, LimitedOperatorInfo> {
-  const lookup: Record<string, LimitedOperatorInfo> = {};
-  const limitedBanners = getAllHeadhuntingBanners().filter((b) => b.pull_type === 'limited');
-  const todayValue = (() => {
-    const t = new Date();
-    t.setHours(0, 0, 0, 0);
-    return t.getTime();
-  })();
+export function getLimitedBannerInfoLookup(banners: readonly HeadhuntingBanner[]): Record<string, LimitedAppearances> {
+  const lookup: Record<string, LimitedAppearances> = {};
+  const limitedBanners = banners.filter((b) => b.pull_type === 'limited');
 
   for (const banner of limitedBanners) {
     const type = classifyLimitedBanner(banner);
     const date = parseGlobalStartDate(banner);
-    const isFuture = date ? dateStringValue(date) > todayValue : false;
     const names = [
       ...(banner.six_stars || []),
       ...(banner.rate_up_six_stars || []),
@@ -90,26 +90,11 @@ export function getLimitedBannerInfoLookup(): Record<string, LimitedOperatorInfo
       ...(banner.four_stars || []),
     ];
     for (const name of names) {
-      const existing = lookup[name];
-      if (!existing) {
-        lookup[name] = {
-          type,
-          lastBannerDate: isFuture ? null : date,
-          nextScheduledDate: isFuture ? date : null,
-        };
-        continue;
-      }
-      if (!date) continue;
-      if (isFuture) {
-        if (!existing.nextScheduledDate || dateStringValue(date) < dateStringValue(existing.nextScheduledDate)) {
-          existing.nextScheduledDate = date;
-        }
-      } else if (!existing.lastBannerDate || dateStringValue(date) > dateStringValue(existing.lastBannerDate)) {
-        existing.lastBannerDate = date;
-      }
+      const entry = lookup[name] ??= { type, appearances: [] };
+      if (date && !entry.appearances.includes(date)) entry.appearances.push(date);
     }
   }
-
+  for (const entry of Object.values(lookup)) entry.appearances.sort((a, b) => dateStringValue(a) - dateStringValue(b));
   return lookup;
 }
 
@@ -122,10 +107,10 @@ export function getLimitedBannerInfoLookup(): Record<string, LimitedOperatorInfo
  * estimating a Celebration operator's next rerun means looking at
  * this real schedule directly rather than projecting a fixed date.
  */
-export function getCelebrationBannerDates(): string[] {
+export function getCelebrationBannerDates(banners: readonly HeadhuntingBanner[]): string[] {
   const dates: string[] = [];
-  const banners = getAllHeadhuntingBanners().filter((b) => b.pull_type === 'limited' && classifyLimitedBanner(b) === 'Celebration');
-  for (const banner of banners) {
+  const celebrations = banners.filter((b) => b.pull_type === 'limited' && classifyLimitedBanner(b) === 'Celebration');
+  for (const banner of celebrations) {
     const date = parseGlobalStartDate(banner);
     if (date) dates.push(date);
   }

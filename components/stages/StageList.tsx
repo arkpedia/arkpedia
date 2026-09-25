@@ -1,4 +1,4 @@
-import { useContentUrl } from '@/lib/content/context';
+import { useContentUrl, useReleaseTable } from '@/lib/content/context';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -133,29 +133,23 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
    * component already fetches is what they are derived from, so the wire carries the
    * rows once instead of the summary of them 3,786 times.
    *
-   * Imported dynamically, with the three tables the build reads: keeping them out of
-   * the route's own chunk means nothing is added to first paint, and this is wanted
-   * at the same moment the index is -- after it, in fact, since the index is the
-   * input.
+   * The three tables it reads come with the page, in its props (__contentTables,
+   * lib/content/tables.mjs), so the headings follow the content release the rows came
+   * from. They used to be lazy chunks of this deploy's data/: a new event arrived in the
+   * index but fell into a raw "other" group with no dates until somebody redeployed.
+   * The grouping code is still imported dynamically, and the groups are still built
+   * after mount, so first paint is exactly what it was.
    */
+  const contents = useReleaseTable<NavData['contents']>('stages-content');
+  const windows = useReleaseTable<NavData['windows']>('content-windows');
+  const storyGroups = useReleaseTable<NavData['storyGroups']>('story-groups');
   const [navGroups, setNavGroups] = useState<StageGroup[]>([]);
   useEffect(() => {
     let live = true;
-    Promise.all([
-      import('@/lib/stages/stageNav'),
-      import('@/data/stages-content.json'),
-      import('@/data/content-windows.json'),
-      import('@/data/story-groups.json'),
-    ])
-      .then(([nav, contents, windows, storyGroups]) => {
+    import('@/lib/stages/stageNav')
+      .then((nav) => {
         if (!live) return;
-        setNavGroups(
-          nav.buildStageGroups(all, {
-            contents: contents.default as NavData['contents'],
-            windows: windows.default as NavData['windows'],
-            storyGroups: storyGroups.default as NavData['storyGroups'],
-          })
-        );
+        setNavGroups(nav.buildStageGroups(all, { contents, windows, storyGroups }));
       })
       .catch(() => {
         // Same posture as the index fetch: the rail keeps the one heading it can
@@ -164,7 +158,7 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
     return () => {
       live = false;
     };
-  }, [all]);
+  }, [all, contents, windows, storyGroups]);
 
   /**
    * What the picker reads before the headings arrive: the open stage's own chapter,

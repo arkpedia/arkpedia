@@ -1,5 +1,4 @@
 import { CostGroup } from '../operators/operatorTypes';
-import itemSortIds from '@/data/item-sort-ids.json';
 
 // Named groups, defined once and reused both for the flat sort order
 // and for splitting a material list into display rows -- avoids
@@ -160,21 +159,27 @@ export const MATERIAL_GROUPS: MaterialGroup[] = [
  * order groups by material LINE instead, so tier is not monotonic down it and ranking
  * the resolver by it would quietly change which target takes a contested ingredient.
  * This one is display only.
+ *
+ * The sortIds are data/item-sort-ids.json, a game table the content release carries (the
+ * release's copy also numbers the token items); the planner reads it from its props and
+ * passes it in, so /operators and /events, which only sort cost lists, never load it.
  */
-const SORT_IDS = itemSortIds as Record<string, number>;
-
-export const IN_GAME_ORDER: string[] = MATERIAL_SORT_ORDER
-  /* EXP is a number an operator needs, not a thing you hold, so it has no place on a
-     depot screen and no sortId either. */
-  .filter((name) => name !== 'EXP')
-  .slice()
-  .sort((a, b) => (SORT_IDS[a] ?? Infinity) - (SORT_IDS[b] ?? Infinity) || a.localeCompare(b));
+export function inGameOrder(sortIds: Record<string, number>): string[] {
+  return MATERIAL_SORT_ORDER
+    /* EXP is a number an operator needs, not a thing you hold, so it has no place on a
+       depot screen and no sortId either. */
+    .filter((name) => name !== 'EXP')
+    .slice()
+    .sort((a, b) => (sortIds[a] ?? Infinity) - (sortIds[b] ?? Infinity) || a.localeCompare(b));
+}
 
 /* Every holdable material has a place in that order. A name with no sortId sorts to the
    end, which is a tile in the wrong place rather than a missing one -- silent either
-   way, so it fails here instead. Checked at import, like MATERIAL_GROUPS. */
-{
-  const placeless = IN_GAME_ORDER.filter((name) => SORT_IDS[name] === undefined);
+   way, so it fails here instead. /planner's table loader runs this wherever the table is
+   read from data/ -- the build's prerender and the content export -- which is where the
+   import-time check this replaced used to fail. The browser sorts a missing one last. */
+export function checkItemSortIds(sortIds: Record<string, number>): Record<string, number> {
+  const placeless = inGameOrder(sortIds).filter((name) => sortIds[name] === undefined);
   if (placeless.length) {
     throw new Error(
       'materialSortOrder: no sortId for ' + placeless.join(', ') +
@@ -182,6 +187,7 @@ export const IN_GAME_ORDER: string[] = MATERIAL_SORT_ORDER
       'add an alias there the way Information Fragment(s) has one.',
     );
   }
+  return sortIds;
 }
 
 const SORT_INDEX = new Map(MATERIAL_SORT_ORDER.map((name, i) => [name, i]));

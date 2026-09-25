@@ -40,16 +40,17 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { pinnedRef } from '../content/pin-upstream.mjs';
+import { cnTableUrl, pinnedRef } from '../content/pin-upstream.mjs';
 
 const root = process.cwd();
 const EN = `${process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata/en'}/gamedata/excel`;
 const CN = `${process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource'}/gamedata/excel`;
-// At the commits this run pinned (run-stage.mjs), the ones the checkouts above hold, else
-// the branches. A window this changes records the URL as its timingSource.
+// At the commits this run pinned (run-stage.mjs) -- for CN, the mirror and commit the run
+// settled on for every CN table -- the ones the checkouts above hold, else the branches. A
+// window this changes records the URL as its timingSource.
 const RAW = {
   en: `https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/${pinnedRef('ArknightsAssets/ArknightsGamedata')}/en/gamedata/excel`,
-  cn: `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${pinnedRef('yuanyan3060/ArknightsGameResource')}/gamedata/excel`,
+  cn: cnTableUrl('excel'),
 };
 
 async function readTable(dir, urlBase, file) {

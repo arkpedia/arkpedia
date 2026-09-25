@@ -1,0 +1,92 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
+import ts from 'typescript';
+
+/*
+ * /bases/whole-base-optimizer was a public page (200) whose one request went to
+ * /api/whole-base-optimizer-results, a route that has never existed -- the handler is
+ * under /api/dev/ and answers only locally. /api/submit took survey submissions that
+ * nothing sent any more and checked them against a folder that no longer exists, so
+ * it would have refused every one (sweep 2026-09-24, §3.11). This holds the three
+ * things that let both happen:
+ * - every address client code fetches under /api/ is a route that exists;
+ * - a page that calls a local-only route (pages/api/dev) is itself local-only;
+ * - every API route is called by client code, or refuses outside development.
+ */
+const ROOT = process.cwd();
+
+function files(dir: string): string[] {
+  return fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap(entry => {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) return files(file);
+    return /\.tsx?$/.test(entry.name) ? [file] : [];
+  });
+}
+
+/** The /api/ addresses a file fetches, `${...}` kept as a placeholder segment. */
+export function apiFetches(file: string, text: string): string[] {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const found: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'fetch' && node.arguments[0]) {
+      const argument = node.arguments[0];
+      const address = ts.isStringLiteralLike(argument) ? argument.text
+        : ts.isTemplateExpression(argument) ? argument.head.text + argument.templateSpans.map(span => `\${}${span.literal.text}`).join('')
+          : null;
+      if (address?.startsWith('/api/')) found.push(address.split('?')[0]);
+    }
+    node.forEachChild(visit);
+  };
+  visit(source);
+  return found;
+}
+
+/** The route file under pages/api that serves an address, or null. */
+export function routeFor(address: string, routes: string[]): string | null {
+  const segments = address.replace(/^\/api\//, '').split('/');
+  return routes.find(route => {
+    const parts = route.replace(/^pages\/api\//, '').replace(/\.tsx?$/, '').replace(/\/index$/, '').split('/');
+    return parts.length === segments.length && parts.every((part, index) => /^\[[^\]]+\]$/.test(part) || part === segments[index]);
+  }) ?? null;
+}
+
+const routes = files(path.join('pages', 'api')).map(file => file.split(path.sep).join('/'));
+const client = ['pages', 'components', 'lib'].flatMap(dir => files(dir)).filter(file => !file.startsWith(path.join('pages', 'api')));
+const fetches = client.flatMap(file => apiFetches(file, fs.readFileSync(path.join(ROOT, file), 'utf8')).map(address => ({ file, address })));
+
+test('the scan reads fetch addresses the way the route table matches them', () => {
+  assert.deepEqual(apiFetches('x.tsx', "fetch('/api/a'); fetch(`/api/b/${id}?x=1`); fetch(url); fetch('/other');"), ['/api/a', '/api/b/${}']);
+  const table = ['pages/api/a.ts', 'pages/api/b/[id].ts', 'pages/api/dev/c.ts'];
+  assert.equal(routeFor('/api/b/${}', table), 'pages/api/b/[id].ts');
+  assert.equal(routeFor('/api/dev/c', table), 'pages/api/dev/c.ts');
+  assert.equal(routeFor('/api/c', table), null);
+  assert.equal(routeFor('/api/whole-base-optimizer-results', [...table, 'pages/api/dev/whole-base-optimizer-results.ts']), null);
+});
+
+test('every address client code fetches under /api/ is a route that exists', () => {
+  assert.ok(fetches.length >= 5, 'the scan found almost no fetches');
+  const missing = fetches.filter(({ address }) => !routeFor(address, routes)).map(({ file, address }) => `${file}: ${address}`);
+  assert.deepEqual(missing, []);
+});
+
+test('a page that calls a local-only route is itself local-only', () => {
+  const problems: string[] = [];
+  for (const { file, address } of fetches.filter(({ address }) => address.startsWith('/api/dev/'))) {
+    if (!file.startsWith(`pages${path.sep}`)) { problems.push(`${file} calls ${address} from a shared module; call it from the dev page itself`); continue; }
+    if (!/export const getStaticProps = devOnlyStaticProps;/.test(fs.readFileSync(path.join(ROOT, file), 'utf8'))) {
+      problems.push(`${file} calls ${address} but is served in production; export const getStaticProps = devOnlyStaticProps`);
+    }
+  }
+  assert.deepEqual([...new Set(problems)], []);
+  // Not vacuous: the dev console, the optimizer and the whole-base optimizer are covered.
+  assert.ok(fetches.some(({ file }) => file === path.join('pages', 'bases', 'whole-base-optimizer.tsx')));
+});
+
+test('every API route is called by client code or refuses outside development', () => {
+  const called = new Set(fetches.map(({ address }) => routeFor(address, routes)));
+  const orphans = routes.filter(route => !called.has(route)
+    && !/process\.env\.NODE_ENV\s*!==\s*'development'|NODE_ENV\s*===\s*'development'/.test(fs.readFileSync(path.join(ROOT, route), 'utf8')));
+  assert.deepEqual(orphans, []);
+});

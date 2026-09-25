@@ -1,4 +1,4 @@
-import { getAllEventListings } from '@/lib/home/frontPageContent';
+import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { resolveBannerEventWindow } from '@/lib/gacha/bannerSchedule';
 
@@ -16,7 +16,7 @@ interface BannerWindow {
 export function resolvePullBannerWindows<T extends BannerWindow>(
   banners: readonly T[],
   events = getAllEvents(),
-  calendar = getAllEventListings(),
+  calendar = getEventCalendar(),
 ): T[] {
   const windows = events.map(event => ({
     ...event,

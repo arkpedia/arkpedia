@@ -5,7 +5,8 @@ import { RewardAmount } from "@/components/pulls/RewardAmount";
 import { PastRewards } from '@/components/pulls/PastRewards';
 import { certificatePulls, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
 import { getAllEvents } from '@/lib/schedule/schedule';
-import { getAllEventListings } from '@/lib/home/frontPageContent';
+import { getEventCalendar } from '@/lib/home/frontPageContent';
+import { currentPullPlan } from '@/lib/pulls/currentPlan';
 import { withContentPage } from '@/lib/content/server';
 import { ContentImg } from '@/components/content/ContentImage';
 import { pullSkinCollections, skinReleaseDates, type SkinCollection } from '@/lib/pulls/skinCollections';
@@ -479,7 +480,9 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 }
 
 export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsProps>('/pulls', async () => {
-  const scheduledBanners = getPullSchedule().filter(banner => new Date(`${banner.end}T23:59:59Z`) > new Date());
+  /* Every banner and outfit shop, over or not: what is still ahead is a question for
+     the request (currentPullPlan in the finalize below), never for the export. */
+  const scheduledBanners = getPullSchedule();
   /* One object for the schedule's `inBacklog` marks and the browser's backlog
      totals. The content export runs this against the release's data, so both
      arrive with the release in the page props and never from the app bundle. */
@@ -487,15 +490,16 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const skins = getAllSkins();
   const events = getAllEvents();
   const skinCatalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins));
-  const predicted = new Set(getAllEventListings().filter(event => event.isPredicted).map(event => event.name));
-  const skinCollections = pullSkinCollections(events, skins, skinCatalogue, new Date().toISOString().slice(0, 10), predicted);
-  return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) }, revalidate: 1200 };
+  const predicted = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => event.name));
+  const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
+  return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
 }, { finalize: async props => {
-  if (props.backlogSources) return props;
+  const current = currentPullPlan(props, Date.now());
+  if (current.backlogSources) return current;
   // A release exported before backlogSources joined the props. The first content
   // run after this deploy re-exports /pulls (the generator commit changes the
   // release fingerprint), and scripts/content/validate-release.mjs refuses a
   // release without it, so only an older published release can land here.
   console.warn('[pulls] Content release predates backlogSources; using the bundled back catalogue.');
-  return { ...props, backlogSources: bundledBacklogSources() };
+  return { ...current, backlogSources: bundledBacklogSources() };
 } });

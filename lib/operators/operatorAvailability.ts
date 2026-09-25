@@ -43,9 +43,33 @@ export function operatorReleaseLabel(op: ReleaseOperator, now: number): string |
  * UTC-7 safeguard above, and `isFuture` is consulted only when neither exists.
  * That prevents a manually stored flag or calendar date from making an operator
  * playable before the confirmed Global release instant.
+ *
+ * `now` is required: a defaulted clock let the content export freeze its own
+ * moment into page data (/enemies, /schedule, the colour palette), which then
+ * stayed wrong until the next release. Pass the request's or the reader's time.
  */
-export function isOperatorReleased(op: ReleaseOperator, now = Date.now()): boolean {
+export function isOperatorReleased(op: ReleaseOperator, now: number): boolean {
+  return isReleasedAt(releaseMarker(op), now);
+}
+
+/**
+ * The part of an operator's release state that does not depend on the clock, for
+ * page data that is exported once and judged per request. `releasedAt` is the
+ * instant isOperatorReleased switches (null without a usable date), and
+ * `isFuture` is the flag it falls back to then.
+ */
+export interface ReleaseMarker { releasedAt: number | null; isFuture?: true }
+
+export function releaseMarker(op: ReleaseOperator): ReleaseMarker {
   const release = operatorRelease(op);
-  if (release) return now >= release.at;
-  return op.isFuture !== true;
+  if (release) return { releasedAt: release.at };
+  return op.isFuture === true ? { releasedAt: null, isFuture: true } : { releasedAt: null };
+}
+
+/** isOperatorReleased for a marker. A payload from before markers existed has none,
+ * and was already filtered to released operators when it was exported. */
+export function isReleasedAt(marker: Partial<ReleaseMarker> | undefined, now: number): boolean {
+  if (!marker || marker.releasedAt === undefined) return true;
+  if (marker.releasedAt !== null) return now >= marker.releasedAt;
+  return marker.isFuture !== true;
 }

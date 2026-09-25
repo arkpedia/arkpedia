@@ -10,7 +10,7 @@ import {
   tradingPostYellowContribution,
   factoryYellowContribution,
 } from './baseProductivity';
-import { KARLAN_TRADE } from './baseGroupRosters';
+import { toBaseRosters, type BaseRosters } from './baseGroupRosters';
 import { ResourcePools } from './baseResources';
 
 /** Every cross-room conditional (Gnosis in CC, Mulberry in Office, Kirin R
@@ -51,14 +51,17 @@ export function combinations<T>(arr: T[], k: number): T[][] {
 // player's LIVE facility levels, set at runtime, rather than only ever
 // running against build-time state.
 let allOperators: BaseOperator[] = [];
+// The group rosters, injected the same way: the page's copy from its props.
+let rosters: BaseRosters = toBaseRosters({});
 
 /** Must be called once, with real operator data, before anything else in
  * this module is used. Also invalidates every cached candidate pool
  * (TP_CANDIDATES etc. below), since those are derived FROM allOperators
  * and would otherwise keep serving stale/empty results computed before
  * this was called. */
-export function initializeOptimizerData(operators: BaseOperator[]) {
+export function initializeOptimizerData(operators: BaseOperator[], groupRosters: BaseRosters) {
   allOperators = operators;
+  rosters = groupRosters;
   invalidateCandidateCaches();
 }
 function cleanSkillName(rawName: string | null): string | null {
@@ -260,6 +263,7 @@ function baseTpContext(overrides?: DynamicContextOverrides): Omit<TradingPostCon
   // as its Factory skill -- the Factory path already used this constant.
   const felvineTotal = overrides?.felvineTotal ?? FELVINE;
   return {
+    rosters,
     dormitoryOperatorCount,
     felvineTotal,
     distinctFactoryProductCount: 2,
@@ -347,7 +351,7 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
     results.push(result);
   }
 
-  const karlanHere = realNames.filter((n) => KARLAN_TRADE.has(n)).length;
+  const karlanHere = realNames.filter((n) => rosters.KARLAN_TRADE.has(n)).length;
   const gnosisPresent = overrides?.gnosisInControlCenter ?? true; // defaults true for backward compatibility with callers (wholeBaseOptimizer.ts) that genuinely do place Gnosis unconditionally
   const gnosisEff = gnosisPresent ? -0.15 * karlanHere : 0;
   const gnosisLimit = gnosisPresent ? 6 * karlanHere : 0;
@@ -508,6 +512,7 @@ function emptyFactoryContext(sameFactoryOperatorNames: string[], sameFactorySkil
   const monsterMealTotal = overrides?.monsterMealTotal ?? MONSTER_MEAL;
   const gummyInTradingPost = overrides?.gummyInTradingPost ?? GUMMY_IN_TRADING_POST;
   return {
+    rosters,
     selectedProduct: product,
     sameFactoryOperatorNames,
     sameFactorySkillNames,
