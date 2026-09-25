@@ -494,3 +494,53 @@ test('a release that does not go live opens an issue, and one that does closes i
   const block = settings.slice(start, start + 6).map(line => line.trim());
   assert.ok(block.includes("if: steps.publish.outputs.pushed != ''") && block.includes('continue-on-error: true'), 'only after a push, and never failing the run');
 });
+
+// Deploy follows only a green Check on main, and the release gate holds content while
+// production runs other code than main, so a red main stops both: one issue says so.
+test('a red Check on main opens one issue, a superseded run does not, and the next green run closes it', () => {
+  withGitHub(github => {
+    const report = stepScript('Report a red Check on main', 'check'), close = stepScript('Close the red-Check report', 'check');
+    const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    fs.writeFileSync(path.join(github.root, 'bin/git'), `#!/bin/sh\nif [ "$1" = ls-remote ]; then printf '%s\\trefs/heads/main\\n' "$FAKE_MAIN"; exit 0; fi\nexec '${realGit}' "$@"\n`, { mode: 0o755 });
+    const sha = 'a'.repeat(40);
+    const env = (status: string, main = sha) => ({ FAKE_NOW: '2026-09-25T12:00:00Z', JOB_STATUS: status, GITHUB_SHA: sha, FAKE_MAIN: main });
+    // Cancelled because a newer push superseded it: that run reports, this one says nothing.
+    const superseded = github.step(report, env('cancelled', 'b'.repeat(40)));
+    assert.equal(superseded.status, 0, superseded.output);
+    assert.deepEqual(github.issues(), []);
+    const failed = github.step(report, env('failure'));
+    assert.equal(failed.status, 0, failed.output);
+    assert.equal(github.issues()[0].title, 'Check failing on main');
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:check-failing-main -->\nCheck ended with failure on main at aaaaaaaaaaaa \(.*\): https:\/\/example\.invalid\/run\/1\. Nothing deploys until a Check on main passes/);
+    // Cancelled on main's current commit is a timeout, and news.
+    github.step(report, env('cancelled'));
+    assert.equal(github.issues().length, 1);
+    assert.equal(github.issues()[0].comments.length, 1);
+    assert.equal(github.step(close, { GITHUB_SHA: 'c'.repeat(40) }).status, 0);
+    assert.equal(github.issues()[0].state, 'closed');
+    assert.match(github.issues()[0].comments.at(-1)!.body, /^Green again at cccccccccccc: https:\/\/example\.invalid\/run\/1$/);
+  });
+  const check = fs.readFileSync('.github/workflows/check.yml', 'utf8');
+  for (const name of ['Report a red Check on main', 'Close the red-Check report']) {
+    const at = check.indexOf(`- name: ${name}`);
+    assert.match(check.slice(at, at + 200), /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/, `${name}: pushes to main only, never a pull request`);
+  }
+  assert.match(check, /^permissions:\n {2}contents: read\n( {2}#.*\n)* {2}issues: write$/m);
+});
+
+test('a failed deploy opens one issue that the next deploy closes, even when the token is missing', () => {
+  withGitHub(github => {
+    const report = stepScript('Report the failed deploy', 'deploy'), close = stepScript('Close the failed-deploy report', 'deploy');
+    const failed = github.step(report, { FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
+    assert.equal(failed.status, 0, failed.output);
+    assert.equal(github.issues()[0].title, 'Deploy failing');
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing -->\nDeploy ended with failure for dddddddddddd \(workflow_run, .*\): https:\/\/example\.invalid\/run\/1\. Production keeps its previous build/);
+    assert.equal(github.step(close, { DEPLOYING: 'e'.repeat(40) }).status, 0);
+    assert.equal(github.issues()[0].state, 'closed');
+    assert.match(github.issues()[0].comments.at(-1)!.body, /^Deployed eeeeeeeeeeee: https:\/\/example\.invalid\/run\/1$/);
+  });
+  // The report needs the checkout; the token check used to run first and fail without one.
+  const names = [...fs.readFileSync('.github/workflows/deploy.yml', 'utf8').matchAll(/^ {6}- (?:name: (.*)|uses: (actions\/checkout)@)/gm)].map(match => match[1] ?? match[2]);
+  assert.ok(names.indexOf('actions/checkout') < names.indexOf('Refuse to run without the deploy token'), names.join(' | '));
+  assert.deepEqual(names.slice(-2), ['Report the failed deploy', 'Close the failed-deploy report']);
+});

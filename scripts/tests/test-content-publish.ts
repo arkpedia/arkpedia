@@ -24,6 +24,7 @@ function stepScript(name: string) {
 }
 const loadStep = stepScript('Load public source records');
 const publishStep = stepScript('Publish the validated public release');
+const heartbeatStep = stepScript('Record the heartbeat');
 
 // A local bare repository stands in for arkpedia-data. Both steps run unchanged: its
 // URLs are rewritten to the local one, and the deploy-key setup gets a dummy key and a
@@ -99,6 +100,7 @@ function dataRepository(root: string) {
     },
     publish: (extra: Record<string, string> = {}) => step(publishStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', GITHUB_OUTPUT: path.join(runner, 'github-output'), ...extra }),
     outputs: () => fs.existsSync(path.join(runner, 'github-output')) ? fs.readFileSync(path.join(runner, 'github-output'), 'utf8') : '',
+    heartbeat: (extra: Record<string, string> = {}) => step(heartbeatStep, { CONTENT_DATA_DEPLOY_KEY: 'test-key', GITHUB_EVENT_NAME: 'schedule', RUN_URL: 'https://example.invalid/run/1', PUSHED: '', ...extra }),
     log: (ref: string) => git('-C', origin, 'log', '--format=%s', ref).split('\n'),
     head: (ref: string) => git('-C', origin, 'rev-parse', ref),
     file: (ref: string, file: string) => JSON.parse(git('-C', origin, 'show', `${ref}:${file}`)),
@@ -429,4 +431,26 @@ test('the gate is asked before anything runs, and again in the publish step befo
   assert.ok(gate > at(/Release inputs are unchanged/), 'after the step knows there is something to publish');
   assert.ok(gate < at(/checkout -B main/) && gate < at(/push origin HEAD:main/), 'before the commit and the push');
   assert.ok(at(/pushed=/) > at(/push origin HEAD:main/), 'the pushed commit is named only once it is pushed');
+});
+
+// arkpedia-data's watchdog (release-heartbeat.yml there) alarms when neither a release nor a
+// heartbeat is newer than 26 hours, so a quiet day that published nothing is not an outage.
+test('every successful run leaves one heartbeat commit on a branch of its own', () => {
+  withDataRepository(repo => {
+    const first = repo.heartbeat();
+    assert.equal(first.status, 0, first.output);
+    assert.deepEqual(repo.log('heartbeat'), ['Prepare content release succeeded (schedule)']);
+    const beat = repo.file('heartbeat', 'heartbeat.json');
+    assert.deepEqual({ ...beat, at: 'x' }, { version: 1, at: 'x', event: 'schedule', run: 'https://example.invalid/run/1', published: null });
+    assert.ok(Math.abs(Date.parse(beat.at) - Date.now()) < 60_000);
+    const second = repo.heartbeat({ GITHUB_EVENT_NAME: 'workflow_dispatch', PUSHED: 'a'.repeat(40) });
+    assert.equal(second.status, 0, second.output);
+    assert.deepEqual(repo.log('heartbeat'), ['Prepare content release succeeded (workflow_dispatch)', 'Prepare content release succeeded (schedule)']);
+    assert.equal(repo.file('heartbeat', 'heartbeat.json').published, 'a'.repeat(40));
+    // Main, which the data repository's Content release publishes from, is untouched.
+    assert.deepEqual(repo.main(), ['main 2', 'main 1', 'main 0']);
+    assert.equal(fs.existsSync(path.join(repo.root, 'runner/heartbeat-key')), false, 'the key is removed');
+  });
+  const settings = steps().find(step => step.name === 'Record the heartbeat')!.block.map(line => line.trim());
+  assert.ok(settings.includes('if: success()') && settings.includes('continue-on-error: true'), 'only after a good run, and it never fails one');
 });
