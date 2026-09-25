@@ -88,7 +88,7 @@
 }
 .gacha-rarity-label { color: var(--text-dim); font-size: 11px; }
 .gacha-rarity-label small { font-size: 11px; }
-.gacha-rarity-count { color: var(--text); font-size: 17px; line-height: 1; }
+.gacha-rarity-count { color: var(--text); font-size: 18px; line-height: 1; }
 .gacha-action {
   min-width: 48px;
   min-height: 42px;
@@ -227,7 +227,7 @@
   justify-content: center;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-faint);
 }
 

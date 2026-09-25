@@ -19,7 +19,6 @@ import '@/styles/operators/roster.css';
 import '@/styles/operators/operator-detail.css';
 import '@/styles/planner/planner.css';
 import '@/styles/pulls/pulls.css';
-import '@/styles/planner/planner-depot.css';
 import '@/styles/schedule/timeline.css';
 import '@/styles/recruitment/recruitment.css';
 import '@/styles/techniques/techniques.css';
