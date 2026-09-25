@@ -204,7 +204,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
           )}
           <div className="stage-card-grid">
             {group.cards.map((card) => (
-          <Link prefetch={false} key={card.slug} href={`/stages/${encodeURIComponent(card.slug)}`} className="stage-card">
+          <Link prefetch={false} key={card.slug} href={`/stages/browse?s=${encodeURIComponent(card.slug)}`} className="stage-card">
             <span className="stage-card-art">
               {card.art ? (
                 <Image

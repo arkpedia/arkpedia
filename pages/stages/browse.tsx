@@ -2066,7 +2066,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   <>
                     Story Environment buffs your operators rather than the stage, so the map,
                     waves and enemies are{' '}
-                    <Link prefetch={false} href={`/stages/${encodeURIComponent(borrowedGeometryFrom)}`}>
+                    <Link prefetch={false} href={`/stages/browse?s=${encodeURIComponent(borrowedGeometryFrom)}`}>
                       {stage.variant.of_stage_code || borrowedGeometryFrom}
                     </Link>
                     &apos;s, as they are in game. The starting DP is that stage&apos;s too --
@@ -2075,7 +2075,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                 ) : (
                   <>
                     The game ships no map data for this form, so the layout shown is{' '}
-                    <Link prefetch={false} href={`/stages/${encodeURIComponent(borrowedGeometryFrom)}`}>
+                    <Link prefetch={false} href={`/stages/browse?s=${encodeURIComponent(borrowedGeometryFrom)}`}>
                       {stage.variant.of_stage_code || borrowedGeometryFrom}
                     </Link>
                     &apos;s. The tiles are the same; the waves and enemy levels are that
