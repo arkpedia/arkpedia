@@ -88,10 +88,8 @@ export default function HomePage({
         <div className="front-page-left">
           <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} />
           <SkinsCarousel skins={ongoingSkins} />
-          <section className="front-panel front-packs-panel">
-            <h2>Packs</h2>
-            <p className="hint">Coming soon.</p>
-          </section>
+          {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
+              they have content (decision of 2026-09-25). */}
         </div>
         <div className="front-page-right">
           <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} />
