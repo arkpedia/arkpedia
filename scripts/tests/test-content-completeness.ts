@@ -196,6 +196,7 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
     };
     for (const file of ['data/skins.json', 'data/headhunting_banners.json', 'data/content-bundles.json', 'data/events/events_2026.json']) write(file, []);
     write('data/content-inventory.json', { operators: [], skins: [] });
+    write('data/skin-availability-windows.json', { entries: [] });
     write('data/stages/test-1.json', { slug: 'test-1', enemies: { by_rank: { normal: [{ slug: 'slug-a' }] }, conditional: { by_rank: { elite: [{ slug: 'slug-b' }] } } } });
     write('data/stages/unlisted.json', { slug: 'unlisted', enemies: { by_rank: { normal: [{ slug: 'slug-unlisted' }] } } });
     write('public/stages-index.json', [{ slug: 'test-1' }]);

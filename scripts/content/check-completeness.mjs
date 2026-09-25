@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
+import { unconfirmedOutfitSales } from './outfit-windows.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 // A reward name that is a scrape's stand-in for a missing item, not the item.
@@ -65,7 +66,7 @@ export function artPath(value) {
  * quarantined' issue, and the rest of the day's content still goes out. The keys name
  * records by their source ids, the same way every stage's quarantine entries do.
  */
-export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, stageEnemies, enemyRecords, enemyIndex, counts, baseline, allowShrink = [] }) {
+export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, counts, baseline, allowShrink = [] }) {
   const errors = [], quarantine = [], allowed = [];
   const hold = (key, action, reason) => quarantine.push({ key, action, reason });
   const byId = new Map(operators.map(op => [op.internalName, op]));
@@ -104,6 +105,11 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   }
   for (const skin of inventory.skins) {
     if (!skinIds.has(skin.id)) hold(`skin:${skin.id}`, 'omitted-new', `CN outfit missing: ${skin.id} (${skin.name})`);
+  }
+  // A new outfit on sale on Global with no confirmed window reads as an estimate on /skins
+  // until someone copies the notice's Outfit Store dates. See outfit-windows.mjs.
+  for (const { skin, event, key } of unconfirmedOutfitSales({ skins, events, windows: skinWindows, now })) {
+    hold(`skin:${skin.skinId ?? key}`, 'published-partial', `${key}: on sale on Global with ${event.name}, but data/skin-availability-windows.json has no confirmed window for it, so /skins shows an estimate; add the Outfit Store window from ${event.global.timingSource || 'the official notice'}`);
   }
   for (const banner of banners) {
     for (const name of [...(banner.six_stars ?? []), ...(banner.rate_up_six_stars ?? []), ...(banner.five_stars ?? []), ...(banner.four_stars ?? [])]) {
@@ -246,6 +252,7 @@ export function readCompletenessInputs(root = process.cwd()) {
     banners: read('data/headhunting_banners.json'), events: eventFiles.flatMap(file => read(`data/events/${file}`)),
     bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
     albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
+    skinWindows: read('data/skin-availability-windows.json').entries,
     stageEnemies, enemyRecords, enemyIndex: new Set(read('public/enemies-index.json').map(row => row.slug)) };
   input.counts = { operators: operators.length, skins: input.skins.length, events: input.events.length,
     banners: input.banners.length, enemies: enemyRecords.size, stages: stageFiles.length, ...collectionCounts(root) };
@@ -323,7 +330,7 @@ export function writeQuarantine(root, stage, found, now = new Date()) {
 
 export function assertCompleteness(root = process.cwd(), { now = new Date(), allowShrink = parseAllowShrink(process.env.ARKPEDIA_ALLOW_SHRINK) } = {}) {
   const input = readCompletenessInputs(root);
-  const { errors, quarantine, allowed } = reviewCompleteness({ ...input, allowShrink });
+  const { errors, quarantine, allowed } = reviewCompleteness({ ...input, allowShrink, now });
   // Written before any throw: the day's holds are true whether or not an invariant stops it.
   // The refresh runs this as a stage with --keep data/quarantine.json, so the runner's
   // restore after that throw leaves them for the day's issue and the failure evidence.
