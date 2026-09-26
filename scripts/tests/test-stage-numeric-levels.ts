@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -82,4 +83,51 @@ test('a tile the reader did not name is refused by the map builder too', async (
   const { buildTiles } = await geometry();
   const level = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
   assert.throws(() => buildTiles(level.mapData), /heightType 1 is not a value the stage build knows/);
+});
+
+/*
+ * The two places the build reads a level file: writeGeometry in build.mjs (the map) and
+ * Levels.of in level.mjs (battle and enemies). Each used to read the file inside a
+ * try/catch that turned ANY failure into "no level file", so an enum the build cannot name
+ * would have been counted as a missing file and the stage published with no map and no
+ * enemies. readLevelFile's own test above cannot see either call site.
+ */
+test('the build\'s level reader fails on a number it has no name for, rather than counting the file as missing', async () => {
+  const { Levels } = await levelLib();
+  const levels = new Levels(new Map());
+  assert.equal(levels.of('activities/act13d0/level_act13d0_01')?.enemies.total, 10, 'the numbered file reads, with its 3 + 6 + 1 enemies');
+  assert.throws(() => levels.of('activities/act13d0/level_act13d0_99'), /level_act13d0_99\.json: heightType 9 is not a value the stage build knows/);
+  assert.equal(levels.missing.size, 0, 'neither counts as a missing file');
+});
+
+test('the stage build stops at the map of a level it cannot read, naming the file', () => {
+  // The smallest set of EN tables build.mjs reads before it draws its first map, with one
+  // stage whose level only the CN mirror has, numbered with a value no table lists. It
+  // must stop in writeGeometry: reverted, writeGeometry counts the file as missing and
+  // the error only comes later from Levels.of (or, with both reverted, never).
+  const excelDir = path.join(en, 'excel');
+  const tables: Record<string, unknown> = {
+    stage_table: { stages: { act13d0_99: { stageId: 'act13d0_99', levelId: 'Activities/act13d0/level_act13d0_99', code: 'FA-9', zoneId: 'act13d0_zone1', name: 'Broken', difficulty: 'NORMAL' } }, tileInfo: {} },
+    zone_table: { zones: {}, weeklyAdditionInfo: {}, mainlineAdditionInfo: {} },
+    activity_table: { basicInfo: {}, zoneToActivity: {} },
+    climb_tower_table: { towers: {} },
+    item_table: { items: {} },
+    building_data: { customData: { furnitures: {} } },
+    charm_table: { charmList: [] },
+  };
+  for (const name of ['campaign_table', 'chapter_table', 'character_table', 'crisis_v2_table', 'gamedata_const', 'medal_table', 'retro_table',
+    'roguelike_topic_table', 'sandbox_perm_table', 'sandbox_table', 'story_review_table']) tables[name] ??= {};
+  for (const [name, table] of Object.entries(tables)) write(path.join(excelDir, `${name}.json`), table);
+  fs.mkdirSync(path.join(en, 'levels'), { recursive: true });
+  const out = path.join(root, 'out');
+  write(path.join(out, 'data', 'assets', 'external-asset-index.json'), { version: 1, files: [] });
+
+  const run = spawnSync(process.execPath, [path.join(__dirname, '../stage-pipeline/build.mjs')], {
+    encoding: 'utf8',
+    env: { ...process.env, ARKPEDIA_EN: en, ARKPEDIA_CN: cn, ARKPEDIA_ROOT: out },
+  });
+  assert.notEqual(run.status, 0, 'the build fails');
+  assert.match(run.stderr, /level_act13d0_99\.json: heightType 9 is not a value the stage build knows/, 'naming the file and the value');
+  assert.match(run.stderr, /at writeGeometry \(.*build\.mjs/, 'when it draws the map, not later');
+  assert.ok(!fs.existsSync(path.join(out, 'data', 'stages')), 'and writes no stage data');
 });
