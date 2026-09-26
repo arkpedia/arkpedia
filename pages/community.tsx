@@ -171,6 +171,11 @@ async function withLiveFeeds(props: Props): Promise<Props> {
   };
 }
 
+/* bundledWhenUnpublished: a release compiled before /community became a content route
+   (7f8a8a8d, live when this went in) has no such page, and without it every regeneration
+   on Vercel threw "Published content is missing /community", so the feeds and LIVE badges
+   stayed as the deploy built them until the next release. The builder reads only the
+   compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
   props: { events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
-}), { finalize: withLiveFeeds, revalidate: 1500 });
+}), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true });
