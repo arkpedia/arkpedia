@@ -73,16 +73,30 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes "vercel@$VERCEL_CLI_VERSION" pull --yes --environment=production --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+      # prebuild builds with the live content release's asset pins where they are newer than
+      # the committed ones (scripts/build/adopt-release-asset-pins.mjs); the token only raises
+      # the GitHub API limit for the one compare call per repository whose pins differ.
       - name: Build
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: npx --yes "vercel@$VERCEL_CLI_VERSION" build --prod --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
       - name: Prepare the Build Output bundle
         run: node scripts/deploy/prepare-vercel-output.mjs
       - name: Deploy
+        id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes "vercel@$VERCEL_CLI_VERSION" deploy --prebuilt --prod --archive=tgz --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+      # Every /<folder>/... asset path is a redirect to the commit this build pinned. The
+      # nightly release moves its own pins, and a build that lags them sends newer art to a
+      # commit without it (the 2026-09-25 404 on /material-icons/). prebuild adopts the
+      # release's newer pins but only warns when it cannot; this asks production for a file
+      # only the live release's commit has (HEAD, following the redirect) and fails the job
+      # when it is not 200, so the report below opens the 'Deploy failing' issue.
+      - name: Check that asset links reach the release's art
+        id: asset-links
+        run: node scripts/deploy/check-asset-redirects.mjs
       # One open issue per outage, found by its marker (scripts/content/alert-issue.mjs): the
       # 09-18..09-22 outage was nine red runs that only the Actions tab showed. Production keeps
       # its last build meanwhile, and content releases stay held while it runs other code than
@@ -94,9 +108,14 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
           DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ASSET_LINKS: ${{ steps.asset-links.outcome }}
         run: |
           body="$RUNNER_TEMP/failed-deploy.md"
-          echo "Deploy ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs main's code." > "$body"
+          if [ "$ASSET_LINKS" = failure ]; then
+            echo "Deployed ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')), but its asset links lag the live content release: a root-relative path to art the release has redirects to an asset commit without it, and 404s. The check's log names the file: $RUN_URL. Production runs this build; bump data/assets/revisions.json (npm run assets:update) or redeploy once the build can adopt the release's pins." > "$body"
+          else
+            echo "Deploy ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs main's code." > "$body"
+          fi
           node scripts/content/alert-issue.mjs open --alert deploy-failing --title 'Deploy failing' --body-file "$body"
       - name: Close the failed-deploy report
         if: success()
@@ -111,9 +130,11 @@ jobs:
       # (scripts/content/deploy-gate.mjs), and nothing else retries it. On one runner that is
       # easy to hit: a push near the nightly run lets the release take the runner before this
       # Deploy, and the site would miss a day of content. Production runs this build now, so
-      # start the release again, a full refresh like the scheduled one.
+      # start the release again, a full refresh like the scheduled one. On the deploy step's
+      # success, not the job's: production runs this build even when the asset-link check
+      # after it failed.
       - name: Release again if one was held for this deploy
-        if: success()
+        if: ${{ !cancelled() && steps.deploy.outcome == 'success' }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

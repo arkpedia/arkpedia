@@ -164,6 +164,12 @@ jobs:
           # Publishes the media plan the catalogue stage wrote in this run, never an older one.
           stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
           stage media-pins -- node scripts/sync/refresh-media-pins.mjs
+          # The palette game's five swatches for every Base and Elite 2 artwork, read from
+          # arkpedia-skin-assets at the commit data/assets/revisions.json now pins (the one the
+          # release publishes, after the catalogue's art went in above): only new or changed art
+          # is downloaded. Art without a review or recipe gets an automatic palette and a hold;
+          # the completeness stage holds any released operator still without one.
+          stage palettes -- python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json
           bash scripts/sync/refresh-stage-data.sh
           stage pulls -- npm run pulls:refresh
           # The supplement only adds voice credits here, so without it the English refresh

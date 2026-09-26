@@ -40,7 +40,7 @@ Pages remain in `pages/` because their paths define public URLs. Their component
 | --- | --- |
 | [arkpedia-image-assets](https://github.com/arkpedia/arkpedia-image-assets) | Icons, maps, banners, covers, and UI art. Delivery folders remain at the root to preserve URLs. `originals/source-art/` preserves manual captures; `sources/` records provenance. |
 | [arkpedia-skin-assets](https://github.com/arkpedia/arkpedia-skin-assets) | Artwork by rarity, full-resolution `originals/`, responsive `variants/`, manifests, and artwork sync tooling. |
-| [arkpedia-color-palette](https://github.com/arkpedia/arkpedia-color-palette) | Generated palette data and community corrections under `palettes/`; see its contribution guide. |
+| [arkpedia-color-palette](https://github.com/arkpedia/arkpedia-color-palette) | Community palette corrections (`palettes/community-overrides.json`), applied on top of `data/color-palettes.json`, the one palette catalogue, which the release's `palettes` stage builds; see its contribution guide. |
 | [arkpedia-voice-japanese](https://github.com/arkpedia/arkpedia-voice-japanese) | Japanese voice clips. |
 | [arkpedia-voice-mandarin](https://github.com/arkpedia/arkpedia-voice-mandarin) | Mandarin voice clips. |
 | [arkpedia-voice-english](https://github.com/arkpedia/arkpedia-voice-english) | English voice clips. |

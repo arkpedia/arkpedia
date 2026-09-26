@@ -559,6 +559,15 @@ test('a failed deploy opens one issue that the next deploy closes, even when the
     assert.equal(github.issues()[0].state, 'closed');
     assert.match(github.issues()[0].comments.at(-1)!.body, /^Deployed eeeeeeeeeeee: https:\/\/example\.invalid\/run\/1$/);
   });
+  // When only the asset-link check after the deploy failed, production does run the new build:
+  // the issue says so instead of "keeps its previous build".
+  withGitHub(github => {
+    const report = stepScript('Report the failed deploy', 'deploy');
+    const failed = github.step(report, { FAKE_NOW: '2026-09-26T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'f'.repeat(40), ASSET_LINKS: 'failure' });
+    assert.equal(failed.status, 0, failed.output);
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing -->\nDeployed ffffffffffff \(workflow_run, .*\), but its asset links lag the live content release: .* Production runs this build;/);
+    assert.doesNotMatch(github.issues()[0].body, /keeps its previous build/);
+  });
   // The report needs the checkout; the token check used to run first and fail without one.
   const names = [...fs.readFileSync('.github/workflows/deploy.yml', 'utf8').matchAll(/^ {6}- (?:name: (.*)|uses: (actions\/checkout)@)/gm)].map(match => match[1] ?? match[2]);
   assert.ok(names.indexOf('actions/checkout') < names.indexOf('Refuse to run without the deploy token'), names.join(' | '));

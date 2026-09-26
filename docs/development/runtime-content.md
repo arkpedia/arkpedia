@@ -30,7 +30,7 @@ Each alert is one issue, found by a hidden marker (`scripts/content/alert-issue.
 | Content quarantined | Prepare content release | records held back or stages that did not run to the end |
 | Asset sync failing | Prepare content release | an asset repository's latest sync failed or is over three days old |
 | Check failing on main | Check | main is red, so nothing deploys |
-| Deploy failing | Deploy | production keeps its previous build |
+| Deploy failing | Deploy | production keeps its previous build, or runs the new one with asset links that lag the release |
 | No content release for over a day | Release heartbeat, in arkpedia-data | neither `live` nor the `heartbeat` branch moved for 26 hours |
 | Data main is not live | Release heartbeat, in arkpedia-data | `live` does not serve data `main` an hour after it was committed |
 
@@ -54,6 +54,19 @@ Timed stage candidates are selected in the browser, not by the export date.
 An asset-only refresh should change `source/data/assets/revisions.json` and
 `release/manifest.json`, without rewriting every operator page. The public PR
 summary identifies asset-only updates and reports the actual file counts.
+
+The deployment has asset pins of its own, `data/assets/revisions.json`: every
+root-relative `/<folder>/...` path is a redirect to the commit it names
+(`next.config.js`), and pages without a release fall back to it. The second step of
+`prebuild` (`scripts/build/adopt-release-asset-pins.mjs`, after `write-build-info.mjs`)
+rewrites it with the live release's pins wherever they are newer than the committed
+ones, never older, so a deploy never redirects art the release already has to a
+commit without it. It keeps the committed pins, with a warning, when it cannot order
+them, and a build with `ARKPEDIA_CONTENT_DISABLED=1` (Check's) keeps them always. The
+rewrite does not make the build dirty (`BUILD_REWRITES` in `code-fingerprint.mjs`).
+After every deploy, `scripts/deploy/check-asset-redirects.mjs` asks production for a
+file only the live release's commit has and fails Deploy, opening `Deploy failing`,
+when the redirect does not reach it.
 
 ## What stops a release
 

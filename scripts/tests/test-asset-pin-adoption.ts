@@ -1,0 +1,217 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { adoptReleaseAssetPins, choosePins, readLiveAssetPins } from '../build/adopt-release-asset-pins.mjs';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { checkAssetRedirects, encodePath, probe, probeFile } from '../deploy/check-asset-redirects.mjs';
+// @ts-expect-error Node publication scripts are plain JavaScript.
+import { uncommittedChanges } from '../content/code-fingerprint.mjs';
+
+/*
+ * The deployment's own asset pin (data/assets/revisions.json) lagged the release: it moved only
+ * when someone bumped it by hand, while the release moved its pins nightly, so a root-relative
+ * path to newer art 307'd to a commit without it (/material-icons/涤墨之旗.webp to
+ * arkpedia-image-assets@6058775e, 404, on 2026-09-25; the release's 0936e52a had it).
+ *
+ * prebuild now builds with the live release's pins wherever they are newer, never older
+ * (scripts/build/adopt-release-asset-pins.mjs), after write-build-info.mjs so the build stays
+ * clean for the release gate. Deploy then asks production for a file only the live pin has
+ * (scripts/deploy/check-asset-redirects.mjs) and goes red when it does not reach it.
+ */
+
+const A = (c: string) => c.repeat(40);
+const ORIGIN = 'https://content.example';
+type Reply = { status?: number; body?: string | Buffer; location?: string };
+
+/** A fetch that answers from a table of URL -> reply, and remembers what it was asked. */
+function fakeFetch(routes: Record<string, Reply | ((init?: RequestInit) => Reply)>) {
+  const calls: { url: string; method: string }[] = [];
+  const fetch = async (url: string, init: RequestInit = {}) => {
+    calls.push({ url, method: init.method ?? 'GET' });
+    const route = routes[url];
+    const reply = typeof route === 'function' ? route(init) : route ?? { status: 404 };
+    const status = reply.status ?? 200;
+    const bytes = Buffer.from(reply.body ?? '');
+    return {
+      ok: status >= 200 && status < 300, status,
+      headers: new Headers(reply.location ? { location: reply.location } : {}),
+      arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      json: async () => JSON.parse(bytes.toString()),
+    };
+  };
+  return { fetch, calls };
+}
+
+/** The live pointer and manifest as arkpedia-data publishes them. */
+function liveRelease(assets: Record<string, string>, { corrupt = false } = {}) {
+  const manifest = JSON.stringify({ schema: 2, assets, pages: {}, files: {} });
+  const pointer = { schema: 2, release: 'e'.repeat(64), revision: A('d'), manifestSha256: createHash('sha256').update(corrupt ? `${manifest} ` : manifest).digest('hex') };
+  return {
+    [`${ORIGIN}/live/current.json`]: { body: JSON.stringify(pointer) },
+    [`${ORIGIN}/${A('d')}/release/manifest.json`]: { body: manifest },
+  };
+}
+const env = (extra: Record<string, string> = {}) => ({ ARKPEDIA_CONTENT_URL: ORIGIN, ...extra });
+
+test('each repository keeps the newer of its committed and live pins, never an older one', async () => {
+  const committed = { images: A('1'), skins: A('2'), voices: A('3'), palette: A('4'), stale: A('5') };
+  const live = { images: A('a'), skins: A('b'), voices: A('3'), palette: A('c'), stale: A('f'), onlyLive: A('9') };
+  const order: Record<string, string> = { images: 'ahead', skins: 'behind', palette: 'diverged' };
+  const asked: string[] = [];
+  const { pins, adopted, notes, warnings } = await choosePins({
+    committed, live,
+    compare: async (repository: string, base: string, head: string) => {
+      asked.push(`${repository} ${base.slice(0, 1)}...${head.slice(0, 1)}`);
+      if (repository === 'stale') throw new Error('HTTP 403');
+      return order[repository];
+    },
+  });
+  assert.deepEqual(pins, { images: A('a'), skins: A('2'), voices: A('3'), palette: A('4'), stale: A('5') });
+  assert.deepEqual(adopted, [{ repository: 'images', from: A('1'), to: A('a') }]);
+  // Equal pins need no call; a repository only the release names is not added.
+  assert.deepEqual(asked, ['images 1...a', 'skins 2...b', 'palette 4...c', 'stale 5...f']);
+  assert.equal(notes.length, 1);
+  assert.match(notes[0], /skins: the committed 22222222 is newer than the release's bbbbbbbb; keeping it/);
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0], /palette: .* have diverged, so neither is newer; keeping 44444444/);
+  assert.match(warnings[1], /stale: cannot tell .* \(HTTP 403\); keeping 55555555/);
+});
+
+test('the live pins are read the way pages read the release, digest checked', async () => {
+  const good = fakeFetch(liveRelease({ 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('b') }));
+  assert.deepEqual((await readLiveAssetPins({ origin: ORIGIN, fetch: good.fetch })).assets, { 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('b') });
+  const bad = fakeFetch(liveRelease({ 'arkpedia-image-assets': A('a') }, { corrupt: true }));
+  await assert.rejects(readLiveAssetPins({ origin: ORIGIN, fetch: bad.fetch }), /does not match its pointer/);
+  const unpinned = fakeFetch(liveRelease({ 'arkpedia-image-assets': 'main' }));
+  await assert.rejects(readLiveAssetPins({ origin: ORIGIN, fetch: unpinned.fetch }), /names no commit-pinned assets/);
+});
+
+function revisionsRoot(pins: Record<string, string>) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-pins-'));
+  fs.mkdirSync(path.join(root, 'data/assets'), { recursive: true });
+  const text = `${JSON.stringify(pins, null, 2)}\n`;
+  fs.writeFileSync(path.join(root, 'data/assets/revisions.json'), text);
+  return { root, text, read: () => fs.readFileSync(path.join(root, 'data/assets/revisions.json'), 'utf8'), cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
+}
+
+test('prebuild writes the adopted pins in the file\'s own form, and leaves the file alone when it adopts nothing', async () => {
+  const quiet = { log: () => {}, warn: () => {} };
+  const tree = revisionsRoot({ 'arkpedia-image-assets': A('1'), 'arkpedia-skin-assets': A('2') });
+  try {
+    const { fetch } = fakeFetch(liveRelease({ 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('2') }));
+    const result = await adoptReleaseAssetPins({ root: tree.root, env: env(), fetch, compare: async () => 'ahead', ...quiet });
+    assert.deepEqual(result.adopted, [{ repository: 'arkpedia-image-assets', from: A('1'), to: A('a') }]);
+    assert.equal(tree.read(), `${JSON.stringify({ 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('2') }, null, 2)}\n`);
+    // Check's build reads no release: its suites are written against the committed pins.
+    fs.writeFileSync(path.join(tree.root, 'data/assets/revisions.json'), tree.text);
+    const disabled = await adoptReleaseAssetPins({ root: tree.root, env: env({ ARKPEDIA_CONTENT_DISABLED: '1' }), fetch, compare: async () => 'ahead', ...quiet });
+    assert.equal(disabled.skipped, true);
+    assert.equal(tree.read(), tree.text);
+    // An unreachable release keeps the committed pins, with a warning the Build step shows.
+    const warned: string[] = [];
+    const offline = await adoptReleaseAssetPins({ root: tree.root, env: env({ GITHUB_ACTIONS: 'true' }), fetch: fakeFetch({}).fetch, compare: async () => 'ahead', log: () => {}, warn: (line: string) => warned.push(line) });
+    assert.equal(offline.adopted.length, 0);
+    assert.equal(tree.read(), tree.text);
+    assert.match(warned[0], /^::warning title=Asset pins not adopted::Cannot read the live content release/);
+  } finally {
+    tree.cleanup();
+  }
+});
+
+test('the adopted pins leave the build clean for the release gate, then and on the next build', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-pins-git-'));
+  const git = (...args: string[]) => {
+    const result = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'init.defaultBranch=main', ...args], { cwd: dir, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  const buildInfo = () => {
+    const result = spawnSync(process.execPath, [path.resolve('scripts/build/write-build-info.mjs')], { cwd: dir, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(fs.readFileSync(path.join(dir, 'public/build-info.json'), 'utf8'));
+  };
+  try {
+    git('init', '-q');
+    fs.mkdirSync(path.join(dir, 'data/assets'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'public'));
+    fs.writeFileSync(path.join(dir, 'data/assets/revisions.json'), `${JSON.stringify({ 'arkpedia-image-assets': A('1') }, null, 2)}\n`);
+    fs.writeFileSync(path.join(dir, 'lib.ts'), 'export {};\n');
+    fs.writeFileSync(path.join(dir, '.gitignore'), 'public/build-info.json\n');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'start');
+    assert.equal(buildInfo().dirty, false);
+    const { fetch } = fakeFetch(liveRelease({ 'arkpedia-image-assets': A('a') }));
+    await adoptReleaseAssetPins({ root: dir, env: env(), fetch, compare: async () => 'ahead', log: () => {}, warn: () => {} });
+    assert.match(git('status', '--porcelain'), /data\/assets\/revisions\.json/, 'the tracked pin file was rewritten');
+    assert.deepEqual(uncommittedChanges({ cwd: dir }), [], 'the rewrite is the build\'s own, not an uncommitted change');
+    assert.equal(buildInfo().dirty, false, 'a rebuild in the same checkout is still the commit\'s build');
+    fs.writeFileSync(path.join(dir, 'lib.ts'), 'export const x = 1;\n');
+    assert.equal(buildInfo().dirty, true, 'any other change still makes a build of no commit');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  assert.match(pkg.scripts.prebuild, /^node scripts\/build\/write-build-info\.mjs && node scripts\/build\/adopt-release-asset-pins\.mjs && /,
+    'the second step of prebuild: after build-info, before anything reads the pins');
+  assert.doesNotMatch(pkg.scripts.predev, /adopt-release-asset-pins/, 'a dev server keeps the committed pins');
+});
+
+test('the deploy probe asks for a file only the live pin has, in a folder the site redirects', () => {
+  const folders = ['material-icons', 'essential-icons'];
+  const committedFiles = { 'essential-icons/Arkpedia.webp': { sha256: '1' }, 'material-icons/Old.webp': { sha256: '2' } };
+  const liveFiles = { ...committedFiles, 'material-icons/涤墨之旗.webp': { sha256: '3' }, 'README.md': { sha256: '4' }, 'originals/x.png': { sha256: '5' } };
+  assert.deepEqual(probeFile({ folders, committedFiles, liveFiles }), { file: 'material-icons/涤墨之旗.webp', fresh: true });
+  // A file whose bytes changed counts as new too.
+  assert.deepEqual(probeFile({ folders, committedFiles, liveFiles: { ...committedFiles, 'material-icons/Old.webp': { sha256: '9' } } }), { file: 'material-icons/Old.webp', fresh: true });
+  // Equal commits: any served file of the live one stands in.
+  assert.deepEqual(probeFile({ folders, committedFiles, liveFiles: committedFiles }), { file: 'essential-icons/Arkpedia.webp', fresh: false });
+  assert.throws(() => probeFile({ folders, committedFiles: {}, liveFiles: { 'README.md': { sha256: '1' } } }), /lists no file in a folder the site redirects/);
+  assert.equal(encodePath('headhunting-banner-images/Standard Pool 176 (Global).webp'), 'headhunting-banner-images/Standard%20Pool%20176%20(Global).webp');
+});
+
+test('the deploy check fails when production redirects new art to an older commit, and passes when it reaches it', async () => {
+  const site = 'https://site.example';
+  const raw = (repo: string, rev: string, file: string) => `https://raw.githubusercontent.com/arkpedia/${repo}/${rev}/${file}`;
+  const manifests = (images: object, skins: object) => ({
+    [raw('arkpedia-image-assets', A('a'), 'asset-manifest.json')]: { body: JSON.stringify({ files: images }) },
+    [raw('arkpedia-image-assets', A('1'), 'asset-manifest.json')]: { body: JSON.stringify({ files: { 'essential-icons/Arkpedia.webp': { sha256: '1' } } }) },
+    [raw('arkpedia-skin-assets', A('b'), 'asset-manifest.json')]: { body: JSON.stringify({ files: skins }) },
+  });
+  const images = { 'essential-icons/Arkpedia.webp': { sha256: '1' }, 'material-icons/New.webp': { sha256: '2' } };
+  const skins = { 'five-star-skins/A - Base.webp': { sha256: '3' } };
+  const run = async (redirectTo: string) => {
+    const { fetch, calls } = fakeFetch({
+      ...liveRelease({ 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('b') }),
+      ...manifests(images, skins),
+      [`${site}/material-icons/New.webp`]: { status: 307, location: raw('arkpedia-image-assets', redirectTo, 'material-icons/New.webp') },
+      [raw('arkpedia-image-assets', A('a'), 'material-icons/New.webp')]: { status: 200 },
+      [`${site}/five-star-skins/A%20-%20Base.webp`]: { status: 307, location: raw('arkpedia-skin-assets', A('b'), 'five-star-skins/A%20-%20Base.webp') },
+      [raw('arkpedia-skin-assets', A('b'), 'five-star-skins/A%20-%20Base.webp')]: { status: 200 },
+    });
+    const result = await checkAssetRedirects({ fetch, env: env(), committed: { 'arkpedia-image-assets': A('1'), 'arkpedia-skin-assets': A('b') }, deployments: [site], attempts: 2, retryMs: 0, log: () => {} });
+    return { problems: result.problems as string[], calls };
+  };
+  const lagging = await run(A('1'));
+  assert.equal(lagging.problems.length, 1);
+  assert.match(lagging.problems[0], /^https:\/\/site\.example\/material-icons\/New\.webp \(a file arkpedia-image-assets@aaaaaaaa has and the committed 11111111 does not\) redirects to https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-image-assets\/1{40}\/material-icons\/New\.webp, which answers 404/);
+  assert.ok(lagging.calls.every(call => ['GET', 'HEAD'].includes(call.method)), 'GET and HEAD only');
+  assert.equal(lagging.calls.filter(call => call.url === `${site}/material-icons/New.webp`).length, 2, 'retried before failing');
+  assert.deepEqual((await run(A('a'))).problems, []);
+});
+
+test('a probe follows the redirect by hand and says where it led', async () => {
+  const { fetch } = fakeFetch({
+    'https://site.example/x.webp': { status: 307, location: '/elsewhere/x.webp' },
+    'https://site.example/elsewhere/x.webp': { status: 200 },
+    'https://site.example/y.webp': { status: 200 },
+    'https://site.example/z.webp': { status: 500 },
+  });
+  assert.deepEqual(await probe(fetch, 'https://site.example/x.webp'), { ok: true, status: 200, location: 'https://site.example/elsewhere/x.webp' });
+  assert.deepEqual(await probe(fetch, 'https://site.example/y.webp'), { ok: true, status: 200, location: null });
+  assert.deepEqual(await probe(fetch, 'https://site.example/z.webp'), { ok: false, status: 500, location: null });
+});

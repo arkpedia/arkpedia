@@ -12,7 +12,7 @@ export interface RawCredit {
   names: string[];
 }
 
-interface RawSong {
+export interface RawSong {
   songId: string;
   songName: string;
   songAltName?: string;
@@ -26,7 +26,7 @@ interface RawSong {
   lyricFilename?: string;
 }
 
-interface RawAlbum {
+export interface RawAlbum {
   albumId: string;
   albumName: string;
   albumAltName?: string;
@@ -85,14 +85,26 @@ function resolveLyricFilename(song: RawSong, albumSongs: RawSong[]): string | nu
   return vocalSibling?.lyricFilename || null;
 }
 
+/** Where an album's cover is published, or null while it has none: the album sync fills
+ * coverFilename only once arkpedia-image-assets has the file (scripts/sync/sync-albums.mjs),
+ * so a new album arrives without one and shows the placeholder (components/music/AlbumCover). */
+export function albumCoverPath(album: Pick<RawAlbum, 'coverFilename'>): string | null {
+  return album.coverFilename ? `/album-covers/${album.coverFilename}` : null;
+}
+
 /** Every song across every album that has a real YouTube videoId,
  * flattened with its parent album's cover/characters attached. */
 export function getAllSongsFull(): MonsterSirenSong[] {
   if (cachedSongs) return cachedSongs;
-  const albums = albumsData as RawAlbum[];
+  cachedSongs = songsFromAlbums(albumsData as RawAlbum[]);
+  return cachedSongs;
+}
+
+/** getAllSongsFull for any catalogue: the pure part, which the tests call with fixtures. */
+export function songsFromAlbums(albums: readonly RawAlbum[]): MonsterSirenSong[] {
   const songs: MonsterSirenSong[] = [];
   for (const album of albums) {
-    const coverPath = album.coverFilename ? `/album-covers/${album.coverFilename}` : null;
+    const coverPath = albumCoverPath(album);
     const albumSongs = album.songs || [];
     for (const song of albumSongs) {
       if (!song.videoId) continue;
@@ -117,6 +129,5 @@ export function getAllSongsFull(): MonsterSirenSong[] {
       });
     }
   }
-  cachedSongs = songs;
   return songs;
 }
