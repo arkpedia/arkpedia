@@ -8,7 +8,7 @@ import path from 'node:path';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { adoptReleaseAssetPins, choosePins, readLiveAssetPins } from '../build/adopt-release-asset-pins.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { checkAssetRedirects, encodePath, probe, probeFile } from '../deploy/check-asset-redirects.mjs';
+import { FIX, checkAssetRedirects, encodePath, probe, probeFile } from '../deploy/check-asset-redirects.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { uncommittedChanges } from '../content/code-fingerprint.mjs';
 
@@ -193,7 +193,10 @@ test('the deploy check fails when production redirects new art to an older commi
       [`${site}/five-star-skins/A%20-%20Base.webp`]: { status: 307, location: raw('arkpedia-skin-assets', A('b'), 'five-star-skins/A%20-%20Base.webp') },
       [raw('arkpedia-skin-assets', A('b'), 'five-star-skins/A%20-%20Base.webp')]: { status: 200 },
     });
-    const result = await checkAssetRedirects({ fetch, env: env(), committed: { 'arkpedia-image-assets': A('1'), 'arkpedia-skin-assets': A('b') }, deployments: [site], attempts: 2, retryMs: 0, log: () => {} });
+    // A build that kept the committed pins, as one does when prebuild cannot adopt the release's.
+    const committed = { 'arkpedia-image-assets': A('1'), 'arkpedia-skin-assets': A('b') };
+    const compare = async () => assert.fail('pins the build did not adopt are not ordered');
+    const result = await checkAssetRedirects({ fetch, env: env(), committed, baked: committed, compare, deployments: [site], attempts: 2, retryMs: 0, log: () => {} });
     return { problems: result.problems as string[], calls };
   };
   const lagging = await run(A('1'));
@@ -202,6 +205,90 @@ test('the deploy check fails when production redirects new art to an older commi
   assert.ok(lagging.calls.every(call => ['GET', 'HEAD'].includes(call.method)), 'GET and HEAD only');
   assert.equal(lagging.calls.filter(call => call.url === `${site}/material-icons/New.webp`).length, 2, 'retried before failing');
   assert.deepEqual((await run(A('a'))).problems, []);
+});
+
+/*
+ * A release can go live while Deploy's Build step runs (the gate lets through one that the code
+ * production still runs compiled), so its newest art is on no commit the build could redirect
+ * to. The check reads the live release after the deploy and sets it against the pins the build
+ * baked in: newer than a pin the build adopted is that race, a warning; a file of the pin the
+ * build used must still answer 200. Keeping the committed pin while the release has a newer one
+ * is the lag the check is for, and fails as before.
+ */
+test('a release that went live during the build is a warning, and a 404 for a file of the pin the build used still fails', async () => {
+  const site = 'https://site.example';
+  const raw = (repo: string, rev: string, file: string) => `https://raw.githubusercontent.com/arkpedia/${repo}/${rev}/${file}`;
+  const [committed, adopted, newer] = [A('1'), A('a'), A('f')];
+  const icons = (...names: string[]) => ({ body: JSON.stringify({ files: Object.fromEntries(['Arkpedia', ...names].map((name, i) => [`material-icons/${name}.webp`, { sha256: String(i) }])) }) });
+  const run = async ({ redirectTo, baked = adopted, order = 'ahead' }: { redirectTo: string; baked?: string; order?: string | Error }) => {
+    const { fetch, calls } = fakeFetch({
+      ...liveRelease({ 'arkpedia-image-assets': newer, 'arkpedia-skin-assets': A('b') }),
+      [raw('arkpedia-image-assets', committed, 'asset-manifest.json')]: icons(),
+      [raw('arkpedia-image-assets', adopted, 'asset-manifest.json')]: icons('New'),
+      [raw('arkpedia-image-assets', newer, 'asset-manifest.json')]: icons('New', 'Newest'),
+      [raw('arkpedia-skin-assets', A('b'), 'asset-manifest.json')]: { body: JSON.stringify({ files: { 'five-star-skins/A - Base.webp': { sha256: '3' } } }) },
+      ...Object.fromEntries(['New', 'Newest'].map(name => [`${site}/material-icons/${name}.webp`, { status: 307, location: raw('arkpedia-image-assets', redirectTo, `material-icons/${name}.webp`) }])),
+      [raw('arkpedia-image-assets', adopted, 'material-icons/New.webp')]: { status: 200 },
+      [raw('arkpedia-image-assets', newer, 'material-icons/New.webp')]: { status: 200 },
+      [raw('arkpedia-image-assets', newer, 'material-icons/Newest.webp')]: { status: 200 },
+      [`${site}/five-star-skins/A%20-%20Base.webp`]: { status: 307, location: raw('arkpedia-skin-assets', A('b'), 'five-star-skins/A%20-%20Base.webp') },
+      [raw('arkpedia-skin-assets', A('b'), 'five-star-skins/A%20-%20Base.webp')]: { status: 200 },
+    });
+    const compared: string[][] = [];
+    const compare = async (repository: string, base: string, head: string) => {
+      compared.push([repository, base, head]);
+      if (order instanceof Error) throw order;
+      return order;
+    };
+    const result = await checkAssetRedirects({
+      fetch, env: env(), deployments: [site], attempts: 2, retryMs: 0, log: () => {}, compare,
+      committed: { 'arkpedia-image-assets': committed, 'arkpedia-skin-assets': A('b') },
+      baked: { 'arkpedia-image-assets': baked, 'arkpedia-skin-assets': A('b') },
+    });
+    return { problems: result.problems as string[], warnings: result.warnings as string[], calls, compared };
+  };
+
+  // The build adopted aaaaaaaa; the release moved to ffffffff while it built. Production reaches
+  // aaaaaaaa's art, and Newest.webp, which only ffffffff has, is not asked for.
+  const race = await run({ redirectTo: adopted });
+  assert.deepEqual(race.problems, []);
+  assert.equal(race.warnings.length, 1);
+  assert.match(race.warnings[0], /^The live release moved arkpedia-image-assets to ffffffff after this build adopted aaaaaaaa: a release went live while it built\. .*the next deploy adopts ffffffff\.$/);
+  assert.deepEqual(race.compared, [['arkpedia-image-assets', adopted, newer]]);
+  assert.ok(race.calls.some(call => call.url === `${site}/material-icons/New.webp`));
+  assert.ok(!race.calls.some(call => call.url === `${site}/material-icons/Newest.webp`));
+  assert.ok(race.calls.every(call => ['GET', 'HEAD'].includes(call.method)), 'GET and HEAD only');
+
+  // The same race, but production redirects to the committed pin, which lacks New.webp: that
+  // 404 is the deployment's own, and still fails.
+  const broken = await run({ redirectTo: committed });
+  assert.equal(broken.warnings.length, 1);
+  assert.equal(broken.problems.length, 1);
+  assert.match(broken.problems[0], /^https:\/\/site\.example\/material-icons\/New\.webp \(a file arkpedia-image-assets@aaaaaaaa, the pin this build used, has and the committed 11111111 does not\) redirects to .*\/1{40}\/material-icons\/New\.webp, which answers 404\. This deployment redirects to arkpedia-image-assets@aaaaaaaa, the pin it was built with, which has that file\.$/);
+
+  // The build kept the committed pin while the release had a newer one: the lag, a failure,
+  // with nothing to order.
+  const lag = await run({ redirectTo: committed, baked: committed });
+  assert.deepEqual(lag.warnings, []);
+  assert.deepEqual(lag.compared, []);
+  assert.match(lag.problems[0], /^https:\/\/site\.example\/material-icons\/New\.webp \(a file arkpedia-image-assets@ffffffff has and the committed 11111111 does not\) redirects to .*, which answers 404\. The live release pins arkpedia-image-assets@ffffffff/);
+
+  // A live pin that is not newer than the adopted one, or pins GitHub cannot order, are not the
+  // race: the live pin's file is probed as before, and a 404 fails.
+  for (const order of ['behind', 'diverged', new Error('GitHub compare answered HTTP 503')]) {
+    const unordered = await run({ redirectTo: committed, order });
+    assert.deepEqual(unordered.warnings, [], String(order));
+    assert.equal(unordered.problems.length, 1, String(order));
+    assert.match(unordered.problems[0], /New\.webp \(a file arkpedia-image-assets@ffffffff has and the committed 11111111 does not\)/, String(order));
+  }
+});
+
+test('a failed asset-link check points at a redeploy and the bundled-data sync, not at assets:update', () => {
+  assert.doesNotMatch(FIX, /assets:update|update-asset-revisions/);
+  assert.match(FIX, /Redeploy/);
+  assert.match(FIX, /node scripts\/content\/sync-bundled-data\.mjs <arkpedia-data checkout> data\/assets/);
+  const source = fs.readFileSync('scripts/deploy/check-asset-redirects.mjs', 'utf8');
+  assert.doesNotMatch(source.slice(source.indexOf('export async function main')), /assets:update/);
 });
 
 test('a probe follows the redirect by hand and says where it led', async () => {

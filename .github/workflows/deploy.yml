@@ -93,9 +93,15 @@ jobs:
       # commit without it (the 2026-09-25 404 on /material-icons/). prebuild adopts the
       # release's newer pins but only warns when it cannot; this asks production for a file
       # only the live release's commit has (HEAD, following the redirect) and fails the job
-      # when it is not 200, so the report below opens the 'Deploy failing' issue.
+      # when it is not 200, so the report below opens the 'Deploy failing' issue. A release
+      # that went live while Build ran (newer than a pin the build adopted) is a warning
+      # instead, since no build could have had it: the file asked for is then one of the pin
+      # this build used, and the next deploy adopts the newer one. The token is for the one
+      # GitHub compare call that orders the two pins.
       - name: Check that asset links reach the release's art
         id: asset-links
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/deploy/check-asset-redirects.mjs
       # One open issue per outage, found by its marker (scripts/content/alert-issue.mjs): the
       # 09-18..09-22 outage was nine red runs that only the Actions tab showed. Production keeps
