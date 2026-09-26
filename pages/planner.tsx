@@ -1387,7 +1387,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               {clearControl('depot')}
               <button
                 type="button"
-                className={depotOpen ? 'primary btn-sm' : 'ghost'}
+                className="ghost"
                 aria-expanded={depotOpen}
                 onClick={() => setDepotOpen((v) => {
                   if (v) setAnchorAfter('depot');

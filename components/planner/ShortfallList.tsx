@@ -554,7 +554,7 @@ export function ShortfallList({
             </p>
             <button
               type="button"
-              className={routeOpen ? 'primary btn-sm' : 'ghost'}
+              className="filter-chip"
               aria-pressed={routeOpen}
               disabled={run.codes.length === 0}
               onClick={() => setRouteOpen((v) => !v)}

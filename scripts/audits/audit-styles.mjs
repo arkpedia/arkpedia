@@ -36,8 +36,8 @@
  *                  first colour, or a ::-webkit-scrollbar-thumb background): a
  *                  hairline alpha at 1.31:1, a scrollbar nobody can see. The thumb
  *                  is --text-faint, inherited from :root
- *   primaryToggle  a class chosen between 'primary' and 'ghost' by a condition in
- *                  TSX (pages/dev excepted): that is a toggle whose "on" borrows the
+ *   primaryToggle  a class list chosen by a condition in TSX where only one side has
+ *                  'primary' (pages/dev excepted): that is a toggle whose "on" borrows the
  *                  primary action's fill. A toggle is a .filter-chip with
  *                  aria-pressed (or a .tgl with .is-on); a button whose label says
  *                  its state keeps one class
@@ -267,8 +267,10 @@ function collect() {
     for (const _ of code.matchAll(/<select[\s>]/g)) out.nativeControls.push(`${path}: <select>`);
     for (const _ of code.matchAll(/role(?:=|:\s*)["']listbox["']/g)) out.nativeControls.push(`${path}: role="listbox"`);
     if (!path.startsWith(join('pages', 'dev') + '/')) {
-      for (const m of code.matchAll(/\?\s*(['"`])(primary|ghost)\1\s*:\s*(['"`])(primary|ghost)\3/g)) {
-        if (m[2] !== m[4]) out.primaryToggle.push(`${path}: ${m[0].replace(/\s+/g, ' ')}`);
+      // Any two quoted class lists chosen by a condition where exactly one side has
+      // "primary": 'primary btn-sm' vs 'ghost' is the same toggle as 'primary' vs 'ghost'.
+      for (const m of code.matchAll(/\?\s*(['"`])([^'"`]*)\1\s*:\s*(['"`])([^'"`]*)\3/g)) {
+        if (/\bprimary\b/.test(m[2]) !== /\bprimary\b/.test(m[4])) out.primaryToggle.push(`${path}: ${m[0].replace(/\s+/g, ' ')}`);
       }
     }
   }

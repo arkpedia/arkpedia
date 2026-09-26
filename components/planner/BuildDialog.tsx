@@ -212,7 +212,7 @@ export function BuildDialog({
                       <span className="build-state">{state}</span>
                       <button
                         type="button"
-                        className={ok ? 'primary btn-sm' : 'btn-sm'}
+                        className="primary btn-sm"
                         disabled={!ok}
                         title={!canDo ? `${blocker} — the game does not allow this yet` : ok ? `Spend your depot on ${goal.label}` : state}
                         onClick={() => onBuild(goal)}

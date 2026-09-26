@@ -61,7 +61,8 @@ for (const theme of ['dark', 'light'] as const) {
     // The map toggles only show their on state once pressed: turn each one on.
     await page.goto('/stages/browse?s=1-7');
     const tools = page.locator('.stage-map-tools');
-    await expect(tools.getByRole('button', { name: /Legend/ })).toBeVisible();
+    // A cold server can take a while to fetch the stage's map data the first time.
+    await expect(tools.getByRole('button', { name: /Legend/ })).toBeVisible({ timeout: 45_000 });
     for (const name of [/Legend/, /Deploy/, /Description/]) {
       const button = tools.getByRole('button', { name });
       if (!(await button.count())) continue;

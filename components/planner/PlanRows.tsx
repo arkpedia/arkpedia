@@ -136,7 +136,7 @@ function Row({
             Build
           </button>
         )}
-        <button type="button" className={open ? 'primary btn-sm' : 'ghost'} aria-expanded={open} onClick={onEdit}>
+        <button type="button" className="ghost" aria-expanded={open} onClick={onEdit}>
           {open ? 'Close' : 'Edit'}
         </button>
         {onRemove && (

@@ -269,7 +269,6 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   line-height: 1;
   color: var(--text-dim);
 }
-.rail-item.active { background: var(--teal-fill); color: var(--teal-ink); }
 .rail-item .rail-spacer { flex: 1; }
 .rail-alert {
   width: 10px;
@@ -289,8 +288,6 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   transform: skewX(-14deg);
 }
 .pip.off { background: var(--line); }
-.rail-item.active .pip     { background: rgba(10, 38, 33, 0.75); }
-.rail-item.active .pip.off { background: rgba(10, 38, 33, 0.25); }
 
 /* --- meter ---------------------------------------------------------------
    Flat bar with mono end-labels. Replaces every ad-hoc progress bar.
