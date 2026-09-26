@@ -89,3 +89,20 @@ test('the seed ledger changes only when a table first reaches the data repositor
   assert.notEqual(malformed.status, 0);
   assert.match(malformed.stderr, /seeded-source-files\.json is not \{"version":1,"files":\[\.\.\.\]\}/);
 });
+
+/* data/stages.json (a wiki.gg scrape), data/stage_index.json and the data/events-data/
+   folder were read by nothing and still published in every release. Retired by path and,
+   for the folder, by prefix: an old release still carrying them never hydrates them back,
+   and the next publication drops them from arkpedia-data's source/. */
+test('retired records and folders are never hydrated back from an old release', () => {
+  const run = hydrate({
+    'data/stages.json': '[]',
+    'data/stage_index.json': '[]',
+    'data/events-data/Act or Die.json': '{}',
+    'data/events-data-keep.json': '{}',
+  }, { 'data/stages.json': '[]', 'data/events-data/Act or Die.json': '{}', 'data/events-data-keep.json': '{}' });
+  assert.equal(run.read('data/stages.json'), null);
+  assert.equal(run.read('data/events-data/Act or Die.json'), null);
+  // A prefix is a folder: a record whose name only starts the same way is a record.
+  assert.equal(run.read('data/events-data-keep.json'), '{}');
+});

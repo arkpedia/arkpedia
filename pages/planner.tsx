@@ -1965,7 +1965,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
   }
 
   /* The stage-code guard that used to sit here is gone with the hand-typed list it
-     guarded: the supply stages are derived from data/stages.json now, so a code that is
+     guarded: the supply stages are derived from the stage records now, so a code that is
      not a stage cannot be written in the first place, and the script refuses to emit an
      empty map. */
 

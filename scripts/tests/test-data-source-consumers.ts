@@ -27,7 +27,7 @@ test('content hydration cannot restore retired public source records', () => {
   const hydration = read('scripts/content/hydrate-source.mjs');
   assert.match(hydration, /data\/events\.json/);
   assert.match(hydration, /data\/operator-release-overrides\.json/);
-  assert.match(hydration, /deprecatedSourceFiles\.has\(relative\)/);
+  assert.match(hydration, /deprecated\(relative\)/);
 });
 
 test('every canonical event-year file is part of the runtime event loader', () => {

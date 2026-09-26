@@ -104,6 +104,7 @@ checkout instead of the cache.
 | script | writes | reads |
 | --- | --- | --- |
 | `stage-pipeline/build.mjs` | `data/stages/`, `data/stages-content.json`, `data/stage-geometry/`, `data/stage-conditional/`, `data/stage-tile-legend.json`, `public/stages-index.json` | EN gamedata; a CN level file where Global has dropped a stage's own (see `scripts/stage-pipeline/README.md`) |
+| `build-supply-stages.mjs` | `data/supply-stages.json` (the planner's supply table) | the supply content's stage records and their guaranteed drops |
 | `build-mode-exclusions.mjs` | `data/excluded-contents.json` | `activity_table` types, content kinds |
 | `import_is_nodes.py` | `data/is-nodes.json`, IS renders | `roguelike_topic_table`, fexli renders |
 | `import_cc_stages.py` | `data/cc-stages.json`, CCB renders, CCB labels in `stages-content.json` | `medal_table`, `map/` renders |

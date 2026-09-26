@@ -79,9 +79,9 @@ stage ra-maps --needs stage-dataset --output data/stages -- python3 scripts/impo
 # Pre-placed devices on each map.
 stage stage-devices --needs stage-dataset -- python3 scripts/imports/import_stage_devices.py
 
-# Supply stages: which permanent stage hands out which material.
-# After the stage build, because it reads data/stages.json.
-stage supply-stages -- node scripts/build/build-supply-stages.mjs
+# Supply stages: which permanent stage hands out which material (the planner's table).
+# After the stage build, because it reads the stage records it writes (data/stages/).
+stage supply-stages --needs stage-dataset -- node scripts/build/build-supply-stages.mjs
 
 # The depot screen's own item order.
 stage ingame-order -- node scripts/build/build-ingame-order.mjs

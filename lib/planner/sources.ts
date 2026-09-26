@@ -54,7 +54,7 @@ const CERTIFICATE_STORE: Record<string, { currency: string; price?: number }> = 
  * The farming guide is a curated list of BUILD materials, so it has no entry for a
  * certificate, a skill summary or a battle record -- none of those is a material an
  * operator costs and two are currencies. They all come from the supply stages, and
- * scripts/build/build-supply-stages.mjs reads which from data/stages.json.
+ * scripts/build/build-supply-stages.mjs reads which from the stage records (data/stages/).
  *
  * Derived, because a hand-written range would have been wrong: CA-1 through CA-5 all
  * drop a Skill Summary, but only CA-4 and CA-5 drop a volume 3. Best stage first.
