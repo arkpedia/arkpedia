@@ -1,5 +1,6 @@
 # Next.js build output
 .next/
+.next-live/
 
 # Dependencies
 node_modules/

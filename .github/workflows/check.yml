@@ -121,6 +121,24 @@ jobs:
       - name: Deployment traces stay lean
         run: npm run check:deployment-traces
 
+      # Deploy builds against the live content release, and right after a merge that release
+      # is still the one the previous code compiled: the release gate (deploy-gate.mjs) holds
+      # the next one until production runs this code. A page that cannot render the previous
+      # release's props fails Deploy, production stays on the old code, and the gate then
+      # holds every release after it, so neither can move (2026-09-26: /stages/seasonal and
+      # the 151 /stages/content pages once their props changed shape). So this builds again
+      # the way Deploy does, reading the live release, into a directory of its own. The last
+      # line fails the step when the release could not be read and the pages quietly came
+      # from this checkout's data instead, which would prove nothing.
+      - name: Pages render the live content release
+        run: |
+          npx next build --no-lint
+          grep -q '"__contentRelease"' .next-live/server/pages/stages/seasonal.json
+        env:
+          NEXT_DIST_DIR: .next-live
+          NEXT_TELEMETRY_DISABLED: '1'
+          NODE_ENV: production
+
       - name: Install Chromium only
         # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
         run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium

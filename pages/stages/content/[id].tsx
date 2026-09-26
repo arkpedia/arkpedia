@@ -435,4 +435,20 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/st
       scene: sceneForContent(content.kind, content.label || '', getChallengeLabels()),
     },
   };
-});
+}, { finalize: async (props) => withScene(props) });
+
+/**
+ * The page's props with its Terminal scene, whichever release they came from.
+ *
+ * A release compiled before `scene` moved to the server has none, and production renders
+ * the live release, which after a deploy is still the one the previous code compiled (the
+ * release gate holds the next one until production runs this code). Without this, Deploy's
+ * build failed prerendering all 151 content pages against it (reading `scene.key`), and
+ * the gate then held every release after it (2026-09-26 verification). Worked out the way
+ * getStaticProps does, so a release this code compiled passes through unchanged.
+ * scripts/tests/test-previous-release-props.ts renders the page from the live release's copy.
+ */
+function withScene(props: Props): Props {
+  if (props.scene) return props;
+  return { ...props, scene: sceneForContent(props.kind, props.label || '', getChallengeLabels()) };
+}

@@ -6,7 +6,7 @@ import Rail from '@/components/ui/Rail';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
-import { getSeasonalChallenge, SeasonalChallenge } from '@/lib/stages/terminal';
+import { getSeasonalChallenge, seasonalFromRelease, SeasonalChallenge } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 import { countOf } from '@/lib/stages/stageText';
 
@@ -99,6 +99,8 @@ function Mode({ title, cards, noun, mark }: { title: string; cards: StageModeCar
   );
 }
 
+// seasonalFromRelease: the live release may still be one the previous code compiled, with
+// the challenge modes under their old keys (see there).
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/seasonal", async () => ({
   props: getSeasonalChallenge(),
-}));
+}), { finalize: async (props) => seasonalFromRelease(props) });

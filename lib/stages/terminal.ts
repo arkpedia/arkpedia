@@ -397,13 +397,45 @@ export function getSeasonalChallenge(): SeasonalChallenge {
   const cards = getStageModeCards();
   return {
     ccb: cards.filter((c) => c.kind === 'contingency_contract'),
-    challenges: getGameModes().seasonalChallenges.map(({ label, name, mark }) => ({
-      label,
-      name,
-      // A mask of a file the release does not have paints nothing, silently; a mark the
-      // asset index lacks is no mark (the test holds the committed record to the index).
-      mark: mark && publicFileExists(`mode-marks/${mark}`) ? mark : null,
-      cards: cards.filter((c) => c.label === label),
-    })),
+    challenges: challengeModes((label) => cards.filter((c) => c.label === label)),
   };
+}
+
+/** data/game-modes.json's challenge modes, each with the seasons `cardsFor` gives it. */
+function challengeModes(cardsFor: (label: string) => StageModeCard[]): SeasonalChallengeMode[] {
+  return getGameModes().seasonalChallenges.map(({ label, name, mark }) => ({
+    label,
+    name,
+    // A mask of a file the release does not have paints nothing, silently; a mark the
+    // asset index lacks is no mark (the test holds the committed record to the index).
+    mark: mark && publicFileExists(`mode-marks/${mark}`) ? mark : null,
+    cards: cardsFor(label),
+  }));
+}
+
+/** Where a release compiled before data/game-modes.json kept each challenge mode. */
+const PREVIOUS_RELEASE_KEYS: Record<string, string> = { VEC: 'vector', TN: 'trials' };
+
+/**
+ * /stages/seasonal's props as this page reads them, from whichever release they came from.
+ *
+ * A release compiled before the challenge modes were data carries them as `vector` and
+ * `trials`, not `challenges`. Production renders the live release, and after a deploy the
+ * live release is still the one the previous code compiled: the release gate
+ * (scripts/content/deploy-gate.mjs) holds the next one until production runs this code.
+ * Reading only the new shape, Deploy's build failed prerendering this page against it, so
+ * production stayed on the old code and the gate then held every release after it
+ * (2026-09-26 verification). A release this code compiled passes through unchanged.
+ * scripts/tests/test-previous-release-props.ts renders the page from the live release's copy.
+ */
+export function seasonalFromRelease<P extends SeasonalChallenge>(props: P): P {
+  if (Array.isArray(props.challenges)) return props;
+  const previous = props as unknown as Record<string, unknown>;
+  const cardsFor = (label: string) => {
+    const cards = previous[PREVIOUS_RELEASE_KEYS[label] ?? ''];
+    return Array.isArray(cards) ? (cards as StageModeCard[]) : [];
+  };
+  const upgraded: Record<string, unknown> = { ...previous, challenges: challengeModes(cardsFor) };
+  for (const key of Object.values(PREVIOUS_RELEASE_KEYS)) delete upgraded[key];
+  return upgraded as unknown as P;
 }

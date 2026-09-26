@@ -22,6 +22,10 @@ function externalAssetRedirects(folders, repository) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Check builds a second time against the live content release, into a directory of its
+  // own so the first build's output stays for the browser suites (check.yml, "Pages render
+  // the live content release"). Unset everywhere else.
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer }) {
