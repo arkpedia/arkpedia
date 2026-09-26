@@ -55,8 +55,19 @@ export function codeFingerprint(ref = 'HEAD', { cwd = process.cwd() } = {}) {
   return createHash('sha256').update(entries.join('\n')).digest('hex');
 }
 
-/** Tracked files changed and untracked files added (not ignored) outside the docs-only paths:
- *  a build made with any of them is not the commit it names. */
+/**
+ * Tracked files the build itself rewrites on purpose, which leave it the commit's build:
+ *   data/assets/revisions.json   prebuild adopts the live release's newer asset pins
+ *                                (scripts/build/adopt-release-asset-pins.mjs). Asset commits
+ *                                decide which art a redirect reaches, never the shape of a
+ *                                page's props, which is all the release gate guards. Its step
+ *                                runs after write-build-info.mjs anyway; this is for the next
+ *                                build in the same checkout (a local rebuild, a manual deploy).
+ */
+export const BUILD_REWRITES = new Set(['data/assets/revisions.json']);
+
+/** Tracked files changed and untracked files added (not ignored) outside the docs-only paths
+ *  and BUILD_REWRITES: a build made with any of them is not the commit it names. */
 export function uncommittedChanges({ cwd = process.cwd() } = {}) {
   const tokens = git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], cwd).split('\0');
   const changed = [];
@@ -67,7 +78,7 @@ export function uncommittedChanges({ cwd = process.cwd() } = {}) {
     if (/^[RC]|^.[RC]/.test(entry)) changed.push(tokens[++i]);
     changed.push(entry.slice(3));
   }
-  return changed.filter(file => file && !isDocsOnly(file));
+  return changed.filter(file => file && !isDocsOnly(file) && !BUILD_REWRITES.has(file));
 }
 
 /** What public/build-info.json says about the build that serves it. */

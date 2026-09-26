@@ -75,6 +75,23 @@ test('Deploy may start a held content release again', () => {
   assert.ok(step?.run?.includes('gh workflow run prepare-content.yml'), 'deploy.yml re-dispatches a held release');
 });
 
+test("Deploy checks that production's asset links reach the live release's art, and still releases a held run after", () => {
+  const steps = (load('deploy.yml').jobs!.deploy.steps ?? []) as (Step & { id?: string; env?: Record<string, string> })[];
+  const index = (name: string) => steps.findIndex(step => step.name === name);
+  const check = steps[index("Check that asset links reach the release's art")];
+  assert.ok(check, "deploy.yml has the asset-link check");
+  assert.equal(check.run, 'node scripts/deploy/check-asset-redirects.mjs');
+  assert.equal(check.id, 'asset-links');
+  // After production has the build, and before the report that turns its failure into an issue.
+  assert.ok(index('Deploy') < index("Check that asset links reach the release's art") && index("Check that asset links reach the release's art") < index('Report the failed deploy'));
+  assert.equal(steps[index('Deploy')].id, 'deploy');
+  assert.equal(steps[index('Report the failed deploy')].env?.ASSET_LINKS, '${{ steps.asset-links.outcome }}');
+  // A failed asset check leaves production on the new build, so a held release still goes out.
+  assert.equal(String(steps[index('Release again if one was held for this deploy')].if).replace(/\s+/g, ' '), "${{ !cancelled() && steps.deploy.outcome == 'success' }}");
+  // prebuild adopts the release's pins through one GitHub compare per differing repository.
+  assert.equal(steps[index('Build')].env?.GH_TOKEN, '${{ github.token }}');
+});
+
 test("only a green Check of a push to this repository's main deploys", () => {
   const condition = String(load('deploy.yml').jobs!.deploy.if).replace(/\s+/g, ' ');
   for (const part of [
