@@ -289,8 +289,8 @@ test('a stage that keeps failing publishes the same source every day, however ea
     const published = () => {
       const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { cwd: tree.root, encoding: 'utf8' });
       const files = listed.stdout.split('\0').filter(Boolean).sort();
-      return { files, content: contentInput({ generator: 'test', sourceHashes: Object.fromEntries(files.map(file =>
-        [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])) }) };
+      return { files, content: contentInput({ sourceHashes: Object.fromEntries(files.map(file =>
+        [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])), pages: {}, files: {} }) };
     };
     tree.write('data/quarantine.json', '{"version":1,"entries":[]}\n');
     const hang = 'setTimeout(() => {}, 60000)';

@@ -38,9 +38,6 @@ const generator = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' 
 const generatorCode = codeFingerprint(generator);
 const schema = SCHEMA;
 const input = releaseInput({ generator, sourceHashes });
-// Without the run's own records (the upstream lock, the catalogue's report): the publish step
-// compares it, so a day that changes only them publishes nothing (release-input.mjs).
-const content = contentInput({ generator, sourceHashes });
 const previous = fs.existsSync(path.join(release, 'manifest.json')) ? JSON.parse(fs.readFileSync(path.join(release, 'manifest.json'), 'utf8')) : null;
 if (previous?.release === input && !process.argv.includes('--force')) {
   console.log('Content inputs unchanged; existing release retained.');
@@ -89,6 +86,10 @@ for (const file of publicFiles.sort()) {
   fs.writeFileSync(path.join(release, file), bytes);
   files[file.slice('public/'.length)] = { path: file, bytes: bytes.length, sha256: sha(bytes) };
 }
+// What the release says, which the publish step compares (release-input.mjs): the sources less
+// the run's own records, and the pages and public files just written. Not the generator, so a
+// code change that alters no page publishes nothing.
+const content = contentInput({ sourceHashes, pages, files });
 const manifest = { schema, release: input, content, generator, codeFingerprint: generatorCode, generatedAt: new Date().toISOString(),
   assets: JSON.parse(fs.readFileSync('data/assets/revisions.json', 'utf8')), sourceHashes,
   pages: Object.fromEntries(Object.entries(pages).sort(([a], [b]) => a.localeCompare(b))), files };

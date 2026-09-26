@@ -284,60 +284,126 @@ test('the release validator holds the published quarantine and upstream lock to 
   assert.equal(ignored.status, 0, 'export.mjs leaves ignored files out, so .gitignore keeps the stage report out of every release');
 });
 
+// What export.mjs hashes into both ids, in path order, as it and the validator list them.
+const hashes = (files: Record<string, string>) => Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : 1))
+  .map(([file, text]) => [file, createHash('sha256').update(text).digest('hex')]));
+// A release's pages and public files as the manifest lists them: { path, bytes, sha256 }.
+const outputs = (texts: Record<string, string>, pathOf: (name: string) => string) => Object.fromEntries(Object.entries(texts)
+  .map(([name, text]) => [name, { path: pathOf(name), bytes: Buffer.byteLength(text), sha256: createHash('sha256').update(text).digest('hex') }]));
+const pagesOf = (texts: Record<string, string>) => outputs(texts, route => (route === '/' ? 'pages/index.json' : `pages${route}.json`));
+const filesOf = (texts: Record<string, string>) => outputs(texts, name => `public/${name}`);
+const PAGES = { '/': '{"props":{"banners":[]}}', '/gacha': '{"props":{"banners":[1]}}' };
+const FILES = { 'stages-index.json': '[]' };
+type Release = { generator?: string; sources: Record<string, string>; pages?: Record<string, string>; files?: Record<string, string> };
+const ids = ({ generator = 'c'.repeat(40), sources, pages = PAGES, files = FILES }: Release) => ({
+  release: releaseInput({ generator, sourceHashes: hashes(sources) }),
+  content: contentInput({ sourceHashes: hashes(sources), pages: pagesOf(pages), files: filesOf(files) }),
+});
+const records = { 'data/headhunting_banners.json': '[]', 'data/skins.json': '[]', 'data/assets/revisions.json': '{"arkpedia-image-assets":"a"}' };
+
 // A mirror commits most days whether or not any record changes, and the lock records it; the
 // catalogue's report names that day's links and commits. Neither may make a published release.
 test('a day that changes only the upstream lock or the catalogue\'s run report publishes nothing', () => {
-  const generator = 'c'.repeat(40);
-  const records = { 'data/headhunting_banners.json': '[]', 'data/skins.json': '[]' };
   const lock = (commit: string) => JSON.stringify({ version: 1, repositories: { 'Kengxxiao/ArknightsGameData': { branch: 'master', commit, source: 'resolved' } } });
-  // In path order, as export.mjs and the validator list them.
-  const hashes = (files: Record<string, string>) => Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([file, text]) => [file, createHash('sha256').update(text).digest('hex')]));
-  const ids = (files: Record<string, string>) => ({ release: releaseInput({ generator, sourceHashes: hashes(files) }), content: contentInput({ generator, sourceHashes: hashes(files) }) });
   const monday = { ...records, 'data/upstream.lock.json': lock('a'.repeat(40)), 'data/catalogue-sync.json': '{"poolIdsLinked":{"cn":1,"global":4}}' };
   const tuesday = { ...records, 'data/upstream.lock.json': lock('b'.repeat(40)), 'data/catalogue-sync.json': '{"poolIdsLinked":{"cn":0,"global":0}}' };
   const edited = { ...tuesday, 'data/skins.json': '[{}]' };
   // The release id still covers every published file: arkpedia-data's validator recomputes it so.
-  assert.notEqual(ids(tuesday).release, ids(monday).release);
-  assert.equal(ids(tuesday).content, ids(monday).content);
-  assert.notEqual(ids(edited).content, ids(monday).content, 'a record that changes is new content');
+  assert.notEqual(ids({ sources: tuesday }).release, ids({ sources: monday }).release);
+  assert.equal(ids({ sources: tuesday }).content, ids({ sources: monday }).content);
+  assert.notEqual(ids({ sources: edited }).content, ids({ sources: monday }).content, 'a record that changes is new content');
   // The publish step compares content ids, and falls back to the release id of an older manifest.
   withDataRepository(repo => {
-    repo.commit('main 3', ids(monday).release, 'm', undefined, ids(monday).content);
+    repo.commit('main 3', ids({ sources: monday }).release, 'm', undefined, ids({ sources: monday }).content);
     repo.push('main');
     repo.load('main');
-    repo.prepare(ids(tuesday).release, 'm', ids(tuesday).content);
+    repo.prepare(ids({ sources: tuesday }).release, 'm', ids({ sources: tuesday }).content);
     const unchanged = repo.publish();
     assert.equal(unchanged.status, 0, unchanged.output);
     assert.match(unchanged.output, /Release inputs are unchanged/);
     assert.deepEqual(repo.main(), ['main 3', 'main 2', 'main 1', 'main 0']);
-    repo.prepare(ids(edited).release, 'e', ids(edited).content);
+    repo.prepare(ids({ sources: edited }).release, 'e', ids({ sources: edited }).content);
     assert.equal(repo.publish().status, 0);
     assert.deepEqual(repo.main(), [regenerated, 'main 3', 'main 2', 'main 1', 'main 0']);
-    assert.deepEqual(repo.mainFile('release/manifest.json'), ids(edited));
+    assert.deepEqual(repo.mainFile('release/manifest.json'), ids({ sources: edited }));
   });
   // The validator holds the manifest to both, and the lock to its format.
-  const validate = (files: Record<string, string>, manifest: object = {}) => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-release-'));
-    try {
-      const assets = Object.fromEntries(['image-assets', 'skin-assets', 'color-palette', 'voice-english', 'voice-japanese', 'voice-korean', 'voice-mandarin', 'voice-regional']
-        .map(repo => [`arkpedia-${repo}`, 'a'.repeat(40)]));
-      fs.mkdirSync(path.join(root, 'release'));
-      fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, ...ids(files), generator, codeFingerprint: 'f'.repeat(64), assets, pages: {}, files: {}, sourceHashes: hashes(files), ...manifest }));
-      for (const [file, text] of Object.entries(files)) {
-        fs.mkdirSync(path.dirname(path.join(root, 'source', file)), { recursive: true });
-        fs.writeFileSync(path.join(root, 'source', file), text);
-      }
-      return spawnSync(process.execPath, ['scripts/content/validate-release.mjs', root], { encoding: 'utf8' }).stderr;
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  };
-  // Past every fingerprint check, to the pages this fixture does not have.
   assert.match(validate(tuesday), /Missing required page: \//);
-  assert.match(validate(tuesday, { content: ids(monday).release }), /Release content fingerprint mismatch/);
+  assert.match(validate(tuesday, { content: ids({ sources: monday }).release }), /Release content fingerprint mismatch/);
   assert.match(validate({ ...tuesday, 'data/upstream.lock.json': lock('master') }), /invalid pin for Kengxxiao\/ArknightsGameData/, 'the lock is still held to its format');
 });
+
+// arkpedia-data 3c128fd (2026-09-16): a run after an app merge that changed no source record, no
+// page and no public file still published, because the content id hashed the app commit.
+test('two runs with the same inputs give the same content id, whatever app commit compiled them', () => {
+  const run = (generator: string) => ids({ generator, sources: records });
+  // The same run twice is the same release.
+  assert.deepEqual(run('c'.repeat(40)), run('c'.repeat(40)));
+  // After a merge that changes no output (docs, tests, a refactor), only the release id moves:
+  // arkpedia-data's validator recomputes it with the generator, and export.mjs re-exports on it.
+  assert.notEqual(run('d'.repeat(40)).release, run('c'.repeat(40)).release);
+  assert.equal(run('d'.repeat(40)).content, run('c'.repeat(40)).content);
+  // The order a caller lists things in is no input.
+  const reversed = Object.fromEntries(Object.entries(records).reverse());
+  assert.equal(contentInput({ sourceHashes: hashes(reversed), pages: pagesOf(Object.fromEntries(Object.entries(PAGES).reverse())), files: filesOf(FILES) }),
+    run('c'.repeat(40)).content);
+  // What the code produces is content: a merge that changes a page, or where the site finds
+  // it (lib/content/server.ts refuses a path its pageFilePath would not give), publishes.
+  const base = run('c'.repeat(40)).content;
+  assert.notEqual(ids({ generator: 'd'.repeat(40), sources: records, pages: { ...PAGES, '/gacha': '{"props":{"banners":[2]}}' } }).content, base);
+  assert.notEqual(ids({ sources: records, files: { 'stages-index.json': '[1]' } }).content, base);
+  assert.notEqual(contentInput({ sourceHashes: hashes(records), pages: { ...pagesOf(PAGES), '/gacha': { ...pagesOf(PAGES)['/gacha'], path: 'pages/gacha/index.json' } }, files: filesOf(FILES) }), base);
+  // A reader gets these, or the next run reads them back from data main, so each is content
+  // though no page file changes (release-input.mjs): the asset commit every art URL is pinned
+  // to; when a held record was first seen, which the three-day overdue mark counts from; a wiki
+  // page's last good rows and the hold on it.
+  for (const [file, text] of [
+    ['data/assets/revisions.json', '{"arkpedia-image-assets":"b"}'],
+    ['data/quarantine.json', '{"version":1,"entries":[{"key":"banner:LINKAGE_65_0_1","stage":"catalogue","reason":"r","action":"kept-previous","firstSeen":"2026-09-25"}]}'],
+    ['data/wiki-cache/Headhunting-Banners-2026.json', '{"rows":[{"operators":"Uika Misumi"}]}'],
+  ]) assert.notEqual(ids({ sources: { ...records, [file]: text } }).content, base, `${file} is content`);
+  // Every argument is required: a caller that forgot the outputs must not hash nothing.
+  assert.throws(() => contentInput({ sourceHashes: hashes(records) }), /needs the release's pages/);
+  assert.throws(() => contentInput({ sourceHashes: hashes(records), pages: pagesOf(PAGES) }), /needs the release's files/);
+  // The publish step: a release that differs only in its generator pushes nothing.
+  withDataRepository(repo => {
+    repo.commit('main 3', run('c'.repeat(40)).release, 'm', undefined, run('c'.repeat(40)).content);
+    repo.push('main');
+    repo.load('main');
+    repo.prepare(run('d'.repeat(40)).release, 'm', run('d'.repeat(40)).content);
+    const unchanged = repo.publish();
+    assert.equal(unchanged.status, 0, unchanged.output);
+    assert.match(unchanged.output, /Release inputs are unchanged/);
+    assert.deepEqual(repo.main(), ['main 3', 'main 2', 'main 1', 'main 0']);
+    assert.equal(repo.outputs(), '', 'no pushed commit, so no live check and no page-cache clear');
+  });
+  // The validator recomputes the id from the pages and files the manifest lists, whose bytes it
+  // has checked: a manifest carrying the old, generator-hashed id is refused.
+  const legacy = createHash('sha256').update(JSON.stringify({ schema: 2, generator: 'c'.repeat(40), sourceHashes: hashes(records) })).digest('hex');
+  assert.match(validate(records, { content: legacy }), /Release content fingerprint mismatch/);
+  assert.match(validate(records), /Missing required page: \//, 'past every fingerprint check');
+});
+
+/** validate-release.mjs's complaints about a release of these sources, with no pages or files
+ *  on disk (so it stops at the first page it needs). */
+function validate(files: Record<string, string>, manifest: object = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-release-'));
+  try {
+    const assets = Object.fromEntries(['image-assets', 'skin-assets', 'color-palette', 'voice-english', 'voice-japanese', 'voice-korean', 'voice-mandarin', 'voice-regional']
+      .map(repo => [`arkpedia-${repo}`, 'a'.repeat(40)]));
+    const generator = 'c'.repeat(40);
+    const own = { release: releaseInput({ generator, sourceHashes: hashes(files) }), content: contentInput({ sourceHashes: hashes(files), pages: {}, files: {} }) };
+    fs.mkdirSync(path.join(root, 'release'));
+    fs.writeFileSync(path.join(root, 'release/manifest.json'), JSON.stringify({ schema: 2, ...own, generator, codeFingerprint: 'f'.repeat(64), assets, pages: {}, files: {}, sourceHashes: hashes(files), ...manifest }));
+    for (const [file, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(root, 'source', file)), { recursive: true });
+      fs.writeFileSync(path.join(root, 'source', file), text);
+    }
+    return spawnSync(process.execPath, ['scripts/content/validate-release.mjs', root], { encoding: 'utf8' }).stderr;
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
 
 test('a correction branch that changes no release input publishes nothing', () => {
   withDataRepository(repo => {
