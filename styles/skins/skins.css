@@ -45,6 +45,9 @@
 /* --- results ------------------------------------------------------------------------ */
 .skins-results:focus { outline: none; }
 .skins-result-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+/* The count sits on the Reset button's centre line: .hint's own 18px bottom margin
+   lifted it 9px above it (tests/browser/row-alignment.spec.ts). */
+.skins-result-count { margin: 0; }
 .skins-acquisition-note { margin: 0 0 12px; color: var(--text-dim); font-size: 13px; }
 .skins-load-sentinel { height: 1px; }
 .skin-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }

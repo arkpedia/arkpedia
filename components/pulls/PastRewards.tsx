@@ -1,4 +1,4 @@
-import { IncludePastSwitch } from './IncludePastSwitch';
+import { IncludePastCheckbox } from './IncludePastCheckbox';
 import { useState } from 'react';
 import type { BacklogSources } from '@/lib/pulls/pulls';
 
@@ -25,14 +25,16 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, i
     (group.id === 'events' ? onEvents : onKeys)(next);
   };
   return <>
-    <div className="pulls-panel-head"><h2>Unclaimed rewards</h2><IncludePastSwitch checked={include} onChange={onInclude} className="pulls-include-mobile" /></div>
+    <div className="pulls-panel-head"><h2>Unclaimed rewards</h2><IncludePastCheckbox checked={include} onChange={onInclude} className="pulls-include-mobile" /></div>
     <p className="hint">Tick completed content.</p>
     {groups.map(group => <details className="pulls-disclosure" key={group.id} open={open === group.id}>
       <summary onClick={event => { event.preventDefault(); setOpen(previous => previous === group.id ? '' : group.id); }}>{group.name}<span className="hint pulls-note">{group.items.reduce((n,item) => n + (complete(group.id,item.id) ? 0 : item.amount),0).toLocaleString()} {group.unit} left</span></summary>
       <div className="pulls-eventlist-acts"><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map(item => item.id), true)}>All completed</button><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map(item => item.id), false)}>None completed</button></div>
-      <div className="pulls-eventgrid">{group.items.map(item => <button type="button" key={item.id} className={`pulls-eventchip${complete(group.id,item.id) ? ' on' : ''}`} aria-pressed={complete(group.id,item.id)} onClick={() => setCompleted(group,[item.id],!complete(group.id,item.id))}>
-        <span className="pulls-eventchip-mark" aria-hidden="true">{complete(group.id,item.id) ? '✓' : ''}</span><span className="pulls-eventchip-name">{item.name}</span><span className="pulls-eventchip-op">{item.amount}</span>
-      </button>)}</div>
+      {/* A list you tick: each item a real checkbox in the .check primitive (it was a
+          button drawing its own box and tick). */}
+      <div className="pulls-eventgrid" role="group" aria-label={`${group.name}: completed`}>{group.items.map(item => <label key={item.id} className={`check pulls-eventchip${complete(group.id,item.id) ? ' on' : ''}`}>
+        <input type="checkbox" checked={complete(group.id,item.id)} onChange={event => setCompleted(group,[item.id],event.target.checked)} /><span className="pulls-eventchip-name">{item.name}</span><span className="pulls-eventchip-op">{item.amount}</span>
+      </label>)}</div>
     </details>)}
   </>;
 }

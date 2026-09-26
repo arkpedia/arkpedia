@@ -1,5 +1,5 @@
 /* Recruitment uses the site's surfaces, type and primitives: PageHeader on the full
-   page, SegmentedControl for the view, .filter-chip tags, a .tgl filter and
+   page, SegmentedControl for the view, .filter-chip tags, a .check checkbox filter and
    SearchInput. Rarity comes only from the --rarity-N tokens (it had a palette of
    its own that painted 2-star red and every operator's stars amber). */
 .recruit-page { color: var(--text); }
@@ -52,7 +52,7 @@
 .recruit-picker-footnote { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); color: var(--text-dim); font-size: 11px; line-height: 1.6; }
 .recruit-results { min-width: 0; padding-top: 2px; }
 .recruit-result-count { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
-.recruit-results-filter { padding: 12px 0 16px; border-bottom: 1px solid var(--line); }
+.recruit-results-filter { display: flex; padding: 8px 0 12px; border-bottom: 1px solid var(--line); }
 .recruit-empty-state { padding: 58px 22px; text-align: center; }
 .recruit-empty-state > img { object-fit: contain; opacity: 0.7; margin: 0 auto 12px; }
 .recruit-empty-state h3 { margin: 0 0 8px; color: var(--text); }

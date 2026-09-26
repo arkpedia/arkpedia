@@ -105,7 +105,7 @@
 /* Keep disclosure and inclusion independent, in the same stable control. */
 .pastUtility { display:flex; align-items:center; gap:6px; min-width:0; }
 .utilities .pastUtility button:first-child { flex:1; }
-.utilities .pastUtility :global(.pulls-include-switch) { min-height:44px; }
+.utilities .pastUtility :global(.pulls-include-past) { min-height:44px; }
 .detailPanel :global(.pulls-include-mobile) { display:none; }
 .page .goalEditor :global(.pulls-operator-option) { grid-template-columns:minmax(0,1fr) 82px; }
 .page .goalEditor :global(.pulls-operator-count) { flex-direction:row; align-items:center; gap:4px; padding:6px; min-width:0; }
@@ -215,3 +215,26 @@
   .planHeading { flex-wrap: wrap; }
   .planHeading .add { margin-left: auto; }
 }
+
+/* One line (ui-primitives rule 4). A goal row's values sit on the centre line of the
+   Pulls input and the remove button beside them: the caption under a value
+   (Estimated, 3 free, Shortfall) hangs below it out of the flow. In the flow it took
+   14px under every value, so Until, Available, All goals and Left sat 9px above the
+   input's centre (tests/browser/row-alignment.spec.ts). At 700px and under each cell
+   stacks a label over its value, and the cells start at one top: the Pulls cell was
+   centred while the others stretched, which put its label 8px under theirs and its
+   input 7px under their values. The footer's two sides share one baseline: "Budgets
+   covered" with "Savings after your plan" and its number, the date hanging under the
+   first. */
+@media (min-width: 701px) {
+  .date, .figure { position: relative; }
+  .date small, .figure small { position: absolute; top: 100%; left: 50%; min-height: 0; margin-top: 2px; transform: translateX(-50%); white-space: nowrap; }
+}
+@media (max-width: 700px) {
+  .budget { align-self: stretch; }
+}
+.planFooter { align-items: baseline; }
+
+/* The banner cell and the three disclosure rows are large pressable surfaces: the
+   quieter --card-border at rest, the teal hover of any control (ui-primitives rule 2). */
+.bannerIdentity:not(:hover), .utilities button:not([aria-expanded=true]):not(:hover) { border-color: var(--card-border); }

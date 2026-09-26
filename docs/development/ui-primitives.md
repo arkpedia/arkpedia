@@ -5,7 +5,7 @@ This is the reference for building or migrating any Arkpedia page. It covers the
 The canonical style is the `/operators` list page plus `/gacha`, as decided on 2026-09-25:
 
 - Section headings are `.op-section h2` in `--heading`, a teal-ish colour kept apart from the `--teal` that marks on/current states (maintainer, 2026-09-26; amber was tried and rejected).
-- Picture and content cards (posters, banner art and thumbnails, operator and skin tiles, enemy tiles, album covers, portraits, video cards, the Terminal's stage, mode, supply and Regular Tasks cards, the /games and /community cards) carry **no resting border**, and no frame round the art inside them either: the art says they can be clicked. They keep a transparent 1px border so nothing shifts, and draw the teal edge on hover and keyboard focus (`border: 1px solid transparent`, `border-color: var(--teal)` on `:hover` and `:focus-visible`). A card in an on state keeps its teal edge, and a rarity ring is data, not a frame. Only real controls (buttons, chips, inputs, tabs, dropdowns, and selectable `.pick-card`s) carry `--control-border` at rest; a control with only a small picture in it (a featured-operator chip, an appearance thumbnail) is one of them. `tests/browser/cards-and-headings.spec.ts` finds every link or button whose main content is a picture (40x40 or more, half its box or more) on twenty routes and fails on a framed one.
+- Picture and content cards (posters, banner art and thumbnails, operator and skin tiles, enemy tiles, album covers, portraits, video cards, the Terminal's stage, mode, supply and Regular Tasks cards, the /games and /community cards) carry **no resting border**, and no frame round the art inside them either: the art says they can be clicked. They keep a transparent 1px border so nothing shifts, and draw the teal edge on hover and keyboard focus (`border: 1px solid transparent`, `border-color: var(--teal)` on `:hover` and `:focus-visible`). A card in an on state keeps its teal edge, and a rarity ring is data, not a frame. Only real controls (buttons, chips, checkboxes, inputs, tabs, dropdowns) carry `--control-border` at rest, and large pressable surfaces (a selectable `.pick-card`, a row card like the pull planner's banner cell) carry the quieter `--card-border`; a control with only a small picture in it (a featured-operator chip, an appearance thumbnail) is one of them. `tests/browser/cards-and-headings.spec.ts` finds every link or button whose main content is a picture (40x40 or more, half its box or more) on twenty routes and fails on a framed one.
 - Buttons are Rajdhani, uppercase, with 0.09em tracking.
 - The page header has a mono teal eyebrow above a 30px Rajdhani h1.
 - Everything sits in a 1040px frame with 24px gutters.
@@ -17,7 +17,7 @@ The canonical style is the `/operators` list page plus `/gacha`, as decided on 2
 | What | Where |
 |---|---|
 | Every token (colour, radius, frame, fonts) | `styles/core/shared.css`. Dark values are in `:root` and light values in `:root[data-theme="light"]`. Tokens are never defined anywhere else. |
-| Primitive rules: buttons, chips, inputs, tabs, rarity classes, panels | `styles/core/arkpedia-theme.css` |
+| Primitive rules: buttons, chips, checkboxes, inputs, tabs, rarity classes, panels | `styles/core/arkpedia-theme.css` |
 | The global element rules: header, h1–h3, main, scrollbars, focus ring | `styles/core/shared.css` |
 | The nav frame | `styles/core/nav.css` |
 | React primitives | `components/ui/*` |
@@ -29,17 +29,19 @@ CSS modules are used by the operator page, the games, the pulls workspace and `S
 
 ## The rules
 
-1. **Teal means "on" or "current", and nothing else.** Selected chips, the current tab, the active nav item, a focused control and hover all use teal. Headings, resting links, decoration, rarity and categories must not be teal. "On" has one look everywhere: the `--teal-dim` fill with teal border and text (`.filter-chip[aria-pressed="true"]`, `.tgl.is-on`, `.pick-card` when picked). The solid `--teal-fill` is `.primary`'s and never marks a state; `tests/browser/on-states.spec.ts` fails when a pressed, checked or `.is-on` control computes that fill.
+1. **Teal means "on" or "current", and nothing else.** Selected chips, the current tab, the active nav item, a checked checkbox, a focused control and hover all use teal. Headings, resting links, decoration, rarity and categories must not be teal. "On" has one look everywhere: the `--teal-dim` fill with teal border and text (`.filter-chip[aria-pressed="true"]`, `.tgl.is-on`, `.pick-card` when picked), and for a checkbox a teal tick on the same `--teal-dim` box. The solid `--teal-fill` is `.primary`'s and never marks a state; `tests/browser/on-states.spec.ts` fails when a pressed, checked or `.is-on` control computes that fill, and when a checked checkbox is not the `.check` box (teal border on `--teal-dim`).
    - **One deliberate exception:** the automatic skill metric ("SP recovery: Auto", "Activation: Auto") is teal-bordered on `--teal-dim` on the operator page (`.skillMetricAuto` in `OperatorPage.module.css`) and in the `/gacha` operator preview (`.gacha-preview-skill-fact.auto` in `gacha.css`). The maintainer chose this in main's 2026-09-25 commit "Align gacha rarity borders and skill recovery colors", and it stays. Two older teal surfaces also stay, each with its own meaning: `.enemy-resist.vulnerable` on `/enemies` (a weakness, not a state) and the `/gacha` X1 button (the reference page, left as it is). Those are the only non-state teal surfaces. `audit:styles` (`tealDecoration`, strict) rejects teal on a selector that names no state in the page families already clean of it, today `styles/stages/`; elsewhere reviewing new ones is left to people, so keep this list in step with the code and add a family's folder to `TEAL_DECORATION_SCOPE` in `scripts/audits/audit-styles.mjs` once it is clean.
-2. **One resting boundary for controls.** Anything that can be pressed, typed in or picked from has a `--control-border` border at rest, except a picture or content card, which has none (above). `--line` and `--line-soft` are for passive hairlines only (panels, dividers, table rules).
-3. **One hover rule.** On hover, the border and the text go to `--teal`. Destructive `.danger` controls are the exception: they stay red.
-4. **Rarity colour comes only from `--rarity-N`**, through `<Rarity>`, `.rarity-N`, `.tier-N` or `.tier-fill-N`. 5★ is never teal.
-5. **One frame.** The header, `main` and the nav share `--frame-max` (1040px) and `--page-gutter` (24px at every width). There are no per-feature gutters and no `main-wide`.
-6. **One page header**, `<PageHeader>`, placed as a sibling of `<main>`.
-7. **One dropdown**, `<StyledSelect>`. Never write a native `<select>` or a hand-built `role="listbox"` outside `components/ui`.
-8. **Radii come from tokens**: `var(--radius)` (2px) by default, `var(--radius-frame)` (3px) for an outer frame or a floating menu, and `var(--radius-control)` (4px) at most for a tile-like control. Never use a literal, and never 999px pills.
-9. **Only loaded font weights.** Rajdhani 500/600/700, JetBrains Mono 400–700 and Inter 400–700 are loaded. Any other weight is faked by the browser as faux bold.
-10. **Anti-Page Jump.** No state change may leave the document shorter than the reader's scroll position needs. See the `arkpedia-ui` skill. `components/ui/useHeightFloor` is the general-purpose fix.
+2. **One resting boundary for controls, and it is soft.** Anything that can be pressed, typed in, ticked or picked from has a `--control-border` border at rest, except a picture or content card, which has none (above). The border is a band, not WCAG 1.4.11's 3:1: at 3.5:1 every chip and field was a hard outline (maintainer, 2026-09-26: "too harsh"). A control reads as one through its fill (`--row-grad`, `--panel-2`, `--well`), its label or button voice, and the teal hover and focus; the border only has to be seen. A large pressable surface (a `.pick-card`, a row card, a tall disclosure row) takes the quieter `--card-border`, because a long outline at the chip's weight boxes in half the page. `--line` and `--line-soft` are for passive hairlines only (panels, dividers, table rules).
+3. **Booleans and options are checkboxes.** A setting that is on or off ("Monthly card", "Include CN", "Include sparking") and an item in a list you tick (the stage guesser's chapters, the music guesser's releases) is a real `<input type="checkbox">` in a `<label className="check">`. It is never a `.tgl`, a `.filter-chip` with `aria-pressed` or a button drawing its own tick box: #64 turned eleven of them into highlighted buttons and the maintainer asked for the checkboxes back. `.tgl` is only a mode switch in a dense toolbar. `audit:styles` rejects a checkbox outside a `.check` label (`checkboxPrimitive`) and a `.tgl` outside `TGL_SCOPE` (`tglOutsideToolbar`), and `tests/browser/checkboxes.spec.ts` holds the known option groups to real checkboxes.
+4. **One line.** The cells of a row share one centre line: a button, input or select and the text or the other control beside it sit on the same vertical centre (and on one baseline where text sits beside text). A caption under a value hangs below it out of the flow rather than lifting the value off the centre, and a margin under one cell of a centred row belongs to the row, not the cell (`.hint`'s 18px bottom margin lifted the /skins count 9px). `tests/browser/row-census.ts` finds offenders; `tests/browser/row-alignment.spec.ts` runs it on the routes it found them on.
+5. **One hover rule.** On hover, the border and the text go to `--teal`. Destructive `.danger` controls are the exception: they stay red.
+6. **Rarity colour comes only from `--rarity-N`**, through `<Rarity>`, `.rarity-N`, `.tier-N` or `.tier-fill-N`. 5★ is never teal.
+7. **One frame.** The header, `main` and the nav share `--frame-max` (1040px) and `--page-gutter` (24px at every width). There are no per-feature gutters and no `main-wide`.
+8. **One page header**, `<PageHeader>`, placed as a sibling of `<main>`.
+9. **One dropdown**, `<StyledSelect>`. Never write a native `<select>` or a hand-built `role="listbox"` outside `components/ui`.
+10. **Radii come from tokens**: `var(--radius)` (2px) by default, `var(--radius-frame)` (3px) for an outer frame or a floating menu, and `var(--radius-control)` (4px) at most for a tile-like control. Never use a literal, and never 999px pills.
+11. **Only loaded font weights.** Rajdhani 500/600/700, JetBrains Mono 400–700 and Inter 400–700 are loaded. Any other weight is faked by the browser as faux bold.
+12. **Anti-Page Jump.** No state change may leave the document shorter than the reader's scroll position needs. See the `arkpedia-ui` skill. `components/ui/useHeightFloor` is the general-purpose fix.
 
 ## Tokens
 
@@ -61,7 +63,8 @@ All values are in `styles/core/shared.css`. `scripts/tests/test-ui-tokens.ts` ch
 | Token | Dark | Light | Use |
 |---|---|---|---|
 | `--line` / `--line-soft` | white .10 / .06 | black .12 / .07 | Passive hairlines only |
-| `--control-border` | white .38 | #727f89 | The resting border of every control. At least 3:1 on every surface. |
+| `--control-border` | white .25 | #98a3ab | The resting border of every control: 2.28:1 (dark) and 2.5:1 (light) on `--panel`, and 2:1 or more on every surface. `test-ui-tokens.ts` holds it between 2.2 and 2.6:1 on the panel, so it can soften no further and harden no further. |
+| `--card-border` | white .16 | #bac2c8 | The quieter resting edge of a large pressable surface: `.pick-card`, a row card, a tall disclosure row. Between `--line` and `--control-border`. |
 
 ### Accent and state
 
@@ -100,7 +103,7 @@ These apply to every page with no opt-in:
 
 - `:where(a[class]) { color: inherit }`. A classed anchor takes its colour from its own class or its parent, never the browser's link blue. It has zero specificity, so any class that sets a colour wins.
 - `code, kbd, samp` use `--font-mono`.
-- `:root { accent-color: var(--teal) }` applies to native checkboxes, radios and ranges.
+- `:root { accent-color: var(--teal) }` applies to native radios and ranges. Checkboxes are the drawn `.check` box (below).
 - The theme's input rule is inside `:where()` and has zero specificity. A page class on an input always wins. Focus keeps the site's 2px teal outline. There is no `outline: none` and no halo.
 - `input`, `select` and `textarea` use `font: inherit`, so there is no browser Arial.
 - The scrollbar thumb rests at `--text-faint` everywhere (the `:root` default and the drawn `.sidescroll` bar). The drawn bar also turns teal on hover. `scrollbar-color` is inherited, so a nested vertical scroller sets at most `scrollbar-width` and takes the colour from `:root`. A thumb in `--line` or `--line-soft` (1.31:1) is rejected by `audit:styles` (`scrollbarThumb`).
@@ -153,9 +156,32 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 - It renders a `role="group"` of `<button class="filter-chip" aria-pressed>`. Tests find each option with `getByRole('button', { name })`.
 - The pinned chip is 32px tall (36px at ≤720), with a `--control-border` border, `var(--radius)` and the button voice (Rajdhani 600, 12px, uppercase, 0.09em). When picked it has a `--teal-dim` fill, teal text and a teal border.
 - **Never** use `cond ? 'primary' : 'ghost'` for a pick-one control or a toggle. `--teal-fill` is reserved for primary actions. `audit:styles` rejects the swap in TSX (`primaryToggle`, strict; `pages/dev` excepted). A button whose label says its state ("Play" / "Pause") keeps one class and takes no `aria-pressed`.
-- `.tgl` (the toolbar and settings switch, mono 11px) takes `.is-on` together with `aria-pressed`. On is the chip's picked state, not a fill.
+- `.tgl` (a mode switch in a dense toolbar, mono 11px) takes `.is-on` together with `aria-pressed`. On is the chip's picked state, not a fill. It is not for settings or options: those are `.check` checkboxes, and `audit:styles` (`tglOutsideToolbar`) rejects a `.tgl` in any file outside `TGL_SCOPE` (none today).
 - For filters that toggle independently (tags you can turn on together), render `.filter-chip` buttons directly with `aria-pressed`. The picked state reads `aria-pressed`, `aria-selected` or `aria-checked` (`.active` also works during migration).
 - Chip content can include `icon` (an 18px img or svg), `count`, and `ariaLabel` for icon-only chips.
+
+### Checkbox (`.check`)
+
+The control for a boolean or an option. A real checkbox inside its label, so the whole label is the hit area and a screen reader hears "checkbox, checked".
+
+```tsx
+<label className="check">
+  <input type="checkbox" checked={monthlyCard} onChange={(e) => setMonthlyCard(e.target.checked)} />
+  Monthly card
+</label>
+
+{/* A group of options */}
+<div role="group" aria-label="Recurring income">{options.map((o) => <label key={o.key} className="check">…</label>)}</div>
+
+{/* Visible text shorter than the name: aria-label on the input */}
+<label className="check"><input type="checkbox" aria-label="Include past rewards in forecast" … />Include</label>
+```
+
+- The box is drawn (`appearance: none`) from the tokens: an 18px `--control-border` box on `--well` at rest, a teal border on hover, the site's 2px focus ring, and when checked a teal tick over `--teal-dim` (the chip's "on", never `--teal-fill`). `:indeterminate` draws a bar (the music guesser's select-all). Disabled is `--text-faint` text on an inert box.
+- The label row is at least 32px tall and the text is Inter 13px in `--text`, turning teal on hover. A page may place and size the label (grid columns, padding, a smaller font, a card background like the stage guesser's list); it does not repaint the box, and no feature stylesheet styles `input[type=checkbox]`.
+- Uses today: `/pulls` recurring income (five sources and Monthly card), Include past rewards (two places), Include sparking, Already cleared and the unclaimed-rewards list; `/recruitment` Prioritize 4★+ and Robots; the stage guesser's chapter and event list; the music guesser's Include CN, release list and category select-all.
+- A toggle whose label says its state ("Craft" / "Crafting" in the planner) stays a button, and an independent filter stays a `.filter-chip` with `aria-pressed`; a setting or a list you tick is a checkbox.
+- Pick-one groups are not checkboxes: they are `SegmentedControl` (the music guesser's clip start and the stage guesser's search mode were radios and are segmented controls).
 
 ### Buttons
 
@@ -167,7 +193,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 | `.danger` | Destructive actions (Reset, Start over, Delete): red border and text |
 | `.btn-sm`, `.btn-lg` | Size modifiers |
 | `.btn-bare` | A `<button>` that is **not** a button: a card, a tile, a list row, an album cover. The base button rules skip it entirely (no uppercase, no tracking, no weight, no inline-flex centring, no teal hover), so your own class supplies the look. |
-| `.pick-card` | A selectable card (a preset, a banner). It has a `--control-border` frame and a teal hover. When picked (`aria-pressed`, `aria-selected`, `aria-checked` or `.is-selected`) it has a teal border over `--teal-dim`. Use it with `.btn-bare`. |
+| `.pick-card` | A selectable card (a preset, a banner). It has the quieter `--card-border` frame and a teal hover. When picked (`aria-pressed`, `aria-selected`, `aria-checked` or `.is-selected`) it has a teal border over `--teal-dim`. Use it with `.btn-bare`. |
 
 ```tsx
 <button type="button" className="btn-bare album-tile" onClick={open}>…</button>
@@ -326,6 +352,8 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `rawHex` (strict) | A hex literal that a token names | Use the token |
 | `scrollbarThumb` (strict) | A scrollbar thumb in `--line` or `--line-soft`, as `scrollbar-color`'s first colour or a `::-webkit-scrollbar-thumb` background | Drop the override and inherit `:root`'s `--text-faint` |
 | `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
+| `checkboxPrimitive` (strict) | An `<input type="checkbox">` in TSX whose nearest open `<label>` has no `check` class | Wrap it in `<label className="check">` and delete any page styling of the box |
+| `tglOutsideToolbar` (strict) | A `tgl` class in TSX outside the files in `TGL_SCOPE` (none today) | A setting or an option is a `.check` checkbox; a pick-one is `SegmentedControl`; an independent filter is a `.filter-chip` with `aria-pressed` |
 | `tealDecoration` (strict) | `var(--teal)`, `--teal-dim` or `--teal-fill` as a colour, background, border, outline or shadow on a selector with no state in it (`:hover`, `:focus`, `:checked`, `[aria-pressed]`, `[aria-current]`, `.current`, `.live`, `.open`...), in the folders of `TEAL_DECORATION_SCOPE` (`styles/stages/`) | Recolour it (`--text-dim`, `--heading` for a heading), or qualify the selector with the state it marks |
 
 ```sh
@@ -355,13 +383,14 @@ The test also fails when a page file under `pages/` is neither measured nor excl
 3. Section headings: `.op-section` plus `<h2>` (`--heading`, 18px) for sections and the global `h3` for sub-sections. Delete page-level heading colours, sizes and teal headings.
 4. Controls:
    - pick-one groups become `SegmentedControl`
+   - booleans and options (settings, lists you tick) are `.check` checkboxes, never chips or `.tgl`
    - independent filters become `.filter-chip` with `aria-pressed`
    - dropdowns become `StyledSelect`
    - search fields become `SearchInput`
    - cards that are buttons get `.btn-bare`, plus `.pick-card` if they are selectable
    - destructive actions get `.danger`
    - delete the module or page-local variants
-5. Borders on anything interactive use `var(--control-border)`, with hover to teal; picture and content cards use a transparent border instead, teal on hover and focus. Passive frames keep `--line` or `--line-soft`.
+5. Borders on anything interactive use `var(--control-border)`, with hover to teal; a large pressable surface (a row card, a `.pick-card`) uses `var(--card-border)`; picture and content cards use a transparent border instead, teal on hover and focus. Passive frames keep `--line` or `--line-soft`. Cells in a row share one centre line (rule 4).
 6. Replace rarity with `<Rarity>` or `.tier-N`. Categories use `--cat-*`. Replace any remaining literal colours with tokens (check the light theme).
 7. Radii come from tokens only (2, 3 or 4px).
 8. Horizontal rows use `ScrollRow` or `.sidescroll`. Nested vertical scrollers keep the default thumb. Put focus rings inside scrollers with `outline-offset: -2px`.

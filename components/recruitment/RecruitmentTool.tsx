@@ -250,11 +250,10 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                   <h2 id="recruit-results-title">Possible recruits</h2>
                   <span className="recruit-result-count" role="status">{visibleCombos.length} {visibleCombos.length === 1 ? 'combination' : 'combinations'}</span>
                 </div>
-                <div className="recruit-results-filter">
-                  <button type="button" className={`tgl${showAllPossibilities ? '' : ' is-on'}`} aria-pressed={!showAllPossibilities} onClick={() => updateView({ showAllPossibilities: !showAllPossibilities })}>
-                    Prioritize 4★+ and Robots
-                  </button>
-                </div>
+                <label className="check recruit-results-filter">
+                  <input type="checkbox" checked={!showAllPossibilities} onChange={(event) => updateView({ showAllPossibilities: !event.target.checked })} />
+                  Prioritize 4★+ and Robots
+                </label>
                 {!selectedTags.length ? (
                   <div className="recruit-empty-state">
                     <Image src="/item-icons/recruitment_permit.png" alt="" width={72} height={72} />

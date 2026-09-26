@@ -35,7 +35,9 @@
    Sizes: (base) 13px/12px26px · .btn-sm 12px/8px14px · .btn-lg 17px/13px24px
 
    ONE HOVER RULE for every control: border and text go to --teal. ONE resting
-   boundary: --control-border (3:1 or better on every surface), never --line.
+   boundary: --control-border (a soft 2.2-2.6:1 on the panel; the fill and the teal
+   hover say "control"), never --line. A large pressable surface -- a row card, a
+   .pick-card -- takes the quieter --card-border.
 
    .btn-bare is the escape hatch for a <button> that is not a button -- a card, a
    tile, a list row, an album cover. The base rules below say
@@ -164,14 +166,15 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 .btn-bare:disabled { cursor: default; }
 
-/* A card you pick: a preset, a banner, a mode. Resting boundary like any control;
-   picked is a teal border over --teal-dim, the same "on" as a chip. The content
+/* A card you pick: a preset, a banner, a mode. Resting boundary is --card-border,
+   the quieter edge of a large control (a long outline at the chip weight boxes in
+   half the page); picked is a teal border over --teal-dim, the same "on" as a chip. The content
    keeps its own colours -- only the frame says it is selected. Use it on a
    .btn-bare button (or a label wrapping a radio) and state the pick in aria-pressed,
    aria-selected or aria-checked. */
 .pick-card {
   display: block;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius-frame);
   background: var(--panel-grad);
   color: var(--text);
@@ -596,6 +599,89 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   .search-input-wrap .search-input { min-height: 40px; font-size: 16px; }
 }
 
+/* --- checkbox ------------------------------------------------------------
+   THE control for a boolean or an option: a setting that is on or off (Monthly
+   card, Include CN, Include sparking) and an item in a list you tick (the stage
+   guesser's chapters, the music guesser's releases). A real <input
+   type="checkbox"> inside its <label class="check">, so the label is the hit area
+   and a screen reader hears "checkbox, checked".
+
+     <label class="check"><input type="checkbox" checked={on} onChange={...} />Monthly card</label>
+
+   Never a .tgl or a .filter-chip with aria-pressed: #64 turned eleven of these into
+   highlighted buttons and the maintainer asked for the checkboxes back (2026-09-26).
+   audit:styles rejects a checkbox outside a .check label (checkboxPrimitive) and a
+   .tgl outside a toolbar (tglOutsideToolbar); tests/browser/checkboxes.spec.ts holds
+   the known option groups to real checkboxes.
+
+   The box is drawn (appearance: none) so it takes the tokens in both themes:
+   --control-border on --well at rest, the teal hover and the site's focus ring, and
+   when checked a teal tick over --teal-dim -- the same "on" as a picked chip, never
+   the primary fill (tests/browser/on-states.spec.ts). 18px box, and the label row is
+   32px tall at least, so the hit area clears 24px whatever the text. A page may place
+   and size the label; it does not repaint the box. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.check > input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--well);
+  cursor: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+/* The tick: the left and bottom borders of a small box, turned 45 degrees. Always
+   there and scaled to nothing when off, so checking it changes no metrics. */
+.check > input[type="checkbox"]::before {
+  content: '';
+  box-sizing: content-box;
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid var(--teal);
+  border-bottom: 2px solid var(--teal);
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+  transition: transform 0.12s ease;
+}
+.check:hover { color: var(--teal); }
+.check:hover > input[type="checkbox"] { border-color: var(--teal); }
+.check > input[type="checkbox"]:checked,
+.check > input[type="checkbox"]:indeterminate {
+  border-color: var(--teal);
+  background: var(--teal-dim);
+}
+.check > input[type="checkbox"]:checked::before { transform: translateY(-1px) rotate(-45deg) scale(1); }
+/* Some but not all (a select-all box over a list): a bar instead of the tick. */
+.check > input[type="checkbox"]:indeterminate::before {
+  width: 8px;
+  height: 0;
+  border-left: 0;
+  transform: none;
+}
+/* Disabled: the faint label says it; the box keeps its full border so the row still
+   reads as a checkbox (a faded --line box vanished on --panel-dim). */
+.check:has(> input[type="checkbox"]:disabled) { color: var(--text-faint); cursor: default; }
+.check:hover > input[type="checkbox"]:disabled { border-color: var(--control-border); }
+.check > input[type="checkbox"]:disabled { background: var(--panel-dim); }
+
 /* --- rarity accents -------------------------------------------------------
    Rarity colour comes from --rarity-1..6 and from these classes, nowhere else
    (npm run audit:styles rejects a colour literal in any rule whose selector names
@@ -641,7 +727,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  button, .btn, .tab, .filter-chip, .pick-card { transition: none; }
+  button, .btn, .tab, .filter-chip, .pick-card, .check, .check > input[type="checkbox"], .check > input[type="checkbox"]::before { transition: none; }
 }
 
 /* ==========================================================================
@@ -672,6 +758,10 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
        <span class="toolbar-spacer"></span>
        <button class="tgl">EN <i class="caret"></i></button>
      </div>
+
+   .tgl is for THIS: a mode switch in a dense toolbar row. A setting or an option in
+   a form -- "Include CN", "Monthly card" -- is a .check checkbox, and audit:styles
+   (tglOutsideToolbar) rejects a .tgl in any file not listed in its TGL_SCOPE.
 
    ALWAYS set flex-wrap on .toolbar. The pop-out window is user-resizable and
    the browser zoom control multiplies the squeeze: at 160% a 640px window
