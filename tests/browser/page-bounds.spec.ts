@@ -85,7 +85,10 @@ interface Measurement {
 async function measure(page: Page): Promise<Measurement> {
   return page.evaluate(() => {
     const de = document.documentElement;
-    const cw = de.clientWidth;
+    // The width the page lays out in. html has scrollbar-gutter: stable, so where the
+    // scrollbar is drawn (Linux and Windows Chromium) the frame centres in 1425 of 1440px,
+    // nav and content alike; on macOS the scrollbar overlays and the width is the full 1440.
+    const cw = Math.min(de.clientWidth, document.body.getBoundingClientRect().width);
     const frameLeft = cw >= 1040 ? (cw - 1040) / 2 + 24 : 24;
     const frameRight = cw >= 1040 ? (cw - 1040) / 2 + 1040 - 24 : cw - 24;
     const root = document.getElementById('page-content') || document.body;
