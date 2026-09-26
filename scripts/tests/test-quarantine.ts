@@ -84,7 +84,7 @@ test('a day that holds the same records leaves the file byte for byte, since it 
 
 test('a stage with nothing to report starts no quarantine file, but still clears its entries from one', () => {
   temporary(root => {
-    // A refresh run by hand, or the manual fallback's pull request: the file belongs to arkpedia-data.
+    // A refresh run by hand: the file belongs to arkpedia-data.
     assert.deepEqual(beginStage(root, 'item-icons', new Date('2026-09-23T12:00:00Z')).commit(), []);
     assert.equal(fs.existsSync(file(root)), false);
     const held = beginStage(root, 'item-icons', new Date('2026-09-23T12:00:00Z'));

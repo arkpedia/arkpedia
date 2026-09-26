@@ -485,8 +485,8 @@ export function summarize(root, { strict = false } = {}) {
 
 /*
  * The files that declare the refresh's stages, one `stage <name> ...` line each: the daily
- * workflow's refresh step and the stage-data script it calls (which the manual fallback
- * runs alone). A test holds every file that runs stages to this list.
+ * workflow's refresh step and the stage-data script it calls (which `npm run stages:refresh`
+ * runs alone, by hand). A test holds every file that runs stages to this list.
  */
 export const STAGE_DEFINITIONS = ['.github/workflows/prepare-content.yml', 'scripts/sync/refresh-stage-data.sh'];
 /** Every stage name the refresh declares, or null in a tree without the definitions (then
@@ -510,8 +510,8 @@ export function declaredStages(root) {
  * the daily issue, for good.
  * The reason (HOLD, kept on the report entry as `hold`) stays the same from day to day on
  * purpose: the file is published, and the day's exit and error text are in the stage report
- * and the issue. A clean run in a tree with no quarantine file (a local refresh, the manual
- * fallback's pull request) does not start one.
+ * and the issue. A clean run in a tree with no quarantine file (a local refresh) does not
+ * start one.
  */
 export function recordStageHolds(root, stages, now = defaultNow()) {
   if (!fs.existsSync(path.join(root, QUARANTINE_FILE)) && stages.every(entry => entry.status === 'ok')) return [];

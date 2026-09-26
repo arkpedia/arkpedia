@@ -127,11 +127,26 @@ in which a listed stage fields an enemy with no record or no `enemies-index.json
 
 ### Doing it on a schedule
 
-Routine updates use `.github/workflows/prepare-content.yml` at 16:57 UTC,
-after the public asset syncs. Unchanged upstream revisions skip expensive work.
-The refresh includes English voice transcripts and missing English profile/archive
-text, then proposes a reviewed release in `arkpedia-data`. The older
-`refresh-stage-data.yml` workflow is a manual bundled-fallback tool only.
+Routine updates use `.github/workflows/prepare-content.yml` (the schedule and the
+gates are in [runtime content](runtime-content.md)). Unchanged upstream revisions skip
+expensive work. The refresh includes English voice transcripts and missing English
+profile/archive text, then publishes a release to `arkpedia-data`. It is the only
+workflow that runs `stages:refresh` or `assets:update`
+(`scripts/tests/test-workflow-files.ts` holds that).
+
+The app's own `data/` is never rebuilt from upstream on a schedule. It is the bundled
+fallback (Check, the browser specs, `ARKPEDIA_CONTENT_DISABLED=1`), and it follows the
+canonical records in `arkpedia-data`, not the mirrors:
+
+```bash
+node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> data/stages data/stage-geometry public/stages-index.json
+node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> --check data/stages   # exits 1 on a difference
+```
+
+A workflow that used to rebuild `data/` from upstream and open a pull request into this
+repository (`refresh-stage-data.yml`) was retired on 2026-09-26: its bundle could diverge
+from `arkpedia-data` (a hand correction made there was overwritten in the app copy), and
+merging it re-pinned the deploy's assets and deployed production.
 
 New supported records can reach the site without a website deployment through
 [runtime content releases](runtime-content.md). New mechanics, schemas and UI

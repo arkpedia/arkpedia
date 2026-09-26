@@ -20,7 +20,7 @@ node_modules/
 .turbo/
 .eslintcache
 
-# Upstream data pulled by scripts/refresh-stage-data.sh for the data builds --
+# Upstream data pulled by scripts/sync/refresh-stage-data.sh for the data builds --
 # 458MB of someone else's repo.
 .cache/
 

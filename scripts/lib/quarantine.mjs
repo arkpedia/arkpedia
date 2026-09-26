@@ -13,8 +13,8 @@
  * under its name with the ones it reported this run, so a record that recovered drops
  * off by itself; a key reported again keeps its firstSeen. A stage that did not run
  * (it failed, or was skipped) leaves its entries as they were. Dates are UTC days. A
- * stage with nothing to report in a tree with no file (a refresh run by hand, the manual
- * fallback's pull request) does not start one: the file belongs to arkpedia-data.
+ * stage with nothing to report in a tree with no file (a refresh run by hand) does not
+ * start one: the file belongs to arkpedia-data.
  *
  * Nothing in an entry changes by itself: only a new reason, action or sourceRef changes
  * it, so a day that holds the same records rewrites the file to the same bytes. The file
