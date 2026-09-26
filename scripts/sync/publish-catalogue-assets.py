@@ -33,6 +33,13 @@ A reason names the file and which step failed, never the day's error text (the l
 that) nor the plan's revision (the sourceRef carries it): data/quarantine.json is a release
 input, so an outage that answers 502 one day and refuses the connection the next, or a
 mirror that commits overnight, must not make each day a new release.
+
+A staged file left out is only logged, never held here: the importer that staged it already
+holds it under its own stage until a run publishes it (stage-render:pa-4 under
+'stage-renders', item-icon:<id> under 'item-icons', ...; config/staged-art.json), and runs
+again after this stage when anything else of its kind was published, staging and holding it
+anew. A second entry here named the same file twice in the day's issue (A1 of the 2026-09
+rehearsal: art:stages-images/pa-4.webp beside stage-render:pa-4).
 """
 import argparse, hashlib, importlib.util, io, json, re, subprocess, sys, urllib.parse
 from pathlib import Path
@@ -177,7 +184,9 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
         source, local = entry.get('sourcePath'), entry.get('localPath')
         titles = ['File:'+t for t in entry.get('wikiFiles') or []]
         def left_out(why, ref=(source or entry.get('source') or (titles[0] if titles else None)), error=None):
-            if error is not None: print(f'Left out {target}: {why}: {error}', file=sys.stderr)
+            print(f'Left out {target}: {why}' + (f': {error}' if error is not None else ''), file=sys.stderr)
+            # A staged file's importer holds it already (see the header): one entry per file.
+            if local: return
             alerts.append({'key':f'art:{target}','action':'published-partial',
                 **({'sourceRef':ref} if ref else {}),'reason':f'{why}; the record is published without {target} until a later run imports it.'})
         if local:

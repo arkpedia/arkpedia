@@ -172,7 +172,10 @@ push), re-pins the records that name art by revision as the `media-pins` stage d
 each importer that staged something again, so the records point at the files and their
 quarantine entries clear in the same run, and the next day's run finds nothing to publish. If anything after
 the push fails, the stage is rolled back with the asset pins, and the next run adopts what
-was pushed. A running event's stage with a map and still no preview is held by the
+was pushed. A staged file the publisher leaves out (gone, changed since it was staged, or
+not an image) is only logged: the importer that staged it holds it under its own stage
+(`stage-render:<stem>`, `item-icon:<id>`, ...) until a run publishes it, so it is one entry in
+the daily issue, not two. A running event's stage with a map and still no preview is held by the
 completeness stage (`stage-preview:<slug>`) whatever the reason. Run on its own,
 `refresh-stage-data.sh` stages and reports, and publishes nothing.
 

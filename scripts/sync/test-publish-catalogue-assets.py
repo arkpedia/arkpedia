@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import redirect_stderr
 from unittest.mock import patch
 from urllib.parse import parse_qsl, urlparse
 sys.dont_write_bytecode = True
@@ -321,21 +322,27 @@ class StagedArt(unittest.TestCase):
             mapped = json.loads((image_root/'asset-source-map.json').read_text())['files']["material-icons/Test's Token.webp"]
         self.assertEqual((row['width'], row['height'], mapped['maxWidth']), (183, 183, 183))
 
-    def test_a_staged_file_changed_after_staging_or_undecodable_is_left_out_and_reported(self):
+    def test_a_staged_file_changed_after_staging_undecodable_or_gone_is_left_out_and_logged_but_not_held_again(self):
+        # Its importer holds it until a run publishes it (stage-render:pa-2 under
+        # stage-renders), so an entry here would name the same file twice in the day's issue.
         with tempfile.TemporaryDirectory() as temporary:
             app, image_root = Path(temporary)/'app', Path(temporary)/'image'
             (app/'data').mkdir(parents=True)
             asset_repository(image_root)
             staged_file(app, 'stage-renders', 'stages-images/pa-1.webp', png('#101010', (320, 180)))
             staged_file(app, 'stage-renders', 'stages-images/pa-2.webp', png('#111111', (320, 180)))
+            staged_file(app, 'stage-renders', 'stages-images/pa-4.webp', png('#141414', (320, 180)))
             staged_file(app, 'ra-maps', 'stages-images/ra-9.webp', b'<html>not a map</html>')
             (app/'.cache/stage-renders/pa-2.png').write_bytes(png('#999999', (320, 180)))
-            alerts = []
-            built = publish.build(publish.staged_plan(app), image_root, None, alerts, app)
+            (app/'.cache/stage-renders/pa-4.png').unlink()
+            alerts, log = [], io.StringIO()
+            with redirect_stderr(log):
+                built = publish.build(publish.staged_plan(app), image_root, None, alerts, app)
         self.assertEqual(built, ['stages-images/pa-1.webp'])
-        self.assertEqual({a['key']: a['reason'].split(';')[0] for a in alerts}, {
-            'art:stages-images/pa-2.webp': 'The staged file .cache/stage-renders/pa-2.png is not the file its importer staged',
-            'art:stages-images/ra-9.webp': '.cache/ra-maps/ra-9.png is not an image that decodes'})
+        self.assertEqual(alerts, [])
+        self.assertIn('Left out stages-images/pa-2.webp: The staged file .cache/stage-renders/pa-2.png is not the file its importer staged', log.getvalue())
+        self.assertIn('Left out stages-images/pa-4.webp: The staged file .cache/stage-renders/pa-4.png could not be read: ', log.getvalue())
+        self.assertIn('Left out stages-images/ra-9.webp: .cache/ra-maps/ra-9.png is not an image that decodes: ', log.getvalue())
 
     def test_a_staged_path_outside_the_cache_is_refused(self):
         with tempfile.TemporaryDirectory() as temporary:

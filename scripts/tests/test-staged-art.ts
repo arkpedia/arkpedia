@@ -197,6 +197,51 @@ test('stage renders: a published render reaches every form of its layout, the re
   });
 });
 
+test('a staged render the publisher leaves out is held once, by the importer that staged it, before and after the adoption rerun', () => {
+  // A1 of the 2026-09 rehearsal: a staged file gone before the publish was held twice, as
+  // art:stages-images/pa-4.webp under staged-art and stage-render:pa-4 under stage-renders.
+  temporary(root => {
+    write(root, 'en/excel/stage_table.json', { stages: STAGES });
+    for (const record of RECORDS) write(root, `data/stages/${record.slug}.json`, record);
+    write(root, 'data/assets/external-asset-index.json', { files: ['stages-images/1-1.webp'] });
+    write(root, 'data/excluded-contents.json', {});
+    write(root, 'data/quarantine.json', `${JSON.stringify({ version: 1, entries: [] }, null, 2)}\n`);
+    for (const [name, rgba] of [['act99side_01.png', [1, 1, 1, 255]], ['act99side_02_b.png', [2, 2, 2, 255]], ['act99side_03_1.png', [3, 3, 3, 255]]] as const) {
+      write(root, `cn/map/${name}`, png(320, 180, [...rgba]));
+    }
+    const env = { ...process.env, ARKPEDIA_EN: path.join(root, 'en'), ARKPEDIA_CN: path.join(root, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_NOW: '2026-09-26T12:00:00Z' };
+    const importRenders = () => {
+      const result = spawnSync('node', [path.join(REPO, 'scripts/imports/import-stage-renders.mjs')], { cwd: root, encoding: 'utf8', env });
+      assert.equal(result.status, 0, result.stderr);
+    };
+    // The image repository as the publisher needs it: a manifest, a source map and a validator.
+    const images = path.join(root, 'image-assets');
+    write(images, 'asset-manifest.json', '{"version":1,"files":{}}\n');
+    write(images, 'asset-source-map.json', `${JSON.stringify({ version: 1, sourceRepository: 'https://github.com/yuanyan3060/ArknightsGameResource', files: {} }, null, 2)}\n`);
+    write(images, 'scripts/validate_images.py', 'print("validated")\n');
+    execFileSync('git', ['init', '-q', '-b', 'main', images]);
+    const naming = (file: string) => (readJson(root, 'data/quarantine.json').entries as { key: string; stage: string; reason: string }[])
+      .filter(entry => entry.key.includes(file) || entry.reason.includes(file)).map(entry => `${entry.stage} ${entry.key}`);
+
+    importRenders();
+    assert.deepEqual(naming('zz-1'), ['stage-renders stage-render:zz-1']);
+    fs.rmSync(path.join(root, '.cache/stage-renders/zz-1.png'));
+    const publisher = path.join(REPO, 'scripts/sync/publish-catalogue-assets.py');
+    execFileSync('python3', [publisher, 'plan-staged', '.cache/staged-art/asset-plan.json'], { cwd: root, env, stdio: 'pipe' });
+    const published = spawnSync('python3', [publisher, '.cache/staged-art/asset-plan.json', images, '--stage', 'staged-art', '--published', 'published.json'], { cwd: root, env, encoding: 'utf8' });
+    assert.equal(published.status, 0, published.stderr);
+    assert.match(published.stderr, /Left out stages-images\/zz-1\.webp: The staged file \.cache\/stage-renders\/zz-1\.png could not be read/, 'the log says why');
+    assert.deepEqual(Object.keys(readJson(root, 'published.json').files), ['stages-images/zz-2.webp', 'stages-images/zz-3.webp']);
+    assert.deepEqual(naming('zz-1'), ['stage-renders stage-render:zz-1'], 'one entry for the file');
+    assert.deepEqual(held(root, 'staged-art'), []);
+    // The adoption rerun (zz-2 and zz-3 were published): zz-1 is staged again and still held once.
+    write(root, 'data/assets/external-asset-index.json', { files: ['stages-images/1-1.webp', 'stages-images/zz-2.webp', 'stages-images/zz-3.webp'] });
+    importRenders();
+    assert.deepEqual(naming('zz-1'), ['stage-renders stage-render:zz-1']);
+    assert.deepEqual(held(root, 'stage-renders'), ['stage-render:zz-1']);
+  });
+});
+
 test('stage renders: without the CN art the published ones are still adopted and the waiting entries stay as they were', () => {
   const { adopt, stage } = planRenders({ stages: STAGES, records: RECORDS, published: new Set(['1-1']), mapFiles: null, excluded: new Set() });
   assert.deepEqual([...adopt.keys()].sort(), ['1-1', '1-1_challenge_mode']);
