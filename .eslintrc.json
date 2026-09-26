@@ -22,6 +22,7 @@
         "pages/games/color-palette.tsx",
         "pages/games/music-guesser.tsx",
         "pages/planner.tsx",
+        "pages/community.tsx",
         "components/schedule/EventsPanel.tsx"
       ],
       "rules": {
