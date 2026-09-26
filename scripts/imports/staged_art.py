@@ -54,6 +54,11 @@ class Staging:
         """Where the file for `target` is staged: its destination's stem, the source's extension."""
         return self.dir/f'{Path(target).stem}.{extension}'
 
+    def previous(self, target):
+        """The file an earlier run on this machine staged for `target`, in whichever format the
+        source served it, or None."""
+        return next((file for extension in FORMATS.values() if (file := self.path(target, extension)).exists()), None)
+
     def stage(self, target, data, *, source, mirror=None):
         """Stage `data` (the image's bytes) for `target`, a path in the image repository.
 

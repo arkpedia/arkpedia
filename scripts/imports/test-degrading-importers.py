@@ -232,10 +232,18 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertEqual((entry['key'], entry['stage'], entry['action'], entry['sourceRef']),
                              ('ra-map:ra-new-season-1', 'ra-maps', 'published-partial', f'{base}/upload/0.png'))
             self.assertIn('no run has published it to arkpedia-image-assets as stages-images/ra-new-season-1.webp yet', entry['reason'])
-            # Staged already: the next run reports it again without downloading it again.
-            (Path(root)/'.cache/ra-maps/ra-new-season-1.png').write_bytes(b'kept')
+            # Staged already, in whatever format the wiki served it (a webp here): the next run
+            # lists it again for the staged-art stage and reports it, without downloading it
+            # again -- the wiki would have answered with the PNG.
+            (Path(root)/'.cache/ra-maps/ra-new-season-1.png').unlink()
+            kept = io.BytesIO()
+            Image.new('RGB', (40, 30), (1, 2, 3)).save(kept, 'WEBP')
+            (Path(root)/'.cache/ra-maps/ra-new-season-1.webp').write_bytes(kept.getvalue())
             run('import_ra_maps.py', root, ARKPEDIA_WIKI_BASE=base)
-            self.assertEqual((Path(root)/'.cache/ra-maps/ra-new-season-1.png').read_bytes(), b'kept')
+            self.assertEqual({target: row['file'] for target, row in staged(root, 'ra-maps').items()},
+                             {'stages-images/ra-new-season-1.webp': 'ra-new-season-1.webp'})
+            self.assertEqual((Path(root)/'.cache/ra-maps/ra-new-season-1.webp').read_bytes(), kept.getvalue())
+            self.assertFalse((Path(root)/'.cache/ra-maps/ra-new-season-1.png').exists())
             self.assertEqual([e['key'] for e in entries(root)], ['ra-map:ra-new-season-1'])
 
     def test_ra_maps_reports_a_download_that_is_not_an_image(self):

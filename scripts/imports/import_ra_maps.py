@@ -180,11 +180,11 @@ def main():
         title, url = hit
         # Keyed by slug, so two stages sharing a name each get their own file rather
         # than one of them pointing at the other's.
-        target = staging.path(f'stages-images/{slug}.webp', 'png')
+        previous = staging.previous(f'stages-images/{slug}.webp')
         data = fetched.get(url)
-        if data is None and not refetch and target.exists():
+        if data is None and not refetch and previous:
             # Staged by an earlier run on this machine: listed again, not downloaded again.
-            data = target.read_bytes()
+            data = previous.read_bytes()
         if data is None:
             req = urllib.request.Request(url, headers={'User-Agent': UA})
             try:
@@ -204,11 +204,11 @@ def main():
                            'reason': f'{title} is not an image that decodes; the stage is published without a map.'})
             continue
         # As the wiki serves it: the publisher encodes it, as stages-images/ takes it.
-        staging.stage(f'stages-images/{slug}.webp', data, source=url)
+        staged_file = staging.stage(f'stages-images/{slug}.webp', data, source=url)
         # preview stays null: it would name a file readers cannot load yet.
         staged += 1
         alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
-                       'reason': f'The map of {name} is staged as .cache/ra-maps/{slug}.png from {title}, but no run has '
+                       'reason': f'The map of {name} is staged as .cache/ra-maps/{staged_file.name} from {title}, but no run has '
                                  f'published it to arkpedia-image-assets as stages-images/{slug}.webp yet; the stage is '
                                  'published without one until one does.'})
 

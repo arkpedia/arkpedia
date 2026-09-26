@@ -6,8 +6,11 @@
 // which is what the game does with them too.
 //
 // Render availability combines the pinned public asset index with any local
-// previews generated during import. New renders still need publication before
-// the refreshed dataset can be merged.
+// previews generated during import: a stage gets a preview only when the render
+// its layout is named after is published. A render that is not published yet is
+// fetched by scripts/imports/import-stage-renders.mjs from the CN mirror's map/
+// (the same groups and names as here), published by the release's staged-art
+// stage and adopted in the same run; see docs/development/data-pipelines.md.
 import fs from 'node:fs';
 import path from 'node:path';
 import { SlugSet, slug, stageSlug } from './names.mjs';

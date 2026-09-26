@@ -15,8 +15,9 @@
 # built again on top of it (a file that is there now is skipped), and the push is retried, up
 # to four attempts in all. A plan that does not build is not retried: that is not the network.
 #
-# After the push the run adopts the new revisions (npm run assets:update). In --staged mode it
-# then runs the importers again (scripts/sync/adopt-staged-art.mjs). The whole of it is one
+# After the push the run adopts the new revisions (npm run assets:update). In --staged mode,
+# once the adopted revisions list every file it published (asked again while GitHub still
+# reports the old head), it runs the importers again (scripts/sync/adopt-staged-art.mjs). The whole of it is one
 # refresh stage: if anything after the push fails, the stage's changes under data/ -- the
 # asset pins with the rest -- are put back, so no record points at a file the release does
 # not pin, and the next run, pinning the new head, adopts what was pushed.
@@ -85,5 +86,20 @@ for try in $(seq 1 "$attempts"); do
   echo "A clone or push did not go through (attempt $try of $attempts); starting over from the new head in $((backoff * try))s." >&2
   sleep $((backoff * try))
 done
-npm run assets:update
-if [ "$mode" = staged ]; then node scripts/sync/adopt-staged-art.mjs "$work/published.json"; fi
+if [ "$mode" = catalogue ]; then npm run assets:update; exit 0; fi
+# GitHub's API, which assets:update pins the head by, can answer with the commit from before
+# the push for a moment. Adopting that would find none of the files published, and every
+# importer would run again for nothing; so the adopted index must list every file this run
+# published, asked again until it does, and after the last attempt the stage fails (and is
+# rolled back): the next run, pinning a head that has them, adopts them.
+for try in $(seq 1 "$attempts"); do
+  npm run assets:update
+  if node scripts/sync/adopt-staged-art.mjs --check "$work/published.json"; then break; fi
+  if [ "$try" = "$attempts" ]; then
+    echo "The image repository's head as GitHub reports it still lacks what this run pushed; nothing is adopted." >&2
+    exit 1
+  fi
+  echo "The adopted revisions do not include what this run pushed yet (attempt $try of $attempts); asking again in $((backoff * try))s." >&2
+  sleep $((backoff * try))
+done
+node scripts/sync/adopt-staged-art.mjs "$work/published.json"

@@ -15,7 +15,7 @@ import zlib from 'node:zlib';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { planRenders, renderCandidates } from '../imports/import-stage-renders.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { adoptions } from '../sync/adopt-staged-art.mjs';
+import { adoptions, adoptStagedArt, unadopted } from '../sync/adopt-staged-art.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { reviewCompleteness, stageMapRows } from '../content/check-completeness.mjs';
 import { emptyCatalogue } from './fixtures/catalogue';
@@ -114,6 +114,28 @@ test('the adopt pass reruns each kind with anything published once, in the regis
     [{ kind: 'stage-renders', files: 2, command: REGISTRY['stage-renders'].adopt }, { kind: 'album-covers', files: 1, command: REGISTRY['album-covers'].adopt }]);
   assert.deepEqual(adoptions({ files: {} }), []);
   assert.throws(() => adoptions({ files: { 'stages-images/x.webp': 'wiki-scrape' } }), /not a staged art kind/);
+});
+
+test('nothing is adopted while the adopted revisions lack a file this run published', () => {
+  temporary(root => {
+    write(root, 'data/assets/external-asset-index.json', { files: ['stages-images/pa-1.webp'] });
+    write(root, 'data/quarantine.json', { version: 1, entries: [] });
+    const published = { files: { 'stages-images/pa-1.webp': 'stage-renders', 'stages-images/pa-2.webp': 'stage-renders' } };
+    write(root, 'published.json', published);
+    assert.deepEqual(unadopted(published, root), ['stages-images/pa-2.webp']);
+    const ran: string[][] = [];
+    const run = (command: string, args: string[]) => { ran.push([command, ...args]); return { status: 0 }; };
+    assert.throws(() => adoptStagedArt(path.join(root, 'published.json'), { root, run, log: () => {} }),
+      /do not include 1 file\(s\) this run published \(stages-images\/pa-2\.webp\); nothing is adopted/);
+    assert.deepEqual(ran, [], 'no importer runs against revisions without its files');
+    const check = spawnSync('node', [path.join(REPO, 'scripts/sync/adopt-staged-art.mjs'), '--check', 'published.json'], { cwd: root, encoding: 'utf8' });
+    assert.equal(check.status, 1);
+    assert.match(check.stderr, /not in the adopted revisions yet: stages-images\/pa-2\.webp/);
+    write(root, 'data/assets/external-asset-index.json', { files: ['stages-images/pa-1.webp', 'stages-images/pa-2.webp'] });
+    assert.equal(spawnSync('node', [path.join(REPO, 'scripts/sync/adopt-staged-art.mjs'), '--check', 'published.json'], { cwd: root }).status, 0);
+    adoptStagedArt(path.join(root, 'published.json'), { root, run, log: () => {} });
+    assert.deepEqual(ran, [REGISTRY['stage-renders'].adopt]);
+  });
 });
 
 /* ---- stage renders -------------------------------------------------------------- */
@@ -258,9 +280,13 @@ if [[ " $* " == *" push "* ]] && [ ! -e "${root}/raced" ]; then
 fi
 exec "${realGit}" "$@"
 `);
+    // The first time after the push GitHub's API still reports the head from before it, as it
+    // can for a moment: the index is written from main~1, and the stage has to ask again.
     shim('npm', `#!/bin/sh
 [ "$*" = "run assets:update" ] || exit 64
-exec node -e 'const {execFileSync}=require("child_process"),fs=require("fs");const m=JSON.parse(execFileSync("git",["-C",process.argv[1],"show","main:asset-manifest.json"]));fs.writeFileSync("data/assets/external-asset-index.json",JSON.stringify({files:Object.keys(m.files).sort()}))' "${bare}"
+echo x >> "${root}/assets-updates"
+rev=main; [ -e "${root}/raced" ] && [ "$(wc -l < "${root}/assets-updates")" -eq 1 ] && rev=main~1
+exec node -e 'const {execFileSync}=require("child_process"),fs=require("fs");const m=JSON.parse(execFileSync("git",["-C",process.argv[1],"show",process.argv[2]+":asset-manifest.json"]));fs.writeFileSync("data/assets/external-asset-index.json",JSON.stringify({files:Object.keys(m.files).sort()}))' "${bare}" "$rev"
 `);
     const env = { ...process.env, PATH: `${shims}:${process.env.PATH}`, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1',
       ARKPEDIA_CN: path.join(app, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_NOW: '2026-09-26T20:00:00Z',
@@ -279,6 +305,10 @@ exec node -e 'const {execFileSync}=require("child_process"),fs=require("fs");con
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     if (process.env.DEBUG_STAGED_ART) console.log(result.stdout, result.stderr);
     assert.match(result.stderr, /A clone or push did not go through \(attempt 1 of 4\); starting over from the new head/);
+    // A stale head is not adopted: it lacked the icon, so the index was asked for again.
+    assert.match(result.stderr, /not in the adopted revisions yet: item-icons\/act99side_token_new\.png/);
+    assert.match(result.stderr, /The adopted revisions do not include what this run pushed yet \(attempt 1 of 4\)/);
+    assert.equal(fs.readFileSync(path.join(root, 'assets-updates'), 'utf8'), 'x\nx\n');
 
     // Landed on top of the other job's commit, which kept its file and its manifest row.
     const log = git(bare, 'log', '--format=%s', 'main').trim().split('\n');
