@@ -45,7 +45,11 @@
  *   that were in the catalogue before this stage existed are not flagged: the 2026-09-08
  *   review (docs/archive/music-player-catalogue-review-2026-09-08.md) found no verified
  *   upload for them.
- * - album:<cid>, published-partial: an album with no cover in the image repository yet.
+ * - album:<cid>, published-partial: an album with no cover in the image repository yet. Its
+ *   cover is fetched from Monster Siren's own address (coverUrl) and staged in
+ *   .cache/album-covers/ (scripts/lib/staged-art.mjs); the release's staged-art stage
+ *   publishes it as album-covers/<name>_cover.webp and then runs `--adopt-covers`, which
+ *   fills in the cover filename and drops this entry without asking Monster Siren again.
  * - song:<cid>, omitted-new: a new track on an album already filed as an Event or Vignette
  *   OST. The song guesser's suite requires every such track to have a disposition (an
  *   in-game use, or an exclusion in data/music-guesser-review.json), so importing it bare
@@ -54,16 +58,19 @@
  *   reach Monster Siren: the track is still missing then, and its entry here (kept, since
  *   the stage did not run) is what the suite accepts it by (exclusionsOutsideLibrary).
  *
- * Usage: node scripts/sync/sync-albums.mjs [--dry-run]
+ * Usage: node scripts/sync/sync-albums.mjs [--dry-run | --adopt-covers]
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { beginStage, defaultNow, readQuarantine } from '../lib/quarantine.mjs';
+import { beginStaging, imageExtension } from '../lib/staged-art.mjs';
 import { coverUploadDate, normalizeReleaseDate, parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 
 export const API = 'https://monster-siren.hypergryph.com/api';
 export const STAGE = 'albums';
+// Where Monster Siren serves album covers; a cover anywhere else is not fetched.
+const COVER_HOST = /^(?:[a-z0-9-]+\.)*hycdn\.cn$/;
 const ALBUMS = 'data/albums.json';
 // Fewer than this and the listing is truncated or its schema changed: refuse, as the
 // lyrics sync refuses a song list under 500.
@@ -373,6 +380,63 @@ export function exclusionsOutsideLibrary({ excluded, albums, quarantine }) {
   return [...excluded].map(String).filter(id => !library.has(id) && !waiting.has(id)).sort();
 }
 
+/**
+ * Stages the cover of every album the image repository has no cover for, from Monster
+ * Siren's own address, for the staged-art stage to publish. One that cannot be fetched, or
+ * is not an image, is logged and waits for the next run; its album stays flagged either way.
+ */
+export async function stageCovers({ root, albums, fetcher, log }) {
+  const staging = beginStaging('album-covers', root);
+  let staged = 0;
+  for (const album of albums) {
+    if (album.coverFilename || !album.coverUrl || typeof album.albumName !== 'string') continue;
+    let host;
+    try { host = new URL(album.coverUrl).hostname; } catch { host = ''; }
+    if (!COVER_HOST.test(host)) { log(`  ! album ${album.albumId}: cover ${album.coverUrl} is not on Monster Siren's host; not fetched`); continue; }
+    try {
+      const response = await fetcher(album.coverUrl, { signal: AbortSignal.timeout(60_000) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!imageExtension(bytes)) throw new Error('not an image');
+      staging.stage(`album-covers/${coverFilenameFor(album.albumName)}`, bytes, { source: album.coverUrl });
+      staged++;
+    } catch (error) {
+      log(`  ! album ${album.albumId}: its cover ${album.coverUrl} could not be staged (${error.message})`);
+    }
+  }
+  staging.commit();
+  if (staged) log(`${staged} album cover(s) staged in .cache/album-covers/ for arkpedia-image-assets`);
+  return staged;
+}
+
+/**
+ * After the staged-art stage published covers: the cover filename of every album whose cover
+ * the image repository now has, and the stage's entries for those albums dropped -- the rest
+ * of the stage's entries as they were, and no request to Monster Siren.
+ */
+export function adoptCovers({ root = process.cwd(), now = defaultNow(), log = console.log } = {}) {
+  const file = path.join(root, ALBUMS);
+  const text = fs.readFileSync(file, 'utf8');
+  const albums = JSON.parse(text);
+  const assets = readAssets(root);
+  const fields = new Map();
+  for (const album of albums) {
+    const { coverFilename } = albumFieldFixes(album, assets);
+    if (coverFilename) fields.set(String(album.albumId), { coverFilename });
+  }
+  if (!fields.size) { log('No album gained a published cover.'); return []; }
+  fs.writeFileSync(file, applyPlan(text, { fields }));
+  const stage = beginStage(root, STAGE, now);
+  for (const entry of readQuarantine(root).entries) {
+    if (entry.stage !== STAGE) continue;
+    if (entry.action === 'published-partial' && fields.has(entry.key.replace(/^album:/, '')) && entry.key.startsWith('album:')) continue;
+    stage.add(entry);
+  }
+  stage.commit();
+  for (const [id, { coverFilename }] of fields) log(`  ~ album ${id} coverFilename: "" -> ${JSON.stringify(coverFilename)}`);
+  return [...fields.keys()];
+}
+
 function readAssets(root) {
   for (const file of ['data/assets/external-asset-index.json', 'data/public-asset-index.json']) {
     const at = path.join(root, file);
@@ -456,6 +520,7 @@ export async function syncAlbums({ root = process.cwd(), fetcher = fetch, now = 
     return { newAlbums, newSongs, fields, entries, text: out };
   }
   if (out !== text) fs.writeFileSync(file, out);
+  await stageCovers({ root, albums: after, fetcher, log });
   const stage = beginStage(root, STAGE, now);
   for (const entry of entries) stage.add(entry);
   const written = stage.commit();
@@ -464,5 +529,6 @@ export async function syncAlbums({ root = process.cwd(), fetcher = fetch, now = 
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  syncAlbums({ dryRun: process.argv.includes('--dry-run') }).catch(error => { console.error(error); process.exitCode = 1; });
+  if (process.argv.includes('--adopt-covers')) adoptCovers();
+  else syncAlbums({ dryRun: process.argv.includes('--dry-run') }).catch(error => { console.error(error); process.exitCode = 1; });
 }

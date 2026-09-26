@@ -31,10 +31,11 @@ up in dev.
 NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets, and a
 file in this repository's public/ is refused by check:assets, which the daily release
 runs: writing the crest there turned every SUCCESSFUL download into a blocked release.
-A downloaded crest is staged in .cache/nation-marks/ instead, and stays out of
-data/nation-marks.json -- the card keeps its fallback -- until the image repository
-publishes it; meanwhile it is reported under 'nation-marks' with its source and the path
-it must be published at.
+A downloaded crest's mask is staged in .cache/nation-marks/ instead, as a lossless PNG
+(staged_art.py); the release's staged-art stage publishes it and runs this again, which
+maps it. Until then it stays out of data/nation-marks.json -- the card keeps its
+fallback -- and is reported under 'nation-marks' with its source and the path it must
+be published at.
 
 The wiki is only asked about crests that are not published yet -- none today -- and it
 never fails the refresh: a crest it cannot serve leaves that card on its fallback and
@@ -46,6 +47,7 @@ not publish a release each day.
 """
 from published_assets import published_assets
 from quarantine import WIKI_API, report
+from staged_art import Staging
 import json
 import os
 import re
@@ -67,8 +69,6 @@ UA = 'Arkpedia-import/1.0 (+https://arkpedia.net) python-urllib'
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 root = os.getcwd()
-# Never public/: see the header.
-out_dir = os.path.join(root, '.cache', 'nation-marks')
 index_file = os.path.join(root, 'data', 'nation-marks.json')
 
 # Æ is a letter, not an accent, so NFKD leaves it alone; the rest fold on their own.
@@ -147,6 +147,7 @@ def main() -> int:
     index = {}
     fetched = 0
     handled = set()
+    staging = Staging('nation-marks', root)
     for cid, nation in sorted(wanted.items()):
         file = f'{slug(nation)}.webp'
         if nation not in unpublished:
@@ -180,17 +181,16 @@ def main() -> int:
                            'reason': f'The {nation} crest the wiki serves is not an image that decodes; its Annihilation cards '
                                      'are published without it.'})
             continue
-        os.makedirs(out_dir, exist_ok=True)
-        crest.save(os.path.join(out_dir, file), 'WEBP', lossless=True, method=6)
+        staged = staging.image(f'nation-marks/{file}', crest, source=url)
         fetched += 1
-        size = os.path.getsize(os.path.join(out_dir, file))
-        print(f'  {file:18} {crest.size[0]}x{crest.size[1]:<4} {round(size / 1024):3}KB  <- {nation}')
+        print(f'  {file:18} {crest.size[0]}x{crest.size[1]:<4} {round(staged.stat().st_size / 1024):3}KB  <- {nation}')
         # Left out of the index: the card would point at a file readers cannot load yet.
         alerts.append({'key': f'nation-mark:{slug(nation)}', 'action': 'published-partial', 'sourceRef': url,
-                       'reason': f'The {nation} crest is staged as .cache/nation-marks/{file}, but nothing publishes it; '
-                                 f'its Annihilation cards are published without it until nation-marks/{file} is added '
-                                 'to arkpedia-image-assets.'})
+                       'reason': f'The {nation} crest is staged as .cache/nation-marks/{staged.name}, but no run has published it '
+                                 f'to arkpedia-image-assets as nation-marks/{file} yet; its Annihilation cards are published '
+                                 'without it until one does.'})
 
+    staging.commit()
     with open(index_file, 'w', encoding='utf-8') as f:
         json.dump(index, f)
     print(f'{fetched} new crest(s) staged in .cache/nation-marks/ for arkpedia-image-assets, '

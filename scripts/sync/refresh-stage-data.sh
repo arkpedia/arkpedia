@@ -40,9 +40,15 @@ fi
 # to rebuild its own data even if every other repo in the project goes away. Each
 # checkout is at the commit pinned for its repository (scripts/lib/upstream.sh).
 #
-# CN art: the CCB map renders and the item icons, which only yuanyan3060 carries. Not
-# an invariant: without it, item-icons is skipped and cc-stages publishes the renders
-# the image repository has; the tables still come from the mirror upstream-cn chose.
+# CN art: the stage and CCB map renders and the item icons, which only yuanyan3060
+# carries. Not an invariant: without it, item-icons and stage-renders are skipped and
+# cc-stages publishes the renders the image repository has; the tables still come from
+# the mirror upstream-cn chose.
+#
+# Every importer below that fetches art stages it under .cache/<kind>/ (config/staged-art.json);
+# none publishes. Inside the daily release the staged-art stage publishes it to
+# arkpedia-image-assets and runs the importer again; run on its own, this leaves it staged
+# and reported.
 stage upstream-cn-art --timeout-minutes 20 -- node scripts/content/cn-tables.mjs art
 # EN gamedata: the whole stage dataset comes out of this one. excel/ for the
 # tables, levels/ for the maps, the waves and the enemy configurations.
@@ -64,6 +70,13 @@ stage stage-dataset -- node scripts/stage-pipeline/build.mjs
 
 # Limited-time game modes to exclude.
 stage mode-exclusions --needs stage-dataset -- node scripts/build/build-mode-exclusions.mjs
+
+# Map renders for the stages without one: a new event's, from the CN art's map/. Staged in
+# .cache/stage-renders/ for the release's staged-art stage to publish, which then runs this
+# again so the records point at them the same day. Before the index enrichment, which reads
+# which contents have a map or a preview.
+# After mode-exclusions: nothing is fetched for a content the site leaves out.
+stage stage-renders --needs stage-dataset,upstream-cn-art -- node scripts/imports/import-stage-renders.mjs
 
 # Integrated Strategies nodes: renders, Emergency Ops, borrowed names.
 stage is-nodes --needs stage-dataset -- python3 scripts/imports/import_is_nodes.py

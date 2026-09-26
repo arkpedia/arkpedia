@@ -32,9 +32,10 @@ everything else.
 NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets, and a
 file in this repository's public/ is refused by check:assets, which the daily release
 runs: writing the map there turned every SUCCESSFUL download into a blocked release. A
-downloaded map is staged in .cache/ra-maps/<slug>.webp instead, its stage keeps
-preview: null, and it is reported under 'ra-maps' with its source and the path it must
-be published at, until the image repository has it.
+downloaded map is staged in .cache/ra-maps/<slug>.png instead, as the wiki serves it
+(staged_art.py); the release's staged-art stage publishes it and runs this again, which
+sets the preview. Until then its stage keeps preview: null and is reported under
+'ra-maps' with its source and the path it must be published at.
 
 The wiki is only asked about stages whose map is not published yet -- none, once the
 season is imported -- and it can never fail the refresh: a stage it cannot serve (down,
@@ -48,6 +49,7 @@ Run:  python3 scripts/imports/import_ra_maps.py
 """
 from published_assets import published_assets
 from quarantine import WIKI_API, report
+from staged_art import Staging
 import json
 import os
 import ssl
@@ -66,8 +68,6 @@ UA = 'Arkpedia-import/1.0 (+https://arkpedia.net) python-urllib'
 
 root = os.getcwd()
 stages_dir = os.path.join(root, 'data', 'stages')
-# Never public/: see the header.
-out_dir = os.path.join(root, '.cache', 'ra-maps')
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
@@ -156,6 +156,7 @@ def main():
 
     fetched = {}
     written = staged = 0
+    staging = Staging('ra-maps', root)
     for slug, (path, stage) in sorted(records.items()):
         name = stage.get('name')
         if slug not in unmapped:
@@ -179,34 +180,39 @@ def main():
         title, url = hit
         # Keyed by slug, so two stages sharing a name each get their own file rather
         # than one of them pointing at the other's.
-        target = os.path.join(out_dir, f'{slug}.webp')
-        if refetch or not os.path.exists(target):
-            if url not in fetched:
-                req = urllib.request.Request(url, headers={'User-Agent': UA})
-                try:
-                    with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=90) as r:
-                        fetched[url] = r.read()
-                except Exception as exc:  # noqa: BLE001
-                    print(f'  FAILED {title}: {exc}', file=sys.stderr)
-                    alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
-                                   'reason': f'Downloading {title} failed; the stage is published without a map.'})
-                    continue
+        previous = staging.previous(f'stages-images/{slug}.webp')
+        data = fetched.get(url)
+        if data is None and not refetch and previous:
+            # Staged by an earlier run on this machine: listed again, not downloaded again.
+            data = previous.read_bytes()
+        if data is None:
+            req = urllib.request.Request(url, headers={'User-Agent': UA})
             try:
-                im = Image.open(BytesIO(fetched[url])).convert('RGB')
-            except Exception as exc:  # noqa: BLE001 -- e.g. an HTML page answered 200
-                print(f'  UNREADABLE {title}: {exc}', file=sys.stderr)
+                with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=90) as r:
+                    data = r.read()
+            except Exception as exc:  # noqa: BLE001
+                print(f'  FAILED {title}: {exc}', file=sys.stderr)
                 alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
-                               'reason': f'{title} is not an image that decodes; the stage is published without a map.'})
+                               'reason': f'Downloading {title} failed; the stage is published without a map.'})
                 continue
-            os.makedirs(out_dir, exist_ok=True)
-            im.save(target, 'WEBP', quality=80, method=6)
+            fetched[url] = data
+        try:
+            Image.open(BytesIO(data)).load()
+        except Exception as exc:  # noqa: BLE001 -- e.g. an HTML page answered 200
+            print(f'  UNREADABLE {title}: {exc}', file=sys.stderr)
+            alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
+                           'reason': f'{title} is not an image that decodes; the stage is published without a map.'})
+            continue
+        # As the wiki serves it: the publisher encodes it, as stages-images/ takes it.
+        staged_file = staging.stage(f'stages-images/{slug}.webp', data, source=url)
         # preview stays null: it would name a file readers cannot load yet.
         staged += 1
         alerts.append({'key': f'ra-map:{slug}', 'action': 'published-partial', 'sourceRef': url,
-                       'reason': f'The map of {name} is staged as .cache/ra-maps/{slug}.webp from {title}, but nothing '
-                                 f'publishes it; the stage is published without one until stages-images/{slug}.webp '
-                                 'is added to arkpedia-image-assets.'})
+                       'reason': f'The map of {name} is staged as .cache/ra-maps/{staged_file.name} from {title}, but no run has '
+                                 f'published it to arkpedia-image-assets as stages-images/{slug}.webp yet; the stage is '
+                                 'published without one until one does.'})
 
+    staging.commit()
     print(f'{written} published maps set as their records\' preview; {staged} new map(s) staged in .cache/ra-maps/ '
           'for arkpedia-image-assets')
     report('ra-maps', alerts)

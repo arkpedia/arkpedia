@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Node import scripts are plain JavaScript.
-import { API, applyPlan, COPYRIGHT_DEFAULT, exclusionsOutsideLibrary, formatRecord, newSongRecord, syncAlbums } from '../sync/sync-albums.mjs';
+import { adoptCovers, API, applyPlan, COPYRIGHT_DEFAULT, exclusionsOutsideLibrary, formatRecord, newSongRecord, syncAlbums } from '../sync/sync-albums.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { readQuarantine } from '../lib/quarantine.mjs';
 
@@ -236,6 +236,49 @@ test('new Monster Siren albums and songs are spliced in, dates are stored as YYY
     const settled = t.albums();
     await run(t.root, monsterSiren(), '2026-09-27');
     assert.equal(t.albums(), settled, 'a repeat run rewrites nothing');
+  } finally {
+    t.cleanup();
+  }
+});
+
+test('a cover the image repository lacks is staged from Monster Siren, and once published it is adopted without asking Monster Siren again', async () => {
+  const t = tree();
+  try {
+    // Monster Siren's own cover of the new album; every other address answers as before.
+    const cover = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('a cover')]);
+    const upstream = monsterSiren();
+    const answers = fetcherFor(upstream);
+    const asked: string[] = [];
+    const fetcher = async (url: string) => {
+      asked.push(url);
+      return url === 'https://web.hycdn.cn/siren/pic/20260921/cccc.jpg'
+        ? { ok: true, status: 200, json: async () => ({}), arrayBuffer: async () => cover.buffer.slice(cover.byteOffset, cover.byteOffset + cover.length) }
+        : answers(url);
+    };
+    await run(t.root, upstream, '2026-09-25', { fetcher });
+    const staged = JSON.parse(fs.readFileSync(path.join(t.root, '.cache/album-covers/staged.json'), 'utf8')).files;
+    assert.deepEqual(Object.entries(staged).map(([target, row]: [string, any]) => [target, row.file, row.source]),
+      [['album-covers/新专辑_cover.webp', '新专辑_cover.png', 'https://web.hycdn.cn/siren/pic/20260921/cccc.jpg']]);
+    assert.deepEqual(fs.readFileSync(path.join(t.root, '.cache/album-covers/新专辑_cover.png')), cover);
+    assert.ok(t.held().includes('album:1003 published-partial 2026-09-25'));
+
+    // The staged-art stage publishes it, adopts the revisions and adopts the cover: the one
+    // field is spliced in, the album's entry goes, the songs' stay, and nothing is fetched.
+    t.setAssets(['album-covers/新专辑_cover.webp']);
+    const before = t.albums();
+    asked.length = 0;
+    assert.deepEqual(adoptCovers({ root: t.root, now: new Date('2026-09-25T20:30:00Z'), log: quiet }), ['1003']);
+    assert.deepEqual(asked, []);
+    assert.equal(t.albums(), before.replace(/("albumId": "1003",[\s\S]*?"coverFilename": )""/, '$1"新专辑_cover.webp"'));
+    assert.deepEqual(t.held(), ['song:100003 published-partial 2026-09-25', 'song:100004 published-partial 2026-09-25']);
+
+    // The next day's run finds nothing left to do: the same catalogue, the same entries.
+    const adopted = t.albums();
+    const quarantine = fs.readFileSync(path.join(t.root, 'data/quarantine.json'), 'utf8');
+    await run(t.root, upstream, '2026-09-26', { fetcher });
+    assert.equal(t.albums(), adopted);
+    assert.equal(fs.readFileSync(path.join(t.root, 'data/quarantine.json'), 'utf8'), quarantine);
+    assert.equal(fs.existsSync(path.join(t.root, '.cache/album-covers/staged.json')), false, 'no cover is left to stage');
   } finally {
     t.cleanup();
   }

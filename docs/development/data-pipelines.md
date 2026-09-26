@@ -106,12 +106,13 @@ checkout instead of the cache.
 | `stage-pipeline/build.mjs` | `data/stages/`, `data/stages-content.json`, `data/stage-geometry/`, `data/stage-conditional/`, `data/stage-tile-legend.json`, `public/stages-index.json` | EN gamedata; a CN level file where Global has dropped a stage's own (see `scripts/stage-pipeline/README.md`) |
 | `build-supply-stages.mjs` | `data/supply-stages.json` (the planner's supply table) | the supply content's stage records and their guaranteed drops |
 | `build-mode-exclusions.mjs` | `data/excluded-contents.json`; holds in `data/quarantine.json` | `activity_table` types, content kinds, `data/game-modes.json` |
-| `import_is_nodes.py` | `data/is-nodes.json`, IS renders | `roguelike_topic_table`, fexli renders |
-| `import_cc_stages.py` | `data/cc-stages.json`, CCB renders, CCB labels in `stages-content.json` | `medal_table`, `map/` renders |
+| `import-stage-renders.mjs` | `preview` on stage records whose render is published; new renders staged in `.cache/stage-renders/` | EN `stage_table`, CN `map/` renders, the asset index |
+| `import_is_nodes.py` | `data/is-nodes.json`; new IS renders staged in `.cache/is-nodes/` | `roguelike_topic_table`, fexli renders |
+| `import_cc_stages.py` | `data/cc-stages.json`, CCB labels in `stages-content.json`; new CCB renders staged in `.cache/cc-stages/` | `medal_table`, `map/` renders |
 | `import_stage_devices.py` | `data/stage-devices.json` | level files' `predefines`, `character_table` |
 | `build-story-groups.mjs` | `data/story-groups.json` | `stage_table.storylines` |
 | `build-content-windows.mjs` | `data/content-windows.json` | `activity_table`, `crisis_v2_table` |
-| `import-item-icons.mjs` | `public/item-icons/`, `data/item-icons.json` | upstream `images/manifest.json` |
+| `import-item-icons.mjs` | `data/item-icons.json`; new token icons staged in `.cache/item-icons/` | stage drops, CN `item/` icons, the asset index |
 | `enrich-stage-index.mjs` | `public/stages-index.json` (in place) | everything above |
 | `build-enemy-records.mjs` | `data/enemies/`, `data/enemy_appearances.json` | `enemy_handbook_table`, `enemy_database`, stage records, the enriched index |
 | `build-enemy-stage-appearances.mjs` | `data/enemy-stage-appearances.json` | stage records, the enriched index |
@@ -152,11 +153,38 @@ New supported records can reach the site without a website deployment through
 [runtime content releases](runtime-content.md). New mechanics, schemas and UI
 still require application changes.
 
+### Art the importers fetch
+
+No importer publishes art or writes it under `public/` (`check:assets` refuses any image
+there). Each stages what `arkpedia-image-assets` does not publish yet under
+`.cache/<kind>/`, as the source serves it, and lists it in `.cache/<kind>/staged.json`
+with its destination and where it came from (`scripts/imports/staged_art.py`,
+`scripts/lib/staged-art.mjs`); `config/staged-art.json` names the kinds: stage renders,
+IS, CCB and RA renders, nation crests, drop and reward icons, album covers. Inside the
+daily release the `staged-art` stage (`publish-catalogue-assets.sh --staged`) publishes
+what each kind's stage staged in that run, if the stage ran to the end, with the
+catalogue's deploy key and publisher: one size and encoding per destination folder
+(material and item icons keep the game's 183px circled art), a source-map row for a
+mirror's file, a provenance row in `sources/catalogue-imports.json` for every file, and a
+fast-forward push retried from a fresh clone when another job pushed first. It then adopts
+the new asset revisions (asked again while GitHub still reports the head from before the
+push), re-pins the records that name art by revision as the `media-pins` stage did, and runs
+each importer that staged something again, so the records point at the files and their
+quarantine entries clear in the same run, and the next day's run finds nothing to publish. If anything after
+the push fails, the stage is rolled back with the asset pins, and the next run adopts what
+was pushed. A running event's stage with a map and still no preview is held by the
+completeness stage (`stage-preview:<slug>`) whatever the reason. Run on its own,
+`refresh-stage-data.sh` stages and reports, and publishes nothing.
+
+`python3 scripts/sync/test-publish-catalogue-assets.py`, `python3 scripts/imports/test-degrading-importers.py`
+and `scripts/tests/test-staged-art.ts` check this offline; the last runs the whole stage against a
+scratch image repository, including a push that loses a race.
+
 ### What is not automatic
 
-- New RENDERS. `scripts/stage-pipeline/` decides which stage points at which
-  in-game map picture and resolves it against `public/stages-images/`, but it does
-  not fetch new artwork: a new event's renders still have to be added there.
+- Renders the CN mirror does not carry yet. A new event's stage renders arrive with
+  yuanyan3060/ArknightsGameResource's `map/`; until then its stages show the event's
+  poster, and the completeness stage lists them while the event runs.
 - `TILES_PER_SECOND` in `lib/stages/stagePlayback.ts` is the one figure not read
   from the game's files; see the comment there.
 - A brand-new *kind* of content. `data/game-modes.json` (kept by hand in arkpedia-data,

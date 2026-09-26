@@ -19,9 +19,11 @@
  * file in this repository's public/ is refused by check:assets, which the daily release
  * runs: copying a new event token's icon there turned every new token into a blocked
  * release. An icon the CN repo has but the image repository does not is staged in
- * .cache/item-icons/ instead and stays out of data/item-icons.json -- its drops render
- * the blank frame -- until item-icons/<id>.png is published; meanwhile it is reported
- * under 'item-icons' with the path it must be published at.
+ * .cache/item-icons/ instead (scripts/lib/staged-art.mjs), the game's 183px circled art as
+ * the mirror serves it; the release's staged-art stage publishes it as item-icons/<id>.png
+ * and runs this again, which maps it. Until a run does, it stays out of
+ * data/item-icons.json -- its drops render the blank frame -- and is reported under
+ * 'item-icons' with the path it must be published at.
  *
  * Operator drops are not here: those are first-clear operator rewards and use
  * the operator's own portrait, resolved through lib/operators/operatorIcon.ts.
@@ -31,15 +33,18 @@
 import fs from 'fs';
 import path from 'path';
 import { beginStage } from '../lib/quarantine.mjs';
+import { beginStaging } from '../lib/staged-art.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
 
 const root = process.cwd();
 const upstream = process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource';
+const MIRROR = 'yuanyan3060/ArknightsGameResource';
 // The checkout above is at this commit (scripts/lib/upstream.sh); it names each icon's source.
-const SOURCE = `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${pinnedRef('yuanyan3060/ArknightsGameResource')}/item`;
+const COMMIT = pinnedRef(MIRROR);
+const SOURCE = `https://raw.githubusercontent.com/${MIRROR}/${COMMIT}/item`;
 // No manifest needed: the resource repo names item icons by the gamedata item id,
 // which is the id a drop record already carries. Never public/: see the header.
-const stagedDir = path.join(root, '.cache', 'item-icons');
+const staging = beginStaging('item-icons', root);
 const stagesDir = path.join(root, 'data', 'stages');
 
 const wanted = new Map(); // item id -> display name
@@ -78,10 +83,13 @@ for (const [id, name] of wanted) {
     missing.push(`${id} (${name})`);
     continue;
   }
-  fs.mkdirSync(stagedDir, { recursive: true });
-  fs.copyFileSync(src, path.join(stagedDir, base));
+  staging.stage(`item-icons/${base}`, fs.readFileSync(src), {
+    source: `${SOURCE}/${base}`,
+    mirror: /^[0-9a-f]{40}$/.test(COMMIT) ? { repository: MIRROR, path: `item/${base}`, commit: COMMIT } : undefined,
+  });
   staged.push([id, name]);
 }
+staging.commit();
 
 // Sorted, so the file does not churn on iteration order.
 const ordered = Object.fromEntries(Object.keys(map).sort().map((id) => [id, map[id]]));
@@ -93,7 +101,7 @@ if (missing.length) console.log('  e.g. ' + missing.slice(0, 5).join(', '));
 const alerts = beginStage(root, 'item-icons');
 for (const [id, name] of staged) {
   alerts.add({ key: `item-icon:${id}`, action: 'published-partial', sourceRef: `${SOURCE}/${id}.png`,
-    reason: `The drop ${name} (${id}) has an icon in the CN resource repo, staged as .cache/item-icons/${id}.png, but nothing publishes it; `
-      + `its drops render without one until item-icons/${id}.png is added to arkpedia-image-assets.` });
+    reason: `The drop ${name} (${id}) has an icon in the CN resource repo, staged as .cache/item-icons/${id}.png, but no run has published it `
+      + `to arkpedia-image-assets as item-icons/${id}.png yet; its drops render without one until one does.` });
 }
 for (const entry of alerts.commit()) console.warn(`  ! ${entry.key} (${entry.action}): ${entry.reason}`);
