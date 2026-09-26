@@ -5,14 +5,16 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { test } from 'node:test';
 import { createElement, type ComponentType } from 'react';
+import type { AppProps } from 'next/app';
 import type { GetStaticProps } from 'next';
 import './css-modules';
 import { renderOnHost } from './host-clock';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { CONTENT_SCHEMA, type ContentManifest, type ContentPointer } from '../../lib/content/types';
-import SeasonalPage, { getStaticProps as seasonalProps } from '../../pages/stages/seasonal';
-import StageContentPage, { getStaticProps as contentProps } from '../../pages/stages/content/[id]';
+import App from '../../pages/_app';
 import { getSeasonalChallenge, seasonalFromRelease } from '../../lib/stages/terminal';
+import { discoverFromRelease, getDiscoverPageData, type DiscoverPageData } from '../../lib/music/albumsDataServer';
+import CONTENT_ROUTES from '../content/pages.json';
 
 /*
  * A deploy renders against the live content release, and right after one that release is
@@ -25,26 +27,85 @@ import { getSeasonalChallenge, seasonalFromRelease } from '../../lib/stages/term
  * release (7f8a8a8d, compiled by fa2bdc22), Deploy's build failed prerendering
  * /stages/seasonal and all 151 content pages -- and with production left on the old code,
  * the gate would have held every release after it, so neither side could move. Found
- * 2026-09-26 by building the branch the way deploy.yml does.
+ * 2026-09-26 by building the branch the way deploy.yml does. The same branch gave
+ * /music/discover `pendingSongs` and `recentAlbums[].playable`; that release has neither,
+ * and there the build passed while the deployed page crashed in the browser as soon as a
+ * reader searched (`pendingSongs.filter` of undefined), and every recent album said "Not
+ * on YouTube yet". No error is thrown on the server for that one, so rendering is not
+ * enough of a guard.
  *
- * The fixtures are those two pages exactly as that release published them. This serves
- * them as a release, runs each page's real getStaticProps against it (as the Deploy
- * build does) and renders the page from what comes back.
+ * fixtures/previous-release/ holds the live release's copy of every content route whose
+ * page that branch changed (release.json lists them; refresh.mjs there fetches them, and a
+ * branch that changes a page's props should refresh it first). For each route this serves
+ * that copy as a release, runs the page's real getStaticProps against it (as the Deploy
+ * build does), renders the page inside the site's App from what comes back, and then
+ * compares the props' shape with what this code builds from its own data: a field this
+ * code emits that the release's props still lack after finalize is exactly what a
+ * component reads as undefined. Fill it in the page's withContentPage finalize, or, when
+ * only the data differs (a field the old data never had anywhere), list it in DATA_ONLY
+ * with the reason. This code's own props come from each page's builder on this checkout's
+ * data, as `next dev` gets them, so /planner's writes public/planner-data (ignored) here
+ * as it does there; none needs prebuild's generated files.
  */
+const ROOT = path.resolve(__dirname, '../..');
 const FIXTURES = path.join(__dirname, 'fixtures/previous-release');
-const sha = (value: string) => createHash('sha256').update(value).digest('hex');
+const sha = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
 
-/** One release per call, each with its own id: the loader keeps the release it read last
- *  (lib/content/server.ts) and would answer from it again under the same id. */
+interface PreviousRelease {
+  release: string; revision: string; generator: string; generatedAt: string;
+  pages: Record<string, { file: string; bytes: number; sha256: string }>;
+  absent: string[];
+}
+const PREVIOUS = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'release.json'), 'utf8')) as PreviousRelease;
+
+/** The page exactly as the release published it: release.json holds the manifest's digest. */
+const bodies = new Map<string, string>();
+function previousPage(route: string): string {
+  const cached = bodies.get(route);
+  if (cached) return cached;
+  const entry = PREVIOUS.pages[route];
+  assert.ok(entry, `fixtures/previous-release has no ${route}`);
+  const body = fs.readFileSync(path.join(FIXTURES, entry.file));
+  assert.equal(body.length, entry.bytes, `${entry.file} is the release's ${route}, byte for byte`);
+  assert.equal(sha(body), entry.sha256, `${entry.file} is the release's ${route}, byte for byte`);
+  bodies.set(route, body.toString());
+  return body.toString();
+}
+
+/** The route template (scripts/content/pages.json) a route is served by, and its params. */
+function templateOf(route: string): { template: string; params?: Record<string, string> } {
+  if ((CONTENT_ROUTES as string[]).includes(route)) return { template: route };
+  for (const template of CONTENT_ROUTES as string[]) {
+    const names: string[] = [];
+    const pattern = new RegExp(`^${template.replace(/[.*+?^${}()|\\]/g, '\\$&').replace(/\\?\[([^\]]+)\\?\]/g, (_, name: string) => { names.push(name); return '([^/]+)'; })}$`);
+    const match = pattern.exec(route);
+    if (match) return { template, params: Object.fromEntries(names.map((name, i) => [name, decodeURIComponent(match[i + 1])])) };
+  }
+  throw new Error(`${route} is not a content route (scripts/content/pages.json)`);
+}
+
+type PageModule = { default: ComponentType<object>; getStaticProps: GetStaticProps<object> };
+async function pageModule(template: string): Promise<PageModule> {
+  const rel = template === '/' ? 'index' : template.slice(1);
+  const file = [`${rel}.tsx`, `${rel}/index.tsx`].map((name) => path.join(ROOT, 'pages', name)).find((name) => fs.existsSync(name));
+  assert.ok(file, `a page file for ${template}`);
+  // Loaded as CommonJS, the module's exports can arrive as the namespace's default.
+  const loaded = await import(file) as Partial<PageModule> & { default: PageModule | ComponentType<object> };
+  return typeof loaded.getStaticProps === 'function' ? loaded as PageModule : loaded.default as PageModule;
+}
+
+/** A release per call, each with its own id: the loader keeps the release it read last
+ *  (lib/content/server.ts) and answers from it again under the same id, at the old
+ *  server's address. */
 let releases = 0;
-async function withRelease<T>(pages: Record<string, string>, run: () => Promise<T>): Promise<T> {
+async function withRelease<T>(routes: string[], run: (release: string) => Promise<T>): Promise<T> {
   const documents = new Map<string, string>();
-  const label = 'abcdef'[releases++ % 6];
-  const revision = label.repeat(40), release = label.repeat(64);
-  const manifest: ContentManifest = { schema: CONTENT_SCHEMA, release, generatedAt: '2026-09-25T22:30:00Z', generator: revision,
+  const id = sha(`previous-release-props ${process.pid} ${releases++}`);
+  const revision = id.slice(0, 40), release = sha(id);
+  const manifest: ContentManifest = { schema: CONTENT_SCHEMA, release, generatedAt: PREVIOUS.generatedAt, generator: PREVIOUS.generator,
     assets: { 'arkpedia-image-assets': revision, 'arkpedia-skin-assets': revision }, pages: {}, files: {} };
-  for (const [route, file] of Object.entries(pages)) {
-    const body = fs.readFileSync(path.join(FIXTURES, file), 'utf8'), at = pageFilePath(route);
+  for (const route of routes) {
+    const body = previousPage(route), at = pageFilePath(route);
     documents.set(`/${revision}/release/${at}`, body);
     manifest.pages[route] = { path: at, bytes: Buffer.byteLength(body), sha256: sha(body) };
   }
@@ -60,46 +121,175 @@ async function withRelease<T>(pages: Record<string, string>, run: () => Promise<
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   assert.ok(address && typeof address !== 'string');
-  const keys = ['ARKPEDIA_CONTENT_URL', 'ARKPEDIA_CONTENT_TEST', 'ARKPEDIA_CONTENT_DISABLED', 'ARKPEDIA_EXPORT_CONTENT'] as const;
-  const before = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
-  Object.assign(process.env, { ARKPEDIA_CONTENT_URL: `http://127.0.0.1:${address.port}`, ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_EXPORT_CONTENT: '0' });
   try {
-    return await run();
+    return await withEnv({ ARKPEDIA_CONTENT_URL: `http://127.0.0.1:${address.port}`, ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_EXPORT_CONTENT: '0' }, () => run(release));
   } finally {
-    for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }
 }
 
-async function render<P extends object>(getStaticProps: GetStaticProps<P>, Page: ComponentType<P>, params?: Record<string, string>) {
-  const result = await getStaticProps({ params, revalidateReason: 'build' });
-  assert.ok('props' in result, 'getStaticProps returned props');
-  const props = await result.props;
-  assert.ok((props as { __contentRelease?: unknown }).__contentRelease, 'the props came from the release, not the bundled data');
-  return { props, html: renderOnHost('UTC', Date.parse('2026-09-26T12:00:00Z'), createElement(Page, props)) };
+const ENV_KEYS = ['ARKPEDIA_CONTENT_URL', 'ARKPEDIA_CONTENT_TEST', 'ARKPEDIA_CONTENT_DISABLED', 'ARKPEDIA_EXPORT_CONTENT'] as const;
+async function withEnv<T>(values: Partial<Record<typeof ENV_KEYS[number], string>>, run: () => Promise<T>): Promise<T> {
+  const before = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+  for (const key of ENV_KEYS) { if (values[key] === undefined) delete process.env[key]; else process.env[key] = values[key]; }
+  try {
+    return await run();
+  } finally {
+    for (const key of ENV_KEYS) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
+  }
 }
 
-test('/stages/seasonal renders the previous release\'s props (vector and trials, no challenges)', async () => {
-  await withRelease({ '/stages/seasonal': 'stages-seasonal.json' }, async () => {
-    const { props, html } = await render(seasonalProps, SeasonalPage);
-    assert.deepEqual(props.challenges.map((mode) => [mode.label, mode.cards.length]), [['VEC', 3], ['TN', 6]]);
-    assert.ok(!('vector' in props) && !('trials' in props), 'the old keys do not travel on to the browser');
-    for (const heading of ['Contingency Contract', 'Vector Breakthrough', 'Trials for Navigator']) {
-      assert.match(html, new RegExp(`<h2>${heading}</h2>`), `the ${heading} panel`);
-    }
-    assert.match(html, /Trial from Misery/, 'the newest Vector Breakthrough season');
+async function propsOf(getStaticProps: GetStaticProps<object>, params?: Record<string, string>): Promise<Record<string, unknown>> {
+  const result = await getStaticProps({ params, revalidateReason: 'build' });
+  assert.ok('props' in result, 'getStaticProps returned props');
+  return await result.props as Record<string, unknown>;
+}
+
+/** The page inside the site's App, as the build prerenders it: App supplies the content
+ *  release, the tables and the music player every page may read. */
+function renderPage(Page: ComponentType<object>, props: object): string {
+  const app = createElement(App as ComponentType<AppProps>, { Component: Page, pageProps: props, router: undefined as never });
+  return renderOnHost('UTC', Date.parse('2026-09-26T12:00:00Z'), app);
+}
+
+/** The previous release's props, through this code's getStaticProps and finalize. */
+async function fromPreviousRelease(route: string) {
+  const { template, params } = templateOf(route);
+  const page = await pageModule(template);
+  return withRelease(Object.keys(PREVIOUS.pages), async (release) => {
+    const props = await propsOf(page.getStaticProps, params);
+    assert.equal((props.__contentRelease as { release?: string } | undefined)?.release, release, `${route}: the props came from the release, not the bundled data`);
+    return { page, params, props };
   });
+}
+
+// --- the shape of a page's props -------------------------------------------------------
+
+/** Where each kind of value sits in a page's props: '.songs[].albumId' -> {'string'}. */
+type Shape = Map<string, Set<string>>;
+const FIELD = /^[A-Za-z_$][\w$]*$/;
+const MAX_DEPTH = 4;
+function shapeOf(value: unknown, at = '', shape: Shape = new Map(), depth = 0): Shape {
+  if (value === null || value === undefined) return shape;
+  const kind = Array.isArray(value) ? 'array' : typeof value;
+  if (!shape.has(at)) shape.set(at, new Set());
+  shape.get(at)!.add(kind);
+  if (depth >= MAX_DEPTH) return shape;
+  if (Array.isArray(value)) {
+    for (const item of value) shapeOf(item, `${at}[]`, shape, depth + 1);
+  } else if (kind === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    // A record keyed by the data (names, ids, series) rather than a set of fields: its
+    // keys come and go with the data, so only the shape of its values counts.
+    const record = entries.length > 20 || entries.some(([key]) => !FIELD.test(key));
+    for (const [key, item] of entries) shapeOf(item, record ? `${at}.*` : `${at}.${key}`, shape, depth + 1);
+  }
+  return shape;
+}
+const parentOf = (at: string) => at.replace(/(\[\]|\.\*|\.[A-Za-z_$][\w$]*)$/, '');
+
+/**
+ * What this code's props carry that the release's props (after finalize) do not: a field
+ * missing where the release has the object that should hold it, or an object or list where
+ * the release has only a plain value. A field of something the release has none of (an
+ * empty list, say) is not reported on its own; its container is, if that is missing.
+ */
+function missingFromRelease(current: Shape, previous: Shape): string[] {
+  const populated = new Set([...previous.keys()].filter((at) => at !== '').map(parentOf));
+  const missing: string[] = [];
+  for (const [at, kinds] of current) {
+    if (at === '' || at.startsWith('.__content')) continue;
+    const had = previous.get(at);
+    if (!had) { if (populated.has(parentOf(at))) missing.push(at); continue; }
+    for (const kind of ['object', 'array']) {
+      if (kinds.has(kind) && !had.has(kind)) missing.push(`${at} (${kind}; the release has ${[...had].join(' or ')})`);
+    }
+  }
+  return missing;
+}
+
+/**
+ * Fields this code's props carry that the previous release lacks only because its DATA
+ * never had them anywhere, not because a page expects them. Each needs the reason a
+ * component cannot read it as undefined; anything else belongs in the page's finalize.
+ */
+const DATA_ONLY: Record<string, Record<string, string>> = {
+  '/stages/content/sandbox_1': {
+    '.ra.contentId': 'data/ra-nodes.json names its season now; RaNodeData has it optional, and only raMapData reads it, on the server, to pick the file -- RaMap never does',
+  },
+};
+
+// --- the tests -------------------------------------------------------------------------
+
+test('the fixtures are the live release\'s own pages, and name content routes', () => {
+  assert.match(PREVIOUS.release, /^[a-f0-9]{64}$/);
+  assert.match(PREVIOUS.revision, /^[a-f0-9]{40}$/);
+  for (const route of Object.keys(PREVIOUS.pages)) {
+    templateOf(route);
+    previousPage(route);
+  }
+  // A route the release does not publish renders from this checkout's data at build time,
+  // which only a static route may do: a dynamic one would be a 404 until the next release.
+  for (const route of PREVIOUS.absent) {
+    assert.ok((CONTENT_ROUTES as string[]).includes(route) && !route.includes('['), `${route}: only a static content route may be absent from the release`);
+  }
+  const files = new Set(Object.values(PREVIOUS.pages).map((page) => page.file));
+  for (const name of fs.readdirSync(FIXTURES).filter((name) => name.endsWith('.json') && name !== 'release.json')) {
+    assert.ok(files.has(name), `${name} is listed in release.json`);
+  }
 });
 
-test('/stages/content/[id] renders the previous release\'s props (no scene)', async () => {
-  await withRelease({ '/stages/content/act51side': 'stages-content-act51side.json' }, async () => {
-    const { props, html } = await render(contentProps, StageContentPage, { id: 'act51side' });
-    assert.equal(props.scene.key, 'score', 'a side story sits in Score');
-    assert.match(html, /class="terminal-tab current" aria-current="page" href="\/stages\/score"/, 'the Terminal bar marks Score');
+for (const route of Object.keys(PREVIOUS.pages)) {
+  test(`${route} renders the previous release's props, and they carry every field this code's do`, async () => {
+    const { page, params, props } = await fromPreviousRelease(route);
+    const html = renderPage(page.default, props);
+    assert.ok(html.length > 1000, `${route}: the page rendered`);
+
+    const bundled = await withEnv({ ARKPEDIA_CONTENT_DISABLED: '1' }, () => propsOf(page.getStaticProps, params));
+    assert.ok(!bundled.__contentRelease, `${route}: this code's own props, from its own data`);
+    const allowed = DATA_ONLY[route] ?? {};
+    const missing = missingFromRelease(shapeOf(bundled), shapeOf(props)).filter((at) => !(at in allowed));
+    assert.deepEqual(missing, [], `${route}: the previous release's props lack ${missing.join(', ')} -- fill them in the page's withContentPage finalize (or list a field only the data lacks in DATA_ONLY)`);
   });
+}
+
+test('/stages/seasonal takes the previous release\'s vector and trials as challenges', async () => {
+  const { page, props } = await fromPreviousRelease('/stages/seasonal');
+  const challenges = props.challenges as { label: string; cards: unknown[] }[];
+  assert.deepEqual(challenges.map((mode) => [mode.label, mode.cards.length]), [['VEC', 3], ['TN', 6]]);
+  assert.ok(!('vector' in props) && !('trials' in props), 'the old keys do not travel on to the browser');
+  const html = renderPage(page.default, props);
+  for (const heading of ['Contingency Contract', 'Vector Breakthrough', 'Trials for Navigator']) {
+    assert.match(html, new RegExp(`<h2>${heading}</h2>`), `the ${heading} panel`);
+  }
+  assert.match(html, /Trial from Misery/, 'the newest Vector Breakthrough season');
+});
+
+test('/stages/content/[id] works out the scene the previous release does not carry', async () => {
+  for (const [id, key] of [['act51side', 'score'], ['act1bossrush', 'seasonal'], ['act1vecb', 'seasonal']] as const) {
+    const { page, props } = await fromPreviousRelease(`/stages/content/${id}`);
+    assert.equal((props.scene as { key: string }).key, key, `${id} sits in ${key}`);
+    assert.match(renderPage(page.default, props), new RegExp(`class="terminal-tab current" aria-current="page" href="/stages/${key}"`), `${id}: the Terminal bar marks ${key}`);
+  }
+});
+
+test('/music/discover gives the previous release\'s props pendingSongs and a playable flag per album', async () => {
+  const { page, props } = await fromPreviousRelease('/music/discover');
+  const raw = (JSON.parse(previousPage('/music/discover')) as { props: Record<string, unknown> }).props;
+  assert.ok(!('pendingSongs' in raw), 'the fixture is a release from before pendingSongs');
+  assert.ok(Array.isArray(props.pendingSongs), 'pendingSongs is a list, so searching and the facets can filter it');
+  assert.deepEqual(props.pendingSongs, [], 'that release listed no song without a YouTube upload');
+  const albums = props.recentAlbums as { albumId: string; playable: unknown }[];
+  assert.ok(albums.length > 0);
+  for (const album of albums) assert.equal(typeof album.playable, 'boolean', `album ${album.albumId} says whether it is playable`);
+  // It listed only albums with a song on YouTube, and each of them is in its songs.
+  assert.ok(albums.every((album) => album.playable === true), 'every recent album of that release is playable');
+  assert.doesNotMatch(renderPage(page.default, props), /Not on YouTube yet/, 'no recent album says it is not on YouTube');
 });
 
 test('a release this code compiled passes through unchanged', () => {
-  const current = getSeasonalChallenge();
-  assert.equal(seasonalFromRelease(current), current);
+  const seasonal = getSeasonalChallenge();
+  assert.equal(seasonalFromRelease(seasonal), seasonal);
+  const discover: DiscoverPageData = getDiscoverPageData();
+  assert.equal(discoverFromRelease(discover), discover);
 });

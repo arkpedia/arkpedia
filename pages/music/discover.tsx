@@ -13,7 +13,7 @@ import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import AlbumCover from '@/components/music/AlbumCover';
-import { getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
+import { discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
 
 interface Props {
   songs: DiscoverSong[];
@@ -432,4 +432,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/music/discover", async () => {
   const data = getDiscoverPageData();
   return { props: data };
+}, {
+  // The live release can be one compiled before pendingSongs and playable existed.
+  finalize: async (props) => discoverFromRelease(props),
 });

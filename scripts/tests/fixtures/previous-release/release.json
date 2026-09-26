@@ -1,0 +1,96 @@
+{
+  "release": "31eb26565ab65e8cf5a365bdefde89e07092373fc400fd51bb099c82f823d864",
+  "revision": "7f8a8a8d0f3615a1a2c6c5edec618e66bca6ffd8",
+  "generator": "fa2bdc22bf376f171a0fef6f21e514e0b93939c1",
+  "generatedAt": "2026-09-25T23:37:05.256Z",
+  "pages": {
+    "/": {
+      "file": "index.json",
+      "bytes": 566006,
+      "sha256": "3309e2ddc1a53eea7db405f946eec31014baacc0f8c9c55aee98dbf9c7b1403b"
+    },
+    "/gacha": {
+      "file": "gacha.json",
+      "bytes": 290548,
+      "sha256": "fb0674e11b59dc978ef5579432ccb66fd66e92db90929c48a4c2004525e66fc6"
+    },
+    "/music/discover": {
+      "file": "music-discover.json",
+      "bytes": 245200,
+      "sha256": "66bc4d7052d1fcfe7863d712a1b830402ef76807c6c08e32078a162dabc548f7"
+    },
+    "/operators": {
+      "file": "operators.json",
+      "bytes": 98115,
+      "sha256": "28259a8f798b9785fc31aa16bcb7b33787b5f819f0be054f20467517ae880182"
+    },
+    "/planner": {
+      "file": "planner.json",
+      "bytes": 148540,
+      "sha256": "c0b444b197903d0a6d4f47de3ff330e1311b25cf7a8e6517df2a4c8d08a91782"
+    },
+    "/schedule": {
+      "file": "schedule.json",
+      "bytes": 767297,
+      "sha256": "1214d841e74c2c6f74d124e56f7b4c74a1867d6ba1e9feffd258a0d1a2b8a6d4"
+    },
+    "/skins": {
+      "file": "skins.json",
+      "bytes": 559659,
+      "sha256": "2c9dc4b3f54f54a46012f1731750bf2cdfa85a7fcde0824f5b12cb172480a5af"
+    },
+    "/stages": {
+      "file": "stages.json",
+      "bytes": 25741,
+      "sha256": "71a060263a78fbd64f53c22bf5a8f7ad81eaa30421d9f2d0d9e820c350ae8b0a"
+    },
+    "/stages/browse": {
+      "file": "stages-browse.json",
+      "bytes": 44859,
+      "sha256": "87319d972175c186e40809291319a31db725ac95b562febe93a0c720a4e25cb2"
+    },
+    "/stages/content/act1bossrush": {
+      "file": "stages-content-act1bossrush.json",
+      "bytes": 864,
+      "sha256": "9da9906ae625ae4fe31354f0c9fc12fde4a92aa8e092240f882fb8828c6a7766"
+    },
+    "/stages/content/act1vecb": {
+      "file": "stages-content-act1vecb.json",
+      "bytes": 2777,
+      "sha256": "b4acb2451ddffdd928344fd70af29a1c31102719e1789b1d45c6899a7a5c439c"
+    },
+    "/stages/content/act51side": {
+      "file": "stages-content-act51side.json",
+      "bytes": 2610,
+      "sha256": "baafb9b71e849c791ee927360c8df8a8634f9ba36b4ab271a9647d9ceeb4bcae"
+    },
+    "/stages/content/sandbox_1": {
+      "file": "stages-content-sandbox_1.json",
+      "bytes": 55169,
+      "sha256": "faac1f68d485acd28e959a410757e8b2f00d7ba7f5e58f85a99fec00057e132d"
+    },
+    "/stages/regular": {
+      "file": "stages-regular.json",
+      "bytes": 13417,
+      "sha256": "73344cce8f0a48ff39c517ab2c92e3267cb4c72263a1e3d50d0c5d7cca377ffe"
+    },
+    "/stages/score": {
+      "file": "stages-score.json",
+      "bytes": 22278,
+      "sha256": "7e823528c93c2cd6a42c1390b059df48a8cd72900ea4631f2ca998f6f0f46bda"
+    },
+    "/stages/seasonal": {
+      "file": "stages-seasonal.json",
+      "bytes": 3641,
+      "sha256": "f3df1728e9978e4855b85a956329906195479dfc88bc280a7590127b0ef0ab26"
+    },
+    "/stages/supplies": {
+      "file": "stages-supplies.json",
+      "bytes": 1619,
+      "sha256": "d299593d329cbb1dcea76d14d286b576580e1e0dab9e22375f027027d8839e93"
+    }
+  },
+  "absent": [
+    "/community"
+  ]
+}

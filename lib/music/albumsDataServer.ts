@@ -443,3 +443,35 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
     pendingSongs,
   };
 }
+
+/** The Discover page's props, as a release this code compiled carries them or as an older
+ * one does. */
+type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> & {
+  pendingSongs?: DiscoverPendingSong[];
+  recentAlbums: (Omit<DiscoverAlbum, 'playable'> & { playable?: boolean })[];
+};
+
+/**
+ * Discover's props with `pendingSongs` and each recent album's `playable`, whichever release
+ * they came from.
+ *
+ * A release compiled before those two existed has neither, and production renders the live
+ * release, which after a deploy is still the one the previous code compiled (the release
+ * gate holds the next one until production runs this code). On it the page crashed as soon
+ * as a reader searched, picked a facet or opened an album (`pendingSongs.filter` of
+ * undefined), and every recent album said "Not on YouTube yet" (2026-09-26 verification).
+ * Such a release listed only albums with a song on YouTube and no song without one, so an
+ * album is playable when `songs` lists it, and there is nothing pending. A release this code
+ * compiled passes through unchanged (the same object).
+ * scripts/tests/test-previous-release-props.ts renders the page from the live release's copy.
+ */
+export function discoverFromRelease<P extends DiscoverReleaseProps>(props: P): P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> {
+  const complete = Array.isArray(props.pendingSongs) && props.recentAlbums.every((a) => typeof a.playable === 'boolean');
+  if (complete) return props as P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'>;
+  const onYouTube = new Set(props.songs.map((s) => s.albumId));
+  return {
+    ...props,
+    pendingSongs: Array.isArray(props.pendingSongs) ? props.pendingSongs : [],
+    recentAlbums: props.recentAlbums.map((a) => (typeof a.playable === 'boolean' ? a as DiscoverAlbum : { ...a, playable: onYouTube.has(a.albumId) })),
+  };
+}
