@@ -318,7 +318,7 @@ export default function GuesserPage({ operators, skins }: Props) {
                 </label>
               )}
               <div className={styles.startArea}>
-                <button type="button" className="primary" onClick={startRound} disabled={eligibleOperators.length === 0 || (hintMode === 'themed' && !themedLevel)}>Start round</button>
+                <button type="button" className="primary btn-sm" onClick={startRound} disabled={eligibleOperators.length === 0 || (hintMode === 'themed' && !themedLevel)}>Start round</button>
 
               </div>
               </div>
@@ -419,7 +419,7 @@ export default function GuesserPage({ operators, skins }: Props) {
                       suggestions={suggestions} getKey={(op) => op.name}
                       renderSuggestion={(op) => <><Image src={getOperatorIconPath(op)} alt="" width={32} height={32} /><span>{op.name}</span></>}
                       onPick={(op) => submitGuess(op.name)} suggestLabel="Matching operators" emptyText="No matching operators. Try another name." />
-                    <button type="submit" className={`primary ${styles.submit}`} disabled={!candidate}>Guess operator</button>
+                    <button type="submit" className={`primary btn-sm ${styles.submit}`} disabled={!candidate}>Guess operator</button>
                   </form>
                 </>
               )}

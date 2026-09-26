@@ -342,7 +342,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
           </section>
         )}
 
-        <div className="skins-result-summary"><span className="hint skins-result-count" role="status">{filteredSkins.length} of {skins.length} outfits</span>
+        <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
           <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); }}>Reset filters</button>
         </div>
         {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}

@@ -373,14 +373,14 @@ export default function OperatorsIndex({ operators, now }: Props) {
           )}
 
           <nav className="roster-techniques-link-row" aria-label="Operator reference tools">
-            <Link prefetch={false} href="/techniques" className="btn roster-techniques-btn">
+            <Link prefetch={false} href="/techniques" className="btn btn-sm roster-techniques-btn">
               <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
                 <path d="M10 2 L17 6 L17 14 L10 18 L3 14 L3 6 Z" strokeLinejoin="round" />
                 <path d="M10 2 V18 M3 6 L17 14 M17 6 L3 14" strokeLinecap="round" />
               </svg>
               <span>Techniques</span>
             </Link>
-            <Link prefetch={false} href="/synergies" className="btn roster-techniques-btn">
+            <Link prefetch={false} href="/synergies" className="btn btn-sm roster-techniques-btn">
               <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
                 <circle cx="6" cy="6" r="2.5" />
                 <circle cx="14" cy="6" r="2.5" />
@@ -389,7 +389,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
               </svg>
               <span>Synergies</span>
             </Link>
-            <Link prefetch={false} href="/obtain-method" className="btn roster-techniques-btn">
+            <Link prefetch={false} href="/obtain-method" className="btn btn-sm roster-techniques-btn">
               <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
                 <rect x="3" y="4" width="14" height="12" rx="1.5" />
                 <path d="M3 8 H17 M7 4 V16" strokeLinecap="round" />

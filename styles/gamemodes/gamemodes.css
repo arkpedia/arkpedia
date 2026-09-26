@@ -210,26 +210,18 @@
   box-shadow: 0 14px 28px -6px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(0 0 0 / 0.4);
   border-radius: var(--radius-control);
 }
+/* A .ghost .btn-icon, square at the control height like every close, pinned to the
+   sheet's corner beside its head. */
 .gm-sheetclose {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-faint);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
+  top: 10px;
+  right: 10px;
 }
-.gm-sheetclose:hover { color: var(--teal); }
 .gm-sheethead {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 22px 10px 0;
+  margin: 0 calc(var(--control-h) + 6px) 10px 0;
   --gm-badge: 34px;
 }
 .gm-modaltitle { flex: 1 1 auto; min-width: 0; }
@@ -695,7 +687,6 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 11px 16px;
   /* One line each. The two labels are read as a pair, and a wrapped one beside an
      unwrapped one makes the buttons different heights, which reads as a mistake. */
   white-space: nowrap;
@@ -801,28 +792,12 @@
 /* A bounty row whose creature the handbook has a record for. Written as a modifier on
    .gm-opwho rather than a button nested inside it, so the flex layout, the gap and the
    larger .gm-mode gap all still apply to exactly one element instead of needing a
-   second copy that could drift from the first. Only the button chrome is undone. */
-.gm-opwho-rec {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  /* NOT covered by `font: inherit` -- the shorthand carries family, size, weight and
-     line-height and neither of these. The site's global button rule uppercases every
-     button and tracks it out, so without these two the 122 pressable bounties SHOUTED
-     their names while the seven unpressable ones beside them stayed in sentence case. */
-  text-transform: none;
-  letter-spacing: normal;
-  text-align: left;
-  cursor: pointer;
-}
-/* Written against `button.` because the global `button:hover` paints the whole label
-   teal and outranks a bare class, which would have lit the sub-label too. The name is
-   the pressable thing, so the name alone answers the hover; the badge is a picture and
-   lighting that up says nothing. */
-button.gm-opwho-rec:hover,
-button.gm-opwho-rec:focus-visible { color: inherit; }
+   second copy that could drift from the first. It is a .btn-bare button, so it takes
+   none of the button voice: the global rule once uppercased and tracked out the 122
+   pressable bounties while the seven unpressable ones beside them stayed in sentence
+   case. The name is the pressable thing, so the name alone answers the hover; the
+   badge is a picture and lighting that up says nothing. */
+.gm-opwho-rec { text-align: left; }
 button.gm-opwho-rec:hover .gm-opname b,
 button.gm-opwho-rec:focus-visible .gm-opname b { color: var(--teal); }
 

@@ -32,7 +32,12 @@
      (base)    — secondary; the default when no class is given
      .ghost    — tertiary / dense toolbars
      .danger   — destructive
-   Sizes: (base) 13px/12px26px · .btn-sm 12px/8px14px · .btn-lg 17px/13px24px
+   Two heights (ui-primitives rule 4): a base or .primary button standing on its own
+   is a 44px call to action (14px, padding 12/24); EVERYTHING in a row of controls is
+   var(--control-h) -- .ghost and .danger always, a base or .primary button through
+   .btn-sm, a square icon button through .btn-icon. The height is a min-height and the
+   vertical padding is small, so the token decides it (flip --control-h-base in
+   shared.css and every control follows). .btn-lg (17px) is the unused large face.
 
    ONE HOVER RULE for every control: border and text go to --teal. ONE resting
    boundary: --control-border (a soft 2.2-2.6:1 on the panel; the fill and the teal
@@ -107,8 +112,10 @@ a.ghost,
   background: transparent;
   border-color: var(--control-border);
   color: var(--text-dim);
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 button.ghost:hover,
 a.ghost:hover,
@@ -123,6 +130,11 @@ a.danger,
   background: transparent;
   border-color: var(--danger);
   color: var(--danger);
+  /* A destructive action is never the call to action: it has the row size. */
+  min-height: var(--control-h);
+  font-size: 12px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 button.danger:not(:disabled):hover,
 a.danger:hover,
@@ -139,8 +151,24 @@ button:where(:not(.btn-bare)):disabled,
 button:where(:not(.btn-bare)):disabled:hover,
 .btn:disabled:hover { border-color: var(--line-soft); color: var(--text-faint); }
 
-.btn-sm { font-size: 12px; padding: 8px 14px; }
+.btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
 .btn-lg { font-size: 17px; padding: 13px 24px; font-weight: 700; }
+/* A square icon button (a close, a step, a play): var(--control-h) both ways, the glyph
+   centred, a "×" at 18px (an svg sizes itself). Element-qualified so it beats .ghost's
+   padding whatever the order. */
+button.btn-icon,
+a.btn-icon,
+.btn.btn-icon {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+  gap: 0;
+  font-size: 18px;
+  line-height: 1;
+}
 
 /* An anchor is underlined by default and a button is not. */
 a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
@@ -460,7 +488,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 /* --- chips / badges ------------------------------------------------------
    .filter-chip is THE pick-one-of-N and filter control. Render it through
    components/ui/SegmentedControl (one of N) or directly for independent filters.
-   Pinned metrics: 32px tall (36 at <=720), --control-border at rest, var(--radius),
+   Pinned metrics: var(--control-h) tall, --control-border at rest, var(--radius),
    the button voice (Rajdhani 600 uppercase, 0.09em). Picked is --teal-dim fill,
    teal text, teal border -- --teal-fill is reserved for primary ACTIONS, so a
    selected filter never looks like the button that runs something.
@@ -474,7 +502,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: var(--control-h);
   padding: 0 12px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
@@ -516,9 +544,6 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 /* The group a SegmentedControl renders: chips side by side, wrapping rather than
    overflowing the frame on a phone. */
 .seg-control { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-@media (max-width: 720px) {
-  .filter-chip { min-height: 36px; }
-}
 
 .badge {
   font-family: var(--font-mono);
@@ -567,8 +592,8 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 38px;
-  padding: 8px 34px;
+  min-height: var(--control-h);
+  padding: 4px 34px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--well);
@@ -596,7 +621,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 .search-input-wrap .search-input-clear:hover { color: var(--teal); }
 @media (max-width: 720px) {
-  .search-input-wrap .search-input { min-height: 40px; font-size: 16px; }
+  .search-input-wrap .search-input { font-size: 16px; }
 }
 
 /* --- checkbox ------------------------------------------------------------
@@ -791,7 +816,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: var(--control-h);
   padding: 0 12px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius-control);
@@ -830,7 +855,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 /* Joined -/value/+ cluster (the zoom control). */
 .stepgroup {
   display: flex;
-  min-height: 32px;
+  min-height: var(--control-h);
   border: 1px solid var(--control-border);
   border-radius: var(--radius-control);
   overflow: hidden;

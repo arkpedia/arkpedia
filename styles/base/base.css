@@ -80,16 +80,17 @@
   font-family: var(--font-mono);
   font-size: 11px;
 }
-/* The ? that explains a facility's figure: a round control with the control
+/* The ? that explains a facility's figure: a small control with the control
    border, drawn at least 24px on screen however far the map is zoomed out (see
-   .base-zoom-stage's --base-zoom). */
+   .base-zoom-stage's --base-zoom). A radius token, not a circle (ui-primitives rule
+   10: only avatars, dots and images are round). */
 .base-grid .base-facility-explain-btn {
   width: 22px;
   height: 22px;
   padding: 0;
   min-width: 0;
   border: 1px solid var(--control-border);
-  border-radius: 50%;
+  border-radius: var(--radius);
   font-size: 13px;
   line-height: 1;
   margin-left: 4px;
@@ -295,7 +296,7 @@
   height: 24px;
   padding: 0;
   min-width: 0;
-  border-radius: 50%;
+  border-radius: var(--radius);
   font-size: 12px;
   line-height: 1;
 }

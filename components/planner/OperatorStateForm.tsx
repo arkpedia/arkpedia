@@ -161,7 +161,7 @@ export function OperatorStateForm({
           value={level}
           onChange={(e) => { setLevelDraft(null); onLevel(Number(e.target.value)); }}
         />
-        <button type="button" className="state-level-max" aria-label={`Set level to maximum ${cap}`} title={`Set level to ${cap}`} onClick={() => { setLevelDraft(null); onLevel(cap); }}><small>MAX</small><span>{cap}</span></button>
+        <button type="button" className="btn-sm state-level-max" aria-label={`Set level to maximum ${cap}`} title={`Set level to ${cap}`} onClick={() => { setLevelDraft(null); onLevel(cap); }}>Max {cap}</button>
         </div>
       </div>
 

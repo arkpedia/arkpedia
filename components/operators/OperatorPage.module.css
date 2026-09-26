@@ -86,8 +86,14 @@
 .identity :global(.op-header-flex) { align-items: center; gap: 16px; }
 .identity :global(.op-header-text) { min-width: 0; }
 /* Rarity, class and branch beside the section menu. */
-.identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: 12px; margin: 0 0 6px; }
-.identity :global(.op-sticky-meta) { min-height: 24px; margin-block: 0; gap: 10px; font-size: 13px; }
+.identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: start; gap: 12px; margin: 0 0 6px; }
+/* One line (ui-primitives rule 4): each item of the meta line -- the stars, the class,
+   the branch -- is a control-height cell, so the first line of the meta sits on the
+   section menu's centre line, and a branch that wraps to a second line starts one
+   below it. Centred on the menu, the two-line meta put the menu 15px above the
+   branch name beside it and between the two lines. */
+.identity :global(.op-sticky-meta) { margin-block: 0; gap: 0 10px; font-size: 13px; }
+.identity :global(.op-sticky-meta) > * { display: inline-flex; align-items: center; min-height: var(--control-h); }
 /* The headline star row: body face at 15px, where the mono default draws the star
    at a few pixels. The colour stays .rarity-N's. */
 .identity :global(.op-sticky-meta) > :global(.rarity) { font-family: var(--font-body); font-size: 15px; letter-spacing: 0.06em; }
@@ -160,7 +166,7 @@
 .skillNumber { font: 600 10px/1 var(--font-mono); letter-spacing: 0; }
 .skillLevelControl { display: grid; grid-template-columns: auto 72px minmax(0, 1fr); align-items: center; gap: 8px; margin: 8px 0; }
 .skillLevelControl label { color: var(--text-dim); font-size: 13px; }
-.skillLevelControl input { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 0; }
+.skillLevelControl input[type="range"] { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 0; }
 .skillLevelValue { display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 /* The skill's numbers. Recovery and activation kinds are categories, so they take
    the --cat-* colours (auto green, manual orange, SP blue): teal is "on", and a
@@ -195,7 +201,7 @@
 .talentSelectors { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
 /* Elite and potential pickers: .filter-chip toggles, sized as icon tiles. */
 .talentOptions { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 0; }
-.talentOptions > button { flex-shrink: 0; width: 44px; min-width: 44px; height: 40px; min-height: 40px; padding: 4px 2px; }
+.talentOptions > button { flex-shrink: 0; width: var(--control-h); min-width: var(--control-h); height: var(--control-h); min-height: var(--control-h); padding: 2px; }
 .talentDescriptions { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }
 .talentDescriptions p { grid-area: 1 / 1; margin: 0; font-size: 13px; line-height: 1.7; }
 .talentCard { min-width: 0; padding: 4px 0 0; }
@@ -268,7 +274,6 @@
   .identity :global(.op-form-switch) { gap: 4px; }
   .area { min-height: calc(100svh - var(--nav-h, 52px) - 132px); padding: 12px 8px 64px; overflow: visible; --operator-player-inset: 21px; }
   .content > [data-operator-section] { padding: 12px; }
-  .talentOptions > button { min-height: 44px; }
 }
 @media (max-width: 900px), (max-height: 600px) {
   .panelHeader { position: sticky; top: var(--nav-h, 52px); }

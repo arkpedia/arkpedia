@@ -13,7 +13,7 @@ export type DetailOption = SelectOption & {
 export function DetailOptionContent({ option, compact = false }: { option: DetailOption; compact?: boolean }) {
   const portraits = option.portraits ?? [];
   return <span className="pulls-select-content">
-    {portraits.length > 0 && <span className="pulls-select-portraits" aria-hidden="true">{portraits.map(portrait => (
+    {portraits.length > 0 && <span className={`pulls-select-portraits${compact ? ' is-compact' : ''}`} aria-hidden="true">{portraits.map(portrait => (
       // eslint-disable-next-line @next/next/no-img-element
       <ContentImg key={portrait.name} src={portrait.src} alt="" title={portrait.name} width={compact ? 32 : 40} height={compact ? 32 : 40} />
     ))}</span>}

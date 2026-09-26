@@ -363,7 +363,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           <div className="cal-head-when">
             <button
               type="button"
-              className="cal-step"
+              className="ghost btn-icon"
               onClick={goPrevMonth}
               aria-label="Previous month"
             >
@@ -401,7 +401,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
 
             <button
               type="button"
-              className="cal-step"
+              className="ghost btn-icon"
               onClick={goNextMonth}
               aria-label="Next month"
             >
@@ -557,8 +557,8 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           <div ref={panelRef} className={`schedule-fullscreen-panel${selectedEvent ? ' open' : ''}`} role="dialog" aria-label={displayEvent ? displayEvent.name : 'Event'}>
             {displayEvent && (
               <div className="schedule-panel">
-                <button type="button" className="btn-bare schedule-panel-close-btn" onClick={closePanel} aria-label="Close">
-                  ✕
+                <button type="button" className="btn-icon schedule-panel-close-btn" onClick={closePanel} aria-label="Close">
+                  ×
                 </button>
                 {displayEvent.poster && (
                   // eslint-disable-next-line @next/next/no-img-element

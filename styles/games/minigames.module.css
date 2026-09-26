@@ -35,7 +35,7 @@
 .tags span { min-width: 110px; padding: 16px 22px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--well); text-align: center; font: 700 22px var(--font-display); letter-spacing: 0.03em; text-transform: uppercase; }
 .answerForm { display: grid; gap: 8px; }
 .answerForm label { font-size: 13px; color: var(--text-dim); }
-.answerRow { display: flex; align-items: flex-start; gap: 10px; }
+.answerRow { display: flex; align-items: center; gap: 10px; }
 .answerRow > :first-child { flex: 1; min-width: 0; }
 .feedback { display: grid; gap: 10px; }
 .notice { min-height: 1.6em; margin: 0; font-size: 13px; color: var(--text-dim); }

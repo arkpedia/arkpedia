@@ -87,7 +87,7 @@ function Row({ name, icon, trail, dim, open, onOpen }: {
   return (
     <button
       type="button"
-      className={`gm-row${dim ? ' dim' : ''}${open ? ' open' : ''}`}
+      className={`btn-bare gm-row${dim ? ' dim' : ''}${open ? ' open' : ''}`}
       aria-expanded={open ? true : undefined}
       onClick={(e) => onOpen(e.currentTarget)}
     >
@@ -757,7 +757,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         aria-modal="false"
         aria-label={shown.title}
       >
-        <button type="button" className="gm-sheetclose" onClick={close} aria-label="Close">&times;</button>
+        <button type="button" className="ghost btn-icon gm-sheetclose" onClick={close} aria-label="Close">&times;</button>
         <div className="gm-sheethead">
           {shown.icon !== undefined && <Badge name={shown.title} icon={shown.icon} />}
           <div className="gm-modaltitle">
@@ -1088,7 +1088,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
               {it.name === 'Damazti Isomorph' ? (
                 <button
                   type="button"
-                  className="gm-opwho gm-isoopen"
+                  className="btn-bare gm-opwho gm-isoopen"
                   onClick={() => setIsoOpen(true)}
                   title="Show every pairing"
                 >
@@ -1257,7 +1257,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
                     return rec ? (
                       <button
                         type="button"
-                        className="gm-opwho gm-opwho-rec"
+                        className="btn-bare gm-opwho gm-opwho-rec"
                         title={`Open the handbook record for ${rec.name}`}
                         onClick={() => setRecord(rec)}
                       >

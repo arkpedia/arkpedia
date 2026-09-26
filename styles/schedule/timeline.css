@@ -21,23 +21,9 @@
 .cal-pick-month { min-width: 176px; }
 .cal-pick-year { min-width: 104px; }
 
-/* Round, because they are the two controls pressed most and a circle is the easiest
-   shape to hit without looking. */
-.cal-step {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--control-border);
-  background: var(--panel);
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-.cal-step:hover { border-color: var(--teal); color: var(--teal); }
+/* The month steps either side of the title are .ghost .btn-icon buttons: square at
+   the control height, like the month and year menus between them (they were 36px
+   circles beside 40px menus, and only avatars, dots and images are round). */
 
 /* Only drawn when it would do something, so its presence is the message: you are not
    on this month. The slot holds its width whether or not it is drawn. */
@@ -334,28 +320,14 @@
   }
 }
 
-/* Closing is not destructive: a neutral round control with the hover rule. */
+/* Closing is not destructive: a neutral .btn-icon (the square control-height icon
+   button, on the button surface so it reads over the poster), pinned to the corner. */
 .schedule-panel-close-btn {
   position: absolute;
   top: 12px;
   right: 12px;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--control-border);
-  background: var(--panel-2);
-  color: var(--text-dim);
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
 }
-.schedule-panel-close-btn:hover { border-color: var(--teal); color: var(--teal); }
 .schedule-panel-poster {
   width: 100%;
   border-radius: var(--radius);

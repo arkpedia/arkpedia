@@ -7,6 +7,7 @@ The canonical style is the `/operators` list page plus `/gacha`, as decided on 2
 - Section headings are `.op-section h2` in `--heading`, a teal-ish colour kept apart from the `--teal` that marks on/current states (maintainer, 2026-09-26; amber was tried and rejected).
 - Picture and content cards (posters, banner art and thumbnails, operator and skin tiles, enemy tiles, album covers, portraits, video cards, the Terminal's stage, mode, supply and Regular Tasks cards, the /games and /community cards) carry **no resting border**, and no frame round the art inside them either: the art says they can be clicked. They keep a transparent 1px border so nothing shifts, and draw the teal edge on hover and keyboard focus (`border: 1px solid transparent`, `border-color: var(--teal)` on `:hover` and `:focus-visible`). A card in an on state keeps its teal edge, and a rarity ring is data, not a frame. Only real controls (buttons, chips, checkboxes, inputs, tabs, dropdowns) carry `--control-border` at rest, and large pressable surfaces (a selectable `.pick-card`, a row card like the pull planner's banner cell) carry the quieter `--card-border`; a control with only a small picture in it (a featured-operator chip, an appearance thumbnail) is one of them. `tests/browser/cards-and-headings.spec.ts` finds every link or button whose main content is a picture (40x40 or more, half its box or more) on twenty routes and fails on a framed one.
 - Buttons are Rajdhani, uppercase, with 0.09em tracking.
+- Controls in a row are one height, `--control-h` (36px, 40px at ≤720), and share one centre line.
 - The page header has a mono teal eyebrow above a 30px Rajdhani h1.
 - Everything sits in a 1040px frame with 24px gutters.
 - Radii come from the 2–4px family.
@@ -33,13 +34,13 @@ CSS modules are used by the operator page, the games, the pulls workspace and `S
    - **One deliberate exception:** the automatic skill metric ("SP recovery: Auto", "Activation: Auto") is teal-bordered on `--teal-dim` on the operator page (`.skillMetricAuto` in `OperatorPage.module.css`) and in the `/gacha` operator preview (`.gacha-preview-skill-fact.auto` in `gacha.css`). The maintainer chose this in main's 2026-09-25 commit "Align gacha rarity borders and skill recovery colors", and it stays. Two older teal surfaces also stay, each with its own meaning: `.enemy-resist.vulnerable` on `/enemies` (a weakness, not a state) and the `/gacha` X1 button (the reference page, left as it is). Those are the only non-state teal surfaces. `audit:styles` (`tealDecoration`, strict) rejects teal on a selector that names no state in the page families already clean of it, today `styles/stages/`; elsewhere reviewing new ones is left to people, so keep this list in step with the code and add a family's folder to `TEAL_DECORATION_SCOPE` in `scripts/audits/audit-styles.mjs` once it is clean.
 2. **One resting boundary for controls, and it is soft.** Anything that can be pressed, typed in, ticked or picked from has a `--control-border` border at rest, except a picture or content card, which has none (above). The border is a band, not WCAG 1.4.11's 3:1: at 3.5:1 every chip and field was a hard outline (maintainer, 2026-09-26: "too harsh"). A control reads as one through its fill (`--row-grad`, `--panel-2`, `--well`), its label or button voice, and the teal hover and focus; the border only has to be seen. A large pressable surface (a `.pick-card`, a row card, a tall disclosure row) takes the quieter `--card-border`, because a long outline at the chip's weight boxes in half the page. `--line` and `--line-soft` are for passive hairlines only (panels, dividers, table rules).
 3. **Booleans and options are checkboxes.** A setting that is on or off ("Monthly card", "Include CN", "Include sparking") and an item in a list you tick (the stage guesser's chapters, the music guesser's releases) is a real `<input type="checkbox">` in a `<label className="check">`. It is never a `.tgl`, a `.filter-chip` with `aria-pressed` or a button drawing its own tick box: #64 turned eleven of them into highlighted buttons and the maintainer asked for the checkboxes back. `.tgl` is only a mode switch in a dense toolbar. `audit:styles` rejects a checkbox outside a `.check` label (`checkboxPrimitive`) and a `.tgl` outside `TGL_SCOPE` (`tglOutsideToolbar`), and `tests/browser/checkboxes.spec.ts` holds the known option groups to real checkboxes.
-4. **One line.** The cells of a row share one centre line: a button, input or select and the text or the other control beside it sit on the same vertical centre (and on one baseline where text sits beside text). A caption under a value hangs below it out of the flow rather than lifting the value off the centre, and a margin under one cell of a centred row belongs to the row, not the cell (`.hint`'s 18px bottom margin lifted the /skins count 9px). `tests/browser/row-census.ts` finds offenders; `tests/browser/row-alignment.spec.ts` runs it on the routes it found them on.
+4. **One line, one height.** The cells of a row share one centre line: a button, input or select and the text or the other control beside it sit on the same vertical centre (and on one baseline where text sits beside text). A caption under a value hangs below it out of the flow rather than lifting the value off the centre, and a margin under one cell of a centred row belongs to the row, not the cell (`.hint` has no outer margin for this reason: its 18px lifted the /skins count 9px). The controls in a row are **one height, `var(--control-h)`**: chips, `.tgl`, `.ghost`, `.danger`, `.btn-sm`, `.btn-icon`, the search field, the StyledSelect trigger, number inputs and `.stepgroup` all read it as a min-height with small vertical padding, so the token decides the height whatever the font. A base or `.primary` button is 44px only as a standalone call to action; in a row it takes `.btn-sm` (see Buttons). No page states a control height of its own: `audit:styles` (`controlHeight`, strict) rejects a literal `height` or `min-height` on a control outside `styles/core` and on a primitive inside it. `tests/browser/row-census.ts` measures every flex row and grid (centres within 2px, control heights within 1px) and `tests/browser/row-alignment.spec.ts` runs it strict on every address and driven state the census visited, at 1440 and 390, with a reasoned `ALLOWED` list that fails when an entry goes stale; the same spec flips `--control-h-base` to 32px and checks that every primitive follows.
 5. **One hover rule.** On hover, the border and the text go to `--teal`. Destructive `.danger` controls are the exception: they stay red.
 6. **Rarity colour comes only from `--rarity-N`**, through `<Rarity>`, `.rarity-N`, `.tier-N` or `.tier-fill-N`. 5★ is never teal.
 7. **One frame.** The header, `main` and the nav share `--frame-max` (1040px) and `--page-gutter` (24px at every width). There are no per-feature gutters and no `main-wide`.
 8. **One page header**, `<PageHeader>`, placed as a sibling of `<main>`.
 9. **One dropdown**, `<StyledSelect>`. Never write a native `<select>` or a hand-built `role="listbox"` outside `components/ui`.
-10. **Radii come from tokens**: `var(--radius)` (2px) by default, `var(--radius-frame)` (3px) for an outer frame or a floating menu, and `var(--radius-control)` (4px) at most for a tile-like control. Never use a literal, and never 999px pills.
+10. **Radii come from tokens**: `var(--radius)` (2px) by default, `var(--radius-frame)` (3px) for an outer frame or a floating menu, and `var(--radius-control)` (4px) at most for a tile-like control. Never use a literal, never 999px pills, and never a 50% circle except on an avatar, a dot, an image or a slider thumb (the calendar's month steps and three help or close buttons were circles). `audit:styles` (`pills`) rejects both; `ROUND_EXEMPT` in `scripts/audits/audit-styles.mjs` names the four round things whose selectors do not say so.
 11. **Only loaded font weights.** Rajdhani 500/600/700, JetBrains Mono 400–700 and Inter 400–700 are loaded. Any other weight is faked by the browser as faux bold.
 12. **Anti-Page Jump.** No state change may leave the document shorter than the reader's scroll position needs. See the `arkpedia-ui` skill. `components/ui/useHeightFloor` is the general-purpose fix.
 
@@ -65,6 +66,13 @@ All values are in `styles/core/shared.css`. `scripts/tests/test-ui-tokens.ts` ch
 | `--line` / `--line-soft` | white .10 / .06 | black .12 / .07 | Passive hairlines only |
 | `--control-border` | white .25 | #98a3ab | The resting border of every control: 2.28:1 (dark) and 2.5:1 (light) on `--panel`, and 2:1 or more on every surface. `test-ui-tokens.ts` holds it between 2.2 and 2.6:1 on the panel, so it can soften no further and harden no further. |
 | `--card-border` | white .16 | #bac2c8 | The quieter resting edge of a large pressable surface: `.pick-card`, a row card, a tall disclosure row. Between `--line` and `--control-border`. |
+
+### Control height
+
+| Token | Value | Use |
+|---|---|---|
+| `--control-h-base` | 36px | **The one value to change.** The height of every control in a row. The maintainer may flip it (to 32px, say): it is one line, and nothing else states a control height. |
+| `--control-h` | `--control-h-base`, plus 4px at ≤720 (36 / 40 today; 32 / 36 flipped) | What controls read: `min-height: var(--control-h)` on the primitives, `height` or `width` of a square icon button, a joined stepper's parts at `calc(var(--control-h) - 2px)` inside its 1px frame. |
 
 ### Accent and state
 
@@ -108,6 +116,7 @@ These apply to every page with no opt-in:
 - `input`, `select` and `textarea` use `font: inherit`, so there is no browser Arial.
 - The scrollbar thumb rests at `--text-faint` everywhere (the `:root` default and the drawn `.sidescroll` bar). The drawn bar also turns teal on hover. `scrollbar-color` is inherited, so a nested vertical scroller sets at most `scrollbar-width` and takes the colour from `:root`. A thumb in `--line` or `--line-soft` (1.31:1) is rejected by `audit:styles` (`scrollbarThumb`).
 - `.site-nav-trigger` is in sentence case at weight 400, like the nav links.
+- `.hint` (mono 11px, `--text-faint`) is a voice, not a block: it has no outer margin, so a hint in a flex row sits on the row's centre line. A hint paragraph or block (`p.hint`, `div.hint`) keeps an 18px gap below it.
 
 ## Components (`components/ui`)
 
@@ -154,7 +163,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 ```
 
 - It renders a `role="group"` of `<button class="filter-chip" aria-pressed>`. Tests find each option with `getByRole('button', { name })`.
-- The pinned chip is 32px tall (36px at ≤720), with a `--control-border` border, `var(--radius)` and the button voice (Rajdhani 600, 12px, uppercase, 0.09em). When picked it has a `--teal-dim` fill, teal text and a teal border.
+- The pinned chip is `var(--control-h)` tall (36px, 40px at ≤720), with a `--control-border` border, `var(--radius)` and the button voice (Rajdhani 600, 12px, uppercase, 0.09em). When picked it has a `--teal-dim` fill, teal text and a teal border.
 - **Never** use `cond ? 'primary' : 'ghost'` for a pick-one control or a toggle. `--teal-fill` is reserved for primary actions. `audit:styles` rejects the swap in TSX (`primaryToggle`, strict; `pages/dev` excepted). A button whose label says its state ("Play" / "Pause") keeps one class and takes no `aria-pressed`.
 - `.tgl` (a mode switch in a dense toolbar, mono 11px) takes `.is-on` together with `aria-pressed`. On is the chip's picked state, not a fill. It is not for settings or options: those are `.check` checkboxes, and `audit:styles` (`tglOutsideToolbar`) rejects a `.tgl` in any file outside `TGL_SCOPE` (none today).
 - For filters that toggle independently (tags you can turn on together), render `.filter-chip` buttons directly with `aria-pressed`. The picked state reads `aria-pressed`, `aria-selected` or `aria-checked` (`.active` also works during migration).
@@ -191,14 +200,23 @@ The control for a boolean or an option. A real checkbox inside its label, so the
 | `.primary` | The one action that matters on the screen: teal fill with `--teal-ink` text |
 | `.ghost` | Tertiary actions and dense toolbars: transparent with a `--control-border` border |
 | `.danger` | Destructive actions (Reset, Start over, Delete): red border and text |
-| `.btn-sm`, `.btn-lg` | Size modifiers |
-| `.btn-bare` | A `<button>` that is **not** a button: a card, a tile, a list row, an album cover. The base button rules skip it entirely (no uppercase, no tracking, no weight, no inline-flex centring, no teal hover), so your own class supplies the look. |
+| `.btn-sm` | The row size: `var(--control-h)` tall, 12px, padding 4/14. A base or `.primary` button beside other controls takes it. |
+| `.btn-icon` | A square icon button at `var(--control-h)` both ways (a close "×", a month step, a play or remove glyph), on any variant: `btn-icon` (the button surface), `ghost btn-icon` (transparent). |
+| `.btn-lg` | The unused large face (17px). |
+| `.btn-bare` | A `<button>` that is **not** a button: a card, a tile, a list row, an album cover. The base button rules skip it entirely (no uppercase, no tracking, no weight, no inline-flex centring, no teal hover), so your own class supplies the look. A card without it inherits the button voice onto its own font: the Stronghold enemy and Isomorph rows rendered Inter 16 uppercase at 0.09em, the /gacha featured chips Inter 11 at 0.09em. `tests/browser/cards-and-headings.spec.ts` fails on any visible button computing Inter or JetBrains Mono with the 0.09em tracking, on every census address and state. |
 | `.pick-card` | A selectable card (a preset, a banner). It has the quieter `--card-border` frame and a teal hover. When picked (`aria-pressed`, `aria-selected`, `aria-checked` or `.is-selected`) it has a teal border over `--teal-dim`. Use it with `.btn-bare`. |
+
+**Four variants, two sizes.** The variants are base, `.primary`, `.ghost` and `.danger`. The sizes are the 44px call to action (base or `.primary` standing on its own: padding 12/24, 14px) and the control height (`var(--control-h)`), which `.ghost` and `.danger` always have and base or `.primary` take with `.btn-sm`. A primary beside a ghost takes the control size by itself (the sibling rule in `shared.css`). There are no one-off sizes: the planner's and the operator page's two-line MAX tiles, the /gacha dialog close (a 26px glyph in 40px), the support links (a 12px copy of `.btn` on a 4px radius), the stage list's 26px Clear and the 42px Stronghold launch buttons are all one of the eight now.
+
+- **The documented exception:** the `/gacha` X1/X10/Reset pull row (`.gacha-action`, 42px, 15/700 at 0.05em) stays as it is, because `/gacha` is the reference page and its action row is part of what was chosen. `CONTROL_HEIGHT_EXEMPT` names it, with the few other controls that are not in a row (the Stronghold companion's compact kit, picture cards, the /base map's on-canvas buttons, menu rows) and the tab strips the tab primitive owns.
 
 ```tsx
 <button type="button" className="btn-bare album-tile" onClick={open}>…</button>
 <button type="button" className="btn-bare pick-card" aria-pressed={preset === p.id} onClick={() => setPreset(p.id)}>…</button>
 <button type="button" className="danger" onClick={reset}>Reset base</button>
+{/* In a row with a field: the row size, not the 44px call to action. */}
+<SearchInput … /><button type="submit" className="primary btn-sm">Guess</button>
+<button type="button" className="ghost btn-icon" aria-label="Close" onClick={close}>×</button>
 ```
 
 Anchors: `<Link className="btn">`, `<Link className="btn primary">`, `className="ghost"` and `className="danger"` all take the button look.
@@ -238,7 +256,7 @@ type AllianceOption = SelectOption & { icon: string; n: number };
 />
 ```
 
-- `size="title"` is the heading-sized trigger (22px Rajdhani uppercase, no fill), used for the calendar's month and year.
+- The trigger is `var(--control-h)` tall, like every control in a row; `size="title"` is the heading-sized trigger (22px Rajdhani uppercase, no fill, the same height), used for the calendar's month and year between the two `.ghost .btn-icon` month steps.
 - `align="end"` right-aligns a menu wider than its trigger. The default is `start`.
 - `menuMinWidth` defaults to 240.
 - `disabled` disables the control, and so does an empty options list.
@@ -273,7 +291,7 @@ import SearchInput from '@/components/ui/SearchInput';
 ```
 
 - Keys: ArrowUp and ArrowDown move the highlight while focus stays in the field. Enter picks the highlighted row, or the only row when exactly one matches. Escape closes the list, and a second Escape clears the field.
-- The field is `.search-input` (`--well` ground, `--control-border`, mono 13px, 16px at ≤720 so iOS does not zoom) with a magnifier and a clear button.
+- The field is `.search-input` (`var(--control-h)` tall, `--well` ground, `--control-border`, mono 13px, 16px at ≤720 so iOS does not zoom) with a magnifier and a clear button.
 - The list is absolutely positioned inside the field's wrapper, so it never adds to the page height.
 - `SuggestMenu` is exported for the rare field that cannot be a `SearchInput`. Import it rather than drawing a list.
 
@@ -344,7 +362,7 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `nativeControls` | `<select>` and `role="listbox"` outside `components/ui`, per file | Replace with `StyledSelect` (or `SearchInput` for suggestion lists) |
 | `rarityLiteral` (strict) | Colour literals in rarity, star and pull rules, and in any custom property named for rarity | Use `var(--rarity-N)`, `.rarity-N`, `.tier-N` or `.tier-fill-N` |
 | `oldTeal` (strict) | `#4de8d1` / `rgb(77 232 209)` | Use `var(--teal)` (pass it through CSS, or `currentColor`) |
-| `pills` (strict) | 999px radii | Use a radius token |
+| `pills` (strict) | 999px radii, and 50% radii on anything but an avatar, a dot, an image or a slider thumb (`ROUND_OK`, `ROUND_EXEMPT`) | Use a radius token |
 | `h1Rules` (strict) | h1 size or case rules outside `shared.css` | Delete them and render `PageHeader` |
 | `fontWeights` (strict) | Rules asking a font for a weight it does not load | Load the weight in `_document`, or use a loaded one |
 | `collisions` | A bare class styled in two global stylesheets | Scope the class to its page, or move a shared one to `core/` |
@@ -354,6 +372,7 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
 | `checkboxPrimitive` (strict) | An `<input type="checkbox">` in TSX whose nearest open `<label>` has no `check` class | Wrap it in `<label className="check">` and delete any page styling of the box |
 | `tglOutsideToolbar` (strict) | A `tgl` class in TSX outside the files in `TGL_SCOPE` (none today) | A setting or an option is a `.check` checkbox; a pick-one is `SegmentedControl`; an independent filter is a `.filter-chip` with `aria-pressed` |
+| `controlHeight` (strict) | A literal `height` / `min-height` on a control: outside `styles/core`, any rule whose subject is a button, text input, select or textarea, a primitive class, or a class TSX puts on one (never a `.btn-bare`, never a dot); inside `styles/core`, a primitive class. `CONTROL_HEIGHT_EXEMPT` lists the few that are not row controls, each with its reason, and fails on a stale entry | Read `var(--control-h)` (or take `.btn-sm` / `.btn-icon`) and delete the page's height |
 | `tealDecoration` (strict) | `var(--teal)`, `--teal-dim` or `--teal-fill` as a colour, background, border, outline or shadow on a selector with no state in it (`:hover`, `:focus`, `:checked`, `[aria-pressed]`, `[aria-current]`, `.current`, `.live`, `.open`...), in the folders of `TEAL_DECORATION_SCOPE` (`styles/stages/`) | Recolour it (`--text-dim`, `--heading` for a heading), or qualify the selector with the state it marks |
 
 ```sh
@@ -389,7 +408,8 @@ The test also fails when a page file under `pages/` is neither measured nor excl
    - search fields become `SearchInput`
    - cards that are buttons get `.btn-bare`, plus `.pick-card` if they are selectable
    - destructive actions get `.danger`
-   - delete the module or page-local variants
+   - a base or primary button in a row of controls gets `.btn-sm`; a square icon button gets `.btn-icon`
+   - delete the module or page-local variants, and every height the page states on a control (rule 4)
 5. Borders on anything interactive use `var(--control-border)`, with hover to teal; a large pressable surface (a row card, a `.pick-card`) uses `var(--card-border)`; picture and content cards use a transparent border instead, teal on hover and focus. Passive frames keep `--line` or `--line-soft`. Cells in a row share one centre line (rule 4).
 6. Replace rarity with `<Rarity>` or `.tier-N`. Categories use `--cat-*`. Replace any remaining literal colours with tokens (check the light theme).
 7. Radii come from tokens only (2, 3 or 4px).

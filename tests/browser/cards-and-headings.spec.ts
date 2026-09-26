@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { CENSUS_STATES, censusRoutes, openCensus } from './census-routes';
 
 /*
  * Two maintainer decisions from 2026-09-26, after the site-wide restyle:
@@ -252,5 +253,34 @@ for (const theme of ['dark', 'light'] as const) {
       }
       expect(checked, 'at least the event, banner and featured cards are on the page').toBeGreaterThanOrEqual(3);
     });
+  });
+}
+
+/* ---- The button voice stays on buttons (r9 controls) --------------------------------
+ * Buttons are Rajdhani, uppercase, 0.09em (ui-primitives). A card that is a <button>
+ * takes .btn-bare, which skips the base button rule; without it the card inherits the
+ * rule's uppercase and tracking onto its own font. The 2026-09-26 census found the
+ * Stronghold enemy rows (.gm-row) and the Isomorph row (.gm-opwho) in Inter 16,
+ * uppercase at 0.09em, and the /gacha featured-operator chips in Inter 11 at 0.09em
+ * (they reset the case, not the tracking). The signature is the base rule's 0.09em
+ * tracking computed on Inter or JetBrains Mono, with or without its uppercase: no
+ * page sets 0.09em on those faces on purpose. Every address and driven state the
+ * census visited; desktop only, since no page switches a button's face by width.
+ * It reads computed styles, not glyph metrics, so CI's fonts do not change it. */
+for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
+  const name = typeof target === 'string' ? target : `${target.route} (${target.id})`;
+  test(`buttons on ${decodeURIComponent(name)} keep the button voice off body and mono type`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'a button\'s face does not change with the width');
+    await openCensus(page, target);
+    const leaks = await page.evaluate(() => Array.from(document.querySelectorAll('button, [role="button"], a.btn, a.ghost, a.primary, a.danger'))
+      .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
+      .map((el) => {
+        const cs = getComputedStyle(el);
+        const face = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+        const em = (parseFloat(cs.letterSpacing) || 0) / parseFloat(cs.fontSize);
+        return { el: `${el.tagName.toLowerCase()}.${[...el.classList].join('.')}`, face, transform: cs.textTransform, em: Math.round(em * 1000) / 1000, text: (el.textContent ?? '').trim().slice(0, 30) };
+      })
+      .filter((b) => /^(?:Inter|JetBrains Mono)$/.test(b.face) && Math.abs(b.em - 0.09) < 0.006));
+    expect([...new Map(leaks.map((b) => [b.el, b])).values()], `${name}: buttons in Inter or JetBrains Mono with the button tracking (a card takes .btn-bare)`).toEqual([]);
   });
 }

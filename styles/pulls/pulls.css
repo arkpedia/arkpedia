@@ -77,7 +77,8 @@
 
 /* --- step 2: the date ------------------------------------------------------ */
 .pulls-date {
-  padding: 10px 12px;
+  min-height: var(--control-h);
+  padding: 0 12px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--panel-2);
@@ -355,7 +356,9 @@
 
 /* Contextual help stays beside its section title; normal labels and results
    remain visible, while the detailed guidance is requested explicitly. */
-.pulls-help-button { display: inline-grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 1px solid var(--control-border); border-radius: 50%; background: var(--panel); color: var(--text-dim); font: 600 15px var(--font-body); cursor: pointer; }
+/* The ? is a .ghost .btn-icon (the square control-height icon button, a radius token
+   rather than the circle it was); this keeps it from shrinking in the heading row. */
+.pulls-help-button { flex: none; }
 .pulls-help-button:hover, .pulls-help-button[aria-expanded="true"] { color: var(--teal); border-color: var(--teal); }
 .pulls-help-button:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 .pulls-help-dialog { width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; box-sizing: border-box; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: var(--radius-frame); color: var(--text); background: var(--panel); box-shadow: 0 20px 70px #0005; }
@@ -374,7 +377,6 @@
 .pulls-goals-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .pulls-goals-heading h3 { margin: 0; }
 @media (max-width: 600px) {
-  .pulls-help-button { width: 40px; height: 40px; flex-basis: 40px; }
   .pulls-help-heading { padding: 14px 16px; }
   .pulls-help-heading h2 { font-size: 18px; }
   .pulls-help-content { padding-inline: 16px; }
@@ -430,7 +432,7 @@
    portraits, and a top-aligned date field sat 9px above its centre. */
 .pulls-target-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
 
-.pulls-target-row .pulls-date { width: 100%; min-width: 0; height: 40px; padding: 6px 8px; }
+.pulls-target-row .pulls-date { width: 100%; min-width: 0; height: var(--control-h); padding: 0 8px; }
 .pulls-day-options { display: flex; gap: 4px; }
 /* Two .filter-chips: the paint and the picked state are the primitive's. */
 .pulls-day-options > button { flex: 1; justify-content: center; }
@@ -459,7 +461,7 @@
   .pulls-include-mobile { display: inline-flex; }
 }
 
-.pulls-detail-button { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 44px; margin-top: 16px; padding: 10px 12px; text-align: left; }
+.pulls-detail-button { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; margin-top: 16px; padding: 4px 12px; text-align: left; }
 .pulls-help-content .pulls-line { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; }
 .pulls-help-content .pulls-line-sum { grid-column: 1; grid-row: 2; text-align: left; }
 .pulls-help-content .pulls-line-amount { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
@@ -492,7 +494,7 @@
 .pulls-banner-editor .pulls-plan-controls { margin:0 0 6px; }
 
 .pulls-banner-editor .pulls-plan-controls label{ flex-direction:row; align-items:center; gap:10px; }
-.pulls-banner-editor .pulls-plan-controls input { width:88px; min-height:44px; padding:6px 8px; }
+.pulls-banner-editor .pulls-plan-controls input { width:88px; min-height:var(--control-h); padding:0 8px; }
 
 .pulls-banner-editor .pulls-odds-result { padding-top:10px; min-height:100px; box-sizing:border-box; }
 .pulls-banner-editor .pulls-odds-headline { min-height:44px; margin-bottom:6px; }
@@ -508,6 +510,11 @@
 .pulls-select-content { display:block; min-width:0; flex:1; }
 .pulls-select-portraits { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
 .pulls-select-portraits img { display:block; width:40px; height:40px; object-fit:contain; flex-shrink:0; }
+/* In the closed trigger the portraits fit the control height, so the banner picker is
+   one control height beside the date field (ui-primitives rule 4); the open list keeps
+   the 40px portraits. */
+.pulls-select-portraits.is-compact { flex-wrap:nowrap; overflow:hidden; }
+.pulls-select-portraits.is-compact img { width:calc(var(--control-h) - 10px); height:calc(var(--control-h) - 10px); }
 
 .pulls-select-caption { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin-top:3px; color:var(--text-dim); font-size:11px; }
 .pulls-select-meta { white-space:nowrap; font-variant-numeric:tabular-nums; }

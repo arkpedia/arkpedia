@@ -132,12 +132,13 @@
   gap: 6px;
   min-width: 0;
 }
+/* The transport buttons are square at the control height (ui-primitives rule 4). */
 .music-controls > button,
 .music-player-bottombar-controls > button {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
   padding: 0;
 }
 .music-play-btn.loading {
@@ -389,9 +390,9 @@
   gap: 4px;
 }
 .music-queue-row-actions button {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
   padding: 0;
   font-size: 13px;
 }
