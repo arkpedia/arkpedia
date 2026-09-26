@@ -115,12 +115,16 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
     if (bottom - top > size * 1.3 * 3) return null;
     return { top, bottom, centre: (top + bottom) / 2 };
   };
-  /** The first line of a flex row that wraps onto more than one line, as the extent of
-   *  the items on it; null for anything else. */
+  /** The first line of a flex row that mixes text with controls and wraps onto more
+   *  than one line, as the extent of the items on it; null for anything else. A row of
+   *  controls only (a chip group) is left to the group rule: whether it wraps can turn
+   *  on the font, and CI's Linux fonts are wider than the Mac's. */
   const firstLine = (el: Element) => {
     const cs = getComputedStyle(el);
     if (!/flex/.test(cs.display) || !cs.flexDirection.startsWith('row') || cs.flexWrap !== 'wrap') return null;
-    const items = Array.from(el.children).filter((k) => visible(k) && inFlow(k)).map((k) => k.getBoundingClientRect());
+    const children = Array.from(el.children).filter((k) => visible(k) && inFlow(k));
+    if (!children.some((k) => !k.matches(CONTROL) && !controlsIn(k).length)) return null;
+    const items = children.map((k) => k.getBoundingClientRect());
     if (items.length < 2) return null;
     const top = Math.min(...items.map((r) => r.top));
     const first = items.filter((r) => r.top < top + 2);
