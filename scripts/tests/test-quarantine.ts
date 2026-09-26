@@ -141,6 +141,34 @@ test('importers in other languages report through the command line, under the cl
   });
 });
 
+test('a reason that carries text which changes by itself is refused, from any importer, and the day\'s own words pass', () => {
+  temporary(root => {
+    const stage = beginStage(root, 'palettes', new Date('2026-09-26T10:00:00Z'));
+    const key = 'palette:/five-star-skins/Harold - Base.webp';
+    // What the palettes stage wrote before 2026-09-26: an object's address (another each run),
+    // then a download error with its URL at the skin pin and the day's wording.
+    for (const reason of [
+      '/five-star-skins/Harold - Base.webp: keeps its previous palette (UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x108905580>)',
+      '/five-star-skins/Harold - Base.webp: keeps its previous palette (OSError: https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/eb9f58b6c1f2a3d4e5f60718293a4b5c6d7e8f90/five-star-skins/Harold%20-%20Base.webp: <urlopen error [Errno 61] Connection refused>)',
+      'Downloading the crest failed (HTTP Error 502: Bad Gateway)',
+      'Wiki page Event/Upcoming cannot be used: fetch failed (ECONNREFUSED); its last good read (14 rows) is used instead.',
+    ]) assert.throws(() => stage.add({ key, reason, action: 'kept-previous' }), /changes by itself and would make every run a new release/, reason);
+    // Reasons the stages write today, each the same words every day it holds the same record.
+    for (const reason of [
+      '/five-star-skins/Harold - Base.webp: keeps its previous palette, since it could not be downloaded from the pinned skin repository',
+      'PA-4 (People, A People): the in-game render map/act51side_04.png is staged as .cache/stage-renders/pa-4.png, but no run has published it to arkpedia-image-assets as stages-images/pa-4.webp yet; the stage is published without a map preview until one does.',
+      'stage:asset-revisions failed or timed out; the run\'s stage report says how',
+      'Downloading https://arknights.wiki.gg/images/CN_Gone_banner.png?0a1b2c failed; the record is published without event-poster/Gone.webp until a later run imports it.',
+      'Rage of The Many (act99mini) is a MULTIPLAY_V4 activity, a type data/game-modes.json does not classify, so it is listed as an ordinary event.',
+      'The staged file .cache/stage-renders/pa-4.png is not the file its importer staged (#c03030 hair)',
+    ]) assert.doesNotThrow(() => stage.add({ key: `k:${reason.length}`, reason, action: 'published-partial', sourceRef: 'https://raw.githubusercontent.com/o/r/eb9f58b6c1f2a3d4e5f60718293a4b5c6d7e8f90/x.png' }), reason);
+    // The command line the Python importers report through refuses it too, and writes nothing.
+    const bad = [{ key, reason: 'no palette (UnidentifiedImageError: cannot identify image file <_io.BytesIO object at 0x10ab3c2d0>)', action: 'omitted-new' }];
+    assert.throws(() => execFileSync(process.execPath, [HELPER, 'palettes'], { cwd: root, input: JSON.stringify(bad), stdio: 'pipe' }), /0x10ab3c2d0/);
+    assert.equal(fs.existsSync(file(root)), false);
+  });
+});
+
 test('a sourceRef that moves only to a newer mirror commit is the same source, and leaves the file byte for byte', () => {
   temporary(root => {
     const raw = (commit: string) => `https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/${commit}/item/act99side_token_new.png`;

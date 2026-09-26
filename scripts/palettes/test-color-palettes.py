@@ -1,6 +1,6 @@
 """Offline generator checks; run with python3 scripts/palettes/test-color-palettes.py."""
 import importlib.util
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from io import BytesIO, StringIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -159,6 +159,106 @@ class ReleaseStage(unittest.TestCase):
             self.assertEqual(output['unavailable'], [self.key])
             self.assertIn('/' + good, output['artworks'])
             self.assertIn(('palette:' + self.key, 'omitted-new'), [(h['key'], h['action']) for h in holds])
+
+    # data/quarantine.json is a release input, so a hold must read the same every run that
+    # holds the same artwork for the same kind of failure: no error text (PIL names the
+    # buffer's address, a download names its URL at the pin and the day's error) and no commit.
+    # On 2026-09-26 both went into the reason, and one corrupt upload or flaky download would
+    # have made a new release every night.
+
+    def omitted(self, why):
+        return [{'key': 'palette:' + self.key, 'action': 'omitted-new',
+                 'reason': f'{self.key}: no palette, so the palette game leaves this artwork out, since {why}'}]
+
+    def kept(self, why):
+        return [{'key': 'palette:' + self.key, 'action': 'kept-previous',
+                 'reason': f'{self.key}: keeps its previous palette, since {why}'}]
+
+    def previous(self, digest='old'):
+        return {'version': generator.VERSION, 'artworks': {self.key: {'colors': ['#010101'] * 5, 'sha256': digest, 'automatic': generator.AUTOMATIC}}}
+
+    def test_a_failed_download_is_held_in_the_same_words_whatever_the_error_and_the_pin(self):
+        import urllib.error
+        manifest = json.dumps({'files': {self.path: {'sha256': 'a' * 64}}}).encode()
+        failures = {
+            'c' * 40: urllib.error.URLError(ConnectionRefusedError(61, 'Connection refused')),
+            'd' * 40: urllib.error.HTTPError('https://raw.example/x', 502, 'Bad Gateway', {}, None),
+            'e' * 40: TimeoutError('The read operation timed out'),
+        }
+
+        class Answer:
+            def __init__(self, data): self.data = data
+            def __enter__(self): return self
+            def __exit__(self, *exc): return False
+            def read(self): return self.data
+
+        def run(revision, previous):
+            def urlopen(request, **_):
+                url = request.full_url
+                self.assertIn(f'/arkpedia-skin-assets/{revision}/', url)
+                if url.endswith('/asset-manifest.json'):
+                    return Answer(manifest)
+                raise failures[revision]
+            log = StringIO()
+            with patch.object(generator.urllib.request, 'urlopen', urlopen), redirect_stdout(log):
+                output, holds = generator.build(generator.PinnedSkins(revision), {}, NO_RECIPES, previous)
+            return output, holds, log.getvalue()
+
+        why = 'it could not be downloaded from the pinned skin repository'
+        for previous, expected in (({}, self.omitted(why)), (self.previous(), self.kept(why))):
+            runs = [run(revision, previous) for revision in failures]
+            for output, holds, log in runs:
+                self.assertEqual(holds, expected)
+                self.assertEqual(output['unavailable'], [] if previous else [self.key])
+            # The log keeps the whole problem: the URL at the pin and the error itself.
+            self.assertIn('c' * 40, runs[0][2])
+            self.assertIn('Connection refused', runs[0][2])
+            self.assertIn('HTTP Error 502', runs[1][2])
+            self.assertIn('timed out', runs[2][2])
+
+    def test_the_same_undecodable_bytes_are_held_in_the_same_words_every_run(self):
+        whole = BytesIO()
+        figure().save(whole, 'PNG')
+        # b'not an image' is UnidentifiedImageError, whose message names the buffer's address;
+        # a PNG cut short opens and then fails to load with an OSError, which is still the
+        # artwork's bytes and not the download.
+        for data in (b'not an image', whole.getvalue()[:200]):
+            for previous, expected in (({}, self.omitted('it does not decode as an image')),
+                                       (self.previous(), self.kept('it does not decode as an image'))):
+                with self.subTest(data=data[:12], previous=bool(previous)):
+                    log = StringIO()
+                    with redirect_stdout(log):
+                        runs = [generator.build(FakeSkins({self.path: data}), {}, NO_RECIPES, previous)[1] for _ in range(3)]
+                    self.assertEqual(runs, [expected] * 3)
+                    self.assertRegex(log.getvalue(), r'UnidentifiedImageError|OSError')
+
+    def test_each_kind_of_failure_is_named_by_its_kind_alone(self):
+        colors = ['#111111', '#222222', '#333333', '#444444', '#555555']
+        art = webp(figure())
+        digest = hashlib.sha256(art).hexdigest()
+        cases = [
+            ('does not match its manifest', FakeSkins({self.path: art}, {self.path: 'f' * 64}), {}, NO_RECIPES,
+             'it does not match the sha256 its manifest lists'),
+            ('a review of other bytes', FakeSkins({self.path: art}), {self.key: {'status': 'approved', 'sourceSha256': 'b' * 64, 'samples': []}}, NO_RECIPES,
+             'its review was made for other bytes; review it again (npm run palettes:review)'),
+            ('an accepted review of other bytes', FakeSkins({self.path: art}), {self.key: {'status': 'accepted', 'sourceSha256': 'b' * 64, 'colors': colors}}, NO_RECIPES,
+             'its review was made for other bytes; review it again (npm run palettes:review)'),
+            ('an accepted review with bad colours', FakeSkins({self.path: art}), {self.key: {'status': 'accepted', 'sourceSha256': digest, 'colors': ['#12']}}, NO_RECIPES,
+             'its review in data/color-palette-reviews.json does not validate against the artwork'),
+            ('a recipe naming an unknown colour', FakeSkins({self.path: art}), {}, {'roles': ROLES, 'references': {}, 'artworks': {self.key: ['nope'] * 5}},
+             'its recipe in data/color-palette-features.json does not name five known feature colours'),
+            ('transparent art', FakeSkins({self.path: webp(Image.new('RGBA', (8, 8)))}), {}, NO_RECIPES,
+             'it has too few opaque pixels to take a palette from'),
+        ]
+        for name, skins, reviews, features, why in cases:
+            with self.subTest(name), redirect_stdout(StringIO()):
+                self.assertEqual(generator.build(skins, reviews, features, {})[1], self.omitted(why))
+                self.assertEqual(generator.build(skins, reviews, features, self.previous())[1], self.kept(why))
+        # A review of other bytes is refused before the artwork is downloaded.
+        skins = FakeSkins({self.path: art})
+        with redirect_stdout(StringIO()):
+            generator.build(skins, {self.key: {'status': 'approved', 'sourceSha256': 'b' * 64}}, NO_RECIPES, {})
+        self.assertEqual(skins.fetched, [])
 
     def test_a_manifest_without_artwork_fails_the_run_before_anything_is_written(self):
         for manifest in ({'files': {}}, {'files': {'five-star-skins/Outfit - Summer.webp': {'sha256': '0' * 64}}},

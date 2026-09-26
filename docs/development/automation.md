@@ -77,7 +77,12 @@ downloading only art that is new or changed. Each artwork's palette comes from i
 automatic palette marked `automatic`, which the game plays while the artwork stays in
 `data/quarantine.json` (stage `palettes`) until someone reviews it with
 `npm run palettes:review` (it reads the art from the pinned skin repository) or writes its
-recipe. The completeness stage holds any dated operator whose published art still has no
+recipe. Art that cannot be downloaded, decoded or matched to its manifest's sha256, or
+that changed since its review, keeps its previous palette or goes without one, held under
+`palettes` with a reason that names only the kind of failure; the error itself is in the
+stage's log, since a reason that changes by itself would make every night a new release
+(`scripts/lib/quarantine.mjs` refuses one that carries a commit, an object address or a
+request's error). The completeness stage holds any dated operator whose published art still has no
 palette, since the game leaves such an operator out without a word.
 
 ## Local checks

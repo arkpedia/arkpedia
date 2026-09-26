@@ -32,6 +32,14 @@ One artwork's problem is that artwork's, never the run's: art that changed since
 keeps its previous palette (kept-previous), unreadable art keeps its previous one or goes
 without (omitted-new), each as a quarantine entry of stage `palettes`. Only a manifest that
 cannot be read or lists no artwork at all fails the run, which leaves the file as it was.
+
+An entry's reason names the kind of failure and nothing else (UNUSABLE below): never the
+error's own text, which the log gets, nor the skin commit. data/quarantine.json is a release
+input, and both change by themselves: PIL names the buffer's address ("cannot identify image
+file <_io.BytesIO object at 0x108905580>", another address the next run), a download error
+carries its URL at the pin, which moves whenever arkpedia-skin-assets commits, and an outage
+answers 502 one day and times out the next. With either in the reason, one corrupt upload or
+one flaky download made a new release every night.
 """
 import argparse
 import hashlib
@@ -65,6 +73,27 @@ SHA = re.compile(r'^[0-9a-f]{40}$')
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 # Bumped whenever automatic_targets changes, so every automatic palette is made again.
 AUTOMATIC = 'regions-v2'
+# The one thing a quarantine reason says about an artwork that failed: the kind of failure,
+# as a clause about the artwork ("it"), the same words every run.
+UNUSABLE = {
+    'download': 'it could not be downloaded from the pinned skin repository',
+    'sha256': 'it does not match the sha256 its manifest lists',
+    'decode': 'it does not decode as an image',
+    'review-bytes': 'its review was made for other bytes; review it again (npm run palettes:review)',
+    'review': 'its review in data/color-palette-reviews.json does not validate against the artwork',
+    'recipe': 'its recipe in data/color-palette-features.json does not name five known feature colours',
+    'pixels': 'it has too few opaque pixels to take a palette from',
+    'other': 'it could not be given a palette (the palettes stage log has the error)',
+}
+
+
+class Unusable(Exception):
+    """One artwork's problem, as its quarantine entry names it: `kind` is a key of UNUSABLE.
+    The exception it was raised from (__cause__) is the full problem, for the log."""
+
+    def __init__(self, kind):
+        super().__init__(UNUSABLE[kind])
+        self.kind = kind
 
 
 def lab(rgb):
@@ -279,49 +308,83 @@ def build(source, reviews, features, previous):
         image = None
 
         def load():
-            data = source.fetch(path)
-            if hashlib.sha256(data).hexdigest() != digest:
-                raise ValueError(f'{path} does not match the sha256 its manifest lists')
-            opened = Image.open(BytesIO(data))
-            opened.load()
+            try:
+                data = source.fetch(path)
+            except OSError as error:
+                raise Unusable('download') from error
+            actual = hashlib.sha256(data).hexdigest()
+            if actual != digest:
+                raise Unusable('sha256') from ValueError(f'{path} has sha256 {actual}; the manifest lists {digest}')
+            try:
+                opened = Image.open(BytesIO(data))
+                opened.load()
+            # PIL raises OSError, not UnidentifiedImageError, for data cut short.
+            except (UnidentifiedImageError, OSError, ValueError, SyntaxError, Image.DecompressionBombError) as error:
+                raise Unusable('decode') from error
             return opened
+
+        def reviewed(image):
+            if review.get('sourceSha256') != digest:
+                raise Unusable('review-bytes') from ValueError(f"reviewed as sha256 {review.get('sourceSha256')}; the manifest lists {digest}")
+            try:
+                return approved_palette(review, image, digest)
+            except ValueError as error:
+                raise Unusable('review') from error
+
+        def swatches(image, targets):
+            try:
+                return palette(image, targets)
+            except ValueError as error:
+                raise Unusable('pixels') from error
 
         try:
             if review and review.get('status') == 'accepted':
-                result[key] = approved_palette(review, None, digest)
+                result[key] = reviewed(None)
                 continue
             if review and review.get('status') == 'approved':
-                image = load()
-                result[key] = approved_palette(review, image, digest)
+                # Art changed since its review is not downloaded: reviewed() refuses it first.
+                image = load() if review.get('sourceSha256') == digest else None
+                result[key] = reviewed(image)
                 continue
             if recipe:
-                if len(recipe) != 5:
-                    raise ValueError(f'{FEATURES.name} gives {key} {len(recipe)} feature choices, not five')
-                targets = [features['references'][name] for name in recipe]
+                try:
+                    if len(recipe) != 5:
+                        raise ValueError(f'{FEATURES.name} gives {key} {len(recipe)} feature choices, not five')
+                    targets = [features['references'][name] for name in recipe]
+                except (ValueError, KeyError, TypeError) as error:
+                    raise Unusable('recipe') from error
                 recipe_sha = recipe_digest(features['roles'], targets)
                 if cached.get('sha256') == digest and cached.get('recipeSha256') == recipe_sha:
                     result[key] = cached
                 else:
                     image = load()
-                    result[key] = {'colors': palette(image, targets), 'sha256': digest, 'recipeSha256': recipe_sha}
+                    result[key] = {'colors': swatches(image, targets), 'sha256': digest, 'recipeSha256': recipe_sha}
                 continue
             if cached.get('sha256') == digest and cached.get('automatic') == AUTOMATIC:
                 result[key] = cached
             else:
                 image = load()
-                result[key] = {'colors': palette(image, automatic_targets(image)), 'sha256': digest, 'automatic': AUTOMATIC}
+                try:
+                    targets = automatic_targets(image)
+                except ValueError as error:
+                    raise Unusable('pixels') from error
+                result[key] = {'colors': swatches(image, targets), 'sha256': digest, 'automatic': AUTOMATIC}
             holds.append({'key': f'palette:{key}', 'action': 'published-partial',
                           'reason': f'{key}: an automatic palette, since it has no review in data/color-palette-reviews.json and no recipe in data/color-palette-features.json; review it (npm run palettes:review) or add its five feature choices'})
-        except (UnidentifiedImageError, OSError, ValueError, KeyError) as error:
-            problem = f'{type(error).__name__}: {error}'.replace(str(ROOT) + os.sep, '')
+        except (Unusable, UnidentifiedImageError, OSError, ValueError, KeyError) as error:
+            kind = error.kind if isinstance(error, Unusable) else 'other'
+            cause = error.__cause__ if isinstance(error, Unusable) else error
+            # The whole problem goes to the log; the reason names only its kind (see the header).
+            if cause is not None:
+                print(f'  {key}: {type(cause).__name__}: {cause}'.replace(str(ROOT) + os.sep, ''))
             if cached.get('colors'):
                 result[key] = cached
                 holds.append({'key': f'palette:{key}', 'action': 'kept-previous',
-                              'reason': f'{key}: keeps its previous palette ({problem})'})
+                              'reason': f'{key}: keeps its previous palette, since {UNUSABLE[kind]}'})
             else:
                 unavailable.append(key)
                 holds.append({'key': f'palette:{key}', 'action': 'omitted-new',
-                              'reason': f'{key}: no palette, so the palette game leaves this artwork out ({problem})'})
+                              'reason': f'{key}: no palette, so the palette game leaves this artwork out, since {UNUSABLE[kind]}'})
         finally:
             if image is not None:
                 image.close()
