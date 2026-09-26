@@ -152,3 +152,13 @@ test('a Kernel banner is reported the next day in the words of the day it was ad
   assert.deepEqual(kernelEntry(reconcileRecurringBanners({ banners: day1.banners, gachaTable: disagreeing, characters: withFiveA,
     wikiRows: wikiRows.map((row) => (row.type === 'kernel' ? { ...row, operators: ['Six C', 'Five A', 'Five E', 'Six D', 'Five F'] } : row)), roster, now: nextDay })), []);
 });
+
+test('a wiki row naming its operators in another word order still gives the banner its lineup', () => {
+  // The wiki writes Japanese collaboration names either way round (lineupNameLookup in
+  // catalogue-model.mjs); the records keep one. Here the roster has the family name first.
+  const named = new Map([...roster].map(([name, rarity]) => [name.split(' ').reverse().join(' '), rarity]));
+  const result = reconcileRecurringBanners({ banners: [], gachaTable: { gachaPoolClient: [gachaTable.gachaPoolClient[0]] }, characters, wikiRows, roster: named });
+  assert.deepEqual(result.quarantine, []);
+  assert.deepEqual([result.banners[0].six_stars, result.banners[0].five_stars, result.banners[0].lineupSource], [['A Six', 'B Six'], ['A Five', 'B Five', 'C Five'], 'wiki']);
+});
+

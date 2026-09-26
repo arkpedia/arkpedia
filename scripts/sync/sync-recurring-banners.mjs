@@ -19,7 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parseWikiRows } from './catalogue-model.mjs';
+import { lineupNameLookup, parseWikiRows } from './catalogue-model.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
@@ -95,7 +95,11 @@ const pendingReason = (name, type, split) => (split?.problem
 
 export const parseRecurringWikiRows = (wikitext) => recurringRows(parseWikiRows(wikitext, 'Banners cell'));
 
-export function reconcileRecurringBanners({ banners, gachaTable, characters, wikiRows, roster, now = Date.now() }) {
+export function reconcileRecurringBanners({ banners, gachaTable, characters, wikiRows: rawWikiRows, roster, now = Date.now() }) {
+  // The wiki's names as the records spell them, whatever their word order
+  // (lineupNameLookup); a name no record answers to stays as written, and is reported.
+  const recordName = lineupNameLookup([...roster.keys()].map((name) => [name, name]));
+  const wikiRows = rawWikiRows.map((row) => ({ ...row, operators: row.operators.map((name) => recordName(name) ?? name) }));
   const next = structuredClone(banners);
   const additions = [], quarantine = [];
   let changed = false;
