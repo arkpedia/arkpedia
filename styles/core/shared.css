@@ -46,6 +46,8 @@
   --control-border: rgba(255, 255, 255, 0.38);
 
   --teal: #5fd9c6;
+  /* Section headings: teal-ish, but not the --teal that marks on/current states. */
+  --heading: #67cbdd;
   --teal-dim: rgba(95, 217, 198, 0.14);
   /* Text and glyphs ON a teal fill. 9.6:1 against the fill's darker stop, where
      the old #06211C under the old brighter teal was needlessly severe. */
@@ -184,6 +186,7 @@
      measured 2.9-3.4:1 on light grounds, under AA.
      --teal-ink flips to white, matching the .primary:not(button) fix below. */
   --teal: #07695a;
+  --heading: #0b6879;
   --teal-dim: rgba(7, 105, 90, 0.12);
   --teal-ink: #FFFFFF;
   /* Taken down from #097565 so the selected state -- teal text on --teal-dim --
@@ -480,7 +483,7 @@ h1 {
   font-family: var(--font-display);
   font-size: 18px;
   text-transform: uppercase;
-  color: var(--amber);
+  color: var(--heading);
   margin-bottom: 14px;
   letter-spacing: 0.03em;
 }
@@ -695,7 +698,7 @@ a.primary:where(:has(~ a.ghost)),
 }
 .waiting-box h2 {
   font-family: var(--font-display);
-  color: var(--amber);
+  color: var(--heading);
   text-transform: uppercase;
 }
 .honeypot {

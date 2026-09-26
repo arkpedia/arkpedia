@@ -63,7 +63,7 @@
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--amber);
+  color: var(--heading);
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .farming-accordion-header:hover { border-color: var(--teal); color: var(--teal); }
