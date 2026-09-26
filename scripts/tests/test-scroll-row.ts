@@ -13,7 +13,7 @@ import ScrollRow from '../../components/ui/ScrollRow';
 // now draws the pair on request. What a click does is checked in a browser
 // (tests/browser/skins.spec.ts); this pins the markup the server sends.
 const cards = Array.from({ length: 3 }, (_, i) => createElement('div', { key: i }, `Card ${i}`));
-const render = (controls?: boolean) => renderToString(createElement(ScrollRow, { label: 'Outfits available now', controls }, cards));
+const render = (controls?: boolean) => renderToString(createElement(ScrollRow, { label: 'Outfits available now', controls, children: cards }));
 
 test('with controls, the row gets a named previous/next pair, both disabled and hidden until measured', () => {
   const html = render(true);
