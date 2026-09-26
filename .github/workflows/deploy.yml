@@ -112,7 +112,7 @@ jobs:
         run: |
           body="$RUNNER_TEMP/failed-deploy.md"
           if [ "$ASSET_LINKS" = failure ]; then
-            echo "Deployed ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')), but its asset links lag the live content release: a root-relative path to art the release has redirects to an asset commit without it, and 404s. The check's log names the file: $RUN_URL. Production runs this build; bump data/assets/revisions.json (npm run assets:update) or redeploy once the build can adopt the release's pins." > "$body"
+            echo "Deployed ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')), but its asset links lag the live content release: a root-relative path to art the release has redirects to an asset commit without it, and 404s. The check's log names the file: $RUN_URL. Production runs this build; redeploy once the Build step can adopt the release's pins (its warning says why it could not), or bump data/assets/revisions.json as the check's log says." > "$body"
           else
             echo "Deploy ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs main's code." > "$body"
           fi
