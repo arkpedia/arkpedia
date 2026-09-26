@@ -25,7 +25,7 @@ import { currentEventRows, currentPullBannerLinks, pruneScheduleProps, timelineO
 import { toServerTime } from '@/lib/time/serverDay';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
 import { isLineupPending, LINEUP_PENDING_NOTE } from '@/lib/gacha/bannerLineup';
-import { publishedArt } from '@/lib/art/artVersion';
+import { publishedArt } from '@/lib/art/publishedArt';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
@@ -856,7 +856,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
 
   return {
     // The panel's poster, like every other: null until the image repository has it.
-    props: { events: getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster, e.name) })), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
+    props: { events: getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster) })), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
   };
 }, {
   finalize: async (props) => pruneScheduleProps(props),

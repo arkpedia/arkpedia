@@ -174,8 +174,9 @@ stage event-windows -- node scripts/sync/sync-event-windows.mjs
 # them again under the new names. See the script's own header for the sources.
 stage reward-icons -- python3 scripts/imports/import-reward-icons.py
 
-# Banner art: swap CN banners for the EN uploads once global has them.
-stage banner-art -- python3 scripts/sync/sync-banner-art.py
+# Banner and event key art is not a stage here: arkpedia-image-assets' sync-images.yml
+# swaps in the English art (sync_global_banner_art.py, sync_recurring_banner_art.py), and
+# a release takes it with that repository's commit (data/assets/revisions.json).
 
 node -e '
 const fs = require("fs");

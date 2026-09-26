@@ -9,6 +9,9 @@ const deprecatedSourceFiles = new Set([
   // Always '{}' and read by nothing: lyrics are published one file per song
   // (writeLyricsFilesToPublic in lib/music/albumsDataServer.ts).
   'public/lyrics-index.json',
+  // The wiki-file sha1s of scripts/sync/sync-banner-art.py, retired: arkpedia-image-assets
+  // swaps in the English banner art, and pinned asset URLs version it.
+  'data/assets/banner_art_sources.json',
 ]);
 // Game tables this app introduced before arkpedia-data carried them: the browser code
 // that used to compile them in now reads them from the release (lib/content/tables.mjs).

@@ -453,6 +453,26 @@ function refreshScripts() {
   for (const stage of refreshStages()) commands(stage.command);
   return [...files].sort();
 }
+test('every script a refresh stage names exists, directly or through an npm script', () => {
+  // refreshScripts() passes over a path that is not there, so the check above would never see
+  // a stage whose script was deleted or renamed under it; the stage would fail every night.
+  // A stage kept after its job moved elsewhere is the quieter case: banner-art ran
+  // sync-banner-art.py after arkpedia-image-assets took the English art over, and skipped
+  // every banner because the art is no longer in this checkout (retired 2026-09-26).
+  const npm = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts as Record<string, string>;
+  const missing: string[] = [];
+  const check = (text: string, where: string) => {
+    for (const [, name] of text.matchAll(/npm run ([\w:-]+)/g)) {
+      if (npm[name]) check(npm[name], `npm run ${name}`); else missing.push(`${where}: npm run ${name} (not in package.json)`);
+    }
+    for (const [file] of text.matchAll(/scripts\/[\w./-]+\.(?:mjs|js|ts|py|sh)\b/g)) if (!fs.existsSync(file)) missing.push(`${where}: ${file}`);
+  };
+  const stages = refreshStages();
+  for (const stage of stages) check(stage.command, `stage ${stage.name}`);
+  assert.deepEqual(missing, []);
+  assert.ok(!stages.some(stage => stage.name === 'banner-art' || stage.command.includes('sync-banner-art')), 'banner-art is retired');
+});
+
 test('every script a refresh stage runs reads the game-data mirrors at the run\'s pinned commit', () => {
   const scripts = refreshScripts();
   // What the walk has to find: stage scripts, npm and shell indirection, local imports.
