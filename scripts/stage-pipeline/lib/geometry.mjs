@@ -11,6 +11,8 @@ import { asList, defined, num, plain, isConditional, runFragments } from './leve
 const HEIGHT = { HIGHLAND: 'high', LOWLAND: 'low' };
 const DEPLOYABLE = { NONE: 'none', MELEE: 'melee', RANGED: 'ranged', ALL: 'any' };
 const MOTION = { WALK: 'walk', FLY: 'fly' };
+/** The passableMask values a tile may carry (walkable and flyable are read from them). */
+const PASSABLE = { NONE: true, WALK_ONLY: true, FLY_ONLY: true, ALL: true };
 const PHASE = { PHASE_0: 0, PHASE_1: 1, PHASE_2: 2, PHASE_3: 3 };
 
 // Gamedata attribute names as canonical enemy stats write them. Anything without
@@ -98,6 +100,14 @@ export function buildTiles(mapData) {
       // passableMask says who may cross: ALL is both, FLY_ONLY is air only, NONE
       // is nothing at all (a hole, a solid wall).
       const passable = raw.passableMask;
+      // A value these tables do not name is refused, not drawn as an untyped tile: 223 maps
+      // from numbered CN files went out with every tile null that way (lib/gamedata.mjs
+      // decodeNumericEnums). An absent field stays null, as it always has.
+      for (const [field, known] of [['heightType', HEIGHT], ['buildableType', DEPLOYABLE], ['passableMask', PASSABLE]]) {
+        if (raw[field] != null && !Object.hasOwn(known, raw[field])) {
+          throw new Error(`tile ${raw.tileKey}: ${field} ${JSON.stringify(raw[field])} is not a value the stage build knows`);
+        }
+      }
       const tile = {
         key: raw.tileKey ?? null,
         walkable: passable === 'ALL',

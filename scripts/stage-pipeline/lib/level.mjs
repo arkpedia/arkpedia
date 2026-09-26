@@ -353,7 +353,9 @@ export class Levels {
     const found = levelFile(key);
     let level = null;
     if (found) {
-      try { level = forGlobal(JSON.parse(fs.readFileSync(found.file, 'utf8')), found.source); } catch { level = null; }
+      try { level = JSON.parse(fs.readFileSync(found.file, 'utf8')); } catch { level = null; }
+      // Outside the try, as in build.mjs: an unreadable enum fails, it is not a missing file.
+      if (level) level = forGlobal(level, found.source, found.file);
     } else {
       this.missing.add(key);
     }

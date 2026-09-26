@@ -109,7 +109,10 @@ function writeGeometry(level, stem) {
   const found = levelFile(level);
   if (!found) { noLevelFile++; return; }
   let raw;
-  try { raw = forGlobal(JSON.parse(fs.readFileSync(found.file, 'utf8')), found.source); } catch { noLevelFile++; return; }
+  try { raw = JSON.parse(fs.readFileSync(found.file, 'utf8')); } catch { noLevelFile++; return; }
+  // Outside the try: a level whose enums the build cannot read fails the build, naming the
+  // file, rather than counting as missing (decodeNumericEnums).
+  raw = forGlobal(raw, found.source, found.file);
   const built = buildGeometry(raw, geoCtx);
   if (!built) { noMap++; return; }
   for (const [key, value] of Object.entries(built.tile_legend)) {
