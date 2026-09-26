@@ -1519,14 +1519,16 @@
  * combinator does not reach across a parent -- so Done was never shrunk and
  * stood 45px next to a 35px Back.
  *
- * 35px is this page's action height everywhere else -- every .tab, every
- * .btn-sm, every danger button measured 35 -- so the row matches the page and
- * carries its hierarchy in fill and weight instead of size. Stating it here is
- * the same answer .timeline-filter-row gives to the same rule guessing wrong.
+ * So every button in the foot has the row size, one control height (.btn-sm's
+ * metrics, var(--control-h), ui-primitives rule 4), and the row carries its
+ * hierarchy in fill and weight instead of size. (It stated the old 8px/14px
+ * padding, which left a primary at 33px beside a 36px ghost once ghosts took the
+ * token.)
  */
 .wizard-foot button {
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
 }
 
 /* --- step 1: the roster grid -------------------------------------------- */
@@ -1690,13 +1692,14 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-/* Owned, stated. Sized to the tabs it sits beside -- 35px, the page's action
-   height -- and teal when on, because it is a selection, not a rarity. */
+/* Owned, stated. Sized to the controls it sits beside -- the control height -- and
+   teal when on, because it is a selection, not a rarity. */
 .wizard-owned {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px 8px 10px;
+  min-height: var(--control-h);
+  padding: 4px 14px 4px 10px;
   font-size: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1879,7 +1882,7 @@
   border-top: 1px solid var(--line-soft);
 }
 .wizard-build .plan-hint { margin: 0; }
-.wizard-build button { font-size: 12px; padding: 8px 14px; }
+.wizard-build button { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; }
 
 @media (max-width: 760px) {
   .build-box { max-height: 100vh; border-radius: 0; }
@@ -1898,14 +1901,15 @@
 .plan-clear-armed { display: inline-flex; align-items: center; gap: 6px; }
 
 /* --- export / import ---------------------------------------------------- */
-/* Same reason: Save is a .primary with a .ghost after it, so it was only 35px
-   by accident of that rule. Said out loud, it is 35px on purpose. */
+/* Same reason: Save is a .primary with a .ghost after it, so it was the row size
+   only by accident of that rule. Said out loud: the control height, on purpose. */
 .plan-transfer-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-transfer-acts button,
 .plan-transfer-clear button,
 .plan-transfer-text .submit-row-actions button {
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
 }
 .plan-transfer-clear {
   display: flex;

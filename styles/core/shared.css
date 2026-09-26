@@ -1240,8 +1240,9 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   margin: 0 0 6px;
 }
 .support-option .support-social-link svg {
-  width: 20px;
-  height: 20px;
+  /* 18px, the label's line: a 20px icon made these 46px calls to action, not 44. */
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
