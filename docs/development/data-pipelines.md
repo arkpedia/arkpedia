@@ -151,8 +151,10 @@ catalogue's deploy key and publisher: one size and encoding per destination fold
 (material and item icons keep the game's 183px circled art), a source-map row for a
 mirror's file, a provenance row in `sources/catalogue-imports.json` for every file, and a
 fast-forward push retried from a fresh clone when another job pushed first. It then adopts
-the new asset revisions and runs each importer that staged something again, so the records
-point at the files and their quarantine entries clear in the same run. If anything after
+the new asset revisions (asked again while GitHub still reports the head from before the
+push), re-pins the records that name art by revision as the `media-pins` stage did, and runs
+each importer that staged something again, so the records point at the files and their
+quarantine entries clear in the same run, and the next day's run finds nothing to publish. If anything after
 the push fails, the stage is rolled back with the asset pins, and the next run adopts what
 was pushed. A running event's stage with a map and still no preview is held by the
 completeness stage (`stage-preview:<slug>`) whatever the reason. Run on its own,

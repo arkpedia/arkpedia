@@ -261,6 +261,10 @@ test('the staged-art stage publishes what an importer staged, retries a push tha
     write(app, 'data/stages/zz-1.json', { slug: 'zz-1', drops: [{ item: { id: 'act99side_token_new', name: 'New Token' } }] });
     write(app, 'data/item-icons.json', {});
     write(app, 'data/assets/external-asset-index.json', { files: [] });
+    // A record that names art by the image repository's revision, as the media-pins stage left
+    // it earlier in the run; the push moves the revision under it.
+    const pinned = (revision: string) => `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${revision}/event-poster/Collab.jpg`;
+    write(app, 'data/events/events_2099.json', [{ name: 'Collab', image: pinned('0'.repeat(40)) }]);
     write(app, 'data/quarantine.json', `${JSON.stringify({ version: 1, entries: [] }, null, 2)}\n`);
     // The image repository: a manifest, a source map and a validator, as the publisher needs.
     const seed = path.join(root, 'seed');
@@ -298,7 +302,7 @@ exec "${realGit}" "$@"
 [ "$*" = "run assets:update" ] || exit 64
 echo x >> "${root}/assets-updates"
 rev=main; [ -e "${root}/raced" ] && [ "$(wc -l < "${root}/assets-updates")" -eq 1 ] && rev=main~1
-exec node -e 'const {execFileSync}=require("child_process"),fs=require("fs");const m=JSON.parse(execFileSync("git",["-C",process.argv[1],"show",process.argv[2]+":asset-manifest.json"]));fs.writeFileSync("data/assets/external-asset-index.json",JSON.stringify({files:Object.keys(m.files).sort()}))' "${bare}" "$rev"
+exec node -e 'const {execFileSync}=require("child_process"),fs=require("fs");const git=(...a)=>execFileSync("git",["-C",process.argv[1],...a]).toString();const m=JSON.parse(git("show",process.argv[2]+":asset-manifest.json"));fs.writeFileSync("data/assets/external-asset-index.json",JSON.stringify({files:Object.keys(m.files).sort()}));fs.writeFileSync("data/assets/revisions.json",JSON.stringify({"arkpedia-image-assets":git("rev-parse",process.argv[2]).trim(),"arkpedia-skin-assets":"5".repeat(40)}))' "${bare}" "$rev"
 `);
     const env = { ...process.env, PATH: `${shims}:${process.env.PATH}`, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1',
       ARKPEDIA_CN: path.join(app, 'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE: PIN, ARKPEDIA_NOW: '2026-09-26T20:00:00Z',
@@ -341,6 +345,9 @@ exec node -e 'const {execFileSync}=require("child_process"),fs=require("fs");con
     assert.deepEqual(held(app, 'staged-art'), []);
     assert.match(result.stdout, /1 quarantine entry cleared by publishing the staged art:\n {2}- item-icons item-icon:act99side_token_new/);
     assert.notEqual(git(bare, 'rev-parse', 'main').trim(), before);
+    // Re-pinned to the revision the run now adopts, as the release will pin it.
+    assert.equal(readJson(app, 'data/assets/revisions.json')['arkpedia-image-assets'], git(bare, 'rev-parse', 'main').trim());
+    assert.equal(readJson(app, 'data/events/events_2099.json')[0].image, pinned(git(bare, 'rev-parse', 'main').trim()));
 
     // The next run: nothing left to stage, nothing to publish, no commit.
     const head = git(bare, 'rev-parse', 'main').trim();

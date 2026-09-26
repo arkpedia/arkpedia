@@ -17,7 +17,8 @@
 #
 # After the push the run adopts the new revisions (npm run assets:update). In --staged mode,
 # once the adopted revisions list every file it published (asked again while GitHub still
-# reports the old head), it runs the importers again (scripts/sync/adopt-staged-art.mjs). The whole of it is one
+# reports the old head), it re-pins the records that name art by revision (as the media-pins
+# stage did earlier in the run) and runs the importers again (scripts/sync/adopt-staged-art.mjs). The whole of it is one
 # refresh stage: if anything after the push fails, the stage's changes under data/ -- the
 # asset pins with the rest -- are put back, so no record points at a file the release does
 # not pin, and the next run, pinning the new head, adopts what was pushed.
@@ -102,4 +103,9 @@ for try in $(seq 1 "$attempts"); do
   echo "The adopted revisions do not include what this run pushed yet (attempt $try of $attempts); asking again in $((backoff * try))s." >&2
   sleep $((backoff * try))
 done
+# The records that name art by the image repository's revision (collab key art, portraits
+# the catalogue hotlinks) were pinned by the media-pins stage, before this push moved the
+# revision: re-pinned now, or tonight's release pins one revision and its records another,
+# and tomorrow's run publishes a release that changes nothing but those URLs.
+node scripts/sync/refresh-media-pins.mjs
 node scripts/sync/adopt-staged-art.mjs "$work/published.json"
