@@ -330,7 +330,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               <h2 id="skins-current-title">Available now <span className="skins-current-count">{directSkins.length}</span></h2>
               <button className="ghost btn-sm" type="button" onClick={closeCurrentShelf}>Close</button>
             </div>
-            <ScrollRow label="Outfits available now">
+            <ScrollRow label="Outfits available now" controls>
               {directSkins.map(skin => {
                 const window = availability.get(skinKey(skin))!;
                 return <button type="button" key={skinKey(skin)} className="btn-bare skins-current-item" onClick={() => openSkin(skin)}>

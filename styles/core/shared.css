@@ -1272,6 +1272,12 @@ a.primary:where(:has(~ a.ghost)),
 }
 .scroll-row > * { flex: none; }
 .scroll-row:focus-visible { outline-offset: -2px; }
+/* ScrollRow's optional previous/next pair (the `controls` prop), under the row's right
+   end. Hidden rather than removed while the row fits, so the page keeps its height when
+   the row is measured or resized. */
+.scroll-row-controls { display: flex; justify-content: flex-end; gap: 8px; padding-top: 6px; }
+.scroll-row-controls[data-idle] { visibility: hidden; }
+.scroll-row-controls button { display: inline-flex; align-items: center; justify-content: center; width: 38px; padding: 6px 0; line-height: 1; }
 
 /* --- side-scrolling rows ----------------------------------------------------
    Every box on this site whose content runs off to the right gets a scrollbar that is

@@ -1,14 +1,22 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 interface ScrollRowProps {
   /** What the row holds, as its accessible name: "Albums", "Skins on sale". Required,
    *  because an overflowing row becomes a keyboard-scrollable region and a region
-   *  needs a name. */
+   *  needs a name. The arrow buttons are named from it too. */
   label: string;
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  /** Previous/next buttons under the row. For a row that is a page's main content
+   *  (the /skins "Available now" shelf): a mouse with only a vertical wheel, and iOS,
+   *  which ignores ::-webkit-scrollbar and so shows no bar, get a way along it. */
+  controls?: boolean;
 }
+
+/** Where the row is scrolled to, and how far it can go. Zero until measured, so the
+ *  server markup and the first client render agree (both buttons disabled). */
+interface Extent { left: number; max: number }
 
 /**
  * A row of cards that scrolls sideways under the site's drawn scrollbar.
@@ -22,18 +30,28 @@ interface ScrollRowProps {
  * so a keyboard can scroll it with the arrow keys -- a row of plain cards otherwise
  * has nothing to focus. Measured, not assumed: a row that fits is a plain row.
  *
+ * With `controls`, a previous/next pair of ghost buttons sits under the row (kukki PR
+ * #66's shelf arrows, which the move to this primitive had dropped). Each scrolls by
+ * most of the row's width, and is disabled at its end. The pair keeps its space while
+ * the row fits (hidden, not removed), so measuring never changes the page's height.
+ *
  * Use it for any horizontal list that cannot wrap -- the home skins row, the
  * /music/discover rows. A small fixed set should wrap instead (.no-scroll-wrap).
  * The Stronghold companion has its own drawn rail (components/gamemodes/
  * CompanionScrollRow) for iOS, which ignores ::-webkit-scrollbar.
  */
-export default function ScrollRow({ label, children, className, style }: ScrollRowProps) {
+export default function ScrollRow({ label, children, className, style, controls = false }: ScrollRowProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [overflows, setOverflows] = useState(false);
+  const id = useId();
+  const [extent, setExtent] = useState<Extent>({ left: 0, max: 0 });
+  const overflows = extent.max > 1;
 
   const measure = useCallback(() => {
     const el = ref.current;
-    if (el) setOverflows(el.scrollWidth > el.clientWidth + 1);
+    if (!el) return;
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    const left = Math.max(0, Math.min(max, el.scrollLeft));
+    setExtent((current) => (current.left === left && current.max === max ? current : { left, max }));
   }, []);
 
   useEffect(() => {
@@ -46,16 +64,41 @@ export default function ScrollRow({ label, children, className, style }: ScrollR
     return () => ro.disconnect();
   }, [measure, children]);
 
-  return (
+  const move = (direction: -1 | 1) => {
+    const el = ref.current;
+    if (!el) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollBy({ left: direction * Math.max(180, el.clientWidth * 0.8), behavior: reduce ? 'auto' : 'smooth' });
+  };
+
+  const row = (
     <div
       ref={ref}
+      id={controls ? id : undefined}
       className={`scroll-row sidescroll${className ? ` ${className}` : ''}`}
       style={style}
       role={overflows ? 'region' : undefined}
       aria-label={overflows ? label : undefined}
       tabIndex={overflows ? 0 : undefined}
+      onScroll={controls ? measure : undefined}
     >
       {children}
     </div>
+  );
+  if (!controls) return row;
+  return (
+    <>
+      {row}
+      <div className="scroll-row-controls" data-idle={overflows ? undefined : ''}>
+        <button type="button" className="ghost btn-sm" aria-label={`Scroll back through ${label}`} aria-controls={id}
+          disabled={extent.left <= 1} onClick={() => move(-1)}>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="m12 5-5 5 5 5" /></svg>
+        </button>
+        <button type="button" className="ghost btn-sm" aria-label={`Scroll on through ${label}`} aria-controls={id}
+          disabled={extent.left >= extent.max - 1} onClick={() => move(1)}>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="m8 5 5 5-5 5" /></svg>
+        </button>
+      </div>
+    </>
   );
 }

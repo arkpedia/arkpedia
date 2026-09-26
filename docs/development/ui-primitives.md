@@ -263,6 +263,7 @@ import ScrollRow from '@/components/ui/ScrollRow';
 
 - It renders a flex line (children never shrink, 12px gap) with `overflow-x: auto` and the drawn `.sidescroll` bar: 10px, space reserved, `--text-faint` thumb, teal on hover.
 - When the content overflows, the row becomes a named, focusable region, so the keyboard can scroll it.
+- `controls` adds a previous/next pair of ghost buttons under the row's right end, for a row that is a page's main content (the `/skins` "Available now" shelf): a wheel-only mouse and iOS, which shows no drawn bar, get a way along it. Each scrolls by most of the row's width and is disabled at its end; the pair keeps its space (hidden) while the row fits, so it never changes the page height.
 - No auto-scroll or marquee. The home marquee becomes a ScrollRow.
 - A small fixed set should wrap instead (`.no-scroll-wrap`).
 - Any other horizontally scrolling box gets `class="sidescroll"` plus its own `overflow-x`.

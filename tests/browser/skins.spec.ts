@@ -31,6 +31,45 @@ test('available outfits have prominent artwork on a keyboard- and mouse-scrollab
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarWidth)).not.toBe('thin');
 });
 
+test('the shelf\'s arrow buttons scroll the row and are disabled at each end', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-22T12:00:00Z'));
+  // Instant scrolls (the buttons honour reduced motion), so each click has landed, and the
+  // buttons have caught up, before the next is judged.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/skins?availability=reward');
+  const shelf = page.locator('section.skins-current');
+  const row = shelf.getByRole('region', { name: 'Outfits available now', exact: true });
+  const back = shelf.getByRole('button', { name: 'Scroll back through Outfits available now', exact: true });
+  const next = shelf.getByRole('button', { name: 'Scroll on through Outfits available now', exact: true });
+  await expect(row).toBeVisible();
+  await expect(back).toBeDisabled();
+  await expect(next).toBeEnabled();
+  const scrollLeft = () => row.evaluate(el => el.scrollLeft);
+  const settled = () => page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+  const press = async (button: typeof next, moved: (before: number, now: number) => boolean) => {
+    const before = await scrollLeft();
+    await button.click();
+    await expect.poll(async () => moved(before, await scrollLeft())).toBe(true);
+    await settled();
+  };
+  // Measured once the fonts and the shelf's artwork have loaded, which move it by a few px.
+  await page.evaluate(() => document.fonts.ready);
+  await expect.poll(() => shelf.locator('img').evaluateAll(imgs => imgs.every(img => (img as HTMLImageElement).complete))).toBe(true);
+  await settled();
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  await press(next, (before, now) => now > before);
+  await expect(back).toBeEnabled();
+  // On to the end: the next button disables there, and the page never changed height.
+  for (let i = 0; i < 40 && await next.isEnabled(); i++) await press(next, (before, now) => now > before);
+  await expect(next).toBeDisabled();
+  expect(await row.evaluate(el => el.scrollWidth - el.clientWidth - el.scrollLeft)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(height);
+  for (let i = 0; i < 40 && await back.isEnabled(); i++) await press(back, (before, now) => now < before);
+  await expect(back).toBeDisabled();
+  await expect(next).toBeEnabled();
+  expect(await scrollLeft()).toBe(0);
+});
+
 
 test('closing the shelf keeps the gallery available and direct outfits load progressively', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-09-22T12:00:00Z'));
