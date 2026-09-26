@@ -28,27 +28,12 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
 }
+/* A .btn-icon (square at the control height), pinned to the map's corner. */
 .world-map-fullscreen-btn {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: var(--radius);
-  border: 1px solid var(--control-border);
-  background: var(--panel-2);
-  color: var(--text);
-  font-size: 15px;
-  cursor: pointer;
-}
-.world-map-fullscreen-btn:hover {
-  border-color: var(--teal);
-  color: var(--teal);
 }
 .world-map-bg { fill: var(--panel); }
 .world-map-land {

@@ -89,7 +89,7 @@
   gap: 8px;
 }
 /* Secondary reference links: the site's .btn, sized to the controls row. */
-.roster-techniques-btn { flex: 0 0 auto; gap: 8px; padding: 8px 12px; font-size: 12px; white-space: nowrap; }
+.roster-techniques-btn { flex: 0 0 auto; gap: 8px; }
 .roster-techniques-btn svg { flex-shrink: 0; color: var(--text-dim); }
 .roster-techniques-btn:hover svg { color: var(--teal); }
 

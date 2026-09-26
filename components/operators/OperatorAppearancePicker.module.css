@@ -17,11 +17,11 @@
 .dots { grid-column: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 /* Arrows and play are the site's button (boundary, teal hover), sized as icon tiles. */
 .picker .play, .picker .arrow { display: grid; place-items: center; padding: 0; border-radius: var(--radius-control); }
-.picker .play { width: 32px; height: 32px; }
+.picker .play { width: var(--control-h); height: var(--control-h); }
 .controls.withArrows { grid-template-columns: 40px minmax(0, 1fr) 40px 40px; }
 .withArrows .dots { gap: 2px; }
 .withArrows .dots :global(.front-events-dot) { width: 24px; height: 32px; flex-shrink: 0; }
-.picker .arrow { width: 40px; height: 40px; }
+.picker .arrow { width: var(--control-h); height: var(--control-h); }
 .previous { grid-column: 1; }
 .next { grid-column: 3; }
-.withArrows .play { grid-column: 4; width: 40px; height: 40px; }
+.withArrows .play { grid-column: 4; width: var(--control-h); height: var(--control-h); }

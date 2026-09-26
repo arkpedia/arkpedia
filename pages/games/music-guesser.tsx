@@ -156,7 +156,7 @@ export default function SongGuesser({ songs, groups, now }: { songs: SongChoice[
                     suggestions={suggestions} getKey={(suggestion) => `${suggestion.kind}:${suggestion.value}`}
                     renderSuggestion={(suggestion) => <span className={styles.suggestion}><strong>{suggestion.label}</strong><span>{suggestion.detail}</span></span>}
                     onPick={(suggestion) => guess(suggestion.value)} suggestLabel="Matching answers" upward={phone} />
-                  <button type="submit" className={`primary ${styles.action}`} disabled={!normalizeTitle(input)}>Guess</button>
+                  <button type="submit" className={`primary btn-sm ${styles.action}`} disabled={!normalizeTitle(input)}>Guess</button>
                 </div>
                 <p className={styles.notice} role="status">{notice || (input && !suggestions.length ? 'No suggestions. You can still submit your answer.' : '')}</p>
               </form>

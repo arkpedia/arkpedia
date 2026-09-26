@@ -176,7 +176,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
       <div className="modal-box gacha-pull-preview" role="dialog" aria-modal="true" aria-labelledby="gacha-pull-preview-title" onClick={(event) => event.stopPropagation()}>
         <div className="gacha-pull-preview-header">
           <div><span className="gacha-pull-preview-rarity"><Rarity n={rarityLevel(item.rarity)} /> Operator{details?.className ? ` · ${details.className}` : ''}{details?.branch ? ` / ${details.branch}` : ''}</span><h2 id="gacha-pull-preview-title">{item.name}</h2></div>
-          <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close operator preview">×</button>
+          <button ref={closeButton} type="button" className="btn-icon gacha-preview-close" onClick={onClose} aria-label="Close operator preview">×</button>
         </div>
         <div className="gacha-preview-body">
           <div className="gacha-preview-portrait">
@@ -298,7 +298,7 @@ function PullHistory({ history, onSelect }: { history: PulledItem[]; onSelect: (
 
 function FeaturedChip({ item, rarity, percent, tags, count, onSelect }: { item: GachaItem; rarity: 6 | 5; percent?: number; tags?: ('rateUp' | 'limited')[]; count?: number; onSelect: (item: PreviewItem) => void }) {
   return (
-    <button type="button" className={`gacha-featured-chip gacha-featured-chip-${rarity}`} onClick={() => onSelect({ ...item, rarity })} aria-label={`View ${item.name} operator details`}>
+    <button type="button" className={`btn-bare gacha-featured-chip gacha-featured-chip-${rarity}`} onClick={() => onSelect({ ...item, rarity })} aria-label={`View ${item.name} operator details`}>
       <span className="gacha-featured-portrait">
         {item.icon ? (
           <Image src={item.icon} alt="" width={44} height={44} />
@@ -365,7 +365,7 @@ function BannerDetails({ banner, dateLabel, onClose, onSelect, previewOpen }: {
     <div className="modal-box gacha-details-modal" role="dialog" aria-modal={!previewOpen} aria-labelledby="gacha-details-title" onClick={(event) => event.stopPropagation()}>
       <div className="gacha-details-header">
         <div><span className="gacha-pull-preview-rarity">{dateLabel}</span><h2 id="gacha-details-title">Banner details</h2><p>{banner.label}</p></div>
-        <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close banner details">×</button>
+        <button ref={closeButton} type="button" className="btn-icon gacha-preview-close" onClick={onClose} aria-label="Close banner details">×</button>
       </div>
       <div className="gacha-details-rates" aria-label="Base rarity rates">
         {([[6, BASE_RATES.six], [5, BASE_RATES.five], [4, BASE_RATES.four], [3, BASE_RATES.three]] as const).map(([rarity, rate]) => <div key={rarity}><strong><Rarity n={rarity} /></strong><span>{(rate * 100).toFixed(0)}%</span></div>)}

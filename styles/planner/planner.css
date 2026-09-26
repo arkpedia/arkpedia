@@ -281,10 +281,9 @@
 .planner-transfer-dialog::backdrop { background:#0009; backdrop-filter:blur(3px); }
 .planner-transfer-dialog header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; border-bottom:1px solid var(--line); }
 .planner-transfer-dialog h2 { margin:0; font-size:22px; }
-.planner-transfer-dialog header button { min-width:40px; min-height:40px; padding:0; font-size:22px; }
 .planner-transfer-body { padding:18px; }
 .planner-transfer-dialog .plan-transfer-acts { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 14px; }
-.planner-transfer-dialog .plan-transfer-acts button { min-height:44px; padding:10px; }
+.planner-transfer-dialog .plan-transfer-acts button { padding:12px 10px; }
 .planner-transfer-dialog details { margin:0; padding:12px 0; border-top:1px solid var(--line); }
 .planner-transfer-dialog summary { cursor:pointer; color:var(--text-dim); font-size:13px; }
 .planner-transfer-dialog summary:hover { color:var(--teal); }
@@ -298,38 +297,43 @@
    a centred row centres, so the space under the field belongs to the row. */
 .simple-search-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
 .simple-search-row .simple-search { flex:1; min-width:0; margin-bottom:0; }
-.simple-search-row > button,.simple-search-row > .plan-clear-armed { min-height:44px; flex-shrink:0; }
+.simple-search-row > button,.simple-search-row > .plan-clear-armed { flex-shrink:0; }
 .planner-roster-clear { display:flex; justify-content:flex-end; padding:10px 20px 0; }
 @media(max-width:640px) { .simple-search-row { flex-wrap:wrap; } .simple-search-row > .plan-clear-armed { margin-bottom:12px; } }
 
 .simple-wizard .wizard-head { align-items:center; padding:14px 20px; gap:16px; }
-.simple-wizard .simple-editor-title { min-width:0; gap:16px; }
+/* margin 0 beats .modal-box h2's 6px/16px: a margin under the title is part of the box
+   the centred head centres, and it put the title 5.7px above the close (rule 4). */
+.simple-wizard .simple-editor-title { min-width:0; gap:16px; margin:0; }
 .simple-editor-title > span { min-width:0; overflow-wrap:anywhere; }
-.simple-wizard .wizard-close { min-height:40px; }
+.simple-wizard .wizard-close { min-height:var(--control-h); }
 @media(max-width:640px) { .simple-wizard .wizard-head { padding:12px 16px; gap:10px; } .simple-wizard .simple-editor-title { gap:12px; } }
 
-.planner-clear-button { width:84px; min-width:84px; height:44px; padding:0 8px; flex-shrink:0; white-space:nowrap; }
+/* .danger .btn-sm: the control height and padding are the primitive's; the fixed width
+   keeps Clear and its armed "Confirm?" the same size. */
+.planner-clear-button { width:84px; min-width:84px; flex-shrink:0; }
 .planner-clear-button[data-armed="true"] { background:var(--danger-solid); border-color:var(--danger-solid); color:#fff; }
 
 .state-level { gap:12px; margin-top:10px; }
-.state-level .state-level-number { width:58px; min-width:58px; flex:0 0 58px; height:44px; padding:6px; text-align:center; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bg); color:var(--text); font:600 20px var(--font-display); appearance:textfield; }
+.state-level .state-level-number { width:58px; min-width:58px; flex:0 0 58px; height:var(--control-h); padding:0 6px; text-align:center; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bg); color:var(--text); font:600 20px var(--font-display); appearance:textfield; }
 .state-level-number::-webkit-inner-spin-button,.state-level-number::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 .state-block .state-level .state-level-range { display:block; width:0; flex:1 1 0; min-width:0; margin:0; }
-.state-level-max { flex:0 0 44px; min-height:44px; padding:0; border:1px solid var(--control-border); border-radius:var(--radius); background:transparent; color:var(--text); font:700 18px var(--font-display); }
-.state-level-max:hover { border-color:var(--teal); color:var(--teal); }
+/* MAX is a .btn-sm, one line at the control height (it was a 48px two-line tile). */
+.state-level-max { flex:none; }
 .state-level-max:focus-visible,.state-level-number:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
 
 .simple-cost-groups > .simple-material-view { border-top:1px solid var(--line); margin:14px 0 12px; padding-top:12px; }
 .simple-material-view + section { margin-top:0; padding-top:0; border-top:0; }
 
-.state-level-field { display:flex; flex-direction:column; align-items:center; flex:0 0 64px; gap:2px; padding:4px 6px; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bg); cursor:text; }
-.state-level-field > span,.state-level-max small { font:600 10px/1 var(--font-body); letter-spacing:.06em; }
+/* The level field is one control-height box: its LEVEL label beside the number, on the
+   row's centre line with the slider and MAX (it was a 48px label-over-value stack). */
+.state-level-field { display:flex; flex-direction:row; align-items:center; flex:none; gap:6px; min-height:var(--control-h); padding:0 8px; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bg); cursor:text; }
+.state-level-field > span { font:600 10px/1 var(--font-body); letter-spacing:.06em; }
 .state-level-field > span { color:var(--text-dim); }
-.state-level .state-level-field .state-level-number { width:100%; min-width:0; flex:none; height:28px; padding:0; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; cursor:text; }
+.state-level .state-level-field .state-level-number { width:3ch; min-width:0; flex:none; height:auto; padding:0; border:0; border-radius:0; background:transparent; cursor:text; }
 .state-level-field:hover { border-color:var(--teal); }
 .state-level-field:focus-within { border-color:var(--teal); outline:2px solid var(--teal); outline-offset:2px; }
 .state-level-field .state-level-number:focus-visible { outline:none; }
-.state-level-max { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; flex-basis:52px; min-height:48px; cursor:pointer; }
 
 .simple-state-link .simple-state-action { display: block; margin-top: 6px; color: var(--text-dim); font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
 
@@ -452,7 +456,7 @@
 .state-block.locked :is(.state-elite-chip, .state-pip) { pointer-events: none; }
 /* Elite: three equal chips with the promotion art at its own size. */
 .state-elite-row { display: flex; gap: 5px; }
-.filter-chip.state-elite-chip { flex: 1; min-height: 44px; }
+.filter-chip.state-elite-chip { flex: 1; }
 .filter-chip.state-elite-chip > img { width: 26px; height: 26px; }
 /* Mastery and module levels: small chips, each pressed again to fall back. */
 .state-pips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -571,13 +575,14 @@
 /* The tile's own stepper: narrow shoulders, 44px tall,
    still typable. */
 /* One control with one frame: the control border goes round the shoulders and the
-   field together (the buttons were borderless, 1.00:1). */
+   field together (the buttons were borderless, 1.00:1). The whole stepper is one
+   control height: the parts are that less the frame's two 1px edges. */
 .depot-stepper { display: flex; align-items: center; flex: none; border: 1px solid var(--control-border); border-radius: var(--radius); }
 .depot-stepper:hover, .depot-stepper:focus-within { border-color: var(--teal); }
 .depot-stepper button {
   box-sizing: border-box;
   width: 30px;
-  height: 42px;
+  height: calc(var(--control-h) - 2px);
   flex: none;
   padding: 0;
   border: 0;
@@ -602,7 +607,7 @@
 .depot-stepper input {
   box-sizing: border-box;
   width: 58px;
-  height: 42px;
+  height: calc(var(--control-h) - 2px);
   padding: 0 8px;
   text-align: right;
   background: var(--well);
@@ -626,7 +631,7 @@
 
 @media (max-width: 520px) {
   .depot-stepper button { width: 44px; }
-  .depot-stepper input { width: 74px; height: 48px; font-size: 18px; }
+  .depot-stepper input { width: 74px; font-size: 18px; }
 }
 
 
@@ -756,7 +761,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 44px;
+  min-height: var(--control-h);
   padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -948,7 +953,7 @@
 .planner-need-showall {
   box-sizing: border-box;
   flex: none;
-  height: 35px;
+  height: var(--control-h);
   margin-left: 10px;
   padding: 0 12px;
   font-size: 11px;
@@ -1331,8 +1336,6 @@
 /* The row's own actions, and the search that sits in the panel head. */
 .plan-row-acts { display: flex; align-items: center; gap: 4px; }
 .plan-row-drop {
-  width: 26px;
-  height: 26px;
   padding: 0;
   border: 0;
   border-radius: var(--radius);
@@ -1362,9 +1365,8 @@
 }
 .need-card-who b > button:hover { color: var(--teal); }
 
-/* The craft toggle shares the tags row, so it goes to the far end rather than
-   sitting between two 10px chips at three times their height. */
-.need-card-tags .craft-toggle { margin-left: auto; min-height: 30px; }
+/* The craft toggle shares the tags row, so it goes to the far end. */
+.need-card-tags .craft-toggle { margin-left: auto; }
 
 /* --text-dim in a panel head, not --text-faint.
    The faint token is tuned to clear 4.5:1 on --panel; a panel head lifts its
@@ -1375,11 +1377,11 @@
 .plan-panel-head .plan-panel-tag,
 .plan-panel-foot .plan-hint { color: var(--text-dim); }
 
-/* A 30px button with a 44px tappable box. The row is 62px tall and a 44px
+/* A control-height button with a 44px tappable box. The row is 62px tall and a 44px
    square in it would crowd the Edit beside it, so the hit area grows and the
    paint does not -- which is the accessibility floor's actual requirement. */
-.plan-row-drop { position: relative; width: 30px; height: 30px; }
-.plan-row-drop::after { content: ''; position: absolute; inset: -7px; }
+.plan-row-drop { position: relative; width: var(--control-h); height: var(--control-h); }
+.plan-row-drop::after { content: ''; position: absolute; inset: min(0px, calc((var(--control-h) - 44px) / 2)); }
 
 
 /* ===== 9. The add-and-set-goals dialog ==================================
@@ -1510,14 +1512,16 @@
  * combinator does not reach across a parent -- so Done was never shrunk and
  * stood 45px next to a 35px Back.
  *
- * 35px is this page's action height everywhere else -- every .tab, every
- * .btn-sm, every danger button measured 35 -- so the row matches the page and
- * carries its hierarchy in fill and weight instead of size. Stating it here is
- * the same answer .timeline-filter-row gives to the same rule guessing wrong.
+ * So every button in the foot has the row size, one control height (.btn-sm's
+ * metrics, var(--control-h), ui-primitives rule 4), and the row carries its
+ * hierarchy in fill and weight instead of size. (It stated the old 8px/14px
+ * padding, which left a primary at 33px beside a 36px ghost once ghosts took the
+ * token.)
  */
 .wizard-foot button {
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
 }
 
 /* --- step 1: the roster grid -------------------------------------------- */
@@ -1681,13 +1685,14 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-/* Owned, stated. Sized to the tabs it sits beside -- 35px, the page's action
-   height -- and teal when on, because it is a selection, not a rarity. */
+/* Owned, stated. Sized to the controls it sits beside -- the control height -- and
+   teal when on, because it is a selection, not a rarity. */
 .wizard-owned {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px 8px 10px;
+  min-height: var(--control-h);
+  padding: 4px 14px 4px 10px;
   font-size: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1870,7 +1875,7 @@
   border-top: 1px solid var(--line-soft);
 }
 .wizard-build .plan-hint { margin: 0; }
-.wizard-build button { font-size: 12px; padding: 8px 14px; }
+.wizard-build button { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; }
 
 @media (max-width: 760px) {
   .build-box { max-height: 100vh; border-radius: 0; }
@@ -1889,14 +1894,15 @@
 .plan-clear-armed { display: inline-flex; align-items: center; gap: 6px; }
 
 /* --- export / import ---------------------------------------------------- */
-/* Same reason: Save is a .primary with a .ghost after it, so it was only 35px
-   by accident of that rule. Said out loud, it is 35px on purpose. */
+/* Same reason: Save is a .primary with a .ghost after it, so it was the row size
+   only by accident of that rule. Said out loud: the control height, on purpose. */
 .plan-transfer-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-transfer-acts button,
 .plan-transfer-clear button,
 .plan-transfer-text .submit-row-actions button {
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
 }
 .plan-transfer-clear {
   display: flex;

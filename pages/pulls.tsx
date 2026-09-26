@@ -482,7 +482,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         </dl>
       </section>
       <section className={`op-section ${workspace.plan}`} aria-label="Your banner plan">
-        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary ${workspace.add}`} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
+        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary btn-sm ${workspace.add}`} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
         {choosingBanner && <BannerPicker banners={banners} selected={goals.map(goal => goal.banner)} odds={bannerOdds} onAdd={addGoal} />}
         <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
         {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}

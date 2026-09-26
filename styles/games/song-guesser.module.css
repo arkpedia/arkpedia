@@ -69,7 +69,7 @@
 .answer { composes: panel from './guesser-shared.module.css'; display: grid; gap: 14px; min-width: 0; }
 .answer form { display: grid; gap: 10px; }
 .answer form > label { color: var(--text-dim); font: 11px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
-.inputRow { display: flex; align-items: flex-start; gap: 10px; }
+.inputRow { display: flex; align-items: center; gap: 10px; }
 .inputRow > :first-child { flex: 1; min-width: 0; }
 .suggestion { display: grid; gap: 2px; min-width: 0; }
 .suggestion strong { font-weight: 500; overflow-wrap: anywhere; }

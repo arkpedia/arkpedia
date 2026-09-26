@@ -237,7 +237,7 @@ export default function WorldMapEvents({ events, now: renderedAt }: { events: Co
     <div className={`world-map-wrap${isFullscreen ? ' fullscreen' : ''}`}>
       <button
         type="button"
-        className="world-map-fullscreen-btn"
+        className="btn-icon world-map-fullscreen-btn"
         onClick={() => setIsFullscreen((v) => !v)}
         aria-label={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
         title={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}

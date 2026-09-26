@@ -31,7 +31,7 @@ export default function OperatorAnswer({ operators, onGuess }: { operators: Game
         onChange={(value) => { setInput(value); setNotice(''); }} placeholder="Search an operator…"
         suggestions={suggestions} getKey={(operator) => operator.name} renderSuggestion={(operator) => operator.name}
         onPick={choose} suggestLabel="Operator suggestions" upward={phone} />
-      <button className="primary" type="submit" disabled={!input.trim()}>Guess</button>
+      <button className="primary btn-sm" type="submit" disabled={!input.trim()}>Guess</button>
     </div>
     {notice && <p className={styles.notice} role="status">{notice}</p>}
   </form>;

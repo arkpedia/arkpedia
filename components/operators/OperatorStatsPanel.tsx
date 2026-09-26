@@ -111,7 +111,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden }: { st
             <input id={levelId} type="number" min={phase.minLevel} max={phase.maxLevel} step="1"
               value={levelInput} onChange={event => setLevelInput(event.target.value)}
               onBlur={() => setLevelInput(String(level))} />
-            <button type="button" className={styles.maxButton} aria-label={`Set level to maximum, ${phase.maxLevel}`} onClick={() => setLevelInput(String(phase.maxLevel))}><small>MAX</small>{phase.maxLevel}</button>
+            <button type="button" className="btn-sm" aria-label={`Set level to maximum, ${phase.maxLevel}`} onClick={() => setLevelInput(String(phase.maxLevel))}>Max {phase.maxLevel}</button>
           </div>
           <input className={styles.slider} type="range" aria-label="Operator level" min={phase.minLevel} max={phase.maxLevel}
             value={level} onChange={event => setLevelInput(event.target.value)} disabled={phase.minLevel === phase.maxLevel} />

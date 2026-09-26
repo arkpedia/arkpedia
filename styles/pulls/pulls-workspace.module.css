@@ -12,7 +12,7 @@
 .wallet :global(.pulls-field-label) { flex: 0 0 30px; display: flex; }
 .wallet :global(.pulls-field-box) { flex: 1; min-width: 0; }
 .wallet :global(.pulls-field-unit) { display: none; }
-.wallet input:not([type=checkbox]) { font: 600 22px var(--font-display); padding: 8px; height: 42px; }
+.wallet input:not([type=checkbox]) { font: 600 22px var(--font-display); padding: 0 8px; height: var(--control-h); }
 .incomeRow { display: flex; align-items: center; gap: 24px; padding: 12px 20px; }
 .incomeRow :global(.pulls-recurring-grid) { flex: 1; }
 .rate { display: flex; align-items: baseline; gap: 8px; border-left: 1px solid var(--line); padding-left: 24px; white-space: nowrap; }
@@ -22,7 +22,7 @@
 /* Three disclosure buttons: secondary buttons with the control border, and the
    open one in the picked state. */
 .utilities { gap: 8px; padding: 12px 0 14px; }
-.utilities button { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; min-width: 0; }
+.utilities button { min-height: var(--control-h); display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 12px; min-width: 0; }
 .utilities button[aria-expanded=true] { border-color: var(--teal); background: var(--teal-dim); color: var(--teal); }
 .utilities button>span:last-child { color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0; }
 .utilities b { padding-left: 5px; color: var(--text-bright); }
@@ -34,7 +34,7 @@
 .detailPanel :global(.pulls-target-row) { margin-top: 0; }
 .forecast { display: flex; align-items: center; gap: 28px; padding: 0 4px; }
 .forecastDate { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-size: 13px; }
-.forecastDate input { background: var(--panel); border: 1px solid var(--control-border); color: var(--text); font: 13px var(--font-mono); padding: 9px; border-radius: var(--radius); width: 140px; min-height: 40px; color-scheme: inherit; }
+.forecastDate input { background: var(--panel); border: 1px solid var(--control-border); color: var(--text); font: 13px var(--font-mono); padding: 0 9px; border-radius: var(--radius); width: 140px; min-height: var(--control-h); color-scheme: inherit; }
 .forecastDate input:hover, .forecastDate input:focus { border-color: var(--teal); }
 .forecast dl { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; }
 .forecast dl>span { color: var(--text-faint); }
@@ -46,9 +46,9 @@
 .plan { border: 1px solid var(--line); border-radius: var(--radius-frame); overflow: visible; background: var(--panel); }
 .planHeading { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
 .planHeading h2 span { font: 500 13px var(--font-mono); margin-left: 6px; color: var(--text-dim); }
-.add { min-width: 120px; min-height: 40px; }
+.add { min-width: 120px; }
 .chooser { padding: 0 18px 16px; }
-.columns,.bannerRow { display: grid; grid-template-columns: minmax(245px,1fr) 80px 85px 85px 90px 75px 30px; align-items: center; gap: 12px; padding: 10px 18px; }
+.columns,.bannerRow { display: grid; grid-template-columns: minmax(245px,1fr) 80px 85px 85px 90px 75px var(--control-h); align-items: center; gap: 12px; padding: 10px 18px; }
 .columns { font-size: 11px; color: var(--text-dim); border-block: 1px solid var(--line); background: var(--panel-2); }
 .columns span:not(:first-child) { text-align: center; }
 .banner+.banner { border-top: 1px solid var(--line); }
@@ -66,9 +66,11 @@
 .date small,.figure small { min-height: 14px; font-size: 10px; color: var(--text-dim); }
 .figure b { font: 600 23px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
 .chance b { color: var(--text-bright); }
-.budget input { width: 100%; min-height: 42px; background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 7px 3px; text-align: center; font: 600 23px var(--font-display); appearance: textfield; }
+.budget input { width: 100%; min-height: var(--control-h); background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 0 3px; text-align: center; font: 600 23px var(--font-display); appearance: textfield; }
 .budget input::-webkit-inner-spin-button { appearance: none; }
-.remove { width: 30px; height: 40px; color: var(--text-dim); font-size: 22px; }
+/* The goal's remove is a .btn-icon (square at the control height); its column is that
+   wide at every width. */
+.remove { color: var(--text-dim); }
 .remove:hover { color: var(--danger); }
 .mobileLabel { display: none; }
 .goalEditor { border-top: 1px solid var(--line); padding: 16px 20px; background: var(--panel-2); }
@@ -88,28 +90,26 @@
 .planFooter strong small { font: 12px var(--font-body); }
 .negative,.planFooter .negative { color: var(--danger); }
 .empty { padding: 28px 20px; color: var(--text-dim); }
-@media(max-width:1000px) { .wallet { gap: 10px; padding: 12px; grid-template-columns: repeat(4,minmax(0,1fr)); } .monthly { grid-column: span 4; } .columns,.bannerRow { grid-template-columns: minmax(190px,1fr) 64px 65px 66px 72px 55px 24px; gap: 8px; padding-inline: 12px; } .bannerIdentity img, .bannerArtPending { width: 64px; height: 48px; } .incomeRow { gap: 12px; padding-inline: 12px; } .rate { padding-left: 12px; } }
+@media(max-width:1000px) { .wallet { gap: 10px; padding: 12px; grid-template-columns: repeat(4,minmax(0,1fr)); } .monthly { grid-column: span 4; } .columns,.bannerRow { grid-template-columns: minmax(190px,1fr) 64px 65px 66px 72px 55px var(--control-h); gap: 8px; padding-inline: 12px; } .bannerIdentity img, .bannerArtPending { width: 64px; height: 48px; } .incomeRow { gap: 12px; padding-inline: 12px; } .rate { padding-left: 12px; } }
 @media(max-width:700px) {
  .page { gap: 14px; }
- .wallet { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 14px; } .wallet input:not([type=checkbox]) { height: 40px; font-size: 22px; }
+ .wallet { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 14px; } .wallet input:not([type=checkbox]) { font-size: 22px; }
  .incomeRow { display: block; } .rate { justify-content: space-between; margin-top: 10px; padding: 8px 0 0; border-left: 0; border-top: 1px solid var(--line); } .rate strong { font-size: 22px; }
  .utilities { grid-template-columns: 1fr; gap: 6px; }
  .forecast { display: block; padding-inline: 2px; } .forecastDate { justify-content: space-between; margin-bottom: 12px; } .forecast dl { gap: 6px; } .forecast dt { font-size: 10px; } .forecast dd { font-size: 22px; }
  .columns { display: none; } .planHeading { padding: 12px; } .add { min-width: 105px; }
- .bannerRow { grid-template-columns: repeat(4,minmax(0,1fr)) 26px; gap: 12px 7px; padding: 14px 12px; } .bannerIdentity { grid-column: 1/5; grid-row: 1; } .bannerIdentity img { width: 84px; height: 56px; } .bannerIdentity strong { font-size: 18px; } .remove { grid-column: 5; grid-row: 1; }
- .date { grid-column: 1/-1; flex-direction: row; gap: 6px; justify-content: flex-start; } .date .mobileLabel { margin: 0; } .date b { font-size: 11px; } .date small { min-height: auto; } .budget { grid-column: 1; } .bannerRow>.figure:last-of-type { grid-column: 4/6; } .mobileLabel { display: block; color: var(--text-dim); font: 11px var(--font-body); margin-bottom: 4px; } .budget .mobileLabel { text-align: center; } .figure { align-self: stretch; justify-content: flex-start; gap: 2px; } .figure b { line-height: 42px; font-size: 22px; } .figure small { line-height: 12px; } .budget input { min-height: 42px; }
+ .bannerRow { grid-template-columns: repeat(4,minmax(0,1fr)) var(--control-h); gap: 12px 7px; padding: 14px 12px; } .bannerIdentity { grid-column: 1/5; grid-row: 1; } .bannerIdentity img { width: 84px; height: 56px; } .bannerIdentity strong { font-size: 18px; } .remove { grid-column: 5; grid-row: 1; }
+ .date { grid-column: 1/-1; flex-direction: row; gap: 6px; justify-content: flex-start; } .date .mobileLabel { margin: 0; } .date b { font-size: 11px; } .date small { min-height: auto; } .budget { grid-column: 1; } .bannerRow>.figure:last-of-type { grid-column: 4/6; } .mobileLabel { display: block; color: var(--text-dim); font: 11px var(--font-body); margin-bottom: 4px; } .budget .mobileLabel { text-align: center; } .figure { align-self: stretch; justify-content: flex-start; gap: 2px; } .figure b { line-height: var(--control-h); font-size: 22px; } .figure small { line-height: 12px; }
  .goalEditor { padding: 12px; } .goalEditor :global(.pulls-goal-choices) { grid-template-columns: 1fr; } .spending { gap: 10px; flex-wrap: wrap; } .planFooter { padding: 12px; align-items: flex-start; } .planFooter>span:last-child { display: grid; gap: 2px; text-align: right; font-size: 11px; } .detailPanel { padding: 12px; }
 }
-.page .remove { padding: 0; min-width: 0; width: 30px; height: 44px; box-sizing: border-box; }
 :global(html[data-theme='light']) .forecastDate input { color-scheme: light; }
 /* Keep disclosure and inclusion independent, in the same stable control. */
 .pastUtility { display:flex; align-items:center; gap:6px; min-width:0; }
 .utilities .pastUtility button:first-child { flex:1; }
-.utilities .pastUtility :global(.pulls-include-past) { min-height:44px; }
+.utilities .pastUtility :global(.pulls-include-past) { min-height:var(--control-h); }
 .detailPanel :global(.pulls-include-mobile) { display:none; }
 .page .goalEditor :global(.pulls-operator-option) { grid-template-columns:minmax(0,1fr) 82px; }
 .page .goalEditor :global(.pulls-operator-count) { flex-direction:row; align-items:center; gap:4px; padding:6px; min-width:0; }
-.page .goalEditor :global(.pulls-operator-count .pulls-select-trigger) { flex:1; min-width:0; width:100%; min-height:40px; padding:6px; box-sizing:border-box; }
 .page .goalEditor :global(.pulls-operator-count>span) { flex-shrink:0; }
 .page .forecast { display:block; padding:14px 20px; }
 .calculationHeading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
@@ -149,7 +149,6 @@
  .pickerPortraits { max-width:88px; }
  .pickerPortraits img { width:58px; height:58px; }
 }
-.page .add { width:120px; padding-inline:8px; }
 @media(max-width:700px) { .pickerPortraits { max-width:none; } }
 /* Match Arkpedia's shared softened theme; geometry stays with this workspace. */
 .page .detailArea,.page .goalEditor,.page .planFooter { background:var(--panel-grad); }
@@ -188,7 +187,7 @@
 .incomeRow :global(.pulls-recurring-grid) { gap: 2px 12px; }
 .rate { padding-left: 16px; }
 .utilities { margin: 0 16px; }
-.utilities button { padding: 10px 12px; }
+.utilities button { padding: 4px 12px; }
 .page .detailArea, .page .goalEditor, .page .planFooter { background: transparent; }
 .detailPanel { padding: 16px; }
 .page .forecast { padding: 14px 16px; }

@@ -141,6 +141,19 @@
   --frame-max: 1040px;
   --page-gutter: 24px;
 
+  /* ONE CONTROL HEIGHT (ui-primitives rule 4). Every control in a row -- a chip, a
+     .tgl, a ghost, danger or .btn-sm button, a square .btn-icon, the search field,
+     the StyledSelect trigger, a number input -- is var(--control-h) tall, so the
+     things in a row share one height and one centre line. The 2026-09-26 census found
+     six primitive heights side by side (tgl 32, ghost 33, chip 32/36, select 38,
+     search 38/40, button 44) and pages patching them up to each other by hand.
+     --control-h-base is the ONE value to change: phones (<=720px) get 4px more for
+     the thumb, below. 36 -> 36/40 today; 32 would give 32/36. Base and .primary
+     buttons stay 44px only as a standalone call to action; in a row they take
+     .btn-sm. audit:styles (controlHeight) rejects a literal height on a control. */
+  --control-h-base: 36px;
+  --control-h: var(--control-h-base);
+
   --font-mono: 'JetBrains Mono', monospace;
   --font-display: 'Rajdhani', sans-serif;
   --font-body: 'Inter', sans-serif;
@@ -256,6 +269,10 @@
      off its ground. The dark theme's value is a dark surface, and under this
      theme's dark --text it would have been text the colour of its own tile. */
   --row-grad-hi: linear-gradient(180deg, #FFFFFF, #F7F9FA);
+}
+/* Phones: the control height plus 4px for the thumb, from the one base value above. */
+@media (max-width: 720px) {
+  :root { --control-h: calc(var(--control-h-base) + 4px); }
 }
 
 /* --- site-wide interaction & a11y primitives --------------------------------------- */
@@ -645,17 +662,22 @@ select.power-select:disabled { opacity: 0.35; }
    This cannot help a group of INDEPENDENT toggles, which lose their last .ghost
    sibling once everything is on: see .timeline-filter-row below, which states its own
    metrics for that reason. */
-button.primary:where(:has(~ button.ghost)):not(:where(.modal-actions, .skin-zoom-controls) *),
-:where(button.ghost) ~ button.primary:not(:where(.modal-actions, .skin-zoom-controls) *) {
+button.primary:where(:has(~ :is(button, a).ghost)):not(:where(.modal-actions, .skin-zoom-controls) *),
+:where(:is(button, a).ghost) ~ button.primary:not(:where(.modal-actions, .skin-zoom-controls) *) {
+  /* .btn-sm's metrics (arkpedia-theme.css): the row size, one control height. */
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 /* Same idea for a link toggle group, which has no modal-actions case to exclude because
    a Confirm/Cancel pair is never a pair of links. */
-a.primary:where(:has(~ a.ghost)),
-:where(a.ghost) ~ a.primary {
+a.primary:where(:has(~ :is(button, a).ghost)),
+:where(:is(button, a).ghost) ~ a.primary {
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 .chip {
   width: 72px;
@@ -688,12 +710,16 @@ a.primary:where(:has(~ a.ghost)),
   margin-top: -6px;
   margin-bottom: 4px;
 }
+/* .hint is a VOICE (mono 11px, faint), not a block: it has no outer margin, so a hint
+   placed in a flex row (the /skins "518 of 518 outfits" beside Reset filters) sits on
+   the row's centre line instead of riding 9px high on its own bottom margin. A hint
+   paragraph or block keeps the 18px gap below it; an inline span never had one. */
 .hint {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-faint);
-  margin-bottom: 18px;
 }
+:where(p, div).hint { margin-bottom: 18px; }
 .thanks-view { text-align: center; padding: 60px 20px; }
 .thanks-view h2 {
   font-family: var(--font-display);
@@ -1143,27 +1169,9 @@ a.primary:where(:has(~ a.ghost)),
   margin-top: 20px;
   flex-wrap: wrap;
 }
-.support-social-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 8px 12px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--control-border);
-  background: var(--row-grad);
-  color: var(--text);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  text-decoration: none;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-/* Teal is for "on" and hover, not for a link at rest (it was teal-bordered and
-   teal-filled before anyone pointed at it). */
-.support-social-link:hover { border-color: var(--teal); color: var(--teal); }
+/* The support links are .btn (the base button, a 44px call to action; teal only on
+   hover): they were a one-off copy of it at 12px on a 4px radius. Only their icon is
+   sized here (.support-option .support-social-link svg, below). */
 .support-social-column {
   flex-direction: column;
   align-items: flex-start;
@@ -1225,8 +1233,9 @@ a.primary:where(:has(~ a.ghost)),
   margin: 0 0 6px;
 }
 .support-option .support-social-link svg {
-  width: 20px;
-  height: 20px;
+  /* 18px, the label's line: a 20px icon made these 46px calls to action, not 44. */
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 

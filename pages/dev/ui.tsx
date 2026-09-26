@@ -67,6 +67,18 @@ export default function UiPrimitivesPage() {
             <button type="button" className="primary" disabled>Disabled primary</button>
             <button type="button" disabled>Disabled</button>
           </div>
+          <p className="hint">Four variants, two sizes: a base or primary button on its own is the 44px call to action; everything in a row of controls is var(--control-h), through .btn-sm, and a square icon button is .btn-icon.</p>
+          <div style={row} data-testid="control-row">
+            <SearchInput label="Search in a row" value={plain} onChange={setPlain} placeholder="One control height…" />
+            <StyledSelect label="Faction in a row" value={faction} onChange={setFaction} options={FACTIONS} />
+            <button type="button" className="filter-chip" aria-pressed={view === 'grid'} onClick={() => setView('grid')}>Chip</button>
+            <button type="button" className="ghost">Ghost</button>
+            <button type="button" className="danger">Reset</button>
+            <button type="button" className="btn-sm">Small</button>
+            <button type="button" className="primary btn-sm">Primary small</button>
+            <button type="button" className="ghost btn-icon" aria-label="Close">×</button>
+            <button type="button" className="btn-icon" aria-label="Next">›</button>
+          </div>
           <div style={row}>
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'a'} onClick={() => setPreset('a')}>Preset A (pick-card)</button>
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'b'} onClick={() => setPreset('b')}>Preset B</button>

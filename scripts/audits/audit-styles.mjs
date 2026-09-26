@@ -25,7 +25,8 @@
  *                  comes from --rarity-N only
  *   oldTeal        the pre-token teal, rgb(77 232 209) / #4de8d1, anywhere (CSS or
  *                  TSX): it ignores the light theme
- *   pills          a 999px (pill) radius; radii come from the 2-4px token family
+ *   pills          a 999px (pill) radius, or a 50% one on anything but an avatar, a
+ *                  dot or an image (ROUND_OK); radii come from the 2-4px token family
  *   h1Rules        an h1 font-size or text-transform outside styles/core/shared.css;
  *                  the page title has one size and one case, set there
  *   fontWeights    a rule that asks a webfont for a weight pages/_document.tsx does
@@ -59,6 +60,15 @@
  *   stretchedChoices, deadPrimitives, liveBadge  tabs and pick-one rows stretched
  *                  across their line, primitives nothing renders, and LIVE badges
  *                  painted outside .badge-live: see scripts/audits/audit-choices-badges.mjs
+ *   controlHeight  a literal height or min-height on a control -- a button, chip,
+ *                  .tgl, input, select or textarea, or a class TSX puts on one -- outside
+ *                  styles/core, and on a primitive in it. Controls take one height,
+ *                  var(--control-h), from the
+ *                  primitives: the 2026-09-26 census found six primitive heights side by
+ *                  side and pages patching them by hand (a 38px wishlist chip to match the
+ *                  search, a 44px Clear, a 44px include switch). CONTROL_HEIGHT_EXEMPT
+ *                  names the few that are not row controls, each with its reason, and an
+ *                  exemption that matches nothing fails as stale
  *
  * It is a RATCHET. Today's accepted cases are counted in style-audit-baseline.json
  * next to this script. The run fails when anything is NEW (more occurrences of an
@@ -210,6 +220,102 @@ const STATE_SELECTOR = /:(?:hover|focus|focus-visible|focus-within|active|checke
  *  and `h1.title` are, `.head h1 .code` is not. */
 const h1Subject = (selector) => /^h1(?=$|[.:#[])/.test(selector.trim().split(/\s*[\s>+~]\s*/).pop() || '');
 
+/* ---- controlHeight and round radii (r9 controls) ---------------------------------
+   One control height, --control-h in styles/core/shared.css: the primitives read it
+   (.filter-chip, .tgl, .ghost, .danger, .btn-sm, .btn-icon, .search-input, the
+   StyledSelect trigger, number inputs), and no page states a height of its own on a
+   control. A page that needs a control taller or shorter than its row is the finding. */
+/** The primitive classes that are controls wherever they appear. */
+const CONTROL_PRIMITIVES = new Set(['filter-chip', 'tgl', 'ghost', 'primary', 'danger', 'btn', 'btn-sm', 'btn-icon', 'search-input']);
+/** Elements that are controls. An input is one unless it is a box, a slider or hidden.
+ *  A <summary> is left out: it is a disclosure row heading a section, not a boxed row
+ *  control (the row census in tests/browser measures one that sits beside controls). */
+const CONTROL_ELEMENT = /^(?:button|select|textarea|input(?![^\s]*\[type=["']?(?:checkbox|radio|range|hidden|file|color)\b))(?=$|[.:#[])/;
+/** Controls that are not row controls, and why. `match` is tested against
+ *  "<path>: <selector>"; an entry that matches no rule fails as stale. */
+const CONTROL_HEIGHT_EXEMPT = [
+  // Not controls in a row.
+  [/^styles\/gamemodes\/gamemodes\.css: [^{]*\.gm-co-/, 'the Stronghold companion: a dense play-beside-the-game window with its own compact scale (full-bleed by design; page-bounds excludes it too)'],
+  [/^styles\/gacha\/gacha\.css: \.gacha-action \{/, 'the /gacha X1/X10 pull row: the reference page keeps its 42px action row (docs/development/ui-primitives.md)'],
+  [/^styles\/gacha\/gacha\.css: \.gacha-(?:banner-sidebar-item|details-featured) \{/, 'the /gacha banner list and featured-operator cards: picture cards on the reference page, sized by their art'],
+  [/^styles\/home\/front\.css: \.front-gacha-thumb \{/, 'the home banner thumbnails: pictures that switch the banner, sized by the art'],
+  [/^styles\/survey\/boxplot\.css: \.results-page \.results-chip \{/, 'the /results operator portraits: draggable picture tiles'],
+  [/^styles\/recruitment\/recruitment\.css: \.recruit-selection button \{/, 'the five recruitment tag slots: a fixed grid of equal slots (an empty one is the same box) sized for a two-line tag name'],
+  [/^styles\/games\/song-guesser\.module\.css: \.play \{/, "the music guesser's one big play button: the round's hero control, alone on its line"],
+  [/^styles\/enemies\/enemies\.css: \.enemy-appear-option \{/, "a row in the enemy picker's menu: 40px like StyledSelect's own options, a menu row rather than a row control"],
+  [/^styles\/base\/base\.css: [^{]*\.base-(?:facility-explain|facility-settings|zoom-reset)-btn \{/, 'on the /base pan-and-zoom map: sized with the room tiles and scaled by --base-tap-scale so they stay 24px on screen at any zoom'],
+  [/^components\/operators\/OperatorPage\.module\.css: \.splitRail button \{/, "the operator page's split handle between the artwork and the details: a 28px-wide rail, not a row control"],
+  [/^components\/operators\/OperatorPage\.module\.css: \.relationPopover > button \{/, 'a name drawn as text (no border, no fill) that opens a popover: a 28px hit area round one line of text'],
+];
+/** A radius of 50% draws a circle, which is right only for an avatar, a dot, an image or
+ *  a slider thumb; every control and surface takes a radius token (ui-primitives rule 10). */
+const ROUND_OK = /(?:^|[-_.\s])(?:dots?|avatar|portrait|icon|img|image|photo)(?=$|[-_\s:.[\]>)])|(?:^|[\s>])img(?=$|[.:[\s])|::?-(?:webkit-slider|moz-range)-thumb/;
+/** Round things whose names do not say so, and why they are round. */
+const ROUND_EXEMPT = {
+  '.theme-toggle': 'the nav theme toggle is an operator avatar (a round portrait)',
+  '.status-ok i': 'a status tick drawn as a dot',
+  '.wizard-step b': 'a numbered step marker, a dot with a digit in it',
+  '.technique-entry-priority-badge': 'a numbered dot pinned to a skill icon',
+};
+/** Class names in a className expression: quoted words, template text, styles.x. */
+function classNamesIn(expr) {
+  const out = new Set();
+  for (const m of expr.matchAll(/(['"`])((?:(?!\1)[\s\S])*?)\1/g)) for (const w of m[2].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-zA-Z][\w-]*$/.test(w)) out.add(w);
+  for (const m of expr.matchAll(/\b(?:styles|s|css|pageStyles)\.([a-zA-Z_]\w*)|\b(?:styles|s|css|pageStyles)\[['"]([\w-]+)['"]\]/g)) out.add(m[1] || m[2]);
+  return out;
+}
+/** The classes TSX puts on a control: on a <button>, <select>, <textarea> or a text
+ *  <input>, or on any element whose classes name a button variant or a chip -- never on
+ *  a .btn-bare, which is a card or a tile, not a control. */
+function controlClasses(tsxFiles) {
+  const out = new Set();
+  for (const path of tsxFiles) {
+    const code = readFileSync(join(root, path), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of code.matchAll(/<([A-Za-z][\w.]*)\b((?:=>|[^>])*?)\/?>/g)) {
+      const cls = m[2].match(/\bclassName=(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|'[^']*')/);
+      if (!cls) continue;
+      const names = classNamesIn(cls[1]);
+      if (names.has('btn-bare')) continue;
+      const tag = m[1];
+      const input = tag === 'input' && !/\btype=["'{]\s*['"`]?(?:checkbox|radio|range|hidden|file|color)\b/.test(m[2]);
+      if (['button', 'select', 'textarea'].includes(tag) || input || [...names].some((n) => CONTROL_PRIMITIVES.has(n))) {
+        for (const n of names) out.add(n);
+      }
+    }
+  }
+  return out;
+}
+/** A literal height or min-height on a control's rule: outside styles/core on any
+ *  control, and in styles/core on the primitives themselves (a primitive stating 32px
+ *  instead of the token is how a flip of --control-h-base would silently miss it). */
+function controlHeights(cssFiles, controls) {
+  const found = [];
+  for (const path of cssFiles) {
+    const core = path.startsWith(join('styles', 'core') + '/');
+    for (const { selector, body } of rules(stripComments(readFileSync(join(root, path), 'utf8')))) {
+      const decls = declarations(body).filter((d) => /^(?:min-)?(?:height|block-size)$/.test(d.prop) && /(?:^|[\s(,])\d*\.?\d+(?:px|rem|em)\b/.test(d.value) && !/var\(\s*--control-h\b/.test(d.value));
+      if (!decls.length) continue;
+      for (const part of selector.split(/,(?![^(]*\))/)) {
+        const subject = part.replace(/:global\(([^)]*)\)/g, '$1').trim().split(/\s*[\s>+~]\s*/).pop() || '';
+        if (subject.includes('::')) continue;
+        const classes = [...subject.matchAll(/\.([a-zA-Z_][\w-]*)/g)].map((m) => m[1]);
+        // A .btn-bare is a card or a tile, and a dot (a carousel pager, a status mark) is
+        // its own small hit area: neither is a control in a row.
+        if (classes.includes('btn-bare') || classes.some((c) => /(?:^|-)dots?$/.test(c))) continue;
+        if (core ? !classes.some((c) => CONTROL_PRIMITIVES.has(c))
+          : !CONTROL_ELEMENT.test(subject.replace(/:not\([^)]*\)/g, '')) && !classes.some((c) => CONTROL_PRIMITIVES.has(c) || controls.has(c))) continue;
+        for (const d of decls) found.push(`${path}: ${part.trim()} { ${d.prop}: ${d.value} }`);
+      }
+    }
+  }
+  const stale = CONTROL_HEIGHT_EXEMPT.filter(([match]) => !found.some((f) => match.test(f)));
+  return [
+    ...found.filter((f) => !CONTROL_HEIGHT_EXEMPT.some(([match]) => match.test(f))),
+    ...stale.map(([match, why]) => `stale CONTROL_HEIGHT_EXEMPT entry ${match} (${why}): it matches nothing, delete it`),
+  ];
+}
+/* ---- end controlHeight and round radii ------------------------------------------- */
+
 function collect() {
   const cssFiles = [...walk('styles', ['.css']), ...walk('components', ['.css'])];
   const owners = new Map();   // class -> Set<file>
@@ -273,6 +379,11 @@ function collect() {
       }
       for (const d of decls) {
         if (d.prop.includes('radius') && /\b9{3,}px\b/.test(d.value)) out.pills.push(`${path}: ${selector}`);
+        if (d.prop.includes('radius') && /(?:^|\s)50%/.test(d.value)) {
+          for (const part of selector.split(/,(?![^(]*\))/).map((x) => x.trim())) {
+            if (!ROUND_OK.test(part.split(/\s*[\s>+~]\s*/).pop() || '') && !ROUND_EXEMPT[part]) out.pills.push(`${path}: ${part} { ${d.prop}: ${d.value} }`);
+          }
+        }
         const thumb = d.prop === 'scrollbar-color' ? d.value.trim().split(/\s+(?![^(]*\))/)[0]
           : /::-webkit-scrollbar-thumb/.test(selector) && (d.prop === 'background' || d.prop === 'background-color') ? d.value : null;
         if (thumb && /var\(\s*--line(?:-soft)?\s*[,)]/.test(thumb)) out.scrollbarThumb.push(`${path}: ${selector} { ${d.prop}: ${d.value} }`);
@@ -333,6 +444,8 @@ function collect() {
   }
 
   Object.assign(out, collectChoicesAndBadges(root));
+  // controlHeight (r9 controls)
+  out.controlHeight = controlHeights(cssFiles, controlClasses([...walk('pages', ['.tsx']), ...walk('components', ['.tsx'])]));
 
   out.collisions = [...owners.entries()]
     .filter(([, fs]) => fs.size > 1)
@@ -347,7 +460,7 @@ const LABELS = {
   rawHex: 'a hex literal for a colour a token already names, so the light theme does not reach it',
   rarityLiteral: 'a colour literal in a rarity rule -- use var(--rarity-N), .rarity-N, .tier-N or .tier-fill-N',
   oldTeal: 'the pre-token teal literal -- use var(--teal) or color-mix(in srgb, var(--teal) N%, transparent)',
-  pills: 'a 999px pill radius -- use var(--radius), var(--radius-frame) or var(--radius-control)',
+  pills: 'a 999px pill radius, or a 50% one on a control or surface (only avatars, dots, images and slider thumbs are round) -- use var(--radius), var(--radius-frame) or var(--radius-control)',
   h1Rules: 'an h1 size or case outside styles/core/shared.css -- render components/ui/PageHeader',
   fontWeights: 'a webfont weight pages/_document.tsx does not load, so the browser fakes it',
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
@@ -361,6 +474,9 @@ const LABELS = {
 
 const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar',
   ...Object.keys(CHOICE_BADGE_LABELS)];
+// controlHeight (r9 controls)
+LABELS.controlHeight = 'a literal height or min-height on a control outside styles/core, or on a primitive inside it -- controls take var(--control-h) from the primitives (.btn-sm for a base or primary button in a row, .btn-icon for a square icon button); a control that is not a row control goes in CONTROL_HEIGHT_EXEMPT with its reason';
+STRICT.push('controlHeight');
 
 function counts(list) {
   const m = new Map();

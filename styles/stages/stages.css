@@ -10,26 +10,21 @@
    rather than the prototype's own palette. The map's tile colours are the one
    exception and stay hard-coded in lib/stages/stageTiles.ts, because they are
    sampled from the game's renders and are data about Arknights, not theme. */
+/* The foot holds the control height whether or not Clear is shown, so a filter
+   turning on never pushes the rows down. */
 .stage-rail-foot {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 26px;
+  min-height: var(--control-h);
 }
 .stage-count {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
 }
-/* Two classes deep on purpose: button.ghost is (0,1,1) and a single class
-   cannot beat it, so a lone .stage-rail-clear left the button at ghost's 12px
-   /8px-14px metrics -- 6px taller than the 26px foot reserves, which pushed the
-   rows down the moment a filter became active. */
-.stage-rail-foot button.stage-rail-clear {
-  margin-left: auto;
-  font-size: 11px;
-  padding: 5px 10px;
-}
+/* Clear is a plain .ghost at the control height (it was a one-off 26px/11px). */
+.stage-rail-foot button.stage-rail-clear { margin-left: auto; }
 
 /* The list is a table in behaviour but a set of links in structure, so the
    row declares its own columns. */

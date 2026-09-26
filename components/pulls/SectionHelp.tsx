@@ -51,7 +51,7 @@ export function SectionHelp({ title, children, links = [], triggerLabel }: {
     };
   }, [open]);
   return <>
-    <button type="button" ref={trigger} className={triggerLabel ? "ghost pulls-detail-button" : "pulls-help-button"} aria-label={triggerLabel ? title : `Help: ${title}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>{triggerLabel ?? "?"}{triggerLabel && <span aria-hidden="true">↗</span>}</button>
+    <button type="button" ref={trigger} className={triggerLabel ? "ghost pulls-detail-button" : "ghost btn-icon pulls-help-button"} aria-label={triggerLabel ? title : `Help: ${title}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>{triggerLabel ?? "?"}{triggerLabel && <span aria-hidden="true">↗</span>}</button>
     {open && createPortal(<dialog ref={dialog} className="pulls-help-dialog" aria-labelledby={id}
       onCancel={event => { event.preventDefault(); event.stopPropagation(); setOpen(false); }}
       onKeyDown={event => {

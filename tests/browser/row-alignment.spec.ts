@@ -1,9 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { rowCensus, type RowOffence } from './row-census';
+import { rowCensus, type RowOffence, type RowTolerance } from './row-census';
+import { CENSUS_STATES, censusRoutes, openCensus } from './census-routes';
 
 /*
  * One line (docs/development/ui-primitives.md rule 4): in a row, a button, input or
- * select and the text beside it share one vertical centre.
+ * select and the text beside it share one vertical centre, and the controls in it
+ * share one height, --control-h.
  *
  * The census (row-census.ts) went over 41 routes and seven driven states (the /pulls
  * panels, /recruitment with tags and its cheat sheet, the stage guesser's own list) at
@@ -14,16 +16,61 @@ import { rowCensus, type RowOffence } from './row-census';
  * Reset filters, lifted by .hint's bottom margin), the operator page credits (the
  * language label 4px above the voice actor's button, both top-aligned at different
  * heights) and the /planner search row (Clear 5px below the search field's centre).
- * This keeps the census on those routes, plus the /pulls states that put controls
- * beside text, measures the goal row directly (on a phone too, where the census cannot
- * see it), and checks the pull planner's footer, where text sits beside text, by
+ * The r9 census (2026-09-26, 45 addresses and twelve driven states) added the control
+ * heights: six primitive heights side by side (tgl 32, ghost 33, chip 32/36, select 38,
+ * search 38/40, button 44) and the rows pages had patched by hand, and three more rows
+ * off their centre (the /operators/Amiya name row 15px, the /gacha dialogs' close 18px
+ * and 7px, the planner level dialog's title 5.7px). One token, --control-h, fixed the
+ * heights; each row is fixed at its source.
+ *
+ * STRICT on every page and state the census visited, at 1440 and 390: centres within
+ * CENTRE px (glyph boxes come from the font, and CI's Linux fonts are not the Mac's,
+ * so 2, not 1) and heights within HEIGHT px (a control's height is --control-h, a
+ * min-height, whatever the font). A new page is measured without being listed here:
+ * the addresses and states are census-routes.ts's, from pages/ as in page-bounds.spec.ts.
+ *
+ * What is not a failure is in ALLOWED, each with its reason, and an entry that matches
+ * nothing on its page fails as stale, so the list only shrinks.
+ *
+ * This also measures the pull planner's goal row directly (on a phone too, where the
+ * census cannot see it), and checks its footer, where text sits beside text, by
  * baseline.
  */
-const TOLERANCE = 3;
+const TOLERANCE: RowTolerance = { centre: 2, height: 1 };
+
+/** An accepted offence: `route` (as the test names it) and the width (1440 or 390),
+ *  then the offence's fields as regular expressions. Every entry says why. */
+interface Allowed { route: string; width?: 1440 | 390; kind: RowOffence['kind']; container: RegExp; control?: RegExp; beside?: RegExp; why: string }
+
+const ALLOWED: Allowed[] = [
+];
+
+/** The census's two widths: the desktop project is 1440 wide, and the mobile one (a
+ *  Pixel 7, 412 wide) is narrowed to the census's 390. */
+async function censusWidth(page: Page): Promise<1440 | 390> {
+  if (page.viewportSize()!.width >= 1000) return 1440;
+  await page.setViewportSize({ width: 390, height: 844 });
+  return 390;
+}
 
 async function census(page: Page): Promise<RowOffence[]> {
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await page.evaluate(() => document.fonts.ready);
   return page.evaluate(rowCensus, TOLERANCE);
+}
+
+/** Fails on an offence ALLOWED does not name, and on an entry for this page that
+ *  matched nothing (it is stale: delete it). */
+function expectOnlyAllowed(offences: RowOffence[], route: string, width: number) {
+  const mine = ALLOWED.filter((a) => a.route === route && (!a.width || a.width === width));
+  const used = new Set<Allowed>();
+  const fresh = offences.filter((o) => {
+    const hit = mine.find((a) => a.kind === o.kind && a.container.test(o.container) && (!a.control || a.control.test(o.control)) && (!a.beside || a.beside.test(o.beside)));
+    if (hit) used.add(hit);
+    return !hit;
+  });
+  expect(fresh, `rows off one line or one height on ${route} at ${width}`).toEqual([]);
+  expect(mine.filter((a) => !used.has(a)).map((a) => a.why), `stale ALLOWED entries for ${route} at ${width}`).toEqual([]);
 }
 
 /** A banner the plan can hold, from the page's own schedule. */
@@ -39,16 +86,17 @@ async function plannedBanner(page: Page): Promise<string> {
 }
 
 test('the pull planner goal row and its footer are on one line', async ({ page }) => {
+  const width = await censusWidth(page);
   const banner = await plannedBanner(page);
   await page.goto(`/pulls?banner=${encodeURIComponent(banner)}`);
   const row = page.locator('article [class*="bannerRow"]').first();
   await expect(row).toBeVisible();
-  expect(await census(page)).toEqual([]);
+  expectOnlyAllowed(await census(page), '/pulls?banner', width);
 
   // The row measured directly: every value on the Pulls input's centre line, and on a
   // phone, where each cell stacks a label over its value, every label on one top. The
   // census cannot see the phone layout: there the input's cell holds its label too.
-  const narrow = (page.viewportSize()?.width ?? 1440) <= 700;
+  const narrow = width <= 700;
   const measured = await row.evaluate((el, phone) => {
     const input = el.querySelector('input[type="number"]')!.getBoundingClientRect();
     const centre = (input.top + input.bottom) / 2;
@@ -85,21 +133,74 @@ test('the pull planner goal row and its footer are on one line', async ({ page }
 
 test('the pull planner panels are on one line', async ({ page }) => {
   // With a banner in the plan, which also picks it as the forecast banner: its trigger
-  // grows to hold the portraits beside the date field.
+  // shows the banner's portraits beside the date field, fitted to the control height.
+  const width = await censusWidth(page);
   const banner = await plannedBanner(page);
   await page.goto(`/pulls?banner=${encodeURIComponent(banner)}`);
   await expect(page.locator('article [class*="bannerRow"]').first()).toBeVisible();
   for (const name of [/Income & events/, /Past events/, /Skin wishlist/]) {
     await page.getByRole('button', { name }).click();
-    expect(await census(page), `with ${name.source} open`).toEqual([]);
+    expectOnlyAllowed(await census(page), `/pulls?banner ${name.source}`, width);
   }
   await page.getByRole('button', { name: '+ Add banner' }).click();
-  expect(await census(page), 'with the banner picker open').toEqual([]);
+  expectOnlyAllowed(await census(page), '/pulls?banner + Add banner', width);
 });
 
-for (const route of ['/skins', '/operators/Amiya', '/recruitment', '/planner']) {
-  test(`${route} is on one line`, async ({ page }) => {
-    await page.goto(route);
-    expect(await census(page)).toEqual([]);
+/*
+ * One control height is one token: --control-h-base in styles/core/shared.css, 36px
+ * (40 on a phone) and the one value the maintainer may flip. Every row primitive reads
+ * it as a min-height with small vertical padding, so each measures exactly the token,
+ * and a flip moves them all -- a primitive with a literal height, or padding that
+ * outgrows a smaller token, is left behind and fails here. Measured on /operators (its
+ * real search field and StyledSelect trigger) with the other primitives added beside
+ * them; min-height decides, not the font, so this is the same on CI's Linux fonts.
+ */
+test('every row primitive is one control height, and follows the token', async ({ page }) => {
+  const width = await censusWidth(page);
+  await openCensus(page, '/operators');
+  const heights = () => page.evaluate(() => {
+    let bench = document.getElementById('control-bench');
+    if (!bench) {
+      bench = document.createElement('div');
+      bench.id = 'control-bench';
+      bench.style.cssText = 'display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px;position:relative;z-index:9999';
+      bench.innerHTML = [
+        '<button type="button" class="ghost">Ghost</button>',
+        '<a class="ghost" href="#bench">Ghost link</a>',
+        '<button type="button" class="danger">Reset</button>',
+        '<button type="button" class="btn-sm">Small</button>',
+        '<button type="button" class="primary btn-sm">Primary small</button>',
+        '<button type="button" class="ghost btn-sm">Ghost small</button>',
+        '<button type="button" class="btn-icon" aria-label="Close">×</button>',
+        '<button type="button" class="ghost btn-icon" aria-label="Next">›</button>',
+        '<button type="button" class="filter-chip" aria-pressed="false">Chip</button>',
+        '<button type="button" class="tgl">Mode</button>',
+      ].join('');
+      document.querySelector('main')!.prepend(bench);
+    }
+    const box = (el: Element | null) => (el ? { h: Math.round(el.getBoundingClientRect().height * 10) / 10, w: Math.round(el.getBoundingClientRect().width * 10) / 10 } : null);
+    const out: Record<string, { h: number; w: number } | null> = {};
+    for (const el of Array.from(bench.children)) out[el.outerHTML.slice(0, 48)] = box(el);
+    out['search field'] = box(document.querySelector('#page-content .search-input'));
+    out['StyledSelect trigger'] = box(document.querySelector('#page-content [role="combobox"]'));
+    return out;
+  });
+  for (const [base, expected] of [[null, width > 720 ? 36 : 40], [32, width > 720 ? 32 : 36]] as const) {
+    if (base) await page.addStyleTag({ content: `:root { --control-h-base: ${base}px; }` });
+    const measured = await heights();
+    for (const [control, size] of Object.entries(measured)) {
+      expect(size, `${control} is on the page`).not.toBeNull();
+      expect(Math.abs(size!.h - expected), `${control} is ${size!.h}px tall, not the control height ${expected}px${base ? ` (--control-h-base: ${base}px)` : ''}`).toBeLessThanOrEqual(1);
+      if (/btn-icon/.test(control)) expect(Math.abs(size!.w - expected), `${control} is square`).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
+for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
+  const name = typeof target === 'string' ? target : target.id;
+  test(`${typeof target === 'string' ? target : `${target.route} (${target.id})`} is on one line`, async ({ page }) => {
+    const width = await censusWidth(page);
+    await openCensus(page, target);
+    expectOnlyAllowed(await census(page), name, width);
   });
 }

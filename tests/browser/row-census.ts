@@ -1,5 +1,5 @@
 /*
- * The row-alignment census, run inside the page (page.evaluate(rowCensus, tolerance)).
+ * The row-alignment census, run inside the page (page.evaluate(rowCensus, tolerances)).
  *
  * "In the pull planner the text and buttons are not in one line" (maintainer,
  * 2026-09-26): in each goal row the Until, Available, All goals and Left values sat
@@ -8,25 +8,44 @@
  * flow and lifted the value off the row's centre line. Nothing measured it.
  *
  * For every flex row and grid on the page this pairs each CONTROL child (a button,
- * input, select, dropdown trigger, chip or .check label, or a wrapper whose only
- * content is one) with each TEXT child on the same line (a child with visible text
- * and no control in it) and with each other control on the same line, and reports
- * the pair when their vertical centres are more than `tolerance` px apart. The text's centre is the
- * centre of its glyph boxes in the flow -- one line, or a short stack such as a label
- * over a value -- which a centred line box puts on the box's centre. Space reserved
- * for an empty caption is not text, so it shows as the value sitting off the line;
- * a caption hung out of the flow (position: absolute) is not counted.
+ * input, select, dropdown trigger, chip, disclosure summary or .check label, or a
+ * wrapper whose only content is one) with each TEXT child on the same line (a child
+ * with visible text and no control in it) and with each other control on the same
+ * line, and reports two things:
+ *
+ *   centre  the pair's vertical centres are more than `centre` px apart. The text's
+ *           centre is the centre of its glyph boxes in the flow -- one line, or a short
+ *           stack such as a label over a value -- which a centred line box puts on the
+ *           box's centre. Space reserved for an empty caption is not text, so it shows
+ *           as the value sitting off the line; a caption hung out of the flow
+ *           (position: absolute) is not counted.
+ *   height  two controls on the same line differ in height by more than `height` px
+ *           (the 2026-09-26 census: a 38px search beside a 44px Clear, 32px chips
+ *           beside a 44px Start button, a 36px round step beside 40px selects). One
+ *           control height, --control-h, is ui-primitives rule 4.
+ *
+ * A wrapper round a single-line group of controls (a SegmentedControl's chips) stands
+ * for the group, measured by its first control, so a chip group beside a button is
+ * compared too; a flex row that wraps onto a second line is measured by its first line.
  *
  * Deliberately not reported: cards (a control taller than 80px), text whose main line
  * wraps (a paragraph beside a button lines up by its first line), anything positioned
- * out of flow, and pairs that do not share a line (a wrapped chip row, a label stacked
- * above its field).
+ * out of flow, range inputs, pairs that do not share a line (a wrapped chip row, a
+ * label stacked above its field), cells led by a picture (media taller than 40px),
+ * and -- for height only -- a .check label, whose drawn box is its 18px checkbox, not
+ * the label row round it, a control drawn as text (no border, no fill), whose box
+ * nobody sees, and a control whose label wraps to a second line.
  */
-/** `beside` is the text, or the second control, off the control's centre line by `offset` px. */
-export interface RowOffence { container: string; control: string; beside: string; offset: number }
+/** `beside` is the text, or the second control, off the control's centre line (or
+ *  height) by `offset` px. */
+export interface RowOffence { kind: 'centre' | 'height'; container: string; control: string; beside: string; offset: number }
 
-export function rowCensus(tolerance: number): RowOffence[] {
-  const CONTROL = 'button:not(.btn-bare), input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea, [role="combobox"], a.btn, a.ghost, a.primary, a.danger, .filter-chip, .tgl, label.check';
+/** Centre-line and control-height tolerances, px. */
+export interface RowTolerance { centre: number; height: number }
+
+export function rowCensus(tolerance: RowTolerance): RowOffence[] {
+  const CONTROL = 'button:not(.btn-bare), input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea, [role="combobox"], a.btn, a.ghost, a.primary, a.danger, .filter-chip, .tgl, label.check, summary';
+  const MEDIA = 'img, svg, video, canvas, picture';
   const describe = (el: Element) => {
     const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((c) => `.${c}`).join('') : '';
     const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -39,21 +58,40 @@ export function rowCensus(tolerance: number): RowOffence[] {
     return cs.visibility !== 'hidden' && cs.opacity !== '0' && el.checkVisibility();
   };
   const inFlow = (el: Element) => !['absolute', 'fixed'].includes(getComputedStyle(el).position);
-  const controlsIn = (el: Element) => Array.from(el.querySelectorAll(CONTROL)).filter(visible);
+  const controlsIn = (el: Element) => Array.from(el.querySelectorAll(CONTROL)).filter((c) => visible(c) && !c.parentElement?.closest(CONTROL));
   /** Whether `el`, or an element between it and `root`, is positioned out of flow. */
   const outOfFlow = (el: Element, root: Element) => {
     for (let node: Element | null = el; node && node !== root; node = node.parentElement) if (!inFlow(node)) return true;
     return false;
   };
-  /** The text nodes under `root` that render in its flow (outside `skip`), with their
-   *  font size and glyph boxes. A caption hung out of the flow does not count. */
-  const textRuns = (root: Element, skip?: Element) => {
+  /** A control drawn as text -- no visible border and no fill (an inline name that
+   *  opens a popover, a bare glyph button): its box is not seen, so only its centre
+   *  counts, not its height. */
+  const drawnAsText = (el: Element) => {
+    const s = getComputedStyle(el);
+    const edge = ['Top', 'Right', 'Bottom', 'Left'].some((side) => parseFloat(s.getPropertyValue(`border-${side.toLowerCase()}-width`)) > 0 && !/rgba\([^)]*,\s*0\)|transparent/.test(s.getPropertyValue(`border-${side.toLowerCase()}-color`)));
+    const fill = s.backgroundImage !== 'none' || !/rgba\([^)]*,\s*0\)|transparent/.test(s.backgroundColor);
+    return !edge && !fill;
+  };
+  /** A control whose label runs to a second line: its height is its text's, and a
+   *  wider fallback font (CI's Linux Chromium) can wrap a label the Mac keeps on one. */
+  const wraps = (el: Element) => {
+    const lines = textRuns(el).flatMap((r) => r.rects);
+    return lines.length > 1 && Math.max(...lines.map((r) => r.top)) - Math.min(...lines.map((r) => r.top)) > 4;
+  };
+  /** A control whose content is a picture (a portrait tab, an operator slot): its
+   *  height follows the art, not the control height. */
+  const pictureLed = (el: Element) => Array.from(el.querySelectorAll(MEDIA)).some((m) => m.getBoundingClientRect().height > 40);
+  /** The text nodes under `root` that render in its flow (outside every element of
+   *  `skip`), with their font size and glyph boxes. A caption hung out of the flow does
+   *  not count. */
+  const textRuns = (root: Element, skip: Element[] = []) => {
     const out: { size: number; rects: DOMRect[] }[] = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       if (!node.textContent?.trim()) continue;
       const parent = node.parentElement;
-      if (!parent || (skip && skip.contains(parent)) || !visible(parent) || outOfFlow(parent, root)) continue;
+      if (!parent || skip.some((s) => s.contains(parent)) || !visible(parent) || outOfFlow(parent, root)) continue;
       const range = document.createRange();
       range.selectNodeContents(node);
       const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
@@ -77,13 +115,38 @@ export function rowCensus(tolerance: number): RowOffence[] {
     if (bottom - top > size * 1.3 * 3) return null;
     return { top, bottom, centre: (top + bottom) / 2 };
   };
+  /** The first line of a flex row that mixes text with controls and wraps onto more
+   *  than one line, as the extent of the items on it; null for anything else. A row of
+   *  controls only (a chip group) is left to the group rule: whether it wraps can turn
+   *  on the font, and CI's Linux fonts are wider than the Mac's. */
+  const firstLine = (el: Element) => {
+    const cs = getComputedStyle(el);
+    if (!/flex/.test(cs.display) || !cs.flexDirection.startsWith('row') || cs.flexWrap !== 'wrap') return null;
+    const children = Array.from(el.children).filter((k) => visible(k) && inFlow(k));
+    if (!children.some((k) => !k.matches(CONTROL) && !controlsIn(k).length)) return null;
+    const items = children.map((k) => k.getBoundingClientRect());
+    if (items.length < 2) return null;
+    const top = Math.min(...items.map((r) => r.top));
+    const first = items.filter((r) => r.top < top + 2);
+    const bottom = Math.max(...first.map((r) => r.bottom));
+    if (!items.some((r) => r.top >= bottom - 1)) return null;
+    return { top, bottom, centre: (top + bottom) / 2 };
+  };
+  /** Whether boxes all overlap one another vertically: controls on one line. */
+  const oneLine = (boxes: DOMRect[]) => boxes.every((a) => boxes.every((b) => Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) >= Math.min(a.height, b.height) * 0.5));
   const offences: RowOffence[] = [];
   const seen = new Set<string>();
+  const report = (kind: RowOffence['kind'], container: Element, a: Element, b: Element, offset: number) => {
+    const key = `${kind}|${describe(container)}|${describe(a)}|${describe(b)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    offences.push({ kind, container: describe(container), control: describe(a), beside: describe(b), offset });
+  };
   for (const container of Array.from(document.querySelectorAll('body *'))) {
     const cs = getComputedStyle(container);
     const flexRow = /flex/.test(cs.display) && cs.flexDirection.startsWith('row');
     if (!flexRow && !/grid/.test(cs.display)) continue;
-    if (!visible(container)) continue;
+    if (container.matches(CONTROL) || !visible(container)) continue;
     const kids = Array.from(container.children).filter((k) => visible(k) && inFlow(k));
     if (kids.length < 2) continue;
     const controls: { kid: Element; box: DOMRect; el: Element }[] = [];
@@ -93,22 +156,39 @@ export function rowCensus(tolerance: number): RowOffence[] {
         controls.push({ kid, el: kid, box: kid.getBoundingClientRect() });
         continue;
       }
+      // A wrapped row (a flex-wrap line of meta that runs to a second line beside a
+      // menu) lines up by its FIRST line: the /operators/Amiya name row centred a
+      // two-line meta on the section menu, which put the menu between the lines.
+      const wrapped = firstLine(kid);
+      if (wrapped) { texts.push({ kid, line: wrapped }); continue; }
       const inner = controlsIn(kid);
       if (inner.length === 1) {
         // A wrapper round one control (a label round an input, a div round a dropdown
-        // trigger) stands for that control when nothing else in it shows text.
-        if (!textRuns(kid, inner[0]).length) controls.push({ kid, el: inner[0], box: inner[0].getBoundingClientRect() });
+        // trigger) stands for that control. With text of its own BESIDE the control (an
+        // inline caption, a class name before a branch), the control still shares the
+        // row's line with the other controls; the caption is measured in the wrapper's
+        // own row. Not a label stacked over its field (the stack lines up by its top, as
+        // the pull planner's phone cells do), and not a card that holds a button
+        // (taller than 80px, or led by a picture).
+        const box = inner[0].getBoundingClientRect();
+        const text = textRuns(kid, inner).flatMap((r) => r.rects);
+        const beside = text.some((r) => Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top) >= r.height * 0.5);
+        if (!text.length || (beside && kid.getBoundingClientRect().height <= 80 && !pictureLed(kid))) controls.push({ kid, el: inner[0], box });
         continue;
       }
-      if (inner.length) continue;
-      if (kid.querySelector('img, svg, video, canvas, picture')) {
-        const media = Array.from(kid.querySelectorAll('img, svg, video, canvas, picture')).some((m) => m.getBoundingClientRect().height > 40);
-        if (media) continue;
+      if (inner.length) {
+        // A wrapper round a one-line group of controls (a SegmentedControl) stands for
+        // the group when nothing else in it shows text.
+        const boxes = inner.map((c) => c.getBoundingClientRect());
+        if (oneLine(boxes) && !textRuns(kid, inner).length) controls.push({ kid, el: inner[0], box: boxes[0] });
+        continue;
       }
+      if (kid.querySelector(MEDIA) && pictureLed(kid)) continue;
       const line = textBlock(kid);
       if (line) texts.push({ kid, line });
     }
-    // Two controls side by side (a search field and its Clear button) share a centre too.
+    // Two controls side by side (a search field and its Clear button) share a centre
+    // and a height.
     for (let i = 0; i < controls.length; i += 1) {
       for (let j = i + 1; j < controls.length; j += 1) {
         const [a, b] = [controls[i].box, controls[j].box];
@@ -116,11 +196,11 @@ export function rowCensus(tolerance: number): RowOffence[] {
         const overlap = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
         if (overlap < Math.min(a.height, b.height) * 0.5) continue;
         const offset = Math.round(((b.top + b.bottom) / 2 - (a.top + a.bottom) / 2) * 10) / 10;
-        if (Math.abs(offset) <= tolerance) continue;
-        const key = `${describe(container)}|${describe(controls[i].el)}|${describe(controls[j].el)}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        offences.push({ container: describe(container), control: describe(controls[i].el), beside: describe(controls[j].el), offset });
+        if (Math.abs(offset) > tolerance.centre) report('centre', container, controls[i].el, controls[j].el, offset);
+        const [ea, eb] = [controls[i].el, controls[j].el];
+        if ([ea, eb].some((e) => e.matches('label.check') || pictureLed(e) || drawnAsText(e) || wraps(e))) continue;
+        const diff = Math.round((b.height - a.height) * 10) / 10;
+        if (Math.abs(diff) > tolerance.height) report('height', container, ea, eb, diff);
       }
     }
     for (const c of controls) {
@@ -130,11 +210,8 @@ export function rowCensus(tolerance: number): RowOffence[] {
         const overlap = Math.min(c.box.bottom, t.line.bottom) - Math.max(c.box.top, t.line.top);
         if (overlap < Math.min(c.box.height, t.line.bottom - t.line.top) * 0.5) continue;
         const offset = Math.round((t.line.centre - (c.box.top + c.box.bottom) / 2) * 10) / 10;
-        if (Math.abs(offset) <= tolerance) continue;
-        const key = `${describe(container)}|${describe(c.el)}|${describe(t.kid)}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        offences.push({ container: describe(container), control: describe(c.el), beside: describe(t.kid), offset });
+        if (Math.abs(offset) <= tolerance.centre) continue;
+        report('centre', container, c.el, t.kid, offset);
       }
     }
   }

@@ -82,7 +82,7 @@ export function MusicSetup({ songs, groups, settings, setSettings, asOf, count, 
         onChange={(startPosition) => setSettings((current) => ({ ...current, startPosition }))} />
       <label className="check"><input type="checkbox" checked={settings.includeCn}
         onChange={(event) => setSettings((current) => ({ ...current, includeCn: event.target.checked }))} />Include CN</label>
-      <button type="button" className={`primary ${styles.action}`} onClick={start} disabled={!ready || !count}>{!ready ? 'Loading…' : count ? 'Start listening' : 'Select music to start'}</button>
+      <button type="button" className={`primary btn-sm ${styles.action}`} onClick={start} disabled={!ready || !count}>{!ready ? 'Loading…' : count ? 'Start listening' : 'Select music to start'}</button>
       <div className={styles.setupFooter}>
         <details className={`${styles.disclosure} ${styles.rules}`}><summary>How to play</summary><p>{rules.help}</p><p>{rules.cc}</p><p>Choose any clip length; skips are free. Middle samples the middle half, Random samples anywhere with 30 seconds left. Clues share one starting point.</p></details>
         <button type="button" className="danger btn-sm" onClick={() => { setSettings({ ...DEFAULT_MUSIC_SETTINGS, excluded: [] }); setQuery(''); }}>Reset settings</button>
