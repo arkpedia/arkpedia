@@ -675,6 +675,9 @@
   /* Stacked, there is nothing beside the rail to protect, and containment just
      means a swipe that lands in the list cannot carry on down the page. */
   .stage-rail .stage-rows { max-height: 40vh; overscroll-behavior: auto; }
+  /* The rows are fetched after first paint (StageList): hold the height they will
+     take, so the stage stacked below does not drop when they land. */
+  .stage-rail .stage-rows.loading { min-height: 40vh; }
   /* Stacked, the head has width to spare and height to save -- the stage is
      below the list here, so every pixel the filters take is a pixel further to
      scroll before the map. */
@@ -689,6 +692,7 @@
 }
 @media (max-width: 700px) {
   .stage-rail .stage-rows { max-height: 34vh; }
+  .stage-rail .stage-rows.loading { min-height: 34vh; }
 }
 
 

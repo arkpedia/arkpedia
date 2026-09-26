@@ -13,7 +13,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import StageTitle from '@/components/stages/StageTitle';
 import StageDeployBar, { DeployData, DeployOperator, phaseAt } from '@/components/stages/StageDeployBar';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { getStageBySlug, getStageSlugs, getStageGeometryFor, getStageEnemyDetails, getStageSiblings, getStageTypeCounts, getStagePreviewFile, getStageEmergency, getStageDevices } from '@/lib/stages/stages';
+import { getStageTypeCounts } from '@/lib/stages/stages';
 import { buildPlaybackPaths, buildSchedule, stateAt, PlaybackPath } from '@/lib/stages/stagePlayback';
 import { Stage, StageDevice, StageDrop, StageGeometry, StageEnemyDetail, StageEnemyEntry, StageSummary, TileLegend, TYPE_LABELS, RARITY_ORDER, UNRANKED, VARIANT_ORDER, baseFormLabel, rosterRank, variantLabel } from '@/lib/stages/stageTypes';
 import { tileStyle, stageTileMark, ROUTE_COLORS, TileMark } from '@/lib/stages/stageTiles';
@@ -219,13 +219,9 @@ interface StageDetailData {
 }
 
 interface Props {
-  /** Enough rail rows to paint immediately; the full index arrives on mount. */
-  stages: StageSummary[];
   typeCounts: Record<string, number>;
-  /** The build's clock, in unix seconds. */
+  /** The request's clock, in unix seconds. */
   now: number;
-  /** What the page opens on when the URL names no stage. */
-  firstSlug: string;
 }
 
 const CELL = 34;
@@ -2334,15 +2330,27 @@ function useStageSwitchFloor(stageKey: string | null) {
  * page with the selection in the URL now (?s=<slug>), and each stage's data
  * arrives as a static file written by scripts/build-stage-details.ts.
  */
-export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }: Props) {
+export default function StagesBrowsePage({ typeCounts, now }: Props) {
   const contentUrl = useContentUrl();
   const router = useRouter();
-  const slug = typeof router.query.s === 'string' && router.query.s ? router.query.s : firstSlug;
+  /* The stage the address names: undefined until the router has read the address, null
+     when it names none. A static page's first render has no query, even at
+     ?s=pa-1, so the slug is only worked out once router.isReady. It used to fall back
+     to the index's first stage (AD-EX-1) meanwhile, which fetched that stage's file on
+     every deep link and scoped the rail to Act or Die for good. Without ?s= no stage
+     is opened: the rail opens on what is running and the pane asks for a pick. */
+  const asked = typeof router.query.s === 'string' && router.query.s ? router.query.s : null;
+  const slug = router.isReady ? asked : undefined;
   const [detail, setDetail] = useState<StageDetailData | null>(null);
   const [failed, setFailed] = useState(false);
   const switchFloor = useStageSwitchFloor(detail?.stage.slug ?? null);
 
   useEffect(() => {
+    if (!slug) {
+      setDetail(null);
+      setFailed(false);
+      return;
+    }
     let live = true;
     setFailed(false);
     fetch(contentUrl(`/stage-detail/${encodeURIComponent(slug)}.json`))
@@ -2404,7 +2412,7 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
             stage fills the column beside it. The rail is rendered once now
             instead of once per stage. */}
         <div className="stage-shell">
-          <StageList stages={stages} typeCounts={typeCounts} now={now} selectedSlug={slug} />
+          <StageList typeCounts={typeCounts} now={now} selectedSlug={slug} />
           {/* The detail column's cell, holding the height the last stage had while
               the reader is down the page (useStageSwitchFloor). */}
           <div className="stage-detail-slot" ref={switchFloor.ref} style={switchFloor.style}>
@@ -2414,7 +2422,9 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
               <StageDetailPanel key={detail.stage.slug} {...detail} now={now} />
             ) : (
               <div className="stage-detail-col">
-                <p className="hint">{failed ? 'That stage could not be loaded.' : 'Loading...'}</p>
+                <p className="hint">
+                  {slug === null ? 'Pick a stage from the list.' : failed ? 'That stage could not be loaded.' : 'Loading...'}
+                </p>
               </div>
             )}
           </div>
@@ -2424,20 +2434,15 @@ export default function StagesBrowsePage({ stages, typeCounts, now, firstSlug }:
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/browse", async () => {
-  const slugs = getStageSlugs();
-  const first = slugs[0] ?? '';
-  return {
-    props: {
-      // The rail's first paint. StageList fetches /stages-index.json on mount
-      // for the rest, exactly as it did when this was 3,786 pages.
-      stages: getStageSiblings(first),
-      typeCounts: getStageTypeCounts(),
-      // `now` is the request's, from contentPageClock (lib/content/pageClock.ts).
-      firstSlug: first,
-    },
-  };
-}, {
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/stages/browse", async () => ({
+  props: {
+    // No rows and no default stage: which stage is open is in the address, which the
+    // build cannot see, so the rail's rows come from /stages-index.json on mount and
+    // the stage from its own file (see the page). `now` is the request's, from
+    // contentPageClock (lib/content/pageClock.ts).
+    typeCounts: getStageTypeCounts(),
+  },
+}), {
   tables: {
     'stage-tile-legend': async () => (await import('@/data/stage-tile-legend.json')).default,
     // The stage rail's filter headings (components/stages/StageList.tsx).
