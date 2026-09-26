@@ -474,8 +474,9 @@ h1 {
 /* A titled block of a page. Fifteen pages across the site use this, which made it a
    shared primitive living in operator-detail.css: whichever stylesheet happened to load
    last decided how a section heading looked, and on the pages that only borrowed the
-   class the amber h2 below arrived as a surprise. Same rules, moved to where its users
-   are. Amber stays: it is what all fifteen have been showing. */
+   class its h2 arrived as a surprise. Same rules, moved to where its users are. The h2
+   is --heading: teal-ish, kept apart from the --teal of on/current states, and never
+   amber, which is for countdowns, costs and warnings (maintainer, 2026-09-26). */
 .op-section {
   margin-bottom: 36px;
 }
@@ -1275,6 +1276,12 @@ a.primary:where(:has(~ a.ghost)),
 }
 .scroll-row > * { flex: none; }
 .scroll-row:focus-visible { outline-offset: -2px; }
+/* ScrollRow's optional previous/next pair (the `controls` prop), under the row's right
+   end. Hidden rather than removed while the row fits, so the page keeps its height when
+   the row is measured or resized. */
+.scroll-row-controls { display: flex; justify-content: flex-end; gap: 8px; padding-top: 6px; }
+.scroll-row-controls[data-idle] { visibility: hidden; }
+.scroll-row-controls button { display: inline-flex; align-items: center; justify-content: center; width: 38px; padding: 6px 0; line-height: 1; }
 
 /* --- side-scrolling rows ----------------------------------------------------
    Every box on this site whose content runs off to the right gets a scrollbar that is

@@ -12,6 +12,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import StageTitle from '@/components/stages/StageTitle';
 import { raMapData } from '@/lib/stages/raMap';
+import { getChallengeLabels } from '@/lib/stages/terminal';
 import { isFloor, isNodeCode } from '@/lib/stages/isNodes';
 import { compareStageSummaries } from '@/lib/stages/stageSort';
 import { matchesSearch } from '@/lib/search/searchNormalize';
@@ -69,10 +70,12 @@ interface Props {
   /** Reclamation Algorithm only: its operations are places, so they get a map. Null
    *  for every other content, which keeps 30kB of node data off their pages. */
   ra: RaNodeData | null;
+  /** The Terminal scene this content sits in, worked out on the server because the
+   *  challenge modes' codes are data (data/game-modes.json). */
+  scene: ReturnType<typeof sceneForContent>;
 }
 
-export default function StageContentPage({ label, name, kind, release, groups, poster, ra }: Props) {
-  const scene = sceneForContent(kind, label);
+export default function StageContentPage({ label, name, kind, release, groups, poster, ra, scene }: Props) {
   const cards = groups.flatMap((g) => g.cards);
   const withArt = cards.filter((c) => c.art).length;
   const onMapCount = cards.filter((c) => c.onMap).length;
@@ -378,7 +381,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/st
    * here and the list leaves them out -- until someone searches, when a hit that exists
    * is worth more than a tidy list (see the page).
    */
-  const ra = content.kind === 'reclamation' ? raMapData() : null;
+  // Keyed by the content: a second Reclamation Algorithm season has no survey yet and
+  // draws no map, rather than season 1's (lib/stages/raMap.ts).
+  const ra = content.kind === 'reclamation' ? raMapData(id) : null;
   if (ra) {
     // Any of the five maps counts: an operation shown on the Annihilation rift is on a
     // map even if it is not on the overworld.
@@ -427,6 +432,23 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/st
       groups,
       poster: getContentPoster(id, content.kind, content.name),
       ra,
+      scene: sceneForContent(content.kind, content.label || '', getChallengeLabels()),
     },
   };
-});
+}, { finalize: async (props) => withScene(props) });
+
+/**
+ * The page's props with its Terminal scene, whichever release they came from.
+ *
+ * A release compiled before `scene` moved to the server has none, and production renders
+ * the live release, which after a deploy is still the one the previous code compiled (the
+ * release gate holds the next one until production runs this code). Without this, Deploy's
+ * build failed prerendering all 151 content pages against it (reading `scene.key`), and
+ * the gate then held every release after it (2026-09-26 verification). Worked out the way
+ * getStaticProps does, so a release this code compiled passes through unchanged.
+ * scripts/tests/test-previous-release-props.ts renders the page from the live release's copy.
+ */
+function withScene(props: Props): Props {
+  if (props.scene) return props;
+  return { ...props, scene: sceneForContent(props.kind, props.label || '', getChallengeLabels()) };
+}

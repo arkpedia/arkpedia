@@ -164,8 +164,9 @@ for (const file of walk(path.join(root, 'source')).sort()) {
 }
 check(JSON.stringify(sources) === JSON.stringify(m.sourceHashes), 'Source records changed without regenerating the release');
 check(releaseInput({ generator: m.generator, sourceHashes: sources }) === m.release, 'Release input fingerprint mismatch');
-// What the publish step compares: the same without the run's own records (release-input.mjs).
-check(m.content === contentInput({ generator: m.generator, sourceHashes: sources }), 'Release content fingerprint mismatch');
+// What the publish step compares (release-input.mjs): the sources without the run's own
+// records, and the pages and public files, whose checksums are verified above.
+check(m.content === contentInput({ sourceHashes: sources, pages: m.pages, files: m.files }), 'Release content fingerprint mismatch');
 for (const route of ['/', '/operators', '/planner', '/pulls', '/gacha', '/schedule', '/skins', '/stages', '/enemies']) check(m.pages[route], `Missing required page: ${route}`);
 // The pull planner counts the back catalogue in the browser from these props.
 // Without them the page falls back to the deploy's bundled copy, which lags

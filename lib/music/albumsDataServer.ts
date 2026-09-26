@@ -7,7 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import albumsRaw from '@/data/albums.json';
-import { getAllSongsFull, MonsterSirenSong, RawCredit } from './albumsData';
+import { albumCoverPath, getAllSongsFull, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorAppearances } from '@/lib/operators/operatorAppearances';
 import { normalizeReleaseDate, parseReleaseDate } from './releaseDate.mjs';
@@ -36,19 +36,10 @@ export interface AlbumSummary {
   albumCategory: string[];
   albumGenre: string[];
   characters: string[];
+  /** Songs with a YouTube videoId: what the player can queue. */
   songCount: number;
-}
-
-interface RawAlbum {
-  albumId: string;
-  albumName: string;
-  albumAltName?: string;
-  coverFilename?: string;
-  releaseDate?: string;
-  characters?: string[];
-  albumCategory?: string[];
-  albumGenre?: string[];
-  songs?: { videoId?: string }[];
+  /** Songs Monster Siren published that have no videoId yet (the album sync flags each). */
+  pendingCount: number;
 }
 
 // Built once per build -- a lightweight name -> rarity lookup, not the
@@ -151,16 +142,23 @@ function getLyricsText(lyricFilename: string | null): LyricLine[] | null {
   return result;
 }
 
-/** Every album that has at least one playable (videoId-having) song,
- * with its cover path resolved and character list carried through. */
-function getAllAlbums(): AlbumSummary[] {
-  const albums = albumsRaw as RawAlbum[];
+/**
+ * Every album with at least one song, with its cover path resolved (null until its cover is
+ * published) and character list carried through.
+ *
+ * Not only the albums with a playable song: a new Monster Siren album arrives with neither a
+ * YouTube videoId (a person adds it) nor a cover (published by the image repository later),
+ * and requiring a videoId here kept every new album off /music/discover until someone added
+ * one -- 1014 月明人间 and 0232 逐影集趣ost sat that way from 2026-09-25. Its songs show as
+ * not on YouTube yet, and its tile shows the placeholder cover.
+ */
+export function albumSummaries(albums: readonly RawAlbum[]): AlbumSummary[] {
   return albums
     .map((a) => ({
       albumId: a.albumId,
       albumName: a.albumName,
       albumAltName: a.albumAltName || a.albumName,
-      coverPath: a.coverFilename ? `/album-covers/${a.coverFilename}` : null,
+      coverPath: albumCoverPath(a),
       // Stored form (YYYY/MM/DD) or '' -- a date written any other way that still names a
       // day is read as that day; one that names none counts as unknown.
       releaseDate: normalizeReleaseDate(a.releaseDate) ?? '',
@@ -168,8 +166,9 @@ function getAllAlbums(): AlbumSummary[] {
       albumGenre: a.albumGenre || [],
       characters: a.characters || [],
       songCount: (a.songs || []).filter((s) => s.videoId).length,
+      pendingCount: (a.songs || []).filter((s) => !s.videoId).length,
     }))
-    .filter((a) => a.songCount > 0);
+    .filter((a) => a.songCount + a.pendingCount > 0);
 }
 
 /** Every song, each with its character base-skin art and lyrics text
@@ -300,6 +299,22 @@ export interface DiscoverAlbum {
   albumAltName: string;
   coverPath: string | null;
   releaseDate: string;
+  /** False while none of its songs has a YouTube videoId: the player has nothing to queue. */
+  playable: boolean;
+}
+
+/** A song Monster Siren published that has no YouTube videoId yet, so the player cannot queue
+ * it; Discover lists it with a link to the song on Monster Siren instead. */
+export interface DiscoverPendingSong {
+  songId: string;
+  title: string;
+  altTitle: string | null;
+  albumId: string;
+  albumName: string;
+  coverPath: string | null;
+  characters: string[];
+  origin: string[];
+  artist: null;
 }
 
 export interface DiscoverPageData {
@@ -308,6 +323,7 @@ export interface DiscoverPageData {
   origins: DiscoverFacet[]; // sorted by count desc -- the story event an album is tied to. NO "unspecified" bucket like genre's Ungenred: most operator EPs simply aren't tied to any event at all, so a catch-all bucket here would just be "most of the catalog" and add no discovery value. Songs with no origin are omitted from this facet entirely, same as characters already does.
   artists: DiscoverFacet[]; // sorted by count desc
   recentAlbums: DiscoverAlbum[]; // sorted by releaseDate desc, capped
+  pendingSongs: DiscoverPendingSong[];
 }
 
 const RECENT_ALBUMS_LIMIT = 12;
@@ -342,8 +358,13 @@ function countBy(values: string[]): DiscoverFacet[] {
 let cachedDiscoverData: DiscoverPageData | null = null;
 export function getDiscoverPageData(): DiscoverPageData {
   if (cachedDiscoverData) return cachedDiscoverData;
+  cachedDiscoverData = discoverPageData(albumsRaw as RawAlbum[]);
+  return cachedDiscoverData;
+}
 
-  const fullSongs = getAllSongsFull();
+/** getDiscoverPageData for any catalogue: the pure part, which the tests call with fixtures. */
+export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageData {
+  const fullSongs = songsFromAlbums(rawAlbums);
   const songs: DiscoverSong[] = fullSongs.map((s) => ({
     videoId: s.videoId,
     title: s.title,
@@ -360,7 +381,20 @@ export function getDiscoverPageData(): DiscoverPageData {
   const allArtistNames = fullSongs.map((s) => s.artist).filter((a): a is string => !!a);
   const allOriginNames = fullSongs.flatMap((s) => s.origin);
 
-  const albums = getAllAlbums();
+  const albums = albumSummaries(rawAlbums);
+  const pendingSongs: DiscoverPendingSong[] = rawAlbums.flatMap((album) => (album.songs || [])
+    .filter((song) => !song.videoId)
+    .map((song) => ({
+      songId: song.songId,
+      title: song.songName,
+      altTitle: song.songAltName || null,
+      albumId: album.albumId,
+      albumName: album.albumAltName || album.albumName,
+      coverPath: albumCoverPath(album),
+      characters: album.characters || [],
+      origin: album.origin || [],
+      artist: null,
+    })));
 
   // Each character's most recent release date -- releaseDate lives on
   // the ALBUM (characters are inherited down to each song from there,
@@ -397,14 +431,47 @@ export function getDiscoverPageData(): DiscoverPageData {
       albumAltName: a.albumAltName,
       coverPath: a.coverPath,
       releaseDate: a.releaseDate,
+      playable: a.songCount > 0,
     }));
 
-  cachedDiscoverData = {
+  return {
     songs,
     characters,
     origins: countBy(allOriginNames),
     artists: countBy(allArtistNames),
     recentAlbums,
+    pendingSongs,
   };
-  return cachedDiscoverData;
+}
+
+/** The Discover page's props, as a release this code compiled carries them or as an older
+ * one does. */
+type DiscoverReleaseProps = Omit<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> & {
+  pendingSongs?: DiscoverPendingSong[];
+  recentAlbums: (Omit<DiscoverAlbum, 'playable'> & { playable?: boolean })[];
+};
+
+/**
+ * Discover's props with `pendingSongs` and each recent album's `playable`, whichever release
+ * they came from.
+ *
+ * A release compiled before those two existed has neither, and production renders the live
+ * release, which after a deploy is still the one the previous code compiled (the release
+ * gate holds the next one until production runs this code). On it the page crashed as soon
+ * as a reader searched, picked a facet or opened an album (`pendingSongs.filter` of
+ * undefined), and every recent album said "Not on YouTube yet" (2026-09-26 verification).
+ * Such a release listed only albums with a song on YouTube and no song without one, so an
+ * album is playable when `songs` lists it, and there is nothing pending. A release this code
+ * compiled passes through unchanged (the same object).
+ * scripts/tests/test-previous-release-props.ts renders the page from the live release's copy.
+ */
+export function discoverFromRelease<P extends DiscoverReleaseProps>(props: P): P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'> {
+  const complete = Array.isArray(props.pendingSongs) && props.recentAlbums.every((a) => typeof a.playable === 'boolean');
+  if (complete) return props as P & Pick<DiscoverPageData, 'pendingSongs' | 'recentAlbums'>;
+  const onYouTube = new Set(props.songs.map((s) => s.albumId));
+  return {
+    ...props,
+    pendingSongs: Array.isArray(props.pendingSongs) ? props.pendingSongs : [],
+    recentAlbums: props.recentAlbums.map((a) => (typeof a.playable === 'boolean' ? a as DiscoverAlbum : { ...a, playable: onYouTube.has(a.albumId) })),
+  };
 }

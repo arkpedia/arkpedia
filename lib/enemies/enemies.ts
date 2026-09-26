@@ -34,9 +34,9 @@ let bySlugCache: Map<string, { enemy: Enemy; introducedBy: EnemyContent }> | nul
 /**
  * Reads every per-content bundle in data/enemies/. One file per chapter,
  * event, annihilation, IS season, SSS map, RA season, CC season and
- * supply stage -- 167 in all, named after the content itself the same
- * way data/events-data/ is ("Burning Run.json", "A Flurry to the
- * Flame.json"). Drop a new bundle in and it shows up on the next build.
+ * supply stage -- 167 in all, named after the content itself ("Burning
+ * Run.json", "A Flurry to the Flame.json"). Drop a new bundle in and it
+ * shows up on the next build.
  *
  * Server-side only (fs) -- call from getStaticProps, never a component.
  */

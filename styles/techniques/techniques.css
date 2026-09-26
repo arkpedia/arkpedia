@@ -36,7 +36,7 @@
   border-radius: var(--radius-frame);
   background: var(--panel-2);
 }
-/* The canonical section heading (.op-section h2, amber): the size and colour come
+/* The canonical section heading (.op-section h2, --heading): the size and colour come
    from shared.css. It was 20px teal, and teal means "on". */
 .technique-umbrella-heading { margin: 0; }
 .technique-umbrella-description {
@@ -61,7 +61,7 @@
   border-bottom: 1px solid var(--line-soft);
   padding-bottom: 20px;
 }
-/* An h2 for a technique that stands alone (the canonical amber section heading) and
+/* An h2 for a technique that stands alone (the canonical section heading) and
    an h3 inside an umbrella (the global h3). Only the spacing is this page's: the
    16px teal name it used to be was a heading style of its own, in the "on" colour. */
 .technique-group-name { margin: 0 0 4px; }
@@ -216,12 +216,15 @@
   font-size: 10px;
   line-height: 1;
 }
+/* The operator's portrait is the link: no resting frame (maintainer, 2026-09-26), teal
+   on hover and keyboard focus. */
 .technique-entry-operator-icon {
   border-radius: var(--radius-control);
-  border: 1px solid var(--line-soft);
+  border: 1px solid transparent;
   transition: border-color 0.15s;
 }
-.technique-entry:hover .technique-entry-operator-icon {
+.technique-entry:hover .technique-entry-operator-icon,
+.technique-entry:focus-visible .technique-entry-operator-icon {
   border-color: var(--teal);
 }
 .technique-entry-skill-icon {

@@ -3,12 +3,14 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useReaderClockSeconds } from '@/lib/time/readerClock';
 import { MinistoryMark } from '@/components/ui/ContentCardLink';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
 import { getTerminalHome, TerminalHome } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
+import { countOf } from '@/lib/stages/stageText';
 
 /**
  * Terminal: what is open right now, and the two modes that are always open.
@@ -28,19 +30,13 @@ interface Props extends TerminalHome {
   now: number;
 }
 
-/** Rounded down to the minute, so re-reading it is a no-op for React. */
-const nowSeconds = () => Math.floor(Date.now() / 60000) * 60;
-
 function daysLeft(end: number, from: number): number {
   return Math.max(0, Math.ceil((end - from) / 86400));
 }
 
 export default function TerminalPage({ candidates, latestIs, latestRa, isThemes, raSeasons, now }: Props) {
-  const [clock, setClock] = useState(now);
-  // `mounted` rides the same re-pick: dates render in en-GB until then
-  // (see ended() below for why), the reader's own locale after.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setClock(nowSeconds()); setMounted(true); }, []);
+  // The request's clock first, the reader's (to the minute) after mount.
+  const clock = useReaderClockSeconds(now);
 
   /**
    * What the board leads with.
@@ -64,12 +60,9 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
   }, [candidates, clock]);
   const isLive = (c: StageModeCard) => !!c.start && !!c.end && c.start <= clock && c.end >= clock;
 
-  // Each panel's label is painted by CSS out of its data-tab attribute
-  // (generated content), which a screen reader may never voice and the
-  // document outline definitely never sees -- so every section also
-  // carries the same label as a real, visually-hidden heading. This one
-  // is computed once because the lead panel's label is dynamic and the
-  // data-tab and the heading must never drift apart.
+  // Each panel is an .op-section headed by a real h2, the site's section heading (--heading).
+  // The labels used to be painted by CSS out of a data-tab attribute, a 10px teal tab
+  // no outline saw, with a visually hidden h2 beside each to say the same thing.
   const leadTab = lead && isLive(lead) ? 'Now Open' : 'Most Recent';
 
   return (
@@ -81,16 +74,16 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
 
       <main className="terminal-scene">
         <div className="terminal-home">
-          <section className="terminal-panel wide" data-tab={leadTab}>
-            <h2 className="visually-hidden">{leadTab}</h2>
-            {lead ? <Lead card={lead} clock={clock} live={isLive(lead)} mounted={mounted} /> : (
+          <section className="terminal-panel wide op-section">
+            <h2>{leadTab}</h2>
+            {lead ? <Lead card={lead} clock={clock} live={isLive(lead)} /> : (
               <p className="hint terminal-empty">No event in the dataset carries a run window.</p>
             )}
           </section>
 
           {rest.length > 0 && (
-            <section className="terminal-panel" data-tab="Attention">
-              <h2 className="visually-hidden">Attention</h2>
+            <section className="terminal-panel op-section">
+              <h2>Attention</h2>
               <ul className="terminal-list">
                 {rest.map((card) => (
                   <li key={card.id}>
@@ -104,12 +97,12 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
                       <span className="terminal-row-text">
                         <span className="terminal-row-name">{card.name}</span>
                         <span className="terminal-row-meta">
-                          {card.count} {card.count === 1 ? 'stage' : 'stages'}
+                          {countOf(card.count, 'stage')}
                         </span>
                       </span>
                       {card.end && (
                         <span className={`terminal-pill${isLive(card) ? ' live' : ''}`}>
-                          {isLive(card) ? `${daysLeft(card.end, clock)}d` : ended(card.end, mounted)}
+                          {isLive(card) ? `${daysLeft(card.end, clock)}d` : ended(card.end)}
                         </span>
                       )}
                     </Link>
@@ -119,11 +112,11 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
             </section>
           )}
 
-          <section className="terminal-panel" data-tab="Long-Term Exploration">
-            <h2 className="visually-hidden">Long-Term Exploration</h2>
-            {latestIs && <ModePanel card={latestIs} kind="Integrated Strategies" count={isThemes} noun="themes" />}
-            {latestRa && <ModePanel card={latestRa} kind="Reclamation Algorithm" count={raSeasons} noun="seasons" />}
-            <Link prefetch={false} href="/stages/exploration" scroll={false} className="terminal-cta">
+          <section className="terminal-panel op-section">
+            <h2>Long-Term Exploration</h2>
+            {latestIs && <ModePanel card={latestIs} kind="Integrated Strategies" count={isThemes} noun="theme" />}
+            {latestRa && <ModePanel card={latestRa} kind="Reclamation Algorithm" count={raSeasons} noun="season" />}
+            <Link prefetch={false} href="/stages/exploration" scroll={false} className="btn terminal-cta">
               All themes and seasons
             </Link>
           </section>
@@ -134,21 +127,18 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
 }
 
 /**
- * The date an event closed, short -- in the reader's own locale, but only
- * once mounted. The default locale is whatever Intl finds on the machine
- * doing the rendering, and the build server's is not the reader's; letting
- * it float from the first paint would make the server markup and the
- * client's hydration render disagree. So the pre-mount renders (both of
- * them) pin en-GB -- what this page always used -- and the mount effect's
- * re-render swaps in the browser's locale, the same beat the clock
- * re-picks on.
+ * The date an event closed, short, in one fixed locale: en-GB ("16 Sept"), the one
+ * /stages/regular uses too. It used to switch to the reader's locale once mounted,
+ * so the render that followed hydration printed a different date string from the
+ * markup -- and the format a reader saw depended on when they looked. A locale the
+ * page names is the same on the server, in the hydration render and after.
  */
-function ended(end: number, mounted: boolean): string {
-  return new Date(end * 1000).toLocaleDateString(mounted ? undefined : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+function ended(end: number): string {
+  return new Date(end * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
 /** The event the board leads with, the way the game leads with it: its art, big. */
-function Lead({ card, clock, live, mounted }: { card: StageModeCard; clock: number; live: boolean; mounted: boolean }) {
+function Lead({ card, clock, live }: { card: StageModeCard; clock: number; live: boolean }) {
   return (
     <Link prefetch={false} href={`/stages/content/${card.id}`} scroll={false} className={`terminal-lead${live ? ' live' : ''}`}>
       <span className="terminal-lead-art">
@@ -164,9 +154,9 @@ function Lead({ card, clock, live, mounted }: { card: StageModeCard; clock: numb
         </span>
         <span className="terminal-lead-name">{card.name}</span>
         <span className="terminal-lead-meta">
-          {card.count} {card.count === 1 ? 'stage' : 'stages'}
+          {countOf(card.count, 'stage')}
           {card.end
-            ? live ? ` · ${daysLeft(card.end, clock)} days left` : ` · ran until ${ended(card.end, mounted)}`
+            ? live ? ` · ${daysLeft(card.end, clock)} days left` : ` · ran until ${ended(card.end)}`
             : ''}
         </span>
       </span>
@@ -174,7 +164,8 @@ function Lead({ card, clock, live, mounted }: { card: StageModeCard; clock: numb
   );
 }
 
-/** One permanent mode: its newest season, and the way into all of them. */
+/** One permanent mode: its newest season, and the way into all of them. `noun` is
+ *  singular ("season"); countOf picks the number. */
 function ModePanel({ card, kind, count, noun }: { card: StageModeCard; kind: string; count: number; noun: string }) {
   return (
     <Link prefetch={false} href={`/stages/content/${card.id}`} scroll={false} className="terminal-mode">
@@ -186,7 +177,7 @@ function ModePanel({ card, kind, count, noun }: { card: StageModeCard; kind: str
       <span className="terminal-mode-text">
         <span className="terminal-mode-kind">{kind}</span>
         <span className="terminal-mode-name">{card.name}</span>
-        <span className="terminal-mode-meta">{count} {noun} · {card.count} stages</span>
+        <span className="terminal-mode-meta">{countOf(count, noun)} · {countOf(card.count, 'stage')}</span>
       </span>
     </Link>
   );

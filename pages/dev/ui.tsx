@@ -114,6 +114,10 @@ export default function UiPrimitivesPage() {
           <ScrollRow label="Example cards">
             {Array.from({ length: 12 }, (_, i) => <div key={i} style={card}>Card {i + 1}</div>)}
           </ScrollRow>
+          <p className="hint">With <code>controls</code>: previous/next buttons under the row, disabled at each end.</p>
+          <ScrollRow label="Example cards with controls" controls>
+            {Array.from({ length: 12 }, (_, i) => <div key={i} style={card}>Card {i + 1}</div>)}
+          </ScrollRow>
         </section>
 
         <section className="op-section" id="rarity">

@@ -11,7 +11,9 @@ import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
-import { buildRealBannerConfig, getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
+import { buildRealBannerConfig, getDisplayFeaturedSixStars, getDisplayFeaturedSixStarsWithRerunLabel, getMechanicType, HowToObtainLookup, parseBannerDate } from '@/lib/gacha/realGachaBanners';
+import { isBannerLive, upcomingBanners } from '@/lib/gacha/upcomingBanners';
+import { useReaderClock } from '@/lib/time/readerClock';
 import { buildOperatorSeriesMap, OperatorSeries } from '@/lib/operators/operatorSeries';
 import { buildEligiblePool } from '@/lib/gacha/gachaOperatorEligibility';
 import { KernelAdditionLookup } from '@/lib/operators/kernelAdditionDates';
@@ -34,6 +36,10 @@ interface Props {
   kernelExclusiveNames: string[];
   howToObtainLookup: HowToObtainLookup;
   operatorSeriesMap: Record<string, OperatorSeries>;
+  /** The request's clock (epoch ms, to the minute), which contentPageClock adds
+   *  (lib/content/pageClock.ts): what the server markup and the first client paint
+   *  judge LIVE NOW and the Upcoming tab by, before useReaderClock takes over. */
+  now: number;
 }
 
 type DisplayCategory = BannerType | 'other' | 'upcoming';
@@ -1554,55 +1560,25 @@ function bannerTutorialPages(banner: BannerConfig | null) {
   return (banner && BANNER_TUTORIAL_PAGES[banner.type]) || null;
 }
 
-export default function GachaSimulator({ pools, banners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap }: Props) {
+export default function GachaSimulator({ pools, banners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
   const router = useRouter();
+  // What is live or upcoming is judged on the reader's clock, not the server's: the
+  // first render uses the request's `now`, so it matches the markup, and the reader's
+  // clock takes over after mount (a tab left open follows a banner's end, too).
+  const clock = useReaderClock(now, { tickMs: 60_000, onFocus: true });
   const bannersByCategory = useMemo(() => {
     const grouped: Record<DisplayCategory, HeadhuntingBanner[]> = {
       upcoming: [], featured: [], limited: [], standard: [], kernel: [], kernelLocating: [], joint: [], orienteering: [], celebration: [], crossover: [], trio: [], other: [],
     };
-    const today = new Date();
     for (const b of banners) {
       const cat: DisplayCategory = getMechanicType(b) || 'other';
       grouped[cat].push(b);
-
-      // Upcoming: any banner whose Global date hasn't started yet,
-      // regardless of pull_type (Limited, Crossover, Joint, etc. all
-      // count) -- additive, not a replacement for its normal mechanic
-      // bucket, so the same banner shows in both places. Currently-
-      // active banners (already started, not yet ended) are ALSO
-      // included here, at the top -- what's live right now is at least
-      // as actionable as what's coming next, arguably more so since you
-      // can actually pull on it today.
-      const bannerDate = parseBannerDate(b);
-      const bannerEndDate = parseBannerEndDate(b);
-      const isUpcoming = bannerDate !== null && bannerDate > today;
-      const isActive = bannerDate !== null && bannerDate <= today && bannerEndDate !== null && bannerEndDate > today;
-      if (isUpcoming || isActive) {
-        grouped.upcoming.push(b);
-      }
     }
-    // Active banners first (soonest-ending first, since that's the
-    // most time-sensitive), then upcoming banners (soonest-starting
-    // first) -- the opposite of the newest-first convention every
-    // other tab uses, since this tab is specifically about what's
-    // live or coming up soonest.
-    grouped.upcoming.sort((a, b) => {
-      const startA = parseBannerDate(a);
-      const startB = parseBannerDate(b);
-      const endA = parseBannerEndDate(a);
-      const endB = parseBannerEndDate(b);
-      const activeA = startA !== null && startA <= today;
-      const activeB = startB !== null && startB <= today;
-      if (activeA !== activeB) return activeA ? -1 : 1;
-      if (activeA && activeB) {
-        if (!endA || !endB) return 0;
-        return endA.getTime() - endB.getTime();
-      }
-      if (!startA || !startB) return 0;
-      return startA.getTime() - startB.getTime();
-    });
+    // Upcoming is additive: live and not-yet-started banners of every mechanic, in the
+    // order lib/gacha/upcomingBanners.ts documents.
+    grouped.upcoming = upcomingBanners(banners, clock);
     return grouped;
-  }, [banners]);
+  }, [banners, clock]);
 
   const [category, setCategory] = useState<DisplayCategory>('upcoming');
   const categoryBanners = bannersByCategory[category];
@@ -1986,21 +1962,14 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
               <>
                 <div className="gacha-banner-sidebar-spacer" style={{ height: bannerWindow.before }} aria-hidden="true" />
                 {visibleBanners.map((b) => {
-                  const isCurrentlyActive =
-                    category === 'upcoming' &&
-                    (() => {
-                      const start = parseBannerDate(b);
-                      const end = parseBannerEndDate(b);
-                      const now = new Date();
-                      return start !== null && start <= now && end !== null && end > now;
-                    })();
+                  const isCurrentlyActive = category === 'upcoming' && isBannerLive(b, clock);
                   return (
                     <button
                       key={b.name}
                       type="button"
-                      className={`gacha-banner-sidebar-item${b.name === selectedBannerName ? ' active' : ''}`}
+                      className={`gacha-banner-sidebar-item${b.name === selectedBanner?.name ? ' active' : ''}`}
                       onClick={() => changeBanner(b.name)}
-                      aria-pressed={b.name === selectedBannerName}
+                      aria-pressed={b.name === selectedBanner?.name}
                       title={bannerDisplayName(b.name)}
                     >
                       {b.banner_image && (

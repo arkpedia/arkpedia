@@ -80,6 +80,39 @@ test('approved content changes, new routes, rollback, outages and invalid data u
   }
 });
 
+test('a static route the release lacks regenerates on Vercel only when its page opts in', async () => {
+  const revision = 'e'.repeat(40), release = 'e'.repeat(64);
+  const body = JSON.stringify({ schema: CONTENT_SCHEMA, release, generatedAt: '2026-09-26T00:00:00Z', generator: revision,
+    assets: { 'arkpedia-image-assets': revision, 'arkpedia-skin-assets': revision }, pages: {}, files: {} } satisfies ContentManifest);
+  const pointer: ContentPointer = { schema: CONTENT_SCHEMA, release, revision, manifestSha256: sha(body) };
+  const server = createServer((request, response) => {
+    if (request.url === '/live/current.json') response.end(JSON.stringify(pointer));
+    else if (request.url === `/${revision}/release/manifest.json`) response.end(body);
+    else { response.writeHead(404); response.end(); }
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const keys = ['ARKPEDIA_CONTENT_URL', 'ARKPEDIA_CONTENT_TEST', 'ARKPEDIA_CONTENT_DISABLED', 'ARKPEDIA_EXPORT_CONTENT', 'VERCEL'] as const;
+  const before = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, { ARKPEDIA_CONTENT_URL: `http://127.0.0.1:${address.port}`, ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_EXPORT_CONTENT: '0', VERCEL: '1' });
+  try {
+    type Props = { value: string; now?: number };
+    const finalize = async (props: Props) => ({ ...props, value: `${props.value}+finalized` });
+    const builder = async () => ({ props: { value: 'bundled' } as Props });
+    await assert.rejects(async () => withContentPage('/community', builder, { finalize })({ revalidateReason: 'stale' }), /Published content is missing \/community/);
+    const result = await withContentPage('/community', builder, { finalize, bundledWhenUnpublished: true })({ revalidateReason: 'stale' });
+    assert.ok('props' in result);
+    const props = await result.props;
+    assert.equal(props.value, 'bundled+finalized');
+    assert.equal(typeof props.now, 'number', 'the regeneration gets its own clock');
+    assert.throws(() => withContentPage('/operators/[name]', builder, { bundledWhenUnpublished: true }), /static routes only/);
+  } finally {
+    for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
 test('release URLs cover artwork sizes and lazy game data without redirecting application routes', () => {
   const release = { release: 'a'.repeat(64), baseUrl: 'https://example.org/commit/release', assets: { 'arkpedia-image-assets': 'b'.repeat(40), 'arkpedia-skin-assets': 'c'.repeat(40) } };
   assert.equal(contentRoute('/operators/[name]', { name: 'Thorns the Lodestar' }), '/operators/Thorns%20the%20Lodestar');

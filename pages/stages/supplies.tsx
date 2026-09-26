@@ -2,7 +2,8 @@ import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useReaderValue } from '@/lib/time/readerClock';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
@@ -10,6 +11,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import { getSupplyCards } from '@/lib/stages/terminal';
 import type { SupplyCard } from '@/lib/stages/terminal';
 import { WEEKDAYS } from '@/lib/stages/stageTypes';
+import { countOf } from '@/lib/stages/stageText';
 import { serverWeekday } from '@/lib/time/serverDay';
 
 /**
@@ -41,11 +43,9 @@ interface Props {
 }
 
 export default function SuppliesPage({ cards, buildDay }: Props) {
-  const [today, setToday] = useState(buildDay);
+  // The request's server weekday first, the reader's after mount.
+  const today = useReaderValue(buildDay, (readerMs) => serverWeekday(new Date(readerMs)));
   const [picked, setPicked] = useState<string | null>(null);
-  useEffect(() => {
-    setToday(serverWeekday());
-  }, []);
   const day = picked ?? today;
 
   return (
@@ -94,7 +94,7 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
                 key={card.id}
                 href={`/stages/content/${card.id}`}
                 scroll={false}
-                className={`supply-card${open ? '' : ' shut'}`}
+                className={`supply-card${open ? ' open' : ' shut'}`}
               >
                 <span className="supply-card-art">
                   {card.mark
@@ -113,7 +113,7 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
                     {Array.from({ length: card.stages }, (_, i) => <span key={i} className="supply-pip" />)}
                   </span>
                   <span className="supply-card-meta">
-                    {card.stages} stages
+                    {countOf(card.stages, 'stage')}
                     {card.sanity ? ` · ${card.sanity[0]}-${card.sanity[1]} sanity` : ''}
                   </span>
                 </span>

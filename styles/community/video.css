@@ -28,7 +28,8 @@
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
-  border: 1px solid var(--line-soft);
+  /* No frame round the art at rest; the .video-card itself turns teal on hover/focus. */
+  border: 1px solid transparent;
   margin-bottom: 0;
   position: relative;
 }
@@ -63,18 +64,19 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
 }
-/* A card is a link: the control boundary at rest, teal on hover. */
+/* A card is a link, and its thumbnail says so: no resting frame (maintainer,
+   2026-09-26), teal on hover and keyboard focus. */
 .video-card {
   display: block;
   text-decoration: none;
   color: inherit;
   background: var(--panel);
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-frame);
   overflow: hidden;
   transition: border-color 0.15s;
 }
-.video-card:hover { border-color: var(--teal); }
+.video-card:hover, .video-card:focus-visible { border-color: var(--teal); }
 .video-card:hover .video-title { color: var(--teal); }
 .video-thumb {
   width: 100%;

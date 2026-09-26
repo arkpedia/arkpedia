@@ -30,7 +30,7 @@ Each alert is one issue, found by a hidden marker (`scripts/content/alert-issue.
 | Content quarantined | Prepare content release | records held back or stages that did not run to the end |
 | Asset sync failing | Prepare content release | an asset repository's latest sync failed or is over three days old |
 | Check failing on main | Check | main is red, so nothing deploys |
-| Deploy failing | Deploy | production keeps its previous build |
+| Deploy failing | Deploy | production keeps its previous build, or runs the new one with asset links that lag the release |
 | No content release for over a day | Release heartbeat, in arkpedia-data | neither `live` nor the `heartbeat` branch moved for 26 hours |
 | Data main is not live | Release heartbeat, in arkpedia-data | `live` does not serve data `main` an hour after it was committed |
 
@@ -55,6 +55,19 @@ An asset-only refresh should change `source/data/assets/revisions.json` and
 `release/manifest.json`, without rewriting every operator page. The public PR
 summary identifies asset-only updates and reports the actual file counts.
 
+The deployment has asset pins of its own, `data/assets/revisions.json`: every
+root-relative `/<folder>/...` path is a redirect to the commit it names
+(`next.config.js`), and pages without a release fall back to it. The second step of
+`prebuild` (`scripts/build/adopt-release-asset-pins.mjs`, after `write-build-info.mjs`)
+rewrites it with the live release's pins wherever they are newer than the committed
+ones, never older, so a deploy never redirects art the release already has to a
+commit without it. It keeps the committed pins, with a warning, when it cannot order
+them, and a build with `ARKPEDIA_CONTENT_DISABLED=1` (Check's) keeps them always. The
+rewrite does not make the build dirty (`BUILD_REWRITES` in `code-fingerprint.mjs`).
+After every deploy, `scripts/deploy/check-asset-redirects.mjs` asks production for a
+file only the live release's commit has and fails Deploy, opening `Deploy failing`,
+when the redirect does not reach it.
+
 ## What stops a release
 
 One bad input costs one record, not the day's release. A refresh stage that fails has its changes put back and the stages that need it skipped; one that finishes the stage build's own files in place takes the build back with it, so a half-made dataset never goes out. A record that is incomplete (art or a lineup not published yet, a CN operator not imported, an icon a Global rename moved) is published without the missing piece or held back, as an entry in `source/data/quarantine.json`. The `Content quarantined` issue lists every entry and every stage that did not run to the end, with how long each has been there; one older than three days is marked overdue.
@@ -65,7 +78,7 @@ When a collection is meant to shrink (records removed on purpose, a mode newly e
 
 ## What makes a new release
 
-A day on which no record changed publishes nothing. The manifest carries two fingerprints of the app commit and the published source files (`scripts/content/release-input.mjs`): the release id covers every file, as arkpedia-data's own validator recomputes it, and the content id leaves out the two that describe the run itself, `data/upstream.lock.json` (the mirror commits it read) and `data/catalogue-sync.json` (the catalogue's report of the day). The publish step compares content ids, so a day that changes only those two files publishes nothing, and data `main` holds them as of the last release whose content changed. For the same reason nothing a record keeps changes with the mirrors alone: a window keeps the `timingSource` that confirmed it while its times are unchanged, the CN inventory keeps its `source` while what it lists is unchanged, a quarantine entry keeps the permalink it was first reported with, and no quarantine reason names a date or a count that grows by itself.
+A day on which no record changed publishes nothing. The manifest carries two fingerprints (`scripts/content/release-input.mjs`). The release id covers the app commit and every published source file, as arkpedia-data's own validator recomputes it. The content id is what the release says: every source file but the two that describe the run itself, `data/upstream.lock.json` (the mirror commits it read) and `data/catalogue-sync.json` (the catalogue's report of the day), and every page and public data file by path and hash, but not the app commit. The publish step compares content ids, so a day that changes only those two files publishes nothing, and neither does a run after an app merge that compiled the same pages; data `main` holds the run records as of the last release whose content changed. State the next run reads back stays in the content id although it changes no page: `data/quarantine.json` (when each held record was first seen, which the overdue mark counts from), `data/wiki-cache/` (a wiki page's last good rows and any hold on it), and `data/assets/revisions.json` (the asset commits every art URL is pinned to). For the same reason nothing a record keeps changes with the mirrors alone: a window keeps the `timingSource` that confirmed it while its times are unchanged, the CN inventory keeps its `source` while what it lists is unchanged, a quarantine entry keeps the permalink it was first reported with, and no quarantine reason names a date or a count that grows by itself.
 
 ## Corrections and rollback
 

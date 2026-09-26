@@ -26,17 +26,23 @@ function costLists(op) {
       .map((stage, j) => [`modules[${i}].stages[${j}].cost`, stage.cost])),
   ];
 }
-/** The same decision as operatorRelease() in lib/operators/operatorAvailability.ts: whether a
- * record carries a release instant at all. A test keeps the two in step. */
-export function hasRecordedRelease(op) {
-  if (op.releaseAt && /(?:Z|[+-]\d{2}:\d{2})$/i.test(op.releaseAt) && Number.isFinite(Date.parse(op.releaseAt))) return true;
+/** The same decision as operatorRelease() in lib/operators/operatorAvailability.ts: the instant
+ * the site calls a record released (its `at`), or null when it carries no usable date. A test
+ * keeps the two in step. */
+export function recordedRelease(op) {
+  if (op.releaseAt && /(?:Z|[+-]\d{2}:\d{2})$/i.test(op.releaseAt) && Number.isFinite(Date.parse(op.releaseAt))) return Date.parse(op.releaseAt);
   const raw = op.characterInfo?.['Release Date']?.trim();
-  if (!raw) return false;
+  if (!raw) return null;
   const match = raw.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
-  if (!match) return Number.isFinite(Date.parse(`${raw} UTC`));
-  const date = new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
-  return date.getUTCFullYear() === +match[1] && date.getUTCMonth() === +match[2] - 1 && date.getUTCDate() === +match[3];
+  const day = match ? Date.UTC(+match[1], +match[2] - 1, +match[3]) : Date.parse(`${raw} UTC`);
+  if (!Number.isFinite(day)) return null;
+  const date = new Date(day);
+  if (match && (date.getUTCFullYear() !== +match[1] || date.getUTCMonth() !== +match[2] - 1 || date.getUTCDate() !== +match[3])) return null;
+  // A calendar date is a UTC-7 day, and the site waits for it to pass.
+  return day + 7 * 3_600_000 + 86_400_000;
 }
+/** Whether a record carries a release instant at all. */
+export const hasRecordedRelease = op => recordedRelease(op) !== null;
 /** The quarantine key of a banner or an event: its client id, else its name, the same keys
  * the catalogue stage reports them under. */
 export const bannerKey = banner => `banner:${banner.cnPoolId || banner.globalPoolId || banner.name}`;
@@ -62,13 +68,15 @@ export function artPath(value) {
  * Everything else is one record's problem -- a new CN operator or outfit not imported yet,
  * a discovered event or banner the catalogue left out, art (key art too) or a reward icon
  * the image sync has not published, a stage enemy without its record, an album whose
- * release date is not written YYYY/MM/DD -- so it becomes an
- * entry in data/quarantine.json (stage 'completeness') and a line in the daily 'Content
- * quarantined' issue, and the rest of the day's content still goes out. The keys name
+ * release date is not written YYYY/MM/DD, a dated operator's art without a palette -- so it
+ * becomes an entry in data/quarantine.json (stage 'completeness') and a line in the daily
+ * 'Content quarantined' issue, and the rest of the day's content still goes out. The keys name
  * records by their source ids, the same way every stage's quarantine entries do.
  */
-export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, materials, counts, baseline, allowShrink = [] }) {
+export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, materials, mappedStages, palettes, counts, baseline, allowShrink = [] }) {
   if (!Array.isArray(materials?.order)) throw new Error('reviewCompleteness needs the material catalogue (data/material-catalogue.json)');
+  if (!Array.isArray(mappedStages)) throw new Error('reviewCompleteness needs the listed stages with a map (stageMapRows)');
+  if (!(palettes instanceof Set)) throw new Error('reviewCompleteness needs the palette catalogue (the artworks of data/color-palettes.json)');
   const errors = [], quarantine = [], allowed = [];
   const hold = (key, action, reason) => quarantine.push({ key, action, reason });
   const byId = new Map(operators.map(op => [op.internalName, op]));
@@ -97,6 +105,20 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     const uncatalogued = uncataloguedCosts(op, materials);
     if (uncatalogued.length) {
       hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: costs ${uncatalogued.join(', ')}, which data/material-catalogue.json does not have, so /planner cannot hold or craft ${uncatalogued.length === 1 ? 'it' : 'them'} and leaves ${op.name} out of its picker`);
+    }
+  }
+  // The palette game plays every dated operator (released, or with a Global date) whose Base
+  // art, and from 4 stars its Elite 2 art, has a palette in data/color-palettes.json, and
+  // leaves the rest out without a word (lib/minigames/data.ts). The palettes stage makes one
+  // for every artwork the pinned skin repository publishes, so a gap here is art it could not
+  // read, or a day the stage failed: seven operators went missing that way while nothing made
+  // palettes at all. Art that is not published yet is left to the asset holds above.
+  for (const op of operators) {
+    if (!words[op.rarity] || !hasRecordedRelease(op)) continue;
+    for (const label of op.rarity >= 4 ? ['Base', 'Elite 2'] : ['Base']) {
+      const file = `${words[op.rarity]}-star-skins/${safe(op.name)} - ${label}.webp`;
+      if (missing(file) || palettes.has(`/${file}`)) continue;
+      hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: ${file} has no palette in data/color-palettes.json, so /games/color-palette leaves ${label === 'Base' ? op.name : `${op.name}'s Elite 2 art`} out`);
     }
   }
   for (const expected of inventory.operators) {
@@ -174,6 +196,18 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
   for (const [slug, record] of [...enemyRecords].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     if (unpublished.has(record.icon?.slice(1))) hold(`enemy:${slug}`, 'published-partial', `${record.name}: icon ${record.icon.slice(1)} not published yet`);
   }
+  // A running event's stage with a map shows the event's poster where its map preview goes
+  // until arkpedia-image-assets publishes a render of it. The stage-renders stage stages one
+  // from the CN mirror and the staged-art stage publishes it the same day, so this names the
+  // stages that are still waiting, whatever the reason: the mirror has no render yet, or the
+  // publish failed. People, A People ran two weeks with no render and nothing said so.
+  const clock = new Date(now ?? Date.now()).getTime() / 1000;
+  for (const row of mappedStages) {
+    const [start, end] = row.window ?? [];
+    if (row.preview || !(start <= clock && clock <= end)) continue;
+    hold(`stage-preview:${row.slug}`, 'published-partial', `${row.contentName} is running, and ${row.code} (${row.slug}) has a map but no map preview: `
+      + 'arkpedia-image-assets publishes no render of it yet (the stage-renders entries say whether the CN mirror has one)');
+  }
   // An album's release date is what orders Recently added on /music/discover, and it is
   // stored YYYY/MM/DD (lib/music/releaseDate.mjs), the form the album sync writes. A date
   // typed any other way, or a blank the sync had no cover date to fill, is that one album's
@@ -239,8 +273,25 @@ export function missingEnemyIcons({ enemyRecords, assets }) {
   return [...new Set([...enemyRecords.values()].map(record => record.icon?.slice(1)).filter(file => file && !assets.has(file)))].sort();
 }
 
+/**
+ * Every listed stage that is not a form of another (the list's own rows) and has a map, with
+ * its content's run window (data/content-windows.json, [start, end] in seconds) and whether it
+ * shows a render: its own preview, or the render its Integrated Strategies or Contingency
+ * Contract entry names (getStagePreviewFile reads the same three).
+ */
+export function stageMapRows({ records, index, windows, isNodes = {}, ccStages = {} }) {
+  const listed = new Map(index.map(row => [row.slug, row]));
+  return records.filter(record => record.geometry && listed.has(record.slug) && !listed.get(record.slug).variantOf)
+    .map(record => ({ slug: record.slug, code: record.code || listed.get(record.slug).code || record.slug,
+      contentName: record.content?.name || listed.get(record.slug).contentName || record.content?.id,
+      window: windows[record.content?.id] ?? null,
+      preview: Boolean(record.preview || isNodes[record.slug]?.render || ccStages[record.slug]?.render) }))
+    .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+}
+
 export function readCompletenessInputs(root = process.cwd()) {
   const read = file => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+  const optional = (file, fallback) => (fs.existsSync(path.join(root, file)) ? read(file) : fallback);
   const operators = fs.readdirSync(path.join(root, 'data')).filter(dir => /^operators-\dstar$/.test(dir))
     .flatMap(dir => fs.readdirSync(path.join(root, 'data', dir)).filter(file => file.endsWith('.json'))
       .map(file => ({ ...read(`data/${dir}/${file}`), recordName: file.slice(0, -5) })));
@@ -250,11 +301,14 @@ export function readCompletenessInputs(root = process.cwd()) {
   const remote = fs.existsSync(path.join(root, 'data/operator-asset-overrides.json')) ? Object.keys(read('data/operator-asset-overrides.json')) : [];
   // slug -> the first listed stage that fields it, from the stage records themselves:
   // the same join the enemy builders make, and not their output, which is what is checked.
-  const listed = new Set(read('public/stages-index.json').map(row => row.slug));
+  const index = read('public/stages-index.json');
+  const listed = new Set(index.map(row => row.slug));
   const stageFiles = fs.readdirSync(path.join(root, 'data/stages')).filter(file => file.endsWith('.json')).sort();
   const stageEnemies = new Map();
+  const stageRecords = [];
   for (const file of stageFiles) {
     const stage = read(`data/stages/${file}`);
+    stageRecords.push({ slug: stage.slug, code: stage.code, geometry: stage.geometry, preview: stage.preview, content: stage.content });
     if (!listed.has(stage.slug)) continue;
     for (const group of [stage.enemies?.by_rank, stage.enemies?.conditional?.by_rank]) {
       for (const entry of Object.values(group ?? {}).flat()) if (entry?.slug && !stageEnemies.has(entry.slug)) stageEnemies.set(entry.slug, stage.slug);
@@ -268,6 +322,9 @@ export function readCompletenessInputs(root = process.cwd()) {
     albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
     skinWindows: read('data/skin-availability-windows.json').entries,
     materials: checkMaterialCatalogue(read('data/material-catalogue.json')),
+    mappedStages: stageMapRows({ records: stageRecords, index, windows: optional('data/content-windows.json', {}),
+      isNodes: optional('data/is-nodes.json', {}), ccStages: optional('data/cc-stages.json', {}) }),
+    palettes: new Set(Object.keys(read('data/color-palettes.json').artworks)),
     stageEnemies, enemyRecords, enemyIndex: new Set(read('public/enemies-index.json').map(row => row.slug)) };
   input.counts = { operators: operators.length, skins: input.skins.length, events: input.events.length,
     banners: input.banners.length, enemies: enemyRecords.size, stages: stageFiles.length, ...collectionCounts(root) };

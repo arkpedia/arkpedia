@@ -27,7 +27,11 @@ test('content hydration cannot restore retired public source records', () => {
   const hydration = read('scripts/content/hydrate-source.mjs');
   assert.match(hydration, /data\/events\.json/);
   assert.match(hydration, /data\/operator-release-overrides\.json/);
-  assert.match(hydration, /deprecatedSourceFiles\.has\(relative\)/);
+  assert.match(hydration, /deprecated\(relative\)/);
+  // The retired banner-art stage's record: arkpedia-data still carries a copy, and hydrated
+  // back it would be published with every release, read by nothing.
+  assert.equal(fs.existsSync(path.join(ROOT, 'data/assets/banner_art_sources.json')), false);
+  assert.match(hydration, /deprecatedSourceFiles = new Set\(\[[^\]]*'data\/assets\/banner_art_sources\.json'/);
 });
 
 test('every canonical event-year file is part of the runtime event loader', () => {

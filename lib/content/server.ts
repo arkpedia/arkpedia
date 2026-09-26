@@ -136,8 +136,27 @@ export type ContentPageBuilder<P> = (context: GetStaticPropsContext) => Promise<
 // Exports stay clock-free; every other path is a request and gets its moment.
 const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
 
+export interface ContentPageOptions<P> {
+  /** Runs on every request's props, the release's or the builder's (never in the export). */
+  finalize?: (props: P) => Promise<P>;
+  revalidate?: number;
+  tables?: ContentTableLoaders;
+  /**
+   * Build the page with its own builder at runtime too (ISR on Vercel) while the live
+   * release does not publish the route. Without it such a regeneration throws
+   * "Published content is missing <route>", and Next keeps serving the page the deploy
+   * prerendered until a release compiled by this code goes live: up to a day for a route
+   * a deploy has just made a content route (/community, 2026-09-26). Only for a static
+   * route whose builder reads nothing but compiled-in modules: Vercel's function traces
+   * leave data/ and public/ out of a content route (next.config.js), so a builder that
+   * reads a data file fails there. scripts/tests/test-previous-release-props.ts runs each
+   * route the previous release lacks this way, from a directory with no data/ in it.
+   */
+  bundledWhenUnpublished?: boolean;
+}
+
 /** Build and ISR use the same reader. No remote code or credentials are shipped. */
-export function withContentPage<P extends object>(template: string, builder: ContentPageBuilder<P>, options: { finalize?: (props: P) => Promise<P>; revalidate?: number; tables?: ContentTableLoaders } = {}): GetStaticProps<P> {
+export function withContentPage<P extends object>(template: string, builder: ContentPageBuilder<P>, options: ContentPageOptions<P> = {}): GetStaticProps<P> {
   // The page and lib/content/tables.mjs must name the same tables: validate-release
   // checks the list, and the browser reads what the loaders attach. Thrown at module
   // load, so a mismatch fails the build and the export rather than a request.
@@ -145,6 +164,10 @@ export function withContentPage<P extends object>(template: string, builder: Con
   const declared = [...pageTables(template)].sort().join(', ');
   if (Object.keys(loaders).sort().join(', ') !== declared) {
     throw new Error(`${template} must pass a table loader for exactly: ${declared || '(none)'} (lib/content/tables.mjs)`);
+  }
+  // A dynamic route the release lacks is a 404 (below), never the builder's page.
+  if (options.bundledWhenUnpublished && template.includes('[')) {
+    throw new Error(`${template}: bundledWhenUnpublished is for static routes only`);
   }
   const revalidate = () => process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : (options.revalidate ?? 60);
   const bundled = async (context: GetStaticPropsContext): Promise<GetStaticPropsResult<P>> => {
@@ -166,7 +189,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
       const file = loaded.manifest.pages[route];
       if (!file) {
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
-        if (!bundledFallbackAvailable) throw new Error(`Published content is missing ${route}`);
+        if (!bundledFallbackAvailable && !options.bundledWhenUnpublished) throw new Error(`Published content is missing ${route}`);
         const fallback = await bundled(context);
         if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props);

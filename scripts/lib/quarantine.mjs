@@ -13,8 +13,8 @@
  * under its name with the ones it reported this run, so a record that recovered drops
  * off by itself; a key reported again keeps its firstSeen. A stage that did not run
  * (it failed, or was skipped) leaves its entries as they were. Dates are UTC days. A
- * stage with nothing to report in a tree with no file (a refresh run by hand, the manual
- * fallback's pull request) does not start one: the file belongs to arkpedia-data.
+ * stage with nothing to report in a tree with no file (a refresh run by hand) does not
+ * start one: the file belongs to arkpedia-data.
  *
  * Nothing in an entry changes by itself: only a new reason, action or sourceRef changes
  * it, so a day that holds the same records rewrites the file to the same bytes. The file
@@ -26,6 +26,14 @@
  * sourceRef that differs from the one on record only in the mirror commit it is pinned
  * to (a raw URL at the run's pin, which moves whenever the mirror commits) is the same
  * source: the entry keeps the permalink it was first reported with.
+ *
+ * A reason names the kind of failure, never the error's own text (the log gets that) nor a
+ * commit: add() refuses one that carries either (VOLATILE below), which fails the stage
+ * loudly, as any malformed entry does, instead of making a new release every night. On
+ * 2026-09-26 the palettes stage wrote "(UnidentifiedImageError: cannot identify image file
+ * <_io.BytesIO object at 0x108905580>)", another address each run, and a download's URL at
+ * the skin pin. data/quarantine.json's other writer, the completeness stage
+ * (scripts/content/check-completeness.mjs), builds its reasons from the records alone.
  *
  * Importers in other languages go through the command line, so there is one writer:
  *   node scripts/lib/quarantine.mjs <stage> [entries.json]    (entries: a JSON list, or stdin)
@@ -47,6 +55,13 @@ const utcDay = now => {
 };
 // A file written before 2026-09 still carries it; see the header.
 const withoutLastSeen = ({ lastSeen: _, ...entry }) => entry;
+// Text in a reason that changes by itself: a commit (a URL at a pin, which moves whenever the
+// repository commits), an object's address (PIL names the buffer it read), and the words of a
+// failed request, which differ from one day of an outage to the next. Not "timed out": the
+// refresh's own entries say "failed or timed out", the same every day.
+const VOLATILE = /\b[0-9a-f]{40}\b|\b0x[0-9a-f]{6,}\b|\bErrno\b|urlopen error|HTTP Error \d|\b(?:ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)\b|Traceback/;
+/** The first text in `reason` that would change by itself, or null. */
+export const volatileText = reason => String(reason).match(VOLATILE)?.[0] ?? null;
 // A 40-hex commit is where a mirror URL pins its file; without it, two refs name one source.
 const unpinned = ref => ref.replace(/\b[0-9a-f]{40}\b/g, '<commit>');
 const sameSource = (before, ref) => (before && ref && unpinned(before) === unpinned(ref) ? before : ref);
@@ -76,6 +91,11 @@ export function beginStage(root, stage, now = defaultNow()) {
       if (typeof key !== 'string' || !key.trim()) throw new Error(`Quarantine entry in ${stage} has no key`);
       if (typeof reason !== 'string' || !reason.trim()) throw new Error(`Quarantine entry ${key} has no reason`);
       if (!ACTIONS.includes(action)) throw new Error(`Quarantine entry ${key} has action ${action}; expected one of ${ACTIONS.join(', ')}`);
+      const volatile = volatileText(reason);
+      if (volatile) {
+        throw new Error(`Quarantine entry ${key} in ${stage} carries "${volatile}" in its reason, which changes by itself and would make every run a new release; `
+          + `name the kind of failure there and print the error to the log: ${reason}`);
+      }
       if (sourceRef != null && typeof sourceRef !== 'string') throw new Error(`Quarantine entry ${key} has a non-string sourceRef`);
       // One entry per key: the first report of a run stands.
       if (!reported.has(key)) reported.set(key, { key, reason: reason.trim(), action, ...(sourceRef ? { sourceRef } : {}) });

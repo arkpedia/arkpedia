@@ -3,7 +3,7 @@
 // reading of the same file and cannot drift apart.
 import fs from 'node:fs';
 import path from 'node:path';
-import { excel, levelsDir, levelKey } from './gamedata.mjs';
+import { excel, levelsDir, levelKey, levelFile, forGlobal } from './gamedata.mjs';
 import { text } from './text.mjs';
 import { SlugSet, slug } from './names.mjs';
 
@@ -349,15 +349,18 @@ export class Levels {
     const cacheKey = `${key} ${difficulty}`;
     if (this._cache.has(cacheKey)) return this._cache.get(cacheKey);
 
-    const file = path.join(levelsDir, `${key}.json`);
+    // EN first, the CN mirror's copy when Global no longer carries it (gamedata.mjs).
+    const found = levelFile(key);
     let level = null;
-    if (fs.existsSync(file)) {
-      try { level = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { level = null; }
+    if (found) {
+      try { level = JSON.parse(fs.readFileSync(found.file, 'utf8')); } catch { level = null; }
+      // Outside the try, as in build.mjs: an unreadable enum fails, it is not a missing file.
+      if (level) level = forGlobal(level, found.source, found.file);
     } else {
       this.missing.add(key);
     }
     if (level == null || typeof level !== 'object' || Array.isArray(level)) {
-      if (fs.existsSync(file)) this.unreadable.add(cacheKey);
+      if (found) this.unreadable.add(cacheKey);
       this._cache.set(cacheKey, null);
       return null;
     }

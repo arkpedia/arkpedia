@@ -5,7 +5,7 @@ This is the reference for building or migrating any Arkpedia page. It covers the
 The canonical style is the `/operators` list page plus `/gacha`, as decided on 2026-09-25:
 
 - Section headings are `.op-section h2` in `--heading`, a teal-ish colour kept apart from the `--teal` that marks on/current states (maintainer, 2026-09-26; amber was tried and rejected).
-- Picture and content cards (posters, banner art and thumbnails, operator and skin tiles, album covers, portraits, the /games and /community cards) carry **no resting border**: the art says they can be clicked. They draw a teal edge on hover and keyboard focus. Only real controls (buttons, chips, inputs, tabs, dropdowns) carry `--control-border` at rest.
+- Picture and content cards (posters, banner art and thumbnails, operator and skin tiles, enemy tiles, album covers, portraits, video cards, the Terminal's stage, mode, supply and Regular Tasks cards, the /games and /community cards) carry **no resting border**, and no frame round the art inside them either: the art says they can be clicked. They keep a transparent 1px border so nothing shifts, and draw the teal edge on hover and keyboard focus (`border: 1px solid transparent`, `border-color: var(--teal)` on `:hover` and `:focus-visible`). A card in an on state keeps its teal edge, and a rarity ring is data, not a frame. Only real controls (buttons, chips, inputs, tabs, dropdowns, and selectable `.pick-card`s) carry `--control-border` at rest; a control with only a small picture in it (a featured-operator chip, an appearance thumbnail) is one of them. `tests/browser/cards-and-headings.spec.ts` finds every link or button whose main content is a picture (40x40 or more, half its box or more) on twenty routes and fails on a framed one.
 - Buttons are Rajdhani, uppercase, with 0.09em tracking.
 - The page header has a mono teal eyebrow above a 30px Rajdhani h1.
 - Everything sits in a 1040px frame with 24px gutters.
@@ -30,8 +30,8 @@ CSS modules are used by the operator page, the games, the pulls workspace and `S
 ## The rules
 
 1. **Teal means "on" or "current", and nothing else.** Selected chips, the current tab, the active nav item, a focused control and hover all use teal. Headings, resting links, decoration, rarity and categories must not be teal. "On" has one look everywhere: the `--teal-dim` fill with teal border and text (`.filter-chip[aria-pressed="true"]`, `.tgl.is-on`, `.pick-card` when picked). The solid `--teal-fill` is `.primary`'s and never marks a state; `tests/browser/on-states.spec.ts` fails when a pressed, checked or `.is-on` control computes that fill.
-   - **One deliberate exception:** the automatic skill metric ("SP recovery: Auto", "Activation: Auto") is teal-bordered on `--teal-dim` on the operator page (`.skillMetricAuto` in `OperatorPage.module.css`) and in the `/gacha` operator preview (`.gacha-preview-skill-fact.auto` in `gacha.css`). The maintainer chose this in main's 2026-09-25 commit "Align gacha rarity borders and skill recovery colors", and it stays. Two older teal surfaces also stay, each with its own meaning: `.enemy-resist.vulnerable` on `/enemies` (a weakness, not a state) and the `/gacha` X1 button (the reference page, left as it is). Those are the only non-state teal surfaces. No audit checks for other teal surfaces, so reviewing new ones is left to people: keep this list in step with the code.
-2. **One resting boundary for controls.** Anything that can be pressed, typed in or picked from has a `--control-border` border at rest. `--line` and `--line-soft` are for passive hairlines only (panels, dividers, table rules).
+   - **One deliberate exception:** the automatic skill metric ("SP recovery: Auto", "Activation: Auto") is teal-bordered on `--teal-dim` on the operator page (`.skillMetricAuto` in `OperatorPage.module.css`) and in the `/gacha` operator preview (`.gacha-preview-skill-fact.auto` in `gacha.css`). The maintainer chose this in main's 2026-09-25 commit "Align gacha rarity borders and skill recovery colors", and it stays. Two older teal surfaces also stay, each with its own meaning: `.enemy-resist.vulnerable` on `/enemies` (a weakness, not a state) and the `/gacha` X1 button (the reference page, left as it is). Those are the only non-state teal surfaces. `audit:styles` (`tealDecoration`, strict) rejects teal on a selector that names no state in the page families already clean of it, today `styles/stages/`; elsewhere reviewing new ones is left to people, so keep this list in step with the code and add a family's folder to `TEAL_DECORATION_SCOPE` in `scripts/audits/audit-styles.mjs` once it is clean.
+2. **One resting boundary for controls.** Anything that can be pressed, typed in or picked from has a `--control-border` border at rest, except a picture or content card, which has none (above). `--line` and `--line-soft` are for passive hairlines only (panels, dividers, table rules).
 3. **One hover rule.** On hover, the border and the text go to `--teal`. Destructive `.danger` controls are the exception: they stay red.
 4. **Rarity colour comes only from `--rarity-N`**, through `<Rarity>`, `.rarity-N`, `.tier-N` or `.tier-fill-N`. 5★ is never teal.
 5. **One frame.** The header, `main` and the nav share `--frame-max` (1040px) and `--page-gutter` (24px at every width). There are no per-feature gutters and no `main-wide`.
@@ -265,6 +265,7 @@ import ScrollRow from '@/components/ui/ScrollRow';
 
 - It renders a flex line (children never shrink, 12px gap) with `overflow-x: auto` and the drawn `.sidescroll` bar: 10px, space reserved, `--text-faint` thumb, teal on hover.
 - When the content overflows, the row becomes a named, focusable region, so the keyboard can scroll it.
+- `controls` adds a previous/next pair of ghost buttons under the row's right end, for a row that is a page's main content (the `/skins` "Available now" shelf): a wheel-only mouse and iOS, which shows no drawn bar, get a way along it. Each scrolls by most of the row's width and is disabled at its end; the pair keeps its space (hidden) while the row fits, so it never changes the page height.
 - No auto-scroll or marquee. The home marquee becomes a ScrollRow.
 - A small fixed set should wrap instead (`.no-scroll-wrap`).
 - Any other horizontally scrolling box gets `class="sidescroll"` plus its own `overflow-x`.
@@ -325,6 +326,7 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `rawHex` (strict) | A hex literal that a token names | Use the token |
 | `scrollbarThumb` (strict) | A scrollbar thumb in `--line` or `--line-soft`, as `scrollbar-color`'s first colour or a `::-webkit-scrollbar-thumb` background | Drop the override and inherit `:root`'s `--text-faint` |
 | `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
+| `tealDecoration` (strict) | `var(--teal)`, `--teal-dim` or `--teal-fill` as a colour, background, border, outline or shadow on a selector with no state in it (`:hover`, `:focus`, `:checked`, `[aria-pressed]`, `[aria-current]`, `.current`, `.live`, `.open`...), in the folders of `TEAL_DECORATION_SCOPE` (`styles/stages/`) | Recolour it (`--text-dim`, `--heading` for a heading), or qualify the selector with the state it marks |
 
 ```sh
 npm run audit:styles                 # check
@@ -359,7 +361,7 @@ The test also fails when a page file under `pages/` is neither measured nor excl
    - cards that are buttons get `.btn-bare`, plus `.pick-card` if they are selectable
    - destructive actions get `.danger`
    - delete the module or page-local variants
-5. Borders on anything interactive use `var(--control-border)`, with hover to teal. Passive frames keep `--line` or `--line-soft`.
+5. Borders on anything interactive use `var(--control-border)`, with hover to teal; picture and content cards use a transparent border instead, teal on hover and focus. Passive frames keep `--line` or `--line-soft`.
 6. Replace rarity with `<Rarity>` or `.tier-N`. Categories use `--cat-*`. Replace any remaining literal colours with tokens (check the light theme).
 7. Radii come from tokens only (2, 3 or 4px).
 8. Horizontal rows use `ScrollRow` or `.sidescroll`. Nested vertical scrollers keep the default thumb. Put focus rings inside scrollers with `outline-offset: -2px`.

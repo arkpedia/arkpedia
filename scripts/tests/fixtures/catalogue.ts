@@ -15,12 +15,16 @@ export const fixtureMaterials = { order: ['EXP', ...plannerCostNames(operatorFix
 export function emptyCatalogue(parts: object = {}) {
   return {
     materials: fixtureMaterials,
+    // The artworks data/color-palettes.json has palettes for: none, and no art is published.
+    palettes: new Set<string>(),
     inventory: { operators: [], skins: [], events: [], banners: [] },
     operators: [], skins: [], banners: [], events: [], bundles: [],
     assets: new Set<string>(),
     // No confirmed outfit windows, at a fixed instant: never the real date.
     skinWindows: [] as object[], now: new Date('2026-09-23T00:00:00Z'),
     stageEnemies: new Map<string, string>(),
+    // No listed stage with a map (stageMapRows).
+    mappedStages: [] as object[],
     enemyRecords: new Map<string, { name: string; icon?: string }>(), enemyIndex: new Set<string>(),
     ...parts,
   };

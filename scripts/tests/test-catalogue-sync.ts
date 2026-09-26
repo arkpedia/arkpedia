@@ -8,7 +8,7 @@ import { getFeaturedOperatorRates } from '../../lib/gacha/eventBannerRates';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '../../lib/skins/skinSeriesConfig';
 import bundledSkins from '../../data/skins.json';
 // @ts-expect-error Plain Node import scripts share their pure reconciliation with tests.
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, skinText, SKIN_SERIES, wikiParseUrl, wikiText, linkPools } from '../sync/catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, parseWikiRows, skinText, SKIN_SERIES, wikiParseUrl, wikiText, linkPools, lineupNameLookup } from '../sync/catalogue-model.mjs';
 // @ts-expect-error Plain Node helper shared by the importers.
 import { stripRichText } from '../lib/gametext.mjs';
 // @ts-expect-error Plain Node import scripts share their pure reconciliation with tests.
@@ -576,3 +576,37 @@ test('a moved wiki page is followed to its new title, and one that still redirec
   const mentions = `${rows}\n<!-- #REDIRECT notes -->`;
   assert.equal(wikiText('Headhunting/Banners/2027', { parse: { wikitext: { '*': mentions } } }, new Date('2027-06-01T00:00:00Z')), mentions);
 });
+
+/* The release of 2026-09-25 quarantined this banner (banner:LINKAGE_65_0_1, kept-previous):
+   the wiki's Headhunting-Banners-2026 row switched from 'Misumi Uika, Togawa Sakiko, Wakaba
+   Mutsumi' to the Western order, and the operator records keep the Japanese one. The record
+   and the row are the real ones; the operators' internal names are invented. */
+test('a wiki lineup matches its operator records whatever order and separator it writes the names in',()=>{
+  const ops=[{name:'Togawa Sakiko',internalName:'char_9201_sakiko',rarity:6},{name:'Misumi Uika',internalName:'char_9202_uika',rarity:5},{name:'Wakaba Mutsumi',internalName:'char_9203_mutsumi',rarity:5}];
+  const record={name:'[The Dream Ball of Marionettes] Cantilena Puppae',category:'limited',year:2025,cn_date:'2025/09/04–2025/09/18',global_date:'2026/02/10–2026/02/24',
+    cnPoolId:'LINKAGE_65_0_1',banner_image:'/headhunting-banner-images/Cantilena Puppae.webp',six_stars:['Togawa Sakiko'],five_stars:['Misumi Uika','Wakaba Mutsumi'],pull_type:'limited',linked_event:null};
+  const row=(operators:string)=>({type:'crossover',name:'Cantilena Puppae',cnstart:'2025/09/04 16:00:00',cnend:'2025/09/18 03:59:59',globalstart:'2026/02/10 08:00:00',globalend:'2026/02/24 03:59:59',operators});
+  const run=(operators:string)=>reconcileCalendars({events:[],banners:[record],operators:ops,cn:tables(pool('LINKAGE_65_0_1','LINKAGE','2025/09/04','白日梦下的木偶舞会')),en:empty,eventRows:[],bannerRows:[row(operators)],now:september});
+  for(const operators of ['Uika Misumi, Sakiko Togawa, Mutsumi Wakaba','Misumi Uika, Togawa Sakiko, Wakaba Mutsumi','Uika-Misumi, Sakiko·Togawa, Mutsumi  Wakaba']){
+    const result=run(operators);
+    assert.deepEqual(result.quarantine,[],operators);
+    const [banner]=result.banners;
+    assert.deepEqual([banner.six_stars,banner.five_stars,banner.lineupSource],[['Togawa Sakiko'],['Misumi Uika','Wakaba Mutsumi'],'wiki'],operators);
+  }
+  // A name still unknown in any order is reported as before, and the lineup kept.
+  const typo=run('Uika Misumi, Sakiko Togawa, Mutsumi Wakabaa');
+  assert.deepEqual(typo.quarantine.map((e:any)=>[e.key,e.action]),[['banner:LINKAGE_65_0_1','kept-previous']]);
+  assert.match(typo.quarantine[0].reason,/names Mutsumi Wakabaa, which no operator record matches/);
+});
+test('an order-free name matches only when one record has those words',()=>{
+  const find=lineupNameLookup([['Alpha Beta Gamma','first'],['Gamma Beta Alpha','second'],['Misumi Uika','uika'],['Old Name','uika']]);
+  assert.equal(find('Uika Misumi'),'uika');
+  assert.equal(find('Name Old'),'uika','an alias of the same record is not a second record');
+  // The same name is always its own record, even where another record has its words.
+  assert.equal(find('Gamma Beta Alpha'),'second');
+  assert.equal(find('alpha-beta gamma'),'first');
+  // A third order two records share names neither.
+  assert.equal(find('Beta Alpha Gamma'),undefined);
+  assert.equal(find('Uika'),undefined,'some of the words are not the name');
+});
+

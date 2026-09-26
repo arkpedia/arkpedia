@@ -17,7 +17,7 @@
 // a failure leaves the site's data as it was rather than half-rewritten.
 import fs from 'node:fs';
 import path from 'node:path';
-import { excel, levelKey, levelsDir } from './lib/gamedata.mjs';
+import { excel, levelKey, levelsDir, levelFile, forGlobal } from './lib/gamedata.mjs';
 import { levelIds } from './lib/levelfiles.mjs';
 import { identityFields, stageSlugs, tableOrder, variantParents, hardModeLevels, bossRushTrials, threeStarBonus } from './lib/records.mjs';
 import { readActs } from './lib/story.mjs';
@@ -102,19 +102,26 @@ for (const dir of Object.values(tmp)) {
 
 const sharedLegend = {};
 const geometryOfLevel = new Map();     // level key -> geometry file stem
-let geoWritten = 0; let condWritten = 0; let noLevelFile = 0; let noMap = 0;
+let geoWritten = 0; let condWritten = 0; let noLevelFile = 0; let noMap = 0; let fromCn = 0;
 
 function writeGeometry(level, stem) {
-  const file = path.join(levelsDir, `${levelKey(level)}.json`);
-  if (!fs.existsSync(file)) { noLevelFile++; return; }
+  // EN first; the CN mirror's copy when Global no longer carries the file (lib/gamedata.mjs).
+  const found = levelFile(level);
+  if (!found) { noLevelFile++; return; }
   let raw;
-  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { noLevelFile++; return; }
+  try { raw = JSON.parse(fs.readFileSync(found.file, 'utf8')); } catch { noLevelFile++; return; }
+  // Outside the try: a level whose enums the build cannot read fails the build, naming the
+  // file, rather than counting as missing (decodeNumericEnums).
+  raw = forGlobal(raw, found.source, found.file);
   const built = buildGeometry(raw, geoCtx);
   if (!built) { noMap++; return; }
   for (const [key, value] of Object.entries(built.tile_legend)) {
     if (!(key in sharedLegend)) sharedLegend[key] = value;
   }
-  const { geometry, conditional } = encodeGeometry(stem, built);
+  // `source` only on a map read from the CN client, so the 2,800 EN maps keep their bytes;
+  // the stage page says where such a map came from.
+  const { geometry, conditional } = encodeGeometry(stem, built, found.source);
+  if (found.source === 'cn') fromCn++;
   fs.writeFileSync(path.join(tmp.geometry, `${stem}.json`), compact(geometry));
   geometryOfLevel.set(levelKey(level), stem);
   geoWritten++;
@@ -293,4 +300,5 @@ console.log(`IS variations      : ${variations} alternate levels folded into the
 console.log(`RA beginner cuts   : ${beginnerCuts} folded into their operation`);
 console.log(`contents           : ${Object.keys(contents).length}`);
 console.log(`geometries         : ${geoWritten}  conditional: ${condWritten}  legend keys: ${Object.keys(sharedLegend).length}`);
+console.log(`from the CN client : ${fromCn} maps whose level file only the CN mirror still carries`);
 console.log(`skipped            : ${noLevelFile} level file missing, ${noMap} no map, ${blankCode} owner has no code`);

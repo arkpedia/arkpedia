@@ -9,6 +9,7 @@ import { serverWeekday } from '@/lib/time/serverDay';
  * export-worker clock guard (scripts/content/export-clock.mjs) refuses it.
  */
 const CLOCK_UNITS: Record<string, number> = {
+  '/': 60_000,
   '/operators': 60_000,
   '/skins': 60_000,
   '/stages': 1000,
@@ -18,11 +19,19 @@ const CLOCK_UNITS: Record<string, number> = {
   '/schedule': 60_000,
   '/farming': 60_000,
   '/obtain-method': 60_000,
+  '/gacha': 60_000,
   '/enemies': 60_000,
   '/games/color-palette': 60_000,
   '/games/music-guesser': 60_000,
   '/planner': 60_000,
+  '/community': 60_000,
 };
+
+/** Every route contentPageClock gives a clock: each CLOCK_UNITS route (`now`), and
+ *  /stages/supplies (`buildDay`). Their pages may read the clock only through
+ *  lib/time/readerClock.ts; the no-restricted-syntax override in .eslintrc.json lists
+ *  them, and scripts/tests/test-clock-lint.ts fails when a route here is missing there. */
+export const CLOCK_ROUTES: readonly string[] = [...Object.keys(CLOCK_UNITS), '/stages/supplies'];
 
 /** The props contentPageClock owns. A page's data builder never sets them. */
 export type PageClockField = 'now' | 'buildDay';

@@ -286,15 +286,17 @@
   gap: 8px;
   flex-wrap: wrap;
 }
-/* Operator portraits that are links: the control boundary, teal on hover. */
+/* Operator portraits that are links: a picture card, so no resting frame (maintainer,
+   2026-09-26); teal on hover and keyboard focus. */
 .op-synergy-operator {
   display: block;
   border-radius: var(--radius-control);
   overflow: hidden;
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   transition: border-color 0.15s;
 }
-.op-synergy-operator:hover {
+.op-synergy-operator:hover,
+.op-synergy-operator:focus-visible {
   border-color: var(--teal);
 }
 .op-base-skill-meta {

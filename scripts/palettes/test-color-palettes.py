@@ -1,6 +1,9 @@
-"""Offline generator checks; run with python3 scripts/test-color-palettes.py."""
+"""Offline generator checks; run with python3 scripts/palettes/test-color-palettes.py."""
 import importlib.util
+from contextlib import redirect_stderr, redirect_stdout
+from io import BytesIO, StringIO
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 import tempfile
 import hashlib
@@ -47,6 +50,233 @@ class FeaturePalettes(unittest.TestCase):
     def test_empty_artwork_is_rejected(self):
         with self.assertRaises(ValueError):
             generator.palette(Image.new('RGBA', (10, 10)), ['#000000'] * 5)
+
+
+ROLES = ['hair', 'outfit-primary', 'outfit-secondary', 'outfit-detail', 'standout']
+NO_RECIPES = {'roles': ROLES, 'references': {}, 'artworks': {}}
+
+
+def webp(image):
+    out = BytesIO()
+    image.save(out, 'WEBP', lossless=True)
+    return out.getvalue()
+
+
+def figure():
+    """A standing figure on a transparent canvas: red hair over the top sixth, a skin band, then
+    a body of blue, grey and white with one small yellow badge."""
+    image = Image.new('RGBA', (60, 120), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, 59, 19), fill='#c03030')
+    draw.rectangle((0, 20, 59, 39), fill='#f0d0b0')
+    draw.rectangle((0, 40, 29, 119), fill='#2040a0')
+    draw.rectangle((30, 40, 44, 119), fill='#606060')
+    draw.rectangle((45, 40, 59, 119), fill='#f0f0f0')
+    draw.rectangle((10, 60, 14, 64), fill='#f0e020')
+    return image
+
+
+class FakeSkins:
+    """A skin repository in memory: {path: bytes}, with the manifest listing each file's sha256
+    (or `digests` overriding one)."""
+
+    def __init__(self, files, digests=None):
+        self.files, self.fetched = files, []
+        self.digests = {path: hashlib.sha256(data).hexdigest() for path, data in files.items()}
+        self.digests.update(digests or {})
+
+    def manifest(self):
+        return {'files': {path: {'sha256': digest} for path, digest in self.digests.items()}}
+
+    def fetch(self, path):
+        self.fetched.append(path)
+        return self.files[path]
+
+    def describe(self):
+        return 'fake'
+
+
+class ReleaseStage(unittest.TestCase):
+    """The palettes stage: every Base/Elite 2 artwork the pinned skin repository lists gets a
+    palette, and one artwork's problem is held for that artwork alone."""
+
+    path = 'five-star-skins/Example - Base.webp'
+    key = '/' + path
+
+    def test_new_art_without_a_review_or_recipe_gets_an_automatic_palette_and_a_hold(self):
+        skins = FakeSkins({self.path: webp(figure()), 'five-star-skins/Example - Outfit.webp': b'not art'})
+        output, holds = generator.build(skins, {}, NO_RECIPES, {})
+        entry = output['artworks'][self.key]
+        self.assertEqual(list(output['artworks']), [self.key], 'outfits are not palette art')
+        self.assertEqual(entry['automatic'], generator.AUTOMATIC)
+        self.assertEqual(entry['sha256'], skins.digests[self.path])
+        self.assertEqual(len(entry['colors']), 5)
+        self.assertTrue(all(len(color) == 7 and color.startswith('#') for color in entry['colors']))
+        self.assertEqual([(h['key'], h['action']) for h in holds], [('palette:' + self.key, 'published-partial')])
+        self.assertIn('npm run palettes:review', holds[0]['reason'])
+
+    def test_automatic_palettes_follow_the_games_slot_order(self):
+        colors = generator.palette(figure(), generator.automatic_targets(figure()))
+        self.assertEqual(colors[0], '#c03030', 'the top of the figure is its hair')
+        self.assertEqual(colors[4], '#f0e020', 'the most saturated visible detail is the accent')
+        self.assertEqual(set(colors[1:4]), {'#2040a0', '#606060', '#f0f0f0'})
+
+    def test_unchanged_art_is_not_downloaded_again(self):
+        skins = FakeSkins({self.path: webp(figure())})
+        first, _ = generator.build(skins, {}, NO_RECIPES, {})
+        skins.fetched.clear()
+        again, holds = generator.build(skins, {}, NO_RECIPES, first)
+        self.assertEqual(skins.fetched, [])
+        self.assertEqual(again, first)
+        self.assertEqual(len(holds), 1, 'still unreviewed, so still held')
+
+    def test_a_recipe_or_review_replaces_the_automatic_palette(self):
+        skins = FakeSkins({self.path: webp(figure())})
+        features = {'roles': ROLES, 'references': {'red': '#ff0000', 'blue': '#0000ff'}, 'artworks': {self.key: ['red', 'blue', 'blue', 'blue', 'red']}}
+        output, holds = generator.build(skins, {}, features, {})
+        self.assertIn('recipeSha256', output['artworks'][self.key])
+        self.assertNotIn('automatic', output['artworks'][self.key])
+        self.assertEqual(holds, [])
+        colors = ['#111111', '#222222', '#333333', '#444444', '#555555']
+        review = {'status': 'accepted', 'sourceSha256': skins.digests[self.path], 'colors': colors}
+        output, holds = generator.build(skins, {self.key: review}, NO_RECIPES, {})
+        self.assertEqual(output['artworks'][self.key]['colors'], colors)
+        self.assertEqual(holds, [])
+
+    def test_art_changed_since_its_review_keeps_its_previous_palette(self):
+        skins = FakeSkins({self.path: webp(figure())})
+        previous = {'version': generator.VERSION, 'artworks': {self.key: {'colors': ['#010101'] * 5, 'sha256': 'old', 'reviewSha256': 'x'}}}
+        review = {'status': 'accepted', 'sourceSha256': 'old', 'colors': ['#010101'] * 5}
+        output, holds = generator.build(skins, {self.key: review}, NO_RECIPES, previous)
+        self.assertEqual(output['artworks'][self.key], previous['artworks'][self.key])
+        self.assertEqual([(h['key'], h['action']) for h in holds], [('palette:' + self.key, 'kept-previous')])
+
+    def test_unreadable_or_mismatched_new_art_is_left_out_alone(self):
+        good = 'five-star-skins/Other - Base.webp'
+        for skins in (FakeSkins({self.path: b'not an image', good: webp(figure())}),
+                      FakeSkins({self.path: webp(figure()), good: webp(figure())}, {self.path: 'f' * 64})):
+            output, holds = generator.build(skins, {}, NO_RECIPES, {})
+            self.assertEqual(output['unavailable'], [self.key])
+            self.assertIn('/' + good, output['artworks'])
+            self.assertIn(('palette:' + self.key, 'omitted-new'), [(h['key'], h['action']) for h in holds])
+
+    # data/quarantine.json is a release input, so a hold must read the same every run that
+    # holds the same artwork for the same kind of failure: no error text (PIL names the
+    # buffer's address, a download names its URL at the pin and the day's error) and no commit.
+    # On 2026-09-26 both went into the reason, and one corrupt upload or flaky download would
+    # have made a new release every night.
+
+    def omitted(self, why):
+        return [{'key': 'palette:' + self.key, 'action': 'omitted-new',
+                 'reason': f'{self.key}: no palette, so the palette game leaves this artwork out, since {why}'}]
+
+    def kept(self, why):
+        return [{'key': 'palette:' + self.key, 'action': 'kept-previous',
+                 'reason': f'{self.key}: keeps its previous palette, since {why}'}]
+
+    def previous(self, digest='old'):
+        return {'version': generator.VERSION, 'artworks': {self.key: {'colors': ['#010101'] * 5, 'sha256': digest, 'automatic': generator.AUTOMATIC}}}
+
+    def test_a_failed_download_is_held_in_the_same_words_whatever_the_error_and_the_pin(self):
+        import urllib.error
+        manifest = json.dumps({'files': {self.path: {'sha256': 'a' * 64}}}).encode()
+        failures = {
+            'c' * 40: urllib.error.URLError(ConnectionRefusedError(61, 'Connection refused')),
+            'd' * 40: urllib.error.HTTPError('https://raw.example/x', 502, 'Bad Gateway', {}, None),
+            'e' * 40: TimeoutError('The read operation timed out'),
+        }
+
+        class Answer:
+            def __init__(self, data): self.data = data
+            def __enter__(self): return self
+            def __exit__(self, *exc): return False
+            def read(self): return self.data
+
+        def run(revision, previous):
+            def urlopen(request, **_):
+                url = request.full_url
+                self.assertIn(f'/arkpedia-skin-assets/{revision}/', url)
+                if url.endswith('/asset-manifest.json'):
+                    return Answer(manifest)
+                raise failures[revision]
+            log = StringIO()
+            with patch.object(generator.urllib.request, 'urlopen', urlopen), redirect_stdout(log):
+                output, holds = generator.build(generator.PinnedSkins(revision), {}, NO_RECIPES, previous)
+            return output, holds, log.getvalue()
+
+        why = 'it could not be downloaded from the pinned skin repository'
+        for previous, expected in (({}, self.omitted(why)), (self.previous(), self.kept(why))):
+            runs = [run(revision, previous) for revision in failures]
+            for output, holds, log in runs:
+                self.assertEqual(holds, expected)
+                self.assertEqual(output['unavailable'], [] if previous else [self.key])
+            # The log keeps the whole problem: the URL at the pin and the error itself.
+            self.assertIn('c' * 40, runs[0][2])
+            self.assertIn('Connection refused', runs[0][2])
+            self.assertIn('HTTP Error 502', runs[1][2])
+            self.assertIn('timed out', runs[2][2])
+
+    def test_the_same_undecodable_bytes_are_held_in_the_same_words_every_run(self):
+        whole = BytesIO()
+        figure().save(whole, 'PNG')
+        # b'not an image' is UnidentifiedImageError, whose message names the buffer's address;
+        # a PNG cut short opens and then fails to load with an OSError, which is still the
+        # artwork's bytes and not the download.
+        for data in (b'not an image', whole.getvalue()[:200]):
+            for previous, expected in (({}, self.omitted('it does not decode as an image')),
+                                       (self.previous(), self.kept('it does not decode as an image'))):
+                with self.subTest(data=data[:12], previous=bool(previous)):
+                    log = StringIO()
+                    with redirect_stdout(log):
+                        runs = [generator.build(FakeSkins({self.path: data}), {}, NO_RECIPES, previous)[1] for _ in range(3)]
+                    self.assertEqual(runs, [expected] * 3)
+                    self.assertRegex(log.getvalue(), r'UnidentifiedImageError|OSError')
+
+    def test_each_kind_of_failure_is_named_by_its_kind_alone(self):
+        colors = ['#111111', '#222222', '#333333', '#444444', '#555555']
+        art = webp(figure())
+        digest = hashlib.sha256(art).hexdigest()
+        cases = [
+            ('does not match its manifest', FakeSkins({self.path: art}, {self.path: 'f' * 64}), {}, NO_RECIPES,
+             'it does not match the sha256 its manifest lists'),
+            ('a review of other bytes', FakeSkins({self.path: art}), {self.key: {'status': 'approved', 'sourceSha256': 'b' * 64, 'samples': []}}, NO_RECIPES,
+             'its review was made for other bytes; review it again (npm run palettes:review)'),
+            ('an accepted review of other bytes', FakeSkins({self.path: art}), {self.key: {'status': 'accepted', 'sourceSha256': 'b' * 64, 'colors': colors}}, NO_RECIPES,
+             'its review was made for other bytes; review it again (npm run palettes:review)'),
+            ('an accepted review with bad colours', FakeSkins({self.path: art}), {self.key: {'status': 'accepted', 'sourceSha256': digest, 'colors': ['#12']}}, NO_RECIPES,
+             'its review in data/color-palette-reviews.json does not validate against the artwork'),
+            ('a recipe naming an unknown colour', FakeSkins({self.path: art}), {}, {'roles': ROLES, 'references': {}, 'artworks': {self.key: ['nope'] * 5}},
+             'its recipe in data/color-palette-features.json does not name five known feature colours'),
+            ('transparent art', FakeSkins({self.path: webp(Image.new('RGBA', (8, 8)))}), {}, NO_RECIPES,
+             'it has too few opaque pixels to take a palette from'),
+        ]
+        for name, skins, reviews, features, why in cases:
+            with self.subTest(name), redirect_stdout(StringIO()):
+                self.assertEqual(generator.build(skins, reviews, features, {})[1], self.omitted(why))
+                self.assertEqual(generator.build(skins, reviews, features, self.previous())[1], self.kept(why))
+        # A review of other bytes is refused before the artwork is downloaded.
+        skins = FakeSkins({self.path: art})
+        with redirect_stdout(StringIO()):
+            generator.build(skins, {self.key: {'status': 'approved', 'sourceSha256': 'b' * 64}}, NO_RECIPES, {})
+        self.assertEqual(skins.fetched, [])
+
+    def test_a_manifest_without_artwork_fails_the_run_before_anything_is_written(self):
+        for manifest in ({'files': {}}, {'files': {'five-star-skins/Outfit - Summer.webp': {'sha256': '0' * 64}}},
+                         {'files': {self.path: {}}}, {'nope': 1}):
+            skins = FakeSkins({})
+            skins.manifest = lambda manifest=manifest: manifest
+            with self.subTest(manifest=manifest), self.assertRaises(ValueError):
+                generator.build(skins, {}, NO_RECIPES, {})
+
+    def test_the_pinned_source_reads_one_commit_only(self):
+        for revision in (None, 'main', 'master', 'eb9f58b6'):
+            with self.subTest(revision=revision), self.assertRaises(ValueError):
+                generator.PinnedSkins(revision)
+        self.assertEqual(generator.PinnedSkins('a' * 40).describe(), 'arkpedia-skin-assets@' + 'a' * 12)
+
+    def test_the_command_needs_a_source(self):
+        with self.assertRaises(SystemExit), redirect_stderr(StringIO()):
+            generator.main([])
 
 
 from palette_review import validate_review, approved_palette, atomic_json, load_reviews
@@ -139,6 +369,10 @@ class ManualReviews(unittest.TestCase):
             features_path = root / 'data/color-palette-features.json'
             atomic_json(features_path, {'roles': ['hair', 'outfit-primary', 'outfit-secondary', 'outfit-detail', 'standout'],
                                        'references': {'black': '#000000'}, 'artworks': {key: ['black'] * 5}})
+            # public/ laid out like arkpedia-skin-assets, manifest and all, as the stage reads it.
+            skin_manifest = root / 'public/asset-manifest.json'
+            publish = lambda: atomic_json(skin_manifest, {'files': {key.lstrip('/'): {'sha256': hashlib.sha256(art.read_bytes()).hexdigest()}}})
+            publish()
             store = server.ReviewStore(root)
             payload = {'key': key, 'review': {**self.review, 'sourceSha256': digest}}
             saved = store.save(payload)
@@ -146,22 +380,49 @@ class ManualReviews(unittest.TestCase):
             self.assertEqual(store.details(key)['review'], saved)
             with self.assertRaises(ValueError):
                 store.save(payload)
-            with patch.multiple(generator, ROOT=root, OUTPUT=manifest_path, FEATURES=features_path), patch.object(generator, 'load_reviews', lambda: load_reviews(store.reviews_path)):
-                generator.main()
+            holds = []
+            run = lambda: generator.main(['--source-dir', str(root / 'public')])
+            with patch.multiple(generator, ROOT=root, OUTPUT=manifest_path, FEATURES=features_path), \
+                    patch.object(generator, 'load_reviews', lambda: load_reviews(store.reviews_path)), \
+                    patch.object(generator, 'report', lambda entries: holds.append(entries)):
+                run()
                 first = json.loads(manifest_path.read_text())['artworks'][key]
                 self.assertEqual(first['colors'], self.colors)
                 self.assertIn('reviewSha256', first)
                 features = json.loads(features_path.read_text())
                 features['references']['black'] = '#00ff00'
                 atomic_json(features_path, features)
-                generator.main()
+                run()
                 self.assertEqual(json.loads(manifest_path.read_text())['artworks'][key], first)
+                self.assertEqual(holds, [[], []])
+                # The art changes under its approval: the palette stays as approved and the
+                # artwork is held for another review, instead of failing every other palette.
                 self.image.putpixel((0, 0), (1, 2, 3, 255))
                 self.image.save(art, lossless=True)
+                publish()
                 self.assertEqual(store.catalog()[0]['status'], 'stale')
-                with self.assertRaises(ValueError):
-                    generator.main()
+                run()
                 self.assertEqual(json.loads(manifest_path.read_text())['artworks'][key], first)
+                self.assertEqual([(h['key'], h['action']) for h in holds[-1]], [('palette:' + key, 'kept-previous')])
+
+    def test_the_reviewer_opens_art_from_the_pinned_skin_repository(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'data/assets').mkdir(parents=True)
+            key = '/five-star-skins/Example - Base.webp'
+            atomic_json(root / 'data/color-palettes.json', {'artworks': {key: {'colors': self.colors}}})
+            atomic_json(root / 'data/assets/revisions.json', {'arkpedia-skin-assets': 'b' * 40})
+            art = webp(self.image)
+            fetched = []
+            skins = SimpleNamespace(revision='b' * 40, fetch=lambda path: fetched.append(path) or art)
+            with patch.object(server, 'generator_module', lambda: SimpleNamespace(PinnedSkins=lambda revision: skins)):
+                store = server.ReviewStore(root)
+                path = store.art_path(key)
+                self.assertEqual(path, (root / '.cache/palette-art' / ('b' * 40) / key.lstrip('/')).resolve())
+                self.assertEqual(path.read_bytes(), art)
+                self.assertEqual(store.details(key)['sourceSha256'], hashlib.sha256(art).hexdigest())
+                store.art_path(key)
+                self.assertEqual(fetched, [key.lstrip('/')], 'downloaded once')
 
 
 if __name__ == '__main__':

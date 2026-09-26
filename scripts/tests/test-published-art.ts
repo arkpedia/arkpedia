@@ -4,7 +4,9 @@ import React, { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ImageConfigContext } from 'next/dist/shared/lib/image-config-context.shared-runtime';
 import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
-import { artFile, publishedArt } from '../../lib/art/artVersion';
+import fs from 'node:fs';
+import { artFile, publishedArt } from '../../lib/art/publishedArt';
+import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { isLineupPending, LINEUP_PENDING_NOTE } from '../../lib/gacha/bannerLineup';
 import type { GachaBannerWithWindow, GameEvent } from '../../lib/home/frontPageContent';
 import { publicFiles } from '../../lib/assets/publicAssets';
@@ -32,19 +34,33 @@ const banner = (over: Partial<GachaBannerWithWindow>): GachaBannerWithWindow => 
 
 test('art the image repository has not published resolves to null; published art keeps its path', () => {
   assert.ok(!publishedBanner.endsWith('/undefined'), 'the asset index lists banner art');
-  assert.equal(publishedArt(null, 'Test Pool #1'), null);
-  assert.equal(publishedArt(undefined, 'Test Pool #1'), null);
-  assert.equal(publishedArt('/headhunting-banner-images/Test Pool 1 (Global).webp', 'Test Pool #1'), null);
-  assert.equal(publishedArt('/event-poster/Test Event.webp', 'Test Event'), null);
-  assert.equal(publishedArt(`/${publishedBanner}`, 'Not an art-sync job'), `/${publishedBanner}`);
+  assert.equal(publishedArt(null), null);
+  assert.equal(publishedArt(undefined), null);
+  assert.equal(publishedArt('/headhunting-banner-images/Test Pool 1 (Global).webp'), null);
+  assert.equal(publishedArt('/event-poster/Test Event.webp'), null);
+  assert.equal(publishedArt(`/${publishedBanner}`), `/${publishedBanner}`);
   // A URL pinned to one commit of the image repository is checked by the file it names.
   const pinned = (file: string) => `https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/${'a'.repeat(40)}/${file.split('/').map(encodeURIComponent).join('/')}`;
   assert.equal(artFile(pinned('headhunting-banner-images/Some Pool & Co.jpg')), 'headhunting-banner-images/Some Pool & Co.jpg');
-  assert.equal(publishedArt(pinned('headhunting-banner-images/Some Pool & Co.jpg'), 'x'), null);
-  assert.equal(publishedArt(pinned(publishedBanner), 'x'), pinned(publishedBanner));
+  assert.equal(publishedArt(pinned('headhunting-banner-images/Some Pool & Co.jpg')), null);
+  assert.equal(publishedArt(pinned(publishedBanner)), pinned(publishedBanner));
   // Any other address cannot be checked here and renders as before.
   assert.equal(artFile('https://arknights.wiki.gg/images/Some.png'), null);
-  assert.equal(publishedArt('https://arknights.wiki.gg/images/Some.png', 'x'), 'https://arknights.wiki.gg/images/Some.png');
+  assert.equal(publishedArt('https://arknights.wiki.gg/images/Some.png'), 'https://arknights.wiki.gg/images/Some.png');
+});
+
+test('banner art keeps the path its record names: the pinned asset commit versions it, not a query', () => {
+  // Kernel #62 (Global) was one of the banners the retired sync-banner-art.py recorded a
+  // wiki sha1 for, and its art went out as '...webp?v=03268768'. The English art now comes
+  // from arkpedia-image-assets, and every address a page draws names that repository's
+  // commit, so the record's own path is the whole answer.
+  const record = getAllHeadhuntingBanners().find(b => b.name === 'Kernel #62 (Global)');
+  assert.ok(record, 'the banner list has Kernel #62 (Global)');
+  for (const b of getAllHeadhuntingBanners()) {
+    assert.ok(!b.banner_image?.includes('v='), `${b.name}: ${b.banner_image} carries a version query`);
+  }
+  assert.equal(fs.existsSync('data/assets/banner_art_sources.json'), false);
+  assert.equal(fs.existsSync('scripts/sync/sync-banner-art.py'), false);
 });
 
 test('a banner without published art keeps its frame on the front page, with no image in it', () => {
@@ -59,7 +75,7 @@ test('a banner without published art keeps its frame on the front page, with no 
 
 test('an event poster not published yet leaves the poster box empty instead of failing the panel', () => {
   const event: GameEvent = { name: 'Test Event', poster: null, year: 2026, dateRange: '2026/09/25–2026/10/09', start, end };
-  const html = render(createElement(EventsPanel, { ongoing: [event], upcoming: null, farmableMaterials: [] }));
+  const html = render(createElement(EventsPanel, { ongoing: [event], upcoming: null, farmableMaterials: [], now: start.getTime() }));
   assert.match(html, /<div class="front-events-poster-wrap"><\/div>/);
 });
 

@@ -217,7 +217,7 @@
 .simple-materials small { font-size:11px; line-height:1.2; color:var(--text-dim); overflow-wrap:anywhere; }
 .simple-no-cost { font-size:13px; color:var(--text-dim); margin:0; }
 
-/* Section headings in Simple mode are the site's .op-section h2 (amber, 18px). */
+/* Section headings in Simple mode are the site's .op-section h2 (--heading, 18px). */
 .simple-all { padding:24px; border:1px solid var(--line); border-radius:var(--radius-frame); background:var(--panel); }
 .simple-all h2, .simple-empty h2 { margin:0 0 16px; font-size:18px; color: var(--heading); letter-spacing:0.03em; }
 .simple-empty { padding:60px 20px; text-align:center; border:1px dashed var(--line); border-radius:var(--radius-frame); }
@@ -1087,7 +1087,7 @@
   border-bottom: 1px solid var(--line-soft);
 }
 :root[data-theme="light"] .plan-panel-head { background: rgba(0, 0, 0, 0.03); }
-/* Experimental mode's panel titles are the site's section heading (amber 18px,
+/* Experimental mode's panel titles are the site's section heading (--heading 18px,
    .op-section h2), the same as Simple mode's: the page had two heading voices. */
 .plan-panel-head .label-pair > h2 { font-size: 18px; letter-spacing: 0.03em; color: var(--heading); }
 .plan-panel-head .plan-hint { margin: 0; }

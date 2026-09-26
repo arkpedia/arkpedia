@@ -1,4 +1,4 @@
-import { artFile } from '@/lib/art/artVersion';
+import { artFile } from '@/lib/art/publishedArt';
 import { getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { RewardItem } from './loadEventsData';
 

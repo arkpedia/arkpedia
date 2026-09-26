@@ -12,6 +12,7 @@ import { MIRRORS } from '../content/pin-upstream.mjs';
 import { declaredStages, STAGE_DEFINITIONS } from '../content/run-stage.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { contentInput } from '../content/release-input.mjs';
+import { commandScripts, refreshScripts, refreshStages } from './fixtures/refresh-stages';
 
 const runner = path.resolve('scripts/content/run-stage.mjs');
 /* A scratch tree with a little of data/ and public/, where every case runs the stage runner
@@ -289,8 +290,8 @@ test('a stage that keeps failing publishes the same source every day, however ea
     const published = () => {
       const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { cwd: tree.root, encoding: 'utf8' });
       const files = listed.stdout.split('\0').filter(Boolean).sort();
-      return { files, content: contentInput({ generator: 'test', sourceHashes: Object.fromEntries(files.map(file =>
-        [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])) }) };
+      return { files, content: contentInput({ sourceHashes: Object.fromEntries(files.map(file =>
+        [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])), pages: {}, files: {} }) };
     };
     tree.write('data/quarantine.json', '{"version":1,"entries":[]}\n');
     const hang = 'setTimeout(() => {}, 60000)';
@@ -401,58 +402,48 @@ test('a stage name twice in one run is a mistake in the refresh, not a skipped s
   });
 });
 
-/* The stages of the daily refresh in the order they run: the workflow's refresh step, with
-   refresh-stage-data.sh's stages where the step calls it. */
-function refreshStages() {
-  const stagesOf = (text: string) => {
-    const joined = text.replace(/\\\n\s*/g, ' ');
-    return [...joined.matchAll(/^\s*(stage [^\n]*|bash scripts\/sync\/refresh-stage-data\.sh)$/gm)].map(match => match[1]);
-  };
-  const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
-  const step = workflow.slice(workflow.indexOf('- name: Refresh supported upstream records'), workflow.indexOf('- name: Validate and compile data'));
-  // Run on its own, the script starts a run and pins first; inside the daily one it does not.
-  const script = fs.readFileSync('scripts/sync/refresh-stage-data.sh', 'utf8');
-  const standalone = script.match(/^if \[ -z "\$\{ARKPEDIA_STAGE_RUN:-\}" \]; then\n([\s\S]*?)^fi\n/m);
-  assert.ok(standalone, 'refresh-stage-data.sh has a block for running on its own');
-  assert.match(standalone[1], /run-stage\.mjs begin\n\s*stage pin-upstream -- node scripts\/content\/pin-upstream\.mjs\n/);
-  assert.match(script, /\nif \[ -n "\$standalone" \]; then node scripts\/content\/run-stage\.mjs end --strict; fi\n$/);
-  const inner = stagesOf(script.replace(standalone[0], ''));
-  return stagesOf(step).flatMap(line => line.startsWith('bash ') ? inner : [line]).map(line => {
-    const words = line.split(/\s+/);
-    const options = words.slice(0, words.indexOf('--'));
-    const needs = options.flatMap((word, i) => word === '--needs' ? options[i + 1].split(',') : []);
-    const values = (option: string) => options.flatMap((word, i) => word === option ? [options[i + 1]] : []);
-    return { name: words[1], needs, invariant: options.includes('--invariant'), outputs: values('--output'), keep: values('--keep'),
-      command: words.slice(words.indexOf('--') + 1).join(' ') };
-  });
-}
-/* Every file the refresh's stages run: the scripts their commands name, the npm scripts and
-   shell scripts those call, and the local modules they import. */
-function refreshScripts() {
+test('every script a refresh stage names exists, directly or through an npm script', () => {
+  // refreshScripts() passes over a path that is not there, so the check above would never see
+  // a stage whose script was deleted or renamed under it; the stage would fail every night.
+  // A stage kept after its job moved elsewhere is the quieter case: banner-art ran
+  // sync-banner-art.py after arkpedia-image-assets took the English art over, and skipped
+  // every banner because the art is no longer in this checkout (retired 2026-09-26).
   const npm = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts as Record<string, string>;
-  const files = new Set<string>();
-  const commands = (text: string) => {
-    for (const [, name] of text.matchAll(/npm run ([\w:-]+)/g)) if (npm[name]) commands(npm[name]);
-    for (const [file] of text.matchAll(/scripts\/[\w./-]+\.(?:mjs|js|ts|py|sh)\b/g)) visit(file);
-  };
-  const visit = (file: string) => {
-    if (files.has(file) || !fs.existsSync(file)) return;
-    files.add(file);
-    const text = fs.readFileSync(file, 'utf8');
-    if (file.endsWith('.py')) {
-      for (const [, name] of text.matchAll(/^(?:from|import) (\w+)/gm)) visit(path.join(path.dirname(file), `${name}.py`));
-    } else if (file.endsWith('.sh')) commands(text);
-    else {
-      for (const [, spec] of text.matchAll(/(?:from|import\()\s*'(\.{1,2}\/[^']+)'/g)) {
-        const at = path.join(path.dirname(file), spec);
-        const found = [at, `${at}.ts`, `${at}.mjs`, `${at}.js`].find(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
-        if (found) visit(found);
-      }
+  const missing: string[] = [];
+  const check = (text: string, where: string) => {
+    for (const [, name] of text.matchAll(/npm run ([\w:-]+)/g)) {
+      if (npm[name]) check(npm[name], `npm run ${name}`); else missing.push(`${where}: npm run ${name} (not in package.json)`);
     }
+    for (const [file] of text.matchAll(/scripts\/[\w./-]+\.(?:mjs|js|ts|py|sh)\b/g)) if (!fs.existsSync(file)) missing.push(`${where}: ${file}`);
   };
-  for (const stage of refreshStages()) commands(stage.command);
-  return [...files].sort();
-}
+  const stages = refreshStages();
+  for (const stage of stages) check(stage.command, `stage ${stage.name}`);
+  assert.deepEqual(missing, []);
+  assert.ok(!stages.some(stage => stage.name === 'banner-art' || stage.command.includes('sync-banner-art')), 'banner-art is retired');
+});
+
+test('a stage that builds records from the pinned asset revisions runs after the last stage that moves them', () => {
+  // Three stages move data/assets/revisions.json, each through npm run assets:update, which
+  // pins every asset repository at its head: asset-revisions, catalogue-assets after its push,
+  // and staged-art after its push, late in the run. A stage that reads art at the pinned commit
+  // and writes records from it (it says so with --revisions data/assets/revisions.json) must
+  // come after the last of them. Before it, the release would pin a newer commit than the one
+  // the stage read: the palettes stage ran after media-pins, the last mover before staged-art
+  // existed, so skin art pushed between it and staged-art went out with no palette and was
+  // held for a day. media-pins needs no such place: staged-art re-pins the records itself.
+  const stages = refreshStages();
+  const order = stages.map(stage => stage.name);
+  const movers = stages.filter(stage => commandScripts(stage.command).includes('scripts/sync/update-asset-revisions.mjs')).map(stage => stage.name);
+  const readers = stages.filter(stage => /--revisions data\/assets\/revisions\.json\b/.test(stage.command)).map(stage => stage.name);
+  // Not vacuous: the walk finds the movers through the publisher's shell script, and the reader.
+  assert.deepEqual([...movers].sort(), ['asset-revisions', 'catalogue-assets', 'staged-art']);
+  assert.ok(readers.includes('palettes'), 'the palettes stage reads the skin art at the pinned commit');
+  const last = Math.max(...movers.map(name => order.lastIndexOf(name)));
+  for (const reader of readers) {
+    assert.ok(order.indexOf(reader) > last, `${reader} reads the art at the pinned asset commit, but ${order[last]} moves the pins after it`);
+  }
+});
+
 test('every script a refresh stage runs reads the game-data mirrors at the run\'s pinned commit', () => {
   const scripts = refreshScripts();
   // What the walk has to find: stage scripts, npm and shell indirection, local imports.

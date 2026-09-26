@@ -7,6 +7,7 @@ local port: any request it makes to the wiki is refused at once, so a clean exit
 quarantine entry also proves that no request was made. Published files are read from
 this checkout's data/assets/external-asset-index.json, as the importers always do.
 """
+import hashlib
 import http.server
 import io
 import json
@@ -42,6 +43,17 @@ def run_node(script, cwd, **env):
     if result.returncode:
         raise AssertionError(f'{script} exited {result.returncode}:\n{result.stdout}\n{result.stderr}')
     return result
+
+
+def staged(root, kind):
+    """What an importer listed for the staged-art stage: {destination: row}."""
+    path = Path(root)/'.cache'/kind/'staged.json'
+    return json.loads(path.read_text())['files'] if path.exists() else None
+
+
+def git_blob(data):
+    # Git itself, not the formula under test.
+    return subprocess.run(['git', 'hash-object', '--stdin'], input=data, capture_output=True, check=True).stdout.decode().strip()
 
 
 def entries(root):
@@ -192,11 +204,15 @@ class WikiImportersDegrade(unittest.TestCase):
                 write(root, 'data/events/events_2099.json', [{'name': '[Side Story] Test', 'rewards': {'items': [{'name': 'Imaginary Widget', 'type': 'material'}]}}])
                 run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), ARKPEDIA_WIKI_BASE=base)
                 self.assertFalse((Path(root)/'public').exists())
-                self.assertEqual(Image.open(Path(root)/'.cache/reward-icons/Imaginary Widget.webp').size, (96, 96))
+                # As the source serves it, never shrunk: the publisher keeps material icons at
+                # the game's native 183px, and the icon is listed for the staged-art stage.
+                self.assertEqual((Path(root)/'.cache/reward-icons/Imaginary Widget.png').read_bytes(), upload.getvalue())
+                self.assertEqual({target: (row['file'], row['source']) for target, row in staged(root, 'reward-icons').items()},
+                                 {'material-icons/Imaginary Widget.webp': ('Imaginary Widget.png', f'{base}/widget.png')})
                 [entry] = entries(root)
                 self.assertEqual((entry['key'], entry['stage'], entry['action'], entry['sourceRef']),
                                  ('reward-icon:Imaginary Widget', 'reward-icons', 'published-partial', f'{base}/widget.png'))
-                self.assertIn('nothing publishes it', entry['reason'])
+                self.assertIn('no run has published it to arkpedia-image-assets as material-icons/Imaginary Widget.webp yet', entry['reason'])
         finally:
             server.shutdown()
             server.server_close()
@@ -208,24 +224,34 @@ class WikiImportersDegrade(unittest.TestCase):
             write(root, 'data/stages/ra-new-season-1.json', {'slug': 'ra-new-season-1', 'name': 'Nowhere Sands', 'preview': None, 'content': {'kind': 'reclamation'}})
             run('import_ra_maps.py', root, ARKPEDIA_WIKI_BASE=base)
             self.assertFalse((Path(root)/'public').exists())
-            with Image.open(Path(root)/'.cache/ra-maps/ra-new-season-1.webp') as staged:
-                self.assertEqual(staged.size, (64, 48))
+            with Image.open(Path(root)/'.cache/ra-maps/ra-new-season-1.png') as staged_map:
+                self.assertEqual(staged_map.size, (64, 48))
+            self.assertEqual(list(staged(root, 'ra-maps')), ['stages-images/ra-new-season-1.webp'])
             self.assertIsNone(json.loads((Path(root)/'data/stages/ra-new-season-1.json').read_text())['preview'])
             [entry] = entries(root)
             self.assertEqual((entry['key'], entry['stage'], entry['action'], entry['sourceRef']),
                              ('ra-map:ra-new-season-1', 'ra-maps', 'published-partial', f'{base}/upload/0.png'))
-            self.assertIn('until stages-images/ra-new-season-1.webp is added to arkpedia-image-assets', entry['reason'])
-            # Staged already: the next run reports it again without downloading it again.
-            (Path(root)/'.cache/ra-maps/ra-new-season-1.webp').write_bytes(b'kept')
+            self.assertIn('no run has published it to arkpedia-image-assets as stages-images/ra-new-season-1.webp yet', entry['reason'])
+            # Staged already, in whatever format the wiki served it (a webp here): the next run
+            # lists it again for the staged-art stage and reports it, without downloading it
+            # again -- the wiki would have answered with the PNG.
+            (Path(root)/'.cache/ra-maps/ra-new-season-1.png').unlink()
+            kept = io.BytesIO()
+            Image.new('RGB', (40, 30), (1, 2, 3)).save(kept, 'WEBP')
+            (Path(root)/'.cache/ra-maps/ra-new-season-1.webp').write_bytes(kept.getvalue())
             run('import_ra_maps.py', root, ARKPEDIA_WIKI_BASE=base)
-            self.assertEqual((Path(root)/'.cache/ra-maps/ra-new-season-1.webp').read_bytes(), b'kept')
+            self.assertEqual({target: row['file'] for target, row in staged(root, 'ra-maps').items()},
+                             {'stages-images/ra-new-season-1.webp': 'ra-new-season-1.webp'})
+            self.assertEqual((Path(root)/'.cache/ra-maps/ra-new-season-1.webp').read_bytes(), kept.getvalue())
+            self.assertFalse((Path(root)/'.cache/ra-maps/ra-new-season-1.png').exists())
             self.assertEqual([e['key'] for e in entries(root)], ['ra-map:ra-new-season-1'])
 
     def test_ra_maps_reports_a_download_that_is_not_an_image(self):
         with tempfile.TemporaryDirectory() as root, FakeWiki(['File:Nowhere Sands map.png'], b'<html>maintenance</html>') as base:
             write(root, 'data/stages/ra-new-season-1.json', {'slug': 'ra-new-season-1', 'name': 'Nowhere Sands', 'preview': None, 'content': {'kind': 'reclamation'}})
             run('import_ra_maps.py', root, ARKPEDIA_WIKI_BASE=base)
-            self.assertFalse((Path(root)/'.cache/ra-maps/ra-new-season-1.webp').exists())
+            self.assertFalse((Path(root)/'.cache/ra-maps/ra-new-season-1.png').exists())
+            self.assertIsNone(staged(root, 'ra-maps'))
             [entry] = entries(root)
             self.assertIn('is not an image that decodes', entry['reason'])
 
@@ -238,13 +264,16 @@ class WikiImportersDegrade(unittest.TestCase):
             })
             run('import-nation-marks.py', root, ARKPEDIA_WIKI_BASE=base)
             self.assertFalse((Path(root)/'public').exists())
-            self.assertTrue((Path(root)/'.cache/nation-marks/atlantis.webp').exists())
+            # The mask, lossless; the publisher writes the webp.
+            with Image.open(Path(root)/'.cache/nation-marks/atlantis.png') as mask:
+                self.assertEqual((mask.format, mask.mode), ('PNG', 'RGBA'))
+            self.assertEqual(list(staged(root, 'nation-marks')), ['nation-marks/atlantis.webp'])
             # The published crest is mapped; the staged one is not, for either of its contents.
             self.assertEqual(json.loads((Path(root)/'data/nation-marks.json').read_text()), {'camp_zone_3': 'ursus.webp'})
             [entry] = entries(root)
             self.assertEqual((entry['key'], entry['stage'], entry['action'], entry['sourceRef']),
                              ('nation-mark:atlantis', 'nation-marks', 'published-partial', f'{base}/upload/0.png'))
-            self.assertIn('until nation-marks/atlantis.webp is added to arkpedia-image-assets', entry['reason'])
+            self.assertIn('no run has published it to arkpedia-image-assets as nation-marks/atlantis.webp yet', entry['reason'])
 
     def test_cc_stages_stages_a_new_season_render_outside_public_and_leaves_it_unset(self):
         with tempfile.TemporaryDirectory() as root:
@@ -253,14 +282,21 @@ class WikiImportersDegrade(unittest.TestCase):
             write(root, 'data/stages-content.json', {'crisis_v2_s9': {'kind': 'contingency_contract', 'label': 'CC#9'}})
             write(root, 'en/gamedata/excel/medal_table.json', {'medalList': []})
             (Path(root)/'cn/map').mkdir(parents=True)
-            (Path(root)/'cn/map/crisis_v2_09-01.png').write_bytes(png((32, 32), (1, 2, 3, 255)))
-            run('import_cc_stages.py', root, ARKPEDIA_CN=str(Path(root)/'cn'), ARKPEDIA_EN=str(Path(root)/'en'))
+            render = png((32, 32), (1, 2, 3, 255))
+            (Path(root)/'cn/map/crisis_v2_09-01.png').write_bytes(render)
+            pin = '5' * 40
+            run('import_cc_stages.py', root, ARKPEDIA_CN=str(Path(root)/'cn'), ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE=pin)
             self.assertFalse((Path(root)/'public').exists())
-            self.assertTrue((Path(root)/'.cache/cc-stages/crisis_v2_09-01.webp').exists())
+            # The mirror's own bytes, with the path, commit and blob the image repository maps it by.
+            self.assertEqual((Path(root)/'.cache/cc-stages/crisis_v2_09-01.png').read_bytes(), render)
+            self.assertEqual(staged(root, 'cc-stages'), {'stages-images/crisis_v2_09-01.webp': {
+                'file': 'crisis_v2_09-01.png', 'sha256': hashlib.sha256(render).hexdigest(),
+                'source': f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{pin}/map/crisis_v2_09-01.png',
+                'mirror': {'repository': 'yuanyan3060/ArknightsGameResource', 'path': 'map/crisis_v2_09-01.png', 'commit': pin, 'blob': git_blob(render)}}})
             self.assertEqual(json.loads((Path(root)/'data/cc-stages.json').read_text()), {'ccb-9-1': {'code': 'CCB#9-1'}, 'ccb-9-2': {'code': 'CCB#9-2'}})
             self.assertEqual([(e['key'], e['stage'], e['action']) for e in entries(root)],
                              [('cc-render:ccb-9-1', 'cc-stages', 'published-partial'), ('cc-render:ccb-9-2', 'cc-stages', 'published-partial')])
-            self.assertIn('until stages-images/crisis_v2_09-01.webp is added to arkpedia-image-assets', entries(root)[0]['reason'])
+            self.assertIn('no run has published it to arkpedia-image-assets as stages-images/crisis_v2_09-01.webp yet', entries(root)[0]['reason'])
             self.assertIn('has no map/crisis_v2_09-02.png', entries(root)[1]['reason'])
 
     def test_cc_stages_names_every_stage_on_a_day_without_the_cn_art(self):
@@ -300,11 +336,13 @@ class WikiImportersDegrade(unittest.TestCase):
             write(root, 'data/stages/is9-1.json', {'slug': 'is9-1', 'stage_type': 'integrated_strategies', 'id': 'obt/roguelike/ro9/level_rogue9_1-1', 'name': 'Nine'})
             run('import_is_nodes.py', root, ARKPEDIA_CN=str(Path(root)/'cn'), ARKPEDIA_EN=str(Path(root)/'en/en'), PYTHONPATH=str(offline))
             self.assertFalse((Path(root)/'public').exists())
-            self.assertTrue((Path(root)/'.cache/is-nodes/ro9_n_1_1.webp').exists())
+            self.assertEqual((Path(root)/'.cache/is-nodes/ro9_n_1_1.png').read_bytes(), (offline/'render.png').read_bytes())
+            self.assertEqual([(target, row['source']) for target, row in staged(root, 'is-nodes').items()],
+                             [('stages-images/ro9_n_1_1.webp', 'https://raw.githubusercontent.com/fexli/ArknightsResource/6d02b532c2380abd11c467daf706bf4761fae919/mapreview/ro9_n_1_1.png')])
             self.assertEqual(json.loads((Path(root)/'data/is-nodes.json').read_text()), {})
             [entry] = entries(root)
             self.assertEqual((entry['key'], entry['stage'], entry['action']), ('is-render:ro9_n_1_1', 'is-nodes', 'published-partial'))
-            self.assertIn('until stages-images/ro9_n_1_1.webp is added to arkpedia-image-assets', entry['reason'])
+            self.assertIn('no run has published it to arkpedia-image-assets as stages-images/ro9_n_1_1.webp yet', entry['reason'])
 
     def test_item_icons_stages_a_new_token_icon_outside_public_and_leaves_it_unmapped(self):
         # check:assets refuses any image under public/, so copying a new event token's
@@ -320,11 +358,14 @@ class WikiImportersDegrade(unittest.TestCase):
                 {'item': {'id': 'char_002_amiya', 'name': 'Amiya', 'is_operator': True}},
             ]})
             (Path(root)/'cn/item').mkdir(parents=True)
-            (Path(root)/'cn/item/act99side_token_new.png').write_bytes(png((8, 8), (9, 9, 9, 255)))
+            icon = png((8, 8), (9, 9, 9, 255))
+            (Path(root)/'cn/item/act99side_token_new.png').write_bytes(icon)
             pin = '4' * 40
             run_node('import-item-icons.mjs', root, ARKPEDIA_CN=str(Path(root)/'cn'), ARKPEDIA_PIN_YUANYAN3060_ARKNIGHTSGAMERESOURCE=pin)
             self.assertFalse((Path(root)/'public').exists())
             self.assertTrue((Path(root)/'.cache/item-icons/act99side_token_new.png').exists())
+            self.assertEqual(staged(root, 'item-icons')['item-icons/act99side_token_new.png']['mirror'],
+                             {'repository': 'yuanyan3060/ArknightsGameResource', 'path': 'item/act99side_token_new.png', 'commit': pin, 'blob': git_blob(icon)})
             # Published icons are mapped, the published token too; the staged one is not.
             self.assertEqual(json.loads((Path(root)/'data/item-icons.json').read_text()),
                              {'2001': 'drill_battle_record.png', 'act1_token_old': 'act1_token_old.png'})
@@ -332,12 +373,14 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertEqual((entry['key'], entry['stage'], entry['action'], entry['sourceRef']),
                              ('item-icon:act99side_token_new', 'item-icons', 'published-partial',
                               f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{pin}/item/act99side_token_new.png'))
-            self.assertIn('until item-icons/act99side_token_new.png is added to arkpedia-image-assets', entry['reason'])
+            self.assertIn('no run has published it to arkpedia-image-assets as item-icons/act99side_token_new.png yet', entry['reason'])
             # Once the image repository publishes it, it is mapped and the entry clears.
             write(root, 'data/assets/external-asset-index.json', {'files': ['item-icons/drill_battle_record.png', 'item-icons/act1_token_old.png', 'item-icons/act99side_token_new.png']})
             run_node('import-item-icons.mjs', root, ARKPEDIA_CN=str(Path(root)/'cn'))
             self.assertEqual(json.loads((Path(root)/'data/item-icons.json').read_text())['act99side_token_new'], 'act99side_token_new.png')
             self.assertEqual(entries(root), [])
+            # Nothing is left to stage, and last run's list is gone with it.
+            self.assertIsNone(staged(root, 'item-icons'))
             self.assertFalse((Path(root)/'public').exists())
 
 

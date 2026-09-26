@@ -48,7 +48,6 @@ test('palette modes contain only actual Base/E2 artwork, never outfits or low-ra
     if (mode === 'elite2') assert.ok((operators.get(operator.name)?.rarity || 0) >= 4);
   }
   assert.equal(palettes.find((operator) => operator.name === 'Lancet-2')?.elite2, null);
-  assert.equal(palettes.find((operator) => operator.name === 'Chestnut')?.elite2, null);
 });
 
 test('palette hints use real rarity and the main operator class, never its branch', () => {
@@ -81,11 +80,16 @@ test('generated palettes match their artwork fingerprints and cannot silently go
   }
 });
 
-test('every palette tracks its provisional recipe or exact approved review', () => {
+// The version build-color-palettes.py stamps on the palettes it makes for art nobody has
+// reviewed or given a recipe; read from the script, so changing how they are made fails here
+// until they are made again.
+const AUTOMATIC = fs.readFileSync(path.join(process.cwd(), 'scripts/palettes/build-color-palettes.py'), 'utf8').match(/^AUTOMATIC = '([^']+)'$/m)?.[1];
+
+test('every palette tracks its exact approved review, its provisional recipe, or is marked automatic', () => {
   assert.deepEqual(features.roles, ['hair', 'outfit-primary', 'outfit-secondary', 'outfit-detail', 'standout']);
+  assert.ok(AUTOMATIC, 'build-color-palettes.py names its AUTOMATIC version');
   const recipes = features.artworks as Record<string, string[]>;
   const references = features.references as Record<string, string>;
-  assert.deepEqual(Object.keys(recipes).sort(), Object.keys(manifest.artworks).sort());
   for (const [image, entry] of Object.entries(manifest.artworks)) {
     const review = (reviews.artworks as Record<string, PaletteReview>)[image];
     if (review?.status === 'accepted') {
@@ -105,6 +109,14 @@ test('every palette tracks its provisional recipe or exact approved review', () 
       continue;
     }
     const recipe = recipes[image];
+    if (!recipe) {
+      // New art (the palettes stage of the release makes one for every Base and Elite 2
+      // artwork the pinned skin repository has), held in data/quarantine.json until someone
+      // reviews it or writes its recipe.
+      assert.equal((entry as { automatic?: string }).automatic, AUTOMATIC, `Regenerate automatic palette: ${image}`);
+      continue;
+    }
+    assert.equal((entry as { automatic?: string }).automatic, undefined, `${image} has a recipe, so its palette follows it`);
     assert.equal(recipe.length, 5, image);
     const targets = recipe.map((name) => references[name]);
     assert.ok(targets.every((color) => /^#[a-f\d]{6}$/.test(color || '')), image);

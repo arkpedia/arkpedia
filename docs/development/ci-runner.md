@@ -1,8 +1,7 @@
 # CI runners for the private app
 
-The four workflows in this repository (Check, Deploy, Prepare content release,
-Refresh bundled stage fallback) run on the runners that carry the label the
-repository variable `ARKPEDIA_RUNNER` names:
+The three workflows in this repository (Check, Deploy, Prepare content release) run
+on the runners that carry the label the repository variable `ARKPEDIA_RUNNER` names:
 
 ```yaml
 runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}

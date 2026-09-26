@@ -193,8 +193,9 @@ export async function upstreamSync(root, { repository, commit, checkout, folders
 
 /*
  * .cache/upstream/cn-resource as a directory of links. Until 2026-09 it was one checkout of
- * yuanyan's tables and art; that checkout becomes the art checkout, so a cache restored from
- * before (refresh-stage-data.yml keeps one) does not download the art again. Its tables go:
+ * yuanyan's tables and art; that checkout becomes the art checkout, so a cache from before (a
+ * local .cache/upstream, or one the retired refresh-stage-data.yml restored) does not download
+ * the art again. Its tables go:
  * restored from a cache, git takes them for changed files and would keep them at the next
  * sync, 600 MB that nothing reads.
  */

@@ -41,8 +41,11 @@
   color: inherit;
   display: block;
   cursor: pointer;
+  /* An operator tile carries no resting frame (maintainer, 2026-09-26): the portrait
+     says it can be clicked. .card draws a --line-soft one, and .avatar another inside. */
+  border-color: transparent;
 }
-.roster-card:hover { border-color: var(--teal); }
+.roster-card:hover, .roster-card:focus-visible { border-color: var(--teal); }
 .roster-card-enter,
 .skin-card-enter {
   animation: cardRiseIn 0.5s ease-out both;
@@ -121,7 +124,7 @@
 .op-name { min-height: 20px; margin: 0 0 10px; font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
 .roster-card > .op-name { margin: 12px 12px 8px; line-height: 1.35; }
 .roster-card > .hint { margin: 0 12px 12px; line-height: 1.5; }
-.roster-card > .avatar { margin-bottom: 0; }
+.roster-card > .avatar { margin-bottom: 0; border-color: transparent; }
 
 /* --- /obtain-method ---
    Its two filter rows are SegmentedControls (components/ui). It used to borrow the

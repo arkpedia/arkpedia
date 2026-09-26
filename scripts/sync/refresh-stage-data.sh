@@ -40,9 +40,15 @@ fi
 # to rebuild its own data even if every other repo in the project goes away. Each
 # checkout is at the commit pinned for its repository (scripts/lib/upstream.sh).
 #
-# CN art: the CCB map renders and the item icons, which only yuanyan3060 carries. Not
-# an invariant: without it, item-icons is skipped and cc-stages publishes the renders
-# the image repository has; the tables still come from the mirror upstream-cn chose.
+# CN art: the stage and CCB map renders and the item icons, which only yuanyan3060
+# carries. Not an invariant: without it, item-icons and stage-renders are skipped and
+# cc-stages publishes the renders the image repository has; the tables still come from
+# the mirror upstream-cn chose.
+#
+# Every importer below that fetches art stages it under .cache/<kind>/ (config/staged-art.json);
+# none publishes. Inside the daily release the staged-art stage publishes it to
+# arkpedia-image-assets and runs the importer again; run on its own, this leaves it staged
+# and reported.
 stage upstream-cn-art --timeout-minutes 20 -- node scripts/content/cn-tables.mjs art
 # EN gamedata: the whole stage dataset comes out of this one. excel/ for the
 # tables, levels/ for the maps, the waves and the enemy configurations.
@@ -65,6 +71,13 @@ stage stage-dataset -- node scripts/stage-pipeline/build.mjs
 # Limited-time game modes to exclude.
 stage mode-exclusions --needs stage-dataset -- node scripts/build/build-mode-exclusions.mjs
 
+# Map renders for the stages without one: a new event's, from the CN art's map/. Staged in
+# .cache/stage-renders/ for the release's staged-art stage to publish, which then runs this
+# again so the records point at them the same day. Before the index enrichment, which reads
+# which contents have a map or a preview.
+# After mode-exclusions: nothing is fetched for a content the site leaves out.
+stage stage-renders --needs stage-dataset,upstream-cn-art -- node scripts/imports/import-stage-renders.mjs
+
 # Integrated Strategies nodes: renders, Emergency Ops, borrowed names.
 stage is-nodes --needs stage-dataset -- python3 scripts/imports/import_is_nodes.py
 
@@ -79,9 +92,9 @@ stage ra-maps --needs stage-dataset --output data/stages -- python3 scripts/impo
 # Pre-placed devices on each map.
 stage stage-devices --needs stage-dataset -- python3 scripts/imports/import_stage_devices.py
 
-# Supply stages: which permanent stage hands out which material.
-# After the stage build, because it reads data/stages.json.
-stage supply-stages -- node scripts/build/build-supply-stages.mjs
+# Supply stages: which permanent stage hands out which material (the planner's table).
+# After the stage build, because it reads the stage records it writes (data/stages/).
+stage supply-stages --needs stage-dataset -- node scripts/build/build-supply-stages.mjs
 
 # The depot screen's own item order.
 stage ingame-order -- node scripts/build/build-ingame-order.mjs
@@ -174,8 +187,9 @@ stage event-windows -- node scripts/sync/sync-event-windows.mjs
 # them again under the new names. See the script's own header for the sources.
 stage reward-icons -- python3 scripts/imports/import-reward-icons.py
 
-# Banner art: swap CN banners for the EN uploads once global has them.
-stage banner-art -- python3 scripts/sync/sync-banner-art.py
+# Banner and event key art is not a stage here: arkpedia-image-assets' sync-images.yml
+# swaps in the English art (sync_global_banner_art.py, sync_recurring_banner_art.py), and
+# a release takes it with that repository's commit (data/assets/revisions.json).
 
 node -e '
 const fs = require("fs");

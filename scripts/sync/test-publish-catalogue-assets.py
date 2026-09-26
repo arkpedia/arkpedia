@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import redirect_stderr
 from unittest.mock import patch
 from urllib.parse import parse_qsl, urlparse
 sys.dont_write_bytecode = True
@@ -223,6 +224,136 @@ class CatalogueImports(unittest.TestCase):
         self.assertIn('exit status 7', logs[0])
         self.assertIn('exit status 28', logs[1])
         self.assertIn('exit status 56', logs[1])
+
+
+def staged_file(app, kind, target, data, stage='ok', mirror=None, source=None):
+    """An importer's staged file and its listing, as scripts/imports/staged_art.py writes them."""
+    folder = app/'.cache'/kind
+    folder.mkdir(parents=True, exist_ok=True)
+    name = Path(target).stem + '.png'
+    (folder/name).write_bytes(data)
+    listing = folder/'staged.json'
+    files = json.loads(listing.read_text())['files'] if listing.exists() else {}
+    files[target] = {'file': name, 'source': source or f'https://example.invalid/{name}', 'sha256': publish.sha(data),
+                     **({'mirror': {**mirror, 'blob': git_blob(data)}} if mirror else {})}
+    listing.write_text(json.dumps({'version': 1, 'kind': kind, 'files': files}))
+
+
+class StagedArt(unittest.TestCase):
+    """The art the refresh's importers staged under .cache/, published by the same builder."""
+
+    def test_the_staged_plan_lists_only_what_a_stage_that_ran_to_the_end_staged(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app = Path(temporary)
+            (app/'data').mkdir()
+            staged_file(app, 'stage-renders', 'stages-images/pa-1.webp', png('#101010', (320, 180)),
+                        mirror={'repository': 'yuanyan3060/ArknightsGameResource', 'path': 'map/act51side_01.png', 'commit': REVISION})
+            staged_file(app, 'item-icons', 'item-icons/act51side_token.png', png('#202020', (183, 183)))
+            staged_file(app, 'is-nodes', 'stages-images/ro9_n_1_1.webp', png('#303030', (512, 286)))
+            (app/'data/stage-report.json').write_text(json.dumps({'version': 1, 'stages': [
+                {'stage': 'stage-renders', 'status': 'ok'}, {'stage': 'item-icons', 'status': 'ok'},
+                # Rolled back with the dataset it ran on: what it staged waits for a run that keeps it.
+                {'stage': 'is-nodes', 'status': 'rolled-back'}]}))
+            plan = publish.staged_plan(app)
+            self.assertEqual([(e['path'], e['stage'], e['localPath']) for e in plan['files']], [
+                ('item-icons/act51side_token.png', 'item-icons', '.cache/item-icons/act51side_token.png'),
+                ('stages-images/pa-1.webp', 'stage-renders', '.cache/stage-renders/pa-1.png'),
+            ])
+            self.assertEqual(plan['files'][1]['mirror']['path'], 'map/act51side_01.png')
+            # A kind may publish only into the folders config/staged-art.json gives it.
+            staged_file(app, 'item-icons', 'material-icons/Stray.webp', png('#202020', (183, 183)))
+            with self.assertRaisesRegex(ValueError, 'outside the folders'):
+                publish.staged_plan(app)
+
+    def test_each_folder_keeps_its_own_size_and_a_mirror_file_is_mapped_with_its_blob(self):
+        render, icon, token, cover, crest = (png('#404040', (320, 180)), png('#505050', (183, 183)), png('#606060', (183, 183)),
+                                             png('#707070', (800, 800)), png((255, 255, 255, 0), (460, 446)))
+        mirror = lambda path: {'repository': 'yuanyan3060/ArknightsGameResource', 'path': path, 'commit': REVISION}
+        with tempfile.TemporaryDirectory() as temporary:
+            app, image_root = Path(temporary)/'app', Path(temporary)/'image'
+            (app/'data').mkdir(parents=True)
+            asset_repository(image_root)
+            (image_root/'asset-source-map.json').write_text(json.dumps({'version': 1, 'sourceRepository': 'https://github.com/yuanyan3060/ArknightsGameResource', 'files': {}}))
+            staged_file(app, 'stage-renders', 'stages-images/pa-1.webp', render, mirror=mirror('map/act51side_01.png'))
+            staged_file(app, 'item-icons', 'item-icons/act51side_token.png', icon, mirror=mirror('item/act51side_token.png'))
+            staged_file(app, 'reward-icons', 'material-icons/Paper Crown.webp', token, source='https://torappu.prts.wiki/assets/furniture/crown.png')
+            staged_file(app, 'album-covers', 'album-covers/月明人间_cover.webp', cover, source='https://web.hycdn.cn/siren/pic/20260924/c.jpg')
+            staged_file(app, 'nation-marks', 'nation-marks/atlantis.webp', crest)
+            plan = publish.staged_plan(app)
+            built = publish.build(plan, image_root, None, [], app)
+            manifest = json.loads((image_root/'asset-manifest.json').read_text())['files']
+            mapping = json.loads((image_root/'asset-source-map.json').read_text())['files']
+            provenance = json.loads((image_root/'sources/catalogue-imports.json').read_text())
+            formats = {target: Image.open(image_root/target).format for target in built}
+            modes = {target: Image.open(image_root/target).mode for target in built}
+
+        self.assertEqual(sorted(built), sorted(e['path'] for e in plan['files']))
+        sizes = {target: (row['width'], row['height']) for target, row in manifest.items()}
+        # The game's circled icons at their native 183px, never squeezed to a portrait's 180;
+        # a stage render at its own size; a cover at the catalogue's 500px.
+        self.assertEqual(sizes, {'stages-images/pa-1.webp': (320, 180), 'item-icons/act51side_token.png': (183, 183),
+                                 'material-icons/Paper Crown.webp': (183, 183), 'album-covers/月明人间_cover.webp': (500, 500),
+                                 'nation-marks/atlantis.webp': (460, 446)})
+        self.assertEqual(formats['item-icons/act51side_token.png'], 'PNG')
+        self.assertEqual({formats[t] for t in formats if not t.endswith('.png')}, {'WEBP'})
+        self.assertEqual((modes['stages-images/pa-1.webp'], modes['album-covers/月明人间_cover.webp'], modes['nation-marks/atlantis.webp']), ('RGB', 'RGB', 'RGBA'))
+        # Only the mirror's files are mapped for the image repository's sync, by the blob of the
+        # exact bytes staged and at the width its folder keeps.
+        self.assertEqual(mapping, {
+            'stages-images/pa-1.webp': {'sourcePath': 'map/act51side_01.png', 'sourceBlob': git_blob(render), 'maxWidth': 512},
+            'item-icons/act51side_token.png': {'sourcePath': 'item/act51side_token.png', 'sourceBlob': git_blob(icon), 'maxWidth': 183},
+        })
+        self.assertEqual(provenance['material-icons/Paper Crown.webp'],
+                         {'url': 'https://torappu.prts.wiki/assets/furniture/crown.png', 'sha256': publish.sha(token), 'importer': 'reward-icons'})
+        self.assertEqual(provenance['stages-images/pa-1.webp']['importer'], 'stage-renders')
+
+    def test_a_catalogue_token_icon_from_the_mirror_keeps_its_183px_ring(self):
+        token = png('#c0a030', (183, 183))
+        url = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{REVISION}/item/p_char_900_test.png'
+        plan = {'sourceRepository': 'yuanyan3060/ArknightsGameResource', 'revision': REVISION, 'files': [
+            {'path': "material-icons/Test's Token.webp", 'sourcePath': 'item/p_char_900_test.png'}]}
+        with tempfile.TemporaryDirectory() as temporary:
+            image_root, skin_root = Path(temporary)/'image', Path(temporary)/'skin'
+            asset_repository(image_root)
+            asset_repository(skin_root, ('build_artwork_variants.py', 'def build_one(job):\n    return job[0], {}\n'))
+            with patch.object(publish, 'fetch', lambda u: {url: token}[u]):
+                publish.build(plan, image_root, skin_root)
+            row = json.loads((image_root/'asset-manifest.json').read_text())['files']["material-icons/Test's Token.webp"]
+            mapped = json.loads((image_root/'asset-source-map.json').read_text())['files']["material-icons/Test's Token.webp"]
+        self.assertEqual((row['width'], row['height'], mapped['maxWidth']), (183, 183, 183))
+
+    def test_a_staged_file_changed_after_staging_undecodable_or_gone_is_left_out_and_logged_but_not_held_again(self):
+        # Its importer holds it until a run publishes it (stage-render:pa-2 under
+        # stage-renders), so an entry here would name the same file twice in the day's issue.
+        with tempfile.TemporaryDirectory() as temporary:
+            app, image_root = Path(temporary)/'app', Path(temporary)/'image'
+            (app/'data').mkdir(parents=True)
+            asset_repository(image_root)
+            staged_file(app, 'stage-renders', 'stages-images/pa-1.webp', png('#101010', (320, 180)))
+            staged_file(app, 'stage-renders', 'stages-images/pa-2.webp', png('#111111', (320, 180)))
+            staged_file(app, 'stage-renders', 'stages-images/pa-4.webp', png('#141414', (320, 180)))
+            staged_file(app, 'ra-maps', 'stages-images/ra-9.webp', b'<html>not a map</html>')
+            (app/'.cache/stage-renders/pa-2.png').write_bytes(png('#999999', (320, 180)))
+            (app/'.cache/stage-renders/pa-4.png').unlink()
+            alerts, log = [], io.StringIO()
+            with redirect_stderr(log):
+                built = publish.build(publish.staged_plan(app), image_root, None, alerts, app)
+        self.assertEqual(built, ['stages-images/pa-1.webp'])
+        self.assertEqual(alerts, [])
+        self.assertIn('Left out stages-images/pa-2.webp: The staged file .cache/stage-renders/pa-2.png is not the file its importer staged', log.getvalue())
+        self.assertIn('Left out stages-images/pa-4.webp: The staged file .cache/stage-renders/pa-4.png could not be read: ', log.getvalue())
+        self.assertIn('Left out stages-images/ra-9.webp: .cache/ra-maps/ra-9.png is not an image that decodes: ', log.getvalue())
+
+    def test_a_staged_path_outside_the_cache_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app, image_root = Path(temporary)/'app', Path(temporary)/'image'
+            (app/'data').mkdir(parents=True)
+            asset_repository(image_root)
+            plan = {'files': [{'path': 'stages-images/x.webp', 'localPath': '.cache/../data/x.png', 'stage': 'stage-renders', 'source': 'https://example.invalid/x.png'}]}
+            with self.assertRaisesRegex(ValueError, 'Unsafe staged path'):
+                publish.build(plan, image_root, None, [], app)
+            with self.assertRaisesRegex(ValueError, 'Unexpected asset destination'):
+                publish.build({'files': [{'path': 'public/x.webp', 'localPath': '.cache/x.png', 'source': 'https://example.invalid/x.png'}]}, image_root, None, [], app)
 
 
 if __name__ == '__main__':

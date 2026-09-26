@@ -400,12 +400,14 @@
   gap: 4px;
   padding: 12px 14px;
   background: var(--panel-2);
-  border: 1px solid var(--control-border);
+  /* Banner art: no resting frame (maintainer, 2026-09-26). The open banner keeps its
+     teal edge and fill (.active, below); hover and keyboard focus draw the edge. */
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
   cursor: pointer;
   text-align: left;
 }
-.gacha-banner-sidebar-item:hover { border-color: var(--teal); }
+.gacha-banner-sidebar-item:hover, .gacha-banner-sidebar-item:focus-visible { border-color: var(--teal); }
 .gacha-banner-sidebar-live-badge {
   position: absolute;
   top: 8px;

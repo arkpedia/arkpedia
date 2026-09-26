@@ -7,7 +7,7 @@ import { bannerSeriesFromName } from '../operators/operatorSeries';
 import { getAllSkins } from '../skins/skins';
 import { Skin } from '../skins/skinTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
-import { publishedArt } from '@/lib/art/artVersion';
+import { publishedArt } from '@/lib/art/publishedArt';
 
 export interface GameEvent extends GameWindowTimes {
   name: string;
@@ -38,7 +38,7 @@ export function loadGameEvents(): GameEvent[] {
     if (!dateRange) continue;
     const window = parseGameWindow(dateRange, e.global ?? {});
     if (!window) continue;
-    events.push({ name: e.name, poster: publishedArt(e.poster, e.name), year: e.year, ...e.global, dateRange, start: window.start, end: window.end });
+    events.push({ name: e.name, poster: publishedArt(e.poster), year: e.year, ...e.global, dateRange, start: window.start, end: window.end });
   }
   return events;
 }
@@ -186,7 +186,7 @@ export function getEventCalendar(): GameEventListing[] {
       if (!window) continue;
       result.push({
         name: e.name,
-        poster: publishedArt(e.poster, e.name),
+        poster: publishedArt(e.poster),
         year: e.year,
         dateRange: globalRange,
         start: window.start,
@@ -206,7 +206,7 @@ export function getEventCalendar(): GameEventListing[] {
 
     result.push({
       name: e.name,
-      poster: publishedArt(e.poster, e.name),
+      poster: publishedArt(e.poster),
       year: e.year,
       dateRange: formatDateRange(predictedStart, predictedEnd),
       start: predictedStart,

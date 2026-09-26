@@ -449,6 +449,10 @@
   .music-player-bottombar .music-volume { display: none; }
 }
 
+/* The cover a new album shows until arkpedia-image-assets publishes its own
+   (components/music/AlbumCover.tsx); the context sets its size. */
+.music-album-cover-placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-faint); line-height: 1; }
+
 /* ===================== Discover page ===================== */
 /* Headings are the site's .op-section h2; tiles are .btn-bare buttons (as plain
    buttons they inherited the button voice: centred, uppercase song and album names,
@@ -481,7 +485,10 @@
 .music-discover-song-row:hover { border-color: var(--teal); }
 .music-discover-song-row:hover .music-discover-song-title { color: var(--teal); }
 .music-discover-song-cover { flex-shrink: 0; width: 44px; height: 44px; overflow: hidden; border-radius: var(--radius); background: var(--panel-2); }
-.music-discover-song-cover img { width: 100%; height: 100%; object-fit: cover; }
+.music-discover-song-cover-art { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* A song with no YouTube upload yet links to Monster Siren instead of playing. */
+.music-discover-song-row-pending { text-decoration: none; }
+.music-discover-song-cover-art.music-album-cover-placeholder { display: flex; font-size: 18px; }
 .music-discover-song-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .music-discover-song-title { overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .music-discover-song-meta { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -497,10 +504,10 @@
 .music-discover-row.expanded.music-discover-cloud-row { gap: 8px 12px; }
 
 .music-discover-album-tile { display: flex; flex-direction: column; flex-shrink: 0; align-items: stretch; gap: 8px; width: 120px; padding: 0; color: var(--text-dim); text-align: left; cursor: pointer; }
-.music-discover-album-tile img,
-.music-discover-album-tile-placeholder { display: block; width: 100%; aspect-ratio: 1; border: 1px solid transparent; border-radius: var(--radius-control); object-fit: cover; background: var(--panel-2); transition: border-color 0.15s ease; }
-.music-discover-album-tile:hover img,
-.music-discover-album-tile:hover .music-discover-album-tile-placeholder { border-color: var(--teal); }
+.music-discover-album-tile-cover { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid transparent; border-radius: var(--radius-control); object-fit: cover; background: var(--panel-2); transition: border-color 0.15s ease; }
+.music-discover-album-tile:hover .music-discover-album-tile-cover { border-color: var(--teal); }
+.music-discover-album-tile-cover.music-album-cover-placeholder { display: flex; font-size: 26px; }
+.music-discover-album-tile-note { font-size: 11px; color: var(--text-faint); }
 .music-discover-album-tile-name { display: block; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .music-discover-album-tile:hover .music-discover-album-tile-name { color: var(--teal); }
 
@@ -518,6 +525,5 @@
 
 /* Album covers and portraits carry no resting frame (maintainer, 2026-09-26); keyboard
    focus draws the same teal edge as hover. */
-.music-discover-album-tile:focus-visible img,
-.music-discover-album-tile:focus-visible .music-discover-album-tile-placeholder,
+.music-discover-album-tile:focus-visible .music-discover-album-tile-cover,
 .music-discover-character-tile:focus-visible .music-discover-character-portrait { border-color: var(--teal); }

@@ -34,14 +34,16 @@ fetches the same files, and bumping it picks up new seasons.
 NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets
 (stages-images/<render>.webp), and a file in this repository's public/ is refused by
 check:assets, which the daily release runs. A render fetched here is staged in
-.cache/is-nodes/ instead, the form it belongs to is left out of is-nodes.json until the
-image repository publishes it, and it is reported under 'is-nodes' with the path it
-must be published at.
+.cache/is-nodes/ instead, as the source serves it (staged_art.py); the release's
+staged-art stage publishes it and runs this again, which puts its form in is-nodes.json.
+Until then the form is left out and reported under 'is-nodes' with the path it must be
+published at.
 
 Run:  python3 scripts/imports/import_is_nodes.py
 """
 from published_assets import published_assets
 from quarantine import report
+from staged_art import Staging
 import json
 import os
 import ssl
@@ -62,8 +64,6 @@ EN_TABLE = f'{EN}/gamedata/excel/roguelike_topic_table.json'
 
 root = os.getcwd()
 stages_dir = os.path.join(root, 'data', 'stages')
-# Never public/: see the header.
-out_dir = os.path.join(root, '.cache', 'is-nodes')
 
 # This interpreter has no system CA bundle of its own, so the trust store is
 # named explicitly rather than fetching over an unverified connection.
@@ -113,16 +113,15 @@ def elite_conditions():
 
 
 def fetch(rogue_id):
-    """The render as webp bytes, or an error string when the source has none."""
+    """The render as the source serves it, checked to decode, or an error string when the
+    source has none. The publisher encodes it, as stages-images/ takes it."""
     try:
         with urllib.request.urlopen(f'{RAW}/{rogue_id}.png', timeout=60, context=SSL_CONTEXT) as resp:
             raw = resp.read()
-        buf = BytesIO()
-        # Matching the rest of stages-images/, which averages 26KB of webp.
-        Image.open(BytesIO(raw)).convert('RGB').save(buf, 'WEBP', quality=80, method=6)
+        Image.open(BytesIO(raw)).load()
     except Exception as err:
         return None, f'{rogue_id}: {err}'
-    return buf.getvalue(), None
+    return raw, None
 
 
 def main():
@@ -163,15 +162,15 @@ def main():
     needed = sorted(wanted - available)
     print(f'{len(plan)} IS stages resolve to {len(needed)} unpublished renders (normal and Emergency Ops); fetching')
     written, problems, staged = set(available), [], []
+    staging = Staging('is-nodes', root)
     with ThreadPoolExecutor(max_workers=8) as pool:
         for rogue, (data, err) in zip(needed, pool.map(fetch, needed)):
             if err:
                 problems.append(err)
                 continue
-            os.makedirs(out_dir, exist_ok=True)
-            with open(os.path.join(out_dir, f'{rogue}.webp'), 'wb') as fh:
-                fh.write(data)
+            staging.stage(f'stages-images/{rogue}.webp', data, source=f'{RAW}/{rogue}.png')
             staged.append(rogue)
+    staging.commit()
 
     # A form whose render is not published is dropped rather than pointing at a file
     # readers cannot load.
@@ -192,9 +191,9 @@ def main():
     if problems:
         print(f'{len(problems)} could not be fetched: ' + '; '.join(problems[:4]))
     report('is-nodes', [{'key': f'is-render:{rogue}', 'action': 'published-partial', 'sourceRef': f'{RAW}/{rogue}.png',
-                         'reason': f'The Integrated Strategies render {rogue} is staged as .cache/is-nodes/{rogue}.webp, but nothing '
-                                   f'publishes it; its stage form is published without it until stages-images/{rogue}.webp is added '
-                                   'to arkpedia-image-assets.'} for rogue in staged])
+                         'reason': f'The Integrated Strategies render {rogue} is staged as .cache/is-nodes/{rogue}.png, but no run has '
+                                   f'published it to arkpedia-image-assets as stages-images/{rogue}.webp yet; its stage form is '
+                                   'published without it until one does.'} for rogue in staged])
 
 
 if __name__ == '__main__':

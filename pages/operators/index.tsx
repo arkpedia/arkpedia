@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllOperators } from '@/lib/operators/operators';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { useQueryState } from '@/lib/hooks/useQueryState';
@@ -63,16 +64,10 @@ export default function OperatorsIndex({ operators, now }: Props) {
   // tags a long-released operator "In 3 days" is actively wrong -- so
   // the markup and first client paint render from the build's clock
   // (they must agree, or React flags a hydration mismatch) and an
-  // effect re-picks the real time immediately on mount. Same pattern
-  // as the Terminal page's clock. Rounded to the minute so a re-read
-  // is a no-op for React.
-  const [clock, setClock] = useState(now);
-  useEffect(() => {
-    const tick = () => setClock(Date.now());
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // effect re-picks the real time immediately on mount (useReaderClock,
+  // lib/time/readerClock.ts). Same pattern as the Terminal page's clock.
+  // Rounded to the minute, so a re-read within it is a no-op for React.
+  const clock = useReaderClock(now, { tickMs: 1000 });
 
   const rarities = useMemo(
     () => Array.from(new Set(operators.map((op) => op.rarity).filter((r): r is number => r != null))).sort(

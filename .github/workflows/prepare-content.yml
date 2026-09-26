@@ -186,6 +186,21 @@ jobs:
           # Monster Siren's new albums and songs, before the lyrics that key on them.
           stage albums -- npm run albums:refresh
           stage lyrics -- npm run lyrics:refresh
+          # The art the importers above staged under .cache/ instead of publishing -- a new
+          # event's stage renders, drop and reward icons, crests, CC/IS/RA renders, album
+          # covers (config/staged-art.json) -- published to arkpedia-image-assets with the same
+          # deploy key and publisher as the catalogue's media; then those importers run again,
+          # so their records point at the files and their quarantine entries clear today.
+          # After the last importer that stages art, before anything that reads the records.
+          stage staged-art -- bash scripts/sync/publish-catalogue-assets.sh --staged
+          # The palette game's five swatches for every Base and Elite 2 artwork, read from
+          # arkpedia-skin-assets at the commit data/assets/revisions.json pins once staged-art,
+          # the last stage that moves the pins (its assets:update re-pins every asset repository),
+          # has run: the commit the release publishes. Only new or changed art is downloaded.
+          # Art without a review or recipe gets an automatic palette and a hold; the completeness
+          # stage holds any released operator still without one (test-stage-runner.ts keeps
+          # every --revisions reader after every stage that moves the pins).
+          stage palettes -- python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json
           stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
           stage event-farming -- node scripts/sync/sync-event-farming.mjs
           # What the guessers send to readers, measured once every stage that adds records has
@@ -254,8 +269,9 @@ jobs:
           # Compare with the release main serves, not the one the checkout carries: a
           # correction branch's own release/ is stale by design. Compare what they say (the
           # content id, scripts/content/release-input.mjs): a release that differs only in the
-          # run's own records -- the upstream lock, the catalogue's report -- has nothing to
-          # publish. A manifest from before the content id falls back to its release id.
+          # run's own records -- the upstream lock, the catalogue's report -- or in the app
+          # commit that compiled the same pages has nothing to publish. A manifest from before
+          # the content id falls back to its release id.
           prepared_release=$(node -p "(m => m.content ?? m.release)(require('$RUNNER_TEMP/prepared-content/release/manifest.json'))")
           current_release=$(git -C "$repo" show origin/main:release/manifest.json 2>/dev/null | node -p '(m => m.content ?? m.release)(JSON.parse(require("fs").readFileSync(0, "utf8")))' 2>/dev/null || true)
           if [ "$prepared_release" = "$current_release" ]; then

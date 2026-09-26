@@ -13,6 +13,7 @@ import Image from '@/components/content/ContentImage';
 import fs from 'fs';
 import path from 'path';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllOperators } from '@/lib/operators/operators';
 import { isReleasedAt, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -108,10 +109,11 @@ function spacedLevelLabel(state: Pick<BuilderState, 'startingElite' | 'startingL
    now -- it bounds every field and drops unknown operators, and being in lib is
    what lets `npm run audit:import` prove each of its guards by breaking it. */
 
-/** "2 hours ago", coarsely. Client-only: the timestamp is read in an effect, so
- *  the server never renders a relative time that the client would disagree with. */
-function sinceLabel(ts: number): string {
-  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+/** "2 hours ago", coarsely, as of `now`. Client-only: the timestamp is read in an
+ *  effect, so the server never renders a relative time that the client would
+ *  disagree with. */
+function sinceLabel(ts: number, now: number): string {
+  const mins = Math.max(0, Math.round((now - ts) / 60000));
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins} ${mins === 1 ? 'minute' : 'minutes'} ago`;
   const hours = Math.round(mins / 60);
@@ -229,6 +231,8 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   /* Released as of this request, not as of the content export: an operator whose Global day
      comes between two releases appears on it. */
   const operators = useMemo(() => exportedOperators.filter((op) => isReleasedAt(op, now)), [exportedOperators, now]);
+  /* For "edited 2 hours ago": the reader's clock after mount, re-read each minute. */
+  const readerClock = useReaderClock(now, { tickMs: 60_000 });
   /* depotCatalogue: every material the depot can hold, from the release's catalogue
      (data/material-catalogue.json), which only lists materials with a published icon. */
   const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
@@ -1382,7 +1386,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                 a count of the catalogue, which is not a fact about your depot --
                 every reader has most of the list at zero, so the number said
                 the same thing to everybody. */}
-            {depotTouched && <span className="hint plan-hint">&middot; edited {sinceLabel(depotTouched)}</span>}
+            {depotTouched && <span className="hint plan-hint">&middot; edited {sinceLabel(depotTouched, readerClock)}</span>}
             <span className="plan-panel-acts">
               {clearControl('depot')}
               <button
@@ -1965,7 +1969,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
   }
 
   /* The stage-code guard that used to sit here is gone with the hand-typed list it
-     guarded: the supply stages are derived from data/stages.json now, so a code that is
+     guarded: the supply stages are derived from the stage records now, so a code that is
      not a stage cannot be written in the first place, and the script refuses to emit an
      empty map. */
 
