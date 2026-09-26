@@ -51,19 +51,16 @@
   margin: 0 auto;
   padding: 0 var(--page-gutter);
 }
-/* The row of tabs. On a desktop this IS the bar; under the mobile breakpoint it
-   becomes the menu that the collapsed bar opens. */
-.terminal-tabs {
-  display: flex;
-  align-items: stretch;
-  /* Wraps rather than scrolls: the seven tabs only just fit the 1040px frame with
-     macOS font metrics, and on Linux and Windows the last one sat partly behind a
-     scroll whose bar is hidden. A second row keeps every tab reachable and inside the
-     frame (tests/browser/page-bounds.spec.ts measures it on the Linux CI runner). */
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px;
-}
+/* The row of tabs: the site's .tabs strip of .tab links (arkpedia-theme.css), packed
+   from the frame's left edge. On a desktop this IS the bar; under the mobile
+   breakpoint it becomes the menu that the collapsed bar opens. It wraps rather than
+   scrolls (.tabs does): the seven tabs only just fit the frame, and on Linux and
+   Windows the last one sat partly behind a scroll whose bar is hidden. A second row
+   keeps every tab reachable and inside the frame (tests/browser/page-bounds.spec.ts
+   measures it on the Linux CI runner). It was centred, which put the first tab 27px
+   right of the eyebrow and h1 under it. */
+/* The bar's own height: the underline sits on its bottom hairline. */
+.terminal-tabs > * { min-height: 40px; }
 
 /* --- the collapsed bar, under the mobile breakpoint --------------------------
    Hidden on a desktop, where all seven tabs fit. */
@@ -105,6 +102,8 @@
   border-top: 2px solid currentColor;
 }
 
+/* .terminal-tab is now only the Stronghold companion's picker chip (terminal-tab
+   gm-pick, gamemodes.css); the Terminal bar's links are .tab. */
 .terminal-tab {
   flex: 0 0 auto;
   display: flex;
@@ -153,10 +152,6 @@
 /* The bar scrolls sideways, which clipped the outward focus ring to its bottom
    edge: drawn inside the tab instead. */
 .terminal-tab:focus-visible { outline-offset: -2px; }
-.terminal-tab.locked {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
 
 /* --- Score ---------------------------------------------------------------
    One block for the main theme, one for the side-story lines. */
@@ -1017,17 +1012,15 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
     box-shadow: 0 12px 24px rgb(0 0 0 / 0.4);
   }
   .terminal-tabs.open { display: flex; }
-  .terminal-tabs .terminal-tab {
+  .terminal-tabs > .tab {
     padding: 11px 14px;
     border-bottom: 1px solid var(--line-soft);
   }
-  .terminal-tabs .terminal-tab:last-child { border-bottom: 0; }
+  .terminal-tabs > .tab:last-child { border-bottom: 0; }
   /* The current tab is marked along its leading edge here: the bar's own underline
      idiom has nothing to underline in a column. */
-  .terminal-tabs .terminal-tab.current {
-    border-bottom-color: var(--line-soft);
-    box-shadow: inset 2px 0 0 var(--teal);
-  }
+  .terminal-tabs > .tab[aria-current="page"] { box-shadow: inset 2px 0 0 var(--teal); }
+  .terminal-tabs > .tab::after { display: none; }
 }
 @media (max-width: 700px) {
   /* Less air between the slim header's hairline and the first panel: air at 1040px

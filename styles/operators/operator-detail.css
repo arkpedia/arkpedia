@@ -78,7 +78,9 @@
   font-weight: 700;
 }
 
-.op-skill-tabs, .op-module-list {
+/* The skill tabs (components/ui/Tabs): only their place is this file's. */
+.op-skill-tabs { margin: 0 0 12px; }
+.op-module-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -135,9 +137,6 @@
   font-weight: 600;
 }
 
-/* The skill picker: .filter-chip toggles sized as icon tiles (the tile size is in
-   OperatorPage.module.css). */
-.op-skill-tab-btn { border-radius: var(--radius-control); }
 
 .op-skill-recommend-stack {
   display: flex;
@@ -516,16 +515,10 @@
 }
 
 /* --- Amiya's class forms -------------------------------------------------------------
-   Only the row's layout lives here. The options are .filter-chip links, the current form
+   Only the row's place lives here. It is a .tabs strip of .tab links, the current form
    marked aria-current="page"; the class glyphs are masks in currentColor, so they take
-   the chip's text colour in both themes. */
-.op-form-switch {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
+   the tab's colour (teal when current) in both themes. */
+.op-form-switch { margin-top: 8px; }
 
 /* --- a skill's effect on the range ----------------------------------------------
    Shown as the change, not only the result: a grid on its own does not say whether the

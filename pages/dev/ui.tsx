@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
 import SearchInput from '@/components/ui/SearchInput';
 import ScrollRow from '@/components/ui/ScrollRow';
@@ -37,6 +38,7 @@ export default function UiPrimitivesPage() {
   const [rarity, setRarity] = useState<number | 'all'>('all');
   const [tags, setTags] = useState<string[]>(['Healing']);
   const [preset, setPreset] = useState('a');
+  const [tab, setTab] = useState<'overview' | 'skills' | 'modules'>('overview');
   const [faction, setFaction] = useState('');
   const [month, setMonth] = useState('September');
   const [plain, setPlain] = useState('');
@@ -69,6 +71,24 @@ export default function UiPrimitivesPage() {
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'a'} onClick={() => setPreset('a')}>Preset A (pick-card)</button>
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'b'} onClick={() => setPreset('b')}>Preset B</button>
             <button type="button" className="btn-bare" style={card}>btn-bare: a card</button>
+          </div>
+        </section>
+
+        <section className="op-section" id="tabs">
+          <h2>Tabs</h2>
+          {/* One of N panels in place: the first label starts on the heading's edge. */}
+          <Tabs label="Example sections" id="dev-tabs" value={tab} onChange={setTab}
+            options={[{ value: 'overview', label: 'Overview' }, { value: 'skills', label: 'Skills', count: 3 }, { value: 'modules', label: 'Modules', disabled: true }]} />
+          <p {...tabPanelProps('dev-tabs', tab)} className="hint">The {tab} panel. Left/Right, Home and End move along the strip.</p>
+          {/* Links between routes take the same classes, marked aria-current. */}
+          <nav className="tabs" aria-label="Example routes" style={{ marginTop: 14 }}>
+            <a className="tab" href="#tabs" aria-current="page">Terminal</a>
+            <a className="tab" href="#tabs">Score</a>
+            <a className="tab" href="#tabs">Supplies</a>
+          </nav>
+          <div style={{ ...row, marginTop: 14 }}>
+            <span className="badge-live">Live now</span>
+            <span className="badge-live">Running now</span>
           </div>
         </section>
 

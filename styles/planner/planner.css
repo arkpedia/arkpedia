@@ -185,9 +185,9 @@
 .simple-search-text { display:grid; gap:2px; min-width:0; }
 .simple-search-text small { color:var(--text-dim); font-size:11px; }
 .simple-search-add { margin-left:auto; color:var(--text-dim); }
-.simple-operator-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:10px; margin-bottom:6px; }
-.simple-operator-tabs button { display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0; min-height:44px; padding:5px 12px; border:1px solid var(--control-border); background:var(--panel); color:var(--text-dim); border-radius:var(--radius); }
-.simple-operator-tabs button[aria-pressed="true"] { border-color:var(--teal); color:var(--teal); background:var(--teal-dim); }
+/* The per-operator view is components/ui/Tabs (.tabs / .tab, arkpedia-theme.css): only
+   its place is this file's. It wraps rather than scrolling sideways. */
+.simple-operator-tabs { margin-bottom:12px; }
 .simple-dossier { display:grid; grid-template-columns:minmax(200px,30%) minmax(0,1fr); background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-frame); overflow:hidden; }
 .simple-portrait { position:relative; min-height:420px; background:var(--bg); }
 .simple-portrait > img { object-fit:contain; object-position:center; }
@@ -270,13 +270,6 @@
 .planner-state-label { display:inline-flex; align-items:center; gap:5px; }
 .simple-build-summary b { display:flex; align-items:center; gap:6px; }
 
-.simple-operator-tab { display:flex; flex-shrink:0; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--panel); overflow:hidden; }
-.simple-operator-tab:hover { border-color:var(--teal); }
-.simple-operator-tab[data-selected="true"] { border-color:var(--teal); background:var(--teal-dim); }
-.simple-operator-tab button,.simple-operator-tab button[aria-pressed="true"] { border:0; border-radius:0; background:transparent; }
-.simple-operator-tab .simple-operator-remove { justify-content:center; min-width:36px; padding:5px 8px; font-size:22px; font-weight:400; }
-.simple-operator-tab .simple-operator-remove:hover { color:var(--text); background:var(--line); }
-.simple-operator-tab button:focus-visible { outline:2px solid var(--teal); outline-offset:-3px; }
 
 .simple-editor-title { margin:0; font-size:22px; line-height:1.15; }
 .simple-wizard .wizard-foot { justify-content:flex-end; }

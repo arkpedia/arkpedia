@@ -66,23 +66,15 @@
 }
 .live-section-heading-row h2 { margin: 0; }
 
-/* Badges drawn over a stream thumbnail: white on a dark scrim in both themes. */
+/* The live badge over a stream thumbnail is .badge-live (arkpedia-theme.css), the
+   site's one "live now" badge, Twitch's included: it was Twitch purple there and red
+   on YouTube, two looks for one meaning. Only its place is this file's. */
 .live-now-badge {
   position: absolute;
   top: 8px;
   left: 8px;
   z-index: 2;
-  padding: 3px 7px;
-  border-radius: var(--radius);
-  background: var(--danger-solid);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
 }
-/* Twitch's brand purple, behind white text. */
-.live-now-badge-twitch { background: #772ce8; }
 .creator-name-badge {
   position: absolute;
   top: 8px;

@@ -186,7 +186,7 @@ test.describe('/events/[slug]', () => {
 
   test('unlimited store stock never totals to ×0 (GE-15)', async ({ page }) => {
     await page.goto(PEOPLE);
-    await page.getByRole('group', { name: 'Event sections' }).getByRole('button', { name: 'Rewards' }).click();
+    await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Rewards' }).click();
     const totals = page.locator('.event-reward-total');
     await expect(totals.first()).toBeVisible();
     const texts = await totals.allInnerTexts();
@@ -195,9 +195,9 @@ test.describe('/events/[slug]', () => {
 
   test('placeholder tabs are hidden', async ({ page }) => {
     await page.goto(PEOPLE);
-    const tabs = page.getByRole('group', { name: 'Event sections' });
-    await expect(tabs.getByRole('button', { name: 'Packs' })).toHaveCount(0);
-    await expect(tabs.getByRole('button', { name: 'Miscellaneous' })).toHaveCount(0);
+    const tabs = page.getByRole('tablist', { name: 'Event sections' });
+    await expect(tabs.getByRole('tab', { name: 'Packs' })).toHaveCount(0);
+    await expect(tabs.getByRole('tab', { name: 'Miscellaneous' })).toHaveCount(0);
     await expect(page.getByText('Coming soon')).toHaveCount(0);
   });
 
@@ -205,13 +205,13 @@ test.describe('/events/[slug]', () => {
     test.use(PHONE);
     test('switching to a shorter tab at the bottom holds the reader (Anti-Page Jump)', async ({ page }) => {
       await page.goto(PEOPLE);
-      const tabs = page.getByRole('group', { name: 'Event sections' });
+      const tabs = page.getByRole('tablist', { name: 'Event sections' });
       // The tab row near the top of the screen with the tall Rewards list under it:
       // the reader can see the tab they press, and a shorter tab would leave the page
       // shorter than where they are.
       for (const shorter of ['Skins', 'Banner']) {
-        await tabs.getByRole('button', { name: 'Rewards' }).click();
-        const moved = await anchorMovement(page, tabs, () => tabs.getByRole('button', { name: shorter }).click(), 70);
+        await tabs.getByRole('tab', { name: 'Rewards' }).click();
+        const moved = await anchorMovement(page, tabs, () => tabs.getByRole('tab', { name: shorter }).click(), 70);
         expect(Math.abs(moved), `Rewards -> ${shorter} moves the tab row`).toBeLessThan(4);
       }
       // The hold is only what that position needed: back at the top of the page there
@@ -227,8 +227,8 @@ test.describe('/events/[slug]', () => {
       });
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await expect.poll(blankBelow, { message: 'the hold is released at the top' }).toBeLessThanOrEqual(24);
-      await tabs.getByRole('button', { name: 'Rewards' }).click();
-      await tabs.getByRole('button', { name: 'Skins' }).click();
+      await tabs.getByRole('tab', { name: 'Rewards' }).click();
+      await tabs.getByRole('tab', { name: 'Skins' }).click();
       expect(await blankBelow(), 'a switch at the top holds nothing').toBeLessThanOrEqual(24);
     });
   });

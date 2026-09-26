@@ -107,7 +107,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
           >
             <div className="front-community-thumb-wrap">
               <Image src={active.data.thumbnailUrl} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
-              <span className="front-live-badge">LIVE</span>
+              <span className="badge-live front-live-badge">LIVE</span>
             </div>
             <p className="front-community-title">{active.data.title}</p>
             <p className="hint">{active.data.displayName} on Twitch</p>

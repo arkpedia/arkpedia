@@ -862,19 +862,12 @@
   letter-spacing: 0.08em;
   color: var(--text-faint);
 }
+/* "Running now" is .badge-live (arkpedia-theme.css), the site's one live badge: it
+   was teal on --teal-dim, the "on" colour, used for a status. Placed here only. */
 .stage-mode-live {
   position: absolute;
   top: 6px;
   left: 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 2px 5px;
-  border-radius: var(--radius-frame);
-  background: var(--teal-dim);
-  border: 1px solid var(--teal);
-  color: var(--teal);
 }
 .stage-mode-meta {
   display: flex;
@@ -1777,24 +1770,24 @@
    A heading, four actions and a view control do not fit across 375px, and left to wrap
    they came out ragged: three buttons on one line, two on the next, the icon orphaned.
    So the head wraps deliberately instead -- the title and the fullscreen control keep
-   the first line, and the four actions take the full width below as an even 2x2 grid.
-   Equal cells also mean pressing one cannot resize it. */
+   the first line, and the four actions take a line of their own below, at their own
+   width from the section's edge. They were an even 2x2 grid, which centred each label
+   in half the line and put the first one 49.6px in from the heading (r9 census). */
 @media (max-width: 700px) {
   .stage-section-head { flex-wrap: wrap; }
   .stage-section-head > .stage-fullscreen { margin-left: auto; }
   .stage-map-tools {
     flex: 1 1 100%;
     margin-left: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    flex-wrap: wrap;
     gap: 6px;
-    /* Last, so the full-width grid does not push the fullscreen control onto a third
+    /* Last, so the full-width row does not push the fullscreen control onto a third
        line of its own. Wrapping follows DOM order otherwise, and the control is the
        last child. */
     order: 1;
   }
-  .stage-map-tools button { font-size: 11px; padding: 8px 6px; }
-  /* "Toggle Paths" becomes "Paths": the verb is doing no work in a cell this wide. */
+  .stage-map-tools button { font-size: 11px; padding: 8px 10px; }
+  /* "Toggle Paths" becomes "Paths": the verb is doing no work on a phone. */
   .wide-only { display: none; }
 }
 

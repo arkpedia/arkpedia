@@ -6,7 +6,7 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SearchInput from '@/components/ui/SearchInput';
 import { useNavOffset } from '@/lib/hooks/useNavOffset';
 import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -810,11 +810,13 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           spent the page under the fixed nav, and not one of the seven tabs could be
           clicked once it pinned. */}
       <div className="gm-lookup" ref={lookupRef} style={navOffset == null ? undefined : { top: navOffset }}>
-        {/* The site's pick-one control: one section shows at a time. It was a
-            button of its own (28px, the pre-token teal); the chip is 32px (36 on a
-            phone) and says "current" the way every other one does. */}
-        <SegmentedControl
+        {/* The site's tabs: one section shows at a time, and the strip is a real
+            tablist over the seven panels below. It was a button of its own (28px, the
+            pre-token teal), then SegmentedControl chips; the first label now starts
+            on the page's left edge, under the h1. */}
+        <Tabs
           label="Sections"
+          id="gm-section"
           value={tab}
           onChange={goTab}
           options={TABS.map(([id, label]) => ({ value: id, label, count: needle ? tabHits[id] : undefined }))}
@@ -843,7 +845,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           the Operators tab. The search box lives in the bar above, over everything. */}
 
       {/* --- the roster ------------------------------------------------------- */}
-      <section className="terminal-panel wide gm-anchor" data-tab="Operators" hidden={tab !== 'operators'}>
+      <section className="terminal-panel wide gm-anchor" data-tab="Operators" hidden={tab !== 'operators'} {...tabPanelProps('gm-section', 'operators')}>
         <div className="stage-section-head op-section">
           <h2>The roster, by dispatch tier</h2>
           {/* The count, as the Items panel says it. "tier - cost - what it does" was a
@@ -968,7 +970,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       {/* --- the alliances ---------------------------------------------------- */}
-      <section className="terminal-panel wide" data-tab="Alliances" hidden={tab !== 'alliances'}>
+      <section className="terminal-panel wide" data-tab="Alliances" hidden={tab !== 'alliances'} {...tabPanelProps('gm-section', 'alliances')}>
         <div className="stage-section-head op-section">
           <h2>What each alliance pays out</h2>
           <span className="terminal-pill">
@@ -1016,7 +1018,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       {/* --- the other five --------------------------------------------------- */}
-      <section className="terminal-panel wide" data-tab="Strategies" hidden={tab !== 'strategies'}>
+      <section className="terminal-panel wide" data-tab="Strategies" hidden={tab !== 'strategies'} {...tabPanelProps('gm-section', 'strategies')}>
         <div className="stage-section-head op-section">
           <h2>Leaders and what they open with</h2>
           <span className="terminal-pill">
@@ -1057,7 +1059,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         </div>
       </section>
 
-      <section className="terminal-panel wide" data-tab="Items" hidden={tab !== 'items'}>
+      <section className="terminal-panel wide" data-tab="Items" hidden={tab !== 'items'} {...tabPanelProps('gm-section', 'items')}>
         <div className="stage-section-head op-section">
           <h2>Equipment and what it costs</h2>
           <span className="terminal-pill">
@@ -1126,7 +1128,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         </div>
       </section>
 
-      <section className="terminal-panel wide" data-tab="Enemies" hidden={tab !== 'enemies'}>
+      <section className="terminal-panel wide" data-tab="Enemies" hidden={tab !== 'enemies'} {...tabPanelProps('gm-section', 'enemies')}>
         <div className="stage-section-head op-section">
           <h2>The mode&rsquo;s own enemy groups</h2>
           <span className="terminal-pill">
@@ -1218,6 +1220,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           className="terminal-panel wide"
           data-tab={group.title}
           hidden={tab !== (group.title === 'Bounty' ? 'bounty' : 'tactical')}
+          {...tabPanelProps('gm-section', group.title === 'Bounty' ? 'bounty' : 'tactical')}
         >
           <div className="stage-section-head op-section">
             <h2>{group.blurb}</h2>

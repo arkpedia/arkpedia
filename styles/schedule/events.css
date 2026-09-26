@@ -42,17 +42,12 @@
   overflow: hidden;
   background: var(--panel-2);
 }
+/* .badge-live (arkpedia-theme.css) draws it -- it was Inter here and mono on /gacha;
+   this only places it. */
 .events-row-live-badge {
   position: absolute;
   top: 4px;
   left: 4px;
-  /* was #e0554f -- white on it measured 3.76:1 */
-  background: var(--danger-solid);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: var(--radius);
 }
 .events-row-info {
   display: flex;
@@ -206,7 +201,7 @@
   }
 }
 
-/* Rewards: the store picker is a SegmentedControl; All is a wrapping row of totals,
+/* Rewards: the store picker is components/ui/Tabs; All is a wrapping row of totals,
    each with its name under the icon. */
 .event-rewards-tabs { margin-bottom: 14px; }
 .event-reward-totals {

@@ -1,4 +1,0 @@
-/* The game switcher: .filter-chip links in a .seg-control row, the current game marked
-   with aria-current (and the chip's .active alias for its paint). Links are underlined
-   by default; a chip is not. */
-.gameLinks a { text-decoration: none; }

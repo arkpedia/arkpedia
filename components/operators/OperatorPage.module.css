@@ -147,17 +147,12 @@
 .creditValue > span { display: flex; grid-area: 1 / 1; align-items: center; min-width: 0; min-height: 28px; }
 
 /* --- skills ------------------------------------------------------------------------- */
-.page :global(#operator-skills) { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 14px; }
-.page :global(#operator-skills) > * { grid-column: 1 / -1; }
-.page :global(#operator-skills) > h2 { grid-row: 1; }
-.page :global(#operator-skills > .op-skill-tabs) { grid-column: 1; grid-row: 2; align-self: start; gap: 4px; margin: 0; }
-/* Every skill's title takes part in sizing; only the selected one is visible. */
-.page :global(#operator-skills) > .selectedSkill { display: grid; grid-column: 2; grid-row: 2; align-self: stretch; gap: 0; margin: 0; color: var(--text); font: 600 22px/1.2 var(--font-display); }
+/* The skill tabs (components/ui/Tabs with the skill icons, .op-skill-tabs in
+   operator-detail.css) lead the section under its h2 and the selected skill's panel
+   follows. Every skill's title takes part in sizing the header; only the selected one
+   is visible. */
+.selectedSkill { display: grid; gap: 0; margin: 0; color: var(--text); font: 600 22px/1.2 var(--font-display); }
 .skillTitleVariant { display: flex; flex-wrap: wrap; grid-area: 1 / 1; align-content: flex-start; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
-.page :global(.op-skill-tab-btn) { flex-direction: column; justify-content: center; gap: 3px; width: 56px; height: 62px; min-height: 44px; padding: 4px 3px; }
-.page :global(.op-skill-tab-btn img) { width: 34px; height: 34px; }
-/* Under the icon in a 56px chip: mono without the chip's tracking, or "SKILL 1" spills. */
-.skillNumber { font: 600 10px/1 var(--font-mono); letter-spacing: 0; }
 .skillLevelControl { display: grid; grid-template-columns: auto 72px minmax(0, 1fr); align-items: center; gap: 8px; margin: 8px 0; }
 .skillLevelControl label { color: var(--text-dim); font-size: 13px; }
 .skillLevelControl input { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 0; }
@@ -246,8 +241,6 @@
 .relationGrid a span { min-width: 0; font-size: 12px; line-height: 1.25; overflow-wrap: anywhere; }
 
 @container operatorDetails (max-width: 540px) {
-  .page :global(#operator-skills > .op-skill-tabs) { grid-column: 1 / -1; grid-row: 2; margin-bottom: 12px; }
-  .page :global(#operator-skills) > .selectedSkill { grid-column: 1 / -1; grid-row: 3; }
   .skillMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
   .skillMetrics > div:nth-child(3) { grid-column: 1; grid-row: 2; }
   .skillMetrics > div:nth-child(4) { grid-column: 2; grid-row: 2; }
@@ -265,7 +258,6 @@
   .details { display: block; height: auto; overflow: visible; }
   .hero { padding: 14px; }
   .identity :global(.op-header-flex) { flex-wrap: wrap; gap: 12px; }
-  .identity :global(.op-form-switch) { gap: 4px; }
   .area { min-height: calc(100svh - var(--nav-h, 52px) - 132px); padding: 12px 8px 64px; overflow: visible; --operator-player-inset: 21px; }
   .content > [data-operator-section] { padding: 12px; }
   .talentOptions > button { min-height: 44px; }
@@ -285,7 +277,7 @@
   .identity :global(.op-name-row) { grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; }
   .hero { padding: 12px; }
   .page :global(#operator-skills) { gap: 0 10px; }
-  .page :global(#operator-skills) > .selectedSkill { font-size: 18px; }
+  .selectedSkill { font-size: 18px; }
 }
 @media (max-width: 360px) {
   .area { --operator-player-inset: 17px; }

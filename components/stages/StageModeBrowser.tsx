@@ -186,7 +186,7 @@ export default function StageModeBrowser({ cards, counts, now }: Props) {
                 ) : (
                   <span className="stage-mode-art-none">{card.label || MODE_SHORT[card.kind] || '--'}</span>
                 )}
-                {live && <span className="stage-mode-live">Running now</span>}
+                {live && <span className="badge-live stage-mode-live">Running now</span>}
                 {card.mapless && <NoMapNote />}
                 {card.ministory && <MinistoryMark />}
               </span>

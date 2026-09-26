@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PipWindow, { isOperaBrowser, pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import PageHeader from '@/components/ui/PageHeader';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SearchInput from '@/components/ui/SearchInput';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { computeTagCombos, getRecruitmentTagCategories, type GuaranteedCombo, type RecruitableOperator, type TagCombo } from '@/lib/gacha/recruitmentCalc';
@@ -209,9 +209,9 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
             : <p className="recruit-compact-note">Keep this window beside your game. This view does not stay on top.</p>)}
 
           <div className="recruit-toolbar">
-            <SegmentedControl
+            <Tabs
               label="Recruitment view"
-              className="recruit-view-switch"
+              id="recruit-view"
               value={activeSection}
               onChange={(section) => updateView({ activeSection: section })}
               options={[{ value: 'calculator', label: 'Calculator' }, { value: 'cheatsheet', label: 'Guarantee cheat sheet' }]}
@@ -220,7 +220,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
           </div>
 
           {activeSection === 'calculator' ? (
-            <div className="recruit-workspace">
+            <div className="recruit-workspace" {...tabPanelProps('recruit-view', 'calculator')}>
               <section className="recruit-picker op-section" aria-labelledby="recruit-picker-title">
                 <div className="recruit-section-heading">
                   <h2 id="recruit-picker-title">Your tags {isCompact && <span className="recruit-selection-count">{selectedTags.length}/5</span>}</h2>
@@ -276,7 +276,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
               </section>
             </div>
           ) : (
-            <section className="recruit-cheatsheet op-section" aria-labelledby="recruit-sheet-title">
+            <section className="recruit-cheatsheet op-section" {...tabPanelProps('recruit-view', 'cheatsheet')}>
               <div className="recruit-section-heading">
                 <h2 id="recruit-sheet-title">Tags worth keeping</h2>
                 <span className="recruit-sheet-legend"><span className="recruit-rarity-5">5★</span><span className="recruit-rarity-4">4★+</span></span>

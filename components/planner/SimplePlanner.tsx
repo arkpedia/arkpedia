@@ -16,6 +16,8 @@ import { sortMaterials } from "@/lib/farming/materialSortOrder";
 import { plannerModules } from "@/lib/planner/build";
 import { MaterialIcon } from "./MaterialIcon";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import Tabs, { tabPanelProps } from "@/components/ui/Tabs";
+import { useSwitchHold } from "@/components/ui/useSwitchHold";
 import SearchInput from "@/components/ui/SearchInput";
 import Rarity, { rarityLevel } from "@/components/ui/Rarity";
 
@@ -77,6 +79,9 @@ export function SimpleMaterialGroups({
   );
 }
 
+/** The All tab's value: no operator is named "". */
+const ALL_MATERIALS = "";
+
 function Level({ elite, level }: { elite: number; level: number }) {
   return (
     <>
@@ -115,6 +120,11 @@ export function SimplePlanner({
   onRetry: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  /* An operator's dossier is taller than All materials, so switching back to All (or
+     removing the operator on show) from the foot of a dossier can shorten the page
+     under the reader: the Anti-Page Jump hold, taken in the handler before the switch.
+     (A 249px clamp on a phone was seen in one test run; it did not reproduce.) */
+  const viewHold = useSwitchHold("planner-simple");
   const matches = useMemo(
     () =>
       operators
@@ -176,52 +186,34 @@ export function SimplePlanner({
       {clearControl}</div>
       {selectedNames.length > 0 ? (
         <>
-          <div
+          {/* The site's tabs: All, then one per planned operator, each removable.
+              A tab may not hold a button, so the × is the mouse's way to remove
+              one and Delete (or Backspace) on the focused tab is the keyboard's. */}
+          <Tabs
+            label="View materials for"
+            id="planner-operator"
             className="simple-operator-tabs"
-            role="group"
-            aria-label="View materials for"
-          >
-            <button
-              type="button"
-              aria-pressed={!name}
-              onClick={() => onSelect(null)}
-            >
-              All
-            </button>
-            {selectedNames.map((n) => {
-              const o = operators.find((o) => o.name === n);
-              return (
-                <div key={n} className="simple-operator-tab" data-selected={name === n}>
-                  <button
-                    type="button"
-                    aria-pressed={name === n}
-                    onClick={() => onSelect(n)}
-                  >
-                    {o && (
-                      <Image
-                        src={getOperatorIconPath(o)}
-                        alt=""
-                        width={32}
-                        height={32}
-                      />
-                    )}
-                    {n}
-                  </button>
-                  <button
-                    type="button"
-                    className="simple-operator-remove"
-                    aria-label={`Remove ${n} from plan`}
-                    title={`Remove ${n} from plan`}
-                    onClick={() => onRemove(n)}
-                  >
-                    <span aria-hidden="true">×</span>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+            value={name ?? ALL_MATERIALS}
+            onChange={(value) => { viewHold.capture(); onSelect(value === ALL_MATERIALS ? null : value); }}
+            options={[
+              { value: ALL_MATERIALS, label: "All" },
+              ...selectedNames.map((n) => {
+                const o = operators.find((o) => o.name === n);
+                return {
+                  value: n,
+                  label: n,
+                  icon: o ? <Image src={getOperatorIconPath(o)} alt="" width={32} height={32} /> : undefined,
+                };
+              }),
+            ]}
+            removable={{
+              onRemove: (value) => { viewHold.capture(); onRemove(value); },
+              label: (option) => (option.value === ALL_MATERIALS ? null : `Remove ${option.value} from plan`),
+            }}
+          />
+          <div ref={viewHold.ref} style={viewHold.style}>
           {name && summary && state ? (
-            <article className="simple-dossier">
+            <article className="simple-dossier" {...tabPanelProps("planner-operator", name)}>
               <div className="simple-portrait">
                 <Image
                   src={summary.art || getOperatorIconPath(summary)}
@@ -298,7 +290,7 @@ export function SimplePlanner({
               </div>
             </article>
           ) : (
-            <section className="simple-all">
+            <section className="simple-all" {...tabPanelProps("planner-operator", ALL_MATERIALS)}>
               <h2>All materials</h2>
               {pending.length ? (
                 <p role="status">
@@ -319,6 +311,7 @@ export function SimplePlanner({
               )}
             </section>
           )}
+          </div>
         </>
       ) : (
         <div className="simple-empty">
