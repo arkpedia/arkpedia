@@ -1,4 +1,5 @@
 import { GetStaticProps } from 'next';
+import { withContentPage } from '@/lib/content/server';
 import Head from 'next/head';
 import Link from 'next/link';
 import { getLatestVideos, enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
@@ -21,7 +22,7 @@ interface Props {
   videos: YouTubeVideo[];
   twitchStreams: TwitchStream[];
   events: CommunityEvent[];
-  /** When these props were made: the event panels render from it until they mount. */
+  /** The request's moment (lib/content/pageClock.ts): the event panels render from it until they mount. */
   now: number;
   hasYouTubeApiKey: boolean;
   hasTwitchCreds: boolean;
@@ -137,7 +138,11 @@ export default function CommunityHub({
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+/* A page of the content release like /results: the site nav's art and the event list resolve
+   against the release's asset pin, not the one this deploy's revisions.json carried. The
+   feeds are live, not game data, so they are fetched on every revalidation (finalize) and
+   never exported into the release; the builder holds only what the release should carry. */
+async function withLiveFeeds(props: Props): Promise<Props> {
   const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const enriched = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
@@ -158,14 +163,14 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   );
 
   return {
-    props: {
-      videos,
-      twitchStreams,
-      events: EVENTS,
-      now: Date.now(),
-      hasYouTubeApiKey: Boolean(youtubeApiKey),
-      hasTwitchCreds: Boolean(twitchClientId && twitchClientSecret),
-    },
-    revalidate: 1500,
+    ...props,
+    videos,
+    twitchStreams,
+    hasYouTubeApiKey: Boolean(youtubeApiKey),
+    hasTwitchCreds: Boolean(twitchClientId && twitchClientSecret),
   };
-};
+}
+
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
+  props: { events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
+}), { finalize: withLiveFeeds, revalidate: 1500 });

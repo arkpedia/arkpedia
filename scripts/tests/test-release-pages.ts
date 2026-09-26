@@ -13,7 +13,6 @@ import { test } from 'node:test';
  * default.
  */
 const OUTSIDE_THE_RELEASE: Record<string, string> = {
-  'pages/community.tsx': 'YouTube listings fetched at ISR, no game data',
   'pages/community/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
   'pages/community/videos.tsx': 'YouTube listings fetched at ISR, no game data',
   'pages/community/youtube-live.tsx': 'YouTube listings fetched at ISR, no game data',
@@ -50,4 +49,6 @@ test('a page with a data function is in the content release, or listed here with
   for (const file of Object.keys(OUTSIDE_THE_RELEASE)) if (!fs.existsSync(file)) problems.push(`${file} is listed as outside the release but no longer exists`);
   assert.deepEqual(problems, []);
   assert.ok(released.includes('/results'));
+  // Its nav art pinned to the deploy's revisions.json and its event list froze with the build.
+  assert.ok(released.includes('/community'));
 });

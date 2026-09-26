@@ -22,6 +22,7 @@ const CLOCK_UNITS: Record<string, number> = {
   '/games/color-palette': 60_000,
   '/games/music-guesser': 60_000,
   '/planner': 60_000,
+  '/community': 60_000,
 };
 
 /** The props contentPageClock owns. A page's data builder never sets them. */
