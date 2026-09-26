@@ -9,6 +9,7 @@ import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
 import { getScoreLines, ScoreLine } from '@/lib/stages/terminal';
+import { actMark } from '@/lib/stages/actMarks';
 
 /**
  * Score: the story lines, laid out the way the game's own Terminal lays them out.
@@ -26,16 +27,6 @@ interface Props {
 }
 
 const YEAR = (unix: number | null) => (unix ? new Date(unix * 1000).getUTCFullYear() : null);
-
-/** By act number, from 0: the mark's file, and what to call it out loud. The game
- *  does not number the first act -- it marks it `initium` -- so this is not a
- *  roman-numeral function. */
-const ACT_MARKS: [file: string, label: string][] = [
-  ['initium', 'initium'],
-  ['i', 'I'],
-  ['ii', 'II'],
-  ['iii', 'III'],
-];
 
 export default function ScorePage({ lines }: Props) {
   const contentUrl = useContentUrl();
@@ -78,6 +69,8 @@ export default function ScorePage({ lines }: Props) {
 
 function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
   const contentUrl = useContentUrl();
+  // An act the list does not know (an Act IV) gets no wordmark rather than initium's.
+  const mark = line.act != null ? actMark(line.act) : null;
   return (
     <div
       className={`score-line${act ? ' act' : ''}`}
@@ -87,12 +80,12 @@ function Line({ line, act }: { line: ScoreLine; act?: boolean }) {
     >
       <div className="score-line-head">
         {/* The game's own wordmark for an act, and the line's two-letter code for a
-            story line. Act 0 is marked `initium`, not I. */}
-        {line.act != null ? (
+            story line. Act 0 is marked `initium`, not I (lib/stages/actMarks.ts). */}
+        {mark ? (
           <Image
             className="score-act-mark"
-            src={`/act-marks/${(ACT_MARKS[line.act] ?? ACT_MARKS[0])[0]}.webp`}
-            alt={`Act ${(ACT_MARKS[line.act] ?? ACT_MARKS[0])[1]}`}
+            src={`/act-marks/${mark.file}.webp`}
+            alt={`Act ${mark.label}`}
             width={86}
             height={33}
           />

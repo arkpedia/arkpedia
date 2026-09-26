@@ -105,7 +105,7 @@ checkout instead of the cache.
 | --- | --- | --- |
 | `stage-pipeline/build.mjs` | `data/stages/`, `data/stages-content.json`, `data/stage-geometry/`, `data/stage-conditional/`, `data/stage-tile-legend.json`, `public/stages-index.json` | EN gamedata; a CN level file where Global has dropped a stage's own (see `scripts/stage-pipeline/README.md`) |
 | `build-supply-stages.mjs` | `data/supply-stages.json` (the planner's supply table) | the supply content's stage records and their guaranteed drops |
-| `build-mode-exclusions.mjs` | `data/excluded-contents.json` | `activity_table` types, content kinds |
+| `build-mode-exclusions.mjs` | `data/excluded-contents.json`; holds in `data/quarantine.json` | `activity_table` types, content kinds, `data/game-modes.json` |
 | `import_is_nodes.py` | `data/is-nodes.json`, IS renders | `roguelike_topic_table`, fexli renders |
 | `import_cc_stages.py` | `data/cc-stages.json`, CCB renders, CCB labels in `stages-content.json` | `medal_table`, `map/` renders |
 | `import_stage_devices.py` | `data/stage-devices.json` | level files' `predefines`, `character_table` |
@@ -159,6 +159,17 @@ still require application changes.
   not fetch new artwork: a new event's renders still have to be added there.
 - `TILES_PER_SECOND` in `lib/stages/stagePlayback.ts` is the one figure not read
   from the game's files; see the comment there.
-- A brand-new *kind* of content (a new game mode, a new storyline) may need its own
-  line in `build-mode-exclusions.mjs` or will simply land in "Events outside a
-  storyline" until the storylines table names it.
+- A brand-new *kind* of content. `data/game-modes.json` (kept by hand in arkpedia-data,
+  checked by `lib/stages/gameModes.mjs`) says what each `activity_table` type is: a
+  limited-time mode whose stages the list never offers (`excludedActivityTypes`), a
+  challenge mode the game files as an event but shows under Seasonal Challenge
+  (`seasonalChallenges`, with the display code its contents carry), or a story episode
+  (`storyActivityTypes`, a pattern). An event of a type it does not classify is still
+  listed as an ordinary event, but `build-mode-exclusions.mjs` holds it in
+  `data/quarantine.json` (key `activity-type:<content>`, naming the type), so the daily
+  "Content quarantined" issue lists it until the record says what it is. A challenge
+  season whose code is not the record's is held the same way (`challenge-label:`). Either
+  fix is a data edit in arkpedia-data, not an app deploy. A new storyline still lands in
+  "Events outside a storyline" until the storylines table names it.
+- A second Reclamation Algorithm season. `data/ra-nodes.json` is one season's survey
+  (`contentId`, sandbox_1); another season's page draws no map until it has its own.

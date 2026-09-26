@@ -24,7 +24,7 @@ import { StageModeCard } from '@/lib/stages/stageTypes';
  */
 type Props = SeasonalChallenge;
 
-export default function SeasonalPage({ ccb, vector, trials }: Props) {
+export default function SeasonalPage({ ccb, challenges }: Props) {
   return (
     <>
       <TerminalNav current="seasonal" />
@@ -40,9 +40,11 @@ export default function SeasonalPage({ ccb, vector, trials }: Props) {
 
       <main className="terminal-scene">
         <Mode tab="Contingency Contract" cards={ccb} noun="operations" mark="contingency-contract.svg" />
-        {/* Vector Breakthrough is the one of the three with no emblem in the set. */}
-        <Mode tab="Vector Breakthrough" cards={vector} noun="stages" />
-        <Mode tab="Trials for Navigator" cards={trials} noun="stages" mark="trials-for-navigator.svg" />
+        {/* The challenge modes the game files as events, from data/game-modes.json: Vector
+            Breakthrough (no emblem in the set) and Trials for Navigator today. */}
+        {challenges.map((mode) => (
+          <Mode key={mode.label} tab={mode.name} cards={mode.cards} noun="stages" mark={mode.mark ?? undefined} />
+        ))}
 
         {/* The game draws a slot it cannot open rather than hiding it. So does this --
             with the reason, which the game does not have to give. */}

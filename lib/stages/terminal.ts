@@ -15,6 +15,8 @@ import { join } from 'path';
 import { publicFileExists, publicFiles } from '@/lib/assets/publicAssets';
 import itemIcons from '@/data/item-icons.json';
 import nationMarks from '@/data/nation-marks.json';
+import gameModesData from '@/data/game-modes.json';
+import { challengeLabels, checkGameModes } from './gameModes.mjs';
 import { getStageModeCards } from './stageContents';
 import { getStageBySlug, getStageGroups, getStageSummaries } from './stages';
 import { StageModeCard, WEEKDAYS } from './stageTypes';
@@ -355,26 +357,53 @@ function withCrest(card: StageModeCard): StageModeCard {
   return { ...card, art: `/nation-marks/${file}`, artKind: 'crest', artRaw: false };
 }
 
+/** One challenge mode of data/game-modes.json with its seasons, newest first. */
+export interface SeasonalChallengeMode {
+  label: string;
+  name: string;
+  /** Its emblem in public/mode-marks/, or null. */
+  mark: string | null;
+  cards: StageModeCard[];
+}
+
 export interface SeasonalChallenge {
   ccb: StageModeCard[];
-  vector: StageModeCard[];
-  trials: StageModeCard[];
+  /** Vector Breakthrough, Trials for Navigator and whatever data/game-modes.json adds. */
+  challenges: SeasonalChallengeMode[];
+}
+
+/** data/game-modes.json, checked (lib/stages/gameModes.mjs). */
+export function getGameModes() {
+  return checkGameModes(gameModesData);
+}
+
+/** The display codes the Seasonal Challenge scene claims, for sceneForContent. */
+export function getChallengeLabels(): string[] {
+  return challengeLabels(getGameModes());
 }
 
 /**
- * Seasonal Challenge: the three challenge modes the game files under it, newest first.
+ * Seasonal Challenge: the challenge modes the game files under it, newest first.
  *
- * Contingency Contract is its own content kind. Vector Breakthrough and Trials for
- * Navigator are not -- the game files both as events, which is why they were sitting
- * in Score with the side stories -- so they are picked out by the display code the
- * game gives them, VEC and TN. That is the game's own two-letter label off the content,
- * not a guess from the id: 3 contents carry VEC and 6 carry TN, and nothing else does.
+ * Contingency Contract is its own content kind. The others -- Vector Breakthrough and
+ * Trials for Navigator today -- are not: the game files them as events, which is why they
+ * were sitting in Score with the side stories. So each is picked out by the display code
+ * the game gives its contents (VEC, TN), and which codes those are is data/game-modes.json,
+ * not this file: a new challenge mode is a data edit. build-mode-exclusions.mjs holds any
+ * content of a challenge's activity type whose code is not the record's, so a season never
+ * goes missing from here quietly.
  */
 export function getSeasonalChallenge(): SeasonalChallenge {
   const cards = getStageModeCards();
   return {
     ccb: cards.filter((c) => c.kind === 'contingency_contract'),
-    vector: cards.filter((c) => c.label === 'VEC'),
-    trials: cards.filter((c) => c.label === 'TN'),
+    challenges: getGameModes().seasonalChallenges.map(({ label, name, mark }) => ({
+      label,
+      name,
+      // A mask of a file the release does not have paints nothing, silently; a mark the
+      // asset index lacks is no mark (the test holds the committed record to the index).
+      mark: mark && publicFileExists(`mode-marks/${mark}`) ? mark : null,
+      cards: cards.filter((c) => c.label === label),
+    })),
   };
 }

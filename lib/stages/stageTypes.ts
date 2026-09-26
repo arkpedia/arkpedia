@@ -123,15 +123,19 @@ const VARIANT_LABELS: Record<string, string> = {
  * Kind decides it for everything except a plain event, and there the game's own
  * two-letter code does: it files Vector Breakthrough and Trials for Navigator as
  * events, but shows them under Seasonal Challenge, which is why they carry VEC and TN
- * while the side stories on Score carry their own.
+ * while the side stories on Score carry their own. Which codes those are is
+ * `challengeLabels`, from data/game-modes.json; required, so no caller can leave the
+ * challenge modes out.
  *
  * `key` is the TerminalNav section id as well as the last segment of the href -- the
  * content page shows the section bar with its own scene marked current, rather than a
  * back link that says the same thing in fewer places.
  */
-export function sceneForContent(kind: string, label?: string): { key: string; href: string; label: string } {
+export function sceneForContent(kind: string, label: string, challengeLabels: readonly string[]): { key: string; href: string; label: string } {
   const scene = (key: string, name: string) => ({ key, href: `/stages/${key}`, label: name });
-  if (label === 'VEC' || label === 'TN') return scene('seasonal', 'Seasonal Challenge');
+  // The challenge modes' codes are data (data/game-modes.json, getChallengeLabels in
+  // lib/stages/terminal.ts), passed in so this stays free of server-only imports.
+  if (kind === 'event' && label && challengeLabels.includes(label)) return scene('seasonal', 'Seasonal Challenge');
   switch (kind) {
     case 'annihilation':
     case 'sss':

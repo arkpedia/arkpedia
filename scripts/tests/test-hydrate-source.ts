@@ -52,6 +52,15 @@ test('a table the app introduced survives hydration until arkpedia-data carries 
   assert.doesNotMatch(after.stderr, /does not carry/);
 });
 
+/* A hand-kept record the refresh itself reads must be seeded, or the first release after
+   it lands deletes the app's copy and fails at the stage that reads it: data/game-modes.json
+   is read by build-mode-exclusions.mjs and by the stage pages. */
+test('the hand-kept game-modes record survives hydration until arkpedia-data carries it', () => {
+  const kept = hydrate({}, { 'data/game-modes.json': '{"version":1}' });
+  assert.equal(kept.read('data/game-modes.json'), '{"version":1}');
+  assert.match(kept.stderr, /does not carry [^\n]*data\/game-modes\.json/);
+});
+
 /* SEEDED_SOURCE_FILES had no end: whenever arkpedia-data lacked one of the tables, the app's
    copy was kept and published again, so a table the data repository deleted on purpose came
    back from the app's stale copy with the next release. The ledger, carried in the data

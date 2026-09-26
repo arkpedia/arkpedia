@@ -91,6 +91,10 @@ const MAPS = [
   { id: 'main', file: 'map_main', name: 'The Great Desert', art: 'main.webp', tail: 2, hub: true },
 ];
 
+/** The one season surveyed. Written into the file as `contentId`, so the content page draws
+ *  this map for this season only (lib/stages/raMap.ts), never for the next one. */
+const SEASON = 'sandbox_1';
+
 const CN = process.env.ARKPEDIA_CN || path.join(ROOT, '.cache/upstream/cn-resource/gamedata');
 const EN = process.env.ARKPEDIA_EN || path.join(ROOT, '.cache/upstream/en-gamedata/en/gamedata');
 
@@ -100,7 +104,7 @@ function fetchText(url) {
 
 function sandbox(dir) {
   const table = JSON.parse(fs.readFileSync(path.join(dir, 'excel', 'sandbox_perm_table.json'), 'utf8'));
-  return table.detail.SANDBOX_V2.sandbox_1;
+  return table.detail.SANDBOX_V2[SEASON];
 }
 
 const cn = sandbox(CN);
@@ -129,7 +133,7 @@ const nameBySlug = new Map();
 for (const file of fs.readdirSync(path.join(ROOT, 'data', 'stages'))) {
   if (!file.endsWith('.json')) continue;
   const rec = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'stages', file), 'utf8'));
-  if (rec.content?.id !== 'sandbox_1') continue;
+  if (rec.content?.id !== SEASON) continue;
   // A record's id is the level path; the stageData id (sandbox_1_07) is what we need,
   // and the two meet at the levelId.
   const level = (rec.id || '').toLowerCase();
@@ -349,6 +353,7 @@ function readMap(map) {
 const maps = MAPS.map(readMap);
 
 const out = {
+  contentId: SEASON,
   // Printed by the map view. Not optional, and not only in a comment: this is
   // someone else's survey of these maps.
   source: {

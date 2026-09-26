@@ -44,6 +44,11 @@ const SEEDED_SOURCE_FILES = new Set([
   'data/material-names.json',
   // The announcement ticker's SSS cycle (lib/schedule/sssCycle.ts), kept by hand.
   'data/sss-cycle.json',
+  // How the game's activity types map onto the Terminal: the excluded modes, the seasonal
+  // challenges and the story episodes (lib/stages/gameModes.mjs), kept by hand. Read by
+  // build-mode-exclusions.mjs in the refresh and by the stage pages, so a release without
+  // it would fail at the stage build.
+  'data/game-modes.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
