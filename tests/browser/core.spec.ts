@@ -107,9 +107,13 @@ test('operator search and planner entry are usable', async ({ page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('Opera GX without Document PiP opens a regular recruitment window', async ({ page }, testInfo) => {
+// OPERA_POPOUT_NOTICE in components/recruitment/RecruitmentTool.tsx.
+const OPERA_NOTICE = 'Opera GX pop-outs do not stay on top of other windows. Use another browser for Always on Top.';
+
+test('Opera GX without Document PiP opens a regular recruitment window and says it will not stay on top', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Opera GX is a desktop browser');
-  await page.addInitScript(() => {
+  // On the context, so the pop-out window is Opera too.
+  await page.context().addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', {
       configurable: true,
       value: `${navigator.userAgent} OPR/124.0.0.0`,
@@ -127,27 +131,51 @@ test('Opera GX without Document PiP opens a regular recruitment window', async (
   await popup.waitForLoadState('domcontentloaded');
   await expect(popup).toHaveURL(/\/recruitment\/popout/);
   await expect(popup.getByRole('heading', { name: 'Recruitment', exact: true })).toBeVisible();
+  // The pop-out says it will not stay on top, in place of the usual note (kukki PR #73).
+  await expect(popup.getByText(OPERA_NOTICE)).toBeVisible();
+  await expect(page.getByText(OPERA_NOTICE)).toBeVisible();
   await popup.close();
 });
 
-test('Opera GX with Document PiP tries it and offers a fallback if refused', async ({ page }, testInfo) => {
+test('Opera GX with Document PiP is offered the regular window, not On top', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Opera GX is a desktop browser');
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', {
       configurable: true,
-      value: `${navigator.userAgent} OPR/124.0.0.0`,
+      value: `${navigator.userAgent} OPR/114.0.0.0 (Edition GX)`,
     });
+    // Opera GX has the API and opens the window, but the window does not stay on top.
+    Object.defineProperty(window, 'documentPictureInPicture', {
+      configurable: true,
+      value: { requestWindow: () => Promise.reject(new Error('must not be asked')), window: null },
+    });
+  });
+  await page.goto('/recruitment');
+  await expect(page.getByRole('button', { name: 'Open window', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'On top', exact: true })).toHaveCount(0);
+  await expect(page.getByText(OPERA_NOTICE)).toHaveCount(0);
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Open window', exact: true }).click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL(/\/recruitment\/popout/);
+  await expect(page.getByText(OPERA_NOTICE)).toBeVisible();
+  await popup.close();
+});
+
+test('a browser whose Document PiP is refused offers a regular window', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Document PiP uses a desktop window');
+  await page.addInitScript(() => {
     Object.defineProperty(window, 'documentPictureInPicture', {
       configurable: true,
       value: {
-        requestWindow: () => Promise.reject(new Error('Opera GX rejected document PiP')),
+        requestWindow: () => Promise.reject(new Error('Document PiP rejected')),
         window: null,
       },
     });
   });
   await page.goto('/recruitment');
   await page.getByRole('button', { name: 'On top', exact: true }).click();
-  await expect(page.getByText('Could not open the pop-out: Opera GX rejected document PiP')).toBeVisible();
+  await expect(page.getByText('Could not open the pop-out: Document PiP rejected')).toBeVisible();
   const popupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Open a regular window' }).click();
   const popup = await popupPromise;

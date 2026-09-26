@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import PipWindow, { pipSupported, usePipWindow } from '@/components/ui/PipWindow';
+import PipWindow, { isOperaBrowser, pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -15,17 +15,26 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 
 const POPOUT_SIZE = { width: 480, height: 760 };
 
+/** Opera GX opens a Document PiP window that does not stay on top (isOperaBrowser). */
+export const OPERA_POPOUT_NOTICE = 'Opera GX pop-outs do not stay on top of other windows. Use another browser for Always on Top.';
+
 export default function RecruitmentTool({ operators, guaranteedCombos4, guaranteedCombos5, compact = false }: RecruitmentProps & { compact?: boolean }) {
   const [view, setView] = useState(DEFAULT_RECRUITMENT_VIEW);
   const [ready, setReady] = useState(false);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [supportsPinnedWindow, setSupportsPinnedWindow] = useState(false);
+  const [operaBrowser, setOperaBrowser] = useState(false);
+  const [operaPopoutAttempted, setOperaPopoutAttempted] = useState(false);
   const popupRef = useRef<Window | null>(null);
   const pipRef = useRef<Window | null>(null);
   const pip = usePipWindow(POPOUT_SIZE, 'recruit-pip-body');
 
   useEffect(() => {
-    setSupportsPinnedWindow(pipSupported() && !window.matchMedia('(pointer: coarse)').matches);
+    // Opera is offered the regular window even though it has the API: its pinned
+    // window does not stay on top, so the notice below says so instead.
+    const opera = isOperaBrowser(navigator);
+    setOperaBrowser(opera);
+    setSupportsPinnedWindow(!opera && pipSupported() && !window.matchMedia('(pointer: coarse)').matches);
   }, []);
 
   useEffect(() => {
@@ -112,6 +121,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
 
   function openPopout() {
     setPopupBlocked(false);
+    if (operaBrowser) setOperaPopoutAttempted(true);
     if (pip.win && !pip.win.closed) { pip.win.focus(); return; }
     if (popupRef.current && !popupRef.current.closed) { popupRef.current.focus(); return; }
     if (supportsPinnedWindow) {
@@ -173,6 +183,9 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
         )}
 
         <main className="recruit-main">
+          {!isCompact && operaPopoutAttempted && (
+            <p className="recruit-window-notice" role="status">{OPERA_POPOUT_NOTICE}</p>
+          )}
           {!isCompact && popupBlocked && (
             <p className="recruit-window-notice" role="status">
               The window could not open. Allow pop-ups for Arkpedia, or{' '}
@@ -191,7 +204,9 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
               <button type="button" className="recruit-text-button" onClick={returnToPage}>Close pop-out</button>
             </p>
           )}
-          {isCompact && !inPip && <p className="recruit-compact-note">Keep this window beside your game. This view does not stay on top.</p>}
+          {isCompact && !inPip && (operaBrowser
+            ? <p className="recruit-window-notice" role="status">{OPERA_POPOUT_NOTICE}</p>
+            : <p className="recruit-compact-note">Keep this window beside your game. This view does not stay on top.</p>)}
 
           <div className="recruit-toolbar">
             <SegmentedControl
