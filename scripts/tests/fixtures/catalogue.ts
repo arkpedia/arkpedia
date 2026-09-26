@@ -21,6 +21,8 @@ export function emptyCatalogue(parts: object = {}) {
     // No confirmed outfit windows, at a fixed instant: never the real date.
     skinWindows: [] as object[], now: new Date('2026-09-23T00:00:00Z'),
     stageEnemies: new Map<string, string>(),
+    // No listed stage with a map (stageMapRows).
+    mappedStages: [] as object[],
     enemyRecords: new Map<string, { name: string; icon?: string }>(), enemyIndex: new Set<string>(),
     ...parts,
   };

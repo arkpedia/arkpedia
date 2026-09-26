@@ -40,14 +40,17 @@ not publish a release each day.
 NOTHING HERE PUBLISHES. Art reaches readers only through arkpedia-image-assets,
 and a file in this repository's public/ is refused by check:assets, which the
 daily release runs: writing the icon there turned every SUCCESSFUL fetch into a
-blocked release. A fetched icon is therefore staged outside public/ and reported
-under 'reward-icons' too, with its source, until material-icons/<name>.webp is
-published to the image repository (by hand today, from the staged file).
+blocked release. A fetched icon is therefore staged in .cache/reward-icons/, as its
+source serves it (staged_art.py): the game's own circled art, which the publisher keeps
+at its native 183px, never shrunk. The release's staged-art stage publishes it as
+material-icons/<name>.webp and runs this again; until a run does, it is reported under
+'reward-icons' too, with its source.
 
 Run:  python3 scripts/imports/import-reward-icons.py
 """
 from published_assets import published_assets
 from quarantine import WIKI_API as WIKI_API_URL, report
+from staged_art import Staging
 import glob
 import json
 import os
@@ -104,8 +107,7 @@ WIKI_API = WIKI_API_URL
 # placeholder, scraped into the data. Skipped loudly rather than hunted.
 NOT_REAL = {'Furniture not found'}
 
-# Never public/: see the header.
-out_dir = os.path.join(root, '.cache', 'reward-icons')
+ITEM_MIRROR = 'yuanyan3060/ArknightsGameResource'
 
 
 def fetch(url, timeout=90):
@@ -151,6 +153,9 @@ missing = {
     if n not in NOT_REAL and f'material-icons/{safe(n)}.webp' not in published_assets()
 }
 skipped_placeholders = sorted(n for n in wanted if n in NOT_REAL)
+
+# This run's staged icons; the last run's list goes now, so a day with nothing to stage stages nothing.
+staging = Staging('reward-icons', root)
 
 if not missing:
     print('Every event reward already has its icon.')
@@ -204,10 +209,13 @@ UNREADABLE = 'has an icon at {host}, but it is not an image that decodes'
 
 fetched, unresolved = [], []
 for name, event in sorted(missing.items()):
-    url = None
+    url = mirror = None
     icon = by_name.get(name)
     if icon:
         url = f'{ITEM_ART}/{urllib.parse.quote(icon)}.png'
+        # The mirror's own file at the pinned commit, which the image repository maps for its sync.
+        if re.fullmatch(r'[0-9a-f]{40}', CN_REF):
+            mirror = {'repository': ITEM_MIRROR, 'path': f'item/{icon}.png', 'commit': CN_REF}
     else:
         icon = furniture_icon(name)
         if icon:
@@ -230,19 +238,17 @@ for name, event in sorted(missing.items()):
         unresolved.append((name, event, FAILED.format(host=host)))
         continue
     try:
-        im = Image.open(BytesIO(blob)).convert('RGBA')
+        im = Image.open(BytesIO(blob))
+        im.load()
     except Exception as e:  # noqa: BLE001 -- e.g. an HTML page answered 200
         print(f'  UNREADABLE "{name}" from {url}: {e}')
         unresolved.append((name, event, UNREADABLE.format(host=host)))
         continue
-    # 96px: crisp at the 36px the reward rows render, retina included, without
-    # carrying the mirrors' full-size art in the repo.
-    im.thumbnail((96, 96), Image.LANCZOS)
-    os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, f'{safe(name)}.webp')
-    im.save(out, 'WEBP', quality=90)
-    fetched.append((name, event, url))
-    print(f'  + {safe(name)}.webp  ({im.size[0]}x{im.size[1]}, from {host})')
+    # As the source serves it: the publisher encodes it at the size material-icons/ keeps.
+    staged = staging.stage(f'material-icons/{safe(name)}.webp', blob, source=url, mirror=mirror)
+    fetched.append((name, event, url, staged.name))
+    print(f'  + {staged.name}  ({im.size[0]}x{im.size[1]}, from {host})')
+staging.commit()
 
 print(f'{len(fetched)} fetched, {len(unresolved)} unresolved')
 for name, event, why in unresolved:
@@ -252,8 +258,8 @@ report('reward-icons', [{'key': f'reward-icon:{name}', 'action': 'published-part
                         for name, event, why in unresolved]
        + [{'key': f'reward-icon:{name}', 'action': 'published-partial', 'sourceRef': url,
            'reason': f'The reward "{name}" of {event} has an icon at {url.split("/")[2]}, staged as '
-                     f'.cache/reward-icons/{safe(name)}.webp, but nothing publishes it; it renders without one '
-                     f'until material-icons/{safe(name)}.webp is added to arkpedia-image-assets.'}
-          for name, event, url in fetched])
+                     f'.cache/reward-icons/{file}, but no run has published it to arkpedia-image-assets as '
+                     f'material-icons/{safe(name)}.webp yet; it renders without one until one does.'}
+          for name, event, url, file in fetched])
 for n in skipped_placeholders:
     print(f'  ! "{n}" is the wiki\'s missing-item placeholder scraped into the data -- fix the scrape')

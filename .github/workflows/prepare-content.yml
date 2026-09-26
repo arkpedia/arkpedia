@@ -186,6 +186,13 @@ jobs:
           # Monster Siren's new albums and songs, before the lyrics that key on them.
           stage albums -- npm run albums:refresh
           stage lyrics -- npm run lyrics:refresh
+          # The art the importers above staged under .cache/ instead of publishing -- a new
+          # event's stage renders, drop and reward icons, crests, CC/IS/RA renders, album
+          # covers (config/staged-art.json) -- published to arkpedia-image-assets with the same
+          # deploy key and publisher as the catalogue's media; then those importers run again,
+          # so their records point at the files and their quarantine entries clear today.
+          # After the last importer that stages art, before anything that reads the records.
+          stage staged-art -- bash scripts/sync/publish-catalogue-assets.sh --staged
           stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
           stage event-farming -- node scripts/sync/sync-event-farming.mjs
           # What the guessers send to readers, measured once every stage that adds records has
