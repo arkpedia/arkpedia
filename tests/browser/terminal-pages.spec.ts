@@ -254,39 +254,55 @@ test.describe('a stage link opens the rail on that stage\'s own chapter, with th
   });
 });
 
-test('every Terminal panel is headed by the site\'s amber section heading', async ({ page }) => {
-  // The panels' labels were a 10px teal tab painted by CSS from a data-tab attribute:
-  // no outline saw them (each carried a visually hidden twin), /stages/regular jumped
-  // from h1 to h3, and /stages/seasonal had no visible heading at all.
-  for (const route of ['/stages', '/stages/regular', '/stages/seasonal']) {
-    await page.goto(route);
-    const panels = page.locator('main .terminal-panel');
-    expect(await panels.count(), `${route}: panels`).toBeGreaterThan(1);
-    const measured = await panels.evaluateAll((els) => {
-      const probe = document.createElement('span');
-      probe.style.color = 'var(--amber)';
-      document.body.appendChild(probe);
-      const amber = getComputedStyle(probe).color;
-      probe.remove();
-      return els.map((panel) => {
+/** The colour a probe painted with the given custom property computes to. */
+async function tokenColour(page: Page, token: string): Promise<string> {
+  return page.evaluate((name) => {
+    const probe = document.createElement('span');
+    probe.style.color = `var(${name})`;
+    document.body.appendChild(probe);
+    const colour = getComputedStyle(probe).color;
+    probe.remove();
+    return colour;
+  }, token);
+}
+
+for (const theme of ['dark', 'light'] as const) {
+  test(`every Terminal panel is headed by the site's section heading, --heading (${theme} theme)`, async ({ page }) => {
+    // The panels' labels were a 10px teal tab painted by CSS from a data-tab attribute:
+    // no outline saw them (each carried a visually hidden twin), /stages/regular jumped
+    // from h1 to h3, and /stages/seasonal had no visible heading at all. The heading is
+    // the site's .op-section h2, in --heading: teal-ish, never amber (tried and rejected,
+    // 2026-09-26) and never the --teal that marks an on/current state
+    // (cards-and-headings.spec.ts holds the rest of the site to the same).
+    await page.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch { /* none */ } }, theme);
+    for (const route of ['/stages', '/stages/regular', '/stages/seasonal', '/stages/score']) {
+      await page.goto(route);
+      expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme') ?? 'dark'), `${route}: the ${theme} theme`).toBe(theme);
+      const [heading, amber, teal] = [await tokenColour(page, '--heading'), await tokenColour(page, '--amber'), await tokenColour(page, '--teal')];
+      expect(heading, 'the heading colour is its own token, not the on-state teal').not.toBe(teal);
+      expect(heading, 'the heading colour is not amber').not.toBe(amber);
+      const panels = page.locator('main .terminal-panel, main .score-block');
+      expect(await panels.count(), `${route}: panels`).toBeGreaterThan(1);
+      const measured = await panels.evaluateAll((els) => els.map((panel) => {
         const h2 = panel.querySelector(':scope > h2');
         const box = h2?.getBoundingClientRect();
         return {
           text: h2?.textContent?.trim() ?? '',
           visible: !!box && box.width > 2 && box.height > 2 && !h2!.classList.contains('visually-hidden'),
-          amber: !!h2 && getComputedStyle(h2).color === amber,
+          colour: h2 ? getComputedStyle(h2).color : '',
           tab: panel.hasAttribute('data-tab') || getComputedStyle(panel, '::before').content !== 'none',
         };
-      });
-    });
-    for (const m of measured) {
-      expect(m.text, `${route}: a panel with no h2`).not.toBe('');
-      expect(m.visible, `${route}: "${m.text}" is not visible`).toBe(true);
-      expect(m.amber, `${route}: "${m.text}" is not amber`).toBe(true);
-      expect(m.tab, `${route}: "${m.text}" still draws a CSS tab`).toBe(false);
+      }));
+      for (const m of measured) {
+        expect(m.text, `${route}: a panel with no h2`).not.toBe('');
+        expect(m.visible, `${route}: "${m.text}" is not visible`).toBe(true);
+        expect(m.colour, `${route}: "${m.text}" is not amber`).not.toBe(amber);
+        expect(m.colour, `${route}: "${m.text}" is in --heading`).toBe(heading);
+        expect(m.tab, `${route}: "${m.text}" still draws a CSS tab`).toBe(false);
+      }
     }
-  }
-});
+  });
+}
 
 test('the Terminal bar\'s tabs sit in the site frame', async ({ page }) => {
   // .terminal-bar-inner had its own 1040px and 12px, so its content started 12px left

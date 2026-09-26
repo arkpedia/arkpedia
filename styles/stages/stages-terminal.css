@@ -161,7 +161,7 @@
 /* --- Score ---------------------------------------------------------------
    One block for the main theme, one for the side-story lines. */
 .score-block { margin-bottom: 30px; }
-/* The block's heading is the canonical section h2 (.op-section h2: amber, 18px,
+/* The block's heading is the canonical section h2 (.op-section h2: --heading, 18px,
    shared.css); this is only its spacing. It was an 11px mono label in teal, which is
    the "on / current" colour, used as a heading. */
 .score-block-title { margin: 0 0 14px; }
@@ -250,7 +250,7 @@
 .score-block-emblem {
   width: 18px;
   height: 18px;
-  /* The ink of the amber heading it leads. */
+  /* The ink of the heading it leads (--heading). */
   background: currentColor;
   /* Set by pages/stages/score.tsx from the page's content release. */
   mask-image: var(--score-emblem);
@@ -429,7 +429,7 @@
 }
 
 /* --- Terminal home ------------------------------------------------------
-   Panels headed like every other section of the site: an .op-section with its amber h2
+   Panels headed like every other section of the site: an .op-section with its --heading h2
    (styles/core/shared.css). The label used to be a 10px teal tab clipped into the
    top-left corner and painted by CSS out of a data-tab attribute -- the game's own
    signature on this screen, but a heading no reader's outline saw (each panel carried a

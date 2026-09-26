@@ -407,9 +407,9 @@
   border-bottom: 1px solid var(--line-soft);
   font-size: 15px;
   font-weight: 700;
-  /* The page's heading colour for the enemies that will come; the ones that may come
-     keep a colour of their own, dimmer. */
-  color: var(--amber);
+  /* The site's heading colour for the enemies that will come (--heading, never amber
+     or the on-state teal); the ones that may come keep a colour of their own, dimmer. */
+  color: var(--heading);
 }
 .stage-enemy-section-title.may { color: var(--text-dim); }
 .stage-enemy-rank-title {

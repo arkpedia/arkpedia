@@ -60,7 +60,7 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
   }, [candidates, clock]);
   const isLive = (c: StageModeCard) => !!c.start && !!c.end && c.start <= clock && c.end >= clock;
 
-  // Each panel is an .op-section headed by a real h2, the site's amber section heading.
+  // Each panel is an .op-section headed by a real h2, the site's section heading (--heading).
   // The labels used to be painted by CSS out of a data-tab attribute, a 10px teal tab
   // no outline saw, with a visually hidden h2 beside each to say the same thing.
   const leadTab = lead && isLive(lead) ? 'Now Open' : 'Most Recent';

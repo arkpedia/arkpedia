@@ -326,7 +326,7 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `rawHex` (strict) | A hex literal that a token names | Use the token |
 | `scrollbarThumb` (strict) | A scrollbar thumb in `--line` or `--line-soft`, as `scrollbar-color`'s first colour or a `::-webkit-scrollbar-thumb` background | Drop the override and inherit `:root`'s `--text-faint` |
 | `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
-| `tealDecoration` (strict) | `var(--teal)`, `--teal-dim` or `--teal-fill` as a colour, background, border, outline or shadow on a selector with no state in it (`:hover`, `:focus`, `:checked`, `[aria-pressed]`, `[aria-current]`, `.current`, `.live`, `.open`...), in the folders of `TEAL_DECORATION_SCOPE` (`styles/stages/`) | Recolour it (`--text-dim`, `--amber` for a heading), or qualify the selector with the state it marks |
+| `tealDecoration` (strict) | `var(--teal)`, `--teal-dim` or `--teal-fill` as a colour, background, border, outline or shadow on a selector with no state in it (`:hover`, `:focus`, `:checked`, `[aria-pressed]`, `[aria-current]`, `.current`, `.live`, `.open`...), in the folders of `TEAL_DECORATION_SCOPE` (`styles/stages/`) | Recolour it (`--text-dim`, `--heading` for a heading), or qualify the selector with the state it marks |
 
 ```sh
 npm run audit:styles                 # check

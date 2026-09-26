@@ -318,7 +318,7 @@ const LABELS = {
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
   scrollbarThumb: 'a scrollbar thumb in --line or --line-soft (1.31:1, invisible) -- drop the override and inherit :root\'s --text-faint',
   primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",
-  tealDecoration: `teal on a selector that names no state, in ${TEAL_DECORATION_SCOPE.join(', ')} -- teal means "on" or "current"; recolour it (--text-dim, --amber for a heading) or qualify the selector with the state it marks`,
+  tealDecoration: `teal on a selector that names no state, in ${TEAL_DECORATION_SCOPE.join(', ')} -- teal means "on" or "current"; recolour it (--text-dim, --heading for a heading) or qualify the selector with the state it marks`,
 };
 
 const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration'];
