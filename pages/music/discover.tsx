@@ -12,7 +12,8 @@ import SearchInput from '@/components/ui/SearchInput';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
-import { getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum } from '@/lib/music/albumsDataServer';
+import AlbumCover from '@/components/music/AlbumCover';
+import { getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
 
 interface Props {
   songs: DiscoverSong[];
@@ -20,7 +21,11 @@ interface Props {
   origins: DiscoverFacet[];
   artists: DiscoverFacet[];
   recentAlbums: DiscoverAlbum[];
+  pendingSongs: DiscoverPendingSong[];
 }
+
+/** Where a song without a YouTube upload can be heard: its page on Monster Siren. */
+const monsterSirenSong = (songId: string) => `https://monster-siren.hypergryph.com/music/${encodeURIComponent(songId)}`;
 
 // Keep the initial browse rows bounded. Show all expands a collection inline.
 const ROW_PREVIEW_COUNT = 24;
@@ -54,7 +59,7 @@ function Collection({ id, label, expanded, cloud = false, children }: { id: stri
     : <div id={id}><ScrollRow label={label} className={className}>{children}</ScrollRow></div>;
 }
 
-export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums }: Props) {
+export default function DiscoverPage({ songs, characters, origins, artists, recentAlbums, pendingSongs }: Props) {
   const { playTrackByVideoId } = useMusicPlayer();
   const router = useRouter();
 
@@ -105,10 +110,9 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   // widening the result set unexpectedly. Clicking an album tile is
   // just another facet now (albumId), not a navigation away from this
   // page -- it filters inline exactly like character/artist/origin do.
-  const filteredSongs = useMemo(() => {
-    if (isBrowsing) return [];
+  const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return songs.filter((s) => {
+    return (s: DiscoverSong | DiscoverPendingSong) => {
       if (facets.character && !s.characters.includes(facets.character)) return false;
       if (facets.artist && s.artist !== facets.artist) return false;
       if (facets.origin && !s.origin.includes(facets.origin)) return false;
@@ -122,8 +126,14 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
         s.characters.some((c) => c.toLowerCase().includes(q)) ||
         s.origin.some((o) => o.toLowerCase().includes(q))
       );
-    });
-  }, [songs, query, facets, isBrowsing]);
+    };
+  }, [query, facets]);
+  const filteredSongs = useMemo(() => (isBrowsing ? [] : songs.filter(matches)), [songs, matches, isBrowsing]);
+  /* Songs of a new album nobody has found a YouTube upload for yet: the player cannot queue
+     them, so they are listed after the playable ones, linking to Monster Siren. Without them
+     a new album's tile opened onto "No songs match". */
+  const filteredPending = useMemo(() => (isBrowsing ? [] : pendingSongs.filter(matches)), [pendingSongs, matches, isBrowsing]);
+  const playableAlbums = useMemo(() => new Set(songs.map((s) => s.albumId)), [songs]);
 
   // Mirrors the queue panel's "Show more" pagination on /music (see
   // QUEUE_PAGE_SIZE in pages/music/index.tsx): a broad facet -- one
@@ -148,11 +158,11 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
   // for each: "what's IN these results" is the same question either way.
   const resultAlbums = useMemo(() => {
     const seen = new Map<string, { albumId: string; albumName: string; coverPath: string | null }>();
-    for (const s of filteredSongs) {
+    for (const s of [...filteredSongs, ...filteredPending]) {
       if (!seen.has(s.albumId)) seen.set(s.albumId, { albumId: s.albumId, albumName: s.albumName, coverPath: s.coverPath });
     }
     return Array.from(seen.values());
-  }, [filteredSongs]);
+  }, [filteredSongs, filteredPending]);
 
   const resultArtists = useMemo(() => {
     const seen = new Set<string>();
@@ -233,14 +243,14 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                 Songs
                 {activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
               </h2>
-              {filteredSongs.length === 0 ? (
+              {filteredSongs.length === 0 && filteredPending.length === 0 ? (
                 <p className="hint">No songs match. Try a different search or go back and pick something else.</p>
               ) : (
                 <div className="music-discover-song-list">
                   {visibleFilteredSongs.map((s) => (
                     <button key={s.videoId} type="button" className="btn-bare music-discover-song-row" onClick={() => playSong(s.videoId)}>
                       <div className="music-discover-song-cover">
-                        {s.coverPath && <Image src={s.coverPath} alt="" width={44} height={44} />}
+                        <AlbumCover coverPath={s.coverPath} size={44} className="music-discover-song-cover-art" />
                       </div>
                       <div className="music-discover-song-info">
                         <span className="music-discover-song-title">{s.title}</span>
@@ -260,6 +270,17 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       Show more ({filteredSongs.length - songsVisibleCount} remaining)
                     </button>
                   )}
+                  {songsVisibleCount >= filteredSongs.length && filteredPending.map((s) => (
+                    <a key={s.songId} className="music-discover-song-row music-discover-song-row-pending" href={monsterSirenSong(s.songId)} target="_blank" rel="noopener noreferrer">
+                      <div className="music-discover-song-cover">
+                        <AlbumCover coverPath={s.coverPath} size={44} className="music-discover-song-cover-art" />
+                      </div>
+                      <div className="music-discover-song-info">
+                        <span className="music-discover-song-title">{s.title}</span>
+                        <span className="music-discover-song-meta">{s.albumName} · Not on YouTube yet · Listen on Monster Siren ↗</span>
+                      </div>
+                    </a>
+                  ))}
                 </div>
               )}
             </section>
@@ -276,12 +297,9 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       onClick={() => setFacets({ ...EMPTY_FACETS, albumId: a.albumId })}
                       title={a.albumName}
                     >
-                      {a.coverPath ? (
-                        <Image src={a.coverPath} alt="" width={120} height={120} />
-                      ) : (
-                        <div className="music-discover-album-tile-placeholder" />
-                      )}
+                      <AlbumCover coverPath={a.coverPath} size={120} className="music-discover-album-tile-cover" />
                       <span className="music-discover-album-tile-name">{a.albumName}</span>
+                      {!playableAlbums.has(a.albumId) && <span className="music-discover-album-tile-note">Not on YouTube yet</span>}
                     </button>
                   ))}
                 </ScrollRow>
@@ -337,12 +355,9 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                     onClick={() => setFacets({ ...EMPTY_FACETS, albumId: a.albumId })}
                     title={a.albumAltName}
                   >
-                    {a.coverPath ? (
-                      <Image src={a.coverPath} alt="" width={120} height={120} />
-                    ) : (
-                      <div className="music-discover-album-tile-placeholder" />
-                    )}
+                    <AlbumCover coverPath={a.coverPath} size={120} className="music-discover-album-tile-cover" />
                     <span className="music-discover-album-tile-name">{a.albumAltName}</span>
+                    {!a.playable && <span className="music-discover-album-tile-note">Not on YouTube yet</span>}
                   </button>
                 ))}
               </ScrollRow>
