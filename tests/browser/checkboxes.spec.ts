@@ -109,3 +109,25 @@ test('the music guesser Include CN and release list are checkboxes', async ({ pa
   await expect.poll(() => all.count()).toBeGreaterThan(0);
   await expectCheckPrimitive(all.first());
 });
+
+test('a disabled checkbox keeps a visible box', async ({ page }) => {
+  await page.goto('/games/music-guesser');
+  await expect(page.getByRole('checkbox', { name: 'Include CN' })).toBeVisible();
+  // Built in place so the check does not depend on which releases are CN-only today.
+  const boxes = await page.evaluate(() => {
+    const make = (disabled: boolean) => {
+      const label = document.createElement('label');
+      label.className = 'check';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.disabled = disabled;
+      label.append(input, 'probe');
+      document.body.append(label);
+      const s = getComputedStyle(input);
+      return { border: s.borderTopColor, opacity: s.opacity };
+    };
+    return { enabled: make(false), disabled: make(true) };
+  });
+  expect(boxes.disabled.opacity).toBe('1');
+  expect(boxes.disabled.border, 'the disabled box keeps the control border').toBe(boxes.enabled.border);
+});

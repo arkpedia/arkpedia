@@ -676,12 +676,11 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   border-left: 0;
   transform: none;
 }
+/* Disabled: the faint label says it; the box keeps its full border so the row still
+   reads as a checkbox (a faded --line box vanished on --panel-dim). */
 .check:has(> input[type="checkbox"]:disabled) { color: var(--text-faint); cursor: default; }
-.check > input[type="checkbox"]:disabled {
-  border-color: var(--line);
-  background: var(--panel-dim);
-  opacity: 0.55;
-}
+.check:hover > input[type="checkbox"]:disabled { border-color: var(--control-border); }
+.check > input[type="checkbox"]:disabled { background: var(--panel-dim); }
 
 /* --- rarity accents -------------------------------------------------------
    Rarity colour comes from --rarity-1..6 and from these classes, nowhere else
