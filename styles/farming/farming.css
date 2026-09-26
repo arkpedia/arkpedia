@@ -37,7 +37,7 @@
 /* Three disclosures, each opening on its own. The header is the control, so it
    carries the resting control border and the one hover rule; the body under it is a
    passive frame on a hairline. The tier name is the page's section heading, in the
-   site's heading voice (amber, 18px, uppercase), whether the tier is open or not --
+   site's heading voice (--heading, 18px, uppercase), whether the tier is open or not --
    the chevron says which, not a colour. */
 .farming-accordion {
   display: flex;

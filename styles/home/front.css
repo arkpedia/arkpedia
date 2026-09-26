@@ -57,8 +57,8 @@ body.front-page-no-scroll {
   padding: 10px 12px;
   flex-shrink: 0;
 }
-/* The site's section heading (.op-section h2): amber, 18px, uppercase. These were
-   teal, and teal means "on" or "current". */
+/* The site's section heading (.op-section h2): --heading, 18px, uppercase. These were
+   --teal, and --teal means "on" or "current". */
 .front-home-panel h2 {
   margin: 0 0 12px;
   font-family: var(--font-display);

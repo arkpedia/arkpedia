@@ -1,5 +1,5 @@
 .stats, .files { color: var(--text); min-width: 0; }
-/* The headings are the section's .op-section h2 (amber, 18px, uppercase). */
+/* The headings are the section's .op-section h2 (--heading, 18px, uppercase). */
 .stats h2, .files h2 { margin: 0 0 14px; }
 .buildControls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; }
 .promotion, .moduleControls { min-width: 0; margin: 0; padding: 0; border: 0; }

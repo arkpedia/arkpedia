@@ -36,7 +36,7 @@
   border-radius: var(--radius-frame);
   background: var(--panel-2);
 }
-/* The canonical section heading (.op-section h2, amber): the size and colour come
+/* The canonical section heading (.op-section h2, --heading): the size and colour come
    from shared.css. It was 20px teal, and teal means "on". */
 .technique-umbrella-heading { margin: 0; }
 .technique-umbrella-description {
@@ -61,7 +61,7 @@
   border-bottom: 1px solid var(--line-soft);
   padding-bottom: 20px;
 }
-/* An h2 for a technique that stands alone (the canonical amber section heading) and
+/* An h2 for a technique that stands alone (the canonical section heading) and
    an h3 inside an umbrella (the global h3). Only the spacing is this page's: the
    16px teal name it used to be was a heading style of its own, in the "on" colour. */
 .technique-group-name { margin: 0 0 4px; }
