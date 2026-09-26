@@ -56,6 +56,14 @@
  *                  toolbar mode switch, and #64 used it to turn eleven checkboxes into
  *                  highlighted buttons, which the maintainer asked to undo (2026-09-26).
  *                  A setting or an option is a .check checkbox
+ *   headingRules   (r9 headings-spacing) a font-size, font, color, letter-spacing or
+ *                  text-transform on a selector whose subject is an h2 or h3 -- the
+ *                  element, or a class the TSX puts on an <h2>/<h3> -- outside
+ *                  styles/core/shared.css, unless the subject also carries .entity-title
+ *                  or .label-tag. A section heading is .op-section h2 / .section-title,
+ *                  a sub-section the global h3, a name .entity-title, a micro-label
+ *                  .label-tag, all in core; the 2026-09-26 census found 18 h2s and 18 h3s
+ *                  restated per page. An .entity-title larger than 22px fails too
  *
  * It is a RATCHET. Today's accepted cases are counted in style-audit-baseline.json
  * next to this script. The run fails when anything is NEW (more occurrences of an
@@ -206,6 +214,40 @@ const STATE_SELECTOR = /:(?:hover|focus|focus-visible|focus-within|active|checke
  *  and `h1.title` are, `.head h1 .code` is not. */
 const h1Subject = (selector) => /^h1(?=$|[.:#[])/.test(selector.trim().split(/\s*[\s>+~]\s*/).pop() || '');
 
+/* --- r9 headingRules (headings-spacing) ----------------------------------------------- */
+/** Heading classes whose look is deliberately their own, and why. Named, not a pattern. */
+const HEADING_EXEMPT = {
+  'gm-co-stephead': 'the Stronghold companion: tool UI in a Document Picture-in-Picture window, full-bleed by design',
+  'gm-co-substep': 'the Stronghold companion: tool UI in a Document Picture-in-Picture window, full-bleed by design',
+  'visually-hidden': 'not drawn: a heading for the outline only',
+};
+const HEADING_PAINT = new Set(['font-size', 'color', 'letter-spacing', 'text-transform']);
+/** The subject (last compound) of one selector. */
+const subjectOf = (selector) => selector.trim().split(/\s*[\s>+~]\s*/).pop() || '';
+const classesOf = (compound) => [...compound.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]);
+/** Every class the TSX puts on an <h2> or <h3>: quoted class lists, the static parts of a
+ *  template literal, and CSS-module references (styles.x, where styles is an import of a
+ *  .module.css file). A class set by a function call is invisible here. */
+function headingClasses(files) {
+  const out = new Set();
+  for (const path of files) {
+    const code = readFileSync(join(root, path), 'utf8');
+    const modules = new Set([...code.matchAll(/import\s+(\w+)\s+from\s+['"][^'"]+\.module\.css['"]/g)].map((m) => m[1]));
+    for (const m of code.matchAll(/<h[23]\b((?:=>|[^>])*)>/g)) {
+      const cn = m[1].match(/className=(?:"([^"]*)"|'([^']*)'|\{([\s\S]*)\})/);
+      if (!cn) continue;
+      const plain = cn[1] ?? cn[2];
+      if (plain !== undefined) { for (const w of plain.split(/\s+/)) if (w) out.add(w); continue; }
+      for (const q of cn[3].matchAll(/(['"`])((?:(?!\1)[^\n])*?)\1/g)) {
+        for (const w of q[2].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-zA-Z][\w-]*$/.test(w)) out.add(w);
+      }
+      for (const q of cn[3].matchAll(/\b(\w+)\.([a-zA-Z]\w*)/g)) if (modules.has(q[1])) out.add(q[2]);
+    }
+  }
+  return out;
+}
+/* --- end r9 headingRules constants ---------------------------------------------------- */
+
 function collect() {
   const cssFiles = [...walk('styles', ['.css']), ...walk('components', ['.css'])];
   const owners = new Map();   // class -> Set<file>
@@ -213,7 +255,10 @@ function collect() {
     collisions: [], fontSizes: [], rawHex: [], rarityLiteral: [], oldTeal: [],
     pills: [], h1Rules: [], fontWeights: [], nativeControls: [], scrollbarThumb: [], primaryToggle: [],
     tealDecoration: [], checkboxPrimitive: [], tglOutsideToolbar: [],
+    headingRules: [],
   };
+  const tsxFiles = [...walk('pages', ['.tsx']), ...walk('components', ['.tsx'])];
+  const hClasses = headingClasses(tsxFiles);
   const tokens = tokenHexes();
   const weights = loadedWeights();
 
@@ -280,6 +325,28 @@ function collect() {
           }
         }
       }
+      // r9 headingRules: heading paint lives in styles/core/shared.css.
+      if (path !== join('styles', 'core', 'shared.css')) {
+        for (const part of selector.split(',')) {
+          const subject = subjectOf(part);
+          const cls = classesOf(subject);
+          const entity = cls.includes('entity-title');
+          if (entity) {
+            for (const d of decls) {
+              const px = d.prop === 'font-size' ? d.value.match(/^([\d.]+)px/) : d.prop === 'font' ? d.value.match(/(?:^|\s)([\d.]+)px/) : null;
+              if (px && Number(px[1]) > 22) out.headingRules.push(`${path}: ${part.trim()} { ${d.prop}: ${d.value} } is an .entity-title over 22px`);
+            }
+            continue;
+          }
+          if (cls.includes('label-tag') || cls.some((c) => HEADING_EXEMPT[c])) continue;
+          // An h2/h3 element, or a heading class on no other named element (h4.x is an h4).
+          const element = subject.match(/^[a-z][a-z0-9]*/)?.[0];
+          if (element ? !/^h[23]$/.test(element) : !cls.some((c) => hClasses.has(c))) continue;
+          for (const d of decls) {
+            if (HEADING_PAINT.has(d.prop) || (d.prop === 'font' && /\d/.test(d.value))) out.headingRules.push(`${path}: ${part.trim()} { ${d.prop} }`);
+          }
+        }
+      }
       let family = null;
       let weight = null;
       for (const d of decls) {
@@ -297,7 +364,7 @@ function collect() {
     }
   }
 
-  for (const path of [...walk('pages', ['.tsx']), ...walk('components', ['.tsx'])]) {
+  for (const path of tsxFiles) {
     const text = readFileSync(join(root, path), 'utf8');
     for (const m of text.matchAll(OLD_TEAL)) out.oldTeal.push(`${path}: ${m[0].toLowerCase()}`);
     // Code only: a comment that says "rather than a <select>" is not a select.
@@ -349,10 +416,11 @@ const LABELS = {
   primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",
   checkboxPrimitive: 'a checkbox outside a <label className="check"> -- a boolean or an option is the .check checkbox (styles/core/arkpedia-theme.css, docs/development/ui-primitives.md)',
   tglOutsideToolbar: `a .tgl outside a toolbar (TGL_SCOPE: ${TGL_SCOPE.length ? TGL_SCOPE.join(', ') : 'none'}) -- a setting or an option is a .check checkbox, a pick-one is SegmentedControl, an independent filter is a .filter-chip with aria-pressed`,
+  headingRules: 'heading paint (size, colour, tracking, case) on an h2/h3 outside styles/core/shared.css -- a section heading is .op-section h2 or .section-title, a sub-section the global h3, a name .entity-title (22px at most), a micro-label .label-tag (docs/development/ui-primitives.md rule 14)',
   tealDecoration: `teal on a selector that names no state, in ${TEAL_DECORATION_SCOPE.join(', ')} -- teal means "on" or "current"; recolour it (--text-dim, --heading for a heading) or qualify the selector with the state it marks`,
 };
 
-const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar'];
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar', 'headingRules'];
 
 function counts(list) {
   const m = new Map();

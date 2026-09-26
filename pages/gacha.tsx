@@ -2016,7 +2016,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
               <>
                 {!((isOrienteering && !orienteeringConfirmed) || (isKernelLocating && !kernelLocatingConfirmed)) && (
                   <section className="op-section gacha-featured-section">
-                    <h2 style={{ marginBottom: 4 }}>
+                    <h2>
                       {banner.label} <span className="gacha-banner-date">({bannerDateLabel(selectedBanner)})</span>
                     </h2>
                     {!selectedBanner?.global_date && <p className="hint">Global release date unannounced.</p>}

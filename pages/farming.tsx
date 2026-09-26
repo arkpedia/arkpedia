@@ -75,7 +75,7 @@ export default function FarmingPage({ windows, countdowns: exportedCountdowns, e
 
       <PageHeader eyebrow="Rhodes Island // Logistics Support" title="Farming Guide" />
 
-      <main className="farming-main">
+      <main>
         <div className="farming-legend farming-legend-top">
           {LEGEND.map((item) => (
             <p key={item.kind}>
@@ -90,7 +90,7 @@ export default function FarmingPage({ windows, countdowns: exportedCountdowns, e
             const isOpen = openTiers.has(n);
             return (
               <section key={n} className={`farming-accordion-section${isOpen ? ' open' : ''}`}>
-                <h2 className="farming-accordion-title">
+                <h2 className="section-title farming-accordion-title">
                   <button
                     type="button"
                     className="btn-bare farming-accordion-header"

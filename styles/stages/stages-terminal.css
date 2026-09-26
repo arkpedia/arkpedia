@@ -160,11 +160,11 @@
 
 /* --- Score ---------------------------------------------------------------
    One block for the main theme, one for the side-story lines. */
-.score-block { margin-bottom: 30px; }
+.score-block { margin-bottom: var(--section-gap); }
 /* The block's heading is the canonical section h2 (.op-section h2: --heading, 18px,
    shared.css); this is only its spacing. It was an 11px mono label in teal, which is
    the "on / current" colour, used as a heading. */
-.score-block-title { margin: 0 0 14px; }
+.score-block-title { margin: 0 0 var(--heading-gap); }
 
 .score-line {
   position: relative;
@@ -457,10 +457,10 @@
   background: var(--panel);
   border-radius: var(--radius-frame);
 }
-/* An .op-section's 36px foot is for sections stacked in a column; these sit on the
-   home board's grid (gap 14px) or stack with the margin below. */
+/* An .op-section's --section-gap foot is for sections stacked in a column; these sit on
+   the home board's grid (gap 14px, a board of panels like the home page's) or stack with
+   the margin below. */
 .terminal-panel.op-section { margin-bottom: 0; }
-.terminal-panel.op-section > h2 { margin-top: 0; }
 .terminal-panel.wide { grid-column: 1 / -1; }
 
 /* A scene that STACKS its panels -- Regular Tasks, Seasonal Challenge -- rather than
@@ -473,7 +473,7 @@
   border-color: var(--line);
   border-top: 2px solid var(--line);
 }
-.terminal-scene > .terminal-panel + .terminal-panel { margin-top: 26px; }
+.terminal-scene > .terminal-panel + .terminal-panel { margin-top: var(--section-gap); }
 .terminal-empty { margin: 6px 0; }
 
 /* The lead: the running event at the size the game gives it. */
@@ -525,12 +525,16 @@
   color: var(--text-dim);
 }
 
-/* Attention: what else is open, with how long it has left. */
+/* Attention: what else is open, with how long it has left. The rows hold their art
+   inside the teal hover edge (5px and a 1px transparent border); the list and the mode
+   cards are drawn out by that 6px, so the art starts on the panel's edge under the
+   heading and --heading-gap below it, and the edge draws in the panel's padding
+   (docs/development/ui-primitives.md rules 13 and 15). */
 .terminal-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 0;
+  margin: -6px -6px 0;
   padding: 0;
   list-style: none;
 }
@@ -596,12 +600,13 @@
 .terminal-mode {
   display: flex;
   gap: 10px;
-  margin-bottom: 8px;
+  margin: 0 -6px 8px;
   padding: 5px;
   border: 1px solid transparent;
   text-decoration: none;
   color: inherit;
 }
+.terminal-panel > h2 + .terminal-mode { margin-top: -6px; }
 .terminal-mode:hover {
   border-color: var(--teal);
   background: var(--panel-2);
@@ -805,7 +810,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 
 
 /* --- Long-Term Exploration ---------------------------------------------- */
-.explore-mode { margin-bottom: 34px; }
+.explore-mode { margin-bottom: var(--section-gap); }
 .explore-hero {
   position: relative;
   display: block;
@@ -944,11 +949,12 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   text-transform: uppercase;
   color: #1A0C0A;
 }
+/* --card-inset (shared.css), the one inset of a picture card's text (it was 8/10/10). */
 .supply-card-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 10px 10px;
+  padding: var(--card-inset);
 }
 .supply-card-code {
   font-family: var(--font-mono);
@@ -988,7 +994,8 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 }
 
 @media (max-width: 900px) {
-  .terminal-home { grid-template-columns: minmax(0, 1fr); }
+  /* One column: the panels are a column of sections now, not a board. */
+  .terminal-home { grid-template-columns: minmax(0, 1fr); gap: var(--section-gap); }
 
   /* Seven tabs do not fit a phone, and a sideways-scrolling bar hides most of them
      behind a gesture with nothing to say it is there. So the bar names the section you

@@ -24,7 +24,7 @@
   align-items: baseline;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: var(--heading-gap);
 }
 .pulls-panel-head h2 { margin: 0; }
 
@@ -361,13 +361,15 @@
 .pulls-help-dialog { width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; box-sizing: border-box; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: var(--radius-frame); color: var(--text); background: var(--panel); box-shadow: 0 20px 70px #0005; }
 .pulls-help-dialog::backdrop { background: #0008; }
 .pulls-help-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.pulls-help-heading h2 { margin: 0; font: 700 22px/1.2 var(--font-display); overflow-wrap: anywhere; }
+/* The dialog's title is an .entity-title and its sub-headings the global h3 (shared.css):
+   they were a 22px and an 18px heading of their own, in sentence case. */
+.pulls-help-heading h2 { margin: 0; line-height: 1.2; overflow-wrap: anywhere; }
 .pulls-help-heading button { flex: none; }
 .pulls-help-content { padding: 4px 20px 12px; }
 .pulls-help-content p, .pulls-help-content li { font: 15px/1.65 var(--font-body); letter-spacing: normal; color: var(--text-dim); }
 .pulls-help-content li + li { margin-top: 8px; }
 .pulls-help-content ol { padding-left: 22px; }
-.pulls-help-content h3 { margin: 18px 0 8px; font: 700 18px var(--font-display); }
+.pulls-help-content h3 { margin: 18px 0 8px; }
 .pulls-help-content summary { cursor: pointer; font-size: 13px; }
 .pulls-help-links { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 20px; }
 .pulls-help-target { outline: 3px solid var(--teal); outline-offset: 5px; scroll-margin-block: 100px; }
@@ -376,12 +378,11 @@
 @media (max-width: 600px) {
   .pulls-help-button { width: 40px; height: 40px; flex-basis: 40px; }
   .pulls-help-heading { padding: 14px 16px; }
-  .pulls-help-heading h2 { font-size: 18px; }
+  .pulls-help-heading h2.entity-title { font-size: 18px; }
   .pulls-help-content { padding-inline: 16px; }
   .pulls-help-links { padding-inline: 16px; }
 }
 
-.pulls-help-heading h2, .pulls-help-content h3 { text-transform: none; letter-spacing: normal; }
 .pulls-help-rules { margin-top: 16px; }
 .pulls-help-rules > summary { color: var(--text); padding-block: 6px; cursor: pointer; }
 .pulls-help-rules > summary:hover { color: var(--teal); }

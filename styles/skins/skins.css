@@ -14,7 +14,7 @@
 .skins-wishlist-total { margin: 0; color: var(--text-dim); font: 11px var(--font-mono); }
 
 /* --- the "Available now" shelf: a ScrollRow of outfits ---------------------------- */
-.skins-current-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.skins-current-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
 .skins-current-heading h2 { margin: 0; }
 .skins-current-count { margin-left: 6px; color: var(--text-dim); font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; }
 .skins-current-item {
@@ -76,7 +76,9 @@
 }
 .skin-image-wrap img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .skin-image-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-faint); font: 11px var(--font-mono); }
-.skin-card-info { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; padding: 10px; border-top: 1px solid var(--line-soft); }
+/* --card-inset (shared.css), the one inset of a picture card's text (10px, 8px on a
+   phone, before). */
+.skin-card-info { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; padding: var(--card-inset); border-top: 1px solid var(--line-soft); }
 .skin-card-operator { min-height: 1.3em; color: var(--text-dim); font-size: 11px; }
 .skin-card-name { min-height: 2.4em; font: 700 15px/1.2 var(--font-display); overflow-wrap: anywhere; }
 .skin-card-price { min-height: 1.3em; color: var(--text); font-size: 11px; }
@@ -119,7 +121,6 @@
   .skins-toolbar { grid-template-columns: 1fr 1fr; }
   .skins-toolbar > :first-child { grid-column: 1 / -1; }
   .skin-grid { grid-template-columns: repeat(3, 1fr); }
-  .skin-card-info { padding: 8px; }
 }
 @media (max-width: 480px) {
   .skin-grid { grid-template-columns: repeat(2, 1fr); }

@@ -16,6 +16,8 @@
    fallback. It was `top: 0`, under the fixed nav, where none of the tabs could be
    clicked (tests/browser/terminal-pages.spec.ts). z-index stays under the nav's. */
 .gm-lookup-anchor { display: block; height: 0; }
+/* The top padding is the air the bar keeps under the nav once stuck; at rest it rises
+   into main's padding by as much, so the first chip starts where every page starts. */
 .gm-lookup {
   position: sticky;
   top: var(--nav-h, 0px);
@@ -23,6 +25,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-top: -8px;
   margin-bottom: 12px;
   padding: 8px 0 10px;
   background: var(--bg);
@@ -187,14 +190,14 @@
 .gm-list { position: relative; }
 /* The operators sheet is drawn by the section, since the grid clips it. */
 .terminal-panel.gm-anchor { position: relative; }
-/* Panels are separated by 26px, but the rule that does it is `.terminal-panel +
+/* Panels are separated by --section-gap, but the rule that does it is `.terminal-panel +
    .terminal-panel`, so it only ever fires on a panel that FOLLOWS one. Operators is
    the first panel in the scene now that the Filter panel it used to sit under is gone,
-   so it matched nothing and sat 26px closer to the divider than every other section
+   so it matched nothing and sat that much closer to the divider than every other section
    does. It follows the search block instead, so that is what the gap hangs off.
    Scoped to this page: .terminal-scene is shared, and no other page wants a gap above
    its first panel. */
-.gm-mode > .gm-lookup + .terminal-panel { margin-top: 26px; }
+.gm-mode > .gm-lookup + .terminal-panel { margin-top: var(--section-gap); }
 .gm-sheet {
   position: absolute;
   z-index: 6;
@@ -233,15 +236,9 @@
   --gm-badge: 34px;
 }
 .gm-modaltitle { flex: 1 1 auto; min-width: 0; }
-.gm-sheet h3 {
-  margin: 1px 0 0;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--text);
-}
+/* The sheet's title names the operator, enemy or item: .entity-title .entity-title-xs
+   (15px, shared.css), the size a sheet laid over a row has room for. */
+.gm-sheet h3 { margin: 1px 0 0; }
 /* The row it came from keeps its highlight, so it is clear what the sheet belongs to. */
 .gm-row.open { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 6%, transparent); }
 

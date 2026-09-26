@@ -1,0 +1,47 @@
+{
+  "accepted": [
+    {
+      "parent": "a.video-card",
+      "child": "div.video-card-body",
+      "why": "a picture card: the text keeps --card-inset from the flush thumbnail (/community, /community/videos)"
+    },
+    {
+      "parent": "a.card.roster-card",
+      "child": "p.op-name",
+      "why": "a picture card: the name keeps --card-inset from the flush portrait (/operators, /obtain-method)"
+    },
+    {
+      "parent": "a.card.roster-card",
+      "child": "p.hint.roster-class-branch",
+      "why": "a picture card: the class line keeps --card-inset from the flush portrait (/operators, /obtain-method)"
+    },
+    {
+      "parent": "a.card.roster-card",
+      "child": "p.hint.roster-release-tag",
+      "why": "a picture card: the release tag keeps --card-inset from the flush portrait (/operators); optional: it shows only while an operator is inside a \"Now Available\" window",
+      "optional": true
+    },
+    {
+      "parent": "button.btn-bare.skin-card",
+      "child": "div.skin-card-info",
+      "why": "a picture card: the text keeps --card-inset from the flush art (/skins)"
+    },
+    {
+      "parent": "a.stage-mode-card",
+      "child": "span.stage-mode-meta",
+      "why": "a picture card: the text keeps --card-inset from the flush banner (/stages/all)"
+    },
+    {
+      "parent": "a.supply-card.open",
+      "child": "span.supply-card-body",
+      "why": "a picture card: the text keeps --card-inset from the flush art (/stages/supplies); optional: which supply stages are open or shut follows the weekday",
+      "optional": true
+    },
+    {
+      "parent": "a.supply-card.shut",
+      "child": "span.supply-card-body",
+      "why": "a picture card: the text keeps --card-inset from the flush art (/stages/supplies, a stage shut today); optional: which supply stages are open or shut follows the weekday",
+      "optional": true
+    }
+  ]
+}

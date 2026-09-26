@@ -361,8 +361,9 @@
   border-radius: var(--radius);
   margin: 36px 0 10px;
 }
-/* The drawer's title: the site's h2, a little smaller for a 420px column. */
-.schedule-panel-title { margin: 0 0 4px; font-size: 18px; padding-right: 40px; }
+/* The drawer's title names the event: .entity-title .entity-title-sm (18px, shared.css)
+   for a 420px column. */
+.schedule-panel-title { margin: 0 0 4px; padding-right: 40px; }
 .schedule-panel-event-link { margin: 6px 0 4px; }
 /* Sub-sections in the drawer use the global h3 (they were teal, which means on). */
 .schedule-panel-subheading { margin: 18px 0 10px; }

@@ -198,7 +198,7 @@ export function PlanRows({
       <div className="plan-panel-head">
         <span className="label-pair">
           <span className="label-tag plan-panel-tag">Who you are building</span>
-          <h2>Your plan</h2>
+          <h2 className="section-title">Your plan</h2>
         </span>
         {/* Derived from the rows beneath it, which is now all this panel holds. */}
         <span className="hint plan-hint">

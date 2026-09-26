@@ -762,7 +762,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           {shown.icon !== undefined && <Badge name={shown.title} icon={shown.icon} />}
           <div className="gm-modaltitle">
             <div className="eyebrow">{shown.eyebrow}</div>
-            <h3>{shown.title}</h3>
+            <h3 className="entity-title entity-title-xs">{shown.title}</h3>
           </div>
           {shown.trail}
         </div>
@@ -1315,7 +1315,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
               <Badge name="Damazti Isomorph" icon={isomorph?.icon ?? null} />
               <div className="gm-modaltitle">
                 <div className="eyebrow">Equipment</div>
-                <h3>Damazti Isomorph</h3>
+                <h3 className="entity-title entity-title-xs">Damazti Isomorph</h3>
               </div>
             </div>
             <p className="gm-effect">

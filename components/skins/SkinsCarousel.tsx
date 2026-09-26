@@ -27,7 +27,7 @@ export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
   if (skins.length === 0) {
     return (
       <section className="front-panel front-home-panel front-skins-panel">
-        <h2>Skins</h2>
+        <h2 className="section-title">Skins</h2>
         <p className="hint">No ongoing skins right now.</p>
       </section>
     );
@@ -35,7 +35,7 @@ export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
 
   return (
     <section className="front-panel front-home-panel front-skins-panel">
-      <h2>Skins</h2>
+      <h2 className="section-title">Skins</h2>
       <ScrollRow label="Skins on sale" className="front-skins-row">
         {skins.map((skin) => {
           const prices = parsePrices(skin.howToObtain);

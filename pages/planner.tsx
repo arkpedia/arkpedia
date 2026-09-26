@@ -1380,7 +1380,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           <div className="plan-panel-head">
             <span className="label-pair">
               <span className="label-tag plan-panel-tag">What you have</span>
-              <h2>Depot</h2>
+              <h2 className="section-title">Depot</h2>
             </span>
             {/* When it was last touched, and nothing else. "82 of 92 held" was
                 a count of the catalogue, which is not a fact about your depot --
@@ -1515,7 +1515,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               </span>
               <span className="planner-buildwho">
                 <span className="label-pair">
-                  <h2>{activeOp.name}</h2>
+                  <h2 className="entity-title entity-title-sm">{activeOp.name}</h2>
                 </span>
                 {/* The roster window has no target to point at, and drawing
                     "from -> " with nothing either side is what it did before

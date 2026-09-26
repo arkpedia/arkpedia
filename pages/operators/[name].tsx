@@ -1042,7 +1042,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
                 {activeSkill && (
                   <>
-                    <h3 className={pageStyles.selectedSkill}>
+                    <h3 className={`entity-title entity-title-sm ${pageStyles.selectedSkill}`}>
                       {/* Overlapping variants reserve the tallest header at this width,
                           including wrapped names and recommendation badges. */}
                       {skillList.map((skill, index) => (

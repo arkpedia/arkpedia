@@ -14,7 +14,7 @@ export function TransferDialog({ children, onClose }: { children: ReactNode; onC
     const bounds = e.currentTarget.getBoundingClientRect();
     if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) onClose();
   }}>
-    <header><h2 id="planner-transfer-title">Import / Export</h2><button type="button" className="ghost" aria-label="Close" onClick={onClose}>×</button></header>
+    <header><h2 id="planner-transfer-title" className="entity-title">Import / Export</h2><button type="button" className="ghost" aria-label="Close" onClick={onClose}>×</button></header>
     <div className="planner-transfer-body">{children}</div>
   </dialog>;
 }

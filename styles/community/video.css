@@ -86,7 +86,9 @@
   position: relative;
 }
 .video-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.video-card-body { padding: 12px 14px; }
+/* The text keeps one inset from the flush art, --card-inset (shared.css): the card's teal
+   hover edge boxes it. It was 14px here, 10-12px on the other picture cards. */
+.video-card-body { padding: var(--card-inset); }
 .video-title {
   font-family: var(--font-display);
   font-weight: 600;

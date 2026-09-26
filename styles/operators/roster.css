@@ -122,8 +122,10 @@
 /* Keep the portrait edge-to-edge, with breathing room for identity and metadata. */
 /* A roster card's name (also /obtain-method's cards). */
 .op-name { min-height: 20px; margin: 0 0 10px; font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
-.roster-card > .op-name { margin: 12px 12px 8px; line-height: 1.35; }
-.roster-card > .hint { margin: 0 12px 12px; line-height: 1.5; }
+/* The name and the class line keep --card-inset (shared.css) from the card's edge, the
+   one inset of every picture card's text. */
+.roster-card > .op-name { margin: var(--card-inset) var(--card-inset) 8px; line-height: 1.35; }
+.roster-card > .hint { margin: 0 var(--card-inset) var(--card-inset); line-height: 1.5; }
 .roster-card > .avatar { margin-bottom: 0; border-color: transparent; }
 
 /* --- /obtain-method ---

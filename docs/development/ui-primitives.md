@@ -42,6 +42,11 @@ CSS modules are used by the operator page, the games, the pulls workspace and `S
 10. **Radii come from tokens**: `var(--radius)` (2px) by default, `var(--radius-frame)` (3px) for an outer frame or a floating menu, and `var(--radius-control)` (4px) at most for a tile-like control. Never use a literal, and never 999px pills.
 11. **Only loaded font weights.** Rajdhani 500/600/700, JetBrains Mono 400–700 and Inter 400–700 are loaded. Any other weight is faked by the browser as faux bold.
 12. **Anti-Page Jump.** No state change may leave the document shorter than the reader's scroll position needs. See the `arkpedia-ui` skill. `components/ui/useHeightFloor` is the general-purpose fix.
+<!-- r9 headings-spacing: rules 13-15 -->
+13. **One vertical rhythm, in two tokens.** A section heading sits `--heading-gap` (14px) above the first content under it, and stacked sections are `--section-gap` (36px) apart; the first content of every page starts 24px under the header hairline (`main`'s padding). `.op-section h2` has no top margin (it inherited the global h2's 18px, which put a page that opened with a section heading at 42px), and a heading row (a flex row holding the heading and a count or a button) carries `margin-bottom: var(--heading-gap)` itself. A flex or grid gap that sits between a heading and its content is part of that gap (`calc(var(--heading-gap) - <gap>)`, as `/music`'s queue and `/techniques`' umbrellas do). The 2026-09-26 census measured 12 heading gaps (0-30px) and 11 section gaps (0-44px). Deliberate others, each measured by what it is rather than listed by page: a disclosure header whose body hangs from it on a shared edge (`/farming`'s tiers, 0px); a board of boxed panels in a grid, which keeps its grid gap (the Terminal home and the home page, 14px); the music guesser's category rows (a hairline list); the slim Terminal pages at 700px and under (14px to the first content) and the operator page (16px, a workspace bounded to the viewport). `tests/browser/cards-and-headings.spec.ts` checks every section heading on 41 routes (14px ±2 below, 36px ±2 between stacked `.op-section`s) and `tests/browser/page-bounds.spec.ts` the first line of every page (`first-gap`, 24px ±2).
+14. **Four heading roles, one voice each, all in `shared.css`.** A section heading is `.op-section h2`, or `h2.section-title` where it is not inside an `.op-section` (a home panel, a panel head, a disclosure header): Rajdhani 18px, 700, 0.03em, uppercase, `--heading`. A sub-section is the global `h3` (15px, 600, 0.04em, `--text-dim`). A name -- an entity, a dialog or a card -- is `.entity-title` (22px, 700, `--text`), with `.entity-title-sm` (18px) and `.entity-title-xs` (15px): never larger than 22px, and never larger than the section h2 above it (the operator's skill name is `-sm` under the 18px "Skills" h2; it was 22px). A micro-label is `.label-tag`, kept a heading only when it heads a group (the /support tiers, a stage's rank labels) and a `<p>` otherwise (the stage legend's group labels, inside a `role="button"` overlay). A page stylesheet places a heading and never paints it: `audit:styles` (`headingRules`, strict) rejects a font size, colour, tracking or case on an h2 or h3 -- or on a class the TSX puts on one -- outside `shared.css`, unless it carries `.entity-title` (22px at most) or `.label-tag`; the Stronghold companion's pop-out headings are the named exception. The spec above checks each section heading's look in both themes and each entity title's size.
+15. **First lines start on the section's edge.** In a stack, every block's first line starts on its parent's content edge. Lists keep their markers in a 1.1em column at the text's edge (the site reset, `:where(ul, ol)`); a checkbox sits at the left of its cell, not centred in it; a row's side padding does not push its first control in (the operator page's voice player and lines had 6px and 4px); the operator panel's reading area starts on the header's inset (`--panel-inset` in `OperatorPage.module.css`); a stacked dossier gives its art band the content's inset; a row card that holds its art inside its hover edge (a padding and a transparent border: the home panels' cards, the Terminal home's rows) is drawn out by exactly that inset, so its art starts on the column's edge and `--heading-gap` under the heading while the edge draws in the panel's padding; a sticky bar whose top padding is its air under the nav once stuck (the music and operator guessers' setup bars, the Stronghold lookup, the voice player) rises by that padding at rest. The one inset: a picture card's text keeps `--card-inset` (12px) from its flush art, because the card's teal hover edge boxes it -- the video, roster, stage-mode, skin and supply cards used 10, 11, 12 and 14px. `page-bounds.spec.ts` (`stack-align`) fails a first line 3-120px right of its parent's edge while a sibling starts on it; `tests/browser/stack-align-baseline.json` accepts only the card insets, and only at `--card-inset`.
+<!-- end r9 rules 13-15 -->
 
 ## Tokens
 
@@ -95,6 +100,9 @@ All values are in `styles/core/shared.css`. `scripts/tests/test-ui-tokens.ts` ch
 | `--radius-control` | 4px | The ceiling: icon tiles, large action buttons, `.tgl`, `.chip` |
 | `--frame-max` | 1040px | The page frame (nav, header, main) |
 | `--page-gutter` | 24px | The frame's side padding at every width |
+| `--heading-gap` | 14px | A section heading (or its heading row) to the first content (rule 13) |
+| `--section-gap` | 36px | Stacked sections: `.op-section`, the operator page, `/pulls`, the Terminal scenes (rule 13) |
+| `--card-inset` | 12px | A picture card's text from its flush art (rule 15) |
 | `--font-display` / `--font-mono` / `--font-body` | Rajdhani / JetBrains Mono / Inter | Display and buttons / data and labels / prose |
 
 ## Global rules
@@ -133,6 +141,20 @@ import PageHeader from '@/components/ui/PageHeader';
 - `slim` reduces the vertical padding for a tool whose first screen is the tool (stage terminals, Stronghold, music). The title size stays the same.
 - Render it **outside and before** `<main>`, never inside it. A header inside `main` starts 24px to the right of the content. The bounds test measures this.
 - Do not restyle the h1 (size, case, colour). `audit:styles` rejects h1 size or case rules outside `shared.css`.
+
+### Headings (`shared.css`)
+
+```tsx
+<section className="op-section"><h2>Skills</h2>…</section>          {/* a section heading */}
+<div className="front-home-panel"><h2 className="section-title">Events</h2>…</div>
+<h3>Talents</h3>                                                       {/* a sub-section */}
+<h2 className="entity-title">{enemy.name}</h2>                         {/* a name: 22px */}
+<h3 className="entity-title entity-title-sm">{skill.name}</h3>         {/* under an 18px h2 */}
+<h3 className="label-tag">Cookie supporters</h3>                       {/* a micro-label heading a group */}
+```
+
+- A dialog's `h2` (`.modal-box h2`) is the `.entity-title` voice without the class.
+- Place headings with margins and layout only; the look is `shared.css`'s (rule 14).
 
 ### SegmentedControl and `.filter-chip`
 
@@ -354,6 +376,7 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
 | `checkboxPrimitive` (strict) | An `<input type="checkbox">` in TSX whose nearest open `<label>` has no `check` class | Wrap it in `<label className="check">` and delete any page styling of the box |
 | `tglOutsideToolbar` (strict) | A `tgl` class in TSX outside the files in `TGL_SCOPE` (none today) | A setting or an option is a `.check` checkbox; a pick-one is `SegmentedControl`; an independent filter is a `.filter-chip` with `aria-pressed` |
+| `headingRules` (strict) | Heading paint (`font-size`, `font`, `color`, `letter-spacing`, `text-transform`) on an h2 or h3 subject -- the element, or a class the TSX puts on an `<h2>`/`<h3>` -- outside `shared.css`, unless the subject carries `.entity-title` (which may not exceed 22px) or `.label-tag`; `HEADING_EXEMPT` names the Stronghold companion's pop-out headings | Use `.op-section h2` / `.section-title`, the global `h3`, `.entity-title` or `.label-tag` (rule 14), and keep only margins and layout in the page |
 | `tealDecoration` (strict) | `var(--teal)`, `--teal-dim` or `--teal-fill` as a colour, background, border, outline or shadow on a selector with no state in it (`:hover`, `:focus`, `:checked`, `[aria-pressed]`, `[aria-current]`, `.current`, `.live`, `.open`...), in the folders of `TEAL_DECORATION_SCOPE` (`styles/stages/`) | Recolour it (`--text-dim`, `--heading` for a heading), or qualify the selector with the state it marks |
 
 ```sh
@@ -371,6 +394,9 @@ For every page at 1440 and 390, the test measures:
 - `h1-align`: the visible h1's left edge is not where the content starts.
 - `frame`: content lies outside 224–1216 at 1440, or outside 24–366 at 390.
 - `page-scroll-x`: the page itself scrolls sideways.
+- `first-gap`: the first content in `main` is not 24px (±2) under the header hairline. A Terminal scene at 700px and under expects 14px and the operator page 16px (rule 13); both are named in the spec.
+
+It also runs `stack-align` (rule 15) against its own baseline, `tests/browser/stack-align-baseline.json`: the picture cards whose text keeps `--card-inset`, each accepted only at that inset (an entry that shows only on some days, a card in a date window or a stage open by weekday, is marked `optional` and escapes only the stale check). A driven state the route list never shows, the planner's operator dossier, is checked at both widths too. Every other first line set 3-120px in from its parent's edge fails, and an accepted entry no page shows any more fails as stale. `tests/browser/section-census.ts` does the measuring (it also serves the heading and section checks in `cards-and-headings.spec.ts`) and says what it leaves out: content centred or end-aligned across the section (a control centred alone in a small cell is still an indent), a tile that centres an icon over its label, content out of flow, inline runs; a row boxed by its state (the selected stage row, the playing voice line) is measured by its content, a disclosure marker or generated glyph leads its element, and a list's markers sit in its 1.1em column. When no child starts on the parent's edge, the leftmost child is the edge, so two siblings that disagree (the operator panel's header and reading area) fail too. A card inset is checked by its content box, not its first glyph.
 
 The baseline is `{}` and the test is strict: every measured page passes at both widths, so any offence fails, and `UPDATE_BOUNDS_BASELINE=1` measures every page but refuses to write a non-empty baseline. Fix the page.
 
@@ -390,6 +416,7 @@ The test also fails when a page file under `pages/` is neither measured nor excl
    - cards that are buttons get `.btn-bare`, plus `.pick-card` if they are selectable
    - destructive actions get `.danger`
    - delete the module or page-local variants
+4b. Headings and rhythm: section headings are `.op-section h2` (or `.section-title`), names `.entity-title`, micro-labels `.label-tag`; a heading row carries `margin-bottom: var(--heading-gap)`, stacked sections are `--section-gap` apart, and a picture card's text keeps `--card-inset` (rules 13-15).
 5. Borders on anything interactive use `var(--control-border)`, with hover to teal; a large pressable surface (a row card, a `.pick-card`) uses `var(--card-border)`; picture and content cards use a transparent border instead, teal on hover and focus. Passive frames keep `--line` or `--line-soft`. Cells in a row share one centre line (rule 4).
 6. Replace rarity with `<Rarity>` or `.tier-N`. Categories use `--cat-*`. Replace any remaining literal colours with tokens (check the light theme).
 7. Radii come from tokens only (2, 3 or 4px).

@@ -269,7 +269,9 @@
 .gacha-preview-link:hover { border-color: var(--teal); color: var(--teal); }
 .gacha-preview-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .gacha-preview-section { margin-bottom: 16px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-frame); background: var(--panel-2); overflow-wrap: anywhere; }
-.gacha-preview-section h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; color: var(--text-bright); font: 700 16px var(--font-display); text-transform: uppercase; }
+/* The dialog's sub-sections are the global h3 (15px, shared.css); they were 16px and
+   17px, off the display scale. */
+.gacha-preview-section h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
 .gacha-preview-section h3 span { color: var(--text-dim); font: 11px var(--font-mono); text-transform: none; }
 .gacha-preview-section p { margin: 7px 0 0; white-space: pre-line; line-height: 1.5; }
 .gacha-preview-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
@@ -315,7 +317,7 @@
 .gacha-details-rates span { color: var(--text-bright); }
 .gacha-details-caption { margin: 8px 0; color: var(--text-dim); font-size: 13px; line-height: 1.45; }
 .gacha-details-section { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
-.gacha-details-section h3 { margin: 0 0 10px; color: var(--text-bright); font: 700 17px var(--font-display); text-transform: uppercase; }
+.gacha-details-section h3 { margin: 0 0 10px; }
 .gacha-details-featured-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .gacha-details-featured { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 66px; padding: 7px; border: 1px solid var(--gacha-rarity-border, var(--control-border)); border-radius: var(--radius-control); background: var(--panel-2); color: var(--text); text-align: left; cursor: pointer; }
 .gacha-details-featured img, .gacha-details-featured .gacha-pull-icon-placeholder { flex: none; width: 50px; height: 50px; object-fit: contain; }
@@ -543,7 +545,9 @@
 .gacha-featured-info { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 2px; }
 .gacha-featured-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 2.4em; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .gacha-featured-meta { display: flex; flex-direction: column; align-items: flex-start; min-height: 2.4em; gap: 1px; }
-.gacha-featured-section { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+.gacha-featured-section { --featured-gap: 12px; display: flex; flex-direction: column; align-items: stretch; gap: var(--featured-gap); }
+/* The column's gap is part of the --heading-gap under the banner's heading (26px, before). */
+.gacha-featured-section > h2 { margin-bottom: calc(var(--heading-gap) - var(--featured-gap)); }
 .gacha-featured-section > .gacha-content-group { min-width: 0; }
 /* The control border frames the chip; the rarity frames the portrait inside it (no glow). */
 .gacha-featured-chip-6 { --gacha-rarity-border: var(--rarity-6); }
