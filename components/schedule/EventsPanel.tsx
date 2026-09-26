@@ -1,5 +1,6 @@
 import { activeEventFarming } from '@/lib/farming/eventFarming';
 import { useEffect, useRef, useState } from 'react';
+import { useReaderClock } from '@/lib/time/readerClock';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import CountdownTimer from '../ui/CountdownTimer';
@@ -18,19 +19,21 @@ interface Props {
   ongoing: GameEvent[];
   upcoming: GameEvent | null;
   farmableMaterials: FarmingMaterial[];
+  /** The request's clock (epoch ms), from the page's contentPageClock `now`: what the
+   *  server markup and the first client paint pick the boosted materials by. Required,
+   *  because a panel that read the clock itself rendered the reader's answer over the
+   *  server's and failed hydration once an event closed in between. */
+  now: number;
 }
 
-export default function EventsPanel({ ongoing, upcoming, farmableMaterials }: Props) {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const currentMaterials = activeEventFarming(farmableMaterials, (now ?? new Date()).getTime());
+export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now }: Props) {
+  // The request's clock first, so the markup and the first client paint agree; the
+  // reader's after mount, re-read every second (it changes once a minute).
+  const clock = useReaderClock(now, { tickMs: 1000 });
+  const currentMaterials = activeEventFarming(farmableMaterials, clock);
   const slides: SlideItem[] = [
-    ...ongoing.map((event) => ({ event, isUpcoming: now ? now < event.start : false })),
-    ...(upcoming ? [{ event: upcoming, isUpcoming: now ? now < upcoming.start : true }] : []),
+    ...ongoing.map((event) => ({ event, isUpcoming: clock < event.start.getTime() })),
+    ...(upcoming ? [{ event: upcoming, isUpcoming: clock < upcoming.start.getTime() }] : []),
   ];
 
   const [activeIndex, setActiveIndex] = useState(0);

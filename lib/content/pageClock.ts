@@ -9,6 +9,7 @@ import { serverWeekday } from '@/lib/time/serverDay';
  * export-worker clock guard (scripts/content/export-clock.mjs) refuses it.
  */
 const CLOCK_UNITS: Record<string, number> = {
+  '/': 60_000,
   '/operators': 60_000,
   '/skins': 60_000,
   '/stages': 1000,

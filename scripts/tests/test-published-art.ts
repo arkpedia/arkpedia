@@ -59,7 +59,7 @@ test('a banner without published art keeps its frame on the front page, with no 
 
 test('an event poster not published yet leaves the poster box empty instead of failing the panel', () => {
   const event: GameEvent = { name: 'Test Event', poster: null, year: 2026, dateRange: '2026/09/25–2026/10/09', start, end };
-  const html = render(createElement(EventsPanel, { ongoing: [event], upcoming: null, farmableMaterials: [] }));
+  const html = render(createElement(EventsPanel, { ongoing: [event], upcoming: null, farmableMaterials: [], now: start.getTime() }));
   assert.match(html, /<div class="front-events-poster-wrap"><\/div>/);
 });
 
