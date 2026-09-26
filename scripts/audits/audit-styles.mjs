@@ -49,6 +49,13 @@
  *                  else (ui-primitives rule 1). Only the stylesheets in
  *                  TEAL_DECORATION_SCOPE, the families already clean; 2026-09-26 the
  *                  others still held about 190 such rules
+ *   checkboxPrimitive  an <input type="checkbox"> in TSX that is not inside a <label>
+ *                  whose class list has `check`: a boolean or an option is the one
+ *                  .check checkbox (styles/core/arkpedia-theme.css), not a per-page box
+ *   tglOutsideToolbar  a `tgl` class in TSX outside the files of TGL_SCOPE: .tgl is a
+ *                  toolbar mode switch, and #64 used it to turn eleven checkboxes into
+ *                  highlighted buttons, which the maintainer asked to undo (2026-09-26).
+ *                  A setting or an option is a .check checkbox
  *
  * It is a RATCHET. Today's accepted cases are counted in style-audit-baseline.json
  * next to this script. The run fails when anything is NEW (more occurrences of an
@@ -183,6 +190,14 @@ const OLD_TEAL = /#4de8d1\b|rgba?\(\s*77[\s,]+232[\s,]+209\b/gi;
  *  only. Add a family's folder once it is clean; the rule is strict. */
 const TEAL_DECORATION_SCOPE = [join('styles', 'stages') + '/'];
 const TEAL = /var\(\s*--teal(?:-dim|-fill(?:-hi)?)?\s*\)/;
+/** The files whose toolbars may use .tgl (a dense row of mode switches). None do today;
+ *  add a file here only for a real toolbar, never for a setting or an option. */
+const TGL_SCOPE = [];
+/** A checkbox input, however the attribute is written. */
+const CHECKBOX_INPUT = /<input\b(?:=>|[^>])*?\btype=(?:"checkbox"|'checkbox'|\{\s*['"`]checkbox['"`]\s*\})/g;
+/** A <label> opening tag whose class list names .check: a quoted class list, or a
+ *  template literal, that has `check` as a whole class name. */
+const CHECK_LABEL = /^<label\b(?:=>|[^>])*?\bclassName=\{?\s*(['"`])(?:(?!\1)[\s\S])*?(?<![\w-])check(?![\w-])/;
 const TEAL_PROPS = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?(?:-color)?|outline(?:-color)?|box-shadow|text-decoration(?:-color)?)$/;
 /** A selector that says which state it paints: a pseudo-class, an ARIA state, or a state
  *  class (".current", ".stage-mode-live", ".drag-over"). */
@@ -197,7 +212,7 @@ function collect() {
   const out = {
     collisions: [], fontSizes: [], rawHex: [], rarityLiteral: [], oldTeal: [],
     pills: [], h1Rules: [], fontWeights: [], nativeControls: [], scrollbarThumb: [], primaryToggle: [],
-    tealDecoration: [],
+    tealDecoration: [], checkboxPrimitive: [], tglOutsideToolbar: [],
   };
   const tokens = tokenHexes();
   const weights = loadedWeights();
@@ -285,9 +300,23 @@ function collect() {
   for (const path of [...walk('pages', ['.tsx']), ...walk('components', ['.tsx'])]) {
     const text = readFileSync(join(root, path), 'utf8');
     for (const m of text.matchAll(OLD_TEAL)) out.oldTeal.push(`${path}: ${m[0].toLowerCase()}`);
-    if (path.startsWith(join('components', 'ui') + '/')) continue;
     // Code only: a comment that says "rather than a <select>" is not a select.
     const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+    // Every checkbox sits in its <label class="check">: the nearest <label> opened
+    // before it and not yet closed has `check` in its class list.
+    for (const m of code.matchAll(CHECKBOX_INPUT)) {
+      const open = code.lastIndexOf('<label', m.index);
+      const closed = open >= 0 && code.slice(open, m.index).includes('</label>');
+      if (open < 0 || closed || !CHECK_LABEL.test(code.slice(open, m.index))) {
+        out.checkboxPrimitive.push(`${path}: ${m[0].replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+    if (!TGL_SCOPE.includes(path)) {
+      for (const m of code.matchAll(/(['"`])((?:(?!\1)[^\n])*?)\1/g)) {
+        if (/(?:^|\s)tgl(?=\s|$|\$)/.test(m[2])) out.tglOutsideToolbar.push(`${path}: ${m[0].slice(0, 80)}`);
+      }
+    }
+    if (path.startsWith(join('components', 'ui') + '/')) continue;
     for (const _ of code.matchAll(/<select[\s>]/g)) out.nativeControls.push(`${path}: <select>`);
     for (const _ of code.matchAll(/role(?:=|:\s*)["']listbox["']/g)) out.nativeControls.push(`${path}: role="listbox"`);
     if (!path.startsWith(join('pages', 'dev') + '/')) {
@@ -318,10 +347,12 @@ const LABELS = {
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
   scrollbarThumb: 'a scrollbar thumb in --line or --line-soft (1.31:1, invisible) -- drop the override and inherit :root\'s --text-faint',
   primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",
+  checkboxPrimitive: 'a checkbox outside a <label className="check"> -- a boolean or an option is the .check checkbox (styles/core/arkpedia-theme.css, docs/development/ui-primitives.md)',
+  tglOutsideToolbar: `a .tgl outside a toolbar (TGL_SCOPE: ${TGL_SCOPE.length ? TGL_SCOPE.join(', ') : 'none'}) -- a setting or an option is a .check checkbox, a pick-one is SegmentedControl, an independent filter is a .filter-chip with aria-pressed`,
   tealDecoration: `teal on a selector that names no state, in ${TEAL_DECORATION_SCOPE.join(', ')} -- teal means "on" or "current"; recolour it (--text-dim, --heading for a heading) or qualify the selector with the state it marks`,
 };
 
-const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration'];
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar'];
 
 function counts(list) {
   const m = new Map();

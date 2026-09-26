@@ -42,6 +42,7 @@ export default function UiPrimitivesPage() {
   const [plain, setPlain] = useState('');
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState('');
+  const [options, setOptions] = useState<Record<string, boolean>>({ daily: true, weekly: true, monthly: false });
   const matches = useMemo(() => OPERATORS.filter((o) => query.trim() && o.toLowerCase().includes(query.trim().toLowerCase())), [query]);
 
   return (
@@ -83,6 +84,17 @@ export default function UiPrimitivesPage() {
                 onClick={() => setTags((t) => (t.includes(tag) ? t.filter((x) => x !== tag) : [...t, tag]))}>{tag}</button>
             ))}
             <button type="button" className="filter-chip" disabled>Disabled</button>
+          </div>
+        </section>
+
+        <section className="op-section" id="checkboxes">
+          <h2>Checkboxes</h2>
+          <div style={row} role="group" aria-label="Options">
+            {([['daily', 'Daily missions'], ['weekly', 'Weekly missions'], ['monthly', 'Monthly card']] as const).map(([key, label]) => (
+              <label key={key} className="check"><input type="checkbox" checked={options[key]} onChange={(e) => setOptions((o) => ({ ...o, [key]: e.target.checked }))} />{label}</label>
+            ))}
+            <label className="check"><input type="checkbox" disabled />Disabled</label>
+            <label className="check"><input type="checkbox" checked disabled readOnly />Disabled, checked</label>
           </div>
         </section>
 

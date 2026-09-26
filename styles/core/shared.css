@@ -36,14 +36,23 @@
   --line: rgba(255, 255, 255, 0.10);
   --line-soft: rgba(255, 255, 255, 0.06);
   /* The RESTING boundary of anything that can be pressed, typed into or picked
-     from: buttons, chips, toggles, inputs, selects. --line and --line-soft are
+     from: buttons, chips, checkboxes, inputs, selects. --line and --line-soft are
      passive hairlines (panels, dividers, table rules) and measure 1.16-1.31:1,
-     which is why 2,742 of 2,970 controls read as flat labels rather than as
-     things you can click. This clears 3:1 (WCAG 1.4.11) against every surface a
-     control sits on -- --bg, --panel, --panel-2, --well, both --row-grad stops and
-     --row-grad-hi -- and scripts/tests/test-ui-tokens.ts holds it there. Neutral
-     on purpose: teal is "on / current" and a resting control is neither. */
-  --control-border: rgba(255, 255, 255, 0.38);
+     which is why 2,742 of 2,970 controls once read as flat labels rather than as
+     things you can click. It was white .38 (3.5:1) after that, and every chip and
+     field became a hard outline (maintainer, 2026-09-26: "too harsh"). Now a band:
+     2.28:1 on --panel and 2:1 or more on every surface a control sits on, with the
+     control's fill (--row-grad, --panel-2, --well), its label and the teal hover
+     and focus saying it can be used. scripts/tests/test-ui-tokens.ts holds it
+     between 2.2 and 2.6:1 on the panel. Neutral on purpose: teal is "on / current"
+     and a resting control is neither. */
+  --control-border: rgba(255, 255, 255, 0.25);
+  /* The quieter edge of a LARGE pressable surface: a row card (the pull planner's
+     banner cell), a picked-from card (.pick-card), a tall disclosure row. A long
+     1px outline at the control weight draws a box round half the page; this sits
+     between the passive --line and --control-border (1.66:1 on --panel), and the
+     card turns teal on hover and focus like any control. */
+  --card-border: rgba(255, 255, 255, 0.16);
 
   --teal: #5fd9c6;
   /* Section headings: teal-ish, but not the --teal that marks on/current states. */
@@ -176,9 +185,11 @@
 
   --line: rgba(0, 0, 0, 0.12);
   --line-soft: rgba(0, 0, 0, 0.07);
-  /* Solid, not a black alpha: even rgba(0,0,0,.40) only reaches 2.81:1 on these
-     grounds. 3.2:1 on --well, 3.45 on --panel-2, 4.0 on --panel. */
-  --control-border: #727f89;
+  /* Solid, not a black alpha, so one value reads the same on white and grey
+     grounds. Softened from #727f89 (4.0:1 on --panel, the same hard outline as the
+     dark theme's .38): 2.5:1 on --panel, 2.16 on --panel-2, 2.01 on --well. */
+  --control-border: #98a3ab;
+  --card-border: #bac2c8;
 
   /* The accent has to be dark enough to be TEXT here (5.0:1 on --panel-2),
      which is why it is not the dark theme's hue value. Darkened from #0C9C86 /

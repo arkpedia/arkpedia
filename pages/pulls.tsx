@@ -22,7 +22,7 @@ import { getAllSkins } from '@/lib/skins/skins';
 import StyledSelect from '@/components/ui/StyledSelect';
 import PageHeader from '@/components/ui/PageHeader';
 import { DetailOptionContent, type DetailOption } from '@/components/pulls/DetailOption';
-import { IncludePastSwitch } from '@/components/pulls/IncludePastSwitch';
+import { IncludePastCheckbox } from '@/components/pulls/IncludePastCheckbox';
 import { SkinPlan } from '@/components/pulls/SkinPlan';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, MAX_PLAN_FILE_SIZE, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
@@ -337,15 +337,16 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
           <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} />
         </div>
         {skinBudget.missing.length > 0 && <p className="pulls-plan-warning">Some selected skins have missing prices. Review your wishlist.</p>}
-        <div className={workspace.incomeRow}>            {/* Six independent switches, each a .tgl with aria-pressed: they were native
-            17px checkboxes in the browser's own drawing. */}
-            <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <button type="button" key={key} className={`tgl${incomeSettings[key] ? ' is-on' : ''}`} aria-pressed={!!incomeSettings[key]} title={rate} onClick={() => setIncomeSettings(previous => ({ ...previous, [key]: !previous[key] }))}>{label}</button>)}<button type="button" className={`tgl${monthlyCard ? ' is-on' : ''}`} aria-pressed={monthlyCard} onClick={() => setMonthlyCard(on => !on)}>Monthly card</button></div>
+        <div className={workspace.incomeRow}>
+            {/* Six settings, each a real checkbox (.check): #64 had made them highlighted
+                .tgl buttons, and the maintainer asked for the checkboxes back. */}
+            <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key} className="check" title={rate}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} />{label}</label>)}<label className="check"><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label></div>
 <div className={workspace.rate}><strong>{monthlyIncome.toLocaleString(undefined,{maximumFractionDigits:1})}</strong><span>pulls / 30 days</span></div></div>
         <div className={workspace.utilities}>
           <button type="button" id="tab-income" aria-controls="panel-income" aria-expanded={activeTab === 'income'} onClick={() => setActiveTab(activeTab === 'income' ? '' : 'income')}><span>Income & events</span><span>{activeTab === 'income' ? '−' : '+'}</span></button>
           <div className={workspace.pastUtility}>
             <button type="button" id="tab-past" aria-controls="panel-past" aria-expanded={activeTab === 'past'} onClick={() => setActiveTab(activeTab === 'past' ? '' : 'past')}><span>Past events</span><span aria-hidden="true">{activeTab === 'past' ? '−' : '+'}</span></button>
-            <IncludePastSwitch checked={includeBacklog} onChange={setIncludeBacklog} />
+            <IncludePastCheckbox checked={includeBacklog} onChange={setIncludeBacklog} />
           </div>
           <button type="button" id="tab-skins" aria-controls="panel-skins" aria-expanded={activeTab === 'skins'} onClick={() => setActiveTab(activeTab === 'skins' ? '' : 'skins')}><span>Skin wishlist <b>{skinIds.length}</b></span><span>{reserve} OP reserved {activeTab === 'skins' ? '−' : '+'}</span></button>
         </div>
@@ -412,16 +413,16 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
                         {b.opSource === 'global' ? ' · first-run rewards' : ''}
                       </i>
                     </span>
-                    <span className="pulls-event-mid">{b.rerun && b.op > 0 && <button type="button" className={`pulls-tick${cleared ? ' on' : ''}`}
-                      aria-pressed={cleared} aria-label={`Already cleared ${(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}`}
-                      onClick={() => setClearedReruns(previous => {
-                        const next = new Set(previous);
-                        if (eventWasCleared(b, next)) [b.name, ...(b.legacyNames ?? [])].forEach(name => next.delete(name));
-                        else next.add(b.name);
-                        return next;
-                      })}>
-                      <span className="pulls-tick-mark" aria-hidden="true">✓</span>Already cleared
-                    </button>}</span>
+                    <span className="pulls-event-mid">{b.rerun && b.op > 0 && <label className="check pulls-tick">
+                      <input type="checkbox" checked={cleared} aria-label={`Already cleared ${(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}`}
+                        onChange={() => setClearedReruns(previous => {
+                          const next = new Set(previous);
+                          if (eventWasCleared(b, next)) [b.name, ...(b.legacyNames ?? [])].forEach(name => next.delete(name));
+                          else next.add(b.name);
+                          return next;
+                        })} />
+                      Already cleared
+                    </label>}</span>
                     <span className="pulls-event-op">
                       <RewardAmount resource="op" amount={cleared ? 0 : b.op} />{eventShopPermits(b) > 0 && <RewardAmount resource="permits" amount={eventShopPermits(b)} />}
                     </span>

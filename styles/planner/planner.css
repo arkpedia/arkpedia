@@ -299,9 +299,13 @@
 .planner-transfer-dialog textarea { width:100%; margin:12px 0; box-sizing:border-box; }
 .planner-transfer-dialog .plan-transfer-clear { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; padding:0; border:0; }
 
-.simple-search-row { display:flex; align-items:flex-start; gap:10px; }
-.simple-search-row .simple-search { flex:1; min-width:0; }
-.simple-search-row > button,.simple-search-row > .plan-clear-armed { margin-top:2px; min-height:44px; flex-shrink:0; }
+/* The search field and Clear share one centre line (ui-primitives rule 4). The 44px
+   button sat 5px below the 38px field's centre (8px on a phone): the row was top-
+   aligned with a 2px nudge, and the field's own 16px bottom margin is part of the box
+   a centred row centres, so the space under the field belongs to the row. */
+.simple-search-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.simple-search-row .simple-search { flex:1; min-width:0; margin-bottom:0; }
+.simple-search-row > button,.simple-search-row > .plan-clear-armed { min-height:44px; flex-shrink:0; }
 .planner-roster-clear { display:flex; justify-content:flex-end; padding:10px 20px 0; }
 @media(max-width:640px) { .simple-search-row { flex-wrap:wrap; } .simple-search-row > .plan-clear-armed { margin-bottom:12px; } }
 

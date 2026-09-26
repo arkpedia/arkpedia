@@ -83,7 +83,7 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
       <div className="pulls-operator-choices pulls-goal-choices">{available.filter(op => op.kind === 'featured').map(goalChip)}</div>
       {available.some(op => op.kind === 'returning') && <details className="pulls-odds-details"><summary>Returning limited operators</summary><div className="pulls-operator-choices pulls-goal-choices">{available.filter(op => op.kind === 'returning').map(goalChip)}</div></details>}
     </>}
-    {rules.type === 'limited' && <><button type="button" className={`tgl pulls-ticket-used${goal.includeSpark ? ' is-on' : ''}`} aria-pressed={goal.includeSpark ?? false} onClick={() => onChange({ ...goal, includeSpark: !goal.includeSpark })}>Include sparking</button></>}
+    {rules.type === 'limited' && <label className="check pulls-ticket-used"><input type="checkbox" checked={goal.includeSpark ?? false} onChange={event => onChange({ ...goal, includeSpark: event.target.checked })} />Include sparking</label>}
     </div>
     <div className="pulls-goals-outcome">
     {children}

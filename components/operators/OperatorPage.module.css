@@ -135,11 +135,16 @@
 .creditGroups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px 24px; }
 .creditGroups dl { display: grid; align-content: start; gap: 12px; min-width: 0; margin: 0; }
 .creditGroups dl > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: start; gap: 8px; font-size: 13px; line-height: 1.5; }
-.creditGroups dt { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--text-dim); font-size: 12px; }
+.creditGroups dt { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-height: 28px; color: var(--text-dim); font-size: 12px; }
 .creditGroups svg { flex-shrink: 0; }
 .creditGroups dd { margin: 0; overflow-wrap: anywhere; }
+/* One line (ui-primitives rule 4): the label (icon, language code, 28px tall above)
+   centres on the name's first line. A name is a 28px popover button when the credit
+   has related operators and plain text when it has none, so each name line is held at
+   28px too; the label sat 4px above the button with both top-aligned. */
+.creditGroups dd > div { display: flex; align-items: center; min-height: 28px; }
 .creditValue { display: grid; }
-.creditValue > span { grid-area: 1 / 1; min-width: 0; }
+.creditValue > span { display: flex; grid-area: 1 / 1; align-items: center; min-width: 0; min-height: 28px; }
 
 /* --- skills ------------------------------------------------------------------------- */
 .page :global(#operator-skills) { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 14px; }

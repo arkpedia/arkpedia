@@ -80,8 +80,8 @@ export function MusicSetup({ songs, groups, settings, setSettings, asOf, count, 
       <span className={styles.clipStartLabel} aria-hidden="true">Clip start</span>
       <SegmentedControl className={styles.clipStart} label="Clip start" value={settings.startPosition} options={CLIP_STARTS}
         onChange={(startPosition) => setSettings((current) => ({ ...current, startPosition }))} />
-      <button type="button" className="filter-chip" aria-pressed={settings.includeCn}
-        onClick={() => setSettings((current) => ({ ...current, includeCn: !current.includeCn }))}>Include CN</button>
+      <label className="check"><input type="checkbox" checked={settings.includeCn}
+        onChange={(event) => setSettings((current) => ({ ...current, includeCn: event.target.checked }))} />Include CN</label>
       <button type="button" className={`primary ${styles.action}`} onClick={start} disabled={!ready || !count}>{!ready ? 'Loading…' : count ? 'Start listening' : 'Select music to start'}</button>
       <div className={styles.setupFooter}>
         <details className={`${styles.disclosure} ${styles.rules}`}><summary>How to play</summary><p>{rules.help}</p><p>{rules.cc}</p><p>Choose any clip length; skips are free. Middle samples the middle half, Random samples anywhere with 30 seconds left. Clues share one starting point.</p></details>
@@ -104,7 +104,7 @@ export function MusicSetup({ songs, groups, settings, setSettings, asOf, count, 
           return <MusicCategory key={kind} kind={kind} label={label} open={isOpen(kind)} onOpenChange={() => toggleCategory(kind)}
             selected={selectable.filter(selected).length} total={selectable.length} disabled={!selectable.length}
             onToggle={(enabled) => choose(section.map((group) => group.id), enabled)}>
-              <div className={styles.groupChoices}>{items.map((group) => <label key={group.id} className={styles.groupChoice} data-disabled={!available(group)}>
+              <div className={styles.groupChoices}>{items.map((group) => <label key={group.id} className={`check ${styles.groupChoice}`} data-disabled={!available(group)}>
                 <input type="checkbox" aria-label={group.name} checked={selected(group)} disabled={!available(group)} onChange={(event) => choose([group.id], event.target.checked)} />
                 <span>{group.name}<small>{counts.get(group.id)} {counts.get(group.id) === 1 ? 'track' : 'tracks'}{!isGlobalGroup(group, asOf) && <em>CN</em>}</small></span>
               </label>)}</div>
@@ -131,7 +131,7 @@ function MusicCategory({ kind, label, open, onOpenChange, selected, total, disab
   useEffect(() => { if (checkbox.current) checkbox.current.indeterminate = mixed; }, [mixed]);
   return <section className={styles.musicCategory}>
     <div className={styles.categoryHeader}>
-      <label className={styles.categoryCheck}>
+      <label className={`check ${styles.categoryCheck}`}>
         <input ref={checkbox} type="checkbox" aria-label={`Select all ${label.toLowerCase()}`} checked={total > 0 && selected === total} disabled={disabled} onChange={(event) => onToggle(event.target.checked)} />
       </label>
       <button type="button" className={`btn-bare ${styles.categoryToggle}`} aria-expanded={open} aria-controls={`music-category-${kind}`} onClick={onOpenChange}>

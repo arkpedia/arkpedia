@@ -5,14 +5,20 @@ import { test } from 'node:test';
 import { THEME_COLOR } from '../../lib/nav/themeColor';
 
 /*
- * The colour tokens make promises in their comments -- "clears 3:1 on every surface",
- * "4.5:1 as text on --panel-2" -- and two of them were false when measured: the light
+ * The colour tokens make promises in their comments -- "4.5:1 as text on --panel-2",
+ * "a soft control boundary" -- and two of them were false when measured: the light
  * --rarity-6/-5 were 3.83 and 4.38, and the button boundary everyone reused (--line)
  * was 1.31. A comment cannot fail a build. This reads the two theme blocks out of
  * styles/core/shared.css, resolves each token to a colour and checks the promises, so
  * a token edited to look nicer in one theme cannot quietly break legibility in it.
  *
- * WCAG 2.2: 1.4.3 (text, 4.5:1) and 1.4.11 (a control's boundary, 3:1).
+ * WCAG 2.2: 1.4.3 (text, 4.5:1). The control boundary is a band rather than 1.4.11's
+ * 3:1: at 3.5:1 every chip, input and card read as a hard outline (maintainer,
+ * 2026-09-26: "too harsh"), so a control is told apart by its fill (--row-grad,
+ * --panel-2, --well), its label and the teal hover and focus, and its border only has
+ * to be seen (2:1 or more on every surface) without shouting (2.6:1 at most on the
+ * panel). Large pressable surfaces -- a row card, a picked-from card -- take the quieter
+ * --card-border, which sits between the passive --line and --control-border.
  */
 const SHARED = path.join(process.cwd(), 'styles/core/shared.css');
 
@@ -108,12 +114,23 @@ test('no token is declared twice within one theme block', () => {
 });
 
 for (const [name, theme] of Object.entries(themes)) {
-  test(`${name}: --control-border clears 3:1 on every surface a control sits on`, () => {
+  test(`${name}: --control-border is seen on every surface a control sits on, and is not harsh`, () => {
     const border = colour(theme, '--control-border');
     for (const [surface, bg] of surfaces(theme)) {
       const ratio = contrast(border, bg);
-      assert.ok(ratio >= 3, `--control-border on ${surface} is ${ratio.toFixed(2)}:1`);
+      assert.ok(ratio >= 2, `--control-border on ${surface} is ${ratio.toFixed(2)}:1, under the 2:1 floor`);
     }
+    const onPanel = contrast(border, colour(theme, '--panel'));
+    assert.ok(onPanel >= 2.2 && onPanel <= 2.6, `--control-border on --panel is ${onPanel.toFixed(2)}:1; the band is 2.2-2.6:1 (softer reads as flat, harder as a hard outline)`);
+  });
+
+  test(`${name}: --card-border is quieter than --control-border and louder than --line`, () => {
+    const panel = colour(theme, '--panel');
+    const card = contrast(colour(theme, '--card-border'), panel);
+    const control = contrast(colour(theme, '--control-border'), panel);
+    const line = contrast(colour(theme, '--line'), panel);
+    assert.ok(card < control - 0.3, `--card-border ${card.toFixed(2)}:1 is not clearly quieter than --control-border ${control.toFixed(2)}:1`);
+    assert.ok(card > line + 0.15, `--card-border ${card.toFixed(2)}:1 is no louder than the passive --line ${line.toFixed(2)}:1`);
   });
 
   test(`${name}: --rarity-1..6 exist and read as text on --panel-2 and --panel`, () => {

@@ -176,48 +176,10 @@
 
 /* --- ticking off what is already cleared ----------------------------------- */
 /* The tick sits ON the row's label rather than in a column of its own: the
-   thing you are ticking IS the label, and a separate checkbox column would put
-   four pixels of meaning in twenty pixels of width. */
-.pulls-tick {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.pulls-tick > span:first-child {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex: none;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius);
-  background: var(--panel-2);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1;
-  color: var(--text-faint);
-}
-/* The check mark is ALWAYS in the flow, and merely invisible when off.
-   The row is baseline-aligned, and an inline-flex box takes its baseline from
-   its content -- so a box that gains a glyph gains a baseline, and every item
-   in the row shifted 3px the moment it was ticked. Keeping the glyph and
-   hiding its colour keeps the baseline still. */
-/* Note the `span` and the class together: the box above is selected by
-   `.pulls-tick > span:first-child`, and :first-child is a pseudo-CLASS, so that
-   selector scores (0,2,1). A plain `.pulls-tick .pulls-tick-mark` is (0,2,0)
-   and loses -- the mark stayed grey and every row read as already ticked. */
-.pulls-tick > span.pulls-tick-mark { color: transparent; }
-.pulls-tick.on > span.pulls-tick-mark { color: var(--teal); }
-.pulls-tick:hover > span:first-child { border-color: var(--teal); }
-.pulls-tick.on > span:first-child { border-color: var(--teal); background: var(--teal-dim); color: var(--teal); }
+   thing you are ticking IS the label. The box and its states are the .check
+   primitive's (styles/core/arkpedia-theme.css); this only sizes the label to the
+   row's text. */
+.pulls-tick { min-height: 28px; color: var(--text-dim); font-size: 12px; }
 
 .pulls-eventlist-acts { display: flex; gap: 6px; margin-bottom: 10px; }
 .pulls-eventgrid {
@@ -230,32 +192,17 @@
 }
 .pulls-eventchip {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 7px 9px;
-  border: 1px solid var(--control-border);
+  padding: 6px 9px;
+  border: 1px solid var(--card-border);
   border-radius: var(--radius);
   background: var(--panel-2);
   text-align: left;
-  cursor: pointer;
 }
 .pulls-eventchip:hover { border-color: var(--teal); }
 .pulls-eventchip.on { border-color: var(--teal); background: var(--teal-dim); }
-.pulls-eventchip-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1;
-  color: var(--teal);
-}
-.pulls-eventchip.on .pulls-eventchip-mark { border-color: var(--teal); }
 .pulls-eventchip-name {
   font-family: var(--font-body);
   font-size: 12px;
@@ -325,7 +272,7 @@
 .pulls-wishing-wall { min-width: 0; margin: 12px 0 0; padding: 0; border: 0; }
 .pulls-wishing-wall legend { padding: 0 12px 0 0; font: 700 20px var(--font-display); color: var(--text); }
 .pulls-wish-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.pulls-wish-option { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--panel-2); color: var(--text); cursor: pointer; transition: border-color 0.15s ease; }
+.pulls-wish-option { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--panel-2); color: var(--text); cursor: pointer; transition: border-color 0.15s ease; }
 .pulls-wish-option:hover { border-color: var(--teal); }
 .pulls-wish-option.on { border-color: var(--teal); background: var(--teal-dim); }
 .pulls-wish-option input { accent-color: var(--teal); flex-shrink: 0; margin: 4px 0 0; }
@@ -335,16 +282,17 @@
 @media (max-width: 650px) { .pulls-wish-options { grid-template-columns: 1fr; } }
 
 /* Operator selection and copy odds sit within their own banner, using the same
-   portrait chips and restrained teal emphasis as the rest of the planner. */
+   portrait chips and restrained teal emphasis as the rest of the planner. The option
+   cards are large pressable surfaces, so they rest on the quieter --card-border. */
 .pulls-operator-goals { margin: 0 0 16px; min-width: 0; }
 .pulls-goals-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; }
 .pulls-goals-inputs { min-width: 0; }
 .pulls-odds-empty { display: grid; place-content: center; padding: 24px; color: var(--text-dim); font-size: 13px; text-align: center; }
 .pulls-operator-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(128px, 100%), 1fr)); gap: 8px; margin: 0 0 12px; }
-.pulls-operator-choice { display: flex; align-items: center; gap: 10px; padding: 8px; text-align: left; color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: var(--radius); cursor: pointer; font: inherit; transition: border-color 0.15s ease; }
+.pulls-operator-choice { display: flex; align-items: center; gap: 10px; padding: 8px; text-align: left; color: var(--text); background: var(--panel); border: 1px solid var(--card-border); border-radius: var(--radius); cursor: pointer; font: inherit; transition: border-color 0.15s ease; }
 .pulls-operator-choice:hover:not(:disabled) { border-color: var(--teal); }
 .pulls-goal-choices { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
-.pulls-operator-option { display: grid; grid-template-columns: minmax(0, 1fr) 88px; min-height: 76px; min-width: 0; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--panel); }
+.pulls-operator-option { display: grid; grid-template-columns: minmax(0, 1fr) 88px; min-height: 76px; min-width: 0; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--panel); }
 .pulls-operator-option:hover { border-color: var(--teal); }
 .pulls-operator-option[data-selected="true"] { border-color: var(--teal); }
 .pulls-operator-option > .pulls-operator-choice { width: 100%; justify-content: flex-start; border: 0; padding: 10px 12px; }
@@ -478,7 +426,9 @@
 /* Both the closed control and its popup use Arkpedia's theme. */
 .pulls-shop-field { display: flex; flex-direction: column; gap: 8px; }
 
-.pulls-target-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: flex-start; }
+/* Centred (ui-primitives rule 4): once a banner is picked its trigger grows to hold the
+   portraits, and a top-aligned date field sat 9px above its centre. */
+.pulls-target-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
 
 .pulls-target-row .pulls-date { width: 100%; min-width: 0; height: 40px; padding: 6px 8px; }
 .pulls-day-options { display: flex; gap: 4px; }
@@ -497,10 +447,13 @@
 
 }
 
-/* Six .tgl switches that wrap; the income rate is each one's title. */
-.pulls-recurring-grid { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+/* Six .check checkboxes; the income rate is each one's title. */
+.pulls-recurring-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; margin: 0; }
+@media (max-width: 700px) {
+  .pulls-recurring-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+}
 
-.pulls-include-switch { flex-shrink: 0; }
+.pulls-include-past { flex-shrink: 0; }
 .pulls-include-mobile { display: none; margin-left: auto; }
 @media (max-width: 600px) {
   .pulls-include-mobile { display: inline-flex; }

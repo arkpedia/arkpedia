@@ -1,7 +1,8 @@
 /* Music Guesser layout. The paint is the site's: PageHeader is the title, the
    button variants (.primary / base / .ghost / .danger) are the buttons, the clip
-   start, clip length and Include CN controls are SegmentedControl and .filter-chip,
-   and both text fields are components/ui/SearchInput. This file lays them out. */
+   start and clip length are SegmentedControl, Include CN and the release list are
+   .check checkboxes, and both text fields are components/ui/SearchInput. This file
+   lays them out. */
 .page { composes: page from './guesser-shared.module.css'; }
 .disclosure { composes: disclosure from './guesser-shared.module.css'; }
 .console:focus { outline: none; }
@@ -25,12 +26,10 @@
 .selectionTools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
 .musicCategory { border-top: 1px solid var(--line-soft); }
 .categoryHeader { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
-.categoryCheck { display: flex; flex: 0 0 40px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
-.categoryCheck input { width: 18px; height: 18px; margin: 0; padding: 0; cursor: pointer; }
-.categoryCheck:has(:focus-visible) { outline: 2px solid var(--teal); outline-offset: 2px; }
-/* The category row opens and closes its list: a full-width control with the resting
-   boundary and the one hover rule. */
-.categoryToggle { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; min-height: 40px; padding: 8px 12px; border: 1px solid var(--control-border); border-radius: var(--radius); background: var(--row-grad); color: var(--text); font: 600 13px var(--font-display); letter-spacing: 0.06em; text-align: left; text-transform: uppercase; cursor: pointer; }
+.categoryCheck { display: flex; flex: 0 0 40px; align-items: center; justify-content: center; min-height: 40px; }
+/* The category row opens and closes its list: a full-width control, so the quieter
+   --card-border of a large surface, and the one hover rule. */
+.categoryToggle { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; min-height: 40px; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--row-grad); color: var(--text); font: 600 13px var(--font-display); letter-spacing: 0.06em; text-align: left; text-transform: uppercase; cursor: pointer; }
 .categoryToggle:hover { border-color: var(--teal); color: var(--teal); }
 .categoryToggle strong { flex: 1; font-weight: 600; }
 .categoryToggle > span { color: var(--text-dim); font: 12px var(--font-mono); letter-spacing: 0; white-space: nowrap; }
@@ -39,12 +38,9 @@
 .categoryBody { padding: 4px 0 16px; }
 .groupChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
 .groupChoice { display: flex; align-items: flex-start; gap: 10px; min-width: 0; min-height: 52px; padding: 10px; border-bottom: 1px solid var(--line-soft); font-size: 12px; line-height: 1.5; cursor: pointer; }
-.groupChoice input { flex-shrink: 0; width: 16px; height: 16px; margin: 2px 0 0; padding: 0; }
 .groupChoice > span { min-width: 0; overflow-wrap: anywhere; }
 .groupChoice small { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--text-dim); font-size: 10px; }
 .groupChoice em { padding: 0 4px; border: 1px solid var(--line); border-radius: var(--radius); color: var(--amber); font-style: normal; }
-.groupChoice[data-disabled="true"] { color: var(--text-dim); cursor: default; }
-.groupChoice:not([data-disabled="true"]):hover { color: var(--teal); }
 .noMatches { padding: 20px 0; color: var(--text-dim); font-size: 13px; }
 
 /* --- round ------------------------------------------------------------------ */
