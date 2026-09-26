@@ -15,6 +15,9 @@ const deprecatedSourceFiles = new Set([
   // The stage list of the pages before the stage pipeline, with '/covers-webp\\main/...'
   // paths nothing serves. Read by nothing.
   'data/stage_index.json',
+  // The wiki-file sha1s of scripts/sync/sync-banner-art.py, retired: arkpedia-image-assets
+  // swaps in the English banner art, and pinned asset URLs version it.
+  'data/assets/banner_art_sources.json',
 ]);
 // Whole retired folders, as a path prefix ending in '/'. data/events-data/ is 71 per-event
 // files of wiki.gg icon URLs and map paths under /events-stage-maps/, which nothing serves

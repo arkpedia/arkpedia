@@ -3,7 +3,8 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useReaderClockSeconds } from '@/lib/time/readerClock';
 import { MinistoryMark } from '@/components/ui/ContentCardLink';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
@@ -29,16 +30,13 @@ interface Props extends TerminalHome {
   now: number;
 }
 
-/** Rounded down to the minute, so re-reading it is a no-op for React. */
-const nowSeconds = () => Math.floor(Date.now() / 60000) * 60;
-
 function daysLeft(end: number, from: number): number {
   return Math.max(0, Math.ceil((end - from) / 86400));
 }
 
 export default function TerminalPage({ candidates, latestIs, latestRa, isThemes, raSeasons, now }: Props) {
-  const [clock, setClock] = useState(now);
-  useEffect(() => { setClock(nowSeconds()); }, []);
+  // The request's clock first, the reader's (to the minute) after mount.
+  const clock = useReaderClockSeconds(now);
 
   /**
    * What the board leads with.

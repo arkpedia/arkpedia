@@ -29,6 +29,25 @@ export function pipSupported(): boolean {
     && typeof (window as WithPip).documentPictureInPicture?.requestWindow === 'function';
 }
 
+/** What isOperaBrowser reads: the user-agent string and, where the browser has them,
+ *  its client-hint brands. */
+export interface BrowserIdentity {
+  userAgent: string;
+  userAgentData?: { brands?: readonly { brand: string }[] };
+}
+
+/**
+ * Opera and Opera GX: the one exception to feature detection above. Opera GX has the
+ * Document Picture-in-Picture API and opens the window, but the window does not stay on
+ * top of the game, which is the only reason to use it (kukki PR #73, reported from
+ * Opera GX). So a caller offers Opera a regular window and says why. Takes the
+ * navigator explicitly, so it is decided in an effect and never during a render.
+ */
+export function isOperaBrowser(browser: BrowserIdentity): boolean {
+  return /(?:^|\s)OPR\//.test(browser.userAgent)
+    || !!browser.userAgentData?.brands?.some(({ brand }) => /opera/i.test(brand));
+}
+
 /**
  * Styles have to be COPIED, not linked.
  *

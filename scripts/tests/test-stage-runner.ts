@@ -290,8 +290,8 @@ test('a stage that keeps failing publishes the same source every day, however ea
     const published = () => {
       const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', 'data', 'public'], { cwd: tree.root, encoding: 'utf8' });
       const files = listed.stdout.split('\0').filter(Boolean).sort();
-      return { files, content: contentInput({ generator: 'test', sourceHashes: Object.fromEntries(files.map(file =>
-        [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])) }) };
+      return { files, content: contentInput({ sourceHashes: Object.fromEntries(files.map(file =>
+        [file, createHash('sha256').update(fs.readFileSync(path.join(tree.root, file))).digest('hex')])), pages: {}, files: {} }) };
     };
     tree.write('data/quarantine.json', '{"version":1,"entries":[]}\n');
     const hang = 'setTimeout(() => {}, 60000)';
@@ -400,6 +400,26 @@ test('a stage name twice in one run is a mistake in the refresh, not a skipped s
     assert.match(again.output, /Stage once already ran in this run/);
     assert.equal(tree.cli(['run', 'no-command', '--needs', 'x']).status, 2);
   });
+});
+
+test('every script a refresh stage names exists, directly or through an npm script', () => {
+  // refreshScripts() passes over a path that is not there, so the check above would never see
+  // a stage whose script was deleted or renamed under it; the stage would fail every night.
+  // A stage kept after its job moved elsewhere is the quieter case: banner-art ran
+  // sync-banner-art.py after arkpedia-image-assets took the English art over, and skipped
+  // every banner because the art is no longer in this checkout (retired 2026-09-26).
+  const npm = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts as Record<string, string>;
+  const missing: string[] = [];
+  const check = (text: string, where: string) => {
+    for (const [, name] of text.matchAll(/npm run ([\w:-]+)/g)) {
+      if (npm[name]) check(npm[name], `npm run ${name}`); else missing.push(`${where}: npm run ${name} (not in package.json)`);
+    }
+    for (const [file] of text.matchAll(/scripts\/[\w./-]+\.(?:mjs|js|ts|py|sh)\b/g)) if (!fs.existsSync(file)) missing.push(`${where}: ${file}`);
+  };
+  const stages = refreshStages();
+  for (const stage of stages) check(stage.command, `stage ${stage.name}`);
+  assert.deepEqual(missing, []);
+  assert.ok(!stages.some(stage => stage.name === 'banner-art' || stage.command.includes('sync-banner-art')), 'banner-art is retired');
 });
 
 test('every script a refresh stage runs reads the game-data mirrors at the run\'s pinned commit', () => {

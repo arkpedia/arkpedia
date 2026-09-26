@@ -15,8 +15,9 @@ export function assetUrl(repository: string, revision: string, path: string): st
 /** An image or skin asset addressed in full, at a commit or at `main`. */
 export const PINNED_ART = /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/(arkpedia-(?:image|skin)-assets)\/(?:main|[a-f0-9]{40})\/(.+)$/;
 
-/** A trailing cache-buster, as publishedArt() appends it: `?v=` after a plain path,
- * `&v=` after one that already held a `?`. */
+/** A trailing cache-buster, as lib/gamemodes/stronghold.ts stamps a re-drawn badge
+ * (`?v=`), and as banner art and posters carry it in page payloads published before
+ * scripts/sync/sync-banner-art.py was retired (`?v=`, or `&v=` after a `?`). */
 const CACHE_BUSTER = /[?&]v=[A-Za-z0-9]+$/;
 
 function decodeSegment(segment: string): string {

@@ -48,6 +48,10 @@ interface Props {
   featuredStream: TwitchStream | null;
   featuredVideo: YouTubeVideo | null;
   earliestCommunityEvent: CommunityEvent | null;
+  /** The request's clock (epoch ms, to the minute), which contentPageClock adds
+   *  (lib/content/pageClock.ts). finalizeHome picks the panels' rows by it, and the
+   *  Events panel's first paint uses it too, so the server markup and hydration agree. */
+  now: number;
   __calendar?: { events: (Omit<GameEvent, 'start' | 'end'> & { start: string; end: string })[]; banners: HeadhuntingBanner[]; skins: Skin[] };
 }
 
@@ -60,6 +64,7 @@ export default function HomePage({
   featuredStream,
   featuredVideo,
   earliestCommunityEvent,
+  now,
 }: Props) {
   useEffect(() => {
     document.body.classList.add('front-page-no-scroll');
@@ -90,7 +95,7 @@ export default function HomePage({
             the panels' h2s with nothing above them. */}
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
         <div className="front-page-left">
-          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} />
+          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
               they have content (decision of 2026-09-25). */}
@@ -105,10 +110,12 @@ export default function HomePage({
   );
 }
 
-// Recompute time-sensitive homepage selections during server revalidation.
+// Recompute time-sensitive homepage selections during server revalidation, at the
+// request's clock -- the same `now` the page renders its first paint from.
 async function finalizeHome(props: Props): Promise<Props> {
   const { __calendar, ...rest } = props;
-  const now = new Date();
+  if (!Number.isFinite(props.now)) throw new Error('/ needs the request clock: it is in CLOCK_UNITS (lib/content/pageClock.ts), and finalize never runs for an export');
+  const now = new Date(props.now);
   // Older releases serialized an assumed reset hour. Reparse date-only records
   // with the shared rules; new releases also carry the exact startAt/endAt.
   const events = __calendar?.events.flatMap(event => {

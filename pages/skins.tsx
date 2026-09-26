@@ -2,6 +2,7 @@ import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
@@ -67,14 +68,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const modalBackBtnRef = useRef<HTMLButtonElement | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
-  const [clock, setClock] = useState(now);
-  useEffect(() => {
-    const tick = () => setClock(Date.now());
-    tick();
-    const timer = window.setInterval(tick, 30_000);
-    window.addEventListener('focus', tick);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); };
-  }, []);
+  // The request's clock first, the reader's after mount (lib/time/readerClock.ts).
+  const clock = useReaderClock(now, { tickMs: 30_000, onFocus: true });
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
   // SL-4b: the bundled confirmed windows still merge in here until the maintainer decides.
@@ -335,7 +330,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               <h2 id="skins-current-title">Available now <span className="skins-current-count">{directSkins.length}</span></h2>
               <button className="ghost btn-sm" type="button" onClick={closeCurrentShelf}>Close</button>
             </div>
-            <ScrollRow label="Outfits available now">
+            <ScrollRow label="Outfits available now" controls>
               {directSkins.map(skin => {
                 const window = availability.get(skinKey(skin))!;
                 return <button type="button" key={skinKey(skin)} className="btn-bare skins-current-item" onClick={() => openSkin(skin)}>

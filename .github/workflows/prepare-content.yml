@@ -261,8 +261,9 @@ jobs:
           # Compare with the release main serves, not the one the checkout carries: a
           # correction branch's own release/ is stale by design. Compare what they say (the
           # content id, scripts/content/release-input.mjs): a release that differs only in the
-          # run's own records -- the upstream lock, the catalogue's report -- has nothing to
-          # publish. A manifest from before the content id falls back to its release id.
+          # run's own records -- the upstream lock, the catalogue's report -- or in the app
+          # commit that compiled the same pages has nothing to publish. A manifest from before
+          # the content id falls back to its release id.
           prepared_release=$(node -p "(m => m.content ?? m.release)(require('$RUNNER_TEMP/prepared-content/release/manifest.json'))")
           current_release=$(git -C "$repo" show origin/main:release/manifest.json 2>/dev/null | node -p '(m => m.content ?? m.release)(JSON.parse(require("fs").readFileSync(0, "utf8")))' 2>/dev/null || true)
           if [ "$prepared_release" = "$current_release" ]; then

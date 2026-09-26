@@ -18,6 +18,29 @@ export const windowFor = (start, end, source, previous) => {
   return previous?.timingSource && previous.startAt === window.startAt && previous.endAt === window.endAt ? { ...window, timingSource: previous.timingSource } : window;
 };
 export const fold = value => String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').replace(/\[[^\]]*\]/g, '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+/* The words of a name, folded like fold() and sorted, so 'Misumi Uika' and 'Uika Misumi'
+   (or 'Uika-Misumi') are one key. */
+const wordsKey = value => String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').replace(/\[[^\]]*\]/g, '')
+  .toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).sort().join(' ');
+/**
+ * The operator record a wiki lineup names: `entries` pairs every name and alias a record
+ * answers to with what the lookup returns for it. The same name first (fold: case, marks
+ * and separators aside), then the same words in any order. The wiki writes a Japanese
+ * collaboration's names in either order, and switched the MyGO!!!!! banner from 'Misumi
+ * Uika, Togawa Sakiko, Wakaba Mutsumi' to 'Uika Misumi, ...' overnight, which kept that
+ * banner's lineup quarantined (banner:LINKAGE_65_0_1, 2026-09-25). Only when one record
+ * alone has those words: two records sharing them stay unmatched, and are reported.
+ * Every lineup matcher goes through this (reconcileCalendars, sync-recurring-banners.mjs).
+ */
+export function lineupNameLookup(entries) {
+  const exact = new Map(), words = new Map();
+  for (const [name, value] of entries) {
+    exact.set(fold(name), value);
+    const key = wordsKey(name), held = words.get(key);
+    words.set(key, held === undefined || held === value ? value : null);
+  }
+  return name => exact.get(fold(name)) ?? words.get(wordsKey(name)) ?? undefined;
+}
 const chinese = value => /\p{Script=Han}/u.test(value ?? '');
 const sourceName = (character, global) => global ? character.name : character.appellation || character.name;
 const stats = c => ({ phases: c.phases.map((p, elite) => ({ elite, minLevel: 1, maxLevel: p.maxLevel, rangeId: p.rangeId,
@@ -471,7 +494,7 @@ const withPool = (name, poolId) => (name.includes(poolId) ? name : `${name} (${p
  */
 export function reconcileCalendars({ events, banners, operators, cn, en, eventRows, bannerRows, now = Date.now() }) {
   const nextEvents = structuredClone(events), nextBanners = structuredClone(banners), media = [], renames = [], quarantine = [];
-  const names = new Map(operators.flatMap(op => [op.name, ...(op.aliases ?? [])].map(n => [fold(n), op])));
+  const operatorNamed = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? [])].map(n => [n, op])));
   const roster = new Map(operators.map(op => [op.internalName, op]));
   const cnSource = cn.source, enSource = en.source;
   const alreadyGlobalEvents = new Set(events.filter(e => e.global?.dateRange).map(e => e.name));
@@ -554,7 +577,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       continue;
     }
     const sourceOperators = (row.operators || [row.operators1, row.operators2].filter(Boolean).join(',')).split(',').map(n => n.trim()).filter(Boolean);
-    const lineup = sourceOperators.map(n => names.get(fold(n)));
+    const lineup = sourceOperators.map(operatorNamed);
     const unknown = sourceOperators.filter((_, i) => !lineup[i]);
     const wikiName = ['jo', 'orient'].includes(row.type) ? title : `[${({ celebration: 'Celebration', carnival: 'Carnival', festival: 'Festival', crossover: 'Crossover' })[row.type] || 'Headhunting'}] ${title}`;
     const category = LIMITED_ROW.test(row.type) ? 'limited' : 'special', art = `/headhunting-banner-images/${safeName(title)}.webp`;
