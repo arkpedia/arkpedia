@@ -26,7 +26,7 @@
  *
  * A wrapper round a single-line group of controls (a SegmentedControl's chips) stands
  * for the group, measured by its first control, so a chip group beside a button is
- * compared too.
+ * compared too; a flex row that wraps onto a second line is measured by its first line.
  *
  * Deliberately not reported: cards (a control taller than 80px), text whose main line
  * wraps (a paragraph beside a button lines up by its first line), anything positioned
@@ -115,6 +115,19 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
     if (bottom - top > size * 1.3 * 3) return null;
     return { top, bottom, centre: (top + bottom) / 2 };
   };
+  /** The first line of a flex row that wraps onto more than one line, as the extent of
+   *  the items on it; null for anything else. */
+  const firstLine = (el: Element) => {
+    const cs = getComputedStyle(el);
+    if (!/flex/.test(cs.display) || !cs.flexDirection.startsWith('row') || cs.flexWrap !== 'wrap') return null;
+    const items = Array.from(el.children).filter((k) => visible(k) && inFlow(k)).map((k) => k.getBoundingClientRect());
+    if (items.length < 2) return null;
+    const top = Math.min(...items.map((r) => r.top));
+    const first = items.filter((r) => r.top < top + 2);
+    const bottom = Math.max(...first.map((r) => r.bottom));
+    if (!items.some((r) => r.top >= bottom - 1)) return null;
+    return { top, bottom, centre: (top + bottom) / 2 };
+  };
   /** Whether boxes all overlap one another vertically: controls on one line. */
   const oneLine = (boxes: DOMRect[]) => boxes.every((a) => boxes.every((b) => Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) >= Math.min(a.height, b.height) * 0.5));
   const offences: RowOffence[] = [];
@@ -139,6 +152,11 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
         controls.push({ kid, el: kid, box: kid.getBoundingClientRect() });
         continue;
       }
+      // A wrapped row (a flex-wrap line of meta that runs to a second line beside a
+      // menu) lines up by its FIRST line: the /operators/Amiya name row centred a
+      // two-line meta on the section menu, which put the menu between the lines.
+      const wrapped = firstLine(kid);
+      if (wrapped) { texts.push({ kid, line: wrapped }); continue; }
       const inner = controlsIn(kid);
       if (inner.length === 1) {
         // A wrapper round one control (a label round an input, a div round a dropdown
