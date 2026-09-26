@@ -18,6 +18,7 @@ const CLOCK_UNITS: Record<string, number> = {
   '/schedule': 60_000,
   '/farming': 60_000,
   '/obtain-method': 60_000,
+  '/gacha': 60_000,
   '/enemies': 60_000,
   '/games/color-palette': 60_000,
   '/games/music-guesser': 60_000,
