@@ -10,6 +10,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import { getSupplyCards } from '@/lib/stages/terminal';
 import type { SupplyCard } from '@/lib/stages/terminal';
 import { WEEKDAYS } from '@/lib/stages/stageTypes';
+import { countOf } from '@/lib/stages/stageText';
 import { serverWeekday } from '@/lib/time/serverDay';
 
 /**
@@ -94,7 +95,7 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
                 key={card.id}
                 href={`/stages/content/${card.id}`}
                 scroll={false}
-                className={`supply-card${open ? '' : ' shut'}`}
+                className={`supply-card${open ? ' open' : ' shut'}`}
               >
                 <span className="supply-card-art">
                   {card.mark
@@ -113,7 +114,7 @@ export default function SuppliesPage({ cards, buildDay }: Props) {
                     {Array.from({ length: card.stages }, (_, i) => <span key={i} className="supply-pip" />)}
                   </span>
                   <span className="supply-card-meta">
-                    {card.stages} stages
+                    {countOf(card.stages, 'stage')}
                     {card.sanity ? ` · ${card.sanity[0]}-${card.sanity[1]} sanity` : ''}
                   </span>
                 </span>

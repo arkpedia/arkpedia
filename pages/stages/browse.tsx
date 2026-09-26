@@ -1089,50 +1089,41 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
         <section className="op-section stage-brief">
           {emergency && (
             /* Metrics are identical across both states -- only the colour says
-               which form you are reading. */
-            <div className="stage-variant-toggle">
-              <button
-                type="button"
-                className={`stage-variant-option${emergencyOn ? '' : ' current'}`}
-                aria-pressed={!emergencyOn}
-                onClick={() => setEmergencyOn(false)}
-              >
-                Normal
-              </button>
-              <button
-                type="button"
-                className={`stage-variant-option${emergencyOn ? ' current' : ''}`}
-                aria-pressed={emergencyOn}
-                onClick={() => setEmergencyOn(true)}
-              >
-                Emergency Ops
-              </button>
-            </div>
+               which form you are reading. The site's pick-one control: it switches
+               in place, so its options are buttons with aria-pressed. */
+            <SegmentedControl
+              label="Stage state"
+              value={emergencyOn ? 'emergency' : 'normal'}
+              onChange={(state) => setEmergencyOn(state === 'emergency')}
+              options={[
+                { value: 'normal', label: 'Normal' },
+                { value: 'emergency', label: 'Emergency Ops' },
+              ]}
+            />
           )}
           {family.length > 1 && (
-            <div className="stage-variant-toggle">
-              {family.map((f) =>
-                f.slug === stage.slug ? (
-                  <span key={f.slug} className="stage-variant-option current" aria-current="page">
-                    {f.variantOf ? variantLabel(f.variant) : baseLabel}
-                  </span>
-                ) : (
-                  /* scroll={false} because this reads as a tab, not a link. Every form
-                     of a stage is its own route, so Next scrolled to the top of the
-                     document on each press -- which threw the reader back to the
-                     breadcrumb from whatever they were looking at, the map most of
-                     all. The forms lay the same page out the same way, so holding the
-                     offset lands on the same thing in the new form. */
-                  <Link prefetch={false}
-                    key={f.slug}
-                    href={`/stages/browse?s=${encodeURIComponent(f.slug)}`}
-                    scroll={false}
-                    className="stage-variant-option"
-                  >
-                    {f.variantOf ? variantLabel(f.variant) : baseLabel}
-                  </Link>
-                )
-              )}
+            /* Each form is its own address, so these are links: chips in a labelled
+               group, the open one marked aria-current="page" (the chip's picked
+               state), the way the game switcher marks its page. They were a
+               page-local chip in mono 11px with a teal fill of its own. */
+            <div role="group" aria-label="Stage forms" className="seg-control">
+              {family.map((f) => (
+                /* scroll={false} because this reads as a tab, not a link. Every form
+                   of a stage is its own route, so Next scrolled to the top of the
+                   document on each press -- which threw the reader back to the
+                   breadcrumb from whatever they were looking at, the map most of
+                   all. The forms lay the same page out the same way, so holding the
+                   offset lands on the same thing in the new form. */
+                <Link prefetch={false}
+                  key={f.slug}
+                  href={`/stages/browse?s=${encodeURIComponent(f.slug)}`}
+                  scroll={false}
+                  className="filter-chip"
+                  aria-current={f.slug === stage.slug ? 'page' : undefined}
+                >
+                  {f.variantOf ? variantLabel(f.variant) : baseLabel}
+                </Link>
+              ))}
             </div>
           )}
           <div className="stage-badges">

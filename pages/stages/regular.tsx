@@ -9,6 +9,7 @@ import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
 import { getRegularTasks, RegularTasks } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
+import { countOf } from '@/lib/stages/stageText';
 
 /**
  * Regular Tasks: Annihilation and Stationary Security Service.
@@ -78,13 +79,14 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
       />
 
       <main className="terminal-scene">
-        <section className="terminal-panel" data-tab="Annihilation Operation">
+        <section className="terminal-panel op-section">
+          <h2>Annihilation Operation</h2>
           <ModeMark name="annihilation.webp" className="panel-mark" />
           {live && (
             <Link prefetch={false}
               href={`/stages/browse?s=${encodeURIComponent(live.slug)}`}
               scroll={false}
-              className="regular-now"
+              className={`regular-now${running ? ' live' : ''}`}
             >
               <span className="regular-now-crest">
                 {liveZone?.art
@@ -96,10 +98,10 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
                 <span className="regular-now-name">{liveZone?.name ?? live.slug}</span>
                 <span className="regular-now-meta">
                   {running
-                    ? `until ${day(live.end)} · ${weeksLeft(live.end, clock)} week${weeksLeft(live.end, clock) === 1 ? '' : 's'} left`
+                    ? `until ${day(live.end)} · ${countOf(weeksLeft(live.end, clock), 'week')} left`
                     : `ran until ${day(live.end)}`}
                 </span>
-                <span className="regular-now-go">Open the map</span>
+                <span className="regular-now-go btn btn-sm ghost">Open the map</span>
               </span>
             </Link>
           )}
@@ -107,10 +109,11 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
           <ModeRail cards={zones} />
         </section>
 
-        <section className="terminal-panel" data-tab="Stationary Security Service">
+        <section className="terminal-panel op-section">
+          <h2>Stationary Security Service</h2>
           <ModeMark name="stationary-security-service.webp" className="panel-mark" />
           {season && (
-            <div className="regular-now season">
+            <div className={`regular-now season${seasonRunning ? ' live' : ''}`}>
               <span className="regular-now-text">
                 <span className="regular-now-kind">
                   {seasonRunning ? 'Season now' : 'Last season'} · #{season.number}
@@ -118,7 +121,7 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
                 <span className="regular-now-name">{season.name}</span>
                 <span className="regular-now-meta">
                   {seasonRunning
-                    ? `until ${day(season.end)} · ${weeksLeft(season.end, clock)} week${weeksLeft(season.end, clock) === 1 ? '' : 's'} left`
+                    ? `until ${day(season.end)} · ${countOf(weeksLeft(season.end, clock), 'week')} left`
                     : `ran until ${day(season.end)}`}
                 </span>
               </span>
@@ -139,7 +142,7 @@ export default function RegularTasksPage({ rotations, zones, seasons, towers, no
                         </span>
                         <span className="regular-tower-name">{card.name}</span>
                         <span className="regular-tower-meta">
-                          {card.count} {card.count === 1 ? 'stage' : 'stages'}
+                          {countOf(card.count, 'stage')}
                         </span>
                       </span>
                     </Link>
@@ -181,7 +184,7 @@ function ModeRail({ cards }: { cards: StageModeCard[] }) {
           <span className="score-node-foot">
             <span className="score-node-name">{card.name}</span>
           </span>
-          <span className="score-node-meta">{card.count} {card.count === 1 ? 'stage' : 'stages'}</span>
+          <span className="score-node-meta">{countOf(card.count, 'stage')}</span>
         </Link>
       ))}
     </Rail>

@@ -253,11 +253,10 @@
 /* The row the stage is actually farmed for. COLOUR ONLY -- the border already
    exists at 1px and only its colour changes, so a highlighted card cannot reflow
    the grid the way a thicker border or extra padding would. */
-.stage-drop.main {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 10%, var(--panel-2));
-}
-.stage-drop.main .stage-drop-name { color: var(--teal); }
+/* The stage's main drop, marked by weight rather than by teal, which is the site's "on"
+   colour only: a brighter edge and name, the rest of the card as it is. */
+.stage-drop.main { border-color: var(--text-dim); }
+.stage-drop.main .stage-drop-name { color: var(--text-bright); font-weight: 600; }
 
 .stage-drop-icon.blank {
   border: 1px dashed var(--line);
@@ -408,9 +407,11 @@
   border-bottom: 1px solid var(--line-soft);
   font-size: 15px;
   font-weight: 700;
-  color: var(--teal);
+  /* The page's heading colour for the enemies that will come; the ones that may come
+     keep a colour of their own, dimmer. */
+  color: var(--amber);
 }
-.stage-enemy-section-title.may { color: var(--amber); }
+.stage-enemy-section-title.may { color: var(--text-dim); }
 .stage-enemy-rank-title {
   margin: 0 0 6px;
   font-family: var(--font-mono);
@@ -538,7 +539,8 @@
 }
 /* The scrubber's hit box is 32px tall: the bare range input was 16px, under the 24px
    floor for a tap target (2026-09-25 review, H). */
-.stage-scrub { flex: 1; min-width: 180px; height: 32px; margin: 0; accent-color: var(--teal); cursor: pointer; }
+/* Teal from the global accent-color (:root in shared.css). */
+.stage-scrub { flex: 1; min-width: 180px; height: 32px; margin: 0; cursor: pointer; }
 .stage-clock {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -690,35 +692,6 @@
 }
 
 
-/* --- Stage form toggle ----------------------------------------------------
-   Normal / Challenge Mode / Adverse Environment / Story / 6-star. Each form is
-   its own static page, so the options are links -- but the current one has to
-   carry exactly the same metrics as the links beside it, or reading a Challenge
-   stage would shift the pane. Only colour differs. */
-.stage-variant-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.stage-variant-option {
-  padding: 6px 12px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-control);
-  background: var(--panel-2);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  text-decoration: none;
-}
-a.stage-variant-option:hover { border-color: var(--teal); color: var(--teal); }
-.stage-variant-option.current {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
-  color: var(--teal);
-}
-
 /* --- Route lines ----------------------------------------------------------
    The dashes march from spawn toward the objective, so which way a route runs
    reads without playing the timeline. The pattern period and the offset the
@@ -742,21 +715,6 @@ a.stage-variant-option:hover { border-color: var(--teal); color: var(--teal); }
 @media (prefers-reduced-motion: reduce) {
   .stage-route-line,
   .stage-route-line.flying { animation: none; }
-}
-/* The Emergency Ops toggle switches in place rather than navigating, so its
-   options are buttons -- which need the site's bare `button` metrics overridden
-   to match the links they sit beside. */
-button.stage-variant-option {
-  font-family: var(--font-mono);
-  font-weight: 400;
-  cursor: pointer;
-}
-button.stage-variant-option:hover { border-color: var(--teal); color: var(--teal); background: var(--panel-2); }
-button.stage-variant-option.current,
-button.stage-variant-option.current:hover {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
-  color: var(--teal);
 }
 /* A pre-placed unit on the map. Hover gives its name and what it does; the map
    is a diagram, so the marker is an outline rather than a filled block that
@@ -1286,7 +1244,8 @@ button.stage-variant-option.current:hover {
 }
 .stage-hud-chip.wide .stage-hud-value { font-size: 15px; }
 .stage-hud-chip.life .stage-hud-value { color: var(--danger); }
-.stage-hud-chip.dp .stage-hud-value { color: var(--teal); }
+/* The game draws DP blue; teal is the site's "on" colour, so the category blue. */
+.stage-hud-chip.dp .stage-hud-value { color: var(--cat-blue); }
 
 /* Where a glyph IS the label, it is sized like a reading rather than like a word: at
    the label's own 1.6em it came out smaller than the number it titles, which read as

@@ -41,6 +41,14 @@
  *                  primary action's fill. A toggle is a .filter-chip with
  *                  aria-pressed (or a .tgl with .is-on); a button whose label says
  *                  its state keeps one class
+ *   tealDecoration a colour, background, border, outline or shadow in var(--teal),
+ *                  --teal-dim or --teal-fill on a selector that names no state (:hover,
+ *                  :focus, :active, :checked, [aria-pressed|selected|current|checked|
+ *                  expanded], or a class for current, active, armed, live, on, open,
+ *                  selected, picked or over). Teal means "on" or "current" and nothing
+ *                  else (ui-primitives rule 1). Only the stylesheets in
+ *                  TEAL_DECORATION_SCOPE, the families already clean; 2026-09-26 the
+ *                  others still held about 190 such rules
  *
  * It is a RATCHET. Today's accepted cases are counted in style-audit-baseline.json
  * next to this script. The run fails when anything is NEW (more occurrences of an
@@ -171,6 +179,14 @@ const TOKEN_BLOCK = /^:root(?:\[[^\]]*\]|:not\([^)]*\))*$/;
 const RARITY_SELECTOR = /rarity|(?:^|[^a-z])stars?(?![a-z])|pull-|\.r[1-6]\b/i;
 const COLOUR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\([^)]*\)/g;
 const OLD_TEAL = /#4de8d1\b|rgba?\(\s*77[\s,]+232[\s,]+209\b/gi;
+/** Where tealDecoration applies: page families whose stylesheets paint teal for a state
+ *  only. Add a family's folder once it is clean; the rule is strict. */
+const TEAL_DECORATION_SCOPE = [join('styles', 'stages') + '/'];
+const TEAL = /var\(\s*--teal(?:-dim|-fill(?:-hi)?)?\s*\)/;
+const TEAL_PROPS = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?(?:-color)?|outline(?:-color)?|box-shadow|text-decoration(?:-color)?)$/;
+/** A selector that says which state it paints: a pseudo-class, an ARIA state, or a state
+ *  class (".current", ".stage-mode-live", ".drag-over"). */
+const STATE_SELECTOR = /:(?:hover|focus|focus-visible|focus-within|active|checked)\b|\[aria-(?:pressed|selected|current|checked|expanded)|\.(?:[\w-]+-)?(?:current|active|armed|live|on|open|selected|picked|over)(?![\w-])/;
 /** Whether a selector's SUBJECT (its last compound) is an h1 element: `.page h1`
  *  and `h1.title` are, `.head h1 .code` is not. */
 const h1Subject = (selector) => /^h1(?=$|[.:#[])/.test(selector.trim().split(/\s*[\s>+~]\s*/).pop() || '');
@@ -181,6 +197,7 @@ function collect() {
   const out = {
     collisions: [], fontSizes: [], rawHex: [], rarityLiteral: [], oldTeal: [],
     pills: [], h1Rules: [], fontWeights: [], nativeControls: [], scrollbarThumb: [], primaryToggle: [],
+    tealDecoration: [],
   };
   const tokens = tokenHexes();
   const weights = loadedWeights();
@@ -226,6 +243,13 @@ function collect() {
           for (const lit of d.value.matchAll(COLOUR_LITERAL)) {
             out.rarityLiteral.push(`${path}: ${selector} { ${d.prop}: ${lit[0]} }`);
           }
+        }
+      }
+      if (TEAL_DECORATION_SCOPE.some((scope) => path.startsWith(scope))) {
+        const resting = selector.split(',').map((part) => part.trim()).filter((part) => part && !STATE_SELECTOR.test(part));
+        for (const d of decls) {
+          if (!resting.length || !TEAL_PROPS.test(d.prop) || !TEAL.test(d.value)) continue;
+          out.tealDecoration.push(`${path}: ${resting.join(', ')} { ${d.prop} }`);
         }
       }
       for (const d of decls) {
@@ -294,9 +318,10 @@ const LABELS = {
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
   scrollbarThumb: 'a scrollbar thumb in --line or --line-soft (1.31:1, invisible) -- drop the override and inherit :root\'s --text-faint',
   primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",
+  tealDecoration: `teal on a selector that names no state, in ${TEAL_DECORATION_SCOPE.join(', ')} -- teal means "on" or "current"; recolour it (--text-dim, --amber for a heading) or qualify the selector with the state it marks`,
 };
 
-const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle'];
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration'];
 
 function counts(list) {
   const m = new Map();

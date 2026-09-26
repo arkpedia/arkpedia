@@ -174,6 +174,76 @@ test('stage and chapter titles keep a space between code and name', async ({ pag
   await expect(page.locator('h1')).toHaveText('EP 14 Absolved Will Be the Seekers');
 });
 
+test('every Terminal panel is headed by the site\'s amber section heading', async ({ page }) => {
+  // The panels' labels were a 10px teal tab painted by CSS from a data-tab attribute:
+  // no outline saw them (each carried a visually hidden twin), /stages/regular jumped
+  // from h1 to h3, and /stages/seasonal had no visible heading at all.
+  for (const route of ['/stages', '/stages/regular', '/stages/seasonal']) {
+    await page.goto(route);
+    const panels = page.locator('main .terminal-panel');
+    expect(await panels.count(), `${route}: panels`).toBeGreaterThan(1);
+    const measured = await panels.evaluateAll((els) => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--amber)';
+      document.body.appendChild(probe);
+      const amber = getComputedStyle(probe).color;
+      probe.remove();
+      return els.map((panel) => {
+        const h2 = panel.querySelector(':scope > h2');
+        const box = h2?.getBoundingClientRect();
+        return {
+          text: h2?.textContent?.trim() ?? '',
+          visible: !!box && box.width > 2 && box.height > 2 && !h2!.classList.contains('visually-hidden'),
+          amber: !!h2 && getComputedStyle(h2).color === amber,
+          tab: panel.hasAttribute('data-tab') || getComputedStyle(panel, '::before').content !== 'none',
+        };
+      });
+    });
+    for (const m of measured) {
+      expect(m.text, `${route}: a panel with no h2`).not.toBe('');
+      expect(m.visible, `${route}: "${m.text}" is not visible`).toBe(true);
+      expect(m.amber, `${route}: "${m.text}" is not amber`).toBe(true);
+      expect(m.tab, `${route}: "${m.text}" still draws a CSS tab`).toBe(false);
+    }
+  }
+});
+
+test('the Terminal bar\'s tabs sit in the site frame', async ({ page }) => {
+  // .terminal-bar-inner had its own 1040px and 12px, so its content started 12px left
+  // of the header and main above and below it.
+  await page.goto('/stages/regular');
+  const edges = await page.evaluate(() => {
+    const inner = (el: Element) => {
+      const box = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return [Math.round(box.left + parseFloat(cs.paddingLeft)), Math.round(box.right - parseFloat(cs.paddingRight))];
+    };
+    return { bar: inner(document.querySelector('.terminal-bar-inner')!), main: inner(document.querySelector('main')!) };
+  });
+  expect(edges.bar).toEqual(edges.main);
+});
+
+test('a stage\'s forms and its Emergency Ops switch are the site\'s chips', async ({ page }) => {
+  // They were .stage-variant-option, a page-local chip in mono 11px with a teal fill of
+  // its own. The forms are links (each is its own address), marked aria-current="page";
+  // Normal / Emergency Ops switches in place, so it is a SegmentedControl.
+  await page.goto('/stages/browse?s=1-7');
+  const forms = page.getByRole('group', { name: 'Stage forms' });
+  await expect(forms.locator('a.filter-chip')).toHaveCount(2);
+  await expect(forms.locator('[aria-current="page"]')).toHaveText('Normal');
+  await expect(page.locator('.stage-variant-option')).toHaveCount(0);
+  await forms.getByRole('link', { name: 'Challenge Mode' }).click();
+  await expect(page).toHaveURL(/\?s=1-7_challenge_mode$/);
+  await expect(forms.locator('[aria-current="page"]')).toHaveText('Challenge Mode');
+
+  await page.goto('/stages/browse?s=isw-no_level_obt_roguelike_ro1_level_rogue1_1-1');
+  const state = page.getByRole('group', { name: 'Stage state' });
+  await expect(state.getByRole('button', { name: 'Normal' })).toHaveAttribute('aria-pressed', 'true');
+  await state.getByRole('button', { name: 'Emergency Ops' }).click();
+  await expect(state.getByRole('button', { name: 'Emergency Ops' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(state.getByRole('button', { name: 'Normal' })).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('each terminal page has one h1, in a page header that lines up with its content', async ({ page }) => {
   for (const route of ['/stages', '/stages/score', '/stages/all', '/gamemodes', '/enemies', '/techniques', '/synergies']) {
     await page.goto(route);

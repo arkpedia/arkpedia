@@ -36,3 +36,12 @@ export function describeStage(raw: string | null): { tag: string | null; text: s
       return named ? { tag: named[1], text: named[2] } : { tag: null, text: part };
     });
 }
+
+/**
+ * "1 stage", "12 stages": a count with its noun in the right number. The Terminal home
+ * printed "1 seasons" for a mode with one season, from a `{count} {noun}` that always
+ * took the plural; every count on the stage pages goes through this now.
+ */
+export function countOf(n: number, singular: string, plural = `${singular}s`): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
