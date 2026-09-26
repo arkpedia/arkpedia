@@ -12,6 +12,9 @@ import { getLimitedBannerInfoLookup, getCelebrationBannerDates, LimitedBannerTyp
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { limitedOperatorNote } from '@/lib/gacha/limitedRerunNotes';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 
 interface Props {
   operators: RosterOperator[];
@@ -67,9 +70,16 @@ function OperatorCard({ op, note, index }: { op: RosterOperator; note?: string |
         <Image src={getOperatorIconPath(op)} alt={op.name} fill sizes="160px" />
       </div>
       <p className="op-name">{op.name}</p>
+      {/* One flex item, not two: .roster-class-branch is a wrapping flex row, and with
+          the rarity and the note as siblings the note wrapped onto a line of its own
+          that began with the dash. Each dash is glued to the word before it with a
+          no-break space, so however the note wraps no line starts with one
+          (tests/browser/planning-pages.spec.ts). */}
       <p className="hint roster-class-branch">
-        {op.rarity ? `${op.rarity}\u2605` : ''}
-        {note ? ` \u2014 ${note}` : ''}
+        <span>
+          {op.rarity ? <Rarity n={rarityLevel(op.rarity)} /> : null}
+          {note ? `${op.rarity ? '\u00a0\u2014 ' : ''}${note.replace(/ \u2014 /g, '\u00a0\u2014 ')}` : ''}
+        </span>
       </p>
     </Link>
   );
@@ -161,57 +171,34 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
     <>
       <Head><title>Obtain Method — Arkpedia</title></Head>
 
+      {/* Outside <main>, like every page header: nested inside it, the title started
+          24px right of the grid it heads. The way back to the roster is the eyebrow's
+          crumb rather than a separate button. */}
+      <PageHeader
+        eyebrow={<>Rhodes Island // <Link prefetch={false} href="/operators">Roster</Link></>}
+        title="Obtain Method"
+        sub="Every operator, grouped by how they're actually obtained."
+      />
+
       <main>
-        <div className="op-page-header-search">
-          <Link prefetch={false} href="/operators" className="op-back-to-roster-btn" aria-label="Back to operators">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16">
-              <path d="M12 4 L6 10 L12 16" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span>Operators</span>
-          </Link>
-        </div>
-
-        <header>
-          <div className="eyebrow">Rhodes Island // Roster</div>
-          <h1>Obtain Method</h1>
-          <p className="sub">Every operator, grouped by how they&apos;re actually obtained.</p>
-        </header>
-
-        <section className="op-section">
-          <div className="technique-filter-row">
-            {MAIN_SECTIONS.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                className={`technique-filter-btn${activeSection === s.key ? ' active' : ''}`}
-                onClick={() => setActiveSection(s.key)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+        <section className="op-section obtain-method">
+          <SegmentedControl<MainSection>
+            label="How they are obtained"
+            className="obtain-filter-row"
+            value={activeSection}
+            onChange={setActiveSection}
+            options={MAIN_SECTIONS.map((s) => ({ value: s.key, label: s.label }))}
+          />
 
           {activeSection === 'limited' && (
             <>
-              <div className="technique-filter-row technique-subfilter-row">
-                <button
-                  type="button"
-                  className={`technique-filter-btn technique-subfilter-btn${limitedSubType === 'all' ? ' active' : ''}`}
-                  onClick={() => setLimitedSubType('all')}
-                >
-                  All
-                </button>
-                {LIMITED_SUBTYPES.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`technique-filter-btn technique-subfilter-btn${limitedSubType === t ? ' active' : ''}`}
-                    onClick={() => setLimitedSubType(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl<LimitedBannerType | 'all'>
+                label="Limited banner type"
+                className="obtain-filter-row obtain-subfilter-row"
+                value={limitedSubType}
+                onChange={setLimitedSubType}
+                options={[{ value: 'all', label: 'All' }, ...LIMITED_SUBTYPES.map((t) => ({ value: t, label: t }))]}
+              />
               <OperatorGrid
                 operators={limitedList}
                 getNote={(op) => limitedOperatorNote(op, limitedBannerInfo[op.name], celebrationBannerDates, now)}
@@ -227,25 +214,13 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
 
           {activeSection === 'welfare' && (
             <>
-              <div className="technique-filter-row technique-subfilter-row">
-                <button
-                  type="button"
-                  className={`technique-filter-btn technique-subfilter-btn${welfareSubType === 'all' ? ' active' : ''}`}
-                  onClick={() => setWelfareSubType('all')}
-                >
-                  All
-                </button>
-                {WELFARE_SUBTYPES.map((s) => (
-                  <button
-                    key={s.label}
-                    type="button"
-                    className={`technique-filter-btn technique-subfilter-btn${welfareSubType === s.label ? ' active' : ''}`}
-                    onClick={() => setWelfareSubType(s.label)}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl<string>
+                label="Welfare source"
+                className="obtain-filter-row obtain-subfilter-row"
+                value={welfareSubType}
+                onChange={setWelfareSubType}
+                options={[{ value: 'all', label: 'All' }, ...WELFARE_SUBTYPES.map((w) => ({ value: w.label, label: w.label }))]}
+              />
               <OperatorGrid
                 operators={welfareList}
                 getNote={(op) => {

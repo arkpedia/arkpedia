@@ -7,6 +7,7 @@ import ContentCardLink, { MinistoryMark, NoMapNote } from '@/components/ui/Conte
 import Rail from '@/components/ui/Rail';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
 import { getScoreLines, ScoreLine } from '@/lib/stages/terminal';
 
 /**
@@ -43,17 +44,18 @@ export default function ScorePage({ lines }: Props) {
   return (
     <>
       <TerminalNav current="score" />
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Terminal</div>
-        <h1><ModeMark name="score.svg" className="head-mark" />Score</h1>
-        <p className="sub">
+      <PageHeader
+        slim
+        eyebrow={<><ModeMark name="score.svg" className="head-mark" />Terminal // Story lines</>}
+        title="Score"
+        sub={<>
           Every storyline the game has run, in its own order. The main story&apos;s four acts
           first, then the side-story lines by the code the game files them under.
-        </p>
-      </div>
+        </>}
+      />
 
       <main className="terminal-scene">
-        <section className="score-block">
+        <section className="score-block op-section">
           <h2 className="score-block-title">
             <span
               className="score-block-emblem"
@@ -65,7 +67,7 @@ export default function ScorePage({ lines }: Props) {
           {acts.map((line) => <Line key={line.id} line={line} act />)}
         </section>
 
-        <section className="score-block">
+        <section className="score-block op-section">
           <h2 className="score-block-title">Story Lines</h2>
           {stories.map((line) => <Line key={line.id} line={line} />)}
         </section>

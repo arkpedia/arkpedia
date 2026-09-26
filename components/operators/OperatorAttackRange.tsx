@@ -28,7 +28,7 @@ export default function OperatorAttackRange({ ranges }: { ranges: RangeChoice[] 
     <div className={styles.elites}>
       {ranges.map((choice, index) => ranges.length === 1
         ? <OperatorGameIcon key={choice.elite} label={`Elite ${choice.elite}`} size={22} />
-        : <button key={choice.elite} type="button" className={styles.elite}
+        : <button key={choice.elite} type="button" className={`filter-chip ${styles.elite}`}
           aria-label={`Show Elite ${choice.elite} attack range`} aria-pressed={index === selectedIndex}
           title={`Elite ${choice.elite}${choice.talent ? ` · ${choice.talent}` : ''}`}
           onClick={() => setSelectedIndex(index)}>

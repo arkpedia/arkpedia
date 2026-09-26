@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 test('gacha banners load and unload as their list scrolls', async ({ page }, testInfo) => {
   await page.goto('/gacha');
   if (testInfo.project.name === 'mobile') {
-    await page.getByRole('combobox', { name: 'Banner category' }).selectOption('limited');
+    await page.getByRole('combobox', { name: 'Banner category' }).click();
+    await page.getByRole('option', { name: 'Limited', exact: true }).click();
   } else {
     await page.getByRole('button', { name: 'Limited', exact: true }).click();
   }
@@ -34,7 +35,8 @@ test('CN-only banners use estimated Global windows in the simulator', async ({ p
   ]);
   expect(windows.every(row => row.global_date_estimated && row.global_date?.startsWith('2027/'))).toBe(true);
   if (testInfo.project.name === 'mobile') {
-    await page.getByRole('combobox', { name: 'Banner category' }).selectOption('joint');
+    await page.getByRole('combobox', { name: 'Banner category' }).click();
+    await page.getByRole('option', { name: 'Joint Operation', exact: true }).click();
   } else {
     await page.getByRole('button', { name: 'Joint Operation', exact: true }).click();
   }

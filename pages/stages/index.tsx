@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { MinistoryMark } from '@/components/ui/ContentCardLink';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
 import { getTerminalHome, TerminalHome } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
 
@@ -76,10 +77,7 @@ export default function TerminalPage({ candidates, latestIs, latestRa, isThemes,
       <Head><title>Terminal — Arkpedia</title></Head>
 
       <TerminalNav current="terminal" />
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Terminal</div>
-        <h1>Terminal</h1>
-      </div>
+      <PageHeader slim eyebrow="Rhodes Island // Operations board" title="Terminal" />
 
       <main className="terminal-scene">
         <div className="terminal-home">

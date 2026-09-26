@@ -23,7 +23,7 @@
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 10px 22px;
   background: var(--teal-dim);
   border: 1px solid var(--teal);
@@ -36,7 +36,7 @@
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 10px 22px;
   background: var(--danger-dim);
   border: 1px solid var(--danger);
@@ -87,7 +87,7 @@
   padding: 18px 10px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
 }
 
 /* --- Basics: rarity row --- */
@@ -129,7 +129,7 @@
   color: var(--amber);
   background: rgba(245, 166, 35, 0.15);
   border: 1px solid rgba(245, 166, 35, 0.4);
-  border-radius: 3px;
+  border-radius: var(--radius);
   padding: 2px 6px;
   min-width: 22px;
   text-align: center;
@@ -224,7 +224,7 @@
   background: var(--panel);
   border: 1px solid var(--line);
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   white-space: nowrap;
 }
 .gacha-tutorial-pity-chip.shake {
@@ -275,7 +275,7 @@
   color: var(--text-dim);
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-frame);
   padding: 8px 10px;
   min-width: 70px;
 }
@@ -284,7 +284,7 @@
   color: var(--text);
 }
 .gacha-tutorial-pity-flow-x {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--danger);
   font-weight: 700;
 }
@@ -308,7 +308,7 @@
 .gacha-tutorial-carryover-box {
   font-size: 11px;
   text-align: center;
-  border-radius: 4px;
+  border-radius: var(--radius-frame);
   padding: 6px 10px;
   min-width: 70px;
 }
@@ -368,7 +368,7 @@
   position: relative;
   width: 32px;
   height: 40px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   border: 1px solid var(--line-soft);
   background: var(--panel);
   display: flex;
@@ -378,8 +378,8 @@
   gap: 2px;
 }
 .gacha-tutorial-pull-card.highlight {
-  border-color: var(--amber);
-  background: linear-gradient(135deg, rgba(245, 166, 35, 0.28), rgba(245, 166, 35, 0.05));
+  border-color: var(--rarity-6);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rarity-6) 28%, transparent), color-mix(in srgb, var(--rarity-6) 5%, transparent));
 }
 .gacha-tutorial-pull-card.small {
   width: 22px;
@@ -389,9 +389,6 @@
   width: 9px;
   height: 9px;
 }
-.gacha-tutorial-pull-card.small .gacha-tutorial-pull-card-label {
-  font-size: 7px;
-}
 .gacha-tutorial-pull-card .gacha-stars-icons {
   color: var(--amber);
 }
@@ -399,9 +396,10 @@
   display: flex;
   gap: 1px;
 }
+/* 10px, the site's floor, on the small guarantee card too (it was 7px there). */
 .gacha-tutorial-pull-card-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text);
 }
 .gacha-tutorial-pull-card-label.dim {
@@ -428,7 +426,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 6px 14px;
 }
 .gacha-tutorial-guarantee-row {
@@ -464,7 +462,7 @@
   gap: 10px;
 }
 .gacha-tutorial-done-image {
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
 }
 .gacha-tutorial-done-thumb {
   font-size: 88px;
@@ -492,7 +490,7 @@
   align-items: center;
   gap: 3px;
   padding: 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--line-soft);
   background: var(--panel);
   opacity: 0.45;
@@ -525,7 +523,7 @@
   border-style: dashed;
 }
 .gacha-tutorial-pick-icon {
-  border-radius: 4px;
+  border-radius: var(--radius);
   object-fit: cover;
 }
 .gacha-tutorial-pick-label {
@@ -550,7 +548,7 @@
 }
 .gacha-tutorial-pick-status {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   color: var(--text);
   opacity: 0.8;
   text-transform: uppercase;
@@ -580,7 +578,7 @@
 }
 .gacha-tutorial-kernel-shop-image-wrap {
   max-width: 280px;
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   overflow: hidden;
 }
 .gacha-tutorial-kernel-shop-legend {
@@ -622,7 +620,7 @@
 }
 .gacha-tutorial-rateup-bar {
   width: 22px;
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius) var(--radius) 0 0;
   background: linear-gradient(180deg, var(--amber), rgba(245, 166, 35, 0.55));
   border: 1px solid var(--amber);
   transition: height 1.4s ease;
@@ -634,7 +632,7 @@
   justify-content: center;
 }
 .gacha-tutorial-equals {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--text-faint);
 }
 .gacha-tutorial-pct {
@@ -643,21 +641,16 @@
   color: var(--teal);
 }
 
-/* --- Fallback for unbuilt banner tutorials --- */
-.gacha-tutorial-coming-soon {
-  font-size: 40px;
-}
-
 /* --- Legacy/basics selection card (predates .gacha-tutorial-pick-slot,
    still used by the earliest Orienteering selection demo) --- */
 .prod-grey { color: var(--text-faint); }
-.prod-yellow { color: #E8C54D; font-weight: 700; }
+.prod-yellow { color: var(--cat-yellow); font-weight: 700; }
 .prod-danger {
   color: var(--danger);
   font-weight: 700;
 }
 .prod-green {
-  color: #5FBF6B;
+  color: var(--cat-green);
   font-weight: 700;
 }
 .orienteering-pick-grid {
@@ -673,12 +666,12 @@
   padding: 10px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   font-size: 11px;
   text-align: center;
 }
-.orienteering-pick-card img { width: 48px; height: 48px; border-radius: 4px; }
+.orienteering-pick-card img { width: 48px; height: 48px; border-radius: var(--radius); }
 .orienteering-pick-card.picked {
   border-color: var(--teal);
   background: var(--teal-dim);
@@ -689,7 +682,7 @@
   color: var(--amber);
   background: rgba(245, 166, 35, 0.15);
   border: 1px solid rgba(245, 166, 35, 0.4);
-  border-radius: 3px;
+  border-radius: var(--radius);
   padding: 1px 5px;
 }
 .gacha-limited-tag {
@@ -698,6 +691,6 @@
   color: var(--teal);
   background: rgba(45, 212, 191, 0.15);
   border: 1px solid rgba(45, 212, 191, 0.4);
-  border-radius: 3px;
+  border-radius: var(--radius);
   padding: 1px 5px;
 }

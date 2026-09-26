@@ -1,15 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import ScrollRow from '../ui/ScrollRow';
 import { Skin } from '@/lib/skins/skinTypes';
 import { parsePrices } from '@/lib/skins/skinPrice';
 import PriceDisplay from '../ui/PriceDisplay';
 import SkinZoomOverlay from './SkinZoomOverlay';
 import ResponsiveSkinArtwork from './ResponsiveSkinArtwork';
 
+/**
+ * The home page's skins on sale: a row that scrolls sideways under the site's drawn
+ * scrollbar, moved by the reader and nothing else.
+ *
+ * It was an endless marquee (a doubled track on a 30s CSS animation) that ignored
+ * reduced motion, never paused, and cut cards in half at both edges -- moving
+ * content with no way to stop it (WCAG 2.2.2, GE-09). The maintainers chose a manual
+ * row on 2026-09-25.
+ */
 export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [needsScroll, setNeedsScroll] = useState(false);
   const [active, setActive] = useState<Skin | null>(null);
   const [zooming, setZooming] = useState(false);
 
@@ -17,81 +24,43 @@ export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
     if (!active) setZooming(false);
   }, [active]);
 
-  useEffect(() => {
-    const track = trackRef.current;
-    const container = containerRef.current;
-    if (!track || !container) return;
-
-    function checkOverflow() {
-      if (!track || !container) return;
-      setNeedsScroll(track.scrollWidth > container.clientWidth);
-    }
-
-    checkOverflow();
-
-    // ResizeObserver (not just a window resize listener) is what
-    // actually fixes this -- skin thumbnails load asynchronously via
-    // next/image, so on a slow connection the track's real width isn't
-    // final yet at the moment checkOverflow() first runs. A plain
-    // window-resize listener never re-fires just because images
-    // finished loading (the window itself didn't resize), so
-    // needsScroll could get stuck at its initial (wrong) reading.
-    // ResizeObserver fires whenever the observed element's own
-    // rendered size actually changes, for any reason, including image
-    // loads growing the track -- which is exactly the case that was
-    // silently failing on mobile.
-    const resizeObserver = new ResizeObserver(checkOverflow);
-    resizeObserver.observe(track);
-    resizeObserver.observe(container);
-    window.addEventListener('resize', checkOverflow);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', checkOverflow);
-    };
-  }, [skins]);
-
   if (skins.length === 0) {
     return (
-      <section className="front-panel front-skins-panel">
+      <section className="front-panel front-home-panel front-skins-panel">
         <h2>Skins</h2>
         <p className="hint">No ongoing skins right now.</p>
       </section>
     );
   }
 
-  const displaySkins = needsScroll ? [...skins, ...skins] : skins;
-
   return (
-    <section className="front-panel front-skins-panel">
+    <section className="front-panel front-home-panel front-skins-panel">
       <h2>Skins</h2>
-      <div className="front-skins-viewport" ref={containerRef}>
-        <div className={`front-skins-track${needsScroll ? ' scrolling' : ' static'}`} ref={trackRef}>
-          {displaySkins.map((skin, i) => {
-            const prices = parsePrices(skin.howToObtain);
-            return (
-              <button
-                type="button"
-                className="front-skin-item"
-                key={`${skin.name}-${i}`}
-                onClick={() => setActive(skin)}
-              >
-                {/* The browser selects the smallest prebuilt rendition that stays
-                    crisp through this card's cover crop. */}
-                {skin.image && <ResponsiveSkinArtwork src={skin.image} alt={skin.name} width={240} height={320} sizes="120px" style={{ objectFit: 'cover', width: 120, height: 160 }} />}
-                <span className="front-skin-name">
-                  {skin.model ? `${skin.model} - ${skin.name}` : skin.name}
+      <ScrollRow label="Skins on sale" className="front-skins-row">
+        {skins.map((skin) => {
+          const prices = parsePrices(skin.howToObtain);
+          return (
+            <button
+              type="button"
+              className="btn-bare front-skin-item"
+              key={`${skin.model ?? ''}|${skin.name}`}
+              onClick={() => setActive(skin)}
+            >
+              {/* The browser selects the smallest prebuilt rendition that stays
+                  crisp through this card's cover crop. */}
+              {skin.image && <ResponsiveSkinArtwork src={skin.image} alt={skin.name} width={240} height={320} sizes="120px" style={{ objectFit: 'cover', width: 120, height: 160 }} />}
+              <span className="front-skin-name">
+                {skin.model ? `${skin.model} - ${skin.name}` : skin.name}
+              </span>
+              {prices.length > 0 && (
+                <span className="front-skin-price">
+                  <PriceDisplay prices={prices} />
                 </span>
-                {prices.length > 0 && (
-                  <span className="front-skin-price">
-                    <PriceDisplay prices={prices} />
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+              )}
+            </button>
+          );
+        })}
+      </ScrollRow>
 
       {active && (() => {
         const activePrices = parsePrices(active.howToObtain);

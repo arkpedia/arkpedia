@@ -16,6 +16,11 @@ import { RosterOperator } from '@/lib/operators/operatorTypes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
 import { publicFiles } from '@/lib/assets/publicAssets';
+import PageHeader from '@/components/ui/PageHeader';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
+import SearchInput from '@/components/ui/SearchInput';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import StyledSelect from '@/components/ui/StyledSelect';
 
 interface Props {
   operators: RosterOperator[];
@@ -308,30 +313,19 @@ export default function OperatorsIndex({ operators, now }: Props) {
     <>
       <Head><title>Operator Roster — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Personnel Archive</div>
-        <h1>Operator roster</h1>
+      <PageHeader eyebrow="Rhodes Island // Personnel Archive" title="Operator roster"
+        actions={<div className="roster-controls">
+          <SearchInput className="roster-search" label="Search operators" name="operator-search" placeholder="Search by name…" value={search} onChange={setSearch} />
 
-        <div className="roster-controls">
-          <input
-            type="search"
-            name="operator-search"
-            aria-label="Search operators"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="Search by name…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="roster-search"
-          />
-
+          {/* Independent filter chips: pressing the lit one clears it. */}
           <div className="roster-rarity-class-row">
-            <div className="roster-button-group">
+            <div className="roster-button-group" role="group" aria-label="Rarity">
               {rarities.map((r) => (
                 <button
                   type="button"
                   key={r}
-                  className={rarityFilter === String(r) ? 'primary' : 'ghost'}
+                  className="filter-chip"
+                  aria-label={`${r}-star`}
                   aria-pressed={rarityFilter === String(r)}
                   onClick={() => setRarityFilter(rarityFilter === String(r) ? 'all' : String(r))}
                 >
@@ -340,14 +334,14 @@ export default function OperatorsIndex({ operators, now }: Props) {
               ))}
             </div>
 
-            <div className="roster-button-group">
+            <div className="roster-button-group" role="group" aria-label="Class">
               {classes.map((c) => {
                 const iconPath = getClassIconPath(c);
                 return (
                   <button
                     type="button"
                     key={c}
-                    className={`roster-class-btn${classFilter === c ? ' active' : ''}`}
+                    className="filter-chip roster-icon-chip"
                     aria-label={c}
                     aria-pressed={classFilter === c}
                     onClick={() => {
@@ -363,20 +357,20 @@ export default function OperatorsIndex({ operators, now }: Props) {
           </div>
 
           {classFilter !== 'all' && branches.length > 0 && (
-            <div className="roster-button-group roster-branch-row">
+            <div className="roster-button-group roster-branch-row" role="group" aria-label="Branch">
               {branches.map((b) => {
                 const iconPath = getBranchIconPath(b);
                 return (
                   <button
                     type="button"
                     key={b}
-                    className={`roster-class-btn${branchFilter === b ? ' active' : ''}`}
+                    className="filter-chip roster-branch-chip"
                     aria-label={b}
                     aria-pressed={branchFilter === b}
                     onClick={() => setBranchFilter(branchFilter === b ? 'all' : b)}
                   >
                     {iconPath && <Image src={iconPath} alt={b} width={22} height={22} style={{ objectFit: 'contain' }} />}
-                    <span className="roster-branch-btn-name">{b}</span>
+                    <span>{b}</span>
                   </button>
                 );
               })}
@@ -409,38 +403,23 @@ export default function OperatorsIndex({ operators, now }: Props) {
             </Link>
           </nav>
 
-          <select
-            value={factionFilter}
-            onChange={(e) => setFactionFilter(e.target.value)}
-            aria-label="Filter by faction"
-          >
-            <option value="all">All factions</option>
-            {factions.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+          <StyledSelect className="roster-faction" label="Filter by faction" value={factionFilter} onChange={setFactionFilter}
+            options={[{ value: 'all', label: 'All factions' }, ...factions.map((f) => ({ value: f, label: f }))]} />
 
           <button
             type="button"
-            className={showUnreleased ? 'primary' : 'ghost'}
+            className="filter-chip"
             aria-pressed={showUnreleased}
             onClick={() => setShowUnreleased(!showUnreleased)}
           >
             Show CN
           </button>
 
-          {/* Both sort controls flip between exactly two states, so
-              aria-pressed reads "pressed" for the non-default one --
-              sorting by release date, and ascending order. */}
-          <button
-            type="button"
-            aria-pressed={sortField === 'releaseDate'}
-            onClick={() => setSortField(sortField === 'rarity' ? 'releaseDate' : 'rarity')}
-          >
-            {sortField === 'rarity' ? 'Rarity' : 'Release Date'}
-          </button>
+          <SegmentedControl label="Sort by" value={sortField === 'releaseDate' ? 'releaseDate' : 'rarity'}
+            options={[{ value: 'rarity', label: 'Rarity' }, { value: 'releaseDate', label: 'Release date' }]}
+            onChange={setSortField} />
+          {/* Flips between two states, so aria-pressed reads "pressed" for the
+              non-default one: ascending order. */}
           <button
             type="button"
             className="ghost"
@@ -455,8 +434,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
           <button type="button" className="ghost" onClick={resetFilters}>
             Reset
           </button>
-        </div>
-      </header>
+        </div>} />
 
       <main>
         {filtered.length === 0 ? (
@@ -474,7 +452,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                   className="card roster-card roster-card-enter"
                   style={{ animationDelay: `${Math.min(i * 25, 600)}ms` }}
                 >
-                  <div className="avatar">
+                  <div className={`avatar${op.rarity ? ` tier-${rarityLevel(op.rarity)}` : ''}`}>
                     <Image src={getOperatorIconPath(op)} alt={op.name} fill sizes="(max-width: 600px) 33vw, 160px" />
                   </div>
                   <p className="op-name">{op.name}</p>
@@ -492,7 +470,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                     return (
                       <>
                         <p className="hint roster-class-branch">
-                          {op.rarity ? `${op.rarity}★` : ''}
+                          {op.rarity ? <Rarity n={rarityLevel(op.rarity)} /> : null}
                           {op.class && getClassIconPath(op.class) && (
                             <Image
                               src={getClassIconPath(op.class)!}

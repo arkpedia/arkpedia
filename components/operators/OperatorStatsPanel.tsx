@@ -15,7 +15,7 @@ const secondary: { key: StatKey; label: string; unit?: string }[] = [
 const format = (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: 3 });
 
 /** Parent keys this by operator so client navigation cannot carry over an invalid elite/level. */
-export default function OperatorStatsPanel({ stats, modules = [], hidden, compact = false }: { stats: OperatorStats; modules?: OperatorModule[]; hidden?: boolean; compact?: boolean }) {
+export default function OperatorStatsPanel({ stats, modules = [], hidden }: { stats: OperatorStats; modules?: OperatorModule[]; hidden?: boolean }) {
   const id = useId();
   const levelId = `${id}-level`, trustId = `${id}-trust`, helpId = `${id}-trust-help`;
   const upgradeModules = modules.filter(module => module.type === 'Upgrade' && module.stages.length > 0);
@@ -47,7 +47,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
   };
 
   return (
-    <section className={`${styles.stats}${compact ? ` ${styles.compact}` : ''}`} aria-label="Operator stats" hidden={hidden}>
+    <section className={styles.stats} aria-label="Operator stats" hidden={hidden}>
       <h2>Stats</h2>
       <div className={styles.buildControls}>
         <fieldset className={styles.promotion}>
@@ -55,7 +55,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
           <div className={styles.promotionOptions}>
             {stats.phases.map((item, index) => (
               <button type="button" key={item.elite} aria-pressed={index === phaseIndex}
-                className={index === phaseIndex ? 'primary' : 'ghost'} aria-label={`Elite ${item.elite}`} title={`Elite ${item.elite}`}
+                className="filter-chip" aria-label={`Elite ${item.elite}`} title={`Elite ${item.elite}`}
                 onClick={() => {
                   setPhaseIndex(index);
                   if (index !== maxPhaseIndex) setModuleIndex(null);
@@ -73,7 +73,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
             <div className={styles.moduleRow}>
               <div className={styles.moduleOptions} role="group" aria-label="Module">
                 {upgradeModules.map((module, index) => (
-                  <button type="button" key={module.name ?? index} className={moduleIndex === index ? 'primary' : 'ghost'}
+                  <button type="button" key={module.name ?? index} className="filter-chip"
                     aria-pressed={moduleIndex === index} disabled={phaseIndex !== maxPhaseIndex}
                     aria-label={moduleLabel(module, index)}
                     title={phaseIndex === maxPhaseIndex
@@ -94,7 +94,7 @@ export default function OperatorStatsPanel({ stats, modules = [], hidden, compac
                 <div className={styles.moduleLevels} role="group" aria-label={`${activeModule.name ?? 'Module'} level`}>
                   <span>Level</span>
                   {activeModule.stages.map((stage, index) => (
-                    <button type="button" key={stage.stage ?? index} className={moduleStageIndex === index ? 'primary' : 'ghost'}
+                    <button type="button" key={stage.stage ?? index} className="filter-chip"
                       aria-pressed={moduleStageIndex === index} onClick={() => setModuleStageIndex(index)}>{index + 1}</button>
                   ))}
                 </div>

@@ -167,7 +167,7 @@ export default function OperatorAppearancePicker({ appearances, activeIndex, onS
         if (suppressClickRef.current) { event.preventDefault(); event.stopPropagation(); suppressClickRef.current = false; }
       }}>
       {(looping ? [0, 1, 2] : [1]).flatMap(copy => appearances.map((appearance, index) => <button
-        key={`${copy}-${appearance.label}`} type="button" className={styles.thumbnail}
+        key={`${copy}-${appearance.label}`} type="button" className={`btn-bare pick-card ${styles.thumbnail}`}
         aria-label={appearance.label} title={appearance.label} aria-pressed={index === activeIndex}
         aria-hidden={copy !== 1 || undefined} tabIndex={copy === 1 && index === activeIndex ? 0 : -1}
         onMouseDown={event => { if (copy !== 1) event.preventDefault(); }}

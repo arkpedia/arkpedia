@@ -46,45 +46,47 @@ body.front-page-no-scroll {
      everywhere. */
   max-height: none;
   overflow-y: auto;
-  /* The bars were hidden outright. On a page whose body cannot scroll, the
-     only affordance that these columns scroll AT ALL was the content being
-     visibly cut -- so a reader who could not scroll had no way to tell
-     whether the page was broken or just needed a nudge. Thin and in the
-     site's own colours, present only while there is something to scroll. */
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
 }
 
-.front-panel {
+/* The home panels' own surface and padding, on a page class: restating the theme's
+   .front-panel put two stylesheets on one class. */
+.front-home-panel {
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-frame);
   padding: 10px 12px;
   flex-shrink: 0;
 }
-.front-panel h2 {
+/* The site's section heading (.op-section h2): amber, 18px, uppercase. These were
+   teal, and teal means "on" or "current". */
+.front-home-panel h2 {
   margin: 0 0 12px;
   font-family: var(--font-display);
   font-size: 18px;
-  color: var(--teal);
+  letter-spacing: 0.03em;
+  color: var(--amber);
 }
 
 /* Events panel (home page's own summary panel -- see also the
    standalone /events pages, a different, fuller listing) */
+/* The event card is a link to the event's page, so it has a control's frame. */
 .front-events-main {
   display: block;
   width: 100%;
-  border: none;
-  padding: 0;
+  padding: 6px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   background: none;
   cursor: pointer;
   text-align: left;
+  transition: border-color 0.15s ease;
 }
+.front-events-main:hover { border-color: var(--teal); }
 .front-events-poster-wrap {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 7;
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
 }
@@ -98,7 +100,7 @@ body.front-page-no-scroll {
 }
 .front-events-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
 }
 .front-events-dots {
   display: flex;
@@ -159,14 +161,8 @@ body.front-page-no-scroll {
   padding-top: 12px;
   border-top: 1px solid var(--line-soft);
 }
-.front-events-farmable h3 {
-  margin: 0 0 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
+/* The global h3 (15px Rajdhani, dim): the sub-section voice everywhere else. */
+.front-events-farmable h3 { margin: 0 0 8px; }
 
 /* Gacha panel */
 .front-gacha-main {
@@ -181,10 +177,13 @@ body.front-page-no-scroll {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 7;
-  border-radius: 6px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
+  transition: border-color 0.15s ease;
 }
+.front-gacha-poster-wrap:hover { border-color: var(--teal); }
 /* Stacked, always. This was a wrapping space-between row, so where the
    banner's name fit the countdown sat beside it hard right, and where it did
    not the countdown dropped to its own line and went left -- the same panel
@@ -197,7 +196,7 @@ body.front-page-no-scroll {
   align-items: flex-start;
   gap: 2px;
 }
-.front-gacha-name { font-weight: 600; font-size: 14px; }
+.front-gacha-name { font-weight: 600; font-size: 13px; }
 .front-gacha-thumbs {
   display: flex;
   flex-wrap: wrap;
@@ -207,14 +206,15 @@ body.front-page-no-scroll {
 .front-gacha-thumb {
   width: 56px;
   height: 56px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   overflow: hidden;
-  border: 2px solid var(--line-soft);
+  border: 1px solid var(--control-border);
   background: var(--panel-2);
   cursor: pointer;
   padding: 0;
 }
-.front-gacha-thumb.active { border-color: var(--teal); }
+.front-gacha-thumb:hover { border-color: var(--teal); }
+.front-gacha-thumb.active { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
 .front-gacha-thumb-fallback {
   display: flex;
   align-items: center;
@@ -225,46 +225,26 @@ body.front-page-no-scroll {
   color: var(--text-dim);
 }
 
-/* Skins carousel -- single row always (see .front-skins-track.static
-   below), each item clickable (a <button>) to open a detail overlay */
-.front-skins-viewport {
-  overflow: hidden;
-  width: 100%;
-}
-.front-skins-track {
-  display: flex;
-  gap: 12px;
-  width: max-content;
-}
-.front-skins-track.scrolling {
-  animation: front-skins-scroll 30s linear infinite;
-}
-.front-skins-track.static {
-  width: max-content;
-  flex-wrap: nowrap;
-}
-@keyframes front-skins-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
+/* Skins on sale: a ScrollRow (components/ui) of cards the reader scrolls, under the
+   site's drawn bar. It was a marquee; see components/skins/SkinsCarousel.tsx. Each
+   card opens the skin's sheet, so it has a control's frame and the teal hover. */
+.front-skins-row { padding-bottom: 4px; }
 .front-skin-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  width: 120px;
-  flex-shrink: 0;
+  gap: 3px;
+  width: 132px;
+  padding: 5px 5px 7px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--panel);
   font-size: 12px;
   text-align: center;
-  /* Button-chrome reset -- this is a <button> now (clickable, opens a
-     detail overlay), not a plain <div>. */
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  color: inherit;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
+.front-skin-item:hover { border-color: var(--teal); color: var(--teal); }
+.front-skin-item img { border-radius: var(--radius); }
 .front-skin-name {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -313,7 +293,7 @@ body.front-page-no-scroll {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
 }
@@ -321,12 +301,12 @@ body.front-page-no-scroll {
   position: absolute;
   top: 6px;
   left: 6px;
-  background: #e0554f;
+  background: var(--danger-solid);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 .front-live-title {
   font-weight: 600;
@@ -339,24 +319,28 @@ body.front-page-no-scroll {
   flex-wrap: wrap;
   gap: 10px;
 }
+/* An operator link, framed like any control; the portrait's bottom edge is its
+   rarity (.tier-N). */
 .front-featured-op {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 64px;
+  gap: 3px;
+  width: 68px;
+  padding: 4px 2px 5px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   font-size: 11px;
   text-align: center;
   text-decoration: none;
   color: var(--text);
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
 .front-featured-op img {
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
   background: var(--panel-2);
 }
-.front-featured-op:hover { color: var(--teal); }
-.front-featured-op:hover img { border-color: var(--teal); }
+.front-featured-op:hover { color: var(--teal); border-color: var(--teal); }
 .front-featured-op-name {
   display: block;
   overflow: hidden;
@@ -364,11 +348,7 @@ body.front-page-no-scroll {
   white-space: nowrap;
   max-width: 100%;
 }
-.front-featured-op-rarity {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
-}
+.front-featured-op-rarity { font-size: 10px; }
 
 /* Community fader panel (right column, under Featured Operators) */
 .front-community-fade-wrap {
@@ -380,14 +360,19 @@ body.front-page-no-scroll {
 }
 .front-community-item {
   display: block;
+  padding: 6px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   text-decoration: none;
   color: inherit;
+  transition: border-color 0.15s ease;
 }
+.front-community-item:hover { border-color: var(--teal); }
 .front-community-thumb-wrap {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
 }
@@ -395,14 +380,14 @@ body.front-page-no-scroll {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--teal-dim), var(--panel-2));
+  background: var(--panel-2);
 }
 .front-community-event-country {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.04em;
-  color: var(--teal);
+  color: var(--text-bright);
   text-transform: uppercase;
 }
 .front-community-title {
@@ -419,7 +404,8 @@ body.front-page-no-scroll {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--line);
+  /* --text-dim, like the events pips: --line measured 1.31:1 on the panel. */
+  background: var(--text-dim);
   /* The dot is a button now (tap to jump to a slide). content-box + padding
      keeps the visible dot at 6px while growing the tap target to 24px, which
      is also why the container above no longer needs its own gap. */
@@ -461,7 +447,7 @@ body.front-page-no-scroll {
   /* Belt and braces: a flex item's automatic minimum size is its content, so a
      max-content child can still force a panel wider than the screen even when the
      panel is told to stretch. The carousel's own viewport clips at this boundary. */
-  .front-panel { min-width: 0; }
+  .front-home-panel { min-width: 0; }
   .front-page-left,
   .front-page-right {
     display: contents;
@@ -470,7 +456,6 @@ body.front-page-no-scroll {
   .front-gacha-panel { order: 2; }
   .front-featured-ops-panel { order: 3; }
   .front-skins-panel { order: 4; }
-  .front-packs-panel { order: 5; }
   .front-community-panel { order: 6; }
 }
 
@@ -482,6 +467,6 @@ body.front-page-no-scroll {
   color: inherit;
 }
 /* Secondary rate-ups remain visually separate from the featured lineup. */
-.front-returning-ops { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
-.front-returning-ops h3 { font-size: 13px; margin: 0 0 4px; }
-.front-returning-ops .hint { margin: 0 0 8px; font-size: 11px; line-height: 1.4; }
+.front-returning-ops { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.front-returning-ops h3 { margin: 0 0 4px; }
+.front-returning-note { margin: 0 0 8px; font-size: 11px; line-height: 1.4; }

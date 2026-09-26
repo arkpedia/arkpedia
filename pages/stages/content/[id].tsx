@@ -8,6 +8,9 @@ import { getStageBySlug, getStagePreviewFile, getStageContents } from '@/lib/sta
 import { MODE_LABELS, StageSummary, sceneForContent, variantLabel, variantShortLabel } from '@/lib/stages/stageTypes';
 import RaMap, { RaNodeData } from '@/components/stages/RaMap';
 import TerminalNav from '@/components/stages/TerminalNav';
+import PageHeader from '@/components/ui/PageHeader';
+import SearchInput from '@/components/ui/SearchInput';
+import StageTitle from '@/components/stages/StageTitle';
 import { raMapData } from '@/lib/stages/raMap';
 import { isFloor, isNodeCode } from '@/lib/stages/isNodes';
 import { compareStageSummaries } from '@/lib/stages/stageSort';
@@ -130,7 +133,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
      this behind the map's second tab while every other content shows it as the page. */
   const body = (
     <>
-      <div className="stage-section-head">
+      <div className="stage-section-head op-section">
         {/* Counts what is actually below, not what the content holds: with the map
             taking 84 of Reclamation Algorithm's 102, a heading reading 102 over 18
             cards is just wrong. */}
@@ -156,12 +159,12 @@ export default function StageContentPage({ label, name, kind, release, groups, p
           season. Shown from four cards up -- below that the grid IS the answer. */}
       {listed > 4 && (
         <div className="stage-mode-searchrow">
-          <input
-            type="search"
-            className="stage-search stage-mode-search"
+          <SearchInput
+            className="stage-mode-search"
+            label="Search these stages"
             placeholder="Search this event by stage code or name..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={setSearch}
           />
           {query && (
             <span className="stage-count">
@@ -201,7 +204,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
           )}
           <div className="stage-card-grid">
             {group.cards.map((card) => (
-          <Link prefetch={false} key={card.slug} href={`/stages/${encodeURIComponent(card.slug)}`} className="stage-card">
+          <Link prefetch={false} key={card.slug} href={`/stages/browse?s=${encodeURIComponent(card.slug)}`} className="stage-card">
             <span className="stage-card-art">
               {card.art ? (
                 <Image
@@ -272,16 +275,11 @@ export default function StageContentPage({ label, name, kind, release, groups, p
           at the same time, which a lone "< Regular Tasks" only implied. Its own scene
           is marked current, so the bar reads the same here as it does on the scene. */}
       <TerminalNav current={scene.key} />
-      <div className="stages-head">
-        <div className="eyebrow">
-          {MODE_LABELS[kind] || kind}
-          {release && ` // ${release.slice(0, 4)}`}
-        </div>
-        <h1>
-          {label && <span className="stage-content-code">{label}</span>}
-          {name}
-        </h1>
-      </div>
+      <PageHeader
+        slim
+        eyebrow={<>{MODE_LABELS[kind] || kind}{release && ` // ${release.slice(0, 4)}`}</>}
+        title={<StageTitle code={label} name={name} fallback={name} lead="name" />}
+      />
 
       <main>
         {/* Before the list, because on this one mode the map IS the way in and the

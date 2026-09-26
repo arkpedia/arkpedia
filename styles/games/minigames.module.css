@@ -1,61 +1,58 @@
+/* Layout for Color Palette, Recruitment Guesser and Stage Guesser, and the answer
+   field they share. Buttons are the site's variants (.primary / base / .ghost), picks
+   are SegmentedControl, the answer field is components/ui/SearchInput. */
 .page { composes: page from './guesser-shared.module.css'; }
-.header { composes: header from './guesser-shared.module.css'; }
 .panel { composes: panel from './guesser-shared.module.css'; }
-.primary { composes: primary from './guesser-shared.module.css'; }
-.input { composes: input from './guesser-shared.module.css'; }
-.setup { display: grid; gap: 24px; }
+.disclosure { composes: disclosure from './guesser-shared.module.css'; }
+.setup { display: grid; gap: 22px; }
+.setup h2 { margin: 0; }
 .intro { display: grid; gap: 8px; }
-.muted { color: var(--text-dim); font-size: 14px; }
-.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-.page .option { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; text-align: left; gap: 6px; min-height: 100px; padding: 18px; border-radius: var(--radius, 2px); border: 1px solid var(--line); background: var(--row-grad, var(--panel)); color: var(--text); }
-.option[aria-pressed='true'] { border-color: var(--teal); box-shadow: inset 0 -3px var(--teal); }
-.option strong { font: 700 22px var(--font-display); }
-.option span { font-size: 13px; color: var(--text-dim); }
+.muted { margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.6; }
 .start { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .rules { color: var(--text-dim); font-size: 13px; line-height: 1.65; }
-.rules summary { cursor: pointer; color: var(--text); padding: 8px 0; }
-.rules p { padding: 8px 0; }
-.round { composes: panel; scroll-margin-top: calc(var(--nav-h, 54px) + 16px); outline: none; display: grid; gap: 24px; }
+.rules p { margin: 10px 0 0; }
+.round { composes: panel; scroll-margin-top: calc(var(--nav-h, 54px) + 16px); outline: none; display: grid; gap: 22px; }
 .roundTop { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.roundTop span { font-size: 13px; color: var(--text-dim); }
+.roundTop h2 { margin: 0; }
+.roundTop > span { font-size: 13px; color: var(--text-dim); }
+/* A heading whose wording changes with the round's state: every wording sits in one
+   grid cell and the tallest sets the height, so a shorter one cannot pull the round
+   up the page (the recruitment guesser's reveal moved it 28px at 412px). */
+.roundTitle { display: grid; }
+.roundTitle > span { grid-area: 1 / 1; }
+.roundTitle > span[data-off] { visibility: hidden; }
 .paletteClues { display: grid; gap: 8px; margin: 0; }
-.palette { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: clamp(130px, 25vw, 210px); border: 1px solid var(--line); border-radius: var(--radius-frame, 3px); overflow: hidden; }
+.palette { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: clamp(130px, 25vw, 210px); border: 1px solid var(--line); border-radius: var(--radius-frame); overflow: hidden; }
 .swatch { min-width: 0; background: var(--swatch-color); }
 .paletteLabels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; color: var(--text-dim); font-size: 12px; line-height: 1.4; text-align: center; }
 .paletteHints { display: grid; gap: 12px; }
 .hintControls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; }
 .revealedHints { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
-.revealedHints div { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border: 1px solid var(--line); background: var(--well, var(--panel-2)); }
+.revealedHints div { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--well); }
 .revealedHints dt { color: var(--text-dim); font-size: 13px; }
-.revealedHints dd { margin: 0; color: var(--text); font-size: 15px; font-weight: 600; }
-.tags { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; padding: 26px 0; }
-.tags span { min-width: 110px; text-align: center; padding: 18px 24px; border: 1px solid var(--line); background: var(--well, var(--panel-2)); font: 700 clamp(20px, 3vw, 28px) var(--font-display); }
+.revealedHints dd { margin: 0; color: var(--text); font: 600 15px var(--font-display); letter-spacing: 0.03em; text-transform: uppercase; }
+.tags { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; padding: 22px 0; }
+.tags span { min-width: 110px; padding: 16px 22px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--well); text-align: center; font: 700 22px var(--font-display); letter-spacing: 0.03em; text-transform: uppercase; }
 .answerForm { display: grid; gap: 8px; }
-.answerForm label { font-size: 14px; font-weight: 600; }
+.answerForm label { font-size: 13px; color: var(--text-dim); }
 .answerRow { display: flex; align-items: flex-start; gap: 10px; }
-.search { position: relative; min-width: 0; flex: 1; }
-.suggestions { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; list-style: none; padding: 4px; margin: 0; max-height: 280px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius, 2px); box-shadow: 0 10px 24px rgb(0 0 0 / .18); }
-.page .suggestions button { display: block; width: 100%; border: 0; padding: 12px; text-align: left; background: none; color: var(--text); font-size: 14px; }
-.page .suggestions button:hover, .page .suggestions button[aria-selected='true'] { background: var(--panel-2); color: var(--teal); }
+.answerRow > :first-child { flex: 1; min-width: 0; }
 .feedback { display: grid; gap: 10px; }
-.notice { min-height: 1.6em; font-size: 14px; color: var(--text-dim); }
+.notice { min-height: 1.6em; margin: 0; font-size: 13px; color: var(--text-dim); }
 .wrong { list-style: none; padding: 0; margin: 0; display: flex; gap: 8px; flex-wrap: wrap; }
-.wrong li { font-size: 13px; color: var(--danger); border: 1px solid var(--line); padding: 6px 10px; }
-.actions { display: flex; gap: 12px; flex-wrap: wrap; }
-.page .secondary { padding: 10px 16px; min-height: 44px; background: var(--row-grad, var(--panel)); border: 1px solid var(--line); border-radius: var(--radius, 2px); color: var(--text-dim); font-size: 13px; }
-.page .secondary:disabled { color: var(--text-faint); cursor: default; }
+.wrong li { padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius); color: var(--danger); font-size: 13px; }
+.actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; list-style: none; margin: 0; padding: 0; }
-.result { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); background: var(--row-grad, var(--panel)); }
+.result { display: flex; align-items: center; gap: 12px; min-height: 84px; padding: 14px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--row-grad); }
 .result img { width: 54px; height: 54px; object-fit: contain; }
 .result div { display: grid; gap: 4px; min-width: 0; }
-.result strong { font-size: 14px; overflow-wrap: anywhere; }
-.result small { color: var(--text-dim); }
+.result strong { font-size: 13px; overflow-wrap: anywhere; }
+.result small { color: var(--text-dim); font-size: 12px; }
 .result[data-found='true'] { border-color: var(--teal); }
-.emptySlot { color: var(--text-faint); min-height: 84px; justify-content: center; font-size: 14px; }
+.emptySlot { justify-content: center; color: var(--text-faint); font-size: 13px; }
 .reveal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: center; }
 .artwork { width: 100%; height: 340px; object-fit: contain; }
 .revealText { display: grid; gap: 12px; }
-@media (max-width: 600px) { .round, .panel { padding: 18px; } .reveal { grid-template-columns: 1fr; } .artwork { height: 280px; } .results { grid-template-columns: 1fr; } }
-@media (max-width: 480px) { .answerRow { flex-wrap: wrap; } .answerRow .primary { width: 100%; } .search { flex-basis: 100%; } .tags { gap: 8px; padding: 12px 0; } .tags span { padding: 14px; min-width: 0; } }
-
-@media (max-width: 480px) { .suggestions { top: auto; bottom: calc(100% + 6px); max-height: 220px; } }
+.revealText h2 { margin: 0; }
+@media (max-width: 600px) { .reveal { grid-template-columns: 1fr; } .artwork { height: 280px; } .results { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .answerRow { flex-wrap: wrap; } .answerRow :global(.primary) { width: 100%; } .answerRow > :first-child { flex-basis: 100%; } .tags { gap: 8px; padding: 12px 0; } .tags span { padding: 14px; min-width: 0; } }

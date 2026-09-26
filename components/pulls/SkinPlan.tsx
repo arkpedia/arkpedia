@@ -1,4 +1,6 @@
-import { PlannerSelect } from './PlannerSelect';
+import StyledSelect from '@/components/ui/StyledSelect';
+import SearchInput from '@/components/ui/SearchInput';
+import { DetailOptionContent, type DetailOption } from './DetailOption';
 import { SkinsHelp } from './PlannerHelp';
 import { useMemo, useState, type ReactNode } from 'react';
 import { skinReservation, skinPurchasePlan, type PlannedSkin } from '@/lib/pulls/skins';
@@ -26,31 +28,32 @@ export function SkinPlan({ catalogue, collections, today, ids, onChange, heldOP,
   }, [catalogue, query, collection]);
   const toggle = (id: string) => onChange(ids.includes(id) ? ids.filter(value => value !== id) : [...ids, id]);
   const short = Math.max(0, selection.reserved - heldOP);
-  return <section className="pulls-panel" aria-labelledby="pulls-skins-heading">
+  return <section className="pulls-panel op-section" aria-labelledby="pulls-skins-heading">
     <div className="pulls-panel-head"><h2 id="pulls-skins-heading">Skins</h2><SkinsHelp /></div>
     <div className="pulls-skin-mobile-budget" aria-live="polite"><b>{selection.skins.length} skins · {selection.cost} OP</b><span className={short || selection.missing.length ? 'pulls-plan-warning' : 'pulls-plan-funded'}>{selection.missing.length ? 'Price missing' : short ? `${short} OP short` : `${heldOP - selection.reserved} OP left`}</span></div>
     <div className="pulls-skin-layout">
       <div className="pulls-skin-browser">
         <div className="pulls-skin-collection">
           {collection ? <>
-            <div className="pulls-shop-field"><span>Event shop</span><PlannerSelect label="Skin collection" value={collection.id}
+            <div className="pulls-shop-field"><span>Event shop</span><StyledSelect<DetailOption> label="Skin collection" menuMinWidth={300} value={collection.id}
+              renderOption={option => <DetailOptionContent option={option} />}
               onChange={value => { setCollectionId(value); setLimit(12); setQuery(''); }}
-              options={upcoming.map(value => ({ value: value.id, label: value.name.replace(/^\[[^\]]*\]\s*/, ''),
+              options={upcoming.map((value): DetailOption => ({ value: value.id, label: value.name.replace(/^\[[^\]]*\]\s*/, ''),
                 detail: `${value.start} – ${value.end}${value.estimated ? value.sourceRegion === 'cn' ? ' · CN-based estimate' : ' · Estimated' : ''}` }))} />
             </div>
 
           </> : <p className="hint">No upcoming shop rotations are listed.</p>}
         </div>
-        <label className="pulls-skin-search">Search this shop<input type="search" value={query} onChange={event => { setQuery(event.target.value); setLimit(12); }} placeholder="Operator or outfit name" /></label>
+        <div className="pulls-skin-search"><span aria-hidden="true">Search this shop</span><SearchInput label="Search this shop" value={query} onChange={value => { setQuery(value); setLimit(12); }} placeholder="Operator or outfit name" /></div>
         <div className="pulls-skin-grid">
-          {matches.slice(0, limit).map(skin => <button key={skin.id} type="button" className={`pulls-skin-option${ids.includes(skin.id) ? ' on' : ''}`} aria-pressed={ids.includes(skin.id)} aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP`} onClick={() => toggle(skin.id)}>
+          {matches.slice(0, limit).map(skin => <button key={skin.id} type="button" className="btn-bare pick-card pulls-skin-option" aria-pressed={ids.includes(skin.id)} aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP`} onClick={() => toggle(skin.id)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {skin.image ? <ContentImg src={skin.image} alt="" loading="lazy" /> : <span className="pulls-skin-noart">Artwork unavailable</span>}
             <span><b>{skin.operator}</b><span>{skin.name}</span><strong>{ids.includes(skin.id) ? '✓ Selected · ' : '+ Add · '}{skin.op} OP</strong></span>
           </button>)}
         </div>
         {matches.length === 0 && collection && <p className="hint">No outfits match these filters.</p>}
-        {matches.length > limit && <button type="button" className="pulls-quick-btn" onClick={() => setLimit(value => value + 12)}>Show more outfits ({matches.length - limit})</button>}
+        {matches.length > limit && <button type="button" className="ghost" onClick={() => setLimit(value => value + 12)}>Show more outfits ({matches.length - limit})</button>}
       </div>
       <aside className="pulls-skin-wishlist" aria-labelledby="pulls-skin-wishlist-title">
         <h3 id="pulls-skin-wishlist-title">Your skins <span>{selection.skins.length}</span></h3>
@@ -66,9 +69,9 @@ export function SkinPlan({ catalogue, collections, today, ids, onChange, heldOP,
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {skin.image && <ContentImg src={skin.image} alt="" loading="lazy" />}
             <span><b>{skin.operator}</b><span>{skin.name}</span><strong>{skin.op} OP</strong>{purchases.unscheduled.some(value => value.id === skin.id) && <span className="pulls-plan-warning">No listed shop window</span>}</span>
-            <button type="button" className="pulls-quick-btn" aria-label={`Remove ${skin.operator} — ${skin.name}`} onClick={() => toggle(skin.id)}>Remove</button>
+            <button type="button" className="ghost btn-sm" aria-label={`Remove ${skin.operator} — ${skin.name}`} onClick={() => toggle(skin.id)}>Remove</button>
           </li>)}
-          {selection.missing.map(id => <li key={id}><span className="pulls-plan-warning">{id}: price unavailable</span><button type="button" className="pulls-quick-btn" onClick={() => toggle(id)}>Remove</button></li>)}
+          {selection.missing.map(id => <li key={id}><span className="pulls-plan-warning">{id}: price unavailable</span><button type="button" className="ghost btn-sm" onClick={() => toggle(id)}>Remove</button></li>)}
         </ul>
         {purchases.windows.length > 0 && <div className="pulls-skin-deadlines"><h4>By each shop’s closing date</h4>
           {purchases.windows.map(window => {

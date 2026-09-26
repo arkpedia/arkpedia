@@ -7,7 +7,8 @@ import {
 } from '@/lib/planner/craft';
 import { SOURCE_LABELS, type Source } from '@/lib/planner/sources';
 import { MaterialIcon } from './MaterialIcon';
-import { useHeightFloor } from './useHeightFloor';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 
 /**
  * What to get next.
@@ -197,7 +198,7 @@ function RecipeTree({
       </div>
 
       <div className="recipe-foot">
-        <p className="hint">
+        <p className="hint plan-hint">
           Counted against your depot as it stands. Turn a craft on and the requirement
           moves into the answer above, where one Orirock Cube cannot be spent twice.
         </p>
@@ -261,7 +262,7 @@ function NeedCard({
         <span className="meter">
           <span className="meter-fill" style={{ width: `${pct}%` }} />
         </span>
-        <span>{covered.toLocaleString()}/{row.need.toLocaleString()}</span>
+        <span className="need-card-tally">{covered.toLocaleString()}/{row.need.toLocaleString()}</span>
       </div>
 
       <div className="need-card-tags">
@@ -324,7 +325,7 @@ function CurrencyCard({
       </div>
       <div className="need-card-bar">
         <span className="meter"><span className="meter-fill" style={{ width: `${pct}%` }} /></span>
-        <span>{Math.min(held, need).toLocaleString()}/{need.toLocaleString()}</span>
+        <span className="need-card-tally">{Math.min(held, need).toLocaleString()}/{need.toLocaleString()}</span>
       </div>
       <div className="need-card-tags">
         {/* EXP is not a thing you can go and get; records are. */}
@@ -414,11 +415,11 @@ export function ShortfallList({
     <>
       <div className="plan-panel-head">
         <span className="label-pair">
-          <span className="label-tag">What to get next</span>
+          <span className="label-tag plan-panel-tag">What to get next</span>
           <h2>Still needed</h2>
         </span>
         {/* Derived from what renders, so the two cannot disagree. */}
-        <span className="hint">
+        <span className="hint plan-hint">
           &middot; {shortRows.length} of {rows.length} {rows.length === 1 ? 'material' : 'materials'} short
           {goalCount > 0 ? `, across ${goalCount} ${goalCount === 1 ? 'goal' : 'goals'}` : ''}
           {moneyShort > 0
@@ -446,14 +447,13 @@ export function ShortfallList({
            * is a `.filter-chip` -- the site's own idiom for a toggle that stands
            * on its own -- set apart from it.
            */}
-          <span className="tabs planner-need-mode" role="group" aria-label="Whether the Workshop counts">
-            <button type="button" className="tab" aria-pressed={autoCraft} onClick={() => onAutoCraft(true)}>
-              Craft what I can
-            </button>
-            <button type="button" className="tab" aria-pressed={!autoCraft} onClick={() => onAutoCraft(false)}>
-              Raw only
-            </button>
-          </span>
+          <SegmentedControl<'craft' | 'raw'>
+            label="Whether the Workshop counts"
+            className="planner-need-mode"
+            value={autoCraft ? 'craft' : 'raw'}
+            onChange={(mode) => onAutoCraft(mode === 'craft')}
+            options={[{ value: 'craft', label: 'Craft what I can' }, { value: 'raw', label: 'Raw only' }]}
+          />
           {/* Nothing planned means nothing to show all OF -- "Show all 0" is a
               control that cannot do anything, which is the thing this strip was
               just fixed for. */}
@@ -476,13 +476,13 @@ export function ShortfallList({
 
       <div className="plan-panel-body" ref={floor.ref}>
         {!rows.length && !exp && !lmd ? (
-          <p className="hint">
+          <p className="hint plan-hint">
             {loading
               ? 'Working out what the plan costs...'
               : 'No goals set yet. Give an operator a target below and this fills in with what it will take.'}
           </p>
         ) : shown.length === 0 && moneyShort === 0 ? (
-          <p className="hint">
+          <p className="hint plan-hint">
             Nothing is short. Every material the plan asks for is in your depot, or the
             Workshop can make it out of what is.
           </p>
@@ -530,7 +530,7 @@ export function ShortfallList({
             </span>
             {/* A cover, not a union: one stage usually drops several of these,
                 which is the whole reason to show it. */}
-            <span className="hint">
+            <span className="hint plan-hint">
               {run.codes.length} {run.codes.length === 1 ? 'stage covers' : 'stages cover'} all {run.covers} farmable{run.covers === 1 ? '' : 's'} you are short of
             </span>
           </div>
@@ -543,7 +543,7 @@ export function ShortfallList({
             plan. Gone in that state rather than reworded. */}
         {(shortRows.length > 0 || moneyShort > 0) && (
           <div className="plan-panel-foot">
-            <p className="hint">
+            <p className="hint plan-hint">
               {blockedDown.length > 0
                 ? `${blockedDown.length} of the ${shortRows.length} short ${blockedDown.length === 1 ? 'is' : 'are'} craftable but blocked one level down — open a material to see its recipe.`
                 : craftable.length > 0
@@ -554,7 +554,7 @@ export function ShortfallList({
             </p>
             <button
               type="button"
-              className={routeOpen ? 'primary btn-sm' : 'ghost'}
+              className="filter-chip"
               aria-pressed={routeOpen}
               disabled={run.codes.length === 0}
               onClick={() => setRouteOpen((v) => !v)}
@@ -605,7 +605,7 @@ export function OperatorBill({
   const short = rows.filter((r) => r.short > 0);
 
   if (!rows.length && !exp && !lmd) {
-    return <p className="hint">Nothing to buy &mdash; this operator is already where you want them.</p>;
+    return <p className="hint plan-hint">Nothing to buy &mdash; this operator is already where you want them.</p>;
   }
 
   return (
@@ -616,7 +616,7 @@ export function OperatorBill({
           <span className="planner-need-headcount">
             {short.length} of {rows.length} {rows.length === 1 ? 'material' : 'materials'} short
           </span>
-          <span className="hint">against the whole plan&apos;s claim on your depot</span>
+          <span className="hint plan-hint">against the whole plan&apos;s claim on your depot</span>
         </span>
       </div>
       <div className="short-list">

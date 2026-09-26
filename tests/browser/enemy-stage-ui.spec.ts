@@ -41,18 +41,19 @@ test('enemy filters stay usable without covering the page title', async ({ page 
 
 test('stage picker overlays the map and moving enemies use pinned asset URLs', async ({ page }) => {
   await page.goto('/stages/browse?s=1-7');
-  await page.getByRole('button', { name: 'Chapter or event' }).click();
-  const picker = page.locator('.stage-picker-pop');
+  // The rail's filter is the site's one dropdown (components/ui/StyledSelect): a
+  // combobox whose list is portalled to <body> and fixed, so the rail cannot clip it.
+  await page.getByRole('combobox', { name: 'Chapter or event' }).click();
+  const picker = page.getByRole('listbox', { name: 'Chapter or event' });
   await expect(picker).toBeVisible();
-  await expect(page.locator('.stage-picker-count')).toHaveCount(0);
   const pop = (await picker.boundingBox())!;
   const map = (await page.locator('.stage-map-area').boundingBox())!;
   const x = Math.max(pop.x, map.x) + 12;
   const y = Math.max(pop.y, map.y) + 12;
   if (x < Math.min(pop.x + pop.width, map.x + map.width) && y < Math.min(pop.y + pop.height, map.y + map.height)) {
-    expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.stage-picker-pop')), { x, y })).toBe(true);
+    expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('[role="listbox"]')), { x, y })).toBe(true);
   }
-  await page.getByRole('button', { name: 'Chapter or event' }).click();
+  await page.getByRole('combobox', { name: 'Chapter or event' }).click();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(() => page.locator('.stage-map-area svg image').first().getAttribute('href'))
     .toMatch(/arkpedia-image-assets\/[a-f0-9]{40}\/enemies-icons\//);

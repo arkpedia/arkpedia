@@ -1,5 +1,10 @@
 import { withContentPage } from '@/lib/content/server';
-import GameLinks from '@/components/minigames/GameLinks';
+import GameLinks, { GamesEyebrow } from '@/components/minigames/GameLinks';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import SearchInput from '@/components/ui/SearchInput';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
@@ -12,7 +17,6 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { GuesserOperator } from '@/lib/operators/operatorTypes';
 import { toGuesserOperator } from '@/lib/guesser/guesserPageData';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
-import { useKeyboardListNav } from '@/lib/hooks/useKeyboardListNav';
 import { buildHintPool, pickRandomOperator, NOT_AVAILABLE, GuesserSkin } from '@/lib/guesser/guesserLogic';
 import { Hint, ALL_HINT_TYPES, HINT_GROUPS, HintType, ThemedLevel, THEMED_MODES } from '@/lib/guesser/guesserTypes';
 
@@ -76,7 +80,15 @@ export default function GuesserPage({ operators, skins }: Props) {
   const roundRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const zoomRef = useRef<HTMLDialogElement>(null);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  /* "Customize hints" is controlled rather than a bare <details>, so closing it is a
+     React render: the height floor below only sees what React renders, and a native
+     toggle would shorten the page with nothing watching. */
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  /* Closing the hint list takes ~470px (1440) / ~800px (390) off the page; a reader
+     who closes it from below would be clamped up the screen. The floor holds the
+     place and hands the space back as they scroll up. Per hint mode, because a mode
+     change swaps the whole section. */
+  const configurationFloor = useHeightFloor(hintMode);
   const [zoomedHintImage, setZoomedHintImage] = useState<{ src: string; label: string } | null>(null);
 
   useEffect(() => {
@@ -203,20 +215,9 @@ export default function GuesserPage({ operators, skins }: Props) {
       .slice(0, 8);
   }, [input, realOperators]);
 
-  // Standardized Up/Down-to-highlight, Enter-to-select behavior for the
-  // suggestion dropdown -- matchesSearch/searchRelevance above already
-  // account for accents and other special letters when building this
-  // list, so the same normalization covers what the arrow keys move
-  // through here.
-  const { highlightedIndex, handleKeyDown: handleSuggestionKeyDown, setItemRef } = useKeyboardListNav(
-    suggestions,
-    (op) => submitGuess(op.name)
-  );
-
   function submitGuess(guessName: string) {
     if (status !== 'playing' || !target) return;
     setInput('');
-    setSuggestionsOpen(false);
     inputRef.current?.focus({ preventScroll: true });
 
     if (guessName.toLowerCase() === target.name.toLowerCase()) {
@@ -270,8 +271,9 @@ export default function GuesserPage({ operators, skins }: Props) {
   const shownCount = vasebreakerMode ? vasebreakerRevealOrder.length : revealedCount;
   const remaining = maxGuesses - wrongCount;
   const modeLabel = hintMode === 'themed' ? `${selectedThemedMode?.label || 'Themed'} theme` : hintMode === 'ordered' ? 'Ordered' : 'Randomized';
-  const candidate = (highlightedIndex >= 0 ? suggestions[highlightedIndex] : null)
-    || suggestions.find((op) => op.name.toLowerCase() === input.trim().toLowerCase())
+  // The field's own Enter picks a highlighted suggestion (or the only one); the
+  // submit button and a plain Enter fall back to an exact name.
+  const candidate = suggestions.find((op) => op.name.toLowerCase() === input.trim().toLowerCase())
     || (suggestions.length === 1 ? suggestions[0] : null);
   const shownIndices = vasebreakerMode
     ? [...vasebreakerRevealOrder].reverse()
@@ -284,70 +286,54 @@ export default function GuesserPage({ operators, skins }: Props) {
         <title>Operator Guesser — Arkpedia</title>
         <meta name="description" content="Identify Arknights operators from their skills, stories and profiles. Choose your hints or try a themed challenge." />
       </Head>
+      <PageHeader eyebrow={<GamesEyebrow />} title="Operator Guesser"
+        actions={<>
+          {(!vasebreakerMode || status === 'notStarted') && <GameLinks />}
+          {status !== 'notStarted' && <span className="badge">{modeLabel}{vasebreakerMode ? ' · Vasebreaker' : ''}</span>}
+        </>} />
       <main className={styles.page}>
-        <header className={styles.pageHeader} data-playing={status !== 'notStarted'}>
-          <div>
-            <h1>Operator Guesser</h1>
-
-          </div>
-          {status !== 'notStarted' && <span className={styles.modeBadge}>{modeLabel}{vasebreakerMode ? ' · Vasebreaker' : ''}</span>}
-        </header>
-      {(!vasebreakerMode || status === 'notStarted') && <GameLinks />}
 
         {status === 'notStarted' ? (
           <div className={styles.setup}>
             <div className={styles.roundSetup} aria-label="Round settings">
-              <div className={styles.modes} role="group" aria-label="Hint order">
-                {GAME_MODES.map((mode) => (
-                  <button key={mode.id} type="button" className={styles.mode} aria-label={mode.label} aria-pressed={hintMode === mode.id}
-                    onClick={() => { setHintMode(mode.id); if (mode.id === 'themed') setVasebreakerMode(false); }}>
-                    <ModeIcon mode={mode.id} />
-                    <strong>{mode.label}</strong>
-
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl label="Hint order" value={hintMode}
+                options={GAME_MODES.map((mode) => ({ value: mode.id, label: mode.label, icon: <ModeIcon mode={mode.id} />, title: mode.description }))}
+                onChange={(mode) => { setHintMode(mode); setCustomizeOpen(mode === 'ordered'); if (mode === 'themed') setVasebreakerMode(false); }} />
               <div className={styles.setupControls}>
               <label className={styles.numberSetting}>
                 <span>Guesses</span>
-                <input type="number" min={1} max={30} value={maxGuesses} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setMaxGuesses(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} />
+                <input className={styles.number} type="number" min={1} max={30} value={maxGuesses} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setMaxGuesses(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} />
               </label>
               {hintMode !== 'themed' && (
-                <fieldset className={styles.revealSetting}>
-                  <legend>Reveal hints</legend>
-                  <div className={styles.segmented}>
-                    <button type="button" aria-pressed={!vasebreakerMode} onClick={() => setVasebreakerMode(false)}>Automatic</button>
-                    <button type="button" aria-pressed={vasebreakerMode} onClick={() => setVasebreakerMode(true)}>Vasebreaker</button>
-                  </div>
-
-                </fieldset>
+                <div className={styles.revealSetting}>
+                  <SegmentedControl label="Reveal hints" value={vasebreakerMode ? 'vasebreaker' : 'automatic'}
+                    options={[{ value: 'automatic', label: 'Automatic' }, { value: 'vasebreaker', label: 'Vasebreaker' }]}
+                    onChange={(value) => setVasebreakerMode(value === 'vasebreaker')} />
+                </div>
               )}
               {hintMode !== 'themed' && !vasebreakerMode && (
                 <label className={styles.numberSetting}>
                   <span>Hints / guess</span>
-                  <input type="number" min={1} max={10} value={hintsPerGuess} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setHintsPerGuess(Math.max(1, Math.min(10, Number(e.target.value) || 1)))} />
+                  <input className={styles.number} type="number" min={1} max={10} value={hintsPerGuess} onFocus={(e) => e.target.select()} onClick={(e) => e.currentTarget.select()} onChange={(e) => setHintsPerGuess(Math.max(1, Math.min(10, Number(e.target.value) || 1)))} />
                 </label>
               )}
               <div className={styles.startArea}>
-                <button type="button" className={styles.primary} onClick={startRound} disabled={eligibleOperators.length === 0 || (hintMode === 'themed' && !themedLevel)}>Start round</button>
+                <button type="button" className="primary" onClick={startRound} disabled={eligibleOperators.length === 0 || (hintMode === 'themed' && !themedLevel)}>Start round</button>
 
               </div>
               </div>
               {eligibleOperators.length === 0 && <p className={styles.availability} role="status">{hintMode === 'themed' && !themedLevel ? 'Pick a theme to begin.' : 'Select hints with matching operators.'}</p>}
             </div>
-            <section className={styles.configuration} aria-labelledby="guesser-mode-heading">
-              <div className={styles.sectionHeading}>
-                <h2 id="guesser-mode-heading">Hints</h2>
-              </div>
-
+            <section ref={configurationFloor.ref} className={`op-section ${styles.configuration}`} aria-labelledby="guesser-mode-heading">
+              <h2 id="guesser-mode-heading">Hints</h2>
 
               {hintMode === 'themed' ? (
-                <div className={styles.themeSection}>
+                <div>
                   <h3>Pick a theme</h3>
                   <p className={styles.supporting}>Each theme reveals its fixed set of hints at the start.</p>
                   <div className={styles.themes} role="group" aria-label="Theme">
                     {THEMED_MODES.map((mode) => (
-                      <button key={mode.level} type="button" className={styles.theme} aria-pressed={themedLevel === mode.level} onClick={() => setThemedLevel(mode.level)}>
+                      <button key={mode.level} type="button" className={`btn-bare pick-card ${styles.theme}`} aria-pressed={themedLevel === mode.level} onClick={() => setThemedLevel(mode.level)}>
                         <strong>{mode.label}<span aria-hidden="true">{themedLevel === mode.level ? '✓' : '+'}</span></strong>
                         <span>{mode.hints.map((h) => ALL_HINT_TYPES.find((t) => t.type === h.type)?.label).join(' · ')}</span>
                       </button>
@@ -355,8 +341,10 @@ export default function GuesserPage({ operators, skins }: Props) {
                   </div>
                 </div>
               ) : (
-                <details className={styles.customize} key={hintMode} open={hintMode === 'ordered' ? true : undefined}>
-                  <summary><span>Customize hints</span><span>{hintOrder.length} selected</span></summary>
+                <details className={styles.disclosure} open={customizeOpen}>
+                  <summary onClick={(event) => { event.preventDefault(); setCustomizeOpen((open) => !open); }}>
+                    <span>Customize hints</span><span className="filter-chip-count">{hintOrder.length} selected</span>
+                  </summary>
                   <div className={styles.customizeBody}>
                     <p className={styles.supporting}>
                       {hintMode === 'ordered'
@@ -364,8 +352,8 @@ export default function GuesserPage({ operators, skins }: Props) {
                         : 'Choose which clues can appear. A wrong guess reveals more hints.'}
                     </p>
                     <div className={styles.selectionTools}>
-                      <button type="button" onClick={selectAllHints}>Select all</button>
-                      <button type="button" onClick={deselectAllHints}>Clear selection</button>
+                      <button type="button" className="ghost" onClick={selectAllHints}>Select all</button>
+                      <button type="button" className="ghost" onClick={deselectAllHints}>Clear selection</button>
                     </div>
                     {HINT_GROUPS.map((group) => (
                       <fieldset className={styles.hintGroup} key={group.label}>
@@ -375,7 +363,7 @@ export default function GuesserPage({ operators, skins }: Props) {
                             const orderIndex = hintOrder.indexOf(hint.type);
                             const selected = orderIndex !== -1;
                             return (
-                              <button key={hint.type} type="button" className={styles.category} aria-pressed={selected} onClick={() => toggleHintType(hint.type)}>
+                              <button key={hint.type} type="button" className={`filter-chip ${styles.category}`} aria-pressed={selected} onClick={() => toggleHintType(hint.type)}>
                                 <span className={styles.check} aria-hidden="true">{selected ? hintMode === 'ordered' ? orderIndex + 1 : '✓' : ''}</span>
                                 {hint.label}
                               </button>
@@ -387,21 +375,20 @@ export default function GuesserPage({ operators, skins }: Props) {
                   </div>
                 </details>
               )}
+              {configurationFloor.spacer}
             </section>
-
-
           </div>
         ) : target && (
           <div className={styles.round} data-vasebreaker={vasebreakerMode} data-finished={isOver} ref={roundRef}>
             <section className={styles.evidence} aria-labelledby="hints-heading">
-              <div className={styles.hintsHeader}>
+              <div className={`op-section ${styles.hintsHeader}`}>
                 <div><h2 id="hints-heading">Your clues</h2>{!vasebreakerMode && <p>{hintMode === 'themed' ? 'All hints for this theme are revealed.' : 'Newest clues appear first.'}</p>}</div>
                 <span className={styles.hintCount}>{shownCount}<span> / {hintPool.length} revealed</span></span>
               </div>
               {vasebreakerMode && <div className={styles.clueGrid} role="group" aria-label="Reveal a clue">
                 {hintPool.map((hint, index) => {
                   const revealed = vasebreakerRevealOrder.includes(index);
-                  return <button key={index} type="button" className={styles.clueTile}
+                  return <button key={index} type="button" className={`btn-bare ${styles.clueTile}`}
                     aria-label={`${hint.label}, clue ${index + 1}${revealed ? ', revealed' : ', reveal'}`}
                     aria-disabled={revealed || isOver} data-revealed={revealed}
                     onClick={() => { if (!revealed && !isOver) revealHintManually(index); }}>
@@ -427,27 +414,12 @@ export default function GuesserPage({ operators, skins }: Props) {
                   <div className={styles.identity}><UnknownOperator /><div><h2>Who is it?</h2><p>Choose an operator to make a guess.</p></div></div>
                   <form className={styles.guessForm} onSubmit={(e) => { e.preventDefault(); if (candidate) submitGuess(candidate.name); }}>
                     <label htmlFor="guesser-input">Operator name</label>
-                    <div className={styles.autocomplete}>
-                      <input className={styles.textInput} id="guesser-input" ref={inputRef} type="text" name="guess" autoComplete="off" spellCheck={false} value={input}
-                        onChange={(e) => { setInput(e.target.value); setSuggestionsOpen(true); }}
-                        onFocus={() => setSuggestionsOpen(true)}
-                        onBlur={(e) => { if (!e.currentTarget.form?.contains(e.relatedTarget)) setSuggestionsOpen(false); }}
-                        onKeyDown={(e) => { if (e.key === 'Escape') { setSuggestionsOpen(false); e.preventDefault(); } else { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') setSuggestionsOpen(true); handleSuggestionKeyDown(e); } }}
-                        placeholder="Search operators…" role="combobox" aria-expanded={suggestionsOpen && suggestions.length > 0}
-                        aria-controls="guesser-suggestions" aria-activedescendant={suggestionsOpen && highlightedIndex >= 0 ? `guesser-option-${highlightedIndex}` : undefined} aria-autocomplete="list" />
-                      {suggestionsOpen && suggestions.length > 0 && (
-                        <div className={styles.suggestions} role="listbox" id="guesser-suggestions" aria-label="Matching operators">
-                          {suggestions.map((op, i) => (
-                            <button key={op.name} id={`guesser-option-${i}`} ref={setItemRef(i)} type="button" role="option" tabIndex={-1}
-                              aria-selected={i === highlightedIndex} onMouseDown={(e) => e.preventDefault()} onClick={() => submitGuess(op.name)}>
-                              <Image src={getOperatorIconPath(op)} alt="" width={32} height={32} /><span>{op.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {input.trim() && suggestions.length === 0 && <p className={styles.supporting} role="status">No matching operators. Try another name.</p>}
-                    <button type="submit" className={styles.primary} disabled={!candidate}>Guess operator</button>
+                    <SearchInput id="guesser-input" inputRef={inputRef} label="Operator name" name="guess" value={input} onChange={setInput}
+                      placeholder="Search operators…"
+                      suggestions={suggestions} getKey={(op) => op.name}
+                      renderSuggestion={(op) => <><Image src={getOperatorIconPath(op)} alt="" width={32} height={32} /><span>{op.name}</span></>}
+                      onPick={(op) => submitGuess(op.name)} suggestLabel="Matching operators" emptyText="No matching operators. Try another name." />
+                    <button type="submit" className={`primary ${styles.submit}`} disabled={!candidate}>Guess operator</button>
                   </form>
                 </>
               )}
@@ -456,27 +428,27 @@ export default function GuesserPage({ operators, skins }: Props) {
                   <div className={styles.result} data-outcome={status}>
                     <p className={styles.resultHeading}>{status === 'won' ? 'Operator identified' : status === 'lost' ? 'Out of guesses' : 'Answer revealed'}</p>
                     <Link prefetch={false} href={`/operators/${encodeURIComponent(target.name)}`} className={styles.answerCard}>
-                      <Image src={getOperatorIconPath(target)} alt="" width={88} height={88} />
-                      <span><strong>{target.name}</strong><span>{target.rarity ? `${target.rarity}★ · ` : ''}{target.class}</span><small>View operator profile</small></span>
+                      <Image className={target.rarity ? `tier-${rarityLevel(target.rarity)}` : undefined} src={getOperatorIconPath(target)} alt="" width={88} height={88} />
+                      <span><strong>{target.name}</strong><span className={styles.answerMeta}>{target.rarity ? <><Rarity n={rarityLevel(target.rarity)} /> · </> : null}{target.class}</span><small>View operator profile</small></span>
                     </Link>
                     <p>{status === 'won' ? `Found with ${wrongCount + 1} ${wrongCount === 0 ? 'guess' : 'guesses'} and ${shownCount} ${shownCount === 1 ? 'clue' : 'clues'}.` : 'Try another operator, or adjust the challenge.'}</p>
                   </div>
                 )}
               </div>
-              {isOver && <div className={styles.resultActions}><button type="button" className={styles.primary} onClick={startRound}>Play again</button><button type="button" className={styles.secondary} onClick={changeSettings}>Change settings</button></div>}
+              {isOver && <div className={styles.resultActions}><button type="button" className="primary" onClick={startRound}>Play again</button><button type="button" onClick={changeSettings}>Change settings</button></div>}
               <div className={styles.history} data-empty={wrongCount === 0}>
                 <h3>Previous guesses{wrongCount > 0 && <span>{wrongCount}</span>}</h3>
                 <div role="status">
                   {wrongGuesses.length > 0 ? <ol>{wrongGuesses.map((name, i) => <li key={`${i}-${name}`}><span>{name}</span><span aria-label="Incorrect">×</span></li>)}</ol> : <p>No guesses yet.</p>}
                 </div>
               </div>
-              {!isOver && <button type="button" className={styles.giveUp} onClick={giveUp}>Give up and reveal answer</button>}
+              {!isOver && <button type="button" className={`ghost ${styles.giveUp}`} onClick={giveUp}>Give up and reveal answer</button>}
             </aside>
           </div>
         )}
       </main>
       <dialog ref={zoomRef} className={styles.zoom} aria-label="Enlarged skill icon" onCancel={() => setZoomedHintImage(null)} onClose={() => setZoomedHintImage(null)} onClick={(e) => { if (e.target === e.currentTarget) setZoomedHintImage(null); }}>
-        {zoomedHintImage && <div className={styles.zoomBody}><button type="button" className={styles.secondary} onClick={() => setZoomedHintImage(null)}>Close image</button><Image src={zoomedHintImage.src} alt={zoomedHintImage.label} width={360} height={360} sizes="(max-width: 480px) 80vw, 360px" /><p>{zoomedHintImage.label}</p></div>}
+        {zoomedHintImage && <div className={styles.zoomBody}><button type="button" className="ghost" onClick={() => setZoomedHintImage(null)}>Close image</button><Image src={zoomedHintImage.src} alt={zoomedHintImage.label} width={360} height={360} sizes="(max-width: 480px) 80vw, 360px" /><p>{zoomedHintImage.label}</p></div>}
       </dialog>
     </>
   );
@@ -501,7 +473,7 @@ function UnknownOperator() {
 function HintCard({ hint, onZoom }: { hint: Hint; onZoom: (image: { src: string; label: string }) => void }) {
   return <article className={styles.hintCard}>
     <h3>{hint.label}</h3>
-    {hint.isImage ? <button type="button" className={styles.imageHint} onClick={() => onZoom({ src: hint.value, label: hint.label })} aria-label={`Enlarge ${hint.label}`}><Image src={hint.value} alt={hint.label} width={56} height={56} /><span>Enlarge icon</span></button> : <p>{hint.value}</p>}
+    {hint.isImage ? <button type="button" className={`btn-bare ${styles.imageHint}`} onClick={() => onZoom({ src: hint.value, label: hint.label })} aria-label={`Enlarge ${hint.label}`}><Image src={hint.value} alt={hint.label} width={56} height={56} /><span>Enlarge icon</span></button> : <p>{hint.value}</p>}
   </article>;
 }
 

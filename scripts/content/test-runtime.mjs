@@ -131,7 +131,12 @@ try {
     // note holds the height of the chip row it replaces (Anti-Page Jump). The reader sits at
     // the bottom of the page, where a shorter document would clamp the scroll.
     if (name === 'desktop') await page.locator('.gacha-category-row button', { hasText: /^Standard$/ }).click();
-    else await page.locator('.gacha-category-mobile').selectOption('standard');
+    else {
+      // The phone's category picker is the site's StyledSelect (a combobox and a listbox
+      // portalled to <body>), no longer a native <select>.
+      await page.getByRole('combobox', { name: 'Banner category' }).click();
+      await page.getByRole('listbox', { name: 'Banner category' }).getByRole('option', { name: /^Standard$/ }).click();
+    }
     const sidebarItem = bannerName => page.locator(`.gacha-banner-sidebar-item[title="${bannerName.replace(/\s*\(Global\)\s*$/i, '')}"]`);
     await sidebarItem(shownBanner).click();
     await page.locator('.gacha-roster-section .gacha-featured-chip').first().waitFor({ timeout: 10_000 });
@@ -145,7 +150,9 @@ try {
     assert.equal(after.y, before.y, `${name} choosing the pending banner moved the reader's scroll`);
     await waitFor(async () => {
       await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
-      return (await page.locator('body').innerText()).includes('Runtime Stage B');
+      // Rendered text, in any case: the stage name is also the page's h1, which the site
+      // sets in capitals (innerText follows text-transform).
+      return (await page.locator('body').innerText()).toLowerCase().includes('runtime stage b');
     }, `${name} new stage`, 75_000);
     const servedNow = await page.evaluate(() => window.__NEXT_DATA__.props.pageProps.now);
     assert.ok(Math.abs(servedNow - Date.now() / 1000) < 120, `${name} runtime stage clock is stale`);
@@ -159,7 +166,8 @@ try {
       await page.locator('.music-queue-panel h2', { hasText: `Songs (${songs + 1})` }).waitFor({ timeout: 10_000 });
       return true;
     }, `${name} music queue from release B`, 75_000);
-    await page.locator('.music-queue-search').fill('Runtime Song B');
+    // By role and name, not class: the queue search is the shared SearchInput now.
+    await page.locator('.music-queue-panel').getByRole('searchbox', { name: 'Search songs' }).fill('Runtime Song B');
     await page.locator('.music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
     assert.ok(catalogueRequests.some(url => url.startsWith(`http://127.0.0.1:3204/${'b'.repeat(40)}/release/public/`)), `${name} music catalogue was not read from release B: ${catalogueRequests.join(', ')}`);
     page.off('request', noteCatalogue);

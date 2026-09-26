@@ -13,7 +13,7 @@ interface Props {
 export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Props) {
   if (banners.length === 0) {
     return (
-      <section className="front-panel front-gacha-panel">
+      <section className="front-panel front-home-panel front-gacha-panel">
         <h2>Gacha Banners</h2>
         <p className="hint">No banners to show right now.</p>
       </section>
@@ -23,7 +23,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
   const active = banners[Math.min(activeIndex, banners.length - 1)];
 
   return (
-    <section className="front-panel front-gacha-panel">
+    <section className="front-panel front-home-panel front-gacha-panel">
       <h2>Gacha Banners</h2>
       <div className="front-gacha-main">
         <Link prefetch={false} href={`/gacha?banner=${encodeURIComponent(active.name)}`} className="front-gacha-poster-wrap">

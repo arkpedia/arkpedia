@@ -3,6 +3,7 @@ import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import ModeMark from '@/components/stages/ModeMark';
+import PageHeader from '@/components/ui/PageHeader';
 
 interface Mode {
   /** null while the mode has no page of its own -- the row is still listed. */
@@ -32,13 +33,12 @@ export default function GamemodesPage({ modes }: { modes: Mode[] }) {
         <title>Game modes -- Arkpedia</title>
         <meta name="description" content="Arknights game modes, and what each one is made of." />
       </Head>
-      <div className="terminal-head">
-        <div className="eyebrow">Rhodes Island // Game Modes</div>
-        <h1>Game Modes</h1>
-        <p className="sub">
-          The modes that run beside the mainline, each with its own rules to learn.
-        </p>
-      </div>
+      <PageHeader
+        slim
+        eyebrow="Rhodes Island // Mode rulebooks"
+        title="Game Modes"
+        sub="The modes that run beside the mainline, each with its own rules to learn."
+      />
       <main className="terminal-scene">
         <section className="terminal-panel wide" data-tab="Modes">
           <ul className="terminal-list">

@@ -2,7 +2,9 @@ import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import PageHeader from '@/components/ui/PageHeader';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { TIER_1_2_FOOTNOTE, LEGEND } from '@/lib/farming/farmingConfig';
 import { FarmingMaterial, FarmingStage, FarmingTier } from '@/lib/farming/farmingTypes';
 import { useReleaseTable } from '@/lib/content/context';
@@ -20,18 +22,22 @@ interface Props {
 }
 
 export default function FarmingPage({ windows, countdowns: exportedCountdowns, eventStoreCountdown: exportedEventStoreCountdown, now }: Props) {
-  const [openTier, setOpenTier] = useState<1 | 2 | 3 | null>(null);
+  /* Each tier opens and closes on its own, and Tier 3 -- the one worth reading -- is
+     open in the server's HTML. This was one exclusive accordion opened by a 650ms
+     timer: the timer moved everything under Tier 3 down 450-1350px after the page had
+     painted, and opening Tier 2 closed Tier 3 above it, which moved Tier 2's header
+     412px up the screen under the reader's finger (GE-01). */
+  const [openTiers, setOpenTiers] = useState<ReadonlySet<1 | 2 | 3>>(() => new Set([3]));
+  const toggleTier = (n: 1 | 2 | 3) => setOpenTiers((current) => {
+    const next = new Set(current);
+    if (next.has(n)) next.delete(n); else next.add(n);
+    return next;
+  });
+  /* Closing Tier 3 while reading Tier 1 at the bottom still shortens the page, so the
+     accordion holds the reader's place through a collapse (the Anti-Page Jump rule). */
+  const floor = useHeightFloor('farming');
   const countdowns = useMemo(() => windows ? resolveMaterialCountdowns(windows, now) : exportedCountdowns ?? {}, [windows, exportedCountdowns, now]);
   const eventStoreCountdown = useMemo(() => windows ? resolveEventStoreCountdown(windows, now) : exportedEventStoreCountdown ?? null, [windows, exportedEventStoreCountdown, now]);
-
-  // Table fades in first, then the accordion opens itself shortly after --
-  // matches the fade-in's own animation duration so the "self-opening"
-  // effect reads as one continuous reveal rather than two disconnected
-  // animations.
-  useEffect(() => {
-    const timer = setTimeout(() => setOpenTier(3), 650);
-    return () => clearTimeout(timer);
-  }, []);
 
   // The guide itself is a game record: the release's data/farming-tiers.json, in props.
   const [tier1, tier2, tier3] = useReleaseTable<FarmingTier[]>('farming-tiers');
@@ -67,10 +73,7 @@ export default function FarmingPage({ windows, countdowns: exportedCountdowns, e
     <>
       <Head><title>Farming Guide — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Logistics Support</div>
-        <h1>Farming Guide</h1>
-      </header>
+      <PageHeader eyebrow="Rhodes Island // Logistics Support" title="Farming Guide" />
 
       <main className="farming-main">
         <div className="farming-legend farming-legend-top">
@@ -82,17 +85,25 @@ export default function FarmingPage({ windows, countdowns: exportedCountdowns, e
           ))}
         </div>
 
-        <div className="farming-accordion farming-table-enter">
+        <div className="farming-accordion farming-table-enter" ref={floor.ref}>
           {tiers.map(({ n, tier }) => {
-            const isOpen = openTier === n;
+            const isOpen = openTiers.has(n);
             return (
-              <div key={n} className={`farming-accordion-section${isOpen ? ' open' : ''}`}>
-                <button type="button" className="farming-accordion-header" onClick={() => setOpenTier(n)}>
-                  <span>Tier {n}</span>
-                  <span className="farming-accordion-arrow">{isOpen ? '▾' : '▸'}</span>
-                </button>
+              <section key={n} className={`farming-accordion-section${isOpen ? ' open' : ''}`}>
+                <h2 className="farming-accordion-title">
+                  <button
+                    type="button"
+                    className="btn-bare farming-accordion-header"
+                    aria-expanded={isOpen}
+                    aria-controls={`farming-tier-${n}`}
+                    onClick={() => toggleTier(n)}
+                  >
+                    <span>Tier {n}</span>
+                    <span className="farming-accordion-arrow" aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
+                  </button>
+                </h2>
 
-                <div className={`farming-accordion-body-wrap${isOpen ? ' open' : ''}`}>
+                <div id={`farming-tier-${n}`} className={`farming-accordion-body-wrap${isOpen ? ' open' : ''}`}>
                   <div className="farming-accordion-body">
                     <div className={`farming-tile-grid farming-tile-grid-open${n === 3 ? ' farming-tile-grid-t3' : ''}`}>
                       {tier.materials.map((m) => (
@@ -102,9 +113,10 @@ export default function FarmingPage({ windows, countdowns: exportedCountdowns, e
                     {n <= 2 && <div className="farming-footnote">{TIER_1_2_FOOTNOTE}</div>}
                   </div>
                 </div>
-              </div>
+              </section>
             );
           })}
+          {floor.spacer}
         </div>
       </main>
     </>

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
+import SearchInput from '../ui/SearchInput';
+import SegmentedControl from '../ui/SegmentedControl';
 import StyledSelect from '../ui/StyledSelect';
 import { renderGameText } from '../ui/HighlightedText';
 import { OperatorVoiceData, OperatorVoiceLine } from '@/lib/operators/operatorVoices';
@@ -213,7 +215,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
       <div ref={playerAnchorRef} aria-hidden="true" />
       <div ref={playerRef} className={styles.player} data-stuck={playerStuck || undefined} aria-label="Voice line player">
         <div className={styles.packRow}>
-          <StyledSelect label="Voice language" value={pack?.id ?? ''} className={styles.packSelect}
+          <StyledSelect label="Voice language" align="end" value={pack?.id ?? ''} className={styles.packSelect}
             options={data.packs.map(item => ({
               value: item.id,
               label: item.id === 'linkage' ? ({ Japanese: 'JP', English: 'EN', Mandarin: 'CN', Korean: 'KR' }[item.label] ?? 'CO') : packCode(item.id),
@@ -254,17 +256,9 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
       </div>
 
       <div className={styles.filters}>
-        <label className={styles.search}>
-          <span className="visually-hidden">Search voice lines</span>
-          <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" /></svg>
-          <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search voice lines" />
-        </label>
-        <div className={styles.categoryTabs} role="group" aria-label="Voice line category">
-          {categories.map(item => (
-            <button key={item.value} type="button" aria-pressed={category === item.value}
-              onClick={() => setCategory(item.value)}>{item.label}</button>
-          ))}
-        </div>
+        <SearchInput className={styles.search} label="Search voice lines" value={query} onChange={setQuery} placeholder="Search voice lines" />
+        <SegmentedControl className={styles.categoryTabs} label="Voice line category" value={category} onChange={setCategory}
+          options={categories.map(item => ({ value: item.value, label: item.label }))} />
       </div>
 
       <span className="visually-hidden" aria-live="polite">{filtered.length} {filtered.length === 1 ? 'line' : 'lines'} shown</span>

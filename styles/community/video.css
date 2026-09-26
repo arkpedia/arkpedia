@@ -25,7 +25,7 @@
   width: 160px;
   flex-shrink: 0;
   aspect-ratio: 16 / 9;
-  border-radius: 4px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
@@ -57,26 +57,25 @@
   margin: 0;
 }
 
-/* --- Community Hub --- */
+/* --- Community Hub: stream and video cards, 4 across in the frame --- */
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
 }
+/* A card is a link: the control boundary at rest, teal on hover. */
 .video-card {
   display: block;
   text-decoration: none;
   color: inherit;
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-frame);
   overflow: hidden;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.15s;
 }
-.video-card:hover {
-  border-color: var(--teal);
-  transform: translateY(-2px);
-}
+.video-card:hover { border-color: var(--teal); }
+.video-card:hover .video-title { color: var(--teal); }
 .video-thumb {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -89,19 +88,12 @@
 .video-title {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 14px;
-  line-height: 1.35;
-  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.3;
+  margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-.video-meta {
-  display: flex;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
 }

@@ -1,6 +1,12 @@
+import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { YouTubeVideo } from '@/lib/music/youtube';
 import { TwitchStream } from '@/lib/community/twitch';
+
+/** The community pages' eyebrow: the section, with a crumb back to the hub. */
+export function CommunityEyebrow() {
+  return <>Rhodes Island // <Link href="/community" prefetch={false}>Community Hub</Link></>;
+}
 
 export function VideoCard({ v, live }: { v: YouTubeVideo; live?: boolean }) {
   return (

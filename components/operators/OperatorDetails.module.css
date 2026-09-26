@@ -1,73 +1,64 @@
 .stats, .files { color: var(--text); min-width: 0; }
-.stats h2, .files h2 { font-family: var(--font-display); font-size: 24px; margin: 0 0 18px; }
+/* The headings are the section's .op-section h2 (amber, 18px, uppercase). */
+.stats h2, .files h2 { margin: 0 0 14px; }
 .buildControls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; }
 .promotion, .moduleControls { min-width: 0; margin: 0; padding: 0; border: 0; }
-.promotion legend, .moduleControls legend { margin-bottom: 7px; color: var(--text-dim); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.promotion legend, .moduleControls legend { margin-bottom: 7px; color: var(--text-dim); font: 500 11px/1.3 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .promotionOptions, .moduleOptions, .moduleLevels { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.promotionOptions button { display: inline-flex; align-items: center; justify-content: center; width: 52px; min-width: 52px; height: 44px; padding: 7px; }
-.promotionOptions button,
-.moduleOptions button,
-.moduleLevels button {
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--row-grad);
-  color: var(--text);
-}
-.promotionOptions button:hover:not(:disabled),
-.moduleOptions button:hover:not(:disabled),
-.moduleLevels button:hover:not(:disabled),
-.promotionOptions button[aria-pressed='true'],
-.moduleOptions button[aria-pressed='true'],
-.moduleLevels button[aria-pressed='true'] {
-  border-color: var(--teal);
-  background: var(--row-grad-hi);
-  color: var(--teal);
-}
+/* Promotion, module and module level are .filter-chip toggles (the boundary, the
+   teal hover, teal on --teal-dim when picked); these rules only size them. */
+.promotionOptions button { width: 52px; min-width: 52px; height: 44px; padding: 7px; }
 .moduleControls { flex: 1 1 300px; }
 .moduleRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .moduleOptions button, .moduleLevels button { min-width: 44px; min-height: 40px; padding: 7px 10px; }
+/* The module letters are Greek (α β γ Δ): uppercase would turn α into a Latin-looking A. */
 .moduleOptions button {
   width: 44px;
   min-width: 44px;
   height: 44px;
   min-height: 44px;
   padding: 7px;
-  font: 700 16px/1 var(--font-body);
-  letter-spacing: .02em;
+  font: 700 15px/1 var(--font-body);
+  letter-spacing: 0;
+  text-transform: none;
 }
-.moduleOptions button:disabled { cursor: not-allowed; opacity: .45; }
+.moduleOptions button:disabled { cursor: not-allowed; }
 .moduleLevels { flex-wrap: nowrap; }
-.moduleLevels > span { margin-right: 2px; color: var(--text-dim); font-size: 12px; }
+.moduleLevels > span { margin-right: 2px; color: var(--text-dim); font: 500 11px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; align-items: center; min-width: 0; }
-.control label { color: var(--text-dim); font-size: 14px; font-weight: 600; }
+.control label { color: var(--text-dim); font: 500 11px/1.3 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .numeric { display: flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 13px; }
-.numeric input { width: 76px; min-width: 0; min-height: 42px; padding: 6px 9px; font-size: 17px; font-variant-numeric: tabular-nums; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; }
-.slider { grid-column: 1 / -1; width: 100%; min-width: 0; min-height: 28px; accent-color: var(--teal); margin: 0; padding: 0; }
-.maxButton { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; height: 42px; padding: 3px 7px; color: var(--teal); border: 1px solid var(--line); border-radius: 4px; background: var(--row-grad); font-size: 16px; cursor: pointer; line-height: 1.1; }
-.maxButton small { font-size: 9px; letter-spacing: .08em; }
+.numeric input { width: 76px; min-width: 0; min-height: 42px; padding: 6px 9px; font: 600 15px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); background: var(--well); border: 1px solid var(--control-border); border-radius: var(--radius); }
+.numeric input:hover { border-color: var(--teal); }
+.slider { grid-column: 1 / -1; width: 100%; min-width: 0; min-height: 28px; margin: 0; padding: 0; }
+/* The site's button (boundary, teal hover), stacked: MAX over the level. */
+.maxButton { flex-direction: column; gap: 0; min-width: 46px; height: 42px; padding: 3px 7px; font-size: 15px; line-height: 1.1; }
+.maxButton small { font-size: 10px; letter-spacing: 0.08em; }
 .primaryStats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 18px; margin: 18px 0 14px; padding: 15px 0; border-block: 1px solid var(--line); }
 .stat { min-width: 0; padding: 0; }
 .stat dt { min-height: 28px; color: var(--text-dim); }
 .stat dd { min-width: 0; margin: 7px 0 0; }
-.total { display: block; font-family: var(--font-display); font-size: clamp(26px, 3.2cqi, 34px); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.total { display: block; font-family: var(--font-display); font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .breakdown { display: flex; flex-wrap: wrap; column-gap: 5px; color: var(--text-dim); font-size: 11px; line-height: 1.55; margin-top: 6px; }
 .breakdown > span { white-space: nowrap; }
-.trustBonus { color: var(--teal); }
-.moduleBonus { color: var(--gold, #d8aa55); }
+/* Bonus sources are categories, not states: teal is "on", so trust takes --cat-green
+   and the module --cat-yellow (both readable as text in either theme). */
+.trustBonus { color: var(--cat-green); }
+.moduleBonus { color: var(--cat-yellow); }
 .secondaryStats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 18px; margin: 0; }
 .secondaryStats > div { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 0; }
 .secondaryStats dt { flex: 0 0 auto; color: var(--text-dim); }
-.secondaryStats dd { min-width: 0; margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.secondaryStats dd { min-width: 0; margin: 0; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .secondaryStats dd span { color: var(--text-dim); }
 .help { color: var(--text-dim); font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
 .file { border-bottom: 1px solid var(--line); }
 .file:first-of-type { border-top: 1px solid var(--line); }
-.file summary { cursor: pointer; padding: 10px 4px; min-height: 44px; color: var(--teal); }
-.fileHeading { color: var(--text); font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.file summary { cursor: pointer; padding: 10px 4px; min-height: 44px; color: var(--text-dim); }
+.file summary:hover, .file[open] summary { color: var(--teal); }
+.fileHeading { color: var(--text); font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .unlock { display: block; color: var(--text-dim); font-size: 12px; line-height: 1.6; margin: 2px 0 0 17px; }
-.fileText { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; font-size: 14px; line-height: 1.8; padding: 4px 8px 16px; }
-.stats input:focus-visible, .stats button:focus-visible, .file summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.fileText { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; font-size: 13px; line-height: 1.8; padding: 4px 8px 16px; }
 @container operatorDetails (max-width: 620px) {
   .buildControls { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
   .promotionOptions button { width: 48px; min-width: 48px; }
@@ -80,7 +71,7 @@
   .stat { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 0 8px; }
   .stat dt { min-height: 0; padding-top: 2px; }
   .stat dd { margin-top: 0; }
-  .total { font-size: 25px; }
+  .total { font-size: 26px; }
   .breakdown { margin-top: 3px; line-height: 1.35; }
   .secondaryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .secondaryStats > div { padding: 4px 0; }

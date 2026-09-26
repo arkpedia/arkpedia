@@ -30,9 +30,9 @@
    over it. myrtle.moe runs its header full width and gets away with it, but their nav
    sits immediately beside the logo rather than being spread across the bar. */
 .site-nav-inner {
-  max-width: 1040px;
+  max-width: var(--frame-max);
   margin: 0 auto;
-  padding: 10px 24px;
+  padding: 10px var(--page-gutter);
   display: flex;
   align-items: center;
   gap: 20px;
@@ -273,6 +273,12 @@
   gap: 6px;
   font-family: var(--font-mono);
   font-size: 12px;
+  /* The trigger is a <button>, so it inherited the button primitive's uppercase,
+     0.09em tracking and weight 600 -- "DATABASE ⌄ GUIDES ⌄" beside sentence-case
+     links in the same bar. A menu trigger is a nav item, not an action. */
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--text-dim);
   background: none;
   padding: 7px 12px;
@@ -385,7 +391,7 @@
   height: 52px;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 var(--page-gutter);
   /* The mobile half of .site-nav's layer, and for the same reason: a tap in the
      Stronghold companion snapshots the screen, and anything the companion names
      rides in a layer of its own while everything unnamed -- this bar included --
@@ -473,13 +479,14 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control-border);
   background: var(--panel-2);
   color: var(--text-dim);
   cursor: pointer;
 }
 .mobile-nav-menu-btn:hover { border-color: var(--teal); color: var(--teal); }
+
 .mobile-nav-bar-side {
   display: flex;
   align-items: center;
@@ -508,7 +515,7 @@
 .mobile-nav-back:hover { color: var(--teal); }
 .mobile-nav-back-chev {
   flex: none;
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1;
   color: var(--text-dim);
 }

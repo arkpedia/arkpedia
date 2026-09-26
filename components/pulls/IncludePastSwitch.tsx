@@ -1,9 +1,14 @@
-/** Shared saved setting, placed beside the tab on desktop and the heading on phones. */
+/** Whether past (unclaimed) rewards count toward the forecast: one saved setting,
+ *  placed beside the Past events tab on desktop and beside the panel heading on
+ *  phones. A .tgl with aria-pressed -- it was a native checkbox restyled into a
+ *  hand-drawn switch. */
 export function IncludePastSwitch({ checked, onChange, className = '' }: {
   checked: boolean; onChange: (value: boolean) => void; className?: string;
 }) {
-  return <label className={`pulls-include-switch ${className}`} title={checked ? 'Past rewards included in forecast' : 'Include past rewards in forecast'}>
-    <span className="pulls-include-caption">Include</span>
-    <input type="checkbox" role="switch" aria-label="Include past rewards in forecast" checked={checked} onChange={event => onChange(event.target.checked)} />
-  </label>;
+  return <button type="button" className={`tgl pulls-include-switch${checked ? ' is-on' : ''}${className ? ` ${className}` : ''}`}
+    aria-pressed={checked} aria-label="Include past rewards in forecast"
+    title={checked ? 'Past rewards included in forecast' : 'Include past rewards in forecast'}
+    onClick={() => onChange(!checked)}>
+    Include
+  </button>;
 }

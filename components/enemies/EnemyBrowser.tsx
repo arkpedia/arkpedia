@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EnemyContent, EnemySummary } from '@/lib/enemies/enemyTypes';
 import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import SearchInput from '@/components/ui/SearchInput';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 
@@ -271,12 +273,15 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
   return (
     <div className="enemy-frame">
       <div className="enemy-frame-head">
-        <span className="enemy-frame-sorts">
+        {/* The site's .filter-chip (32px, 36 on a phone, the control border at rest).
+            Not a SegmentedControl: pressing the current sort turns its direction. */}
+        <span className="enemy-frame-sorts" role="group" aria-label="Sort by">
           {SORTS.map((s) => (
             <button
               key={s.key}
               type="button"
-              className={`enemy-sort${sortField === s.key ? ' current' : ''}`}
+              className="filter-chip enemy-sort"
+              aria-pressed={sortField === s.key}
               onClick={() => pickSort(s.key)}
             >
               {s.label}
@@ -284,22 +289,17 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
             </button>
           ))}
         </span>
-        <span className="enemy-frame-tabs">
-          {TYPE_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              className={`enemy-type-tab${filters.type === t.key ? ' current' : ''}`}
-              onClick={() => set('type', t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </span>
+        <SegmentedControl
+          className="enemy-frame-tabs"
+          label="Rank"
+          value={filters.type}
+          onChange={(type) => set('type', type)}
+          options={TYPE_TABS.map((t) => ({ value: t.key, label: t.label }))}
+        />
         <span className="enemy-filter-actions" ref={filterActionsRef}>
           <button
             type="button"
-            className={`enemy-filter-btn${filtersOpen ? ' current' : ''}${narrowed ? ' enemy-clear-btn' : ''}`}
+            className={`filter-chip enemy-filter-btn${filtersOpen ? ' active' : ''}${narrowed ? ' enemy-clear-btn' : ''}`}
             aria-expanded={narrowed ? undefined : filtersOpen}
             onClick={narrowed ? clearNarrowing : () => setFiltersOpen((value) => !value)}
           >
@@ -308,7 +308,7 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
           {narrowed && (
             <button
               type="button"
-              className={`enemy-filter-btn enemy-filter-edit${filtersOpen ? ' current' : ''}`}
+              className={`filter-chip enemy-filter-btn enemy-filter-edit${filtersOpen ? ' active' : ''}`}
               aria-label="Adjust filters"
               aria-expanded={filtersOpen}
               onClick={() => setFiltersOpen((value) => !value)}
@@ -416,14 +416,16 @@ function EnemyFilterPanel({
   ) => (
     <div className="enemy-filter-group">
       <h4 className="enemy-section-head">{label}</h4>
-      <div className="enemy-filter-chips">
+      <div className="enemy-filter-chips" role="group" aria-label={label}>
         {options.map((o) => (
           <button
             key={o.value}
             type="button"
-            /* primary/ghost, the same pair the operators roster uses for its
-               rarity filters, rather than a chip shape invented for this page. */
-            className={filters[key] === o.value ? 'primary' : 'ghost'}
+            /* The site's .filter-chip, on or off: pressing the one that is on turns the
+               facet off again. It was primary/ghost, which paints a chosen filter in
+               the teal fill reserved for primary actions. */
+            className="filter-chip"
+            aria-pressed={filters[key] === o.value}
             onClick={() => set(key, filters[key] === o.value ? 'all' : o.value)}
           >
             {o.label}
@@ -439,13 +441,12 @@ function EnemyFilterPanel({
         <h3 className="enemy-section-head">Filters</h3>
         <span className="hint">{shown} matching</span>
       </div>
-      <input
-        type="search"
+      <SearchInput
         className="enemy-filter-search"
-        aria-label="Search enemies"
+        label="Search enemies"
         placeholder="Search by name or code..."
         value={filters.search}
-        onChange={(e) => set('search', e.target.value)}
+        onChange={(search) => set('search', search)}
       />
       {group('Race', 'race', [
         ...races.map((r) => ({ value: r, label: r })),

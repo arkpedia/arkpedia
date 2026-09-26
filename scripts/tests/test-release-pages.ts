@@ -21,6 +21,7 @@ const OUTSIDE_THE_RELEASE: Record<string, string> = {
   'pages/bases/whole-base-optimizer.tsx': 'development only (devOnlyStaticProps)',
   'pages/optimizer.tsx': 'development only (devOnlyStaticProps)',
   'pages/dev/index.tsx': 'development only (devOnlyStaticProps)',
+  'pages/dev/ui.tsx': 'development only (devOnlyStaticProps): the UI primitives gallery',
 };
 
 function pageFiles(dir = 'pages'): string[] {

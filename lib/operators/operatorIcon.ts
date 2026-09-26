@@ -20,6 +20,25 @@ export function operatorPortraitFile(op: Pick<Operator, 'name' | 'rarity'>): str
 }
 
 /**
+ * The rarity an icon path from getOperatorIconPath names in its folder, or null for
+ * the placeholder (a portrait not yet published says nothing about rarity).
+ *
+ * For a page whose published props carry the icon but not the rarity: page props
+ * come from the content release, which the code that compiled it shaped, so a field
+ * added to a page's data is absent until the next release -- a component that
+ * required it crashed on every reveal of the recruitment guesser. The icon has
+ * always been there. Throws on any other path: that is a caller passing something
+ * this function does not understand, not a rarity to guess.
+ */
+export function rarityFromIconPath(path: string): number | null {
+  if (path === OPERATOR_PORTRAIT_PLACEHOLDER) return null;
+  const folder = /^\/([a-z]+)-star-icons\//.exec(path)?.[1];
+  const rarity = Object.entries(RARITY_WORDS).find(([, word]) => word === folder)?.[0];
+  if (!rarity) throw new Error(`${path} is not an operator portrait path`);
+  return Number(rarity);
+}
+
+/**
  * Returns the icon path for an operator: its rarity portrait, or the placeholder
  * while that portrait is unpublished. Pure function, no Node APIs and no asset
  * index -- safe to call from client-rendered components as well as server-side code.

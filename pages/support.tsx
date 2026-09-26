@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
+import PageHeader from '@/components/ui/PageHeader';
 
 export default function SupportPage() {
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -22,10 +23,7 @@ export default function SupportPage() {
     <>
       <Head><title>Support — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Support</div>
-        <h1>Support</h1>
-      </header>
+      <PageHeader eyebrow="Rhodes Island // Support" title="Support" />
 
       <main>
         <section className="op-section">
@@ -37,7 +35,7 @@ export default function SupportPage() {
           <div className="support-options-row">
             <div className="support-option">
               <h3>For Free!</h3>
-              <p className="hint">Be more active in the communities I have.</p>
+              <p className="support-copy">Be more active in the communities I have.</p>
               <div className="support-social-row">
                 <a href="https://discord.gg/kukkikaze" target="_blank" rel="noopener noreferrer" className="support-social-link" title="Discord">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">
@@ -66,7 +64,7 @@ export default function SupportPage() {
 
             <div className="support-option">
               <h3>As Free Labour <span aria-hidden="true">😈</span></h3>
-              <p className="hint">
+              <p className="support-copy">
                 Send your feedback and bugs to this Google Form, or join the team of unpaid people to make this
                 site bigger and better!
               </p>
@@ -92,7 +90,7 @@ export default function SupportPage() {
 
             <div className="support-option">
               <h3>Or Support the Page Expenses <span aria-hidden="true">🥲</span></h3>
-              <p className="hint">Benefits are given for paid supporters in the near future!</p>
+              <p className="support-copy">Benefits are given for paid supporters in the near future!</p>
               <div className="support-social-row">
                 <a href="https://patreon.com/kukkikaze" target="_blank" rel="noopener noreferrer" className="support-social-link" title="Patreon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">

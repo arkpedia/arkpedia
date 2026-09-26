@@ -87,6 +87,15 @@ jobs:
       - name: Lint
         run: npm run lint -- --max-warnings 15
 
+      # A ratchet over style drift: rarity colour literals, the pre-token teal, pill
+      # radii, h1 overrides, font weights that are not loaded, native <select> and
+      # hand-built listboxes outside components/ui, class collisions, off-scale sizes.
+      # It fails on anything new AND on a fixed entry still in the baseline, so the
+      # page-family migrations can only shrink scripts/audits/style-audit-baseline.json.
+      # See docs/development/ui-primitives.md.
+      - name: Style drift ratchet
+        run: npm run audit:styles
+
       # A class the app renders that no stylesheet styles is invisible to the type
       # checker and to the linter: nothing fails, the page just quietly looks wrong.
       # That was 45 names when this check went in; it is 0 now, so --strict can gate.

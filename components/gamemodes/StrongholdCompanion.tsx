@@ -17,7 +17,7 @@ import PipWindow, { pipSupported, usePipWindow } from '@/components/ui/PipWindow
 /* The address the New tab button points at and the phone link navigates to. Its own
    module because _document needs it too, before the first paint; see the file. */
 import { COMPANION_PAGE, COMPANION_POPOUT } from '@/lib/gamemodes/companionRoute';
-import ScrollRow from '@/components/ui/ScrollRow';
+import CompanionScrollRow from '@/components/gamemodes/CompanionScrollRow';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 
@@ -3401,7 +3401,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
             and a spam-click landed on the % readout, which resets to 100. Both rows
             share the one wrapper so both hold still together. */}
         <div className="gm-co-dialswrap" style={{ zoom: String(1 / zoom) }}>
-        <ScrollRow className="gm-co-dials">
+        <CompanionScrollRow className="gm-co-dials">
           {/* Size, first on the row, because it is the control you reach for once and
               then never again, and because everything to the right of it is what you
               were trying to read when you reached for it. */}
@@ -3509,13 +3509,13 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
               </button>
             )}
           </span>
-        </ScrollRow>
+        </CompanionScrollRow>
         {/* Second row: the tip controls and the overlay toggle, which used to float
             over the run at the bottom-right corner. Grouped here instead, since all
             three are the same kind of thing -- a standing preference about how the
             screen reads, not a control of the run itself the way row one's buttons
             are. */}
-        <ScrollRow className="gm-co-dials gm-co-dials2">
+        <CompanionScrollRow className="gm-co-dials gm-co-dials2">
           {/* Brings the current tip back after a click has dismissed it -- the only
               way back to it short of a full Reset. Disabled rather than hidden when
               there is nothing to bring back, so the row does not reflow depending on
@@ -3629,14 +3629,14 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
               </ul>
             )}
           </span>
-        </ScrollRow>
+        </CompanionScrollRow>
         </div>
         {/* Which tier the shop is on, in the sticky header with everything else you
             press. A band shows its own picks and every band below it. Dropped
             entirely in New Player mode -- there is no tier to browse once the
             board has narrowed to just two Cores' star operators. */}
         {!newPlayerMode && (
-        <ScrollRow className="gm-co-bands">
+        <CompanionScrollRow className="gm-co-bands">
           {OPENING.map((b, i) => (
             <button
               key={b.tier}
@@ -3659,7 +3659,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
               <em>{b.rounds}</em>
             </button>
           ))}
-        </ScrollRow>
+        </CompanionScrollRow>
         )}
         {/* Every Core that has not locked in, always -- unlike the strip below,
             this one does not wait for a mark. A player deciding which of the 8
@@ -3691,9 +3691,9 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
                 of the row and are gone, with the measurement they needed -- a second
                 scroll listener and ResizeObserver on the same element ScrollRow was
                 already watching. */}
-            <ScrollRow className="gm-co-corerow">
+            <CompanionScrollRow className="gm-co-corerow">
               {coreRowAlliances.map((p) => allyChip(p, false))}
-            </ScrollRow>
+            </CompanionScrollRow>
           </div>
         )}
         {/* The game's own alliance readout: icon, count under it, lit at activation.
@@ -3705,7 +3705,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
         {!newPlayerMode && (stripAll.length > 0 || filterAlliance) && (
           <div className="gm-co-allys">
             <span className="gm-co-allylabel">Add-on</span>
-            <ScrollRow className="gm-co-addonrow">
+            <CompanionScrollRow className="gm-co-addonrow">
               {stripAll.map(({ p, quiet }) => allyChip(p, quiet))}
               {/* Rightmost, and only while something is actually open -- closing what
                   you are looking at is the one thing every other chip in this row
@@ -3723,7 +3723,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
                   {bt(language, 'return', 'Return')}
                 </button>
               )}
-            </ScrollRow>
+            </CompanionScrollRow>
           </div>
         )}
         </div>

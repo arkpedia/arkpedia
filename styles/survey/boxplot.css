@@ -15,7 +15,7 @@
   padding: 8px;
   background: var(--panel);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-frame);
   cursor: pointer;
   text-align: left;
 }
@@ -31,7 +31,7 @@
 .boxplot-grid-item-header img {
   width: 22px;
   height: 22px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -55,7 +55,7 @@
 .boxplot-zoom-header img {
   width: 48px;
   height: 48px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   object-fit: cover;
 }
 .boxplot-zoom-stats {
@@ -66,7 +66,7 @@
   padding: 10px 12px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 .boxplot-zoom-stats > div {
   display: flex;
@@ -83,5 +83,114 @@
   font-family: var(--font-mono);
   font-size: 15px;
   font-weight: 700;
-  color: var(--teal);
+  color: var(--text-bright);
+}
+/* --- /results (the community power survey's results page) ---
+   Moved here from shared.css and operator-detail.css, which held them although
+   /results is their only user. */
+.results-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 12px;
+}
+.results-count { margin: 0; }
+
+/* Compact view: one row per rounded average. */
+.results-page .tier-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 14px 0;
+  min-height: 92px;
+}
+.results-page .tier-label {
+  width: 64px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--amber);
+  font-weight: 500;
+}
+.results-page .tier-drop {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 4px 8px;
+}
+/* A chip here opens the operator's distribution; it is not the tier list's
+   draggable chip, so it gets a pointer, a padding-free frame and the hover. */
+.results-page .results-chip {
+  padding: 0;
+  cursor: pointer;
+}
+.results-page .results-chip:hover { border-color: var(--teal); }
+.results-page .results-chip:active { cursor: pointer; }
+/* On a phone the average goes above its row and the chips shrink to 56px, which
+   fits five across the 342px frame instead of three beside a 64px label column. */
+@media (max-width: 640px) {
+  .results-page .tier-row { flex-direction: column; align-items: stretch; gap: 8px; min-height: 0; padding: 12px 0; }
+  .results-page .tier-label { width: auto; }
+  .results-page .tier-drop { padding: 0; gap: 6px; min-height: 0; }
+  .results-page .results-chip { width: 56px; height: 56px; }
+}
+
+/* Detailed view. The table scrolls inside its own box under the drawn bar. */
+.stats-table-scroll {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+.stats-table-scroll:focus-visible { outline-offset: -2px; }
+.stats-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: left;
+}
+.stats-table th, .stats-table td {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+.stats-table th { color: var(--text-faint); font-weight: 500; white-space: nowrap; }
+.stats-table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.stats-table-sort:hover { border-color: var(--teal); color: var(--teal); }
+th[aria-sort="descending"] .stats-table-sort { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+.stats-table-sort-mark { font-size: 11px; }
+.stats-table-boxplot-btn {
+  display: block;
+  padding: 2px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+}
+.stats-table-boxplot-btn:hover { border-color: var(--teal); }
+.stats-table-boxplot-btn:hover .power-boxplot-svg { opacity: 0.8; }
+/* The distribution curve. Sized by its own width/height attributes, but an inline
+   svg sits on the text baseline and leaves the descender gap under itself -- 4px of
+   it, under every chart on /results. */
+.power-distribution-svg { display: block; }
+.stats-table img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  vertical-align: middle;
+  margin-right: 8px;
 }

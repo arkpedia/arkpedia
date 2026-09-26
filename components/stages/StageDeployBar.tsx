@@ -1,6 +1,8 @@
 import Image from '@/components/content/ContentImage';
 import { useMemo, useState } from 'react';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import SearchInput from '@/components/ui/SearchInput';
 
 /**
  * The squad bar the game puts under a battle, for putting an operator on a tile and
@@ -81,28 +83,23 @@ export default function StageDeployBar({
     <div className="stage-deploy">
       {/* Left, because it changes what every tile in the strip means: promotion moves
           both the DP cost and the range. */}
-      <div className="stage-deploy-elite" role="group" aria-label="Promotion">
-        {ELITE_LABELS.map((label, i) => (
-          <button
-            key={label}
-            type="button"
-            className={`stage-deploy-elite-btn${elite === i ? ' current' : ''}`}
-            aria-pressed={elite === i}
-            onClick={() => onElite(i)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <input
-        type="search"
-        className="stage-search stage-deploy-search"
+      <SegmentedControl
+        className="stage-deploy-elite"
+        label="Promotion"
+        value={elite}
+        onChange={onElite}
+        options={ELITE_LABELS.map((label, i) => ({ value: i, label }))}
+      />
+      <SearchInput
+        className="stage-deploy-search"
+        label="Search operators"
         placeholder="wisadel, chen alter, pozemka..."
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label="Search operators"
+        onChange={setQuery}
       />
-      <div className="stage-deploy-strip" role="listbox" aria-label="Operators">
+      {/* A row of tiles you arm one at a time (aria-pressed), not a dropdown: a group,
+          under the site's drawn sideways bar. */}
+      <div className="stage-deploy-row sidescroll" role="group" aria-label="Operators">
         {!data && <span className="stage-deploy-note">loading operators...</span>}
         {data && !shown.length && <span className="stage-deploy-note">no operator matches that</span>}
         {shown.map((op) => (
@@ -151,7 +148,7 @@ function OperatorTile({
   return (
     <button
       type="button"
-      className={`stage-deploy-op r${op.rarity}${armed ? ' armed' : ''}`}
+      className={`btn-bare stage-deploy-op r${op.rarity}${armed ? ' armed' : ''}`}
       aria-pressed={armed}
       /* Press and drag to the map, the way the game does it. The click below stays --
          it is the same journey for a keyboard, which cannot drag anything. */

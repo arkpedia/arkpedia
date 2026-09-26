@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
+import TransportIcon from './TransportIcons';
 
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -139,7 +140,12 @@ export default function MusicPlayer() {
   const nextTitle = nextQueueTrack ? formatTrackLabel(nextQueueTrack.title, nextQueueTrack.artist) : '';
 
   return (
-    <div className={`music-player${collapsed ? ' collapsed' : ''}`} ref={shellRef} style={router.pathname === GAME_PATHS.music ? { display: 'none' } : undefined}>
+    /* On /music the page is the player: the widget keeps only its hidden audio frame
+       there, and its ♪ button no longer floats over the page's own transport. It is
+       hidden outright on the music guesser, which pauses playback anyway. */
+    <div className={`music-player${collapsed ? ' collapsed' : ''}${onFullPlayerPage ? ' music-player-offstage' : ''}`} ref={shellRef}
+      data-music-widget={onFullPlayerPage || router.pathname === GAME_PATHS.music ? undefined : ''}
+      style={router.pathname === GAME_PATHS.music ? { display: 'none' } : undefined}>
       {/* Audio only -- the actual iframe is sized to 1x1 and pushed
           off-screen, since we just need YouTube's playback engine, not
           its visible player chrome. */}
@@ -153,9 +159,9 @@ export default function MusicPlayer() {
         {nowPlayingAnnouncement}
       </div>
 
-      <button
+      {!onFullPlayerPage && <button
         type="button"
-        className="music-collapse-toggle"
+        className="btn-bare music-collapse-toggle"
         onClick={() =>
           setCollapsed((c) => {
             const expanding = c;
@@ -165,10 +171,10 @@ export default function MusicPlayer() {
         }
         aria-label={collapsed ? 'Expand player' : 'Collapse player'}
       >
-        {collapsed ? '♪' : '×'}
-      </button>
+        <TransportIcon name={collapsed ? 'note' : 'close'} size={collapsed ? 20 : 16} />
+      </button>}
 
-      {!collapsed && (
+      {!collapsed && !onFullPlayerPage && (
         <div className="music-body">
           <div className="music-title-row">
             <div className="music-title-scroll">
@@ -229,37 +235,39 @@ export default function MusicPlayer() {
           <div className="music-controls">
             <button
               type="button"
-              className={isFav ? 'music-fav-btn active' : 'music-fav-btn'}
+              className="filter-chip music-fav-btn"
               onClick={() => videoId && toggleFavorite(videoId)}
               disabled={!videoId}
-              aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+              aria-pressed={isFav}
+              aria-label="Favorite"
               title="Favorite"
             >
-              ♥
+              <TransportIcon name="heart" />
             </button>
             <button
               type="button"
-              className={excludeCopyrighted ? 'music-stream-safe-btn active' : 'music-stream-safe-btn'}
+              className="filter-chip music-stream-safe-btn"
               onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
-              aria-label={excludeCopyrighted ? 'Stream-safe mode on — copyrighted songs hidden' : 'Stream-safe mode off'}
+              aria-pressed={excludeCopyrighted}
+              aria-label="Stream-safe: hide copyrighted songs"
               title="Stream-safe (hide copyrighted songs)"
             >
-              ©
+              <TransportIcon name="streamSafe" />
             </button>
             <button type="button" onClick={prevTrack} aria-label="Previous track">
-              ⏮
+              <TransportIcon name="prev" />
             </button>
             <button
               type="button"
-              className={starting ? 'music-play-btn loading' : 'music-play-btn'}
+              className={starting ? 'primary music-play-btn loading' : 'primary music-play-btn'}
               onClick={togglePlay}
               disabled={starting}
               aria-label={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}
             >
-              {starting ? '⋯' : isPlaying ? '⏸' : '▶'}
+              <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
             </button>
             <button type="button" onClick={nextTrack} aria-label="Next track">
-              ⏭
+              <TransportIcon name="next" />
             </button>
             <input
               type="range"

@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { MODE_LABELS, MODE_ORDER, MODE_SHORT, StageModeCard, StageSummary } from '@/lib/stages/stageTypes';
 import { compareStageSummaries } from '@/lib/stages/stageSort';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import SearchInput from '@/components/ui/SearchInput';
 
 interface Props {
   cards: StageModeCard[];
@@ -133,32 +135,31 @@ export default function StageModeBrowser({ cards, counts, now }: Props) {
 
   return (
     <div className="stage-modes">
-      {/* The same primary/ghost strip the events page's reward tabs use, so a
-          selected tab looks selected the way it does everywhere else. */}
-      <div className="stage-mode-tabs">
-        <button type="button" className={mode === '' ? 'primary' : 'ghost'} onClick={() => setMode('')}>
-          All
-        </button>
-        {tabs.map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            className={mode === kind ? 'primary' : 'ghost'}
-            title={MODE_LABELS[kind]}
-            onClick={() => setMode(kind)}
-          >
-            {MODE_SHORT[kind] || MODE_LABELS[kind] || kind}
-          </button>
-        ))}
-      </div>
+      {/* The site's one pick-one control. It was a primary/ghost strip, which paints
+          the chosen tab in the teal fill reserved for primary actions. */}
+      <SegmentedControl
+        className="stage-mode-tabs"
+        label="Mode"
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: '', label: 'All' },
+          ...tabs.map((kind) => ({
+            value: kind,
+            label: MODE_SHORT[kind] || MODE_LABELS[kind] || kind,
+            ariaLabel: MODE_LABELS[kind],
+            title: MODE_LABELS[kind],
+          })),
+        ]}
+      />
 
       <div className="stage-mode-searchrow">
-        <input
-          type="search"
-          className="stage-search stage-mode-search"
+        <SearchInput
+          className="stage-mode-search"
+          label="Search events, chapters and stages"
           placeholder="Search an event, chapter or stage code..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
         />
         <span className="stage-count">
           {shown.length} {shown.length === 1 ? 'entry' : 'entries'}

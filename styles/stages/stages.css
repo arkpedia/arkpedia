@@ -10,17 +10,6 @@
    rather than the prototype's own palette. The map's tile colours are the one
    exception and stay hard-coded in lib/stages/stageTiles.ts, because they are
    sampled from the game's renders and are data about Arknights, not theme. */
-.stage-search,
-.stage-select {
-  width: 100%;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: var(--font-mono);
-}
-.stage-search { padding: 8px 11px; font-size: 13px; }
-.stage-select { padding: 7px 10px; font-size: 12px; }
 .stage-rail-foot {
   display: flex;
   align-items: center;
@@ -62,7 +51,11 @@
 .stage-row:hover {
   background: var(--panel-2);
   border-left-color: var(--teal);
+  color: var(--text);
 }
+/* Inside the rail's scroller the site's 2px ring, offset outward, was clipped to a
+   line along the bottom: drawn inside the row instead. */
+.stage-row:focus-visible { outline-offset: -2px; }
 .stage-row-code {
   display: flex;
   align-items: center;
@@ -70,7 +63,8 @@
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 13px;
-  color: var(--teal);
+  /* The data voice at rest; teal only on the row that is open (below). */
+  color: var(--text-bright);
 }
 .stage-row-name { font-size: 13px; }
 .stage-row-zone {
@@ -88,24 +82,30 @@
 .stage-kind-badge,
 .stage-override-badge {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   border: 1px solid var(--line);
   color: var(--text-dim);
 }
 .stage-boss-badge { color: var(--danger); border-color: var(--danger); }
 .stage-variant-badge { color: var(--amber); border-color: var(--amber); }
 
-.stage-title-name {
-  font-family: var(--font-body);
-  font-weight: 400;
-  font-size: 20px;
+/* components/stages/StageTitle: the half of an h1 that is not the title. Same face,
+   size and case as the h1 it sits in -- one heading voice, told apart by weight of
+   colour only. It was Inter at 20px in sentence case beside a 26px Rajdhani code:
+   two fonts in one heading. */
+.stage-title-name { color: var(--text-dim); }
+/* A chapter's code, filed in front of its name ("EP 14"): the data voice, small. Not
+   teal -- teal is "on / current", and a code in a title is neither. */
+.stage-title-prefix {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
   color: var(--text-dim);
-  text-transform: none;
-  letter-spacing: 0;
+  vertical-align: 2px;
 }
 .stage-badges {
   display: flex;
@@ -138,7 +138,7 @@
 .stage-stat-value {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 18px;
 }
 
 .stage-section-head {
@@ -162,13 +162,23 @@
 .wide-only { display: inline; }
 
 .stage-mapwrap { overflow-x: scroll; }
+/* The map is a dark diagram in BOTH themes -- its tile colours are the game's
+   (lib/stages/stageTiles.ts) -- so what marks the picked tile and a supplied operator
+   is the dark theme's teal in both. The light theme's --teal is a dark green drawn for
+   a light page, and on these tiles it would all but vanish. The pre-token #4de8d1 that
+   was written into the markup ignored the theme entirely. Other devices keep the
+   game's amber. */
+.stage-map-on { stroke: rgb(95 217 198); }
+.stage-map-on-dot { fill: rgb(95 217 198); }
+.stage-map-device { stroke: rgb(224 166 60); }
+.stage-map-device-dot { fill: rgb(224 166 60); }
 .stage-mapwrap svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
 .stage-ingame img {
   display: block;
   width: 100%;
   height: auto;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: #070b0f;
 }
 .stage-ingame figcaption { margin-top: 8px; }
@@ -188,7 +198,7 @@
      one. */
   width: 13px;
   height: 13px;
-  border-radius: 2px;
+  border-radius: var(--radius);
   margin-right: 5px;
   vertical-align: -1px;
 }
@@ -218,7 +228,7 @@
   min-height: 50px;
   background: var(--panel-2);
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 .stage-drop-text {
   display: flex;
@@ -233,7 +243,7 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   object-fit: contain;
 }
 .stage-drop-icon.operator {
@@ -251,7 +261,7 @@
 
 .stage-drop-icon.blank {
   border: 1px dashed var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 .stage-drop-name {
   font-size: 13px;
@@ -366,7 +376,7 @@
   height: 100%;
   object-fit: contain;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: #070b0f;
 }
 
@@ -414,7 +424,7 @@
 .stage-enemy-cards { display: flex; flex-direction: column; gap: 4px; }
 .stage-enemy-card {
   border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   overflow: hidden;
 }
@@ -447,7 +457,7 @@
 .stage-enemy-icon {
   width: 34px;
   height: 34px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   flex-shrink: 0;
   object-fit: cover;
   background: var(--panel);
@@ -470,7 +480,7 @@
 }
 .stage-enemy-chevron {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-faint);
   width: 14px;
   text-align: center;
@@ -526,8 +536,9 @@
   padding-top: 10px;
   border-top: 1px solid var(--line-soft);
 }
-.stage-playback button { font-size: 12px; padding: 7px 14px; }
-.stage-scrub { flex: 1; min-width: 180px; accent-color: var(--teal); }
+/* The scrubber's hit box is 32px tall: the bare range input was 16px, under the 24px
+   floor for a tap target (2026-09-25 review, H). */
+.stage-scrub { flex: 1; min-width: 180px; height: 32px; margin: 0; accent-color: var(--teal); cursor: pointer; }
 .stage-clock {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -589,7 +600,7 @@
   overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .stage-rail-head {
   flex: 0 0 auto;
@@ -610,8 +621,9 @@
   /* offsetTop of a row is read against this box when the open stage is
      scrolled into view. */
   position: relative;
+  /* The thumb's colour is inherited from :root (--text-faint): the --line it was
+     overridden with here measured 1.31:1, a rail scrollbar nobody could see. */
   scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
 }
 .stage-rail-more { padding: 12px 11px; margin: 0; }
 .stage-list-col .stage-empty { padding: 16px 11px; }
@@ -623,8 +635,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.stage-list-col .stage-row-name { font-size: 12.5px; color: var(--text-dim); }
-.stage-list-col .stage-row-code { font-size: 12.5px; }
+.stage-list-col .stage-row-name { font-size: 12px; color: var(--text-dim); }
+.stage-list-col .stage-row-code { font-size: 13px; }
 .stage-list-col .stage-row-zone { font-size: 10px; color: var(--text-faint); }
 /* One column, now that nothing sits to the right of the name. */
 .stage-list-col .stage-row { grid-template-columns: minmax(0, 1fr); }
@@ -634,7 +646,10 @@
   border-left-color: var(--teal);
   background: var(--panel-2);
 }
+.stage-row.selected .stage-row-code { color: var(--teal); }
 
+/* The grid cell the detail column sits in (pages/stages/browse useStageSwitchFloor). */
+.stage-detail-slot { min-width: 0; }
 .stage-detail-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 /* .op-section carries a 36px bottom margin for stacked pages; in this column
    the flex gap already spaces the sections. */
@@ -666,28 +681,14 @@
      the select's main-axis automatic minimum size is its longest option
      ("Stationary Security Service (227)"), which pushed it past the rail's
      right edge on a phone. */
-  .stage-search { flex: 1 1 240px; min-width: 0; }
-  .stage-select { flex: 1 1 220px; width: auto; min-width: 0; }
+  .stage-rail-head > .search-input-wrap { flex: 1 1 240px; min-width: 0; width: auto; }
+  .stage-rail-head > .stage-rail-filter { flex: 1 1 220px; width: auto; min-width: 0; }
   .stage-rail-foot { flex: 1 1 100%; }
 }
 @media (max-width: 700px) {
   .stage-rail .stage-rows { max-height: 34vh; }
 }
 
-/* --- Slim page head -------------------------------------------------------
-   The full site header ran 184px tall and, on a stage page, changed with every
-   row you clicked while the panes stayed put. Two lines instead, wide-aligned
-   with .main-wide (the default header is capped at 1040px, which left the
-   title indented 140px further than the panes below it). */
-.stages-head {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 16px 24px 12px;
-  border-bottom: 1px solid var(--line-soft);
-}
-.stages-head .eyebrow { margin-bottom: 2px; }
-.stages-head h1 { font-size: 26px; margin: 0; }
-.stages-head .sub { margin: 6px 0 0; }
 
 /* --- Stage form toggle ----------------------------------------------------
    Normal / Challenge Mode / Adverse Environment / Story / 6-star. Each form is
@@ -701,8 +702,8 @@
 }
 .stage-variant-option {
   padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -763,97 +764,28 @@ button.stage-variant-option.current:hover {
 .stage-device { pointer-events: all; }
 .stage-device:hover rect { stroke-width: 2.6; }
 
-/* --- The filter's dropdown ------------------------------------------------
-   Our own, because a native select cannot align its options: macOS draws the
-   popup in the system font whatever font-family the element asks for, so a code
-   padded to a fixed width still lands somewhere different on every row. Here the
-   code, name and count are grid columns and line up by construction. */
-.stage-picker { position: relative; }
-.stage-picker-btn {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  text-align: left;
-  cursor: pointer;
-}
-.stage-picker-btn:hover { border-color: var(--teal-dim); background: var(--panel-2); color: var(--text); }
-.stage-picker-btn[aria-expanded='true'] { border-color: var(--teal); }
-.stage-picker-caret {
-  width: 0;
-  height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--text-faint);
-}
-.stage-picker-code {
+/* --- The rail's filters ---------------------------------------------------
+   components/ui/StyledSelect, with the code and the name as two aligned columns
+   (StageList's RailFilter). The code is the data voice, not teal: teal is "on". */
+.stage-rail-filter { width: 100%; }
+.stage-pick-code {
+  flex: none;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--teal);
+  color: var(--text-dim);
   white-space: pre;
 }
-.stage-picker-name {
+.stage-pick-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Fixed, so 150 entries can be wider than the 264px rail and are not clipped by
-   .stage-rail's overflow:hidden. */
-.stage-picker-pop {
-  position: fixed;
-  z-index: 60;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 4px;
-  background: var(--panel);
-  border: 1px solid var(--teal-dim);
-  border-radius: 5px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
-}
-.stage-picker-heading {
-  position: sticky;
-  top: -4px;
-  padding: 7px 8px 4px;
-  background: var(--panel);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-}
-/* Metrics are identical in every state -- hover, keyboard focus and the current
-   selection change colour only, so moving through the list cannot shift it. */
-.stage-picker-opt {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  border-radius: 3px;
-  border-left: 2px solid transparent;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-.stage-picker-opt.active { background: var(--panel-2); }
-.stage-picker-opt.selected { border-left-color: var(--teal); background: color-mix(in srgb, var(--teal) 12%, transparent); }
 /* The seconds beside a wait node. Tabular so a two-digit wait does not shift the
    glyph beside it, and drawn in SVG user units, which the map scales with. */
 .stage-wait-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   paint-order: stroke;
   stroke: #0b0f14;
@@ -883,28 +815,10 @@ button.stage-variant-option.current:hover {
 
 /* Playback rate. Fixed width so 1x, 2x and 4x occupy the same space and the
    controls beside them never move. */
-.stage-playback-rates { display: flex; gap: 4px; }
-button.stage-playback-rate {
-  width: 34px;
-  padding: 5px 0;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-button.stage-playback-rate:hover { border-color: var(--teal-dim); color: var(--text); background: var(--panel-2); }
-button.stage-playback-rate.current,
-button.stage-playback-rate.current:hover {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
-  color: var(--teal);
-}
+/* A SegmentedControl. Fixed width so 1x, 2x and 4x occupy the same space and the
+   controls beside them never move. */
+.stage-playback-rates { flex-wrap: nowrap; gap: 4px; }
+.stage-playback-rates > button { width: 40px; padding: 0; justify-content: center; }
 
 /* --- Stages landing page --------------------------------------------------
    The modes as tabs and everything the game runs as its own banner, newest
@@ -950,8 +864,8 @@ button.stage-playback-rate.current:hover {
   display: flex;
   flex-direction: column;
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 5px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   overflow: hidden;
   color: var(--text);
   text-decoration: none;
@@ -988,11 +902,11 @@ button.stage-playback-rate.current:hover {
   top: 6px;
   left: 6px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: var(--teal-dim);
   border: 1px solid var(--teal);
   color: var(--teal);
@@ -1015,12 +929,12 @@ button.stage-playback-rate.current:hover {
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 12px;
-  color: var(--teal);
+  color: var(--text-bright);
 }
 .stage-mode-name {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1042,25 +956,6 @@ button.stage-playback-rate.current:hover {
 /* --- One chapter or event: its stages as cards ----------------------------
    The map is the card, and the stage's number sits in front of it -- the way
    the game's own stage select reads. */
-.stage-back {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  text-decoration: none;
-  /* Same as .see-more-link: a back link 13px tall is a miss on a phone, and the
-     padding is pulled back out of the layout by the margins. */
-  padding: 6px 6px;
-  margin: -6px -6px 0;
-}
-.stage-back:hover { color: var(--teal); }
-.stages-head h1 .stage-content-code {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  color: var(--teal);
-  margin-right: 9px;
-  vertical-align: 2px;
-}
 .stage-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
@@ -1071,8 +966,8 @@ button.stage-playback-rate.current:hover {
   position: relative;
   display: block;
   aspect-ratio: 256 / 143;
-  border: 1px solid var(--line);
-  border-radius: 5px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--panel-2);
   color: var(--text);
@@ -1110,25 +1005,36 @@ button.stage-playback-rate.current:hover {
   filter: saturate(0.65);
   object-fit: cover;
 }
+/* The code never breaks ("H14-" over "4" is what a phone showed), and the badges
+   beside it go to a line of their own when there is no room, then ellipsise rather
+   than run off the card: a boss H-stage on main_10 to main_14 carries "Boss" and
+   "Adverse Environment", which at 390 reached 8px past the card's edge
+   (tests/browser/terminal-pages.spec.ts). */
 .stage-card-code {
   position: absolute;
   top: 8px;
   left: 9px;
   right: 9px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  gap: 4px 5px;
+  white-space: nowrap;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 21px;
+  font-size: 22px;
   line-height: 1;
-  /* Over a photograph in either theme, so this one colour is not a token. */
-  color: #FFFFFF;
+  /* Over a darkened photograph in either theme, so this one colour is not a token
+     (the light theme's --text-bright is dark ink, which would vanish here). */
+  color: white;
   text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
 }
 .stage-card-code .stage-boss-badge,
 .stage-card-code .stage-variant-badge {
-  font-size: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
   align-self: flex-start;
   background: rgb(0 0 0 / 0.4);
 }
@@ -1143,6 +1049,12 @@ button.stage-playback-rate.current:hover {
   color: rgb(255 255 255 / 0.72);
   align-self: center;
 }
+/* The name and the forms label share one line, and the NAME is the one that keeps its
+   room. The label used to be `flex: 0 0 auto` and never shrank, so on a phone
+   "Story · Adverse Env. available" took the whole foot, squeezed 18 of 28 names on
+   /stages/content/main_14 to 0px and ran 13px off the card, cut mid-word. Now the
+   name holds at least 40% and the label ellipsises; on a phone the label takes a line
+   of its own under the name (tests/browser/terminal-pages.spec.ts). */
 .stage-card-foot {
   position: absolute;
   bottom: 7px;
@@ -1150,22 +1062,27 @@ button.stage-playback-rate.current:hover {
   right: 9px;
   display: flex;
   align-items: baseline;
-  gap: 7px;
+  gap: 1px 7px;
 }
 .stage-card-name {
+  flex: 1 1 auto;
+  min-width: 40%;
   font-size: 12px;
   line-height: 1.2;
-  color: #FFFFFF;
+  color: white;
   text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .stage-card-forms {
-  margin-left: auto;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--amber);
   text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
 }
@@ -1177,8 +1094,11 @@ button.stage-playback-rate.current:hover {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 9px;
   }
-  .stage-card-code { font-size: 17px; }
+  .stage-card-code { font-size: 18px; }
   .stage-card-name { font-size: 11px; }
+  .stage-card-foot { flex-wrap: wrap; }
+  .stage-card-name,
+  .stage-card-forms { flex: 1 1 100%; }
 }
 
 /* --- The map's HUD -------------------------------------------------------
@@ -1234,7 +1154,7 @@ button.stage-playback-rate.current:hover {
   gap: 0;
   padding: 3px 4px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: rgb(11 14 19 / 0.82);
   backdrop-filter: blur(2px);
 }
@@ -1245,12 +1165,12 @@ button.stage-playback-rate.current:hover {
   padding: 0 12px;
 }
 /* Between the readings, not before the first: the game rules them apart. */
-.stage-hud-bar-item + .stage-hud-bar-item { border-left: 1px solid var(--line); }
+.stage-hud-bar-item + .stage-hud-bar-item { border-left: 1px solid rgb(255 255 255 / 0.12); }
 .stage-hud-bar-value {
   font-family: var(--font-mono);
   font-size: 15px;
   font-weight: 600;
-  color: var(--text);
+  color: white; /* on the HUD's fixed dark plate, in both themes */
   /* Every digit the same width, which is what makes the reserved ch above exact. */
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -1270,13 +1190,13 @@ button.stage-playback-rate.current:hover {
   gap: 7px;
   padding: 2px 10px 2px 8px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: rgb(11 14 19 / 0.82);
   backdrop-filter: blur(2px);
 }
 .stage-hud-dp-value {
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.1;
   font-weight: 700;
   color: var(--amber);
@@ -1287,12 +1207,12 @@ button.stage-playback-rate.current:hover {
 .stage-hud-limit {
   padding: 2px 8px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: rgb(11 14 19 / 0.82);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--text-dim);
+  color: rgb(255 255 255 / 0.72);
 }
 
 .stage-hud-chip {
@@ -1300,7 +1220,7 @@ button.stage-playback-rate.current:hover {
   flex-direction: column;
   gap: 1px;
   padding: 4px 8px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   /* Over a render or a schematic in either theme, so these two do not come from
      the palette: the readings have to stay legible on top of whatever the map
      happens to be. */
@@ -1310,7 +1230,7 @@ button.stage-playback-rate.current:hover {
 }
 .stage-hud-label {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: rgb(255 255 255 / 0.55);
@@ -1360,11 +1280,11 @@ button.stage-playback-rate.current:hover {
 .stage-hud-value {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1;
-  color: #FFFFFF;
+  color: white;
 }
-.stage-hud-chip.wide .stage-hud-value { font-size: 14px; }
+.stage-hud-chip.wide .stage-hud-value { font-size: 15px; }
 .stage-hud-chip.life .stage-hud-value { color: var(--danger); }
 .stage-hud-chip.dp .stage-hud-value { color: var(--teal); }
 
@@ -1422,14 +1342,14 @@ button.stage-playback-rate.current:hover {
   /* The status plate and the DP block replaced the chips for enemies, life and DP, and
      inherited none of the sizing above -- so DP sat at 24px over a map a few hundred
      pixels wide. Everything here is the same reading, smaller. */
-  .stage-hud-bar { padding: 2px 2px; border-radius: 2px; }
+  .stage-hud-bar { padding: 2px 2px; border-radius: var(--radius); }
   .stage-hud-bar-item { gap: 4px; padding: 0 7px; }
   .stage-hud-bar-value { font-size: 12px; }
   .stage-hud-bar .stage-stat-glyph { width: 15px; height: 15px; }
   .stage-hud-dp { gap: 5px; padding: 1px 7px 1px 6px; }
-  .stage-hud-dp-value { font-size: 17px; }
+  .stage-hud-dp-value { font-size: 18px; }
   .stage-hud-dp .stage-stat-glyph { width: 15px; height: 15px; }
-  .stage-hud-limit { padding: 1px 6px; font-size: 9px; }
+  .stage-hud-limit { padding: 1px 6px; font-size: 10px; }
 
 }
 
@@ -1445,8 +1365,10 @@ button.stage-playback-rate.current:hover {
   width: min(320px, 66%);
   overflow-y: auto;
   padding: 10px 12px;
-  /* Over a schematic in either theme, like the HUD chips. */
-  background: rgb(8 12 16 / 0.93);
+  /* The page's own ground at 93%, so the themed text on it reads in both themes. It
+     was a fixed near-black scrim under themed text, which left the light theme's dark
+     ink on it at 1.32:1 (tests/browser/terminal-pages.spec.ts measures it). */
+  background: color-mix(in srgb, var(--bg) 93%, transparent);
   border-left: 1px solid var(--line);
   transform: translateX(101%);
   transition: transform 180ms ease;
@@ -1494,6 +1416,9 @@ button.stage-playback-rate.current:hover {
 .stage-tile {
   cursor: pointer;
 }
+/* A fixed near-black plate over the map in BOTH themes, so its text is fixed light
+   too. It used the themed --text-* colours, which in the light theme put dark ink on
+   the dark plate -- the bug the legend had (UI-04), in the tile popup and the HUD. */
 .stage-tile-pop {
   position: absolute;
   left: 7px;
@@ -1503,7 +1428,7 @@ button.stage-playback-rate.current:hover {
   flex-direction: column;
   gap: 3px;
   padding: 8px 30px 9px 11px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: rgb(8 12 16 / 0.94);
   border: 1px solid var(--line);
 }
@@ -1516,30 +1441,30 @@ button.stage-playback-rate.current:hover {
   border: 0;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-faint);
+  color: rgb(255 255 255 / 0.62);
   cursor: pointer;
 }
-.stage-tile-pop-close:hover { color: var(--text); }
+.stage-tile-pop-close:hover { color: white; }
 .stage-tile-pop-name {
   display: flex;
   align-items: baseline;
   gap: 8px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 14px;
-  color: #FFFFFF;
+  font-size: 15px;
+  color: white;
 }
 .stage-tile-pop-at,
 .stage-tile-pop-facts {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 400;
-  color: var(--text-faint);
+  color: rgb(255 255 255 / 0.62);
 }
 .stage-tile-pop-desc {
   font-size: 11px;
   line-height: 1.35;
-  color: var(--text-dim);
+  color: rgb(255 255 255 / 0.78);
 }
 
 /* --- The briefing: the game's own screen for a stage ---------------------
@@ -1572,8 +1497,8 @@ button.stage-playback-rate.current:hover {
 .stage-legend-count {
   margin-left: 6px;
   font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-faint);
+  font-size: 10px;
+  color: rgb(255 255 255 / 0.62);
 }
 
 /* A unit standing on the clicked tile, under the tile's own description. */
@@ -1587,7 +1512,7 @@ button.stage-playback-rate.current:hover {
 .stage-tile-pop-unit b {
   font-family: var(--font-display);
   font-size: 13px;
-  color: #FFFFFF;
+  color: white;
 }
 
 /* The "show more" foot under either card grid. */
@@ -1615,27 +1540,13 @@ button.stage-playback-rate.current:hover {
   min-width: 0;
   padding: 6px 8px;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-frame);
   background: var(--panel);
 }
-.stage-deploy-elite { display: flex; gap: 2px; flex: none; }
-.stage-deploy-elite-btn {
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-}
-.stage-deploy-elite-btn:hover { color: var(--text); border-color: var(--teal-dim); }
-.stage-deploy-elite-btn.current {
-  border-color: var(--teal);
-  color: var(--teal);
-  background: rgb(77 232 209 / 0.08);
-}
-.stage-deploy-search { flex: none; width: 210px; font-size: 12px; padding: 6px 9px; }
+/* Promotion is a SegmentedControl (the pinned .filter-chip); only its place in the row
+   is this file's. */
+.stage-deploy-elite { flex: none; flex-wrap: nowrap; gap: 4px; }
+.stage-deploy-search { flex: none; width: 210px; }
 
 /* The strip scrolls sideways: 407 operators is the point of the search box, but an
    unfiltered strip should still be reachable.
@@ -1644,7 +1555,7 @@ button.stage-playback-rate.current:hover {
    mouse with only a vertical wheel has no other way along the row, so the bar has to be
    a thing you can grab. `overflow-x: scroll` reserves the gutter and shared.css dresses
    it, the same as every other side-scroller; padding-bottom keeps it off the portraits. */
-.stage-deploy-strip {
+.stage-deploy-row {
   display: flex;
   align-items: stretch;
   gap: 4px;
@@ -1673,8 +1584,6 @@ button.stage-playback-rate.current:hover {
    itself cannot resize it either. */
 .stage-deploy-clear {
   flex: none;
-  font-size: 11px;
-  padding: 5px 9px;
   min-width: 74px;
 }
 .stage-deploy-clear[hidden] { display: block; visibility: hidden; }
@@ -1687,14 +1596,15 @@ button.stage-playback-rate.current:hover {
   width: var(--op-w);
   height: var(--op-h);
   padding: 0 0 var(--op-foot);
-  border: 1px solid var(--line);
-  border-radius: 2px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   background: var(--panel-2);
   cursor: pointer;
   overflow: hidden;
 }
-.stage-deploy-op:hover { border-color: var(--teal-dim); }
+.stage-deploy-op:hover { border-color: var(--teal); }
 .stage-deploy-op.armed { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.stage-deploy-op:focus-visible { outline-offset: -2px; }
 .stage-deploy-op-art { display: block; width: 100%; height: auto; }
 /* An operator whose portrait the icon set does not have: the class mark stands in. */
 .stage-deploy-op-noart { aspect-ratio: 1; background: var(--panel); }
@@ -1712,7 +1622,8 @@ button.stage-playback-rate.current:hover {
   top: 0;
   right: 0;
   padding: 0 4px;
-  background: rgb(11 14 19 / 0.85);
+  /* The page's ground as the plate, so the themed text on it holds in both themes. */
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
@@ -1725,19 +1636,27 @@ button.stage-playback-rate.current:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 2px 3px;
-  background: rgb(11 14 19 / 0.9);
-  font-size: 9px;
-  line-height: 1.3;
+  padding: 1px 3px;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  font-size: 10px;
+  line-height: 1.2;
   letter-spacing: 0.01em;
-  color: var(--text-dim);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.stage-deploy-op.r6 { border-color: #d9a13b; }
-.stage-deploy-op.r5 { border-color: #c9c04a; }
-.stage-deploy-op.r4 { border-color: #9a7fc4; }
+/* Rarity is the frame's colour, as in game -- from the site's --rarity-N, in both
+   themes and for every rarity. This was a fifth palette (#d9a13b / #c9c04a / #9a7fc4)
+   with no light theme and nothing at all for 3-1 stars. */
+.stage-deploy-op.r6 { border-color: var(--rarity-6); }
+.stage-deploy-op.r5 { border-color: var(--rarity-5); }
+.stage-deploy-op.r4 { border-color: var(--rarity-4); }
+.stage-deploy-op.r3 { border-color: var(--rarity-3); }
+.stage-deploy-op.r2 { border-color: var(--rarity-2); }
+.stage-deploy-op.r1 { border-color: var(--rarity-1); }
+.stage-deploy-op.armed,
+.stage-deploy-op:hover { border-color: var(--teal); }
 
 /* --- and what it looks like on the map ------------------------------------- */
 
@@ -1820,7 +1739,7 @@ button.stage-playback-rate.current:hover {
   transform: translate(-50%, -50%);
   pointer-events: none;
   border: 1px solid rgb(233 238 242 / 0.5);
-  border-radius: 2px;
+  border-radius: var(--radius);
   background: rgb(11 14 19 / 0.7);
   line-height: 0;
   opacity: 0.75;
@@ -1884,7 +1803,7 @@ button.stage-playback-rate.current:hover {
      the operators keep the third. Clear beside the elite buttons rather than on a
      row of its own -- reserved space in a wrapping container costs a whole line. */
   .stage-deploy-search { flex: 1 1 100%; width: auto; min-width: 0; }
-  .stage-deploy-strip { flex: 1 1 100%; }
+  .stage-deploy-row { flex: 1 1 100%; }
   .stage-deploy-clear { min-width: 0; margin-left: auto; }
 }
 

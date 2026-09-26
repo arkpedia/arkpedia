@@ -1,40 +1,75 @@
 /**
- * Checks the stylesheets for the kinds of inconsistency that make the site look
- * like several sites.
+ * Checks the stylesheets -- and the markup, for the two controls that have one
+ * implementation -- for the kinds of inconsistency that make the site look like
+ * several sites.
  *
  * WHY THIS EXISTS
  *
- * Styling here is plain global CSS, one file per feature, all imported in order by
- * _app.tsx. There is no scoping, so nothing stops a page from styling a class
- * another page owns, and nothing reports it when one does. The failure is always
- * the same shape: two stylesheets define the same bare class, whichever loads last
- * wins, and a page inherits an appearance nobody chose for it. The recruitment page
- * drew its section headings in the operator page's amber that way, and its buttons
- * at a size no other page used, and neither showed up in tsc, in lint, or in a
- * build.
+ * Styling here is mostly plain global CSS, one file per feature, all imported in
+ * order by _app.tsx, plus a handful of CSS modules. There is no scoping for the
+ * global files, so nothing stops a page from styling a class another page owns, and
+ * nothing reports it when one does. Nothing reports a page that paints rarity in its
+ * own hex, a heading at its own size, or a dropdown of its own either -- and each of
+ * those was found live, several times over, by the 2026-09-25 UI review.
  *
- * So this reports three things no other check can:
+ * What it reports (every rule reads styles/**.css and components/**.css):
  *
- *   collisions   the same bare class styled as the selector subject at top level in
- *                two or more files, which is the case where load order decides
- *   font sizes   declarations off the site's scale, including the fractional ones
- *                that were almost certainly a nudge rather than a decision
- *   raw hex      a colour written as a hex literal that a token already names, so
- *                the light theme silently does not apply to it
+ *   collisions     the same bare class styled as the selector subject at top level in
+ *                  two or more GLOBAL files, where load order decides. CSS modules are
+ *                  left out: their class names are hashed per file and cannot collide.
+ *   fontSizes      a font-size off the site's scale, including fractional nudges
+ *   rawHex         a hex literal for a colour a token in shared.css already names
+ *   rarityLiteral  a colour literal in a rule whose selector names rarity, a star,
+ *                  a pull tile or .r1-.r6, or in a custom property named for rarity
+ *                  under any selector but a :root token block -- rarity colour
+ *                  comes from --rarity-N only
+ *   oldTeal        the pre-token teal, rgb(77 232 209) / #4de8d1, anywhere (CSS or
+ *                  TSX): it ignores the light theme
+ *   pills          a 999px (pill) radius; radii come from the 2-4px token family
+ *   h1Rules        an h1 font-size or text-transform outside styles/core/shared.css;
+ *                  the page title has one size and one case, set there
+ *   fontWeights    a rule that asks a webfont for a weight pages/_document.tsx does
+ *                  not load, which the browser then fakes (faux bold)
+ *   nativeControls a native <select> or a role="listbox" outside components/ui --
+ *                  components/ui/StyledSelect (and SuggestMenu) are the only ones
+ *   scrollbarThumb a scrollbar thumb in --line or --line-soft (scrollbar-color's
+ *                  first colour, or a ::-webkit-scrollbar-thumb background): a
+ *                  hairline alpha at 1.31:1, a scrollbar nobody can see. The thumb
+ *                  is --text-faint, inherited from :root
+ *   primaryToggle  a class list chosen by a condition in TSX where only one side has
+ *                  'primary' (pages/dev excepted): that is a toggle whose "on" borrows the
+ *                  primary action's fill. A toggle is a .filter-chip with
+ *                  aria-pressed (or a .tgl with .is-on); a button whose label says
+ *                  its state keeps one class
  *
- * Known, accepted cases live in the baseline next to this script, so a clean run
- * means "nothing new", not "nothing at all". Add to the baseline for a deliberate
- * decision; anything else appearing here is drift.
+ * It is a RATCHET. Today's accepted cases are counted in style-audit-baseline.json
+ * next to this script. The run fails when anything is NEW (more occurrences of an
+ * entry than the baseline counts) and also when an entry is STALE (the baseline
+ * counts more than exist): a fixed case must leave the baseline, or it could come
+ * back unnoticed. Either way the fix is the same command:
  *
  *   npm run audit:styles                 check against the baseline
  *   npm run audit:styles -- --update     accept the current state as the baseline
+ *
+ * --update is for (a) tightening after a fix and (b) a deliberate, reviewed
+ * exception. Never run it to make new drift go away.
+ *
+ * STRICT rules reached zero when the page families landed (2026-09-25) and take no
+ * baseline at all: any occurrence fails, --update refuses to accept one, and a
+ * baseline that lists one fails too. Fix the rule instead. The others (collisions,
+ * fontSizes, nativeControls) still carry accepted cases and stay ratchets.
+ *
+ * Static analysis has limits, stated so nobody over-trusts a clean run: a weight on a
+ * rule that inherits its font family, an <h1 className={styles.title}>, and a colour
+ * set from TSX are invisible here. tests/browser/page-bounds.spec.ts and the
+ * ui-reference rig measure the rendered page.
  */
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
-import { join, dirname, basename } from 'node:path';
+import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const stylesDir = join(here, '../..', 'styles');
+const root = join(here, '../..');
 const baselinePath = join(here, 'style-audit-baseline.json');
 
 /** The sizes the site actually uses, and the display sizes it uses deliberately.
@@ -43,16 +78,51 @@ const baselinePath = join(here, 'style-audit-baseline.json');
 const SCALE = new Set([9, 10, 11, 12, 13, 15, 18, 22, 26, 30]);
 
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+const norm = (s) => s.replace(/\s+/g, ' ').trim();
+
+function walk(dir, ext) {
+  return readdirSync(join(root, dir), { recursive: true })
+    .filter((f) => ext.some((e) => f.endsWith(e)))
+    .map((f) => join(dir, f))
+    .sort();
+}
 
 /** Only the tokens whose value is a plain hex, since those are the ones a literal
  *  can duplicate. Read from shared.css so this cannot drift from the real values. */
 function tokenHexes() {
-  const css = stripComments(readFileSync(join(stylesDir, 'core/shared.css'), 'utf8'));
+  const css = stripComments(readFileSync(join(root, 'styles/core/shared.css'), 'utf8'));
   const out = new Map();
   for (const m of css.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) {
     out.set(m[2].toLowerCase(), m[1]);
   }
   return out;
+}
+
+/** The weights pages/_document.tsx loads, per family, from its Google Fonts URL. */
+function loadedWeights() {
+  const doc = readFileSync(join(root, 'pages/_document.tsx'), 'utf8');
+  const url = doc.match(/fonts\.googleapis\.com\/css2\?([^"']+)/);
+  if (!url) throw new Error('No Google Fonts URL in pages/_document.tsx');
+  const out = new Map();
+  for (const m of url[1].matchAll(/family=([^:&]+):wght@([\d;]+)/g)) {
+    out.set(decodeURIComponent(m[1]).replace(/\+/g, ' '), new Set(m[2].split(';').map(Number)));
+  }
+  return out;
+}
+
+/** The webfont a font-family value (or a font shorthand) names first, if any. */
+function familyOf(value) {
+  if (/var\(--font-body\)|['"]?Inter['"]?\b/.test(value)) return 'Inter';
+  if (/var\(--font-display\)|['"]?Rajdhani['"]?/.test(value)) return 'Rajdhani';
+  if (/var\(--font-mono\)|JetBrains Mono/.test(value)) return 'JetBrains Mono';
+  return null;
+}
+
+function weightOf(value) {
+  const v = value.trim();
+  if (v === 'normal') return 400;
+  if (v === 'bold') return 700;
+  return /^\d{3}$/.test(v) ? Number(v) : null;
 }
 
 /** Splits a stylesheet into its top-level text and the text inside @media blocks.
@@ -73,58 +143,183 @@ function topLevel(css) {
   return out;
 }
 
+/** Every innermost rule: { selector, body }. At-rule preludes (@media, @supports,
+ *  @keyframes) are not selectors and are skipped; keyframe steps are dropped. */
+function rules(css) {
+  const out = [];
+  for (const m of css.matchAll(/([^{};]+)\{([^{}]*)\}/g)) {
+    const selector = norm(m[1]);
+    if (!selector || selector.startsWith('@') || /^(from|to|\d+%)([\s,]|$)/.test(selector)) continue;
+    out.push({ selector, body: m[2] });
+  }
+  return out;
+}
+
+function declarations(body) {
+  const out = [];
+  for (const part of body.split(';')) {
+    const i = part.indexOf(':');
+    if (i < 0) continue;
+    out.push({ prop: part.slice(0, i).trim().toLowerCase(), value: part.slice(i + 1).trim() });
+  }
+  return out;
+}
+
 const SUBJECT = /^\.([a-zA-Z][\w-]*)(?::{1,2}[\w()-]+)?$/;
+/* "star" as a word or a hyphenated part (.six-star, .star-row), not inside "start". */
+const TOKEN_BLOCK = /^:root(?:\[[^\]]*\]|:not\([^)]*\))*$/;
+const RARITY_SELECTOR = /rarity|(?:^|[^a-z])stars?(?![a-z])|pull-|\.r[1-6]\b/i;
+const COLOUR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\([^)]*\)/g;
+const OLD_TEAL = /#4de8d1\b|rgba?\(\s*77[\s,]+232[\s,]+209\b/gi;
+/** Whether a selector's SUBJECT (its last compound) is an h1 element: `.page h1`
+ *  and `h1.title` are, `.head h1 .code` is not. */
+const h1Subject = (selector) => /^h1(?=$|[.:#[])/.test(selector.trim().split(/\s*[\s>+~]\s*/).pop() || '');
 
 function collect() {
-  const files = readdirSync(stylesDir, { recursive: true }).filter((f) => f.endsWith('.css')).sort();
+  const cssFiles = [...walk('styles', ['.css']), ...walk('components', ['.css'])];
   const owners = new Map();   // class -> Set<file>
-  const sizes = [];           // { file, px }
-  const hexes = [];           // { file, hex, token }
+  const out = {
+    collisions: [], fontSizes: [], rawHex: [], rarityLiteral: [], oldTeal: [],
+    pills: [], h1Rules: [], fontWeights: [], nativeControls: [], scrollbarThumb: [], primaryToggle: [],
+  };
   const tokens = tokenHexes();
+  const weights = loadedWeights();
 
-  for (const relativeFile of files) {
-    const file = basename(relativeFile);
-    const raw = stripComments(readFileSync(join(stylesDir, relativeFile), 'utf8'));
-    for (const m of topLevel(raw).matchAll(/([^{}]+)\{/g)) {
-      for (const sel of m[1].split(',')) {
-        const trimmed = sel.trim();
-        if (!trimmed || trimmed.startsWith('@')) continue;
-        const subject = trimmed.split(/[\s>+~]+/).pop();
-        const hit = SUBJECT.exec(subject);
-        if (!hit) continue;
-        if (!owners.has(hit[1])) owners.set(hit[1], new Set());
-        owners.get(hit[1]).add(file);
+  for (const path of cssFiles) {
+    const file = basename(path);
+    const isModule = path.endsWith('.module.css');
+    const raw = stripComments(readFileSync(join(root, path), 'utf8'));
+
+    if (!isModule) {
+      for (const m of topLevel(raw).matchAll(/([^{}]+)\{/g)) {
+        for (const sel of m[1].split(',')) {
+          const trimmed = sel.trim();
+          if (!trimmed || trimmed.startsWith('@')) continue;
+          const subject = trimmed.split(/[\s>+~]+/).pop();
+          const hit = SUBJECT.exec(subject);
+          if (!hit) continue;
+          if (!owners.has(hit[1])) owners.set(hit[1], new Set());
+          owners.get(hit[1]).add(file);
+        }
       }
     }
     for (const m of raw.matchAll(/font-size:\s*([0-9.]+)px/g)) {
       const px = Number(m[1]);
-      if (!SCALE.has(px)) sizes.push({ file, px });
+      if (!SCALE.has(px)) out.fontSizes.push(`${file}: ${px}px`);
     }
     for (const m of raw.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
       const hex = m[0].toLowerCase();
       const token = tokens.get(hex);
-      if (token && file !== 'shared.css') hexes.push({ file, hex, token });
+      if (token && file !== 'shared.css') out.rawHex.push(`${file}: ${hex} is var(${token})`);
+    }
+    for (const m of raw.matchAll(OLD_TEAL)) out.oldTeal.push(`${path}: ${m[0].toLowerCase()}`);
+
+    for (const { selector, body } of rules(raw)) {
+      const decls = declarations(body);
+      // A rarity rule's colours, and a custom property named for rarity anywhere
+      // (--gacha-rarity-border: #F5D547 on .gacha-featured-chip-5 hid a literal behind a
+      // selector that does not say rarity). Only the token blocks may hold the hex.
+      if (!TOKEN_BLOCK.test(selector)) {
+        const raritySelector = RARITY_SELECTOR.test(selector);
+        for (const d of decls) {
+          if (!raritySelector && !(d.prop.startsWith('--') && /rarity/i.test(d.prop))) continue;
+          for (const lit of d.value.matchAll(COLOUR_LITERAL)) {
+            out.rarityLiteral.push(`${path}: ${selector} { ${d.prop}: ${lit[0]} }`);
+          }
+        }
+      }
+      for (const d of decls) {
+        if (d.prop.includes('radius') && /\b9{3,}px\b/.test(d.value)) out.pills.push(`${path}: ${selector}`);
+        const thumb = d.prop === 'scrollbar-color' ? d.value.trim().split(/\s+(?![^(]*\))/)[0]
+          : /::-webkit-scrollbar-thumb/.test(selector) && (d.prop === 'background' || d.prop === 'background-color') ? d.value : null;
+        if (thumb && /var\(\s*--line(?:-soft)?\s*[,)]/.test(thumb)) out.scrollbarThumb.push(`${path}: ${selector} { ${d.prop}: ${d.value} }`);
+      }
+      if (path !== join('styles', 'core', 'shared.css') && selector.split(',').some(h1Subject)) {
+        for (const d of decls) {
+          if (d.prop === 'font-size' || d.prop === 'text-transform' || (d.prop === 'font' && /\d/.test(d.value))) {
+            out.h1Rules.push(`${path}: ${selector} { ${d.prop} }`);
+          }
+        }
+      }
+      let family = null;
+      let weight = null;
+      for (const d of decls) {
+        if (d.prop === 'font-family') family = familyOf(d.value) ?? family;
+        else if (d.prop === 'font-weight') weight = weightOf(d.value) ?? weight;
+        else if (d.prop === 'font') {
+          family = familyOf(d.value) ?? family;
+          const w = d.value.match(/(?:^|\s)(\d{3}|bold|normal)\s/);
+          if (w) weight = weightOf(w[1]);
+        }
+      }
+      if (family && weight !== null && !weights.get(family)?.has(weight)) {
+        out.fontWeights.push(`${path}: ${selector} asks ${family} for ${weight}`);
+      }
     }
   }
 
-  const collisions = [...owners.entries()]
-    .filter(([, fs]) => fs.size > 1)
-    .map(([cls, fs]) => `${cls}: ${[...fs].sort().join(', ')}`)
-    .sort();
+  for (const path of [...walk('pages', ['.tsx']), ...walk('components', ['.tsx'])]) {
+    const text = readFileSync(join(root, path), 'utf8');
+    for (const m of text.matchAll(OLD_TEAL)) out.oldTeal.push(`${path}: ${m[0].toLowerCase()}`);
+    if (path.startsWith(join('components', 'ui') + '/')) continue;
+    // Code only: a comment that says "rather than a <select>" is not a select.
+    const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+    for (const _ of code.matchAll(/<select[\s>]/g)) out.nativeControls.push(`${path}: <select>`);
+    for (const _ of code.matchAll(/role(?:=|:\s*)["']listbox["']/g)) out.nativeControls.push(`${path}: role="listbox"`);
+    if (!path.startsWith(join('pages', 'dev') + '/')) {
+      // Any two quoted class lists chosen by a condition where exactly one side has
+      // "primary": 'primary btn-sm' vs 'ghost' is the same toggle as 'primary' vs 'ghost'.
+      for (const m of code.matchAll(/\?\s*(['"`])([^'"`]*)\1\s*:\s*(['"`])([^'"`]*)\3/g)) {
+        if (/\bprimary\b/.test(m[2]) !== /\bprimary\b/.test(m[4])) out.primaryToggle.push(`${path}: ${m[0].replace(/\s+/g, ' ')}`);
+      }
+    }
+  }
 
-  return {
-    collisions,
-    fontSizes: sizes.map((s) => `${s.file}: ${s.px}px`).sort(),
-    rawHex: hexes.map((h) => `${h.file}: ${h.hex} is var(${h.token})`).sort(),
-  };
+  out.collisions = [...owners.entries()]
+    .filter(([, fs]) => fs.size > 1)
+    .map(([cls, fs]) => `${cls}: ${[...fs].sort().join(', ')}`);
+  for (const key of Object.keys(out)) out[key].sort();
+  return out;
+}
+
+const LABELS = {
+  collisions: 'the same bare class styled in more than one global stylesheet, so load order decides which wins',
+  fontSizes: 'font-size off the scale (9-13 body, 15/18/22/26/30 display)',
+  rawHex: 'a hex literal for a colour a token already names, so the light theme does not reach it',
+  rarityLiteral: 'a colour literal in a rarity rule -- use var(--rarity-N), .rarity-N, .tier-N or .tier-fill-N',
+  oldTeal: 'the pre-token teal literal -- use var(--teal) or color-mix(in srgb, var(--teal) N%, transparent)',
+  pills: 'a 999px pill radius -- use var(--radius), var(--radius-frame) or var(--radius-control)',
+  h1Rules: 'an h1 size or case outside styles/core/shared.css -- render components/ui/PageHeader',
+  fontWeights: 'a webfont weight pages/_document.tsx does not load, so the browser fakes it',
+  nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
+  scrollbarThumb: 'a scrollbar thumb in --line or --line-soft (1.31:1, invisible) -- drop the override and inherit :root\'s --text-faint',
+  primaryToggle: "a class swapped between 'primary' and 'ghost' -- a toggle is a .filter-chip with aria-pressed; --teal-fill is for primary actions only",
+};
+
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle'];
+
+function counts(list) {
+  const m = new Map();
+  for (const x of list) m.set(x, (m.get(x) || 0) + 1);
+  return m;
 }
 
 const found = collect();
 
 if (process.argv.includes('--update')) {
+  const refused = STRICT.filter((key) => found[key].length);
+  if (refused.length) {
+    for (const key of refused) {
+      console.error(`\n${found[key].length} ${key} (strict, never accepted into the baseline): ${LABELS[key]}`);
+      for (const line of found[key]) console.error(`  ${line}`);
+    }
+    console.error('\nNothing written. Fix these first.');
+    process.exit(1);
+  }
   writeFileSync(baselinePath, `${JSON.stringify(found, null, 2)}\n`);
   const n = Object.values(found).reduce((a, v) => a + v.length, 0);
   console.log(`style baseline updated: ${n} accepted entries`);
+  for (const key of Object.keys(LABELS)) console.log(`  ${key.padEnd(15)} ${found[key].length}`);
   process.exit(0);
 }
 
@@ -132,28 +327,39 @@ let baseline;
 try {
   baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
 } catch {
-  console.error(`No baseline at ${basename(baselinePath)}. Run: npm run audit:styles -- --update`);
+  console.error(`No baseline at ${relative(root, baselinePath)}. Run: npm run audit:styles -- --update`);
   process.exit(1);
 }
 
-const LABELS = {
-  collisions: 'the same bare class styled in more than one stylesheet, so load order decides which wins',
-  fontSizes: 'font-size off the scale (9-13 body, 15/18/22/26/30 display)',
-  rawHex: 'a hex literal for a colour a token already names, so the light theme does not reach it',
-};
-
 let failed = false;
+for (const key of STRICT) {
+  if ((baseline[key] || []).length) {
+    failed = true;
+    console.error(`\nThe baseline accepts ${baseline[key].length} ${key} entr${baseline[key].length === 1 ? 'y' : 'ies'}, but ${key} is strict: empty that list and fix the rule.`);
+  }
+}
 for (const key of Object.keys(LABELS)) {
-  const known = new Set(baseline[key] || []);
-  const fresh = (found[key] || []).filter((x) => !known.has(x));
-  if (fresh.length === 0) continue;
-  failed = true;
-  console.error(`\n${fresh.length} new: ${LABELS[key]}`);
-  for (const line of fresh) console.error(`  ${line}`);
+  const have = counts(found[key] || []);
+  const known = counts(baseline[key] || []);
+  const fresh = [];
+  const stale = [];
+  for (const [entry, n] of have) for (let i = known.get(entry) || 0; i < n; i += 1) fresh.push(entry);
+  for (const [entry, n] of known) for (let i = have.get(entry) || 0; i < n; i += 1) stale.push(entry);
+  if (fresh.length) {
+    failed = true;
+    console.error(`\n${fresh.length} new: ${LABELS[key]}`);
+    for (const line of fresh) console.error(`  ${line}`);
+  }
+  if (stale.length) {
+    failed = true;
+    console.error(`\n${stale.length} fixed but still in the baseline (${key}) -- tighten it with --update so they cannot come back:`);
+    for (const line of stale) console.error(`  ${line}`);
+  }
 }
 
 if (failed) {
-  console.error('\nFix these, or accept them deliberately with: npm run audit:styles -- --update');
+  console.error('\nFix new entries (or accept a reviewed exception), then: npm run audit:styles -- --update');
   process.exit(1);
 }
-console.log('styles: nothing new against the baseline');
+const summary = Object.keys(LABELS).map((key) => `${key} ${found[key].length}`).join(', ');
+console.log(`styles: nothing new and nothing stale against the baseline (${summary})`);

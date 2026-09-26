@@ -241,7 +241,6 @@ export default function DevConsole() {
           value={passcode}
           onChange={(e) => setPasscode(e.target.value)}
           placeholder="Passcode"
-          className="guesser-input"
           style={{ marginBottom: 10, width: '100%' }}
         />
         <button type="button" className="primary" onClick={() => setUnlocked(true)}>
@@ -333,12 +332,11 @@ export default function DevConsole() {
           </p>
 
           <label className="hint">Event name</label>
-          <input className="guesser-input" style={{ width: '100%', marginBottom: 10 }} value={evName} onChange={(e) => setEvName(e.target.value)} />
+          <input type="text" style={{ width: '100%', marginBottom: 10 }} value={evName} onChange={(e) => setEvName(e.target.value)} />
 
           <label className="hint">Year</label>
           <input
             type="number"
-            className="guesser-input"
             style={{ width: '100%', marginBottom: 10 }}
             value={evYear}
             onChange={(e) => setEvYear(Number(e.target.value))}
@@ -356,14 +354,14 @@ export default function DevConsole() {
 
           <label className="hint">Global date range (e.g. 2027/01/16–2027/02/06)</label>
           <input
-            className="guesser-input"
+            type="text"
             style={{ width: '100%', marginBottom: 10 }}
             value={evGlobalRange}
             onChange={(e) => setEvGlobalRange(e.target.value)}
           />
 
           <label className="hint">Materials to farm (comma-separated, must match icon filenames in material-icons/)</label>
-          <input className="guesser-input" style={{ width: '100%', marginBottom: 16 }} value={evMaterials} onChange={(e) => setEvMaterials(e.target.value)} />
+          <input type="text" style={{ width: '100%', marginBottom: 16 }} value={evMaterials} onChange={(e) => setEvMaterials(e.target.value)} />
 
           <div className="waiting-box" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 15 }}>Add a skin for this event</h2>
@@ -373,7 +371,7 @@ export default function DevConsole() {
               stub gets overwritten by the real scraped data automatically (same name = same entry).
             </p>
             <label className="hint">Skin name</label>
-            <input className="guesser-input" style={{ width: '100%', marginBottom: 8 }} value={newSkinName} onChange={(e) => setNewSkinName(e.target.value)} />
+            <input type="text" style={{ width: '100%', marginBottom: 8 }} value={newSkinName} onChange={(e) => setNewSkinName(e.target.value)} />
             <label className="hint">Skin image</label>
             <input type="file" accept="image/*" onChange={handleNewSkinImageUpload} style={{ marginBottom: 4, display: 'block' }} />
             {newSkinUploading && <p className="hint">Uploading...</p>}
@@ -395,7 +393,6 @@ export default function DevConsole() {
           <label className="hint">Pulls needed (optional)</label>
           <input
             type="number"
-            className="guesser-input"
             style={{ width: '100%', marginBottom: 14 }}
             value={evPulls}
             onChange={(e) => setEvPulls(e.target.value)}

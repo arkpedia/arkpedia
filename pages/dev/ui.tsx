@@ -1,0 +1,138 @@
+import { useMemo, useState, type CSSProperties } from 'react';
+import Head from 'next/head';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
+import SearchInput from '@/components/ui/SearchInput';
+import ScrollRow from '@/components/ui/ScrollRow';
+import Rarity, { type RarityLevel } from '@/components/ui/Rarity';
+import { devOnlyStaticProps } from '@/lib/dev/devOnly';
+
+export const getStaticProps = devOnlyStaticProps;
+
+/*
+ * The UI primitives, all on one page, for building and checking them under
+ * `npm run dev` (it is a 404 in production, like every page under /dev). Each block is
+ * the snippet docs/development/ui-primitives.md gives, so what you see here is what a
+ * page gets. Layout here is inline on purpose: nothing on this page is a pattern.
+ */
+const row: CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 };
+const card: CSSProperties = { width: 150, height: 96, display: 'grid', placeItems: 'center', background: 'var(--panel-grad)', border: '1px solid var(--line-soft)', borderRadius: 'var(--radius-frame)' };
+
+type Faction = SelectOption & { n: number };
+const FACTIONS: Faction[] = [
+  { value: '', label: 'All factions', n: 412 },
+  { value: 'ri', label: 'Rhodes Island', group: 'Terra', n: 120 },
+  { value: 'kj', label: 'Kjerag', group: 'Terra', n: 9 },
+  { value: 'la', label: 'Laterano', group: 'Terra', n: 22 },
+  { value: 'ab', label: 'Abyssal Hunters', group: 'Sea', n: 7, disabled: true },
+  { value: 'ib', label: 'Iberia', group: 'Sea', n: 11 },
+  ...Array.from({ length: 16 }, (_, i) => ({ value: `x${i}`, label: `Faction ${String.fromCharCode(65 + i)}`, group: 'More', n: i })),
+];
+const OPERATORS = ['Amiya', 'Amiya (Guard)', 'Angelina', 'Archetto', 'Ash', 'Aak', 'Blaze', 'Bagpipe', 'Ch\'en', 'Exusiai', 'Eyjafjalla', 'Surtr', 'Skadi'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m) => ({ value: m, label: m }));
+
+export default function UiPrimitivesPage() {
+  const [view, setView] = useState<'grid' | 'list' | 'table'>('grid');
+  const [rarity, setRarity] = useState<number | 'all'>('all');
+  const [tags, setTags] = useState<string[]>(['Healing']);
+  const [preset, setPreset] = useState('a');
+  const [faction, setFaction] = useState('');
+  const [month, setMonth] = useState('September');
+  const [plain, setPlain] = useState('');
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState('');
+  const matches = useMemo(() => OPERATORS.filter((o) => query.trim() && o.toLowerCase().includes(query.trim().toLowerCase())), [query]);
+
+  return (
+    <>
+      <Head><title>UI primitives — Arkpedia dev</title></Head>
+      <PageHeader
+        eyebrow="Rhodes Island // Development"
+        title="UI primitives"
+        sub="Every shared control, as components/ui renders it. Toggle the theme to check both."
+        actions={<SegmentedControl label="View" value={view} onChange={setView} options={[{ value: 'grid', label: 'Grid' }, { value: 'list', label: 'List' }, { value: 'table', label: 'Table' }]} />}
+      />
+      <main>
+        <section className="op-section" id="buttons">
+          <h2>Buttons</h2>
+          <div style={row}>
+            <button type="button" className="primary">Primary</button>
+            <button type="button">Secondary</button>
+            <button type="button" className="ghost">Ghost</button>
+            <button type="button" className="danger">Reset base</button>
+            <button type="button" className="primary" disabled>Disabled primary</button>
+            <button type="button" disabled>Disabled</button>
+          </div>
+          <div style={row}>
+            <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'a'} onClick={() => setPreset('a')}>Preset A (pick-card)</button>
+            <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'b'} onClick={() => setPreset('b')}>Preset B</button>
+            <button type="button" className="btn-bare" style={card}>btn-bare: a card</button>
+          </div>
+        </section>
+
+        <section className="op-section" id="chips">
+          <h2>SegmentedControl and chips</h2>
+          <div style={row}>
+            <SegmentedControl label="Rarity" value={rarity} onChange={setRarity}
+              options={[{ value: 'all', label: 'All' }, ...[6, 5, 4, 3, 2, 1].map((n) => ({ value: n, label: `${n}★`, ariaLabel: `${n}-star`, count: n * 7 }))]} />
+          </div>
+          <div style={row} role="group" aria-label="Tags">
+            {['Healing', 'DPS', 'Crowd control', 'Support'].map((tag) => (
+              <button key={tag} type="button" className="filter-chip" aria-pressed={tags.includes(tag)}
+                onClick={() => setTags((t) => (t.includes(tag) ? t.filter((x) => x !== tag) : [...t, tag]))}>{tag}</button>
+            ))}
+            <button type="button" className="filter-chip" disabled>Disabled</button>
+          </div>
+        </section>
+
+        <section className="op-section" id="selects">
+          <h2>StyledSelect</h2>
+          <div style={row}>
+            <StyledSelect<Faction> label="Filter by faction" value={faction} onChange={setFaction} options={FACTIONS} style={{ width: 240 }}
+              renderOption={(o) => <><span style={{ flex: 1 }}>{o.label}</span><span className="filter-chip-count">{o.n}</span></>} />
+            <StyledSelect label="Month" size="title" value={month} onChange={setMonth} options={MONTHS} />
+            <StyledSelect label="Empty" value="" onChange={() => {}} options={[]} placeholder="No options" style={{ width: 180 }} />
+          </div>
+        </section>
+
+        <section className="op-section" id="search">
+          <h2>SearchInput</h2>
+          <div style={{ ...row, maxWidth: 420 }}>
+            <SearchInput label="Search operators" value={plain} onChange={setPlain} placeholder="Search by name…" />
+          </div>
+          <div style={{ ...row, maxWidth: 420 }}>
+            <SearchInput label="Guess an operator" value={query} onChange={setQuery} placeholder="Type an operator…"
+              suggestions={matches} getKey={(o) => o} renderSuggestion={(o) => <span>{o}</span>}
+              onPick={(o) => { setPicked(o); setQuery(''); }} suggestLabel="Matching operators" emptyText="No operators found." />
+          </div>
+          <p className="hint" data-testid="picked">Picked: {picked || 'nothing'}</p>
+        </section>
+
+        <section className="op-section" id="scroll">
+          <h2>ScrollRow</h2>
+          <ScrollRow label="Example cards">
+            {Array.from({ length: 12 }, (_, i) => <div key={i} style={card}>Card {i + 1}</div>)}
+          </ScrollRow>
+        </section>
+
+        <section className="op-section" id="rarity">
+          <h2>Rarity</h2>
+          <div style={row}>
+            {([6, 5, 4, 3, 2, 1] as RarityLevel[]).map((n) => <Rarity key={n} n={n} />)}
+            <Rarity n={6} format="stars" />
+          </div>
+          <div style={row}>
+            {([6, 5, 4, 3, 2, 1] as RarityLevel[]).map((n) => <div key={n} className={`tier-${n}`} style={{ ...card, width: 64, height: 64, border: undefined }}>{n}</div>)}
+            {([6, 5, 4, 3, 2, 1] as RarityLevel[]).map((n) => <div key={`f${n}`} className={`tier-fill-${n}`} style={{ width: 64, height: 64, display: 'grid', placeItems: 'center', borderRadius: 'var(--radius-frame)', fontWeight: 700 }}>{n}★</div>)}
+          </div>
+          <div style={row}>
+            {['blue', 'yellow', 'orange', 'green', 'red', 'grey'].map((c) => (
+              <span key={c} style={{ color: `var(--cat-${c})`, border: `1px solid color-mix(in srgb, var(--cat-${c}) 45%, transparent)`, background: `color-mix(in srgb, var(--cat-${c}) 12%, transparent)`, padding: '4px 8px', borderRadius: 'var(--radius)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>--cat-{c}</span>
+            ))}
+          </div>
+        </section>
+      </main>
+    </>
+  );
+}

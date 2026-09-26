@@ -7,7 +7,10 @@ import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import GameLinks from '@/components/minigames/GameLinks';
+import GameLinks, { GamesEyebrow } from '@/components/minigames/GameLinks';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import SearchInput from '@/components/ui/SearchInput';
 import StageAnswer from '@/components/minigames/StageAnswer';
 import StageLayoutMap from '@/components/minigames/StageLayoutMap';
 import StageTileLegend from '@/components/minigames/StageTileLegend';
@@ -111,35 +114,39 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
 
   return <>
     <Head><title>Stage Guesser — Arkpedia</title><meta name="description" content="Recognize Arknights stages from their maps. Play iconic classics, all available maps, or your own chapter and event selection, with image and chapter hints." /></Head>
+    <PageHeader eyebrow={<GamesEyebrow />} title="Stage Guesser" sub="You have fought here before. Can you name the stage?" actions={<GameLinks />} />
     <main className={common.page}>
-      <header className={common.header}><div><h1>Stage Guesser</h1><p>You have fought here before. Can you name the stage?</p></div></header>
-      <GameLinks />
-      {!target ? <section className={`${common.panel} ${common.setup}`} aria-labelledby="stage-setup-title">
-        <div className={common.intro}><h2 id="stage-setup-title">Know the battlefield?</h2><p className={common.muted}>Recognize a stage from its tile layout. Start with familiar maps, take on the full catalogue, or choose the chapters and events you know.</p></div>
-        <fieldset className={styles.collections}><legend>Choose your collection</legend><div>
-          {COLLECTIONS.map(({ id, label }) => (
-            <button key={id} type="button" className={common.secondary} aria-pressed={collection === id} disabled={loading} onClick={() => setCollection(id)}>{label}</button>
-          ))}
-        </div></fieldset>
-        {collection === 'custom' && <fieldset className={styles.custom} disabled={loading}><legend>Choose sources</legend>
-          <label htmlFor="stage-groups">Find chapters or events</label>
-          <input id="stage-groups" type="search" className={common.input} value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} placeholder="Roaring Flare, Under Tides…" />
-          <div className={styles.groupActions}><button type="button" className={common.secondary} onClick={() => setSelectedGroups((previous) => [...new Set([...previous, ...visibleGroups.map((g) => g.id)])])}>Select {groupSearch ? 'matching' : 'all'}</button><button type="button" className={common.secondary} onClick={() => setSelectedGroups([])}>Clear selection</button><span>{selectedGroups.length} sources selected</span></div>
-          <div className={styles.groupList}>{visibleGroups.map((g) => <label key={g.id}><input type="checkbox" checked={selectedGroups.includes(g.id)} onChange={(e) => setSelectedGroups((previous) => e.target.checked ? [...previous, g.id] : previous.filter((id) => id !== g.id))} /><span>{g.label}<small>{g.kind.replace(/_/g, ' ')} · {g.count} stages</small></span></label>)}{!visibleGroups.length && <p>No matching chapters or events.</p>}</div>
-        </fieldset>}
-        <div className={styles.instructions}><p>{collection === 'classic' ? `${counts.classic} handpicked story and event stages, from early tutorials to memorable bosses and tough challenges.` : collection === 'custom' ? 'Build your own pool from any combination of sources.' : 'Every eligible map in the database, including story, events, supplies, Annihilation and other modes.'}</p><p>Released Global stages with a usable layout and image. Includes standalone H stages; duplicate difficulty and rerun maps count once. Maps that look identical accept either stage.</p></div>
-        <div className={styles.instructions}><p>Start with the layout. After two wrong guesses, see the in-game image. After three, reveal the chapter or event.</p><p>You have five wrong guesses. You can also reveal hints yourself without spending a guess.</p></div>
-        <div className={common.start}><span className={common.muted}>{`${eligibleCount} stages selected`}</span><button type="button" className={common.primary} disabled={!eligibleCount || loading} onClick={startRound}>{loading ? 'Loading map…' : 'Start guessing'}</button></div>
-        {loadError && <p role="alert">{loadError}</p>}
+      {!target ? <section className={`op-section ${common.panel} ${common.setup}`} aria-labelledby="stage-setup-title">
+        <div className={styles.setupGrid}>
+          <div className={styles.setupMain}>
+            <div className={common.intro}><h2 id="stage-setup-title">Know the battlefield?</h2><p className={common.muted}>Recognize a stage from its tile layout. Start with familiar maps, take on the full catalogue, or choose the chapters and events you know.</p></div>
+            <fieldset className={styles.collections} disabled={loading}><legend>Choose your collection</legend>
+              <SegmentedControl label="Collection" value={collection} options={COLLECTIONS.map(({ id, label }) => ({ value: id, label }))} onChange={setCollection} />
+              <p className={common.muted}>{collection === 'classic' ? `${counts.classic} handpicked story and event stages, from early tutorials to memorable bosses and tough challenges.` : collection === 'custom' ? 'Build your own pool from any combination of sources.' : 'Every eligible map in the database, including story, events, supplies, Annihilation and other modes.'}</p>
+            </fieldset>
+            {collection === 'custom' && <fieldset className={styles.custom} disabled={loading}><legend>Choose sources</legend>
+              <SearchInput id="stage-groups" label="Find chapters or events" value={groupSearch} onChange={setGroupSearch} placeholder="Roaring Flare, Under Tides…" />
+              <div className={styles.groupActions}><button type="button" className="ghost" onClick={() => setSelectedGroups((previous) => [...new Set([...previous, ...visibleGroups.map((g) => g.id)])])}>Select {groupSearch ? 'matching' : 'all'}</button><button type="button" className="ghost" onClick={() => setSelectedGroups([])}>Clear selection</button><span>{selectedGroups.length} sources selected</span></div>
+              <div className={styles.groupList}>{visibleGroups.map((g) => <label key={g.id}><input type="checkbox" checked={selectedGroups.includes(g.id)} onChange={(e) => setSelectedGroups((previous) => e.target.checked ? [...previous, g.id] : previous.filter((id) => id !== g.id))} /><span>{g.label}<small>{g.kind.replace(/_/g, ' ')} · {g.count} stages</small></span></label>)}{!visibleGroups.length && <p>No matching chapters or events.</p>}</div>
+            </fieldset>}
+            <div className={common.start}><span className={common.muted}>{`${eligibleCount} stages selected`}</span><button type="button" className="primary" disabled={!eligibleCount || loading} onClick={startRound}>{loading ? 'Loading map…' : 'Start guessing'}</button></div>
+            {loadError && <p role="alert">{loadError}</p>}
+          </div>
+          <aside className={styles.instructions} aria-labelledby="stage-rules-title">
+            <h3 id="stage-rules-title">How to play</h3>
+            <p>Start with the layout. After two wrong guesses, see the in-game image. After three, reveal the chapter or event.</p>
+            <p>You have five wrong guesses. You can also reveal hints yourself without spending a guess.</p>
+            <p>Released Global stages with a usable layout and image. Includes standalone H stages; duplicate difficulty and rerun maps count once. Maps that look identical accept either stage.</p>
+          </aside>
+        </div>
       </section> : <section className={`${common.round} ${styles.round} ${typing && playing ? styles.typing : ''}`} ref={roundRef} tabIndex={-1} aria-label="Stage challenge">
-        {typing && playing && <div className={styles.typingBar}><span>{STAGE_MISTAKES - round.wrong.length} guesses left</span><button type="button" className={common.secondary} onMouseDown={(e) => e.preventDefault()} onClick={() => { document.getElementById('stage-answer')?.blur(); setTyping(false); }}>Done typing</button></div>}
+        {typing && playing && <div className={styles.typingBar}><span>{STAGE_MISTAKES - round.wrong.length} guesses left</span><button type="button" className="ghost btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={() => { document.getElementById('stage-answer')?.blur(); setTyping(false); }}>Done typing</button></div>}
         <div className={common.roundTop}><h2>{playing ? 'Which stage is this?' : round.status === 'won' ? 'Stage identified' : 'The answer'}</h2><span>Round {roundNumber} · {COLLECTIONS.find((entry) => entry.id === collection)?.label}</span></div>
         <div className={styles.layout}>
           <div className={styles.mapColumn}>
-            <div className={styles.mapViews} role="group" aria-label="Map view">
-              <button type="button" className={common.secondary} aria-pressed={mapView === 'layout' || mapFailed} onClick={() => setMapView('layout')}>Layout</button>
-              <button type="button" className={common.secondary} aria-pressed={mapView === 'image' && !mapFailed} disabled={mapFailed || hintsShown < 1} onClick={() => setMapView('image')}>In-game image</button>
-            </div>
+            <SegmentedControl className={styles.mapViews} label="Map view" value={mapView === 'image' && !mapFailed ? 'image' : 'layout'}
+              options={[{ value: 'layout', label: 'Layout' }, { value: 'image', label: 'In-game image', disabled: mapFailed || hintsShown < 1 }]}
+              onChange={setMapView} />
             <figure className={styles.mapFigure}>
               <div className={`${styles.mapFrame} ${mapView === 'layout' || mapFailed ? styles.layoutFrame : ''}`}>
                 {mapView === 'image' && hintsShown >= 1 && !mapFailed
@@ -161,13 +168,13 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
               <p className={styles.notice} role="status">{notice || 'You can guess any Global stage, including stages outside this quiz collection.'}</p>
               {round.wrong.length > 0 && <ul className={common.wrong} aria-label="Incorrect guesses">{round.wrong.map((slug) => <li key={slug}>{bySlug.get(slug)?.code}</li>)}</ul>}
               <div className={styles.hintControl}>
-                <button type="button" className={common.secondary} disabled={round.hints >= STAGE_HINTS} onClick={() => { setRound(revealStageHint(round)); if (round.hints === 0) setMapView('image'); setNotice(`${HINT_NAMES[round.hints]} hint revealed. No guess used.`); }}>{round.hints < STAGE_HINTS ? `Reveal hint: ${HINT_NAMES[round.hints]}` : 'All hints revealed'}</button>
+                <button type="button" disabled={round.hints >= STAGE_HINTS} onClick={() => { setRound(revealStageHint(round)); if (round.hints === 0) setMapView('image'); setNotice(`${HINT_NAMES[round.hints]} hint revealed. No guess used.`); }}>{round.hints < STAGE_HINTS ? `Reveal hint: ${HINT_NAMES[round.hints]}` : 'All hints revealed'}</button>
                 <small>{round.hints < STAGE_HINTS ? `${HINT_NAMES[round.hints]} unlocks after ${STAGE_HINT_AT[round.hints]} wrong guesses, or reveal it now.` : 'Both hints revealed.'}</small>
               </div>
             </> : <div className={styles.answer} role="status">
               {notice.startsWith('Accepted:') && <p>{notice}</p>}<strong className={styles.code}>{target.code}</strong><h3>{target.name}</h3>
               <p>{round.status === 'won' ? `Found with ${round.wrong.length} wrong ${round.wrong.length === 1 ? 'guess' : 'guesses'} and ${round.hints} ${round.hints === 1 ? 'hint' : 'hints'}.` : round.status === 'lost' ? 'Five wrong guesses. Try another battlefield.' : 'Answer revealed. Try another battlefield.'}</p>
-              <Link href={`/stages/browse?s=${encodeURIComponent(target.slug)}`} prefetch={false}>Explore this stage</Link>
+              <Link href={`/stages/browse?s=${encodeURIComponent(target.slug)}`} prefetch={false} className="btn">Explore this stage</Link>
             </div>}
             <div className={styles.hints} aria-label="Stage hints" aria-live="polite">
               {hintsShown >= 2 && <section><h3>Chapter or event</h3><p>{target.source}</p></section>}
@@ -176,8 +183,8 @@ export default function StageGuesser({ catalogueUrl, groups, counts }: Props) {
         </div>
         {loadError && <p role="alert">{loadError}</p>}
         <div className={styles.footer}>
-          {playing ? <button type="button" className={common.secondary} onClick={() => { setRound({ ...round, status: 'revealed' }); setMapView('image'); setNotice('Answer revealed.'); }}>Reveal answer</button> : <button type="button" className={common.primary} disabled={loading} onClick={startRound}>{loading ? 'Loading map…' : 'Next stage'}</button>}
-          <button type="button" className={common.secondary} disabled={loading} onClick={() => { setTarget(null); setTyping(false); setLoadError(''); }}>Change collection</button>
+          {playing ? <button type="button" className="ghost" onClick={() => { setRound({ ...round, status: 'revealed' }); setMapView('image'); setNotice('Answer revealed.'); }}>Reveal answer</button> : <button type="button" className="primary" disabled={loading} onClick={startRound}>{loading ? 'Loading map…' : 'Next stage'}</button>}
+          <button type="button" className="ghost" disabled={loading} onClick={() => { setTarget(null); setTyping(false); setLoadError(''); }}>Change collection</button>
         </div>
       </section>}
     </main>

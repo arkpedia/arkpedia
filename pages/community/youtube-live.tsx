@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { getLatestVideos, enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
-import { VideoCard } from '@/components/community/StreamCards';
+import { CommunityEyebrow, VideoCard } from '@/components/community/StreamCards';
+import PageHeader from '@/components/ui/PageHeader';
 
 interface Props {
   liveNow: YouTubeVideo[];
@@ -16,14 +17,8 @@ export default function YouTubeLivePage({ liveNow, hasYouTubeApiKey }: Props) {
     <>
       <Head><title>Live on YouTube — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Broadcast Feed</div>
-        <Link prefetch={false} href="/community" className="hint">
-          ← Back to Community Hub
-        </Link>
-        <h1>Live on YouTube</h1>
-        <p className="sub">{hasYouTubeApiKey ? `${liveNow.length} channels live right now.` : 'Arknights livestreams from the community.'}</p>
-      </header>
+      <PageHeader eyebrow={<CommunityEyebrow />} title="Live on YouTube"
+        sub={hasYouTubeApiKey ? `${liveNow.length} channels live right now.` : 'Arknights livestreams from the community.'} />
 
       <main>
         {liveNow.length === 0 ? (

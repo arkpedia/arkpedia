@@ -11,6 +11,9 @@ import { useMusicPlayer, QueueTrack } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
+import TransportIcon from '@/components/music/TransportIcons';
+import PageHeader from '@/components/ui/PageHeader';
+import SearchInput from '@/components/ui/SearchInput';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -132,7 +135,7 @@ function QueueRow({
       <span className="music-queue-row-index">{isActive ? '▶' : displayPos + 1}</span>
       <button
         type="button"
-        className={fading ? 'music-queue-row-title music-crossfade-text fading' : 'music-queue-row-title music-crossfade-text'}
+        className={fading ? 'btn-bare music-queue-row-title music-crossfade-text fading' : 'btn-bare music-queue-row-title music-crossfade-text'}
         title={song.title}
         onClick={onTap}
         aria-pressed={isSelected}
@@ -141,7 +144,7 @@ function QueueRow({
       </button>
       <div className="music-queue-row-actions">
         <button type="button" className="ghost" onClick={onPlayNow} aria-label="Play now" title="Play now">
-          ▶
+          <TransportIcon name="play" size={14} />
         </button>
         <button type="button" className="ghost" onClick={onPushToTop} disabled={isActive} aria-label="Push to top" title="Push to top">
           ⤒
@@ -154,7 +157,7 @@ function QueueRow({
           aria-label="Remove"
           title={isActive ? "Can't remove the currently-playing track" : 'Remove'}
         >
-          ✕
+          <TransportIcon name="close" size={14} />
         </button>
       </div>
     </div>
@@ -215,30 +218,21 @@ export default function MusicPage({ songLookup }: Props) {
   // player view (hydration-safe). Anything other than the exact string
   // 'queue' falls back to the player, so a mangled URL can't render a
   // broken in-between state.
-  const [viewParam, setViewParam] = useQueryState('view', 'player');
-  const view: 'player' | 'queue' = viewParam === 'queue' ? 'queue' : 'player';
+  //
+  // With no ?view, the page opens where there is something to do: the player when a
+  // track has played this session, the song list when none has -- the player view
+  // with nothing loaded was an empty 280px cover beside an empty lyrics column, with
+  // the 884 songs one ☰ away. Decided once, on mount (the player context outlives the
+  // page, so a track started elsewhere is known here), so the view never swaps under
+  // the reader; server and client both start from "nothing played".
+  const [viewParam, setViewParam] = useQueryState('view', '');
+  const [initialView] = useState<'player' | 'queue'>(() => (videoId ? 'player' : 'queue'));
+  const view: 'player' | 'queue' = viewParam === 'queue' || viewParam === 'player' ? viewParam : initialView;
   const setView = (next: 'player' | 'queue') => setViewParam(next);
   const [mobileShowLyrics, setMobileShowLyrics] = useState(false);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [lyricsLoading, setLyricsLoading] = useState(false);
 
-  // "Add to Playlist" is a placeholder for now -- clicking it just
-  // shows a brief "coming soon" notice rather than doing anything
-  // real yet. Deliberately separate from the existing favorite heart
-  // (which already works, persisted to localStorage) -- playlists are
-  // a genuinely different, not-yet-built feature.
-  const [showPlaylistToast, setShowPlaylistToast] = useState(false);
-  const playlistToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function handleAddToPlaylist() {
-    setShowPlaylistToast(true);
-    if (playlistToastTimeoutRef.current) clearTimeout(playlistToastTimeoutRef.current);
-    playlistToastTimeoutRef.current = setTimeout(() => setShowPlaylistToast(false), 3000);
-  }
-  useEffect(() => {
-    return () => {
-      if (playlistToastTimeoutRef.current) clearTimeout(playlistToastTimeoutRef.current);
-    };
-  }, []);
 
   const detailByVideoId = useMemo(() => new Map(songLookup.map((s) => [s.videoId, s])), [songLookup]);
   const currentDetail = detailByVideoId.get(videoId);
@@ -465,12 +459,16 @@ export default function MusicPage({ songLookup }: Props) {
     <>
       <Head><title>Music — Arkpedia</title></Head>
 
+      <PageHeader slim eyebrow="Rhodes Island // Sound Archive" title="Music"
+        actions={<Link prefetch={false} href="/music/discover" className="ghost btn-sm music-discover-btn">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <circle cx="10" cy="10" r="7.5" />
+            <path d="M13 7 L11 11 L7 13 L9 9 Z" strokeLinejoin="round" />
+          </svg>
+          Discover
+        </Link>} />
+
       <main className="music-player-page">
-        {/* This page renders no visible page title (the layout IS the
-            title, visually), but assistive tech still needs an h1 to
-            anchor the heading outline -- the h2s below ("Songs (…)",
-            the now-playing song name) otherwise dangle off nothing. */}
-        <h1 className="visually-hidden">Music</h1>
         <div className="visually-hidden" aria-live="polite">
           {nowPlayingAnnouncement}
         </div>
@@ -485,13 +483,6 @@ export default function MusicPage({ songLookup }: Props) {
 
         {view === 'player' ? (
           <div className="music-now-playing">
-            <Link prefetch={false} href="/music/discover" className="ghost music-discover-btn">
-              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                <circle cx="10" cy="10" r="7.5" />
-                <path d="M13 7 L11 11 L7 13 L9 9 Z" strokeLinejoin="round" />
-              </svg>
-              Discover
-            </Link>
 
             <div className={`music-now-playing-cover-col${mobileShowLyrics ? ' mobile-hidden' : ''}`}>
               <div className="music-now-playing-cover">
@@ -536,7 +527,7 @@ export default function MusicPage({ songLookup }: Props) {
                 "buttons" row further down. */}
             <div className="music-now-playing-actions">
               {hasLyrics && (
-                <button type="button" className="ghost music-mobile-lyrics-btn" onClick={() => setMobileShowLyrics((v) => !v)}>
+                <button type="button" className="ghost btn-sm music-mobile-lyrics-btn" onClick={() => setMobileShowLyrics((v) => !v)}>
                   {mobileShowLyrics ? '‹ Back' : 'Lyrics'}
                 </button>
               )}
@@ -568,23 +559,11 @@ export default function MusicPage({ songLookup }: Props) {
 
             {isPlaying && <MusicWaveVisualizer volume={volume} className={mobileShowLyrics ? 'mobile-active' : ''} />}
 
+            {/* "Add to Playlist" lived here and only ever answered "Playlists are
+                coming soon!": a placeholder, hidden until the feature exists. */}
             <div className="music-now-playing-buttons">
-              <div className="music-add-playlist-wrap">
-                <button type="button" className="ghost music-action-btn music-add-playlist-btn" onClick={handleAddToPlaylist}>
-                  + Add to Playlist
-                </button>
-                {/* role="status" makes the toast an implicit polite live
-                    region -- it appears far from the button in the
-                    accessibility tree, so without it a screen-reader
-                    user who clicks gets no feedback at all. */}
-                {showPlaylistToast && (
-                  <div className="music-toast" role="status">
-                    Playlists are coming soon!
-                  </div>
-                )}
-              </div>
               {youtubeUrl && (
-                <a href={youtubeUrl} target="_blank" rel="noreferrer" className="ghost music-action-btn music-watch-youtube-btn">
+                <a href={youtubeUrl} target="_blank" rel="noreferrer" className="ghost btn-sm music-watch-youtube-btn">
                   <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
                     <path d="M6 4 L16 10 L6 16 Z" />
                   </svg>
@@ -596,17 +575,7 @@ export default function MusicPage({ songLookup }: Props) {
         ) : (
           <div className="music-queue-panel">
             <h2>Songs ({displayList.length})</h2>
-            <input
-              type="search"
-              name="queue-search"
-              className="music-queue-search"
-              placeholder="Search songs…"
-              value={queueSearch}
-              onChange={(e) => setQueueSearch(e.target.value)}
-              aria-label="Search songs"
-              autoComplete="off"
-              spellCheck={false}
-            />
+            <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
             {isSearching ? (
               <>
                 <div className="music-queue-list">
@@ -755,55 +724,59 @@ export default function MusicPage({ songLookup }: Props) {
           <div className="music-player-bottombar-controls">
             <button
               type="button"
-              className={isFav ? 'music-fav-btn active' : 'music-fav-btn'}
+              className="filter-chip music-fav-btn"
               onClick={() => videoId && toggleFavorite(videoId)}
               disabled={!videoId}
-              aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+              aria-pressed={isFav}
+              aria-label="Favorite"
               title="Favorite"
             >
-              ♥
+              <TransportIcon name="heart" />
             </button>
             <button
               type="button"
-              className={excludeCopyrighted ? 'music-stream-safe-btn active' : 'music-stream-safe-btn'}
+              className="filter-chip music-stream-safe-btn"
               onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
-              aria-label={excludeCopyrighted ? 'Stream-safe mode on — copyrighted songs hidden' : 'Stream-safe mode off'}
+              aria-pressed={excludeCopyrighted}
+              aria-label="Stream-safe: hide copyrighted songs"
               title="Stream-safe (hide copyrighted songs)"
             >
-              ©
+              <TransportIcon name="streamSafe" />
             </button>
             <button
               type="button"
-              className={shuffle ? 'music-shuffle-btn active' : 'music-shuffle-btn'}
+              className="filter-chip music-shuffle-btn"
               onClick={toggleShuffle}
-              aria-label="Toggle shuffle"
+              aria-pressed={shuffle}
+              aria-label="Shuffle"
               title="Shuffle"
             >
-              ⤨
+              <TransportIcon name="shuffle" />
             </button>
             <button type="button" onClick={prevTrack} aria-label="Previous track">
-              ⏮
+              <TransportIcon name="prev" />
             </button>
             <button
               type="button"
-              className={starting ? 'music-play-btn loading' : 'music-play-btn'}
+              className={starting ? 'primary music-play-btn loading' : 'primary music-play-btn'}
               onClick={togglePlay}
               disabled={starting}
               aria-label={starting ? 'Starting…' : isPlaying ? 'Pause' : 'Play'}
             >
-              {starting ? '⋯' : isPlaying ? '⏸' : '▶'}
+              <TransportIcon name={starting ? 'loading' : isPlaying ? 'pause' : 'play'} />
             </button>
             <button type="button" onClick={nextTrack} aria-label="Next track">
-              ⏭
+              <TransportIcon name="next" />
             </button>
             <button
               type="button"
-              className={repeatMode !== 'off' ? 'music-repeat-btn active' : 'music-repeat-btn'}
+              className="filter-chip music-repeat-btn"
               onClick={cycleRepeat}
-              aria-label="Cycle repeat mode"
+              aria-pressed={repeatMode !== 'off'}
+              aria-label={repeatMode === 'off' ? 'Repeat: off' : repeatMode === 'one' ? 'Repeat: one' : 'Repeat: all'}
               title={repeatMode === 'off' ? 'Repeat off' : repeatMode === 'one' ? 'Repeat one' : 'Repeat all'}
             >
-              ↻{repeatMode === 'one' && <sup className="music-repeat-one-badge">1</sup>}
+              <TransportIcon name="repeat" />{repeatMode === 'one' && <span className="music-repeat-one-badge">1</span>}
             </button>
             <input
               type="range"
@@ -817,12 +790,13 @@ export default function MusicPage({ songLookup }: Props) {
             />
             <button
               type="button"
-              className={view === 'queue' ? 'music-list-btn active' : 'music-list-btn'}
+              className="filter-chip music-list-btn"
               onClick={() => setView(view === 'queue' ? 'player' : 'queue')}
+              aria-pressed={view === 'queue'}
               aria-label="Song list"
               title="Song list"
             >
-              ☰
+              <TransportIcon name="list" />
             </button>
           </div>
         </div>

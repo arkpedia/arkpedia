@@ -9,32 +9,15 @@
    where every rail here scrolls sideways inside a page that stacks -- which is
    what the game does with its rails anyway, so a phone gets the same idea. */
 
-/* The site's own soft bounds. Every other page is 1040px wide with 24px of gutter
-   (see `main` in shared.css); .main-wide's 1320px belongs to the stage viewer, which
-   is a two-pane reader and needs the room. These scenes are not, and at 1240 they
-   stood proud of the events, farming and enemies pages either side of them. */
-/* The gutter a Terminal scene keeps, declared once for the three rules that have to
-   agree about it. The head is a SIBLING of the scene rather than a child, so nothing
-   makes them line up on its own -- a head at 16 over panels at 24 puts the title 8px
-   inside everything beneath it, which is invisible at 1040px and plain on a phone. And
-   .score-line's wash reaches the edge of the page by pulling itself out past the
-   gutter, so a wash that reaches further than the gutter is sideways scroll. `main` in
-   shared.css keeps its own 24px for every other page. */
-.terminal-head,
-.terminal-scene { --scene-gutter: 24px; }
-
-.terminal-head {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 26px var(--scene-gutter) 14px;
-}
-.terminal-head h1 { margin: 6px 0 8px; }
-
-/* Sides and bottom rather than the shorthand: the top is `main`'s own 24px in
-   shared.css, and only the phone wants that changed. */
+/* The site's own frame: a scene is a `main`, 1040px with the site's --page-gutter at
+   every width, under components/ui/PageHeader. The Terminal used to keep a head and a
+   gutter of its own (16px on a phone), and a head at one gutter over panels at another
+   put the title 8px off everything beneath it (/stages/all) -- the page-bounds test
+   measures that edge now.
+   --scene-gutter survives only as a name for the gutter .score-line's wash pulls
+   itself out past: a wash that reaches further than the gutter is sideways scroll. */
 .terminal-scene {
-  padding-left: var(--scene-gutter);
-  padding-right: var(--scene-gutter);
+  --scene-gutter: var(--page-gutter);
   padding-bottom: 40px;
 }
 
@@ -56,7 +39,7 @@
   z-index: 30;
   border-bottom: 1px solid var(--line-soft);
   background:
-    linear-gradient(180deg, rgb(77 232 209 / 0.07), rgb(77 232 209 / 0) 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--teal) 7%, transparent), color-mix(in srgb, var(--teal) 0%, transparent) 70%),
     var(--panel);
 }
 .terminal-bar-inner {
@@ -70,15 +53,14 @@
 .terminal-tabs {
   display: flex;
   align-items: stretch;
-  /* `safe` because a plain `center` with overflow-x puts the overflow on BOTH sides
-     and the left half becomes unreachable -- the first two sections scrolled off with
-     no way back to them. */
-  justify-content: safe center;
+  /* Wraps rather than scrolls: the seven tabs only just fit the 1040px frame with
+     macOS font metrics, and on Linux and Windows the last one sat partly behind a
+     scroll whose bar is hidden. A second row keeps every tab reachable and inside the
+     frame (tests/browser/page-bounds.spec.ts measures it on the Linux CI runner). */
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.terminal-tabs::-webkit-scrollbar { display: none; }
 
 /* --- the collapsed bar, under the mobile breakpoint --------------------------
    Hidden on a desktop, where all seven tabs fit. */
@@ -87,10 +69,11 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 10px 4px;
-  border: 0;
+  padding: 10px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
   background: none;
-  color: var(--teal);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -98,6 +81,7 @@
   text-align: left;
   cursor: pointer;
 }
+.terminal-bar-toggle:hover { border-color: var(--teal); color: var(--teal); }
 /* Three bars, drawn rather than typed: a glyph would inherit the font's own metrics
    and sit off-centre. Pushed to the far end, where a thumb is. */
 .terminal-bar-burger {
@@ -138,7 +122,7 @@
   transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 .terminal-tab-mark {
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1;
 }
 /* An emblem in place of a glyph. Larger than the type it sits beside, because these
@@ -161,6 +145,9 @@
   color: var(--teal);
   border-bottom-color: var(--teal);
 }
+/* The bar scrolls sideways, which clipped the outward focus ring to its bottom
+   edge: drawn inside the tab instead. */
+.terminal-tab:focus-visible { outline-offset: -2px; }
 .terminal-tab.locked {
   opacity: 0.4;
   cursor: not-allowed;
@@ -169,15 +156,10 @@
 /* --- Score ---------------------------------------------------------------
    One block for the main theme, one for the side-story lines. */
 .score-block { margin-bottom: 30px; }
-.score-block-title {
-  margin: 0 0 14px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
+/* The block's heading is the canonical section h2 (.op-section h2: amber, 18px,
+   shared.css); this is only its spacing. It was an 11px mono label in teal, which is
+   the "on / current" colour, used as a heading. */
+.score-block-title { margin: 0 0 14px; }
 
 .score-line {
   position: relative;
@@ -300,7 +282,7 @@
 .score-line-name {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 21px;
+  font-size: 22px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -396,7 +378,7 @@
   background: var(--panel);
   transition: border-color 0.15s ease;
 }
-.score-node:hover .score-node-art { border-color: var(--teal-dim); }
+.score-node:hover .score-node-art { border-color: var(--teal); }
 .score-node-art img { object-fit: cover; }
 /* A stage map standing in for a banner: dimmed and desaturated, the same treatment
    the content cards give it, so a borrowed picture never reads as the real art. */
@@ -422,7 +404,7 @@
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.06em;
-  color: var(--teal);
+  color: var(--text-dim);
 }
 .score-node-name {
   font-size: 13px;
@@ -468,7 +450,7 @@
      Three corners rather than four. The top-left carries the label tab below, clipped
      flush into the corner the way the game draws it, and rounding that corner would
      round the panel out from under the label and leave it overhanging. */
-  border-radius: 0 6px 6px 6px;
+  border-radius: 0 var(--radius-frame) var(--radius-frame) var(--radius-frame);
 }
 .terminal-panel.wide { grid-column: 1 / -1; }
 
@@ -493,7 +475,7 @@
   border-right: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--teal);
@@ -535,7 +517,7 @@
 .terminal-lead-name {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -565,7 +547,7 @@
   color: inherit;
 }
 .terminal-row:hover {
-  border-color: var(--teal-dim);
+  border-color: var(--teal);
   background: var(--panel-2);
 }
 .terminal-row-art {
@@ -604,7 +586,7 @@
   margin-left: auto;
   flex: 0 0 auto;
   padding: 2px 7px;
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
@@ -624,7 +606,7 @@
   color: inherit;
 }
 .terminal-mode:hover {
-  border-color: var(--teal-dim);
+  border-color: var(--teal);
   background: var(--panel-2);
 }
 .terminal-mode-art {
@@ -643,7 +625,7 @@
 }
 .terminal-mode-kind {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--teal);
@@ -663,7 +645,7 @@
   margin-top: 4px;
   padding: 9px;
   background: var(--panel-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   text-align: center;
   text-decoration: none;
   font-family: var(--font-mono);
@@ -671,7 +653,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-dim);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .terminal-cta:hover {
   border-color: var(--teal);
@@ -691,7 +673,7 @@
   gap: 16px;
   padding: 14px 16px;
   margin-bottom: 14px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--control-border);
   border-left: 2px solid var(--teal);
   background:
     radial-gradient(120% 140% at 0% 50%, rgb(70 220 200 / 0.07), transparent 60%),
@@ -699,7 +681,7 @@
   text-decoration: none;
   color: inherit;
   transition: border-color 0.14s, background-color 0.14s;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 a.regular-now:hover { border-color: var(--teal); }
 a.regular-now:hover .regular-now-go { color: var(--teal); }
@@ -772,7 +754,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   grid-template-columns: 84px 1fr;
   align-items: stretch;
   gap: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   background: var(--panel);
   text-decoration: none;
   color: var(--text);
@@ -799,7 +781,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
    rather than being the only way to work it out. */
 .regular-tower-tag {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--teal);
@@ -835,15 +817,6 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   --art-ratio: 1;
 }
 
-.regular-sub {
-  margin: 0 0 2px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
 /* A panel with nothing behind it. The game draws its unopened slots rather than
    hiding them, and so does this -- dimmed, and saying why. */
 .terminal-panel.shut {
@@ -870,7 +843,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   background: var(--panel);
 }
 .explore-hero-art img { object-fit: cover; }
-.explore-hero:hover .explore-hero-art { border-color: var(--teal-dim); }
+.explore-hero:hover .explore-hero-art { border-color: var(--teal); }
 .explore-hero-text {
   display: flex;
   flex-direction: column;
@@ -901,42 +874,32 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 /* --- Supplies -----------------------------------------------------------
    Portrait cards with the days on them and a stamp over the ones today is not,
    which is the game's own composition for this screen. */
+/* A SegmentedControl: seven equal chips on one line at every width, each stacking the
+   day over the game's TODAY tick. Only the layout is this file's; the chip's paint,
+   height floor and picked state are the primitive's. */
 .supply-schedule {
-  display: flex;
+  flex-wrap: nowrap;
   gap: 4px;
   margin-bottom: 16px;
 }
-.supply-day {
+.supply-schedule > button {
   flex: 1 1 0;
   min-width: 0;
-  display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 7px 4px 5px;
-  border: 1px solid var(--line-soft);
-  border-radius: 0;
-  background: var(--panel);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-dim);
+  justify-content: center;
+  gap: 0;
+  padding: 3px 2px;
+  line-height: 1.1;
 }
-.supply-day:hover { border-color: var(--line); color: var(--text); }
 /* Today is marked whether or not it is the day being previewed -- the game keeps a
    TODAY tick under the real day, and losing it while you look at Thursday would make
    the strip a set of buttons rather than a schedule. */
-.supply-day-abbr { line-height: 1.1; }
 .supply-day-mark {
-  font-size: 8px;
-  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   color: var(--amber);
-}
-.supply-day.current {
-  border-color: var(--teal);
-  color: var(--teal);
-  background: var(--panel-2);
 }
 
 .supply-grid {
@@ -944,16 +907,24 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
   gap: 12px;
 }
+/* Two to a row on a phone: at 178px a 342px column held one card, and the page ran
+   3,178px (2026-09-25 review, GE-12). */
+@media (max-width: 720px) {
+  .supply-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+}
+/* A card is a link: the control boundary at rest, teal on hover. */
 .supply-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  overflow: hidden;
   background: var(--panel);
   text-decoration: none;
   color: inherit;
   transition: border-color 0.15s ease;
 }
-.supply-card:hover { border-color: var(--teal-dim); }
+.supply-card:hover { border-color: var(--teal); }
 .supply-card-art {
   position: relative;
   display: grid;
@@ -988,7 +959,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   background: rgb(240 102 90 / 0.85);
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #1A0C0A;
@@ -1003,7 +974,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
-  color: var(--teal);
+  color: var(--text-dim);
 }
 .supply-card-name {
   font-family: var(--font-display);
@@ -1043,6 +1014,10 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
      are in, and the button opens the rest as a panel under it. The same 900px the site
      switches its own nav at, so the two change together. */
   .terminal-bar-toggle { display: flex; }
+  /* The collapsed bar keeps the page's gutter, so its button lines up with the header
+     and the scene under it; at 12px it started 12px left of everything else on the
+     page (the page-bounds test measures that edge). */
+  .terminal-bar-inner { padding: 0 var(--page-gutter); }
   .terminal-tabs {
     display: none;
     position: absolute;
@@ -1050,6 +1025,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
     right: 0;
     top: 100%;
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 0;
     overflow: visible;
@@ -1073,21 +1049,14 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   }
 }
 @media (max-width: 700px) {
-  /* 24px each side of a 430px phone is a ninth of the screen spent on margin, on
-     scenes whose panels already want more width than is left. The head was alone in
-     knowing that; now the scene and the wash follow it. */
-  .terminal-head,
-  .terminal-scene { --scene-gutter: 16px; }
-  .terminal-head { padding: 18px var(--scene-gutter) 10px; }
-  /* And 24px of dead space between the title and the first panel, on top of the head's
-     own 10 and the h1's 8. Air at 1040px wide; a hole on a phone. */
-  .terminal-scene { padding-top: 10px; }
-  .terminal-lead-name { font-size: 19px; }
+  /* Less air between the slim header's hairline and the first panel: air at 1040px
+     wide, a hole on a phone. The side gutter stays the site's. */
+  .terminal-scene { padding-top: 14px; }
+  .terminal-lead-name { font-size: 18px; }
   .explore-hero-name { font-size: 18px; }
   .score-rail { --node-w: 200px; }
   .score-line.act .score-rail { --node-w: 148px; }
   .score-line-name { font-size: 18px; }
-  .terminal-bar-inner { padding: 0 10px; }
   .terminal-tab { padding: 9px 10px 7px; gap: 6px; font-size: 10px; }
   .terminal-tab-mark { font-size: 15px; }
   .terminal-tab-mark.mode-mark { width: 16px; height: 16px; }
@@ -1107,12 +1076,13 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   -webkit-mask-position: center;
   -webkit-mask-size: contain;
 }
-/* Beside a scene's name, at the cap height of the title it belongs to. */
+/* The scene's emblem, leading its eyebrow. It sat inside the h1, which started the
+   title's text 44px right of everything under it. */
 .head-mark {
-  width: 1.05em;
-  height: 1.05em;
-  margin-right: 0.42em;
-  vertical-align: -0.1em;
+  width: 1.5em;
+  height: 1.5em;
+  margin-right: 0.6em;
+  vertical-align: -0.45em;
   color: var(--teal);
 }
 /* And large in a panel's corner, the way the game watermarks its own -- behind
@@ -1156,7 +1126,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   border-top: 1px solid var(--line-soft);
   border-left: 1px solid var(--line-soft);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -1216,24 +1186,8 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 /* The other tab's contents. The frame can sit tight under the tabs because its border
    draws the join; a bare heading cannot, so this is the room it needs. */
 .ra-map-list { margin-top: 20px; }
-.ra-map-tab {
-  padding: 3px 9px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.ra-map-tab:hover { color: var(--text); border-color: var(--teal-dim); }
-.ra-map-tab.current {
-  border-color: var(--teal);
-  color: var(--teal);
-  background: rgb(77 232 209 / 0.08);
-}
+/* The map/list switch is the site's .filter-chip (aria-pressed): a local tab at 22px
+   with a hover that only tinted to --teal-dim. */
 .ra-map-zoom {
   display: flex;
   align-items: center;
@@ -1282,7 +1236,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 /* The markers, styled after their renderer: a near-white fill with a BLACK glyph, under
    a translucent ring of the same shape. Every colour here is one of theirs. */
 .ra-fill {
-  fill: #ffffff;
+  fill: white;
   transition: fill 0.12s;
 }
 .ra-ring {
@@ -1313,7 +1267,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-family: var(--font-mono);
 }
 .ra-tag-name {
-  fill: #ffffff;
+  fill: white;
   font-weight: 600;
 }
 .ra-map-credit { margin: 4px 0 0; }

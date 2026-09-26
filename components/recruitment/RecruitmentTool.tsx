@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PipWindow, { pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 import ThemeToggle from '@/components/layout/ThemeToggle';
+import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import SearchInput from '@/components/ui/SearchInput';
+import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { computeTagCombos, getRecruitmentTagCategories, type GuaranteedCombo, type RecruitableOperator, type TagCombo } from '@/lib/gacha/recruitmentCalc';
 import type { RecruitmentProps } from '@/lib/gacha/recruitmentPageData';
 import { DEFAULT_RECRUITMENT_VIEW, MAX_RECRUITMENT_TAGS, readRecruitmentView, recruitmentViewHash, type RecruitmentViewState } from '@/lib/gacha/recruitmentViewState';
@@ -136,30 +140,37 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
     const otherPage = `${isCompact ? '/recruitment' : '/recruitment/popout'}${recruitmentViewHash(view)}`;
     return (
       <div className={`recruit-page${isCompact ? ' recruit-page-compact' : ''}`}>
-        <header className="recruit-header">
-          <div className="recruit-heading">
-            <Image src="/item-icons/recruitment_permit.png" alt="" width={48} height={48} priority />
-            <div>
-              <h1>Recruitment</h1>
-              <p>{isCompact ? 'Arkpedia' : 'Find the best combination in your five tags.'}</p>
+        {isCompact ? (
+          /* The pop-out and the always-on-top window are full-bleed by design: a
+             narrow window beside the game, so they keep a compact header of their own. */
+          <header className="recruit-header">
+            <div className="recruit-heading">
+              <Image src="/item-icons/recruitment_permit.png" alt="" width={30} height={30} priority />
+              <div>
+                <h1>Recruitment</h1>
+                <p>Arkpedia</p>
+              </div>
             </div>
-          </div>
-          <div className="recruit-window-actions">
-            {isCompact ? (
-              inPip ? <button type="button" className="ghost" onClick={returnToPage}>Return to page</button> : (
+            <div className="recruit-window-actions">
+              {inPip ? <button type="button" className="ghost btn-sm" onClick={returnToPage}>Return to page</button> : (
                 <>
                   <ThemeToggle />
-                  <Link prefetch={false} className="ghost" href={otherPage}>Full page</Link>
+                  <Link prefetch={false} className="ghost btn-sm" href={otherPage}>Full page</Link>
                 </>
-              )
-            ) : (
-              <button type="button" className="recruit-popout-button" onClick={openPopout}
-                title={supportsPinnedWindow ? 'Open an always-on-top window' : 'Open a regular window; it will not stay on top'}>
-                <PopoutIcon /> {pip.isOpen ? 'Focus pop-out' : supportsPinnedWindow ? 'On top' : 'Open window'}
-              </button>
-            )}
-          </div>
-        </header>
+              )}
+            </div>
+          </header>
+        ) : (
+          <PageHeader
+            eyebrow="Rhodes Island // Recruitment Office"
+            title="Recruitment"
+            sub="Find the best combination in your five tags."
+            actions={<button type="button" className="ghost recruit-popout-button" onClick={openPopout}
+              title={supportsPinnedWindow ? 'Open an always-on-top window' : 'Open a regular window; it will not stay on top'}>
+              <PopoutIcon /> {pip.isOpen ? 'Focus pop-out' : supportsPinnedWindow ? 'On top' : 'Open window'}
+            </button>}
+          />
+        )}
 
         <main className="recruit-main">
           {!isCompact && popupBlocked && (
@@ -183,19 +194,22 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
           {isCompact && !inPip && <p className="recruit-compact-note">Keep this window beside your game. This view does not stay on top.</p>}
 
           <div className="recruit-toolbar">
-            <div className="recruit-view-switch" role="group" aria-label="Recruitment view">
-              <button type="button" aria-pressed={activeSection === 'calculator'} onClick={() => updateView({ activeSection: 'calculator' })}>Calculator</button>
-              <button type="button" aria-pressed={activeSection === 'cheatsheet'} onClick={() => updateView({ activeSection: 'cheatsheet' })}>Guarantee cheat sheet</button>
-            </div>
+            <SegmentedControl
+              label="Recruitment view"
+              className="recruit-view-switch"
+              value={activeSection}
+              onChange={(section) => updateView({ activeSection: section })}
+              options={[{ value: 'calculator', label: 'Calculator' }, { value: 'cheatsheet', label: 'Guarantee cheat sheet' }]}
+            />
             {!isCompact && <span className="recruit-pool-count">{operators.length} recruitable operators</span>}
           </div>
 
           {activeSection === 'calculator' ? (
             <div className="recruit-workspace">
-              <section className="recruit-picker" aria-labelledby="recruit-picker-title">
+              <section className="recruit-picker op-section" aria-labelledby="recruit-picker-title">
                 <div className="recruit-section-heading">
                   <h2 id="recruit-picker-title">Your tags {isCompact && <span className="recruit-selection-count">{selectedTags.length}/5</span>}</h2>
-                  <button type="button" className="recruit-text-button" disabled={!selectedTags.length} onClick={() => updateView({ selectedTags: [] })}>Clear tags</button>
+                  <button type="button" className="ghost btn-sm" disabled={!selectedTags.length} onClick={() => updateView({ selectedTags: [] })}>Clear tags</button>
                 </div>
                 <p className="recruit-help" id="recruit-selection-help">
                   {selectedTags.length === MAX_RECRUITMENT_TAGS ? 'All five selected. Remove a tag to change it.' : 'Select up to five tags from your recruitment slot.'}
@@ -216,27 +230,28 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                 <p className="recruit-picker-footnote">Explore five available tags. Each result uses up to three.</p>
               </section>
 
-              <section className="recruit-results" aria-labelledby="recruit-results-title">
+              <section className="recruit-results op-section" aria-labelledby="recruit-results-title">
                 <div className="recruit-section-heading">
                   <h2 id="recruit-results-title">Possible recruits</h2>
                   <span className="recruit-result-count" role="status">{visibleCombos.length} {visibleCombos.length === 1 ? 'combination' : 'combinations'}</span>
                 </div>
-                <label className="recruit-results-filter">
-                  <input type="checkbox" checked={!showAllPossibilities} onChange={(event) => updateView({ showAllPossibilities: !event.target.checked })} />
-                  Prioritize 4★+ and Robots
-                </label>
+                <div className="recruit-results-filter">
+                  <button type="button" className={`tgl${showAllPossibilities ? '' : ' is-on'}`} aria-pressed={!showAllPossibilities} onClick={() => updateView({ showAllPossibilities: !showAllPossibilities })}>
+                    Prioritize 4★+ and Robots
+                  </button>
+                </div>
                 {!selectedTags.length ? (
                   <div className="recruit-empty-state">
                     <Image src="/item-icons/recruitment_permit.png" alt="" width={72} height={72} />
                     <h3>Start with the tags you see</h3>
                     <p>Choose your available tags to compare operators and spot the combinations worth keeping.</p>
-                    <button type="button" className="recruit-text-button" onClick={() => updateView({ activeSection: 'cheatsheet' })}>Browse guaranteed combinations</button>
+                    <button type="button" className="ghost btn-sm" onClick={() => updateView({ activeSection: 'cheatsheet' })}>Browse guaranteed combinations</button>
                   </div>
                 ) : !visibleCombos.length ? (
                   <div className="recruit-empty-state">
                     <h3>{combos.length ? 'No priority combinations' : 'No matching operators'}</h3>
                     <p>{combos.length ? 'These combinations include 3★ operators or only 2★ operators. Show all possibilities to inspect the full pool.' : 'Clear your tags and try another selection.'}</p>
-                    {combos.length > 0 && <button type="button" className="recruit-text-button" onClick={() => updateView({ showAllPossibilities: true })}>Show all possibilities</button>}
+                    {combos.length > 0 && <button type="button" className="ghost btn-sm" onClick={() => updateView({ showAllPossibilities: true })}>Show all possibilities</button>}
                   </div>
                 ) : (
                   <>
@@ -247,21 +262,20 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
               </section>
             </div>
           ) : (
-            <section className="recruit-cheatsheet" aria-labelledby="recruit-sheet-title">
+            <section className="recruit-cheatsheet op-section" aria-labelledby="recruit-sheet-title">
               <div className="recruit-section-heading">
                 <h2 id="recruit-sheet-title">Tags worth keeping</h2>
-                <span className="recruit-sheet-legend"><span className="recruit-rarity-gold">5★</span><span className="recruit-rarity-purple">4★+</span></span>
+                <span className="recruit-sheet-legend"><span className="recruit-rarity-5">5★</span><span className="recruit-rarity-4">4★+</span></span>
               </div>
               <p className="recruit-help">Find a tag you have, then look for its pairings. Select a combination to see its operators.</p>
-              <label className="recruit-search-label" htmlFor="recruit-sheet-search">Search tags</label>
-              <input id="recruit-sheet-search" type="search" placeholder="Try DPS, Healing, Nuker…" value={cheatSheetSearch} maxLength={100} onChange={(event) => updateView({ cheatSheetSearch: event.target.value })} className="recruit-search" />
+              <SearchInput id="recruit-sheet-search" label="Search tags" className="recruit-search" placeholder="Try DPS, Healing, Nuker…" value={cheatSheetSearch} onChange={(value) => updateView({ cheatSheetSearch: value.slice(0, 100) })} />
               <p className="recruit-sheet-count" role="status">{cheatSheetGroups.reduce((count, group) => count + group.entries.length, 0)} combinations</p>
               {cheatSheetGroups.length ? cheatSheetGroups.map(({ tag, entries }) => (
                 <div key={tag} className="recruit-sheet-row">
                   <h3>{tag}</h3>
                   <div className="recruit-sheet-pairings">
                     {entries.map((entry) => (
-                      <button key={entry.tags.join('|')} type="button" className={`recruit-sheet-pairing ${entry.minRarity >= 5 ? 'recruit-rarity-gold' : 'recruit-rarity-purple'}`} aria-label={`Show ${entry.tags.join(' + ')} operators, ${entry.minRarity >= 5 ? '5 star' : '4 star or higher'}`} onClick={() => updateView({ selectedTags: entry.tags, activeSection: 'calculator', showAllPossibilities: false })}>
+                      <button key={entry.tags.join('|')} type="button" className={`btn-bare recruit-sheet-pairing ${entry.minRarity >= 5 ? 'recruit-rarity-5' : 'recruit-rarity-4'}`} aria-label={`Show ${entry.tags.join(' + ')} operators, ${entry.minRarity >= 5 ? '5 star' : '4 star or higher'}`} onClick={() => updateView({ selectedTags: entry.tags, activeSection: 'calculator', showAllPossibilities: false })}>
                         <span>{entry.tags.length === 1 ? 'This tag alone' : `+ ${entry.tags.slice(1).join(' + ')}`}</span>
                         <span>{entry.minRarity >= 5 ? '5★' : '4★+'}</span>
                       </button>
@@ -272,7 +286,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                 <div className="recruit-empty-state">
                   <h3>No combinations found</h3>
                   <p>Try another tag name or clear your search.</p>
-                  <button type="button" className="recruit-text-button" onClick={() => updateView({ cheatSheetSearch: '' })}>Clear search</button>
+                  <button type="button" className="ghost btn-sm" onClick={() => updateView({ cheatSheetSearch: '' })}>Clear search</button>
                 </div>
               )}
               <p className="recruit-picker-footnote">Only the smallest combinations for each rarity are listed. Senior Operator and Top Operator already specify their rarity.</p>
@@ -309,12 +323,12 @@ function cheatSheetTier(combo: GuaranteedCombo): number {
 function getComboRarityInfo(operators: RecruitableOperator[]): { colorClass: string; priority: number } {
   const rarities = operators.map((operator) => operator.rarity).filter((rarity): rarity is number => rarity != null);
   const allSame = (rarity: number) => rarities.length > 0 && rarities.every((value) => value === rarity);
-  if (rarities.includes(6)) return { colorClass: 'recruit-rarity-orange', priority: 0 };
-  if (allSame(5)) return { colorClass: 'recruit-rarity-gold', priority: 1 };
-  if (allSame(4)) return { colorClass: 'recruit-rarity-purple', priority: 2 };
-  if (allSame(1)) return { colorClass: 'recruit-rarity-grey', priority: 3 };
-  if (allSame(3)) return { colorClass: 'recruit-rarity-blue', priority: 4 };
-  if (allSame(2)) return { colorClass: 'recruit-rarity-red', priority: 5 };
+  if (rarities.includes(6)) return { colorClass: 'recruit-rarity-6', priority: 0 };
+  if (allSame(5)) return { colorClass: 'recruit-rarity-5', priority: 1 };
+  if (allSame(4)) return { colorClass: 'recruit-rarity-4', priority: 2 };
+  if (allSame(1)) return { colorClass: 'recruit-rarity-1', priority: 3 };
+  if (allSame(3)) return { colorClass: 'recruit-rarity-3', priority: 4 };
+  if (allSame(2)) return { colorClass: 'recruit-rarity-2', priority: 5 };
   return { colorClass: '', priority: 6 };
 }
 
@@ -328,7 +342,7 @@ function TagRow({ label, options, selectedTags, onToggle }: { label: string; opt
       <legend>{label}</legend>
       <div className="recruit-tag-picker">
         {options.map((tag) => (
-          <button key={tag} type="button" aria-pressed={selectedTags.includes(tag)} disabled={!selectedTags.includes(tag) && selectedTags.length >= MAX_RECRUITMENT_TAGS} onClick={() => onToggle(tag)}>
+          <button key={tag} type="button" className="filter-chip" aria-pressed={selectedTags.includes(tag)} disabled={!selectedTags.includes(tag) && selectedTags.length >= MAX_RECRUITMENT_TAGS} onClick={() => onToggle(tag)}>
             {tag}
           </button>
         ))}
@@ -365,7 +379,7 @@ function ComboRow({ combo, hideTwoStars, external }: { combo: TagCombo; hideTwoS
           <Link prefetch={false} key={operator.name} href={`/operators/${encodeURIComponent(operator.name)}`} className="recruit-combo-op" target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>
             <Image src={getOperatorIconPath(operator)} alt="" width={28} height={28} />
             <span>{operator.name}</span>
-            {operator.rarity && <span className="recruit-combo-op-rarity">{operator.rarity}★</span>}
+            {operator.rarity ? <Rarity n={rarityLevel(operator.rarity)} className="recruit-combo-op-rarity" /> : null}
             {external && <span className="visually-hidden"> (opens in a new tab)</span>}
           </Link>
         ))}
