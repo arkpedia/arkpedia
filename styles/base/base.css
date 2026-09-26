@@ -1107,7 +1107,8 @@
   min-width: 0;
 }
 .base-setup-intro {
-  margin-bottom: 18px;
+  /* No top margin: the page's first line starts 24px under the header hairline. */
+  margin: 0 0 18px;
   line-height: 1.6;
 }
 /* Four cards: the three layouts worth starting from, plus Custom. Each is a

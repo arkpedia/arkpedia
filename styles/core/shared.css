@@ -154,6 +154,22 @@
   --control-h-base: 36px;
   --control-h: var(--control-h-base);
 
+  /* --- r9 spacing rhythm (headings-spacing) ---------------------------------------
+     The vertical rhythm of a page, in three lengths (no light-theme twin: they are
+     lengths). The 2026-09-26 census measured 12 different gaps under a section
+     heading (0-30px) and 11 between stacked sections (0-44px).
+       --heading-gap  a section h2 (or the heading row it leads) to the first content
+       --section-gap  one stacked section to the next (.op-section, and the operator
+                      page and /pulls stacks, which used a grid gap of 16px)
+       --card-inset   a picture card's text from its flush art: the card's teal hover
+                      edge boxes it, so the text keeps one inset (video, roster,
+                      stage-mode, skin and supply cards used 10, 11, 12 and 14px)
+     docs/development/ui-primitives.md rules 15-17; tests/browser/cards-and-headings
+     .spec.ts and page-bounds.spec.ts measure them. */
+  --heading-gap: 14px;
+  --section-gap: 36px;
+  --card-inset: 12px;
+
   --font-mono: 'JetBrains Mono', monospace;
   --font-display: 'Rajdhani', sans-serif;
   --font-body: 'Inter', sans-serif;
@@ -505,17 +521,56 @@ h1 {
    class its h2 arrived as a surprise. Same rules, moved to where its users are. The h2
    is --heading: teal-ish, kept apart from the --teal of on/current states, and never
    amber, which is for countdowns, costs and warnings (maintainer, 2026-09-26). */
+/* --- r9 section rhythm and heading roles (headings-spacing) ------------------------
+   Sections stack --section-gap apart and their h2 sits --heading-gap above the first
+   content. margin-top is 0: the h2 used to inherit the global h2's 18px, so a page that
+   opened with a section heading started 42px under the header hairline and every other
+   page 24px (the 2026-09-26 census). A heading that is not inside an .op-section (a home
+   panel, a disclosure header, a panel head) takes .section-title for the same look;
+   restating the look in a page stylesheet is what audit:styles (headingRules) rejects. */
 .op-section {
-  margin-bottom: 36px;
+  margin-bottom: var(--section-gap);
 }
-.op-section h2 {
+.op-section h2,
+h2.section-title,
+.waiting-box h2 {
   font-family: var(--font-display);
   font-size: 18px;
+  font-weight: 700;
   text-transform: uppercase;
   color: var(--heading);
-  margin-bottom: 14px;
+  margin: 0 0 var(--heading-gap);
   letter-spacing: 0.03em;
 }
+/* The name of a thing, not a section: an entity (the enemy in the handbook, the
+   planner's operator, the operator's selected skill), a dialog or a card. One voice,
+   never larger than 22px, and never larger than the section h2 above it: the skill name
+   under the 18px "Skills" h2 takes .entity-title-sm. Margins stay with the layout that
+   places it. Written with the element so it outranks .op-section h2 by order. */
+h2.entity-title,
+h3.entity-title,
+.entity-title,
+.modal-box h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+h2.entity-title.entity-title-sm,
+h3.entity-title.entity-title-sm,
+.entity-title.entity-title-sm { font-size: 18px; }
+h2.entity-title.entity-title-xs,
+h3.entity-title.entity-title-xs,
+.entity-title.entity-title-xs { font-size: 15px; }
+/* A list in running text keeps its markers inside the text column: the browser's
+   40px indent put the operator page's promotion bullets 40px right of the heading
+   above them. 1.1em is the marker column -- the bullet sits in it, at the column's
+   edge, and the text hangs after it. Zero specificity: a list with a class of its own
+   (menus, grids, rows) sets its own padding, which outranks this. */
+:where(ul, ol) { padding-inline-start: 1.1em; }
+/* --- end r9 section rhythm and heading roles --------------------------------------- */
 
 h2 {
   font-family: var(--font-display);
@@ -720,13 +775,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   color: var(--text-faint);
 }
 :where(p, div).hint { margin-bottom: 18px; }
-.thanks-view { text-align: center; padding: 60px 20px; }
-.thanks-view h2 {
-  font-family: var(--font-display);
-  font-size: 26px;
-  text-transform: uppercase;
-  color: var(--teal);
-}
 .waiting-box {
   text-align: center;
   padding: 80px 20px;
@@ -734,11 +782,9 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   border-radius: 4px;
   margin-top: 20px;
 }
-.waiting-box h2 {
-  font-family: var(--font-display);
-  color: var(--heading);
-  text-transform: uppercase;
-}
+/* The first thing on the page starts 24px under the header hairline, like every page
+   (a 20px margin put the Twitch and YouTube empty states at 44px). */
+.waiting-box:first-child { margin-top: 0; }
 .honeypot {
   position: absolute;
   left: -9999px;
@@ -1052,11 +1098,9 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   overscroll-behavior: contain;
   padding: 26px 28px;
 }
+/* A dialog's title is the .entity-title voice (the selector list at the top of this
+   file); this is its place. */
 .modal-box h2 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 22px;
-  text-transform: uppercase;
   margin: 6px 0 16px;
 }
 .modal-top-row {
@@ -1198,15 +1242,12 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   border: 1px solid var(--line-soft);
   background: var(--panel-grad, var(--panel-2));
 }
-.supporter-tier h3 {
-  margin: 0 0 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
+/* Each tier's name is a .label-tag micro-label (arkpedia-theme.css); it stays an h3,
+   heading its list of names. */
+.supporter-tier h3 { margin: 0 0 8px; }
+/* The page's first line starts 24px under the header hairline (the paragraph's own top
+   margin put it at 40). */
+.support-intro { margin-top: 0; }
 .supporter-list {
   display: flex;
   flex-direction: column;

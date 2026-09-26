@@ -30,14 +30,14 @@
 .recruit-workspace { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); gap: 28px; align-items: start; }
 .recruit-picker.op-section, .recruit-results.op-section, .recruit-cheatsheet.op-section { margin-bottom: 0; }
 .recruit-picker { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); padding: 20px; }
-.recruit-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.recruit-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
 .recruit-section-heading h2 { margin: 0; }
 .recruit-selection-count { margin-left: 6px; font: 500 12px var(--font-mono); color: var(--text-dim); }
 /* An inline action inside a sentence (the pop-out notices): a text link. */
 .recruit-page .recruit-text-button { border: 0; padding: 0; min-height: 0; background: transparent; color: var(--text-bright); font: 500 12px/1.5 var(--font-body); text-transform: none; letter-spacing: 0; text-decoration: underline; text-underline-offset: 3px; }
 .recruit-page .recruit-text-button:hover { color: var(--teal); }
 .recruit-page button:disabled { opacity: 0.4; cursor: not-allowed; }
-.recruit-help { margin: 5px 0 16px; font-size: 12px; line-height: 1.6; color: var(--text-dim); max-width: 75ch; }
+.recruit-help { margin: 0 0 16px; font-size: 12px; line-height: 1.6; color: var(--text-dim); max-width: 75ch; }
 /* The five chosen tags: each is on, so each is teal; pressing one removes it. */
 .recruit-selection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 0 0 22px; }
 .recruit-selection button, .recruit-empty-slot { display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: var(--radius); }
@@ -52,10 +52,11 @@
 .recruit-picker-footnote { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); color: var(--text-dim); font-size: 11px; line-height: 1.6; }
 .recruit-results { min-width: 0; padding-top: 2px; }
 .recruit-result-count { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
-.recruit-results-filter { display: flex; padding: 8px 0 12px; border-bottom: 1px solid var(--line); }
+.recruit-results-filter { display: flex; padding: 0 0 12px; border-bottom: 1px solid var(--line); }
 .recruit-empty-state { padding: 58px 22px; text-align: center; }
 .recruit-empty-state > img { object-fit: contain; opacity: 0.7; margin: 0 auto 12px; }
-.recruit-empty-state h3 { margin: 0 0 8px; color: var(--text); }
+/* The global h3 (shared.css), the sub-section voice. */
+.recruit-empty-state h3 { margin: 0 0 8px; }
 .recruit-empty-state p { max-width: 38ch; margin: 0 auto 16px; font-size: 13px; line-height: 1.7; color: var(--text-dim); }
 .recruit-combo-block { margin-top: 18px; }
 .recruit-combo-heading { margin: 0 0 10px; }
@@ -83,7 +84,7 @@
 .recruit-search { max-width: 440px; margin-top: 16px; }
 .recruit-sheet-count { font-size: 11px; color: var(--text-dim); margin: 14px 0; }
 .recruit-sheet-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-top: 1px solid var(--line-soft); align-items: start; }
-.recruit-sheet-row h3 { color: var(--text); margin: 7px 0 0; }
+.recruit-sheet-row h3 { margin: 7px 0 0; }
 .recruit-sheet-pairings { display: flex; flex-wrap: wrap; gap: 8px; }
 /* A pairing opens the calculator on its tags: a .btn-bare card with the control
    border, the teal hover and its rarity as the left edge. */
@@ -112,7 +113,7 @@
 .recruit-page-compact .recruit-sheet-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 
 @media (max-width: 960px) {
-  .recruit-workspace { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .recruit-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--section-gap); }
   .recruit-pool-count { display: none; }
   .recruit-empty-state { padding: 32px 20px; }
 }

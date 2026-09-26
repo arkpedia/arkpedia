@@ -27,7 +27,7 @@ export default function SupportPage() {
 
       <main>
         <section className="op-section">
-          <p>
+          <p className="support-intro">
             There can be a lot more features for the site, but the site will also become more
             expensive to host if so. If you&apos;d like to support, you can support in three ways!
           </p>
@@ -108,7 +108,7 @@ export default function SupportPage() {
           <h2>Thank You to My Supporters</h2>
           <div className="supporters-tiers">
             <div className="supporter-tier">
-              <h3>Oiler Cookie Supporters</h3>
+              <h3 className="label-tag">Oiler Cookie Supporters</h3>
               <ul className="supporter-list">
                 <li>KingS</li>
                 <li>J-Min</li>
@@ -116,7 +116,7 @@ export default function SupportPage() {
             </div>
 
             <div className="supporter-tier">
-              <h3>Cookie Supporters</h3>
+              <h3 className="label-tag">Cookie Supporters</h3>
               <ul className="supporter-list">
                 <li>Wry Smil3</li>
                 <li>Kikaiism</li>
@@ -126,7 +126,7 @@ export default function SupportPage() {
             </div>
 
             <div className="supporter-tier">
-              <h3>Mini Cookie Supporters</h3>
+              <h3 className="label-tag">Mini Cookie Supporters</h3>
               <ul className="supporter-list">
                 <li>JayKey</li>
                 <li>Ferrum Argentum</li>

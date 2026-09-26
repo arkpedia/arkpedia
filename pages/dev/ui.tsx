@@ -164,6 +164,27 @@ export default function UiPrimitivesPage() {
           </ScrollRow>
         </section>
 
+        {/* r9 headings-spacing: the four heading roles and the rhythm between them. */}
+        <section className="op-section" id="headings">
+          <h2>Headings and rhythm</h2>
+          <p className="hint">A section h2 (.op-section h2, or .section-title outside one) sits --heading-gap (14px) above its content; sections stack --section-gap (36px) apart.</p>
+          <h3>A sub-section: the global h3</h3>
+          <div style={{ ...card, width: 'auto', height: 'auto', display: 'block', padding: 'var(--card-inset)' }}>
+            <h3 className="entity-title">Entity title, 22px</h3>
+            <h3 className="entity-title entity-title-sm">Under an 18px section h2: .entity-title-sm</h3>
+            <h3 className="entity-title entity-title-xs">In a sheet: .entity-title-xs</h3>
+          </div>
+          <h3 className="label-tag">A micro-label: .label-tag</h3>
+          <ul>
+            <li>A list keeps its bullets in a 1.1em marker column at the text&apos;s edge.</li>
+            <li>The text hangs after them.</li>
+          </ul>
+        </section>
+        <section className="op-section" id="headings-next">
+          <h2 className="section-title">.section-title, the same heading outside an .op-section</h2>
+          <p className="hint">36px above this section is --section-gap.</p>
+        </section>
+
         <section className="op-section" id="rarity">
           <h2>Rarity</h2>
           <div style={row}>

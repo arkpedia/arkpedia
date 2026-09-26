@@ -70,12 +70,13 @@ const UNBLOCKABLE_BY_DATA = new Set([
  * capital Ws is wider than one of Is -- so the steps leave headroom rather than
  * cutting it fine.
  */
-function nameSizeClass(name: string): string | undefined {
+/** The name is an .entity-title (22px); a long one starts a step down the display scale
+ *  (18, then 15) and the fit effect below takes it the rest of the way. */
+function nameSizeClass(name: string): string {
   const n = name.length;
-  if (n <= 19) return undefined;
-  if (n <= 27) return 'enemy-name-m';
-  if (n <= 35) return 'enemy-name-s';
-  return 'enemy-name-xs';
+  if (n <= 19) return 'entity-title';
+  if (n <= 27) return 'entity-title entity-title-sm';
+  return 'entity-title entity-title-xs';
 }
 
 

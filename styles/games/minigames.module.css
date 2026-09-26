@@ -6,13 +6,15 @@
 .disclosure { composes: disclosure from './guesser-shared.module.css'; }
 .setup { display: grid; gap: 22px; }
 .setup h2 { margin: 0; }
-.intro { display: grid; gap: 8px; }
+/* The heading and its lede: --heading-gap under the heading, as everywhere. */
+.intro { display: grid; gap: var(--heading-gap); }
 .muted { margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.6; }
 .start { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .rules { color: var(--text-dim); font-size: 13px; line-height: 1.65; }
 .rules p { margin: 10px 0 0; }
-.round { composes: panel; scroll-margin-top: calc(var(--nav-h, 54px) + 16px); outline: none; display: grid; gap: 22px; }
-.roundTop { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.round { composes: panel; scroll-margin-top: calc(var(--nav-h, 54px) + 16px); outline: none; display: grid; gap: var(--round-gap); --round-gap: 22px; }
+/* The round's heading row keeps --heading-gap under it; the grid's gap is part of it. */
+.roundTop { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: calc(var(--heading-gap) - var(--round-gap)); }
 .roundTop h2 { margin: 0; }
 .roundTop > span { font-size: 13px; color: var(--text-dim); }
 /* A heading whose wording changes with the round's state: every wording sits in one

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { CENSUS_STATES, censusRoutes, openCensus } from './census-routes';
+import { sectionCensus } from './section-census';
 
 /*
  * Two maintainer decisions from 2026-09-26, after the site-wide restyle:
@@ -11,8 +12,34 @@ import { CENSUS_STATES, censusRoutes, openCensus } from './census-routes';
  *   the teal edge on hover and keyboard focus. Real controls keep --control-border.
  */
 
-// Routes whose sections use the site heading (.op-section h2 or the home panels).
-const HEADING_ROUTES = ['/', '/operators/Amiya', '/gacha', '/planner', '/skins'];
+/* --- r9 headings and spacing (headings-spacing) ------------------------------------
+ * Every census route (the 2026-09-26 census: 45 addresses less the Stronghold companion,
+ * full-bleed by design, and the 404), with how many section headings each shows at
+ * least, so a selector that stopped matching fails rather than passing on nothing. The
+ * counts are what a page always shows, not what it showed on the day: a panel that
+ * depends on the clock (a banner, an open event, a live feed) is not counted.
+ * On each: every section heading (.op-section h2, .section-title, .waiting-box h2) is
+ * the canonical look -- Rajdhani 18px, 700, 0.03em, uppercase, --heading (never amber,
+ * never the on-state --teal) -- and, in the dark theme, sits --heading-gap (14px) above
+ * the first content under it, consecutive stacked .op-sections are --section-gap (36px)
+ * apart, and every .entity-title is 22px at most and no larger than the section h2
+ * above it (docs/development/ui-primitives.md rules 15 and 16). Gaps are box geometry,
+ * so +-2px holds on CI's Linux fonts. tests/browser/section-census.ts measures, and
+ * says what it leaves out (a disclosure header, a board of panels) and why. */
+const HEADING_ROUTES: Record<string, number> = {
+  '/': 2, '/base': 0, '/community': 1, '/community/twitch': 0, '/community/videos': 0,
+  '/community/youtube-live': 0, '/enemies': 0, '/events/Duel%20Channel%3A%20Ivy%20Vine': 0, '/farming': 3,
+  '/gacha': 1, '/gamemodes': 0, '/gamemodes/stronghold-protocol': 1, '/games': 0, '/games/color-palette': 1,
+  '/games/music-guesser': 0, '/games/operator-guesser': 1, '/games/recruitment-guesser': 1,
+  '/games/stage-guesser': 1, '/music': 1, '/music/discover': 1, '/obtain-method': 0, '/operators': 0,
+  '/operators/Amiya': 10, '/planner': 1, '/pulls': 3, '/recruitment': 2, '/results': 0, '/schedule': 0,
+  '/skins': 1, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
+  '/stages/exploration': 2, '/stages/regular': 2, '/stages/score': 2, '/stages/seasonal': 2,
+  '/stages/supplies': 0, '/support': 1, '/synergies': 10, '/techniques': 10,
+};
+const HEADING_GAP = 14;
+const SECTION_GAP = 36;
+/* --- end r9 headings and spacing ---------------------------------------------------- */
 const HOME_CARDS = ['.front-events-main', '.front-gacha-poster-wrap', '.front-featured-op', '.front-skin-item', '.front-community-item'];
 
 /*
@@ -167,24 +194,41 @@ for (const theme of ['dark', 'light'] as const) {
       await page.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch { /* none */ } }, theme);
     });
 
-    test('section headings use --heading, never amber or the on-state teal', async ({ page }) => {
-      for (const route of HEADING_ROUTES) {
+    // r9: one test per route; the look in both themes, the geometry once (dark), and the
+    // light theme on the desktop project only (colour does not change with the width).
+    for (const [route, least] of Object.entries(HEADING_ROUTES)) {
+      test(`section headings on ${decodeURIComponent(route)}: one look, --heading-gap under, --section-gap between`, async ({ page }, info) => {
+        test.skip(theme === 'light' && info.project.name !== 'desktop', 'colour is width-independent: the light theme runs once');
         await page.goto(route);
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.evaluate(() => document.fonts.ready);
         expect(await themeOf(page), `the page is in the ${theme} theme`).toBe(theme);
         const heading = await tokenColour(page, '--heading');
         const amber = await tokenColour(page, '--amber');
         const teal = await tokenColour(page, '--teal');
         expect(heading, 'the heading colour is its own token').not.toBe(teal);
-        const colours = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('.op-section h2, .front-home-panel h2, .simple-all h2, .simple-empty h2, .plan-panel-head .label-pair > h2, .waiting-box h2'))
-          .filter((el) => el.getClientRects().length > 0)
-          .map((el) => ({ text: (el.textContent ?? '').trim().slice(0, 40), colour: getComputedStyle(el).color })));
-        expect(colours.length, `${route} has section headings`).toBeGreaterThan(0);
-        for (const { text, colour } of colours) {
-          expect(colour, `${route} "${text}" is not amber`).not.toBe(amber);
-          expect(colour, `${route} "${text}" uses --heading`).toBe(heading);
+        const census = await page.evaluate(sectionCensus, { stacks: false });
+        expect(census.headings.length, `${route} shows at least ${least} section heading(s)`).toBeGreaterThanOrEqual(least);
+        for (const h of census.headings) {
+          const at = `${route} "${h.text}"`;
+          expect(h.colour, `${at} is not amber`).not.toBe(amber);
+          expect(h.colour, `${at} uses --heading`).toBe(heading);
+          expect(h.size, `${at} is 18px`).toBe(18);
+          expect(h.weight, `${at} is 700`).toBe('700');
+          expect(h.tracking, `${at} is tracked 0.03em`).toBeCloseTo(0.03, 3);
+          expect(h.transform, `${at} is uppercase`).toBe('uppercase');
         }
-      }
-    });
+        for (const e of census.entities) {
+          expect(e.size, `${route} entity title "${e.text}" is 22px at most`).toBeLessThanOrEqual(22);
+          if (e.sectionSize !== null) expect(e.size, `${route} entity title "${e.text}" is no larger than the section h2 "${e.sectionHeading}" above it`).toBeLessThanOrEqual(e.sectionSize);
+        }
+        if (theme !== 'dark') return;
+        const gaps = census.headings.filter((h) => h.gap !== null && Math.abs(h.gap - HEADING_GAP) > 2).map((h) => `"${h.text}" -> ${h.next}: ${h.gap}px`);
+        expect(gaps, `${route}: section headings not ${HEADING_GAP}px (+-2) above the first content under them`).toEqual([]);
+        const stacked = census.sections.filter((g) => Math.abs(g.gap - SECTION_GAP) > 2).map((g) => `${g.a} -> ${g.b}: ${g.gap}px`);
+        expect(stacked, `${route}: stacked .op-sections not ${SECTION_GAP}px (+-2) apart`).toEqual([]);
+      });
+    }
 
     for (const [route, least] of Object.entries(PICTURE_ROUTES)) {
       test(`picture cards on ${decodeURIComponent(route)} have no resting frame, and a teal edge on hover`, async ({ page }, info) => {

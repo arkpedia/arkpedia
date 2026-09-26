@@ -313,11 +313,14 @@
 
 /* Queue panel: drag-and-drop reorder, tap-to-swap, play now, move to top, remove. */
 .music-queue-panel {
+  --queue-gap: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--queue-gap);
 }
-.music-queue-panel h2 { margin: 0; }
+/* "Songs (884)" is the page's section heading, .section-title (shared.css): it was the
+   global 22px h2 at a 10px gap. The panel's flex gap is part of the heading gap. */
+.music-queue-panel > h2 { margin: 0 0 calc(var(--heading-gap) - var(--queue-gap)); }
 .music-queue-show-more { width: 100%; }
 .music-queue-list {
   display: flex;
@@ -460,12 +463,14 @@
    overlapping each other); artist chips are .filter-chip; preview rows are ScrollRow. */
 
 .music-discover-page { padding-bottom: 40px; }
-.music-discover-body { display: flex; flex-direction: column; gap: 8px; }
+/* The sections are .op-section, spaced by its --section-gap alone (an 8px flex gap on
+   top made 44px). */
+.music-discover-body { display: flex; flex-direction: column; }
 .music-discover-search-row { display: flex; align-items: center; gap: 10px; width: 100%; }
 .music-discover-back-btn { flex-shrink: 0; white-space: nowrap; }
-.music-discover-results { display: flex; flex-direction: column; gap: 8px; }
+.music-discover-results { display: flex; flex-direction: column; }
 
-.music-discover-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.music-discover-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
 .music-discover-section-heading h2 { margin: 0; }
 .music-discover-active-facet { color: var(--text-dim); font-weight: 600; }
 

@@ -18,7 +18,7 @@ export default function GamesPage() {
           <Link href={game.href} prefetch={false} className={styles.card} aria-labelledby={`game-${game.icon}`}>
             <span className={styles.icon} aria-hidden="true">{ICONS[game.icon]}</span>
             <div>
-              <h2 id={`game-${game.icon}`}>{game.name}</h2>
+              <h2 id={`game-${game.icon}`} className="entity-title">{game.name}</h2>
               <p>{game.description}</p>
               <span className={styles.play}>Play</span>
             </div>

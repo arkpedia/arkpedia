@@ -79,9 +79,13 @@
   border-radius: var(--radius-frame);
   background: var(--panel);
   container: operatorDetails / inline-size;
+  --panel-inset: 16px;
 }
 .panelHeader { position: relative; z-index: 8; flex-shrink: 0; border-bottom: 1px solid var(--line-soft); background: var(--panel); }
-.hero { padding: 12px 16px 10px; }
+/* The header's content and the reading area's sections start on --panel-inset (set
+   on .details), so the section boxes line up with the name and the picker above them;
+   the area was 4px (8px on a phone) inside the header's edge. */
+.hero { padding: 12px var(--panel-inset) 10px; }
 .identity { min-width: 0; }
 .identity :global(.op-header-flex) { align-items: center; gap: 16px; }
 .identity :global(.op-header-text) { min-width: 0; }
@@ -107,14 +111,16 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  padding: 12px 12px 64px;
+  padding: 12px var(--panel-inset) 64px;
   overflow-x: hidden;
   overflow-y: auto;
   outline: none;
   overscroll-behavior-y: contain;
   scroll-padding-bottom: 64px;
   scrollbar-gutter: stable;
-  --operator-player-inset: 26px;
+  /* From the voice player to the area's edge: the section's padding and border and
+     the area's inset, so the stuck player's band spans the panel. */
+  --operator-player-inset: calc(var(--panel-inset) + 15px);
   --operator-player-sticky-top: -12px;
 }
 .area [hidden] { display: none !important; }
@@ -122,8 +128,7 @@
 .content p { line-height: 1.7; }
 /* Each section is one surface, heading and controls included. */
 .content > [data-operator-section] { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--bg); }
-.content > [data-operator-section] + [data-operator-section] { margin-top: 16px; }
-.content h2 { margin-top: 0; }
+.content > [data-operator-section] + [data-operator-section] { margin-top: var(--section-gap); }
 .content h3 { margin-top: 0; }
 .section { min-width: 0; outline: none; scroll-margin-top: 126px; }
 
@@ -156,8 +161,9 @@
 /* The skill tabs (components/ui/Tabs with the skill icons, .op-skill-tabs in
    operator-detail.css) lead the section under its h2 and the selected skill's panel
    follows. Every skill's title takes part in sizing the header; only the selected one
-   is visible. */
-.selectedSkill { display: grid; gap: 0; margin: 0; color: var(--text); font: 600 22px/1.2 var(--font-display); }
+   is visible. The name is .entity-title .entity-title-sm (shared.css): 18px, no larger
+   than the "Skills" h2 above it. It was 22px under an 18px section heading. */
+.selectedSkill { display: grid; gap: 0; margin: 0; line-height: 1.2; }
 .skillTitleVariant { display: flex; flex-wrap: wrap; grid-area: 1 / 1; align-content: flex-start; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 .skillLevelControl { display: grid; grid-template-columns: auto 72px minmax(0, 1fr); align-items: center; gap: 8px; margin: 8px 0; }
 .skillLevelControl label { color: var(--text-dim); font-size: 13px; }
@@ -192,7 +198,7 @@
 
 /* --- talents (components/operators/OperatorTalents.tsx) ---------------------------- */
 .content > [data-operator-section] > .talentControls { margin: 0 0 16px; }
-.talentControls h2 { margin: 0 0 10px; }
+.talentControls h2 { margin: 0 0 var(--heading-gap); }
 .talentSelectors { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
 /* Elite and potential pickers: .filter-chip toggles, sized as icon tiles. */
 .talentOptions { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 0; }
@@ -223,7 +229,9 @@
 /* Keep promotion materials together when the LMD + materials line must wrap. */
 .promotionCosts { align-items: flex-start; }
 .promotionMaterials { display: flex; flex-wrap: wrap; gap: 8px 12px; width: max-content; max-width: 100%; }
-.page :global(.op-potential-row) { gap: 16px; min-height: 44px; margin: 0; padding: 4px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+/* A 44px row, its icon and text centred in it: no vertical padding, so the first row's
+   content starts --heading-gap under the "Potential" heading (it was 4px lower). */
+.page :global(.op-potential-row) { gap: 16px; min-height: 44px; margin: 0; padding: 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .page :global(.op-base-skill-card) { min-width: 0; padding: 12px 0 0; border: 0; border-top: 1px solid var(--line-soft); border-radius: 0; background: transparent; overflow-wrap: anywhere; }
 .page :global(.op-module-list), .page :global(.op-module-stage-buttons) { flex-wrap: wrap; }
 .page :global(.op-module-card) { min-width: 0; max-width: 100%; }
@@ -261,10 +269,10 @@
   .gallery, .details { grid-column: 1; }
   .gallery { height: var(--operator-mobile-art-height, min(70svh, 600px)); }
   .splitRail { display: none; }
-  .details { display: block; height: auto; overflow: visible; }
-  .hero { padding: 14px; }
+  .details { display: block; height: auto; overflow: visible; --panel-inset: 14px; }
+  .hero { padding: 14px var(--panel-inset); }
   .identity :global(.op-header-flex) { flex-wrap: wrap; gap: 12px; }
-  .area { min-height: calc(100svh - var(--nav-h, 52px) - 132px); padding: 12px 8px 64px; overflow: visible; --operator-player-inset: 21px; }
+  .area { min-height: calc(100svh - var(--nav-h, 52px) - 132px); overflow: visible; --operator-player-inset: calc(var(--panel-inset) + 13px); }
   .content > [data-operator-section] { padding: 12px; }
 }
 @media (max-width: 900px), (max-height: 600px) {
@@ -280,12 +288,12 @@
 }
 @media (max-width: 540px) {
   .identity :global(.op-name-row) { grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; }
-  .hero { padding: 12px; }
+  .details { --panel-inset: 12px; }
+  .hero { padding: 12px var(--panel-inset); }
   .page :global(#operator-skills) { gap: 0 10px; }
-  .selectedSkill { font-size: 18px; }
 }
 @media (max-width: 360px) {
-  .area { --operator-player-inset: 17px; }
+  .area { --operator-player-inset: calc(var(--panel-inset) + 9px); }
   .content > [data-operator-section] { padding-inline: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {

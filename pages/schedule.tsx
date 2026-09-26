@@ -569,7 +569,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                     style={{ width: '100%', height: 'auto' }}
                   />
                 )}
-                <h2 className="schedule-panel-title">{displayEvent.name}</h2>
+                <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
                 <p className="hint">{displayEvent.global.dateRange}</p>
                 <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">
                   Event page

@@ -23,7 +23,6 @@
   "fontSizes": [
     "arkpedia-theme.css: 14px",
     "arkpedia-theme.css: 16px",
-    "arkpedia-theme.css: 16px",
     "arkpedia-theme.css: 17px",
     "arkpedia-theme.css: 9.5px",
     "enemies.css: 16px",
@@ -53,7 +52,9 @@
   "tealDecoration": [],
   "checkboxPrimitive": [],
   "tglOutsideToolbar": [],
+  "headingRules": [],
   "stretchedChoices": [],
   "deadPrimitives": [],
-  "liveBadge": []
+  "liveBadge": [],
+  "controlHeight": []
 }

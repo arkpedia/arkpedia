@@ -225,7 +225,7 @@ export function SimplePlanner({
                   <span>
                     {summary.rarity ? <Rarity n={rarityLevel(summary.rarity)} /> : null} {summary.className}
                   </span>
-                  <h2>{name}</h2>
+                  <h2 className="entity-title">{name}</h2>
                 </div>
               </div>
               <div className="simple-dossier-content">
@@ -291,7 +291,7 @@ export function SimplePlanner({
             </article>
           ) : (
             <section className="simple-all" {...tabPanelProps("planner-operator", ALL_MATERIALS)}>
-              <h2>All materials</h2>
+              <h2 className="section-title">All materials</h2>
               {pending.length ? (
                 <p role="status">
                   {pending.some((n) => failedNames.has(n))
@@ -315,7 +315,7 @@ export function SimplePlanner({
         </>
       ) : (
         <div className="simple-empty">
-          <h2>Who are you building?</h2>
+          <h2 className="section-title">Who are you building?</h2>
           <p>Search an operator to set their current level and goal.</p>
         </div>
       )}

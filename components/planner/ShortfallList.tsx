@@ -416,7 +416,7 @@ export function ShortfallList({
       <div className="plan-panel-head">
         <span className="label-pair">
           <span className="label-tag plan-panel-tag">What to get next</span>
-          <h2>Still needed</h2>
+          <h2 className="section-title">Still needed</h2>
         </span>
         {/* Derived from what renders, so the two cannot disagree. */}
         <span className="hint plan-hint">

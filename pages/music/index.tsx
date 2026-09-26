@@ -574,7 +574,7 @@ export default function MusicPage({ songLookup }: Props) {
           </div>
         ) : (
           <div className="music-queue-panel">
-            <h2>Songs ({displayList.length})</h2>
+            <h2 className="section-title">Songs ({displayList.length})</h2>
             <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
             {isSearching ? (
               <>

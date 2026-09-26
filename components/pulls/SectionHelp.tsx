@@ -68,7 +68,7 @@ export function SectionHelp({ title, children, links = [], triggerLabel }: {
         const bounds = event.currentTarget.getBoundingClientRect();
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false);
       }}>
-      <div className="pulls-help-heading"><h2 id={id}>{title}</h2><button type="button" className="ghost btn-sm" onClick={() => setOpen(false)} autoFocus>{triggerLabel ? 'Close' : 'Close help'}</button></div>
+      <div className="pulls-help-heading"><h2 id={id} className="entity-title">{title}</h2><button type="button" className="ghost btn-sm" onClick={() => setOpen(false)} autoFocus>{triggerLabel ? 'Close' : 'Close help'}</button></div>
       <div className="pulls-help-content">{children}</div>
       {links.length > 0 && <nav className="pulls-help-links" aria-label="Find these controls">{links.map(link => <button key={link.selector} type="button" className="ghost btn-sm" onClick={() => {
         destination.current = trigger.current?.closest('section, fieldset')?.querySelector<HTMLElement>(link.selector) || document.querySelector<HTMLElement>(link.selector);

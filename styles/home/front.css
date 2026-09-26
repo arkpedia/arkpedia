@@ -37,7 +37,9 @@ body.front-page-no-scroll {
 .front-page-left, .front-page-right {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* The board's own gap (14px, as between the columns and on the Terminal home): a
+     board of panels, not a column of sections, so not --section-gap. */
+  gap: 14px;
   min-height: 0;
   /* Each column grows to its own content and the PAGE carries the scrolling.
      They keep overflow-y: auto so a column that is somehow taller than the
@@ -57,22 +59,20 @@ body.front-page-no-scroll {
   padding: 10px 12px;
   flex-shrink: 0;
 }
-/* The site's section heading (.op-section h2): --heading, 18px, uppercase. These were
-   --teal, and --teal means "on" or "current". */
-.front-home-panel h2 {
-  margin: 0 0 12px;
-  font-family: var(--font-display);
-  font-size: 18px;
-  letter-spacing: 0.03em;
-  color: var(--heading);
-}
+/* The panels' headings are .section-title (shared.css): the site's section heading and
+   its --heading-gap. They were --teal, then a copy of the look here at a 12px gap. */
 
 /* Events panel (home page's own summary panel -- see also the
    standalone /events pages, a different, fuller listing) */
-/* The event card is a link to the event's page, so it has a control's frame. */
+/* The event card is a link to the event's page, so it has a control's frame.
+   The panels' picture cards hold their art inside the teal hover edge (a padding and a
+   transparent border); each is drawn out by exactly that much, so the art starts on the
+   panel's edge under the heading and --heading-gap below it, and the edge draws in the
+   panel's padding (docs/development/ui-primitives.md rules 15 and 17; the art sat 7px in
+   and up to 21px under the heading). */
 .front-events-main {
   display: block;
-  width: 100%;
+  margin: -7px -7px 0;
   padding: 6px;
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -228,7 +228,7 @@ body.front-page-no-scroll {
 /* Skins on sale: a ScrollRow (components/ui) of cards the reader scrolls, under the
    site's drawn bar. It was a marquee; see components/skins/SkinsCarousel.tsx. Each
    card opens the skin's sheet, so it has a control's frame and the teal hover. */
-.front-skins-row { padding-bottom: 4px; }
+.front-skins-row { margin: -6px -6px 0; padding-bottom: 4px; }
 .front-skin-item {
   display: flex;
   flex-direction: column;
@@ -313,6 +313,7 @@ body.front-page-no-scroll {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin: -5px -3px 0;
 }
 /* An operator link, framed like any control; the portrait's bottom edge is its
    rarity (.tier-N). */
@@ -347,6 +348,7 @@ body.front-page-no-scroll {
 
 /* Community fader panel (right column, under Featured Operators) */
 .front-community-fade-wrap {
+  margin: -7px -7px 0;
   animation: front-community-fade-in 0.4s ease;
 }
 @keyframes front-community-fade-in {

@@ -257,16 +257,11 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   color: var(--text-faint);
   white-space: nowrap;
 }
+/* A heading in the pair keeps its own voice (.section-title for a panel's section
+   heading, .entity-title for a name; styles/core/shared.css) and loses only its margin:
+   the pair is one line. */
 .label-pair > h2,
-.label-pair > h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text);
-}
+.label-pair > h3 { margin: 0; }
 
 /* Skewed capacity pips ("|||" in the game's facility rows). */
 .pip {

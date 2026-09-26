@@ -168,7 +168,7 @@ export function OperatorWizard({
         <div className="wizard-head">
           {/* Two steps, and the rail says which one you are on and what the
               other one is -- the thing none of the three old screens did. */}
-          {simpleStep ? <h2 className="simple-editor-title">{activeSummary && <Image src={getOperatorIconPath(activeSummary)} alt={activeSummary.name} width={40} height={40} />}<span>{simpleStep === 'current' ? 'Set starting level' : 'Set goal'}</span></h2> : <span className="wizard-rail">
+          {simpleStep ? <h2 className="entity-title simple-editor-title">{activeSummary && <Image src={getOperatorIconPath(activeSummary)} alt={activeSummary.name} width={40} height={40} />}<span>{simpleStep === 'current' ? 'Set starting level' : 'Set goal'}</span></h2> : <span className="wizard-rail">
             <span className={`wizard-step${step === 'pick' ? ' current' : ' done'}`}>
               <b>1</b>
               <i>{RAIL[flow][0]}</i>

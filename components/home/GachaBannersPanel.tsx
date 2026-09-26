@@ -14,7 +14,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
   if (banners.length === 0) {
     return (
       <section className="front-panel front-home-panel front-gacha-panel">
-        <h2>Gacha Banners</h2>
+        <h2 className="section-title">Gacha Banners</h2>
         <p className="hint">No banners to show right now.</p>
       </section>
     );
@@ -24,7 +24,7 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
 
   return (
     <section className="front-panel front-home-panel front-gacha-panel">
-      <h2>Gacha Banners</h2>
+      <h2 className="section-title">Gacha Banners</h2>
       <div className="front-gacha-main">
         <Link prefetch={false} href={`/gacha?banner=${encodeURIComponent(active.name)}`} className="front-gacha-poster-wrap">
           {active.banner_image && <Image src={active.banner_image} alt={bannerDisplayName(active.name)} fill sizes="600px" style={{ objectFit: 'contain' }} />}

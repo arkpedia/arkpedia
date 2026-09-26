@@ -2,8 +2,9 @@
 
 
 
-/* --- Farming guide --- */
-.farming-main { padding-top: 12px; }
+/* --- Farming guide ---
+   The page starts 24px under the header hairline like every page (main's padding; it
+   had a 12px one of its own). */
 
 /* Both classes, so this beats .farming-legend below: at equal specificity that rule
    came later and won, and its border-top drew a second hairline 26px under the page
@@ -36,18 +37,17 @@
 
 /* Three disclosures, each opening on its own. The header is the control, so it
    carries the resting control border and the one hover rule; the body under it is a
-   passive frame on a hairline. The tier name is the page's section heading, in the
-   site's heading voice (--heading, 18px, uppercase), whether the tier is open or not --
-   the chevron says which, not a colour. */
+   passive frame on a hairline. The tier name is the page's section heading: the h2 is
+   .section-title (shared.css) and the button inside it takes the h2's voice, whether the
+   tier is open or not -- the chevron says which, not a colour. The body hangs from the
+   header on a shared edge, so the heading gap under this h2 is 0 by design (a
+   disclosure header, docs/development/ui-primitives.md rule 15). */
 .farming-accordion {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.farming-accordion-title {
-  margin: 0;
-  font-size: 18px;
-}
+h2.farming-accordion-title { margin: 0; }
 .farming-accordion-header {
   width: 100%;
   display: flex;
@@ -58,12 +58,10 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--row-grad);
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--heading);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .farming-accordion-header:hover { border-color: var(--teal); color: var(--teal); }

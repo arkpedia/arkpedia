@@ -60,7 +60,8 @@
 .tileGuide summary span { margin-left: 8px; color: var(--text-dim); font: 400 12px var(--font-mono); letter-spacing: 0; text-transform: none; }
 .tileInfo { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); line-height: 1.6; }
 .tileInfo > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.tileInfo h3 { margin: 0; color: var(--text); }
+/* The tile's name: .entity-title .entity-title-xs (shared.css). */
+.tileInfo h3 { margin: 0; }
 .tileInfo p { margin: 0; }
 .tileTypes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-top: 10px; }
 .tileType { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px; text-align: left; font: 13px var(--font-body); }

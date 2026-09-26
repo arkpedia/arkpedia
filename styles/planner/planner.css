@@ -192,8 +192,8 @@
 .simple-portrait { position:relative; min-height:420px; background:var(--bg); }
 .simple-portrait > img { object-fit:contain; object-position:center; }
 .simple-portrait-caption { position:absolute; bottom:0; left:0; right:0; padding:40px 20px 18px; background:linear-gradient(transparent,var(--bg) 50%); }
-/* The operator's name heads the dossier: display face in the page's uppercase voice. */
-.simple-portrait-caption h2 { font-size:26px; line-height:1.05; margin:6px 0 0; color:var(--text-bright); }
+/* The operator's name heads the dossier: an .entity-title (shared.css), 22px. */
+.simple-portrait-caption h2 { line-height:1.05; margin:6px 0 0; }
 .simple-portrait-caption > span { color:var(--text-dim); font-size:13px; }
 .simple-dossier-content { padding:20px; min-width:0; }
 .simple-build-overview { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; }
@@ -217,11 +217,11 @@
 .simple-materials small { font-size:11px; line-height:1.2; color:var(--text-dim); overflow-wrap:anywhere; }
 .simple-no-cost { font-size:13px; color:var(--text-dim); margin:0; }
 
-/* Section headings in Simple mode are the site's .op-section h2 (--heading, 18px). */
+/* Section headings in Simple mode are .section-title: the look and the gap below
+   (--heading-gap) are shared.css's .op-section h2. */
 .simple-all { padding:24px; border:1px solid var(--line); border-radius:var(--radius-frame); background:var(--panel); }
-.simple-all h2, .simple-empty h2 { margin:0 0 16px; font-size:18px; color: var(--heading); letter-spacing:0.03em; }
 .simple-empty { padding:60px 20px; text-align:center; border:1px dashed var(--line); border-radius:var(--radius-frame); }
-.simple-empty p { color:var(--text-dim); }
+.simple-empty p { margin-top:0; color:var(--text-dim); } /* --heading-gap under the heading, not the paragraph's own 1em */
 
 .simple-wizard .state-block-rule { display:none; }
 .simple-wizard .wizard-foot { justify-content:space-between; }
@@ -233,8 +233,11 @@
   .simple-portrait { min-height:170px; }
   .simple-portrait > img { width:160px !important; right:auto !important; object-position:left center; }
   .simple-portrait-caption { left:145px; bottom:24px; padding:0 14px 0 0; background:none; }
-  .simple-portrait-caption h2 { font-size:22px; }
-  .simple-dossier-content { padding:16px; }
+  /* Stacked, the portrait band takes the content's inset too, so the art, the name
+     and the build below it start on one edge (the content was 16px in from the
+     full-bleed band above it). */
+  .simple-dossier { padding:16px; row-gap:16px; }
+  .simple-dossier-content { padding:0; }
   .simple-build-summary { gap:12px; }
   .simple-build-summary b { font-size:22px; }
   .simple-materials { gap:8px 12px; }
@@ -271,7 +274,7 @@
 .simple-build-summary b { display:flex; align-items:center; gap:6px; }
 
 
-.simple-editor-title { margin:0; font-size:22px; line-height:1.15; }
+.simple-editor-title { margin:0; line-height:1.15; }
 .simple-wizard .wizard-foot { justify-content:flex-end; }
 
 .simple-editor-title { display:flex; align-items:center; gap:12px; }
@@ -280,7 +283,7 @@
 .planner-transfer-dialog { width:min(480px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); padding:0; margin:auto; border:1px solid var(--line); border-radius:var(--radius-frame); background:var(--panel); color:var(--text); box-shadow:0 20px 70px #0008; }
 .planner-transfer-dialog::backdrop { background:#0009; backdrop-filter:blur(3px); }
 .planner-transfer-dialog header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; border-bottom:1px solid var(--line); }
-.planner-transfer-dialog h2 { margin:0; font-size:22px; }
+.planner-transfer-dialog h2 { margin:0; }
 .planner-transfer-body { padding:18px; }
 .planner-transfer-dialog .plan-transfer-acts { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 14px; }
 .planner-transfer-dialog .plan-transfer-acts button { padding:12px 10px; }
@@ -1089,9 +1092,8 @@
   border-bottom: 1px solid var(--line-soft);
 }
 :root[data-theme="light"] .plan-panel-head { background: rgba(0, 0, 0, 0.03); }
-/* Experimental mode's panel titles are the site's section heading (--heading 18px,
-   .op-section h2), the same as Simple mode's: the page had two heading voices. */
-.plan-panel-head .label-pair > h2 { font-size: 18px; letter-spacing: 0.03em; color: var(--heading); }
+/* Experimental mode's panel titles are .section-title (the site's section heading),
+   the same as Simple mode's: the page had two heading voices. */
 .plan-panel-head .plan-hint { margin: 0; }
 .plan-panel-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-panel-body { padding: 14px 16px 16px; }

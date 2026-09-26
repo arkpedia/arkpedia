@@ -79,7 +79,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
   if (slides.length === 0) {
     return (
       <section className="front-panel front-home-panel front-community-panel">
-        <h2>Community</h2>
+        <h2 className="section-title">Community</h2>
         <p className="hint">Nothing to feature right now.</p>
       </section>
     );
@@ -89,7 +89,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
 
   return (
     <section className="front-panel front-home-panel front-community-panel">
-      <h2>Community</h2>
+      <h2 className="section-title">Community</h2>
       {/* pan-y keeps vertical drags as native scroll; horizontal swipes flip slides. */}
       <div
         className="front-community-fade-wrap"

@@ -64,7 +64,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
   if (slides.length === 0) {
     return (
       <section className="front-panel front-home-panel front-events-panel">
-        <h2>Events</h2>
+        <h2 className="section-title">Events</h2>
         <p className="hint">No events to show right now.</p>
         {currentMaterials.length > 0 && <FarmableInline materials={currentMaterials} />}
       </section>
@@ -75,7 +75,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
 
   return (
     <section className="front-panel front-home-panel front-events-panel">
-      <h2>Events</h2>
+      <h2 className="section-title">Events</h2>
       {/* The event's own page. This was a button whose only effect was to pause the
           slideshow, which is not what a reader pressing an event expects. */}
       <Link prefetch={false} href={`/events/${encodeURIComponent(active.event.name)}`} className="front-events-main">

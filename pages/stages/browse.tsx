@@ -1840,7 +1840,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   }}
                 >
                   <div className="stage-legend-overlay-inner" onClick={() => setLegendOpen(false)}>
-                    <h3>Map tiles</h3>
+                    <p className="label-tag">Map tiles</p>
                     <div className="stage-legend">
                       {legend.map((l) => (
                         <span key={l.label}>
@@ -1863,7 +1863,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                     </div>
                     {properties.length > 0 && (
                       <>
-                        <h3>Special tiles</h3>
+                        <p className="label-tag">Special tiles</p>
                         <div className="stage-legend-special">
                           {properties.map((prop) => (
                             <span key={`overlay-${prop.key}`}>
@@ -1879,7 +1879,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                     )}
                     {(deviceGroups.length > 0 || tokens.tokenKinds > 0 || tokens.fixedSquad > 0) && (
                       <>
-                        <h3>On the field</h3>
+                        <p className="label-tag">On the field</p>
                         <div className="stage-legend-special">
                           {deviceGroups.map((d) => (
                             <span key={`overlay-unit-${d.name}`}>
@@ -2102,7 +2102,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                       own 18.72px bold it out-weighed the division it sits under. On a
                       stage with no conditional spawns there is no heading above it and
                       it stays the heading it has always been. */}
-                  <h3 className={section.title ? 'stage-enemy-rank-title' : 'stage-drop-group-title'}>
+                  <h3 className={section.title ? 'label-tag stage-enemy-rank-title' : 'stage-drop-group-title'}>
                     {group.title}
                   </h3>
                   <div className="stage-enemy-cards">

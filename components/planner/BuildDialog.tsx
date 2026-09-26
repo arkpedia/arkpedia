@@ -158,7 +158,7 @@ export function BuildDialog({
             <span className={`planner-buildrarity tier-${op.rarity || 1}`} />
           </span>
           <span className="planner-buildwho">
-            <span className="label-pair"><h2>{name}</h2></span>
+            <span className="label-pair"><h2 className="entity-title entity-title-sm">{name}</h2></span>
             <span className="planner-buildfromto">
               <i>from</i>
               <b><PlannerStateLabel label={fromLabel} /></b>
