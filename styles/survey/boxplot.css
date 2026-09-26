@@ -124,12 +124,15 @@
   padding: 4px 8px;
 }
 /* A chip here opens the operator's distribution; it is not the tier list's
-   draggable chip, so it gets a pointer, a padding-free frame and the hover. */
+   draggable chip, so it gets a pointer and no padding. It is a portrait that is a
+   link, a picture card: no resting frame (maintainer, 2026-09-26), teal on hover and
+   keyboard focus. */
 .results-page .results-chip {
   padding: 0;
   cursor: pointer;
+  border-color: transparent;
 }
-.results-page .results-chip:hover { border-color: var(--teal); }
+.results-page .results-chip:hover, .results-page .results-chip:focus-visible { border-color: var(--teal); }
 .results-page .results-chip:active { cursor: pointer; }
 /* On a phone the average goes above its row and the chips shrink to 56px, which
    fits five across the 342px frame instead of three beside a 64px label column. */

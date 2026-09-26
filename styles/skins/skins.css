@@ -23,7 +23,9 @@
   flex: 0 0 184px;
   width: 184px;
   overflow: hidden;
-  border: 1px solid var(--control-border);
+  /* Skin cards carry no resting frame (maintainer, 2026-09-26): the art says they can
+     be clicked. Teal on hover and keyboard focus. */
+  border: 1px solid transparent;
   border-radius: var(--radius-frame);
   background: var(--panel-2);
   color: var(--text);
@@ -31,7 +33,7 @@
   cursor: pointer;
 }
 .skins-current-item:hover { border-color: var(--teal); }
-.skins-current-item:focus-visible { outline-offset: -2px; }
+.skins-current-item:focus-visible { outline-offset: -2px; border-color: var(--teal); }
 .skins-current-item img { display: block; width: 100%; height: 156px; object-fit: contain; }
 .skins-current-item > span { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; padding: 7px 9px; border-top: 1px solid var(--line-soft); background: var(--panel); }
 .skins-current-item strong { font-size: 12px; font-weight: 600; }
@@ -51,7 +53,7 @@
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-frame);
   background: var(--panel);
   color: var(--text);
@@ -59,7 +61,7 @@
   cursor: pointer;
   transition: border-color 0.15s;
 }
-.skin-card:hover { border-color: var(--teal); }
+.skin-card:hover, .skin-card:focus-visible { border-color: var(--teal); }
 .skin-card:hover .skin-card-name { color: var(--teal); }
 .skin-image-wrap {
   position: relative;

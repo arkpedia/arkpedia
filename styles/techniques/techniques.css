@@ -216,12 +216,15 @@
   font-size: 10px;
   line-height: 1;
 }
+/* The operator's portrait is the link: no resting frame (maintainer, 2026-09-26), teal
+   on hover and keyboard focus. */
 .technique-entry-operator-icon {
   border-radius: var(--radius-control);
-  border: 1px solid var(--line-soft);
+  border: 1px solid transparent;
   transition: border-color 0.15s;
 }
-.technique-entry:hover .technique-entry-operator-icon {
+.technique-entry:hover .technique-entry-operator-icon,
+.technique-entry:focus-visible .technique-entry-operator-icon {
   border-color: var(--teal);
 }
 .technique-entry-skill-icon {

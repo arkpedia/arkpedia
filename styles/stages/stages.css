@@ -822,17 +822,20 @@
   grid-template-columns: repeat(auto-fill, minmax(304px, 1fr));
   gap: 14px;
 }
+/* The Terminal's picture cards carry no resting frame (maintainer, 2026-09-26): the art
+   says they can be clicked. Teal on hover and keyboard focus. */
 .stage-mode-card {
   display: flex;
   flex-direction: column;
   background: var(--panel);
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
   overflow: hidden;
   color: var(--text);
   text-decoration: none;
 }
-.stage-mode-card:hover {
+.stage-mode-card:hover,
+.stage-mode-card:focus-visible {
   border-color: var(--teal);
 }
 /* The banner's own shape, 1560x500. Map renders are 512x286 and get cropped to
@@ -928,14 +931,14 @@
   position: relative;
   display: block;
   aspect-ratio: 256 / 143;
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--panel-2);
   color: var(--text);
   text-decoration: none;
 }
-.stage-card:hover { border-color: var(--teal); }
+.stage-card:hover, .stage-card:focus-visible { border-color: var(--teal); }
 .stage-card-art {
   position: absolute;
   inset: 0;

@@ -380,11 +380,13 @@
   display: block;
   aspect-ratio: var(--art-ratio);
   overflow: hidden;
-  border: 1px solid var(--line-soft);
+  /* No resting frame round the art (maintainer, 2026-09-26); the node's hover and
+     keyboard focus draw it in teal. */
+  border: 1px solid transparent;
   background: var(--panel);
   transition: border-color 0.15s ease;
 }
-.score-node:hover .score-node-art { border-color: var(--teal); }
+.score-node:hover .score-node-art, .score-node:focus-visible .score-node-art { border-color: var(--teal); }
 .score-node-art img { object-fit: cover; }
 /* A stage map standing in for a banner: dimmed and desaturated, the same treatment
    the content cards give it, so a borrowed picture never reads as the real art. */
@@ -487,8 +489,11 @@
   aspect-ratio: 3.12;
   overflow: hidden;
   background: var(--panel-2);
-  border: 1px solid var(--line-soft);
+  /* A banner: no resting frame (maintainer, 2026-09-26), teal on hover and focus. */
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
 }
+.terminal-lead:hover .terminal-lead-art, .terminal-lead:focus-visible .terminal-lead-art { border-color: var(--teal); }
 .terminal-lead-art img { object-fit: cover; }
 .terminal-lead-text {
   display: flex;
@@ -652,19 +657,22 @@
   gap: 16px;
   padding: 14px 16px;
   margin-bottom: 14px;
-  border: 1px solid var(--control-border);
-  /* Amber down the leading edge only while it is running, the colour the home board's
+  /* A content card: no resting frame (maintainer, 2026-09-26), teal on hover and focus.
+     Amber down the leading edge only while it is running, the colour the home board's
      lead uses for "open now"; a teal edge and a teal wash marked it whatever its state. */
-  border-left: 2px solid var(--line);
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
   background: var(--panel-2);
   text-decoration: none;
   color: inherit;
   transition: border-color 0.14s, background-color 0.14s;
   border-radius: var(--radius-control);
 }
+/* SSS's block is not a link but a panel holding its tower cards: a passive frame. */
+div.regular-now { border-color: var(--line-soft); border-left-color: var(--line); }
 .regular-now.live { border-left-color: var(--amber); }
-a.regular-now:hover { border-color: var(--teal); }
-a.regular-now:hover .regular-now-go { border-color: var(--teal); color: var(--teal); }
+a.regular-now:hover, a.regular-now:focus-visible { border-color: var(--teal); }
+a.regular-now:hover .regular-now-go, a.regular-now:focus-visible .regular-now-go { border-color: var(--teal); color: var(--teal); }
 a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 /* SSS has no crest of its own to show and its towers sit inside, so it drops the
    picture column and stacks. */
@@ -731,14 +739,15 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   grid-template-columns: 84px 1fr;
   align-items: stretch;
   gap: 10px;
-  border: 1px solid var(--control-border);
+  /* A content card: no resting frame (maintainer, 2026-09-26). */
+  border: 1px solid transparent;
   background: var(--panel);
   text-decoration: none;
   color: var(--text);
   overflow: hidden;
   transition: border-color 0.14s;
 }
-.regular-tower:hover { border-color: var(--teal); }
+.regular-tower:hover, .regular-tower:focus-visible { border-color: var(--teal); }
 .regular-tower-art {
   position: relative;
   display: block;
@@ -808,11 +817,12 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   display: block;
   aspect-ratio: 3.12;
   overflow: hidden;
-  border: 1px solid var(--line-soft);
+  /* A banner: no resting frame (maintainer, 2026-09-26), teal on hover and focus. */
+  border: 1px solid transparent;
   background: var(--panel);
 }
 .explore-hero-art img { object-fit: cover; }
-.explore-hero:hover .explore-hero-art { border-color: var(--teal); }
+.explore-hero:hover .explore-hero-art, .explore-hero:focus-visible .explore-hero-art { border-color: var(--teal); }
 .explore-hero-text {
   display: flex;
   flex-direction: column;
@@ -881,11 +891,12 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 @media (max-width: 720px) {
   .supply-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 }
-/* A card is a link: the control boundary at rest, teal on hover. */
+/* A card is a link, and a content card: no resting frame (maintainer, 2026-09-26),
+   teal on hover and keyboard focus. */
 .supply-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel);
@@ -893,7 +904,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   color: inherit;
   transition: border-color 0.15s ease;
 }
-.supply-card:hover { border-color: var(--teal); }
+.supply-card:hover, .supply-card:focus-visible { border-color: var(--teal); }
 .supply-card-art {
   position: relative;
   display: grid;
@@ -1079,8 +1090,8 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
    links -- the hover lift and the border warming both come off. */
 .mapless { cursor: default; }
 .mapless:hover .score-node-art,
-.mapless:hover .stage-mode-art,
-.mapless:hover .explore-hero-art { border-color: var(--line-soft); }
+.mapless:hover .explore-hero-art { border-color: transparent; }
+.mapless:hover .stage-mode-art { border-color: var(--line-soft); }
 .mapless .score-node-name,
 .mapless .stage-mode-name,
 .mapless .explore-hero-name { color: var(--text-dim); }
