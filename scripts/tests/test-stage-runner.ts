@@ -12,7 +12,7 @@ import { MIRRORS } from '../content/pin-upstream.mjs';
 import { declaredStages, STAGE_DEFINITIONS } from '../content/run-stage.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { contentInput } from '../content/release-input.mjs';
-import { refreshScripts, refreshStages } from './fixtures/refresh-stages';
+import { commandScripts, refreshScripts, refreshStages } from './fixtures/refresh-stages';
 
 const runner = path.resolve('scripts/content/run-stage.mjs');
 /* A scratch tree with a little of data/ and public/, where every case runs the stage runner
@@ -420,6 +420,28 @@ test('every script a refresh stage names exists, directly or through an npm scri
   for (const stage of stages) check(stage.command, `stage ${stage.name}`);
   assert.deepEqual(missing, []);
   assert.ok(!stages.some(stage => stage.name === 'banner-art' || stage.command.includes('sync-banner-art')), 'banner-art is retired');
+});
+
+test('a stage that builds records from the pinned asset revisions runs after the last stage that moves them', () => {
+  // Three stages move data/assets/revisions.json, each through npm run assets:update, which
+  // pins every asset repository at its head: asset-revisions, catalogue-assets after its push,
+  // and staged-art after its push, late in the run. A stage that reads art at the pinned commit
+  // and writes records from it (it says so with --revisions data/assets/revisions.json) must
+  // come after the last of them. Before it, the release would pin a newer commit than the one
+  // the stage read: the palettes stage ran after media-pins, the last mover before staged-art
+  // existed, so skin art pushed between it and staged-art went out with no palette and was
+  // held for a day. media-pins needs no such place: staged-art re-pins the records itself.
+  const stages = refreshStages();
+  const order = stages.map(stage => stage.name);
+  const movers = stages.filter(stage => commandScripts(stage.command).includes('scripts/sync/update-asset-revisions.mjs')).map(stage => stage.name);
+  const readers = stages.filter(stage => /--revisions data\/assets\/revisions\.json\b/.test(stage.command)).map(stage => stage.name);
+  // Not vacuous: the walk finds the movers through the publisher's shell script, and the reader.
+  assert.deepEqual([...movers].sort(), ['asset-revisions', 'catalogue-assets', 'staged-art']);
+  assert.ok(readers.includes('palettes'), 'the palettes stage reads the skin art at the pinned commit');
+  const last = Math.max(...movers.map(name => order.lastIndexOf(name)));
+  for (const reader of readers) {
+    assert.ok(order.indexOf(reader) > last, `${reader} reads the art at the pinned asset commit, but ${order[last]} moves the pins after it`);
+  }
 });
 
 test('every script a refresh stage runs reads the game-data mirrors at the run\'s pinned commit', () => {

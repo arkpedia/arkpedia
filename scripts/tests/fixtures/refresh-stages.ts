@@ -31,9 +31,9 @@ export function refreshStages() {
       command: words.slice(words.indexOf('--') + 1).join(' ') };
   });
 }
-/* Every file the refresh's stages run: the scripts their commands name, the npm scripts and
-   shell scripts those call, and the local modules they import. */
-export function refreshScripts() {
+/* Every file one command runs: the scripts it names, the npm scripts and shell scripts those
+   call, and the local modules they import. */
+export function commandScripts(command: string) {
   const npm = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts as Record<string, string>;
   const files = new Set<string>();
   const commands = (text: string) => {
@@ -55,6 +55,10 @@ export function refreshScripts() {
       }
     }
   };
-  for (const stage of refreshStages()) commands(stage.command);
+  commands(command);
   return [...files].sort();
+}
+/* Every file the refresh's stages run, over all of them. */
+export function refreshScripts() {
+  return [...new Set(refreshStages().flatMap(stage => commandScripts(stage.command)))].sort();
 }

@@ -164,12 +164,6 @@ jobs:
           # Publishes the media plan the catalogue stage wrote in this run, never an older one.
           stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
           stage media-pins -- node scripts/sync/refresh-media-pins.mjs
-          # The palette game's five swatches for every Base and Elite 2 artwork, read from
-          # arkpedia-skin-assets at the commit data/assets/revisions.json now pins (the one the
-          # release publishes, after the catalogue's art went in above): only new or changed art
-          # is downloaded. Art without a review or recipe gets an automatic palette and a hold;
-          # the completeness stage holds any released operator still without one.
-          stage palettes -- python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json
           bash scripts/sync/refresh-stage-data.sh
           stage pulls -- npm run pulls:refresh
           # The supplement only adds voice credits here, so without it the English refresh
@@ -199,6 +193,14 @@ jobs:
           # so their records point at the files and their quarantine entries clear today.
           # After the last importer that stages art, before anything that reads the records.
           stage staged-art -- bash scripts/sync/publish-catalogue-assets.sh --staged
+          # The palette game's five swatches for every Base and Elite 2 artwork, read from
+          # arkpedia-skin-assets at the commit data/assets/revisions.json pins once staged-art,
+          # the last stage that moves the pins (its assets:update re-pins every asset repository),
+          # has run: the commit the release publishes. Only new or changed art is downloaded.
+          # Art without a review or recipe gets an automatic palette and a hold; the completeness
+          # stage holds any released operator still without one (test-stage-runner.ts keeps
+          # every --revisions reader after every stage that moves the pins).
+          stage palettes -- python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json
           stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
           stage event-farming -- node scripts/sync/sync-event-farming.mjs
           # What the guessers send to readers, measured once every stage that adds records has
