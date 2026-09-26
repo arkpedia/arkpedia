@@ -38,15 +38,18 @@
   top: var(--nav-h, 0px);
   z-index: 30;
   border-bottom: 1px solid var(--line-soft);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--teal) 7%, transparent), color-mix(in srgb, var(--teal) 0%, transparent) 70%),
-    var(--panel);
+  /* A plain ground. It carried a teal wash, and teal is the site's "on" colour only
+     (docs/development/ui-primitives.md rule 1); the current tab is what is on here. */
+  background: var(--panel);
 }
+/* The site frame: the nav, the header and main share --frame-max and --page-gutter, and
+   the bar's own 1040px and 12px put its tabs 12px left of the header's edge. The
+   page-bounds spec measures the tabs against the frame. */
 .terminal-bar-inner {
   position: relative;
-  max-width: 1040px;
+  max-width: var(--frame-max);
   margin: 0 auto;
-  padding: 0 12px;
+  padding: 0 var(--page-gutter);
 }
 /* The row of tabs. On a desktop this IS the bar; under the mobile breakpoint it
    becomes the menu that the collapsed bar opens. */
@@ -110,14 +113,16 @@
   /* Tight, because the emblems cost width the glyphs did not: at 15px of side padding
      the seven tabs ran 50px past the site's 1040px bound, so All Operations sat
      half-clipped behind a scroll on every screen size, the bound being a cap rather
-     than a viewport. */
-  padding: 11px 11px 9px;
+     than a viewport. The bar sits in the site frame now (992px inside the gutters,
+     where its own 12px padding gave 1016), so 9px and 0.08em: at 11px and 0.1em the
+     row needed 1006px on macOS and wrapped All Operations onto a second line. */
+  padding: 11px 9px 9px;
   border-bottom: 2px solid transparent;
   color: var(--text-dim);
   text-decoration: none;
   font-family: var(--font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
@@ -218,7 +223,7 @@
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
-  color: var(--teal);
+  color: var(--text-dim);
 }
 .score-line.act .score-line-mark { color: var(--amber); }
 /* The line's emblem, as a mask so it takes a colour rather than arriving with one --
@@ -228,7 +233,7 @@
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  background: var(--teal);
+  background: var(--text-dim);
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
@@ -245,7 +250,8 @@
 .score-block-emblem {
   width: 18px;
   height: 18px;
-  background: var(--teal);
+  /* The ink of the amber heading it leads. */
+  background: currentColor;
   /* Set by pages/stages/score.tsx from the page's content release. */
   mask-image: var(--score-emblem);
   -webkit-mask-image: var(--score-emblem);
@@ -359,7 +365,7 @@
   width: 7px;
   height: 7px;
   background: var(--panel);
-  border: 1px solid var(--teal-dim);
+  border: 1px solid var(--text-faint);
   transform: rotate(45deg);
   transition: border-color 0.15s ease, background-color 0.15s ease;
   z-index: 1;
@@ -423,8 +429,11 @@
 }
 
 /* --- Terminal home ------------------------------------------------------
-   Panels with their label clipped to the top-left corner, which is the game's own
-   signature on this screen (ATTENTION, TO-DO LIST, VECTOR BREAKTHROUGH). */
+   Panels headed like every other section of the site: an .op-section with its amber h2
+   (styles/core/shared.css). The label used to be a 10px teal tab clipped into the
+   top-left corner and painted by CSS out of a data-tab attribute -- the game's own
+   signature on this screen, but a heading no reader's outline saw (each panel carried a
+   visually hidden twin for that) and a teal that means nothing is on. */
 .terminal-home {
   display: grid;
   /* minmax(0, ...) on both tracks rather than a bare fr. A bare `1fr` is
@@ -441,17 +450,15 @@
 }
 .terminal-panel {
   position: relative;
-  padding: 26px 14px 14px;
+  padding: 14px;
   border: 1px solid var(--line-soft);
   background: var(--panel);
-  /* Rounded like every other box on the site, which these were not: the front page and
-     the game-mode panels are 6px and these were square, so a reader moving between
-     them saw two different shapes for the same kind of thing.
-     Three corners rather than four. The top-left carries the label tab below, clipped
-     flush into the corner the way the game draws it, and rounding that corner would
-     round the panel out from under the label and leave it overhanging. */
-  border-radius: 0 var(--radius-frame) var(--radius-frame) var(--radius-frame);
+  border-radius: var(--radius-frame);
 }
+/* An .op-section's 36px foot is for sections stacked in a column; these sit on the
+   home board's grid (gap 14px) or stack with the margin below. */
+.terminal-panel.op-section { margin-bottom: 0; }
+.terminal-panel.op-section > h2 { margin-top: 0; }
 .terminal-panel.wide { grid-column: 1 / -1; }
 
 /* A scene that STACKS its panels -- Regular Tasks, Seasonal Challenge -- rather than
@@ -462,24 +469,9 @@
    top that starts the block. */
 .terminal-scene > .terminal-panel {
   border-color: var(--line);
-  border-top: 2px solid var(--teal-dim);
+  border-top: 2px solid var(--line);
 }
 .terminal-scene > .terminal-panel + .terminal-panel { margin-top: 26px; }
-.terminal-panel::before {
-  content: attr(data-tab);
-  position: absolute;
-  top: 0;
-  left: 0;
-  padding: 3px 10px 3px 12px;
-  background: var(--panel-2);
-  border-right: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
 .terminal-empty { margin: 6px 0; }
 
 /* The lead: the running event at the size the game gives it. */
@@ -593,7 +585,7 @@
   font-size: 10px;
   color: var(--text-faint);
 }
-.terminal-pill.live { color: var(--amber); border-color: var(--teal-dim); }
+.terminal-pill.live { color: var(--amber); border-color: var(--amber); }
 
 /* The two permanent modes, pinned as the game pins Integrated Strategies. */
 .terminal-mode {
@@ -628,7 +620,7 @@
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--text-dim);
 }
 .terminal-mode-name {
   font-size: 13px;
@@ -639,25 +631,12 @@
   font-size: 10px;
   color: var(--text-faint);
 }
-/* The game's Enter button, which is a wide flat slab and not a pill. */
+/* The game's Enter button, a wide flat slab: the site's .btn (its voice, border, radius
+   and hover), laid out full width. It had a mono 11px voice of its own. */
 .terminal-cta {
-  display: block;
+  display: flex;
+  width: 100%;
   margin-top: 4px;
-  padding: 9px;
-  background: var(--panel-2);
-  border: 1px solid var(--control-border);
-  text-align: center;
-  text-decoration: none;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  border-radius: var(--radius-control);
-}
-.terminal-cta:hover {
-  border-color: var(--teal);
-  color: var(--teal);
 }
 
 /* --- Regular Tasks ------------------------------------------------------
@@ -674,17 +653,18 @@
   padding: 14px 16px;
   margin-bottom: 14px;
   border: 1px solid var(--control-border);
-  border-left: 2px solid var(--teal);
-  background:
-    radial-gradient(120% 140% at 0% 50%, rgb(70 220 200 / 0.07), transparent 60%),
-    var(--panel-2);
+  /* Amber down the leading edge only while it is running, the colour the home board's
+     lead uses for "open now"; a teal edge and a teal wash marked it whatever its state. */
+  border-left: 2px solid var(--line);
+  background: var(--panel-2);
   text-decoration: none;
   color: inherit;
   transition: border-color 0.14s, background-color 0.14s;
   border-radius: var(--radius-control);
 }
+.regular-now.live { border-left-color: var(--amber); }
 a.regular-now:hover { border-color: var(--teal); }
-a.regular-now:hover .regular-now-go { color: var(--teal); }
+a.regular-now:hover .regular-now-go { border-color: var(--teal); color: var(--teal); }
 a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 /* SSS has no crest of its own to show and its towers sit inside, so it drops the
    picture column and stacks. */
@@ -713,8 +693,9 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--text-dim);
 }
+.regular-now.live .regular-now-kind { color: var(--amber); }
 .regular-now-name {
   font-family: var(--font-display);
   font-weight: 700;
@@ -727,15 +708,11 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-size: 11px;
   color: var(--text-dim);
 }
-/* The affordance the button used to be, at the size a line of text deserves. */
+/* The affordance, in the site's button voice (.btn .btn-sm .ghost on the span); the
+   whole card is the link, so it takes the card's hover. */
 .regular-now-go {
+  align-self: flex-start;
   margin-top: 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  transition: color 0.14s;
 }
 .regular-now-go::after {
   content: ' \2192';
@@ -784,7 +761,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--text);
 }
 .regular-tower-tag.rerun { color: var(--text-faint); }
 .regular-tower-name {
@@ -817,14 +794,6 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   --art-ratio: 1;
 }
 
-/* A panel with nothing behind it. The game draws its unopened slots rather than
-   hiding them, and so does this -- dimmed, and saying why. */
-.terminal-panel.shut {
-  border-style: dashed;
-  background: none;
-}
-.terminal-panel.shut::before { color: var(--text-faint); }
-.terminal-panel.shut .hint { margin: 4px 0 0; }
 
 /* --- Long-Term Exploration ---------------------------------------------- */
 .explore-mode { margin-bottom: 34px; }
@@ -855,7 +824,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--text-dim);
 }
 .explore-hero-name {
   font-family: var(--font-display);
@@ -997,9 +966,10 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 .supply-pip {
   width: 9px;
   height: 4px;
-  background: var(--teal-dim);
+  background: var(--line);
 }
-.supply-card.shut .supply-pip { background: var(--line); }
+/* Open on the day picked: the on state, so teal. */
+.supply-card.open .supply-pip { background: var(--teal-dim); }
 .supply-card-meta {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -1083,7 +1053,8 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   height: 1.5em;
   margin-right: 0.6em;
   vertical-align: -0.45em;
-  color: var(--teal);
+  /* The eyebrow's own ink (PageHeader), whatever that is. */
+  color: currentColor;
 }
 /* And large in a panel's corner, the way the game watermarks its own -- behind
    everything, and out of the way of the header pill in the other corner. At the 0.07
@@ -1199,7 +1170,8 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   color: var(--text-faint);
 }
 .ra-map-zoom[hidden] { display: none; }   /* display:flex above outranks [hidden] */
-.ra-map-zoom input[type="range"] { width: 120px; accent-color: var(--teal); }
+/* Its teal thumb is the global accent-color (:root in shared.css). */
+.ra-map-zoom input[type="range"] { width: 120px; }
 /* The shortcut, said once where the zoom lives -- a plain wheel scrolls the page. */
 .ra-zoom-hint { color: var(--text-faint); }
 @media (max-width: 700px) {

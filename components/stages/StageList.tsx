@@ -72,21 +72,22 @@ function RailFilter({ label, value, groups, onChange }: {
 }
 
 interface Props {
-  /** The rows to start from. Every stage on the index route; only the open
-   *  stage's own chapter or event on a stage route -- the rest arrives from
-   *  /stages-index.json, because 1.98MB per page is not a filter. */
-  stages: StageSummary[];
-  /** Stages per type, counted over the whole dataset even when `stages` is one
-   *  group of it, so the type filter's numbers are right from first paint. */
+  /** Stages per type, counted over the whole dataset, so the type filter's numbers
+   *  are right before the rows arrive from /stages-index.json. */
   typeCounts: Record<string, number>;
-  /** True when `stages` is already the whole index, so there is nothing to fetch. */
-  complete?: boolean;
-  /** The build's clock, in unix seconds. It picks the content the list opens on
-   *  from the server, so the first client render agrees with the markup; an effect
-   *  then re-picks against the reader's own clock. */
+  /** The request's clock, in unix seconds. It picks the content the list opens on,
+   *  so the first client render agrees with the markup; an effect then re-picks
+   *  against the reader's own clock. */
   now: number;
-  /** The stage currently open in the pane beside this list, if any. */
-  selectedSlug?: string;
+  /**
+   * The stage open in the pane beside this list: its slug, null when the address
+   * names none, and undefined until the page has read the address at all -- the first
+   * render of a static page has no query, so a deep link is not known yet. Required,
+   * tri-state on purpose: the list scopes itself to the open stage's chapter, and a
+   * caller that could leave this out is how it came to scope itself to a stage nobody
+   * asked for.
+   */
+  selectedSlug: string | null | undefined;
 }
 
 interface Filters {
@@ -154,17 +155,18 @@ function openingContent(groups: StageGroup[], nowSeconds: number): string {
  * so nothing ever shrank) -- the list spilled 2,000px down the page and only
  * two rows were above the fold. Every height here is part of that chain.
  */
-export default function StageList({ stages, typeCounts, complete, now, selectedSlug }: Props) {
+export default function StageList({ typeCounts, now, selectedSlug }: Props) {
   const contentUrl = useContentUrl();
-  // Starts as whatever the page shipped and is replaced by the full index once
-  // it arrives; the file is static and immutable, so it is one fetch for the
-  // whole visit rather than 1.98MB per stage opened.
-  const [all, setAll] = useState<StageSummary[]>(stages);
-  const [loaded, setLoaded] = useState(!!complete);
+  // The rows arrive from the index, one fetch for the whole visit rather than 1.98MB
+  // per stage opened. Nothing is shipped with the page: it used to carry the first
+  // index row's chapter (Act or Die) to paint at once, and a static page does not know
+  // which stage its address names until it has hydrated, so that first paint was the
+  // wrong chapter for every stage but one -- and the filters seeded from it stayed.
+  const [all, setAll] = useState<StageSummary[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const { basePath } = useRouter();
 
   useEffect(() => {
-    if (complete) return;
     let live = true;
     fetch(contentUrl(`${basePath}/stages-index.json`))
       .then((r) => (r.ok ? r.json() : null))
@@ -174,13 +176,13 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
         setLoaded(true);
       })
       .catch(() => {
-        // Offline or blocked: the rail keeps the chapter it was rendered with,
-        // which is the list you would be looking at anyway.
+        // Offline or blocked: the rail stays empty and says it is loading; the stage
+        // beside it arrives on its own fetch.
       });
     return () => {
       live = false;
     };
-  }, [contentUrl, basePath, complete]);
+  }, [contentUrl, basePath]);
 
   const selected = useMemo(
     () => (selectedSlug ? all.find((s) => s.slug === selectedSlug) : undefined),
@@ -245,78 +247,115 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
         end: null,
         label: selected.contentLabel || '',
         name: selected.contentName || selected.contentId,
-        // The siblings the page shipped ARE this content, so the count is exact.
-        count: stages.filter((s) => !s.variantOf).length,
-        byType: { [type]: stages.filter((s) => !s.variantOf && filterType(s.stageType) === type).length },
+        count: all.filter((s) => !s.variantOf && s.contentId === selected.contentId).length,
+        byType: { [type]: all.filter((s) => !s.variantOf && s.contentId === selected.contentId && filterType(s.stageType) === type).length },
       }],
     }];
-  }, [selected, stages]);
+  }, [selected, all]);
 
   const groups = navGroups.length ? navGroups : fallbackGroups;
-  // Opening a stage scopes the list to that stage's own chapter or event, so
-  // its siblings are what you see beside it. Without this the list showed the
-  // first 600 of 4,130 and an opened stage was usually not among them.
   // `now` is already unix SECONDS from getStaticProps; dividing it again landed
   // in 1970 and no window contained it, so this quietly fell back to the latest
   // chapter while an event was running.
-  // The build's clock to start with, so the markup and the first client render
-  // agree, then the reader's own -- a build can be weeks old, and what is running
-  // is the whole point of both the default and the Current group.
+  // The request's clock to start with, so the markup and the first client render
+  // agree, then the reader's own -- what is running is the whole point of both the
+  // default and the Current group.
   const [clock, setClock] = useState(now);
   const opening = useMemo(() => openingContent(groups, clock), [groups, clock]);
-  const [filters, setFilters] = useState<Filters>(() => ({
-    search: '',
-    // Through the fold: an interlude's own type is `sub`, which the filter does
-    // not offer, and setting it here listed nothing at all on those 81 pages.
-    type: selected ? filterType(selected.stageType) : '',
-    content: selected?.contentId || opening,
-  }));
+  const [filters, setFiltersState] = useState<Filters>({ search: '', type: '', content: '' });
 
-  const restored = useRef(false);
+  /*
+   * Which chapter the list shows.
+   *
+   * Opening a stage scopes the list to that stage's own chapter or event, so its
+   * siblings are what you see beside it, with it marked. That is decided when the open
+   * stage is first known, and again whenever it changes -- never when the filters
+   * change, or a reader who picks another chapter while a stage is open would be
+   * snapped back to the stage's. On a change, filters that already list the new stage
+   * are kept (a row clicked from a search result keeps the search); anything else
+   * scopes to the new stage's chapter.
+   *
+   * This used to seed the filters once, from the first render. On a static page that
+   * render has no query, so /stages/browse?s=pa-1 seeded from the first stage of the
+   * index -- Act or Die -- and kept it after the address was read: every deep link
+   * opened the rail on Act or Die with nothing marked (2026-09-26 audit).
+   *
+   * Filters stored in sessionStorage (a search typed before following a link here)
+   * are honoured on the first decision only when the list they produce contains the
+   * open stage, so the rail never shows a list its own selection is missing from.
+   * With no stage open they are honoured as they are, and failing those, the list
+   * opens on what is running.
+   */
+  const saved = useRef<Filters | null>(null);
+  /** Whether the first decision has been made; nothing is stored before it. */
+  const decided = useRef(false);
+  /** The stage the filters were last scoped for. */
+  const scopedFor = useRef<string | null>(null);
+  /** Whether the reader has set a filter since, so "what is running" stops moving it. */
+  const touched = useRef(false);
+  const setFilters = (next: Filters | ((f: Filters) => Filters)) => {
+    touched.current = true;
+    setFiltersState(next);
+  };
+
   useEffect(() => {
-    if (restored.current) return;
-    restored.current = true;
     setClock(nowSeconds());
-    // Clicking a row is a page navigation, which would otherwise throw away
-    // whatever you had typed -- so a search you clicked a result from is gone
-    // by the time you land. The filters are read back after mount rather than
-    // in the initial state, because the server has no sessionStorage and the
-    // first client render has to match what it sent.
-    let saved: Filters | null = null;
+    // Read after mount rather than in the initial state, because the server has no
+    // sessionStorage and the first client render has to match what it sent.
     try {
       const raw = sessionStorage.getItem(STORE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       if (parsed && typeof parsed === 'object') {
-        saved = {
+        saved.current = {
           search: String(parsed.search || ''),
-          // Folded on the way in as well, in case a filter stored before the
-          // fold names a type that is no longer offered.
+          // Folded on the way in, in case a filter stored before the fold names a type
+          // that is no longer offered.
           type: filterType(String(parsed.type || '')),
           content: String(parsed.content || ''),
         };
       }
     } catch {
-      // sessionStorage unavailable (private mode, blocked) -- filters simply
-      // do not carry across a click.
+      // sessionStorage unavailable (private mode, blocked) -- filters simply do not
+      // carry across a page.
     }
-    // Nothing stored and no stage open: re-pick what is running against the
-    // reader's own clock rather than the build's, which can be weeks old.
-    if (!saved) {
-      if (!selected) {
-        const live = openingContent(groups, nowSeconds());
-        if (live) setFilters((f) => (f.content === live ? f : { ...f, content: live }));
+  }, []);
+
+  // A stage is open and its row is known: scope to it, on first sight and on change.
+  useEffect(() => {
+    if (!selected || scopedFor.current === selected.slug) return;
+    scopedFor.current = selected.slug;
+    const first = !decided.current;
+    decided.current = true;
+    const stored = first ? saved.current : null;
+    // Through the fold: an interlude's own type is `sub`, which the filter does not
+    // offer, and setting it here listed nothing at all on those 81 pages.
+    const own: Filters = { search: '', type: filterType(selected.stageType), content: selected.contentId || '' };
+    setFiltersState((f) => {
+      if (stored && matchesFilters(selected, stored)) return stored;
+      if (!first && matchesFilters(selected, f)) return f;
+      return own;
+    });
+  }, [selected]);
+
+  // No stage open -- the address names none, or one the index does not have: stored
+  // filters, else what is running against the reader's clock, until the reader picks.
+  const noStage = selectedSlug === null || (!!selectedSlug && loaded && !selected);
+  useEffect(() => {
+    if (!noStage) return;
+    scopedFor.current = null;
+    if (!decided.current) {
+      decided.current = true;
+      if (saved.current) {
+        touched.current = true;
+        setFiltersState(saved.current);
+        return;
       }
-      return;
     }
-    // Honoured only when the stage you just opened is inside the list those
-    // filters produce, so the rail can never show a list its own selection is
-    // missing from.
-    if (selected && !matchesFilters(selected, saved)) return;
-    setFilters(saved);
-  }, [selected, groups]);
+    if (!touched.current && opening) setFiltersState((f) => (f.content === opening ? f : { ...f, content: opening }));
+  }, [noStage, opening]);
 
   useEffect(() => {
-    if (!restored.current) return;
+    if (!decided.current) return;
     try {
       sessionStorage.setItem(STORE_KEY, JSON.stringify(filters));
     } catch {
@@ -493,7 +532,10 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
           </div>
         </div>
 
-        <div className="stage-rows" ref={rowsRef}>
+        {/* .loading holds the box at its stacked height until the rows arrive (they
+            are fetched, not shipped), so on a phone the stage below does not drop by
+            a list's height after first paint. */}
+        <div className={`stage-rows${loaded ? '' : ' loading'}`} ref={rowsRef}>
           {visible.slice(0, ROW_CAP).map((s) => (
             /* scroll={false} for the same reason as the form tabs on the page beside
                this: the rail is a list you read from where you are, and every row
@@ -543,7 +585,7 @@ export default function StageList({ stages, typeCounts, complete, now, selectedS
           ))}
           {visible.length === 0 && (
             <p className="hint stage-empty">
-              {loaded ? 'No stage matches those filters.' : 'Loading the rest of the stage list...'}
+              {loaded ? 'No stage matches those filters.' : 'Loading the stage list...'}
             </p>
           )}
           {visible.length > ROW_CAP && (

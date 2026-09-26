@@ -5,9 +5,9 @@ Game records are kept separate from UI code. Existing dataset names remain stabl
 | Area | Files/folders |
 | --- | --- |
 | Operators | `operators-*star/`, `operator-forms.json`, `operator-voice-lines.json`, `skill-ranges.json`, `skill-timings.json` |
-| Stages | `stages/`, `stage-geometry/`, `stage-conditional/`, `stages.json`, `stages-content.json`, stage indexes and legends |
+| Stages | `stages/`, `stage-geometry/`, `stage-conditional/`, `stages-content.json`, `supply-stages.json` (derived from `stages/`), stage indexes and legends |
 | Enemies | `enemies/`, `enemy_appearances.json`, `enemy-stage-appearances.json` |
-| Events and banners | `events/`, `events-data/`, `events.json`, `headhunting_banners.json`, content windows and rotations |
+| Events and banners | `events/`, `headhunting_banners.json`, content windows and rotations |
 | Skins and music | `skins.json`, `albums.json` |
 | Base and game modes | `gamemodes/`, `base-formulas.json`, `is-nodes.json`, `ra-*.json`, `stronghold_enemies.json`, `mode-rotations.json`, `sss-cycle.json` (the SSS cycle the home ticker counts down to, kept by hand) |
 | Planner and materials | `material-catalogue.json` (derived by `scripts/build/build-material-catalogue.mjs`), `material-names.json` (English names of CN-only materials, kept by hand), `operatorLevelExpLmd.json`, `battle-records.json`, `item-sort-ids.json`, `item-icons.json`, `import-aliases.json` |

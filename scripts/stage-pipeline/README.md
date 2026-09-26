@@ -23,7 +23,7 @@ pull request most days for numbers nobody read.
 
 | module | what it answers |
 | --- | --- |
-| `gamedata.mjs` | where the EN tables and level files are; the strict `levelKey` join |
+| `gamedata.mjs` | where the EN tables and level files are, the CN level fallback (`levelFile`), and the strict `levelKey` join |
 | `text.mjs` | the record markup stripper, and `list()` for fields that are sometimes `{}` |
 | `names.mjs` | `slug`, `stageSlug`, variant kinds, and the `SlugSet` that breaks code collisions |
 | `records.mjs` | identity: code, name, variant, zone, order, costs |
@@ -37,6 +37,27 @@ pull request most days for numbers nobody read.
 | `keyorder.mjs` | published key order, so two runs produce the same bytes |
 | `preview.mjs` | which committed render belongs to which stage |
 | `synthetic.mjs` | the 815 stages that exist only as a level file |
+
+## Level files from two mirrors
+
+The EN mirror drops a level file once Global has no way to play the stage: 300 of
+them in 2026-09, among them every stage of Trials for Navigator #1-#4, Children of
+Ursus and Vigilo. The CN mirror still carries them, and the release already pins one
+CN source (`scripts/content/cn-tables.mjs`, composed under
+`.cache/upstream/cn-resource/gamedata`), so `levelFile()` falls back to it: EN wins
+wherever both have the file, the lookup is case-insensitive, and a map read from CN is
+written with `source: "cn"` (only then, so every EN map keeps its bytes). The stage page
+says so under the map. A CN level names its stage-local enemies in Chinese; those names
+are replaced with the EN handbook name of the enemy each one varies, or dropped.
+
+Only a stage the EN tables already name reads a CN level. `levelIds()` lists the EN
+folder alone, because a level file there becomes a stage record even without a
+stage_table row (`synthetic.mjs`), and CN-only stages never arrive by design.
+
+Rehearsed on the 2026-09-25 pins: 186 more maps, 321 stage records gaining a map, and
+mapless contents down from 15 to 1 (Operational Intelligence, which no mirror carries).
+Once a release carries them, losing them is a 6% drop in `stageMaps`, which the
+completeness gate refuses (`scripts/content/check-completeness.mjs`, 2% at most).
 
 ## Four traps, all of them load-bearing
 

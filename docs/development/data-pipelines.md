@@ -77,7 +77,7 @@ sparse checkouts, downloading only the paths the later steps read.
 | `cn-tables` | `Kengxxiao/ArknightsGameData` | `zh_CN/gamedata/excel`, `zh_CN/gamedata/levels` | CN gamedata and level files |
 | `cn-tables-fallback` | `yuanyan3060/ArknightsGameResource` | `gamedata/excel`, `gamedata/levels` | the same, only on a day the first cannot serve them |
 | `cn-art` | `yuanyan3060/ArknightsGameResource` | `map`, `item` | CCB renders, item icons |
-| `en-gamedata` | `ArknightsAssets/ArknightsGamedata` | `en/gamedata/excel`, `en/gamedata/levels` | the whole stage dataset: tables, maps, waves, enemy configurations |
+| `en-gamedata` | `ArknightsAssets/ArknightsGamedata` | `en/gamedata/excel`, `en/gamedata/levels` | the whole stage dataset: tables, maps, waves, enemy configurations (a level Global has dropped is read from the CN tables instead) |
 
 Every CN table of a run comes from one mirror at one commit
 (`scripts/content/cn-tables.mjs`): Kengxxiao at the pinned commit, else its commit from the
@@ -103,8 +103,9 @@ checkout instead of the cache.
 
 | script | writes | reads |
 | --- | --- | --- |
-| `stage-pipeline/build.mjs` | `data/stages/`, `data/stages-content.json`, `data/stage-geometry/`, `data/stage-conditional/`, `data/stage-tile-legend.json`, `public/stages-index.json` | EN gamedata |
-| `build-mode-exclusions.mjs` | `data/excluded-contents.json` | `activity_table` types, content kinds |
+| `stage-pipeline/build.mjs` | `data/stages/`, `data/stages-content.json`, `data/stage-geometry/`, `data/stage-conditional/`, `data/stage-tile-legend.json`, `public/stages-index.json` | EN gamedata; a CN level file where Global has dropped a stage's own (see `scripts/stage-pipeline/README.md`) |
+| `build-supply-stages.mjs` | `data/supply-stages.json` (the planner's supply table) | the supply content's stage records and their guaranteed drops |
+| `build-mode-exclusions.mjs` | `data/excluded-contents.json`; holds in `data/quarantine.json` | `activity_table` types, content kinds, `data/game-modes.json` |
 | `import_is_nodes.py` | `data/is-nodes.json`, IS renders | `roguelike_topic_table`, fexli renders |
 | `import_cc_stages.py` | `data/cc-stages.json`, CCB renders, CCB labels in `stages-content.json` | `medal_table`, `map/` renders |
 | `import_stage_devices.py` | `data/stage-devices.json` | level files' `predefines`, `character_table` |
@@ -126,11 +127,26 @@ in which a listed stage fields an enemy with no record or no `enemies-index.json
 
 ### Doing it on a schedule
 
-Routine updates use `.github/workflows/prepare-content.yml` at 16:57 UTC,
-after the public asset syncs. Unchanged upstream revisions skip expensive work.
-The refresh includes English voice transcripts and missing English profile/archive
-text, then proposes a reviewed release in `arkpedia-data`. The older
-`refresh-stage-data.yml` workflow is a manual bundled-fallback tool only.
+Routine updates use `.github/workflows/prepare-content.yml` (the schedule and the
+gates are in [runtime content](runtime-content.md)). Unchanged upstream revisions skip
+expensive work. The refresh includes English voice transcripts and missing English
+profile/archive text, then publishes a release to `arkpedia-data`. It is the only
+workflow that runs `stages:refresh` or `assets:update`
+(`scripts/tests/test-workflow-files.ts` holds that).
+
+The app's own `data/` is never rebuilt from upstream on a schedule. It is the bundled
+fallback (Check, the browser specs, `ARKPEDIA_CONTENT_DISABLED=1`), and it follows the
+canonical records in `arkpedia-data`, not the mirrors:
+
+```bash
+node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> data/stages data/stage-geometry public/stages-index.json
+node scripts/content/sync-bundled-data.mjs <arkpedia-data checkout> --check data/stages   # exits 1 on a difference
+```
+
+A workflow that used to rebuild `data/` from upstream and open a pull request into this
+repository (`refresh-stage-data.yml`) was retired on 2026-09-26: its bundle could diverge
+from `arkpedia-data` (a hand correction made there was overwritten in the app copy), and
+merging it re-pinned the deploy's assets and deployed production.
 
 New supported records can reach the site without a website deployment through
 [runtime content releases](runtime-content.md). New mechanics, schemas and UI
@@ -143,6 +159,17 @@ still require application changes.
   not fetch new artwork: a new event's renders still have to be added there.
 - `TILES_PER_SECOND` in `lib/stages/stagePlayback.ts` is the one figure not read
   from the game's files; see the comment there.
-- A brand-new *kind* of content (a new game mode, a new storyline) may need its own
-  line in `build-mode-exclusions.mjs` or will simply land in "Events outside a
-  storyline" until the storylines table names it.
+- A brand-new *kind* of content. `data/game-modes.json` (kept by hand in arkpedia-data,
+  checked by `lib/stages/gameModes.mjs`) says what each `activity_table` type is: a
+  limited-time mode whose stages the list never offers (`excludedActivityTypes`), a
+  challenge mode the game files as an event but shows under Seasonal Challenge
+  (`seasonalChallenges`, with the display code its contents carry), or a story episode
+  (`storyActivityTypes`, a pattern). An event of a type it does not classify is still
+  listed as an ordinary event, but `build-mode-exclusions.mjs` holds it in
+  `data/quarantine.json` (key `activity-type:<content>`, naming the type), so the daily
+  "Content quarantined" issue lists it until the record says what it is. A challenge
+  season whose code is not the record's is held the same way (`challenge-label:`). Either
+  fix is a data edit in arkpedia-data, not an app deploy. A new storyline still lands in
+  "Events outside a storyline" until the storylines table names it.
+- A second Reclamation Algorithm season. `data/ra-nodes.json` is one season's survey
+  (`contentId`, sandbox_1); another season's page draws no map until it has its own.

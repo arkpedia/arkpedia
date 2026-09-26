@@ -52,6 +52,15 @@ test('a table the app introduced survives hydration until arkpedia-data carries 
   assert.doesNotMatch(after.stderr, /does not carry/);
 });
 
+/* A hand-kept record the refresh itself reads must be seeded, or the first release after
+   it lands deletes the app's copy and fails at the stage that reads it: data/game-modes.json
+   is read by build-mode-exclusions.mjs and by the stage pages. */
+test('the hand-kept game-modes record survives hydration until arkpedia-data carries it', () => {
+  const kept = hydrate({}, { 'data/game-modes.json': '{"version":1}' });
+  assert.equal(kept.read('data/game-modes.json'), '{"version":1}');
+  assert.match(kept.stderr, /does not carry [^\n]*data\/game-modes\.json/);
+});
+
 /* SEEDED_SOURCE_FILES had no end: whenever arkpedia-data lacked one of the tables, the app's
    copy was kept and published again, so a table the data repository deleted on purpose came
    back from the app's stale copy with the next release. The ledger, carried in the data
@@ -88,4 +97,21 @@ test('the seed ledger changes only when a table first reaches the data repositor
   const malformed = hydrate({ [LEDGER]: '{"files":"data/farming-tiers.json"}' }, { 'data/farming-tiers.json': '[]' }, { fails: true });
   assert.notEqual(malformed.status, 0);
   assert.match(malformed.stderr, /seeded-source-files\.json is not \{"version":1,"files":\[\.\.\.\]\}/);
+});
+
+/* data/stages.json (a wiki.gg scrape), data/stage_index.json and the data/events-data/
+   folder were read by nothing and still published in every release. Retired by path and,
+   for the folder, by prefix: an old release still carrying them never hydrates them back,
+   and the next publication drops them from arkpedia-data's source/. */
+test('retired records and folders are never hydrated back from an old release', () => {
+  const run = hydrate({
+    'data/stages.json': '[]',
+    'data/stage_index.json': '[]',
+    'data/events-data/Act or Die.json': '{}',
+    'data/events-data-keep.json': '{}',
+  }, { 'data/stages.json': '[]', 'data/events-data/Act or Die.json': '{}', 'data/events-data-keep.json': '{}' });
+  assert.equal(run.read('data/stages.json'), null);
+  assert.equal(run.read('data/events-data/Act or Die.json'), null);
+  // A prefix is a folder: a record whose name only starts the same way is a record.
+  assert.equal(run.read('data/events-data-keep.json'), '{}');
 });

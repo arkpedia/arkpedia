@@ -48,6 +48,9 @@ export interface RaMapEntry {
 }
 
 export interface RaNodeData {
+  /** The Reclamation Algorithm season surveyed (sandbox_1). Absent in files written before
+   *  it was recorded, which are that season's (lib/stages/raMap.ts). */
+  contentId?: string;
   source: { name: string; author: string; repo: string; site: string; what: string };
   maps: RaMapEntry[];
 }

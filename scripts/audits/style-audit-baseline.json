@@ -2,7 +2,7 @@
   "collisions": [
     "fallback: enemies.css, roster.css",
     "future-skins-month-scroller: future.css, shared.css",
-    "hint: roster.css, shared.css, stages-terminal.css",
+    "hint: roster.css, shared.css",
     "mobile-nav-bar: gamemodes.css, nav.css",
     "mobile-nav-spacer: gamemodes.css, nav.css",
     "music-player: gamemodes.css, music.css",
@@ -56,5 +56,6 @@
     "pages/dev/index.tsx: <select>"
   ],
   "scrollbarThumb": [],
-  "primaryToggle": []
+  "primaryToggle": [],
+  "tealDecoration": []
 }

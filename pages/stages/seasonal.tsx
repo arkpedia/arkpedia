@@ -8,23 +8,30 @@ import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
 import { getSeasonalChallenge, SeasonalChallenge } from '@/lib/stages/terminal';
 import { StageModeCard } from '@/lib/stages/stageTypes';
+import { countOf } from '@/lib/stages/stageText';
 
 /**
- * Seasonal Challenge: Contingency Contract Battleplan, and an honest gap.
+ * Seasonal Challenge: Contingency Contract Battleplan and the other challenge modes.
  *
- * The game's screen holds a panel per challenge mode, with unopened slots drawn as
- * empty panels rather than hidden. Three of them are in this dataset: Contingency
- * Contract, which is its own content kind, and Vector Breakthrough and Trials for
- * Navigator, which the game files as events -- so they were sitting in Score with the
- * side stories until now. Every past season of all three is here, since unlike the
- * game we are not showing a live account.
+ * The game's screen holds a panel per challenge mode. Contingency Contract is its own
+ * content kind; the others -- Vector Breakthrough and Trials for Navigator today -- the
+ * game files as events, so they were sitting in Score with the side stories. Which they
+ * are is data/game-modes.json (getSeasonalChallenge), so the header names whatever that
+ * record lists rather than a sentence that a new mode would contradict. Every past
+ * season is here, since unlike the game we are not showing a live account.
  *
- * Simulation Training is the one that is not, and its panel says so: the Holographic
- * Combat Matrix has no stage_table rows for the pipeline to read.
+ * Simulation Training (the Holographic Combat Matrix) had a dashed placeholder panel
+ * here saying the pipeline has no rows for it. A placeholder waits until it has content
+ * (docs/development/ui-primitives.md, migration step 9), so it is gone.
  */
 type Props = SeasonalChallenge;
 
-export default function SeasonalPage({ ccb, vector, trials }: Props) {
+/** "A, B and C". */
+const listed = (names: string[]) =>
+  names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join('');
+
+export default function SeasonalPage({ ccb, challenges }: Props) {
+  const modes = ['Contingency Contract Battleplan', ...challenges.filter((m) => m.cards.length).map((m) => m.name)];
   return (
     <>
       <TerminalNav current="seasonal" />
@@ -32,37 +39,28 @@ export default function SeasonalPage({ ccb, vector, trials }: Props) {
         slim
         eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />Terminal // Challenge modes</>}
         title="Seasonal Challenge"
-        sub={<>
-          The challenge modes: Contingency Contract Battleplan, Vector Breakthrough and
-          Trials for Navigator, with every season each of them has run.
-        </>}
+        sub={<>The challenge modes: {listed(modes)}, with every season each of them has run.</>}
       />
 
       <main className="terminal-scene">
-        <Mode tab="Contingency Contract" cards={ccb} noun="operations" mark="contingency-contract.svg" />
-        {/* Vector Breakthrough is the one of the three with no emblem in the set. */}
-        <Mode tab="Vector Breakthrough" cards={vector} noun="stages" />
-        <Mode tab="Trials for Navigator" cards={trials} noun="stages" mark="trials-for-navigator.svg" />
-
-        {/* The game draws a slot it cannot open rather than hiding it. So does this --
-            with the reason, which the game does not have to give. */}
-        <section className="terminal-panel shut" data-tab="Simulation Training">
-          <p className="hint">
-            The Holographic Combat Matrix is not in this dataset: its operations have no
-            stage_table rows for the pipeline to read, so there is nothing here to show.
-          </p>
-        </section>
+        <Mode title="Contingency Contract" cards={ccb} noun="operation" mark="contingency-contract.svg" />
+        {/* The challenge modes the game files as events, from data/game-modes.json. */}
+        {challenges.map((mode) => (
+          <Mode key={mode.label} title={mode.name} cards={mode.cards} noun="stage" mark={mode.mark} />
+        ))}
       </main>
     </>
   );
 }
 
-/** One challenge mode: its newest season at hero size, every past one on a rail. */
-function Mode({ tab, cards, noun, mark }: { tab: string; cards: StageModeCard[]; noun: string; mark?: string }) {
+/** One challenge mode: its newest season at hero size, every past one on a rail.
+ *  `noun` is singular; countOf picks the number. */
+function Mode({ title, cards, noun, mark }: { title: string; cards: StageModeCard[]; noun: string; mark: string | null }) {
   if (!cards.length) return null;
   const [latest, ...rest] = cards;
   return (
-    <section className="terminal-panel" data-tab={tab}>
+    <section className="terminal-panel op-section">
+      <h2>{title}</h2>
       {mark && <ModeMark name={mark} className="panel-mark" />}
       <ContentCardLink id={latest.id} mapless={latest.mapless} className="explore-hero">
         <span className="explore-hero-art">
@@ -74,7 +72,7 @@ function Mode({ tab, cards, noun, mark }: { tab: string; cards: StageModeCard[];
         <span className="explore-hero-text">
           <span className="explore-hero-kind">{latest.label || 'Latest'}</span>
           <span className="explore-hero-name">{latest.name}</span>
-          <span className="explore-hero-meta">{latest.count} {noun}</span>
+          <span className="explore-hero-meta">{countOf(latest.count, noun)}</span>
         </span>
       </ContentCardLink>
       {rest.length > 0 && (
@@ -92,7 +90,7 @@ function Mode({ tab, cards, noun, mark }: { tab: string; cards: StageModeCard[];
                 {card.label && <span className="score-node-code">{card.label}</span>}
                 <span className="score-node-name">{card.name}</span>
               </span>
-              <span className="score-node-meta">{card.count} {noun}</span>
+              <span className="score-node-meta">{countOf(card.count, noun)}</span>
             </ContentCardLink>
           ))}
         </Rail>

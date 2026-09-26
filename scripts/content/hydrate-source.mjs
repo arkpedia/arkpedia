@@ -9,7 +9,18 @@ const deprecatedSourceFiles = new Set([
   // Always '{}' and read by nothing: lyrics are published one file per song
   // (writeLyricsFilesToPublic in lib/music/albumsDataServer.ts).
   'public/lyrics-index.json',
+  // A scrape of arknights.wiki.gg (1,784 stages, 8,947 wiki URLs) nothing rewrote after it
+  // was committed. Its last reader, build-supply-stages.mjs, reads the stage records.
+  'data/stages.json',
+  // The stage list of the pages before the stage pipeline, with '/covers-webp\\main/...'
+  // paths nothing serves. Read by nothing.
+  'data/stage_index.json',
 ]);
+// Whole retired folders, as a path prefix ending in '/'. data/events-data/ is 71 per-event
+// files of wiki.gg icon URLs and map paths under /events-stage-maps/, which nothing serves
+// and nothing reads.
+const deprecatedSourceFolders = ['data/events-data/'];
+const deprecated = relative => deprecatedSourceFiles.has(relative) || deprecatedSourceFolders.some(prefix => relative.startsWith(prefix));
 // Game tables this app introduced before arkpedia-data carried them: the browser code
 // that used to compile them in now reads them from the release (lib/content/tables.mjs).
 // While the data repository has never had one, the app's own copy is kept rather than
@@ -33,6 +44,11 @@ const SEEDED_SOURCE_FILES = new Set([
   'data/material-names.json',
   // The announcement ticker's SSS cycle (lib/schedule/sssCycle.ts), kept by hand.
   'data/sss-cycle.json',
+  // How the game's activity types map onto the Terminal: the excluded modes, the seasonal
+  // challenges and the story episodes (lib/stages/gameModes.mjs), kept by hand. Read by
+  // build-mode-exclusions.mjs in the refresh and by the stage pages, so a release without
+  // it would fail at the stage build.
+  'data/game-modes.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
@@ -69,7 +85,7 @@ for (const file of walk(source)) {
   // Old public releases can still contain retired fallback records. Never
   // hydrate them back into the canonical source tree; the next publication
   // consequently removes them from arkpedia-data as well.
-  if (deprecatedSourceFiles.has(relative)) continue;
+  if (deprecated(relative)) continue;
   const bytes = fs.readFileSync(file);
   if (lyric) assertLyric(relative, bytes); else JSON.parse(bytes);
   incoming.set(relative, bytes);

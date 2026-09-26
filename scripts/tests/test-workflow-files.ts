@@ -30,10 +30,34 @@ function load(name: string): Workflow {
   return yaml.load(fs.readFileSync(path.join(DIR, name), 'utf8')) as Workflow;
 }
 
-test('the workflow directory holds the four private workflows', () => {
-  for (const name of ['check.yml', 'deploy.yml', 'prepare-content.yml', 'refresh-stage-data.yml']) {
+test('the workflow directory holds the three private workflows', () => {
+  for (const name of ['check.yml', 'deploy.yml', 'prepare-content.yml']) {
     assert.ok(files.includes(name), `${DIR}/${name} exists`);
   }
+});
+
+/*
+ * One pipeline writes game data: Prepare content release, which refreshes from upstream and
+ * publishes to arkpedia-data. refresh-stage-data.yml was a second one. It rebuilt this app's
+ * data/ from the mirrors (assets:update, then stages:refresh) and opened a pull request into
+ * the app, so the bundle could diverge from arkpedia-data's canonical records (a hand
+ * correction there was overwritten in the app copy), and merging it re-pinned the deploy's
+ * assets and deployed production. The bundled data/ follows arkpedia-data instead
+ * (scripts/content/sync-bundled-data.mjs).
+ */
+test('no workflow but Prepare content release refreshes game data from upstream', () => {
+  assert.ok(!files.includes('refresh-stage-data.yml'), 'refresh-stage-data.yml is retired; sync the bundle with scripts/content/sync-bundled-data.mjs');
+  const refresh = /\bnpm run (?:stages:refresh|assets:update)\b|scripts\/sync\/refresh-stage-data\.sh|scripts\/sync\/update-asset-revisions\.mjs|scripts\/stage-pipeline\/build\.mjs/;
+  for (const name of files.filter(file => file !== 'prepare-content.yml')) {
+    for (const [id, job] of Object.entries(load(name).jobs ?? {})) {
+      for (const step of job.steps ?? []) {
+        assert.ok(!(typeof step.run === 'string' && refresh.test(step.run)), `${name} job ${id} step ${step.name ?? ''} refreshes game data from upstream; only prepare-content.yml may`);
+      }
+    }
+  }
+  // And the one that may still does, so this test cannot pass by matching nothing.
+  const prepare = Object.values(load('prepare-content.yml').jobs ?? {}).flatMap(job => job.steps ?? []);
+  assert.ok(prepare.some(step => typeof step.run === 'string' && refresh.test(step.run)));
 });
 
 for (const name of files) {
