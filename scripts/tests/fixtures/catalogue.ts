@@ -15,6 +15,8 @@ export const fixtureMaterials = { order: ['EXP', ...plannerCostNames(operatorFix
 export function emptyCatalogue(parts: object = {}) {
   return {
     materials: fixtureMaterials,
+    // The artworks data/color-palettes.json has palettes for: none, and no art is published.
+    palettes: new Set<string>(),
     inventory: { operators: [], skins: [], events: [], banners: [] },
     operators: [], skins: [], banners: [], events: [], bundles: [],
     assets: new Set<string>(),

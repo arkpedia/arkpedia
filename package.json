@@ -19,7 +19,7 @@
     "test:minigames": "tsx --test scripts/tests/test-stage-guesser.ts scripts/tests/test-recruitment-guesser.ts scripts/tests/test-operator-guesser.ts scripts/palettes/test-color-palette.ts",
     "test:recruitment-guesser": "tsx --test scripts/tests/test-recruitment-guesser.ts",
     "test:color-palette": "tsx --test scripts/palettes/test-color-palette.ts",
-    "palettes:refresh": "python3 scripts/palettes/build-color-palettes.py",
+    "palettes:refresh": "python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json",
     "palettes:review": "python3 scripts/palettes/review-color-palettes.py",
     "start": "next start",
     "test:pull-plan": "tsx --test scripts/tests/test-pull-plan.ts scripts/tests/test-pull-probability.ts",

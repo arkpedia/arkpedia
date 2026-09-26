@@ -9,7 +9,7 @@ import operatorFixture from './fixtures/operator-costs.json';
 import { emptyCatalogue, fixtureMaterials } from './fixtures/catalogue';
 import assert from 'node:assert/strict';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { checkCompleteness, COLLECTIONS, countDrops, hasRecordedRelease, missingEnemyIcons, parseAllowShrink, reviewCompleteness, writeQuarantine } from '../content/check-completeness.mjs';
+import { checkCompleteness, COLLECTIONS, countDrops, hasRecordedRelease, missingEnemyIcons, parseAllowShrink, recordedRelease, reviewCompleteness, writeQuarantine } from '../content/check-completeness.mjs';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { buildEventFarming } from '../sync/sync-event-farming.mjs';
 import { activeEventFarming, getEventFarmingMaterials } from '../../lib/farming/eventFarming';
@@ -34,6 +34,7 @@ function collaboration() {
     assets: new Set(['six-star-icons/Test Operator - Base.webp', 'six-star-skins/Test Operator - Base.webp',
       'material-icons/Test Token.webp', 'skill-icons/Test Operator - Test Skill.webp',
       'event-poster/Test Event.webp', 'headhunting-banner-images/Test Banner.webp']),
+    palettes: new Set(['/six-star-skins/Test Operator - Base.webp']),
   });
 }
 const holds = (catalogue: object): Hold[] => {
@@ -90,6 +91,28 @@ test('a missing record or picture quarantines that one record and blocks nothing
   Object.assign(empty, { operators: [], skins: [], events: [], banners: [] });
   assert.deepEqual([...new Set(holds(empty).map(entry => entry.key))].sort(),
     ['banner:LINKAGE_99_0_1', 'bundle:act99side', 'event:act99side', 'operator:char_9990_test', 'skin:char_9990_test@test#1']);
+});
+test('a dated operator whose published art has no palette is held, since the palette game leaves it out', () => {
+  // Gallus², Rhodes Island Recon and Chestnut's Elite 2 art sat out of /games/color-palette
+  // that way while nothing made palettes (lib/minigames/data.ts drops them without a word).
+  const base = '/six-star-skins/Test Operator - Base.webp', elite = '/six-star-skins/Test Operator - Elite 2.webp';
+  const palette = (edit: (c: any) => void) => { const c = collaboration(); edit(c); return holds(c).filter(entry => /palette/.test(entry.reason)); };
+  const noBase = palette(c => { c.palettes = new Set(); });
+  assert.deepEqual(noBase.map(entry => [entry.key, entry.action]), [['operator:char_9990_test', 'published-partial']]);
+  assert.equal(noBase[0].reason, 'Test Operator: six-star-skins/Test Operator - Base.webp has no palette in data/color-palettes.json, so /games/color-palette leaves Test Operator out');
+  // From 4 stars the Elite 2 art is played too, once it is published.
+  const noElite = palette(c => { c.assets.add(elite.slice(1)); });
+  assert.deepEqual(noElite.map(entry => entry.reason), ["Test Operator: six-star-skins/Test Operator - Elite 2.webp has no palette in data/color-palettes.json, so /games/color-palette leaves Test Operator's Elite 2 art out"]);
+  assert.deepEqual(palette(c => { c.assets.add(elite.slice(1)); c.palettes.add(elite); }), []);
+  // Art not published yet is the asset holds' business (and Amiya's forms never get Elite 2 art).
+  assert.deepEqual(palette(c => { c.assets.delete(base.slice(1)); c.palettes = new Set(); }), []);
+  // Below 4 stars there is no Elite 2 art to play.
+  assert.deepEqual(palette(c => { c.operators[0].rarity = 3; c.assets.add('three-star-skins/Test Operator - Elite 2.webp'); c.assets.add('three-star-skins/Test Operator - Base.webp'); c.palettes = new Set(['/three-star-skins/Test Operator - Base.webp']); }), []);
+  // The game plays dated operators only, released or not yet: an undated one waits for its date.
+  const undated = (c: any) => { c.operators[0].isFuture = true; c.operators[0].characterInfo['Release Date'] = null; c.palettes = new Set(); };
+  assert.deepEqual(palette(undated), []);
+  assert.equal(palette(c => { undated(c); c.operators[0].releaseAt = '2027-01-01T03:00:00Z'; }).length, 1);
+  assert.throws(() => reviewCompleteness({ ...collaboration(), palettes: undefined }), /needs the palette catalogue/);
 });
 test('an album whose release date is not written YYYY/MM/DD is held, and blocks nothing', () => {
   // Sorted as text, "October 8, 2025" ranked above every 2026 album in Recently added, and a
@@ -215,6 +238,7 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
     write('data/content-inventory.json', { operators: [], skins: [] });
     write('data/skin-availability-windows.json', { entries: [] });
     write('data/material-catalogue.json', { version: 1, order: ['EXP'], groups: [], items: {} });
+    write('data/color-palettes.json', { version: 2, artworks: {}, unavailable: [] });
     write('data/stages/test-1.json', { slug: 'test-1', enemies: { by_rank: { normal: [{ slug: 'slug-a' }] }, conditional: { by_rank: { elite: [{ slug: 'slug-b' }] } } } });
     write('data/stages/unlisted.json', { slug: 'unlisted', enemies: { by_rank: { normal: [{ slug: 'slug-unlisted' }] } } });
     write('public/stages-index.json', [{ slug: 'test-1' }]);
@@ -328,6 +352,7 @@ test('the release-date guard makes the same call as the site', () => {
     .map(releaseAt => ({ releaseAt, characterInfo: { 'Release Date': null } }));
   for (const op of [operatorFixture.operator, ...edges, ...exact, { characterInfo: null }] as any[]) {
     assert.equal(hasRecordedRelease(op), operatorRelease(op) !== null, JSON.stringify({ releaseAt: op.releaseAt, date: op.characterInfo?.['Release Date'] }));
+    assert.equal(recordedRelease(op), operatorRelease(op)?.at ?? null, JSON.stringify({ releaseAt: op.releaseAt, date: op.characterInfo?.['Release Date'] }));
   }
 });
 test('home farming is limited to battle windows, independently of shop closing times', () => {

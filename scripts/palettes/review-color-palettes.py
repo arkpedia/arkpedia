@@ -14,6 +14,14 @@ from PIL import Image
 from palette_review import ROOT, load_reviews, validate_review, atomic_json
 
 
+def generator_module():
+    """build-color-palettes.py, freshly loaded (its name is not importable)."""
+    spec = importlib.util.spec_from_file_location('palette_generator', Path(__file__).with_name('build-color-palettes.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class ReviewStore:
     def __init__(self, root=ROOT):
         self.root = root
@@ -45,6 +53,27 @@ class ReviewStore:
         path = (public / key.lstrip('/')).resolve()
         if not path.is_relative_to(public):
             raise ValueError('Invalid artwork path.')
+        if path.exists():
+            return path
+        return self.pinned_art(key)
+
+    def pinned_art(self, key):
+        """The artwork from arkpedia-skin-assets at the commit data/assets/revisions.json pins:
+        the bytes the release's palettes stage reads. public/ has had no skin art since it moved
+        there, so without this the reviewer could open nothing. Downloaded once per commit into
+        .cache/palette-art/<commit>/."""
+        revisions = json.loads((self.root / 'data' / 'assets' / 'revisions.json').read_text())
+        skins = generator_module().PinnedSkins(revisions.get('arkpedia-skin-assets'))
+        cache = (self.root / '.cache' / 'palette-art' / skins.revision).resolve()
+        path = (cache / key.lstrip('/')).resolve()
+        if not path.is_relative_to(cache):
+            raise ValueError('Invalid artwork path.')
+        if not path.exists():
+            data = skins.fetch(key.lstrip('/'))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = path.with_name(path.name + '.part')
+            temporary.write_bytes(data)
+            temporary.replace(path)
         return path
 
     def details(self, key):
@@ -197,14 +226,14 @@ def make_handler(store):
                 elif self.path == '/api/undo':
                     self.send(store.undo(payload))
                 elif self.path == '/api/apply':
-                    spec = importlib.util.spec_from_file_location('palette_generator', Path(__file__).with_name('build-color-palettes.py'))
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
+                    module = generator_module()
                     module.ROOT = store.root
                     module.OUTPUT = store.manifest_path
                     module.FEATURES = store.root / 'data' / 'color-palette-features.json'
                     module.load_reviews = lambda: load_reviews(store.reviews_path)
-                    module.main()
+                    # The artwork is read from arkpedia-skin-assets at the pinned commit, as the
+                    # release's palettes stage reads it.
+                    module.main(['--revisions', str(store.root / 'data' / 'assets' / 'revisions.json')])
                     self.send({'message': 'Reviewed palettes applied locally. Rebuild the site to use them.'})
                 else:
                     self.send({'error': 'Not found'}, 404)

@@ -66,6 +66,20 @@ day's data and the catalogues only grow: there the same command is the
 the daily 'Content quarantined' issue then names until the payload is trimmed or the
 budget raised. The release is never held back by it.
 
+The palette game's swatches, `data/color-palettes.json`, are the one palette catalogue:
+the site reads it, the release publishes it, and the community corrections in
+arkpedia-color-palette apply on top of it. The release job's `palettes` stage rebuilds it
+(`scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json`) from
+the Base and Elite 2 art of arkpedia-skin-assets at the commit the release pins,
+downloading only art that is new or changed. Each artwork's palette comes from its review
+(`data/color-palette-reviews.json`), else its feature recipe
+(`data/color-palette-features.json`), else, for new art nobody has looked at yet, an
+automatic palette marked `automatic`, which the game plays while the artwork stays in
+`data/quarantine.json` (stage `palettes`) until someone reviews it with
+`npm run palettes:review` (it reads the art from the pinned skin repository) or writes its
+recipe. The completeness stage holds any dated operator whose published art still has no
+palette, since the game leaves such an operator out without a word.
+
 ## Local checks
 
 ```sh
