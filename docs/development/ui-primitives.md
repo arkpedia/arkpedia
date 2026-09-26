@@ -4,7 +4,8 @@ This is the reference for building or migrating any Arkpedia page. It covers the
 
 The canonical style is the `/operators` list page plus `/gacha`, as decided on 2026-09-25:
 
-- Section headings are amber `.op-section h2`.
+- Section headings are `.op-section h2` in `--heading`, a teal-ish colour kept apart from the `--teal` that marks on/current states (maintainer, 2026-09-26; amber was tried and rejected).
+- Picture and content cards (posters, banner art and thumbnails, operator and skin tiles, album covers, portraits, the /games and /community cards) carry **no resting border**: the art says they can be clicked. They draw a teal edge on hover and keyboard focus. Only real controls (buttons, chips, inputs, tabs, dropdowns) carry `--control-border` at rest.
 - Buttons are Rajdhani, uppercase, with 0.09em tracking.
 - The page header has a mono teal eyebrow above a 30px Rajdhani h1.
 - Everything sits in a 1040px frame with 24px gutters.
@@ -70,7 +71,8 @@ All values are in `styles/core/shared.css`. `scripts/tests/test-ui-tokens.ts` ch
 | `--teal-dim` | teal .14 | teal .12 | The fill behind a selected item. Teal text on it clears 4.5:1 in both themes. |
 | `--teal-fill` / `--teal-fill-hi` | gradients | #0a7f6c→#097565 / darker | **Primary actions only** (`.primary`), with `--teal-ink` text |
 | `--teal-ink` | #0a2621 | #FFFFFF | Text on a teal fill |
-| `--amber` | #e0aa4e | #8F5808 | Section headings (`.op-section h2`), countdowns |
+| `--heading` | #67cbdd | #0b6879 | Section headings (`.op-section h2` and the page headings built like it) |
+| `--amber` | #e0aa4e | #8F5808 | Countdowns, costs, warnings (never headings) |
 | `--danger` / `--danger-dim` / `--danger-solid` | | | Destructive actions and errors. Use `-solid` behind white text. |
 
 ### Data colours
@@ -350,7 +352,7 @@ The test also fails when a page file under `pages/` is neither measured nor excl
 
 1. Replace the page's own header markup with `<PageHeader>` as a sibling of `<main>`. Delete the page's h1, eyebrow and header CSS.
 2. Drop `main-wide`, per-feature gutters and fixed-width columns. Content fills `main` (992px at 1440) and uses `var(--page-gutter)`.
-3. Section headings: `.op-section` plus `<h2>` (amber, 18px) for sections and the global `h3` for sub-sections. Delete page-level heading colours, sizes and teal headings.
+3. Section headings: `.op-section` plus `<h2>` (`--heading`, 18px) for sections and the global `h3` for sub-sections. Delete page-level heading colours, sizes and teal headings.
 4. Controls:
    - pick-one groups become `SegmentedControl`
    - independent filters become `.filter-chip` with `aria-pressed`

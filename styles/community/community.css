@@ -32,7 +32,7 @@
   flex-shrink: 0;
   gap: 2px;
   padding: 10px 12px;
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: var(--row-grad);
   color: var(--text);

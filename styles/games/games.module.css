@@ -1,7 +1,7 @@
 /* The games hub: a grid of link cards. Title and headings are the site's own
    (PageHeader, the global h2). */
 .games { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; list-style: none; margin: 0; padding: 0; }
-.card { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 16px; height: 100%; padding: 22px; border: 1px solid var(--control-border); border-radius: var(--radius-frame); background: var(--panel-grad); color: var(--text); text-decoration: none; transition: border-color 0.15s ease; }
+.card { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 16px; height: 100%; padding: 22px; border: 1px solid transparent; border-radius: var(--radius-frame); background: var(--panel-grad); color: var(--text); text-decoration: none; transition: border-color 0.15s ease; }
 .card h2 { margin: 0; }
 .card p { margin: 8px 0 0; max-width: 65ch; font-size: 13px; line-height: 1.6; color: var(--text-dim); }
 .card:hover { border-color: var(--teal); }
@@ -11,3 +11,6 @@
 .card:hover .icon, .card:hover .play, .card:focus-visible .play { color: var(--teal); }
 @media (max-width: 700px) { .games { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) { .card { padding: 18px 16px; gap: 12px; } }
+
+/* No resting frame on the game cards (maintainer, 2026-09-26); focus matches hover. */
+.card:focus-visible { border-color: var(--teal); }
