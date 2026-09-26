@@ -53,15 +53,14 @@
 .terminal-tabs {
   display: flex;
   align-items: stretch;
-  /* `safe` because a plain `center` with overflow-x puts the overflow on BOTH sides
-     and the left half becomes unreachable -- the first two sections scrolled off with
-     no way back to them. */
-  justify-content: safe center;
+  /* Wraps rather than scrolls: the seven tabs only just fit the 1040px frame with
+     macOS font metrics, and on Linux and Windows the last one sat partly behind a
+     scroll whose bar is hidden. A second row keeps every tab reachable and inside the
+     frame (tests/browser/page-bounds.spec.ts measures it on the Linux CI runner). */
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.terminal-tabs::-webkit-scrollbar { display: none; }
 
 /* --- the collapsed bar, under the mobile breakpoint --------------------------
    Hidden on a desktop, where all seven tabs fit. */
@@ -1026,6 +1025,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
     right: 0;
     top: 100%;
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 0;
     overflow: visible;
