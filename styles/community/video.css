@@ -28,7 +28,8 @@
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
-  border: 1px solid var(--line-soft);
+  /* No frame round the art at rest; the .video-card itself turns teal on hover/focus. */
+  border: 1px solid transparent;
   margin-bottom: 0;
   position: relative;
 }

@@ -35,7 +35,7 @@ const PICTURE_ROUTES: Record<string, number> = {
   '/': 1, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/community/videos': 1, '/results': 1,
   '/music/discover': 1, '/games': 0, '/stages': 1, '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/supplies': 0,
   [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}`]: 1,
-  '/operators': 1, '/operators/Amiya': 1, '/stages/all': 1, '/stages/score': 1, '/stages/exploration': 1, '/synergies': 1,
+  '/operators': 1, '/operators/Amiya': 1, '/operators/Exusiai': 1, '/stages/all': 1, '/stages/score': 1, '/stages/exploration': 1, '/synergies': 1,
 };
 /* Content cards whose art is under half the card, so the census above does not count
    them; they are cards, not controls, and carry no resting frame either. Only the top,
@@ -93,7 +93,36 @@ async function pictureCards(page: Page): Promise<PictureCard[]> {
         if (w < 40 || h < 40 || w * h < 0.5 * box.width * box.height) continue;
         if (!picture || w * h > picture.area) picture = { node, area: w * h };
       }
-      if (!picture) continue;
+      if (!picture) {
+        // Not a picture card (its art is under half the box), so the control keeps its own
+        // border; but a frame round the art inside it is still the grey box this rule
+        // removes (the operator page's guide video thumbnails, 2026-09-26). Any link or
+        // button of 100x60 or more with a picture of 40x40 or more is checked for that.
+        if (box.width < 100 || box.height < 60) continue;
+        let inner: { node: Element; area: number } | null = null;
+        for (const node of Array.from(el.querySelectorAll('img, picture, video, canvas, image'))) {
+          if (!shown(node)) continue;
+          const r = node.getBoundingClientRect();
+          if (r.width < 40 || r.height < 40) continue;
+          if (!inner || r.width * r.height > inner.area) inner = { node, area: r.width * r.height };
+        }
+        if (!inner) continue;
+        const innerBox = inner.node.getBoundingClientRect();
+        const innerFrames: string[] = [];
+        for (let node: Element | null = inner.node; node && node !== el; node = node.parentElement) {
+          const r = node.getBoundingClientRect();
+          if (r.width * r.height > 1.6 * innerBox.width * innerBox.height) break;
+          const drawn = frame(node);
+          if (drawn) innerFrames.push(`${name(node)} round the art: ${drawn}`);
+        }
+        if (innerFrames.length) {
+          const id = cards.length;
+          el.setAttribute('data-picture-card', String(id));
+          inner.node.setAttribute('data-picture-art', String(id));
+          cards.push({ id, name: name(el), size: `${Math.round(box.width)}x${Math.round(box.height)}`, on: el.matches(ON), edged: true, frames: innerFrames });
+        }
+        continue;
+      }
       const frames: string[] = [];
       const own = frame(el);
       if (own) frames.push(`the card: ${own}`);
