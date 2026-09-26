@@ -17,7 +17,7 @@ The canonical style is the `/operators` list page plus `/gacha`, as decided on 2
 | What | Where |
 |---|---|
 | Every token (colour, radius, frame, fonts) | `styles/core/shared.css`. Dark values are in `:root` and light values in `:root[data-theme="light"]`. Tokens are never defined anywhere else. |
-| Primitive rules: buttons, chips, checkboxes, inputs, tabs, rarity classes, panels | `styles/core/arkpedia-theme.css` |
+| Primitive rules: buttons, chips, checkboxes, inputs, tabs, the live badge, rarity classes, panels | `styles/core/arkpedia-theme.css` |
 | The global element rules: header, h1–h3, main, scrollbars, focus ring | `styles/core/shared.css` |
 | The nav frame | `styles/core/nav.css` |
 | React primitives | `components/ui/*` |
@@ -34,14 +34,16 @@ CSS modules are used by the operator page, the games, the pulls workspace and `S
 2. **One resting boundary for controls, and it is soft.** Anything that can be pressed, typed in, ticked or picked from has a `--control-border` border at rest, except a picture or content card, which has none (above). The border is a band, not WCAG 1.4.11's 3:1: at 3.5:1 every chip and field was a hard outline (maintainer, 2026-09-26: "too harsh"). A control reads as one through its fill (`--row-grad`, `--panel-2`, `--well`), its label or button voice, and the teal hover and focus; the border only has to be seen. A large pressable surface (a `.pick-card`, a row card, a tall disclosure row) takes the quieter `--card-border`, because a long outline at the chip's weight boxes in half the page. `--line` and `--line-soft` are for passive hairlines only (panels, dividers, table rules).
 3. **Booleans and options are checkboxes.** A setting that is on or off ("Monthly card", "Include CN", "Include sparking") and an item in a list you tick (the stage guesser's chapters, the music guesser's releases) is a real `<input type="checkbox">` in a `<label className="check">`. It is never a `.tgl`, a `.filter-chip` with `aria-pressed` or a button drawing its own tick box: #64 turned eleven of them into highlighted buttons and the maintainer asked for the checkboxes back. `.tgl` is only a mode switch in a dense toolbar. `audit:styles` rejects a checkbox outside a `.check` label (`checkboxPrimitive`) and a `.tgl` outside `TGL_SCOPE` (`tglOutsideToolbar`), and `tests/browser/checkboxes.spec.ts` holds the known option groups to real checkboxes.
 4. **One line.** The cells of a row share one centre line: a button, input or select and the text or the other control beside it sit on the same vertical centre (and on one baseline where text sits beside text). A caption under a value hangs below it out of the flow rather than lifting the value off the centre, and a margin under one cell of a centred row belongs to the row, not the cell (`.hint`'s 18px bottom margin lifted the /skins count 9px). `tests/browser/row-census.ts` finds offenders; `tests/browser/row-alignment.spec.ts` runs it on the routes it found them on.
-5. **One hover rule.** On hover, the border and the text go to `--teal`. Destructive `.danger` controls are the exception: they stay red.
+5. **One hover rule.** On hover, the border and the text go to `--teal`. Destructive `.danger` controls are the exception: they stay red, and so are tabs: a tab has no border, and a hovered tab in teal would read as the current one, so its label goes from `--text-dim` to `--text`.
 6. **Rarity colour comes only from `--rarity-N`**, through `<Rarity>`, `.rarity-N`, `.tier-N` or `.tier-fill-N`. 5★ is never teal.
 7. **One frame.** The header, `main` and the nav share `--frame-max` (1040px) and `--page-gutter` (24px at every width). There are no per-feature gutters and no `main-wide`.
 8. **One page header**, `<PageHeader>`, placed as a sibling of `<main>`.
 9. **One dropdown**, `<StyledSelect>`. Never write a native `<select>` or a hand-built `role="listbox"` outside `components/ui`.
 10. **Radii come from tokens**: `var(--radius)` (2px) by default, `var(--radius-frame)` (3px) for an outer frame or a floating menu, and `var(--radius-control)` (4px) at most for a tile-like control. Never use a literal, and never 999px pills.
 11. **Only loaded font weights.** Rajdhani 500/600/700, JetBrains Mono 400–700 and Inter 400–700 are loaded. Any other weight is faked by the browser as faux bold.
-12. **Anti-Page Jump.** No state change may leave the document shorter than the reader's scroll position needs. See the `arkpedia-ui` skill. `components/ui/useHeightFloor` is the general-purpose fix.
+12. **Anti-Page Jump.** No state change may leave the document shorter than the reader's scroll position needs. See the `arkpedia-ui` skill. `components/ui/useHeightFloor` is the general-purpose fix, and `components/ui/useSwitchHold` the one for a tab switch or a view swap.
+13. **Tabs and pick-one rows start on the section edge.** A strip of tabs is `<Tabs>` (or `.tabs` / `.tab` links between routes), and a pick-one row is `SegmentedControl`: both at content width, packed from the start of the line. The first tab's label, and the first chip's box, start where the section heading's text starts (or on the page frame, or on the panel's content edge). Nothing stretches them: no `flex: 1` on an item, no `justify-content: center` or `space-*` on the row, no equal `1fr` columns. A stretched chip centres its label, and the maintainer's mock put the first label ~30px right of the heading that way (2026-09-26); the r9 census found the site doing it on /operators/Amiya's voice lines (+29.8px), /recruitment (+45.6), the calendar layers (+62.5), the map tools (+49.6), the music guesser (+23.9), and the Terminal bar centred +26.9 off the frame. Equal cells are allowed only where they are the point, each with its reason in `STRETCH_ALLOWED` (`scripts/audits/audit-choices-badges.mjs`): the /stages/supplies week, the planner state form's E0/E1/E2, the music guesser's clip-length scale, the operator guesser's hint checklist, the music player's transport. `audit:styles` (`stretchedChoices`) rejects the CSS, and `tests/browser/tab-align.ts` measures the rendered page (the `tab-align` offence in page-bounds, on every route at 1440 and 390 in both themes, and `tests/browser/tabs.spec.ts` on the driven states).
+14. **One live badge.** LIVE, LIVE NOW and RUNNING NOW are `<span className="badge-live">`: white mono caps on `--danger-solid`, 16px tall, one padding. A page places it (position, top, left) and paints nothing: the census found four looks for it (mono 9/700, Inter 10/700, teal on `--teal-dim` on /stages/all, the map's `.badge-tradeable`) and the primitive unused. `audit:styles` (`liveBadge`) rejects a font, background or colour on a live-badge class outside `arkpedia-theme.css`, and a LIVE text rendered without the class.
 
 ## Tokens
 
@@ -134,9 +136,40 @@ import PageHeader from '@/components/ui/PageHeader';
 - Render it **outside and before** `<main>`, never inside it. A header inside `main` starts 24px to the right of the content. The bounds test measures this.
 - Do not restyle the h1 (size, case, colour). `audit:styles` rejects h1 size or case rules outside `shared.css`.
 
+### Tabs
+
+Use Tabs when one of N panels shows in place: a page's sections (Stronghold), an event's Banner / Rewards / Skins, an enemy's Resistances / Stages, an operator's skills, a view switch (Schedule's Events / Calendar, Recruitment's Calculator / Cheat sheet, the planner's Simple / Experimental and its per-operator view). A value you pick (a sort order, a level, a filter, a module's stage) is not a tab: it is SegmentedControl.
+
+```tsx
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+
+<Tabs
+  label="Event sections"            // required: the tablist's name
+  id="event-section"                // required: the stem of every tab and panel id
+  value={section}
+  onChange={chooseSection}          // runs in the click or key handler (Anti-Page Jump)
+  options={[
+    { value: 'banner', label: 'Banner' },
+    { value: 'rewards', label: 'Rewards', count: 12 },
+    { value: 'skins', label: 'Skins', icon: <img src={icon} alt="" />, disabled: !skins.length },
+  ]}
+/>
+<section {...tabPanelProps('event-section', section)}>…</section>
+```
+
+- It renders `role="tablist"` of `<button role="tab" aria-selected aria-controls>`, and `tabPanelProps(id, value)` gives the panel its `id`, `role="tabpanel"` and `aria-labelledby`. Mount one panel at a time or keep them all and hide the others (`hidden`); either way the panel carries the props. Tests find a tab with `getByRole('tab', { name })`.
+- Keyboard: the strip is one Tab stop (a roving tabindex on the current tab). Left and Right move and select, wrapping; Home and End jump to the ends; disabled tabs are skipped. A click selects without a scripted `focus()`, so pressing a tab never scrolls the page (measured: a real click on the operator page's skill tabs leaves its pane where it was); the keyboard moves focus with the selection.
+- Ids come from the props, not `useId`, so the server HTML and the browser agree (no hydration mismatch).
+- The look is `.tabs` / `.tab` (`arkpedia-theme.css`): labels at content width in the button voice (Rajdhani 600, 13px, uppercase, 0.09em), no box and no side padding, so the first label starts on the heading's edge (rule 13). `--text-dim` at rest, `--text` on hover, `--teal` with a static 2px `--teal` underline when current. The weight never changes with the state, so switching cannot re-wrap the strip. An `icon` is drawn at 28px before the label; `count` is a mono figure after it.
+- The underline is each tab's own `::after`. A sliding indicator can replace it later without touching the markup; nothing animates today.
+- A page places the strip (margins) and never restyles a tab: no side padding, border or fill from a feature rule (the planner's old `.simple-operator-tabs button` rule did all three). The `tab-align` census fails a boxed `.tab`.
+- `removable={{ onRemove, label }}` makes tabs removable (the planner's operators): Delete or Backspace on the focused tab removes it and keeps focus in the strip, and the tab draws a × that does the same on a click. A tab may not hold a button, so the × is not one; `label(option)` names it ("Remove Amiya from plan") and returns `null` for a tab that stays (All).
+- Switching must not shorten the page (rule 12). A page that swaps panels of different heights holds the reader's place in the handler: `useSwitchHold` (Schedule, events, the planner's operators), `useHeightFloor` on the panel (the enemy pane), a height floor inside a dialog (the `/gacha` preview's modules), or the page's own reserve (Stronghold, whose pinned bar still leaves the screen when a short section cannot carry it: the skill's documented limit). `tests/browser/tabs.spec.ts` presses every tab of every strip from the top of the screen and fails when the strip moves.
+- **Links between routes** (the Terminal bar, the game switcher, an operator's class forms, a stage's forms on /stages/browse) take the same look as `<nav className="tabs">` of `<a className="tab" aria-current="page">`, not `role="tab"`: they navigate. The Terminal bar is packed from the frame's left edge like every strip.
+
 ### SegmentedControl and `.filter-chip`
 
-Use SegmentedControl to pick one of N: view modes, rarity, sort order, tabs that swap content in place.
+Use SegmentedControl to pick one of N values: view modes, rarity, sort order, a level or stage. Panels that swap in place are Tabs (above).
 
 ```tsx
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -155,10 +188,22 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 
 - It renders a `role="group"` of `<button class="filter-chip" aria-pressed>`. Tests find each option with `getByRole('button', { name })`.
 - The pinned chip is 32px tall (36px at ≤720), with a `--control-border` border, `var(--radius)` and the button voice (Rajdhani 600, 12px, uppercase, 0.09em). When picked it has a `--teal-dim` fill, teal text and a teal border.
+- Chips are content width and the row packs from its start: the first chip's box starts on the section edge and its label 13px in (12px padding and the border). Never grow a chip to fill the line (rule 13); a row that needs to wrap wraps. A fixed-width icon tile (a 44px talent tile, a 40px "1x") is sized, not grown, and may centre its icon.
 - **Never** use `cond ? 'primary' : 'ghost'` for a pick-one control or a toggle. `--teal-fill` is reserved for primary actions. `audit:styles` rejects the swap in TSX (`primaryToggle`, strict; `pages/dev` excepted). A button whose label says its state ("Play" / "Pause") keeps one class and takes no `aria-pressed`.
 - `.tgl` (a mode switch in a dense toolbar, mono 11px) takes `.is-on` together with `aria-pressed`. On is the chip's picked state, not a fill. It is not for settings or options: those are `.check` checkboxes, and `audit:styles` (`tglOutsideToolbar`) rejects a `.tgl` in any file outside `TGL_SCOPE` (none today).
 - For filters that toggle independently (tags you can turn on together), render `.filter-chip` buttons directly with `aria-pressed`. The picked state reads `aria-pressed`, `aria-selected` or `aria-checked` (`.active` also works during migration).
 - Chip content can include `icon` (an 18px img or svg), `count`, and `ariaLabel` for icon-only chips.
+
+### LIVE badge (`.badge-live`)
+
+```tsx
+{isLive && <span className="badge-live gacha-banner-sidebar-live-badge">Live now</span>}
+```
+
+- White mono caps (10px, 700, 0.08em) on `--danger-solid`, 16px tall with 5px side padding and `var(--radius)`. The text is written in any case; the class uppercases it.
+- The page's own class only places it (`position: absolute; top; left`). It sets no font, background or colour (`audit:styles`, `liveBadge`). Twitch streams use it too: they were Twitch purple, a second look for the same meaning.
+- It is `inline-flex` with a gap, so the next round's blinking dot (`::before`, with `prefers-reduced-motion: reduce` turning it off) sits beside the text without changing how the box is built. There is no dot and no animation yet.
+- Uses: `/gacha` banner sidebar (LIVE NOW), `/schedule` events list (LIVE), `/stages/all` mode cards (RUNNING NOW), the world map tooltip (LIVE NOW), the home community fader and the `/community` stream cards (LIVE, LIVE NOW). The `/community` event list's status dot (`.event-status-live`) is a dot, not a badge, and stays.
 
 ### Checkbox (`.check`)
 
@@ -324,6 +369,20 @@ const floor = useHeightFloor(eventSlug);           // the logical page, not the 
 
 It reserves exactly what the reader's position needs and gives the space back as they scroll up. Verify each use with the `apj()` probe: `anchorMovedPx` must be below 4 at 1440 and 390. Do not use it for a search that narrows a long list (see the skill).
 
+### useSwitchHold
+
+The same rule for a tab switch or a view swap, taken in the handler instead of after the change. It works out how tall the container must stay for the document to still reach the bottom of the reader's screen and applies that as the container's `min-height` in the same render as the new panel, so there is never a frame to clamp; it melts as the reader scrolls back up.
+
+```tsx
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
+
+const hold = useSwitchHold(pageKey);                        // the logical page: an event, a route
+const choose = (next) => { hold.capture(); setView(next); };  // capture BEFORE the change
+<div ref={hold.ref} style={hold.style}>{panels}</div>
+```
+
+Used by `/events/[slug]` (sections and reward stores), `/schedule` (Events / Calendar: the calendar is shorter, and the switch clamped the reader 51px up at 1440) and the planner's per-operator tabs (an operator's dossier is taller than All materials; a 249px clamp on a phone was seen in one run and did not reproduce, so the hold there is the pattern rather than a measured fix). A panel that scrolls inside a dialog cannot use it (it measures the document); the `/gacha` preview's module panel holds its tallest height per operator instead.
+
 ### Error pages
 
 `pages/404.tsx` and `pages/500.tsx` use `PageHeader` in the site frame on `--bg` in both themes. They are static on purpose.
@@ -354,6 +413,9 @@ What still carries accepted cases, all in `scripts/audits/style-audit-baseline.j
 | `primaryToggle` (strict) | A TSX class chosen between `'primary'` and `'ghost'` by a condition, outside `pages/dev` | A `.filter-chip` with `aria-pressed`, or one constant class when the label carries the state |
 | `checkboxPrimitive` (strict) | An `<input type="checkbox">` in TSX whose nearest open `<label>` has no `check` class | Wrap it in `<label className="check">` and delete any page styling of the box |
 | `tglOutsideToolbar` (strict) | A `tgl` class in TSX outside the files in `TGL_SCOPE` (none today) | A setting or an option is a `.check` checkbox; a pick-one is `SegmentedControl`; an independent filter is a `.filter-chip` with `aria-pressed` |
+| `stretchedChoices` (strict) | A tab or pick-one row stretched across its line: `flex: 1` / `flex-grow` on a `.filter-chip`, `.tab`, `[role=tab]` or a child of a choice row, or `justify-content: center` / `space-*` / `stretch` or equal `fr` columns on the row. A choice row is `.seg-control`, `.tabs`, `[role=tablist]`, a `*-tabs` / `*Tabs` class, a className given to `SegmentedControl` or `Tabs`, or an element holding two or more chips | Content width, packed from the start (rule 13); a genuine exception goes in `STRETCH_ALLOWED` in `scripts/audits/audit-choices-badges.mjs` with its reason |
+| `deadPrimitives` (strict) | A class defined in `styles/core/arkpedia-theme.css` that no string in `pages` (dev pages excluded), `components` or `lib` names; `tier-${n}` counts for every `.tier-N` | Delete the rule. Documented API that nothing renders yet is `PRIMITIVE_KEEP`, with its reason (`.btn-lg`, `.tgl` and its states, `.is-selected`, `.no-scroll-wrap`, `.tier-fill-N`) |
+| `liveBadge` (strict) | A font, background or colour on a live-badge class (containing `live-badge` or `live-now-badge`, or ending in `-live`) outside `arkpedia-theme.css`, or an element whose text is LIVE / LIVE NOW / RUNNING NOW without the `badge-live` class | Render `.badge-live` and keep only the badge's position in the page (rule 14). `LIVE_ALLOWED` lists the non-badge matches (`.event-status-live`, a dot) |
 | `tealDecoration` (strict) | `var(--teal)`, `--teal-dim` or `--teal-fill` as a colour, background, border, outline or shadow on a selector with no state in it (`:hover`, `:focus`, `:checked`, `[aria-pressed]`, `[aria-current]`, `.current`, `.live`, `.open`...), in the folders of `TEAL_DECORATION_SCOPE` (`styles/stages/`) | Recolour it (`--text-dim`, `--heading` for a heading), or qualify the selector with the state it marks |
 
 ```sh
@@ -371,6 +433,7 @@ For every page at 1440 and 390, the test measures:
 - `h1-align`: the visible h1's left edge is not where the content starts.
 - `frame`: content lies outside 224–1216 at 1440, or outside 24–366 at 390.
 - `page-scroll-x`: the page itself scrolls sideways.
+- `tab-align`: a tab strip or pick-one row that leads its line (`[role=tablist]`, `.tabs`, `.seg-control`, a `*-tabs` class, or a row of two or more chips) has its first item off the section's edge by more than 2px (the edges are the nearest heading's text-left in the same column, the content edge of the section, dialog or panel it is in, the block on the line above it, and the frame), or grows an item wider than its content (flex-grow, or equal `fr` columns); and any visible `.tab` that draws a box (side padding, a border or a fill: a page rule restyling the tabs). Measured in the dark theme and again in the light one (`tests/browser/tab-align.ts`, rule 13). A row placed beside something on its line (the map tools beside MAP, a sort row at the end of a toolbar) is not measured.
 
 The baseline is `{}` and the test is strict: every measured page passes at both widths, so any offence fails, and `UPDATE_BOUNDS_BASELINE=1` measures every page but refuses to write a non-empty baseline. Fix the page.
 
@@ -382,7 +445,8 @@ The test also fails when a page file under `pages/` is neither measured nor excl
 2. Drop `main-wide`, per-feature gutters and fixed-width columns. Content fills `main` (992px at 1440) and uses `var(--page-gutter)`.
 3. Section headings: `.op-section` plus `<h2>` (`--heading`, 18px) for sections and the global `h3` for sub-sections. Delete page-level heading colours, sizes and teal headings.
 4. Controls:
-   - pick-one groups become `SegmentedControl`
+   - panels that swap in place become `Tabs` (links between routes take `.tabs` / `.tab` with `aria-current`)
+   - pick-one groups become `SegmentedControl`, at content width
    - booleans and options (settings, lists you tick) are `.check` checkboxes, never chips or `.tgl`
    - independent filters become `.filter-chip` with `aria-pressed`
    - dropdowns become `StyledSelect`

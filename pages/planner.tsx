@@ -40,7 +40,7 @@ import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
 import { CRAFTING_EVENT, readCrafting, writeCrafting } from '@/lib/planner/crafting';
 import PageHeader from '@/components/ui/PageHeader';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import {
   ROSTER_EVENT,
   UNBUILT,
@@ -1228,13 +1228,14 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       <Head><title>Operator Planner — Arkpedia</title></Head>
 
       {/* The site's page header: it was a 40px sentence-case h1 in a row of its own,
-          with no eyebrow and no hairline. The mode switch is a SegmentedControl. */}
+          with no eyebrow and no hairline. The mode switch is the site's Tabs. */}
       <PageHeader
         eyebrow="Rhodes Island // Operator Development"
         title="Operator Planner"
         actions={<div className="planner-head-actions">
-          <SegmentedControl
+          <Tabs
             label="Planner mode"
+            id="planner-mode"
             value={plannerMode}
             onChange={(mode) => { setPlannerMode(mode); setWizard(null); }}
             options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
@@ -1322,6 +1323,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           </TransferDialog>
         )}
 
+        <div {...tabPanelProps('planner-mode', plannerMode)}>
         {plannerMode === 'simple' ? (
           <SimplePlanner clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
             onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
@@ -1444,6 +1446,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           </div>
         </section>
         </>)}
+        </div>
       </main>
 
       {build && (() => {

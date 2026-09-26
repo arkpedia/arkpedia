@@ -60,7 +60,6 @@
   .cal-pick-year { min-width: 0; }
   .cal-today-slot { grid-column: 1 / -1; min-height: 32px; margin-left: 0; justify-content: flex-end; }
   .cal-head-shows { flex: 1 1 100%; }
-  .cal-head-shows > button { flex: 1 1 0; justify-content: center; }
 }
 
 .timeline-month-large {

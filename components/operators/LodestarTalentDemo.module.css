@@ -4,7 +4,6 @@
 .body { padding-top: 8px; }
 .body p { margin: 0 0 12px; color: var(--text-dim); font-size: 13px; line-height: 1.6; }
 .options { flex-wrap: nowrap; }
-.options > button { flex: 1; }
 .lane { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; padding: 16px 0 12px; max-width: 330px; margin-inline: auto; }
 .tile { aspect-ratio: 1; display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: var(--radius-frame); }
 .active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }

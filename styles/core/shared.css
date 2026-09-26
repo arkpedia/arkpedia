@@ -822,12 +822,6 @@ a.primary:where(:has(~ a.ghost)),
   .base-room-panel-controls .base-sidebar-search {
     width: 100%;
   }
-  .base-room-elite-select {
-    justify-content: stretch;
-  }
-  .base-room-elite-select button {
-    flex: 1;
-  }
   .base-room-card {
     flex-basis: 150px;
   }
@@ -982,7 +976,6 @@ a.primary:where(:has(~ a.ghost)),
   border-bottom: 1px dotted var(--teal-dim);
 }
 .section-nav a:hover { border-bottom-color: var(--teal); }
-.badge-tradeable { color: var(--teal); }
 .badge-no-trade { color: var(--danger); border-color: #F0665A44; }
 
 .price-row {

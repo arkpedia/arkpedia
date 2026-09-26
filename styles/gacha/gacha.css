@@ -280,14 +280,15 @@
 .gacha-preview-entry + .gacha-preview-entry { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .gacha-preview-entry-title { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; }
 .gacha-preview-entry-title span { color: var(--text-dim); font: 11px var(--font-mono); }
-.gacha-preview-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 9px 0; }
-.gacha-preview-tabs button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 5px 9px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--panel); color: var(--text); cursor: pointer; }
-.gacha-preview-tabs button.active { border-color: var(--teal); background: var(--teal-dim); color: var(--teal); }
-.gacha-preview-tabs button:hover { border-color: var(--teal); }
+/* The skill and module switches are components/ui/Tabs, the module stage a
+   SegmentedControl; only their place is this file's. A module's name is a sentence,
+   so its tab may wrap. */
+.gacha-preview-tabs, .gacha-preview-stages { margin: 9px 0; }
+.gacha-preview-module-tabs > * { max-width: 100%; line-height: 1.3; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .gacha-preview-ability-section { padding: 18px; }
 .gacha-preview-ability-section h3 { margin-bottom: 14px; }
-.gacha-preview-ability-section .gacha-preview-tabs { gap: 8px; margin: 12px 0 16px; }
-.gacha-preview-ability-section .gacha-preview-tabs button { min-height: 42px; max-width: 100%; padding: 8px 12px; line-height: 1.3; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.gacha-preview-ability-section .gacha-preview-tabs { margin: 0 0 12px; }
+.gacha-preview-ability-section .gacha-preview-stages { margin: 0 0 12px; }
 .gacha-preview-ability-section .gacha-preview-entry-title { margin-bottom: 6px; }
 .gacha-preview-ability-section .gacha-preview-entry p { margin-top: 10px; line-height: 1.6; }
 .gacha-preview-ability-section .gacha-preview-meta { line-height: 1.45; }
@@ -334,7 +335,7 @@
 .gacha-details-pool h4 { margin: 0 0 7px; color: var(--text-dim); font: 700 13px var(--font-mono); }
 .gacha-details-name-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .gacha-details-name-list button { padding: 7px 10px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--panel-2); color: var(--text); text-align: left; cursor: pointer; }
-.gacha-details-featured:focus-visible, .gacha-details-name-list button:focus-visible, .gacha-preview-tabs button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.gacha-details-featured:focus-visible, .gacha-details-name-list button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 @media (max-width: 700px) {
   .gacha-pull-preview { display: block; height: auto; overflow-y: auto; }
   .gacha-preview-body { display: block; }
@@ -408,19 +409,12 @@
   text-align: left;
 }
 .gacha-banner-sidebar-item:hover, .gacha-banner-sidebar-item:focus-visible { border-color: var(--teal); }
+/* .badge-live (arkpedia-theme.css) draws it; this only places it. */
 .gacha-banner-sidebar-live-badge {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 1;
-  background: var(--danger-solid);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  padding: 3px 6px;
-  border-radius: var(--radius);
-  letter-spacing: 0.03em;
 }
 /* The art is the point of these rows -- it is how you recognise a banner
    before you read its name -- so it is only dimmed enough to sit behind

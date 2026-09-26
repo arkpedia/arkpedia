@@ -99,8 +99,6 @@
 .recruit-pip-body { margin: 0; background: var(--bg); }
 .recruit-page-compact .recruit-main { padding: 0 12px 20px; }
 .recruit-page-compact .recruit-toolbar { padding: 12px 0; }
-.recruit-page-compact .recruit-view-switch { width: 100%; }
-.recruit-page-compact .recruit-view-switch > button { flex: 1; justify-content: center; }
 .recruit-page-compact .recruit-workspace { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .recruit-page-compact .recruit-picker { padding: 12px; }
 .recruit-page-compact .recruit-help { margin-bottom: 10px; }
@@ -119,8 +117,6 @@
   .recruit-empty-state { padding: 32px 20px; }
 }
 @media (max-width: 600px) {
-  .recruit-view-switch { width: 100%; }
-  .recruit-view-switch > button { flex: 1; justify-content: center; }
   .recruit-picker, .recruit-cheatsheet { padding: 14px; }
   .recruit-sheet-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 }

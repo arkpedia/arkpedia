@@ -301,7 +301,7 @@ export default function WorldMapEvents({ events, now: renderedAt }: { events: Co
           >
             <div className="map-tooltip">
               <div className="map-tooltip-header">
-                {activeEvent.status === 'live' && <span className="badge badge-tradeable">LIVE NOW</span>}
+                {activeEvent.status === 'live' && <span className="badge-live">LIVE NOW</span>}
                 {activeEvent.status === 'upcoming' && (
                   <span className="badge">Starts in {formatCountdown(activeEvent.startTime, now)}</span>
                 )}

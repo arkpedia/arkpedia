@@ -115,12 +115,16 @@ export default function TerminalNav({ current }: { current: string }) {
           <span className="terminal-bar-burger" aria-hidden="true" />
         </button>
 
-        <div className={`terminal-tabs${open ? ' open' : ''}`}>
+        {/* The site's tab look (.tabs / .tab in arkpedia-theme.css), on links: these
+            move between routes, so they are <a aria-current="page">, not role="tab".
+            Packed from the frame's left edge like every tab strip -- the row was
+            centred, which put TERMINAL 27px right of the eyebrow and h1 under it. */}
+        <div className={`tabs terminal-tabs${open ? ' open' : ''}`}>
         {TERMINAL_SECTIONS.map((s) => {
           const active = s.key === current || (s.href && s.href === pathname);
           if (!s.href) {
             return (
-              <span key={s.key} className="terminal-tab locked" aria-disabled="true" title="Not built yet">
+              <span key={s.key} className="tab" aria-disabled="true" title="Not built yet">
                 <Mark section={s} />
                 <span className="terminal-tab-label">{s.label}</span>
               </span>
@@ -133,7 +137,7 @@ export default function TerminalNav({ current }: { current: string }) {
               /* scroll={false} for the same reason the stage rail has it: these are
                  sections of one screen, not separate documents. */
               scroll={false}
-              className={`terminal-tab${active ? ' current' : ''}`}
+              className="tab"
               aria-current={active ? 'page' : undefined}
             >
               <Mark section={s} />

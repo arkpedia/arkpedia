@@ -42,7 +42,7 @@ test('Stronghold section tabs stay clickable once the lookup bar pins under the 
   // elementFromPoint at every tab answered with the nav -- 0 of 7 clickable at 1440,
   // the first row hidden at 390.
   await page.goto('/gamemodes/stronghold-protocol');
-  const tabs = page.locator('.gm-lookup button[aria-pressed]');
+  const tabs = page.locator('.gm-lookup [role="tab"]');
   await expect(tabs.first()).toBeVisible();
   await page.evaluate(() => window.scrollTo({ top: 3000, behavior: 'instant' }));
   // The nav collapses over a transition; the bar re-measures when it settles.
@@ -319,13 +319,14 @@ test('the Terminal bar\'s tabs sit in the site frame', async ({ page }) => {
   expect(edges.bar).toEqual(edges.main);
 });
 
-test('a stage\'s forms and its Emergency Ops switch are the site\'s chips', async ({ page }) => {
+test('a stage\'s forms are tab-look links and its Emergency Ops switch is the site\'s chips', async ({ page }) => {
   // They were .stage-variant-option, a page-local chip in mono 11px with a teal fill of
-  // its own. The forms are links (each is its own address), marked aria-current="page";
-  // Normal / Emergency Ops switches in place, so it is a SegmentedControl.
+  // its own. The forms are links (each is its own address), marked aria-current="page",
+  // in the site's tab look for links between routes (.tabs / .tab, r9); Normal /
+  // Emergency Ops switches a value in place, so it is a SegmentedControl.
   await page.goto('/stages/browse?s=1-7');
   const forms = page.getByRole('group', { name: 'Stage forms' });
-  await expect(forms.locator('a.filter-chip')).toHaveCount(2);
+  await expect(forms.locator('a.tab')).toHaveCount(2);
   await expect(forms.locator('[aria-current="page"]')).toHaveText('Normal');
   await expect(page.locator('.stage-variant-option')).toHaveCount(0);
   await forms.getByRole('link', { name: 'Challenge Mode' }).click();

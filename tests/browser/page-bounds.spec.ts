@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { tabAlign } from './tab-align';
 
 /*
  * Every page sits in the same frame as the nav: 1040px wide with a 24px gutter, so its
@@ -17,6 +18,9 @@ import { expect, test, type Page } from '@playwright/test';
  *   frame          text, media or a drawn box lies outside the frame
  *                  (224-1216 at 1440; 24-366 at 390)
  *   page-scroll-x  the page itself scrolls sideways
+ *   tab-align      a tab strip or pick-one row that leads its line starts off the
+ *                  section's edge, or stretches its items (tests/browser/tab-align.ts),
+ *                  in either theme
  *
  * STRICT since the page families landed (2026-09-25): every measured page passes at
  * both widths, so tests/browser/page-bounds-baseline.json is {} and must stay so. Any
@@ -70,7 +74,7 @@ function routes(): string[] {
   return out.map(route => (route === '/' ? route : route.replace(/\/$/, '')));
 }
 
-type Offence = 'no-h1' | 'h1-align' | 'frame' | 'page-scroll-x';
+type Offence = 'no-h1' | 'h1-align' | 'frame' | 'page-scroll-x' | 'tab-align';
 type Baseline = Record<string, Record<string, Offence[]>>;
 
 const baseline: Baseline = fs.existsSync(BASELINE_FILE) ? JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8')) : {};
@@ -204,6 +208,22 @@ async function measure(page: Page): Promise<Measurement> {
   });
 }
 
+/** The tab census (tab-align.ts) in the dark theme and again in the light one. The
+ *  theme is the data-theme attribute on <html>, so it is flipped in place rather than
+ *  by a second load. Tolerance 2px: the heading edge is a text node's inline start. */
+async function tabAlignBothThemes(page: Page): Promise<string[]> {
+  const out: string[] = [];
+  for (const theme of ['dark', 'light'] as const) {
+    await page.evaluate((t) => {
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      else document.documentElement.removeAttribute('data-theme');
+    }, theme);
+    for (const o of await page.evaluate(tabAlign, { tolerance: 2 })) out.push(`tab-align (${theme}) ${o.kind}: ${o.group}: ${o.detail}`);
+  }
+  await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+  return [...new Set(out)];
+}
+
 /* Reduced motion, so an entrance animation mid-flight is not measured as layout. */
 const WIDTHS = [
   { key: 'd1440', use: { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' } },
@@ -234,6 +254,9 @@ for (const width of WIDTHS) {
         await page.goto(route, { waitUntil: 'load' });
         await page.evaluate(() => document.fonts.ready);
         const { offences, detail } = await settled(page);
+        // --- tab-align (r9): measured in both themes, flipping data-theme in place ---
+        const tabs = await tabAlignBothThemes(page);
+        if (tabs.length) { offences.push('tab-align'); detail.push(...tabs); }
         const known = baseline[width.key]?.[route] ?? [];
         if (offences.length) (measured[width.key] ??= {})[route] = offences;
         if (UPDATE) return;

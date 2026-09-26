@@ -28,9 +28,9 @@
   background: var(--bg);
   border-bottom: 1px solid var(--line-soft);
 }
-/* The section tabs are a SegmentedControl (components/ui): the pinned .filter-chip,
-   wrapping rather than scrolling -- on a phone two rows of chips beat a rail hiding
-   four. While a search is typed each chip carries its hit count. */
+/* The section tabs are components/ui/Tabs (.tabs / .tab), wrapping rather than
+   scrolling -- on a phone two rows beat a rail hiding four. While a search is typed
+   each tab carries its hit count. */
 
 /* --- the pickers ----------------------------------------------------------- */
 

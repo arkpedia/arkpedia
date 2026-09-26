@@ -104,7 +104,6 @@
   .setupBar { gap: 8px 12px; }
   .clipStartLabel { display: none; }
   .clipStart { flex: 1 0 100%; }
-  .clipStart > button { flex: 1; }
   .setupBar .action { flex: 1; }
 }
 @media (max-width: 480px) {

@@ -1098,11 +1098,12 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
             />
           )}
           {family.length > 1 && (
-            /* Each form is its own address, so these are links: chips in a labelled
-               group, the open one marked aria-current="page" (the chip's picked
-               state), the way the game switcher marks its page. They were a
-               page-local chip in mono 11px with a teal fill of its own. */
-            <div role="group" aria-label="Stage forms" className="seg-control">
+            /* Each form is its own address, so these are links: the site's tab look
+               on links (.tabs / .tab), the open one marked aria-current="page", the
+               way the game switcher, the Terminal bar and an operator's class forms
+               mark theirs. They were a page-local chip in mono 11px with a teal fill
+               of its own, then .filter-chip links. */
+            <div role="group" aria-label="Stage forms" className="tabs">
               {family.map((f) => (
                 /* scroll={false} because this reads as a tab, not a link. Every form
                    of a stage is its own route, so Next scrolled to the top of the
@@ -1114,7 +1115,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   key={f.slug}
                   href={`/stages/browse?s=${encodeURIComponent(f.slug)}`}
                   scroll={false}
-                  className="filter-chip"
+                  className="tab"
                   aria-current={f.slug === stage.slug ? 'page' : undefined}
                 >
                   {f.variantOf ? variantLabel(f.variant) : baseLabel}

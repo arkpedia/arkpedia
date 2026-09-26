@@ -770,7 +770,6 @@
   gap: 6px;
   margin-bottom: 10px;
 }
-.base-product-select > button { flex: 1; justify-content: center; }
 .base-product-warning {
   color: var(--danger);
   font-size: 11px;

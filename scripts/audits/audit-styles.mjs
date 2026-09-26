@@ -56,6 +56,9 @@
  *                  toolbar mode switch, and #64 used it to turn eleven checkboxes into
  *                  highlighted buttons, which the maintainer asked to undo (2026-09-26).
  *                  A setting or an option is a .check checkbox
+ *   stretchedChoices, deadPrimitives, liveBadge  tabs and pick-one rows stretched
+ *                  across their line, primitives nothing renders, and LIVE badges
+ *                  painted outside .badge-live: see scripts/audits/audit-choices-badges.mjs
  *
  * It is a RATCHET. Today's accepted cases are counted in style-audit-baseline.json
  * next to this script. The run fails when anything is NEW (more occurrences of an
@@ -82,6 +85,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { collectChoicesAndBadges, CHOICE_BADGE_LABELS } from './audit-choices-badges.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '../..');
@@ -328,6 +332,8 @@ function collect() {
     }
   }
 
+  Object.assign(out, collectChoicesAndBadges(root));
+
   out.collisions = [...owners.entries()]
     .filter(([, fs]) => fs.size > 1)
     .map(([cls, fs]) => `${cls}: ${[...fs].sort().join(', ')}`);
@@ -350,9 +356,11 @@ const LABELS = {
   checkboxPrimitive: 'a checkbox outside a <label className="check"> -- a boolean or an option is the .check checkbox (styles/core/arkpedia-theme.css, docs/development/ui-primitives.md)',
   tglOutsideToolbar: `a .tgl outside a toolbar (TGL_SCOPE: ${TGL_SCOPE.length ? TGL_SCOPE.join(', ') : 'none'}) -- a setting or an option is a .check checkbox, a pick-one is SegmentedControl, an independent filter is a .filter-chip with aria-pressed`,
   tealDecoration: `teal on a selector that names no state, in ${TEAL_DECORATION_SCOPE.join(', ')} -- teal means "on" or "current"; recolour it (--text-dim, --heading for a heading) or qualify the selector with the state it marks`,
+  ...CHOICE_BADGE_LABELS,
 };
 
-const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar'];
+const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontWeights', 'scrollbarThumb', 'primaryToggle', 'tealDecoration', 'checkboxPrimitive', 'tglOutsideToolbar',
+  ...Object.keys(CHOICE_BADGE_LABELS)];
 
 function counts(list) {
   const m = new Map();

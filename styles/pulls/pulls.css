@@ -428,12 +428,11 @@
 
 /* Centred (ui-primitives rule 4): once a banner is picked its trigger grows to hold the
    portraits, and a top-aligned date field sat 9px above its centre. */
-.pulls-target-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
+.pulls-target-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 
 .pulls-target-row .pulls-date { width: 100%; min-width: 0; height: 40px; padding: 6px 8px; }
 .pulls-day-options { display: flex; gap: 4px; }
-/* Two .filter-chips: the paint and the picked state are the primitive's. */
-.pulls-day-options > button { flex: 1; justify-content: center; }
+/* Two .filter-chips at their own width: the paint and the picked state are the primitive's. */
 .pulls-day-options :disabled { opacity: .4; cursor: default; }
 .pulls-target-preview { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .pulls-target-preview img { width: 84px; height: 44px; object-fit: cover; border-radius: var(--radius); }

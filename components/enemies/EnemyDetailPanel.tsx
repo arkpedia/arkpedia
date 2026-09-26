@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import EnemyRangeMap from '@/components/enemies/EnemyRangeMap';
 import EnemyStatusPopover from '@/components/enemies/EnemyStatusPopover';
@@ -653,15 +654,16 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
             past collapsed headings to reach the next one; a tab strip means the
             pane only ever holds what was asked for. The identity above stays put,
             so you always know whose numbers these are. */}
-        <SegmentedControl
+        <Tabs
           className="enemy-tabs"
           label="Show"
+          id={`enemy-${enemy.slug}`}
           value={activeTab ?? 'resistances'}
           onChange={setTab}
           options={tabs.map((t) => ({ value: t.key, label: t.label }))}
         />
 
-        <div ref={tabFloor.ref}>
+        <div ref={tabFloor.ref} {...tabPanelProps(`enemy-${enemy.slug}`, activeTab ?? 'resistances')}>
         {/* The figures the handbook does not print. Kept because the data has them
             and someone planning around a stall needs the interval, but out of the
             grid, which is the game's eight and only those. */}

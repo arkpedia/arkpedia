@@ -297,16 +297,11 @@ body.front-page-no-scroll {
   overflow: hidden;
   background: var(--panel-2);
 }
+/* .badge-live (arkpedia-theme.css) draws it; this only places it. */
 .front-live-badge {
   position: absolute;
   top: 6px;
   left: 6px;
-  background: var(--danger-solid);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: var(--radius);
 }
 .front-live-title {
   font-weight: 600;
