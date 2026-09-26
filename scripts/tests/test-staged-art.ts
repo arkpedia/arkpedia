@@ -11,7 +11,6 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import zlib from 'node:zlib';
 // @ts-expect-error Node import scripts are plain JavaScript.
 import { planRenders, renderCandidates } from '../imports/import-stage-renders.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -25,21 +24,14 @@ const REPO = process.cwd();
 const REGISTRY = JSON.parse(fs.readFileSync('config/staged-art.json', 'utf8')).kinds as Record<string, { stage: string; folders: string[]; adopt: string[] }>;
 const PIN = '7'.repeat(40);
 
-/** A solid PNG, written here so no case needs an image library. */
+/** A solid PNG, from Pillow (the publisher's own image library, which these cases need anyway). */
 function png(width: number, height: number, rgba: [number, number, number, number] = [40, 60, 80, 255]) {
-  const chunk = (type: string, data: Buffer) => {
-    const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
-    const out = Buffer.alloc(8 + data.length + 4);
-    out.writeUInt32BE(data.length, 0);
-    body.copy(out, 4);
-    out.writeUInt32BE(zlib.crc32(body) >>> 0, 8 + data.length);
-    return out;
-  };
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(width, 0); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 6;
-  const row = Buffer.concat([Buffer.from([0]), ...Array.from({ length: width }, () => Buffer.from(rgba))]);
-  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', header),
-    chunk('IDAT', zlib.deflateSync(Buffer.concat(Array.from({ length: height }, () => row)))), chunk('IEND', Buffer.alloc(0))]);
+  return execFileSync('python3', ['-c', [
+    'import io, sys',
+    'from PIL import Image',
+    'buffer = io.BytesIO()',
+    'Image.new("RGBA", (int(sys.argv[1]), int(sys.argv[2])), tuple(int(v) for v in sys.argv[3:])).save(buffer, "PNG")',
+    'sys.stdout.buffer.write(buffer.getvalue())'].join('\n'), String(width), String(height), ...rgba.map(String)]);
 }
 const gitBlob = (data: Buffer) => execFileSync('git', ['hash-object', '--stdin'], { input: data }).toString().trim();
 const write = (root: string, file: string, value: unknown) => {
@@ -166,6 +158,7 @@ test('stage renders: a published render reaches every form of its layout, the re
     write(root, 'en/excel/stage_table.json', { stages: STAGES });
     for (const record of RECORDS) write(root, `data/stages/${record.slug}.json`, record);
     write(root, 'data/assets/external-asset-index.json', { files: ['stages-images/1-1.webp'] });
+    write(root, 'data/excluded-contents.json', { act98multi: { name: 'Excluded Mode', type: 'MULTIPLAY_VERIFY2', stages: 1 } });
     const renders = { 'act99side_01.png': png(320, 180), 'act99side_02_b.png': png(320, 180, [1, 2, 3, 255]), 'act99side_03_1.png': png(320, 180, [9, 9, 9, 255]) };
     for (const [name, data] of Object.entries(renders)) write(root, `cn/map/${name}`, data);
     const run = () => {
@@ -205,9 +198,28 @@ test('stage renders: a published render reaches every form of its layout, the re
 });
 
 test('stage renders: without the CN art the published ones are still adopted and the waiting entries stay as they were', () => {
-  const { adopt, stage } = planRenders({ stages: STAGES, records: RECORDS, published: new Set(['1-1']), mapFiles: null });
+  const { adopt, stage } = planRenders({ stages: STAGES, records: RECORDS, published: new Set(['1-1']), mapFiles: null, excluded: new Set() });
   assert.deepEqual([...adopt.keys()].sort(), ['1-1', '1-1_challenge_mode']);
   assert.deepEqual(stage, []);
+  assert.throws(() => planRenders({ stages: STAGES, records: RECORDS, published: new Set(), mapFiles: null }), /needs the excluded contents/);
+});
+
+test('stage renders: nothing is fetched for a content the site leaves out, and a published render still reaches it', () => {
+  // The 2026-09-26 rehearsal staged the 10 layouts of Rhodes Island Icebreaker Games
+  // (act2vmulti), which data/excluded-contents.json leaves off every page.
+  const stages = { ...STAGES, act98multi_01: { code: 'XM-1', levelId: 'Activities/ACT98multi/level_act98multi_01', difficulty: 'NORMAL' },
+    act98multi_02: { code: 'XM-2', levelId: 'Activities/ACT98multi/level_act98multi_02', difficulty: 'NORMAL' } };
+  const records = [...RECORDS, ...['xm-1', 'xm-2'].map((slug, i) => ({ slug, id: `act98multi_0${i + 1}`, code: slug.toUpperCase(), preview: null, geometry: slug,
+    content: { kind: 'event', id: 'act98multi', name: 'Excluded Mode' } }))];
+  const mapFiles = new Set(['act99side_01.png', 'act98multi_01.png', 'act98multi_02.png']);
+  const { adopt, stage } = planRenders({ stages, records, published: new Set(['1-1', 'xm-2']), mapFiles, excluded: new Set(['act98multi']) });
+  assert.deepEqual(stage.map((entry: { stem: string }) => entry.stem), ['zz-1']);
+  assert.deepEqual([...adopt.keys()].sort(), ['1-1', '1-1_challenge_mode', 'xm-2']);
+});
+
+test('the refresh writes the excluded contents before the stage renders read them', () => {
+  const order = refreshStages().map(stage => stage.name);
+  assert.ok(order.indexOf('mode-exclusions') >= 0 && order.indexOf('mode-exclusions') < order.indexOf('stage-renders'));
 });
 
 /* ---- the completeness hold ------------------------------------------------------ */

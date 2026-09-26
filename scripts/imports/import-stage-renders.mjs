@@ -51,10 +51,15 @@ export function renderCandidates(canonical, members, stages) {
 
 /**
  * What to do for each layout: {adopt: Map(slug -> preview), stage: [{stem, file, slugs}]}.
- * `records` are the stage records ({slug, id, preview}); `published` the stems
- * stages-images/ holds; `mapFiles` the names map/ holds (null: no CN art this run).
+ * `records` are the stage records ({slug, id, preview, content}); `published` the stems
+ * stages-images/ holds; `mapFiles` the names map/ holds (null: no CN art this run);
+ * `excluded` the contents the site leaves out (data/excluded-contents.json, which the
+ * mode-exclusions stage writes before this one): nothing is fetched for a stage no page
+ * shows -- the 21 of Rhodes Island Icebreaker Games had renders in map/ and would have
+ * been published for nobody. A render already published still reaches their records.
  */
-export function planRenders({ stages, records, published, mapFiles }) {
+export function planRenders({ stages, records, published, mapFiles, excluded }) {
+  if (!(excluded instanceof Set)) throw new Error('planRenders needs the excluded contents (data/excluded-contents.json)');
   const groups = groupStagesByLevel(stages);
   const stems = assignStageSlugs([...groups.keys()], stages);
   const canonicalOf = new Map();
@@ -73,7 +78,7 @@ export function planRenders({ stages, records, published, mapFiles }) {
       for (const record of list) adopt.set(record.slug, `images/stages/${stem}.png`);
       continue;
     }
-    if (!mapFiles) continue;
+    if (!mapFiles || list.every(record => excluded.has(record.content?.id))) continue;
     const file = renderCandidates(canonical, groups.get(canonical), stages).find(name => mapFiles.has(name));
     if (file) stage.push({ stem, file, records: list });
   }
@@ -94,7 +99,8 @@ export function importStageRenders({ root = process.cwd(), stages = excel('stage
   const published = new Set(assetFileNames('stages-images', root).filter(file => file.endsWith('.webp')).map(file => file.slice(0, -'.webp'.length)));
   const mapDir = path.resolve(root, cn, 'map');
   const mapFiles = fs.existsSync(mapDir) ? new Set(fs.readdirSync(mapDir)) : null;
-  const { adopt, stage } = planRenders({ stages, records, published, mapFiles });
+  const excluded = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'data', 'excluded-contents.json'), 'utf8'))));
+  const { adopt, stage } = planRenders({ stages, records, published, mapFiles, excluded });
 
   for (const [slug, preview] of adopt) {
     const { name, record } = files.get(slug);

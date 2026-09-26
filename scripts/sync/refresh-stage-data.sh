@@ -75,6 +75,7 @@ stage mode-exclusions --needs stage-dataset -- node scripts/build/build-mode-exc
 # .cache/stage-renders/ for the release's staged-art stage to publish, which then runs this
 # again so the records point at them the same day. Before the index enrichment, which reads
 # which contents have a map or a preview.
+# After mode-exclusions: nothing is fetched for a content the site leaves out.
 stage stage-renders --needs stage-dataset,upstream-cn-art -- node scripts/imports/import-stage-renders.mjs
 
 # Integrated Strategies nodes: renders, Emergency Ops, borrowed names.
