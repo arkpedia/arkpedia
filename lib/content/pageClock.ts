@@ -26,6 +26,12 @@ const CLOCK_UNITS: Record<string, number> = {
   '/planner': 60_000,
 };
 
+/** Every route contentPageClock gives a clock: each CLOCK_UNITS route (`now`), and
+ *  /stages/supplies (`buildDay`). Their pages may read the clock only through
+ *  lib/time/readerClock.ts; the no-restricted-syntax override in .eslintrc.json lists
+ *  them, and scripts/tests/test-clock-lint.ts fails when a route here is missing there. */
+export const CLOCK_ROUTES: readonly string[] = [...Object.keys(CLOCK_UNITS), '/stages/supplies'];
+
 /** The props contentPageClock owns. A page's data builder never sets them. */
 export type PageClockField = 'now' | 'buildDay';
 

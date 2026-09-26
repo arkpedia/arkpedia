@@ -2,7 +2,8 @@ import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useReaderValue } from '@/lib/time/readerClock';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
 import PageHeader from '@/components/ui/PageHeader';
@@ -41,11 +42,9 @@ interface Props {
 }
 
 export default function SuppliesPage({ cards, buildDay }: Props) {
-  const [today, setToday] = useState(buildDay);
+  // The request's server weekday first, the reader's after mount.
+  const today = useReaderValue(buildDay, (readerMs) => serverWeekday(new Date(readerMs)));
   const [picked, setPicked] = useState<string | null>(null);
-  useEffect(() => {
-    setToday(serverWeekday());
-  }, []);
   const day = picked ?? today;
 
   return (

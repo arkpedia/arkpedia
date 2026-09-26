@@ -2,7 +2,8 @@ import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useReaderClockSeconds } from '@/lib/time/readerClock';
 import Rail from '@/components/ui/Rail';
 import ModeMark from '@/components/stages/ModeMark';
 import TerminalNav from '@/components/stages/TerminalNav';
@@ -30,14 +31,13 @@ interface Props extends RegularTasks {
   now: number;
 }
 
-const nowSeconds = () => Math.floor(Date.now() / 60000) * 60;
 const day = (unix: number) =>
   new Date(unix * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const weeksLeft = (end: number, from: number) => Math.max(0, Math.round((end - from) / (7 * 86400)));
 
 export default function RegularTasksPage({ rotations, zones, seasons, towers, now }: Props) {
-  const [clock, setClock] = useState(now);
-  useEffect(() => { setClock(nowSeconds()); }, []);
+  // The request's clock first, the reader's (to the minute) after mount.
+  const clock = useReaderClockSeconds(now);
 
   const byId = useMemo(() => new Map(zones.concat(towers).map((c) => [c.id, c])), [zones, towers]);
   const live = useMemo(
