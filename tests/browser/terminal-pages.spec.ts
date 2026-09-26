@@ -211,12 +211,16 @@ test.describe('a stage link opens the rail on that stage\'s own chapter, with th
     // It used to open the index's first row, AD-EX-1. The rail opens on a chapter (what
     // is running, or the latest main-story chapter) and the pane asks for a pick.
     const fetched = detailRequests(page);
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/stages/browse');
     await expect(page.locator('.stage-detail-col .hint')).toHaveText('Pick a stage from the list.');
     await expect(page.locator('.stage-rows .stage-row').first()).toBeVisible();
     await expect(page.locator('.stage-rows .stage-row.selected')).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'Chapter or event' })).not.toHaveText('');
     expect(fetched).toEqual([]);
+    // The server's markup survives hydration: it used to be thrown away here (#425/#418/#423).
+    expect(errors).toEqual([]);
   });
 
   test('followed from a stage card, without a reload', async ({ page }) => {

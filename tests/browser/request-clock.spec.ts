@@ -11,7 +11,10 @@ const HYDRATION = /Minified React error #(?:418|423|425)|Hydration failed|did no
 for (const timezoneId of ['Europe/Berlin', 'America/Los_Angeles', 'Pacific/Auckland']) {
   test.describe(timezoneId, () => {
     test.use({ timezoneId });
-    for (const route of ['/obtain-method', '/schedule', '/schedule?view=calendar', '/farming', '/community']) {
+    // /gacha and / read their banner and event windows from the request clock too; a bare
+    // /stages/browse hydrated a different first render from the server's (the router is
+    // ready at once without a query), which is the same failure with no clock involved.
+    for (const route of ['/obtain-method', '/schedule', '/schedule?view=calendar', '/farming', '/community', '/gacha', '/', '/stages', '/stages/browse', '/stages/browse?s=pa-1']) {
       test(`${route} hydrates without a mismatch on any reader clock`, async ({ page }) => {
         const errors: string[] = [];
         page.on('pageerror', (error) => errors.push(error.message));

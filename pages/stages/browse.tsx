@@ -2338,9 +2338,15 @@ export default function StagesBrowsePage({ typeCounts, now }: Props) {
      ?s=pa-1, so the slug is only worked out once router.isReady. It used to fall back
      to the index's first stage (AD-EX-1) meanwhile, which fetched that stage's file on
      every deep link and scoped the rail to Act or Die for good. Without ?s= no stage
-     is opened: the rail opens on what is running and the pane asks for a pick. */
+     is opened: the rail opens on what is running and the pane asks for a pick.
+     Worked out only after mount, too: the server prerenders with isReady false, but at
+     a bare /stages/browse (no query to wait for) the browser's router is ready on its
+     first render, so that render said "Pick a stage" over the server's "Loading..." and
+     React threw the markup away (#425/#418/#423; request-clock.spec.ts). */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const asked = typeof router.query.s === 'string' && router.query.s ? router.query.s : null;
-  const slug = router.isReady ? asked : undefined;
+  const slug = mounted && router.isReady ? asked : undefined;
   const [detail, setDetail] = useState<StageDetailData | null>(null);
   const [failed, setFailed] = useState(false);
   const switchFloor = useStageSwitchFloor(detail?.stage.slug ?? null);
