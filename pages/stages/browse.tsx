@@ -2073,6 +2073,17 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                 )}
               </p>
             )}
+            {/* Global no longer ships a level file for these (Trials for Navigator #1-#4,
+                Children of Ursus and the other events whose stages cannot be played there
+                any more), so the pipeline reads the CN client's copy -- the same layout,
+                waves and enemies, with the enemies named from the EN handbook
+                (scripts/stage-pipeline/lib/gamedata.mjs). */}
+            {geometry?.source === 'cn' && (
+              <p className="hint stage-provenance">
+                Map from the CN client: Global no longer ships this stage&apos;s level file,
+                so the layout, waves and enemies are read from the Chinese client&apos;s copy.
+              </p>
+            )}
           </section>
         )}
 

@@ -420,6 +420,9 @@ export interface StageGeometry {
   /** Whether data/stage-conditional/<slug>.json exists. Split out because it is
    * 7.5MB that only matters when the conditional enemies are being shown. */
   hasConditionalSpawns: boolean;
+  /** 'cn' when the level file was read from the CN client because Global no longer
+   *  ships it (scripts/stage-pipeline/lib/gamedata.mjs); absent for an EN map. */
+  source?: 'cn';
 }
 
 /** An enemy in a stage, resolved against the enemy dataset -- icon, stats

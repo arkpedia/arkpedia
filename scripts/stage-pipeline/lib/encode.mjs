@@ -72,9 +72,10 @@ export function dedupeRoutes(geo) {
 /**
  * {geometry, conditional} in the shipped shape: camelCase, tiles indexed into a
  * per-map legend, routes deduplicated, conditional spawns split into their own
- * file so a map that has none carries no empty array.
+ * file so a map that has none carries no empty array. `source` is where the level
+ * file was read ('en' or 'cn'); only 'cn' is written, as geometry.source.
  */
-export function encodeGeometry(slug, built) {
+export function encodeGeometry(slug, built, source = 'en') {
   const { legend, grid } = encodeTiles(built.tiles);
   const routes = dedupeRoutes(built);
   const conditional = built.conditional_spawns || [];
@@ -96,6 +97,8 @@ export function encodeGeometry(slug, built) {
     suppliedUnits: ordered(built.supplied_units || { fixed_squad: [], deployable_tokens: [] }, T, 'suppliedUnits'),
     hasConditionalSpawns: Boolean(conditional.length),
   };
+  // Only a map from the CN client says where it came from (lib/gamedata.mjs levelFile).
+  if (source === 'cn') geometry.source = 'cn';
   return {
     geometry,
     conditional: conditional.length ? ordered(conditional, T, 'conditional_spawns') : null,

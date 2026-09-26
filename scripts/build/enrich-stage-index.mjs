@@ -67,13 +67,15 @@ for (const file of fs.readdirSync(stagesDir)) {
  * data/content-traits.json: two facts per content that only the whole record set can
  * answer. Contents with neither are left out, so the file lists 35 of the 166.
  *
- * `mapless` -- NOT ONE of its stages has a map. Fifteen contents: eleven events from
- * 2020-2024 (Ancient Forge, Vigilo, Children of Ursus and the rest) and Trials for
- * Navigator #1-#4. The game keeps a stage's level file only while there is some way to
- * play it, so for these there is no interactive map, no render, and no enemy list
- * either -- what survives is the code, the name, the sanity and the drops. A card for
- * one is a link to a page with no map on it, which is what a reader clicking a stage
- * card is after, so those cards say so instead of leading somewhere disappointing.
+ * `mapless` -- NOT ONE of its stages has a map. The Global client keeps a stage's level
+ * file only while there is some way to play it there, so fifteen contents (eleven events
+ * from 2020-2024 and Trials for Navigator #1-#4) had none until the stage build learned
+ * to read the CN client's copy (scripts/stage-pipeline/lib/gamedata.mjs). Rehearsed on
+ * the 2026-09-25 pins that leaves one, Operational Intelligence, which neither mirror
+ * carries: no interactive map, no render and no enemy list -- what survives is the
+ * code, the name, the sanity and the drops. A card for one is a link to a page with no
+ * map on it, which is what a reader clicking a stage card is after, so those cards say
+ * so instead of leading somewhere disappointing.
  *
  * `ministory` -- the game's own word for it (activity_table files these under
  * MINISTORY, and their posters carry "[Story Collection]"). Twenty contents: the small

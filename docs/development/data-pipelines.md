@@ -77,7 +77,7 @@ sparse checkouts, downloading only the paths the later steps read.
 | `cn-tables` | `Kengxxiao/ArknightsGameData` | `zh_CN/gamedata/excel`, `zh_CN/gamedata/levels` | CN gamedata and level files |
 | `cn-tables-fallback` | `yuanyan3060/ArknightsGameResource` | `gamedata/excel`, `gamedata/levels` | the same, only on a day the first cannot serve them |
 | `cn-art` | `yuanyan3060/ArknightsGameResource` | `map`, `item` | CCB renders, item icons |
-| `en-gamedata` | `ArknightsAssets/ArknightsGamedata` | `en/gamedata/excel`, `en/gamedata/levels` | the whole stage dataset: tables, maps, waves, enemy configurations |
+| `en-gamedata` | `ArknightsAssets/ArknightsGamedata` | `en/gamedata/excel`, `en/gamedata/levels` | the whole stage dataset: tables, maps, waves, enemy configurations (a level Global has dropped is read from the CN tables instead) |
 
 Every CN table of a run comes from one mirror at one commit
 (`scripts/content/cn-tables.mjs`): Kengxxiao at the pinned commit, else its commit from the
@@ -103,7 +103,7 @@ checkout instead of the cache.
 
 | script | writes | reads |
 | --- | --- | --- |
-| `stage-pipeline/build.mjs` | `data/stages/`, `data/stages-content.json`, `data/stage-geometry/`, `data/stage-conditional/`, `data/stage-tile-legend.json`, `public/stages-index.json` | EN gamedata |
+| `stage-pipeline/build.mjs` | `data/stages/`, `data/stages-content.json`, `data/stage-geometry/`, `data/stage-conditional/`, `data/stage-tile-legend.json`, `public/stages-index.json` | EN gamedata; a CN level file where Global has dropped a stage's own (see `scripts/stage-pipeline/README.md`) |
 | `build-mode-exclusions.mjs` | `data/excluded-contents.json` | `activity_table` types, content kinds |
 | `import_is_nodes.py` | `data/is-nodes.json`, IS renders | `roguelike_topic_table`, fexli renders |
 | `import_cc_stages.py` | `data/cc-stages.json`, CCB renders, CCB labels in `stages-content.json` | `medal_table`, `map/` renders |
