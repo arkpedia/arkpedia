@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { tabAlign } from './tab-align';
 import { sectionCensus, type StackOffence } from './section-census';
-import { CENSUS_STATES, openCensus } from './census-routes';
+import { CENSUS_STATES, fontsSettled, openCensus } from './census-routes';
 
 /*
  * Every page sits in the same frame as the nav: 1040px wide with a 24px gutter, so its
@@ -292,7 +292,7 @@ for (const width of WIDTHS) {
       test(route, async ({ page }, info) => {
         test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
         await page.goto(route, { waitUntil: 'load' });
-        await page.evaluate(() => document.fonts.ready);
+        await fontsSettled(page);
         // Every CSS animation the page holds, running or finished (a fill keeps a finished
         // one), whose keyframes move content: none may exist under reduced motion.
         const moving = await page.evaluate(() => [...new Set(document.getAnimations()
@@ -359,7 +359,7 @@ for (const width of WIDTHS) {
     await page.locator('#planner-search').press('Enter');
     await page.keyboard.press('Escape');
     await expect(page.locator('.simple-dossier')).toBeVisible();
-    await page.evaluate(() => document.fonts.ready);
+    await fontsSettled(page);
     const census = await page.evaluate(sectionCensus, { stacks: true });
     const strays = (census.stacks ?? []).filter((x) => /simple-dossier|simple-portrait/.test(`${x.parent} ${x.child}`));
     expect(strays.map((x) => `${x.parent} > ${x.child} starts ${x.dx}px in (led by ${x.by}; ${x.flush} starts on it)`), 'the dossier starts every block on one edge').toEqual([]);

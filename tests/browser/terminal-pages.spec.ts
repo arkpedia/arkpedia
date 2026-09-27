@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { fontsSettled } from './census-routes';
 
 /*
  * The catalogue and terminal pages -- /stages/*, /gamemodes*, /enemies, /techniques,
@@ -363,7 +364,7 @@ test('the Terminal bar is one row from the first paint, or its menu where one ro
       for (const width of [1040, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(route);
-        await page.evaluate(() => document.fonts.ready);
+        await fontsSettled(page);
         const m = await measure(page);
         const at = `${route} at ${width}px, ${fonts ? 'webfonts' : 'webfonts refused'}`;
         if (!fonts) expect(m.rajdhani, `${at}: the first paint's face, not Rajdhani`).toBe(false);

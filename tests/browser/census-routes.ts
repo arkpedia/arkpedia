@@ -177,6 +177,21 @@ export const CENSUS_STATES: CensusState[] = [
 ];
 
 /** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */
+/**
+ * document.fonts.ready, bounded. One stalled Google Fonts fetch held two tests for their
+ * whole 30s timeout in a Linux run of the suite (cards-and-headings, 2 of 1208, retries 0),
+ * so a network stall turned the Check red. Every guard here is font-safe (box edges, and
+ * ±2px where glyph metrics count), so after `ms` the test goes on in the face it has; a
+ * test that needs Rajdhani itself checks for it (terminal-pages, the game switcher), and
+ * fails there by name rather than on a timeout. Resolves false when the wait ran out.
+ */
+export async function fontsSettled(page: Page, ms = 8000): Promise<boolean> {
+  return page.evaluate((limit) => Promise.race([
+    document.fonts.ready.then(() => true),
+    new Promise<boolean>((resolve) => { setTimeout(() => resolve(false), limit); }),
+  ]), ms);
+}
+
 export async function readOnly(page: Page) {
   await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort()));
 }
@@ -192,5 +207,5 @@ export async function openCensus(page: Page, target: string | CensusState) {
     await page.waitForTimeout(600);
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
   }
-  await page.evaluate(() => document.fonts.ready);
+  await fontsSettled(page);
 }

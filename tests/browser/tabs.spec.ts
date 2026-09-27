@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { fontsSettled } from './census-routes';
 import { tabAlign } from './tab-align';
 
 /*
@@ -304,7 +305,7 @@ const STATES: State[] = [
 for (const state of STATES) {
   test(`tab strips and pick-one rows start on the section edge: ${state.name}`, async ({ page }) => {
     await page.goto(state.route);
-    await page.evaluate(() => document.fonts.ready);
+    await fontsSettled(page);
     if (state.act) await state.act(page);
     await page.waitForTimeout(400);
     const found: string[] = [];

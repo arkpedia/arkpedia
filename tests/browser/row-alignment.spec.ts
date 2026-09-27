@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { rowCensus, type RowOffence, type RowTolerance } from './row-census';
-import { CENSUS_STATES, censusRoutes, openCensus, readOnly } from './census-routes';
+import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus, readOnly } from './census-routes';
 
 /*
  * One line (docs/development/ui-primitives.md rule 4): in a row, a button, input or
@@ -55,7 +55,7 @@ async function censusWidth(page: Page): Promise<1440 | 390> {
 
 async function census(page: Page): Promise<RowOffence[]> {
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  await page.evaluate(() => document.fonts.ready);
+  await fontsSettled(page);
   return page.evaluate(rowCensus, TOLERANCE);
 }
 
@@ -215,7 +215,7 @@ test('the site nav is on one line', async ({ page }) => {
   const width = await censusWidth(page);
   await openCensus(page, '/');
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  await page.evaluate(() => document.fonts.ready);
+  await fontsSettled(page);
   const offences = await page.evaluate(rowCensus, { ...TOLERANCE, scope: 'nav' as const });
   expectOnlyAllowed(offences, 'site nav', width);
 });
@@ -254,7 +254,7 @@ test("the calendar's month and year menus show their whole value", async ({ page
   for (const w of widths) {
     await page.setViewportSize({ width: w, height: 844 });
     await page.goto('/schedule?view=calendar');
-    await page.evaluate(() => document.fonts.ready);
+    await fontsSettled(page);
     const month = page.locator('.cal-head-title').getByRole('combobox', { name: 'Month' });
     await expect(month).toBeVisible();
     for (const name of months) {
@@ -304,7 +304,7 @@ test("the operator page's panel header is no taller than before", async ({ page 
   const ceilings: Record<string, Record<1440 | 390, number>> = { Amiya: { 390: 127, 1440: 121 }, SilverAsh: { 390: 89, 1440: 87 } };
   for (const [name, ceiling] of Object.entries(ceilings)) {
     await openCensus(page, `/operators/${name}`);
-    await page.evaluate(() => document.fonts.ready);
+    await fontsSettled(page);
     const header = page.locator('[class*="panelHeader"]').first();
     await expect(header).toBeVisible();
     const h = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height * 10) / 10);
@@ -325,7 +325,7 @@ test("the /music queue's titles keep their room at the one row height", async ({
   test.skip(page.viewportSize()!.width >= 1000, 'a phone: the 40px buttons are the phone height');
   await censusWidth(page);
   await openCensus(page, '/music');
-  await page.evaluate(() => document.fonts.ready);
+  await fontsSettled(page);
   const row = page.locator('.music-queue-row:not(.music-queue-row-placeholder)').first();
   await expect(row).toBeVisible();
   const m = await row.evaluate((el) => {
@@ -386,7 +386,7 @@ test('the page header and the game switcher keep their rows when the webfonts ar
     const page = await context.newPage();
     for (const route of ['/games/operator-guesser', '/games/music-guesser', '/games/color-palette', '/games/stage-guesser', '/games/recruitment-guesser']) {
       await page.goto(route);
-      await page.evaluate(() => document.fonts.ready);
+      await fontsSettled(page);
       for (const width of [390, 520, 640, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         const m = await measure(page);

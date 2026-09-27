@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { CENSUS_STATES, censusRoutes, openCensus } from './census-routes';
+import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus } from './census-routes';
 import { sectionCensus } from './section-census';
 
 /*
@@ -200,8 +200,8 @@ for (const theme of ['dark', 'light'] as const) {
       test(`section headings on ${decodeURIComponent(route)}: one look, --heading-gap under, --section-gap between`, async ({ page }, info) => {
         test.skip(theme === 'light' && info.project.name !== 'desktop', 'colour is width-independent: the light theme runs once');
         await page.goto(route);
-        await page.waitForLoadState('networkidle').catch(() => {});
-        await page.evaluate(() => document.fonts.ready);
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+        await fontsSettled(page);
         expect(await themeOf(page), `the page is in the ${theme} theme`).toBe(theme);
         const heading = await tokenColour(page, '--heading');
         const amber = await tokenColour(page, '--amber');

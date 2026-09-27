@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { PLANNER_PLAN, plannerExperimental, readOnly, type PlannerStorage } from './census-routes';
+import { fontsSettled, PLANNER_PLAN, plannerExperimental, readOnly, type PlannerStorage } from './census-routes';
 
 /*
  * The planning, events and home pages (the 2026-09-25 review's family B). One test per
@@ -507,7 +507,7 @@ test.describe('/planner shortfall (r10)', () => {
     await expect(page.locator('.depot-tile').first()).toBeVisible();
     for (const viewport of [{ width: 1440, height: 1000 }, { width: 1024, height: 900 }, { width: 860, height: 900 }, PHONE.viewport, { width: 360, height: 780 }]) {
       await page.setViewportSize(viewport);
-      await page.evaluate(() => document.fonts.ready);
+      await fontsSettled(page);
       const overlaps = await page.locator('.depot-grid').first().evaluate(() => Array.from(document.querySelectorAll('.depot-tile')).flatMap((tile) => {
         const name = tile.querySelector('.name')!;
         const label = (name.firstChild?.textContent ?? '').trim();
