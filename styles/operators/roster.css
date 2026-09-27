@@ -50,6 +50,14 @@
 .skin-card-enter {
   animation: cardRiseIn 0.5s ease-out both;
 }
+/* Here, after the rule it cancels: the same override in shared.css came earlier in the
+   cascade at the same specificity and lost, so the cards on /operators and
+   /obtain-method rose 24px in under prefers-reduced-motion (page-bounds.spec.ts fails
+   an animation that moves content under reduced motion). */
+@media (prefers-reduced-motion: reduce) {
+  .roster-card-enter,
+  .skin-card-enter { animation: none; }
+}
 
 .roster-controls {
   display: flex;

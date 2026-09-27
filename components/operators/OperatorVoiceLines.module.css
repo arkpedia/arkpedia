@@ -39,7 +39,10 @@
 .lines { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 /* The player and the rows start on the section's edge, under the heading: their 6px and
    4px side padding set the play buttons in from everything else in the section. */
-.line { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 9px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
+/* The play button's column is the button's own size, var(--control-h): it was 32px
+   after the button went to 36/40, which ran it into the gap and put the title 5px
+   (1px on a phone) from it. row-census.ts reports a control wider than its column. */
+.line { display: grid; grid-template-columns: var(--control-h) minmax(0, 1fr); align-items: start; gap: 9px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .line[data-selected='true'] { background: linear-gradient(90deg, var(--teal-dim), transparent 70%); }
 .linePlay { width: var(--control-h); height: var(--control-h); }
 .lineCopy { min-width: 0; }

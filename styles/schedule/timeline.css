@@ -38,7 +38,9 @@
     flex: 1 1 100%;
     min-width: 0;
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    /* The month steps' columns are the steps' own size (.btn-icon, var(--control-h)):
+       36px columns held 40px steps on a phone, 4px into the gap. */
+    grid-template-columns: var(--control-h) minmax(0, 1fr) var(--control-h);
     gap: 8px;
   }
   .cal-head-title { min-width: 0; }

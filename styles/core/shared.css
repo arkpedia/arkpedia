@@ -837,12 +837,7 @@ a.primary:where(:has(~ :is(button, a).ghost)),
     transform: translateY(0);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .roster-card-enter,
-  .skin-card-enter {
-    animation: none;
-  }
-}
+/* Reduced motion cancels it where it is applied: styles/operators/roster.css. */
 @media (max-width: 720px) {
   .recruit-combo-row {
     flex-direction: column;

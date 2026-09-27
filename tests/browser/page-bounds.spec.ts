@@ -24,6 +24,11 @@ import { sectionCensus, type StackOffence } from './section-census';
  *                  in either theme
  *   first-gap      (r9) the first content in <main> is not 24px (+-2) under the page
  *                  header's hairline; see FIRST_GAP below for the two documented others
+ *   motion         an animation that moves content (its keyframes change transform,
+ *                  translate, scale, rotate or an inset) runs under prefers-reduced-motion:
+ *                  reduce. The page is measured with reduced motion so nothing is caught
+ *                  mid-flight; the /operators cards rose 24px in anyway, because their
+ *                  override lost the cascade, and first-gap read 26.5px under load
  *
  * and, against its own baseline (stack-align-baseline.json, below), stack-align: a
  * child whose first line starts 3-120px right of its parent's content edge while a
@@ -81,7 +86,7 @@ function routes(): string[] {
   return out.map(route => (route === '/' ? route : route.replace(/\/$/, '')));
 }
 
-type Offence = 'no-h1' | 'h1-align' | 'frame' | 'page-scroll-x' | 'tab-align' | 'first-gap';
+type Offence = 'no-h1' | 'h1-align' | 'frame' | 'page-scroll-x' | 'tab-align' | 'first-gap' | 'motion';
 type Baseline = Record<string, Record<string, Offence[]>>;
 
 const baseline: Baseline = fs.existsSync(BASELINE_FILE) ? JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8')) : {};
@@ -287,7 +292,13 @@ for (const width of WIDTHS) {
         test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
         await page.goto(route, { waitUntil: 'load' });
         await page.evaluate(() => document.fonts.ready);
+        // Every CSS animation the page holds, running or finished (a fill keeps a finished
+        // one), whose keyframes move content: none may exist under reduced motion.
+        const moving = await page.evaluate(() => [...new Set(document.getAnimations()
+          .filter((a) => (a as CSSAnimation).animationName && (a.effect as KeyframeEffect | null)?.getKeyframes().some((k) => ['transform', 'translate', 'scale', 'rotate', 'top', 'left', 'right', 'bottom'].some((p) => p in k)))
+          .map((a) => { const t = (a.effect as KeyframeEffect).target as Element | null; return `${(a as CSSAnimation).animationName} on ${t ? `${t.tagName.toLowerCase()}.${String(t.className).trim().split(/\s+/)[0]}` : '?'}`; }))]);
         const { offences, detail } = await settled(page);
+        if (moving.length) { offences.push('motion'); detail.push(`moves under prefers-reduced-motion: ${moving.join(', ')}`); }
         // --- tab-align (r9): measured in both themes, flipping data-theme in place ---
         const tabs = await tabAlignBothThemes(page);
         if (tabs.length) { offences.push('tab-align'); detail.push(...tabs); }

@@ -35,10 +35,19 @@
  * and -- for height only -- a .check label, whose drawn box is its 18px checkbox, not
  * the label row round it, a control drawn as text (no border, no fill), whose box
  * nobody sees, and a control whose label wraps to a second line.
+ *
+ * And a third, for grids only:
+ *
+ *   overflow  a control is wider than the grid column it sits in: it ends past its
+ *           column's edge, not on the edge of a later column it spans. One control
+ *           height made the controls bigger, and a page that still sized its column
+ *           for the old control let the new one run into the gap: the voice lines'
+ *           play button went to 36px (40 on a phone) in a 32px column and crowded the
+ *           line title to 5px (1px on a phone). Box edges only, so the same on any font.
  */
 /** `beside` is the text, or the second control, off the control's centre line (or
  *  height) by `offset` px. */
-export interface RowOffence { kind: 'centre' | 'height'; container: string; control: string; beside: string; offset: number }
+export interface RowOffence { kind: 'centre' | 'height' | 'overflow'; container: string; control: string; beside: string; offset: number }
 
 /** Centre-line and control-height tolerances, px. */
 export interface RowTolerance { centre: number; height: number }
@@ -201,6 +210,40 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
         if ([ea, eb].some((e) => e.matches('label.check') || pictureLed(e) || drawnAsText(e) || wraps(e))) continue;
         const diff = Math.round((b.height - a.height) * 10) / 10;
         if (Math.abs(diff) > tolerance.height) report('height', container, ea, eb, diff);
+      }
+    }
+    // A control wider than its grid area (see `overflow` above). Only a grid whose tracks
+    // start at its content edge (justify-content start or normal). The tracks are the
+    // resolved grid-template-columns, in CSS px, so they are scaled by the element's CSS
+    // zoom (the Stronghold companion zooms to its window); the area is the columns the
+    // grid item spans (grid-column), so a row spanning 1 / -1 holds a control of any width.
+    if (/grid/.test(cs.display) && /^(normal|start|stretch|flex-start|left)$/.test(cs.justifyContent) && !/subgrid/.test(cs.gridTemplateColumns)) {
+      const zoom = (container as Element & { currentCSSZoom?: number }).currentCSSZoom ?? 1;
+      const tracks = cs.gridTemplateColumns.split(/\s+/).map(parseFloat).filter((n) => Number.isFinite(n)).map((n) => n * zoom);
+      const gap = (parseFloat(cs.columnGap) || 0) * zoom;
+      const outer = container.getBoundingClientRect();
+      let at = outer.left + ((parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0)) * zoom;
+      const cols = tracks.map((w) => { const col = { start: at, end: at + w, w }; at += w + gap; return col; });
+      /** How many columns a grid item spans, from its grid-column. */
+      const spanOf = (el: Element, i: number) => {
+        const k = getComputedStyle(el);
+        const m = /span\s+(\d+)/.exec(k.gridColumnEnd) ?? /span\s+(\d+)/.exec(k.gridColumnStart);
+        if (m) return Number(m[1]);
+        const [a, b] = [parseInt(k.gridColumnStart, 10), parseInt(k.gridColumnEnd, 10)];
+        if (!Number.isFinite(b)) return 1;
+        const line = (x: number) => (x < 0 ? cols.length + 2 + x : x);
+        return Math.max(1, line(b) - (Number.isFinite(a) ? line(a) : i + 1));
+      };
+      for (const c of controls) {
+        const box = c.el.getBoundingClientRect();
+        const i = cols.findIndex((col) => Math.abs(col.start - c.kid.getBoundingClientRect().left) <= 1);
+        if (i < 0) continue;
+        const area = cols[Math.min(cols.length - 1, i + spanOf(c.kid, i) - 1)];
+        if (box.right <= area.end + 1) continue;
+        const key = `overflow|${describe(container)}|${describe(c.el)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        offences.push({ kind: 'overflow', container: describe(container), control: describe(c.el), beside: `its ${Math.round((area.end - cols[i].start) * 10) / 10}px column (${i + 1} of ${cols.length})`, offset: Math.round((box.right - area.end) * 10) / 10 });
       }
     }
     for (const c of controls) {
