@@ -386,6 +386,40 @@ test('the Terminal bar is one row from the first paint, or its menu where one ro
   }
 });
 
+/*
+ * The Terminal home is a board of boxed panels, spaced by its grid's 14px gap, where it has
+ * two columns; folded to one column under 900px it is a column of sections, --section-gap
+ * (36px) apart, as /pulls' and /recruitment's boxed sections are on a phone (ui-primitives
+ * rule 15). The rule said 14 at every width while the stylesheet said 36 on a phone; this
+ * holds the two to one answer. Box edges only.
+ */
+test('the Terminal home is a board of panels in two columns and a column of sections in one', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the widths are set here');
+  const gaps = () => page.evaluate(() => {
+    const boxes = Array.from(document.querySelectorAll('main .terminal-home > .terminal-panel')).map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    const out: { dir: string; gap: number }[] = [];
+    for (const [i, a] of boxes.entries()) {
+      for (const b of boxes.slice(i + 1)) {
+        const sameColumn = b.left < a.right - 1 && a.left < b.right - 1;
+        const sameRow = b.top < a.bottom - 1 && a.top < b.bottom - 1;
+        const between = (c: DOMRect) => c !== a && c !== b && c.left < a.right - 1 && a.left < c.right - 1 && c.top >= a.bottom - 1 && c.bottom <= b.top + 1;
+        if (sameColumn && b.top >= a.bottom - 1 && !boxes.some(between)) out.push({ dir: 'below', gap: Math.round((b.top - a.bottom) * 10) / 10 });
+        if (sameRow && b.left >= a.right - 1) out.push({ dir: 'beside', gap: Math.round((b.left - a.right) * 10) / 10 });
+      }
+    }
+    return out;
+  });
+  for (const [width, dir, gap] of [[1440, 'beside', 14], [900, 'below', 36], [390, 'below', 36]] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/stages');
+    const found = await gaps();
+    expect(found.some((g) => g.dir === dir), `/stages at ${width}px: panels ${dir} one another`).toBe(true);
+    if (dir === 'below') expect(found.filter((g) => g.dir !== 'below'), `/stages at ${width}px: one column`).toEqual([]);
+    // In two columns a short panel's row may leave room under it: only the gap beside counts.
+    expect(found.filter((g) => g.dir === dir && Math.abs(g.gap - gap) > 1).map((g) => `${g.dir} ${g.gap}px`), `/stages at ${width}px: panels ${gap}px apart`).toEqual([]);
+  }
+});
+
 test('a stage\'s forms are tab-look links and its Emergency Ops switch is the site\'s chips', async ({ page }) => {
   // They were .stage-variant-option, a page-local chip in mono 11px with a teal fill of
   // its own. The forms are links (each is its own address), marked aria-current="page",
