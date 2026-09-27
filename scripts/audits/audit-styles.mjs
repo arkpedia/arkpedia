@@ -76,8 +76,9 @@
  *                  row, the way a boxed card is
  *   xButton        (r10 x-buttons) a close or remove × drawn as its own button: a
  *                  <button>, or any element with an onClick, whose whole content is a ×
- *                  glyph (×, ✕, ✖, x, &times;, &#10005;, a quoted one, or one chosen by a
- *                  condition) or the player's drawn close icon, and whose class list lacks
+ *                  glyph (×, ✕, ✖, x, &times;, &#10005;, a quoted one, one chosen by a
+ *                  condition, or one alone in a <span>) or a drawn × (the player's close
+ *                  icon, XGlyph, or XGlyph's path in a hand-written <svg>), and whose class list lacks
  *                  btn-x (or tab-remove, a removable tab's × span). A × is
  *                  components/ui/XButton: no border, a square hit area, a required label
  *                  (docs/development/ui-primitives.md rule 21)
@@ -453,9 +454,17 @@ function controlHeights(cssFiles, controls, boxedBare, textareas) {
 /** The whole content of a × button, as written: one glyph, an entity, a quoted glyph,
  *  or a glyph picked by a condition ({open ? '✕' : '⛶'} is a × in one state). */
 const X_GLYPH = /^(?:[×✕✖✗xX]|&times;|&#(?:215|10005|10006|x[dD]7|x2715|x2716);|\{[^{}]*(['"`])(?:[×✕✖]|\\u00[dD]7|\\u271[56]|\\xd7)\1[^{}]*\})$/;
-/** The player's drawn close icon (components/music/TransportIcons), the other way a ×
- *  has been drawn inside a button. */
-const X_ICON = /<TransportIcon\b[^>]*\bname=(?:"close"|'close'|\{[^}]*['"`]close['"`][^}]*\})/;
+/** A drawn ×: the player's close icon (components/music/TransportIcons), the ×
+ *  buttons' own glyph (XGlyph, exported for the removable tab's span and for the two
+ *  buttons that are a × in one state only: the mini player's collapse and the /community
+ *  map's fullscreen toggle), or that glyph's path copied into a hand-written <svg> (the
+ *  search field's clear was one). A button drawing one must carry .btn-x in its class
+ *  list, in the state that shows it: the map's toggle shows only while a community event
+ *  runs, so x-buttons.spec.ts may never see it, and this is its only guard. */
+const X_ICON = /<TransportIcon\b[^>]*\bname=(?:"close"|'close'|\{[^}]*['"`]close['"`][^}]*\})|<XGlyph\b|\bd=["'{`]*m4 4 8 8M12 4l-8 8/;
+/** A glyph wrapped in its own element and nothing else (<span aria-hidden="true">×</span>),
+ *  the way a removable tab's × was written. */
+const X_WRAPPED = /^<(\w+)\b[^>]*>([^<]*)<\/\1>$/;
 /** Components that render a <button> of their own: a class given to one is a class on
  *  a control (controlHeight holds it to the token like any other). */
 const X_BUTTON_COMPONENTS = ['XButton'];
@@ -470,12 +479,18 @@ function xButtons(tsxFiles) {
       if (tag !== 'button' && !/\bonClick=/.test(attrs)) continue;
       const end = code.indexOf(`</${tag}>`, m.index + open.length);
       if (end < 0) continue;
-      const raw = code.slice(m.index + open.length, end);
+      // A × drawn by an element of its own inside (a removable tab's .tab-remove span)
+      // is that element's, not its holder's.
+      const raw = code.slice(m.index + open.length, end).replace(/<(\w+)\b(?:=>|[^>])*?\bclassName=(?:=>|[^>])*?\b(?:tab-remove|btn-x)\b(?:=>|[^>])*?>[\s\S]*?<\/\1>/g, '');
       const content = raw.replace(/\s+/g, '');
-      if (!X_GLYPH.test(content) && !X_ICON.test(raw)) continue;
+      const wrapped = raw.trim().match(X_WRAPPED);
+      if (!X_GLYPH.test(content) && !X_ICON.test(raw) && !(wrapped && X_GLYPH.test(wrapped[2].replace(/\s+/g, '')))) continue;
       const cls = attrs.match(/\bclassName=(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|'[^']*')/);
       const names = cls ? classNamesIn(cls[1]) : new Set();
-      if (names.has('btn-x') || names.has('tab-remove')) continue;
+      // classNamesIn drops what a template literal picks inside ${...}; a × that is one in
+      // one state names .btn-x there (`${isFullscreen ? 'btn-x' : 'btn-icon'} ...`).
+      const picked = (c) => new RegExp(`\\$\\{[^}]*(['"\`])${c}\\1[^}]*\\}`).test(cls?.[1] ?? '');
+      if (names.has('btn-x') || names.has('tab-remove') || picked('btn-x')) continue;
       out.push(`${path}: <${tag}${attrs.replace(/\s+/g, ' ').slice(0, 70)}>${content.slice(0, 30)}`);
     }
   }
