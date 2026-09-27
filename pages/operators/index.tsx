@@ -18,6 +18,7 @@ import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
 import { publicFiles } from '@/lib/assets/publicAssets';
 import PageHeader from '@/components/ui/PageHeader';
+import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -344,7 +345,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                       setBranchFilter('all'); // branch list changes with class, reset to avoid an invalid combo
                     }}
                   >
-                    {iconPath && <Image src={iconPath} alt={c} width={26} height={26} style={{ objectFit: 'contain' }} />}
+                    {iconPath && <OperatorGameIcon src={iconPath} label={c} size={24} />}
                   </button>
                 );
               })}
@@ -359,12 +360,12 @@ export default function OperatorsIndex({ operators, now }: Props) {
                   <button
                     type="button"
                     key={b}
-                    className="filter-chip roster-branch-chip"
+                    className="filter-chip"
                     aria-label={b}
                     aria-pressed={branchFilter === b}
                     onClick={() => setBranchFilter(branchFilter === b ? 'all' : b)}
                   >
-                    {iconPath && <Image src={iconPath} alt={b} width={22} height={22} style={{ objectFit: 'contain' }} />}
+                    {iconPath && <OperatorGameIcon src={iconPath} label={b} size={20} />}
                     <span>{b}</span>
                   </button>
                 );
@@ -466,23 +467,14 @@ export default function OperatorsIndex({ operators, now }: Props) {
                       <>
                         <p className="hint roster-class-branch">
                           {op.rarity ? <Rarity n={rarityLevel(op.rarity)} /> : null}
+                          {/* The class and branch glyphs are white art: drawn as masks in
+                              the line's own ink (OperatorGameIcon), not as images, or the
+                              light theme shows them white on white. */}
                           {op.class && getClassIconPath(op.class) && (
-                            <Image
-                              src={getClassIconPath(op.class)!}
-                              alt={op.class}
-                              className="roster-class-icon"
-                              width={16}
-                              height={16}
-                            />
+                            <OperatorGameIcon src={getClassIconPath(op.class)!} label={op.class} size={16} />
                           )}
                           {op.branch && getBranchIconPath(op.branch) && (
-                            <Image
-                              src={getBranchIconPath(op.branch)!}
-                              alt={op.branch}
-                              className="roster-branch-icon"
-                              width={16}
-                              height={16}
-                            />
+                            <OperatorGameIcon src={getBranchIconPath(op.branch)!} label={op.branch} size={16} />
                           )}
                           {op.branch}
                         </p>

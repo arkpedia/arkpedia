@@ -275,6 +275,16 @@
   border: 1px solid var(--line-soft);
   background: var(--panel-2);
 }
+/* A branch's badge: the disc of a skill's badge, holding the branch glyph as a mask in
+   --text (OperatorGameIcon), the 22px the <img> was. */
+.technique-entry-badge-branch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--text);
+}
 /* 10px, the site's floor for micro type: these were 8px (798 characters on the page). */
 .technique-entry-badge-talent {
   min-width: 18px;

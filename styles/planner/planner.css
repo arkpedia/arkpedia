@@ -1554,12 +1554,11 @@
 .wizard-filter-group { display: flex; flex-wrap: wrap; gap: 5px; }
 /* One row, one height: the class glyphs are square chips at the chip's height. */
 .filter-chip.wizard-class-chip { width: 32px; padding: 0; }
-.filter-chip.wizard-class-chip > img { width: 24px; height: 24px; }
 @media (max-width: 720px) { .filter-chip.wizard-class-chip { width: 36px; } }
-/* The class glyphs are white art, and on the light theme's buttons they were
-   white on near-white -- eight blank squares. Inverted to ink, the same answer
-   gamemodes.css gives its own white glyphs. */
-:root[data-theme="light"] .wizard-class-chip img { filter: invert(1) opacity(0.8); }
+/* The class glyphs are white art, and on the light theme's buttons they were white on
+   near-white -- eight blank squares. They are 24px OperatorGameIcon masks in the chip's
+   ink now, as on /operators (teal when pressed, in both themes); the light theme's
+   invert(1) filter on an <img> was this page's own answer to the same art. */
 .roster-filters-count { margin: 0 0 0 auto; white-space: nowrap; }
 /* The goal picker's one way out of "only what I own": a .filter-chip like the
    filters it sits beside, and the same height. */

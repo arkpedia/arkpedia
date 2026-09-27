@@ -7,6 +7,7 @@ import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import type { Roster } from '@/lib/planner/roster';
 import SearchInput from '@/components/ui/SearchInput';
+import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 
 /**
@@ -170,7 +171,7 @@ export function RosterGrid({
                   aria-pressed={classFilter === c}
                   onClick={() => set({ className: classFilter === c ? null : c })}
                 >
-                  {icon && <Image src={icon} alt="" width={26} height={26} style={{ objectFit: 'contain' }} />}
+                  {icon && <OperatorGameIcon src={icon} label={c} size={24} />}
                 </button>
               );
             })}

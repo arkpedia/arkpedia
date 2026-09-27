@@ -328,3 +328,110 @@ for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
     expect([...new Map(leaks.map((b) => [b.el, b])).values()], `${name}: buttons in Inter or JetBrains Mono with the button tracking (a card takes .btn-bare)`).toEqual([]);
   });
 }
+
+/* ---- The class, branch and faction glyphs are ink, in both themes -------------------
+ * The glyphs (/class-icons/, /branch-icons/, /faction-icons/) are white art on a
+ * transparent ground. Drawn as an <img> they were white on the light theme's near-white:
+ * /operators' class and branch chips and the class line under every card were blank
+ * squares, and so were the operator page's synergy and technique glyphs and /techniques'
+ * branch badges and branch tables; the planner's roster chips had an invert() filter of
+ * their own. Every one is an OperatorGameIcon now,
+ * a mask in the ink of the line it sits in (teal on a pressed chip). This visits every
+ * place that draws one, in both themes, with each place's glyphs on screen (a class
+ * picked, the operator page's disclosures open), and fails:
+ * - a glyph drawn as an <img>, except over an operator's portrait on the stage deploy bar,
+ *   where it is white with a shadow as the game draws it;
+ * - a glyph whose ink is under 3:1 against what it sits on (WCAG 1.4.11), the nearest
+ *   opaque background behind it, a disabled control aside;
+ * - a place that shows no glyph, so a selector that stopped matching cannot pass on nothing.
+ * Colours only: nothing here depends on the fonts. */
+/** `glyph`: the glyphs this place is here for, which must be on screen (the rest of the
+ *  page's are checked too): a place whose own glyph stopped rendering cannot pass on the
+ *  class glyph in the page header. */
+const GLYPH_PLACES: { name: string; route: string; glyph: string; act?: (page: Page) => Promise<void> }[] = [
+  { name: '/operators (the class chips and every card\'s class line)', route: '/operators', glyph: '.roster-icon-chip [role="img"], .roster-class-branch [role="img"]' },
+  { name: '/operators with Defender picked (the branch chips)', route: '/operators', glyph: '[role="group"][aria-label="Branch"] [role="img"]', act: async (page) => { await page.getByRole('button', { name: 'Defender', exact: true }).first().click(); await expect(page.getByRole('group', { name: 'Branch' })).toBeVisible(); } },
+  { name: 'an operator with class forms', route: '/operators/Amiya', glyph: '.op-form-switch [role="img"]' },
+  { name: 'an operator with branch and faction synergies', route: '/operators/SilverAsh', glyph: '.op-synergy-value [role="img"]' },
+  // The technique is on Entelechia's S2 (the skill tabs show one skill at a time).
+  { name: 'an operator whose technique names a branch', route: '/operators/Entelechia', glyph: '.op-skill-technique-icons-row [role="img"]', act: async (page) => {
+    await page.getByRole('tablist', { name: 'Skill' }).first().getByRole('tab').nth(1).click();
+  } },
+  { name: '/techniques (the branch badges)', route: '/techniques', glyph: '.technique-entry-badge-branch [role="img"]' },
+  { name: "/techniques with a branch's table shown", route: '/techniques', glyph: '.technique-table-branch-header [role="img"]', act: async (page) => {
+    // The first technique that lists operators by branch: its table heads each branch
+    // with the branch's glyph.
+    const toggle = page.locator('.technique-group', { has: page.locator('.technique-entry-badge-branch') }).first().locator('.technique-table-toggle');
+    await toggle.click();
+    await expect(page.locator('.technique-table-branch-header').first()).toBeVisible();
+  } },
+  { name: "the planner's roster", route: '/planner', glyph: '.wizard-class-chip [role="img"]', act: async (page) => {
+    await page.getByRole('tablist', { name: 'Planner mode' }).getByRole('tab', { name: 'Experimental' }).click();
+    await page.getByRole('button', { name: 'Your roster', exact: true }).first().click();
+    await expect(page.getByRole('group', { name: 'Class' }).first()).toBeVisible();
+  } },
+];
+for (const theme of ['dark', 'light'] as const) {
+  for (const place of GLYPH_PLACES) {
+    test(`class, branch and faction glyphs are ink on ${place.name} (${theme} theme)`, async ({ page }, info) => {
+      test.skip(info.project.name !== 'desktop', 'colour is width-independent');
+      await page.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch { /* none */ } }, theme);
+      await openCensus(page, place.route);
+      if (place.act) await place.act(page);
+      await page.evaluate(() => { for (const d of Array.from(document.querySelectorAll('details'))) d.open = true; });
+      await page.waitForTimeout(200);
+      // The entrance animations end first: a card rising in after a filter is part-way
+      // through its opacity ramp, and its glyphs read faint until it lands.
+      await page.evaluate(() => Promise.all(document.getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
+        .map((a) => a.finished.catch(() => undefined))));
+      expect(await themeOf(page), `the page is in the ${theme} theme`).toBe(theme);
+      const found = await page.evaluate(() => {
+        const GLYPH = /\/(?:class|branch|faction)-icons\//;
+        const rgba = (c: string) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const [r, g, b, a = '1'] = m[1].split(/[\s,/]+/).filter(Boolean); return [+r, +g, +b, +a]; };
+        const lum = ([r, g, b]: number[]) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+        const over = (top: number[], under: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3]));
+        const ground = (el: Element) => {
+          for (let n: Element | null = el.parentElement; n; n = n.parentElement) {
+            const c = rgba(getComputedStyle(n).backgroundColor);
+            if (c && c[3] >= 0.5) return c;
+          }
+          return rgba(getComputedStyle(document.body).backgroundColor) ?? [0, 0, 0, 1];
+        };
+        const name = (el: Element) => `${el.tagName.toLowerCase()}${el.getAttribute('aria-label') ? ` "${el.getAttribute('aria-label')}"` : ''} in ${el.parentElement?.tagName.toLowerCase()}.${Array.from(el.parentElement?.classList ?? []).join('.')}`;
+        const out = { shown: 0, images: [] as string[], faint: [] as string[] };
+        for (const el of Array.from(document.querySelectorAll('*'))) {
+          if (!el.getClientRects().length) continue;
+          const cs = getComputedStyle(el);
+          if (el instanceof HTMLImageElement) {
+            if (!GLYPH.test(el.currentSrc || el.src)) continue;
+            out.shown += 1;
+            if (!el.closest('.stage-deploy-op')) out.images.push(name(el));
+            continue;
+          }
+          const mask = cs.getPropertyValue('-webkit-mask-image') || cs.getPropertyValue('mask-image');
+          if (!GLYPH.test(mask) || cs.visibility === 'hidden') continue;
+          // The operator artwork's faction emblem is a 5.5% watermark behind the art, not a glyph.
+          let opacity = 1;
+          for (let n: Element | null = el; n; n = n.parentElement) opacity *= parseFloat(getComputedStyle(n).opacity);
+          if (opacity < 0.2) continue;
+          out.shown += 1;
+          if (el.closest(':disabled, [aria-disabled="true"]')) continue;
+          const back = ground(el);
+          const ink = rgba(cs.backgroundColor);
+          if (!ink) { out.faint.push(`${name(el)}: no ink (${cs.backgroundColor})`); continue; }
+          const drawn = over([...ink.slice(0, 3), ink[3] * opacity], back);
+          const [a, b] = [lum(drawn), lum(back)].sort((x, y) => y - x);
+          const ratio = (a + 0.05) / (b + 0.05);
+          if (ratio < 3) out.faint.push(`${name(el)}: ${ratio.toFixed(2)}:1 (${cs.backgroundColor} on rgb(${back.slice(0, 3).join(', ')}))`);
+        }
+        return out;
+      });
+      expect(found.shown, `${place.name} shows a class, branch or faction glyph`).toBeGreaterThan(0);
+      const own = await page.locator(place.glyph).evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).length);
+      expect(own, `${place.name}: its own glyphs (${place.glyph}) are on screen`).toBeGreaterThan(0);
+      expect(found.images, 'glyphs drawn as white-art <img>, not as masks in ink (OperatorGameIcon)').toEqual([]);
+      expect([...new Set(found.faint)], 'glyphs under 3:1 against what they sit on').toEqual([]);
+    });
+  }
+}

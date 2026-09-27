@@ -81,9 +81,10 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-/* Class chips are icon-only: the glyph at 24px reads, the chip rule's 18px does not. */
+/* Class chips are icon-only: the glyph at 24px reads, the chip rule's 18px does not.
+   The glyphs are OperatorGameIcon masks in the chip's ink (teal when pressed), sized by
+   the component: white art as an <img> was white on white in the light theme. */
 .roster-icon-chip { width: 36px; padding: 0; }
-.roster-icon-chip > img { width: 24px; height: 24px; }
 .roster-branch-row {
   width: 100%;
   padding-top: 4px;
@@ -119,14 +120,6 @@
   color: var(--amber);
   font-weight: 700;
 }
-.roster-class-icon, .roster-branch-icon {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
-}
-
-/* Branch chips: the branch glyph and its name. */
-.roster-branch-chip > img { width: 20px; height: 20px; }
 /* Keep the portrait edge-to-edge, with breathing room for identity and metadata. */
 /* A roster card's name (also /obtain-method's cards). */
 .op-name { min-height: 20px; margin: 0 0 10px; font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }

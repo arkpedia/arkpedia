@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
+import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import SearchInput from '@/components/ui/SearchInput';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { UMBRELLA_MEMBERS, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
@@ -201,9 +202,9 @@ function TechniqueGroupCard({
                 {Array.from(branchGroups.entries()).map(([branchName, entries]) => (
                   <div key={branchName} className="technique-table-branch-section">
                     <div className="technique-table-branch-header">
-                      {entries[0].branchIconPath && (
-                        <Image src={entries[0].branchIconPath} alt={branchName} width={20} height={20} />
-                      )}
+                      {/* White art: a mask in the header's ink (OperatorGameIcon), or white
+                          on the light theme's panel. */}
+                      {entries[0].branchIconPath && <OperatorGameIcon src={entries[0].branchIconPath} label={branchName} size={20} />}
                       <span>{branchName}</span>
                     </div>
                     <div className="technique-table-branch-operators">
@@ -267,7 +268,11 @@ function TechniqueGroupCard({
                   {e.viaBranch ? (
                     e.branchIconPath && (
                       <div className="technique-entry-badge-row">
-                        <Image src={e.branchIconPath} alt="branch" width={22} height={22} className="technique-entry-badge-icon" />
+                        {/* The branch glyph is white art: a mask in the disc's ink, where an
+                            <img> was white on the light theme's disc. */}
+                        <span className="technique-entry-badge-icon technique-entry-badge-branch">
+                          <OperatorGameIcon src={e.branchIconPath} label={e.branchName ?? 'Branch'} size={20} />
+                        </span>
                       </div>
                     )
                   ) : (

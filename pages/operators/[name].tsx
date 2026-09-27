@@ -308,7 +308,7 @@ function TechniqueList({
             <div key={ti} className="op-skill-technique-block">
               <div className="op-skill-technique-icons-row">
                 {getBranchIconPath(t.branch) && (
-                  <Image src={getBranchIconPath(t.branch)!} alt={t.branch} width={28} height={28} />
+                  <OperatorGameIcon src={getBranchIconPath(t.branch)!} label={t.branch} size={28} />
                 )}
                 {branchOps &&
                   branchOps.map((op) => (
@@ -1340,7 +1340,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             const iconPath = entry.type === 'branch' ? getBranchIconPath(v) : entry.type === 'faction' ? getFactionIconPath(v) : null;
                             return (
                               <span key={vi} className="op-synergy-value">
-                                {iconPath && <Image src={iconPath} alt={v} width={28} height={28} />}
+                                {/* White art: a mask in the line's ink, or white on white in the light theme. */}
+                                {iconPath && <OperatorGameIcon src={iconPath} label={v} size={28} />}
                                 <span>{v}</span>
                               </span>
                             );
