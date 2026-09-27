@@ -205,11 +205,13 @@ for (const place of PLACES) {
     // A tab named apart from what it shows (an aria-label) starts with what it shows
     // (WCAG 2.5.3, label in name): the gacha preview's "S1" was named "Skill 1: ...", so
     // "click S1" in voice control found nothing. Its label is its own text, not the
-    // count or the remove mark beside it.
+    // count or the remove mark beside it, and only letters and digits are compared: a
+    // symbol is not spoken as shown ("6★" named "6-star" passes).
     const misnamed = await tabs.evaluateAll((els) => els.flatMap((el) => {
+      const words = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
       const name = el.getAttribute('aria-label');
       const shown = Array.from(el.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim();
-      return name && shown && !name.toLowerCase().startsWith(shown.toLowerCase()) ? [`"${shown}" is named "${name}"`] : [];
+      return name && words(shown) && !words(name).startsWith(words(shown)) ? [`"${shown}" is named "${name}"`] : [];
     }));
     expect(misnamed, 'tabs whose accessible name does not start with their label').toEqual([]);
     // Where the reader is most exposed: the strip at the top of the screen, as far down
