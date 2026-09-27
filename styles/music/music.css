@@ -401,6 +401,21 @@
   padding: 0;
   font-size: 13px;
 }
+/* On a phone the three icon buttons are the phone's 40px control height, 24px wider in all
+   than the 32px squares they were, and the title paid for it: 175px to 151 at 390, so
+   titles that fitted ended in an ellipsis ("Play with Burdenbeasts"). The row's spacing
+   gives the width back instead of the buttons: 4px gaps in the row and 2px between the
+   buttons, an 8px inset in the title, and no gutter for a scrollbar that is an overlay on
+   a touch screen. The title has the room for text it had (153px at 390) at the one row
+   height; tests/browser/row-alignment.spec.ts holds it there. */
+@media (max-width: 720px) {
+  .music-queue-row { gap: 4px; }
+  .music-queue-row-title { padding: 0 8px; }
+  .music-queue-row-actions { gap: 2px; }
+}
+@media (max-width: 720px) and (pointer: coarse) {
+  .music-queue-list { padding-right: 0; }
+}
 
 /* Bottom transport bar: favorite, stream-safe, shuffle, prev, play, next, repeat,
    volume and the song list toggle, under the seek row. */

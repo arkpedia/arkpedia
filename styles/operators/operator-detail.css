@@ -518,7 +518,9 @@
    Only the row's place lives here. It is a .tabs strip of .tab links, the current form
    marked aria-current="page"; the class glyphs are masks in currentColor, so they take
    the tab's colour (teal when current) in both themes. */
-.op-form-switch { margin-top: 8px; }
+/* 6px under the name row: the icon tabs are 38px (a 26px glyph in the tab's 6px padding),
+   and at 8px the panel header was taller than before the forms became tabs. */
+.op-form-switch { margin-top: 6px; }
 
 /* --- a skill's effect on the range ----------------------------------------------
    Shown as the change, not only the result: a grid on its own does not say whether the

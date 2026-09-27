@@ -435,3 +435,39 @@ for (const theme of ['dark', 'light'] as const) {
     });
   }
 }
+
+/* ---- A numbered list's markers stay in its box ------------------------------------
+ * The site's list reset gives the marker column 1.1em (shared.css), which holds "9." and
+ * not "10.": a list of ten or more hung its markers past the column's edge. None does
+ * today, so this puts a 12- and a 105-item list, and a 5-item one, into a real page's
+ * running text and measures each item's marker (the text of "N. " in the item's own face,
+ * the marker's advance) against the room its list gives it. It compares text with the
+ * box reserved for it in whatever face draws it, to +-2px, so CI's fonts do not change
+ * the verdict. */
+test("a numbered list's markers stay inside the list", async ({ page }) => {
+  await openCensus(page, '/operators/Amiya');
+  const over = await page.evaluate(() => {
+    const host = document.querySelector('main .op-section p')?.parentElement ?? document.querySelector('main')!;
+    const out: string[] = [];
+    for (const count of [5, 12, 105]) {
+      const ol = document.createElement('ol');
+      for (let i = 1; i <= count; i += 1) { const li = document.createElement('li'); li.textContent = `Item ${i}`; ol.appendChild(li); }
+      host.appendChild(ol);
+      const room = parseFloat(getComputedStyle(ol).paddingInlineStart);
+      for (const li of Array.from(ol.children)) {
+        const probe = document.createElement('span');
+        const cs = getComputedStyle(li);
+        probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing}`;
+        probe.textContent = `${Array.from(ol.children).indexOf(li) + 1}. `;
+        document.body.appendChild(probe);
+        const marker = probe.getBoundingClientRect().width;
+        probe.remove();
+        const past = marker - (li.getBoundingClientRect().left - ol.getBoundingClientRect().left) ;
+        if (past > 2) { out.push(`a ${count}-item list: "${probe.textContent.trim()}" is ${marker.toFixed(1)}px in a ${room.toFixed(1)}px column`); break; }
+      }
+      ol.remove();
+    }
+    return out;
+  });
+  expect(over, 'markers past their list\'s edge').toEqual([]);
+});

@@ -53,6 +53,10 @@ const tabIn = (page: Page, scope: string, name: string) => page.locator(scope).g
 
 export const CENSUS_STATES: CensusState[] = [
   { id: 'planner with Amiya (the level dialog)', route: '/planner', act: async (page) => { await page.locator('#planner-search').fill('Amiya'); await page.locator('#planner-search').press('Enter'); await page.locator('.simple-wizard').waitFor(); } },
+  // Experimental's own rows: "Your plan" (Clear, Your roster, Add a goal) and the depot's
+  // (Clear, Open depot). The maintainer found Clear a size apart from its row on 2026-09-27
+  // in both modes; Simple's search row is on the page load.
+  { id: 'planner experimental', route: '/planner', act: (page) => tabIn(page, '.page-header-actions', 'Experimental') },
   { id: 'event rewards tab', route: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', act: (page) => tabIn(page, '.event-detail-tabs', 'Rewards') },
   { id: 'gacha details', route: '/gacha', act: async (page) => { await page.getByRole('button', { name: 'Details', exact: true }).first().click(); await page.locator('.gacha-details-modal').waitFor(); } },
   { id: 'gacha operator preview', route: '/gacha', act: async (page) => {

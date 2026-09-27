@@ -458,9 +458,16 @@ header,
 @media (max-width: 640px) {
   .header-top { flex-direction: column; }
 }
+/* The page header's two lines carry a line height of their own, the one the webfont's
+   "normal" gives (JetBrains Mono 11px: 14px; Rajdhani 30px: 38px, 24px: 30px). At
+   "normal" each line was as tall as the face drawing it: the fallback's 13px and 35px
+   (28px on a phone) until the webfonts arrived (display=swap), and then everything under
+   the header moved down 4px (3px on a phone), on every page. tests/browser/row-alignment
+   .spec.ts loads the header with Google Fonts refused and fails a height that differs. */
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 11px;
+  line-height: 14px;
   letter-spacing: 0.14em;
   color: var(--teal);
   text-transform: uppercase;
@@ -505,6 +512,7 @@ h1 {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 30px;
+  line-height: 38px;
   letter-spacing: 0.02em;
   margin: 6px 0 8px;
   text-transform: uppercase;
@@ -570,6 +578,13 @@ h3.entity-title.entity-title-xs,
    edge, and the text hangs after it. Zero specificity: a list with a class of its own
    (menus, grids, rows) sets its own padding, which outranks this. */
 :where(ul, ol) { padding-inline-start: 1.1em; }
+/* A numbered list's marker grows with its count: "10." needs about 1.6em and "100." 2.2em
+   (a digit is about 0.55-0.6em in the body faces), and in 1.1em it hung past the column's
+   edge. So the column widens by a digit at 10 items and again at 100. Zero specificity,
+   as above. tests/browser/cards-and-headings.spec.ts puts a 12- and a 105-item list in a
+   page and fails a marker that starts left of its list's box. */
+:where(ol:has(> li:nth-child(10))) { padding-inline-start: 1.7em; }
+:where(ol:has(> li:nth-child(100))) { padding-inline-start: 2.3em; }
 /* --- end r9 section rhythm and heading roles --------------------------------------- */
 
 h2 {
@@ -636,7 +651,7 @@ main {
 }
 @media (max-width: 720px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
-  h1 { font-size: 24px; }
+  h1 { font-size: 24px; line-height: 30px; }
 }
 /* .card itself is in arkpedia-theme.css. What stays here is the state it can be
    in, which that file does not describe. */

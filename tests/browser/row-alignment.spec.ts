@@ -287,6 +287,127 @@ test("the calendar's month and year menus show their whole value", async ({ page
   }
 });
 
+/*
+ * The operator page's panel header (the name row, the meta line and, for an operator
+ * with class forms, the forms' icon tabs) is no taller than it was before this round:
+ * 127px at 390 and 121 at 1440 for Amiya, 89 and 87 for SilverAsh, as the dev site
+ * measured at 61f8409. It is sticky on a phone, so every pixel of it is a pixel of the
+ * page the reader loses. It grew to 151 and 141 when each meta item became a
+ * control-height cell and the forms became icon tabs; the meta's lines are 20px now
+ * (OperatorPage.module.css). Box heights from min-heights, within 2px of the ceiling,
+ * so CI's fonts do not change the verdict.
+ */
+test("the operator page's panel header is no taller than before", async ({ page }) => {
+  const width = await censusWidth(page);
+  const ceilings: Record<string, Record<1440 | 390, number>> = { Amiya: { 390: 127, 1440: 121 }, SilverAsh: { 390: 89, 1440: 87 } };
+  for (const [name, ceiling] of Object.entries(ceilings)) {
+    await openCensus(page, `/operators/${name}`);
+    await page.evaluate(() => document.fonts.ready);
+    const header = page.locator('[class*="panelHeader"]').first();
+    await expect(header).toBeVisible();
+    const h = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height * 10) / 10);
+    expect(h, `${name}'s panel header at ${width}px is ${h}px, over the ${ceiling[width]}px it was`).toBeLessThanOrEqual(ceiling[width] + 2);
+  }
+});
+
+/*
+ * The /music queue's track titles keep the room for text they had before the row's icon
+ * buttons grew to the phone's 40px control height. The three buttons are 24px wider than
+ * the 32px squares they were, and the title paid for it (153px of text room to 129, so
+ * titles that fitted ended in an ellipsis); the row's spacing gives the width back
+ * (music.css). A phone at 390 (the mobile project: a touch screen, where the list's
+ * scrollbar is an overlay): the title's content box, at least 153px, and at the row's one
+ * height. The drag handle beside it is a glyph, so 2px of tolerance.
+ */
+test("the /music queue's titles keep their room at the one row height", async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 1000, 'a phone: the 40px buttons are the phone height');
+  await censusWidth(page);
+  await openCensus(page, '/music');
+  await page.evaluate(() => document.fonts.ready);
+  const row = page.locator('.music-queue-row:not(.music-queue-row-placeholder)').first();
+  await expect(row).toBeVisible();
+  const m = await row.evaluate((el) => {
+    const title = el.querySelector('.music-queue-row-title')!;
+    const cs = getComputedStyle(title);
+    const heights = [title, ...Array.from(el.querySelectorAll('.music-queue-row-actions button'))].map((b) => Math.round(b.getBoundingClientRect().height));
+    return { room: title.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), heights };
+  });
+  expect(new Set(m.heights).size, `the title and its buttons are one height: ${m.heights.join(', ')}`).toBe(1);
+  expect(m.room, `the title has ${m.room}px for its text at 390, under the 153px it had`).toBeGreaterThanOrEqual(153 - 2);
+});
+
+/*
+ * The page header and the game switcher do not move when the webfonts arrive. They load
+ * from Google Fonts with display=swap, so the first paint is in the fallback face (and
+ * every paint, where Google Fonts is blocked). The eyebrow and the h1 were "normal" line
+ * height, as tall as the face drawing them, so everything under the header moved down 4px
+ * (3 on a phone) on every page when Rajdhani and JetBrains Mono came in; and the switcher
+ * wrapped where its labels ran out of room, which the face decides: at 390px its "Stage"
+ * tab jumped 260px from the second row to the first, and from 480 to 720px rows and the
+ * music guesser's library link came and went (GameLinks.module.css). This loads every game
+ * (every page that renders the switcher) with the webfonts and with Google Fonts refused,
+ * and compares: the eyebrow's and the h1's height per line, and where each thing in the
+ * header's actions sits, the switcher's tabs by row. Box edges and line counts only, no
+ * text widths, so it is the same test on CI's Linux fonts.
+ */
+test('the page header and the game switcher keep their rows when the webfonts arrive', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the widths are set here');
+  const measure = (page: Page) => page.evaluate(() => {
+    const header = document.querySelector('header.page-header')!;
+    const lines = (el: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0).map((r) => Math.round(r.top))).size || 1;
+    };
+    const perLine = (el: Element | null) => (el ? Math.round((el.getBoundingClientRect().height / lines(el)) * 10) / 10 : null);
+    const actions = header.querySelector('.page-header-actions');
+    const top = actions?.getBoundingClientRect().top ?? 0;
+    const nav = header.querySelector('nav[aria-label="Games"]');
+    const tabs = nav ? Array.from(nav.children) : [];
+    const rowTops = [...new Set(tabs.map((t) => Math.round(t.getBoundingClientRect().top)))].sort((a, b) => a - b);
+    return {
+      webfont: Array.from(document.fonts).some((f) => f.family.replace(/["']/g, '') === 'Rajdhani' && f.status === 'loaded'),
+      eyebrow: perLine(header.querySelector('.eyebrow')),
+      h1: perLine(header.querySelector('h1')),
+      actions: actions ? Array.from(actions.children).map((el) => `${el.tagName.toLowerCase()} at +${Math.round(el.getBoundingClientRect().top - top)}`) : [],
+      tabs: tabs.map((t) => `${t.textContent?.trim()} on row ${rowTops.indexOf(Math.round(t.getBoundingClientRect().top)) + 1}`),
+      strip: nav ? Math.round(nav.getBoundingClientRect().height) : null,
+    };
+  });
+  const seen: Record<string, Awaited<ReturnType<typeof measure>>> = {};
+  for (const fonts of [true, false]) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => {
+      if (!fonts && /fonts\.(googleapis|gstatic)\.com/.test(route.request().url())) return route.abort();
+      return ['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort();
+    });
+    const page = await context.newPage();
+    for (const route of ['/games/operator-guesser', '/games/music-guesser', '/games/color-palette', '/games/stage-guesser', '/games/recruitment-guesser']) {
+      await page.goto(route);
+      await page.evaluate(() => document.fonts.ready);
+      for (const width of [390, 520, 640, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        const m = await measure(page);
+        const key = `${route} at ${width}px`;
+        expect(m.tabs.length, `${key}: the switcher`).toBe(5);
+        if (fonts) {
+          expect(m.webfont, `${key}: Rajdhani is in`).toBe(true);
+          seen[key] = m;
+          continue;
+        }
+        expect(m.webfont, `${key}: the first paint's face, not Rajdhani`).toBe(false);
+        const loaded = seen[key];
+        expect(Math.abs(m.eyebrow! - loaded.eyebrow!), `${key}: the eyebrow is ${m.eyebrow}px a line in the fallback, ${loaded.eyebrow} in the webfont`).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(m.h1! - loaded.h1!), `${key}: the h1 is ${m.h1}px a line in the fallback, ${loaded.h1} in the webfont`).toBeLessThanOrEqual(0.5);
+        expect(m.tabs, `${key}: the switcher's rows in the fallback face`).toEqual(loaded.tabs);
+        expect(m.strip, `${key}: the switcher's height in the fallback face`).toBe(loaded.strip);
+        expect(m.actions, `${key}: the header's actions in the fallback face`).toEqual(loaded.actions);
+      }
+    }
+    await context.close();
+  }
+});
+
 for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
   const name = typeof target === 'string' ? target : target.id;
   test(`${typeof target === 'string' ? target : `${target.route} (${target.id})`} is on one line`, async ({ page }) => {

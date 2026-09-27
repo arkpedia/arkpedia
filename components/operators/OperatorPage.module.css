@@ -91,13 +91,23 @@
 .identity :global(.op-header-text) { min-width: 0; }
 /* Rarity, class and branch beside the section menu. */
 .identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: start; gap: 12px; margin: 0 0 6px; }
-/* One line (ui-primitives rule 4): each item of the meta line -- the stars, the class,
-   the branch -- is a control-height cell, so the first line of the meta sits on the
-   section menu's centre line, and a branch that wraps to a second line starts one
-   below it. Centred on the menu, the two-line meta put the menu 15px above the
-   branch name beside it and between the two lines. */
-.identity :global(.op-sticky-meta) { margin-block: 0; gap: 0 10px; font-size: 13px; }
-.identity :global(.op-sticky-meta) > * { display: inline-flex; align-items: center; min-height: var(--control-h); }
+/* One line (ui-primitives rule 4): the meta's first line -- the stars, the class, the
+   branch when it fits -- sits on the section menu's centre line, and a branch that wraps
+   starts a line below it. Centred on the menu, the two-line meta put the menu 15px above
+   the branch name beside it and between the two lines. Each item is one 20px line (the
+   class and branch icons' size), and the meta starts half the menu's extra height down,
+   so the first line's centre is the menu's: (--control-h - 20px) / 2 above it, and the
+   menu stays at the top. It was a control-height cell per item, which put the same centre
+   right but made the two lines 80px on a phone (the header was 151px against 127, and
+   141 against 121 on a desktop); tests/browser/row-alignment.spec.ts holds the header to
+   those heights. */
+.identity :global(.op-sticky-meta) { --meta-line: 20px; margin-block: 0; padding-top: calc((var(--control-h) - var(--meta-line)) / 2); gap: 6px 10px; font-size: 13px; }
+.identity :global(.op-sticky-meta) > * { display: inline-flex; align-items: center; min-height: var(--meta-line); }
+/* The branch opens a popover: a name drawn as text, one 20px line like the others, with
+   its 28px hit area kept by an inset pseudo-element rather than its box, so a wrapped
+   branch line costs the meta 20px, not 28. */
+.identity :global(.op-sticky-meta) .relationPopover > button { position: relative; min-height: 0; }
+.identity :global(.op-sticky-meta) .relationPopover > button::before { content: ''; position: absolute; inset: -4px 0; }
 /* The headline star row: body face at 15px, where the mono default draws the star
    at a few pixels. The colour stays .rarity-N's. */
 .identity :global(.op-sticky-meta) > :global(.rarity) { font-family: var(--font-body); font-size: 15px; letter-spacing: 0.06em; }
