@@ -709,7 +709,7 @@ const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontW
 LABELS.controlHeight = 'a literal height or min-height on a control outside styles/core, or on a primitive inside it -- controls take var(--control-h) from the primitives (.btn-sm for a base or primary button in a row, .btn-icon for a square icon button); a control that is not a row control goes in CONTROL_HEIGHT_EXEMPT with its reason';
 STRICT.push('controlHeight');
 // r10 x-buttons
-LABELS.xButton = 'a close or remove × drawn as its own button -- render components/ui/XButton (.btn-x: no border, a square hit area, a required label; docs/development/ui-primitives.md rule 21)';
+LABELS.xButton = 'a close or remove × drawn as its own button -- render components/ui/XButton (.btn-x: no border, a square hit area, a required label; docs/development/ui-primitives.md rule 21). An icon button that is not a × (a chevron, a trash can) is read as one when its aria-label starts Close/Remove/Drop/Clear/Dismiss/Exit/Collapse: name it for what it does ("Hide the list", "Fold the section", "Delete") or give it a text label';
 STRICT.push('xButton');
 
 function counts(list) {
