@@ -298,17 +298,41 @@ test("the calendar's month and year menus show their whole value", async ({ page
  * control-height cell and the forms became icon tabs; the meta's lines are 20px now
  * (OperatorPage.module.css). Box heights from min-heights, within 2px of the ceiling,
  * so CI's fonts do not change the verdict.
+ *
+ * And the same with Google Fonts refused, where each star row must be the meta's one
+ * 20px line. The Inter that Google Fonts' stylesheet gives the browser draws no ★, so a
+ * system face does, 23px tall at line-height normal on a Mac: a Check whose build could
+ * not fetch that stylesheet to inline it (Next then leaves the <link>) measured Amiya's
+ * header at 124px, 3px over, on 2026-09-27.
  */
 test("the operator page's panel header is no taller than before", async ({ page }) => {
   const width = await censusWidth(page);
   const ceilings: Record<string, Record<1440 | 390, number>> = { Amiya: { 390: 127, 1440: 121 }, SilverAsh: { 390: 89, 1440: 87 } };
-  for (const [name, ceiling] of Object.entries(ceilings)) {
-    await openCensus(page, `/operators/${name}`);
-    await fontsSettled(page);
-    const header = page.locator('[class*="panelHeader"]').first();
-    await expect(header).toBeVisible();
-    const h = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height * 10) / 10);
-    expect(h, `${name}'s panel header at ${width}px is ${h}px, over the ${ceiling[width]}px it was`).toBeLessThanOrEqual(ceiling[width] + 2);
+  for (const fonts of [true, false]) {
+    if (!fonts) {
+      // openCensus' readOnly would let the fonts through: one route that refuses them too.
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (/fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) || !['GET', 'HEAD'].includes(route.request().method()) ? route.abort() : route.continue()));
+    }
+    for (const [name, ceiling] of Object.entries(ceilings)) {
+      if (fonts) await openCensus(page, `/operators/${name}`);
+      else {
+        await page.goto(`/operators/${name}`);
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+      }
+      await fontsSettled(page);
+      const header = page.locator('[class*="panelHeader"]').first();
+      await expect(header).toBeVisible();
+      const m = await header.evaluate((el) => ({
+        h: Math.round(el.getBoundingClientRect().height * 10) / 10,
+        stars: Math.round((el.querySelector('.op-sticky-meta > .rarity')?.getBoundingClientRect().height ?? 0) * 10) / 10,
+        webfont: Array.from(document.fonts).some((f) => f.status === 'loaded' && /Inter|Rajdhani/.test(f.family)),
+      }));
+      const at = `${name}'s panel header at ${width}px${fonts ? '' : ', webfonts refused'}`;
+      if (!fonts) expect(m.webfont, `${at}: no webfont loaded`).toBe(false);
+      expect(m.h, `${at} is ${m.h}px, over the ${ceiling[width]}px it was`).toBeLessThanOrEqual(ceiling[width] + 2);
+      expect(Math.abs(m.stars - 20), `${at}: its star row is ${m.stars}px, not the meta's one 20px line`).toBeLessThanOrEqual(0.5);
+    }
   }
 });
 

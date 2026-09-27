@@ -109,8 +109,13 @@
 .identity :global(.op-sticky-meta) .relationPopover > button { position: relative; min-height: 0; }
 .identity :global(.op-sticky-meta) .relationPopover > button::before { content: ''; position: absolute; inset: -4px 0; }
 /* The headline star row: body face at 15px, where the mono default draws the star
-   at a few pixels. The colour stays .rarity-N's. */
-.identity :global(.op-sticky-meta) > :global(.rarity) { font-family: var(--font-body); font-size: 15px; letter-spacing: 0.06em; }
+   at a few pixels. The colour stays .rarity-N's. One 20px line like the other items, set
+   rather than left at normal: the Inter that Google Fonts' stylesheet gives the browser
+   draws no ★, so a system face does (Hiragino on a Mac, 23px at normal), and only the
+   copy Next inlines at build time drew it in Inter at the header's 121px. A build that
+   could not fetch that stylesheet made every operator's header 3px taller, and so does a
+   page whose webfonts are refused (ui-primitives rule 19). */
+.identity :global(.op-sticky-meta) > :global(.rarity) { font-family: var(--font-body); font-size: 15px; letter-spacing: 0.06em; line-height: var(--meta-line); }
 .sectionMenu { min-width: 0; }
 .sectionMenu > div { width: 100%; }
 .classLabel { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
