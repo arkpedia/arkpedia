@@ -1,12 +1,13 @@
-import { IncludePastCheckbox } from './IncludePastCheckbox';
 import { useState } from 'react';
 import type { BacklogSources } from '@/lib/pulls/pulls';
 
 /** `backlog` is the page's release copy, never an import of data/: see BacklogSources. */
-export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, include, onKeys, onEvents, onAnnihilation, onInclude }: {
+/** Whether these count toward the forecast is the Include checkbox in the Past events
+ *  frame that opens this panel (pages/pulls.tsx), shown at every width. */
+export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, onKeys, onEvents, onAnnihilation }: {
   backlog: BacklogSources;
-  doneKeys: Set<string>; doneEvents: Set<string>; annihilationDone: boolean; include: boolean;
-  onKeys: (keys: Set<string>) => void; onEvents: (keys: Set<string>) => void; onAnnihilation: (done: boolean) => void; onInclude: (include: boolean) => void;
+  doneKeys: Set<string>; doneEvents: Set<string>; annihilationDone: boolean;
+  onKeys: (keys: Set<string>) => void; onEvents: (keys: Set<string>) => void; onAnnihilation: (done: boolean) => void;
 }) {
   const [open, setOpen] = useState('story');
   const groups = [
@@ -25,7 +26,7 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, i
     (group.id === 'events' ? onEvents : onKeys)(next);
   };
   return <>
-    <div className="pulls-panel-head"><h2>Unclaimed rewards</h2><IncludePastCheckbox checked={include} onChange={onInclude} className="pulls-include-mobile" /></div>
+    <div className="pulls-panel-head"><h2>Unclaimed rewards</h2></div>
     <p className="hint">Tick completed content.</p>
     {groups.map(group => <details className="pulls-disclosure" key={group.id} open={open === group.id}>
       <summary onClick={event => { event.preventDefault(); setOpen(previous => previous === group.id ? '' : group.id); }}>{group.name}<span className="hint pulls-note">{group.items.reduce((n,item) => n + (complete(group.id,item.id) ? 0 : item.amount),0).toLocaleString()} {group.unit} left</span></summary>

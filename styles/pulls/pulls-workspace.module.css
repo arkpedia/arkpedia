@@ -101,11 +101,28 @@
  .goalEditor { padding: 12px; } .goalEditor :global(.pulls-goal-choices) { grid-template-columns: 1fr; } .spending { gap: 10px; flex-wrap: wrap; } .planFooter { padding: 12px; align-items: flex-start; } .planFooter>span:last-child { display: grid; gap: 2px; text-align: right; font-size: 11px; } .detailPanel { padding: 12px; }
 }
 :global(html[data-theme='light']) .forecastDate input { color-scheme: light; }
-/* Keep disclosure and inclusion independent, in the same stable control. */
-.pastUtility { display:flex; align-items:center; gap:6px; min-width:0; }
-.utilities .pastUtility button:first-child { flex:1; }
-.utilities .pastUtility :global(.pulls-include-past) { min-height:var(--control-h); }
-.detailPanel :global(.pulls-include-mobile) { display:none; }
+/* Past events is one frame, "PAST EVENTS  [ ] Include  +": the disclosure button spans
+   the whole frame and paints it (the .utilities button rules above, so it rests, hovers,
+   opens and takes focus exactly like Income & events and Skin wishlist), and the Include
+   checkbox -- its sibling, not its child -- sits over the button's own middle column.
+   The button is a subgrid of the frame's three columns: its label in the first (which
+   gives way, never runs under the checkbox), nothing in the second, where the checkbox
+   is, and its + in the third, so the + stays after the checkbox. A press on the checkbox
+   or its label ticks the setting (the label is above the button); a press anywhere else
+   in the frame is a press on the button. Hovering the checkbox does not light the frame:
+   the label is not inside the button. */
+.pastUtility { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 8px; align-items: center; min-width: 0; }
+.utilities .pastUtility > button { grid-row: 1; grid-column: 1 / -1; align-self: stretch; display: grid; grid-template-columns: subgrid; column-gap: 8px; align-items: center; }
+.pastUtility > button > span:first-child { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.pastUtility > button > span:last-child { grid-column: 3; }
+.pastUtility :global(.pulls-include-past) { grid-row: 1; grid-column: 2; position: relative; z-index: 1; }
+/* Between the phone's one column and the full row, the three triggers take two lines --
+   Income & events beside Past events, the wishlist under them -- rather than squeezing
+   three into a line their labels do not fit (they wrapped to two lines each at 701-760px). */
+@media (min-width: 701px) and (max-width: 900px) {
+  .utilities { grid-template-columns: 1fr 1fr; }
+  .utilities > :last-child { grid-column: 1 / -1; }
+}
 .page .goalEditor :global(.pulls-operator-option) { grid-template-columns:minmax(0,1fr) 82px; }
 .page .goalEditor :global(.pulls-operator-count) { flex-direction:row; align-items:center; gap:4px; padding:6px; min-width:0; }
 .page .goalEditor :global(.pulls-operator-count>span) { flex-shrink:0; }

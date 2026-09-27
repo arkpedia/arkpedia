@@ -38,7 +38,7 @@ async function expectLabelToggles(page: Page, box: Locator) {
   await expect(box).toBeChecked({ checked: before });
 }
 
-test('the pull planner settings are checkboxes', async ({ page }, info) => {
+test('the pull planner settings are checkboxes', async ({ page }) => {
   await page.goto('/pulls');
   await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
   const income = page.getByRole('group', { name: 'Recurring income' });
@@ -57,9 +57,8 @@ test('the pull planner settings are checkboxes', async ({ page }, info) => {
   await expect(rate).toHaveText(on ?? '');
   await expectLabelToggles(page, income.getByRole('checkbox', { name: 'Monthly card' }));
 
-  if (info.project.name === 'desktop') {
-    await expectCheckPrimitive(page.getByRole('checkbox', { name: 'Include past rewards in forecast' }));
-  }
+  // In the Past events frame at every width (it was beside the trigger on a desktop only).
+  await expectCheckPrimitive(page.getByRole('checkbox', { name: 'Include past rewards in forecast' }));
   // The unclaimed-rewards list is ticked off item by item.
   await page.getByRole('button', { name: /Past events/ }).click();
   const story = page.getByRole('group', { name: /: completed$/ }).first();

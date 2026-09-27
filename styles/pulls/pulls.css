@@ -455,11 +455,6 @@
   .pulls-recurring-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 }
 
-.pulls-include-past { flex-shrink: 0; }
-.pulls-include-mobile { display: none; margin-left: auto; }
-@media (max-width: 600px) {
-  .pulls-include-mobile { display: inline-flex; }
-}
 
 .pulls-detail-button { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; margin-top: 16px; padding: 4px 12px; text-align: left; }
 .pulls-help-content .pulls-line { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; }
