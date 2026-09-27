@@ -258,8 +258,8 @@
 .gacha-pull-preview-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .gacha-pull-preview-header h2 { margin: 2px 0 0; overflow-wrap: anywhere; }
 .gacha-pull-preview-rarity { color: var(--text-dim); font: 700 12px var(--font-mono); text-transform: uppercase; }
-/* The two dialogs' close is a .btn-icon (the square control-height icon button); this
-   only keeps its focus ring off the dialog edge. */
+/* The two dialogs' close is an XButton (the borderless × in a control-height square);
+   this only keeps its focus ring off the dialog edge. */
 .gacha-preview-close:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .gacha-preview-body { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 18px; flex: 1; min-height: 0; }
 .gacha-preview-portrait, .gacha-preview-data { min-width: 0; }

@@ -311,7 +311,6 @@
    the centred head centres, and it put the title 5.7px above the close (rule 4). */
 .simple-wizard .simple-editor-title { min-width:0; gap:16px; margin:0; }
 .simple-editor-title > span { min-width:0; overflow-wrap:anywhere; }
-.simple-wizard .wizard-close { min-height:var(--control-h); }
 @media(max-width:640px) { .simple-wizard .wizard-head { padding:12px 16px; gap:10px; } .simple-wizard .simple-editor-title { gap:12px; } }
 
 /* .danger .btn-sm: the control height and padding are the primitive's; the fixed width
@@ -1339,18 +1338,6 @@
 
 /* The row's own actions, and the search that sits in the panel head. */
 .plan-row-acts { display: flex; align-items: center; gap: 4px; }
-.plan-row-drop {
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius);
-  background: none;
-  color: var(--text-faint);
-  font-size: 15px;
-  line-height: 1;
-  letter-spacing: 0;
-  cursor: pointer;
-}
-.plan-row-drop:hover { color: var(--danger); background: var(--well); border-color: transparent; }
 
 /* The material name on a card, which opens its recipe. The theme's base button
    rule is inline-flex with uppercase display type, and neither belongs on a
@@ -1381,11 +1368,6 @@
 .plan-panel-head .plan-panel-tag,
 .plan-panel-foot .plan-hint { color: var(--text-dim); }
 
-/* A control-height button with a 44px tappable box. The row is 62px tall and a 44px
-   square in it would crowd the Edit beside it, so the hit area grows and the
-   paint does not -- which is the accessibility floor's actual requirement. */
-.plan-row-drop { position: relative; width: var(--control-h); height: var(--control-h); }
-.plan-row-drop::after { content: ''; position: absolute; inset: min(0px, calc((var(--control-h) - 44px) / 2)); }
 
 
 /* ===== 9. The add-and-set-goals dialog ==================================
@@ -1459,19 +1441,11 @@
 .wizard-step.current b { border-color: var(--teal); color: var(--teal); }
 .wizard-step.current i { color: var(--text-bright); }
 
-.wizard-close {
-  flex: none;
-  width: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-dim);
-  font-size: 18px;
-  line-height: 1;
-  letter-spacing: 0;
-  cursor: pointer;
-}
-.wizard-close:hover { color: var(--danger); border-color: transparent; }
+/* The dialogs' close is an XButton (the borderless × in a control-height square), on
+   the head's centre line: the head stretches its steps to its full height, and the close
+   was a 44px-wide glyph box stretched with them. 4px in from the head's end, so the
+   glyph's right edge stays on the body's content edge, where the 44px box put it. */
+.wizard-close { align-self: center; margin-right: 4px; }
 
 .wizard-body {
   flex: 1 1 auto;

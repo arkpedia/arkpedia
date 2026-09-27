@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { XGlyph } from './XButton';
 
 export interface TabOption<V extends string | number> {
   value: V;
@@ -159,7 +160,7 @@ export default function Tabs<V extends string | number>({
                   title={remove}
                   onClick={(event) => { event.stopPropagation(); removable.onRemove(option.value); }}
                 >
-                  ×
+                  <XGlyph />
                 </span>
               )}
             </button>

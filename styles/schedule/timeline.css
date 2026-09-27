@@ -340,8 +340,8 @@
   }
 }
 
-/* Closing is not destructive: a neutral .btn-icon (the square control-height icon
-   button, on the button surface so it reads over the poster), pinned to the corner. */
+/* An XButton (the borderless × in a control-height square), pinned to the drawer's
+   corner above the poster (the poster starts 36px down, under it). */
 .schedule-panel-close-btn {
   position: absolute;
   top: 12px;

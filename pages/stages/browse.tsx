@@ -20,6 +20,7 @@ import { tileStyle, stageTileMark, ROUTE_COLORS, TileMark } from '@/lib/stages/s
 import { stageProperties, stageTokens } from '@/lib/stages/stageProperties';
 import { getDropIcons } from '@/lib/stages/dropIcon';
 import { describeStage } from '@/lib/stages/stageText';
+import XButton from '@/components/ui/XButton';
 
 /**
  * The operator catalogue, fetched once per session and shared.
@@ -1921,14 +1922,12 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   is not a position this could be placed at. */}
               {openTileInfo && !playing && (
                 <div className="stage-tile-pop" ref={tilePopRef}>
-                  <button
-                    type="button"
+                  <XButton
+                    dense
                     className="stage-tile-pop-close"
-                    aria-label="Close tile description"
+                    label="Close tile description"
                     onClick={() => setOpenTile(null)}
-                  >
-                    x
-                  </button>
+                  />
                   <span className="stage-tile-pop-name">
                     {openTileInfo.name}
                     <span className="stage-tile-pop-at">

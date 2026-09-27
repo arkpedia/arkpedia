@@ -80,7 +80,9 @@ test('removable tabs say Delete removes them, except the one that stays', () => 
   assert.equal(list[0]['aria-keyshortcuts'], undefined);
   assert.equal(list[1]['aria-keyshortcuts'], 'Delete Backspace');
   assert.equal(list[1]['aria-describedby'], 'event-section-remove-hint');
-  assert.match(html, /<span class="tab-remove" aria-hidden="true" title="Remove rewards">×<\/span>/);
+  // The × is the × buttons' drawn glyph (components/ui/XButton's XGlyph), not a "×" in
+  // whatever face the tab has: the span holds the one path and nothing else.
+  assert.match(html, /<span class="tab-remove" aria-hidden="true" title="Remove rewards"><svg aria-hidden="true"[^>]*><path d="m4 4 8 8M12 4l-8 8"><\/path><\/svg><\/span>/);
   assert.match(html, /<span id="event-section-remove-hint" hidden="">Press Delete to remove it\.<\/span>/);
   assert.doesNotMatch(html, /<button[^>]*>[^<]*<button/, 'no button inside a tab');
 });

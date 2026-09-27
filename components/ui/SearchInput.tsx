@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { useKeyboardListNav } from '@/lib/hooks/useKeyboardListNav';
 import SuggestMenu from './SuggestMenu';
+import XButton from './XButton';
 
 interface BaseProps {
   id?: string;
@@ -113,10 +114,8 @@ export default function SearchInput<T>(props: SearchInputProps<T>) {
         } : {})}
       />
       {value && (
-        <button type="button" className="btn-bare search-input-clear" aria-label={`Clear ${label.toLowerCase()}`}
-          onClick={() => { onChange(''); wrap.current?.querySelector('input')?.focus(); }}>
-          <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m4 4 8 8M12 4l-8 8" strokeLinecap="round" /></svg>
-        </button>
+        <XButton dense className="search-input-clear" label={`Clear ${label.toLowerCase()}`}
+          onClick={() => { onChange(''); wrap.current?.querySelector('input')?.focus(); }} />
       )}
       {showList && suggest && (
         <SuggestMenu

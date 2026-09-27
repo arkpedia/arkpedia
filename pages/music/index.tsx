@@ -14,6 +14,7 @@ import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import TransportIcon from '@/components/music/TransportIcons';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
+import XButton from '@/components/ui/XButton';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -149,16 +150,12 @@ function QueueRow({
         <button type="button" className="ghost" onClick={onPushToTop} disabled={isActive} aria-label="Push to top" title="Push to top">
           ⤒
         </button>
-        <button
-          type="button"
-          className="ghost"
+        <XButton
           onClick={onRemove}
           disabled={isActive}
-          aria-label="Remove"
+          label="Remove"
           title={isActive ? "Can't remove the currently-playing track" : 'Remove'}
-        >
-          <TransportIcon name="close" size={14} />
-        </button>
+        />
       </div>
     </div>
   );

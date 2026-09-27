@@ -48,6 +48,7 @@ import { computeResourcePools, consumerBonuses, BaseResourceState, pureGoldProdu
 import { RotationExperimentResult, runRotationExperiment, RotationFacilityLevels, initializeRotationExperimentData } from '@/lib/base/baseRotationExperiment';
 import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
 import PageHeader from '@/components/ui/PageHeader';
+import XButton from '@/components/ui/XButton';
 
 
 // The manual-value input mechanism (see needsManualValue / setManualValue
@@ -3941,15 +3942,13 @@ export default function BasePage({ operators }: Props) {
                                       </button>
                                     ))}
                                   </span>
-                                  <button
-                                    type="button"
+                                  <XButton
+                                    dense
                                     className="base-room-team-x"
-                                    aria-label={`Remove ${op.name}`}
+                                    label={`Remove ${op.name}`}
                                     title={`Remove ${op.name}`}
                                     onClick={() => toggleRoomOperator(facility.id, op.name, roomPanelEliteLevel)}
-                                  >
-                                    &#10005;
-                                  </button>
+                                  />
                                 </div>
                               );
                             })}
@@ -4370,9 +4369,7 @@ export default function BasePage({ operators }: Props) {
                         }
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <button type="button" className="base-popover-close" onClick={() => setActiveFacility(null)}>
-                          ✕
-                        </button>
+                        <XButton dense className="base-popover-close" label={`Close ${f.label}`} onClick={() => setActiveFacility(null)} />
                         <p className="base-popover-title">
                           {f.label}
                           {f.level > 0 && <span className="base-popover-subtitle">Lv.{f.level}</span>}

@@ -22,6 +22,7 @@ import { buildableAlliances } from '@/lib/gamemodes/strongholdPlaybook';
 import { ISOMORPH_ITEM } from '@/lib/gamemodes/strongholdOpening';
 import StrongholdCompanion from '@/components/gamemodes/StrongholdCompanion';
 import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
+import XButton from '@/components/ui/XButton';
 
 type Picker = ReturnType<typeof alliancesForPicker>;
 
@@ -274,9 +275,7 @@ function EnemyRecord({ slug, name, intro, onClose }: {
         tabIndex={-1}
         ref={box}
       >
-        <button type="button" className="gm-recordshut" onClick={onClose} aria-label={`Close ${name}`}>
-          &times;
-        </button>
+        <XButton className="gm-recordshut" onClick={onClose} label={`Close ${name}`} />
         {/* Before the fetch resolves, not after: the mode's own numbers are already
             here and there is no reason to make them wait on a network round trip. */}
         {intro}
@@ -757,7 +756,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         aria-modal="false"
         aria-label={shown.title}
       >
-        <button type="button" className="ghost btn-icon gm-sheetclose" onClick={close} aria-label="Close">&times;</button>
+        <XButton className="gm-sheetclose" onClick={close} label="Close" />
         <div className="gm-sheethead">
           {shown.icon !== undefined && <Badge name={shown.title} icon={shown.icon} />}
           <div className="gm-modaltitle">
@@ -1306,14 +1305,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
             ref={(el) => { el?.focus(); }}
             onKeyDown={(e) => { if (e.key === 'Escape') setIsoOpen(false); }}
           >
-            <button
-              type="button"
-              className="gm-recordshut"
-              onClick={() => setIsoOpen(false)}
-              aria-label="Close"
-            >
-              &times;
-            </button>
+            <XButton className="gm-recordshut" onClick={() => setIsoOpen(false)} label="Close" />
             <div className="gm-sheethead">
               <Badge name="Damazti Isomorph" icon={isomorph?.icon ?? null} />
               <div className="gm-modaltitle">

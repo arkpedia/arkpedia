@@ -74,6 +74,13 @@
  *                  element, or a class TSX puts on a <textarea>) is held to it only at a
  *                  row control's height (20-56px): a multi-line field is taller than any
  *                  row, the way a boxed card is
+ *   xButton        (r10 x-buttons) a close or remove × drawn as its own button: a
+ *                  <button>, or any element with an onClick, whose whole content is a ×
+ *                  glyph (×, ✕, ✖, x, &times;, &#10005;, a quoted one, or one chosen by a
+ *                  condition) or the player's drawn close icon, and whose class list lacks
+ *                  btn-x (or tab-remove, a removable tab's × span). A × is
+ *                  components/ui/XButton: no border, a square hit area, a required label
+ *                  (docs/development/ui-primitives.md rule 21)
  *   headingRules   (r9 headings-spacing) a font-size, font, color, letter-spacing or
  *                  text-transform on a selector whose subject is an h2 or h3 -- the
  *                  element, or a class the TSX puts on an <h2>/<h3> -- outside
@@ -239,7 +246,7 @@ const h1Subject = (selector) => /^h1(?=$|[.:#[])/.test(selector.trim().split(/\s
    StyledSelect trigger, number inputs), and no page states a height of its own on a
    control. A page that needs a control taller or shorter than its row is the finding. */
 /** The primitive classes that are controls wherever they appear. */
-const CONTROL_PRIMITIVES = new Set(['filter-chip', 'tgl', 'ghost', 'primary', 'danger', 'btn', 'btn-sm', 'btn-icon', 'search-input']);
+const CONTROL_PRIMITIVES = new Set(['filter-chip', 'tgl', 'ghost', 'primary', 'danger', 'btn', 'btn-sm', 'btn-icon', 'search-input', /* r10 x-buttons */ 'btn-x', 'btn-x-dense']);
 /** Elements that are controls. An input is one unless it is a box, a slider or hidden.
  *  A <summary> is left out: it is a disclosure row heading a section, not a boxed row
  *  control (the row census in tests/browser measures one that sits beside controls). */
@@ -304,7 +311,7 @@ function controlClasses(tsxFiles) {
       if (names.has('btn-bare')) continue;
       const tag = m[1];
       const input = tag === 'input' && !/\btype=["'{]\s*['"`]?(?:checkbox|radio|range|hidden|file|color)\b/.test(m[2]);
-      if (['button', 'select', 'textarea'].includes(tag) || input || [...names].some((n) => CONTROL_PRIMITIVES.has(n))) {
+      if (['button', 'select', 'textarea', ...X_BUTTON_COMPONENTS].includes(tag) || input || [...names].some((n) => CONTROL_PRIMITIVES.has(n))) {
         for (const n of names) out.add(n);
       }
     }
@@ -435,6 +442,46 @@ function controlHeights(cssFiles, controls, boxedBare, textareas) {
 }
 /* ---- end controlHeight and round radii ------------------------------------------- */
 /* --- end r9 headingRules constants ---------------------------------------------------- */
+
+/* === r10 x-buttons: xButton =====================================================
+   A close or remove × is components/ui/XButton (.btn-x): no border and no box at rest,
+   a square hit area, a label it cannot be rendered without. Before it, the site drew
+   twenty of them eleven ways: bordered 36x36 boxes (/pulls' goal rows, the /gacha
+   dialogs, the planner's import dialog), a 44px-wide glyph box, a 17x18 span, a 61x46
+   one, a literal "x" in a mono 12px, a popover close with no accessible name. The component
+   is how a new one is written; this is how a hand-written one is found. */
+/** The whole content of a × button, as written: one glyph, an entity, a quoted glyph,
+ *  or a glyph picked by a condition ({open ? '✕' : '⛶'} is a × in one state). */
+const X_GLYPH = /^(?:[×✕✖✗xX]|&times;|&#(?:215|10005|10006|x[dD]7|x2715|x2716);|\{[^{}]*(['"`])(?:[×✕✖]|\\u00[dD]7|\\u271[56]|\\xd7)\1[^{}]*\})$/;
+/** The player's drawn close icon (components/music/TransportIcons), the other way a ×
+ *  has been drawn inside a button. */
+const X_ICON = /<TransportIcon\b[^>]*\bname=(?:"close"|'close'|\{[^}]*['"`]close['"`][^}]*\})/;
+/** Components that render a <button> of their own: a class given to one is a class on
+ *  a control (controlHeight holds it to the token like any other). */
+const X_BUTTON_COMPONENTS = ['XButton'];
+function xButtons(tsxFiles) {
+  const out = [];
+  for (const path of tsxFiles) {
+    if (path === join('components', 'ui', 'XButton.tsx')) continue;
+    const code = readFileSync(join(root, path), 'utf8').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of code.matchAll(/<([a-z][\w]*)\b((?:=>|[^>])*?)>/g)) {
+      const [open, tag, attrs] = m;
+      if (open.endsWith('/>')) continue;
+      if (tag !== 'button' && !/\bonClick=/.test(attrs)) continue;
+      const end = code.indexOf(`</${tag}>`, m.index + open.length);
+      if (end < 0) continue;
+      const raw = code.slice(m.index + open.length, end);
+      const content = raw.replace(/\s+/g, '');
+      if (!X_GLYPH.test(content) && !X_ICON.test(raw)) continue;
+      const cls = attrs.match(/\bclassName=(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|'[^']*')/);
+      const names = cls ? classNamesIn(cls[1]) : new Set();
+      if (names.has('btn-x') || names.has('tab-remove')) continue;
+      out.push(`${path}: <${tag}${attrs.replace(/\s+/g, ' ').slice(0, 70)}>${content.slice(0, 30)}`);
+    }
+  }
+  return out;
+}
+/* === end r10 x-buttons ============================================================ */
 
 function collect() {
   const cssFiles = [...walk('styles', ['.css']), ...walk('components', ['.css'])];
@@ -590,6 +637,7 @@ function collect() {
   }
 
   Object.assign(out, collectChoicesAndBadges(root));
+  out.xButton = xButtons(tsxFiles); // r10 x-buttons
   // controlHeight (r9 controls)
   out.controlHeight = controlHeights(cssFiles, controlClasses(tsxFiles), boxedClasses(cssFiles, bareButtonClasses(tsxFiles)), textareaClasses(tsxFiles));
 
@@ -624,6 +672,9 @@ const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontW
 // controlHeight (r9 controls)
 LABELS.controlHeight = 'a literal height or min-height on a control outside styles/core, or on a primitive inside it -- controls take var(--control-h) from the primitives (.btn-sm for a base or primary button in a row, .btn-icon for a square icon button); a control that is not a row control goes in CONTROL_HEIGHT_EXEMPT with its reason';
 STRICT.push('controlHeight');
+// r10 x-buttons
+LABELS.xButton = 'a close or remove × drawn as its own button -- render components/ui/XButton (.btn-x: no border, a square hit area, a required label; docs/development/ui-primitives.md rule 21)';
+STRICT.push('xButton');
 
 function counts(list) {
   const m = new Map();

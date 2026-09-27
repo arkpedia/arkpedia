@@ -68,10 +68,8 @@
 .chance b { color: var(--text-bright); }
 .budget input { width: 100%; min-height: var(--control-h); background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 0 3px; text-align: center; font: 600 23px var(--font-display); appearance: textfield; }
 .budget input::-webkit-inner-spin-button { appearance: none; }
-/* The goal's remove is a .btn-icon (square at the control height); its column is that
-   wide at every width. */
-.remove { color: var(--text-dim); }
-.remove:hover { color: var(--danger); }
+/* The goal's remove is an XButton (the borderless × in a control-height square); its
+   column is that wide at every width, and .remove only places it on a phone. */
 .mobileLabel { display: none; }
 .goalEditor { border-top: 1px solid var(--line); padding: 16px 20px; background: var(--panel-2); }
 .goalEditor :global(.pulls-goals-layout) { display: block; }

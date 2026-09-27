@@ -6,6 +6,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
 import { renderMonthValue } from '@/components/schedule/CalendarMonthValue';
 import SearchInput from '@/components/ui/SearchInput';
+import XButton from '@/components/ui/XButton';
 import ScrollRow from '@/components/ui/ScrollRow';
 import Rarity, { type RarityLevel } from '@/components/ui/Rarity';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
@@ -68,7 +69,7 @@ export default function UiPrimitivesPage() {
             <button type="button" className="primary" disabled>Disabled primary</button>
             <button type="button" disabled>Disabled</button>
           </div>
-          <p className="hint">Four variants, two sizes: a base or primary button on its own is the 44px call to action; everything in a row of controls is var(--control-h), through .btn-sm, and a square icon button is .btn-icon.</p>
+          <p className="hint">Four variants, two sizes: a base or primary button on its own is the 44px call to action; everything in a row of controls is var(--control-h), through .btn-sm; a square icon button is .btn-icon, and a close or remove × is XButton (.btn-x), with no border.</p>
           <div style={row} data-testid="control-row">
             <SearchInput label="Search in a row" value={plain} onChange={setPlain} placeholder="One control height…" />
             <StyledSelect label="Faction in a row" value={faction} onChange={setFaction} options={FACTIONS} />
@@ -77,7 +78,7 @@ export default function UiPrimitivesPage() {
             <button type="button" className="danger">Reset</button>
             <button type="button" className="btn-sm">Small</button>
             <button type="button" className="primary btn-sm">Primary small</button>
-            <button type="button" className="ghost btn-icon" aria-label="Close">×</button>
+            <XButton label="Close" />
             <button type="button" className="btn-icon" aria-label="Next">›</button>
           </div>
           <div style={row}>

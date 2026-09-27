@@ -153,9 +153,9 @@ button:where(:not(.btn-bare)):disabled:hover,
 
 .btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
 .btn-lg { font-size: 17px; padding: 13px 24px; font-weight: 700; }
-/* A square icon button (a close, a step, a play): var(--control-h) both ways, the glyph
-   centred, a "×" at 18px (an svg sizes itself). Element-qualified so it beats .ghost's
-   padding whatever the order. */
+/* A square icon button (a month step, a play, a help "?"): var(--control-h) both ways,
+   the glyph centred at 18px (an svg sizes itself). Element-qualified so it beats .ghost's
+   padding whatever the order. A close or remove "×" is not one: it is .btn-x, below. */
 button.btn-icon,
 a.btn-icon,
 .btn.btn-icon {
@@ -169,6 +169,58 @@ a.btn-icon,
   font-size: 18px;
   line-height: 1;
 }
+
+/* === r10 x-buttons: the × that closes or removes (ui-primitives rule 21) ===========
+   components/ui/XButton. No border and no box at rest -- it reads as the glyph -- and
+   the whole square round the glyph is the hit area, var(--control-h) each way (a dense
+   spot: 12px less, and never under 24px whatever the token). --text-dim at rest, --text on
+   hover with a faint fill of that ink, which shows how far the target reaches on any
+   ground in either theme; the site's focus ring on :focus-visible. Element-qualified,
+   like .btn-icon, so it beats the base button rule and .ghost whatever the order. A
+   removable tab's × is a span (a tab may not hold a button) and takes the dense look. */
+button.btn-x,
+.tab-remove {
+  flex: none;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
+  line-height: 0;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+button.btn-x-dense,
+.tab-remove {
+  width: max(24px, calc(var(--control-h) - 12px));
+  height: max(24px, calc(var(--control-h) - 12px));
+  min-width: max(24px, calc(var(--control-h) - 12px));
+  min-height: max(24px, calc(var(--control-h) - 12px));
+}
+button.btn-x > svg,
+.tab-remove > svg { display: block; }
+button.btn-x:hover,
+.tab-remove:hover {
+  border-color: transparent;
+  color: var(--text);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+button.btn-x:disabled,
+button.btn-x:disabled:hover {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: default;
+}
+/* === end r10 x-buttons ============================================================= */
 
 /* An anchor is underlined by default and a button is not. */
 a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
@@ -345,13 +397,10 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 .tab[aria-disabled="true"] { color: var(--text-faint); cursor: default; }
 .tab > img, .tab > svg { flex: none; width: 28px; height: 28px; object-fit: contain; }
 .tab-count { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: 0; opacity: 0.8; }
-/* A removable tab's x (the planner's operators): the mouse's way to Delete. */
-.tab-remove { position: relative; padding: 0 2px; font-family: var(--font-body); font-weight: 400; font-size: 18px; line-height: 1; color: var(--text-faint); }
-/* Its hit area, 24px or more each way (WCAG 2.5.8): the glyph is ~17x18, and it sits
-   against the tab's own label, so a thumb that misses it selects the tab instead. The
-   old separate button was 36x44. An inset pseudo-element, so the layout does not move. */
-.tab-remove::before { content: ''; position: absolute; inset: -4px; }
-.tab-remove:hover { color: var(--text); }
+/* A removable tab's x (the planner's operators): the mouse's way to Delete. It is the
+   × buttons' dense square (r10 x-buttons, above): 24px each way, 28 on a phone (WCAG
+   2.5.8), so a thumb a little off the glyph still removes rather than selecting the tab
+   beside it; it was a 17x18 glyph with a 25x26 pseudo-element round it. */
 @media (max-width: 720px) {
   .tab { min-height: 36px; }
 }
@@ -504,17 +553,12 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   color: var(--text-faint);
   pointer-events: none;
 }
+/* The clear is an XButton (dense), centred in the field's height: it sits as far in
+   from the field's end as from its top and bottom, at every control height. */
 .search-input-wrap .search-input-clear {
   position: absolute;
-  right: 5px;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius);
-  color: var(--text-dim);
+  right: calc((var(--control-h) - max(24px, var(--control-h) - 12px)) / 2);
 }
-.search-input-wrap .search-input-clear:hover { color: var(--teal); }
 @media (max-width: 720px) {
   .search-input-wrap .search-input { font-size: 16px; }
 }

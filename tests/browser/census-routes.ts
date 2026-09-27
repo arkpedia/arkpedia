@@ -72,6 +72,14 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'stage guesser custom list', route: '/games/stage-guesser', act: (page) => clickIn(page, 'main', 'Custom') },
   { id: 'pulls disclosures open', route: '/pulls', act: async (page) => { for (const name of [/^Income & events/i, /^Past events/i]) await page.getByRole('button', { name }).first().click(); } },
   { id: 'enemies stages tab', route: '/enemies', act: (page) => tabIn(page, '.enemy-tabs', 'Stages') },
+  // r10 x-buttons: dialogs whose close became the borderless × (XButton). The planner's goal
+  // dialog had a 44px-wide glyph box stretched to its head's height; as a square it sat 6px
+  // above the steps beside it until placed on the head's centre line. (The build dialog is
+  // not a state here: behind it, the Experimental page with a planned operator has rows the
+  // census fails today -- each need card's Craft toggle 8.5px off its tags -- which are the
+  // planner-sizes round's, not this one's.)
+  { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
+  { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.gm-record').first().waitFor(); } },
 ];
 
 /** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */

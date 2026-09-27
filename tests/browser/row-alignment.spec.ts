@@ -171,8 +171,10 @@ test('every row primitive is one control height, and follows the token', async (
         '<button type="button" class="btn-sm">Small</button>',
         '<button type="button" class="primary btn-sm">Primary small</button>',
         '<button type="button" class="ghost btn-sm">Ghost small</button>',
-        '<button type="button" class="btn-icon" aria-label="Close">×</button>',
+        '<button type="button" class="btn-icon" aria-label="Help">?</button>',
         '<button type="button" class="ghost btn-icon" aria-label="Next">›</button>',
+        // r10 x-buttons: the close or remove × (XButton), square at the token.
+        '<button type="button" class="btn-x" aria-label="Close"><svg viewBox="0 0 16 16" width="16" height="16"></svg></button>',
         '<button type="button" class="filter-chip" aria-pressed="false">Chip</button>',
         '<button type="button" class="tgl">Mode</button>',
       ].join('');
@@ -191,7 +193,7 @@ test('every row primitive is one control height, and follows the token', async (
     for (const [control, size] of Object.entries(measured)) {
       expect(size, `${control} is on the page`).not.toBeNull();
       expect(Math.abs(size!.h - expected), `${control} is ${size!.h}px tall, not the control height ${expected}px${base ? ` (--control-h-base: ${base}px)` : ''}`).toBeLessThanOrEqual(1);
-      if (/btn-icon/.test(control)) expect(Math.abs(size!.w - expected), `${control} is square`).toBeLessThanOrEqual(1);
+      if (/btn-icon|btn-x/.test(control)) expect(Math.abs(size!.w - expected), `${control} is square`).toBeLessThanOrEqual(1);
     }
   }
 });

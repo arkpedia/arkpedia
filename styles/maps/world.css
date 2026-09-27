@@ -28,7 +28,8 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
 }
-/* A .btn-icon (square at the control height), pinned to the map's corner. */
+/* A .btn-icon (square at the control height), pinned to the map's corner; in
+   fullscreen it is the × that closes the view, and takes .btn-x instead. */
 .world-map-fullscreen-btn {
   position: absolute;
   top: 8px;

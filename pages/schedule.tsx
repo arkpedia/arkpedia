@@ -38,6 +38,7 @@ import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { Skin } from '@/lib/skins/skinTypes';
+import XButton from '@/components/ui/XButton';
 
 interface Props {
   events: ScheduleEvent[];
@@ -557,9 +558,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           <div ref={panelRef} className={`schedule-fullscreen-panel${selectedEvent ? ' open' : ''}`} role="dialog" aria-label={displayEvent ? displayEvent.name : 'Event'}>
             {displayEvent && (
               <div className="schedule-panel">
-                <button type="button" className="btn-icon schedule-panel-close-btn" onClick={closePanel} aria-label="Close">
-                  ×
-                </button>
+                <XButton className="schedule-panel-close-btn" onClick={closePanel} label="Close" />
                 {displayEvent.poster && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <Image

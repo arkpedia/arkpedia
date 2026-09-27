@@ -8,6 +8,7 @@ import type { FeatureCollection, Geometry } from 'geojson';
 import worldTopo from 'world-atlas/land-110m.json';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
 import { project, getEventStatus, formatCountdown, MAP_WIDTH, MAP_HEIGHT } from '@/lib/maps/mapProjection';
+import { XGlyph } from '@/components/ui/XButton';
 
 function geometryToPath(geometry: Geometry): string {
   const ringToPoints = (ring: number[][]) =>
@@ -235,14 +236,16 @@ export default function WorldMapEvents({ events, now: renderedAt }: { events: Co
 
   return (
     <div className={`world-map-wrap${isFullscreen ? ' fullscreen' : ''}`}>
+      {/* One button in both states, so focus stays on it: fullscreen, it is the ×
+          that closes the view, and takes the × look (ui-primitives rule 21). */}
       <button
         type="button"
-        className="btn-icon world-map-fullscreen-btn"
+        className={`${isFullscreen ? 'btn-x' : 'btn-icon'} world-map-fullscreen-btn`}
         onClick={() => setIsFullscreen((v) => !v)}
         aria-label={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
         title={isFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
       >
-        {isFullscreen ? '✕' : '⛶'}
+        {isFullscreen ? <XGlyph /> : '⛶'}
       </button>
       <svg ref={svgRef} viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} className="world-map-svg">
         <rect x={0} y={0} width={MAP_WIDTH} height={MAP_HEIGHT} className="world-map-bg" />

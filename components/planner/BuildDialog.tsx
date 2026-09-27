@@ -7,6 +7,7 @@ import type { CostGroup, PlannerOperatorSummary } from '@/lib/operators/operator
 import type { BuildPlan } from '@/lib/planner/build';
 import { compactBadge } from '@/lib/planner/format';
 import type { Goal } from '@/lib/planner/goals';
+import XButton from '@/components/ui/XButton';
 
 /**
  * Building, as its own screen.
@@ -167,7 +168,7 @@ export function BuildDialog({
               <b className="planner-buildto"><PlannerStateLabel label={toLabel} /></b>
             </span>
           </span>
-          <button type="button" className="wizard-close" aria-label="Close" onClick={onClose}>&times;</button>
+          <XButton className="wizard-close" label="Close" onClick={onClose} />
         </div>
 
         <div className="build-body">

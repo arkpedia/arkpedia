@@ -1367,19 +1367,16 @@
   background: rgb(8 12 16 / 0.94);
   border: 1px solid var(--line);
 }
+/* A dense XButton pinned to the plate's corner. The plate is dark in both themes, so
+   the × takes the plate's own ink rather than the theme's --text-dim; the hover fill is
+   the primitive's, a tint of that ink. */
 .stage-tile-pop-close {
   position: absolute;
-  top: 4px;
-  right: 5px;
-  padding: 2px 6px;
-  background: none;
-  border: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: rgb(255 255 255 / 0.62);
-  cursor: pointer;
+  top: 3px;
+  right: 3px;
 }
-.stage-tile-pop-close:hover { color: white; }
+button.stage-tile-pop-close { color: rgb(255 255 255 / 0.62); }
+button.stage-tile-pop-close:hover { color: white; }
 .stage-tile-pop-name {
   display: flex;
   align-items: baseline;

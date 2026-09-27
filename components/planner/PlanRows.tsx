@@ -3,6 +3,7 @@ import Image from '@/components/content/ContentImage';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
+import XButton from '@/components/ui/XButton';
 
 /**
  * Who you are building.
@@ -140,9 +141,7 @@ function Row({
           {open ? 'Close' : 'Edit'}
         </button>
         {onRemove && (
-          <button type="button" className="plan-row-drop" aria-label={`Drop ${view.name} from the plan`} title={`Drop ${view.name} from the plan`} onClick={onRemove}>
-            &times;
-          </button>
+          <XButton label={`Drop ${view.name} from the plan`} title={`Drop ${view.name} from the plan`} onClick={onRemove} />
         )}
       </span>
     </div>

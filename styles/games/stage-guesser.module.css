@@ -102,7 +102,7 @@
   .typing .search :global(.search-input-wrap) { display: grid; grid-template-rows: var(--control-h) minmax(0, 1fr); flex: 1; min-height: 0; align-items: stretch; }
   .typing .search :global(.search-input) { height: var(--control-h); }
   .typing .search :global(.search-input-icon) { top: calc(var(--control-h) / 2 - 8px); }
-  .typing .search :global(.search-input-clear) { top: calc(var(--control-h) / 2 - 14px); }
+  .typing .search :global(.search-input-clear) { top: calc((var(--control-h) - max(24px, var(--control-h) - 12px)) / 2); }
   .typing .search [role="listbox"] { position: static; min-height: 0; max-height: none; margin-top: 6px; overscroll-behavior: contain; box-shadow: none; }
   .typing .notice { min-height: 0; font-size: 11px; flex-shrink: 0; }
 }

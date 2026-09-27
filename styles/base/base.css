@@ -475,16 +475,6 @@
   position: relative;
   z-index: 1;
 }
-.base-room-team-x {
-  background: transparent;
-  border: none;
-  color: var(--text-faint);
-  font-size: 12px;
-  padding: 6px;
-  cursor: pointer;
-  line-height: 1;
-}
-.base-room-team-x:hover { color: var(--danger); }
 
 /* A phone gives the panel more rope: the fixed swap-height that keeps the
    desktop page from jumping would leave the roster ~90px tall once the header,
@@ -903,18 +893,12 @@
   text-align: left;
   padding-right: 22px;
 }
+/* A dense XButton pinned to the popover's corner. */
 .base-popover-close {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  background: transparent;
-  border: none;
-  color: var(--text-faint);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 5px;
+  top: 4px;
+  right: 4px;
 }
-.base-popover-close:hover { color: var(--text); }
 
 .base-slot-grid {
   display: flex;

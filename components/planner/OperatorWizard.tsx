@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
 import type { Roster } from '@/lib/planner/roster';
 import { NO_FILTERS, RosterGrid, type RosterFilters } from './RosterGrid';
+import XButton from '@/components/ui/XButton';
 
 /**
  * A grid of operators, then one operator -- for either of the two errands.
@@ -178,7 +179,7 @@ export function OperatorWizard({
               <i>{RAIL[flow][1]}</i>
             </span>
           </span>}
-          <button type="button" className="wizard-close" aria-label="Close" onClick={onClose}>&times;</button>
+          <XButton className="wizard-close" label="Close" onClick={onClose} />
         </div>
 
         {step === 'pick' ? (
