@@ -531,12 +531,24 @@
    column off the right edge of the page. This asks for the width the tile needs
    and lets the column count follow, which lands on the handoff's numbers at the
    widths it drew them for and never spills at the ones it did not. */
-.depot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr)); gap: 5px; }
+/* 260px, not 206: at 206 a tile left its name 40-70px beside the control-height
+   stepper, and a word longer than that ("Supplement", "Concentrated", "Agglomerate",
+   "Polymerization") ran over the stepper's box. 260 is the icon, a name column that
+   holds the catalogue's longest word, and the stepper: three columns at 1440, one on
+   a phone, as before. Where a word is still longer, the tile wraps (below).
+   planning-pages.spec.ts fails a name that reaches its stepper or its tile's edge. */
+.depot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 5px; }
 
+/* The stepper goes under the name, at the tile's right edge, when the name's longest
+   word and the stepper do not fit on one line (the name's min-width is its longest word,
+   so the wrap is decided per tile, by the face that draws it): on a phone the stepper is
+   164px of touch targets and a 390px tile left 82px, where "Polymerization" ran 7px over
+   it in CI's Linux fonts. */
 .depot-tile {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 9px;
+  gap: 6px 9px;
   padding: 6px 8px;
   background: var(--row-grad);
   border-radius: var(--radius);
@@ -550,8 +562,8 @@
 }
 .depot-tile > img { width: 30px; height: 30px; flex: none; object-fit: contain; }
 .depot-tile .name {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: min-content;
   font-family: var(--font-body);
   font-weight: 500;
   font-size: 11px;
@@ -582,7 +594,7 @@
 /* One control with one frame: the control border goes round the shoulders and the
    field together (the buttons were borderless, 1.00:1). The whole stepper is one
    control height: the parts are that less the frame's two 1px edges. */
-.depot-stepper { display: flex; align-items: center; flex: none; border: 1px solid var(--control-border); border-radius: var(--radius); }
+.depot-stepper { display: flex; align-items: center; flex: none; margin-left: auto; border: 1px solid var(--control-border); border-radius: var(--radius); }
 .depot-stepper:hover, .depot-stepper:focus-within { border-color: var(--teal); }
 .depot-stepper button {
   box-sizing: border-box;
@@ -761,51 +773,6 @@
   font-style: normal;
 }
 
-.craft-toggle {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: var(--control-h);
-  padding: 0 11px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--row-grad);
-  font-family: var(--font-mono);
-  font-weight: 400;
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-.craft-toggle i {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex: none;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  font-style: normal;
-}
-.craft-toggle[aria-pressed="true"] {
-  border-color: transparent;
-  background: var(--row-grad-hi);
-  box-shadow: inset 0 -2px 0 var(--teal);
-  color: var(--text-bright);
-}
-.craft-toggle[aria-pressed="true"] i {
-  border: 0;
-  background: var(--teal);
-  color: var(--teal-ink);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 9px;
-  line-height: 1;
-}
 .craft-none {
   text-align: right;
   font-family: var(--font-mono);
@@ -937,7 +904,7 @@
 /* ===== 6. Motion ========================================================
    Nothing moves. Every state change is a colour or a border. */
 @media (prefers-reduced-motion: reduce) {
-  .craft-toggle, .depot-tile { transition: none; }
+  .depot-tile { transition: none; }
 }
 
 
@@ -952,20 +919,14 @@
    on a 340px row). */
 .planner-depot-views,
 .planner-need-mode { flex: 0 1 auto; min-width: 0; }
-/* The view switch stands apart from the segmented pair beside it, or the two
-   read as one control with two selections -- which is exactly how it read
-   before. Same 35px as everything else in a panel head. */
-.planner-need-showall {
-  box-sizing: border-box;
-  flex: none;
-  height: var(--control-h);
-  margin-left: 10px;
-  padding: 0 12px;
-  font-size: 11px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.planner-need-showall > span:first-child:not(:empty) { margin-right: -2px; font-weight: 700; }
+/* Show all is a .filter-chip like the pair beside it and is sized by the primitive:
+   it had its own height, padding and an 11px label, and a 10px margin that set it
+   18px off Raw only (and 10px in from the panel's edge when it wrapped on a phone).
+   The three are one group with one gap, the segmented pair's own (.seg-control). On is
+   the chip's own on (teal on --teal-dim): it also drew a tick of its own, in a span that
+   stayed in the flex row when empty, so the label sat 6px right of its box's centre. */
+.plan-panel-acts.planner-need-acts { gap: 6px; }
+.planner-need-showall { flex: none; white-space: nowrap; }
 
 /* The slider stays under the stepper: typing is for landing on 78, dragging is
    for getting from 1 to 80 without pressing + seventy-nine times.
@@ -1083,11 +1044,16 @@
   border-radius: var(--radius-frame);
   overflow: hidden;
 }
+/* The title, then its count ("· 4 operators with goals") one gap after it, then the
+   actions at the far end. The count used to be the middle of three space-between
+   items, so it floated to a different x in each panel (598, 796 and 631px at 1440);
+   its auto right margin now takes the free space instead, and it follows the title at
+   the row's column gap in every panel. */
 .plan-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
   padding: 11px 16px;
   background: rgba(255, 255, 255, 0.035);
@@ -1096,7 +1062,7 @@
 :root[data-theme="light"] .plan-panel-head { background: rgba(0, 0, 0, 0.03); }
 /* Experimental mode's panel titles are .section-title (the site's section heading),
    the same as Simple mode's: the page had two heading voices. */
-.plan-panel-head .plan-hint { margin: 0; }
+.plan-panel-head .plan-hint { margin: 0 auto 0 0; }
 .plan-panel-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-panel-body { padding: 14px 16px 16px; }
 
@@ -1198,7 +1164,10 @@
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
-.need-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+/* Centred: the stage codes are text chips, and stretched to the row's tallest item
+   (the Craft toggle, a control height) each drew a box that tall with its code at
+   the top, 8.5px above the toggle's centre (10.5 on a phone; the row census). */
+.need-card-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 10px; }
 .need-card-tags em {
   font-style: normal;
   padding: 3px 7px;
@@ -1302,6 +1271,15 @@
   .plan-row { grid-template-columns: 46px 1fr auto; }
   .plan-arrow { grid-column: 2 / -1; }
   .plan-progress { grid-column: 2 / -1; }
+  /* The actions in the auto column beside the name. Placed by nothing, they fell into
+     the 46px portrait column of a row of their own, Build, Edit and the x ran 18px past
+     it into the gap (the row census), and the x was squeezed to 8px wide on a phone. */
+  .plan-row-acts { grid-row: 1; grid-column: 3; }
+}
+/* On a phone the name needs the width, so the actions take a line of their own under
+   the progress, starting on the name's edge like the two lines above them. */
+@media (max-width: 720px) {
+  .plan-row-acts { grid-row: auto; grid-column: 2 / -1; }
 }
 
 /* --- what you have: the plan's own slice of the depot ------------------ */
@@ -1369,8 +1347,8 @@
 }
 .need-card-who b > button:hover { color: var(--teal); }
 
-/* The craft toggle shares the tags row, so it goes to the far end. */
-.need-card-tags .craft-toggle { margin-left: auto; }
+/* The Craft checkbox (.check) shares the tags row, so it goes to the far end. */
+.need-card-craft { margin-left: auto; }
 
 /* --text-dim in a panel head, not --text-faint.
    The faint token is tuned to clear 4.5:1 on --panel; a panel head lifts its
@@ -1678,7 +1656,8 @@
 /* The goals step's own furniture inside the dialog. */
 .wizard-headline { flex: 1 1 auto; min-width: 0; border: 0; padding: 0; margin: 0; }
 /* The roster window's one row above the four blocks: what this window is
-   asking, and the Owned switch. It held a tab strip before the two questions
+   asking, and the Owned checkbox (the .check primitive, ui-primitives rule 3; it was a
+   button drawing its own tick box). It held a tab strip before the two questions
    became two windows. */
 .wizard-tabrow {
   display: flex;
@@ -1688,41 +1667,6 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-/* Owned, stated. Sized to the controls it sits beside -- the control height -- and
-   teal when on, because it is a selection, not a rarity. */
-.wizard-owned {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--control-h);
-  padding: 4px 14px 4px 10px;
-  font-size: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel-2);
-  color: var(--text-dim);
-  cursor: pointer;
-}
-.wizard-owned.on {
-  border-color: color-mix(in srgb, var(--teal) 55%, transparent);
-  background: var(--teal-dim);
-  color: var(--text-bright);
-}
-.wizard-owned-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex: none;
-  border: 1px solid currentColor;
-  border-radius: var(--radius);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 11px;
-  line-height: 1;
-}
-.wizard-owned.on .wizard-owned-mark { background: var(--teal); border-color: var(--teal); color: var(--teal-ink); }
 .wizard-bill { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
 .wizard-drop {
   display: flex;

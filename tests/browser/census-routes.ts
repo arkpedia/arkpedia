@@ -51,6 +51,94 @@ const clickIn = (page: Page, scope: string, name: string) => page.locator(scope)
 /** A tab (components/ui/Tabs renders role="tab"): a view switch, a section, a panel. */
 const tabIn = (page: Page, scope: string, name: string) => page.locator(scope).getByRole('tab', { name, exact: true }).first().click();
 
+/*
+ * The planner with a plan in it (r10). "On operator planner page the clear button has
+ * different size, than other UI elements, this is true for both simple and experimental.
+ * add this also to the check you have to do" (maintainer, 2026-09-27): on 61f8409 each
+ * Clear was 44px beside 33px ghosts and a 38px search, and the census never saw a panel
+ * head, because an empty planner shows none -- Experimental's panels are headed by what
+ * the plan holds, and Simple's operator tabs, dossier and Clear by who is in it. So these
+ * states seed a realistic plan (four operators, part of the way there, a depot of the
+ * usual clutter) into this browser's storage, as a reader's own would be, reload, and
+ * wait until every operator is priced: every panel head, the search row, the shortfall's
+ * toolbar and foot, the plan's operator rows, a dossier and the open depot.
+ */
+const goal = (elite: number, level: number, skillLevel: number, masteryTargets: Record<number, number> = {}) => ({
+  elite, level, skillLevel, masteryTargets, moduleStageTargets: {},
+  startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {},
+});
+/** What a reader's planner keeps, by localStorage key (pages/planner.tsx, lib/planner/). */
+export type PlannerStorage = Record<string, unknown>;
+export const PLANNER_PLAN: PlannerStorage = {
+  plannerState: {
+    selectedNames: ['Surtr', 'SilverAsh', 'Texas', 'Eyjafjalla'],
+    builderStates: {
+      Surtr: { ...goal(2, 90, 7, { 2: 3 }), startingElite: 1, startingLevel: 80, startingSkillLevel: 7 },
+      SilverAsh: goal(2, 60, 7, { 2: 3 }),
+      Texas: goal(2, 40, 7),
+      Eyjafjalla: { ...goal(2, 90, 7, { 1: 3 }), startingElite: 2, startingLevel: 30, startingSkillLevel: 7 },
+    },
+  },
+  plannerRoster: { Surtr: { elite: 1, level: 80, skillLevel: 7, masteries: {} }, Eyjafjalla: { elite: 2, level: 30, skillLevel: 7, masteries: {} } },
+  plannerDepot: {
+    LMD: 850000, 'Orirock Cube': 120, 'Orirock Cluster': 40, 'Sugar Pack': 25, Polyester: 30, 'Oriron Cluster': 12, Aketon: 18,
+    'Manganese Ore': 9, Grindstone: 7, 'Skill Summary - 3': 30, 'Skill Summary - 2': 60, 'Guard Chip': 4, 'Guard Chip Pack': 2,
+    'Strategic Battle Record': 40, 'Tactical Battle Record': 80, 'Loxic Kohl': 14, 'RMA70-12': 6, 'Integrated Device': 3,
+  },
+};
+
+/** Writes `storage` into this origin's localStorage, reloads, and waits until the plan is
+ *  priced: each operator's build data arrives on its own fetch, and until it does the
+ *  rows say "counting..." and the panels "Working out..." or "Loading...". */
+export async function seedPlanner(page: Page, storage: PlannerStorage) {
+  await page.evaluate((s) => {
+    localStorage.clear();
+    for (const [key, value] of Object.entries(s)) localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    // "edited 18 days ago", whatever day the test runs (lib/planner/depot.ts DEPOT_TOUCHED_KEY).
+    if (s.plannerDepot) localStorage.setItem('plannerDepotTouched', String(Date.now() - 18 * 86400000));
+  }, storage);
+  await page.reload();
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await plannerPriced(page);
+}
+export async function plannerPriced(page: Page) {
+  await page.waitForFunction(() => {
+    const text = document.querySelector('main')?.textContent ?? '';
+    return !!text && !/counting\.\.\.|Working out|Loading /.test(text);
+  }, undefined, { timeout: 15000 });
+}
+/** A control by its exact name, a tab or a button: 61f8409 drew the mode switch and the
+ *  operator strip as chips, so the same state reaches the old page too. */
+const pick = (page: Page, scope: string, name: string) => page.locator(scope).getByRole('tab', { name, exact: true })
+  .or(page.locator(scope).getByRole('button', { name, exact: true })).first().click();
+/** Experimental with a plan: its three panels, headed by what the plan holds. */
+export async function plannerExperimental(page: Page, storage: PlannerStorage) {
+  await seedPlanner(page, storage);
+  await pick(page, '.page-header-actions', 'Experimental');
+  await plannerPriced(page);
+}
+const experimental = (page: Page) => plannerExperimental(page, PLANNER_PLAN);
+const PLANNER_STATES: CensusState[] = [
+  { id: 'planner simple with a plan', route: '/planner', act: (page) => seedPlanner(page, PLANNER_PLAN) },
+  { id: 'planner simple on an operator', route: '/planner', act: async (page) => { await seedPlanner(page, PLANNER_PLAN); await pick(page, 'main', 'Surtr'); await page.locator('.simple-dossier').waitFor(); await plannerPriced(page); } },
+  { id: 'planner experimental with a plan', route: '/planner', act: experimental },
+  { id: 'planner experimental, depot open', route: '/planner', act: async (page) => { await experimental(page); await page.getByRole('button', { name: 'Open depot', exact: true }).click(); await page.locator('.plan-panel').last().getByRole('button', { name: 'Done', exact: true }).waitFor(); } },
+  // The two windows a plan row and a panel head open: where an operator is (the roster
+  // window, with Owned and Forget), and where they are going (the goal window, with the
+  // operator's bill against the plan).
+  { id: 'planner experimental, roster window', route: '/planner', act: async (page) => {
+    await experimental(page);
+    await page.getByRole('button', { name: 'Your roster', exact: true }).click();
+    await page.locator('.modal-box').getByRole('button', { name: /Surtr/ }).first().click();
+    await page.locator('.modal-box').getByRole('button', { name: /^Forget / }).waitFor();
+  } },
+  { id: 'planner experimental, goal window', route: '/planner', act: async (page) => {
+    await experimental(page);
+    await page.locator('.plan-row').first().getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('.modal-box .wizard-bill').waitFor();
+  } },
+];
+
 export const CENSUS_STATES: CensusState[] = [
   { id: 'planner with Amiya (the level dialog)', route: '/planner', act: async (page) => { await page.locator('#planner-search').fill('Amiya'); await page.locator('#planner-search').press('Enter'); await page.locator('.simple-wizard').waitFor(); } },
   // Experimental's own rows: "Your plan" (Clear, Your roster, Add a goal) and the depot's
@@ -72,6 +160,7 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'stage guesser custom list', route: '/games/stage-guesser', act: (page) => clickIn(page, 'main', 'Custom') },
   { id: 'pulls disclosures open', route: '/pulls', act: async (page) => { for (const name of [/^Income & events/i, /^Past events/i]) await page.getByRole('button', { name }).first().click(); } },
   { id: 'enemies stages tab', route: '/enemies', act: (page) => tabIn(page, '.enemy-tabs', 'Stages') },
+  ...PLANNER_STATES,
 ];
 
 /** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */
