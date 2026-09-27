@@ -289,7 +289,9 @@
    so its tab may wrap. */
 .gacha-preview-tabs, .gacha-preview-stages { margin: 9px 0; }
 .gacha-preview-module-tabs > * { max-width: 100%; line-height: 1.3; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.gacha-preview-ability-section { padding: 18px; }
+/* The Skills, Modules and Base Skills panels keep .gacha-preview-section's 12px inset, like
+   Stats, Trait and Talents above them in the same column: at 18px their headings and text
+   started 6px right of the others' (cards-and-headings.spec.ts). */
 .gacha-preview-ability-section h3 { margin-bottom: 14px; }
 .gacha-preview-ability-section .gacha-preview-tabs { margin: 0 0 12px; }
 .gacha-preview-ability-section .gacha-preview-stages { margin: 0 0 12px; }

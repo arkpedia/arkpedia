@@ -428,10 +428,10 @@ for (const theme of ['dark', 'light'] as const) {
         return out;
       });
       expect(found.shown, `${place.name} shows a class, branch or faction glyph`).toBeGreaterThan(0);
-      const own = await page.locator(place.glyph).evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).length);
-      expect(own, `${place.name}: its own glyphs (${place.glyph}) are on screen`).toBeGreaterThan(0);
       expect(found.images, 'glyphs drawn as white-art <img>, not as masks in ink (OperatorGameIcon)').toEqual([]);
       expect([...new Set(found.faint)], 'glyphs under 3:1 against what they sit on').toEqual([]);
+      const own = await page.locator(place.glyph).evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).length);
+      expect(own, `${place.name}: its own glyphs (${place.glyph}) are on screen`).toBeGreaterThan(0);
     });
   }
 }
@@ -470,4 +470,25 @@ test("a numbered list's markers stay inside the list", async ({ page }) => {
     return out;
   });
   expect(over, 'markers past their list\'s edge').toEqual([]);
+});
+
+/* ---- The gacha operator preview's panels share one inset ---------------------------
+ * Stats, Trait, Talents, Skills, Modules and Base Skills are stacked panels in one column
+ * of the preview dialog. Skills, Modules and Base Skills had an 18px inset against the
+ * others' 12px, so their headings and text started 6px right of the panels above them.
+ * Every panel's heading starts the same distance in from its panel's edge, within 1px, at
+ * both widths: box edges and the start of text, nothing that depends on the fonts. */
+test("the gacha operator preview's panels share one inset", async ({ page }) => {
+  const state = CENSUS_STATES.find((s) => s.id === 'gacha operator preview')!;
+  await openCensus(page, state);
+  await expect(page.getByRole('tablist', { name: 'Skill' })).toBeVisible({ timeout: 15000 });
+  const insets = await page.evaluate(() => Array.from(document.querySelectorAll('.gacha-preview-section')).filter((s) => s.getClientRects().length > 0).map((s) => {
+    const h = s.querySelector('h3')!;
+    const range = document.createRange();
+    range.selectNodeContents(h);
+    return { name: (h.firstChild?.textContent ?? h.textContent ?? '').trim(), inset: Math.round((range.getBoundingClientRect().left - s.getBoundingClientRect().left) * 10) / 10 };
+  }));
+  expect(insets.length, 'the preview shows its panels').toBeGreaterThanOrEqual(4);
+  const first = insets[0].inset;
+  expect(insets.filter((i) => Math.abs(i.inset - first) > 1).map((i) => `${i.name} ${i.inset}px in (${insets[0].name} ${first}px)`), 'panels whose heading starts at another inset').toEqual([]);
 });
