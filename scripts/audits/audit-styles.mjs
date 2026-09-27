@@ -70,7 +70,10 @@
  *                  side and pages patching them by hand (a 38px wishlist chip to match the
  *                  search, a 44px Clear, a 44px include switch). CONTROL_HEIGHT_EXEMPT
  *                  names the few that are not row controls, each with its reason, and an
- *                  exemption that matches nothing fails as stale
+ *                  exemption that matches nothing fails as stale. A textarea (the
+ *                  element, or a class TSX puts on a <textarea>) is held to it only at a
+ *                  row control's height (20-56px): a multi-line field is taller than any
+ *                  row, the way a boxed card is
  *   headingRules   (r9 headings-spacing) a font-size, font, color, letter-spacing or
  *                  text-transform on a selector whose subject is an h2 or h3 -- the
  *                  element, or a class the TSX puts on an <h2>/<h3> -- outside
@@ -308,6 +311,20 @@ function controlClasses(tsxFiles) {
   }
   return out;
 }
+/** The classes TSX puts on a <textarea>: a multi-line field, which a rule may make taller
+ *  than any row (the verifier's case: `textarea { min-height: 120px }` read as a control
+ *  out of step with its row). */
+function textareaClasses(tsxFiles) {
+  const out = new Set();
+  for (const path of tsxFiles) {
+    const code = readFileSync(join(root, path), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of code.matchAll(/<textarea\b((?:=>|[^>])*?)\/?>/g)) {
+      const cls = m[1].match(/\bclassName=(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|'[^']*')/);
+      if (cls) for (const n of classNamesIn(cls[1])) out.add(n);
+    }
+  }
+  return out;
+}
 /** The classes TSX puts on a bare <button> (className has btn-bare): a card, a tile, a tab
  *  or a name drawn as text -- until its CSS draws it a box (boxedClasses), when it is a
  *  control like any other. The /music queue's track title was one: a bordered .btn-bare
@@ -383,7 +400,7 @@ function headingClasses(files) {
 /** A literal height or min-height on a control's rule: outside styles/core on any
  *  control, and in styles/core on the primitives themselves (a primitive stating 32px
  *  instead of the token is how a flip of --control-h-base would silently miss it). */
-function controlHeights(cssFiles, controls, boxedBare) {
+function controlHeights(cssFiles, controls, boxedBare, textareas) {
   const found = [];
   for (const path of cssFiles) {
     const core = path.startsWith(join('styles', 'core') + '/');
@@ -403,7 +420,10 @@ function controlHeights(cssFiles, controls, boxedBare) {
         // control could have: a boxed card is taller than any row.
         const boxed = !control && !core && classes.some((c) => boxedBare.has(c));
         if (!control && !boxed) continue;
-        for (const d of decls) if (!boxed || controlSized(d.value)) found.push(`${path}: ${part.trim()} { ${d.prop}: ${d.value} }`);
+        // A textarea is a row control only at a row control's height: a multi-line field
+        // (min-height: 120px) is taller than any row, as a boxed card is.
+        const multiLine = /^textarea(?=$|[.:#[])/.test(subject) || classes.some((c) => textareas.has(c));
+        for (const d of decls) if ((!boxed && !multiLine) || controlSized(d.value)) found.push(`${path}: ${part.trim()} { ${d.prop}: ${d.value} }`);
       }
     }
   }
@@ -571,7 +591,7 @@ function collect() {
 
   Object.assign(out, collectChoicesAndBadges(root));
   // controlHeight (r9 controls)
-  out.controlHeight = controlHeights(cssFiles, controlClasses(tsxFiles), boxedClasses(cssFiles, bareButtonClasses(tsxFiles)));
+  out.controlHeight = controlHeights(cssFiles, controlClasses(tsxFiles), boxedClasses(cssFiles, bareButtonClasses(tsxFiles)), textareaClasses(tsxFiles));
 
   out.collisions = [...owners.entries()]
     .filter(([, fs]) => fs.size > 1)
