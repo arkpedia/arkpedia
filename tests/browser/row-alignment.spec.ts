@@ -203,6 +203,21 @@ test('every row primitive is one control height, and follows the token', async (
  * so the row census cannot see it; measured here at 390 and 800, and with the token
  * flipped.
  */
+/*
+ * The site nav, once: it is the same fixed bar on every page, so the per-page census
+ * leaves it out (row-census.ts, `scope`) and this measures it at both widths, at the same
+ * tolerances. Its brand row reads 1.8px today with the webfonts (2.3 on fallback fonts),
+ * so if fonts.googleapis.com is unreachable this one test says so, not 59 page tests.
+ */
+test('the site nav is on one line', async ({ page }) => {
+  const width = await censusWidth(page);
+  await openCensus(page, '/');
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await page.evaluate(() => document.fonts.ready);
+  const offences = await page.evaluate(rowCensus, { ...TOLERANCE, scope: 'nav' as const });
+  expectOnlyAllowed(offences, 'site nav', width);
+});
+
 test("the Terminal bar's menu button is one control height, and follows the token", async ({ page }) => {
   const width = await censusWidth(page);
   const widths = width === 1440 ? [800] : [390];

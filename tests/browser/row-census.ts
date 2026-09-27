@@ -49,8 +49,13 @@
  *  height) by `offset` px. */
 export interface RowOffence { kind: 'centre' | 'height' | 'overflow'; container: string; control: string; beside: string; offset: number }
 
-/** Centre-line and control-height tolerances, px. */
-export interface RowTolerance { centre: number; height: number }
+/** Centre-line and control-height tolerances, px, and which rows to measure: `content`
+ *  (the default) is everything but the site nav, `nav` the site nav alone. The nav is the
+ *  same fixed bar on every page, so row-alignment.spec.ts measures it once rather than on
+ *  every address and state -- where its brand row (an 18px name beside an 11px "Beta",
+ *  centred on the theme toggle) read 1.8px off at a 2px tolerance with the webfonts and
+ *  2.3px without them, one glyph-metric reading that failed 59 desktop tests at once. */
+export interface RowTolerance { centre: number; height: number; scope?: 'content' | 'nav' }
 
 export function rowCensus(tolerance: RowTolerance): RowOffence[] {
   const CONTROL = 'button:not(.btn-bare), input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea, [role="combobox"], a.btn, a.ghost, a.primary, a.danger, .filter-chip, .tgl, label.check, summary';
@@ -156,6 +161,7 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
     const flexRow = /flex/.test(cs.display) && cs.flexDirection.startsWith('row');
     if (!flexRow && !/grid/.test(cs.display)) continue;
     if (container.matches(CONTROL) || !visible(container)) continue;
+    if (!!container.closest('.site-nav') !== (tolerance.scope === 'nav')) continue;
     const kids = Array.from(container.children).filter((k) => visible(k) && inFlow(k));
     if (kids.length < 2) continue;
     const controls: { kid: Element; box: DOMRect; el: Element }[] = [];
