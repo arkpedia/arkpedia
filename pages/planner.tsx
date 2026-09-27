@@ -1572,28 +1572,29 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                       the four blocks cannot say on their own: a value in any of
                       them already means "owned" (recordOwned writes the roster),
                       but an operator you own and have not touched is E0 Lv1 too,
-                      and only this can tell that apart from one you do not have. */}
-                  <button
-                    type="button"
-                    className={`wizard-owned${roster[activeName] ? ' on' : ''}`}
-                    aria-pressed={!!roster[activeName]}
-                    onClick={() => {
-                      if (roster[activeName]) {
-                        /* Off: out of the roster. A plan for them stands, but it
-                           starts from nothing again -- its "from" was a view of the
-                           record that just went, and pricing from a state you have
-                           said you do not have is the lie the roster exists to
-                           prevent. */
-                        setOwned(activeName, null);
-                        if (builder) updateBuilder(activeName, defaultStartingState());
-                      } else {
-                        recordOwned(activeName, currentOf(activeName));
-                      }
-                    }}
-                  >
-                    <span className="wizard-owned-mark" aria-hidden="true">{roster[activeName] ? '✓' : ''}</span>
+                      and only this can tell that apart from one you do not have.
+                      On or off, so a checkbox (ui-primitives rule 3): it was a
+                      button drawing its own tick box. */}
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={!!roster[activeName]}
+                      onChange={() => {
+                        if (roster[activeName]) {
+                          /* Off: out of the roster. A plan for them stands, but it
+                             starts from nothing again -- its "from" was a view of the
+                             record that just went, and pricing from a state you have
+                             said you do not have is the lie the roster exists to
+                             prevent. */
+                          setOwned(activeName, null);
+                          if (builder) updateBuilder(activeName, defaultStartingState());
+                        } else {
+                          recordOwned(activeName, currentOf(activeName));
+                        }
+                      }}
+                    />
                     Owned
-                  </button>
+                  </label>
                 </div>
               )}
 

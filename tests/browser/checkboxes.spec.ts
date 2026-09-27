@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { PLANNER_PLAN, plannerExperimental, readOnly } from './census-routes';
 
 /*
  * Booleans and options are checkboxes (docs/development/ui-primitives.md rule 3).
@@ -129,4 +130,39 @@ test('a disabled checkbox keeps a visible box', async ({ page }) => {
   });
   expect(boxes.disabled.opacity).toBe('1');
   expect(boxes.disabled.border, 'the disabled box keeps the control border').toBe(boxes.enabled.border);
+});
+
+/*
+ * The planner's two on/off choices (r10, 2026-09-27): whether to craft a material, on
+ * each shortfall card, and whether you own the operator, in the roster window. Both were
+ * buttons drawing their own tick box (rule 3's exact case), the first in a --line border
+ * beside the stage codes. Now each is the .check box, and nothing in those places is a
+ * pressed button.
+ */
+test('the planner\'s Craft and Owned are checkboxes', async ({ page }) => {
+  await readOnly(page);
+  await page.goto('/planner');
+  await plannerExperimental(page, PLANNER_PLAN);
+  const cards = page.locator('.need-card');
+  await expect(cards.first()).toBeVisible();
+  await expect(page.locator('.need-cards [aria-pressed]'), 'no pressed buttons on the cards').toHaveCount(0);
+  const craft = page.getByRole('checkbox', { name: /^Craft / });
+  await expect.poll(() => craft.count(), 'a Craft checkbox on each craftable card').toBeGreaterThan(3);
+  await expectCheckPrimitive(craft.first());
+  // Ticking it declares the craft: the card says "crafting" and stays ticked (with Show
+  // all on: a declared craft is no longer short, so the short-only list lets it go).
+  await page.getByRole('button', { name: /^Show all \d+$/ }).click();
+  const name = (await craft.first().getAttribute('aria-label'))!.replace(/^Craft /, '');
+  await craft.first().check();
+  await expect(page.getByRole('checkbox', { name: `Craft ${name}`, exact: true })).toBeChecked();
+  await expect(page.locator('.need-card').filter({ has: page.getByRole('checkbox', { name: `Craft ${name}`, exact: true }) })).toContainText('crafting');
+  await page.getByRole('checkbox', { name: `Craft ${name}`, exact: true }).uncheck();
+
+  await page.getByRole('button', { name: 'Your roster', exact: true }).click();
+  await page.locator('.modal-box').getByRole('button', { name: /Surtr/ }).first().click();
+  const owned = page.getByRole('checkbox', { name: 'Owned', exact: true });
+  await expectCheckPrimitive(owned);
+  await expect(owned, 'Surtr is in the roster').toBeChecked();
+  await expect(page.locator('.modal-box [aria-pressed]').filter({ hasText: /^Owned$/ })).toHaveCount(0);
+  await expectLabelToggles(page, owned);
 });

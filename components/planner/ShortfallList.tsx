@@ -6,6 +6,7 @@ import {
   type Resolution,
 } from '@/lib/planner/craft';
 import { SOURCE_LABELS, type Source } from '@/lib/planner/sources';
+import { shortfallHint } from '@/lib/planner/shortfallHint';
 import { MaterialIcon } from './MaterialIcon';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -269,18 +270,18 @@ function NeedCard({
         {sourceTags(row.name, row.short, sourceFor).map((t) => <em key={t.text}>{t.text}</em>)}
         {row.viaCrafting && <em>for a craft above</em>}
         {recipe && isCraftable(row.name) ? (
-          <button
-            type="button"
-            className="craft-toggle btn-sm"
-            aria-pressed={declared}
+          /* Whether to craft this one is on or off, so it is a checkbox (ui-primitives
+             rule 3): it was a button drawing its own tick box, in a --line border
+             beside the stage codes. Named for its material, since every card has one. */
+          <label
+            className="check need-card-craft"
             title={declared
               ? `Stop crafting ${row.name} — the answer will ask for it directly again`
               : `Craft ${row.name} instead of farming it: ${recipe.costs.filter((c) => c.name !== 'LMD').map((c) => `${c.count}x ${c.name}`).join(' + ')}`}
-            onClick={() => onCraftingToggle(row.name)}
           >
-            <i>{declared ? '✓' : ''}</i>
-            {declared ? 'Crafting' : 'Craft'}
-          </button>
+            <input type="checkbox" checked={declared} aria-label={`Craft ${row.name}`} onChange={() => onCraftingToggle(row.name)} />
+            Craft
+          </label>
         ) : recipe ? (
           /* A formula exists but the resolver will not walk it, and the two
              reasons are different things: F_ASC is a cycle of class swaps --
@@ -393,23 +394,10 @@ export function ShortfallList({
 
   const run = useMemo(() => stagesToRun(shortRows.map((r) => r.name)), [shortRows, stagesToRun]);
 
-  /**
-   * The sentence under the cards, derived from them.
-   *
-   * "Craftable but blocked one level down" is the case the expandable recipe
-   * exists for, so the panel counts it rather than asserting it: a short
-   * material with a walkable recipe, at least one of whose ingredients is also
-   * short.
-   */
-  const craftable = shortRows.filter((r) => isCraftable(r.name));
-  const blockedDown = craftable.filter((r) => {
-    const recipe = formulaFor(r.name);
-    if (!recipe) return false;
-    const runs = Math.max(1, Math.ceil(r.short / Math.max(1, recipe.count)));
-    return recipe.costs.some((c) => c.name !== 'LMD' && (depot[c.name] || 0) < c.count * runs);
-  });
-
   const moneyShort = (money.expShort > 0 ? 1 : 0) + (lmdShort > 0 ? 1 : 0);
+  const moneyWords = moneyShort === 2 ? 'LMD and EXP' : money.expShort > 0 ? 'EXP' : lmdShort > 0 ? 'LMD' : null;
+  /* The sentence under the cards, derived from them (lib/planner/shortfallHint.ts). */
+  const footHint = shortfallHint(shortRows, depot, moneyWords, { isCraftable, formulaFor, sourceFor });
 
   return (
     <>
@@ -422,11 +410,12 @@ export function ShortfallList({
         <span className="hint plan-hint">
           &middot; {shortRows.length} of {rows.length} {rows.length === 1 ? 'material' : 'materials'} short
           {goalCount > 0 ? `, across ${goalCount} ${goalCount === 1 ? 'goal' : 'goals'}` : ''}
-          {moneyShort > 0
-            ? ` · and ${moneyShort === 2 ? 'LMD and EXP' : money.expShort > 0 ? 'EXP' : 'LMD'}`
-            : ''}
+          {/* One unbreakable clause from the dot on, so a wrapped line never ends on
+              the dot or an "and" (at 390 it read "...across 34 goals ·" over "and LMD
+              and EXP"). */}
+          {moneyWords ? `\u00a0·\u00a0and ${moneyWords}`.replace(/ /g, '\u00a0') : ''}
         </span>
-        <span className="plan-panel-acts">
+        <span className="plan-panel-acts planner-need-acts">
           {/**
            * TWO controls, not three options.
            *
@@ -445,7 +434,10 @@ export function ShortfallList({
            *
            * So the exclusive pair keeps the segmented strip, and the view switch
            * is a `.filter-chip` -- the site's own idiom for a toggle that stands
-           * on its own -- set apart from it.
+           * on its own -- beside it. Its own control, not a third segment, but in
+           * the same row at the row's one gap and the chip's own size: set 18px
+           * apart, taller, in a smaller label, it read as a control from somewhere
+           * else (2026-09-27).
            */}
           <SegmentedControl<'craft' | 'raw'>
             label="Whether the Workshop counts"
@@ -467,7 +459,6 @@ export function ShortfallList({
               : `Show all ${rows.length} materials, not only the ${shortRows.length} you are short of`}
             onClick={() => onShowAll(!showAll)}
           >
-            <span aria-hidden="true">{showAll ? '\u2713' : ''}</span>
             Show all {rows.length}
           </button>
           )}
@@ -543,24 +534,21 @@ export function ShortfallList({
             plan. Gone in that state rather than reworded. */}
         {(shortRows.length > 0 || moneyShort > 0) && (
           <div className="plan-panel-foot">
-            <p className="hint plan-hint">
-              {blockedDown.length > 0
-                ? `${blockedDown.length} of the ${shortRows.length} short ${blockedDown.length === 1 ? 'is' : 'are'} craftable but blocked one level down — open a material to see its recipe.`
-                : craftable.length > 0
-                  ? `${craftable.length} of the ${shortRows.length} short can be made at the bench right now — open a material to see its recipe.`
-                  : shortRows.length > 0
-                    ? 'None of these can be made at the bench, so every one of them is a run or a shop.'
-                    : `Only ${moneyShort === 2 ? 'LMD and EXP' : money.expShort > 0 ? 'EXP' : 'LMD'} left to cover — no material is short.`}
-            </p>
-            <button
-              type="button"
-              className="filter-chip"
-              aria-pressed={routeOpen}
-              disabled={run.codes.length === 0}
-              onClick={() => setRouteOpen((v) => !v)}
-            >
-              {routeOpen ? 'Hide farming route' : 'Farming route'}
-            </button>
+            <p className="hint plan-hint">{footHint}</p>
+            {/* Only when a short material drops from a stage: with none (a Dualchip,
+                a shop item, only LMD and EXP left) the route has nothing to plan, and
+                it sat here disabled with no reason given. Gone in that state, as Show
+                all is with nothing to show. */}
+            {run.codes.length > 0 && (
+              <button
+                type="button"
+                className="filter-chip"
+                aria-pressed={routeOpen}
+                onClick={() => setRouteOpen((v) => !v)}
+              >
+                {routeOpen ? 'Hide farming route' : 'Farming route'}
+              </button>
+            )}
           </div>
         )}
         {floor.spacer}

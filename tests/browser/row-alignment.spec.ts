@@ -410,6 +410,73 @@ test('the page header and the game switcher keep their rows when the webfonts ar
   }
 });
 
+/*
+ * The planner's panel heads (r10, 2026-09-27): the count after a panel's title ("· 4
+ * operators with goals", "· 31 of 36 materials short", "· edited 18 days ago") follows
+ * the title at the head's one column gap, and a head's controls are one group with one
+ * gap. The count was the middle of three space-between items, so it floated to 598, 796
+ * and 631px at 1440; and Show all sat 18.7px off Raw only where the pair's own gap is 6,
+ * so when it wrapped on a phone it started 10px in from the line's edge. Box edges only:
+ * a gap, not a width, so it is the same on CI's fonts.
+ */
+test("the planner's panel heads: the count follows the title, and the controls share one gap", async ({ page }) => {
+  const width = await censusWidth(page);
+  for (const state of CENSUS_STATES.filter((s) => /^planner experimental,? (with a plan|depot open)/.test(s.id))) {
+    await openCensus(page, state);
+    const heads = await page.locator('.plan-panel-head').evaluateAll((els) => els.map((head) => {
+      const hs = getComputedStyle(head);
+      const contentLeft = head.getBoundingClientRect().left + parseFloat(hs.paddingLeft) + parseFloat(hs.borderLeftWidth);
+      const title = head.querySelector(':scope > .label-pair')!.getBoundingClientRect();
+      const hint = head.querySelector(':scope > .plan-hint')?.getBoundingClientRect() ?? null;
+      const acts = head.querySelector(':scope > .plan-panel-acts')!;
+      const controls = Array.from(acts.querySelectorAll('button, label.check')).map((c) => c.getBoundingClientRect()).filter((r) => r.width > 0)
+        .sort((a, b) => a.top - b.top || a.left - b.left);
+      const gaps: number[] = [];
+      const lineStarts: number[] = [];
+      controls.forEach((r, i) => {
+        const prev = controls[i - 1];
+        if (prev && Math.abs(prev.top - r.top) < 2) gaps.push(Math.round((r.left - prev.right) * 10) / 10);
+        else lineStarts.push(Math.round((r.left - acts.getBoundingClientRect().left) * 10) / 10);
+      });
+      /* Each control's label sits in the middle of its box: glyph boxes against the box,
+         both sides, so the font cancels out (Show all's empty tick span stood in the flex
+         row with its gap and put the label 6px right of centre). */
+      const offCentre = Array.from(acts.querySelectorAll('button')).filter((c) => c.getBoundingClientRect().width > 0).flatMap((c) => {
+        const box = c.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(c);
+        const text = range.getBoundingClientRect();
+        const off = Math.round(((text.left - box.left) - (box.right - text.right)) * 10) / 10;
+        return Math.abs(off) > 2 ? [`${c.textContent?.trim()} ${off}px`] : [];
+      });
+      return {
+        offCentre,
+        name: head.querySelector('h2')!.textContent,
+        columnGap: parseFloat(hs.columnGap),
+        hintAfterTitle: hint && Math.abs(hint.top + hint.height / 2 - (title.top + title.height / 2)) < title.height / 2 ? Math.round((hint.left - title.right) * 10) / 10 : null,
+        hintAtLineStart: hint ? Math.round((hint.left - contentLeft) * 10) / 10 : null,
+        gaps,
+        lineStarts,
+      };
+    }));
+    expect(heads.length, `${state.id}: the three panels`).toBe(3);
+    // The shortfall's count ends in one unbreakable clause (no-break spaces from the dot
+    // on), so a wrapped line never ends on the dot or an "and": at 390 it read "...across
+    // 34 goals ·" over "and LMD and EXP". A string, not a glyph position.
+    const shortfall = (await page.locator('.plan-panel-head').filter({ hasText: 'Still needed' }).locator(':scope > .plan-hint').textContent())!.trim();
+    expect.soft(shortfall, `${state.id}: the shortfall count's money clause`).toMatch(/\u00a0·\u00a0and\u00a0(LMD|EXP|LMD\u00a0and\u00a0EXP)$/);
+    for (const h of heads) {
+      const where = `${state.id} at ${width}px, ${h.name}`;
+      if (h.hintAfterTitle !== null) expect.soft(Math.abs(h.hintAfterTitle - h.columnGap), `${where}: the count is ${h.hintAfterTitle}px after the title, not the head's ${h.columnGap}px gap`).toBeLessThanOrEqual(1);
+      else if (h.hintAtLineStart !== null) expect.soft(Math.abs(h.hintAtLineStart), `${where}: the count wrapped to ${h.hintAtLineStart}px from the line's start`).toBeLessThanOrEqual(1);
+      expect(h.gaps.length, `${where}: the controls`).toBeGreaterThan(0);
+      expect.soft(Math.max(...h.gaps) - Math.min(...h.gaps), `${where}: the controls' gaps ${h.gaps.join(', ')}`).toBeLessThanOrEqual(1);
+      expect.soft(h.offCentre, `${where}: labels off their controls' centre`).toEqual([]);
+      for (const start of h.lineStarts) expect.soft(Math.abs(start), `${where}: a line of controls starts ${start}px in`).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
 for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
   const name = typeof target === 'string' ? target : target.id;
   test(`${typeof target === 'string' ? target : `${target.route} (${target.id})`} is on one line`, async ({ page }) => {
