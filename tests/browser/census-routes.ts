@@ -176,7 +176,6 @@ export const CENSUS_STATES: CensusState[] = [
   ...PLANNER_STATES,
 ];
 
-/** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */
 /**
  * document.fonts.ready, bounded. One stalled Google Fonts fetch held two tests for their
  * whole 30s timeout in a Linux run of the suite (cards-and-headings, 2 of 1208, retries 0),
@@ -192,6 +191,7 @@ export async function fontsSettled(page: Page, ms = 8000): Promise<boolean> {
   ]), ms);
 }
 
+/** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */
 export async function readOnly(page: Page) {
   await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => (['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort()));
 }
