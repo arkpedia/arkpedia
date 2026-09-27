@@ -26,7 +26,9 @@
  *   oldTeal        the pre-token teal, rgb(77 232 209) / #4de8d1, anywhere (CSS or
  *                  TSX): it ignores the light theme
  *   pills          a 999px (pill) radius, or a 50% one on anything but an avatar, a
- *                  dot or an image (ROUND_OK); radii come from the 2-4px token family
+ *                  dot or an image (ROUND_OK), and never on a control (roundControl:
+ *                  .btn-icon names the glyph it holds, not a picture); radii come from
+ *                  the 2-4px token family
  *   h1Rules        an h1 font-size or text-transform outside styles/core/shared.css;
  *                  the page title has one size and one case, set there
  *   fontWeights    a rule that asks a webfont for a weight pages/_document.tsx does
@@ -258,6 +260,14 @@ const CONTROL_HEIGHT_EXEMPT = [
 /** A radius of 50% draws a circle, which is right only for an avatar, a dot, an image or
  *  a slider thumb; every control and surface takes a radius token (ui-primitives rule 10). */
 const ROUND_OK = /(?:^|[-_.\s])(?:dots?|avatar|portrait|icon|img|image|photo)(?=$|[-_\s:.[\]>)])|(?:^|[\s>])img(?=$|[.:[\s])|::?-(?:webkit-slider|moz-range)-thumb/;
+/** A control is never round, whatever else its name says: a <button>, a class naming a
+ *  button (btn, button: .btn-icon, .close-btn, .pulls-help-button) or a control primitive.
+ *  ROUND_OK's `icon` is for a picture (.technique-entry-skill-icon), and `.btn-icon` -- the
+ *  square icon button that replaced the calendar's and the help and close buttons' circles --
+ *  would otherwise pass as one. ROUND_EXEMPT still names a round control on purpose. */
+const roundControl = (subject) => /^button(?=$|[.:#[])/.test(subject)
+  || /(?:^|[-_.])(?:btn|button)(?=$|[-_.:#[)])/.test(subject)
+  || [...subject.matchAll(/\.([a-zA-Z_][\w-]*)/g)].some((m) => CONTROL_PRIMITIVES.has(m[1]));
 /** Round things whose names do not say so, and why they are round. */
 const ROUND_EXEMPT = {
   '.theme-toggle': 'the nav theme toggle is an operator avatar (a round portrait)',
@@ -425,7 +435,8 @@ function collect() {
         if (d.prop.includes('radius') && /\b9{3,}px\b/.test(d.value)) out.pills.push(`${path}: ${selector}`);
         if (d.prop.includes('radius') && /(?:^|\s)50%/.test(d.value)) {
           for (const part of selector.split(/,(?![^(]*\))/).map((x) => x.trim())) {
-            if (!ROUND_OK.test(part.split(/\s*[\s>+~]\s*/).pop() || '') && !ROUND_EXEMPT[part]) out.pills.push(`${path}: ${part} { ${d.prop}: ${d.value} }`);
+            const subject = part.split(/\s*[\s>+~]\s*/).pop() || '';
+            if ((roundControl(subject) || !ROUND_OK.test(subject)) && !ROUND_EXEMPT[part]) out.pills.push(`${path}: ${part} { ${d.prop}: ${d.value} }`);
           }
         }
         const thumb = d.prop === 'scrollbar-color' ? d.value.trim().split(/\s+(?![^(]*\))/)[0]
@@ -526,7 +537,7 @@ const LABELS = {
   rawHex: 'a hex literal for a colour a token already names, so the light theme does not reach it',
   rarityLiteral: 'a colour literal in a rarity rule -- use var(--rarity-N), .rarity-N, .tier-N or .tier-fill-N',
   oldTeal: 'the pre-token teal literal -- use var(--teal) or color-mix(in srgb, var(--teal) N%, transparent)',
-  pills: 'a 999px pill radius, or a 50% one on a control or surface (only avatars, dots, images and slider thumbs are round) -- use var(--radius), var(--radius-frame) or var(--radius-control)',
+  pills: 'a 999px pill radius, or a 50% one on a control or surface (only avatars, dots, images and slider thumbs are round, and a control -- a button, a .btn-icon -- never is) -- use var(--radius), var(--radius-frame) or var(--radius-control)',
   h1Rules: 'an h1 size or case outside styles/core/shared.css -- render components/ui/PageHeader',
   fontWeights: 'a webfont weight pages/_document.tsx does not load, so the browser fakes it',
   nativeControls: 'a native <select> or role="listbox" outside components/ui -- use components/ui/StyledSelect or SearchInput',
