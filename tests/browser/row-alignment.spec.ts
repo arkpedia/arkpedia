@@ -196,6 +196,29 @@ test('every row primitive is one control height, and follows the token', async (
   }
 });
 
+/*
+ * The Terminal bar's menu button, the one control of the collapsed bar at 900px and
+ * under, is the control height too: sized by its padding it was 37px on a phone and 40
+ * at 721-900px, beside a search field and chips at 40 and 36. It is alone on its line,
+ * so the row census cannot see it; measured here at 390 and 800, and with the token
+ * flipped.
+ */
+test("the Terminal bar's menu button is one control height, and follows the token", async ({ page }) => {
+  const width = await censusWidth(page);
+  const widths = width === 1440 ? [800] : [390];
+  for (const w of widths) {
+    await page.setViewportSize({ width: w, height: 844 });
+    await openCensus(page, '/stages/all');
+    const toggle = page.locator('.terminal-bar-toggle');
+    await expect(toggle).toBeVisible();
+    for (const [base, expected] of [[null, w > 720 ? 36 : 40], [32, w > 720 ? 32 : 36]] as const) {
+      if (base) await page.addStyleTag({ content: `:root { --control-h-base: ${base}px; }` });
+      const h = await toggle.evaluate((el) => Math.round(el.getBoundingClientRect().height * 10) / 10);
+      expect(Math.abs(h - expected), `the Terminal menu button is ${h}px tall at ${w}px, not the control height ${expected}px${base ? ` (--control-h-base: ${base}px)` : ''}`).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
 for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
   const name = typeof target === 'string' ? target : target.id;
   test(`${typeof target === 'string' ? target : `${target.route} (${target.id})`} is on one line`, async ({ page }) => {

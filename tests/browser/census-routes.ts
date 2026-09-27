@@ -48,24 +48,26 @@ export function censusRoutes(): string[] {
 export interface CensusState { id: string; route: string; act: (page: Page) => Promise<void> }
 
 const clickIn = (page: Page, scope: string, name: string) => page.locator(scope).getByRole('button', { name, exact: true }).first().click();
+/** A tab (components/ui/Tabs renders role="tab"): a view switch, a section, a panel. */
+const tabIn = (page: Page, scope: string, name: string) => page.locator(scope).getByRole('tab', { name, exact: true }).first().click();
 
 export const CENSUS_STATES: CensusState[] = [
   { id: 'planner with Amiya (the level dialog)', route: '/planner', act: async (page) => { await page.locator('#planner-search').fill('Amiya'); await page.locator('#planner-search').press('Enter'); await page.locator('.simple-wizard').waitFor(); } },
-  { id: 'event rewards tab', route: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', act: (page) => clickIn(page, '.event-detail-tabs', 'Rewards') },
+  { id: 'event rewards tab', route: '/events/%5BSide%20Story%5D%20People%2C%20A%20People', act: (page) => tabIn(page, '.event-detail-tabs', 'Rewards') },
   { id: 'gacha details', route: '/gacha', act: async (page) => { await page.getByRole('button', { name: 'Details', exact: true }).first().click(); await page.locator('.gacha-details-modal').waitFor(); } },
   { id: 'gacha operator preview', route: '/gacha', act: async (page) => {
     await page.getByRole('button', { name: 'Details', exact: true }).first().click();
     await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
     await page.locator('.gacha-pull-preview-header').waitFor();
   } },
-  { id: 'schedule calendar', route: '/schedule', act: (page) => clickIn(page, '.page-header-actions', 'Calendar') },
+  { id: 'schedule calendar', route: '/schedule', act: (page) => tabIn(page, '.page-header-actions', 'Calendar') },
   { id: 'recruitment with two tags', route: '/recruitment', act: async (page) => { const tags = page.locator('.recruit-tag-picker .filter-chip'); await tags.nth(1).click(); await tags.nth(6).click(); } },
-  { id: 'stronghold alliances', route: '/gamemodes/stronghold-protocol', act: (page) => clickIn(page, '.gm-lookup', 'Alliances') },
-  { id: 'stronghold items', route: '/gamemodes/stronghold-protocol', act: (page) => clickIn(page, '.gm-lookup', 'Items') },
-  { id: 'stronghold enemies', route: '/gamemodes/stronghold-protocol', act: (page) => clickIn(page, '.gm-lookup', 'Enemies') },
+  { id: 'stronghold alliances', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Alliances') },
+  { id: 'stronghold items', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Items') },
+  { id: 'stronghold enemies', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Enemies') },
   { id: 'stage guesser custom list', route: '/games/stage-guesser', act: (page) => clickIn(page, 'main', 'Custom') },
   { id: 'pulls disclosures open', route: '/pulls', act: async (page) => { for (const name of [/^Income & events/i, /^Past events/i]) await page.getByRole('button', { name }).first().click(); } },
-  { id: 'enemies stages tab', route: '/enemies', act: (page) => clickIn(page, '.enemy-tabs', 'Stages') },
+  { id: 'enemies stages tab', route: '/enemies', act: (page) => tabIn(page, '.enemy-tabs', 'Stages') },
 ];
 
 /** Only reads go to other hosts: a YouTube embed's POSTs are dropped. */

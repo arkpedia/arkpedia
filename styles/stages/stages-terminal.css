@@ -63,13 +63,17 @@
 .terminal-tabs > * { min-height: 40px; }
 
 /* --- the collapsed bar, under the mobile breakpoint --------------------------
-   Hidden on a desktop, where all seven tabs fit. */
+   Hidden on a desktop, where all seven tabs fit. The menu button is a control, so it
+   is var(--control-h) tall like the search field and chips under it (ui-primitives
+   rule 4); sized by its padding it was 37px on a phone and 40 at 721-900px, against
+   their 40 and 36. */
 .terminal-bar-toggle {
   display: none;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 10px 10px;
+  min-height: var(--control-h);
+  padding: 0 10px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: none;

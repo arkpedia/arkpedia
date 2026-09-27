@@ -114,7 +114,11 @@ export function sectionCensus(options: { stacks: boolean }): SectionCensus {
   };
   const topRule = (el: Element) => { const s = cs(el); return px(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none' && !clear(s.borderTopColor); };
   const REPLACED = /^(IMG|SVG|VIDEO|CANVAS|PICTURE|INPUT|SELECT|TEXTAREA|IFRAME)$/i;
-  const CONTROL = 'button:not(.btn-bare), [role="combobox"], .filter-chip, a.btn, a.ghost, a.primary, a.danger';
+  // A tab (.tab, components/ui/Tabs) is a control too, though it is .btn-bare: it draws
+  // no box, but its box is its hit area and carries its underline at the foot, so the
+  // strip's top is the box's, like a chip row's. It has no side padding, so its box's
+  // left is its label's (tests/browser/tab-align.ts measures the label).
+  const CONTROL = 'button:not(.btn-bare), .tab, [role="combobox"], .filter-chip, a.btn, a.ghost, a.primary, a.danger';
   const ownText = (el: Element) => Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim());
   const contentTop = (el: Element) => { const s = cs(el); return el.getBoundingClientRect().top + px(s.borderTopWidth) + px(s.paddingTop); };
 
