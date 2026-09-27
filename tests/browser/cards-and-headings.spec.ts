@@ -207,6 +207,12 @@ for (const theme of ['dark', 'light'] as const) {
         const amber = await tokenColour(page, '--amber');
         const teal = await tokenColour(page, '--teal');
         expect(heading, 'the heading colour is its own token').not.toBe(teal);
+        // A page that fetches its sections after it hydrates can go network-quiet before
+        // the fetch starts: /stages/browse's rail comes from /stages-index.json on mount,
+        // and in the Linux image the test measured "Loading the stage list..." with no
+        // heading drawn. So the headings are awaited, then the network once more.
+        await expect.poll(async () => (await page.evaluate(sectionCensus, { stacks: false })).headings.length, { message: `${route} draws at least ${least} section heading(s)`, timeout: 15000 }).toBeGreaterThanOrEqual(least);
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
         const census = await page.evaluate(sectionCensus, { stacks: false });
         expect(census.headings.length, `${route} shows at least ${least} section heading(s)`).toBeGreaterThanOrEqual(least);
         for (const h of census.headings) {
