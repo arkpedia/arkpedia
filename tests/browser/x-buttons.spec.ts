@@ -24,8 +24,16 @@ import { readOnly } from './census-routes';
  * pressed 8px right of its glyph, and what it closes or removes must be gone. Box edges
  * only: the glyph is drawn, so its centre is the same in every font.
  *
- * Not driven: the /community world map's fullscreen ×, which shows only while an event is
- * running (the Check's data may have none: the test says so and skips that place).
+ * The /community world map's fullscreen × shows only while a community event runs, and the
+ * page's clock is the build's, so the Check's data may have none: that place is reached by a
+ * client navigation whose page data has its clock moved to the day before the first event
+ * (every event upcoming), so it is measured in every run. Its × must also sit inside the map
+ * it is pinned to: fullscreen, the wrap's 24px padding moved the map and not the button, and
+ * the borderless × was drawn over the frame's corner. On a phone the toggle is not shown.
+ *
+ * Opened by pointer, nothing but a text field may draw the focus ring: the planner's
+ * operator dialog takes focus on itself, and only its own `outline: none` keeps a teal ring
+ * off the whole box (Chromium carries :focus-visible from the Simple search to it).
  */
 
 const firstLimited = (page: Page) => page.evaluate(() => {
@@ -63,9 +71,33 @@ interface Place {
   x: (page: Page) => Locator;
   /** Holds once the press has closed or removed its thing. */
   gone: (page: Page) => Promise<void>;
-  /** Some place's data is not always there (a running event); the reason it may skip. */
-  mayBeAbsent?: string;
+  /** Reaches the place instead of `page.goto(route)`. */
+  visit?: (page: Page) => Promise<void>;
+  /** A place shown on desktop only: the reason it skips on a phone. */
+  desktopOnly?: string;
+  /** The frame the × is pinned inside: its box must lie wholly within this one. */
+  inside?: (page: Page) => Locator;
 }
+
+/** /community with a community event on: its page data fetched on a client navigation,
+ *  with `now` set to the day before the first event, so every event is upcoming and the
+ *  map shows, whatever the build's clock says. */
+const communityWithEvents = async (page: Page) => {
+  await page.route(/\/_next\/data\/[^/]+\/community\.json/, async (route) => {
+    // Next sends a HEAD for the same URL alongside the GET.
+    if (route.request().method() !== 'GET') { await route.continue(); return; }
+    const response = await route.fetch();
+    const json = await response.json();
+    const starts = (json.pageProps.events as { startTime: string }[]).map((event) => Date.parse(event.startTime));
+    if (starts.length) json.pageProps.now = Math.min(...starts) - 86_400_000;
+    await route.fulfill({ response, json });
+  });
+  await page.goto('/');
+  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/community'));
+  await page.waitForURL('**/community');
+  // Fails by name, not on a timeout, if the build ever has no community event to move to.
+  await expect(page.getByRole('button', { name: 'View fullscreen' }), 'the map shows once the page clock is before the first community event').toBeVisible();
+};
 
 const PLACES: Place[] = [
   {
@@ -196,9 +228,11 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.getByRole('button', { name: 'Expand player' })).toBeVisible(); },
   },
   {
-    id: '/community world map', route: '/community', mayBeAbsent: 'the map shows only while a community event is running',
+    id: '/community world map', route: '/community', visit: communityWithEvents,
+    desktopOnly: 'the fullscreen toggle is not shown at 700px and under (shared.css)',
     open: async (page) => { await page.getByRole('button', { name: 'View fullscreen' }).click(); },
     x: (page) => page.getByRole('button', { name: 'Exit fullscreen' }),
+    inside: (page) => page.locator('.world-map-wrap.fullscreen .world-map-svg'),
     gone: async (page) => { await expect(page.getByRole('button', { name: 'View fullscreen' })).toBeVisible(); },
   },
 ];
@@ -254,18 +288,34 @@ function measure() {
 
 for (const place of PLACES) {
   test(`every × is borderless and square, and a press off its glyph lands: ${place.id}`, async ({ page }, info) => {
+    test.skip(!!place.desktopOnly && info.project.name !== 'desktop', `${place.id}: ${place.desktopOnly}`);
     await readOnly(page);
-    await page.goto(place.route);
+    if (place.visit) await place.visit(page);
+    else await page.goto(place.route);
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-    if (place.mayBeAbsent && await place.x(page).count() === 0 && await page.getByRole('button', { name: 'View fullscreen' }).count() === 0) {
-      test.skip(true, `${place.id}: ${place.mayBeAbsent}, and none is running in this build`);
-    }
     await place.open(page);
     await page.mouse.move(0, 0);
     await page.waitForTimeout(250);
     const target = place.x(page);
     await expect(target, `${place.id} shows its ×`).toBeVisible();
     await target.scrollIntoViewIfNeeded();
+
+    // Opened by pointer, nothing draws the site's focus ring but a text field, which shows
+    // it on any focus (the goal dialog focuses its search). The ring is :focus-visible's
+    // outline; a selected state's own outline (the /schedule bar) is not it.
+    const ring = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body || !el.matches(':focus-visible') || el.matches('input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, [contenteditable]')) return null;
+      const s = getComputedStyle(el);
+      return s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0 ? `${el.tagName.toLowerCase()}.${String(el.className).trim().split(/\s+/).join('.')} draws ${s.outlineStyle} ${s.outlineWidth}` : null;
+    });
+    expect(ring, `${place.id}: opened by pointer, the focused element draws no focus ring`).toBeNull();
+    if (place.inside) {
+      const [x, frame] = await Promise.all([target.boundingBox(), place.inside(page).boundingBox()]);
+      expect(x && frame, `${place.id}: the × and its frame are on screen`).toBeTruthy();
+      const out = [x!.x < frame!.x - 0.5 && 'left', x!.y < frame!.y - 0.5 && 'top', x!.x + x!.width > frame!.x + frame!.width + 0.5 && 'right', x!.y + x!.height > frame!.y + frame!.height + 0.5 && 'bottom'].filter(Boolean);
+      expect(out, `${place.id}: the × lies inside the frame it is pinned to (x ${Math.round(x!.x)}..${Math.round(x!.x + x!.width)} / ${Math.round(x!.y)}..${Math.round(x!.y + x!.height)}, frame ${Math.round(frame!.x)}..${Math.round(frame!.x + frame!.width)} / ${Math.round(frame!.y)}..)`).toEqual([]);
+    }
 
     const xs = await page.evaluate(measure);
     expect(xs.length, `${place.id}: a × on screen`).toBeGreaterThan(0);
@@ -314,6 +364,8 @@ test("the planner's operator dialog opens on itself, and Tab still reaches its �
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('role')), { message: 'focus is on the dialog' }).toBe('dialog');
+  // The box is :focus-visible here (a keyboard open), and draws no ring of its own.
+  expect(await dialog.evaluate((el) => getComputedStyle(el).outlineStyle), 'the focused dialog draws no ring round itself').toBe('none');
   const close = dialog.getByRole('button', { name: 'Close', exact: true });
   await page.keyboard.press('Tab');
   await expect(close, 'the first Tab reaches the ×').toBeFocused();

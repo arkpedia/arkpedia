@@ -36,6 +36,13 @@
   right: 8px;
   z-index: 2;
 }
+/* Fullscreen, the wrap's 24px padding moves the map and not the button, so the × went
+   16px out of the map's corner and was drawn over the frame's corner line (it has no box
+   to cover it: ui-primitives rule 21). 8px inside the corner again, as at rest. */
+.world-map-wrap.fullscreen .world-map-fullscreen-btn {
+  top: 32px;
+  right: 32px;
+}
 .world-map-bg { fill: var(--panel); }
 .world-map-land {
   fill: var(--panel-2);

@@ -464,7 +464,8 @@ const X_GLYPH = /^(?:[×✕✖✗xX]|&times;|&#(?:215|10005|10006|x[dD]7|x2715|x
  *  map's fullscreen toggle), or that glyph's path copied into a hand-written <svg> (the
  *  search field's clear was one). A button drawing one must carry .btn-x in its class
  *  list, in the state that shows it: the map's toggle shows only while a community event
- *  runs, so x-buttons.spec.ts may never see it, and this is its only guard. */
+ *  runs (x-buttons.spec.ts reaches it by moving the page's clock, on desktop only), and this
+ *  finds it in the source whatever the data. */
 const X_ICON = /<TransportIcon\b[^>]*\bname=(?:"close"|'close'|\{[^}]*['"`]close['"`][^}]*\})|<XGlyph\b|\bd=["'{`]*m4 4 8 8M12 4l-8 8/;
 /** A glyph wrapped in its own element and nothing else (<span aria-hidden="true">×</span>),
  *  the way a removable tab's × was written. */
