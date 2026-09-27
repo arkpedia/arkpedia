@@ -5,6 +5,7 @@ import { TransferDialog } from "@/components/planner/TransferDialog";
 import { PlannerStateLabel } from '@/components/planner/PromotionIcon';
 import { withMasteryPrerequisites, withModulePrerequisites, withSkillRankPrerequisites } from '@/lib/planner/goalPrerequisites';
 import { SimplePlanner } from '@/components/planner/SimplePlanner';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { upgradeCostGroups } from '@/lib/planner/upgradeCostGroups';
 import { publicFiles, publicFileExists } from '@/lib/assets/publicAssets';
 import { GetStaticProps } from 'next';
@@ -238,6 +239,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
+  /* The Anti-Page Jump hold for the mode tabs (useSwitchHold): Simple is shorter than
+     Experimental, and Experimental -> Simple from the tab row clamped the reader 98px up
+     at 1440 (88 at 390). */
+  const modeHold = useSwitchHold('planner-mode');
   const [simpleNewOperator, setSimpleNewOperator] = useState(false);
   const [simpleStep, setSimpleStep] = useState<'current' | 'goal'>('current');
   const [summaryName, setSummaryName] = useState<string | null>(null);
@@ -1237,7 +1242,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             label="Planner mode"
             id="planner-mode"
             value={plannerMode}
-            onChange={(mode) => { setPlannerMode(mode); setWizard(null); }}
+            onChange={(mode) => { modeHold.capture(); setPlannerMode(mode); setWizard(null); }}
             options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
           />
           <button type="button" className="ghost" aria-expanded={transferOpen} onClick={() => setTransferOpen(v => !v)}>Export / import</button>
@@ -1323,7 +1328,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           </TransferDialog>
         )}
 
-        <div {...tabPanelProps('planner-mode', plannerMode)}>
+        <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
           <SimplePlanner clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
             onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}

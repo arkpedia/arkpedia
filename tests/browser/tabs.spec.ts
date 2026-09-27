@@ -33,16 +33,22 @@ async function strip(list: Locator) {
   }));
 }
 
-test('a tab strip is a real tablist, and the keyboard moves along it', async ({ page }) => {
+/** The hydration errors a page reports while a test drives it. The Check runs a production
+ *  build, where React says nothing about an attribute mismatch and reports a text or
+ *  structure one as an uncaught "Minified React error" (a pageerror, not a console
+ *  message). Both channels, both wordings; the state divergence an attribute mismatch
+ *  leaves behind is caught by the presses below (every tab of every strip must select,
+ *  and show its panel). */
+function watchHydration(page: Page): string[] {
   const errors: string[] = [];
-  // The Check runs a production build, where React says nothing about an attribute
-  // mismatch and reports a text or structure one as an uncaught "Minified React error"
-  // (a pageerror, not a console message). Both channels, both wordings; the state
-  // divergence an attribute mismatch leaves behind is caught by the presses below
-  // (every tab of every strip must select, and show its panel).
   const hydration = /hydrat|did not match|Minified React error #(418|419|421|422|423|425)\b/i;
   page.on('console', (msg) => { if (msg.type() === 'error' && hydration.test(msg.text())) errors.push(msg.text()); });
   page.on('pageerror', (error) => { if (hydration.test(String(error))) errors.push(String(error)); });
+  return errors;
+}
+
+test('a tab strip is a real tablist, and the keyboard moves along it', async ({ page }) => {
+  const errors = watchHydration(page);
   await page.goto('/gamemodes/stronghold-protocol');
   const list = page.getByRole('tablist', { name: 'Sections' });
   await expect(list).toBeVisible();
@@ -195,6 +201,10 @@ const PLACES: Place[] = [
 
 for (const place of PLACES) {
   test(`switching "${place.name}" on ${decodeURIComponent(place.route)} never moves the strip`, async ({ page }) => {
+    // Every page with a strip hydrates without an error, not only the keyboard test's:
+    // a text node beside /recruitment's view tabs that differed between the server and
+    // the browser passed the whole spec while only Stronghold was watched.
+    const errors = watchHydration(page);
     await page.goto(place.route);
     if (place.open) await place.open(page);
     const list = page.getByRole('tablist', { name: place.name }).first();
@@ -217,14 +227,21 @@ for (const place of PLACES) {
     // Where the reader is most exposed: the strip at the top of the screen, as far down
     // the page as that allows (a pinned strip stays there at the very foot of the page).
     // scrollIntoView reaches a strip inside its own scroller too (the operator page's
-    // detail pane at 1440, the gacha preview's dialog).
-    await list.evaluate((el) => {
-      el.scrollIntoView({ block: 'start', behavior: 'instant' });
-      const nav = document.querySelector('.site-nav')?.getBoundingClientRect().bottom ?? 0;
-      if (el.getBoundingClientRect().top < nav + 8) window.scrollBy({ top: el.getBoundingClientRect().top - nav - 8, behavior: 'instant' });
-      if (getComputedStyle(el.closest('.gm-lookup') ?? el).position === 'sticky') window.scrollTo({ top: 1e6, behavior: 'instant' });
-    });
-    await page.waitForTimeout(900);
+    // detail pane at 1440, the gacha preview's dialog). Before EVERY press, not once: the
+    // panel showing decides how far down the strip can go, and placed once, on the short
+    // panel, the strip stayed where the short panel allowed, so the press from the tall
+    // panel back to the short one started with no scroll to lose -- /recruitment's Cheat
+    // sheet -> Calculator (143px at 1440) and /planner's Experimental -> Simple (98px)
+    // clamped the reader and passed.
+    const toTop = async () => {
+      await list.evaluate((el) => {
+        el.scrollIntoView({ block: 'start', behavior: 'instant' });
+        const nav = document.querySelector('.site-nav')?.getBoundingClientRect().bottom ?? 0;
+        if (el.getBoundingClientRect().top < nav + 8) window.scrollBy({ top: el.getBoundingClientRect().top - nav - 8, behavior: 'instant' });
+        if (getComputedStyle(el.closest('.gm-lookup') ?? el).position === 'sticky') window.scrollTo({ top: 1e6, behavior: 'instant' });
+      });
+      await page.waitForTimeout(900);
+    };
     // A strip pinned by position: sticky rides its section and cannot stay on screen once
     // the section under it is shorter (the arkpedia-ui skill: padding is not content a
     // sticky element can travel through), so for it the measure is the reader's place.
@@ -240,6 +257,7 @@ for (const place of PLACES) {
     for (const i of order) {
       const tab = tabs.nth(i);
       const label = ((await tab.getAttribute('aria-label')) || (await tab.textContent()) || '').trim();
+      await toTop();
       const before = await list.evaluate((el) => ({ y: el.getBoundingClientRect().top, scroll: window.scrollY }));
       // A press where the reader sees it: no scrolling into view first.
       await tab.dispatchEvent('click');
@@ -255,6 +273,7 @@ for (const place of PLACES) {
     }
     expect(moves).toEqual([]);
     expect(unselected, 'pressed tabs that did not become current with their panel shown').toEqual([]);
+    expect(errors, 'hydration errors on the page').toEqual([]);
   });
 }
 

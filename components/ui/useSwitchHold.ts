@@ -10,6 +10,28 @@ function contentHeight(el: HTMLElement): number {
     - el.getBoundingClientRect().top + parseFloat(style.paddingBottom || '0') + parseFloat(style.borderBottomWidth || '0');
 }
 
+/** The margins of the element's first and last children that collapse through its own
+ *  top and bottom edges (a block box with no padding or border there): the page counts
+ *  them and the element's box does not. So the page loses them with the panel, and the
+ *  hold has to give them back: the planner's Experimental panel opens with a 16px margin
+ *  (its first .plan-panel) and Simple with none, and the hold for Experimental -> Simple
+ *  came out 16px short on a phone. Measured by giving the element 1px of padding at each
+ *  end for one synchronous layout, in the handler, before anything is painted. */
+function collapsedMargins(el: HTMLElement): number {
+  const style = getComputedStyle(el);
+  if (style.display !== 'block') return 0;
+  const openTop = !(parseFloat(style.paddingTop) > 0 || parseFloat(style.borderTopWidth) > 0);
+  const openBottom = !(parseFloat(style.paddingBottom) > 0 || parseFloat(style.borderBottomWidth) > 0);
+  if (!openTop && !openBottom) return 0;
+  const before = el.getBoundingClientRect().height;
+  const saved = [el.style.paddingTop, el.style.paddingBottom];
+  if (openTop) el.style.paddingTop = '1px';
+  if (openBottom) el.style.paddingBottom = '1px';
+  const after = el.getBoundingClientRect().height - (openTop ? 1 : 0) - (openBottom ? 1 : 0);
+  [el.style.paddingTop, el.style.paddingBottom] = saved;
+  return Math.max(0, after - before);
+}
+
 /** The least height the element can have and still leave the document reaching the
  *  bottom of the reader's screen, worked out fresh against the page as it is now. */
 function holdNeeded(el: HTMLElement): number {
@@ -47,7 +69,7 @@ export function useSwitchHold(resetKey: string) {
   const capture = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const need = Math.ceil(holdNeeded(el));
+    const need = Math.ceil(holdNeeded(el) + collapsedMargins(el));
     setHold(need > 0 ? { key: resetKey, px: need } : null);
   }, [resetKey]);
 

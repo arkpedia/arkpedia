@@ -6,6 +6,7 @@ import PipWindow, { isOperaBrowser, pipSupported, usePipWindow } from '@/compone
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import SearchInput from '@/components/ui/SearchInput';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { computeTagCombos, getRecruitmentTagCategories, type GuaranteedCombo, type RecruitableOperator, type TagCombo } from '@/lib/gacha/recruitmentCalc';
@@ -28,6 +29,11 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
   const popupRef = useRef<Window | null>(null);
   const pipRef = useRef<Window | null>(null);
   const pip = usePipWindow(POPOUT_SIZE, 'recruit-pip-body');
+  /* The Anti-Page Jump hold for the view tabs (useSwitchHold): the calculator is half the
+     cheat sheet's height, and Guarantee cheat sheet -> Calculator from the tab row clamped
+     the reader 143px up at 1440. The page's own copy only: the pop-out window scrolls on
+     its own, and one ref cannot follow two copies. */
+  const viewHold = useSwitchHold('recruitment');
 
   useEffect(() => {
     // Opera is offered the regular window even though it has the API: its pinned
@@ -213,12 +219,13 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
               label="Recruitment view"
               id="recruit-view"
               value={activeSection}
-              onChange={(section) => updateView({ activeSection: section })}
+              onChange={(section) => { if (!inPip) viewHold.capture(); updateView({ activeSection: section }); }}
               options={[{ value: 'calculator', label: 'Calculator' }, { value: 'cheatsheet', label: 'Guarantee cheat sheet' }]}
             />
             {!isCompact && <span className="recruit-pool-count">{operators.length} recruitable operators</span>}
           </div>
 
+          <div ref={inPip ? undefined : viewHold.ref} style={inPip ? undefined : viewHold.style}>
           {activeSection === 'calculator' ? (
             <div className="recruit-workspace" {...tabPanelProps('recruit-view', 'calculator')}>
               <section className="recruit-picker op-section" aria-labelledby="recruit-picker-title">
@@ -306,6 +313,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
               <p className="recruit-picker-footnote">Only the smallest combinations for each rarity are listed. Senior Operator and Top Operator already specify their rarity.</p>
             </section>
           )}
+          </div>
         </main>
       </div>
     );
