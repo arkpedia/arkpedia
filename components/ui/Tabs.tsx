@@ -74,6 +74,7 @@ export default function Tabs<V extends string | number>({
   label, id, options, value, onChange, className, removable,
 }: TabsProps<V>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const list = useRef<HTMLDivElement | null>(null);
   const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
   const current = options.findIndex((o) => o.value === value);
   // The one tab in the Tab order: the current one, or the first enabled one when the
@@ -101,10 +102,18 @@ export default function Tabs<V extends string | number>({
     else if (event.key === 'End') next = enabled[enabled.length - 1];
     else if ((event.key === 'Delete' || event.key === 'Backspace') && removable && removeTitle(options[index])) {
       event.preventDefault();
-      // Focus stays in the strip: on the tab that takes this one's place.
+      // Focus stays in the strip while this tab goes, on the one beside it...
       const neighbour = enabled[at + 1] ?? enabled[at - 1];
       if (neighbour !== undefined) refs.current[neighbour]?.focus();
       removable.onRemove(options[index].value);
+      // ...and lands on the tab the page makes current once it has re-rendered (the
+      // planner makes All current): a focused tab that is not the selected one, at
+      // tabindex -1, is announced "not selected" and is not the strip's Tab stop.
+      requestAnimationFrame(() => {
+        const strip = list.current;
+        if (!strip?.isConnected || !(strip.contains(document.activeElement) || document.activeElement === document.body)) return;
+        strip.querySelector<HTMLButtonElement>('[role="tab"][tabindex="0"]')?.focus();
+      });
       return;
     }
     if (next === null) return;
@@ -114,7 +123,7 @@ export default function Tabs<V extends string | number>({
 
   return (
     <>
-      <div role="tablist" aria-label={label} className={`tabs${className ? ` ${className}` : ''}`}>
+      <div ref={list} role="tablist" aria-label={label} className={`tabs${className ? ` ${className}` : ''}`}>
         {options.map((option, index) => {
           const selected = index === current;
           const remove = removeTitle(option);

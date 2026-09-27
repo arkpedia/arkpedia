@@ -52,8 +52,17 @@ test('one Tab stop: the current tab, or the first enabled one when none is curre
   assert.deepEqual(tabs(render('nothing-yet')).map((t) => t.tabindex), ['0', '-1', '-1']);
 });
 
-test('the same props render the same markup twice, so hydration matches', () => {
-  assert.equal(render('banner'), render('banner'));
+test('ids come from the props alone: no counter and no useId, so hydration matches', () => {
+  // A module-level counter makes a second render differ from the first. useId does not
+  // (two server renders give the same :R...: ids), but its ids never match what the
+  // browser's own tree gives a component rendered in a different place, and they carry
+  // colons: every id and every id reference here is the `id` prop's stem.
+  const html = render('banner');
+  assert.equal(html, render('banner'), 'a second render is the same markup');
+  const refs = [...html.matchAll(/\b(?:id|aria-controls|aria-labelledby|aria-describedby)="([^"]*)"/g)].map((m) => m[1]);
+  assert.ok(refs.length >= 6, 'the tabs carry ids and name their panels');
+  for (const ref of refs) assert.match(ref, /^event-section-/, `${ref} comes from the id prop`);
+  assert.doesNotMatch(html, /="[^"]*:[rR][^"]*"/, 'no useId-style :r0: id');
 });
 
 test('a panel names its tab, and odd values still make valid ids', () => {

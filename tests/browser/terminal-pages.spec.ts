@@ -319,6 +319,72 @@ test('the Terminal bar\'s tabs sit in the site frame', async ({ page }) => {
   expect(edges.bar).toEqual(edges.main);
 });
 
+/*
+ * The Terminal bar is one row from the first paint. The webfonts come from Google Fonts
+ * with display=swap, so the first paint is in the fallback face, where the seven tabs
+ * need 1141px of the frame's 992 (967 in Rajdhani). As a wrapping strip the bar was two
+ * rows until Rajdhani arrived, then one, and every Terminal page jumped up 42px (CLS
+ * 0.4-0.8). So this loads the bar with fonts.googleapis.com and fonts.gstatic.com
+ * refused -- the first paint, held -- and asserts one row at the bar's own 40px, inside
+ * the frame, at the narrowest window that shows the row and at 1440. Box edges only, no
+ * text widths, so Linux fonts cannot move it. Under 1040px the bar is its menu button:
+ * between 901 and 1039 the row was two rows even with Rajdhani.
+ */
+test('the Terminal bar is one row from the first paint, or its menu where one row does not fit', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the desktop row: the widths are set here');
+  const measure = async (page: Page) => page.evaluate(() => {
+    const row = document.querySelector('.terminal-tabs')!;
+    const inner = document.querySelector('.terminal-bar-inner')!;
+    const cs = getComputedStyle(inner);
+    const frameRight = inner.getBoundingClientRect().right - parseFloat(cs.paddingRight);
+    const tabs = Array.from(row.children).map((tab) => tab.getBoundingClientRect());
+    const toggle = document.querySelector('.terminal-bar-toggle')!;
+    return {
+      // Not document.fonts.check(): with the stylesheet refused there is no Rajdhani
+      // face to wait for, and check() calls that loaded.
+      rajdhani: Array.from(document.fonts).some((f) => f.family.replace(/["']/g, '') === 'Rajdhani' && f.status === 'loaded'),
+      rowShown: getComputedStyle(row).display !== 'none',
+      toggleShown: getComputedStyle(toggle).display !== 'none',
+      height: Math.round(row.getBoundingClientRect().height * 10) / 10,
+      tabs: tabs.length,
+      tops: tabs.map((r) => Math.round(r.top)),
+      past: tabs.filter((r) => r.right > frameRight + 1).length,
+      clipped: Array.from(row.querySelectorAll('.terminal-tab-label')).filter((l) => l.scrollWidth > l.clientWidth + 2).map((l) => l.textContent),
+    };
+  });
+  for (const fonts of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => {
+      if (!fonts && /fonts\.(googleapis|gstatic)\.com/.test(route.request().url())) return route.abort();
+      return ['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort();
+    });
+    const page = await context.newPage();
+    for (const route of ['/stages', '/stages/supplies', '/stages/all']) {
+      for (const width of [1040, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(route);
+        await page.evaluate(() => document.fonts.ready);
+        const m = await measure(page);
+        const at = `${route} at ${width}px, ${fonts ? 'webfonts' : 'webfonts refused'}`;
+        if (!fonts) expect(m.rajdhani, `${at}: the first paint's face, not Rajdhani`).toBe(false);
+        expect(m.rowShown && !m.toggleShown, `${at}: the row, not the menu`).toBe(true);
+        expect(m.tabs, `${at}: seven tabs`).toBe(7);
+        expect(Math.max(...m.tops) - Math.min(...m.tops), `${at}: one row, tops ${m.tops}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(m.height - 40), `${at}: the bar is ${m.height}px, not its one-row 40px`).toBeLessThanOrEqual(1);
+        expect(m.past, `${at}: tabs past the frame's edge`).toBe(0);
+        // With Rajdhani in, 25px spare at 1440: nothing gives way. Compared with each
+        // label's own box, and only once the face is known to be in.
+        if (fonts && width === 1440 && m.rajdhani) expect(m.clipped, `${at}: labels cut short`).toEqual([]);
+      }
+      await page.setViewportSize({ width: 1039, height: 900 });
+      await page.goto(route);
+      const narrow = await measure(page);
+      expect(!narrow.rowShown && narrow.toggleShown, `${route} at 1039px: the menu button, not a row`).toBe(true);
+    }
+    await context.close();
+  }
+});
+
 test('a stage\'s forms are tab-look links and its Emergency Ops switch is the site\'s chips', async ({ page }) => {
   // They were .stage-variant-option, a page-local chip in mono 11px with a teal fill of
   // its own. The forms are links (each is its own address), marked aria-current="page",

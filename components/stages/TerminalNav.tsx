@@ -17,11 +17,12 @@ import { useNavOffset } from '@/lib/hooks/useNavOffset';
  * reaches them; they are drawn larger than the label because line art this fine is a
  * smudge at 10px.
  *
- * Under the site's own mobile breakpoint the row becomes a menu. Seven tabs do not fit
- * a phone, and a sideways-scrolling bar hides most of them behind a gesture with
- * nothing to say it is there -- so the bar shows the section you are IN, and the
- * button opens the rest. Same 900px the site switches its own nav at, so the two
- * change together.
+ * Under 1040px the row becomes a menu. Seven tabs do not fit a phone, and a
+ * sideways-scrolling bar hides most of them behind a gesture with nothing to say it is
+ * there -- so the bar shows the section you are IN, and the button opens the rest. Not
+ * at the site nav's 900px: the row needs 967px in Rajdhani, which the frame has only
+ * from a 1040px window, and it is one row or a menu, never two rows
+ * (styles/stages/stages-terminal.css).
  */
 export interface TerminalSection {
   key: string;

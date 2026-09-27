@@ -290,7 +290,6 @@
   .identity :global(.op-name-row) { grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; }
   .details { --panel-inset: 12px; }
   .hero { padding: 12px var(--panel-inset); }
-  .page :global(#operator-skills) { gap: 0 10px; }
 }
 @media (max-width: 360px) {
   .area { --operator-player-inset: calc(var(--panel-inset) + 9px); }

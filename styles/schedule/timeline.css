@@ -29,6 +29,13 @@
    on this month. The slot holds its width whether or not it is drawn. */
 .cal-today-slot { display: inline-flex; min-width: 72px; margin-left: 4px; }
 .cal-head-shows { display: flex; gap: 6px; }
+/* The month menu's text (components/schedule/CalendarMonthValue.tsx): the full name,
+   and on a phone the first three letters, the full name then kept for a screen reader
+   only. At 390px the head leaves the month 105px beside its steps and the year, and
+   SEPTEMBER needs 109 in Rajdhani (about 137 in the fallback face, before the webfont
+   arrives); the full name fits from about 396px (422 in the fallback), so the short
+   one is used at 440px and under. */
+.cal-month-short { display: none; }
 
 @media (max-width: 620px) {
   /* The date controls take the line and the toggles drop below it, rather than the two
@@ -48,6 +55,18 @@
   .cal-pick-year { min-width: 0; }
   .cal-today-slot { grid-column: 1 / -1; min-height: 32px; margin-left: 0; justify-content: flex-end; }
   .cal-head-shows { flex: 1 1 100%; }
+}
+@media (max-width: 440px) {
+  .cal-month-full {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .cal-month-short { display: inline; }
 }
 
 .timeline-month-large {

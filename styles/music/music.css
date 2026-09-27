@@ -365,7 +365,9 @@
 .music-queue-row-title {
   flex: 1;
   min-width: 0;
-  min-height: 36px;
+  /* A bordered button beside the row's three icon buttons: the same control height
+     (it was a literal 36px, 4px short of them on a phone). */
+  min-height: var(--control-h);
   overflow: hidden;
   padding: 0 10px;
   border: 1px solid var(--control-border);

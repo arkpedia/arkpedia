@@ -111,12 +111,16 @@ test('the planner\'s operator tabs are removed with Delete or their ×', async (
   const penance = list.getByRole('tab', { name: /Penance/ });
   await expect(penance).toHaveAttribute('aria-keyshortcuts', /Delete/);
   await expect(list.getByRole('tab', { name: 'All', exact: true })).not.toHaveAttribute('aria-keyshortcuts', /.+/);
-  // Delete on the focused tab removes it; focus stays in the strip.
+  // Delete on the focused tab removes it, and focus lands on the tab the planner makes
+  // current (All), not on a neighbour at tabindex -1 announced "not selected".
   await penance.click();
   await expect(penance).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Delete');
   await expect(list.getByRole('tab')).toHaveCount(2);
-  expect(await list.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  const all = list.getByRole('tab', { name: 'All', exact: true });
+  await expect(all).toHaveAttribute('aria-selected', 'true');
+  await expect(all).toBeFocused();
+  await expect(all).toHaveAttribute('tabindex', '0');
   // The × is a mouse shortcut, but a thumb can hit it: 24px or more each way around
   // its centre (WCAG 2.5.8) lands on it, not on the tab beside it. Box edges only.
   const x = list.getByRole('tab', { name: /Surtr/ }).locator('.tab-remove');
@@ -198,6 +202,16 @@ for (const place of PLACES) {
     const tabs = list.locator(':scope > [role="tab"]:not([disabled])');
     const n = await tabs.count();
     test.skip(n < 2, 'one tab: nothing to switch');
+    // A tab named apart from what it shows (an aria-label) starts with what it shows
+    // (WCAG 2.5.3, label in name): the gacha preview's "S1" was named "Skill 1: ...", so
+    // "click S1" in voice control found nothing. Its label is its own text, not the
+    // count or the remove mark beside it.
+    const misnamed = await tabs.evaluateAll((els) => els.flatMap((el) => {
+      const name = el.getAttribute('aria-label');
+      const shown = Array.from(el.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim();
+      return name && shown && !name.toLowerCase().startsWith(shown.toLowerCase()) ? [`"${shown}" is named "${name}"`] : [];
+    }));
+    expect(misnamed, 'tabs whose accessible name does not start with their label').toEqual([]);
     // Where the reader is most exposed: the strip at the top of the screen, as far down
     // the page as that allows (a pinned strip stays there at the very foot of the page).
     // scrollIntoView reaches a strip inside its own scroller too (the operator page's

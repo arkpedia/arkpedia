@@ -4,6 +4,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
+import { renderMonthValue } from '@/components/schedule/CalendarMonthValue';
 import SearchInput from '@/components/ui/SearchInput';
 import ScrollRow from '@/components/ui/ScrollRow';
 import Rarity, { type RarityLevel } from '@/components/ui/Rarity';
@@ -135,7 +136,7 @@ export default function UiPrimitivesPage() {
           <div style={row}>
             <StyledSelect<Faction> label="Filter by faction" value={faction} onChange={setFaction} options={FACTIONS} style={{ width: 240 }}
               renderOption={(o) => <><span style={{ flex: 1 }}>{o.label}</span><span className="filter-chip-count">{o.n}</span></>} />
-            <StyledSelect label="Month" size="title" value={month} onChange={setMonth} options={MONTHS} />
+            <StyledSelect label="Month" size="title" value={month} onChange={setMonth} options={MONTHS} renderValue={renderMonthValue} />
             <StyledSelect label="Empty" value="" onChange={() => {}} options={[]} placeholder="No options" style={{ width: 180 }} />
           </div>
         </section>

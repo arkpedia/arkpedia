@@ -32,6 +32,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
+import { renderMonthValue } from '@/components/schedule/CalendarMonthValue';
 import ScrollRow from '@/components/ui/ScrollRow';
 import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -385,6 +386,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 value={String(month)}
                 onChange={(value) => setMonth(Number(value))}
                 options={MONTH_NAMES.map((name, i) => ({ value: String(i), label: name }))}
+                renderValue={renderMonthValue}
               />
               <StyledSelect
                 label="Year"

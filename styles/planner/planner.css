@@ -198,7 +198,9 @@
 .simple-dossier-content { padding:20px; min-width:0; }
 .simple-build-overview { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; }
 .simple-build-summary { display:flex; align-items:center; gap:10px; flex-shrink:0; }
-.simple-build-summary .simple-state-link { display:grid; gap:3px; text-align:left; background:transparent; border:1px solid var(--control-border); border-radius:var(--radius); padding:6px 10px; color:var(--text); min-height:44px; }
+/* Three lines (label, level, action), 84px on every width: a literal 44px floor under
+   it did nothing, and a control-sized height reads as a row control (audit:styles). */
+.simple-build-summary .simple-state-link { display:grid; gap:3px; text-align:left; background:transparent; border:1px solid var(--control-border); border-radius:var(--radius); padding:6px 10px; color:var(--text); }
 .simple-build-summary .simple-state-link:hover { border-color:var(--teal); color:var(--teal); }
 .simple-build-summary .simple-state-link:focus-visible { outline:2px solid var(--teal); outline-offset:3px; }
 .simple-build-summary small { color:var(--text-dim); font-size:12px; }

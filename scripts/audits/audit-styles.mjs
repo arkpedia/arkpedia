@@ -256,6 +256,11 @@ const CONTROL_HEIGHT_EXEMPT = [
   [/^styles\/base\/base\.css: [^{]*\.base-(?:facility-explain|facility-settings|zoom-reset)-btn \{/, 'on the /base pan-and-zoom map: sized with the room tiles and scaled by --base-tap-scale so they stay 24px on screen at any zoom'],
   [/^components\/operators\/OperatorPage\.module\.css: \.splitRail button \{/, "the operator page's split handle between the artwork and the details: a 28px-wide rail, not a row control"],
   [/^components\/operators\/OperatorPage\.module\.css: \.relationPopover > button \{/, 'a name drawn as text (no border, no fill) that opens a popover: a 28px hit area round one line of text'],
+  // Boxed bare buttons (boxedClasses) that are not row controls.
+  [/^styles\/farming\/farming\.css: \.farming-accordion-header \{/, "a /farming tier's disclosure header: a full-width row heading its tier, as a <summary> would be (left out above), not a control in a row"],
+  [/^styles\/games\/guesser\.module\.css: \.clueTile \{/, "the operator guesser's hint tiles: a grid of tiles whose clue can run to two lines, not a row control"],
+  [/^styles\/music\/music\.css: [^{]*\.music-collapse-toggle \{/, "the floating mini player's collapse control, in the widget's corner beside its body (collapsed, the whole 44px shell), not a row"],
+  [/^styles\/survey\/boxplot\.css: \.stats-table-sort \{/, "the /results table's column sort buttons: sized with the table's header row, in cells beside header text, not a row of controls"],
 ];
 /** A radius of 50% draws a circle, which is right only for an avatar, a dot, an image or
  *  a slider thumb; every control and surface takes a radius token (ui-primitives rule 10). */
@@ -303,6 +308,46 @@ function controlClasses(tsxFiles) {
   }
   return out;
 }
+/** The classes TSX puts on a bare <button> (className has btn-bare): a card, a tile, a tab
+ *  or a name drawn as text -- until its CSS draws it a box (boxedClasses), when it is a
+ *  control like any other. The /music queue's track title was one: a bordered .btn-bare
+ *  with a literal 36px beside 40px icon buttons, which controlHeight could not see while
+ *  it left every .btn-bare out. */
+function bareButtonClasses(tsxFiles) {
+  const out = new Set();
+  for (const path of tsxFiles) {
+    const code = readFileSync(join(root, path), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of code.matchAll(/<button\b((?:=>|[^>])*?)\/?>/g)) {
+      const cls = m[1].match(/\bclassName=(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|'[^']*')/);
+      if (!cls) continue;
+      const names = classNamesIn(cls[1]);
+      if (!names.has('btn-bare')) continue;
+      for (const n of names) if (n !== 'btn-bare') out.add(n);
+    }
+  }
+  return out;
+}
+/** Of `candidates`, the classes a rule draws a control's box round at rest: a `border`
+ *  (or `border-color`) in var(--control-border), the boundary only real controls carry
+ *  (ui-primitives rule 2; a large pressable surface carries --card-border), on a subject
+ *  with no pseudo-class (a hover or focus edge is a picture card's, not a boundary). */
+function boxedClasses(cssFiles, candidates) {
+  const out = new Set();
+  for (const path of cssFiles) {
+    for (const { selector, body } of rules(stripComments(readFileSync(join(root, path), 'utf8')))) {
+      const box = declarations(body).some((d) => (d.prop === 'border' || d.prop === 'border-color') && /var\(\s*--control-border\s*\)/.test(d.value) && !/\b(?:none|hidden)\b/.test(d.value) && !/(?:^|\s)0(?:px)?(?:\s|$)/.test(d.value));
+      if (!box) continue;
+      for (const part of selector.split(/,(?![^(]*\))/)) {
+        const subject = part.replace(/:global\(([^)]*)\)/g, '$1').trim().split(/\s*[\s>+~]\s*/).pop() || '';
+        if (subject.includes(':')) continue;
+        for (const m of subject.matchAll(/\.([a-zA-Z_][\w-]*)/g)) if (candidates.has(m[1])) out.add(m[1]);
+      }
+    }
+  }
+  return out;
+}
+/** A literal height a control in a row could have (a card or a panel is taller). */
+const controlSized = (value) => [...value.matchAll(/(\d*\.?\d+)px\b/g)].some((m) => Number(m[1]) >= 20 && Number(m[1]) <= 56);
 /* --- r9 headingRules (headings-spacing) ----------------------------------------------- */
 /** Heading classes whose look is deliberately their own, and why. Named, not a pattern. */
 const HEADING_EXEMPT = {
@@ -338,7 +383,7 @@ function headingClasses(files) {
 /** A literal height or min-height on a control's rule: outside styles/core on any
  *  control, and in styles/core on the primitives themselves (a primitive stating 32px
  *  instead of the token is how a flip of --control-h-base would silently miss it). */
-function controlHeights(cssFiles, controls) {
+function controlHeights(cssFiles, controls, boxedBare) {
   const found = [];
   for (const path of cssFiles) {
     const core = path.startsWith(join('styles', 'core') + '/');
@@ -352,9 +397,13 @@ function controlHeights(cssFiles, controls) {
         // A .btn-bare is a card or a tile, and a dot (a carousel pager, a status mark) is
         // its own small hit area: neither is a control in a row.
         if (classes.includes('btn-bare') || classes.some((c) => /(?:^|-)dots?$/.test(c))) continue;
-        if (core ? !classes.some((c) => CONTROL_PRIMITIVES.has(c))
-          : !CONTROL_ELEMENT.test(subject.replace(/:not\([^)]*\)/g, '')) && !classes.some((c) => CONTROL_PRIMITIVES.has(c) || controls.has(c))) continue;
-        for (const d of decls) found.push(`${path}: ${part.trim()} { ${d.prop}: ${d.value} }`);
+        const control = core ? classes.some((c) => CONTROL_PRIMITIVES.has(c))
+          : CONTROL_ELEMENT.test(subject.replace(/:not\([^)]*\)/g, '')) || classes.some((c) => CONTROL_PRIMITIVES.has(c) || controls.has(c));
+        // A boxed bare button (boxedClasses) is held to it too, at a height a row
+        // control could have: a boxed card is taller than any row.
+        const boxed = !control && !core && classes.some((c) => boxedBare.has(c));
+        if (!control && !boxed) continue;
+        for (const d of decls) if (!boxed || controlSized(d.value)) found.push(`${path}: ${part.trim()} { ${d.prop}: ${d.value} }`);
       }
     }
   }
@@ -522,7 +571,7 @@ function collect() {
 
   Object.assign(out, collectChoicesAndBadges(root));
   // controlHeight (r9 controls)
-  out.controlHeight = controlHeights(cssFiles, controlClasses([...walk('pages', ['.tsx']), ...walk('components', ['.tsx'])]));
+  out.controlHeight = controlHeights(cssFiles, controlClasses(tsxFiles), boxedClasses(cssFiles, bareButtonClasses(tsxFiles)));
 
   out.collisions = [...owners.entries()]
     .filter(([, fs]) => fs.size > 1)

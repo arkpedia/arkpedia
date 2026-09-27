@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { rowCensus, type RowOffence, type RowTolerance } from './row-census';
-import { CENSUS_STATES, censusRoutes, openCensus } from './census-routes';
+import { CENSUS_STATES, censusRoutes, openCensus, readOnly } from './census-routes';
 
 /*
  * One line (docs/development/ui-primitives.md rule 4): in a row, a button, input or
@@ -197,8 +197,8 @@ test('every row primitive is one control height, and follows the token', async (
 });
 
 /*
- * The Terminal bar's menu button, the one control of the collapsed bar at 900px and
- * under, is the control height too: sized by its padding it was 37px on a phone and 40
+ * The Terminal bar's menu button, the one control of the collapsed bar under 1040px,
+ * is the control height too: sized by its padding it was 37px on a phone and 40
  * at 721-900px, beside a search field and chips at 40 and 36. It is alone on its line,
  * so the row census cannot see it; measured here at 390 and 800, and with the token
  * flipped.
@@ -230,6 +230,59 @@ test("the Terminal bar's menu button is one control height, and follows the toke
       if (base) await page.addStyleTag({ content: `:root { --control-h-base: ${base}px; }` });
       const h = await toggle.evaluate((el) => Math.round(el.getBoundingClientRect().height * 10) / 10);
       expect(Math.abs(h - expected), `the Terminal menu button is ${h}px tall at ${w}px, not the control height ${expected}px${base ? ` (--control-h-base: ${base}px)` : ''}`).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
+/*
+ * The calendar's month and year menus show their whole value. On a phone the head is a
+ * grid of the two month steps (each var(--control-h) square) either side of the month
+ * and year, and the month gets what is left: when the steps grew from 36 to 40px,
+ * SEPTEMBER (109px in Rajdhani) had 105px at 390 and 75 at 360, and lost its last
+ * letter. Every month is selected, at 360, 390 and 460 (the phone layout on both sides
+ * of the short names' 440px) and at 1440, and the text each trigger shows is compared
+ * with the trigger's value box: text against the box it sits in, never a constant,
+ * within 2px.
+ */
+test("the calendar's month and year menus show their whole value", async ({ page }) => {
+  const width = await censusWidth(page);
+  const widths = width === 1440 ? [1440] : [360, 390, 460];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  await readOnly(page);
+  for (const w of widths) {
+    await page.setViewportSize({ width: w, height: 844 });
+    await page.goto('/schedule?view=calendar');
+    await page.evaluate(() => document.fonts.ready);
+    const month = page.locator('.cal-head-title').getByRole('combobox', { name: 'Month' });
+    await expect(month).toBeVisible();
+    for (const name of months) {
+      await month.click();
+      await page.getByRole('option', { name, exact: true }).click();
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+      // Every piece of text the trigger shows lies inside its value box. The text's own
+      // extent (a Range), so a value cut short by a span inside it counts too; text kept
+      // for a screen reader only (the full month name on a phone) is not shown.
+      const cut = await page.locator('.cal-head-title').evaluate((title) => Array.from(title.querySelectorAll('[role="combobox"]')).flatMap((trigger) => {
+        const value = trigger.querySelector(':scope > span')!;
+        const box = value.getBoundingClientRect();
+        const out: string[] = [];
+        const walker = document.createTreeWalker(value, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (!node.textContent?.trim()) continue;
+          let hidden = false;
+          for (let el = node.parentElement; el && el !== trigger; el = el.parentElement) {
+            const cs = getComputedStyle(el);
+            if (cs.display === 'none' || cs.clip !== 'auto' || el.getBoundingClientRect().width <= 1) { hidden = true; break; }
+          }
+          if (hidden) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const text = range.getBoundingClientRect();
+          if (text.left < box.left - 2 || text.right > box.right + 2) out.push(`"${node.textContent}" ${Math.round(text.width)}px in ${Math.round(box.width)}px`);
+        }
+        return out;
+      }));
+      expect(cut, `values cut short at ${w}px with ${name} picked`).toEqual([]);
     }
   }
 });

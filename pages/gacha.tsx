@@ -217,7 +217,9 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                 options={details.skills.map((entry, index) => ({
                   value: index,
                   label: `S${index + 1}`,
-                  ariaLabel: `Skill ${index + 1}${entry.name ? `: ${entry.name}` : ''}`,
+                  // The name starts with what the tab shows (WCAG 2.5.3): "click S1" in
+                  // voice control finds it.
+                  ariaLabel: `S${index + 1}${entry.name ? `: ${entry.name}` : ''}`,
                   title: entry.name || undefined,
                   icon: entry.icon ? <ContentImg src={entry.icon} alt="" width={28} height={28} /> : undefined,
                 }))} />

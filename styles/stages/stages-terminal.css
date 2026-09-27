@@ -52,15 +52,21 @@
   padding: 0 var(--page-gutter);
 }
 /* The row of tabs: the site's .tabs strip of .tab links (arkpedia-theme.css), packed
-   from the frame's left edge. On a desktop this IS the bar; under the mobile
-   breakpoint it becomes the menu that the collapsed bar opens. It wraps rather than
-   scrolls (.tabs does): the seven tabs only just fit the frame, and on Linux and
-   Windows the last one sat partly behind a scroll whose bar is hidden. A second row
-   keeps every tab reachable and inside the frame (tests/browser/page-bounds.spec.ts
-   measures it on the Linux CI runner). It was centred, which put the first tab 27px
-   right of the eyebrow and h1 under it. */
-/* The bar's own height: the underline sits on its bottom hairline. */
-.terminal-tabs > * { min-height: 40px; }
+   from the frame's left edge. On a desktop this IS the bar; under 1040px it becomes
+   the menu that the collapsed bar opens (the media query below). It was centred, which
+   put the first tab 27px right of the eyebrow and h1 under it.
+   ONE row, never two, and never a scroll: in Rajdhani the seven tabs need 967px of the
+   frame's 992, and until the webfont arrives (display=swap, about 100ms, or never where
+   Google Fonts is blocked) the fallback face needs 1141px. As a wrapping .tabs strip the
+   bar was two rows (82px) for that first paint and the whole page jumped up 42px when
+   Rajdhani came in (CLS 0.4-0.8 on every Terminal page). So it does not wrap, and a tab
+   may shrink: its label ends in an ellipsis instead, every tab stays in the frame and
+   reachable, and the bar keeps its one-row height through the swap.
+   tests/browser/terminal-pages.spec.ts loads the Terminal with the webfonts blocked. */
+.terminal-tabs { flex-wrap: nowrap; }
+/* The bar's own height (the underline sits on its bottom hairline), and a tab may be
+   narrower than its label. */
+.terminal-tabs > * { min-height: 40px; min-width: 0; }
 
 /* --- the collapsed bar, under the mobile breakpoint --------------------------
    Hidden on a desktop, where all seven tabs fit. The menu button is a control, so it
@@ -130,6 +136,7 @@
   transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 .terminal-tab-mark {
+  flex-shrink: 0;
   font-size: 18px;
   line-height: 1;
 }
@@ -142,7 +149,8 @@
 }
 /* Every section is named here, unlike in game where only the current one is. A row
    of bare glyphs is a guessing game on a site you arrive at from a search result. */
-.terminal-tab-label { white-space: nowrap; }
+/* The label is what gives way when the row is short of room (see .terminal-tabs). */
+.terminal-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .terminal-tab:hover {
   color: var(--text);
   background: rgb(255 255 255 / 0.03);
@@ -995,11 +1003,17 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 @media (max-width: 900px) {
   /* One column: the panels are a column of sections now, not a board. */
   .terminal-home { grid-template-columns: minmax(0, 1fr); gap: var(--section-gap); }
-
+}
+@media (max-width: 1039px) {
   /* Seven tabs do not fit a phone, and a sideways-scrolling bar hides most of them
      behind a gesture with nothing to say it is there. So the bar names the section you
-     are in, and the button opens the rest as a panel under it. The same 900px the site
-     switches its own nav at, so the two change together. */
+     are in, and the button opens the rest as a panel under it.
+     Under 1040px, not the site nav's 900: the row needs 967px in Rajdhani, and the
+     frame's content is 992px only from a 1040px window (--frame-max; 975 with a 17px
+     classic scrollbar, which Windows and Linux draw inside the window). Between 901 and
+     1039 the row was two rows (82px), since it cannot shrink its labels to fit without
+     cutting every one of them. tests/browser/terminal-pages.spec.ts measures 1039 and
+     1040. */
   .terminal-bar-toggle { display: flex; }
   /* The collapsed bar keeps the page's gutter, so its button lines up with the header
      and the scene under it; at 12px it started 12px left of everything else on the

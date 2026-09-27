@@ -8,10 +8,10 @@
  * flow and lifted the value off the row's centre line. Nothing measured it.
  *
  * For every flex row and grid on the page this pairs each CONTROL child (a button,
- * input, select, dropdown trigger, chip, disclosure summary or .check label, or a
- * wrapper whose only content is one) with each TEXT child on the same line (a child
- * with visible text and no control in it) and with each other control on the same
- * line, and reports two things:
+ * input, select, dropdown trigger, chip, disclosure summary or .check label, a bare
+ * button that draws a border, or a wrapper whose only content is one) with each TEXT
+ * child on the same line (a child with visible text and no control in it) and with
+ * each other control on the same line, and reports two things:
  *
  *   centre  the pair's vertical centres are more than `centre` px apart. The text's
  *           centre is the centre of its glyph boxes in the flow -- one line, or a short
@@ -59,6 +59,26 @@ export interface RowTolerance { centre: number; height: number; scope?: 'content
 
 export function rowCensus(tolerance: RowTolerance): RowOffence[] {
   const CONTROL = 'button:not(.btn-bare), input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea, [role="combobox"], a.btn, a.ghost, a.primary, a.danger, .filter-chip, .tgl, label.check, summary';
+  /** A .btn-bare button starts from nothing -- a card, a tile, a tab, a name that opens
+   *  a popover -- and is a control once it draws a control's boundary: a visible border
+   *  on all four sides (the /music queue's track title, a boxed bare button 36px tall
+   *  beside the row's 40px icon buttons, which the census could not see while it left
+   *  every .btn-bare out). A picture card keeps a transparent border at rest, and a list
+   *  row a hairline on one side, so both stay out. */
+  const BARE = 'button.btn-bare';
+  const transparent = (colour: string) => /rgba\([^)]*,\s*0\)|transparent/.test(colour);
+  /** How many sides of `el` draw a visible border. */
+  const edges = (el: Element) => {
+    const s = getComputedStyle(el);
+    return ['top', 'right', 'bottom', 'left'].filter((side) => parseFloat(s.getPropertyValue(`border-${side}-width`)) > 0 && !transparent(s.getPropertyValue(`border-${side}-color`))).length;
+  };
+  const isControl = (el: Element) => el.matches(CONTROL) || (el.matches(BARE) && edges(el) === 4);
+  /** Whether an ancestor of `el` is itself a control (a chip inside a dropdown trigger
+   *  counts once, as the trigger). */
+  const inControl = (el: Element) => {
+    for (let node = el.parentElement; node; node = node.parentElement) if (isControl(node)) return true;
+    return false;
+  };
   const MEDIA = 'img, svg, video, canvas, picture';
   const describe = (el: Element) => {
     const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((c) => `.${c}`).join('') : '';
@@ -72,7 +92,7 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
     return cs.visibility !== 'hidden' && cs.opacity !== '0' && el.checkVisibility();
   };
   const inFlow = (el: Element) => !['absolute', 'fixed'].includes(getComputedStyle(el).position);
-  const controlsIn = (el: Element) => Array.from(el.querySelectorAll(CONTROL)).filter((c) => visible(c) && !c.parentElement?.closest(CONTROL));
+  const controlsIn = (el: Element) => Array.from(el.querySelectorAll(`${CONTROL}, ${BARE}`)).filter((c) => isControl(c) && visible(c) && !inControl(c));
   /** Whether `el`, or an element between it and `root`, is positioned out of flow. */
   const outOfFlow = (el: Element, root: Element) => {
     for (let node: Element | null = el; node && node !== root; node = node.parentElement) if (!inFlow(node)) return true;
@@ -83,9 +103,8 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
    *  counts, not its height. */
   const drawnAsText = (el: Element) => {
     const s = getComputedStyle(el);
-    const edge = ['Top', 'Right', 'Bottom', 'Left'].some((side) => parseFloat(s.getPropertyValue(`border-${side.toLowerCase()}-width`)) > 0 && !/rgba\([^)]*,\s*0\)|transparent/.test(s.getPropertyValue(`border-${side.toLowerCase()}-color`)));
-    const fill = s.backgroundImage !== 'none' || !/rgba\([^)]*,\s*0\)|transparent/.test(s.backgroundColor);
-    return !edge && !fill;
+    const fill = s.backgroundImage !== 'none' || !transparent(s.backgroundColor);
+    return !edges(el) && !fill;
   };
   /** A control whose label runs to a second line: its height is its text's, and a
    *  wider fallback font (CI's Linux Chromium) can wrap a label the Mac keeps on one. */
@@ -137,7 +156,7 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
     const cs = getComputedStyle(el);
     if (!/flex/.test(cs.display) || !cs.flexDirection.startsWith('row') || cs.flexWrap !== 'wrap') return null;
     const children = Array.from(el.children).filter((k) => visible(k) && inFlow(k));
-    if (!children.some((k) => !k.matches(CONTROL) && !controlsIn(k).length)) return null;
+    if (!children.some((k) => !isControl(k) && !controlsIn(k).length)) return null;
     const items = children.map((k) => k.getBoundingClientRect());
     if (items.length < 2) return null;
     const top = Math.min(...items.map((r) => r.top));
@@ -160,14 +179,14 @@ export function rowCensus(tolerance: RowTolerance): RowOffence[] {
     const cs = getComputedStyle(container);
     const flexRow = /flex/.test(cs.display) && cs.flexDirection.startsWith('row');
     if (!flexRow && !/grid/.test(cs.display)) continue;
-    if (container.matches(CONTROL) || !visible(container)) continue;
+    if (isControl(container) || !visible(container)) continue;
     if (!!container.closest('.site-nav') !== (tolerance.scope === 'nav')) continue;
     const kids = Array.from(container.children).filter((k) => visible(k) && inFlow(k));
     if (kids.length < 2) continue;
     const controls: { kid: Element; box: DOMRect; el: Element }[] = [];
     const texts: { kid: Element; line: { top: number; bottom: number; centre: number } }[] = [];
     for (const kid of kids) {
-      if (kid.matches(CONTROL)) {
+      if (isControl(kid)) {
         controls.push({ kid, el: kid, box: kid.getBoundingClientRect() });
         continue;
       }
