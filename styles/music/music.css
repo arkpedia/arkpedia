@@ -49,23 +49,21 @@
   height: 1px;
   overflow: hidden;
 }
-/* Expanded: a 40px close control with the resting boundary. Collapsed: the whole
-   44px shell (the teal-topped ♪ tile). */
+/* Expanded, the button is the player's × (MusicPlayer gives it .btn-x, which sets its
+   square, its borderless rest and its hover: ui-primitives rule 21). Collapsed, it is
+   the whole 44px shell (the teal-topped ♪ tile), below. */
 .music-collapse-toggle {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
   padding: 0;
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
 }
-.music-collapse-toggle:hover { border-color: var(--teal); color: var(--teal); }
 /* Stretched over the shell's border and its teal top accent, so a press on the
    visible edge is a press on the button. */
 .music-player.collapsed .music-collapse-toggle {

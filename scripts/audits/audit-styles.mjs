@@ -273,7 +273,6 @@ const CONTROL_HEIGHT_EXEMPT = [
   // Boxed bare buttons (boxedClasses) that are not row controls.
   [/^styles\/farming\/farming\.css: \.farming-accordion-header \{/, "a /farming tier's disclosure header: a full-width row heading its tier, as a <summary> would be (left out above), not a control in a row"],
   [/^styles\/games\/guesser\.module\.css: \.clueTile \{/, "the operator guesser's hint tiles: a grid of tiles whose clue can run to two lines, not a row control"],
-  [/^styles\/music\/music\.css: [^{]*\.music-collapse-toggle \{/, "the floating mini player's collapse control, in the widget's corner beside its body (collapsed, the whole 44px shell), not a row"],
   [/^styles\/survey\/boxplot\.css: \.stats-table-sort \{/, "the /results table's column sort buttons: sized with the table's header row, in cells beside header text, not a row of controls"],
 ];
 /** A radius of 50% draws a circle, which is right only for an avatar, a dot, an image or
