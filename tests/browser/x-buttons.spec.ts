@@ -240,6 +240,10 @@ function measure() {
       primitive: el.matches('.btn-x, .tab-remove'),
       named: el.matches('.tab-remove') || !!(el.getAttribute('aria-label') ?? '').trim(),
       bordered, fill: !clear(s.backgroundColor) || s.backgroundImage !== 'none',
+      // Every place here opens by pointer, so a × drawn in the focus ring is a box round
+      // the glyph that the reader never asked for: the planner's operator dialog focused
+      // its × on open, and Chromium carries :focus-visible from the Simple search's field.
+      ringed: el.matches(':focus-visible'),
       w: Math.round(box.width * 10) / 10, h: Math.round(box.height * 10) / 10, misses,
     };
   });
@@ -267,6 +271,7 @@ for (const place of PLACES) {
       expect(x.named, `${x.what} has a name`).toBe(true);
       expect(x.bordered, `${x.what} draws no border`).toEqual([]);
       expect(x.fill, `${x.what} has no fill at rest`).toBe(false);
+      expect(x.ringed, `${x.what} opens outside the focus ring (its place was opened by pointer)`).toBe(false);
       expect(Math.abs(x.w - x.h), `${x.what} is square (${x.w}x${x.h})`).toBeLessThanOrEqual(1);
       expect(Math.min(x.w, x.h), `${x.what} is 24px or more`).toBeGreaterThanOrEqual(24);
       expect(x.misses, `${x.what}: points 8px from the glyph's centre that miss it`).toEqual([]);
@@ -287,3 +292,30 @@ for (const place of PLACES) {
     await place.gone(page);
   });
 }
+
+/*
+ * The planner's operator dialog opens from the Simple search, a text field, and takes focus
+ * on itself rather than on its ×: Chromium carries :focus-visible from a field to whatever a
+ * script focuses next, so the × opened in the teal focus ring for a reader who had clicked.
+ * The keyboard path still reaches the ×, and the dialog still holds Tab: Shift+Tab from the
+ * box itself goes to the dialog's last control, not to the page behind the overlay.
+ */
+test("the planner's operator dialog opens on itself, and Tab still reaches its × and stays inside", async ({ page }) => {
+  await readOnly(page);
+  await page.goto('/planner');
+  const search = page.getByPlaceholder('Search operators…');
+  await search.fill('Penance');
+  await expect(page.getByRole('option', { name: /Penance/ }).first()).toBeVisible();
+  await search.press('ArrowDown');
+  await search.press('Enter');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('role')), { message: 'focus is on the dialog' }).toBe('dialog');
+  const close = dialog.getByRole('button', { name: 'Close', exact: true });
+  await page.keyboard.press('Tab');
+  await expect(close, 'the first Tab reaches the ×').toBeFocused();
+  expect(await close.evaluate((el) => el.matches(':focus-visible')), 'a keyboard reader sees the ring on it').toBe(true);
+  await dialog.focus();
+  await page.keyboard.press('Shift+Tab');
+  expect(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')), 'Shift+Tab from the box stays in the dialog').toBe(true);
+});
