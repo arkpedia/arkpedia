@@ -253,7 +253,7 @@
 .pulls-disclosure > summary .pulls-note { display: inline-block; margin: 0 0 0 10px; font-weight: 400; }
 .pulls-disclosure[open] > summary { margin-bottom: 18px; }
 .pulls-disclosure { scroll-margin-top: 90px; }
-.pulls-skin-search { display: flex; flex-direction: column; gap: 8px; font-weight: 600; }
+.pulls-skin-search { display: flex; flex-direction: column; gap: 8px; }
 .pulls-skin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
 /* A .btn-bare .pick-card: the frame, hover and picked state are the primitive's. */
 .pulls-skin-option { display: flex; flex-direction: column; text-align: left; padding: 10px; color: var(--text); min-width: 0; }
@@ -428,6 +428,9 @@
 
 /* Both the closed control and its popup use Arkpedia's theme. */
 .pulls-shop-field { display: flex; flex-direction: column; gap: 8px; }
+/* The skin panel's two field captions in one voice, the page's own ("Until" beside the
+   forecast date): "Event shop" was 16px regular over "Search this shop" at 16px 600. */
+.pulls-shop-field > span, .pulls-skin-search > span { font-size: 13px; font-weight: 400; }
 
 /* Centred (ui-primitives rule 4): once a banner is picked its trigger grows to hold the
    portraits, and a top-aligned date field sat 9px above its centre. */

@@ -75,7 +75,13 @@
 .goalEditor :global(.pulls-goals-layout) { display: block; }
 .goalEditor :global(.pulls-goal-choices) { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .goalEditor :global(.pulls-operator-option) { min-height: 56px; }
-.goalEditor :global(.pulls-goals-outcome) { display: block; margin-top: 10px; }
+/* The editor stacks its outcome under the choices at every width, so the outcome takes
+   the stacked look at every width: one hairline above it and no indent. pulls.css drew
+   the side-by-side column's left rule and 24px indent above 1000px, which here was a
+   45px stub of rule beside "Chances per operator"; on a phone the chances disclosure
+   added a second rule 30px under the first. */
+.goalEditor :global(.pulls-goals-outcome) { display: block; margin-top: 10px; padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+.goalEditor :global(.pulls-copy-details) { border-top: 0; }
 .goalEditor :global(.pulls-odds-headline) { display: none; }
 .goalEditor :global(.pulls-odds-result) { min-height: 0; }
 .spending { display: flex; gap: 24px; padding-top: 14px; font-size: 12px; color: var(--text-dim); }

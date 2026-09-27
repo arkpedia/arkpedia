@@ -173,3 +173,60 @@ test('between a phone and the full row the triggers take two lines, each a contr
   }
 });
 
+/*
+ * The banner goal editor stacks its outcome under the goal choices at every width, so the
+ * outcome is one stacked block: a hairline above it, no side rule and no indent. Above
+ * 1000px it kept the side-by-side column's left rule and 24px indent, a stub of rule
+ * beside "Chances per operator"; on a phone the chances disclosure drew a second rule
+ * just under the first. Box edges and computed borders only.
+ */
+test('the goal editor\'s outcome is one stacked block with one rule', async ({ page }) => {
+  await page.goto('/pulls');
+  const banner = await page.evaluate(() => {
+    const odds = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { bannerOdds: Record<string, { type: string }> } } } }).__NEXT_DATA__.props.pageProps.bannerOdds;
+    const names = Object.keys(odds);
+    return names.find((n) => odds[n].type === 'limited') ?? names[0] ?? null;
+  });
+  expect(banner).toBeTruthy();
+  await page.goto(`/pulls?banner=${encodeURIComponent(banner!)}`);
+  const editor = page.locator('.pulls-banner-editor').first();
+  await expect(editor).toBeVisible();
+  const measure = () => editor.evaluate((el) => {
+    const outcome = el.querySelector('.pulls-goals-outcome')!;
+    const s = getComputedStyle(outcome);
+    const ruled = (st: CSSStyleDeclaration, side: string) => parseFloat(st.getPropertyValue(`border-${side}-width`)) > 0 && !/rgba\([^)]*,\s*0\)$|^transparent$/.test(st.getPropertyValue(`border-${side}-color`));
+    const inputs = el.querySelector('.pulls-goals-inputs')!.getBoundingClientRect();
+    const first = outcome.firstElementChild?.getBoundingClientRect();
+    const details = el.querySelector('.pulls-copy-details');
+    return {
+      side: ruled(s, 'left') || ruled(s, 'right'), top: ruled(s, 'top'),
+      indent: first ? Math.round((first.left - inputs.left) * 10) / 10 : null,
+      below: outcome.getBoundingClientRect().top >= inputs.bottom - 0.5,
+      detailsRule: details ? ruled(getComputedStyle(details), 'top') : false,
+    };
+  });
+  const empty = await measure();
+  expect(empty, 'with no goal picked').toMatchObject({ side: false, top: true, below: true });
+  expect(Math.abs(empty.indent ?? 99), 'the outcome starts on the choices\' edge').toBeLessThanOrEqual(1);
+  await editor.locator('.pulls-operator-option button').first().click();
+  await expect(editor.locator('.pulls-copy-details')).toBeVisible({ timeout: 15000 });
+  const picked = await measure();
+  expect(picked, 'with a goal picked').toMatchObject({ side: false, top: true, below: true, detailsRule: false });
+});
+
+/* The skin wishlist's two field captions are one voice: "Event shop" was 16px regular
+ * over "Search this shop" at 16px 600. Computed styles, not glyph widths. */
+test('the skin wishlist\'s field captions share one voice', async ({ page }) => {
+  await page.goto('/pulls');
+  await page.getByRole('button', { name: /Skin wishlist/ }).click();
+  const captions = await page.locator('#panel-skins').evaluate((panel) => ['.pulls-shop-field > span', '.pulls-skin-search > span'].map((sel) => {
+    const el = panel.querySelector(sel);
+    if (!el) return null;
+    const s = getComputedStyle(el);
+    return `${s.fontFamily} ${s.fontSize} ${s.fontWeight} ${s.color} ${s.textTransform}`;
+  }));
+  if (captions[0] === null) test.skip(await page.getByText('No upcoming shop rotations are listed.').count() > 0, 'no skin shop rotation is listed in this build');
+  expect(captions[0], 'the Event shop caption').not.toBeNull();
+  expect(captions[1], 'the Search this shop caption').toBe(captions[0]);
+  expect(captions[0]).toMatch(/ 13px 400 /);
+});
