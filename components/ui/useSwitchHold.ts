@@ -13,10 +13,11 @@ function contentHeight(el: HTMLElement): number {
 /** The margins of the element's first and last children that collapse through its own
  *  top and bottom edges (a block box with no padding or border there): the page counts
  *  them and the element's box does not. So the page loses them with the panel, and the
- *  hold has to give them back: the planner's Experimental panel opens with a 16px margin
- *  (its first .plan-panel) and Simple with none, and the hold for Experimental -> Simple
- *  came out 16px short on a phone. Measured by giving the element 1px of padding at each
- *  end for one synchronous layout, in the handler, before anything is painted. */
+ *  hold has to give them back: the planner's Experimental panel opened with a 16px margin
+ *  (its first .plan-panel's, since removed) and Simple with none, and the hold for
+ *  Experimental -> Simple came out 16px short on a phone. Measured by giving the element
+ *  1px of padding at each end for one synchronous layout, in the handler, before anything
+ *  is painted. */
 function collapsedMargins(el: HTMLElement): number {
   const style = getComputedStyle(el);
   if (style.display !== 'block') return 0;

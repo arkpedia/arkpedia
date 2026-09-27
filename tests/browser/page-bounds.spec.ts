@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { tabAlign } from './tab-align';
 import { sectionCensus, type StackOffence } from './section-census';
+import { CENSUS_STATES, openCensus } from './census-routes';
 
 /*
  * Every page sits in the same frame as the nav: 1040px wide with a 24px gutter, so its
@@ -364,6 +365,30 @@ for (const width of WIDTHS) {
     expect(strays.map((x) => `${x.parent} > ${x.child} starts ${x.dx}px in (led by ${x.by}; ${x.flush} starts on it)`), 'the dossier starts every block on one edge').toEqual([]);
     await context.close();
   });
+}
+
+/* r10: first-gap on every driven state, not only on a page load. A view switch puts other
+   content first under the header, and the route list only ever sees the view a page opens
+   on: the planner opens on Simple (its search 24px under the hairline) and Experimental's
+   first panel sat 40px under it, from the 16px top margin that spaces the panels from each
+   other, so the page moved 16px on every switch between the two. A dialog state measures
+   the page behind it, which the dialog does not move. */
+for (const width of WIDTHS) {
+  for (const state of CENSUS_STATES) {
+    test(`first-gap on ${state.route} (${state.id}) at ${width.use.viewport.width}px`, async ({ browser }, info) => {
+      test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
+      const context = await browser.newContext({ ...width.use, baseURL: info.project.use.baseURL });
+      const page = await context.newPage();
+      await openCensus(page, state);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const census = await page.evaluate(sectionCensus, { stacks: false });
+      const narrow = width.use.viewport.width <= 700;
+      const expected = FIRST_GAP_OTHERS[state.route]?.gap ?? (census.firstGap.terminalScene && narrow ? 14 : FIRST_GAP);
+      expect(census.firstGap.gap, 'the page has a header and a first content').not.toBeNull();
+      expect(Math.abs(census.firstGap.gap! - expected), `the first content (${census.firstGap.first}) is ${census.firstGap.gap}px under the header hairline, not ${expected}px (rule 15)`).toBeLessThanOrEqual(2);
+      await context.close();
+    });
+  }
 }
 
 test('every accepted stack-align inset is still on a page (stack-align-baseline.json)', ({}, info) => {

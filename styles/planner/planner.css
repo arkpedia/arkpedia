@@ -1043,6 +1043,11 @@
   border-radius: var(--radius-frame);
   overflow: hidden;
 }
+/* The first panel starts where Simple's search does, 24px under the header hairline
+   (main's padding; ui-primitives rule 15). The 16px spaces a panel from the one above
+   it; on the first it put Experimental 16px lower than Simple, so everything under the
+   mode tabs moved on each switch between the two. */
+.plan-panel:first-child { margin-top: 0; }
 /* The title, then its count ("· 4 operators with goals") one gap after it, then the
    actions at the far end. The count used to be the middle of three space-between
    items, so it floated to a different x in each panel (598, 796 and 631px at 1440);
