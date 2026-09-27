@@ -35,7 +35,14 @@ async function strip(list: Locator) {
 
 test('a tab strip is a real tablist, and the keyboard moves along it', async ({ page }) => {
   const errors: string[] = [];
-  page.on('console', (msg) => { if (msg.type() === 'error' && /hydrat|did not match/i.test(msg.text())) errors.push(msg.text()); });
+  // The Check runs a production build, where React says nothing about an attribute
+  // mismatch and reports a text or structure one as an uncaught "Minified React error"
+  // (a pageerror, not a console message). Both channels, both wordings; the state
+  // divergence an attribute mismatch leaves behind is caught by the presses below
+  // (every tab of every strip must select, and show its panel).
+  const hydration = /hydrat|did not match|Minified React error #(418|419|421|422|423|425)\b/i;
+  page.on('console', (msg) => { if (msg.type() === 'error' && hydration.test(msg.text())) errors.push(msg.text()); });
+  page.on('pageerror', (error) => { if (hydration.test(String(error))) errors.push(String(error)); });
   await page.goto('/gamemodes/stronghold-protocol');
   const list = page.getByRole('tablist', { name: 'Sections' });
   await expect(list).toBeVisible();
@@ -110,9 +117,45 @@ test('the planner\'s operator tabs are removed with Delete or their ×', async (
   await page.keyboard.press('Delete');
   await expect(list.getByRole('tab')).toHaveCount(2);
   expect(await list.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  // The × is a mouse shortcut, but a thumb can hit it: 24px or more each way around
+  // its centre (WCAG 2.5.8) lands on it, not on the tab beside it. Box edges only.
+  const x = list.getByRole('tab', { name: /Surtr/ }).locator('.tab-remove');
+  const misses = await x.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    return [[-11, 0], [11, 0], [0, -11], [0, 11]].filter(([dx, dy]) => !el.contains(document.elementFromPoint(cx + dx, cy + dy))).map(([dx, dy]) => `${dx},${dy}`);
+  });
+  expect(misses, 'points 11px from the ×\'s centre that miss it').toEqual([]);
   // The × removes without selecting.
-  await list.getByRole('tab', { name: /Surtr/ }).locator('.tab-remove').click();
+  await x.click();
   await expect(page.getByRole('tablist', { name: 'View materials for' })).toHaveCount(0);
+});
+
+test('every reader can remove the operator on show, not only a mouse or a keyboard', async ({ page }) => {
+  // The tab's × is aria-hidden and Delete needs a keyboard, so a touch screen reader
+  // or voice control had no way to remove an operator in Simple mode: base had a 36x44
+  // "Remove … from plan" button beside each tab.
+  await page.goto('/planner');
+  for (const name of ['Penance', 'Surtr']) {
+    await page.getByPlaceholder('Search operators…').fill(name);
+    await page.getByRole('option', { name: new RegExp(name) }).first().click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  }
+  const list = page.getByRole('tablist', { name: 'View materials for' });
+  await list.getByRole('tab', { name: /Penance/ }).click();
+  const panel = page.getByRole('tabpanel', { name: /Penance/ });
+  const remove = panel.getByRole('button', { name: 'Remove from plan', exact: true });
+  await expect(remove).toBeVisible();
+  const box = await remove.boundingBox();
+  expect(box && Math.min(box.width, box.height), 'a 24px target or more').toBeGreaterThanOrEqual(24);
+  await remove.click();
+  await expect(list.getByRole('tab')).toHaveCount(2);
+  // Focus is not dropped on the body: it goes to All, which now shows.
+  const all = list.getByRole('tab', { name: 'All', exact: true });
+  await expect(all).toHaveAttribute('aria-selected', 'true');
+  await expect(all).toBeFocused();
 });
 
 /* --- Anti-Page Jump: switching a tab never shortens the page under the reader --------- */
@@ -139,6 +182,9 @@ const PLACES: Place[] = [
   { name: 'Planner mode', route: '/planner' },
   { name: 'View materials for', route: '/planner', open: addOperator },
   { name: 'Schedule view', route: '/schedule' },
+  // The view read from the address: the server and the browser must agree on it, or the
+  // Calendar tab looks current and does nothing when pressed.
+  { name: 'Schedule view', route: '/schedule?view=calendar' },
   { name: 'Skill', route: '/gacha', open: openPreview },
   { name: 'Module', route: '/gacha', open: openPreview },
 ];
@@ -168,7 +214,13 @@ for (const place of PLACES) {
     // sticky element can travel through), so for it the measure is the reader's place.
     const sticky = await list.evaluate((el) => getComputedStyle(el.closest('.gm-lookup') ?? el).position === 'sticky');
     const moves: string[] = [];
-    const order = [...Array.from({ length: n }, (_, i) => i), 0];
+    // Start from the first tab the page does NOT mark current and end on the one it
+    // does, so every press is a switch: a strip whose state disagrees with what the
+    // server drew (a hydration mismatch React leaves in place in production) shows it
+    // as a press that selects nothing.
+    const drawn = Math.max(0, await tabs.evaluateAll((els) => els.findIndex((el) => el.getAttribute('aria-selected') === 'true')));
+    const order = Array.from({ length: n }, (_, k) => (drawn + 1 + k) % n);
+    const unselected: string[] = [];
     for (const i of order) {
       const tab = tabs.nth(i);
       const label = ((await tab.getAttribute('aria-label')) || (await tab.textContent()) || '').trim();
@@ -179,8 +231,14 @@ for (const place of PLACES) {
       const after = await list.evaluate((el) => ({ y: el.getBoundingClientRect().top, scroll: window.scrollY }));
       const moved = sticky ? after.scroll - before.scroll : after.y - before.y;
       if (Math.abs(moved) >= 4) moves.push(`${label}: the strip moved ${Math.round(after.y - before.y)}px (scroll ${Math.round(before.scroll)} -> ${Math.round(after.scroll)})`);
+      const shown = await tab.evaluate((el) => {
+        const panel = document.getElementById(el.getAttribute('aria-controls') ?? '');
+        return el.getAttribute('aria-selected') === 'true' && !!panel && panel.checkVisibility();
+      });
+      if (!shown) unselected.push(label);
     }
     expect(moves).toEqual([]);
+    expect(unselected, 'pressed tabs that did not become current with their panel shown').toEqual([]);
   });
 }
 

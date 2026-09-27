@@ -16,7 +16,7 @@ import { sortMaterials } from "@/lib/farming/materialSortOrder";
 import { plannerModules } from "@/lib/planner/build";
 import { MaterialIcon } from "./MaterialIcon";
 import SegmentedControl from "@/components/ui/SegmentedControl";
-import Tabs, { tabPanelProps } from "@/components/ui/Tabs";
+import Tabs, { tabId, tabPanelProps } from "@/components/ui/Tabs";
 import { useSwitchHold } from "@/components/ui/useSwitchHold";
 import SearchInput from "@/components/ui/SearchInput";
 import Rarity, { rarityLevel } from "@/components/ui/Rarity";
@@ -270,6 +270,23 @@ export function SimplePlanner({
                       </span>
                     ))}
                   </div>
+                  {/* The one way to remove the operator on show that every reader has:
+                      the tab's × is a mouse shortcut (aria-hidden, a tab may not hold a
+                      button) and Delete needs a keyboard, so a touch screen reader or
+                      voice control reaches removal here. It was a 36x44 button of its own
+                      beside each tab before the strip became Tabs. Focus goes to All,
+                      the tab that takes this panel's place. */}
+                  <button
+                    type="button"
+                    className="ghost btn-sm"
+                    onClick={() => {
+                      viewHold.capture();
+                      onRemove(name);
+                      requestAnimationFrame(() => document.getElementById(tabId("planner-operator", ALL_MATERIALS))?.focus({ preventScroll: true }));
+                    }}
+                  >
+                    Remove from plan
+                  </button>
                 </div>
                 {op ? (
                   <SimpleMaterialGroups op={op} state={state} />

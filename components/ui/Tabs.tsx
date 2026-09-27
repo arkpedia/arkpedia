@@ -30,7 +30,10 @@ interface TabsProps<V extends string | number> {
   /** A strip of removable tabs (the planner's operators): Delete or Backspace on a
    *  focused tab calls `onRemove`, and the tab draws a × that does the same on a click,
    *  titled with `label` ("Remove Amiya from plan"). `label` returns null for a tab
-   *  that cannot be removed (the planner's All). */
+   *  that cannot be removed (the planner's All). Both are shortcuts: the × is
+   *  aria-hidden and Delete needs a keyboard, so the page ALSO renders a real button
+   *  in the panel that removes the tab on show (the planner's "Remove from plan"), or a
+   *  touch screen reader and voice control cannot remove anything. */
   removable?: { onRemove: (value: V) => void; label: (option: TabOption<V>) => string | null };
 }
 

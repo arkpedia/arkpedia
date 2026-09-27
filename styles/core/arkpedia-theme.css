@@ -346,7 +346,11 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 .tab > img, .tab > svg { flex: none; width: 28px; height: 28px; object-fit: contain; }
 .tab-count { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: 0; opacity: 0.8; }
 /* A removable tab's x (the planner's operators): the mouse's way to Delete. */
-.tab-remove { padding: 0 2px; font-family: var(--font-body); font-weight: 400; font-size: 18px; line-height: 1; color: var(--text-faint); }
+.tab-remove { position: relative; padding: 0 2px; font-family: var(--font-body); font-weight: 400; font-size: 18px; line-height: 1; color: var(--text-faint); }
+/* Its hit area, 24px or more each way (WCAG 2.5.8): the glyph is ~17x18, and it sits
+   against the tab's own label, so a thumb that misses it selects the tab instead. The
+   old separate button was 36x44. An inset pseudo-element, so the layout does not move. */
+.tab-remove::before { content: ''; position: absolute; inset: -4px; }
 .tab-remove:hover { color: var(--text); }
 @media (max-width: 720px) {
   .tab { min-height: 36px; }
