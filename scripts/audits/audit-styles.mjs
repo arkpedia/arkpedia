@@ -77,8 +77,11 @@
  *   xButton        (r10 x-buttons) a close or remove × drawn as its own button: a
  *                  <button>, or any element with an onClick, whose whole content is a ×
  *                  glyph (×, ✕, ✖, x, &times;, &#10005;, a quoted one, one chosen by a
- *                  condition, or one alone in a <span>) or a drawn × (the player's close
- *                  icon, XGlyph, or XGlyph's path in a hand-written <svg>), and whose class list lacks
+ *                  condition, or one alone in an element of its own), a drawn × (the
+ *                  player's close icon, XGlyph, or XGlyph's path in a hand-written <svg>),
+ *                  or a lone icon (one <svg>, or one self-closing component) under an
+ *                  aria-label starting Close/Remove/Drop/Clear/Dismiss/Exit/Collapse (the
+ *                  net x-buttons.spec.ts casts on screen), and whose class list lacks
  *                  btn-x (or tab-remove, a removable tab's × span). A × is
  *                  components/ui/XButton: no border, a square hit area, a required label
  *                  (docs/development/ui-primitives.md rule 21)
@@ -446,11 +449,13 @@ function controlHeights(cssFiles, controls, boxedBare, textareas) {
 
 /* === r10 x-buttons: xButton =====================================================
    A close or remove × is components/ui/XButton (.btn-x): no border and no box at rest,
-   a square hit area, a label it cannot be rendered without. Before it, the site drew
-   twenty of them eleven ways: bordered 36x36 boxes (/pulls' goal rows, the /gacha
-   dialogs, the planner's import dialog), a 44px-wide glyph box, a 17x18 span, a 61x46
-   one, a literal "x" in a mono 12px, a popover close with no accessible name. The component
-   is how a new one is written; this is how a hand-written one is found. */
+   a square hit area, a label it cannot be rendered without. Before it, main drew
+   twenty-one of them in seventeen sizes: bordered boxes of 30x44 (/pulls' goal rows),
+   50x40 (the /gacha dialogs) and 40x40 (the planner's import dialog), 44px-wide glyph
+   boxes as tall as their dialog heads, a 30x30 plan-row glyph squeezed to 8px wide on a
+   phone, a 61x46 one, a literal "x" in a mono 12px, a popover close with no accessible
+   name. The component is how a new one is written; this is how a hand-written one is
+   found. */
 /** The whole content of a × button, as written: one glyph, an entity, a quoted glyph,
  *  or a glyph picked by a condition ({open ? '✕' : '⛶'} is a × in one state). */
 const X_GLYPH = /^(?:[×✕✖✗xX]|&times;|&#(?:215|10005|10006|x[dD]7|x2715|x2716);|\{[^{}]*(['"`])(?:[×✕✖]|\\u00[dD]7|\\u271[56]|\\xd7)\1[^{}]*\})$/;
@@ -465,6 +470,14 @@ const X_ICON = /<TransportIcon\b[^>]*\bname=(?:"close"|'close'|\{[^}]*['"`]close
 /** A glyph wrapped in its own element and nothing else (<span aria-hidden="true">×</span>),
  *  the way a removable tab's × was written. */
 const X_WRAPPED = /^<(\w+)\b[^>]*>([^<]*)<\/\1>$/;
+/** A lone icon -- one <svg>, or one self-closing icon component (<CloseIcon size={14} />)
+ *  -- is a × when the button's aria-label starts with one of these words. It is the net
+ *  x-buttons.spec.ts's measure() casts on screen (NAMED there; keep the two the same), so
+ *  a × written by hand with any other path or icon is found in every file, not only at the
+ *  places the browser run drives: the search field's clear on main was a hand-written
+ *  <svg> with a path of its own. */
+const X_NAMED = /^(?:close|remove|drop|clear|dismiss|exit|collapse)\b/i;
+const X_LONE_ICON = /^(?:<svg\b[\s\S]*<\/svg>|<(?!XButton\b)[A-Z][\w.]*\b[^<>]*\/>)$/;
 /** Components that render a <button> of their own: a class given to one is a class on
  *  a control (controlHeight holds it to the token like any other). */
 const X_BUTTON_COMPONENTS = ['XButton'];
@@ -483,8 +496,11 @@ function xButtons(tsxFiles) {
       // is that element's, not its holder's.
       const raw = code.slice(m.index + open.length, end).replace(/<(\w+)\b(?:=>|[^>])*?\bclassName=(?:=>|[^>])*?\b(?:tab-remove|btn-x)\b(?:=>|[^>])*?>[\s\S]*?<\/\1>/g, '');
       const content = raw.replace(/\s+/g, '');
-      const wrapped = raw.trim().match(X_WRAPPED);
-      if (!X_GLYPH.test(content) && !X_ICON.test(raw) && !(wrapped && X_GLYPH.test(wrapped[2].replace(/\s+/g, '')))) continue;
+      const tight = raw.replace(/\s+/g, ' ').trim();
+      const wrapped = tight.match(X_WRAPPED);
+      const label = attrs.match(/\baria-label=(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|'[^']*')/);
+      const named = !!label && [...label[1].matchAll(/(["'`])((?:(?!\1)[\s\S])*)\1/g)].some((l) => X_NAMED.test(l[2].trim()));
+      if (!X_GLYPH.test(content) && !X_ICON.test(raw) && !(wrapped && X_GLYPH.test(wrapped[2].replace(/\s+/g, ''))) && !(named && X_LONE_ICON.test(tight))) continue;
       const cls = attrs.match(/\bclassName=(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|'[^']*')/);
       const names = cls ? classNamesIn(cls[1]) : new Set();
       // classNamesIn drops what a template literal picks inside ${...}; a × that is one in

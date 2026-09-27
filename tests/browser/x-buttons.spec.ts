@@ -6,11 +6,14 @@ import { readOnly } from './census-routes';
  * 21): no border and no box at rest, just the glyph, in a square hit area -- the
  * maintainer, 2026-09-27, on /pulls' goal rows: "remove the border around the x and make
  * it square, this should be default for 'X' buttons, so it just looks like an x but its
- * clickable even when not perfectly on the x symbol". Before, the site drew twenty of them
- * eleven ways: bordered 36x36, 37x36 and 40x40 boxes (/pulls' goal rows, the /gacha dialogs,
- * the planner's import dialog, the Stronghold sheet, the /music queue, the mini player),
- * 44px-wide and 61x46 glyph boxes, a 22x24 and a 28x28, a 17x18 span on the planner's tabs,
- * a literal "x" in mono 12px on the stage map, a 20x19 popover close with no name.
+ * clickable even when not perfectly on the x symbol". On main before it (the dev site,
+ * 2026-09-27) the site drew twenty-one of them in seventeen sizes: bordered 30x44, 50x40,
+ * 40x40, 37x33, 36x36 and 32x32 boxes (/pulls' goal rows, the /gacha dialogs, the planner's
+ * import dialog and the mini player, the stage guesser, the /schedule drawer, the /music
+ * queue), 44px-wide glyph boxes as tall as their dialog heads, a 30x30 plan-row glyph (8x30
+ * on a phone), 61x46, 22x22 and 22x24 glyphs, a 28x28 search clear, a separate 36x44 remove
+ * button beside each planner tab, a literal "x" in mono 12px on the stage map, and a 20x19
+ * popover close with no name.
  *
  * audit:styles (xButton) finds a hand-written × in the source. This drives every place
  * that shows one and measures what is on screen: every visible × there -- an XButton, a
