@@ -142,6 +142,9 @@ jobs:
         env:
           NEXT_DIST_DIR: .next-live
           NEXT_TELEMETRY_DISABLED: '1'
+          # The same checked-in feed as Build: this step proves the content release renders,
+          # and the channels' live feeds would only add a network wait with no timeout.
+          ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
           NODE_ENV: production
 
       - name: Install Chromium only
