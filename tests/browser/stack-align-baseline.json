@@ -3,7 +3,8 @@
     {
       "parent": "a.video-card",
       "child": "div.video-card-body",
-      "why": "a picture card: the text keeps --card-inset from the flush thumbnail (/community, /community/videos)"
+      "why": "a picture card: the text keeps --card-inset from the flush thumbnail (/community, /community/videos); optional: the cards come from the channels' live YouTube feeds, which are sometimes empty (the feed returned 404 for every channel on 2026-09-27 and the pages showed \"No videos found\")",
+      "optional": true
     },
     {
       "parent": "a.card.roster-card",
