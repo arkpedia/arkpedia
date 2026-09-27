@@ -509,6 +509,12 @@ function xButtons(tsxFiles) {
       out.push(`${path}: <${tag}${attrs.replace(/\s+/g, ' ').slice(0, 70)}>${content.slice(0, 30)}`);
     }
   }
+  // One net, two guards: the words that make a lone icon a × here are measure()'s NAMED in
+  // x-buttons.spec.ts, and a word added to one and not the other would let the audit and
+  // the browser run disagree about what a × is.
+  const words = (re) => (re?.match(/\((?:\?:)?([a-z|]+)\)/)?.[1] ?? '').split('|').sort().join('|');
+  const specNet = readFileSync(join(root, 'tests', 'browser', 'x-buttons.spec.ts'), 'utf8').match(/const NAMED = \/(.*)\/i;/)?.[1];
+  if (words(specNet) !== words(X_NAMED.source)) out.push(`tests/browser/x-buttons.spec.ts: measure()'s NAMED (${words(specNet) || 'not found'}) is not audit-styles.mjs' X_NAMED (${words(X_NAMED.source)}); keep the two nets one list`);
   return out;
 }
 /* === end r10 x-buttons ============================================================ */
