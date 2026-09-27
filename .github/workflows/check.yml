@@ -114,6 +114,11 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: '1'
           ARKPEDIA_CONTENT_DISABLED: '1'
+          # The community pages' videos from a checked-in feed, not the channels' live ones,
+          # which returned 404 for hours on 2026-09-27 and failed the picture-card tests. The
+          # browser specs run against this build; playwright.config.ts sets the same file on
+          # the server it starts, for the pages' regenerations. Deploy never sets it.
+          ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
           # prebuild runs before Next sets this; enable immutable data caches
           # while generating thousands of stage files in this fresh process.
           NODE_ENV: production

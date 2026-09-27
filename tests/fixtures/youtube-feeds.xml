@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The Check's stand-in for the channels' YouTube feeds (lib/music/youtubeFeedsServer.ts reads
+  it when ARKPEDIA_YOUTUBE_FEED_FIXTURE names this file: check.yml's Build step and the
+  Playwright webServer). One document for six of the channels in lib/music/youtubeConfig.ts,
+  each entry tagged with its <yt:channelId> as a real feed's entries are, newest first; the
+  reader hands each channel its own. Six a channel, as VIDEOS_PER_CHANNEL keeps, and two
+  channels lead with a title the feed filter drops (Endfield; no "Arknights"), so
+  /community/videos has 34 cards, more than its 24-card page, and its "Show more" button.
+  The thumbnails are inline SVG, so the cards draw their art with no network.
+-->
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <title>Arkpedia test channels</title>
+ <entry>
+  <id>yt:video:fxkyo000001</id>
+  <yt:videoId>fxkyo000001</yt:videoId>
+  <yt:channelId>UCWwuijyo4x78iXup5hOvkbw</yt:channelId>
+  <title>Arknights CC#13 Risk 30 with four operators</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkyo000001"/>
+  <author><name>KyoStinV</name></author>
+  <published>2026-09-26T08:00:00+00:00</published>
+  <media:group>
+   <media:title>Arknights CC#13 Risk 30 with four operators</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQzYjUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNWZkOWM2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkyo000002</id>
+  <yt:videoId>fxkyo000002</yt:videoId>
+  <yt:channelId>UCWwuijyo4x78iXup5hOvkbw</yt:channelId>
+  <title>Arknights | Integrated Strategies 5, ending 4 without a single 6-star</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkyo000002"/>
+  <author><name>KyoStinV</name></author>
+  <published>2026-09-23T08:00:00+00:00</published>
+  <media:group>
+   <media:title>Arknights | Integrated Strategies 5, ending 4 without a single 6-star</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQzYjUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNWZkOWM2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxNjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkyo000003</id>
+  <yt:videoId>fxkyo000003</yt:videoId>
+  <yt:channelId>UCWwuijyo4x78iXup5hOvkbw</yt:channelId>
+  <title>Arknights 14-18 Adverse Environment, low rarity</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkyo000003"/>
+  <author><name>KyoStinV</name></author>
+  <published>2026-09-20T08:00:00+00:00</published>
+  <media:group>
+   <media:title>Arknights 14-18 Adverse Environment, low rarity</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQzYjUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNWZkOWM2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkyo000004</id>
+  <yt:videoId>fxkyo000004</yt:videoId>
+  <yt:channelId>UCWwuijyo4x78iXup5hOvkbw</yt:channelId>
+  <title>Arknights: every Guard ranked for the new season</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkyo000004"/>
+  <author><name>KyoStinV</name></author>
+  <published>2026-09-17T08:00:00+00:00</published>
+  <media:group>
+   <media:title>Arknights: every Guard ranked for the new season</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQzYjUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNWZkOWM2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyNDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkyo000005</id>
+  <yt:videoId>fxkyo000005</yt:videoId>
+  <yt:channelId>UCWwuijyo4x78iXup5hOvkbw</yt:channelId>
+  <title>Arknights Event Guide: The Rides to Lake Silberneherze &amp; the new shop</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkyo000005"/>
+  <author><name>KyoStinV</name></author>
+  <published>2026-09-14T08:00:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Event Guide: The Rides to Lake Silberneherze &amp; the new shop</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQzYjUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNWZkOWM2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyODAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkyo000006</id>
+  <yt:videoId>fxkyo000006</yt:videoId>
+  <yt:channelId>UCWwuijyo4x78iXup5hOvkbw</yt:channelId>
+  <title>Arknights banner talk</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkyo000006"/>
+  <author><name>KyoStinV</name></author>
+  <published>2026-09-11T08:00:00+00:00</published>
+  <media:group>
+   <media:title>Arknights banner talk</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQzYjUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNWZkOWM2Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIzMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkuk000001</id>
+  <yt:videoId>fxkuk000001</yt:videoId>
+  <yt:channelId>UCYKqSTaebCjNrQSPZ3_uHcw</yt:channelId>
+  <title>Arknights Endfield first impressions</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkuk000001"/>
+  <author><name>kukkikaze</name></author>
+  <published>2026-09-26T13:07:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Endfield first impressions</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2IxZDUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk1ZmI0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkuk000002</id>
+  <yt:videoId>fxkuk000002</yt:videoId>
+  <yt:channelId>UCYKqSTaebCjNrQSPZ3_uHcw</yt:channelId>
+  <title>Arknights Stronghold Protocol, week 3 opening in one go</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkuk000002"/>
+  <author><name>kukkikaze</name></author>
+  <published>2026-09-23T13:07:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Stronghold Protocol, week 3 opening in one go</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2IxZDUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk1ZmI0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxNjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkuk000003</id>
+  <yt:videoId>fxkuk000003</yt:videoId>
+  <yt:channelId>UCYKqSTaebCjNrQSPZ3_uHcw</yt:channelId>
+  <title>Arknights: which module to take first on Thorns the Lodestar</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkuk000003"/>
+  <author><name>kukkikaze</name></author>
+  <published>2026-09-20T13:07:00+00:00</published>
+  <media:group>
+   <media:title>Arknights: which module to take first on Thorns the Lodestar</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2IxZDUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk1ZmI0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkuk000004</id>
+  <yt:videoId>fxkuk000004</yt:videoId>
+  <yt:channelId>UCYKqSTaebCjNrQSPZ3_uHcw</yt:channelId>
+  <title>Arknights Sanity planner walkthrough</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkuk000004"/>
+  <author><name>kukkikaze</name></author>
+  <published>2026-09-17T13:07:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Sanity planner walkthrough</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2IxZDUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk1ZmI0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyNDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkuk000005</id>
+  <yt:videoId>fxkuk000005</yt:videoId>
+  <yt:channelId>UCYKqSTaebCjNrQSPZ3_uHcw</yt:channelId>
+  <title>Arknights base shifts that finally make sense (243 layout, 3 trading posts, every operator placed)</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkuk000005"/>
+  <author><name>kukkikaze</name></author>
+  <published>2026-09-14T13:07:00+00:00</published>
+  <media:group>
+   <media:title>Arknights base shifts that finally make sense (243 layout, 3 trading posts, every operator placed)</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2IxZDUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk1ZmI0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyODAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkuk000006</id>
+  <yt:videoId>fxkuk000006</yt:videoId>
+  <yt:channelId>UCYKqSTaebCjNrQSPZ3_uHcw</yt:channelId>
+  <title>Arknights SSS rotation clear</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkuk000006"/>
+  <author><name>kukkikaze</name></author>
+  <published>2026-09-11T13:07:00+00:00</published>
+  <media:group>
+   <media:title>Arknights SSS rotation clear</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2IxZDUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk1ZmI0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIzMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxkuk000007</id>
+  <yt:videoId>fxkuk000007</yt:videoId>
+  <yt:channelId>UCYKqSTaebCjNrQSPZ3_uHcw</yt:channelId>
+  <title>Arknights Contingency Contract tips</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxkuk000007"/>
+  <author><name>kukkikaze</name></author>
+  <published>2026-09-08T13:07:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Contingency Contract tips</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2IxZDUzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk1ZmI0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxeck000001</id>
+  <yt:videoId>fxeck000001</yt:videoId>
+  <yt:channelId>UCdZ_vbPUXSCg1p2nHeFad3Q</yt:channelId>
+  <title>Arknights lore: what the Sarkaz war means for Rhodes Island</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxeck000001"/>
+  <author><name>Eckogen</name></author>
+  <published>2026-09-26T18:14:00+00:00</published>
+  <media:group>
+   <media:title>Arknights lore: what the Sarkaz war means for Rhodes Island</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTM0MDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDliNDVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxeck000002</id>
+  <yt:videoId>fxeck000002</yt:videoId>
+  <yt:channelId>UCdZ_vbPUXSCg1p2nHeFad3Q</yt:channelId>
+  <title>Arknights | Reclamation Algorithm season 2 first look</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxeck000002"/>
+  <author><name>Eckogen</name></author>
+  <published>2026-09-23T18:14:00+00:00</published>
+  <media:group>
+   <media:title>Arknights | Reclamation Algorithm season 2 first look</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTM0MDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDliNDVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxNjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxeck000003</id>
+  <yt:videoId>fxeck000003</yt:videoId>
+  <yt:channelId>UCdZ_vbPUXSCg1p2nHeFad3Q</yt:channelId>
+  <title>Arknights story recap, chapter 15</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxeck000003"/>
+  <author><name>Eckogen</name></author>
+  <published>2026-09-20T18:14:00+00:00</published>
+  <media:group>
+   <media:title>Arknights story recap, chapter 15</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTM0MDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDliNDVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxeck000004</id>
+  <yt:videoId>fxeck000004</yt:videoId>
+  <yt:channelId>UCdZ_vbPUXSCg1p2nHeFad3Q</yt:channelId>
+  <title>Arknights: Kal&#39;tsit&#39;s past in 10 minutes</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxeck000004"/>
+  <author><name>Eckogen</name></author>
+  <published>2026-09-17T18:14:00+00:00</published>
+  <media:group>
+   <media:title>Arknights: Kal&#39;tsit&#39;s past in 10 minutes</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTM0MDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDliNDVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyNDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxeck000005</id>
+  <yt:videoId>fxeck000005</yt:videoId>
+  <yt:channelId>UCdZ_vbPUXSCg1p2nHeFad3Q</yt:channelId>
+  <title>Arknights OST listening session</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxeck000005"/>
+  <author><name>Eckogen</name></author>
+  <published>2026-09-14T18:14:00+00:00</published>
+  <media:group>
+   <media:title>Arknights OST listening session</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTM0MDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDliNDVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyODAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxeck000006</id>
+  <yt:videoId>fxeck000006</yt:videoId>
+  <yt:channelId>UCdZ_vbPUXSCg1p2nHeFad3Q</yt:channelId>
+  <title>Arknights event story reading</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxeck000006"/>
+  <author><name>Eckogen</name></author>
+  <published>2026-09-11T18:14:00+00:00</published>
+  <media:group>
+   <media:title>Arknights event story reading</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTM0MDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDliNDVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIzMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsup000001</id>
+  <yt:videoId>fxsup000001</yt:videoId>
+  <yt:channelId>UCoplJSyTWXGKgMIu0KvwhkQ</yt:channelId>
+  <title>Morning stream highlights</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsup000001"/>
+  <author><name>SUPAH</name></author>
+  <published>2026-09-26T23:21:00+00:00</published>
+  <media:group>
+   <media:title>Morning stream highlights</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQ1MzMwIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2ZkOTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsup000002</id>
+  <yt:videoId>fxsup000002</yt:videoId>
+  <yt:channelId>UCoplJSyTWXGKgMIu0KvwhkQ</yt:channelId>
+  <title>Arknights meme clears, part 12</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsup000002"/>
+  <author><name>SUPAH</name></author>
+  <published>2026-09-23T23:21:00+00:00</published>
+  <media:group>
+   <media:title>Arknights meme clears, part 12</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQ1MzMwIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2ZkOTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxNjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsup000003</id>
+  <yt:videoId>fxsup000003</yt:videoId>
+  <yt:channelId>UCoplJSyTWXGKgMIu0KvwhkQ</yt:channelId>
+  <title>Arknights: one operator solos the whole event</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsup000003"/>
+  <author><name>SUPAH</name></author>
+  <published>2026-09-20T23:21:00+00:00</published>
+  <media:group>
+   <media:title>Arknights: one operator solos the whole event</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQ1MzMwIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2ZkOTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsup000004</id>
+  <yt:videoId>fxsup000004</yt:videoId>
+  <yt:channelId>UCoplJSyTWXGKgMIu0KvwhkQ</yt:channelId>
+  <title>Arknights low-rarity challenge, H14-4</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsup000004"/>
+  <author><name>SUPAH</name></author>
+  <published>2026-09-17T23:21:00+00:00</published>
+  <media:group>
+   <media:title>Arknights low-rarity challenge, H14-4</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQ1MzMwIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2ZkOTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyNDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsup000005</id>
+  <yt:videoId>fxsup000005</yt:videoId>
+  <yt:channelId>UCoplJSyTWXGKgMIu0KvwhkQ</yt:channelId>
+  <title>Arknights crossover stage speedrun</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsup000005"/>
+  <author><name>SUPAH</name></author>
+  <published>2026-09-14T23:21:00+00:00</published>
+  <media:group>
+   <media:title>Arknights crossover stage speedrun</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQ1MzMwIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2ZkOTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyODAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsup000006</id>
+  <yt:videoId>fxsup000006</yt:videoId>
+  <yt:channelId>UCoplJSyTWXGKgMIu0KvwhkQ</yt:channelId>
+  <title>Arknights Paradox Simulation guide for every new operator</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsup000006"/>
+  <author><name>SUPAH</name></author>
+  <published>2026-09-11T23:21:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Paradox Simulation guide for every new operator</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQ1MzMwIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2ZkOTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIzMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsup000007</id>
+  <yt:videoId>fxsup000007</yt:videoId>
+  <yt:channelId>UCoplJSyTWXGKgMIu0KvwhkQ</yt:channelId>
+  <title>Arknights daily clears</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsup000007"/>
+  <author><name>SUPAH</name></author>
+  <published>2026-09-08T23:21:00+00:00</published>
+  <media:group>
+   <media:title>Arknights daily clears</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWQ1MzMwIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2ZkOTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxyos000001</id>
+  <yt:videoId>fxyos000001</yt:videoId>
+  <yt:channelId>UCR0J2NYGuC8epsa1O4DMmXQ</yt:channelId>
+  <title>Arknights Official Trailer: new chapter</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxyos000001"/>
+  <author><name>Arknights Official - Yostar</name></author>
+  <published>2026-09-26T04:28:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Official Trailer: new chapter</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjAyNDJjIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjOWFhNmI4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxyos000002</id>
+  <yt:videoId>fxyos000002</yt:videoId>
+  <yt:channelId>UCR0J2NYGuC8epsa1O4DMmXQ</yt:channelId>
+  <title>Arknights EP: new album preview</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxyos000002"/>
+  <author><name>Arknights Official - Yostar</name></author>
+  <published>2026-09-23T04:28:00+00:00</published>
+  <media:group>
+   <media:title>Arknights EP: new album preview</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjAyNDJjIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjOWFhNmI4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxNjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxyos000003</id>
+  <yt:videoId>fxyos000003</yt:videoId>
+  <yt:channelId>UCR0J2NYGuC8epsa1O4DMmXQ</yt:channelId>
+  <title>Arknights Special Stream announcements</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxyos000003"/>
+  <author><name>Arknights Official - Yostar</name></author>
+  <published>2026-09-20T04:28:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Special Stream announcements</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjAyNDJjIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjOWFhNmI4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxyos000004</id>
+  <yt:videoId>fxyos000004</yt:videoId>
+  <yt:channelId>UCR0J2NYGuC8epsa1O4DMmXQ</yt:channelId>
+  <title>Arknights Operator Showcase</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxyos000004"/>
+  <author><name>Arknights Official - Yostar</name></author>
+  <published>2026-09-17T04:28:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Operator Showcase</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjAyNDJjIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjOWFhNmI4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyNDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxyos000005</id>
+  <yt:videoId>fxyos000005</yt:videoId>
+  <yt:channelId>UCR0J2NYGuC8epsa1O4DMmXQ</yt:channelId>
+  <title>Arknights Anniversary PV</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxyos000005"/>
+  <author><name>Arknights Official - Yostar</name></author>
+  <published>2026-09-14T04:28:00+00:00</published>
+  <media:group>
+   <media:title>Arknights Anniversary PV</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjAyNDJjIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjOWFhNmI4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyODAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxyos000006</id>
+  <yt:videoId>fxyos000006</yt:videoId>
+  <yt:channelId>UCR0J2NYGuC8epsa1O4DMmXQ</yt:channelId>
+  <title>Arknights new event trailer</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxyos000006"/>
+  <author><name>Arknights Official - Yostar</name></author>
+  <published>2026-09-11T04:28:00+00:00</published>
+  <media:group>
+   <media:title>Arknights new event trailer</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjAyNDJjIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjOWFhNmI4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIzMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsto000001</id>
+  <yt:videoId>fxsto000001</yt:videoId>
+  <yt:channelId>UCPVrjrtyssy19hwxsItXRCw</yt:channelId>
+  <title>Arknights: the roguelike seeds everyone asks about</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsto000001"/>
+  <author><name>Storn</name></author>
+  <published>2026-09-26T09:35:00+00:00</published>
+  <media:group>
+   <media:title>Arknights: the roguelike seeds everyone asks about</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTMxZDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk3OTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsto000002</id>
+  <yt:videoId>fxsto000002</yt:videoId>
+  <yt:channelId>UCPVrjrtyssy19hwxsItXRCw</yt:channelId>
+  <title>Arknights | beginner guide to promotions and skill masteries</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsto000002"/>
+  <author><name>Storn</name></author>
+  <published>2026-09-23T09:35:00+00:00</published>
+  <media:group>
+   <media:title>Arknights | beginner guide to promotions and skill masteries</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTMxZDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk3OTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIxNjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsto000003</id>
+  <yt:videoId>fxsto000003</yt:videoId>
+  <yt:channelId>UCPVrjrtyssy19hwxsItXRCw</yt:channelId>
+  <title>Arknights annihilation farming route</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsto000003"/>
+  <author><name>Storn</name></author>
+  <published>2026-09-20T09:35:00+00:00</published>
+  <media:group>
+   <media:title>Arknights annihilation farming route</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTMxZDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk3OTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsto000004</id>
+  <yt:videoId>fxsto000004</yt:videoId>
+  <yt:channelId>UCPVrjrtyssy19hwxsItXRCw</yt:channelId>
+  <title>Arknights: is the new 6-star worth your pulls?</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsto000004"/>
+  <author><name>Storn</name></author>
+  <published>2026-09-17T09:35:00+00:00</published>
+  <media:group>
+   <media:title>Arknights: is the new 6-star worth your pulls?</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTMxZDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk3OTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyNDAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsto000005</id>
+  <yt:videoId>fxsto000005</yt:videoId>
+  <yt:channelId>UCPVrjrtyssy19hwxsItXRCw</yt:channelId>
+  <title>Arknights recruitment tags explained</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsto000005"/>
+  <author><name>Storn</name></author>
+  <published>2026-09-14T09:35:00+00:00</published>
+  <media:group>
+   <media:title>Arknights recruitment tags explained</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTMxZDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk3OTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIyODAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:fxsto000006</id>
+  <yt:videoId>fxsto000006</yt:videoId>
+  <yt:channelId>UCPVrjrtyssy19hwxsItXRCw</yt:channelId>
+  <title>Arknights event shop priorities</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=fxsto000006"/>
+  <author><name>Storn</name></author>
+  <published>2026-09-11T09:35:00+00:00</published>
+  <media:group>
+   <media:title>Arknights event shop priorities</media:title>
+   <media:thumbnail url="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjcwIiB2aWV3Qm94PSIwIDAgNDgwIDI3MCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjNTMxZDFkIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDk3OTVmIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQ4MCIgaGVpZ2h0PSIyNzAiIGZpbGw9InVybCgjZykiLz48Y2lyY2xlIGN4PSIzMjAiIGN5PSIxMzUiIHI9IjY0IiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTgiLz48cGF0aCBkPSJNMjE2IDEwM3Y2NGw1Ni0zMnoiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC44NSIvPjwvc3ZnPg==" width="480" height="270"/>
+  </media:group>
+ </entry>
+</feed>

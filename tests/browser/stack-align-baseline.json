@@ -3,8 +3,7 @@
     {
       "parent": "a.video-card",
       "child": "div.video-card-body",
-      "why": "a picture card: the text keeps --card-inset from the flush thumbnail (/community, /community/videos); optional: the cards come from the channels' live YouTube feeds, which are sometimes empty (the feed returned 404 for every channel on 2026-09-27 and the pages showed \"No videos found\")",
-      "optional": true
+      "why": "a picture card: the text keeps --card-inset from the flush thumbnail (/community, /community/videos). Required: the Check builds those pages from tests/fixtures/youtube-feeds.xml (ARKPEDIA_YOUTUBE_FEED_FIXTURE), not the live feeds, which returned 404 for every channel on 2026-09-27"
     },
     {
       "parent": "a.card.roster-card",

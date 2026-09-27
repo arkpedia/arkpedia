@@ -1,7 +1,8 @@
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
-import { getLatestVideos, enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
+import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
+import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
 import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
 import { CommunityEyebrow, VideoCard } from '@/components/community/StreamCards';
