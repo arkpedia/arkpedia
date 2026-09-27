@@ -33,8 +33,17 @@ async function pageWidthOverflow(page: Page) {
 }
 
 /** How far `anchor` moves on screen when `act` runs, the reader having scrolled so it
- *  sits `at` px from the top. The Anti-Page Jump rule allows under 4px. */
+ *  sits `at` px from the top. The Anti-Page Jump rule allows under 4px.
+ *
+ *  It first lets the page's entrance animations end (a finite CSS animation, such as the
+ *  /farming table's 0.6s flow-in). Playwright will not click an element that is still
+ *  moving, and on its retry it scrolls the element to the viewport's edge first: with the
+ *  reader at the foot of /farming that scrolled Tier 2's header 142px, which read here as
+ *  the page jumping (1 run in 50 under load; the page itself never moved). */
 async function anchorMovement(page: Page, anchor: Locator, act: () => Promise<void>, place?: number) {
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
+    .map((a) => a.finished.catch(() => undefined))));
   if (place !== undefined) {
     await anchor.evaluate((el, y) => window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - y), behavior: 'instant' }), place);
     await page.waitForTimeout(300);
