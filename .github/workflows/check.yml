@@ -43,6 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Node for the two scripts below (built-in modules only, so no npm ci).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
       - name: Look for a green pull request Check of this exact code
         id: seen
         env:
