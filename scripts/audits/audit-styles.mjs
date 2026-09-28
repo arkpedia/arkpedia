@@ -85,6 +85,11 @@
  *                  btn-x (or tab-remove, a removable tab's × span). A × is
  *                  components/ui/XButton: no border, a square hit area, a required label
  *                  (docs/development/ui-primitives.md rule 21)
+ *   motionScope    (r11 quiet polish) a transition, animation or @keyframes outside
+ *                  styles/core/motion.css (MOTION_LEGACY lists what predates it, each with
+ *                  its reason, and fails on a stale entry), or a rule in motion.css outside
+ *                  @media (prefers-reduced-motion: no-preference), or a :hover in it outside
+ *                  @media (hover: hover): see scripts/audits/audit-motion.mjs
  *   headingRules   (r9 headings-spacing) a font-size, font, color, letter-spacing or
  *                  text-transform on a selector whose subject is an h2 or h3 -- the
  *                  element, or a class the TSX puts on an <h2>/<h3> -- outside
@@ -120,6 +125,7 @@ import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectChoicesAndBadges, CHOICE_BADGE_LABELS } from './audit-choices-badges.mjs';
+import { collectMotion, MOTION_LABELS } from './audit-motion.mjs'; // r11 quiet polish
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '../..');
@@ -292,6 +298,8 @@ const ROUND_EXEMPT = {
   '.status-ok i': 'a status tick drawn as a dot',
   '.wizard-step b': 'a numbered step marker, a dot with a digit in it',
   '.technique-entry-priority-badge': 'a numbered dot pinned to a skill icon',
+  /* r11 quiet polish */
+  '.badge-live::before': 'the LIVE badge\'s blinking dot (option A, maintainer 2026-09-26)',
 };
 /** Class names in a className expression: quoted words, template text, styles.x. */
 function classNamesIn(expr) {
@@ -675,6 +683,7 @@ function collect() {
 
   Object.assign(out, collectChoicesAndBadges(root));
   out.xButton = xButtons(tsxFiles); // r10 x-buttons
+  Object.assign(out, collectMotion(root)); // r11 quiet polish: motionScope
   // controlHeight (r9 controls)
   out.controlHeight = controlHeights(cssFiles, controlClasses(tsxFiles), boxedClasses(cssFiles, bareButtonClasses(tsxFiles)), textareaClasses(tsxFiles));
 
@@ -712,6 +721,9 @@ STRICT.push('controlHeight');
 // r10 x-buttons
 LABELS.xButton = 'a close or remove × drawn as its own button -- render components/ui/XButton (.btn-x: no border, a square hit area, a required label; docs/development/ui-primitives.md rule 21). An icon button that is not a × (a chevron, a trash can) is read as one when its aria-label starts Close/Remove/Drop/Clear/Dismiss/Exit/Collapse: name it for what it does ("Hide the list", "Fold the section", "Delete") or give it a text label';
 STRICT.push('xButton');
+// r11 quiet polish: motion lives in styles/core/motion.css (scripts/audits/audit-motion.mjs)
+Object.assign(LABELS, MOTION_LABELS);
+STRICT.push(...Object.keys(MOTION_LABELS));
 
 function counts(list) {
   const m = new Map();

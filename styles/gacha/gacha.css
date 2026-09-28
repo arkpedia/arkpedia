@@ -30,6 +30,8 @@
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 .gacha-pity-stat {
   display: flex;
@@ -213,6 +215,11 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .gacha-pull-grid .gacha-pull-tile { animation: none; }
+  /* The tutorial's pull cards take the same slides (pages/gacha.tsx TutorialPullCard).
+     Their stop was in shared.css, which loads first, so they slid in anyway (r11 quiet
+     polish; audit:styles motionScope). */
+  .gacha-pull-slide-bottom,
+  .gacha-pull-slide-top { animation: none; }
   .gacha-pull-grid .gacha-pull-tile:is(.pull-six, .pull-five)::before { animation: none; opacity: 0.7; }
 }
 .gacha-pull-icon {
@@ -390,6 +397,8 @@
   border-radius: var(--radius-frame);
   padding: 10px;
   scrollbar-width: thin;
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 .gacha-banner-sidebar:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .gacha-banner-sidebar-spacer { pointer-events: none; }

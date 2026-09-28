@@ -297,6 +297,12 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   overflow: hidden;
   padding: 0;
 }
+/* r11 quiet polish: a boxed panel on the page ground sits on a soft shadow (option C).
+   Not .card: that is the roster's picture card, which has none at rest and is lifted on
+   hover instead (styles/core/motion.css). The family panels take the same token in
+   their own stylesheets (docs/development/ui-primitives.md, rule 23). */
+.panel,
+.front-panel { box-shadow: var(--shadow-panel); }
 
 /* --- paired label --------------------------------------------------------
    THE signature device. A small ghosted mono tag immediately left of the
@@ -360,8 +366,10 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    --text-dim at rest; --text on hover, because teal on a hovered tab would read as
    current; --teal with a 2px --teal underline when current. The weight is the same in
    every state: a bolder current tab would widen, re-wrap the strip and move the page.
-   The underline is each tab's own ::after, and static. A sliding indicator can take
-   its place later without touching the markup; nothing here animates.
+   The underline is each tab's own ::after, static, and it is what the server's HTML
+   shows (and all a link strip ever shows). components/ui/Tabs adds one indicator per
+   strip (.tabs-indicator, below) that takes over once the browser has measured the
+   current tab, in the same paint, and slides between tabs (styles/core/motion.css).
    -------------------------------------------------------------------------*/
 .tabs {
   display: flex;
@@ -415,6 +423,30 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 @media (max-width: 720px) {
   .tab { min-height: 36px; }
 }
+/* r11 quiet polish: the sliding underline. One bar per <Tabs> strip, absolutely placed
+   in the strip (so it takes no room and moves nothing), 1px wide and scaled to the
+   current tab's width: Tabs.tsx writes translate(x, y) scaleX(width) from the tab's own
+   box, so a strip that wraps puts it under the tab on its own row. Hidden until then:
+   the server HTML and a browser without scripts show the tab's own ::after. Once
+   Tabs.tsx sets data-slide on the strip, the bar is shown and the tabs' ::after gives
+   way, in one style change, so the underline never blinks or doubles. Every strip is the
+   bar's containing block, with no :has() (a browser without it would drop the rule and
+   put the bar against some ancestor), at zero specificity so a page that places its strip
+   (the Terminal's phone menu is absolute) still wins. */
+:where(.tabs) { position: relative; }
+.tabs-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 2px;
+  background: var(--teal);
+  transform-origin: 0 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+.tabs[data-slide] > .tabs-indicator { visibility: visible; }
+.tabs[data-slide] > .tab::after { background: transparent; }
 
 /* --- chips / badges ------------------------------------------------------
    .filter-chip is THE pick-one-of-N and filter control. Render it through
@@ -490,8 +522,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    on --danger-solid, one height, one padding. A page places it (position, top, left)
    and does nothing else to it: audit:styles (liveBadge) rejects a font, background or
    colour on a live-badge class outside this file, and a LIVE text without this class.
-   Inline-flex with a gap, so the dot the next round adds as ::before sits beside the
-   text without changing how the box is built. No dot and no animation yet. */
+   Inline-flex with a gap, so its dot (::before, below) sits beside the text. */
 .badge-live {
   box-sizing: border-box;
   display: inline-flex;
@@ -510,6 +541,19 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+/* r11 quiet polish: the LIVE dot (option A's, maintainer 2026-09-26). A 6px circle in the
+   badge's own white, drawn here and so present from the server's first paint: the badge
+   is its final width before any script runs, and nothing beside or under it moves when
+   the page hydrates. It blinks (styles/core/motion.css, prefers-reduced-motion:
+   no-preference only); under reduced motion it stays, still. */
+.badge-live::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* --- inputs --------------------------------------------------------------

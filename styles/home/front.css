@@ -53,6 +53,9 @@ body.front-page-no-scroll {
 /* The home panels' own surface and padding, on a page class: restating the theme's
    .front-panel put two stylesheets on one class. */
 .front-home-panel {
+  /* Flat, not the primitive's --panel-grad: the skin cards paint --panel as their own
+     ground, and on the gradient each drew a visible box (r11 quiet polish tried it). The
+     soft depth is .front-panel's (arkpedia-theme.css). */
   background: var(--panel);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-frame);
@@ -356,6 +359,9 @@ body.front-page-no-scroll {
 @keyframes front-community-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .front-community-fade-wrap { animation: none; }
 }
 .front-community-item {
   display: block;

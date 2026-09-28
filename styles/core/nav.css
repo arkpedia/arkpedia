@@ -106,16 +106,6 @@
   border: 1px solid transparent;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-@media (prefers-reduced-motion: reduce) {
-  .site-nav-link,
-  .site-nav-trigger,
-  .site-nav-pop {
-    transition: none;
-    animation: none;
-  }
-  .mobile-nav-drawer { transition: none; }
-  .mobile-nav-overlay { animation: none; }
-}
 /* --- server clock and reset countdown --------------------------------------------- */
 
 /* Never shrinks and never wraps. The nav's spacer is sized from a ResizeObserver, so
@@ -601,4 +591,18 @@
   .mobile-nav-drawer {
     display: flex;
   }
+}
+/* Reduced motion: the menus open and the drawer slides without motion. At the end of
+   the file, after every rule it stops (r11 quiet polish: it sat above them, lost the
+   cascade at equal specificity, and the menu and the drawer's overlay animated anyway;
+   audit:styles motionScope). */
+@media (prefers-reduced-motion: reduce) {
+  .site-nav-link,
+  .site-nav-trigger,
+  .site-nav-pop {
+    transition: none;
+    animation: none;
+  }
+  .mobile-nav-drawer { transition: none; }
+  .mobile-nav-overlay { animation: none; }
 }

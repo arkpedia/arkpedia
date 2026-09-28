@@ -254,6 +254,14 @@
   90% { opacity: 0.15; filter: blur(3px); transform: translateX(-50%) scale(0.9); }
   100% { opacity: 0; filter: blur(4px); transform: translateX(-50%) scale(0.8); }
 }
+/* Reduced motion: the steps still happen, without the pulse, the flash and the shake;
+   a chip that fizzles is simply gone (the fizzle's filled end state). */
+@media (prefers-reduced-motion: reduce) {
+  .gacha-tutorial-ramp-pull.ramping,
+  .gacha-tutorial-reset.hit,
+  .gacha-tutorial-pity-chip.shake { animation: none; }
+  .gacha-tutorial-pity-chip.fizzling { animation: none; opacity: 0; }
+}
 .gacha-tutorial-pity-chip.obtained {
   border-color: var(--teal);
   color: var(--teal);

@@ -78,6 +78,8 @@
   border-top: 2px solid var(--teal);
   border-radius: var(--radius-frame);
   background: var(--panel);
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
   container: operatorDetails / inline-size;
   --panel-inset: 16px;
 }

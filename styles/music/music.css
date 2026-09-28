@@ -340,6 +340,7 @@
 @media (prefers-reduced-motion: reduce) {
   /* Every infinite loop goes still; the waves stay visible as a static strip. */
   .music-track-title.marquee,
+  .music-play-btn.loading,
   .music-wave-visualizer,
   .music-wave-1,
   .music-wave-2,

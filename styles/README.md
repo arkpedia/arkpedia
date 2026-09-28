@@ -4,4 +4,4 @@
 
 Both stylesheet audits recurse through these folders. Run `npm run check:styles` after moving or renaming styles. UI interactions should preserve layout positions as much as possible.
 
-Tokens are defined only in `core/shared.css`, and the shared components live in `components/ui`. Read [UI primitives and tokens](../docs/development/ui-primitives.md) before styling a page. `npm run audit:styles` checks this folder and every `components/**.css` against a ratchet baseline.
+Tokens are defined only in `core/shared.css`, and the shared components live in `components/ui`. Every transition and animation lives in `core/motion.css`, inside `@media (prefers-reduced-motion: no-preference)`, imported last (rule 23; `audit:styles` checks it as `motionScope`). Read [UI primitives and tokens](../docs/development/ui-primitives.md) before styling a page. `npm run audit:styles` checks this folder and every `components/**.css` against a ratchet baseline.

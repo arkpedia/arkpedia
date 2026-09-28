@@ -1,0 +1,199 @@
+/* Motion: option C, "Quiet polish" (maintainer, 2026-09-26), and the LIVE badge's
+   blinking dot from option A. Every transition and animation the site adds from here on
+   is in this file (audit:styles, motionScope), and every rule in it sits inside
+   prefers-reduced-motion: no-preference, so a reader who asked for less motion gets
+   none of it: the page is the same, still (docs/development/ui-primitives.md, rule 23).
+
+   What moves, and only ever by transform or opacity -- nothing here changes a layout
+   box, so no motion can move the page (tests/browser/motion.spec.ts):
+     - picture cards and pressable tiles rise 3px on a soft shadow under the pointer
+       (hover-capable pointers only) and on keyboard focus;
+     - buttons, chips and tabs give a little (scale .97) while pressed;
+     - a <Tabs> strip's underline slides to the tab chosen (components/ui/Tabs.tsx);
+     - an image that arrives after the page is running fades in (lib/ui/imageArrival.ts);
+     - the LIVE badge's dot blinks.
+   The static half of the option -- the panels' soft depth (--shadow-panel), the dot
+   itself -- is paint, not motion, and lives with the primitives in arkpedia-theme.css
+   and the family stylesheets, so reduced motion keeps it.
+
+   Loaded last (pages/_app.tsx), so at equal specificity these beat the transitions a
+   primitive or a card already declares, which is why each list below restates those
+   (a transition list replaces, it does not add). The timings are --ease, --dur-1 and
+   --dur-2 (styles/core/shared.css). */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* --- press: buttons, chips and tabs give under the pointer -----------------------
+     The same selectors, at the same specificity, as the primitives' own transitions in
+     arkpedia-theme.css, plus `scale`. Not a .btn-bare button (a card, a tile or a row,
+     which draws its own look), except a tab; not the picture cards below, which lift
+     instead; not a text link. `scale` is its own property, so it composes with any
+     transform a page gives a button (the /gacha pull buttons' hover rise). */
+  button:where(:not(.btn-bare)),
+  a.ghost,
+  a.primary,
+  a.danger,
+  .btn {
+    transition: background-color var(--dur-1) ease, border-color var(--dur-1) ease, color var(--dur-1) ease, scale var(--dur-1) var(--ease);
+  }
+  .filter-chip {
+    transition: background-color var(--dur-1) ease, border-color var(--dur-1) ease, color var(--dur-1) ease, scale var(--dur-1) var(--ease);
+  }
+  .tab {
+    transition: color var(--dur-1) ease, scale var(--dur-1) var(--ease);
+  }
+  :is(button:not(.btn-bare), a.ghost, a.primary, a.danger, .btn, .filter-chip, .tab):active:not(:disabled, [aria-disabled="true"], .op-carousel-main-btn, .gacha-banner-sidebar-item, .front-gacha-thumb, .results-chip) {
+    scale: 0.97;
+  }
+
+  /* --- lift: picture cards and pressable tiles ------------------------------------
+     The cards of rule 23: every link or button whose main content is its picture
+     (tests/browser/motion.spec.ts finds them on the page, as cards-and-headings.spec.ts
+     does, and fails one that does not rise), and the content cards beside them. The
+     `translate` property, not `transform`: it composes with a card's own entrance (the
+     roster's cardRiseIn holds `transform` with its fill). The shadow is on hover only,
+     never at rest: /operators draws hundreds of these. A card whose own class is a CSS
+     module's takes the global hook .lift (the /games cards). */
+  :is(
+    .lift,
+    .roster-card,
+    .enemy-tile,
+    .front-events-main,
+    .front-gacha-poster-wrap,
+    .front-gacha-thumb,
+    .front-featured-op,
+    .front-skin-item,
+    .front-community-item,
+    .gacha-banner-sidebar-item,
+    .skin-card,
+    .skins-current-item,
+    .event-detail-skin-item,
+    .video-card,
+    .music-discover-album-tile,
+    .music-discover-character-tile,
+    .results-chip,
+    .op-synergy-operator,
+    .technique-entry,
+    .stage-card,
+    .stage-mode-card,
+    .terminal-lead,
+    .terminal-mode,
+    .explore-hero,
+    .score-node,
+    .regular-now,
+    .regular-tower,
+    .supply-card
+  ) {
+    transition: translate var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease), border-color var(--dur-1) ease, color var(--dur-1) ease, background-color var(--dur-1) ease;
+  }
+  :is(
+    .lift,
+    .roster-card,
+    .enemy-tile,
+    .front-events-main,
+    .front-gacha-poster-wrap,
+    .front-gacha-thumb,
+    .front-featured-op,
+    .front-skin-item,
+    .front-community-item,
+    .gacha-banner-sidebar-item,
+    .skin-card,
+    .skins-current-item,
+    .event-detail-skin-item,
+    .video-card,
+    .music-discover-album-tile,
+    .music-discover-character-tile,
+    .results-chip,
+    .op-synergy-operator,
+    .technique-entry,
+    .stage-card,
+    .stage-mode-card,
+    .terminal-lead,
+    .terminal-mode,
+    .explore-hero,
+    .score-node,
+    .regular-now,
+    .regular-tower,
+    .supply-card
+  ):focus-visible {
+    translate: 0 -3px;
+    box-shadow: var(--shadow-lift);
+  }
+  @media (hover: hover) {
+    :is(
+      .lift,
+      .roster-card,
+      .enemy-tile,
+      .front-events-main,
+      .front-gacha-poster-wrap,
+      .front-gacha-thumb,
+      .front-featured-op,
+      .front-skin-item,
+      .front-community-item,
+      .gacha-banner-sidebar-item,
+      .skin-card,
+      .skins-current-item,
+      .event-detail-skin-item,
+      .video-card,
+      .music-discover-album-tile,
+      .music-discover-character-tile,
+      .results-chip,
+      .op-synergy-operator,
+      .technique-entry,
+      .stage-card,
+      .stage-mode-card,
+      .terminal-lead,
+      .terminal-mode,
+      .explore-hero,
+      .score-node,
+      .regular-now,
+      .regular-tower,
+      .supply-card
+    ):hover {
+      translate: 0 -3px;
+      box-shadow: var(--shadow-lift);
+    }
+    /* The home banner strip's current thumbnail draws its teal edge as an inset shadow:
+       it keeps it while lifted. */
+    .front-gacha-thumb.active:hover { box-shadow: inset 0 0 0 1px var(--teal), var(--shadow-lift); }
+  }
+  .front-gacha-thumb.active:focus-visible { box-shadow: inset 0 0 0 1px var(--teal), var(--shadow-lift); }
+
+  /* --- tabs: the underline slides -------------------------------------------------
+     Tabs.tsx places the bar with transform and sets data-slide only once it sits
+     under the current tab, so this never animates the first placement; a relayout
+     (a font arriving, a resize) moves it with the transition switched off. */
+  .tabs[data-slide] > .tabs-indicator {
+    transition: transform var(--dur-2) var(--ease);
+  }
+
+  /* --- images fade in as they arrive ----------------------------------------------
+     lib/ui/imageArrival.ts (started by pages/_app.tsx once the app has hydrated) sets
+     data-image-arrivals on <html> and sorts every image: data-shown on one that may be
+     seen, data-arrived as well on one that has just arrived. Until then an image that
+     has drawn nothing is held at opacity 0, which changes nothing on screen; an image
+     already in, already drawing or broken when the watch starts is shown at once, and
+     so is one that errors or has not arrived 1.5s after coming on screen (fail open).
+     Without scripts, or under reduced motion, <html> never gets the attribute and
+     nothing is held. The hold's specificity beats a page's own opacity on an image, so
+     a half-drawn picture never shows before its fade. The fade has only a `from`, so it
+     ends on the image's own opacity (a dimmed icon stays dimmed), and no fill, so once
+     played it leaves nothing behind; :where() keeps it at zero specificity, so an image
+     with an animation of its own (the operator artwork's cross-fade) keeps that. */
+  :root[data-image-arrivals] img:not([data-shown]) {
+    opacity: 0;
+  }
+  :where(img[data-arrived]) {
+    animation: img-arrive var(--dur-2) var(--ease);
+  }
+  @keyframes img-arrive {
+    from { opacity: 0; }
+  }
+
+  /* --- LIVE: the dot blinks (option A's, exactly) --------------------------------- */
+  .badge-live::before {
+    animation: blink 1.2s steps(2, jump-none) infinite;
+  }
+  @keyframes blink {
+    50% { opacity: 0.2; }
+  }
+}

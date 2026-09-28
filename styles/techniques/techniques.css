@@ -36,6 +36,8 @@
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-frame);
   background: var(--panel-2);
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 /* The canonical section heading (.op-section h2, --heading): the size and colour come
    from shared.css. It was 20px teal, and teal means "on". The column's flex gap is part

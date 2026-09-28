@@ -1041,6 +1041,8 @@
   background: var(--panel-grad);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-frame);
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 /* The first panel starts where Simple's search does, 24px under the header hairline

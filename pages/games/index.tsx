@@ -15,7 +15,7 @@ export default function GamesPage() {
     <main>
       <ul className={styles.games} aria-label="Choose a game">
         {GAMES.map((game) => <li key={game.href}>
-          <Link href={game.href} prefetch={false} className={styles.card} aria-labelledby={`game-${game.icon}`}>
+          <Link href={game.href} prefetch={false} className={`${styles.card} lift`} aria-labelledby={`game-${game.icon}`}>
             <span className={styles.icon} aria-hidden="true">{ICONS[game.icon]}</span>
             <div>
               <h2 id={`game-${game.icon}`} className="entity-title">{game.name}</h2>

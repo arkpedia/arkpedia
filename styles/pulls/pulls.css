@@ -14,6 +14,8 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
   padding: 16px 18px;
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 /* The panels are .op-section too, for the site's section heading; they sit in a
    grid with its own gap, so the section margin is not wanted here. */
