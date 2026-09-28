@@ -180,6 +180,43 @@
   }
 }
 
+/* r11: wherever the phone bar shows (900px and under) the page's content runs to the
+   24px gutter, and the collapsed 44px tile, 8-16px off the edge, sat 20-36px over it: the
+   right edge of /pulls' goal list, the planner's materials, the top of an operator page's
+   section menu (maintainer, 2026-09-28). So collapsed, the ♪ is a tab IN the right
+   gutter, flush with the screen's edge: exactly --page-gutter wide, so it ends where the
+   page frame begins (page-bounds.spec.ts holds every page's content inside that frame),
+   and 56px tall, so its target is 24 x 56 (WCAG 2.5.8's 24px floor, the dense ×'s). Its
+   teal accent is on the side that faces the page, where the desktop tile has it on top.
+   Open, it is the player panel above as before, and over 900px the tile is unchanged.
+   tests/browser/music-tab.spec.ts fails a tab that meets any text or control. */
+@media (max-width: 900px) {
+  .music-player.collapsed {
+    right: 0;
+    left: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: var(--page-gutter);
+    border-top-width: 1px;
+    border-top-color: var(--line);
+    border-right: 0;
+    border-left: 2px solid var(--teal);
+    border-radius: var(--radius-frame) 0 0 var(--radius-frame);
+    /* Beside the page, not over it: no drop shadow smudging the content next to it. */
+    box-shadow: none;
+  }
+  .music-player.collapsed .music-collapse-toggle {
+    width: var(--page-gutter);
+    height: 56px;
+    margin: -1px 0 -1px -2px;
+  }
+  .music-player.collapsed .music-collapse-toggle svg { width: 16px; height: 16px; }
+  /* A dialog that takes the whole screen puts its own controls in that corner (the
+     planner's windows end in a Done at the right edge), so while a modal one is open the
+     tab steps aside; the music plays on, and the tab is back when the dialog closes. The
+     phone menu is a modal dialog that stays in the page shut, so it counts only open. */
+  body:has([aria-modal="true"]:not(.mobile-nav-drawer:not(.open))) .music-player.collapsed { visibility: hidden; }
+}
+
 /* --- Full player page (pages/music/index.tsx) --- */
 .music-player-page {
   display: flex;
@@ -525,7 +562,7 @@
 .music-discover-row.expanded.music-discover-cloud-row { gap: 8px 12px; }
 
 .music-discover-album-tile { display: flex; flex-direction: column; flex-shrink: 0; align-items: stretch; gap: 8px; width: 120px; padding: 0; color: var(--text-dim); text-align: left; cursor: pointer; }
-.music-discover-album-tile-cover { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid transparent; border-radius: var(--radius-control); object-fit: cover; background: var(--panel-2); transition: border-color 0.15s ease; }
+.music-discover-album-tile-cover { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid transparent; border-radius: var(--radius-control); object-fit: cover; background: var(--panel-2); background-clip: padding-box; transition: border-color 0.15s ease; }
 .music-discover-album-tile:hover .music-discover-album-tile-cover { border-color: var(--teal); }
 .music-discover-album-tile-cover.music-album-cover-placeholder { display: flex; font-size: 26px; }
 .music-discover-album-tile-note { font-size: 11px; color: var(--text-faint); }
@@ -535,7 +572,7 @@
 .music-discover-artist-pill { flex-shrink: 0; }
 
 .music-discover-character-tile { display: flex; flex-direction: column; flex-shrink: 0; align-items: center; gap: 6px; width: 72px; padding: 0; color: var(--text-dim); cursor: pointer; }
-.music-discover-character-portrait { width: 64px; height: 64px; overflow: hidden; border: 1px solid transparent; border-radius: var(--radius-control); background: var(--panel-2); transition: border-color 0.15s ease; }
+.music-discover-character-portrait { width: 64px; height: 64px; overflow: hidden; border: 1px solid transparent; border-radius: var(--radius-control); background: var(--panel-2); background-clip: padding-box; transition: border-color 0.15s ease; }
 .music-discover-character-portrait img { width: 100%; height: 100%; object-fit: cover; }
 .music-discover-character-tile:hover .music-discover-character-portrait { border-color: var(--teal); }
 .music-discover-character-name { max-width: 100%; overflow: hidden; font-size: 11px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }

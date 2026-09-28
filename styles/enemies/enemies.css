@@ -1201,6 +1201,7 @@ main.enemy-page {
   aspect-ratio: 1;
   background: var(--panel);
   border: 1px solid transparent;
+  background-clip: padding-box; /* the resting border shows nothing (ui-primitives rule 2) */
   border-radius: var(--radius);
   overflow: hidden;
 }
@@ -1222,7 +1223,9 @@ main.enemy-page {
   line-height: 1;
   padding: 3px 4px;
   background: rgb(0 0 0 / 72%);
-  color: var(--text);
+  /* The ground is dark in both themes, so the ink is fixed too: the theme's --text went
+     dark in the light theme and "B1" read 1.4:1 on it. */
+  color: var(--scrim-ink);
   border-bottom-right-radius: 3px;
 }
 

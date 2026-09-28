@@ -410,6 +410,10 @@
   /* Banner art: no resting frame (maintainer, 2026-09-26). The open banner keeps its
      teal edge and fill (.active, below); hover and keyboard focus draw the edge. */
   border: 1px solid transparent;
+  /* ...and nothing shows through it: the art is inset 0 in the padding box, and a
+     border-box background drew a 1px --panel-2 ring round it (grey on the light
+     sidebar, 231 on 251; maintainer, 2026-09-28). */
+  background-clip: padding-box;
   border-radius: var(--radius-control);
   cursor: pointer;
   text-align: left;

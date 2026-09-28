@@ -131,6 +131,7 @@
   padding: 0;
   cursor: pointer;
   border-color: transparent;
+  background-clip: padding-box; /* the resting border shows nothing (ui-primitives rule 2) */
 }
 .results-page .results-chip:hover, .results-page .results-chip:focus-visible { border-color: var(--teal); }
 .results-page .results-chip:active { cursor: pointer; }

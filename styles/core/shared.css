@@ -116,6 +116,16 @@
      segment. --text is the body voice; this is the emphasis the old palette's
      #E7EEF3 used to carry everywhere before it was pulled back. */
   --text-bright: #E7EEF3;
+  /* Ink on a scrim: text on a FIXED dark ground over art (a tile's handbook code, a
+     card's "no map data" tag), which is dark in both themes, so its ink is too -- one
+     value, never restated in the light block. The theme's own --text turned dark there
+     and the codes on /enemies read 1.4:1 in the light theme (2026-09-28). These are the
+     dark theme's --text and --text-dim: --scrim-ink is 5.4:1 on a 72% black badge even
+     over white art, and --scrim-ink-dim 5.3:1 on an 86% plate (only there: 3.6:1 on the
+     72% badge). scripts/tests/test-ui-tokens.ts checks both, and
+     tests/browser/overlay-badges.spec.ts every overlay's text, at 4.5:1 in both themes. */
+  --scrim-ink: #BCC8CF;
+  --scrim-ink-dim: #93a6b1;
 
   /* A panel's surface as a gradient. Use var(--panel-grad) on panels and cards;
      the flat --panel stays available for children that sit on top of one. */

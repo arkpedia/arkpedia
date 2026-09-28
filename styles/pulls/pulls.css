@@ -255,7 +255,8 @@
 .pulls-disclosure { scroll-margin-top: 90px; }
 .pulls-skin-search { display: flex; flex-direction: column; gap: 8px; }
 .pulls-skin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
-/* A .btn-bare .pick-card: the frame, hover and picked state are the primitive's. */
+/* A .btn-bare .pick-card .pick-card-picture: the outfit's art is the card, so it rests with
+   no border and turns teal on hover and focus; hover and picked are the primitive's. */
 .pulls-skin-option { display: flex; flex-direction: column; text-align: left; padding: 10px; color: var(--text); min-width: 0; }
 .pulls-skin-option img, .pulls-skin-noart { width: 100%; height: 190px; object-fit: contain; }
 .pulls-skin-noart { display: grid; place-items: center; color: var(--text-dim); }

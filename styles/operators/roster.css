@@ -127,7 +127,7 @@
    one inset of every picture card's text. */
 .roster-card > .op-name { margin: var(--card-inset) var(--card-inset) 8px; line-height: 1.35; }
 .roster-card > .hint { margin: 0 var(--card-inset) var(--card-inset); line-height: 1.5; }
-.roster-card > .avatar { margin-bottom: 0; border-color: transparent; }
+.roster-card > .avatar { margin-bottom: 0; border-color: transparent; background-clip: padding-box; }
 
 /* --- /obtain-method ---
    Its two filter rows are SegmentedControls (components/ui). It used to borrow the

@@ -46,7 +46,7 @@ export function SkinPlan({ catalogue, collections, today, ids, onChange, heldOP,
         </div>
         <div className="pulls-skin-search"><span aria-hidden="true">Search this shop</span><SearchInput label="Search this shop" value={query} onChange={value => { setQuery(value); setLimit(12); }} placeholder="Operator or outfit name" /></div>
         <div className="pulls-skin-grid">
-          {matches.slice(0, limit).map(skin => <button key={skin.id} type="button" className="btn-bare pick-card pulls-skin-option" aria-pressed={ids.includes(skin.id)} aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP`} onClick={() => toggle(skin.id)}>
+          {matches.slice(0, limit).map(skin => <button key={skin.id} type="button" className="btn-bare pick-card pick-card-picture pulls-skin-option" aria-pressed={ids.includes(skin.id)} aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP`} onClick={() => toggle(skin.id)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {skin.image ? <ContentImg src={skin.image} alt="" loading="lazy" /> : <span className="pulls-skin-noart">Artwork unavailable</span>}
             <span><b>{skin.operator}</b><span>{skin.name}</span><strong>{ids.includes(skin.id) ? '✓ Selected · ' : '+ Add · '}{skin.op} OP</strong></span>

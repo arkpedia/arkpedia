@@ -909,6 +909,7 @@
   border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--panel-2);
+  background-clip: padding-box; /* the resting border shows nothing (ui-primitives rule 2) */
   color: var(--text);
   text-decoration: none;
 }
@@ -1305,10 +1306,11 @@
   width: min(320px, 66%);
   overflow-y: auto;
   padding: 10px 12px;
-  /* The page's own ground at 93%, so the themed text on it reads in both themes. It
+  /* The page's own ground at 96%, so the themed text on it reads in both themes. It
      was a fixed near-black scrim under themed text, which left the light theme's dark
-     ink on it at 1.32:1 (tests/browser/terminal-pages.spec.ts measures it). */
-  background: color-mix(in srgb, var(--bg) 93%, transparent);
+     ink on it at 1.32:1 (tests/browser/terminal-pages.spec.ts measures it). At 93% the
+     light theme's micro-labels read 4.2:1 over the dark map (overlay-badges.spec.ts). */
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
   border-left: 1px solid var(--line);
   transform: translateX(101%);
   transition: transform 180ms ease;
@@ -1327,7 +1329,7 @@
 /* The legend's group labels are .label-tag micro-labels (arkpedia-theme.css), not
    headings: the overlay is one role="button", whose children are presentational, and
    they label a legend group, not a section of the page. */
-.stage-legend-overlay p.label-tag { margin: 0 0 6px; }
+.stage-legend-overlay p.label-tag { margin: 0 0 6px; color: var(--text-dim); }
 .stage-legend-overlay p.label-tag + * { margin-bottom: 12px; }
 .stage-legend-overlay .stage-legend {
   display: flex;
@@ -1430,7 +1432,9 @@ button.stage-tile-pop-close:hover { color: white; }
   margin-left: 6px;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: rgb(255 255 255 / 0.62);
+  /* The legend's ground follows the theme, so its ink does: a fixed white at 62%, from
+     when the ground was a dark scrim, read 1.06:1 in the light theme. */
+  color: var(--text-dim);
 }
 
 /* A unit standing on the clicked tile, under the tile's own description. */

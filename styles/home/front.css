@@ -181,6 +181,7 @@ body.front-page-no-scroll {
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
+  background-clip: padding-box; /* the resting border shows nothing (ui-primitives rule 2) */
   transition: border-color 0.15s ease;
 }
 .front-gacha-poster-wrap:hover { border-color: var(--teal); }
@@ -210,6 +211,7 @@ body.front-page-no-scroll {
   overflow: hidden;
   border: 1px solid transparent;
   background: var(--panel-2);
+  background-clip: padding-box; /* the resting border shows nothing (ui-primitives rule 2) */
   cursor: pointer;
   padding: 0;
 }

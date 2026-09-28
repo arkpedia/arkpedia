@@ -186,6 +186,18 @@ test('rarity fills are one set for both themes (dark ink sits on them)', () => {
   }
 });
 
+// r11: ink on a fixed dark scrim over art is one value for both themes, and reads on the
+// lightest its scrim gets, over white art: --scrim-ink on a 72% black badge (the /enemies
+// tiles' codes), --scrim-ink-dim on an 86% plate (the Terminal cards' tags).
+test('scrim inks are one value for both themes and read on their scrims over white', () => {
+  for (const [name, scrim] of [['--scrim-ink', { r: 0, g: 0, b: 0, a: 0.72 }], ['--scrim-ink-dim', { r: 10, g: 14, b: 18, a: 0.86 }]] as const) {
+    assert.ok(dark.tokens.has(name), `${name} missing`);
+    assert.ok(!lightOnly.tokens.has(name), `${name} must not be restated in the light block`);
+    const ratio = contrast(colour(themes.dark, name), blend(scrim, { r: 255, g: 255, b: 255, a: 1 }));
+    assert.ok(ratio >= 4.5, `${name} on its scrim over white is ${ratio.toFixed(2)}:1`);
+  }
+});
+
 test('the theme-color meta matches --bg in each theme', () => {
   assert.equal(THEME_COLOR.dark.toLowerCase(), themes.dark.get('--bg')!.toLowerCase());
   assert.equal(THEME_COLOR.light.toLowerCase(), themes.light.get('--bg')!.toLowerCase());

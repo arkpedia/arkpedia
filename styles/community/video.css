@@ -30,6 +30,7 @@
   background: var(--panel-2);
   /* No frame round the art at rest; the .video-card itself turns teal on hover/focus. */
   border: 1px solid transparent;
+  background-clip: padding-box; /* and the border shows nothing at rest */
   margin-bottom: 0;
   position: relative;
 }
