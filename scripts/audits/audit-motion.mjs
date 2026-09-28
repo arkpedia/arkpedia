@@ -369,6 +369,21 @@ export function reducedMotionStops(root) {
 /** { found: string[], motionFile: string[] }: the motion declarations outside motion.css
  *  (as `path: selector { prop }`, `path: @keyframes name`, `path: style.prop`), and what
  *  in motion.css breaks its two rules. */
+/* The properties motion.css may animate: paint only, never a box's size or place. */
+const PAINT_ONLY = /^(transform|translate|scale|rotate|opacity|box-shadow|filter|color|background-color|border(-(top|right|bottom|left))?-color|outline-color|fill|stroke|text-decoration-color)$/;
+
+/** What a motion.css block animates: the properties a transition names, or that a
+ *  @keyframes block sets. */
+function animatedProps(b) {
+  if (b.kind === 'keyframes') return [...new Set([...b.body.matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]))];
+  const out = [];
+  for (const d of declarations(b.body)) {
+    if (d.prop === 'transition-property') out.push(...d.value.split(',').map((v) => v.trim()));
+    else if (d.prop === 'transition') out.push(...d.value.split(/,(?![^(]*\))/).map((v) => v.trim().split(/\s+/)[0]));
+  }
+  return out.map((prop) => prop.toLowerCase()).filter((prop) => prop && prop !== 'none');
+}
+
 export function motionFindings(root) {
   const found = [];
   const motionFile = [];
@@ -380,6 +395,12 @@ export function motionFindings(root) {
         const where = b.kind === 'keyframes' ? b.prelude : b.prelude;
         if (!b.stack.some((m) => NO_PREFERENCE.test(m))) motionFile.push(`${path}: ${where} is outside @media (prefers-reduced-motion: no-preference)`);
         if (b.kind === 'rule' && /:hover\b/.test(b.prelude) && !b.stack.some((m) => HOVER_MEDIA.test(m))) motionFile.push(`${path}: ${where} is a :hover outside @media (hover: hover)`);
+        // Motion never moves the layout: it may animate paint (transform, opacity, shadow,
+        // colour) and nothing that sizes or places a box, so the browser checks can sample
+        // one page per kind of motion instead of loading every page twice each way.
+        for (const prop of animatedProps(b)) {
+          if (!PAINT_ONLY.test(prop)) motionFile.push(`${path}: ${where} animates ${prop}, which moves the layout (only transform, translate, scale, rotate, opacity, box-shadow, filter and colours)`);
+        }
         continue;
       }
       if (b.kind === 'keyframes') { found.push(`${path}: ${b.prelude.replace(/^@(?:-webkit-)?keyframes\s+/, '@keyframes ')}`); continue; }

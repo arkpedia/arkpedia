@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
-import { censusRoutes, fontsSettled, plannerExperimental, PLANNER_PLAN, readOnly } from './census-routes';
+import { fontsSettled, plannerExperimental, PLANNER_PLAN, readOnly } from './census-routes';
 
 /*
  * Motion: option C, "Quiet polish" (maintainer, 2026-09-26), and the LIVE badge's
@@ -197,7 +197,7 @@ const LIFT_ROUTES: Record<string, number> = {
   '/operators/Amiya': 1, '/synergies': 1, [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}`]: 1,
 };
 /* Content cards whose art is under half the card: they lift too. */
-const CONTENT_CARDS: Record<string, string[]> = {
+const LIFT_CONTENT_CARDS: Record<string, string[]> = {
   '/games': ['a.lift'], '/stages': ['a.terminal-mode'], '/stages/supplies': ['.supply-card'], '/stages/regular': ['a.regular-now', '.regular-tower'],
 };
 
@@ -259,8 +259,17 @@ async function forceActive(page: Page, selector: string, on: boolean) {
   if (!on) await cdp.detach();
 }
 
+/* The pages the two whole-page motion checks load: one of each kind of motion (the home
+   carousel and its cards, the operator list's cards, an operator page's skill tabs and
+   artwork, /gacha's LIVE badge, /schedule's tabs, /community's carousel, /skins' cards, the
+   planner's tabs and dialogs, the Terminal). Motion is one stylesheet inside
+   prefers-reduced-motion: no-preference, held there by audit:styles' motionScope, and it
+   moves only transform, opacity and shadow, so these pages stand for the rest: the census
+   pages once cost 4 loads each here, 360 in all. */
+const MOTION_ROUTES = ['/', '/operators', '/operators/Amiya', '/gacha', '/schedule', '/community', '/skins', '/planner', '/stages'];
+
 test.describe('reduced motion: nothing moves', () => {
-  for (const route of censusRoutes()) {
+  for (const route of MOTION_ROUTES) {
     test(`${route}: no animation or transition runs, after hovering, pressing, switching and scrolling`, async ({ browser }, info) => {
       const context = await contextFor(browser, info, 'reduce');
       const page = await context.newPage();
@@ -368,7 +377,7 @@ const CLS_NOISY: Record<string, string> = {
 test.describe('motion never moves the layout', () => {
   // Four loads (two with motion, two without), each waiting for its images.
   test.describe.configure({ timeout: 120_000 });
-  for (const route of censusRoutes()) {
+  for (const route of MOTION_ROUTES) {
     test(`${route}: the same boxes, height and opacity with motion on and off, and no more layout shift`, async ({ browser }, info) => {
       const result: Record<string, { layout: Awaited<ReturnType<typeof layoutOf>>; cls: number; shifts: string[]; marked: string[] }> = {};
       // Each preference loads twice, each time fresh, and its worse layout shift is the one
@@ -479,7 +488,7 @@ test.describe('cards lift, and only by paint', () => {
         await expect.poll(() => el.evaluate((e) => getComputedStyle(e).translate), { message: `${card.kind} rises on keyboard focus` }).toBe(HOVER_LIFT);
         await el.blur();
       }
-      for (const selector of CONTENT_CARDS[route] ?? []) {
+      for (const selector of LIFT_CONTENT_CARDS[route] ?? []) {
         const el = page.locator(selector).first();
         if (!(await el.count())) continue;
         await el.scrollIntoViewIfNeeded();
@@ -492,7 +501,7 @@ test.describe('cards lift, and only by paint', () => {
       }
     });
   }
-  for (const [route, selectors] of Object.entries(CONTENT_CARDS).filter(([r]) => !(r in LIFT_ROUTES))) {
+  for (const [route, selectors] of Object.entries(LIFT_CONTENT_CARDS).filter(([r]) => !(r in LIFT_ROUTES))) {
     test(`${route}: its content cards rise on hover`, async ({ page }) => {
       await readOnly(page);
       await page.goto(route);
