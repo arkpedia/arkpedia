@@ -23,7 +23,8 @@
  * draws an image row by row as its bytes come in, and holding that for the whole load
  * would hide it, and fading it at the end would blank the half-drawn picture (measured
  * at 40 KB/s: 65 KB of a banner drawn, then a blank frame at its load). An image in a
- * box that is not shown is not timed until it is. A page whose scripts never ran, or a
+ * box that is not shown is not timed until it is, and one that arrives there is shown,
+ * unfaded, since it is not drawn. A page whose scripts never ran, or a
  * reader who asked for reduced motion, gets no attribute at all, so nothing is held.
  *
  * One MutationObserver (added images, and removed ones to stop timing them), one
@@ -60,7 +61,9 @@ export function watchImageArrivals(doc: Document): () => void {
   const show = (img: HTMLImageElement, fade: boolean) => {
     if (img.hasAttribute(SHOWN)) return;
     img.setAttribute(SHOWN, '');
-    if (fade) img.setAttribute(ARRIVED, '');
+    // Not drawn (in a closed panel, a hidden tab): nothing to fade, and a fade marked now
+    // would wait unplayed for the panel to open. Shown as it is.
+    if (fade && img.getClientRects().length) img.setAttribute(ARRIVED, '');
     const timer = timers.get(img);
     if (timer !== undefined) { view.clearTimeout(timer); timers.delete(img); }
     seen?.unobserve(img);

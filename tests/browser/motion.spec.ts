@@ -352,9 +352,11 @@ const CLS_NOISY: Record<string, string> = {
   '/music': 'the player and its queue grow at load in one frame or two, 0.06 to 0.39 on the same build either way',
 };
 test.describe('motion never moves the layout', () => {
+  // Four loads (two with motion, two without), each waiting for its images.
+  test.describe.configure({ timeout: 120_000 });
   for (const route of censusRoutes()) {
     test(`${route}: the same boxes, height and opacity with motion on and off, and no more layout shift`, async ({ browser }, info) => {
-      const result: Record<string, { layout: Awaited<ReturnType<typeof layoutOf>>; cls: number; shifts: string[]; marked: number }> = {};
+      const result: Record<string, { layout: Awaited<ReturnType<typeof layoutOf>>; cls: number; shifts: string[]; marked: string[] }> = {};
       // Each preference loads twice, each time fresh, and its worse layout shift is the one
       // compared: one movement scores differently by the frames it lands in (the /music
       // player grows in one frame or two, 0.39 or 0.20, on either build and either
@@ -374,6 +376,9 @@ test.describe('motion never moves the layout', () => {
         await settle(page);
         await imagesIn(page);
         await settle(page);
+        // A fade still playing (an image that came in during the last settle) takes its mark
+        // off when it ends; one still marked after that is a fade that never ran.
+        await page.waitForFunction(() => !document.querySelector('img[data-arrived]'), undefined, { timeout: 3000 }).catch(() => {});
         if (again) {
           const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
           if (cls > result[motion].cls) {
@@ -388,14 +393,14 @@ test.describe('motion never moves the layout', () => {
           cls: await page.evaluate(() => (window as unknown as { __cls: number }).__cls),
           shifts: await page.evaluate(() => (window as unknown as { __shifts: string[] }).__shifts),
           // The fade takes its mark off when it ends: one still on is a fade that never did.
-          marked: await page.evaluate(() => document.querySelectorAll('img[data-arrived]').length),
+          marked: await page.evaluate(() => Array.from(document.querySelectorAll('img[data-arrived]')).map((img) => `${img.getAttribute('src')} (${img.getClientRects().length ? 'drawn' : 'not drawn'}, ${img.getAnimations().length} animations)`)),
         };
         await context.close();
       }
       const on = result['no-preference'];
       const off = result.reduce;
-      expect(on.marked, 'every image that faded in has finished, and kept nothing').toBe(0);
-      expect(off.marked, 'nothing fades under reduced motion').toBe(0);
+      expect(on.marked, 'every image that faded in has finished, and kept nothing').toEqual([]);
+      expect(off.marked, 'nothing fades under reduced motion').toEqual([]);
       expect(on.layout.height, 'the document is as tall with motion as without').toBe(off.layout.height);
       // offsetLeft and offsetTop are whole pixels, one rounding per link of the chain, so a
       // chain that runs through another offsetParent may sum 1px apart: positions agree
@@ -804,6 +809,7 @@ test.describe('images fade in only as they arrive', () => {
     // Longer than the hold: shown, as it is, before it arrives, and not faded when it does.
     await page.route('**/__motion/crawl.png', after(HOLD_MS + 900));
     await page.route('**/__motion/unseen.png', () => { /* never answered */ });
+    await page.route(/\/__motion\/closed\.png/, after(200));
     await page.goto('/support');
     await settle(page);
     const names = { never: '/__motion/never.png', missing: '/__motion/missing.png', quick: '/__motion/quick.png', remote: 'https://raw.githubusercontent.com/__motion/remote.png', crawl: '/__motion/crawl.png' };
@@ -830,6 +836,7 @@ test.describe('images fade in only as they arrive', () => {
       };
       for (const [name, src] of Object.entries(srcs)) add(name, src, box);
       add('unseen', '/__motion/unseen.png', hidden);
+      add('closed', '/__motion/closed.png', hidden);
       document.body.appendChild(box);
       const opacityOf = (name: string) => getComputedStyle(document.getElementById(`motion-${name}`)!).opacity;
       setTimeout(() => { early = Object.keys(srcs).map((name) => `${name} ${opacityOf(name)}`); }, 200);
@@ -848,8 +855,12 @@ test.describe('images fade in only as they arrive', () => {
       'remote: opacity 1, 0 running, unmarked, loaded',
       'crawl: opacity 1, 0 running, unmarked, loaded',
     ]);
+    // One that arrived in a box not shown was not drawn, so it is shown, unfaded: a fade
+    // marked then would wait for the box to open.
+    expect(await state(['closed']), 'an image that arrives in a closed box is shown, unmarked').toEqual(['closed: opacity 1, 0 running, unmarked, loaded']);
     // An image in a box that is not shown is timed only once it is: shown, it too ends visible.
     await page.evaluate(() => { document.getElementById('motion-hidden')!.style.display = 'block'; });
+    expect(await page.locator('#motion-closed').evaluate((img) => img.getAnimations().length), 'and the box opening does not fade it').toBe(0);
     await expect.poll(() => state(['unseen']), { message: 'a held image in a box shown later is shown within the hold', timeout: HOLD_MS + 1500 })
       .toEqual(['unseen: opacity 1, 0 running, unmarked, not loaded']);
     // A panel shown again does not fade its images a second time.
