@@ -186,6 +186,41 @@ test("the Terminal bar's menu button is one control height, and follows the toke
 });
 
 /*
+ * The calendar's head never moves as the month changes (maintainer, 2026-09-28: "clicking
+ * through the months changes the size and thus the elements change location, we DO NOT
+ * WANT THIS"). The month trigger was as wide as its own value, MAY 85px and SEPTEMBER
+ * 153px at 1440, so the year, the next arrow and Today moved at every step; the year's
+ * digits are not all one width either. Next month is pressed through a whole year and
+ * across a new year, at 1440 and on phones, and every control's box must stay where it
+ * was (0.5px). Box edges only, the same on any font.
+ */
+test("the calendar's head holds still through a year of months", async ({ page }) => {
+  const width = await censusWidth(page);
+  const widths = width === 1440 ? [1440] : [360, 390, 460];
+  await readOnly(page);
+  for (const w of widths) {
+    await page.setViewportSize({ width: w, height: 844 });
+    await page.goto('/schedule?view=calendar');
+    await fontsSettled(page);
+    const boxes = () => page.locator('.cal-head-when').evaluate((when) => ['.cal-pick-month', '.cal-pick-year', 'button[aria-label="Previous month"]', 'button[aria-label="Next month"]', '.cal-today-slot']
+      .map((selector) => { const r = when.querySelector(selector)!.getBoundingClientRect(); return `${selector} ${r.left.toFixed(1)}+${r.width.toFixed(1)}`; }));
+    // Step once first, so Today is drawn (it is absent on the current month by design).
+    await page.getByRole('button', { name: 'Next month' }).click();
+    const first = await boxes();
+    for (let step = 0; step < 13; step += 1) {
+      await page.getByRole('button', { name: 'Next month' }).click();
+      const month = await page.locator('.cal-head-title').getByRole('combobox', { name: 'Month' }).innerText();
+      const now = await boxes();
+      const moved = now.filter((box, i) => {
+        const [a, b] = [box, first[i]].map((entry) => entry.split(' ').pop()!.split('+').map(Number));
+        return Math.abs(a[0] - b[0]) > 0.5 || Math.abs(a[1] - b[1]) > 0.5;
+      }).map((box, i) => `${box} (was ${first[now.indexOf(box)].split(' ').pop()})`);
+      expect(moved, `${w}px, ${month.replace(/\s+/g, ' ')}: the head's controls moved`).toEqual([]);
+    }
+  }
+});
+
+/*
  * The calendar's month and year menus show their whole value. On a phone the head is a
  * grid of the two month steps (each var(--control-h) square) either side of the month
  * and year, and the month gets what is left: when the steps grew from 36 to 40px,
@@ -223,7 +258,9 @@ test("the calendar's month and year menus show their whole value", async ({ page
           let hidden = false;
           for (let el = node.parentElement; el && el !== trigger; el = el.parentElement) {
             const cs = getComputedStyle(el);
-            if (cs.display === 'none' || cs.clip !== 'auto' || el.getBoundingClientRect().width <= 1) { hidden = true; break; }
+            // Not drawn: display none, clipped away, or a hidden sizer that only holds the
+            // trigger at its widest value (CalendarMonthValue.tsx).
+            if (cs.display === 'none' || cs.clip !== 'auto' || cs.visibility === 'hidden' || el.getBoundingClientRect().width <= 1) { hidden = true; break; }
           }
           if (hidden) continue;
           const range = document.createRange();

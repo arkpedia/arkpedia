@@ -16,10 +16,14 @@
 }
 .cal-head-when { display: flex; align-items: center; gap: 8px; }
 .cal-head-title { display: flex; align-items: center; gap: 6px; }
-/* Wide enough for the longest month name, so the arrow and the Today button beside it
-   do not move as the month changes (77px on May against 137px on September). */
-.cal-pick-month { min-width: 176px; }
-.cal-pick-year { min-width: 104px; }
+/* The month and the year hold one width whatever is picked, so the arrow and Today
+   after them never move as the month changes: every value sits in one grid cell,
+   hidden, under the one shown (components/schedule/CalendarMonthValue.tsx), so the
+   trigger is as wide as the widest in whatever face draws it. A px min-width here lost
+   to the StyledSelect root's own min-width: 0 and the head moved at every step. */
+.cal-steady { display: inline-grid; }
+.cal-steady > span { grid-area: 1 / 1; }
+.cal-steady > .cal-steady-sizer { visibility: hidden; }
 
 /* The month steps either side of the title are .ghost .btn-icon buttons: square at
    the control height, like the month and year menus between them (they were 36px
@@ -66,7 +70,7 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-  .cal-month-short { display: inline; }
+  .cal-month-short { display: inline-grid; }
 }
 
 .timeline-month-large {

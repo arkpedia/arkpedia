@@ -56,6 +56,28 @@ test('UI-16: /community shows no developer setup notes', async ({ page }) => {
   expect(text).not.toMatch(/YOUTUBE_API_KEY|TWITCH_CLIENT_ID|TWITCH_CLIENT_SECRET|twitchConfig\.ts/);
 });
 
+/* The world map is /community's feature: it was hidden whenever no community event was
+   upcoming (2026-09-25), and with none upcoming the whole map was gone. It is drawn with
+   the list whatever the page's clock says: here the page data is fetched on a client
+   navigation with its clock moved past the last event, so every event has ended. */
+test('/community always shows the world map and the event list, even when every event has ended', async ({ page }) => {
+  await page.goto('/community');
+  await expect(page.locator('.community-map-row .world-map-svg'), 'the map, at the build\'s clock').toBeVisible();
+  await page.route(/\/_next\/data\/[^/]+\/community\.json/, async (route) => {
+    if (route.request().method() !== 'GET') { await route.continue(); return; }
+    const response = await route.fetch();
+    const json = await response.json();
+    const ends = (json.pageProps.events as { endTime?: string; startTime: string }[]).map((event) => Date.parse(event.endTime ?? event.startTime));
+    if (ends.length) json.pageProps.now = Math.max(...ends) + 86_400_000;
+    await route.fulfill({ response, json });
+  });
+  await page.goto('/');
+  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/community'));
+  await page.waitForURL('**/community');
+  await expect(page.locator('.community-map-row .world-map-svg'), 'the map, with every event ended').toBeVisible();
+  await expect(page.locator('.community-map-row .community-event-panel'), 'the event list beside it').toBeVisible();
+});
+
 test('GE-10/GM-04: the music widget never covers the last row, and stays off /music', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'the reserve is a phone rule (<=640px)');
   await page.goto('/community/videos');

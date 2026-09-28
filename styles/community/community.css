@@ -15,15 +15,6 @@
   overflow-y: auto;
 }
 .community-map-main { flex: 1; min-width: 0; }
-.community-events-empty {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 13px;
-}
 .community-event-list { display: flex; flex-direction: column; gap: 6px; }
 /* Each event opens its organiser's page: a link card with the control boundary. */
 .community-event-item {
