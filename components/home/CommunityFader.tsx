@@ -79,7 +79,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
   if (slides.length === 0) {
     return (
       <section className="front-panel front-home-panel front-community-panel">
-        <h2>Community</h2>
+        <h2 className="section-title">Community</h2>
         <p className="hint">Nothing to feature right now.</p>
       </section>
     );
@@ -89,7 +89,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
 
   return (
     <section className="front-panel front-home-panel front-community-panel">
-      <h2>Community</h2>
+      <h2 className="section-title">Community</h2>
       {/* pan-y keeps vertical drags as native scroll; horizontal swipes flip slides. */}
       <div
         className="front-community-fade-wrap"
@@ -107,7 +107,7 @@ export default function CommunityFader({ stream, video, event }: Props) {
           >
             <div className="front-community-thumb-wrap">
               <Image src={active.data.thumbnailUrl} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
-              <span className="front-live-badge">LIVE</span>
+              <span className="badge-live front-live-badge">LIVE</span>
             </div>
             <p className="front-community-title">{active.data.title}</p>
             <p className="hint">{active.data.displayName} on Twitch</p>

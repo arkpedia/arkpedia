@@ -5,6 +5,7 @@ import { TransferDialog } from "@/components/planner/TransferDialog";
 import { PlannerStateLabel } from '@/components/planner/PromotionIcon';
 import { withMasteryPrerequisites, withModulePrerequisites, withSkillRankPrerequisites } from '@/lib/planner/goalPrerequisites';
 import { SimplePlanner } from '@/components/planner/SimplePlanner';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { upgradeCostGroups } from '@/lib/planner/upgradeCostGroups';
 import { publicFiles, publicFileExists } from '@/lib/assets/publicAssets';
 import { GetStaticProps } from 'next';
@@ -40,7 +41,7 @@ import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
 import { CRAFTING_EVENT, readCrafting, writeCrafting } from '@/lib/planner/crafting';
 import PageHeader from '@/components/ui/PageHeader';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import {
   ROSTER_EVENT,
   UNBUILT,
@@ -238,6 +239,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
+  /* The Anti-Page Jump hold for the mode tabs (useSwitchHold): Simple is shorter than
+     Experimental, and Experimental -> Simple from the tab row clamped the reader 98px up
+     at 1440 (88 at 390). */
+  const modeHold = useSwitchHold('planner-mode');
   const [simpleNewOperator, setSimpleNewOperator] = useState(false);
   const [simpleStep, setSimpleStep] = useState<'current' | 'goal'>('current');
   const [summaryName, setSummaryName] = useState<string | null>(null);
@@ -1228,15 +1233,16 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       <Head><title>Operator Planner — Arkpedia</title></Head>
 
       {/* The site's page header: it was a 40px sentence-case h1 in a row of its own,
-          with no eyebrow and no hairline. The mode switch is a SegmentedControl. */}
+          with no eyebrow and no hairline. The mode switch is the site's Tabs. */}
       <PageHeader
         eyebrow="Rhodes Island // Operator Development"
         title="Operator Planner"
         actions={<div className="planner-head-actions">
-          <SegmentedControl
+          <Tabs
             label="Planner mode"
+            id="planner-mode"
             value={plannerMode}
-            onChange={(mode) => { setPlannerMode(mode); setWizard(null); }}
+            onChange={(mode) => { modeHold.capture(); setPlannerMode(mode); setWizard(null); }}
             options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
           />
           <button type="button" className="ghost" aria-expanded={transferOpen} onClick={() => setTransferOpen(v => !v)}>Export / import</button>
@@ -1322,6 +1328,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           </TransferDialog>
         )}
 
+        <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
           <SimplePlanner clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
             onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
@@ -1380,7 +1387,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           <div className="plan-panel-head">
             <span className="label-pair">
               <span className="label-tag plan-panel-tag">What you have</span>
-              <h2>Depot</h2>
+              <h2 className="section-title">Depot</h2>
             </span>
             {/* When it was last touched, and nothing else. "82 of 92 held" was
                 a count of the catalogue, which is not a fact about your depot --
@@ -1444,6 +1451,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
           </div>
         </section>
         </>)}
+        </div>
       </main>
 
       {build && (() => {
@@ -1515,7 +1523,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               </span>
               <span className="planner-buildwho">
                 <span className="label-pair">
-                  <h2>{activeOp.name}</h2>
+                  <h2 className="entity-title entity-title-sm">{activeOp.name}</h2>
                 </span>
                 {/* The roster window has no target to point at, and drawing
                     "from -> " with nothing either side is what it did before
@@ -1564,28 +1572,29 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                       the four blocks cannot say on their own: a value in any of
                       them already means "owned" (recordOwned writes the roster),
                       but an operator you own and have not touched is E0 Lv1 too,
-                      and only this can tell that apart from one you do not have. */}
-                  <button
-                    type="button"
-                    className={`wizard-owned${roster[activeName] ? ' on' : ''}`}
-                    aria-pressed={!!roster[activeName]}
-                    onClick={() => {
-                      if (roster[activeName]) {
-                        /* Off: out of the roster. A plan for them stands, but it
-                           starts from nothing again -- its "from" was a view of the
-                           record that just went, and pricing from a state you have
-                           said you do not have is the lie the roster exists to
-                           prevent. */
-                        setOwned(activeName, null);
-                        if (builder) updateBuilder(activeName, defaultStartingState());
-                      } else {
-                        recordOwned(activeName, currentOf(activeName));
-                      }
-                    }}
-                  >
-                    <span className="wizard-owned-mark" aria-hidden="true">{roster[activeName] ? '✓' : ''}</span>
+                      and only this can tell that apart from one you do not have.
+                      On or off, so a checkbox (ui-primitives rule 3): it was a
+                      button drawing its own tick box. */}
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={!!roster[activeName]}
+                      onChange={() => {
+                        if (roster[activeName]) {
+                          /* Off: out of the roster. A plan for them stands, but it
+                             starts from nothing again -- its "from" was a view of the
+                             record that just went, and pricing from a state you have
+                             said you do not have is the lie the roster exists to
+                             prevent. */
+                          setOwned(activeName, null);
+                          if (builder) updateBuilder(activeName, defaultStartingState());
+                        } else {
+                          recordOwned(activeName, currentOf(activeName));
+                        }
+                      }}
+                    />
                     Owned
-                  </button>
+                  </label>
                 </div>
               )}
 

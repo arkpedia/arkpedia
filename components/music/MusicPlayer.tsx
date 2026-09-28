@@ -5,6 +5,7 @@ import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import TransportIcon from './TransportIcons';
+import { XGlyph } from '@/components/ui/XButton';
 
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -159,9 +160,11 @@ export default function MusicPlayer() {
         {nowPlayingAnnouncement}
       </div>
 
+      {/* Open, the player's collapse is its × (ui-primitives rule 21); collapsed, the
+          whole 44px shell is the note that opens it again. One button, so focus stays. */}
       {!onFullPlayerPage && <button
         type="button"
-        className="btn-bare music-collapse-toggle"
+        className={collapsed ? 'btn-bare music-collapse-toggle' : 'btn-x music-collapse-toggle'}
         onClick={() =>
           setCollapsed((c) => {
             const expanding = c;
@@ -171,7 +174,7 @@ export default function MusicPlayer() {
         }
         aria-label={collapsed ? 'Expand player' : 'Collapse player'}
       >
-        <TransportIcon name={collapsed ? 'note' : 'close'} size={collapsed ? 20 : 16} />
+        {collapsed ? <TransportIcon name="note" size={20} /> : <XGlyph />}
       </button>}
 
       {!collapsed && !onFullPlayerPage && (

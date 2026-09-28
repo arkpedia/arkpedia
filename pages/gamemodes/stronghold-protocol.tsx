@@ -6,7 +6,7 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SearchInput from '@/components/ui/SearchInput';
 import { useNavOffset } from '@/lib/hooks/useNavOffset';
 import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +22,7 @@ import { buildableAlliances } from '@/lib/gamemodes/strongholdPlaybook';
 import { ISOMORPH_ITEM } from '@/lib/gamemodes/strongholdOpening';
 import StrongholdCompanion from '@/components/gamemodes/StrongholdCompanion';
 import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
+import XButton from '@/components/ui/XButton';
 
 type Picker = ReturnType<typeof alliancesForPicker>;
 
@@ -87,7 +88,7 @@ function Row({ name, icon, trail, dim, open, onOpen }: {
   return (
     <button
       type="button"
-      className={`gm-row${dim ? ' dim' : ''}${open ? ' open' : ''}`}
+      className={`btn-bare gm-row${dim ? ' dim' : ''}${open ? ' open' : ''}`}
       aria-expanded={open ? true : undefined}
       onClick={(e) => onOpen(e.currentTarget)}
     >
@@ -274,9 +275,7 @@ function EnemyRecord({ slug, name, intro, onClose }: {
         tabIndex={-1}
         ref={box}
       >
-        <button type="button" className="gm-recordshut" onClick={onClose} aria-label={`Close ${name}`}>
-          &times;
-        </button>
+        <XButton className="gm-recordshut" onClick={onClose} label={`Close ${name}`} />
         {/* Before the fetch resolves, not after: the mode's own numbers are already
             here and there is no reason to make them wait on a network round trip. */}
         {intro}
@@ -757,12 +756,12 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         aria-modal="false"
         aria-label={shown.title}
       >
-        <button type="button" className="gm-sheetclose" onClick={close} aria-label="Close">&times;</button>
+        <XButton className="gm-sheetclose" onClick={close} label="Close" />
         <div className="gm-sheethead">
           {shown.icon !== undefined && <Badge name={shown.title} icon={shown.icon} />}
           <div className="gm-modaltitle">
             <div className="eyebrow">{shown.eyebrow}</div>
-            <h3>{shown.title}</h3>
+            <h3 className="entity-title entity-title-xs">{shown.title}</h3>
           </div>
           {shown.trail}
         </div>
@@ -810,11 +809,13 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           spent the page under the fixed nav, and not one of the seven tabs could be
           clicked once it pinned. */}
       <div className="gm-lookup" ref={lookupRef} style={navOffset == null ? undefined : { top: navOffset }}>
-        {/* The site's pick-one control: one section shows at a time. It was a
-            button of its own (28px, the pre-token teal); the chip is 32px (36 on a
-            phone) and says "current" the way every other one does. */}
-        <SegmentedControl
+        {/* The site's tabs: one section shows at a time, and the strip is a real
+            tablist over the seven panels below. It was a button of its own (28px, the
+            pre-token teal), then SegmentedControl chips; the first label now starts
+            on the page's left edge, under the h1. */}
+        <Tabs
           label="Sections"
+          id="gm-section"
           value={tab}
           onChange={goTab}
           options={TABS.map(([id, label]) => ({ value: id, label, count: needle ? tabHits[id] : undefined }))}
@@ -843,7 +844,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           the Operators tab. The search box lives in the bar above, over everything. */}
 
       {/* --- the roster ------------------------------------------------------- */}
-      <section className="terminal-panel wide gm-anchor" data-tab="Operators" hidden={tab !== 'operators'}>
+      <section className="terminal-panel wide gm-anchor" data-tab="Operators" hidden={tab !== 'operators'} {...tabPanelProps('gm-section', 'operators')}>
         <div className="stage-section-head op-section">
           <h2>The roster, by dispatch tier</h2>
           {/* The count, as the Items panel says it. "tier - cost - what it does" was a
@@ -968,7 +969,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       {/* --- the alliances ---------------------------------------------------- */}
-      <section className="terminal-panel wide" data-tab="Alliances" hidden={tab !== 'alliances'}>
+      <section className="terminal-panel wide" data-tab="Alliances" hidden={tab !== 'alliances'} {...tabPanelProps('gm-section', 'alliances')}>
         <div className="stage-section-head op-section">
           <h2>What each alliance pays out</h2>
           <span className="terminal-pill">
@@ -1016,7 +1017,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       </section>
 
       {/* --- the other five --------------------------------------------------- */}
-      <section className="terminal-panel wide" data-tab="Strategies" hidden={tab !== 'strategies'}>
+      <section className="terminal-panel wide" data-tab="Strategies" hidden={tab !== 'strategies'} {...tabPanelProps('gm-section', 'strategies')}>
         <div className="stage-section-head op-section">
           <h2>Leaders and what they open with</h2>
           <span className="terminal-pill">
@@ -1057,7 +1058,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         </div>
       </section>
 
-      <section className="terminal-panel wide" data-tab="Items" hidden={tab !== 'items'}>
+      <section className="terminal-panel wide" data-tab="Items" hidden={tab !== 'items'} {...tabPanelProps('gm-section', 'items')}>
         <div className="stage-section-head op-section">
           <h2>Equipment and what it costs</h2>
           <span className="terminal-pill">
@@ -1088,7 +1089,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
               {it.name === 'Damazti Isomorph' ? (
                 <button
                   type="button"
-                  className="gm-opwho gm-isoopen"
+                  className="btn-bare gm-opwho gm-isoopen"
                   onClick={() => setIsoOpen(true)}
                   title="Show every pairing"
                 >
@@ -1126,7 +1127,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
         </div>
       </section>
 
-      <section className="terminal-panel wide" data-tab="Enemies" hidden={tab !== 'enemies'}>
+      <section className="terminal-panel wide" data-tab="Enemies" hidden={tab !== 'enemies'} {...tabPanelProps('gm-section', 'enemies')}>
         <div className="stage-section-head op-section">
           <h2>The mode&rsquo;s own enemy groups</h2>
           <span className="terminal-pill">
@@ -1218,6 +1219,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           className="terminal-panel wide"
           data-tab={group.title}
           hidden={tab !== (group.title === 'Bounty' ? 'bounty' : 'tactical')}
+          {...tabPanelProps('gm-section', group.title === 'Bounty' ? 'bounty' : 'tactical')}
         >
           <div className="stage-section-head op-section">
             <h2>{group.blurb}</h2>
@@ -1257,7 +1259,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
                     return rec ? (
                       <button
                         type="button"
-                        className="gm-opwho gm-opwho-rec"
+                        className="btn-bare gm-opwho gm-opwho-rec"
                         title={`Open the handbook record for ${rec.name}`}
                         onClick={() => setRecord(rec)}
                       >
@@ -1303,19 +1305,12 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
             ref={(el) => { el?.focus(); }}
             onKeyDown={(e) => { if (e.key === 'Escape') setIsoOpen(false); }}
           >
-            <button
-              type="button"
-              className="gm-recordshut"
-              onClick={() => setIsoOpen(false)}
-              aria-label="Close"
-            >
-              &times;
-            </button>
+            <XButton className="gm-recordshut" onClick={() => setIsoOpen(false)} label="Close" />
             <div className="gm-sheethead">
               <Badge name="Damazti Isomorph" icon={isomorph?.icon ?? null} />
               <div className="gm-modaltitle">
                 <div className="eyebrow">Equipment</div>
-                <h3>Damazti Isomorph</h3>
+                <h3 className="entity-title entity-title-xs">Damazti Isomorph</h3>
               </div>
             </div>
             <p className="gm-effect">

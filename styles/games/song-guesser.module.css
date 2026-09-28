@@ -16,7 +16,10 @@
 /* --- setup ---------------------------------------------------------------- */
 .setup { display: flex; flex-direction: column; gap: 16px; }
 /* The round settings stay in reach while the reader scrolls the long music list. */
-.setupBar { position: sticky; top: var(--nav-h, 64px); z-index: 35; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); background: var(--bg); }
+/* Its top padding is the air it keeps under the nav once stuck; at rest it rises into
+   main's padding by the same amount, so the first control starts 24px under the header
+   hairline like every page (it was 36px). */
+.setupBar { position: sticky; top: var(--nav-h, 64px); z-index: 35; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: -12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); background: var(--bg); }
 .clipStartLabel { color: var(--text-dim); font: 11px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .setupBar .action { margin-left: auto; }
 .setupFooter { display: flex; flex-basis: 100%; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -26,7 +29,10 @@
 .selectionTools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
 .musicCategory { border-top: 1px solid var(--line-soft); }
 .categoryHeader { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
-.categoryCheck { display: flex; flex: 0 0 40px; align-items: center; justify-content: center; min-height: 40px; }
+/* The select-all box starts on the section's edge, under the search field and "Select
+   all" (centred in a 40px cell it sat 11px in). 24px wide for the hit area, the box at
+   its left, the header's gap after it. */
+.categoryCheck { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-start; min-width: 24px; min-height: 40px; }
 /* The category row opens and closes its list: a full-width control, so the quieter
    --card-border of a large surface, and the one hover rule. */
 .categoryToggle { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; min-height: 40px; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--row-grad); color: var(--text); font: 600 13px var(--font-display); letter-spacing: 0.06em; text-align: left; text-transform: uppercase; cursor: pointer; }
@@ -69,7 +75,7 @@
 .answer { composes: panel from './guesser-shared.module.css'; display: grid; gap: 14px; min-width: 0; }
 .answer form { display: grid; gap: 10px; }
 .answer form > label { color: var(--text-dim); font: 11px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
-.inputRow { display: flex; align-items: flex-start; gap: 10px; }
+.inputRow { display: flex; align-items: center; gap: 10px; }
 .inputRow > :first-child { flex: 1; min-width: 0; }
 .suggestion { display: grid; gap: 2px; min-width: 0; }
 .suggestion strong { font-weight: 500; overflow-wrap: anywhere; }
@@ -104,7 +110,6 @@
   .setupBar { gap: 8px 12px; }
   .clipStartLabel { display: none; }
   .clipStart { flex: 1 0 100%; }
-  .clipStart > button { flex: 1; }
   .setupBar .action { flex: 1; }
 }
 @media (max-width: 480px) {

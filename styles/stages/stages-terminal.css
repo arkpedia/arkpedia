@@ -51,28 +51,35 @@
   margin: 0 auto;
   padding: 0 var(--page-gutter);
 }
-/* The row of tabs. On a desktop this IS the bar; under the mobile breakpoint it
-   becomes the menu that the collapsed bar opens. */
-.terminal-tabs {
-  display: flex;
-  align-items: stretch;
-  /* Wraps rather than scrolls: the seven tabs only just fit the 1040px frame with
-     macOS font metrics, and on Linux and Windows the last one sat partly behind a
-     scroll whose bar is hidden. A second row keeps every tab reachable and inside the
-     frame (tests/browser/page-bounds.spec.ts measures it on the Linux CI runner). */
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px;
-}
+/* The row of tabs: the site's .tabs strip of .tab links (arkpedia-theme.css), packed
+   from the frame's left edge. On a desktop this IS the bar; under 1040px it becomes
+   the menu that the collapsed bar opens (the media query below). It was centred, which
+   put the first tab 27px right of the eyebrow and h1 under it.
+   ONE row, never two, and never a scroll: in Rajdhani the seven tabs need 967px of the
+   frame's 992, and until the webfont arrives (display=swap, about 100ms, or never where
+   Google Fonts is blocked) the fallback face needs 1141px. As a wrapping .tabs strip the
+   bar was two rows (82px) for that first paint and the whole page jumped up 42px when
+   Rajdhani came in (CLS 0.4-0.8 on every Terminal page). So it does not wrap, and a tab
+   may shrink: its label ends in an ellipsis instead, every tab stays in the frame and
+   reachable, and the bar keeps its one-row height through the swap.
+   tests/browser/terminal-pages.spec.ts loads the Terminal with the webfonts blocked. */
+.terminal-tabs { flex-wrap: nowrap; }
+/* The bar's own height (the underline sits on its bottom hairline), and a tab may be
+   narrower than its label. */
+.terminal-tabs > * { min-height: 40px; min-width: 0; }
 
 /* --- the collapsed bar, under the mobile breakpoint --------------------------
-   Hidden on a desktop, where all seven tabs fit. */
+   Hidden on a desktop, where all seven tabs fit. The menu button is a control, so it
+   is var(--control-h) tall like the search field and chips under it (ui-primitives
+   rule 4); sized by its padding it was 37px on a phone and 40 at 721-900px, against
+   their 40 and 36. */
 .terminal-bar-toggle {
   display: none;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 10px 10px;
+  min-height: var(--control-h);
+  padding: 0 10px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: none;
@@ -105,6 +112,8 @@
   border-top: 2px solid currentColor;
 }
 
+/* .terminal-tab is now only the Stronghold companion's picker chip (terminal-tab
+   gm-pick, gamemodes.css); the Terminal bar's links are .tab. */
 .terminal-tab {
   flex: 0 0 auto;
   display: flex;
@@ -127,6 +136,7 @@
   transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 .terminal-tab-mark {
+  flex-shrink: 0;
   font-size: 18px;
   line-height: 1;
 }
@@ -139,7 +149,8 @@
 }
 /* Every section is named here, unlike in game where only the current one is. A row
    of bare glyphs is a guessing game on a site you arrive at from a search result. */
-.terminal-tab-label { white-space: nowrap; }
+/* The label is what gives way when the row is short of room (see .terminal-tabs). */
+.terminal-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .terminal-tab:hover {
   color: var(--text);
   background: rgb(255 255 255 / 0.03);
@@ -153,18 +164,14 @@
 /* The bar scrolls sideways, which clipped the outward focus ring to its bottom
    edge: drawn inside the tab instead. */
 .terminal-tab:focus-visible { outline-offset: -2px; }
-.terminal-tab.locked {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
 
 /* --- Score ---------------------------------------------------------------
    One block for the main theme, one for the side-story lines. */
-.score-block { margin-bottom: 30px; }
+.score-block { margin-bottom: var(--section-gap); }
 /* The block's heading is the canonical section h2 (.op-section h2: --heading, 18px,
    shared.css); this is only its spacing. It was an 11px mono label in teal, which is
    the "on / current" colour, used as a heading. */
-.score-block-title { margin: 0 0 14px; }
+.score-block-title { margin: 0 0 var(--heading-gap); }
 
 .score-line {
   position: relative;
@@ -457,10 +464,10 @@
   background: var(--panel);
   border-radius: var(--radius-frame);
 }
-/* An .op-section's 36px foot is for sections stacked in a column; these sit on the
-   home board's grid (gap 14px) or stack with the margin below. */
+/* An .op-section's --section-gap foot is for sections stacked in a column; these sit on
+   the home board's grid (gap 14px, a board of panels like the home page's) or stack with
+   the margin below. */
 .terminal-panel.op-section { margin-bottom: 0; }
-.terminal-panel.op-section > h2 { margin-top: 0; }
 .terminal-panel.wide { grid-column: 1 / -1; }
 
 /* A scene that STACKS its panels -- Regular Tasks, Seasonal Challenge -- rather than
@@ -473,7 +480,7 @@
   border-color: var(--line);
   border-top: 2px solid var(--line);
 }
-.terminal-scene > .terminal-panel + .terminal-panel { margin-top: 26px; }
+.terminal-scene > .terminal-panel + .terminal-panel { margin-top: var(--section-gap); }
 .terminal-empty { margin: 6px 0; }
 
 /* The lead: the running event at the size the game gives it. */
@@ -525,12 +532,16 @@
   color: var(--text-dim);
 }
 
-/* Attention: what else is open, with how long it has left. */
+/* Attention: what else is open, with how long it has left. The rows hold their art
+   inside the teal hover edge (5px and a 1px transparent border); the list and the mode
+   cards are drawn out by that 6px, so the art starts on the panel's edge under the
+   heading and --heading-gap below it, and the edge draws in the panel's padding
+   (docs/development/ui-primitives.md rules 15 and 17). */
 .terminal-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 0;
+  margin: -6px -6px 0;
   padding: 0;
   list-style: none;
 }
@@ -596,12 +607,13 @@
 .terminal-mode {
   display: flex;
   gap: 10px;
-  margin-bottom: 8px;
+  margin: 0 -6px 8px;
   padding: 5px;
   border: 1px solid transparent;
   text-decoration: none;
   color: inherit;
 }
+.terminal-panel > h2 + .terminal-mode { margin-top: -6px; }
 .terminal-mode:hover {
   border-color: var(--teal);
   background: var(--panel-2);
@@ -805,7 +817,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 
 
 /* --- Long-Term Exploration ---------------------------------------------- */
-.explore-mode { margin-bottom: 34px; }
+.explore-mode { margin-bottom: var(--section-gap); }
 .explore-hero {
   position: relative;
   display: block;
@@ -944,11 +956,12 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   text-transform: uppercase;
   color: #1A0C0A;
 }
+/* --card-inset (shared.css), the one inset of a picture card's text (it was 8/10/10). */
 .supply-card-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 10px 10px;
+  padding: var(--card-inset);
 }
 .supply-card-code {
   font-family: var(--font-mono);
@@ -988,12 +1001,19 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 }
 
 @media (max-width: 900px) {
-  .terminal-home { grid-template-columns: minmax(0, 1fr); }
-
+  /* One column: the panels are a column of sections now, not a board. */
+  .terminal-home { grid-template-columns: minmax(0, 1fr); gap: var(--section-gap); }
+}
+@media (max-width: 1039px) {
   /* Seven tabs do not fit a phone, and a sideways-scrolling bar hides most of them
      behind a gesture with nothing to say it is there. So the bar names the section you
-     are in, and the button opens the rest as a panel under it. The same 900px the site
-     switches its own nav at, so the two change together. */
+     are in, and the button opens the rest as a panel under it.
+     Under 1040px, not the site nav's 900: the row needs 967px in Rajdhani, and the
+     frame's content is 992px only from a 1040px window (--frame-max; 975 with a 17px
+     classic scrollbar, which Windows and Linux draw inside the window). Between 901 and
+     1039 the row was two rows (82px), since it cannot shrink its labels to fit without
+     cutting every one of them. tests/browser/terminal-pages.spec.ts measures 1039 and
+     1040. */
   .terminal-bar-toggle { display: flex; }
   /* The collapsed bar keeps the page's gutter, so its button lines up with the header
      and the scene under it; at 12px it started 12px left of everything else on the
@@ -1017,17 +1037,15 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
     box-shadow: 0 12px 24px rgb(0 0 0 / 0.4);
   }
   .terminal-tabs.open { display: flex; }
-  .terminal-tabs .terminal-tab {
+  .terminal-tabs > .tab {
     padding: 11px 14px;
     border-bottom: 1px solid var(--line-soft);
   }
-  .terminal-tabs .terminal-tab:last-child { border-bottom: 0; }
+  .terminal-tabs > .tab:last-child { border-bottom: 0; }
   /* The current tab is marked along its leading edge here: the bar's own underline
      idiom has nothing to underline in a column. */
-  .terminal-tabs .terminal-tab.current {
-    border-bottom-color: var(--line-soft);
-    box-shadow: inset 2px 0 0 var(--teal);
-  }
+  .terminal-tabs > .tab[aria-current="page"] { box-shadow: inset 2px 0 0 var(--teal); }
+  .terminal-tabs > .tab::after { display: none; }
 }
 @media (max-width: 700px) {
   /* Less air between the slim header's hairline and the first panel: air at 1040px

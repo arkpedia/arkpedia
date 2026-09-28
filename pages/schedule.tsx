@@ -29,13 +29,16 @@ import { publishedArt } from '@/lib/art/publishedArt';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
+import { renderMonthValue } from '@/components/schedule/CalendarMonthValue';
 import ScrollRow from '@/components/ui/ScrollRow';
 import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { Skin } from '@/lib/skins/skinTypes';
+import XButton from '@/components/ui/XButton';
 
 interface Props {
   events: ScheduleEvent[];
@@ -106,7 +109,9 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
    * mirrored into state, so there is no second render and no way for the two to drift.
    */
   const view: ViewKey = router.query.view === 'calendar' ? 'calendar' : 'events';
+  const viewHold = useSwitchHold('schedule');
   const showView = (next: ViewKey) => {
+    viewHold.capture();
     /* shallow: the data for both views is already here, so there is nothing to fetch.
        replace, not push: flipping a tab five times should not cost five presses of the
        back button to leave the page. */
@@ -261,14 +266,15 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
     <>
       <Head><title>Schedule — Arkpedia</title></Head>
 
-      {/* The site's page header; the view switch is a SegmentedControl in its actions
-          (it was a primary/ghost pair). Both views sit in the one 1040px frame: the
+      {/* The site's page header; the view switch is the site's Tabs in its actions
+          (it was a primary/ghost pair, then a SegmentedControl). Both views sit in the one 1040px frame: the
           calendar used main-wide (1320px), so the page changed width with the view. */}
       <PageHeader
         eyebrow="Rhodes Island // Operations Calendar"
         title="Schedule"
-        actions={<SegmentedControl<ViewKey>
+        actions={<Tabs<ViewKey>
           label="Schedule view"
+          id="schedule-view"
           value={view}
           onChange={showView}
           options={[
@@ -285,12 +291,11 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             the list and came back. React 18 here, so no <Activity> to do this properly:
             hidden keeps it out of the accessibility tree and out of tab order, which is
             the part that matters, and the layout cost of a hidden subtree is nil. */}
-        <div
-          role="region"
-          id="schedule-panel-events"
-          aria-label="Events"
-          hidden={view !== 'events'}
-        >
+        {/* One container for both views, holding the reader's place through a switch
+            (useSwitchHold): the calendar is shorter than the list, and Events -> Calendar
+            from the tab row clamped the page 51px up at 1440. */}
+        <div ref={viewHold.ref} style={viewHold.style}>
+        <div {...tabPanelProps('schedule-view', 'events')} hidden={view !== 'events'}>
           {eventRows.length === 0 ? (
             <div className="waiting-box">
               <h2>No ongoing or upcoming events right now</h2>
@@ -306,7 +311,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   <Link prefetch={false} href={`/events/${encodeURIComponent(e.name)}`} className="events-row-main">
                     <div className="events-row-poster-wrap">
                       {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: 'cover' }} />}
-                      {e.isOngoing && <span className="events-row-live-badge">LIVE</span>}
+                      {e.isOngoing && <span className="badge-live events-row-live-badge">LIVE</span>}
                     </div>
                     <div className="events-row-info">
                       <span className="events-row-name">{e.name}</span>
@@ -342,12 +347,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           )}
         </div>
 
-        <div
-          role="region"
-          id="schedule-panel-calendar"
-          aria-label="Calendar"
-          hidden={view !== 'calendar'}
-        >
+        <div {...tabPanelProps('schedule-view', 'calendar')} hidden={view !== 'calendar'}>
         {/* One header rather than three rows of controls.
             Prev, the month, Next and Today sat in one row, the twelve month buttons in
             another and the two filters in a third, which is three bands of chrome above
@@ -363,7 +363,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           <div className="cal-head-when">
             <button
               type="button"
-              className="cal-step"
+              className="ghost btn-icon"
               onClick={goPrevMonth}
               aria-label="Previous month"
             >
@@ -387,6 +387,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 value={String(month)}
                 onChange={(value) => setMonth(Number(value))}
                 options={MONTH_NAMES.map((name, i) => ({ value: String(i), label: name }))}
+                renderValue={renderMonthValue}
               />
               <StyledSelect
                 label="Year"
@@ -401,7 +402,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
 
             <button
               type="button"
-              className="cal-step"
+              className="ghost btn-icon"
               onClick={goNextMonth}
               aria-label="Next month"
             >
@@ -557,9 +558,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
           <div ref={panelRef} className={`schedule-fullscreen-panel${selectedEvent ? ' open' : ''}`} role="dialog" aria-label={displayEvent ? displayEvent.name : 'Event'}>
             {displayEvent && (
               <div className="schedule-panel">
-                <button type="button" className="btn-bare schedule-panel-close-btn" onClick={closePanel} aria-label="Close">
-                  ✕
-                </button>
+                <XButton className="schedule-panel-close-btn" onClick={closePanel} label="Close" />
                 {displayEvent.poster && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <Image
@@ -571,7 +570,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                     style={{ width: '100%', height: 'auto' }}
                   />
                 )}
-                <h2 className="schedule-panel-title">{displayEvent.name}</h2>
+                <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
                 <p className="hint">{displayEvent.global.dateRange}</p>
                 <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">
                   Event page
@@ -717,6 +716,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
               </div>
             )}
           </div>
+        </div>
         </div>
         </div>
       </main>

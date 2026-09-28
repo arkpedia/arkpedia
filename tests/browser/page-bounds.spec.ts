@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { tabAlign } from './tab-align';
+import { sectionCensus, type StackOffence } from './section-census';
+import { CENSUS_STATES, fontsSettled, openCensus } from './census-routes';
 
 /*
  * Every page sits in the same frame as the nav: 1040px wide with a 24px gutter, so its
@@ -17,6 +20,20 @@ import { expect, test, type Page } from '@playwright/test';
  *   frame          text, media or a drawn box lies outside the frame
  *                  (224-1216 at 1440; 24-366 at 390)
  *   page-scroll-x  the page itself scrolls sideways
+ *   tab-align      a tab strip or pick-one row that leads its line starts off the
+ *                  section's edge, or stretches its items (tests/browser/tab-align.ts),
+ *                  in either theme
+ *   first-gap      (r9) the first content in <main> is not 24px (+-2) under the page
+ *                  header's hairline; see FIRST_GAP below for the two documented others
+ *   motion         an animation that moves content (its keyframes change transform,
+ *                  translate, scale, rotate or an inset) runs under prefers-reduced-motion:
+ *                  reduce. The page is measured with reduced motion so nothing is caught
+ *                  mid-flight; the /operators cards rose 24px in anyway, because their
+ *                  override lost the cascade, and first-gap read 26.5px under load
+ *
+ * and, against its own baseline (stack-align-baseline.json, below), stack-align: a
+ * child whose first line starts 3-120px right of its parent's content edge while a
+ * sibling starts on it (tests/browser/section-census.ts).
  *
  * STRICT since the page families landed (2026-09-25): every measured page passes at
  * both widths, so tests/browser/page-bounds-baseline.json is {} and must stay so. Any
@@ -70,7 +87,7 @@ function routes(): string[] {
   return out.map(route => (route === '/' ? route : route.replace(/\/$/, '')));
 }
 
-type Offence = 'no-h1' | 'h1-align' | 'frame' | 'page-scroll-x';
+type Offence = 'no-h1' | 'h1-align' | 'frame' | 'page-scroll-x' | 'tab-align' | 'first-gap' | 'motion';
 type Baseline = Record<string, Record<string, Offence[]>>;
 
 const baseline: Baseline = fs.existsSync(BASELINE_FILE) ? JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8')) : {};
@@ -204,6 +221,49 @@ async function measure(page: Page): Promise<Measurement> {
   });
 }
 
+/** The tab census (tab-align.ts) in the dark theme and again in the light one. The
+ *  theme is the data-theme attribute on <html>, so it is flipped in place rather than
+ *  by a second load. Tolerance 2px: the heading edge is a text node's inline start. */
+async function tabAlignBothThemes(page: Page): Promise<string[]> {
+  const out: string[] = [];
+  for (const theme of ['dark', 'light'] as const) {
+    await page.evaluate((t) => {
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      else document.documentElement.removeAttribute('data-theme');
+    }, theme);
+    for (const o of await page.evaluate(tabAlign, { tolerance: 2 })) out.push(`tab-align (${theme}) ${o.kind}: ${o.group}: ${o.detail}`);
+  }
+  await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+  return [...new Set(out)];
+}
+/* --- r9 first-gap and stack-align (headings-spacing) --------------------------------
+ * first-gap: every page starts its content 24px under the header hairline (main's
+ * padding-top; docs/development/ui-primitives.md rule 15). The census measured 24px on
+ * 43 views and 12-44px on 13: a section h2's inherited 18px top margin (/community 42),
+ * a first paragraph's own margin (/support 40, /base 35), an empty state's 20px margin
+ * (Twitch, YouTube live 44), /farming's own 12px. Two documented others:
+ *   - a Terminal scene (main.terminal-scene) at 700px and under is 14px: the slim
+ *     Terminal pages give their first screen to the tool (stages-terminal.css)
+ *   - the operator page is 16px: a workspace bounded to the viewport under a slim
+ *     header, every pixel of which comes out of the artwork (OperatorPage.module.css)
+ * The gap is box geometry (margins and padding), +-2px. */
+const FIRST_GAP = 24;
+const FIRST_GAP_OTHERS: Record<string, { gap: number; why: string }> = {
+  '/operators/Amiya': { gap: 16, why: 'a viewport-bounded workspace under a slim header' },
+};
+/* stack-align: the accepted cases are the picture cards whose text keeps --card-inset from
+ * their flush art (the card's teal hover edge boxes it; maintainer, 2026-09-26). Each is
+ * accepted only where its content box starts at --card-inset (+-1px; layout, not glyphs),
+ * so the baseline holds them to ONE inset; everything else is strict, and an accepted
+ * entry that no page shows any more is stale and fails. */
+const STACK_BASELINE_FILE = path.join(__dirname, 'stack-align-baseline.json');
+/* `optional`: an entry that shows only on some days (a card in a date window, a stage
+   open by weekday), so the stale check leaves it alone; it is still held to the inset. */
+const stackBaseline: { accepted: { parent: string; child: string; why: string; optional?: boolean }[] } = JSON.parse(fs.readFileSync(STACK_BASELINE_FILE, 'utf8'));
+const stackSeen = new Set<string>();
+let stackRuns = 0;
+/* --- end r9 first-gap and stack-align ----------------------------------------------- */
+
 /* Reduced motion, so an entrance animation mid-flight is not measured as layout. */
 const WIDTHS = [
   { key: 'd1440', use: { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' } },
@@ -232,8 +292,34 @@ for (const width of WIDTHS) {
       test(route, async ({ page }, info) => {
         test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
         await page.goto(route, { waitUntil: 'load' });
-        await page.evaluate(() => document.fonts.ready);
+        await fontsSettled(page);
+        // Every CSS animation the page holds, running or finished (a fill keeps a finished
+        // one), whose keyframes move content: none may exist under reduced motion.
+        const moving = await page.evaluate(() => [...new Set(document.getAnimations()
+          .filter((a) => (a as CSSAnimation).animationName && (a.effect as KeyframeEffect | null)?.getKeyframes().some((k) => ['transform', 'translate', 'scale', 'rotate', 'top', 'left', 'right', 'bottom'].some((p) => p in k)))
+          .map((a) => { const t = (a.effect as KeyframeEffect).target as Element | null; return `${(a as CSSAnimation).animationName} on ${t ? `${t.tagName.toLowerCase()}.${String(t.className).trim().split(/\s+/)[0]}` : '?'}`; }))]);
         const { offences, detail } = await settled(page);
+        if (moving.length) { offences.push('motion'); detail.push(`moves under prefers-reduced-motion: ${moving.join(', ')}`); }
+        // --- tab-align (r9): measured in both themes, flipping data-theme in place ---
+        const tabs = await tabAlignBothThemes(page);
+        if (tabs.length) { offences.push('tab-align'); detail.push(...tabs); }
+        // r9: the header hairline to the first content, and the stack edges.
+        const census = await page.evaluate(sectionCensus, { stacks: true });
+        const narrow = width.use.viewport.width <= 700;
+        const expected = FIRST_GAP_OTHERS[route]?.gap ?? (census.firstGap.terminalScene && narrow ? 14 : FIRST_GAP);
+        if (census.firstGap.gap !== null && Math.abs(census.firstGap.gap - expected) > 2) {
+          offences.push('first-gap');
+          detail.push(`the first content (${census.firstGap.first}) is ${census.firstGap.gap}px under the header hairline, not ${expected}px`);
+        }
+        const inset = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-inset')));
+        const strays: StackOffence[] = [];
+        for (const stack of census.stacks ?? []) {
+          const accepted = stackBaseline.accepted.find((a) => a.parent === stack.parent && a.child === stack.child);
+          // Held to --card-inset by the content box (layout, exact), not by the glyph.
+          if (accepted && Math.abs(stack.boxDx - inset) <= 1) { stackSeen.add(`${accepted.parent} > ${accepted.child}`); continue; }
+          strays.push(stack);
+        }
+        stackRuns += 1;
         const known = baseline[width.key]?.[route] ?? [];
         if (offences.length) (measured[width.key] ??= {})[route] = offences;
         if (UPDATE) return;
@@ -241,6 +327,8 @@ for (const width of WIDTHS) {
         const stale = known.filter(o => !offences.includes(o));
         expect(fresh, `${route} at ${width.key}: new bounds offences. ${detail.join('; ')}`).toEqual([]);
         expect(stale, `${route} at ${width.key}: fixed -- remove ${stale.join(', ')} from page-bounds-baseline.json (UPDATE_BOUNDS_BASELINE=1)`).toEqual([]);
+        expect(strays.map((x) => `${x.parent} > ${x.child} starts ${x.dx}px right of the parent's edge (led by ${x.by}; ${x.flush} starts on it)`),
+          `${route} at ${width.key}: stack-align -- a first line set in from its section's edge (docs/development/ui-primitives.md rule 17)`).toEqual([]);
       });
     }
   });
@@ -256,6 +344,58 @@ test.afterAll(() => {
     ordered[key] = Object.fromEntries(Object.entries(measured[key]).sort(([a], [b]) => a.localeCompare(b)));
   }
   fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(ordered, null, 2)}\n`);
+});
+
+/* r9: a state the route list never shows -- the planner's operator dossier, which stacks
+   its portrait band above the build at 640px and under (its content sat 16px in from the
+   band). Strict: no card inset is accepted here. */
+for (const width of WIDTHS) {
+  test(`stack-align on the planner dossier at ${width.use.viewport.width}px`, async ({ browser }, info) => {
+    test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
+    const context = await browser.newContext({ ...width.use, baseURL: info.project.use.baseURL });
+    const page = await context.newPage();
+    await page.goto('/planner', { waitUntil: 'load' });
+    await page.locator('#planner-search').fill('Amiya');
+    await page.locator('#planner-search').press('Enter');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.simple-dossier')).toBeVisible();
+    await fontsSettled(page);
+    const census = await page.evaluate(sectionCensus, { stacks: true });
+    const strays = (census.stacks ?? []).filter((x) => /simple-dossier|simple-portrait/.test(`${x.parent} ${x.child}`));
+    expect(strays.map((x) => `${x.parent} > ${x.child} starts ${x.dx}px in (led by ${x.by}; ${x.flush} starts on it)`), 'the dossier starts every block on one edge').toEqual([]);
+    await context.close();
+  });
+}
+
+/* r10: first-gap on every driven state, not only on a page load. A view switch puts other
+   content first under the header, and the route list only ever sees the view a page opens
+   on: the planner opens on Simple (its search 24px under the hairline) and Experimental's
+   first panel sat 40px under it, from the 16px top margin that spaces the panels from each
+   other, so the page moved 16px on every switch between the two. A dialog state measures
+   the page behind it, which the dialog does not move. */
+for (const width of WIDTHS) {
+  for (const state of CENSUS_STATES) {
+    test(`first-gap on ${state.route} (${state.id}) at ${width.use.viewport.width}px`, async ({ browser }, info) => {
+      test.skip(info.project.name !== 'desktop', 'sets its own viewports, so it runs in one project');
+      const context = await browser.newContext({ ...width.use, baseURL: info.project.use.baseURL });
+      const page = await context.newPage();
+      await openCensus(page, state);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const census = await page.evaluate(sectionCensus, { stacks: false });
+      const narrow = width.use.viewport.width <= 700;
+      const expected = FIRST_GAP_OTHERS[state.route]?.gap ?? (census.firstGap.terminalScene && narrow ? 14 : FIRST_GAP);
+      expect(census.firstGap.gap, 'the page has a header and a first content').not.toBeNull();
+      expect(Math.abs(census.firstGap.gap! - expected), `the first content (${census.firstGap.first}) is ${census.firstGap.gap}px under the header hairline, not ${expected}px (rule 15)`).toBeLessThanOrEqual(2);
+      await context.close();
+    });
+  }
+}
+
+test('every accepted stack-align inset is still on a page (stack-align-baseline.json)', ({}, info) => {
+  test.skip(info.project.name !== 'desktop', 'measured by the desktop run');
+  test.skip(stackRuns < routes().length * WIDTHS.length, 'only after every page was measured at both widths');
+  const stale = stackBaseline.accepted.filter((a) => !a.optional).map((a) => `${a.parent} > ${a.child}`).filter((key) => !stackSeen.has(key));
+  expect(stale, 'accepted card insets no page shows any more: remove them from stack-align-baseline.json').toEqual([]);
 });
 
 test('every page file is measured or excluded with a reason', ({}, info) => {

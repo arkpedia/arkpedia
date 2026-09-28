@@ -23,7 +23,8 @@ import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
 import { withMaterialOrder } from '@/lib/content/materialOrderFallback';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import PageHeader from '@/components/ui/PageHeader';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import Rarity from '@/components/ui/Rarity';
 import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
 
@@ -122,22 +123,6 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
   );
 }
 
-/** The panel's height without any hold: from its top to the bottom of its last child. */
-function panelContentHeight(el: HTMLElement): number {
-  const last = el.lastElementChild as HTMLElement | null;
-  if (!last) return 0;
-  const style = getComputedStyle(el);
-  return last.getBoundingClientRect().bottom + parseFloat(getComputedStyle(last).marginBottom || '0')
-    - el.getBoundingClientRect().top + parseFloat(style.paddingBottom || '0') + parseFloat(style.borderBottomWidth || '0');
-}
-
-/** The least height the panel can have and still leave the document reaching the bottom
- *  of the reader's screen, worked out fresh against the page as it is now. */
-function panelHoldNeeded(el: HTMLElement): number {
-  const roomBelow = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
-  return el.getBoundingClientRect().height - roomBelow;
-}
-
 export default function EventDetailPage({
   name,
   images,
@@ -172,34 +157,13 @@ export default function EventDetailPage({
      to clamp. It is only what this position needs (nothing at the top of the page), and
      it melts as the reader scrolls back up. useHeightFloor, which reserves after the
      switch, lost the race with the clamp here and still moved the tab row 150px at 390;
-     holding the tallest tab for good left a screen of nothing under Banner. Per event. */
-  const rightRef = useRef<HTMLDivElement | null>(null);
-  const [hold, setHold] = useState<{ event: string; px: number } | null>(null);
-  const holdPx = hold && hold.event === name ? hold.px : undefined;
+     holding the tallest tab for good left a screen of nothing under Banner. Per event.
+     components/ui/useSwitchHold is that pattern, shared with /schedule. */
+  const hold = useSwitchHold(name);
   function changeSection(next: SectionKey) {
-    const el = rightRef.current;
-    if (el) {
-      const px = Math.ceil(panelHoldNeeded(el));
-      setHold(px > 0 ? { event: name, px } : null);
-    }
+    hold.capture();
     setActiveSection(next);
   }
-  useEffect(() => {
-    if (holdPx === undefined) return;
-    const release = () => {
-      const el = rightRef.current;
-      if (!el) return;
-      const need = Math.ceil(panelHoldNeeded(el));
-      if (need <= panelContentHeight(el) + 1) setHold(null);
-      else if (need < holdPx) setHold({ event: name, px: need });
-    };
-    window.addEventListener('scroll', release, { passive: true });
-    window.addEventListener('resize', release);
-    return () => {
-      window.removeEventListener('scroll', release);
-      window.removeEventListener('resize', release);
-    };
-  }, [holdPx, name]);
   const [imgIndex, setImgIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,6 +171,13 @@ export default function EventDetailPage({
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   const [activeRewardTab, setActiveRewardTab] = useState<string>('all');
+  /* A store is a long grid and All is one row of totals: the same hold as a section
+     change, taken in the handler, so the switch cannot shorten the page under the
+     reader. */
+  function changeRewardTab(next: string) {
+    hold.capture();
+    setActiveRewardTab(next);
+  }
   const rewardTotals = computeRewardTotals(rewardStores, materialOrder);
   const activeStoreItems = rewardStores.filter((s) => s.type === activeRewardTab).flatMap((s) => s.items);
 
@@ -269,10 +240,11 @@ export default function EventDetailPage({
           )}
         </div>
 
-        <div className="event-detail-right" ref={rightRef} style={holdPx ? { minHeight: holdPx } : undefined}>
+        <div className="event-detail-right" ref={hold.ref} style={hold.style}>
           {sections.length > 1 && activeSection && (
-            <SegmentedControl<SectionKey>
+            <Tabs<SectionKey>
               label="Event sections"
+              id="event-section"
               className="event-detail-tabs"
               value={activeSection}
               onChange={changeSection}
@@ -282,7 +254,7 @@ export default function EventDetailPage({
           {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
 
           {activeSection === 'banner' && bannerName && (
-            <section className="op-section">
+            <section className="op-section" {...tabPanelProps('event-section', 'banner')}>
               {/* The frame stays when the art is not published yet, empty at the
                   same size, rather than the section closing up around it. */}
               <div className="event-detail-banner-art-wrap">
@@ -308,24 +280,27 @@ export default function EventDetailPage({
           )}
 
           {activeSection === 'rewards' && (
-            <section className="op-section">
-              <SegmentedControl
+            <section className="op-section" {...tabPanelProps('event-section', 'rewards')}>
+              <Tabs
                 label="Reward store"
+                id="event-store"
                 className="event-rewards-tabs"
                 value={activeRewardTab}
-                onChange={setActiveRewardTab}
+                onChange={changeRewardTab}
                 options={[{ value: 'all', label: 'All' }, ...rewardTypes.map((t) => ({ value: t, label: t }))]}
               />
-              {activeRewardTab === 'all' ? (
-                <RewardTotalsRow totals={rewardTotals} />
-              ) : (
-                <RewardStorePanelGrid items={activeStoreItems} />
-              )}
+              <div {...tabPanelProps('event-store', activeRewardTab)}>
+                {activeRewardTab === 'all' ? (
+                  <RewardTotalsRow totals={rewardTotals} />
+                ) : (
+                  <RewardStorePanelGrid items={activeStoreItems} />
+                )}
+              </div>
             </section>
           )}
 
           {activeSection === 'skins' && (
-            <section className="op-section">
+            <section className="op-section" {...tabPanelProps('event-section', 'skins')}>
               <div className="event-detail-skins">
                 {skins.map((skin) => {
                   const prices = parsePrices(skin.howToObtain);

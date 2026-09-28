@@ -1,4 +1,6 @@
 .range { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-.elites { display: flex; justify-content: center; align-items: center; gap: 4px; }
+/* Centred under the grid by .range (a column, align-items: center): the switch is
+   the figure's caption. The row itself packs from its start like every choice row. */
+.elites { display: flex; align-items: center; gap: 4px; }
 /* .filter-chip toggles (boundary, hover, picked state), sized as icon tiles. */
-.elite { width: 34px; min-height: 34px; height: 34px; padding: 0; }
+.elite { width: var(--control-h); min-height: var(--control-h); height: var(--control-h); padding: 0; }

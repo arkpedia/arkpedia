@@ -12,7 +12,7 @@
 .wallet :global(.pulls-field-label) { flex: 0 0 30px; display: flex; }
 .wallet :global(.pulls-field-box) { flex: 1; min-width: 0; }
 .wallet :global(.pulls-field-unit) { display: none; }
-.wallet input:not([type=checkbox]) { font: 600 22px var(--font-display); padding: 8px; height: 42px; }
+.wallet input:not([type=checkbox]) { font: 600 22px var(--font-display); padding: 0 8px; height: var(--control-h); }
 .incomeRow { display: flex; align-items: center; gap: 24px; padding: 12px 20px; }
 .incomeRow :global(.pulls-recurring-grid) { flex: 1; }
 .rate { display: flex; align-items: baseline; gap: 8px; border-left: 1px solid var(--line); padding-left: 24px; white-space: nowrap; }
@@ -22,7 +22,7 @@
 /* Three disclosure buttons: secondary buttons with the control border, and the
    open one in the picked state. */
 .utilities { gap: 8px; padding: 12px 0 14px; }
-.utilities button { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; min-width: 0; }
+.utilities button { min-height: var(--control-h); display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 12px; min-width: 0; }
 .utilities button[aria-expanded=true] { border-color: var(--teal); background: var(--teal-dim); color: var(--teal); }
 .utilities button>span:last-child { color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0; }
 .utilities b { padding-left: 5px; color: var(--text-bright); }
@@ -34,7 +34,7 @@
 .detailPanel :global(.pulls-target-row) { margin-top: 0; }
 .forecast { display: flex; align-items: center; gap: 28px; padding: 0 4px; }
 .forecastDate { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-size: 13px; }
-.forecastDate input { background: var(--panel); border: 1px solid var(--control-border); color: var(--text); font: 13px var(--font-mono); padding: 9px; border-radius: var(--radius); width: 140px; min-height: 40px; color-scheme: inherit; }
+.forecastDate input { background: var(--panel); border: 1px solid var(--control-border); color: var(--text); font: 13px var(--font-mono); padding: 0 9px; border-radius: var(--radius); width: 140px; min-height: var(--control-h); color-scheme: inherit; }
 .forecastDate input:hover, .forecastDate input:focus { border-color: var(--teal); }
 .forecast dl { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; }
 .forecast dl>span { color: var(--text-faint); }
@@ -46,9 +46,9 @@
 .plan { border: 1px solid var(--line); border-radius: var(--radius-frame); overflow: visible; background: var(--panel); }
 .planHeading { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
 .planHeading h2 span { font: 500 13px var(--font-mono); margin-left: 6px; color: var(--text-dim); }
-.add { min-width: 120px; min-height: 40px; }
+.add { min-width: 120px; }
 .chooser { padding: 0 18px 16px; }
-.columns,.bannerRow { display: grid; grid-template-columns: minmax(245px,1fr) 80px 85px 85px 90px 75px 30px; align-items: center; gap: 12px; padding: 10px 18px; }
+.columns,.bannerRow { display: grid; grid-template-columns: minmax(245px,1fr) 80px 85px 85px 90px 75px var(--control-h); align-items: center; gap: 12px; padding: 10px 18px; }
 .columns { font-size: 11px; color: var(--text-dim); border-block: 1px solid var(--line); background: var(--panel-2); }
 .columns span:not(:first-child) { text-align: center; }
 .banner+.banner { border-top: 1px solid var(--line); }
@@ -66,16 +66,22 @@
 .date small,.figure small { min-height: 14px; font-size: 10px; color: var(--text-dim); }
 .figure b { font: 600 23px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
 .chance b { color: var(--text-bright); }
-.budget input { width: 100%; min-height: 42px; background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 7px 3px; text-align: center; font: 600 23px var(--font-display); appearance: textfield; }
+.budget input { width: 100%; min-height: var(--control-h); background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 0 3px; text-align: center; font: 600 23px var(--font-display); appearance: textfield; }
 .budget input::-webkit-inner-spin-button { appearance: none; }
-.remove { width: 30px; height: 40px; color: var(--text-dim); font-size: 22px; }
-.remove:hover { color: var(--danger); }
+/* The goal's remove is an XButton (the borderless × in a control-height square); its
+   column is that wide at every width, and .remove only places it on a phone. */
 .mobileLabel { display: none; }
 .goalEditor { border-top: 1px solid var(--line); padding: 16px 20px; background: var(--panel-2); }
 .goalEditor :global(.pulls-goals-layout) { display: block; }
 .goalEditor :global(.pulls-goal-choices) { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .goalEditor :global(.pulls-operator-option) { min-height: 56px; }
-.goalEditor :global(.pulls-goals-outcome) { display: block; margin-top: 10px; }
+/* The editor stacks its outcome under the choices at every width, so the outcome takes
+   the stacked look at every width: one hairline above it and no indent. pulls.css drew
+   the side-by-side column's left rule and 24px indent above 1000px, which here was a
+   45px stub of rule beside "Chances per operator"; on a phone the chances disclosure
+   added a second rule 30px under the first. */
+.goalEditor :global(.pulls-goals-outcome) { display: block; margin-top: 10px; padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+.goalEditor :global(.pulls-copy-details) { border-top: 0; }
 .goalEditor :global(.pulls-odds-headline) { display: none; }
 .goalEditor :global(.pulls-odds-result) { min-height: 0; }
 .spending { display: flex; gap: 24px; padding-top: 14px; font-size: 12px; color: var(--text-dim); }
@@ -88,28 +94,43 @@
 .planFooter strong small { font: 12px var(--font-body); }
 .negative,.planFooter .negative { color: var(--danger); }
 .empty { padding: 28px 20px; color: var(--text-dim); }
-@media(max-width:1000px) { .wallet { gap: 10px; padding: 12px; grid-template-columns: repeat(4,minmax(0,1fr)); } .monthly { grid-column: span 4; } .columns,.bannerRow { grid-template-columns: minmax(190px,1fr) 64px 65px 66px 72px 55px 24px; gap: 8px; padding-inline: 12px; } .bannerIdentity img, .bannerArtPending { width: 64px; height: 48px; } .incomeRow { gap: 12px; padding-inline: 12px; } .rate { padding-left: 12px; } }
+@media(max-width:1000px) { .wallet { gap: 10px; padding: 12px; grid-template-columns: repeat(4,minmax(0,1fr)); } .monthly { grid-column: span 4; } .columns,.bannerRow { grid-template-columns: minmax(190px,1fr) 64px 65px 66px 72px 55px var(--control-h); gap: 8px; padding-inline: 12px; } .bannerIdentity img, .bannerArtPending { width: 64px; height: 48px; } .incomeRow { gap: 12px; padding-inline: 12px; } .rate { padding-left: 12px; } }
 @media(max-width:700px) {
  .page { gap: 14px; }
- .wallet { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 14px; } .wallet input:not([type=checkbox]) { height: 40px; font-size: 22px; }
+ .wallet { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 14px; } .wallet input:not([type=checkbox]) { font-size: 22px; }
  .incomeRow { display: block; } .rate { justify-content: space-between; margin-top: 10px; padding: 8px 0 0; border-left: 0; border-top: 1px solid var(--line); } .rate strong { font-size: 22px; }
  .utilities { grid-template-columns: 1fr; gap: 6px; }
  .forecast { display: block; padding-inline: 2px; } .forecastDate { justify-content: space-between; margin-bottom: 12px; } .forecast dl { gap: 6px; } .forecast dt { font-size: 10px; } .forecast dd { font-size: 22px; }
  .columns { display: none; } .planHeading { padding: 12px; } .add { min-width: 105px; }
- .bannerRow { grid-template-columns: repeat(4,minmax(0,1fr)) 26px; gap: 12px 7px; padding: 14px 12px; } .bannerIdentity { grid-column: 1/5; grid-row: 1; } .bannerIdentity img { width: 84px; height: 56px; } .bannerIdentity strong { font-size: 18px; } .remove { grid-column: 5; grid-row: 1; }
- .date { grid-column: 1/-1; flex-direction: row; gap: 6px; justify-content: flex-start; } .date .mobileLabel { margin: 0; } .date b { font-size: 11px; } .date small { min-height: auto; } .budget { grid-column: 1; } .bannerRow>.figure:last-of-type { grid-column: 4/6; } .mobileLabel { display: block; color: var(--text-dim); font: 11px var(--font-body); margin-bottom: 4px; } .budget .mobileLabel { text-align: center; } .figure { align-self: stretch; justify-content: flex-start; gap: 2px; } .figure b { line-height: 42px; font-size: 22px; } .figure small { line-height: 12px; } .budget input { min-height: 42px; }
+ .bannerRow { grid-template-columns: repeat(4,minmax(0,1fr)) var(--control-h); gap: 12px 7px; padding: 14px 12px; } .bannerIdentity { grid-column: 1/5; grid-row: 1; } .bannerIdentity img { width: 84px; height: 56px; } .bannerIdentity strong { font-size: 18px; } .remove { grid-column: 5; grid-row: 1; }
+ .date { grid-column: 1/-1; flex-direction: row; gap: 6px; justify-content: flex-start; } .date .mobileLabel { margin: 0; } .date b { font-size: 11px; } .date small { min-height: auto; } .budget { grid-column: 1; } .bannerRow>.figure:last-of-type { grid-column: 4/6; } .mobileLabel { display: block; color: var(--text-dim); font: 11px var(--font-body); margin-bottom: 4px; } .budget .mobileLabel { text-align: center; } .figure { align-self: stretch; justify-content: flex-start; gap: 2px; } .figure b { line-height: var(--control-h); font-size: 22px; } .figure small { line-height: 12px; }
  .goalEditor { padding: 12px; } .goalEditor :global(.pulls-goal-choices) { grid-template-columns: 1fr; } .spending { gap: 10px; flex-wrap: wrap; } .planFooter { padding: 12px; align-items: flex-start; } .planFooter>span:last-child { display: grid; gap: 2px; text-align: right; font-size: 11px; } .detailPanel { padding: 12px; }
 }
-.page .remove { padding: 0; min-width: 0; width: 30px; height: 44px; box-sizing: border-box; }
 :global(html[data-theme='light']) .forecastDate input { color-scheme: light; }
-/* Keep disclosure and inclusion independent, in the same stable control. */
-.pastUtility { display:flex; align-items:center; gap:6px; min-width:0; }
-.utilities .pastUtility button:first-child { flex:1; }
-.utilities .pastUtility :global(.pulls-include-past) { min-height:44px; }
-.detailPanel :global(.pulls-include-mobile) { display:none; }
+/* Past events is one frame, "PAST EVENTS  [ ] Include  +": the disclosure button spans
+   the whole frame and paints it (the .utilities button rules above, so it rests, hovers,
+   opens and takes focus exactly like Income & events and Skin wishlist), and the Include
+   checkbox -- its sibling, not its child -- sits over the button's own middle column.
+   The button is a subgrid of the frame's three columns: its label in the first (which
+   gives way, never runs under the checkbox), nothing in the second, where the checkbox
+   is, and its + in the third, so the + stays after the checkbox. A press on the checkbox
+   or its label ticks the setting (the label is above the button); a press anywhere else
+   in the frame is a press on the button. Hovering the checkbox does not light the frame:
+   the label is not inside the button. */
+.pastUtility { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 8px; align-items: center; min-width: 0; }
+.utilities .pastUtility > button { grid-row: 1; grid-column: 1 / -1; align-self: stretch; display: grid; grid-template-columns: subgrid; column-gap: 8px; align-items: center; }
+.pastUtility > button > span:first-child { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.pastUtility > button > span:last-child { grid-column: 3; }
+.pastUtility :global(.pulls-include-past) { grid-row: 1; grid-column: 2; position: relative; z-index: 1; }
+/* Between the phone's one column and the full row, the three triggers take two lines --
+   Income & events beside Past events, the wishlist under them -- rather than squeezing
+   three into a line their labels do not fit (they wrapped to two lines each at 701-760px). */
+@media (min-width: 701px) and (max-width: 900px) {
+  .utilities { grid-template-columns: 1fr 1fr; }
+  .utilities > :last-child { grid-column: 1 / -1; }
+}
 .page .goalEditor :global(.pulls-operator-option) { grid-template-columns:minmax(0,1fr) 82px; }
 .page .goalEditor :global(.pulls-operator-count) { flex-direction:row; align-items:center; gap:4px; padding:6px; min-width:0; }
-.page .goalEditor :global(.pulls-operator-count .pulls-select-trigger) { flex:1; min-width:0; width:100%; min-height:40px; padding:6px; box-sizing:border-box; }
 .page .goalEditor :global(.pulls-operator-count>span) { flex-shrink:0; }
 .page .forecast { display:block; padding:14px 20px; }
 .calculationHeading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
@@ -149,7 +170,6 @@
  .pickerPortraits { max-width:88px; }
  .pickerPortraits img { width:58px; height:58px; }
 }
-.page .add { width:120px; padding-inline:8px; }
 @media(max-width:700px) { .pickerPortraits { max-width:none; } }
 /* Match Arkpedia's shared softened theme; geometry stays with this workspace. */
 .page .detailArea,.page .goalEditor,.page .planFooter { background:var(--panel-grad); }
@@ -167,9 +187,11 @@
 /* The inputs, the working and the banner plan: three panels on the page ground,
    inside the frame like every other page's panels (they were a teal-topped box
    inside a box). */
+/* The three panels are sections: --section-gap apart, as .op-section stacks are
+   everywhere (they were 16px, 12px on a phone). */
 .sections {
   display: grid;
-  gap: 16px;
+  gap: var(--section-gap);
   min-width: 0;
 }
 .page .overview, .page .forecast, .page .plan {
@@ -179,7 +201,9 @@
   background: var(--panel-grad);
 }
 .page .resourceHeading { margin: 16px 16px 0; }
-.wallet { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 12px 16px; gap: 12px; }
+/* The heading's --heading-gap is the wallet's top padding (the heading has no margin
+   under it inside the panel). */
+.wallet { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: var(--heading-gap) 16px 12px; gap: 12px; }
 .wallet :global(.pulls-field) { flex-direction: column; align-items: stretch; gap: 5px; }
 .wallet :global(.pulls-field-label) { flex: none; align-items: center; gap: 6px; font: 13px/1.3 var(--font-body); }
 .wallet :global(.pulls-field-label img) { object-fit: contain; flex-shrink: 0; }
@@ -188,7 +212,7 @@
 .incomeRow :global(.pulls-recurring-grid) { gap: 2px 12px; }
 .rate { padding-left: 16px; }
 .utilities { margin: 0 16px; }
-.utilities button { padding: 10px 12px; }
+.utilities button { padding: 4px 12px; }
 .page .detailArea, .page .goalEditor, .page .planFooter { background: transparent; }
 .detailPanel { padding: 16px; }
 .page .forecast { padding: 14px 16px; }
@@ -199,9 +223,8 @@
 .forecast dt { font-size: 12px; }
 .page .budget input, .page .forecastDate input { background: var(--panel-2); }
 @media (max-width: 700px) {
-  .sections { gap: 12px; }
   .page .resourceHeading { margin: 12px 12px 0; }
-  .wallet { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px 12px; gap: 10px; }
+  .wallet { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--heading-gap) 12px 10px; gap: 10px; }
   .wallet :global(.pulls-field-label) { gap: 4px; font-size: 12px; }
   .wallet :global(.pulls-field-label img) { width: 24px; height: 24px; }
   .incomeRow { padding: 8px 12px; }
@@ -211,7 +234,9 @@
   .calculationHeading { flex-wrap: wrap; gap: 10px; }
   .calculationHeading .forecastDate { margin-left: auto; }
   .page .forecast, .detailPanel { padding: 12px; }
+  /* The empty plan's line starts where the heading above it does (it kept 16px). */
   .planHeading, .planFooter { padding: 12px; }
+  .empty { padding-inline: 12px; }
   .planHeading { flex-wrap: wrap; }
   .planHeading .add { margin-left: auto; }
 }

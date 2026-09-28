@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fontsSettled } from './census-routes';
 
 test('available outfits have prominent artwork on a keyboard- and mouse-scrollable row', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-09-22T12:00:00Z'));
@@ -53,7 +54,7 @@ test('the shelf\'s arrow buttons scroll the row and are disabled at each end', a
     await settled();
   };
   // Measured once the fonts and the shelf's artwork have loaded, which move it by a few px.
-  await page.evaluate(() => document.fonts.ready);
+  await fontsSettled(page);
   await expect.poll(() => shelf.locator('img').evaluateAll(imgs => imgs.every(img => (img as HTMLImageElement).complete))).toBe(true);
   await settled();
   const height = await page.evaluate(() => document.documentElement.scrollHeight);

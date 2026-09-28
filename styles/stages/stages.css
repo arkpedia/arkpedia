@@ -10,26 +10,21 @@
    rather than the prototype's own palette. The map's tile colours are the one
    exception and stay hard-coded in lib/stages/stageTiles.ts, because they are
    sampled from the game's renders and are data about Arknights, not theme. */
+/* The foot holds the control height whether or not Clear is shown, so a filter
+   turning on never pushes the rows down. */
 .stage-rail-foot {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 26px;
+  min-height: var(--control-h);
 }
 .stage-count {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
 }
-/* Two classes deep on purpose: button.ghost is (0,1,1) and a single class
-   cannot beat it, so a lone .stage-rail-clear left the button at ghost's 12px
-   /8px-14px metrics -- 6px taller than the 26px foot reserves, which pushed the
-   rows down the moment a filter became active. */
-.stage-rail-foot button.stage-rail-clear {
-  margin-left: auto;
-  font-size: 11px;
-  padding: 5px 10px;
-}
+/* Clear is a plain .ghost at the control height (it was a one-off 26px/11px). */
+.stage-rail-foot button.stage-rail-clear { margin-left: auto; }
 
 /* The list is a table in behaviour but a set of links in structure, so the
    row declares its own columns. */
@@ -145,7 +140,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: var(--heading-gap);
 }
 .stage-section-head h2 { margin: 0; }
 .stage-map-tools {
@@ -392,35 +387,20 @@
    browser's default h3 -- 18.72px bold Inter, the largest text on the page, above a
    list of 11px mono rows. This is the same weight as the section head above it. */
 .stage-drop-group { margin-bottom: 12px; }
-.stage-drop-group-title {
-  margin: 0 0 8px;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
+/* The global h3 (shared.css): 15px, 600, 0.04em, the sub-section voice. It restated
+   the h3 at 700 and 0.02em. */
+.stage-drop-group-title { margin: 0 0 8px; }
 
 .stage-enemy-section + .stage-enemy-section { margin-top: 4px; }
+/* "Will appear" / "May appear": the global h3 (shared.css) on a hairline; the words say
+   which. The rank labels under them are .label-tag micro-labels (they stay h3s: each
+   heads its group of enemy cards). */
 .stage-enemy-section-title {
   margin: 0 0 10px;
   padding-bottom: 5px;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 15px;
-  font-weight: 700;
-  /* The site's heading colour for the enemies that will come (--heading, never amber
-     or the on-state teal); the ones that may come keep a colour of their own, dimmer. */
-  color: var(--heading);
 }
-.stage-enemy-section-title.may { color: var(--text-dim); }
-.stage-enemy-rank-title {
-  margin: 0 0 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
+.stage-enemy-rank-title { display: block; margin: 0 0 6px; }
 .stage-enemy-rank-group { margin-bottom: 14px; }
 .stage-enemy-cards { display: flex; flex-direction: column; gap: 4px; }
 .stage-enemy-card {
@@ -652,9 +632,9 @@
 
 /* The grid cell the detail column sits in (pages/stages/browse useStageSwitchFloor). */
 .stage-detail-slot { min-width: 0; }
-.stage-detail-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-/* .op-section carries a 36px bottom margin for stacked pages; in this column
-   the flex gap already spaces the sections. */
+.stage-detail-col { display: flex; flex-direction: column; gap: var(--section-gap); min-width: 0; }
+/* The flex gap spaces the sections (--section-gap, as .op-section's margin does on a
+   stacked page; it was 18px here). */
 .stage-detail-col .op-section { margin-bottom: 0; }
 .stage-empty-pane { display: flex; align-items: center; justify-content: center; min-height: 260px; }
 
@@ -862,25 +842,19 @@
   letter-spacing: 0.08em;
   color: var(--text-faint);
 }
+/* "Running now" is .badge-live (arkpedia-theme.css), the site's one live badge: it
+   was teal on --teal-dim, the "on" colour, used for a status. Placed here only. */
 .stage-mode-live {
   position: absolute;
   top: 6px;
   left: 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 2px 5px;
-  border-radius: var(--radius-frame);
-  background: var(--teal-dim);
-  border: 1px solid var(--teal);
-  color: var(--teal);
 }
+/* --card-inset (shared.css), the one inset of a picture card's text (it was 9/11/10). */
 .stage-mode-meta {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 9px 11px 10px;
+  padding: var(--card-inset);
   min-width: 0;
 }
 .stage-mode-line {
@@ -1350,16 +1324,11 @@
 @media (prefers-reduced-motion: reduce) {
   .stage-legend-overlay { transition: none; }
 }
-.stage-legend-overlay h3 {
-  margin: 0 0 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-faint);
-}
-.stage-legend-overlay h3 + * { margin-bottom: 12px; }
+/* The legend's group labels are .label-tag micro-labels (arkpedia-theme.css), not
+   headings: the overlay is one role="button", whose children are presentational, and
+   they label a legend group, not a section of the page. */
+.stage-legend-overlay p.label-tag { margin: 0 0 6px; }
+.stage-legend-overlay p.label-tag + * { margin-bottom: 12px; }
 .stage-legend-overlay .stage-legend {
   display: flex;
   flex-direction: column;
@@ -1398,19 +1367,16 @@
   background: rgb(8 12 16 / 0.94);
   border: 1px solid var(--line);
 }
+/* A dense XButton pinned to the plate's corner. The plate is dark in both themes, so
+   the × takes the plate's own ink rather than the theme's --text-dim; the hover fill is
+   the primitive's, a tint of that ink. */
 .stage-tile-pop-close {
   position: absolute;
-  top: 4px;
-  right: 5px;
-  padding: 2px 6px;
-  background: none;
-  border: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: rgb(255 255 255 / 0.62);
-  cursor: pointer;
+  top: 3px;
+  right: 3px;
 }
-.stage-tile-pop-close:hover { color: white; }
+button.stage-tile-pop-close { color: rgb(255 255 255 / 0.62); }
+button.stage-tile-pop-close:hover { color: white; }
 .stage-tile-pop-name {
   display: flex;
   align-items: baseline;
@@ -1777,24 +1743,24 @@
    A heading, four actions and a view control do not fit across 375px, and left to wrap
    they came out ragged: three buttons on one line, two on the next, the icon orphaned.
    So the head wraps deliberately instead -- the title and the fullscreen control keep
-   the first line, and the four actions take the full width below as an even 2x2 grid.
-   Equal cells also mean pressing one cannot resize it. */
+   the first line, and the four actions take a line of their own below, at their own
+   width from the section's edge. They were an even 2x2 grid, which centred each label
+   in half the line and put the first one 49.6px in from the heading (r9 census). */
 @media (max-width: 700px) {
   .stage-section-head { flex-wrap: wrap; }
   .stage-section-head > .stage-fullscreen { margin-left: auto; }
   .stage-map-tools {
     flex: 1 1 100%;
     margin-left: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    flex-wrap: wrap;
     gap: 6px;
-    /* Last, so the full-width grid does not push the fullscreen control onto a third
+    /* Last, so the full-width row does not push the fullscreen control onto a third
        line of its own. Wrapping follows DOM order otherwise, and the control is the
        last child. */
     order: 1;
   }
-  .stage-map-tools button { font-size: 11px; padding: 8px 6px; }
-  /* "Toggle Paths" becomes "Paths": the verb is doing no work in a cell this wide. */
+  .stage-map-tools button { font-size: 11px; padding: 8px 10px; }
+  /* "Toggle Paths" becomes "Paths": the verb is doing no work on a phone. */
   .wide-only { display: none; }
 }
 

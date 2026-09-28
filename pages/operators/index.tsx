@@ -18,6 +18,7 @@ import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
 import { publicFiles } from '@/lib/assets/publicAssets';
 import PageHeader from '@/components/ui/PageHeader';
+import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -344,7 +345,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                       setBranchFilter('all'); // branch list changes with class, reset to avoid an invalid combo
                     }}
                   >
-                    {iconPath && <Image src={iconPath} alt={c} width={26} height={26} style={{ objectFit: 'contain' }} />}
+                    {iconPath && <OperatorGameIcon src={iconPath} label={c} size={24} />}
                   </button>
                 );
               })}
@@ -359,12 +360,12 @@ export default function OperatorsIndex({ operators, now }: Props) {
                   <button
                     type="button"
                     key={b}
-                    className="filter-chip roster-branch-chip"
+                    className="filter-chip"
                     aria-label={b}
                     aria-pressed={branchFilter === b}
                     onClick={() => setBranchFilter(branchFilter === b ? 'all' : b)}
                   >
-                    {iconPath && <Image src={iconPath} alt={b} width={22} height={22} style={{ objectFit: 'contain' }} />}
+                    {iconPath && <OperatorGameIcon src={iconPath} label={b} size={20} />}
                     <span>{b}</span>
                   </button>
                 );
@@ -373,14 +374,14 @@ export default function OperatorsIndex({ operators, now }: Props) {
           )}
 
           <nav className="roster-techniques-link-row" aria-label="Operator reference tools">
-            <Link prefetch={false} href="/techniques" className="btn roster-techniques-btn">
+            <Link prefetch={false} href="/techniques" className="btn btn-sm roster-techniques-btn">
               <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
                 <path d="M10 2 L17 6 L17 14 L10 18 L3 14 L3 6 Z" strokeLinejoin="round" />
                 <path d="M10 2 V18 M3 6 L17 14 M17 6 L3 14" strokeLinecap="round" />
               </svg>
               <span>Techniques</span>
             </Link>
-            <Link prefetch={false} href="/synergies" className="btn roster-techniques-btn">
+            <Link prefetch={false} href="/synergies" className="btn btn-sm roster-techniques-btn">
               <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
                 <circle cx="6" cy="6" r="2.5" />
                 <circle cx="14" cy="6" r="2.5" />
@@ -389,7 +390,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
               </svg>
               <span>Synergies</span>
             </Link>
-            <Link prefetch={false} href="/obtain-method" className="btn roster-techniques-btn">
+            <Link prefetch={false} href="/obtain-method" className="btn btn-sm roster-techniques-btn">
               <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
                 <rect x="3" y="4" width="14" height="12" rx="1.5" />
                 <path d="M3 8 H17 M7 4 V16" strokeLinecap="round" />
@@ -466,23 +467,14 @@ export default function OperatorsIndex({ operators, now }: Props) {
                       <>
                         <p className="hint roster-class-branch">
                           {op.rarity ? <Rarity n={rarityLevel(op.rarity)} /> : null}
+                          {/* The class and branch glyphs are white art: drawn as masks in
+                              the line's own ink (OperatorGameIcon), not as images, or the
+                              light theme shows them white on white. */}
                           {op.class && getClassIconPath(op.class) && (
-                            <Image
-                              src={getClassIconPath(op.class)!}
-                              alt={op.class}
-                              className="roster-class-icon"
-                              width={16}
-                              height={16}
-                            />
+                            <OperatorGameIcon src={getClassIconPath(op.class)!} label={op.class} size={16} />
                           )}
                           {op.branch && getBranchIconPath(op.branch) && (
-                            <Image
-                              src={getBranchIconPath(op.branch)!}
-                              alt={op.branch}
-                              className="roster-branch-icon"
-                              width={16}
-                              height={16}
-                            />
+                            <OperatorGameIcon src={getBranchIconPath(op.branch)!} label={op.branch} size={16} />
                           )}
                           {op.branch}
                         </p>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
 import type { Roster } from '@/lib/planner/roster';
 import { NO_FILTERS, RosterGrid, type RosterFilters } from './RosterGrid';
+import XButton from '@/components/ui/XButton';
 
 /**
  * A grid of operators, then one operator -- for either of the two errands.
@@ -123,7 +124,9 @@ export function OperatorWizard({
       const first = els[0];
       const last = els[els.length - 1];
       const active = document.activeElement;
-      if (e.shiftKey && (active === first || !box?.contains(active))) { e.preventDefault(); last.focus(); }
+      // The box itself holds focus when an operator opens (below), and Shift+Tab from
+      // it would otherwise leave for the page behind the overlay.
+      if (e.shiftKey && (active === first || active === box || !box?.contains(active))) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && (active === last || !box?.contains(active))) { e.preventDefault(); first.focus(); }
     };
     document.addEventListener('keydown', onKey);
@@ -135,7 +138,13 @@ export function OperatorWizard({
     return () => { if (previous?.isConnected) previous.focus(); else document.getElementById('planner-search')?.focus(); };
   }, []);
   useEffect(() => {
-    if (step === 'one') boxRef.current?.querySelector<HTMLElement>('.wizard-close')?.focus();
+    /* An operator opened: focus goes to the dialog, which a screen reader announces
+       by its name ("Surtr — Set starting level"), and the first Tab reaches the ×.
+       Not to the × itself: the Simple search opens this dialog from a text field,
+       and Chromium carries :focus-visible from a field to whatever script focuses
+       next, so the borderless × (ui-primitives rule 21) opened inside the site's
+       teal focus ring, a box round the glyph, for a reader who had only clicked. */
+    if (step === 'one') boxRef.current?.focus({ preventScroll: true });
     const body = boxRef.current?.querySelector('.wizard-body');
     if (body) body.scrollTop = 0;
   }, [step, simpleStep]);
@@ -161,6 +170,7 @@ export function OperatorWizard({
         className={`modal-box wizard-box${simpleStep ? ' simple-wizard' : ''}`}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-label={simpleStep ? `${queue[index]} — ${simpleStep === 'current' ? 'Set starting level' : 'Set goal'}` : RAIL[flow][step === 'pick' ? 0 : 1]}
         ref={boxRef}
         onClick={(e) => e.stopPropagation()}
@@ -168,7 +178,7 @@ export function OperatorWizard({
         <div className="wizard-head">
           {/* Two steps, and the rail says which one you are on and what the
               other one is -- the thing none of the three old screens did. */}
-          {simpleStep ? <h2 className="simple-editor-title">{activeSummary && <Image src={getOperatorIconPath(activeSummary)} alt={activeSummary.name} width={40} height={40} />}<span>{simpleStep === 'current' ? 'Set starting level' : 'Set goal'}</span></h2> : <span className="wizard-rail">
+          {simpleStep ? <h2 className="entity-title simple-editor-title">{activeSummary && <Image src={getOperatorIconPath(activeSummary)} alt={activeSummary.name} width={40} height={40} />}<span>{simpleStep === 'current' ? 'Set starting level' : 'Set goal'}</span></h2> : <span className="wizard-rail">
             <span className={`wizard-step${step === 'pick' ? ' current' : ' done'}`}>
               <b>1</b>
               <i>{RAIL[flow][0]}</i>
@@ -178,7 +188,7 @@ export function OperatorWizard({
               <i>{RAIL[flow][1]}</i>
             </span>
           </span>}
-          <button type="button" className="wizard-close" aria-label="Close" onClick={onClose}>&times;</button>
+          <XButton className="wizard-close" label="Close" onClick={onClose} />
         </div>
 
         {step === 'pick' ? (

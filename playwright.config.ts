@@ -15,7 +15,10 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run start -- -p 3192',
-    env: { ARKPEDIA_CONTENT_DISABLED: '1' },
+    // The same checked-in feed check.yml's Build step prerenders the community pages from
+    // (lib/music/youtubeFeedsServer.ts), for their regenerations during a run: build with it
+    // too, or /community shows whatever the live feeds had.
+    env: { ARKPEDIA_CONTENT_DISABLED: '1', ARKPEDIA_YOUTUBE_FEED_FIXTURE: 'tests/fixtures/youtube-feeds.xml' },
     url: 'http://127.0.0.1:3192',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

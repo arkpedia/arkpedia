@@ -14,6 +14,7 @@ import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import TransportIcon from '@/components/music/TransportIcons';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
+import XButton from '@/components/ui/XButton';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -149,16 +150,12 @@ function QueueRow({
         <button type="button" className="ghost" onClick={onPushToTop} disabled={isActive} aria-label="Push to top" title="Push to top">
           ⤒
         </button>
-        <button
-          type="button"
-          className="ghost"
+        <XButton
           onClick={onRemove}
           disabled={isActive}
-          aria-label="Remove"
+          label="Remove"
           title={isActive ? "Can't remove the currently-playing track" : 'Remove'}
-        >
-          <TransportIcon name="close" size={14} />
-        </button>
+        />
       </div>
     </div>
   );
@@ -574,7 +571,7 @@ export default function MusicPage({ songLookup }: Props) {
           </div>
         ) : (
           <div className="music-queue-panel">
-            <h2>Songs ({displayList.length})</h2>
+            <h2 className="section-title">Songs ({displayList.length})</h2>
             <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
             {isSearching ? (
               <>

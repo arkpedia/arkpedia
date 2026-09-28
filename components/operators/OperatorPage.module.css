@@ -79,18 +79,43 @@
   border-radius: var(--radius-frame);
   background: var(--panel);
   container: operatorDetails / inline-size;
+  --panel-inset: 16px;
 }
 .panelHeader { position: relative; z-index: 8; flex-shrink: 0; border-bottom: 1px solid var(--line-soft); background: var(--panel); }
-.hero { padding: 12px 16px 10px; }
+/* The header's content and the reading area's sections start on --panel-inset (set
+   on .details), so the section boxes line up with the name and the picker above them;
+   the area was 4px (8px on a phone) inside the header's edge. */
+.hero { padding: 12px var(--panel-inset) 10px; }
 .identity { min-width: 0; }
 .identity :global(.op-header-flex) { align-items: center; gap: 16px; }
 .identity :global(.op-header-text) { min-width: 0; }
 /* Rarity, class and branch beside the section menu. */
-.identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: 12px; margin: 0 0 6px; }
-.identity :global(.op-sticky-meta) { min-height: 24px; margin-block: 0; gap: 10px; font-size: 13px; }
+.identity :global(.op-name-row) { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: start; gap: 12px; margin: 0 0 6px; }
+/* One line (ui-primitives rule 4): the meta's first line -- the stars, the class, the
+   branch when it fits -- sits on the section menu's centre line, and a branch that wraps
+   starts a line below it. Centred on the menu, the two-line meta put the menu 15px above
+   the branch name beside it and between the two lines. Each item is one 20px line (the
+   class and branch icons' size), and the meta starts half the menu's extra height down,
+   so the first line's centre is the menu's: (--control-h - 20px) / 2 above it, and the
+   menu stays at the top. It was a control-height cell per item, which put the same centre
+   right but made the two lines 80px on a phone (the header was 151px against 127, and
+   141 against 121 on a desktop); tests/browser/row-alignment.spec.ts holds the header to
+   those heights. */
+.identity :global(.op-sticky-meta) { --meta-line: 20px; margin-block: 0; padding-top: calc((var(--control-h) - var(--meta-line)) / 2); gap: 6px 10px; font-size: 13px; }
+.identity :global(.op-sticky-meta) > * { display: inline-flex; align-items: center; min-height: var(--meta-line); }
+/* The branch opens a popover: a name drawn as text, one 20px line like the others, with
+   its 28px hit area kept by an inset pseudo-element rather than its box, so a wrapped
+   branch line costs the meta 20px, not 28. */
+.identity :global(.op-sticky-meta) .relationPopover > button { position: relative; min-height: 0; }
+.identity :global(.op-sticky-meta) .relationPopover > button::before { content: ''; position: absolute; inset: -4px 0; }
 /* The headline star row: body face at 15px, where the mono default draws the star
-   at a few pixels. The colour stays .rarity-N's. */
-.identity :global(.op-sticky-meta) > :global(.rarity) { font-family: var(--font-body); font-size: 15px; letter-spacing: 0.06em; }
+   at a few pixels. The colour stays .rarity-N's. One 20px line like the other items, set
+   rather than left at normal: the Inter that Google Fonts' stylesheet gives the browser
+   draws no ★, so a system face does (Hiragino on a Mac, 23px at normal), and only the
+   copy Next inlines at build time drew it in Inter at the header's 121px. A build that
+   could not fetch that stylesheet made every operator's header 3px taller, and so does a
+   page whose webfonts are refused (ui-primitives rule 19). */
+.identity :global(.op-sticky-meta) > :global(.rarity) { font-family: var(--font-body); font-size: 15px; letter-spacing: 0.06em; line-height: var(--meta-line); }
 .sectionMenu { min-width: 0; }
 .sectionMenu > div { width: 100%; }
 .classLabel { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
@@ -101,14 +126,16 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  padding: 12px 12px 64px;
+  padding: 12px var(--panel-inset) 64px;
   overflow-x: hidden;
   overflow-y: auto;
   outline: none;
   overscroll-behavior-y: contain;
   scroll-padding-bottom: 64px;
   scrollbar-gutter: stable;
-  --operator-player-inset: 26px;
+  /* From the voice player to the area's edge: the section's padding and border and
+     the area's inset, so the stuck player's band spans the panel. */
+  --operator-player-inset: calc(var(--panel-inset) + 15px);
   --operator-player-sticky-top: -12px;
 }
 .area [hidden] { display: none !important; }
@@ -116,8 +143,7 @@
 .content p { line-height: 1.7; }
 /* Each section is one surface, heading and controls included. */
 .content > [data-operator-section] { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--bg); }
-.content > [data-operator-section] + [data-operator-section] { margin-top: 16px; }
-.content h2 { margin-top: 0; }
+.content > [data-operator-section] + [data-operator-section] { margin-top: var(--section-gap); }
 .content h3 { margin-top: 0; }
 .section { min-width: 0; outline: none; scroll-margin-top: 126px; }
 
@@ -147,20 +173,16 @@
 .creditValue > span { display: flex; grid-area: 1 / 1; align-items: center; min-width: 0; min-height: 28px; }
 
 /* --- skills ------------------------------------------------------------------------- */
-.page :global(#operator-skills) { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 14px; }
-.page :global(#operator-skills) > * { grid-column: 1 / -1; }
-.page :global(#operator-skills) > h2 { grid-row: 1; }
-.page :global(#operator-skills > .op-skill-tabs) { grid-column: 1; grid-row: 2; align-self: start; gap: 4px; margin: 0; }
-/* Every skill's title takes part in sizing; only the selected one is visible. */
-.page :global(#operator-skills) > .selectedSkill { display: grid; grid-column: 2; grid-row: 2; align-self: stretch; gap: 0; margin: 0; color: var(--text); font: 600 22px/1.2 var(--font-display); }
+/* The skill tabs (components/ui/Tabs with the skill icons, .op-skill-tabs in
+   operator-detail.css) lead the section under its h2 and the selected skill's panel
+   follows. Every skill's title takes part in sizing the header; only the selected one
+   is visible. The name is .entity-title .entity-title-sm (shared.css): 18px, no larger
+   than the "Skills" h2 above it. It was 22px under an 18px section heading. */
+.selectedSkill { display: grid; gap: 0; margin: 0; line-height: 1.2; }
 .skillTitleVariant { display: flex; flex-wrap: wrap; grid-area: 1 / 1; align-content: flex-start; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
-.page :global(.op-skill-tab-btn) { flex-direction: column; justify-content: center; gap: 3px; width: 56px; height: 62px; min-height: 44px; padding: 4px 3px; }
-.page :global(.op-skill-tab-btn img) { width: 34px; height: 34px; }
-/* Under the icon in a 56px chip: mono without the chip's tracking, or "SKILL 1" spills. */
-.skillNumber { font: 600 10px/1 var(--font-mono); letter-spacing: 0; }
 .skillLevelControl { display: grid; grid-template-columns: auto 72px minmax(0, 1fr); align-items: center; gap: 8px; margin: 8px 0; }
 .skillLevelControl label { color: var(--text-dim); font-size: 13px; }
-.skillLevelControl input { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 0; }
+.skillLevelControl input[type="range"] { width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 0; }
 .skillLevelValue { display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 /* The skill's numbers. Recovery and activation kinds are categories, so they take
    the --cat-* colours (auto green, manual orange, SP blue): teal is "on", and a
@@ -191,11 +213,11 @@
 
 /* --- talents (components/operators/OperatorTalents.tsx) ---------------------------- */
 .content > [data-operator-section] > .talentControls { margin: 0 0 16px; }
-.talentControls h2 { margin: 0 0 10px; }
+.talentControls h2 { margin: 0 0 var(--heading-gap); }
 .talentSelectors { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
 /* Elite and potential pickers: .filter-chip toggles, sized as icon tiles. */
 .talentOptions { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 0; }
-.talentOptions > button { flex-shrink: 0; width: 44px; min-width: 44px; height: 40px; min-height: 40px; padding: 4px 2px; }
+.talentOptions > button { flex-shrink: 0; width: var(--control-h); min-width: var(--control-h); height: var(--control-h); min-height: var(--control-h); padding: 2px; }
 .talentDescriptions { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }
 .talentDescriptions p { grid-area: 1 / 1; margin: 0; font-size: 13px; line-height: 1.7; }
 .talentCard { min-width: 0; padding: 4px 0 0; }
@@ -222,7 +244,9 @@
 /* Keep promotion materials together when the LMD + materials line must wrap. */
 .promotionCosts { align-items: flex-start; }
 .promotionMaterials { display: flex; flex-wrap: wrap; gap: 8px 12px; width: max-content; max-width: 100%; }
-.page :global(.op-potential-row) { gap: 16px; min-height: 44px; margin: 0; padding: 4px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+/* A 44px row, its icon and text centred in it: no vertical padding, so the first row's
+   content starts --heading-gap under the "Potential" heading (it was 4px lower). */
+.page :global(.op-potential-row) { gap: 16px; min-height: 44px; margin: 0; padding: 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .page :global(.op-base-skill-card) { min-width: 0; padding: 12px 0 0; border: 0; border-top: 1px solid var(--line-soft); border-radius: 0; background: transparent; overflow-wrap: anywhere; }
 .page :global(.op-module-list), .page :global(.op-module-stage-buttons) { flex-wrap: wrap; }
 .page :global(.op-module-card) { min-width: 0; max-width: 100%; }
@@ -246,8 +270,6 @@
 .relationGrid a span { min-width: 0; font-size: 12px; line-height: 1.25; overflow-wrap: anywhere; }
 
 @container operatorDetails (max-width: 540px) {
-  .page :global(#operator-skills > .op-skill-tabs) { grid-column: 1 / -1; grid-row: 2; margin-bottom: 12px; }
-  .page :global(#operator-skills) > .selectedSkill { grid-column: 1 / -1; grid-row: 3; }
   .skillMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
   .skillMetrics > div:nth-child(3) { grid-column: 1; grid-row: 2; }
   .skillMetrics > div:nth-child(4) { grid-column: 2; grid-row: 2; }
@@ -262,13 +284,11 @@
   .gallery, .details { grid-column: 1; }
   .gallery { height: var(--operator-mobile-art-height, min(70svh, 600px)); }
   .splitRail { display: none; }
-  .details { display: block; height: auto; overflow: visible; }
-  .hero { padding: 14px; }
+  .details { display: block; height: auto; overflow: visible; --panel-inset: 14px; }
+  .hero { padding: 14px var(--panel-inset); }
   .identity :global(.op-header-flex) { flex-wrap: wrap; gap: 12px; }
-  .identity :global(.op-form-switch) { gap: 4px; }
-  .area { min-height: calc(100svh - var(--nav-h, 52px) - 132px); padding: 12px 8px 64px; overflow: visible; --operator-player-inset: 21px; }
+  .area { min-height: calc(100svh - var(--nav-h, 52px) - 132px); overflow: visible; --operator-player-inset: calc(var(--panel-inset) + 13px); }
   .content > [data-operator-section] { padding: 12px; }
-  .talentOptions > button { min-height: 44px; }
 }
 @media (max-width: 900px), (max-height: 600px) {
   .panelHeader { position: sticky; top: var(--nav-h, 52px); }
@@ -283,12 +303,11 @@
 }
 @media (max-width: 540px) {
   .identity :global(.op-name-row) { grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; }
-  .hero { padding: 12px; }
-  .page :global(#operator-skills) { gap: 0 10px; }
-  .page :global(#operator-skills) > .selectedSkill { font-size: 18px; }
+  .details { --panel-inset: 12px; }
+  .hero { padding: 12px var(--panel-inset); }
 }
 @media (max-width: 360px) {
-  .area { --operator-player-inset: 17px; }
+  .area { --operator-player-inset: calc(var(--panel-inset) + 9px); }
   .content > [data-operator-section] { padding-inline: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {

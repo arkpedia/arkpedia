@@ -24,9 +24,12 @@ import { createInitialState, GachaState, BannerConfig, BannerType, PulledItem, G
 import { doPulls, sixStarWeightedPool, fiveStarWeightedPool, simulatorPullable, BASE_RATES, ratesAtPull } from '@/lib/gacha/gachaEngine';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 import StyledSelect from '@/components/ui/StyledSelect';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import PageHeader from '@/components/ui/PageHeader';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
+import XButton from '@/components/ui/XButton';
 
 interface Props {
   pools: GachaIconPools;
@@ -127,6 +130,18 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
   const [selectedSkill, setSelectedSkill] = useState(0);
   const [selectedModule, setSelectedModule] = useState(0);
   const [selectedStage, setSelectedStage] = useState(0);
+  /* The module panel keeps the tallest height it has had for this operator (the
+     Anti-Page Jump rule's floor, reset per logical page): the preview scrolls inside
+     itself, and a shorter module or stage clamped that scroll and moved the module tabs
+     136px under the reader's pointer. Taken in the handler, before the switch. */
+  const modulePanel = useRef<HTMLDivElement | null>(null);
+  const [moduleFloor, setModuleFloor] = useState<{ name: string; px: number } | null>(null);
+  const holdModulePanel = () => {
+    const el = modulePanel.current;
+    if (!el) return;
+    const px = Math.ceil(el.getBoundingClientRect().height);
+    setModuleFloor((floor) => ({ name: item.name, px: Math.max(floor && floor.name === item.name ? floor.px : 0, px) }));
+  };
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
@@ -162,7 +177,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
       <div className="modal-box gacha-pull-preview" role="dialog" aria-modal="true" aria-labelledby="gacha-pull-preview-title" onClick={(event) => event.stopPropagation()}>
         <div className="gacha-pull-preview-header">
           <div><span className="gacha-pull-preview-rarity"><Rarity n={rarityLevel(item.rarity)} /> Operator{details?.className ? ` · ${details.className}` : ''}{details?.branch ? ` / ${details.branch}` : ''}</span><h2 id="gacha-pull-preview-title">{item.name}</h2></div>
-          <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close operator preview">×</button>
+          <XButton ref={closeButton} className="gacha-preview-close" onClick={onClose} label="Close operator preview" />
         </div>
         <div className="gacha-preview-body">
           <div className="gacha-preview-portrait">
@@ -199,13 +214,17 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
             </section>}
             {!!details?.skills.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Skills</h3>
-              <div className="gacha-preview-tabs" role="group" aria-label="Select skill">
-                {details.skills.map((entry, index) => <button key={index} type="button" className={index === selectedSkill ? 'active' : ''} aria-pressed={index === selectedSkill} onClick={() => setSelectedSkill(index)}>
-                  {entry.icon && <ContentImg src={entry.icon} alt="" width={28} height={28} />}
-                  <span>S{index + 1}</span>
-                </button>)}
-              </div>
-              {skill && <div className="gacha-preview-entry">
+              <Tabs label="Skill" id="gacha-preview-skill" className="gacha-preview-tabs" value={selectedSkill} onChange={setSelectedSkill}
+                options={details.skills.map((entry, index) => ({
+                  value: index,
+                  label: `S${index + 1}`,
+                  // The name starts with what the tab shows (WCAG 2.5.3): "click S1" in
+                  // voice control finds it.
+                  ariaLabel: `S${index + 1}${entry.name ? `: ${entry.name}` : ''}`,
+                  title: entry.name || undefined,
+                  icon: entry.icon ? <ContentImg src={entry.icon} alt="" width={28} height={28} /> : undefined,
+                }))} />
+              {skill && <div className="gacha-preview-entry" {...tabPanelProps('gacha-preview-skill', selectedSkill)}>
                 <div className="gacha-preview-entry-title"><strong>{skill.name}</strong><span>{skill.rank}</span></div>
                 <div className="gacha-preview-skill-facts">
                   {skill.recovery && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.recovery) ? ' auto' : /^(?:offensive|defensive)/i.test(skill.recovery) ? ' amber' : ''}`}>{skill.recovery}</span>}
@@ -218,19 +237,23 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
             </section>}
             {!!details?.modules.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Modules</h3>
-              <div className="gacha-preview-tabs gacha-preview-module-tabs" role="group" aria-label="Select module">
-                {details.modules.map((entry, index) => <button key={index} type="button" className={index === selectedModule ? 'active' : ''} aria-pressed={index === selectedModule} onClick={() => { setSelectedModule(index); setSelectedStage(Math.max(0, entry.stages.length - 1)); }}>{entry.name}</button>)}
+              <Tabs label="Module" id="gacha-preview-module" className="gacha-preview-tabs gacha-preview-module-tabs" value={selectedModule}
+                onChange={(index) => { holdModulePanel(); setSelectedModule(index); setSelectedStage(Math.max(0, (details.modules[index]?.stages.length ?? 1) - 1)); }}
+                options={details.modules.map((entry, index) => ({ value: index, label: entry.name }))} />
+              <div ref={modulePanel} {...tabPanelProps('gacha-preview-module', selectedModule)}
+                style={moduleFloor && moduleFloor.name === item.name ? { minHeight: moduleFloor.px } : undefined}>
+                {/* The module's stage is a value picked from 1-3, not a panel of its own:
+                    the operator page's module stage is the same SegmentedControl. */}
+                {selectedModuleData?.stages.length ? <>
+                  <SegmentedControl label="Module stage" className="gacha-preview-stages" value={selectedStage} onChange={(stage) => { holdModulePanel(); setSelectedStage(stage); }}
+                    options={selectedModuleData.stages.map((entry, index) => ({ value: index, label: entry.stage }))} />
+                  {moduleStage && <div className="gacha-preview-entry">
+                    {moduleStage.attributes && <div className="gacha-preview-meta">{moduleStage.attributes}</div>}
+                    {moduleStage.label && <strong>{moduleStage.label}</strong>}
+                    {moduleStage.effect && <p>{moduleStage.effect}</p>}
+                  </div>}
+                </> : <p>Original trait; no module upgrades.</p>}
               </div>
-              {selectedModuleData?.stages.length ? <>
-                <div className="gacha-preview-tabs" role="group" aria-label="Select module stage">
-                  {selectedModuleData.stages.map((entry, index) => <button key={index} type="button" className={index === selectedStage ? 'active' : ''} aria-pressed={index === selectedStage} onClick={() => setSelectedStage(index)}>{entry.stage}</button>)}
-                </div>
-                {moduleStage && <div className="gacha-preview-entry">
-                  {moduleStage.attributes && <div className="gacha-preview-meta">{moduleStage.attributes}</div>}
-                  {moduleStage.label && <strong>{moduleStage.label}</strong>}
-                  {moduleStage.effect && <p>{moduleStage.effect}</p>}
-                </div>}
-              </> : <p>Original trait; no module upgrades.</p>}
             </section>}
             {!!details?.baseSkills?.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Base Skills</h3>
@@ -278,7 +301,7 @@ function PullHistory({ history, onSelect }: { history: PulledItem[]; onSelect: (
 
 function FeaturedChip({ item, rarity, percent, tags, count, onSelect }: { item: GachaItem; rarity: 6 | 5; percent?: number; tags?: ('rateUp' | 'limited')[]; count?: number; onSelect: (item: PreviewItem) => void }) {
   return (
-    <button type="button" className={`gacha-featured-chip gacha-featured-chip-${rarity}`} onClick={() => onSelect({ ...item, rarity })} aria-label={`View ${item.name} operator details`}>
+    <button type="button" className={`btn-bare gacha-featured-chip gacha-featured-chip-${rarity}`} onClick={() => onSelect({ ...item, rarity })} aria-label={`View ${item.name} operator details`}>
       <span className="gacha-featured-portrait">
         {item.icon ? (
           <Image src={item.icon} alt="" width={44} height={44} />
@@ -345,7 +368,7 @@ function BannerDetails({ banner, dateLabel, onClose, onSelect, previewOpen }: {
     <div className="modal-box gacha-details-modal" role="dialog" aria-modal={!previewOpen} aria-labelledby="gacha-details-title" onClick={(event) => event.stopPropagation()}>
       <div className="gacha-details-header">
         <div><span className="gacha-pull-preview-rarity">{dateLabel}</span><h2 id="gacha-details-title">Banner details</h2><p>{banner.label}</p></div>
-        <button ref={closeButton} type="button" className="gacha-preview-close" onClick={onClose} aria-label="Close banner details">×</button>
+        <XButton ref={closeButton} className="gacha-preview-close" onClick={onClose} label="Close banner details" />
       </div>
       <div className="gacha-details-rates" aria-label="Base rarity rates">
         {([[6, BASE_RATES.six], [5, BASE_RATES.five], [4, BASE_RATES.four], [3, BASE_RATES.three]] as const).map(([rarity, rate]) => <div key={rarity}><strong><Rarity n={rarity} /></strong><span>{(rate * 100).toFixed(0)}%</span></div>)}
@@ -1975,7 +1998,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                       {b.banner_image && (
                         <Image src={b.banner_image} alt="" fill sizes="260px" className="gacha-banner-sidebar-bg" />
                       )}
-                      {isCurrentlyActive && <span className="gacha-banner-sidebar-live-badge">LIVE NOW</span>}
+                      {isCurrentlyActive && <span className="badge-live gacha-banner-sidebar-live-badge">LIVE NOW</span>}
                       <span className="gacha-banner-sidebar-text">
                         <span className="gacha-banner-sidebar-name">{getDisplayFeaturedSixStarsWithRerunLabel(b, releaseLookup).join(' / ') || bannerDisplayName(b.name)}</span>
                         <span className="gacha-banner-sidebar-date">{bannerDateLabel(b)}</span>
@@ -2016,7 +2039,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
               <>
                 {!((isOrienteering && !orienteeringConfirmed) || (isKernelLocating && !kernelLocatingConfirmed)) && (
                   <section className="op-section gacha-featured-section">
-                    <h2 style={{ marginBottom: 4 }}>
+                    <h2>
                       {banner.label} <span className="gacha-banner-date">({bannerDateLabel(selectedBanner)})</span>
                     </h2>
                     {!selectedBanner?.global_date && <p className="hint">Global release date unannounced.</p>}

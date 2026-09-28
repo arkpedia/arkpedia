@@ -31,10 +31,9 @@
    by a few pixels as you clicked between a short name and a long one. 34px clears the
    tallest step's caps, so all four steps occupy exactly the same height. */
 /* The enemy's name is the pane's heading, an h2: the page's one h1 is "Enemy
-   handbook" in the PageHeader (there used to be two). Sized as a title, on the
-   display scale. */
+   handbook" in the PageHeader (there used to be two). It is an .entity-title (shared.css,
+   22px, with the -sm/-xs steps for a long name); this is its line. */
 .enemy-hero-name h2 {
-  font-size: 26px;
   white-space: nowrap;
   line-height: 34px;
   /* hidden, so a name can never be drawn over the tag beside it while the fit runs;
@@ -44,12 +43,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The steps are scoped through .enemy-hero-text so they outrank the mobile rule
-   further down that sets this h1 to 21px -- a long name needs shrinking on a phone
-   more than on a desktop, not less. */
-.enemy-hero-text .enemy-hero-name h2.enemy-name-m { font-size: 22px; }
-.enemy-hero-text .enemy-hero-name h2.enemy-name-s { font-size: 18px; }
-.enemy-hero-text .enemy-hero-name h2.enemy-name-xs { font-size: 15px; }
 
 /* The handbook stacks race, then code + name, then how it fights. */
 /* Holds the row when an enemy has no race -- 937 of them. line-height and
@@ -902,12 +895,12 @@ h4.enemy-section-head {
   align-items: center;
   gap: 9px;
   width: 100%;
-  min-height: 38px;
+  min-height: var(--control-h);
   text-align: left;
   font: 500 13px/1.3 var(--font-mono);
   letter-spacing: 0;
   text-transform: none;
-  padding: 8px 10px;
+  padding: 4px 10px;
   background: var(--panel-2);
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
@@ -1361,11 +1354,7 @@ main.enemy-page {
      block, where the handbook has it -- so this rule was only shrinking it to 52px
      wherever it now lives. The sticky header is the name and the code, and the
      portrait keeps the size .enemy-statblock-art gives it. */
-  .enemy-detail-pane .enemy-hero h2 { font-size: 22px; margin: 0; }
-  /* The steps are absolute px, so the first one (23px) was LARGER than this 21px
-     base -- a medium-length name came out bigger than a short one on a phone. Capped
-     here; the two smaller steps are already under the base and stay as they are. */
-  .enemy-hero-text .enemy-hero-name h2.enemy-name-m { font-size: 18px; }
+  .enemy-detail-pane .enemy-hero h2 { margin: 0; }
 
   /* 3. The tags and the first-appearance line scroll away under it. */
   /* 16px, or mobile Safari zooms the whole page in when the field takes focus --

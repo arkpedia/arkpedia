@@ -2,8 +2,11 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
+import { renderMonthValue } from '@/components/schedule/CalendarMonthValue';
 import SearchInput from '@/components/ui/SearchInput';
+import XButton from '@/components/ui/XButton';
 import ScrollRow from '@/components/ui/ScrollRow';
 import Rarity, { type RarityLevel } from '@/components/ui/Rarity';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
@@ -37,6 +40,7 @@ export default function UiPrimitivesPage() {
   const [rarity, setRarity] = useState<number | 'all'>('all');
   const [tags, setTags] = useState<string[]>(['Healing']);
   const [preset, setPreset] = useState('a');
+  const [tab, setTab] = useState<'overview' | 'skills' | 'modules'>('overview');
   const [faction, setFaction] = useState('');
   const [month, setMonth] = useState('September');
   const [plain, setPlain] = useState('');
@@ -65,10 +69,40 @@ export default function UiPrimitivesPage() {
             <button type="button" className="primary" disabled>Disabled primary</button>
             <button type="button" disabled>Disabled</button>
           </div>
+          <p className="hint">Four variants, two sizes: a base or primary button on its own is the 44px call to action; everything in a row of controls is var(--control-h), through .btn-sm; a square icon button is .btn-icon, and a close or remove × is XButton (.btn-x), with no border.</p>
+          <div style={row} data-testid="control-row">
+            <SearchInput label="Search in a row" value={plain} onChange={setPlain} placeholder="One control height…" />
+            <StyledSelect label="Faction in a row" value={faction} onChange={setFaction} options={FACTIONS} />
+            <button type="button" className="filter-chip" aria-pressed={view === 'grid'} onClick={() => setView('grid')}>Chip</button>
+            <button type="button" className="ghost">Ghost</button>
+            <button type="button" className="danger">Reset</button>
+            <button type="button" className="btn-sm">Small</button>
+            <button type="button" className="primary btn-sm">Primary small</button>
+            <XButton label="Close" />
+            <button type="button" className="btn-icon" aria-label="Next">›</button>
+          </div>
           <div style={row}>
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'a'} onClick={() => setPreset('a')}>Preset A (pick-card)</button>
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'b'} onClick={() => setPreset('b')}>Preset B</button>
             <button type="button" className="btn-bare" style={card}>btn-bare: a card</button>
+          </div>
+        </section>
+
+        <section className="op-section" id="tabs">
+          <h2>Tabs</h2>
+          {/* One of N panels in place: the first label starts on the heading's edge. */}
+          <Tabs label="Example sections" id="dev-tabs" value={tab} onChange={setTab}
+            options={[{ value: 'overview', label: 'Overview' }, { value: 'skills', label: 'Skills', count: 3 }, { value: 'modules', label: 'Modules', disabled: true }]} />
+          <p {...tabPanelProps('dev-tabs', tab)} className="hint">The {tab} panel. Left/Right, Home and End move along the strip.</p>
+          {/* Links between routes take the same classes, marked aria-current. */}
+          <nav className="tabs" aria-label="Example routes" style={{ marginTop: 14 }}>
+            <a className="tab" href="#tabs" aria-current="page">Terminal</a>
+            <a className="tab" href="#tabs">Score</a>
+            <a className="tab" href="#tabs">Supplies</a>
+          </nav>
+          <div style={{ ...row, marginTop: 14 }}>
+            <span className="badge-live">Live now</span>
+            <span className="badge-live">Running now</span>
           </div>
         </section>
 
@@ -103,7 +137,7 @@ export default function UiPrimitivesPage() {
           <div style={row}>
             <StyledSelect<Faction> label="Filter by faction" value={faction} onChange={setFaction} options={FACTIONS} style={{ width: 240 }}
               renderOption={(o) => <><span style={{ flex: 1 }}>{o.label}</span><span className="filter-chip-count">{o.n}</span></>} />
-            <StyledSelect label="Month" size="title" value={month} onChange={setMonth} options={MONTHS} />
+            <StyledSelect label="Month" size="title" value={month} onChange={setMonth} options={MONTHS} renderValue={renderMonthValue} />
             <StyledSelect label="Empty" value="" onChange={() => {}} options={[]} placeholder="No options" style={{ width: 180 }} />
           </div>
         </section>
@@ -130,6 +164,27 @@ export default function UiPrimitivesPage() {
           <ScrollRow label="Example cards with controls" controls>
             {Array.from({ length: 12 }, (_, i) => <div key={i} style={card}>Card {i + 1}</div>)}
           </ScrollRow>
+        </section>
+
+        {/* r9 headings-spacing: the four heading roles and the rhythm between them. */}
+        <section className="op-section" id="headings">
+          <h2>Headings and rhythm</h2>
+          <p className="hint">A section h2 (.op-section h2, or .section-title outside one) sits --heading-gap (14px) above its content; sections stack --section-gap (36px) apart.</p>
+          <h3>A sub-section: the global h3</h3>
+          <div style={{ ...card, width: 'auto', height: 'auto', display: 'block', padding: 'var(--card-inset)' }}>
+            <h3 className="entity-title">Entity title, 22px</h3>
+            <h3 className="entity-title entity-title-sm">Under an 18px section h2: .entity-title-sm</h3>
+            <h3 className="entity-title entity-title-xs">In a sheet: .entity-title-xs</h3>
+          </div>
+          <h3 className="label-tag">A micro-label: .label-tag</h3>
+          <ul>
+            <li>A list keeps its bullets in a 1.1em marker column at the text&apos;s edge.</li>
+            <li>The text hangs after them.</li>
+          </ul>
+        </section>
+        <section className="op-section" id="headings-next">
+          <h2 className="section-title">.section-title, the same heading outside an .op-section</h2>
+          <p className="hint">36px above this section is --section-gap.</p>
         </section>
 
         <section className="op-section" id="rarity">

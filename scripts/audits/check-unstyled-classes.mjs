@@ -98,6 +98,11 @@ const prefixes = new Map();
  * expression, and the check would rather understate than cry wolf.
  */
 const groups = [];
+/* r10 x-buttons: a component that renders its own primitive class alongside the one it
+ * is given. components/ui/XButton puts .btn-x beside its className, so a class given to
+ * <XButton> (.gm-sheetclose, .schedule-panel-close-btn) places a styled button and rides
+ * on .btn-x, as a class beside .ghost does. */
+const COMPONENT_CLASSES = { XButton: ['btn-x'] };
 
 /** CSS written inside a component with styled-jsx, which styles/*.css cannot see.
  *  One page does it (community.tsx) and its three wrappers read as unstyled without
@@ -114,6 +119,8 @@ for (const dir of SRC_DIRS) {
     for (const m of text.matchAll(/className=(?:"([^"]*)"|\{((?:[^{}]|\{[^{}]*\})*)\})/g)) {
       const raw = (m[1] ?? m[2] ?? '').replace(/['"`]/g, ' ');
       const group = new Set();
+      const tag = text.slice(text.lastIndexOf('<', m.index) + 1).match(/^[A-Za-z][\w.]*/)?.[0];
+      for (const c of COMPONENT_CLASSES[tag] ?? []) group.add(c); // r10 x-buttons
       for (const tok of raw.matchAll(/[A-Za-z][A-Za-z0-9_-]*(?:\$\{[^}]*\})?/g)) {
         const t = tok[0];
         if (t.includes('${')) {

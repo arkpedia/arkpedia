@@ -344,6 +344,11 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 <div className={workspace.rate}><strong>{monthlyIncome.toLocaleString(undefined,{maximumFractionDigits:1})}</strong><span>pulls / 30 days</span></div></div>
         <div className={workspace.utilities}>
           <button type="button" id="tab-income" aria-controls="panel-income" aria-expanded={activeTab === 'income'} onClick={() => setActiveTab(activeTab === 'income' ? '' : 'income')}><span>Income & events</span><span>{activeTab === 'income' ? '−' : '+'}</span></button>
+          {/* One frame, "PAST EVENTS  [ ] Include  +" (the maintainer, 2026-09-27): the
+              disclosure button is the frame -- it paints the box like its two siblings and
+              is the hit area everywhere but the setting -- and the checkbox is its SIBLING
+              laid over it, never inside it (a <button> may not hold an input, and the
+              accessibility tree flattens one that does). */}
           <div className={workspace.pastUtility}>
             <button type="button" id="tab-past" aria-controls="panel-past" aria-expanded={activeTab === 'past'} onClick={() => setActiveTab(activeTab === 'past' ? '' : 'past')}><span>Past events</span><span aria-hidden="true">{activeTab === 'past' ? '−' : '+'}</span></button>
             <IncludePastCheckbox checked={includeBacklog} onChange={setIncludeBacklog} />
@@ -466,7 +471,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
 
           </section>
-          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={`op-section ${workspace.detailPanel}`}><PastRewards backlog={backlogSources} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} include={includeBacklog} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} onInclude={setIncludeBacklog} /></section>
+          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={`op-section ${workspace.detailPanel}`}><PastRewards backlog={backlogSources} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} /></section>
           <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={`op-section ${workspace.detailPanel}`}>        <SkinPlan collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} heldOP={held.originitePrime} extraOP={readNumber(reservedOP)} forecastOP={date => totalAt(new Date(`${date}T23:59:59Z`)).grossOP}
           extraField={<Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} />} />
 </section>
@@ -482,7 +487,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         </dl>
       </section>
       <section className={`op-section ${workspace.plan}`} aria-label="Your banner plan">
-        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary ${workspace.add}`} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
+        <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary btn-sm ${workspace.add}`} type="button" aria-expanded={choosingBanner} onClick={() => setChoosingBanner(!choosingBanner)}>{choosingBanner ? 'Close' : '+ Add banner'}</button></div>
         {choosingBanner && <BannerPicker banners={banners} selected={goals.map(goal => goal.banner)} odds={bannerOdds} onAdd={addGoal} />}
         <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
         {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}

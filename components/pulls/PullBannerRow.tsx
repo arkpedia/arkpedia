@@ -4,6 +4,7 @@ import { formatChance, type BannerOdds, type OddsRequest, type OddsResult } from
 import { OperatorGoals } from './OperatorGoals';
 import styles from '@/styles/pulls/pulls-workspace.module.css';
 import { ContentImg } from '@/components/content/ContentImage';
+import XButton from '@/components/ui/XButton';
 
 export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRemove}: {row:BudgetRow;rules?:BannerOdds;expanded:boolean;onExpand:()=>void;onChange:(goal:BannerGoal)=>void;onRemove:()=>void}) {
   const [response,setResponse] = useState<{key:string; result?:OddsResult; error?:string}|null>(null);
@@ -35,7 +36,7 @@ export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRe
       <div className={styles.figure}><span className={styles.mobileLabel}>Available</span><b>{row.issue?'—':row.available}</b><small>{row.free>0?`${row.free} free`:''}</small></div>
       <div className={`${styles.figure} ${styles.chance}`}><span className={styles.mobileLabel}>All goals</span><b>{result?formatChance(result.all):request?'…':'—'}</b><small>{request?'Estimate':''}</small></div>
       <div className={`${styles.figure} ${row.remaining<0?styles.negative:''}`}><span className={styles.mobileLabel}>Left</span><b>{row.issue?'—':row.remaining}</b><small>{row.shortfall?'Shortfall':''}</small></div>
-      <button className={styles.remove} type="button" onClick={onRemove} aria-label={`Remove ${row.goal.banner}`}>×</button>
+      <XButton className={styles.remove} onClick={onRemove} label={`Remove ${row.goal.banner}`} />
     </div>
     {expanded && <div className={`${styles.goalEditor} pulls-banner-editor`}>
       <OperatorGoals rules={rules} goal={row.goal} onChange={onChange}><span /></OperatorGoals>

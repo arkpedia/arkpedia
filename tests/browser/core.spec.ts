@@ -12,10 +12,14 @@ test('operator section navigation and skill controls stay stable', async ({ page
   await page.goto('/operators/Thorns%20the%20Lodestar#skills');
   const slider = page.getByRole('slider', { name: 'Skill level', exact: true });
   await expect(slider).toBeVisible();
-  const top = await slider.evaluate(el => el.getBoundingClientRect().top + window.scrollY);
+  // Measured from the skill tabs, the row above the title: the detail pane scrolls inside
+  // itself, and Playwright's click may scroll it a pixel or two to bring the tab into
+  // view (a real click does not), which is not the page moving the slider.
+  const offset = () => slider.evaluate(el => el.getBoundingClientRect().top - el.closest('section')!.querySelector('[role="tablist"]')!.getBoundingClientRect().top);
+  const top = await offset();
   for (const skill of [2, 3, 1]) {
-    await page.getByRole('button', { name: new RegExp(`^Skill ${skill}:`) }).click();
-    const current = await slider.evaluate(el => el.getBoundingClientRect().top + window.scrollY);
+    await page.getByRole('tab', { name: new RegExp(`^Skill ${skill}:`) }).click();
+    const current = await offset();
     expect(Math.abs(current - top), 'Skill names and recommendations must not shift the slider').toBeLessThanOrEqual(1);
   }
   await slider.focus();

@@ -60,7 +60,8 @@
 .tileGuide summary span { margin-left: 8px; color: var(--text-dim); font: 400 12px var(--font-mono); letter-spacing: 0; text-transform: none; }
 .tileInfo { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); line-height: 1.6; }
 .tileInfo > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.tileInfo h3 { margin: 0; color: var(--text); }
+/* The tile's name: .entity-title .entity-title-xs (shared.css). */
+.tileInfo h3 { margin: 0; }
 .tileInfo p { margin: 0; }
 .tileTypes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-top: 10px; }
 .tileType { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px; text-align: left; font: 13px var(--font-body); }
@@ -98,10 +99,10 @@
      SearchInput's wrapper becomes a two-row grid, and its absolutely placed list
      goes back into the flow as the second row. */
   .typing .search { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-  .typing .search :global(.search-input-wrap) { display: grid; grid-template-rows: 44px minmax(0, 1fr); flex: 1; min-height: 0; align-items: stretch; }
-  .typing .search :global(.search-input) { height: 44px; }
-  .typing .search :global(.search-input-icon) { top: 14px; }
-  .typing .search :global(.search-input-clear) { top: 8px; }
+  .typing .search :global(.search-input-wrap) { display: grid; grid-template-rows: var(--control-h) minmax(0, 1fr); flex: 1; min-height: 0; align-items: stretch; }
+  .typing .search :global(.search-input) { height: var(--control-h); }
+  .typing .search :global(.search-input-icon) { top: calc(var(--control-h) / 2 - 8px); }
+  .typing .search :global(.search-input-clear) { top: calc((var(--control-h) - max(24px, var(--control-h) - 12px)) / 2); }
   .typing .search [role="listbox"] { position: static; min-height: 0; max-height: none; margin-top: 6px; overscroll-behavior: contain; box-shadow: none; }
   .typing .notice { min-height: 0; font-size: 11px; flex-shrink: 0; }
 }

@@ -27,7 +27,7 @@ export default function SupportPage() {
 
       <main>
         <section className="op-section">
-          <p>
+          <p className="support-intro">
             There can be a lot more features for the site, but the site will also become more
             expensive to host if so. If you&apos;d like to support, you can support in three ways!
           </p>
@@ -37,7 +37,7 @@ export default function SupportPage() {
               <h3>For Free!</h3>
               <p className="support-copy">Be more active in the communities I have.</p>
               <div className="support-social-row">
-                <a href="https://discord.gg/kukkikaze" target="_blank" rel="noopener noreferrer" className="support-social-link" title="Discord">
+                <a href="https://discord.gg/kukkikaze" target="_blank" rel="noopener noreferrer" className="btn support-social-link" title="Discord">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">
                     <rect x="4" y="6" width="16" height="12" rx="5" />
                     <circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none" />
@@ -45,14 +45,14 @@ export default function SupportPage() {
                   </svg>
                   <span>Discord</span>
                 </a>
-                <a href="https://youtube.com/kukkikaze" target="_blank" rel="noopener noreferrer" className="support-social-link" title="YouTube">
+                <a href="https://youtube.com/kukkikaze" target="_blank" rel="noopener noreferrer" className="btn support-social-link" title="YouTube">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">
                     <rect x="3" y="6" width="18" height="12" rx="4" />
                     <path d="M10 9.5 L15 12 L10 14.5 Z" fill="currentColor" stroke="none" />
                   </svg>
                   <span>YouTube</span>
                 </a>
-                <a href="https://twitch.com/kukkikaze" target="_blank" rel="noopener noreferrer" className="support-social-link" title="Twitch">
+                <a href="https://twitch.com/kukkikaze" target="_blank" rel="noopener noreferrer" className="btn support-social-link" title="Twitch">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">
                     <path d="M5 3 L4 7 V19 H8 V21 L11 19 H15 L20 14 V3 Z" />
                     <path d="M13 7 V12 M17 7 V12" strokeLinecap="round" />
@@ -69,14 +69,14 @@ export default function SupportPage() {
                 site bigger and better!
               </p>
               <div className="support-social-row">
-                <a href="https://docs.google.com/forms/d/e/1FAIpQLScZFB0C0ZlejjrDqrLCm1_I9w4D4F_kmhOtNQJlQ7hIriVIRg/viewform?usp=sharing&ouid=112457249459874066057" target="_blank" rel="noopener noreferrer" className="support-social-link" title="Feedback Form">
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLScZFB0C0ZlejjrDqrLCm1_I9w4D4F_kmhOtNQJlQ7hIriVIRg/viewform?usp=sharing&ouid=112457249459874066057" target="_blank" rel="noopener noreferrer" className="btn support-social-link" title="Feedback Form">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">
                     <rect x="5" y="3" width="14" height="18" rx="2" />
                     <path d="M8 8 H16 M8 12 H16 M8 16 H13" strokeLinecap="round" />
                   </svg>
                   <span>Feedback Form</span>
                 </a>
-                <button ref={joinButtonRef} type="button" className="support-social-link" title="Join the Team" onClick={() => setShowJoinModal(true)}>
+                <button ref={joinButtonRef} type="button" className="btn support-social-link" title="Join the Team" onClick={() => setShowJoinModal(true)}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">
                     <circle cx="8.5" cy="8" r="3" />
                     <path d="M2.5 20 C2.5 15.5 5 13.5 8.5 13.5 C11.5 13.5 13.7 15 14.3 18" strokeLinecap="round" />
@@ -92,7 +92,7 @@ export default function SupportPage() {
               <h3>Or Support the Page Expenses <span aria-hidden="true">🥲</span></h3>
               <p className="support-copy">Benefits are given for paid supporters in the near future!</p>
               <div className="support-social-row">
-                <a href="https://patreon.com/kukkikaze" target="_blank" rel="noopener noreferrer" className="support-social-link" title="Patreon">
+                <a href="https://patreon.com/kukkikaze" target="_blank" rel="noopener noreferrer" className="btn support-social-link" title="Patreon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="26" height="26">
                     <circle cx="14" cy="10" r="6" />
                     <rect x="4" y="4" width="3" height="16" fill="currentColor" stroke="none" />
@@ -108,7 +108,7 @@ export default function SupportPage() {
           <h2>Thank You to My Supporters</h2>
           <div className="supporters-tiers">
             <div className="supporter-tier">
-              <h3>Oiler Cookie Supporters</h3>
+              <h3 className="label-tag">Oiler Cookie Supporters</h3>
               <ul className="supporter-list">
                 <li>KingS</li>
                 <li>J-Min</li>
@@ -116,7 +116,7 @@ export default function SupportPage() {
             </div>
 
             <div className="supporter-tier">
-              <h3>Cookie Supporters</h3>
+              <h3 className="label-tag">Cookie Supporters</h3>
               <ul className="supporter-list">
                 <li>Wry Smil3</li>
                 <li>Kikaiism</li>
@@ -126,7 +126,7 @@ export default function SupportPage() {
             </div>
 
             <div className="supporter-tier">
-              <h3>Mini Cookie Supporters</h3>
+              <h3 className="label-tag">Mini Cookie Supporters</h3>
               <ul className="supporter-list">
                 <li>JayKey</li>
                 <li>Ferrum Argentum</li>

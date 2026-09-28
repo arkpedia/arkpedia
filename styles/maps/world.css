@@ -28,27 +28,20 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
 }
+/* A .btn-icon (square at the control height), pinned to the map's corner; in
+   fullscreen it is the × that closes the view, and takes .btn-x instead. */
 .world-map-fullscreen-btn {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: var(--radius);
-  border: 1px solid var(--control-border);
-  background: var(--panel-2);
-  color: var(--text);
-  font-size: 15px;
-  cursor: pointer;
 }
-.world-map-fullscreen-btn:hover {
-  border-color: var(--teal);
-  color: var(--teal);
+/* Fullscreen, the wrap's 24px padding moves the map and not the button, so the × went
+   16px out of the map's corner and was drawn over the frame's corner line (it has no box
+   to cover it: ui-primitives rule 21). 8px inside the corner again, as at rest. */
+.world-map-wrap.fullscreen .world-map-fullscreen-btn {
+  top: 32px;
+  right: 32px;
 }
 .world-map-bg { fill: var(--panel); }
 .world-map-land {

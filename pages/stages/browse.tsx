@@ -20,6 +20,7 @@ import { tileStyle, stageTileMark, ROUTE_COLORS, TileMark } from '@/lib/stages/s
 import { stageProperties, stageTokens } from '@/lib/stages/stageProperties';
 import { getDropIcons } from '@/lib/stages/dropIcon';
 import { describeStage } from '@/lib/stages/stageText';
+import XButton from '@/components/ui/XButton';
 
 /**
  * The operator catalogue, fetched once per session and shared.
@@ -1098,11 +1099,12 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
             />
           )}
           {family.length > 1 && (
-            /* Each form is its own address, so these are links: chips in a labelled
-               group, the open one marked aria-current="page" (the chip's picked
-               state), the way the game switcher marks its page. They were a
-               page-local chip in mono 11px with a teal fill of its own. */
-            <div role="group" aria-label="Stage forms" className="seg-control">
+            /* Each form is its own address, so these are links: the site's tab look
+               on links (.tabs / .tab), the open one marked aria-current="page", the
+               way the game switcher, the Terminal bar and an operator's class forms
+               mark theirs. They were a page-local chip in mono 11px with a teal fill
+               of its own, then .filter-chip links. */
+            <div role="group" aria-label="Stage forms" className="tabs">
               {family.map((f) => (
                 /* scroll={false} because this reads as a tab, not a link. Every form
                    of a stage is its own route, so Next scrolled to the top of the
@@ -1114,7 +1116,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   key={f.slug}
                   href={`/stages/browse?s=${encodeURIComponent(f.slug)}`}
                   scroll={false}
-                  className="filter-chip"
+                  className="tab"
                   aria-current={f.slug === stage.slug ? 'page' : undefined}
                 >
                   {f.variantOf ? variantLabel(f.variant) : baseLabel}
@@ -1839,7 +1841,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   }}
                 >
                   <div className="stage-legend-overlay-inner" onClick={() => setLegendOpen(false)}>
-                    <h3>Map tiles</h3>
+                    <p className="label-tag">Map tiles</p>
                     <div className="stage-legend">
                       {legend.map((l) => (
                         <span key={l.label}>
@@ -1862,7 +1864,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                     </div>
                     {properties.length > 0 && (
                       <>
-                        <h3>Special tiles</h3>
+                        <p className="label-tag">Special tiles</p>
                         <div className="stage-legend-special">
                           {properties.map((prop) => (
                             <span key={`overlay-${prop.key}`}>
@@ -1878,7 +1880,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                     )}
                     {(deviceGroups.length > 0 || tokens.tokenKinds > 0 || tokens.fixedSquad > 0) && (
                       <>
-                        <h3>On the field</h3>
+                        <p className="label-tag">On the field</p>
                         <div className="stage-legend-special">
                           {deviceGroups.map((d) => (
                             <span key={`overlay-unit-${d.name}`}>
@@ -1920,14 +1922,12 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   is not a position this could be placed at. */}
               {openTileInfo && !playing && (
                 <div className="stage-tile-pop" ref={tilePopRef}>
-                  <button
-                    type="button"
+                  <XButton
+                    dense
                     className="stage-tile-pop-close"
-                    aria-label="Close tile description"
+                    label="Close tile description"
                     onClick={() => setOpenTile(null)}
-                  >
-                    x
-                  </button>
+                  />
                   <span className="stage-tile-pop-name">
                     {openTileInfo.name}
                     <span className="stage-tile-pop-at">
@@ -2101,7 +2101,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                       own 18.72px bold it out-weighed the division it sits under. On a
                       stage with no conditional spawns there is no heading above it and
                       it stays the heading it has always been. */}
-                  <h3 className={section.title ? 'stage-enemy-rank-title' : 'stage-drop-group-title'}>
+                  <h3 className={section.title ? 'label-tag stage-enemy-rank-title' : 'stage-drop-group-title'}>
                     {group.title}
                   </h3>
                   <div className="stage-enemy-cards">

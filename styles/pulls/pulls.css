@@ -24,7 +24,7 @@
   align-items: baseline;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: var(--heading-gap);
 }
 .pulls-panel-head h2 { margin: 0; }
 
@@ -77,7 +77,8 @@
 
 /* --- step 2: the date ------------------------------------------------------ */
 .pulls-date {
-  padding: 10px 12px;
+  min-height: var(--control-h);
+  padding: 0 12px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--panel-2);
@@ -252,7 +253,7 @@
 .pulls-disclosure > summary .pulls-note { display: inline-block; margin: 0 0 0 10px; font-weight: 400; }
 .pulls-disclosure[open] > summary { margin-bottom: 18px; }
 .pulls-disclosure { scroll-margin-top: 90px; }
-.pulls-skin-search { display: flex; flex-direction: column; gap: 8px; font-weight: 600; }
+.pulls-skin-search { display: flex; flex-direction: column; gap: 8px; }
 .pulls-skin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
 /* A .btn-bare .pick-card: the frame, hover and picked state are the primitive's. */
 .pulls-skin-option { display: flex; flex-direction: column; text-align: left; padding: 10px; color: var(--text); min-width: 0; }
@@ -355,33 +356,35 @@
 
 /* Contextual help stays beside its section title; normal labels and results
    remain visible, while the detailed guidance is requested explicitly. */
-.pulls-help-button { display: inline-grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 1px solid var(--control-border); border-radius: 50%; background: var(--panel); color: var(--text-dim); font: 600 15px var(--font-body); cursor: pointer; }
+/* The ? is a .ghost .btn-icon (the square control-height icon button, a radius token
+   rather than the circle it was); this keeps it from shrinking in the heading row. */
+.pulls-help-button { flex: none; }
 .pulls-help-button:hover, .pulls-help-button[aria-expanded="true"] { color: var(--teal); border-color: var(--teal); }
 .pulls-help-button:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 .pulls-help-dialog { width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; box-sizing: border-box; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: var(--radius-frame); color: var(--text); background: var(--panel); box-shadow: 0 20px 70px #0005; }
 .pulls-help-dialog::backdrop { background: #0008; }
 .pulls-help-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.pulls-help-heading h2 { margin: 0; font: 700 22px/1.2 var(--font-display); overflow-wrap: anywhere; }
+/* The dialog's title is an .entity-title and its sub-headings the global h3 (shared.css):
+   they were a 22px and an 18px heading of their own, in sentence case. */
+.pulls-help-heading h2 { margin: 0; line-height: 1.2; overflow-wrap: anywhere; }
 .pulls-help-heading button { flex: none; }
 .pulls-help-content { padding: 4px 20px 12px; }
 .pulls-help-content p, .pulls-help-content li { font: 15px/1.65 var(--font-body); letter-spacing: normal; color: var(--text-dim); }
 .pulls-help-content li + li { margin-top: 8px; }
 .pulls-help-content ol { padding-left: 22px; }
-.pulls-help-content h3 { margin: 18px 0 8px; font: 700 18px var(--font-display); }
+.pulls-help-content h3 { margin: 18px 0 8px; }
 .pulls-help-content summary { cursor: pointer; font-size: 13px; }
 .pulls-help-links { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 20px; }
 .pulls-help-target { outline: 3px solid var(--teal); outline-offset: 5px; scroll-margin-block: 100px; }
 .pulls-goals-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .pulls-goals-heading h3 { margin: 0; }
 @media (max-width: 600px) {
-  .pulls-help-button { width: 40px; height: 40px; flex-basis: 40px; }
   .pulls-help-heading { padding: 14px 16px; }
-  .pulls-help-heading h2 { font-size: 18px; }
+  .pulls-help-heading h2.entity-title { font-size: 18px; }
   .pulls-help-content { padding-inline: 16px; }
   .pulls-help-links { padding-inline: 16px; }
 }
 
-.pulls-help-heading h2, .pulls-help-content h3 { text-transform: none; letter-spacing: normal; }
 .pulls-help-rules { margin-top: 16px; }
 .pulls-help-rules > summary { color: var(--text); padding-block: 6px; cursor: pointer; }
 .pulls-help-rules > summary:hover { color: var(--teal); }
@@ -425,15 +428,17 @@
 
 /* Both the closed control and its popup use Arkpedia's theme. */
 .pulls-shop-field { display: flex; flex-direction: column; gap: 8px; }
+/* The skin panel's two field captions in one voice, the page's own ("Until" beside the
+   forecast date): "Event shop" was 16px regular over "Search this shop" at 16px 600. */
+.pulls-shop-field > span, .pulls-skin-search > span { font-size: 13px; font-weight: 400; }
 
 /* Centred (ui-primitives rule 4): once a banner is picked its trigger grows to hold the
    portraits, and a top-aligned date field sat 9px above its centre. */
-.pulls-target-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; align-items: center; }
+.pulls-target-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 
-.pulls-target-row .pulls-date { width: 100%; min-width: 0; height: 40px; padding: 6px 8px; }
+.pulls-target-row .pulls-date { width: 100%; min-width: 0; height: var(--control-h); padding: 0 8px; }
 .pulls-day-options { display: flex; gap: 4px; }
-/* Two .filter-chips: the paint and the picked state are the primitive's. */
-.pulls-day-options > button { flex: 1; justify-content: center; }
+/* Two .filter-chips at their own width: the paint and the picked state are the primitive's. */
 .pulls-day-options :disabled { opacity: .4; cursor: default; }
 .pulls-target-preview { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .pulls-target-preview img { width: 84px; height: 44px; object-fit: cover; border-radius: var(--radius); }
@@ -453,13 +458,8 @@
   .pulls-recurring-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 }
 
-.pulls-include-past { flex-shrink: 0; }
-.pulls-include-mobile { display: none; margin-left: auto; }
-@media (max-width: 600px) {
-  .pulls-include-mobile { display: inline-flex; }
-}
 
-.pulls-detail-button { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 44px; margin-top: 16px; padding: 10px 12px; text-align: left; }
+.pulls-detail-button { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; margin-top: 16px; padding: 4px 12px; text-align: left; }
 .pulls-help-content .pulls-line { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; }
 .pulls-help-content .pulls-line-sum { grid-column: 1; grid-row: 2; text-align: left; }
 .pulls-help-content .pulls-line-amount { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
@@ -492,7 +492,7 @@
 .pulls-banner-editor .pulls-plan-controls { margin:0 0 6px; }
 
 .pulls-banner-editor .pulls-plan-controls label{ flex-direction:row; align-items:center; gap:10px; }
-.pulls-banner-editor .pulls-plan-controls input { width:88px; min-height:44px; padding:6px 8px; }
+.pulls-banner-editor .pulls-plan-controls input { width:88px; min-height:var(--control-h); padding:0 8px; }
 
 .pulls-banner-editor .pulls-odds-result { padding-top:10px; min-height:100px; box-sizing:border-box; }
 .pulls-banner-editor .pulls-odds-headline { min-height:44px; margin-bottom:6px; }
@@ -508,6 +508,11 @@
 .pulls-select-content { display:block; min-width:0; flex:1; }
 .pulls-select-portraits { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
 .pulls-select-portraits img { display:block; width:40px; height:40px; object-fit:contain; flex-shrink:0; }
+/* In the closed trigger the portraits fit the control height, so the banner picker is
+   one control height beside the date field (ui-primitives rule 4); the open list keeps
+   the 40px portraits. */
+.pulls-select-portraits.is-compact { flex-wrap:nowrap; overflow:hidden; }
+.pulls-select-portraits.is-compact img { width:calc(var(--control-h) - 10px); height:calc(var(--control-h) - 10px); }
 
 .pulls-select-caption { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin-top:3px; color:var(--text-dim); font-size:11px; }
 .pulls-select-meta { white-space:nowrap; font-variant-numeric:tabular-nums; }

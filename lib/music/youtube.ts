@@ -45,11 +45,12 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&#39;/g, "'");
 }
 
-async function fetchChannelFeed(channelId: string, channelLabel: string): Promise<YouTubeVideo[]> {
-  const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-  if (!res.ok) return [];
-  const xml = await res.text();
-
+/**
+ * The videos in one channel's Atom feed (https://www.youtube.com/feeds/videos.xml?channel_id=),
+ * in the feed's order. Pure: the server's feed reader (youtubeFeedsServer.ts) and the Check's
+ * fixture feed both go through it.
+ */
+export function parseChannelFeed(xml: string, channelLabel: string): YouTubeVideo[] {
   const entries = xml.split('<entry>').slice(1);
   return entries
     .map((entry) => {
@@ -71,22 +72,6 @@ async function fetchChannelFeed(channelId: string, channelLabel: string): Promis
       };
     })
     .filter((v) => v.videoId);
-}
-
-export async function getLatestVideos(
-  channels: { id: string; label: string }[],
-  perChannelLimit: number
-): Promise<YouTubeVideo[]> {
-  const results = await Promise.all(
-    channels.map((c) =>
-      fetchChannelFeed(c.id, c.label)
-        .then((videos) => videos.slice(0, perChannelLimit))
-        .catch(() => [])
-    )
-  );
-  const merged = results.flat();
-  merged.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-  return merged;
 }
 
 // Enriches videos with real live/upcoming/livestream status using the

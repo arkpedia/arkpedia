@@ -25,7 +25,8 @@ import {
 } from '@/lib/home/frontPageContent';
 import { Skin } from '@/lib/skins/skinTypes';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';
-import { getLatestVideos, enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
+import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
+import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
 import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterBannedByTitle } from '@/lib/music/contentFilter';
 import { getLiveTwitchStreams, TwitchStream } from '@/lib/community/twitch';

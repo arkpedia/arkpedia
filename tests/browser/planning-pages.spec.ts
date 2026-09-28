@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { fontsSettled, PLANNER_PLAN, plannerExperimental, readOnly, type PlannerStorage } from './census-routes';
 
 /*
  * The planning, events and home pages (the 2026-09-25 review's family B). One test per
@@ -18,6 +19,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  *   4.3 H  /base facility gear and ? were 8-9px on a phone.
  *   4.3 C  /gacha's guide ended on a "coming soon" page for trio and crossover banners
  *          (placeholders stay hidden until they have content).
+ *   r10    the planner's shortfall said "None of these can be made at the bench" over a
+ *          short Dualchip (a Factory recipe) beside a Farming route disabled for no
+ *          stated reason; its depot tiles' names ran over their steppers.
  *
  * These set their own viewports, so they run in the desktop project only.
  */
@@ -33,8 +37,17 @@ async function pageWidthOverflow(page: Page) {
 }
 
 /** How far `anchor` moves on screen when `act` runs, the reader having scrolled so it
- *  sits `at` px from the top. The Anti-Page Jump rule allows under 4px. */
+ *  sits `at` px from the top. The Anti-Page Jump rule allows under 4px.
+ *
+ *  It first lets the page's entrance animations end (a finite CSS animation, such as the
+ *  /farming table's 0.6s flow-in). Playwright will not click an element that is still
+ *  moving, and on its retry it scrolls the element to the viewport's edge first: with the
+ *  reader at the foot of /farming that scrolled Tier 2's header 142px, which read here as
+ *  the page jumping (1 run in 50 under load; the page itself never moved). */
 async function anchorMovement(page: Page, anchor: Locator, act: () => Promise<void>, place?: number) {
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
+    .map((a) => a.finished.catch(() => undefined))));
   if (place !== undefined) {
     await anchor.evaluate((el, y) => window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - y), behavior: 'instant' }), place);
     await page.waitForTimeout(300);
@@ -186,7 +199,7 @@ test.describe('/events/[slug]', () => {
 
   test('unlimited store stock never totals to ×0 (GE-15)', async ({ page }) => {
     await page.goto(PEOPLE);
-    await page.getByRole('group', { name: 'Event sections' }).getByRole('button', { name: 'Rewards' }).click();
+    await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Rewards' }).click();
     const totals = page.locator('.event-reward-total');
     await expect(totals.first()).toBeVisible();
     const texts = await totals.allInnerTexts();
@@ -195,9 +208,9 @@ test.describe('/events/[slug]', () => {
 
   test('placeholder tabs are hidden', async ({ page }) => {
     await page.goto(PEOPLE);
-    const tabs = page.getByRole('group', { name: 'Event sections' });
-    await expect(tabs.getByRole('button', { name: 'Packs' })).toHaveCount(0);
-    await expect(tabs.getByRole('button', { name: 'Miscellaneous' })).toHaveCount(0);
+    const tabs = page.getByRole('tablist', { name: 'Event sections' });
+    await expect(tabs.getByRole('tab', { name: 'Packs' })).toHaveCount(0);
+    await expect(tabs.getByRole('tab', { name: 'Miscellaneous' })).toHaveCount(0);
     await expect(page.getByText('Coming soon')).toHaveCount(0);
   });
 
@@ -205,13 +218,13 @@ test.describe('/events/[slug]', () => {
     test.use(PHONE);
     test('switching to a shorter tab at the bottom holds the reader (Anti-Page Jump)', async ({ page }) => {
       await page.goto(PEOPLE);
-      const tabs = page.getByRole('group', { name: 'Event sections' });
+      const tabs = page.getByRole('tablist', { name: 'Event sections' });
       // The tab row near the top of the screen with the tall Rewards list under it:
       // the reader can see the tab they press, and a shorter tab would leave the page
       // shorter than where they are.
       for (const shorter of ['Skins', 'Banner']) {
-        await tabs.getByRole('button', { name: 'Rewards' }).click();
-        const moved = await anchorMovement(page, tabs, () => tabs.getByRole('button', { name: shorter }).click(), 70);
+        await tabs.getByRole('tab', { name: 'Rewards' }).click();
+        const moved = await anchorMovement(page, tabs, () => tabs.getByRole('tab', { name: shorter }).click(), 70);
         expect(Math.abs(moved), `Rewards -> ${shorter} moves the tab row`).toBeLessThan(4);
       }
       // The hold is only what that position needed: back at the top of the page there
@@ -227,8 +240,8 @@ test.describe('/events/[slug]', () => {
       });
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await expect.poll(blankBelow, { message: 'the hold is released at the top' }).toBeLessThanOrEqual(24);
-      await tabs.getByRole('button', { name: 'Rewards' }).click();
-      await tabs.getByRole('button', { name: 'Skins' }).click();
+      await tabs.getByRole('tab', { name: 'Rewards' }).click();
+      await tabs.getByRole('tab', { name: 'Skins' }).click();
       expect(await blankBelow(), 'a switch at the top holds nothing').toBeLessThanOrEqual(24);
     });
   });
@@ -429,5 +442,87 @@ test.describe('/schedule calendar', () => {
     await expect(page.locator('.schedule-fullscreen-panel.open')).toBeVisible();
     await page.waitForTimeout(400);
     expect(await box(), 'opening an event moves nothing').toEqual(before);
+  });
+});
+
+/*
+ * The planner's shortfall foot (r10, 2026-09-27). With only a Guard Dualchip short -- a
+ * Factory recipe the planner does not follow, and no stage drops it -- the sentence under
+ * the cards said "None of these can be made at the bench, so every one of them is a run or
+ * a shop." beside a card saying "Factory recipe", and the Farming route chip sat there
+ * disabled with no reason given. The plan: Surtr from E1 Lv80 to E2, with the depot holding
+ * everything the promotion takes except the Dualchips.
+ */
+const DUALCHIP_ONLY: PlannerStorage = {
+  plannerState: {
+    selectedNames: ['Surtr'],
+    builderStates: { Surtr: { elite: 2, level: 1, skillLevel: 7, masteryTargets: {}, moduleStageTargets: {}, startingElite: 1, startingLevel: 80, startingSkillLevel: 7, startingMasteryLevels: {}, startingModuleStages: {} } },
+  },
+  plannerRoster: { Surtr: { elite: 1, level: 80, skillLevel: 7, masteries: {} } },
+  plannerDepot: { LMD: 5000000, 'Polymerization Preparation': 20, 'Keton Colloid': 20, 'Strategic Battle Record': 500 },
+};
+
+test.describe('/planner shortfall (r10)', () => {
+  test('a short Dualchip is made in the Factory, and no idle Farming route is offered', async ({ page }) => {
+    test.setTimeout(60000);
+    /* Nowhere in the planner's panels is a control disabled without a stated reason: one
+       that cannot act in the state on screen is not shown (Show all, the farming route), or
+       says why on hover (Clear with nothing to clear). */
+    const silentlyDisabled = () => page.evaluate(() => Array.from(document.querySelectorAll('.plan-panel button, .plan-panel input'))
+      .filter((b) => (b as HTMLButtonElement).disabled && !b.getAttribute('title'))
+      .map((b) => (b.textContent ?? '').trim()));
+    await readOnly(page);
+    await page.goto('/planner');
+    await plannerExperimental(page, DUALCHIP_ONLY);
+    const panel = page.locator('.plan-panel').filter({ has: page.getByRole('heading', { name: 'Still needed' }) });
+    await expect(panel.locator('.need-card'), 'only the Dualchip is short').toHaveCount(1);
+    await expect(panel.locator('.need-card')).toContainText('Guard Dualchip');
+    // Soft, so a run on the old page reports every one of these, not the first.
+    const foot = panel.locator('.plan-panel-foot');
+    await expect.soft(foot).toContainText('Guard Dualchip is made in the Factory');
+    await expect.soft(foot).not.toContainText('None of these can be made at the bench');
+    await expect.soft(foot.getByRole('button'), 'a farming route with nothing to farm is not offered').toHaveCount(0);
+    expect.soft(await silentlyDisabled(), 'disabled controls with no reason').toEqual([]);
+
+    // With farmables short, the route is there and it works.
+    await plannerExperimental(page, PLANNER_PLAN);
+    const route = panel.locator('.plan-panel-foot').getByRole('button', { name: 'Farming route', exact: true });
+    await expect(route).toBeEnabled();
+    await route.click();
+    await expect(panel.locator('.planner-need-stages')).toBeVisible();
+    expect(await silentlyDisabled(), 'disabled controls with no reason').toEqual([]);
+  });
+
+  /* The depot's tiles hold a name beside a control-height stepper. At the old 206px
+     minimum a name had 40-70px, and "Data Supplement Instrument", "Concentrated Power
+     Unit" or "Transmuted Salt Agglomerate" ran over the stepper's box, and on a phone
+     (a 164px stepper of touch targets) "Polymerization" did in CI's Linux fonts. Every
+     tile, at 1440, 1024, 860 (three columns near their minimum), 390 and 360: the name's
+     glyph boxes end before its stepper starts, on its line or the line under it. */
+  test('a depot tile\'s name never runs into its stepper', async ({ page }) => {
+    await readOnly(page);
+    await page.goto('/planner');
+    await plannerExperimental(page, PLANNER_PLAN);
+    await page.getByRole('button', { name: 'Open depot', exact: true }).click();
+    await expect(page.locator('.depot-tile').first()).toBeVisible();
+    for (const viewport of [{ width: 1440, height: 1000 }, { width: 1024, height: 900 }, { width: 860, height: 900 }, PHONE.viewport, { width: 360, height: 780 }]) {
+      await page.setViewportSize(viewport);
+      await fontsSettled(page);
+      const overlaps = await page.locator('.depot-grid').first().evaluate(() => Array.from(document.querySelectorAll('.depot-tile')).flatMap((tile) => {
+        const name = tile.querySelector('.name')!;
+        const label = (name.firstChild?.textContent ?? '').trim();
+        const stepper = tile.querySelector('.depot-stepper')!.getBoundingClientRect();
+        const edge = tile.getBoundingClientRect().right - parseFloat(getComputedStyle(tile).paddingRight);
+        const range = document.createRange();
+        range.selectNodeContents(name);
+        return Array.from(range.getClientRects()).filter((r) => r.width > 0).flatMap((r) => {
+          if (r.right > edge + 1) return [`${label}: ${Math.round((r.right - edge) * 10) / 10}px past its tile`];
+          const into = Math.min(r.right, stepper.right) - Math.max(r.left, stepper.left);
+          const sameLine = Math.min(r.bottom, stepper.bottom) - Math.max(r.top, stepper.top) > 0;
+          return sameLine && into > 0 ? [`${label}: ${Math.round(into * 10) / 10}px over its stepper`] : [];
+        });
+      }));
+      expect(overlaps, `names over their steppers at ${viewport.width}px`).toEqual([]);
+    }
   });
 });

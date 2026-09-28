@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { fontsSettled } from './census-routes';
 
 /*
  * The catalogue and terminal pages -- /stages/*, /gamemodes*, /enemies, /techniques,
@@ -42,7 +43,7 @@ test('Stronghold section tabs stay clickable once the lookup bar pins under the 
   // elementFromPoint at every tab answered with the nav -- 0 of 7 clickable at 1440,
   // the first row hidden at 390.
   await page.goto('/gamemodes/stronghold-protocol');
-  const tabs = page.locator('.gm-lookup button[aria-pressed]');
+  const tabs = page.locator('.gm-lookup [role="tab"]');
   await expect(tabs.first()).toBeVisible();
   await page.evaluate(() => window.scrollTo({ top: 3000, behavior: 'instant' }));
   // The nav collapses over a transition; the bar re-measures when it settles.
@@ -319,13 +320,114 @@ test('the Terminal bar\'s tabs sit in the site frame', async ({ page }) => {
   expect(edges.bar).toEqual(edges.main);
 });
 
-test('a stage\'s forms and its Emergency Ops switch are the site\'s chips', async ({ page }) => {
+/*
+ * The Terminal bar is one row from the first paint. The webfonts come from Google Fonts
+ * with display=swap, so the first paint is in the fallback face, where the seven tabs
+ * need 1141px of the frame's 992 (967 in Rajdhani). As a wrapping strip the bar was two
+ * rows until Rajdhani arrived, then one, and every Terminal page jumped up 42px (CLS
+ * 0.4-0.8). So this loads the bar with fonts.googleapis.com and fonts.gstatic.com
+ * refused -- the first paint, held -- and asserts one row at the bar's own 40px, inside
+ * the frame, at the narrowest window that shows the row and at 1440. Box edges only, no
+ * text widths, so Linux fonts cannot move it. Under 1040px the bar is its menu button:
+ * between 901 and 1039 the row was two rows even with Rajdhani.
+ */
+test('the Terminal bar is one row from the first paint, or its menu where one row does not fit', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the desktop row: the widths are set here');
+  const measure = async (page: Page) => page.evaluate(() => {
+    const row = document.querySelector('.terminal-tabs')!;
+    const inner = document.querySelector('.terminal-bar-inner')!;
+    const cs = getComputedStyle(inner);
+    const frameRight = inner.getBoundingClientRect().right - parseFloat(cs.paddingRight);
+    const tabs = Array.from(row.children).map((tab) => tab.getBoundingClientRect());
+    const toggle = document.querySelector('.terminal-bar-toggle')!;
+    return {
+      // Not document.fonts.check(): with the stylesheet refused there is no Rajdhani
+      // face to wait for, and check() calls that loaded.
+      rajdhani: Array.from(document.fonts).some((f) => f.family.replace(/["']/g, '') === 'Rajdhani' && f.status === 'loaded'),
+      rowShown: getComputedStyle(row).display !== 'none',
+      toggleShown: getComputedStyle(toggle).display !== 'none',
+      height: Math.round(row.getBoundingClientRect().height * 10) / 10,
+      tabs: tabs.length,
+      tops: tabs.map((r) => Math.round(r.top)),
+      past: tabs.filter((r) => r.right > frameRight + 1).length,
+      clipped: Array.from(row.querySelectorAll('.terminal-tab-label')).filter((l) => l.scrollWidth > l.clientWidth + 2).map((l) => l.textContent),
+    };
+  });
+  for (const fonts of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => {
+      if (!fonts && /fonts\.(googleapis|gstatic)\.com/.test(route.request().url())) return route.abort();
+      return ['GET', 'HEAD'].includes(route.request().method()) ? route.continue() : route.abort();
+    });
+    const page = await context.newPage();
+    for (const route of ['/stages', '/stages/supplies', '/stages/all']) {
+      for (const width of [1040, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(route);
+        await fontsSettled(page);
+        const m = await measure(page);
+        const at = `${route} at ${width}px, ${fonts ? 'webfonts' : 'webfonts refused'}`;
+        if (!fonts) expect(m.rajdhani, `${at}: the first paint's face, not Rajdhani`).toBe(false);
+        expect(m.rowShown && !m.toggleShown, `${at}: the row, not the menu`).toBe(true);
+        expect(m.tabs, `${at}: seven tabs`).toBe(7);
+        expect(Math.max(...m.tops) - Math.min(...m.tops), `${at}: one row, tops ${m.tops}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(m.height - 40), `${at}: the bar is ${m.height}px, not its one-row 40px`).toBeLessThanOrEqual(1);
+        expect(m.past, `${at}: tabs past the frame's edge`).toBe(0);
+        // With Rajdhani in, 25px spare at 1440: nothing gives way. Compared with each
+        // label's own box, and only once the face is known to be in.
+        if (fonts && width === 1440 && m.rajdhani) expect(m.clipped, `${at}: labels cut short`).toEqual([]);
+      }
+      await page.setViewportSize({ width: 1039, height: 900 });
+      await page.goto(route);
+      const narrow = await measure(page);
+      expect(!narrow.rowShown && narrow.toggleShown, `${route} at 1039px: the menu button, not a row`).toBe(true);
+    }
+    await context.close();
+  }
+});
+
+/*
+ * The Terminal home is a board of boxed panels, spaced by its grid's 14px gap, where it has
+ * two columns; folded to one column under 900px it is a column of sections, --section-gap
+ * (36px) apart, as /pulls' and /recruitment's boxed sections are on a phone (ui-primitives
+ * rule 15). The rule said 14 at every width while the stylesheet said 36 on a phone; this
+ * holds the two to one answer. Box edges only.
+ */
+test('the Terminal home is a board of panels in two columns and a column of sections in one', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the widths are set here');
+  const gaps = () => page.evaluate(() => {
+    const boxes = Array.from(document.querySelectorAll('main .terminal-home > .terminal-panel')).map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    const out: { dir: string; gap: number }[] = [];
+    for (const [i, a] of boxes.entries()) {
+      for (const b of boxes.slice(i + 1)) {
+        const sameColumn = b.left < a.right - 1 && a.left < b.right - 1;
+        const sameRow = b.top < a.bottom - 1 && a.top < b.bottom - 1;
+        const between = (c: DOMRect) => c !== a && c !== b && c.left < a.right - 1 && a.left < c.right - 1 && c.top >= a.bottom - 1 && c.bottom <= b.top + 1;
+        if (sameColumn && b.top >= a.bottom - 1 && !boxes.some(between)) out.push({ dir: 'below', gap: Math.round((b.top - a.bottom) * 10) / 10 });
+        if (sameRow && b.left >= a.right - 1) out.push({ dir: 'beside', gap: Math.round((b.left - a.right) * 10) / 10 });
+      }
+    }
+    return out;
+  });
+  for (const [width, dir, gap] of [[1440, 'beside', 14], [900, 'below', 36], [390, 'below', 36]] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/stages');
+    const found = await gaps();
+    expect(found.some((g) => g.dir === dir), `/stages at ${width}px: panels ${dir} one another`).toBe(true);
+    if (dir === 'below') expect(found.filter((g) => g.dir !== 'below'), `/stages at ${width}px: one column`).toEqual([]);
+    // In two columns a short panel's row may leave room under it: only the gap beside counts.
+    expect(found.filter((g) => g.dir === dir && Math.abs(g.gap - gap) > 1).map((g) => `${g.dir} ${g.gap}px`), `/stages at ${width}px: panels ${gap}px apart`).toEqual([]);
+  }
+});
+
+test('a stage\'s forms are tab-look links and its Emergency Ops switch is the site\'s chips', async ({ page }) => {
   // They were .stage-variant-option, a page-local chip in mono 11px with a teal fill of
-  // its own. The forms are links (each is its own address), marked aria-current="page";
-  // Normal / Emergency Ops switches in place, so it is a SegmentedControl.
+  // its own. The forms are links (each is its own address), marked aria-current="page",
+  // in the site's tab look for links between routes (.tabs / .tab, r9); Normal /
+  // Emergency Ops switches a value in place, so it is a SegmentedControl.
   await page.goto('/stages/browse?s=1-7');
   const forms = page.getByRole('group', { name: 'Stage forms' });
-  await expect(forms.locator('a.filter-chip')).toHaveCount(2);
+  await expect(forms.locator('a.tab')).toHaveCount(2);
   await expect(forms.locator('[aria-current="page"]')).toHaveText('Normal');
   await expect(page.locator('.stage-variant-option')).toHaveCount(0);
   await forms.getByRole('link', { name: 'Challenge Mode' }).click();

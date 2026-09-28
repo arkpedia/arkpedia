@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus } from './census-routes';
+import { sectionCensus } from './section-census';
 
 /*
  * Two maintainer decisions from 2026-09-26, after the site-wide restyle:
@@ -10,8 +12,34 @@ import { expect, test, type Page } from '@playwright/test';
  *   the teal edge on hover and keyboard focus. Real controls keep --control-border.
  */
 
-// Routes whose sections use the site heading (.op-section h2 or the home panels).
-const HEADING_ROUTES = ['/', '/operators/Amiya', '/gacha', '/planner', '/skins'];
+/* --- r9 headings and spacing (headings-spacing) ------------------------------------
+ * Every census route (the 2026-09-26 census: 45 addresses less the Stronghold companion,
+ * full-bleed by design, and the 404), with how many section headings each shows at
+ * least, so a selector that stopped matching fails rather than passing on nothing. The
+ * counts are what a page always shows, not what it showed on the day: a panel that
+ * depends on the clock (a banner, an open event, a live feed) is not counted.
+ * On each: every section heading (.op-section h2, .section-title, .waiting-box h2) is
+ * the canonical look -- Rajdhani 18px, 700, 0.03em, uppercase, --heading (never amber,
+ * never the on-state --teal) -- and, in the dark theme, sits --heading-gap (14px) above
+ * the first content under it, consecutive stacked .op-sections are --section-gap (36px)
+ * apart, and every .entity-title is 22px at most and no larger than the section h2
+ * above it (docs/development/ui-primitives.md rules 15 and 16). Gaps are box geometry,
+ * so +-2px holds on CI's Linux fonts. tests/browser/section-census.ts measures, and
+ * says what it leaves out (a disclosure header, a board of panels) and why. */
+const HEADING_ROUTES: Record<string, number> = {
+  '/': 2, '/base': 0, '/community': 1, '/community/twitch': 0, '/community/videos': 0,
+  '/community/youtube-live': 0, '/enemies': 0, '/events/Duel%20Channel%3A%20Ivy%20Vine': 0, '/farming': 3,
+  '/gacha': 1, '/gamemodes': 0, '/gamemodes/stronghold-protocol': 1, '/games': 0, '/games/color-palette': 1,
+  '/games/music-guesser': 0, '/games/operator-guesser': 1, '/games/recruitment-guesser': 1,
+  '/games/stage-guesser': 1, '/music': 1, '/music/discover': 1, '/obtain-method': 0, '/operators': 0,
+  '/operators/Amiya': 10, '/planner': 1, '/pulls': 3, '/recruitment': 2, '/results': 0, '/schedule': 0,
+  '/skins': 1, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
+  '/stages/exploration': 2, '/stages/regular': 2, '/stages/score': 2, '/stages/seasonal': 2,
+  '/stages/supplies': 0, '/support': 1, '/synergies': 10, '/techniques': 10,
+};
+const HEADING_GAP = 14;
+const SECTION_GAP = 36;
+/* --- end r9 headings and spacing ---------------------------------------------------- */
 const HOME_CARDS = ['.front-events-main', '.front-gacha-poster-wrap', '.front-featured-op', '.front-skin-item', '.front-community-item'];
 
 /*
@@ -166,24 +194,47 @@ for (const theme of ['dark', 'light'] as const) {
       await page.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch { /* none */ } }, theme);
     });
 
-    test('section headings use --heading, never amber or the on-state teal', async ({ page }) => {
-      for (const route of HEADING_ROUTES) {
+    // r9: one test per route; the look in both themes, the geometry once (dark), and the
+    // light theme on the desktop project only (colour does not change with the width).
+    for (const [route, least] of Object.entries(HEADING_ROUTES)) {
+      test(`section headings on ${decodeURIComponent(route)}: one look, --heading-gap under, --section-gap between`, async ({ page }, info) => {
+        test.skip(theme === 'light' && info.project.name !== 'desktop', 'colour is width-independent: the light theme runs once');
         await page.goto(route);
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+        await fontsSettled(page);
         expect(await themeOf(page), `the page is in the ${theme} theme`).toBe(theme);
         const heading = await tokenColour(page, '--heading');
         const amber = await tokenColour(page, '--amber');
         const teal = await tokenColour(page, '--teal');
         expect(heading, 'the heading colour is its own token').not.toBe(teal);
-        const colours = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('.op-section h2, .front-home-panel h2, .simple-all h2, .simple-empty h2, .plan-panel-head .label-pair > h2, .waiting-box h2'))
-          .filter((el) => el.getClientRects().length > 0)
-          .map((el) => ({ text: (el.textContent ?? '').trim().slice(0, 40), colour: getComputedStyle(el).color })));
-        expect(colours.length, `${route} has section headings`).toBeGreaterThan(0);
-        for (const { text, colour } of colours) {
-          expect(colour, `${route} "${text}" is not amber`).not.toBe(amber);
-          expect(colour, `${route} "${text}" uses --heading`).toBe(heading);
+        // A page that fetches its sections after it hydrates can go network-quiet before
+        // the fetch starts: /stages/browse's rail comes from /stages-index.json on mount,
+        // and in the Linux image the test measured "Loading the stage list..." with no
+        // heading drawn. So the headings are awaited, then the network once more.
+        await expect.poll(async () => (await page.evaluate(sectionCensus, { stacks: false })).headings.length, { message: `${route} draws at least ${least} section heading(s)`, timeout: 15000 }).toBeGreaterThanOrEqual(least);
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+        const census = await page.evaluate(sectionCensus, { stacks: false });
+        expect(census.headings.length, `${route} shows at least ${least} section heading(s)`).toBeGreaterThanOrEqual(least);
+        for (const h of census.headings) {
+          const at = `${route} "${h.text}"`;
+          expect(h.colour, `${at} is not amber`).not.toBe(amber);
+          expect(h.colour, `${at} uses --heading`).toBe(heading);
+          expect(h.size, `${at} is 18px`).toBe(18);
+          expect(h.weight, `${at} is 700`).toBe('700');
+          expect(h.tracking, `${at} is tracked 0.03em`).toBeCloseTo(0.03, 3);
+          expect(h.transform, `${at} is uppercase`).toBe('uppercase');
         }
-      }
-    });
+        for (const e of census.entities) {
+          expect(e.size, `${route} entity title "${e.text}" is 22px at most`).toBeLessThanOrEqual(22);
+          if (e.sectionSize !== null) expect(e.size, `${route} entity title "${e.text}" is no larger than the section h2 "${e.sectionHeading}" above it`).toBeLessThanOrEqual(e.sectionSize);
+        }
+        if (theme !== 'dark') return;
+        const gaps = census.headings.filter((h) => h.gap !== null && Math.abs(h.gap - HEADING_GAP) > 2).map((h) => `"${h.text}" -> ${h.next}: ${h.gap}px`);
+        expect(gaps, `${route}: section headings not ${HEADING_GAP}px (+-2) above the first content under them`).toEqual([]);
+        const stacked = census.sections.filter((g) => Math.abs(g.gap - SECTION_GAP) > 2).map((g) => `${g.a} -> ${g.b}: ${g.gap}px`);
+        expect(stacked, `${route}: stacked .op-sections not ${SECTION_GAP}px (+-2) apart`).toEqual([]);
+      });
+    }
 
     for (const [route, least] of Object.entries(PICTURE_ROUTES)) {
       test(`picture cards on ${decodeURIComponent(route)} have no resting frame, and a teal edge on hover`, async ({ page }, info) => {
@@ -254,3 +305,196 @@ for (const theme of ['dark', 'light'] as const) {
     });
   });
 }
+
+/* ---- The button voice stays on buttons (r9 controls) --------------------------------
+ * Buttons are Rajdhani, uppercase, 0.09em (ui-primitives). A card that is a <button>
+ * takes .btn-bare, which skips the base button rule; without it the card inherits the
+ * rule's uppercase and tracking onto its own font. The 2026-09-26 census found the
+ * Stronghold enemy rows (.gm-row) and the Isomorph row (.gm-opwho) in Inter 16,
+ * uppercase at 0.09em, and the /gacha featured-operator chips in Inter 11 at 0.09em
+ * (they reset the case, not the tracking). The signature is the base rule's 0.09em
+ * tracking computed on Inter or JetBrains Mono, with or without its uppercase: no
+ * page sets 0.09em on those faces on purpose. Every address and driven state the
+ * census visited; desktop only, since no page switches a button's face by width.
+ * It reads computed styles, not glyph metrics, so CI's fonts do not change it. */
+for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
+  const name = typeof target === 'string' ? target : `${target.route} (${target.id})`;
+  test(`buttons on ${decodeURIComponent(name)} keep the button voice off body and mono type`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'a button\'s face does not change with the width');
+    await openCensus(page, target);
+    const leaks = await page.evaluate(() => Array.from(document.querySelectorAll('button, [role="button"], a.btn, a.ghost, a.primary, a.danger'))
+      .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
+      .map((el) => {
+        const cs = getComputedStyle(el);
+        const face = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+        const em = (parseFloat(cs.letterSpacing) || 0) / parseFloat(cs.fontSize);
+        return { el: `${el.tagName.toLowerCase()}.${[...el.classList].join('.')}`, face, transform: cs.textTransform, em: Math.round(em * 1000) / 1000, text: (el.textContent ?? '').trim().slice(0, 30) };
+      })
+      .filter((b) => /^(?:Inter|JetBrains Mono)$/.test(b.face) && Math.abs(b.em - 0.09) < 0.006));
+    expect([...new Map(leaks.map((b) => [b.el, b])).values()], `${name}: buttons in Inter or JetBrains Mono with the button tracking (a card takes .btn-bare)`).toEqual([]);
+  });
+}
+
+/* ---- The class, branch and faction glyphs are ink, in both themes -------------------
+ * The glyphs (/class-icons/, /branch-icons/, /faction-icons/) are white art on a
+ * transparent ground. Drawn as an <img> they were white on the light theme's near-white:
+ * /operators' class and branch chips and the class line under every card were blank
+ * squares, and so were the operator page's synergy and technique glyphs and /techniques'
+ * branch badges and branch tables; the planner's roster chips had an invert() filter of
+ * their own. Every one is an OperatorGameIcon now,
+ * a mask in the ink of the line it sits in (teal on a pressed chip). This visits every
+ * place that draws one, in both themes, with each place's glyphs on screen (a class
+ * picked, the operator page's disclosures open), and fails:
+ * - a glyph drawn as an <img>, except over an operator's portrait on the stage deploy bar,
+ *   where it is white with a shadow as the game draws it;
+ * - a glyph whose ink is under 3:1 against what it sits on (WCAG 1.4.11), the nearest
+ *   opaque background behind it, a disabled control aside;
+ * - a place that shows no glyph, so a selector that stopped matching cannot pass on nothing.
+ * Colours only: nothing here depends on the fonts. */
+/** `glyph`: the glyphs this place is here for, which must be on screen (the rest of the
+ *  page's are checked too): a place whose own glyph stopped rendering cannot pass on the
+ *  class glyph in the page header. */
+const GLYPH_PLACES: { name: string; route: string; glyph: string; act?: (page: Page) => Promise<void> }[] = [
+  { name: '/operators (the class chips and every card\'s class line)', route: '/operators', glyph: '.roster-icon-chip [role="img"], .roster-class-branch [role="img"]' },
+  { name: '/operators with Defender picked (the branch chips)', route: '/operators', glyph: '[role="group"][aria-label="Branch"] [role="img"]', act: async (page) => { await page.getByRole('button', { name: 'Defender', exact: true }).first().click(); await expect(page.getByRole('group', { name: 'Branch' })).toBeVisible(); } },
+  { name: 'an operator with class forms', route: '/operators/Amiya', glyph: '.op-form-switch [role="img"]' },
+  { name: 'an operator with branch and faction synergies', route: '/operators/SilverAsh', glyph: '.op-synergy-value [role="img"]' },
+  // The technique is on Entelechia's S2 (the skill tabs show one skill at a time).
+  { name: 'an operator whose technique names a branch', route: '/operators/Entelechia', glyph: '.op-skill-technique-icons-row [role="img"]', act: async (page) => {
+    await page.getByRole('tablist', { name: 'Skill' }).first().getByRole('tab').nth(1).click();
+  } },
+  { name: '/techniques (the branch badges)', route: '/techniques', glyph: '.technique-entry-badge-branch [role="img"]' },
+  { name: "/techniques with a branch's table shown", route: '/techniques', glyph: '.technique-table-branch-header [role="img"]', act: async (page) => {
+    // The first technique that lists operators by branch: its table heads each branch
+    // with the branch's glyph.
+    const toggle = page.locator('.technique-group', { has: page.locator('.technique-entry-badge-branch') }).first().locator('.technique-table-toggle');
+    await toggle.click();
+    await expect(page.locator('.technique-table-branch-header').first()).toBeVisible();
+  } },
+  { name: "the planner's roster", route: '/planner', glyph: '.wizard-class-chip [role="img"]', act: async (page) => {
+    await page.getByRole('tablist', { name: 'Planner mode' }).getByRole('tab', { name: 'Experimental' }).click();
+    await page.getByRole('button', { name: 'Your roster', exact: true }).first().click();
+    await expect(page.getByRole('group', { name: 'Class' }).first()).toBeVisible();
+  } },
+];
+for (const theme of ['dark', 'light'] as const) {
+  for (const place of GLYPH_PLACES) {
+    test(`class, branch and faction glyphs are ink on ${place.name} (${theme} theme)`, async ({ page }, info) => {
+      test.skip(info.project.name !== 'desktop', 'colour is width-independent');
+      await page.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch { /* none */ } }, theme);
+      await openCensus(page, place.route);
+      if (place.act) await place.act(page);
+      await page.evaluate(() => { for (const d of Array.from(document.querySelectorAll('details'))) d.open = true; });
+      await page.waitForTimeout(200);
+      // The entrance animations end first: a card rising in after a filter is part-way
+      // through its opacity ramp, and its glyphs read faint until it lands.
+      await page.evaluate(() => Promise.all(document.getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
+        .map((a) => a.finished.catch(() => undefined))));
+      expect(await themeOf(page), `the page is in the ${theme} theme`).toBe(theme);
+      const found = await page.evaluate(() => {
+        const GLYPH = /\/(?:class|branch|faction)-icons\//;
+        const rgba = (c: string) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const [r, g, b, a = '1'] = m[1].split(/[\s,/]+/).filter(Boolean); return [+r, +g, +b, +a]; };
+        const lum = ([r, g, b]: number[]) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+        const over = (top: number[], under: number[]) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3]));
+        const ground = (el: Element) => {
+          for (let n: Element | null = el.parentElement; n; n = n.parentElement) {
+            const c = rgba(getComputedStyle(n).backgroundColor);
+            if (c && c[3] >= 0.5) return c;
+          }
+          return rgba(getComputedStyle(document.body).backgroundColor) ?? [0, 0, 0, 1];
+        };
+        const name = (el: Element) => `${el.tagName.toLowerCase()}${el.getAttribute('aria-label') ? ` "${el.getAttribute('aria-label')}"` : ''} in ${el.parentElement?.tagName.toLowerCase()}.${Array.from(el.parentElement?.classList ?? []).join('.')}`;
+        const out = { shown: 0, images: [] as string[], faint: [] as string[] };
+        for (const el of Array.from(document.querySelectorAll('*'))) {
+          if (!el.getClientRects().length) continue;
+          const cs = getComputedStyle(el);
+          if (el instanceof HTMLImageElement) {
+            if (!GLYPH.test(el.currentSrc || el.src)) continue;
+            out.shown += 1;
+            if (!el.closest('.stage-deploy-op')) out.images.push(name(el));
+            continue;
+          }
+          const mask = cs.getPropertyValue('-webkit-mask-image') || cs.getPropertyValue('mask-image');
+          if (!GLYPH.test(mask) || cs.visibility === 'hidden') continue;
+          // The operator artwork's faction emblem is a 5.5% watermark behind the art, not a glyph.
+          let opacity = 1;
+          for (let n: Element | null = el; n; n = n.parentElement) opacity *= parseFloat(getComputedStyle(n).opacity);
+          if (opacity < 0.2) continue;
+          out.shown += 1;
+          if (el.closest(':disabled, [aria-disabled="true"]')) continue;
+          const back = ground(el);
+          const ink = rgba(cs.backgroundColor);
+          if (!ink) { out.faint.push(`${name(el)}: no ink (${cs.backgroundColor})`); continue; }
+          const drawn = over([...ink.slice(0, 3), ink[3] * opacity], back);
+          const [a, b] = [lum(drawn), lum(back)].sort((x, y) => y - x);
+          const ratio = (a + 0.05) / (b + 0.05);
+          if (ratio < 3) out.faint.push(`${name(el)}: ${ratio.toFixed(2)}:1 (${cs.backgroundColor} on rgb(${back.slice(0, 3).join(', ')}))`);
+        }
+        return out;
+      });
+      expect(found.shown, `${place.name} shows a class, branch or faction glyph`).toBeGreaterThan(0);
+      expect(found.images, 'glyphs drawn as white-art <img>, not as masks in ink (OperatorGameIcon)').toEqual([]);
+      expect([...new Set(found.faint)], 'glyphs under 3:1 against what they sit on').toEqual([]);
+      const own = await page.locator(place.glyph).evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).length);
+      expect(own, `${place.name}: its own glyphs (${place.glyph}) are on screen`).toBeGreaterThan(0);
+    });
+  }
+}
+
+/* ---- A numbered list's markers stay in its box ------------------------------------
+ * The site's list reset gives the marker column 1.1em (shared.css), which holds "9." and
+ * not "10.": a list of ten or more hung its markers past the column's edge. None does
+ * today, so this puts a 12- and a 105-item list, and a 5-item one, into a real page's
+ * running text and measures each item's marker (the text of "N. " in the item's own face,
+ * the marker's advance) against the room its list gives it. It compares text with the
+ * box reserved for it in whatever face draws it, to +-2px, so CI's fonts do not change
+ * the verdict. */
+test("a numbered list's markers stay inside the list", async ({ page }) => {
+  await openCensus(page, '/operators/Amiya');
+  const over = await page.evaluate(() => {
+    const host = document.querySelector('main .op-section p')?.parentElement ?? document.querySelector('main')!;
+    const out: string[] = [];
+    for (const count of [5, 12, 105]) {
+      const ol = document.createElement('ol');
+      for (let i = 1; i <= count; i += 1) { const li = document.createElement('li'); li.textContent = `Item ${i}`; ol.appendChild(li); }
+      host.appendChild(ol);
+      const room = parseFloat(getComputedStyle(ol).paddingInlineStart);
+      for (const li of Array.from(ol.children)) {
+        const probe = document.createElement('span');
+        const cs = getComputedStyle(li);
+        probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing}`;
+        probe.textContent = `${Array.from(ol.children).indexOf(li) + 1}. `;
+        document.body.appendChild(probe);
+        const marker = probe.getBoundingClientRect().width;
+        probe.remove();
+        const past = marker - (li.getBoundingClientRect().left - ol.getBoundingClientRect().left) ;
+        if (past > 2) { out.push(`a ${count}-item list: "${probe.textContent.trim()}" is ${marker.toFixed(1)}px in a ${room.toFixed(1)}px column`); break; }
+      }
+      ol.remove();
+    }
+    return out;
+  });
+  expect(over, 'markers past their list\'s edge').toEqual([]);
+});
+
+/* ---- The gacha operator preview's panels share one inset ---------------------------
+ * Stats, Trait, Talents, Skills, Modules and Base Skills are stacked panels in one column
+ * of the preview dialog. Skills, Modules and Base Skills had an 18px inset against the
+ * others' 12px, so their headings and text started 6px right of the panels above them.
+ * Every panel's heading starts the same distance in from its panel's edge, within 1px, at
+ * both widths: box edges and the start of text, nothing that depends on the fonts. */
+test("the gacha operator preview's panels share one inset", async ({ page }) => {
+  const state = CENSUS_STATES.find((s) => s.id === 'gacha operator preview')!;
+  await openCensus(page, state);
+  await expect(page.getByRole('tablist', { name: 'Skill' })).toBeVisible({ timeout: 15000 });
+  const insets = await page.evaluate(() => Array.from(document.querySelectorAll('.gacha-preview-section')).filter((s) => s.getClientRects().length > 0).map((s) => {
+    const h = s.querySelector('h3')!;
+    const range = document.createRange();
+    range.selectNodeContents(h);
+    return { name: (h.firstChild?.textContent ?? h.textContent ?? '').trim(), inset: Math.round((range.getBoundingClientRect().left - s.getBoundingClientRect().left) * 10) / 10 };
+  }));
+  expect(insets.length, 'the preview shows its panels').toBeGreaterThanOrEqual(4);
+  const first = insets[0].inset;
+  expect(insets.filter((i) => Math.abs(i.inset - first) > 1).map((i) => `${i.name} ${i.inset}px in (${insets[0].name} ${first}px)`), 'panels whose heading starts at another inset').toEqual([]);
+});

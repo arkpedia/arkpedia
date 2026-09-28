@@ -212,7 +212,7 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
         {data.textLocale !== 'en' && <span className={styles.localeBadge}>Chinese game text</span>}
       </div>
 
-      <div ref={playerAnchorRef} aria-hidden="true" />
+      <div ref={playerAnchorRef} className={styles.playerAnchor} aria-hidden="true" />
       <div ref={playerRef} className={styles.player} data-stuck={playerStuck || undefined} aria-label="Voice line player">
         <div className={styles.packRow}>
           <StyledSelect label="Voice language" align="end" value={pack?.id ?? ''} className={styles.packSelect}

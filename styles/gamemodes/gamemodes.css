@@ -16,6 +16,8 @@
    fallback. It was `top: 0`, under the fixed nav, where none of the tabs could be
    clicked (tests/browser/terminal-pages.spec.ts). z-index stays under the nav's. */
 .gm-lookup-anchor { display: block; height: 0; }
+/* The top padding is the air the bar keeps under the nav once stuck; at rest it rises
+   into main's padding by as much, so the first chip starts where every page starts. */
 .gm-lookup {
   position: sticky;
   top: var(--nav-h, 0px);
@@ -23,14 +25,15 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-top: -8px;
   margin-bottom: 12px;
   padding: 8px 0 10px;
   background: var(--bg);
   border-bottom: 1px solid var(--line-soft);
 }
-/* The section tabs are a SegmentedControl (components/ui): the pinned .filter-chip,
-   wrapping rather than scrolling -- on a phone two rows of chips beat a rail hiding
-   four. While a search is typed each chip carries its hit count. */
+/* The section tabs are components/ui/Tabs (.tabs / .tab), wrapping rather than
+   scrolling -- on a phone two rows beat a rail hiding four. While a search is typed
+   each tab carries its hit count. */
 
 /* --- the pickers ----------------------------------------------------------- */
 
@@ -187,14 +190,14 @@
 .gm-list { position: relative; }
 /* The operators sheet is drawn by the section, since the grid clips it. */
 .terminal-panel.gm-anchor { position: relative; }
-/* Panels are separated by 26px, but the rule that does it is `.terminal-panel +
+/* Panels are separated by --section-gap, but the rule that does it is `.terminal-panel +
    .terminal-panel`, so it only ever fires on a panel that FOLLOWS one. Operators is
    the first panel in the scene now that the Filter panel it used to sit under is gone,
-   so it matched nothing and sat 26px closer to the divider than every other section
+   so it matched nothing and sat that much closer to the divider than every other section
    does. It follows the search block instead, so that is what the gap hangs off.
    Scoped to this page: .terminal-scene is shared, and no other page wants a gap above
    its first panel. */
-.gm-mode > .gm-lookup + .terminal-panel { margin-top: 26px; }
+.gm-mode > .gm-lookup + .terminal-panel { margin-top: var(--section-gap); }
 .gm-sheet {
   position: absolute;
   z-index: 6;
@@ -210,38 +213,24 @@
   box-shadow: 0 14px 28px -6px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(0 0 0 / 0.4);
   border-radius: var(--radius-control);
 }
+/* An XButton (the borderless × in a control-height square), pinned to the sheet's
+   corner beside its head. */
 .gm-sheetclose {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-faint);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
+  top: 10px;
+  right: 10px;
 }
-.gm-sheetclose:hover { color: var(--teal); }
 .gm-sheethead {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 22px 10px 0;
+  margin: 0 calc(var(--control-h) + 6px) 10px 0;
   --gm-badge: 34px;
 }
 .gm-modaltitle { flex: 1 1 auto; min-width: 0; }
-.gm-sheet h3 {
-  margin: 1px 0 0;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--text);
-}
+/* The sheet's title names the operator, enemy or item: .entity-title .entity-title-xs
+   (15px, shared.css), the size a sheet laid over a row has room for. */
+.gm-sheet h3 { margin: 1px 0 0; }
 /* The row it came from keeps its highlight, so it is clear what the sheet belongs to. */
 .gm-row.open { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 6%, transparent); }
 
@@ -484,19 +473,13 @@
   border-radius: var(--radius-control);
 }
 .gm-record:focus { outline: none; }
+/* An XButton, kept in the record's corner while it scrolls. */
 .gm-recordshut {
   position: sticky;
   top: 0;
   float: right;
   z-index: 1;
-  border: 0;
-  background: none;
-  color: var(--text-dim);
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
 }
-.gm-recordshut:hover { color: var(--teal); }
 .gm-recordwait { padding: 40px 0; text-align: center; }
 
 /* --- the Isomorph's pairings ------------------------------------------------------ */
@@ -695,7 +678,6 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 11px 16px;
   /* One line each. The two labels are read as a pair, and a wrapped one beside an
      unwrapped one makes the buttons different heights, which reads as a mistake. */
   white-space: nowrap;
@@ -801,28 +783,12 @@
 /* A bounty row whose creature the handbook has a record for. Written as a modifier on
    .gm-opwho rather than a button nested inside it, so the flex layout, the gap and the
    larger .gm-mode gap all still apply to exactly one element instead of needing a
-   second copy that could drift from the first. Only the button chrome is undone. */
-.gm-opwho-rec {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  /* NOT covered by `font: inherit` -- the shorthand carries family, size, weight and
-     line-height and neither of these. The site's global button rule uppercases every
-     button and tracks it out, so without these two the 122 pressable bounties SHOUTED
-     their names while the seven unpressable ones beside them stayed in sentence case. */
-  text-transform: none;
-  letter-spacing: normal;
-  text-align: left;
-  cursor: pointer;
-}
-/* Written against `button.` because the global `button:hover` paints the whole label
-   teal and outranks a bare class, which would have lit the sub-label too. The name is
-   the pressable thing, so the name alone answers the hover; the badge is a picture and
-   lighting that up says nothing. */
-button.gm-opwho-rec:hover,
-button.gm-opwho-rec:focus-visible { color: inherit; }
+   second copy that could drift from the first. It is a .btn-bare button, so it takes
+   none of the button voice: the global rule once uppercased and tracked out the 122
+   pressable bounties while the seven unpressable ones beside them stayed in sentence
+   case. The name is the pressable thing, so the name alone answers the hover; the
+   badge is a picture and lighting that up says nothing. */
+.gm-opwho-rec { text-align: left; }
 button.gm-opwho-rec:hover .gm-opname b,
 button.gm-opwho-rec:focus-visible .gm-opname b { color: var(--teal); }
 

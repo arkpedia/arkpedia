@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import XButton from '@/components/ui/XButton';
 
 export function TransferDialog({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -14,7 +15,7 @@ export function TransferDialog({ children, onClose }: { children: ReactNode; onC
     const bounds = e.currentTarget.getBoundingClientRect();
     if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) onClose();
   }}>
-    <header><h2 id="planner-transfer-title">Import / Export</h2><button type="button" className="ghost" aria-label="Close" onClick={onClose}>×</button></header>
+    <header><h2 id="planner-transfer-title" className="entity-title">Import / Export</h2><XButton label="Close" onClick={onClose} /></header>
     <div className="planner-transfer-body">{children}</div>
   </dialog>;
 }

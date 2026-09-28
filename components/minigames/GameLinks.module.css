@@ -1,0 +1,26 @@
+/* The game switcher on a phone or a small tablet: rows that do not depend on the face
+   drawing them. The webfonts load with display=swap (and never where Google Fonts is
+   blocked), and the fallback is wider than Rajdhani, so a plain wrapping .tabs strip broke
+   where the labels ran out of room in whichever face was drawing: at 390px three games fit
+   the first row in the fallback and four in Rajdhani, and the "Stage" tab jumped 260px
+   sideways when Rajdhani arrived; between 480 and 560px the strip was two rows and then
+   one; and between 560 and 720px the music guesser's "Music library" link sat beside the
+   five in Rajdhani and under them in the fallback, 44px of header that came and went.
+   - Under 720px the strip takes its own line in the header's actions, so what follows it
+     (the library link, the operator guesser's mode badge) always starts the next one.
+   - Under 560px it is three games and then the rest. The break is an empty line of its
+     own (::after, a full-width flex item placed after the third game), and the row gap is
+     halved so the two gaps round it add up to the strip's one: 36 + 1 + 0 + 1 + 36, the
+     height it had.
+   The five fit one row in either face above 560px, and the labels stay packed from the
+   start at content width, so nothing here stretches a tab (ui-primitives rule 13).
+   tests/browser/row-alignment.spec.ts loads every game with Google Fonts refused and fails
+   a tab on another row, or a header of another height, than with the webfonts. */
+@media (max-width: 720px) {
+  .links { flex-basis: 100%; }
+}
+@media (max-width: 560px) {
+  .links { row-gap: 1px; }
+  .links::after { content: ''; flex-basis: 100%; height: 0; order: 1; }
+  .links > :nth-child(n + 4) { order: 2; }
+}

@@ -141,6 +141,35 @@
   --frame-max: 1040px;
   --page-gutter: 24px;
 
+  /* ONE CONTROL HEIGHT (ui-primitives rule 4). Every control in a row -- a chip, a
+     .tgl, a ghost, danger or .btn-sm button, a square .btn-icon, the search field,
+     the StyledSelect trigger, a number input -- is var(--control-h) tall, so the
+     things in a row share one height and one centre line. The 2026-09-26 census found
+     six primitive heights side by side (tgl 32, ghost 33, chip 32/36, select 38,
+     search 38/40, button 44) and pages patching them up to each other by hand.
+     --control-h-base is the ONE value to change: phones (<=720px) get 4px more for
+     the thumb, below. 36 -> 36/40 today; 32 would give 32/36. Base and .primary
+     buttons stay 44px only as a standalone call to action; in a row they take
+     .btn-sm. audit:styles (controlHeight) rejects a literal height on a control. */
+  --control-h-base: 36px;
+  --control-h: var(--control-h-base);
+
+  /* --- r9 spacing rhythm (headings-spacing) ---------------------------------------
+     The vertical rhythm of a page, in three lengths (no light-theme twin: they are
+     lengths). The 2026-09-26 census measured 12 different gaps under a section
+     heading (0-30px) and 11 between stacked sections (0-44px).
+       --heading-gap  a section h2 (or the heading row it leads) to the first content
+       --section-gap  one stacked section to the next (.op-section, and the operator
+                      page and /pulls stacks, which used a grid gap of 16px)
+       --card-inset   a picture card's text from its flush art: the card's teal hover
+                      edge boxes it, so the text keeps one inset (video, roster,
+                      stage-mode, skin and supply cards used 10, 11, 12 and 14px)
+     docs/development/ui-primitives.md rules 15-17; tests/browser/cards-and-headings
+     .spec.ts and page-bounds.spec.ts measure them. */
+  --heading-gap: 14px;
+  --section-gap: 36px;
+  --card-inset: 12px;
+
   --font-mono: 'JetBrains Mono', monospace;
   --font-display: 'Rajdhani', sans-serif;
   --font-body: 'Inter', sans-serif;
@@ -256,6 +285,10 @@
      off its ground. The dark theme's value is a dark surface, and under this
      theme's dark --text it would have been text the colour of its own tile. */
   --row-grad-hi: linear-gradient(180deg, #FFFFFF, #F7F9FA);
+}
+/* Phones: the control height plus 4px for the thumb, from the one base value above. */
+@media (max-width: 720px) {
+  :root { --control-h: calc(var(--control-h-base) + 4px); }
 }
 
 /* --- site-wide interaction & a11y primitives --------------------------------------- */
@@ -425,9 +458,16 @@ header,
 @media (max-width: 640px) {
   .header-top { flex-direction: column; }
 }
+/* The page header's two lines carry a line height of their own, the one the webfont's
+   "normal" gives (JetBrains Mono 11px: 14px; Rajdhani 30px: 38px, 24px: 30px). At
+   "normal" each line was as tall as the face drawing it: the fallback's 13px and 35px
+   (28px on a phone) until the webfonts arrived (display=swap), and then everything under
+   the header moved down 4px (3px on a phone), on every page. tests/browser/row-alignment
+   .spec.ts loads the header with Google Fonts refused and fails a height that differs. */
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 11px;
+  line-height: 14px;
   letter-spacing: 0.14em;
   color: var(--teal);
   text-transform: uppercase;
@@ -472,6 +512,7 @@ h1 {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 30px;
+  line-height: 38px;
   letter-spacing: 0.02em;
   margin: 6px 0 8px;
   text-transform: uppercase;
@@ -488,17 +529,63 @@ h1 {
    class its h2 arrived as a surprise. Same rules, moved to where its users are. The h2
    is --heading: teal-ish, kept apart from the --teal of on/current states, and never
    amber, which is for countdowns, costs and warnings (maintainer, 2026-09-26). */
+/* --- r9 section rhythm and heading roles (headings-spacing) ------------------------
+   Sections stack --section-gap apart and their h2 sits --heading-gap above the first
+   content. margin-top is 0: the h2 used to inherit the global h2's 18px, so a page that
+   opened with a section heading started 42px under the header hairline and every other
+   page 24px (the 2026-09-26 census). A heading that is not inside an .op-section (a home
+   panel, a disclosure header, a panel head) takes .section-title for the same look;
+   restating the look in a page stylesheet is what audit:styles (headingRules) rejects. */
 .op-section {
-  margin-bottom: 36px;
+  margin-bottom: var(--section-gap);
 }
-.op-section h2 {
+.op-section h2,
+h2.section-title,
+.waiting-box h2 {
   font-family: var(--font-display);
   font-size: 18px;
+  font-weight: 700;
   text-transform: uppercase;
   color: var(--heading);
-  margin-bottom: 14px;
+  margin: 0 0 var(--heading-gap);
   letter-spacing: 0.03em;
 }
+/* The name of a thing, not a section: an entity (the enemy in the handbook, the
+   planner's operator, the operator's selected skill), a dialog or a card. One voice,
+   never larger than 22px, and never larger than the section h2 above it: the skill name
+   under the 18px "Skills" h2 takes .entity-title-sm. Margins stay with the layout that
+   places it. Written with the element so it outranks .op-section h2 by order. */
+h2.entity-title,
+h3.entity-title,
+.entity-title,
+.modal-box h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+h2.entity-title.entity-title-sm,
+h3.entity-title.entity-title-sm,
+.entity-title.entity-title-sm { font-size: 18px; }
+h2.entity-title.entity-title-xs,
+h3.entity-title.entity-title-xs,
+.entity-title.entity-title-xs { font-size: 15px; }
+/* A list in running text keeps its markers inside the text column: the browser's
+   40px indent put the operator page's promotion bullets 40px right of the heading
+   above them. 1.1em is the marker column -- the bullet sits in it, at the column's
+   edge, and the text hangs after it. Zero specificity: a list with a class of its own
+   (menus, grids, rows) sets its own padding, which outranks this. */
+:where(ul, ol) { padding-inline-start: 1.1em; }
+/* A numbered list's marker grows with its count: "10." needs about 1.6em and "100." 2.2em
+   (a digit is about 0.55-0.6em in the body faces), and in 1.1em it hung past the column's
+   edge. So the column widens by a digit at 10 items and again at 100. Zero specificity,
+   as above. tests/browser/cards-and-headings.spec.ts puts a 12- and a 105-item list in a
+   page and fails a marker that starts left of its list's box. */
+:where(ol:has(> li:nth-child(10))) { padding-inline-start: 1.7em; }
+:where(ol:has(> li:nth-child(100))) { padding-inline-start: 2.3em; }
+/* --- end r9 section rhythm and heading roles --------------------------------------- */
 
 h2 {
   font-family: var(--font-display);
@@ -564,7 +651,7 @@ main {
 }
 @media (max-width: 720px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
-  h1 { font-size: 24px; }
+  h1 { font-size: 24px; line-height: 30px; }
 }
 /* .card itself is in arkpedia-theme.css. What stays here is the state it can be
    in, which that file does not describe. */
@@ -645,17 +732,22 @@ select.power-select:disabled { opacity: 0.35; }
    This cannot help a group of INDEPENDENT toggles, which lose their last .ghost
    sibling once everything is on: see .timeline-filter-row below, which states its own
    metrics for that reason. */
-button.primary:where(:has(~ button.ghost)):not(:where(.modal-actions, .skin-zoom-controls) *),
-:where(button.ghost) ~ button.primary:not(:where(.modal-actions, .skin-zoom-controls) *) {
+button.primary:where(:has(~ :is(button, a).ghost)):not(:where(.modal-actions, .skin-zoom-controls) *),
+:where(:is(button, a).ghost) ~ button.primary:not(:where(.modal-actions, .skin-zoom-controls) *) {
+  /* .btn-sm's metrics (arkpedia-theme.css): the row size, one control height. */
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 /* Same idea for a link toggle group, which has no modal-actions case to exclude because
    a Confirm/Cancel pair is never a pair of links. */
-a.primary:where(:has(~ a.ghost)),
-:where(a.ghost) ~ a.primary {
+a.primary:where(:has(~ :is(button, a).ghost)),
+:where(:is(button, a).ghost) ~ a.primary {
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 .chip {
   width: 72px;
@@ -688,19 +780,16 @@ a.primary:where(:has(~ a.ghost)),
   margin-top: -6px;
   margin-bottom: 4px;
 }
+/* .hint is a VOICE (mono 11px, faint), not a block: it has no outer margin, so a hint
+   placed in a flex row (the /skins "518 of 518 outfits" beside Reset filters) sits on
+   the row's centre line instead of riding 9px high on its own bottom margin. A hint
+   paragraph or block keeps the 18px gap below it; an inline span never had one. */
 .hint {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-faint);
-  margin-bottom: 18px;
 }
-.thanks-view { text-align: center; padding: 60px 20px; }
-.thanks-view h2 {
-  font-family: var(--font-display);
-  font-size: 26px;
-  text-transform: uppercase;
-  color: var(--teal);
-}
+:where(p, div).hint { margin-bottom: 18px; }
 .waiting-box {
   text-align: center;
   padding: 80px 20px;
@@ -708,11 +797,9 @@ a.primary:where(:has(~ a.ghost)),
   border-radius: 4px;
   margin-top: 20px;
 }
-.waiting-box h2 {
-  font-family: var(--font-display);
-  color: var(--heading);
-  text-transform: uppercase;
-}
+/* The first thing on the page starts 24px under the header hairline, like every page
+   (a 20px margin put the Twitch and YouTube empty states at 44px). */
+.waiting-box:first-child { margin-top: 0; }
 .honeypot {
   position: absolute;
   left: -9999px;
@@ -765,12 +852,7 @@ a.primary:where(:has(~ a.ghost)),
     transform: translateY(0);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .roster-card-enter,
-  .skin-card-enter {
-    animation: none;
-  }
-}
+/* Reduced motion cancels it where it is applied: styles/operators/roster.css. */
 @media (max-width: 720px) {
   .recruit-combo-row {
     flex-direction: column;
@@ -821,12 +903,6 @@ a.primary:where(:has(~ a.ghost)),
   }
   .base-room-panel-controls .base-sidebar-search {
     width: 100%;
-  }
-  .base-room-elite-select {
-    justify-content: stretch;
-  }
-  .base-room-elite-select button {
-    flex: 1;
   }
   .base-room-card {
     flex-basis: 150px;
@@ -982,7 +1058,6 @@ a.primary:where(:has(~ a.ghost)),
   border-bottom: 1px dotted var(--teal-dim);
 }
 .section-nav a:hover { border-bottom-color: var(--teal); }
-.badge-tradeable { color: var(--teal); }
 .badge-no-trade { color: var(--danger); border-color: #F0665A44; }
 
 .price-row {
@@ -1033,11 +1108,9 @@ a.primary:where(:has(~ a.ghost)),
   overscroll-behavior: contain;
   padding: 26px 28px;
 }
+/* A dialog's title is the .entity-title voice (the selector list at the top of this
+   file); this is its place. */
 .modal-box h2 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 22px;
-  text-transform: uppercase;
   margin: 6px 0 16px;
 }
 .modal-top-row {
@@ -1150,27 +1223,9 @@ a.primary:where(:has(~ a.ghost)),
   margin-top: 20px;
   flex-wrap: wrap;
 }
-.support-social-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 8px 12px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--control-border);
-  background: var(--row-grad);
-  color: var(--text);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  text-decoration: none;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-/* Teal is for "on" and hover, not for a link at rest (it was teal-bordered and
-   teal-filled before anyone pointed at it). */
-.support-social-link:hover { border-color: var(--teal); color: var(--teal); }
+/* The support links are .btn (the base button, a 44px call to action; teal only on
+   hover): they were a one-off copy of it at 12px on a 4px radius. Only their icon is
+   sized here (.support-option .support-social-link svg, below). */
 .support-social-column {
   flex-direction: column;
   align-items: flex-start;
@@ -1197,15 +1252,12 @@ a.primary:where(:has(~ a.ghost)),
   border: 1px solid var(--line-soft);
   background: var(--panel-grad, var(--panel-2));
 }
-.supporter-tier h3 {
-  margin: 0 0 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
+/* Each tier's name is a .label-tag micro-label (arkpedia-theme.css); it stays an h3,
+   heading its list of names. */
+.supporter-tier h3 { margin: 0 0 8px; }
+/* The page's first line starts 24px under the header hairline (the paragraph's own top
+   margin put it at 40). */
+.support-intro { margin-top: 0; }
 .supporter-list {
   display: flex;
   flex-direction: column;
@@ -1232,8 +1284,9 @@ a.primary:where(:has(~ a.ghost)),
   margin: 0 0 6px;
 }
 .support-option .support-social-link svg {
-  width: 20px;
-  height: 20px;
+  /* 18px, the label's line: a 20px icon made these 46px calls to action, not 44. */
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 

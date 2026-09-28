@@ -49,23 +49,21 @@
   height: 1px;
   overflow: hidden;
 }
-/* Expanded: a 40px close control with the resting boundary. Collapsed: the whole
-   44px shell (the teal-topped ♪ tile). */
+/* Expanded, the button is the player's × (MusicPlayer gives it .btn-x, which sets its
+   square, its borderless rest and its hover: ui-primitives rule 21). Collapsed, it is
+   the whole 44px shell (the teal-topped ♪ tile), below. */
 .music-collapse-toggle {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
   padding: 0;
-  border: 1px solid var(--control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
 }
-.music-collapse-toggle:hover { border-color: var(--teal); color: var(--teal); }
 /* Stretched over the shell's border and its teal top accent, so a press on the
    visible edge is a press on the button. */
 .music-player.collapsed .music-collapse-toggle {
@@ -132,12 +130,13 @@
   gap: 6px;
   min-width: 0;
 }
+/* The transport buttons are square at the control height (ui-primitives rule 4). */
 .music-controls > button,
 .music-player-bottombar-controls > button {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
   padding: 0;
 }
 .music-play-btn.loading {
@@ -312,11 +311,14 @@
 
 /* Queue panel: drag-and-drop reorder, tap-to-swap, play now, move to top, remove. */
 .music-queue-panel {
+  --queue-gap: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--queue-gap);
 }
-.music-queue-panel h2 { margin: 0; }
+/* "Songs (884)" is the page's section heading, .section-title (shared.css): it was the
+   global 22px h2 at a 10px gap. The panel's flex gap is part of the heading gap. */
+.music-queue-panel > h2 { margin: 0 0 calc(var(--heading-gap) - var(--queue-gap)); }
 .music-queue-show-more { width: 100%; }
 .music-queue-list {
   display: flex;
@@ -361,7 +363,9 @@
 .music-queue-row-title {
   flex: 1;
   min-width: 0;
-  min-height: 36px;
+  /* A bordered button beside the row's three icon buttons: the same control height
+     (it was a literal 36px, 4px short of them on a phone). */
+  min-height: var(--control-h);
   overflow: hidden;
   padding: 0 10px;
   border: 1px solid var(--control-border);
@@ -389,11 +393,26 @@
   gap: 4px;
 }
 .music-queue-row-actions button {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
   padding: 0;
   font-size: 13px;
+}
+/* On a phone the three icon buttons are the phone's 40px control height, 24px wider in all
+   than the 32px squares they were, and the title paid for it: 175px to 151 at 390, so
+   titles that fitted ended in an ellipsis ("Play with Burdenbeasts"). The row's spacing
+   gives the width back instead of the buttons: 4px gaps in the row and 2px between the
+   buttons, an 8px inset in the title, and no gutter for a scrollbar that is an overlay on
+   a touch screen. The title has the room for text it had (153px at 390) at the one row
+   height; tests/browser/row-alignment.spec.ts holds it there. */
+@media (max-width: 720px) {
+  .music-queue-row { gap: 4px; }
+  .music-queue-row-title { padding: 0 8px; }
+  .music-queue-row-actions { gap: 2px; }
+}
+@media (max-width: 720px) and (pointer: coarse) {
+  .music-queue-list { padding-right: 0; }
 }
 
 /* Bottom transport bar: favorite, stream-safe, shuffle, prev, play, next, repeat,
@@ -459,12 +478,14 @@
    overlapping each other); artist chips are .filter-chip; preview rows are ScrollRow. */
 
 .music-discover-page { padding-bottom: 40px; }
-.music-discover-body { display: flex; flex-direction: column; gap: 8px; }
+/* The sections are .op-section, spaced by its --section-gap alone (an 8px flex gap on
+   top made 44px). */
+.music-discover-body { display: flex; flex-direction: column; }
 .music-discover-search-row { display: flex; align-items: center; gap: 10px; width: 100%; }
 .music-discover-back-btn { flex-shrink: 0; white-space: nowrap; }
-.music-discover-results { display: flex; flex-direction: column; gap: 8px; }
+.music-discover-results { display: flex; flex-direction: column; }
 
-.music-discover-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.music-discover-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
 .music-discover-section-heading h2 { margin: 0; }
 .music-discover-active-facet { color: var(--text-dim); font-weight: 600; }
 

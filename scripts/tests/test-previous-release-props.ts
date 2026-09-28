@@ -397,7 +397,7 @@ test('/stages/content/[id] works out the scene the previous release does not car
   for (const [id, key] of [['act51side', 'score'], ['act1bossrush', 'seasonal'], ['act1vecb', 'seasonal']] as const) {
     const { page, props } = await fromPreviousRelease(`/stages/content/${id}`);
     assert.equal((props.scene as { key: string }).key, key, `${id} sits in ${key}`);
-    assert.match(renderPage(page.default, props), new RegExp(`class="terminal-tab current" aria-current="page" href="/stages/${key}"`), `${id}: the Terminal bar marks ${key}`);
+    assert.match(renderPage(page.default, props), new RegExp(`class="tab" aria-current="page" href="/stages/${key}"`), `${id}: the Terminal bar marks ${key}`);
   }
 });
 

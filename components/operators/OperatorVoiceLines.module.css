@@ -1,5 +1,5 @@
-.root { min-width: 0; }
-.heading { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.root { min-width: 0; --player-air: 12px; }
+.heading { display: flex; align-items: center; gap: 9px; margin-bottom: var(--heading-gap); }
 .heading h2 { min-width: 0; }
 .heading > span { color: var(--text-dim); font: 600 12px/1 var(--font-mono); }
 .packRow { grid-column: 1 / -1; display: grid; grid-template-columns: 74px minmax(90px, 1fr); align-items: center; gap: 16px; min-width: 0; margin-bottom: 8px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent); }
@@ -9,17 +9,21 @@
 .actor strong { min-width: 0; color: var(--text); font-size: 13px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .volume { display: flex; align-items: center; justify-self: end; gap: 7px; width: min(100%, 84px); min-width: 0; color: var(--text-dim); }
 .volume svg { width: 15px; height: 15px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.volume input { width: 100%; min-width: 0; height: 24px; margin: 0; accent-color: var(--teal); cursor: pointer; }
+.volume input[type="range"] { width: 100%; min-width: 0; height: 24px; margin: 0; accent-color: var(--teal); cursor: pointer; }
 /* Passive labels: a token radius, not a pill, and no teal (teal is "on"). */
 .localeBadge, .unused, .unlock { display: inline-flex; align-items: center; min-height: 22px; padding: 3px 7px; border-radius: var(--radius); font: 600 10px/1.2 var(--font-mono); letter-spacing: 0.04em; white-space: nowrap; }
 .localeBadge { color: var(--text-dim); border: 1px solid var(--line); }
-/* Pinning changes only the background, never the controls' size or position. */
-.player { position: sticky; top: var(--operator-player-sticky-top, 0px); z-index: 5; display: grid; grid-template-columns: 40px minmax(0, 1fr) 84px; align-items: center; gap: 10px 12px; padding: 12px 6px 14px; border-block: 1px solid transparent; }
+/* Pinning changes only the background, never the controls' size or position. The top
+   padding is the stuck band's air; at rest the player rises by as much, so its first
+   control sits --heading-gap under the heading (it was 27px). Its anchor, which says
+   when it is stuck (the player's resting top), rises with it. */
+.playerAnchor { margin-top: calc(-1 * var(--player-air)); }
+.player { position: sticky; top: var(--operator-player-sticky-top, 0px); z-index: 5; display: grid; grid-template-columns: 40px minmax(0, 1fr) 84px; align-items: center; gap: 10px 12px; margin-top: calc(-1 * var(--player-air)); padding: var(--player-air) 0 14px; border-block: 1px solid transparent; }
 .player[data-stuck]::before { content: ''; position: absolute; z-index: -1; inset: -1px calc(-1 * var(--operator-player-inset, 0px)); pointer-events: none; border-block: 1px solid var(--line); background: var(--panel-2); box-shadow: 0 3px 6px color-mix(in srgb, var(--bg) 45%, transparent); }
 /* Play buttons: the site's button (the --control-border boundary, the teal hover)
    sized as icon tiles. They rested teal on --line (1.3:1), which read as "on". */
 .mainPlay, .linePlay { flex-shrink: 0; padding: 0; border-radius: var(--radius-control); }
-.mainPlay { width: 40px; height: 40px; }
+.mainPlay { width: var(--control-h); height: var(--control-h); }
 .mainPlay svg, .linePlay svg { width: 15px; height: 15px; fill: currentColor; }
 .nowPlaying { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .nowPlaying strong { min-width: 0; font-size: 13px; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
@@ -33,9 +37,14 @@
 .search { flex: 1; min-width: 140px; }
 .categoryTabs { flex-shrink: 0; }
 .lines { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-.line { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 9px; min-width: 0; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+/* The player and the rows start on the section's edge, under the heading: their 6px and
+   4px side padding set the play buttons in from everything else in the section. */
+/* The play button's column is the button's own size, var(--control-h): it was 32px
+   after the button went to 36/40, which ran it into the gap and put the title 5px
+   (1px on a phone) from it. row-census.ts reports a control wider than its column. */
+.line { display: grid; grid-template-columns: var(--control-h) minmax(0, 1fr); align-items: start; gap: 9px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .line[data-selected='true'] { background: linear-gradient(90deg, var(--teal-dim), transparent 70%); }
-.linePlay { width: 32px; height: 32px; }
+.linePlay { width: var(--control-h); height: var(--control-h); }
 .lineCopy { min-width: 0; }
 .lineTitle { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 7px; min-width: 0; }
 .lineTitle strong { font-size: 13px; line-height: 1.35; }
@@ -43,14 +52,12 @@
 .unlock { max-width: 100%; color: var(--text-dim); background: var(--panel-2); overflow: hidden; text-overflow: ellipsis; }
 .line p { margin: 5px 0 0; color: var(--text); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .line p:only-child { color: var(--text-dim); }
-.empty { min-height: 54px; margin: 0; padding: 16px 4px; color: var(--text-dim); font-size: 13px; }
+.empty { min-height: 54px; margin: 0; padding: 16px 0; color: var(--text-dim); font-size: 13px; }
 
 @container operatorDetails (max-width: 540px) {
   .player { grid-template-columns: 40px minmax(0, 1fr) 76px; gap-inline: 10px; }
   .seek { grid-column: 1 / 3; }
   .filters { align-items: stretch; flex-direction: column; }
-  .categoryTabs { width: 100%; }
-  .categoryTabs > button { flex: 1; }
 }
 
 @media (max-width: 900px), (max-height: 600px) {

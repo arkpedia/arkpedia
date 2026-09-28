@@ -18,20 +18,12 @@
     "technique-entry-badge-talent: operator-detail.css, techniques.css",
     "terminal-panel: gamemodes.css, stages-terminal.css",
     "terminal-pill: gamemodes.css, stages-terminal.css",
-    "terminal-scene: gamemodes.css, stages-terminal.css",
-    "toolbar: arkpedia-theme.css, shared.css"
+    "terminal-scene: gamemodes.css, stages-terminal.css"
   ],
   "fontSizes": [
     "arkpedia-theme.css: 14px",
-    "arkpedia-theme.css: 14px",
-    "arkpedia-theme.css: 14px",
-    "arkpedia-theme.css: 16px",
     "arkpedia-theme.css: 16px",
     "arkpedia-theme.css: 17px",
-    "arkpedia-theme.css: 17px",
-    "arkpedia-theme.css: 20px",
-    "arkpedia-theme.css: 9.5px",
-    "arkpedia-theme.css: 9.5px",
     "arkpedia-theme.css: 9.5px",
     "enemies.css: 16px",
     "gacha-tutorial.css: 88px",
@@ -57,5 +49,12 @@
   ],
   "scrollbarThumb": [],
   "primaryToggle": [],
-  "tealDecoration": []
+  "tealDecoration": [],
+  "checkboxPrimitive": [],
+  "tglOutsideToolbar": [],
+  "headingRules": [],
+  "stretchedChoices": [],
+  "deadPrimitives": [],
+  "liveBadge": [],
+  "controlHeight": []
 }

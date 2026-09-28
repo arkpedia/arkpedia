@@ -32,7 +32,12 @@
      (base)    — secondary; the default when no class is given
      .ghost    — tertiary / dense toolbars
      .danger   — destructive
-   Sizes: (base) 13px/12px26px · .btn-sm 12px/8px14px · .btn-lg 17px/13px24px
+   Two heights (ui-primitives rule 4): a base or .primary button standing on its own
+   is a 44px call to action (14px, padding 12/24); EVERYTHING in a row of controls is
+   var(--control-h) -- .ghost and .danger always, a base or .primary button through
+   .btn-sm, a square icon button through .btn-icon. The height is a min-height and the
+   vertical padding is small, so the token decides it (flip --control-h-base in
+   shared.css and every control follows). .btn-lg (17px) is the unused large face.
 
    ONE HOVER RULE for every control: border and text go to --teal. ONE resting
    boundary: --control-border (a soft 2.2-2.6:1 on the panel; the fill and the teal
@@ -107,8 +112,10 @@ a.ghost,
   background: transparent;
   border-color: var(--control-border);
   color: var(--text-dim);
+  min-height: var(--control-h);
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 button.ghost:hover,
 a.ghost:hover,
@@ -123,6 +130,11 @@ a.danger,
   background: transparent;
   border-color: var(--danger);
   color: var(--danger);
+  /* A destructive action is never the call to action: it has the row size. */
+  min-height: var(--control-h);
+  font-size: 12px;
+  padding: 4px 14px;
+  white-space: nowrap;
 }
 button.danger:not(:disabled):hover,
 a.danger:hover,
@@ -139,8 +151,76 @@ button:where(:not(.btn-bare)):disabled,
 button:where(:not(.btn-bare)):disabled:hover,
 .btn:disabled:hover { border-color: var(--line-soft); color: var(--text-faint); }
 
-.btn-sm { font-size: 12px; padding: 8px 14px; }
+.btn-sm { min-height: var(--control-h); font-size: 12px; padding: 4px 14px; white-space: nowrap; }
 .btn-lg { font-size: 17px; padding: 13px 24px; font-weight: 700; }
+/* A square icon button (a month step, a play, a help "?"): var(--control-h) both ways,
+   the glyph centred at 18px (an svg sizes itself). Element-qualified so it beats .ghost's
+   padding whatever the order. A close or remove "×" is not one: it is .btn-x, below. */
+button.btn-icon,
+a.btn-icon,
+.btn.btn-icon {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+  gap: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* === r10 x-buttons: the × that closes or removes (ui-primitives rule 21) ===========
+   components/ui/XButton. No border and no box at rest -- it reads as the glyph -- and
+   the whole square round the glyph is the hit area, var(--control-h) each way (a dense
+   spot: 12px less, and never under 24px whatever the token). --text-dim at rest, --text on
+   hover with a faint fill of that ink, which shows how far the target reaches on any
+   ground in either theme; the site's focus ring on :focus-visible. Element-qualified,
+   like .btn-icon, so it beats the base button rule and .ghost whatever the order. A
+   removable tab's × is a span (a tab may not hold a button) and takes the dense look. */
+button.btn-x,
+.tab-remove {
+  flex: none;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
+  line-height: 0;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+button.btn-x-dense,
+.tab-remove {
+  width: max(24px, calc(var(--control-h) - 12px));
+  height: max(24px, calc(var(--control-h) - 12px));
+  min-width: max(24px, calc(var(--control-h) - 12px));
+  min-height: max(24px, calc(var(--control-h) - 12px));
+}
+button.btn-x > svg,
+.tab-remove > svg { display: block; }
+button.btn-x:hover,
+.tab-remove:hover {
+  border-color: transparent;
+  color: var(--text);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+button.btn-x:disabled,
+button.btn-x:disabled:hover {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: default;
+}
+/* === end r10 x-buttons ============================================================= */
 
 /* An anchor is underlined by default and a button is not. */
 a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
@@ -206,17 +286,6 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   overflow: hidden;
   padding: 0;
 }
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 14px;
-  background: rgba(255, 255, 255, 0.035);
-  border-bottom: 1px solid var(--line-soft);
-}
-:root[data-theme="light"] .panel-head { background: rgba(0, 0, 0, 0.03); }
-.panel-body { padding: 14px; }
 
 /* --- paired label --------------------------------------------------------
    THE signature device. A small ghosted mono tag immediately left of the
@@ -240,49 +309,13 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   color: var(--text-faint);
   white-space: nowrap;
 }
+/* A heading in the pair keeps its own voice (.section-title for a panel's section
+   heading, .entity-title for a name; styles/core/shared.css) and loses only its margin:
+   the pair is one line. */
 .label-pair > h2,
-.label-pair > h3,
-.label-pair > .label-main {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-/* --- numbered rail -------------------------------------------------------
-   01 / 02 / 03 rows. Active row takes the accent fill and dark ink. The
-   diamond is an alert marker (something needs attention in that slot).
-   -------------------------------------------------------------------------*/
-.rail { display: flex; flex-direction: column; gap: 5px; }
-.rail-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  background: var(--row-grad);
-  border-radius: var(--radius);
-  border: 0;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--text-dim);
-}
-.rail-item .rail-spacer { flex: 1; }
-.rail-alert {
-  width: 10px;
-  height: 10px;
-  background: var(--danger);
-  border-radius: 1px;
-  transform: rotate(45deg);
-}
+.label-pair > h3 { margin: 0; }
 
 /* Skewed capacity pips ("|||" in the game's facility rows). */
-.pips { display: flex; gap: 3px; }
 .pip {
   width: 6px;
   height: 14px;
@@ -293,20 +326,9 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 .pip.off { background: var(--line); }
 
 /* --- meter ---------------------------------------------------------------
-   Flat bar with mono end-labels. Replaces every ad-hoc progress bar.
-     <div class="meter-row"><span class="meter-cap">EMPTY</span>
-       <span class="meter"><span class="meter-fill" style="width:38%"></span></span>
-       <span class="meter-cap">FULL</span></div>
+   Flat bar. Replaces every ad-hoc progress bar.
+     <span class="meter"><span class="meter-fill" style="width:38%"></span></span>
    -------------------------------------------------------------------------*/
-.meter-row { display: flex; align-items: center; gap: 10px; }
-.meter-cap {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  color: var(--text-faint);
-  white-space: nowrap;
-}
 .meter {
   flex: 1;
   display: block;
@@ -315,152 +337,78 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   border-radius: var(--radius);
   overflow: hidden;
 }
-.meter-lg { height: 10px; }
 .meter-fill { display: block; height: 100%; background: var(--teal-fill); }
 
-/* --- tab strip -----------------------------------------------------------
-   Active tab is a lifted surface with an accent underline, not a colour
-   swap. Replaces .skill-tab-btn, .terminal-tabs, .gacha-mobile-view-toggle,
-   .technique-table-toggle and the rest.
+/* --- tabs ----------------------------------------------------------------
+   components/ui/Tabs renders .tabs (role="tablist") of .tab buttons (role="tab",
+   aria-selected). A strip of links between routes (the Terminal bar, the game
+   switcher, an operator's class forms) takes the same classes on
+   <a aria-current="page">. One look for both (maintainer, 2026-09-26): labels at
+   content width in the button voice, with no box and no side padding, so the first
+   label starts on the section heading's left edge (tests/browser/tab-align.ts).
+   --text-dim at rest; --text on hover, because teal on a hovered tab would read as
+   current; --teal with a 2px --teal underline when current. The weight is the same in
+   every state: a bolder current tab would widen, re-wrap the strip and move the page.
+   The underline is each tab's own ::after, and static. A sliding indicator can take
+   its place later without touching the markup; nothing here animates.
    -------------------------------------------------------------------------*/
 .tabs {
   display: flex;
-  background: var(--panel-2);
-  border-radius: var(--radius);
-  overflow: hidden;
+  flex-wrap: wrap;
+  align-items: stretch;
+  column-gap: 20px;
+  row-gap: 2px;
+  min-width: 0;
 }
 .tab {
-  display: flex;
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 11px 20px;
-  border: 0;
-  background: transparent;
+  min-height: 32px;
+  padding: 6px 0;
   color: var(--text-dim);
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.08em;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  cursor: pointer;
-}
-.tab:hover { color: var(--teal); }
-/* Same rule as .seg: the current tab is stated in aria-pressed (or
-   aria-selected, for a real tablist), and `.active` is kept as an alias for
-   markup that has not moved yet. This one had already drifted -- the planner's
-   depot arrangement strip has been writing `.tab.is-active` at a stylesheet
-   that only ever matched `.tab.active`, so which arrangement you were looking
-   at had no highlight at all. A selection that lives in the accessibility tree
-   cannot come apart from the one that is painted. */
-.tab.active,
-.tab.is-active,
-.tab[aria-pressed="true"],
-.tab[aria-selected="true"] {
-  background: var(--row-grad);
-  color: var(--text);
-  font-weight: 700;
-  box-shadow: inset 0 -3px 0 var(--teal);
-}
-.tab-count { font-family: var(--font-mono); font-weight: 700; font-size: 11px; color: var(--teal); }
-
-/* --- requirement row -----------------------------------------------------
-   Mission/objective list item: a small chip naming the row's KIND, the
-   sentence, then a right-hand value box with its own mini meter.
-   -------------------------------------------------------------------------*/
-.req-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 12px;
-  background: var(--panel-grad);
-  border-radius: var(--radius);
-}
-.req-chip {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 9.5px;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius);
-  padding: 5px 8px;
   white-space: nowrap;
-}
-:root[data-theme="light"] .req-chip { background: rgba(0, 0, 0, 0.06); }
-.req-text { flex: 1; min-width: 0; font-family: var(--font-body); font-size: 13px; line-height: 1.3; color: var(--text); }
-.req-value {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--well);
-  border-radius: var(--radius);
-  padding: 7px 12px;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--text);
-}
-.req-value .req-denom { color: var(--text-faint); }
-.req-value.met { color: var(--teal); }
-
-/* --- stepper -------------------------------------------------------------
-   +/Max, value, -/Min. For the planner's quantity fields and anywhere a
-   number is nudged.
-   -------------------------------------------------------------------------*/
-.stepper {
-  display: inline-flex;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.stepper > * { border: 0; border-left: 1px solid var(--line-soft); }
-.stepper > *:first-child { border-left: 0; }
-.stepper-btn {
-  display: grid;
-  place-items: center;
-  padding: 0 18px;
-  background: var(--panel-2);
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: 20px;
+  text-decoration: none;
   cursor: pointer;
 }
-.stepper-lim {
-  display: grid;
-  place-items: center;
-  padding: 0 14px;
-  background: var(--panel);
-  color: var(--text-dim);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
+.tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: transparent;
 }
-.stepper-value {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 18px;
-  background: var(--well);
-}
-.stepper-num { font-family: var(--font-mono); font-weight: 700; font-size: 26px; line-height: 1; color: var(--text); }
-.stepper-label {
-  margin-top: 4px;
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-dim);
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"],
+.tab[aria-current="page"] { color: var(--teal); }
+.tab[aria-selected="true"]::after,
+.tab[aria-current="page"]::after { background: var(--teal); }
+.tab:disabled,
+.tab[aria-disabled="true"] { color: var(--text-faint); cursor: default; }
+.tab > img, .tab > svg { flex: none; width: 28px; height: 28px; object-fit: contain; }
+.tab-count { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: 0; opacity: 0.8; }
+/* A removable tab's x (the planner's operators): the mouse's way to Delete. It is the
+   × buttons' dense square (r10 x-buttons, above): 24px each way, 28 on a phone (WCAG
+   2.5.8), so a thumb a little off the glyph still removes rather than selecting the tab
+   beside it; it was a 17x18 glyph with a 25x26 pseudo-element round it. */
+@media (max-width: 720px) {
+  .tab { min-height: 36px; }
 }
 
 /* --- chips / badges ------------------------------------------------------
    .filter-chip is THE pick-one-of-N and filter control. Render it through
    components/ui/SegmentedControl (one of N) or directly for independent filters.
-   Pinned metrics: 32px tall (36 at <=720), --control-border at rest, var(--radius),
+   Pinned metrics: var(--control-h) tall, --control-border at rest, var(--radius),
    the button voice (Rajdhani 600 uppercase, 0.09em). Picked is --teal-dim fill,
    teal text, teal border -- --teal-fill is reserved for primary ACTIONS, so a
    selected filter never looks like the button that runs something.
@@ -474,7 +422,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: var(--control-h);
   padding: 0 12px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
@@ -516,9 +464,6 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 /* The group a SegmentedControl renders: chips side by side, wrapping rather than
    overflowing the frame on a phone. */
 .seg-control { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-@media (max-width: 720px) {
-  .filter-chip { min-height: 36px; }
-}
 
 .badge {
   font-family: var(--font-mono);
@@ -529,8 +474,32 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   border: 1px solid var(--line-soft);
   color: var(--text-dim);
 }
-.badge-tag { color: var(--teal); border-color: var(--teal-dim); }
-.badge-live { background: var(--danger-solid); border-color: transparent; color: #fff; letter-spacing: 0.1em; }
+
+/* One badge for "live now" (LIVE, LIVE NOW, RUNNING NOW), everywhere: white mono caps
+   on --danger-solid, one height, one padding. A page places it (position, top, left)
+   and does nothing else to it: audit:styles (liveBadge) rejects a font, background or
+   colour on a live-badge class outside this file, and a LIVE text without this class.
+   Inline-flex with a gap, so the dot the next round adds as ::before sits beside the
+   text without changing how the box is built. No dot and no animation yet. */
+.badge-live {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 16px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--danger-solid);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
 /* --- inputs --------------------------------------------------------------
    Every selector here is inside :where(), so it has NO specificity: a page class on
@@ -543,7 +512,7 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    -------------------------------------------------------------------------*/
 /* Browser controls otherwise render in the UA's own Arial at 13.33px. */
 :where(input, select, textarea) { font: inherit; }
-:where(input[type="text"], input[type="search"], select, textarea, .lang-select) {
+:where(input[type="text"], input[type="search"], select, textarea) {
   background: var(--well);
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
@@ -567,8 +536,8 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 38px;
-  padding: 8px 34px;
+  min-height: var(--control-h);
+  padding: 4px 34px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
   background: var(--well);
@@ -584,19 +553,14 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   color: var(--text-faint);
   pointer-events: none;
 }
+/* The clear is an XButton (dense), centred in the field's height: it sits as far in
+   from the field's end as from its top and bottom, at every control height. */
 .search-input-wrap .search-input-clear {
   position: absolute;
-  right: 5px;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius);
-  color: var(--text-dim);
+  right: calc((var(--control-h) - max(24px, var(--control-h) - 12px)) / 2);
 }
-.search-input-wrap .search-input-clear:hover { color: var(--teal); }
 @media (max-width: 720px) {
-  .search-input-wrap .search-input { min-height: 40px; font-size: 16px; }
+  .search-input-wrap .search-input { font-size: 16px; }
 }
 
 /* --- checkbox ------------------------------------------------------------
@@ -743,54 +707,22 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
    exempt because they are not state.
    ========================================================================== */
 
-/* --- toolbar -------------------------------------------------------------
-   A row of display toggles behind one micro-label, then unrelated actions,
-   then the language picker pinned right. Replaces the red-outline-for-off
-   treatment: off is neutral, on is the chip's picked state.
-
-     <div class="toolbar">
-       <span class="label-tag">Show</span>
-       <button class="tgl is-on">Tips</button>
-       <button class="tgl is-on">Icons</button>
-       <button class="tgl">Desc</button>
-       <span class="toolbar-sep"></span>
-       <button class="tgl">Guide</button>
-       <span class="toolbar-spacer"></span>
-       <button class="tgl">EN <i class="caret"></i></button>
-     </div>
-
-   .tgl is for THIS: a mode switch in a dense toolbar row. A setting or an option in
-   a form -- "Include CN", "Monthly card" -- is a .check checkbox, and audit:styles
-   (tglOutsideToolbar) rejects a .tgl in any file not listed in its TGL_SCOPE.
-
-   ALWAYS set flex-wrap on .toolbar. The pop-out window is user-resizable and
-   the browser zoom control multiplies the squeeze: at 160% a 640px window
-   lays out at 400 CSS px, which is what pushed the language button out of
-   the frame. Shorter labels raise the ceiling; only wrapping removes it.
+/* --- .tgl ----------------------------------------------------------------
+   A mode switch in a dense toolbar row: off is neutral, on is the chip's picked
+   state. A setting or an option in a form -- "Include CN", "Monthly card" -- is a
+   .check checkbox, and audit:styles (tglOutsideToolbar) rejects a .tgl in any file
+   not listed in its TGL_SCOPE. No page uses one today; it stays as documented API
+   (PRIMITIVE_KEEP in scripts/audits/audit-choices-badges.mjs). The .toolbar,
+   .caret and .stepgroup patterns that came with it were never adopted, and
+   audit:styles (deadPrimitives) took them out.
    -------------------------------------------------------------------------*/
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;          /* not optional — see note above */
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.toolbar-sep {
-  width: 1px;
-  height: 20px;
-  margin: 0 4px;
-  background: var(--line-soft);
-  flex: none;
-}
-.toolbar-spacer { flex: 1 1 0; min-width: 0; }
-
 .tgl {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: var(--control-h);
   padding: 0 12px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius-control);
@@ -817,347 +749,5 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
 }
 .tgl.is-quiet { color: var(--text-faint); }   /* enabled but not engaged */
 
-.caret {
-  display: block;
-  width: 0; height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid currentColor;
-  opacity: 0.7;
-}
-
-/* Joined -/value/+ cluster (the zoom control). */
-.stepgroup {
-  display: flex;
-  min-height: 32px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-}
-/* box-sizing and padding are stated because the children are <button>s, and the base
-   button rule above gives them `padding: 12px 24px`. Without this, a .stepgroup-btn
-   asking for 30px measured 50 -- the width was landing on the content box and the
-   inherited padding was added to it. */
-.stepgroup > * {
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  padding: 0;
-  background: var(--panel-2);
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: 14px;
-  cursor: pointer;
-}
-.stepgroup > .stepgroup-val {
-  padding: 0 10px;
-  background: var(--well);
-  border-left: 1px solid var(--line-soft);
-  border-right: 1px solid var(--line-soft);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: default;
-}
-.stepgroup > .stepgroup-btn { width: 30px; }
-
-/* --- segmented row / grid ------------------------------------------------
-   The level tabs. A fixed, small, known set of mutually exclusive options,
-   each a display-font primary over a mono secondary. Active is a lifted
-   surface with an inset underline — never a colour swap, never an outline.
-
-   .seg-row  stretches N items across the full width (6 levels).
-   .seg-grid wraps them (use when N > 6, or on mobile).
-
-     <div class="seg-row">
-       <button class="seg" aria-pressed="true"><b>Lvl I</b><i>1-2</i></button>
-       <button class="seg" aria-pressed="false"><b>Lvl II</b><i>2-5</i></button>
-     </div>
-
-   SELECTION IS aria-pressed="true". `.is-active` is accepted as an alias so a
-   page mid-migration keeps its highlight, but new markup states it in the
-   attribute and nowhere else: this row shipped once with its selected member on
-   a `.active` class that no rule matched any more, so the chosen promotion had
-   no highlight at all and an operator at E2 looked exactly like one at E0.
-   A selection that lives in the accessibility tree cannot rot that way -- the
-   attribute a screen reader reads is the same one the stylesheet paints.
-
-   The compact shape (.seg-row-compact) is the same control for a set that is
-   read rather than described -- 1..7, M0..M3, S1..S3. No sub-label, a 44px
-   floor in both directions, and sized to its content instead of stretching,
-   because seven equal columns of a full-width row are seven very wide squares.
-   -------------------------------------------------------------------------*/
-.seg-row  { display: flex; gap: 5px; }
-.seg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.seg {
-  flex: 1;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-height: 44px;
-  padding: 12px 0;
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--row-grad);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-/* Descendant selector on purpose. `.seg-row-compact .seg` and `.seg` are both
-   one class deep, so a bare `.seg-compact` would race the base rule on source
-   order -- which resolves differently under the dev server's injection order
-   than in a built stylesheet. */
-.seg-row-compact { flex-wrap: wrap; }
-.seg-row-compact .seg {
-  flex: none;
-  min-width: 44px;
-  padding: 0 12px;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--text-dim);
-}
-.seg-row-compact .seg:hover { color: var(--text); }
-.seg-row-compact .seg[aria-pressed="true"] { color: var(--text-bright); }
-/* Disabled beats pressed, and it has to say so at this specificity or it loses:
-   `.seg-row-compact .seg[aria-pressed="true"]` is (0,3,0) and a bare `.seg:disabled`
-   is (0,2,0), so a locked block's M0 pip -- pressed, because no mastery IS M0 --
-   painted itself --text-bright and read as a live selection on a dead control.
-   Measured at 14.7:1 against the inert ground while the rest of the block sat at
-   4.7, which is the loudest thing on a block whose whole message is "not yet". */
-.seg-row-compact .seg:disabled,
-.seg-row-compact .seg:disabled[aria-pressed="true"] { color: var(--text-faint); }
-/* Unusable, and it has to LOOK unusable without becoming unreadable. The
-   handoff's own sheet paints this text --line, which is a hairline alpha and
-   measures about 1.1:1 -- invisible, on a control the design's whole argument
-   says to render rather than hide. The carrier is the flat inert ground plus
-   the reason in words beside it; the text stays at the AA floor. */
-.seg:disabled, .seg[aria-disabled="true"] {
-  background: var(--panel-dim);
-  color: var(--text-faint);
-  cursor: default;
-}
-.seg:disabled > b, .seg[aria-disabled="true"] > b,
-.seg:disabled > i, .seg[aria-disabled="true"] > i { color: var(--text-faint); }
-.seg > b {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 17px;
-  line-height: 1;
-  letter-spacing: 0.1em;
-  color: var(--text-dim);
-}
-.seg > i {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1;
-  font-style: normal;
-  color: var(--text-faint);
-}
-.seg.is-active, .seg[aria-pressed="true"] {
-  /* Token rather than the dark literal this shipped as: on the light theme that
-     value is a DARK tile, and the selected label paints --text on it, which is
-     dark ink on a dark ground. --row-grad-hi lifts in whichever direction the
-     theme's own surfaces lift. */
-  background: var(--row-grad-hi);
-  box-shadow: inset 0 -3px 0 var(--teal);
-}
-.seg.is-active > b, .seg[aria-pressed="true"] > b { color: var(--text); }
-.seg.is-active > i, .seg[aria-pressed="true"] > i { color: var(--teal); }
-/* A disabled segment is never the current one, whatever the attribute says --
-   the lock wins, so a locked block cannot show a live-looking selection. */
-.seg:disabled { box-shadow: none; background: var(--panel-dim); }
-
-/* --- count tile ----------------------------------------------------------
-   An icon over a progress fraction. The alliance cells, and the right shape
-   for any "N of M collected" set: materials, medals, modules, stages.
-
-   .is-absent is opacity, NOT a colour: absence is not a state with a hue.
-   Whatever "dimmed" means on a given screen, SAY it in the group's sub-line
-   — the live screen dimmed cells with no legend at all.
-   -------------------------------------------------------------------------*/
-.count-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  width: 60px;
-  padding: 10px 0;
-  background: var(--row-grad);
-  border-radius: var(--radius);
-}
-.count-tile > img { width: 26px; height: 26px; object-fit: contain; opacity: 0.85; }
-.count-tile > span {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 11px;
-  color: var(--text-dim);
-}
-.count-tile.is-absent { opacity: 0.34; }
-.count-tile.is-absent > img { opacity: 0.6; }
-.count-tile.is-absent > span { color: var(--text-faint); }
-
-/* --- entity tile ---------------------------------------------------------
-   A portrait with a corner badge, secondary glyphs, and a name. The operator
-   tiles; also right for enemies, items, skins, stages.
-
-   Two rules learned the hard way:
-   1. The corner badge is DATA (operator Tier). It is not decoration and not
-      the same axis as the surrounding page (Dispatch Level). Do not remove a
-      badge because a nearby heading shows a similar-looking value.
-   2. The rarity edge comes from which /public/*-star-icons/ folder the
-      portrait resolves in — never guessed from the operator.
-   -------------------------------------------------------------------------*/
-.entity-tile {
-  display: flex;
-  flex-direction: column;
-  width: 60px;
-  flex: none;
-  background: var(--row-grad);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.entity-art { position: relative; display: block; width: 60px; height: 60px; }
-.entity-art > img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.entity-badge {
-  position: absolute;
-  left: 0; top: 0;
-  display: grid;
-  place-items: center;
-  min-width: 17px;
-  height: 15px;
-  padding: 0 3px;
-  background: rgb(10 15 20 / 0.82);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--text);
-}
-.entity-rarity { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
-.entity-glyphs { display: flex; gap: 2px; justify-content: center; padding: 5px 4px 0; }
-.entity-glyphs > img { width: 13px; height: 13px; object-fit: contain; opacity: 0.8; }
-.entity-name {
-  padding: 4px 3px 6px;
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 9.5px;
-  line-height: 1.2;
-  color: var(--text-dim);
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.entity-grid { display: flex; gap: 6px; flex-wrap: wrap; }
-
-/* --- entity row ----------------------------------------------------------
-   The same record as a scannable line: art, name over a mono qualifier,
-   glyphs right, rarity as a left edge. Use in narrow columns and on mobile.
-   -------------------------------------------------------------------------*/
-.entity-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  background: var(--panel-grad);
-  border-radius: var(--radius);
-  border-left: 3px solid var(--line);
-}
-.entity-row > img {
-  width: 40px; height: 40px;
-  border-radius: var(--radius);
-  object-fit: cover;
-  flex: none;
-}
-.entity-row-main { flex: 1; min-width: 0; }
-.entity-row-main > b {
-  display: block;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 13px;
-  line-height: 1.2;
-  color: var(--text);
-}
-.entity-row-main > i {
-  display: block;
-  margin-top: 4px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-style: normal;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-}
-.entity-row-glyphs { display: flex; gap: 3px; flex: none; }
-.entity-row-glyphs > img { width: 16px; height: 16px; object-fit: contain; opacity: 0.8; }
-.entity-list { display: flex; flex-direction: column; gap: 4px; }
-
-/* --- band ----------------------------------------------------------------
-   Sections stack as full-width BANDS separated by a hairline, each opening
-   with a paired label and a mono sub-line that states the group's rule and
-   count. Within a band, use .band-cols for side-by-side groups.
-
-   Do NOT put a long list in a side column beside a short one: a 23-cell
-   block next to a 16-row list left 774px of empty column and simply moved
-   the dead space sideways. Bands keep both halves finishing together.
-   -------------------------------------------------------------------------*/
-.band { padding-top: 16px; }
-.band + .band { margin-top: 16px; border-top: 1px solid var(--line-soft); }
-.band-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-.band-sub {
-  display: block;
-  margin-bottom: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
-}
-.band-cols {
-  display: grid;
-  grid-template-columns: auto auto auto;
-  justify-content: start;
-  gap: 26px;
-}
-.band-cols-even { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
-
-/* --- scroller ------------------------------------------------------------
-   For rows that genuinely cannot wrap. Size children so the next one is
-   deliberately half-visible, and fade the trailing edge: a tile sliced by a
-   hard container border reads as a rendering bug, a half tile reads as
-   "there is more".
-
-   Gate the fade on scroll position so it never lies when the row fits.
-   -------------------------------------------------------------------------*/
-.scroller {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent 100%);
-          mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent 100%);
-}
-.scroller::-webkit-scrollbar { display: none; }
-.scroller > * { display: flex; gap: 5px; width: max-content; }
-@supports (animation-timeline: scroll()) {
-  .scroller {
-    animation: scroller-edges steps(1) both;
-    animation-timeline: scroll(self inline);
-  }
-  @keyframes scroller-edges {
-    from { -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent 100%);
-                   mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent 100%); }
-    to   { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 34px, #000 100%);
-                   mask-image: linear-gradient(90deg, transparent 0, #000 34px, #000 100%); }
-  }
-}
 /* Prefer wrapping over scrolling whenever the set is small and fixed. */
 .no-scroll-wrap { display: flex; flex-wrap: wrap; gap: 5px; }

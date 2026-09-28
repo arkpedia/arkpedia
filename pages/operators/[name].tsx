@@ -14,6 +14,7 @@ import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import OperatorSearch from '@/components/operators/OperatorSearch';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
@@ -307,7 +308,7 @@ function TechniqueList({
             <div key={ti} className="op-skill-technique-block">
               <div className="op-skill-technique-icons-row">
                 {getBranchIconPath(t.branch) && (
-                  <Image src={getBranchIconPath(t.branch)!} alt={t.branch} width={28} height={28} />
+                  <OperatorGameIcon src={getBranchIconPath(t.branch)!} label={t.branch} size={28} />
                 )}
                 {branchOps &&
                   branchOps.map((op) => (
@@ -954,7 +955,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     reader can link someone straight to the Guard. The current form is
                     rendered as a span, not a link to the page already open. */}
                 {forms && forms.length > 1 && (
-                  <nav className="op-form-switch" aria-label={`${operator.name.replace(/ \(.*\)$/, '')} class forms`}>
+                  <nav className="tabs op-form-switch" aria-label={`${operator.name.replace(/ \(.*\)$/, '')} class forms`}>
                     <span className="visually-hidden">Class</span>
                     {forms.map((f) => {
                       const isCurrent = f.name === operator.name;
@@ -966,15 +967,15 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                         </>
                       );
                       /* All three stay links, with aria-current marking the one you are
-                         on: .filter-chip reads aria-current="page" as picked (teal on
-                         teal-dim), the same chip every pick-one control on the site uses.
-                         A self-link in a nav is the ordinary pattern for this. */
+                         on: the site's tab look on links (.tabs / .tab), as the Terminal
+                         bar and the game switcher use it -- teal and underlined when
+                         current. A self-link in a nav is the ordinary pattern for this. */
                       return (
                         <Link
                           key={f.name}
                           prefetch={false}
                           href={`/operators/${encodeURIComponent(f.name)}`}
-                          className="filter-chip"
+                          className="tab"
                           aria-current={isCurrent ? 'page' : undefined}
                         >
                           {inner}
@@ -1017,32 +1018,29 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
             {sectionVisible('skills') && (
               <section id="operator-skills" data-operator-section="skills" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Skills</h2>
-                <div className="op-skill-tabs">
-                  {skillList.map((s, i) => {
+                {/* The site's tabs, each with the skill's icon: they were 56x62 icon
+                    tiles in a column beside the title, a fourth tab look. */}
+                <Tabs
+                  label="Skill"
+                  id="operator-skill"
+                  className="op-skill-tabs"
+                  value={activeSkillIndex}
+                  onChange={setActiveSkillIndex}
+                  options={skillList.map((s, i) => {
                     const iconPath = getSkillIconPath(operator.name, s.name);
-                    const isActive = i === activeSkillIndex;
-                    return (
-                      <button
-                        type="button"
-                        key={s.name || i}
-                        className="filter-chip op-skill-tab-btn"
-                        aria-pressed={isActive}
-                        aria-label={`Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}`}
-                        title={s.name || `Skill ${i + 1}`}
-                        onClick={() => {
-                          setActiveSkillIndex(i);
-                        }}
-                      >
-                        {iconPath && <Image src={iconPath} alt="" width={40} height={40} />}
-                        <span className={pageStyles.skillNumber}>Skill {i + 1}</span>
-                      </button>
-                    );
+                    return {
+                      value: i,
+                      label: `Skill ${i + 1}`,
+                      ariaLabel: `Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}`,
+                      title: s.name || `Skill ${i + 1}`,
+                      icon: iconPath ? <Image src={iconPath} alt="" width={40} height={40} /> : undefined,
+                    };
                   })}
-                </div>
+                />
 
                 {activeSkill && (
-                  <>
-                    <h3 className={pageStyles.selectedSkill}>
+                  <div {...tabPanelProps('operator-skill', activeSkillIndex)}>
+                    <h3 className={`entity-title entity-title-sm ${pageStyles.selectedSkill}`}>
                       {/* Overlapping variants reserve the tallest header at this width,
                           including wrapped names and recommendation badges. */}
                       {skillList.map((skill, index) => (
@@ -1134,7 +1132,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                         })()}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </section>
             )}
@@ -1342,7 +1340,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             const iconPath = entry.type === 'branch' ? getBranchIconPath(v) : entry.type === 'faction' ? getFactionIconPath(v) : null;
                             return (
                               <span key={vi} className="op-synergy-value">
-                                {iconPath && <Image src={iconPath} alt={v} width={28} height={28} />}
+                                {/* White art: a mask in the line's ink, or white on white in the light theme. */}
+                                {iconPath && <OperatorGameIcon src={iconPath} label={v} size={28} />}
                                 <span>{v}</span>
                               </span>
                             );

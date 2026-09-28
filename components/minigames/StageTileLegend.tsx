@@ -2,6 +2,7 @@ import type { StageLayout } from '@/lib/minigames/stageGuesser';
 import { stageTileMark, tileStyle } from '@/lib/stages/stageTiles';
 import common from '@/styles/games/minigames.module.css';
 import styles from '@/styles/games/stage-guesser.module.css';
+import XButton from '@/components/ui/XButton';
 
 export default function StageTileLegend({ layout, selected, onSelect }: {
   layout: StageLayout; selected: number | null; onSelect: (index: number | null) => void;
@@ -12,7 +13,7 @@ export default function StageTileLegend({ layout, selected, onSelect }: {
   return <div className={styles.tileGuide}>
     <p>Click a tile to inspect it, or choose a tile type from the legend.</p>
     {tile && <section className={styles.tileInfo} aria-label="Selected tile" aria-live="polite">
-      <div><h3>{tile.name}</h3><button type="button" className="ghost btn-sm" onClick={() => onSelect(null)} aria-label="Close tile details">×</button></div>
+      <div><h3 className="entity-title entity-title-xs">{tile.name}</h3><XButton label="Close tile details" onClick={() => onSelect(null)} /></div>
       <p>{tile.description}</p>
       <p>{tile.height === 'high' ? 'High ground' : 'Ground level'} · {tile.deployable === 'all' ? 'Melee or ranged deployment' : tile.deployable === 'melee' ? 'Melee deployment' : tile.deployable === 'ranged' ? 'Ranged deployment' : 'No deployment'} · {tile.walkable ? 'Enemies can walk here' : 'Enemies cannot walk here'}</p>
     </section>}
