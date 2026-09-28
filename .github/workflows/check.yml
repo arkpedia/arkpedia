@@ -49,7 +49,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"
 
-      - name: Close the red-Check report
+      - name: Mark main green again when its pull request's Check vouches
         if: steps.seen.outputs.checked == 'true' && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
