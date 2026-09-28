@@ -111,4 +111,7 @@ keyboard skill adjustments, stable skill headings, mobile overflow, pinned artwo
 redirects, and voice play/pause. Audio playback uses a generated silent fixture so
 browser CI is deterministic; it does not claim to verify every recording. Published
 media integrity is checked separately. The suite tests the production build on
-port 3192. CI uploads no reports; failures remain visible in the Actions log.
+port 3192. Every page's layout checks (headings, picture cards, page bounds, the row
+census) run in one layout census, `tests/browser/layout-census.spec.ts`, which loads
+each page once per theme per project; see
+[ui-primitives.md](ui-primitives.md#3-the-layout-census-every-per-page-check-on-one-load-testsbrowserlayout-censusspects). CI uploads no reports; failures remain visible in the Actions log.
