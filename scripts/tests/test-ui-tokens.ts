@@ -188,9 +188,10 @@ test('rarity fills are one set for both themes (dark ink sits on them)', () => {
 
 // r11: ink on a fixed dark scrim over art is one value for both themes, and reads on the
 // lightest its scrim gets, over white art: --scrim-ink on a 72% black badge (the /enemies
-// tiles' codes), --scrim-ink-dim on an 86% plate (the Terminal cards' tags).
+// tiles' codes) and the stage HUD's 72% chips, --scrim-ink-dim on an 86% plate (the
+// Terminal cards' tags), and --scrim-amber on the HUD's 82% DP plate (r11 verify).
 test('scrim inks are one value for both themes and read on their scrims over white', () => {
-  for (const [name, scrim] of [['--scrim-ink', { r: 0, g: 0, b: 0, a: 0.72 }], ['--scrim-ink-dim', { r: 10, g: 14, b: 18, a: 0.86 }]] as const) {
+  for (const [name, scrim] of [['--scrim-ink', { r: 0, g: 0, b: 0, a: 0.72 }], ['--scrim-ink', { r: 8, g: 12, b: 16, a: 0.72 }], ['--scrim-ink-dim', { r: 10, g: 14, b: 18, a: 0.86 }], ['--scrim-amber', { r: 11, g: 14, b: 19, a: 0.82 }]] as const) {
     assert.ok(dark.tokens.has(name), `${name} missing`);
     assert.ok(!lightOnly.tokens.has(name), `${name} must not be restated in the light block`);
     const ratio = contrast(colour(themes.dark, name), blend(scrim, { r: 255, g: 255, b: 255, a: 1 }));

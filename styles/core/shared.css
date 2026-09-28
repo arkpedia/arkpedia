@@ -126,6 +126,10 @@
      tests/browser/overlay-badges.spec.ts every overlay's text, at 4.5:1 in both themes. */
   --scrim-ink: #BCC8CF;
   --scrim-ink-dim: #93a6b1;
+  /* The amber a figure takes on a scrim: the stage map HUD's DP cost, which took the
+     theme's --amber and read 1.96:1 in the light theme's dark #8F5808 on its 82% plate.
+     The dark theme's --amber, 5.5:1 there over white art. One value, like the two above. */
+  --scrim-amber: #e0aa4e;
 
   /* A panel's surface as a gradient. Use var(--panel-grad) on panels and cards;
      the flat --panel stays available for children that sit on top of one. */
