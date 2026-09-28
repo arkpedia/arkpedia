@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { fontsSettled } from './census-routes';
 import { rowCensus, type RowOffence, type RowTolerance } from './row-census';
 import { tabAlign } from './tab-align';

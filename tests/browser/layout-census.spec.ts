@@ -8,6 +8,8 @@ import {
   HEADING_GAP, HEADING_ROUTES, HOME_CARDS, movingAnimations, PICTURE_DRIVES, PICTURE_ROUTES, PICTURE_STATES, pictureCards, SECTION_GAP, settled, stackBaseline, stackDir, tabAlignBothThemes,
   themeOf, tokenColour, UPDATE, type Baseline,
 } from './layout-checks';
+import { musicTabCheck } from './music-tab-checks';
+import { overlayText, setTheme, themeStillOff } from './overlay-checks';
 
 /*
  * The layout census (r11): every address and driven state the UI census visits, loaded
@@ -353,6 +355,22 @@ async function run(page: Page, info: TestInfo, t: Target, theme: 'dark' | 'light
   if (t.pictures !== undefined) await part(p('picture-cards'), async () => { cards = await pictures(page, t, theme, p('picture-cards')); });
   if (t.home) await part(p('home-cards'), () => homeCards(page, theme, desktop, p('home-cards')));
   if (t.pictures !== undefined && desktop) await part(p('picture-hover'), () => pictureHover(page, cards, p('picture-hover')));
+  // overlay-badges.spec.ts, "text on overlays on <page> reads at 4.5:1 in both themes": the
+  // theme flipped on the root in place, the states once (desktop), colour being width-free.
+  if (dark && t.rows && (!t.state || desktop)) {
+    await part(p('overlay-text'), async () => {
+      for (const flip of ['dark', 'light'] as const) {
+        await setTheme(page, flip);
+        const found = await page.evaluate(overlayText);
+        expect.soft(found.offences, `${p('overlay-text')}${flip} theme: text on an overlay under 4.5:1 (worst of the ground over black and over white)`).toEqual([]);
+      }
+      await setTheme(page, 'dark');
+      await themeStillOff(page);
+    });
+  }
+  // music-tab.spec.ts, "the collapsed music tab on <page> meets no text or control": the
+  // phone project only, and last, because it resizes the viewport.
+  if (dark && t.rows && !desktop) await part(p('music-tab'), () => musicTabCheck(page, decodeURIComponent(t.key), t.route));
 }
 
 for (const t of TARGETS) {
