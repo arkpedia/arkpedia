@@ -34,11 +34,11 @@
 .community-event-item:focus-visible { outline-offset: -2px; }
 /* Two columns: the 8px status dot, and the name with its lines under it, so every line
    of the card starts where the name's text does (the lines under it started at the dot,
-   14px left of the name). The name's box gives its dot and text to the grid. */
+   14px left of the name). The name's box gives its dot (its first child) and text to the grid. */
 .community-event-name { display: contents; font-weight: 600; }
 /* On the name's first line, when a long name wraps to two. */
-.community-event-name > .event-status-dot { grid-column: 1; align-self: start; margin-top: calc((1lh - 8px) / 2); }
-.community-event-item > *:not(.community-event-name), .community-event-name > :not(.event-status-dot) { grid-column: 2; }
+.community-event-name > :first-child { grid-column: 1; align-self: start; margin-top: calc((1lh - 8px) / 2); }
+.community-event-item > :not(.community-event-name), .community-event-name > :not(:first-child) { grid-column: 2; }
 .community-event-item:hover .community-event-name { color: var(--teal); }
 /* The event's real window, under its status. Quieter than the status line
    above it: that says whether to care, this says when. */
