@@ -9,12 +9,15 @@ export default defineConfig({
   timeout: 30000,
   expect: { timeout: 10000 },
   fullyParallel: false,
-  /* One browser per two CPUs, at most three (r11): two on a 4-vCPU runner (GitHub's hosted
-     one, where Dependabot's pull requests run under a 20-minute limit), three on the NAS,
-     one on a 2-vCPU machine. Each spec file keeps its tests in one worker, in order; the
-     layout census, a third of the suite, spreads its pages over all of them
+  /* Browsers in parallel (r11): one per two CPUs, at least two and at most three, and one
+     per 2 GB of memory. Measured in a Linux container, the whole suite took 843s on one
+     worker and 530s on two with 2 CPUs, and 414s on two with 4; it passed at four workers
+     on 4 CPUs too. So two on a 2- or 4-vCPU runner (GitHub's hosted one, where Dependabot's
+     pull requests run under a 20-minute limit), three on the NAS, and one on a machine with
+     under 4 GB (the VPS), as before. Each spec file keeps its tests in one worker, in order;
+     the layout census, a third of the suite, spreads its pages over all of them
      (layout-census.spec.ts). PW_WORKERS=1 runs the suite serially. */
-  workers: Number(process.env.PW_WORKERS) || Math.max(1, Math.min(3, Math.floor(os.availableParallelism() / 2))),
+  workers: Number(process.env.PW_WORKERS) || Math.max(1, Math.min(3, Math.max(2, Math.floor(os.availableParallelism() / 2)), Math.floor(os.totalmem() / 2 ** 31))),
   retries: 0,
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:3192', trace: 'off', screenshot: 'off', video: 'off' },

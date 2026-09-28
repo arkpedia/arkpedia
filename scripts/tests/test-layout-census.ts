@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
+import type { PlaywrightTestConfig } from '@playwright/test';
 import { CENSUS_STATES, censusRoutes } from '../../tests/browser/census-routes';
 import { boundsRoutes, HEADING_ROUTES, PICTURE_ROUTES } from '../../tests/browser/layout-checks';
 
@@ -66,22 +67,31 @@ test('every address a census table names is a census address', () => {
 });
 
 /*
- * The suite runs one browser per two CPUs, at most three (r11): the Check's browser run was
- * one worker on a 4-vCPU runner whose other three CPUs sat idle, and it alone took 19 of the
- * Check's 26 minutes on the NAS, past the 20 minutes GitHub gives Dependabot's pull requests.
+ * The suite runs browsers in parallel (r11: one per two CPUs, at least two and at most three,
+ * one per 2 GB): the Check's browser run was one worker whose other CPUs sat idle, and it
+ * alone took 19 of the Check's 26 minutes on the NAS, past the 20 minutes GitHub gives
+ * Dependabot's pull requests.
  * The census spreads over the workers, so the one check that needs every page at both widths
  * (a stale stack-align entry) cannot run at the end of either project's pages: it is its own
  * project, after both, or it would skip itself in every run and nothing would say so.
  */
 test('the browser suite uses the runner\'s CPUs, and the census\'s whole-suite check runs after both widths', async () => {
   const os = await import('node:os');
-  const real = os.default.availableParallelism;
+  const real = { cpus: os.default.availableParallelism, memory: os.default.totalmem };
   const workers = process.env.PW_WORKERS;
   delete process.env.PW_WORKERS;
-  os.default.availableParallelism = () => 4;
+  const GB = 2 ** 30;
+  /* The config for a machine of `cpus` CPUs and `gb` GB (a fresh import each time). */
+  const configFor = async (cpus: number, gb: number) => {
+    os.default.availableParallelism = () => cpus;
+    os.default.totalmem = () => gb * GB;
+    return (await import(`../../playwright.config?cpus=${cpus}&gb=${gb}`)).default as PlaywrightTestConfig;
+  };
   try {
-    const config = (await import('../../playwright.config')).default;
-    assert.equal(config.workers, 2, 'two workers on a 4-vCPU runner');
+    for (const [cpus, gb, expected, machine] of [[2, 7, 2, 'a 2-vCPU hosted runner'], [4, 16, 2, 'a 4-vCPU hosted runner'], [6, 8, 3, 'the NAS (6 CPUs, 8 GB)'], [16, 64, 3, 'a large machine'], [2, 3, 1, 'the VPS (2 vCPUs, about 3 GB)'], [1, 2, 1, 'one CPU']] as const) {
+      assert.equal((await configFor(cpus, gb)).workers, expected, `${expected} worker(s) on ${machine}`);
+    }
+    const config = await configFor(4, 16);
     const projects = Object.fromEntries((config.projects ?? []).map((p) => [p.name, p]));
     const after = projects['after-census'];
     assert.ok(after, 'an after-census project');
@@ -90,7 +100,8 @@ test('the browser suite uses the runner\'s CPUs, and the census\'s whole-suite c
     assert.ok(matches(after.testMatch, 'tests/browser/layout-census-after.spec.ts'), 'it runs layout-census-after.spec.ts');
     for (const name of ['desktop', 'mobile']) assert.ok(matches(projects[name].testIgnore, 'tests/browser/layout-census-after.spec.ts'), `${name} leaves it out`);
   } finally {
-    os.default.availableParallelism = real;
+    os.default.availableParallelism = real.cpus;
+    os.default.totalmem = real.memory;
     if (workers !== undefined) process.env.PW_WORKERS = workers;
   }
   const census = fs.readFileSync(path.join(DIR, CENSUS), 'utf8');
