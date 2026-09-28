@@ -24,11 +24,11 @@ for (const timezoneId of ['Europe/Berlin', 'America/Los_Angeles', 'Pacific/Auckl
         await page.waitForLoadState('networkidle');
         if (route === '/obtain-method') await expect(page.locator('.roster-class-branch', { hasText: /days until/ }).first()).toBeVisible();
         if (route === '/community') {
-          // The event list renders only events still live or upcoming at the page's clock;
-          // with none, the section is one line pointing at the schedule.
+          // The event list and the map are always drawn (an ended event says Ended), and
+          // the list's dates are formatted on the request's clock.
+          await expect(page.locator('.world-map-svg')).toBeVisible();
           const ranges = page.locator('.event-list-range');
           if (await ranges.count()) await expect(ranges.first()).toHaveText(/\d{4}/);
-          else await expect(page.getByText('No upcoming community events.')).toBeVisible();
         }
         expect(errors.filter((error) => HYDRATION.test(error))).toEqual([]);
       });

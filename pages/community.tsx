@@ -15,7 +15,6 @@ import EventListPanel from '@/components/schedule/EventListPanel';
 import FadeCarousel from '@/components/ui/FadeCarousel';
 import PageHeader from '@/components/ui/PageHeader';
 import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
-import { getEventStatus } from '@/lib/maps/mapProjection';
 
 const CAROUSEL_MAX_ITEMS = 4;
 
@@ -41,7 +40,6 @@ export default function CommunityHub({
   /* Events still worth travelling to, at the page's clock. When every configured event
      has ended the page used to open on a 480px block of them plus a map labelled
      "Ended"; it now says so in one line and points at the schedule. */
-  const activeEvents = events.filter((ev) => getEventStatus(ev.startTime, ev.endTime, now) !== 'ended');
 
   return (
     <>
@@ -61,20 +59,17 @@ export default function CommunityHub({
             on a phone the map comes first and the list below it. */}
         <section className="op-section community-events" aria-labelledby="community-events-title">
           <h2 id="community-events-title">Community events</h2>
-          {activeEvents.length > 0 ? (
-            <div className="community-map-row">
-              <div className="community-event-panel">
-                <EventListPanel events={activeEvents} now={now} />
-              </div>
-              <div className="community-map-main">
-                <WorldMapEvents events={activeEvents} now={now} />
-              </div>
+          {/* Always drawn, with every event (an ended one says Ended): the map is the
+              page's feature, not a reward for a busy month. It was hidden whenever no
+              event was upcoming (2026-09-25), which took the whole map away. */}
+          <div className="community-map-row">
+            <div className="community-event-panel">
+              <EventListPanel events={events} now={now} />
             </div>
-          ) : (
-            <p className="community-events-empty">
-              No upcoming community events. <Link prefetch={false} href="/schedule" className="ghost btn-sm">See the schedule</Link>
-            </p>
-          )}
+            <div className="community-map-main">
+              <WorldMapEvents events={events} now={now} />
+            </div>
+          </div>
         </section>
 
         {/* Twitch + YouTube: each its own fade-carousel, up to 4 items
