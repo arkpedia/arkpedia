@@ -1,77 +1,26 @@
 import { expect, test, type Page } from '@playwright/test';
-import { rowCensus, type RowOffence, type RowTolerance } from './row-census';
-import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus, readOnly } from './census-routes';
+import { rowCensus } from './row-census';
+import { CENSUS_STATES, fontsSettled, openCensus, readOnly } from './census-routes';
+import { census, censusWidth, expectOnlyAllowed, TOLERANCE } from './layout-checks';
 
 /*
  * One line (docs/development/ui-primitives.md rule 4): in a row, a button, input or
  * select and the text beside it share one vertical centre, and the controls in it
  * share one height, --control-h.
  *
- * The census (row-census.ts) went over 41 routes and seven driven states (the /pulls
- * panels, /recruitment with tags and its cheat sheet, the stage guesser's own list) at
- * 1440 and 390 on 2026-09-26 and found five: the /pulls goal row (Until, Available,
- * All goals and Left 9px above the Pulls input and the remove button, lifted by the
- * space reserved for an empty caption), the /pulls forecast date (9px above the picked
- * banner's taller dropdown, both top-aligned), the /skins result count (9px above
- * Reset filters, lifted by .hint's bottom margin), the operator page credits (the
- * language label 4px above the voice actor's button, both top-aligned at different
- * heights) and the /planner search row (Clear 5px below the search field's centre).
- * The r9 census (2026-09-26, 45 addresses and twelve driven states) added the control
- * heights: six primitive heights side by side (tgl 32, ghost 33, chip 32/36, select 38,
- * search 38/40, button 44) and the rows pages had patched by hand, and three more rows
- * off their centre (the /operators/Amiya name row 15px, the /gacha dialogs' close 18px
- * and 7px, the planner level dialog's title 5.7px). One token, --control-h, fixed the
- * heights; each row is fixed at its source.
+ * The row census (row-census.ts) runs on every page and state the UI census visits, at
+ * 1440 and 390, in the layout census (layout-census.spec.ts, r11), on its one load of the
+ * page; its tolerances (TOLERANCE), its accepted offences (ALLOWED) and expectOnlyAllowed
+ * are in layout-checks.ts, which says what the census found and when.
  *
- * STRICT on every page and state the census visited, at 1440 and 390: centres within
- * CENTRE px (glyph boxes come from the font, and CI's Linux fonts are not the Mac's,
- * so 2, not 1) and heights within HEIGHT px (a control's height is --control-h, a
- * min-height, whatever the font). A new page is measured without being listed here:
- * the addresses and states are census-routes.ts's, from pages/ as in page-bounds.spec.ts.
- *
- * What is not a failure is in ALLOWED, each with its reason, and an entry that matches
- * nothing on its page fails as stale, so the list only shrinks.
- *
- * This also measures the pull planner's goal row directly (on a phone too, where the
- * census cannot see it), and checks its footer, where text sits beside text, by
- * baseline.
+ * What stays here is what the census cannot see: the pull planner's goal row measured
+ * directly (on a phone too, where each cell stacks its label over its value) and its
+ * footer by baseline, its panels opened one by one, every row primitive against the
+ * token and with the token flipped, the site nav, the Terminal bar's menu button, the
+ * calendar's month menus, the operator page's panel header with and without the
+ * webfonts, the /music queue's titles, the page header and the game switcher when the
+ * webfonts arrive, and the planner's panel heads.
  */
-const TOLERANCE: RowTolerance = { centre: 2, height: 1 };
-
-/** An accepted offence: `route` (as the test names it) and the width (1440 or 390),
- *  then the offence's fields as regular expressions. Every entry says why. */
-interface Allowed { route: string; width?: 1440 | 390; kind: RowOffence['kind']; container: RegExp; control?: RegExp; beside?: RegExp; why: string }
-
-const ALLOWED: Allowed[] = [
-];
-
-/** The census's two widths: the desktop project is 1440 wide, and the mobile one (a
- *  Pixel 7, 412 wide) is narrowed to the census's 390. */
-async function censusWidth(page: Page): Promise<1440 | 390> {
-  if (page.viewportSize()!.width >= 1000) return 1440;
-  await page.setViewportSize({ width: 390, height: 844 });
-  return 390;
-}
-
-async function census(page: Page): Promise<RowOffence[]> {
-  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  await fontsSettled(page);
-  return page.evaluate(rowCensus, TOLERANCE);
-}
-
-/** Fails on an offence ALLOWED does not name, and on an entry for this page that
- *  matched nothing (it is stale: delete it). */
-function expectOnlyAllowed(offences: RowOffence[], route: string, width: number) {
-  const mine = ALLOWED.filter((a) => a.route === route && (!a.width || a.width === width));
-  const used = new Set<Allowed>();
-  const fresh = offences.filter((o) => {
-    const hit = mine.find((a) => a.kind === o.kind && a.container.test(o.container) && (!a.control || a.control.test(o.control)) && (!a.beside || a.beside.test(o.beside)));
-    if (hit) used.add(hit);
-    return !hit;
-  });
-  expect(fresh, `rows off one line or one height on ${route} at ${width}`).toEqual([]);
-  expect(mine.filter((a) => !used.has(a)).map((a) => a.why), `stale ALLOWED entries for ${route} at ${width}`).toEqual([]);
-}
 
 /** A banner the plan can hold, from the page's own schedule. */
 async function plannedBanner(page: Page): Promise<string> {
@@ -91,7 +40,7 @@ test('the pull planner goal row and its footer are on one line', async ({ page }
   await page.goto(`/pulls?banner=${encodeURIComponent(banner)}`);
   const row = page.locator('article [class*="bannerRow"]').first();
   await expect(row).toBeVisible();
-  expectOnlyAllowed(await census(page), '/pulls?banner', width);
+  expectOnlyAllowed(expect, '', await census(page), '/pulls?banner', width);
 
   // The row measured directly: every value on the Pulls input's centre line, and on a
   // phone, where each cell stacks a label over its value, every label on one top. The
@@ -140,10 +89,10 @@ test('the pull planner panels are on one line', async ({ page }) => {
   await expect(page.locator('article [class*="bannerRow"]').first()).toBeVisible();
   for (const name of [/Income & events/, /Past events/, /Skin wishlist/]) {
     await page.getByRole('button', { name }).click();
-    expectOnlyAllowed(await census(page), `/pulls?banner ${name.source}`, width);
+    expectOnlyAllowed(expect, '', await census(page), `/pulls?banner ${name.source}`, width);
   }
   await page.getByRole('button', { name: '+ Add banner' }).click();
-  expectOnlyAllowed(await census(page), '/pulls?banner + Add banner', width);
+  expectOnlyAllowed(expect, '', await census(page), '/pulls?banner + Add banner', width);
 });
 
 /*
@@ -217,7 +166,7 @@ test('the site nav is on one line', async ({ page }) => {
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
   await fontsSettled(page);
   const offences = await page.evaluate(rowCensus, { ...TOLERANCE, scope: 'nav' as const });
-  expectOnlyAllowed(offences, 'site nav', width);
+  expectOnlyAllowed(expect, '', offences, 'site nav', width);
 });
 
 test("the Terminal bar's menu button is one control height, and follows the token", async ({ page }) => {
@@ -503,12 +452,3 @@ test("the planner's panel heads: the count follows the title, and the controls s
     }
   }
 });
-
-for (const target of [...censusRoutes(), ...CENSUS_STATES]) {
-  const name = typeof target === 'string' ? target : target.id;
-  test(`${typeof target === 'string' ? target : `${target.route} (${target.id})`} is on one line`, async ({ page }) => {
-    const width = await censusWidth(page);
-    await openCensus(page, target);
-    expectOnlyAllowed(await census(page), name, width);
-  });
-}

@@ -12,8 +12,9 @@ import { tabAlign } from './tab-align';
  * naming a rendered role="tabpanel", a roving tabindex, Left/Right/Home/End), rendered
  * by the server as it hydrates, holds the planner's removable tabs to Delete, holds
  * every tab strip to the Anti-Page Jump rule, and runs the tab-alignment census
- * (tab-align.ts) on the states a plain page load does not reach -- page-bounds.spec.ts
- * runs it on every route.
+ * (tab-align.ts) on the states a plain page load does not reach and the layout census
+ * (layout-census.spec.ts) does not drive -- the census runs it on every route and on
+ * every state it drives.
  */
 
 const PEOPLE = '/events/%5BSide%20Story%5D%20People%2C%20A%20People';
@@ -285,19 +286,19 @@ const tab = (list: string, name: string | RegExp) => async (page: Page) => {
   await page.getByRole('tablist', { name: list }).getByRole('tab', { name }).click();
   await page.waitForTimeout(600);
 };
+/* r11: the layout census (layout-census.spec.ts) runs this census on every state it drives
+   (census-routes.ts CENSUS_STATES), in both themes at 1440 and 390, on the load it makes
+   anyway. So the seven states it drives the same way left this list: the event's Rewards
+   tab, the planner's Experimental, the Stronghold's Alliances, Items and Enemies, the enemy
+   page's Stages and the stage guesser's Custom list. What stays is what it does not drive:
+   another tab, a view read from the address, the preview with its skill tabs loaded, an
+   operator in the plan, the cheat sheet and a stage map. */
 const STATES: State[] = [
-  { name: 'event rewards', route: PEOPLE, act: tab('Event sections', 'Rewards') },
   { name: 'event skins', route: PEOPLE, act: tab('Event sections', 'Skins') },
   { name: 'gacha operator preview', route: '/gacha', act: openPreview },
   { name: 'schedule calendar', route: '/schedule?view=calendar' },
   { name: 'planner with an operator', route: '/planner', act: addOperator },
-  { name: 'planner experimental', route: '/planner', act: tab('Planner mode', 'Experimental') },
   { name: 'recruitment cheat sheet', route: '/recruitment', act: tab('Recruitment view', 'Guarantee cheat sheet') },
-  { name: 'Stronghold alliances', route: '/gamemodes/stronghold-protocol', act: tab('Sections', 'Alliances') },
-  { name: 'Stronghold items', route: '/gamemodes/stronghold-protocol', act: tab('Sections', 'Items') },
-  { name: 'Stronghold enemies', route: '/gamemodes/stronghold-protocol', act: tab('Sections', 'Enemies') },
-  { name: 'enemy stages', route: '/enemies', act: tab('Show', 'Stages') },
-  { name: 'stage guesser custom', route: '/games/stage-guesser', act: async (page) => { await page.getByRole('button', { name: 'Custom', exact: true }).click(); await page.waitForTimeout(600); } },
   // 1-7: its map renders in a build with the content release switched off (ta-1's did not).
   { name: 'a stage map', route: '/stages/browse?s=1-7', act: async (page) => { await expect(page.locator('.stage-map-tools')).toBeVisible({ timeout: 45_000 }); } },
 ];

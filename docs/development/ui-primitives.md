@@ -483,9 +483,9 @@ npm run audit:styles -- --update     # after a fix: tighten (review the diff, it
 
 The audit sees only what CSS and TSX text show. A weight on a rule that inherits its family, or an `<h1 className={styles.x}>`, is invisible to it. The browser test and the rig measure the rendered result.
 
-### 2. `tests/browser/page-bounds-baseline.json` (`tests/browser/page-bounds.spec.ts`, in `npm run test:browser`)
+### 2. `tests/browser/page-bounds-baseline.json` (the layout census, `tests/browser/layout-census.spec.ts`, in `npm run test:browser`)
 
-For every page at 1440 and 390, the test measures:
+For every page at 1440 and 390, the layout census measures (the page-bounds checks; their code is in `tests/browser/layout-checks.ts`):
 
 - `no-h1`: the page has no h1 (a visually hidden one is fine).
 - `h1-align`: the visible h1's left edge is not where the content starts.
@@ -496,11 +496,35 @@ For every page at 1440 and 390, the test measures:
 - `first-gap`: the first content in `main` is not 24px (±2) under the header hairline. A Terminal scene at 700px and under expects 14px and the operator page 16px (rule 15); both are named in the spec.
 - `motion`: an animation that moves content (keyframes on transform, translate, scale, rotate or an inset) exists under `prefers-reduced-motion: reduce`. The pages are measured with reduced motion so nothing is caught mid-flight, and the reader who asked for it gets none. A page's reduced-motion override belongs in the same file as the animation, after it: the one for the roster cards sat in `shared.css`, lost the cascade to `roster.css`, and the cards rose 24px in anyway (first-gap read 26.5px under load).
 
-It also runs `stack-align` (rule 17) against its own baseline, `tests/browser/stack-align-baseline.json`: the picture cards whose text keeps `--card-inset`, each accepted only at that inset (an entry that shows only on some days, a card in a date window or a stage open by weekday, is marked `optional` and escapes only the stale check). A driven state the route list never shows, the planner's operator dossier, is checked at both widths too. Every other first line set 3-120px in from its parent's edge fails, and an accepted entry no page shows any more fails as stale. `tests/browser/section-census.ts` does the measuring (it also serves the heading and section checks in `cards-and-headings.spec.ts`) and says what it leaves out: content centred or end-aligned across the section (a control centred alone in a small cell is still an indent), a tile that centres an icon over its label, content out of flow, inline runs; a row boxed by its state (the selected stage row, the playing voice line) is measured by its content, a disclosure marker or generated glyph leads its element, and a list's markers sit in its 1.1em column. When no child starts on the parent's edge, the leftmost child is the edge, so two siblings that disagree (the operator panel's header and reading area) fail too. A card inset is checked by its content box, not its first glyph.
+It also runs `stack-align` (rule 17) against its own baseline, `tests/browser/stack-align-baseline.json`: the picture cards whose text keeps `--card-inset`, each accepted only at that inset (an entry that shows only on some days, a card in a date window or a stage open by weekday, is marked `optional` and escapes only the stale check). A driven state the route list never shows, the planner's operator dossier, is checked at both widths too (`page-bounds.spec.ts`). Every other first line set 3-120px in from its parent's edge fails, and an accepted entry no page shows any more fails as stale. `tests/browser/section-census.ts` does the measuring (it also serves the census's heading and section checks) and says what it leaves out: content centred or end-aligned across the section (a control centred alone in a small cell is still an indent), a tile that centres an icon over its label, content out of flow, inline runs; a row boxed by its state (the selected stage row, the playing voice line) is measured by its content, a disclosure marker or generated glyph leads its element, and a list's markers sit in its 1.1em column. When no child starts on the parent's edge, the leftmost child is the edge, so two siblings that disagree (the operator panel's header and reading area) fail too. A card inset is checked by its content box, not its first glyph.
 
-The baseline is `{}` and the test is strict: every measured page passes at both widths, so any offence fails, and `UPDATE_BOUNDS_BASELINE=1` measures every page but refuses to write a non-empty baseline. Fix the page.
+The baseline is `{}` and the test is strict: every measured page passes at both widths, so any offence fails, and `UPDATE_BOUNDS_BASELINE=1 npx playwright test layout-census.spec` measures every page but refuses to write a non-empty baseline. Fix the page.
 
-The test also fails when a page file under `pages/` is neither measured nor excluded with a reason (dynamic pages need a sample address in `SAMPLES`). It also checks that the 404 page renders on `--bg` in both themes.
+`page-bounds.spec.ts` also fails when a page file under `pages/` is neither measured nor excluded with a reason (dynamic pages need a sample address in `BOUNDS_SAMPLES`, `layout-checks.ts`). It also checks that the 404 page renders on `--bg` in both themes.
+
+<!-- r11 layout census: one load per page (tests/browser/layout-census.spec.ts) -->
+### 3. The layout census: every per-page check on one load (`tests/browser/layout-census.spec.ts`)
+
+Every address and driven state the UI census visits (`tests/browser/census-routes.ts`: one address per page file, the 404, two extra addresses and the driven states) is loaded **once per theme per project**, and every per-page layout check runs on that load: the desktop project at 1440, the mobile one at 390 (its Pixel 7 narrowed to the census width). Until r11 three specs loaded the same pages in tests of their own (842 of the suite's 1,212 tests, over half its time).
+
+| check | pages | themes and widths |
+|---|---|---|
+| `headings`: the section-heading look and `.entity-title` sizes (rule 16) | `HEADING_ROUTES` | dark at 1440 and 390, light at 1440 |
+| `heading-gap`, `section-gap` (rule 15) | `HEADING_ROUTES` | dark, 1440 and 390 |
+| `picture-cards`: no resting frame (and `CONTENT_CARDS`) | `PICTURE_ROUTES` (three are loaded for this alone) | both themes, 1440 and 390 |
+| `picture-hover`: the teal edge on hover and keyboard focus | `PICTURE_ROUTES` | both themes, 1440 |
+| `home-cards` | `/` | both themes, 1440 and 390 (hover at 1440) |
+| `button-voice`: no button in Inter or JetBrains Mono at the button tracking | every address and state | dark, 1440 |
+| `page-bounds` (section 2 above) and `stack-align` | every address but the Stronghold companion and the two extras | dark, 1440 and 390 |
+| `first-gap` on a driven state | every state | dark, 1440 and 390 |
+| `tab-align` on a driven state (rule 13; `tabs.spec.ts` keeps the states the census does not drive) | every state | dark (the light theme flipped in place), 1440 and 390 |
+| `rows`: one centre line, one control height (rule 4, `row-census.ts`) | every address and state | dark, 1440 and 390 |
+
+- Page bounds and a state's first-gap are measured with `prefers-reduced-motion: reduce` from the first paint, the rest with motion on. So such a page loads with reduced motion, gets those checks first (page bounds straight after the load event and the fonts, so the `motion` check still sees an entrance animation that runs), then has motion turned back on, lets the animations that starts end, and gets the rest.
+- The census's pages spread over every worker (`playwright.config.ts` runs one browser per two CPUs, at least two and at most three, and at most one per 2 GB of memory; `PW_WORKERS=1` runs serially). The one check that needs every page at both widths, the stale `stack-align` entry, reads what each page bounds run wrote, in `layout-census-after.spec.ts`: a project of its own (`after-census`) that runs once the desktop and mobile projects are done, so it runs with the whole suite (`npx playwright test layout-census.spec` runs the census alone, without it; naming the project or its file runs everything it depends on first).
+- Every failure names its check, page, width and theme: `[rows] /pulls at 390px, dark: ...`. Each check reports with `expect.soft`, and an error inside one (a timeout) is that check's failure, so one failing check never hides another on the same load.
+- **A new per-page check goes on the census's load**: its evaluator and its table in `layout-checks.ts`, its assertions in `layout-census.spec.ts`. A spec of its own that loops over the census pages again adds ~90 page loads, and `scripts/tests/test-layout-census.ts` (in `npm test`) fails it: no spec but the census loops over `censusRoutes()`, `CENSUS_STATES`, `boundsRoutes()`, `HEADING_ROUTES` or `PICTURE_ROUTES`, and the per-page tables live in `layout-checks.ts`. A test that drives one state or flips a token or the webfonts (the goal row, the month menus, the panel header without webfonts) stays a dedicated test in its spec.
+<!-- end r11 layout census -->
 
 ## Migrating a page family: checklist
 
@@ -525,5 +549,5 @@ The test also fails when a page file under `pages/` is neither measured nor excl
 8. Horizontal rows use `ScrollRow` or `.sidescroll`. Nested vertical scrollers keep the default thumb. Put focus rings inside scrollers with `outline-offset: -2px`.
 9. Hide "Coming soon" placeholders until they have content.
 10. Density changes must obey the Anti-Page Jump rule. Measure them with `apj()`.
-11. Run `npm run audit:styles` and the page-bounds test. If a remaining ratchet list shrank, tighten it with `npm run audit:styles -- --update` and commit the smaller baseline with the change.
+11. Run `npm run audit:styles` and the layout census (`npx playwright test layout-census.spec`; the stale stack-align check runs with the whole suite, after both projects). If a remaining ratchet list shrank, tighten it with `npm run audit:styles -- --update` and commit the smaller baseline with the change.
 12. Verify the rendered result at 1440 and 390, dark and light (the rig, or screenshots). A green build is not verification.
