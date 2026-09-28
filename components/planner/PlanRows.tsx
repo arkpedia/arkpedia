@@ -195,15 +195,19 @@ export function PlanRows({
   return (
     <>
       <div className="plan-panel-head">
-        <span className="label-pair">
-          <span className="label-tag plan-panel-tag">Who you are building</span>
-          <h2 className="section-title">Your plan</h2>
+        {/* The title and its count: .plan-panel-lead hangs the dot in the gap between them
+            and hides it where the count wraps under the title (planner.css). */}
+        <span className="plan-panel-lead">
+          <span className="label-pair">
+            <span className="label-tag plan-panel-tag">Who you are building</span>
+            <h2 className="section-title">Your plan</h2>
+          </span>
+          {/* Derived from the rows beneath it, which is now all this panel holds. */}
+          <span className="hint plan-hint">
+            <span className="plan-sep" aria-hidden="true">&middot;</span>{planned.length} {planned.length === 1 ? 'operator' : 'operators'} with goals
+          </span>
         </span>
-        {/* Derived from the rows beneath it, which is now all this panel holds. */}
-        <span className="hint plan-hint">
-          &middot; {planned.length} {planned.length === 1 ? 'operator' : 'operators'} with goals
-        </span>
-        <span className="plan-panel-acts">{clearControl}
+        <span className="plan-panel-acts plan-panel-acts-fill">{clearControl}
           {/* Two errands, two buttons. `Your roster` is where you say what you
               HAVE -- a transcription job, done once for a hundred and fifty
               operators. `Add a goal` is where you say what you are AIMING AT,

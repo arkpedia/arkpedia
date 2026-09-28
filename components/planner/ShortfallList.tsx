@@ -402,18 +402,21 @@ export function ShortfallList({
   return (
     <>
       <div className="plan-panel-head">
-        <span className="label-pair">
-          <span className="label-tag plan-panel-tag">What to get next</span>
-          <h2 className="section-title">Still needed</h2>
-        </span>
-        {/* Derived from what renders, so the two cannot disagree. */}
-        <span className="hint plan-hint">
-          &middot; {shortRows.length} of {rows.length} {rows.length === 1 ? 'material' : 'materials'} short
-          {goalCount > 0 ? `, across ${goalCount} ${goalCount === 1 ? 'goal' : 'goals'}` : ''}
-          {/* One unbreakable clause from the dot on, so a wrapped line never ends on
-              the dot or an "and" (at 390 it read "...across 34 goals ·" over "and LMD
-              and EXP"). */}
-          {moneyWords ? `\u00a0·\u00a0and ${moneyWords}`.replace(/ /g, '\u00a0') : ''}
+        <span className="plan-panel-lead">
+          <span className="label-pair">
+            <span className="label-tag plan-panel-tag">What to get next</span>
+            <h2 className="section-title">Still needed</h2>
+          </span>
+          {/* Derived from what renders, so the two cannot disagree. The leading dot is
+              .plan-sep, which the lead hides where the count wraps under the title. */}
+          <span className="hint plan-hint">
+            <span className="plan-sep" aria-hidden="true">&middot;</span>{shortRows.length} of {rows.length} {rows.length === 1 ? 'material' : 'materials'} short
+            {goalCount > 0 ? `, across ${goalCount} ${goalCount === 1 ? 'goal' : 'goals'}` : ''}
+            {/* One unbreakable clause from the dot on, so a wrapped line never ends on
+                the dot or an "and" (at 390 it read "...across 34 goals ·" over "and LMD
+                and EXP"). */}
+            {moneyWords ? `\u00a0·\u00a0and ${moneyWords}`.replace(/ /g, '\u00a0') : ''}
+          </span>
         </span>
         <span className="plan-panel-acts planner-need-acts">
           {/**

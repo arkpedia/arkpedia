@@ -1066,8 +1066,41 @@
 :root[data-theme="light"] .plan-panel-head { background: rgba(0, 0, 0, 0.03); }
 /* Experimental mode's panel titles are .section-title (the site's section heading),
    the same as Simple mode's: the page had two heading voices. */
-.plan-panel-head .plan-hint { margin: 0 auto 0 0; }
+/* r11: the title and its count are one lead, which takes the free space (it was the
+   count's auto right margin), so the actions sit at the far end on a wide screen. The
+   separator is a span of its own hung in the lead's column gap (right: 100%), never a
+   character in the count's text: where the count wraps under the title the dot hangs
+   left of the lead's edge and overflow-x: clip hides it, so no line starts with "·" --
+   at 390 "Your plan" read "· 4 operators with goals" on a line of its own, and at 360
+   the Depot's "· edited 18 days ago". Layout, not a script, and no text width in it.
+   clip rather than hidden: hidden on one axis makes the other auto, a scroll box.
+   Nothing focusable sits in the lead, so no focus ring is cut. */
+.plan-panel-lead {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  min-width: 0;
+  overflow-x: clip;
+}
+.plan-panel-lead > .plan-hint { position: relative; margin: 0; }
+.plan-panel-lead .plan-sep { position: absolute; top: 0; right: 100%; width: 24px; text-align: center; }
 .plan-panel-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* On a phone the actions have the whole line under the title, and a row of buttons that
+   ran out of room wrapped ragged: "Your plan" put Clear and Your roster on one line and
+   + Add a goal alone under them, each at its own width (360 and 390). So there they share
+   the line, equal where their labels allow (flex-basis 0; a label's width is each one's
+   floor, so they wrap exactly where they did): one full-width row where the three fit,
+   and where they do not, two full-width rows, the call to action a row of its own. The
+   Depot's pair does the same. Still needed's pick-one pair and Show all are choices,
+   which never stretch (rule 13): one under the other, both on the panel's edge, at every
+   phone width rather than wherever a font happened to wrap them. */
+@media (max-width: 480px) {
+  .plan-panel-acts.plan-panel-acts-fill { flex: 1 1 100%; }
+  .plan-panel-acts.plan-panel-acts-fill > * { flex: 1 1 0; }
+  .plan-panel-acts.planner-need-acts { flex-direction: column; align-items: flex-start; }
+}
 .plan-panel-body { padding: 14px 16px 16px; }
 
 /* The line under a panel's contents that says what the contents mean, with

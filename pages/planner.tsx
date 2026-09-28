@@ -1385,16 +1385,18 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             reading at a glance. */}
         <section className="plan-panel" ref={depotPanelRef}>
           <div className="plan-panel-head">
-            <span className="label-pair">
-              <span className="label-tag plan-panel-tag">What you have</span>
-              <h2 className="section-title">Depot</h2>
+            <span className="plan-panel-lead">
+              <span className="label-pair">
+                <span className="label-tag plan-panel-tag">What you have</span>
+                <h2 className="section-title">Depot</h2>
+              </span>
+              {/* When it was last touched, and nothing else. "82 of 92 held" was
+                  a count of the catalogue, which is not a fact about your depot --
+                  every reader has most of the list at zero, so the number said
+                  the same thing to everybody. */}
+              {depotTouched && <span className="hint plan-hint"><span className="plan-sep" aria-hidden="true">&middot;</span>edited {sinceLabel(depotTouched, readerClock)}</span>}
             </span>
-            {/* When it was last touched, and nothing else. "82 of 92 held" was
-                a count of the catalogue, which is not a fact about your depot --
-                every reader has most of the list at zero, so the number said
-                the same thing to everybody. */}
-            {depotTouched && <span className="hint plan-hint">&middot; edited {sinceLabel(depotTouched, readerClock)}</span>}
-            <span className="plan-panel-acts">
+            <span className="plan-panel-acts plan-panel-acts-fill">
               {clearControl('depot')}
               <button
                 type="button"

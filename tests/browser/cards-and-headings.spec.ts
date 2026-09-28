@@ -74,6 +74,36 @@ const CONTENT_CARDS: Record<string, string[]> = {
   '/stages/regular': ['a.regular-now', '.regular-tower'],
 };
 
+/* --- r11 picture-card states and rings (2026-09-28) ------------------------------------
+ * The maintainer, 2026-09-28: the /pulls skin wishlist's outfit tiles and /gacha's banner
+ * list kept a resting border; no resting border, the teal edge on hover and focus, like
+ * every other picture card. Two gaps let them through:
+ *
+ * - The wishlist's tiles show only once its tab opens, so no route above ever drew them.
+ *   PICTURE_STATES are routes with a #state the loop drives after the page loads (the
+ *   drive is PICTURE_DRIVES[route]); the value is how many picture cards it shows at least.
+ * - /gacha's banner cards had a transparent border and still drew a frame: their art is
+ *   inset 0 in the padding box, and their --panel-2 background, painted under the border
+ *   (background-clip: border-box), showed as a 1px ring round it (231 on the light
+ *   sidebar's 251). ring() below finds that on the card or on any box round its art: a
+ *   transparent resting border with the element's own background painted under it round
+ *   art that fills its padding box (or, on an img or video, its own background under its
+ *   own border). The r11 scan found the same ring on twelve other picture cards across
+ *   the site (home, /enemies, /results, /music/discover, the Terminal, /stages, /operators
+ *   and the video cards), all now clipped to the padding box. Box geometry and computed
+ *   colours only, so the same on any font. */
+const PICTURE_STATES: Record<string, number> = { '/pulls#skin-wishlist': 1 };
+const PICTURE_DRIVES: Record<string, (page: Page) => Promise<void>> = {
+  '/pulls#skin-wishlist': async (page) => {
+    await page.getByRole('button', { name: /Skin wishlist/ }).click();
+    // The shops on offer are the data's, dropped once they close (lib/pulls/currentPlan.ts),
+    // as pulls.spec.ts's caption test has it: with none listed there are no tiles to measure.
+    test.skip(await page.getByText('No upcoming shop rotations are listed.').count() > 0, 'no skin shop rotation is listed in this build');
+    await page.locator('.pulls-skin-option').first().waitFor();
+  },
+};
+/* --- end r11 picture-card states and rings --------------------------------------------- */
+
 /** `edged`: the card or a box round its art has a border to paint (main's pattern, a
  *  transparent 1px border at rest). One with none at all -- the operator page's
  *  full-bleed artwork button -- has no edge to turn teal, and shows focus by the site's
@@ -97,6 +127,24 @@ async function pictureCards(page: Page): Promise<PictureCard[]> {
         && !['none', 'hidden'].includes(cs.getPropertyValue(`border-${side}-style`))
         && !clear(cs.getPropertyValue(`border-${side}-color`)) && !data.has(cs.getPropertyValue(`border-${side}-color`)));
       return drawn.length >= 3 ? `${cs.borderTopWidth} ${cs.borderTopColor}` : null;
+    };
+    // r11: a transparent resting border that still shows a frame -- the element's own
+    // background painted under it (background-clip: border-box) round art that fills its
+    // padding box, or an img's own background under its own border.
+    const ring = (el: Element, art: Element) => {
+      const cs = getComputedStyle(el);
+      const sides = ['top', 'right', 'bottom', 'left'];
+      const widths = sides.map((side) => parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0);
+      const open = sides.filter((side, i) => widths[i] > 0 && !['none', 'hidden'].includes(cs.getPropertyValue(`border-${side}-style`)) && clear(cs.getPropertyValue(`border-${side}-color`)));
+      if (open.length < 3 || cs.backgroundClip.split(',')[0].trim() !== 'border-box') return null;
+      const fill = !clear(cs.backgroundColor) ? cs.backgroundColor : (cs.backgroundImage.match(/gradient/) ? 'a gradient' : null);
+      if (!fill) return null;
+      if (el !== art) {
+        const r = el.getBoundingClientRect(), a = art.getBoundingClientRect();
+        const inner = { top: r.top + widths[0], right: r.right - widths[1], bottom: r.bottom - widths[2], left: r.left + widths[3] };
+        if (a.top > inner.top + 1 || a.right < inner.right - 1 || a.bottom < inner.bottom - 1 || a.left > inner.left + 1) return null;
+      } else if (!['img', 'video', 'canvas'].includes(el.tagName.toLowerCase())) return null;
+      return `its ${fill} background shows through the transparent border (background-clip: border-box)`;
     };
     const shown = (el: Element) => {
       const r = el.getBoundingClientRect();
@@ -154,6 +202,8 @@ async function pictureCards(page: Page): Promise<PictureCard[]> {
       const frames: string[] = [];
       const own = frame(el);
       if (own) frames.push(`the card: ${own}`);
+      const ringed = ring(el, picture.node); // r11
+      if (ringed) frames.push(`the card: ${ringed}`);
       const hasBorder = (node: Element) => { const cs = getComputedStyle(node); return parseFloat(cs.borderTopWidth) > 0 && !['none', 'hidden'].includes(cs.borderTopStyle); };
       let edged = hasBorder(el);
       const pictureBox = picture.node.getBoundingClientRect();
@@ -162,6 +212,8 @@ async function pictureCards(page: Page): Promise<PictureCard[]> {
         if (r.width * r.height < 0.9 * pictureBox.width * pictureBox.height) continue;
         const drawn = frame(node);
         if (drawn) frames.push(`${name(node)} round the art: ${drawn}`);
+        const ringed = ring(node, picture.node); // r11
+        if (ringed) frames.push(`${name(node)} round the art: ${ringed}`);
         edged ||= hasBorder(node);
       }
       const id = cards.length;
@@ -236,10 +288,11 @@ for (const theme of ['dark', 'light'] as const) {
       });
     }
 
-    for (const [route, least] of Object.entries(PICTURE_ROUTES)) {
+    for (const [route, least] of Object.entries({ ...PICTURE_ROUTES, ...PICTURE_STATES })) {
       test(`picture cards on ${decodeURIComponent(route)} have no resting frame, and a teal edge on hover`, async ({ page }, info) => {
         await page.goto(route);
         await page.waitForLoadState('networkidle');
+        await PICTURE_DRIVES[route]?.(page); // r11
         expect(await themeOf(page), `the page is in the ${theme} theme`).toBe(theme);
         const cards = await pictureCards(page);
         expect(cards.length, `${route} has at least ${least} picture card(s)`).toBeGreaterThanOrEqual(least);

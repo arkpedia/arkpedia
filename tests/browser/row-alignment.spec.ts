@@ -450,8 +450,11 @@ test("the planner's panel heads: the count follows the title, and the controls s
     const heads = await page.locator('.plan-panel-head').evaluateAll((els) => els.map((head) => {
       const hs = getComputedStyle(head);
       const contentLeft = head.getBoundingClientRect().left + parseFloat(hs.paddingLeft) + parseFloat(hs.borderLeftWidth);
-      const title = head.querySelector(':scope > .label-pair')!.getBoundingClientRect();
-      const hint = head.querySelector(':scope > .plan-hint')?.getBoundingClientRect() ?? null;
+      // r11: the title and its count are one lead (.plan-panel-lead), whose column gap
+      // is the one the count follows the title at.
+      const lead = head.querySelector(':scope > .plan-panel-lead')!;
+      const title = lead.querySelector(':scope > .label-pair')!.getBoundingClientRect();
+      const hint = lead.querySelector(':scope > .plan-hint')?.getBoundingClientRect() ?? null;
       const acts = head.querySelector(':scope > .plan-panel-acts')!;
       const controls = Array.from(acts.querySelectorAll('button, label.check')).map((c) => c.getBoundingClientRect()).filter((r) => r.width > 0)
         .sort((a, b) => a.top - b.top || a.left - b.left);
@@ -476,7 +479,7 @@ test("the planner's panel heads: the count follows the title, and the controls s
       return {
         offCentre,
         name: head.querySelector('h2')!.textContent,
-        columnGap: parseFloat(hs.columnGap),
+        columnGap: parseFloat(getComputedStyle(lead).columnGap),
         hintAfterTitle: hint && Math.abs(hint.top + hint.height / 2 - (title.top + title.height / 2)) < title.height / 2 ? Math.round((hint.left - title.right) * 10) / 10 : null,
         hintAtLineStart: hint ? Math.round((hint.left - contentLeft) * 10) / 10 : null,
         gaps,
@@ -487,11 +490,11 @@ test("the planner's panel heads: the count follows the title, and the controls s
     // The shortfall's count ends in one unbreakable clause (no-break spaces from the dot
     // on), so a wrapped line never ends on the dot or an "and": at 390 it read "...across
     // 34 goals ·" over "and LMD and EXP". A string, not a glyph position.
-    const shortfall = (await page.locator('.plan-panel-head').filter({ hasText: 'Still needed' }).locator(':scope > .plan-hint').textContent())!.trim();
+    const shortfall = (await page.locator('.plan-panel-head').filter({ hasText: 'Still needed' }).locator(':scope > .plan-panel-lead > .plan-hint').textContent())!.trim();
     expect.soft(shortfall, `${state.id}: the shortfall count's money clause`).toMatch(/\u00a0·\u00a0and\u00a0(LMD|EXP|LMD\u00a0and\u00a0EXP)$/);
     for (const h of heads) {
       const where = `${state.id} at ${width}px, ${h.name}`;
-      if (h.hintAfterTitle !== null) expect.soft(Math.abs(h.hintAfterTitle - h.columnGap), `${where}: the count is ${h.hintAfterTitle}px after the title, not the head's ${h.columnGap}px gap`).toBeLessThanOrEqual(1);
+      if (h.hintAfterTitle !== null) expect.soft(Math.abs(h.hintAfterTitle - h.columnGap), `${where}: the count is ${h.hintAfterTitle}px after the title, not the lead's ${h.columnGap}px gap`).toBeLessThanOrEqual(1);
       else if (h.hintAtLineStart !== null) expect.soft(Math.abs(h.hintAtLineStart), `${where}: the count wrapped to ${h.hintAtLineStart}px from the line's start`).toBeLessThanOrEqual(1);
       expect(h.gaps.length, `${where}: the controls`).toBeGreaterThan(0);
       expect.soft(Math.max(...h.gaps) - Math.min(...h.gaps), `${where}: the controls' gaps ${h.gaps.join(', ')}`).toBeLessThanOrEqual(1);

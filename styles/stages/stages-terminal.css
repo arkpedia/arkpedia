@@ -391,6 +391,7 @@
      keyboard focus draw it in teal. */
   border: 1px solid transparent;
   background: var(--panel);
+  background-clip: padding-box; /* and the border shows nothing at rest */
   transition: border-color 0.15s ease;
 }
 .score-node:hover .score-node-art, .score-node:focus-visible .score-node-art { border-color: var(--teal); }
@@ -498,6 +499,7 @@
   background: var(--panel-2);
   /* A banner: no resting frame (maintainer, 2026-09-26), teal on hover and focus. */
   border: 1px solid transparent;
+  background-clip: padding-box; /* and the border shows nothing at rest */
   transition: border-color 0.15s ease;
 }
 .terminal-lead:hover .terminal-lead-art, .terminal-lead:focus-visible .terminal-lead-art { border-color: var(--teal); }
@@ -832,6 +834,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   /* A banner: no resting frame (maintainer, 2026-09-26), teal on hover and focus. */
   border: 1px solid transparent;
   background: var(--panel);
+  background-clip: padding-box; /* and the border shows nothing at rest */
 }
 .explore-hero-art img { object-fit: cover; }
 .explore-hero:hover .explore-hero-art, .explore-hero:focus-visible .explore-hero-art { border-color: var(--teal); }
@@ -1129,7 +1132,9 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  /* A fixed dark plate over the card's art, so a fixed ink (--text-faint read 2.44:1 on it
+     in the light theme and 3.98:1 in the dark). */
+  color: var(--scrim-ink-dim);
 }
 
 /* The Story Collection mark: bottom LEFT of a card's art, opposite the no-map note.
@@ -1146,7 +1151,8 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
   background: rgb(10 14 18 / 0.86);
   border-top: 1px solid var(--line-soft);
   border-right: 1px solid var(--line-soft);
-  color: var(--text-dim);
+  /* Its mode mark is drawn in this ink on a fixed dark plate: a fixed ink, as .card-nomap. */
+  color: var(--scrim-ink-dim);
 }
 .card-ministory .mode-mark {
   width: 17px;

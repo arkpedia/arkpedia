@@ -268,6 +268,17 @@ a.ghost, a.primary, a.danger, a.btn { text-decoration: none; }
   border-color: var(--teal);
   background: var(--teal-dim);
 }
+/* A pick-card whose main content is a picture (the /pulls skin wishlist's outfits) is
+   a picture card: no resting border (maintainer, 2026-09-28), the teal edge on hover and
+   keyboard focus, and picked stays the teal edge over --teal-dim. The border stays 1px
+   and transparent, so nothing moves, and the card's fill is clipped inside it so the
+   edge shows nothing at rest. ui-primitives rule 2. */
+.pick-card.pick-card-picture:where(:not(.is-selected, [aria-pressed="true"], [aria-selected="true"], [aria-checked="true"])) {
+  border-color: transparent;
+}
+.pick-card.pick-card-picture { background-clip: padding-box; }
+.pick-card.pick-card-picture:hover,
+.pick-card.pick-card-picture:focus-visible { border-color: var(--teal); }
 
 /* KEEP the existing sibling-size rule from shared.css that stops a selected
    .primary growing next to its .ghost siblings — 48 toggle groups depend on
