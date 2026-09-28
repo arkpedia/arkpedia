@@ -18,10 +18,11 @@
 .community-event-list { display: flex; flex-direction: column; gap: 6px; }
 /* Each event opens its organiser's page: a link card with the control boundary. */
 .community-event-item {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 2px;
   flex-shrink: 0;
-  gap: 2px;
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -31,7 +32,13 @@
 }
 .community-event-item:hover { border-color: var(--teal); }
 .community-event-item:focus-visible { outline-offset: -2px; }
-.community-event-name { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+/* Two columns: the 8px status dot, and the name with its lines under it, so every line
+   of the card starts where the name's text does (the lines under it started at the dot,
+   14px left of the name). The name's box gives its dot and text to the grid. */
+.community-event-name { display: contents; font-weight: 600; }
+/* On the name's first line, when a long name wraps to two. */
+.community-event-name > .event-status-dot { grid-column: 1; align-self: start; margin-top: calc((1lh - 8px) / 2); }
+.community-event-item > *:not(.community-event-name), .community-event-name > :not(.event-status-dot) { grid-column: 2; }
 .community-event-item:hover .community-event-name { color: var(--teal); }
 /* The event's real window, under its status. Quieter than the status line
    above it: that says whether to care, this says when. */
