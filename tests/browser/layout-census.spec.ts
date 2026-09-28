@@ -5,7 +5,7 @@ import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus, readOnly, type C
 import { sectionCensus, type StackOffence } from './section-census';
 import {
   baseline, BASELINE_FILE, boundsRoutes, buttonVoiceLeaks, census, censusWidth, CONTENT_CARDS, expectOnlyAllowed, FIRST_GAP, FIRST_GAP_OTHERS,
-  HEADING_GAP, HEADING_ROUTES, HOME_CARDS, movingAnimations, PICTURE_DRIVES, PICTURE_ROUTES, PICTURE_STATES, pictureCards, SECTION_GAP, settled, stackBaseline, tabAlignBothThemes,
+  HEADING_GAP, HEADING_ROUTES, HOME_CARDS, movingAnimations, PICTURE_DRIVES, PICTURE_ROUTES, PICTURE_STATES, pictureCards, SECTION_GAP, settled, stackBaseline, stackDir, tabAlignBothThemes,
   themeOf, tokenColour, UPDATE, type Baseline,
 } from './layout-checks';
 
@@ -47,9 +47,17 @@ import {
  * with expect.soft, and an error inside one check is reported as that check's failure, so
  * one failing check never hides the others on the same load.
  *
+ * The tests spread over every worker; the check that needs every page at both widths (a
+ * stale stack-align entry) is layout-census-after.spec.ts, a project that runs after both.
+ *
  * To add a per-page layout check, add it here (and its evaluator to layout-checks.ts), on
  * the load that already exists, rather than a spec that loads every page again.
  */
+
+/* The census's tests share nothing but the files they write, so they spread over every
+   worker (playwright.config.ts): a third of the suite in one file would otherwise hold one
+   worker for most of the run. */
+test.describe.configure({ mode: 'parallel' });
 
 /** A page the census loads: an address, or an address and the interaction that drives it. */
 interface Target {
@@ -84,10 +92,8 @@ for (const route of [...BOUNDS, ...Object.keys(HEADING_ROUTES)]) {
   if (!ROUTES.includes(route)) throw new Error(`layout census: ${route} is measured (page bounds or headings) but is not a census address (census-routes.ts)`);
 }
 
-/* The accepted stack-align insets each run saw, one file per page and width, so the stale
-   check sees both widths although they run in two projects. Playwright empties the output
-   directory at the start of every run. */
-const stackDir = (info: TestInfo) => path.join(info.project.outputDir, 'layout-census-stack-align');
+/* The accepted stack-align insets each run saw, one file per page and width, for the stale
+   check (layout-census-after.spec.ts), which runs once both projects are done. */
 /* UPDATE_BOUNDS_BASELINE=1: what each project's pages offended with. */
 const measured: Baseline = {};
 
@@ -366,18 +372,4 @@ test.afterAll(() => {
     throw new Error(`page bounds are strict; nothing written. Fix these pages instead: ${JSON.stringify(measured)}`);
   }
   fs.writeFileSync(BASELINE_FILE, `${JSON.stringify({}, null, 2)}\n`);
-});
-
-/* page-bounds.spec.ts: an accepted inset no page shows any more is stale. Both widths
-   count, and they run in two projects, so this reads what every page-bounds run wrote and
-   runs once both are in: at the end of the second project. */
-test('every accepted stack-align inset is still on a page (stack-align-baseline.json)', ({}, info) => {
-  const dir = stackDir(info);
-  const runs: { width: number; seen: string[] }[] = fs.existsSync(dir) ? fs.readdirSync(dir).map((file) => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'))) : [];
-  const at1440 = runs.filter((r) => r.width === 1440).length;
-  const at390 = runs.filter((r) => r.width === 390).length;
-  test.skip(at1440 < BOUNDS.size || at390 < BOUNDS.size, `only after every page was measured at both widths (${at1440} and ${at390} of ${BOUNDS.size} so far)`);
-  const stackSeen = new Set(runs.flatMap((r) => r.seen));
-  const stale = stackBaseline.accepted.filter((a) => !a.optional).map((a) => `${a.parent} > ${a.child}`).filter((key) => !stackSeen.has(key));
-  expect(stale, 'accepted card insets no page shows any more: remove them from stack-align-baseline.json').toEqual([]);
 });

@@ -64,3 +64,37 @@ test('every address a census table names is a census address', () => {
   const ids = CENSUS_STATES.map((state) => state.id);
   assert.equal(new Set(ids).size, ids.length, 'every driven state has its own id');
 });
+
+/*
+ * The suite runs one browser per two CPUs, at most three (r11): the Check's browser run was
+ * one worker on a 4-vCPU runner whose other three CPUs sat idle, and it alone took 19 of the
+ * Check's 26 minutes on the NAS, past the 20 minutes GitHub gives Dependabot's pull requests.
+ * The census spreads over the workers, so the one check that needs every page at both widths
+ * (a stale stack-align entry) cannot run at the end of either project's pages: it is its own
+ * project, after both, or it would skip itself in every run and nothing would say so.
+ */
+test('the browser suite uses the runner\'s CPUs, and the census\'s whole-suite check runs after both widths', async () => {
+  const os = await import('node:os');
+  const real = os.default.availableParallelism;
+  const workers = process.env.PW_WORKERS;
+  delete process.env.PW_WORKERS;
+  os.default.availableParallelism = () => 4;
+  try {
+    const config = (await import('../../playwright.config')).default;
+    assert.equal(config.workers, 2, 'two workers on a 4-vCPU runner');
+    const projects = Object.fromEntries((config.projects ?? []).map((p) => [p.name, p]));
+    const after = projects['after-census'];
+    assert.ok(after, 'an after-census project');
+    assert.deepEqual([...(after.dependencies ?? [])].sort(), ['desktop', 'mobile'], 'it runs after both widths');
+    const matches = (pattern: unknown, file: string) => [pattern].flat().some((p) => (p instanceof RegExp ? p.test(file) : false));
+    assert.ok(matches(after.testMatch, 'tests/browser/layout-census-after.spec.ts'), 'it runs layout-census-after.spec.ts');
+    for (const name of ['desktop', 'mobile']) assert.ok(matches(projects[name].testIgnore, 'tests/browser/layout-census-after.spec.ts'), `${name} leaves it out`);
+  } finally {
+    os.default.availableParallelism = real;
+    if (workers !== undefined) process.env.PW_WORKERS = workers;
+  }
+  const census = fs.readFileSync(path.join(DIR, CENSUS), 'utf8');
+  assert.match(census, /test\.describe\.configure\(\{ mode: 'parallel' \}\)/, 'the census spreads its pages over the workers');
+  assert.doesNotMatch(census, /stack-align inset is still on a page/, 'the stale check is not in a file the widths run');
+  assert.match(fs.readFileSync(path.join(DIR, 'layout-census-after.spec.ts'), 'utf8'), /stack-align inset is still on a page/);
+});

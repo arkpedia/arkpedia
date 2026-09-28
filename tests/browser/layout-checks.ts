@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type TestInfo } from '@playwright/test';
 import { fontsSettled } from './census-routes';
 import { rowCensus, type RowOffence, type RowTolerance } from './row-census';
 import { tabAlign } from './tab-align';
@@ -308,7 +308,7 @@ export async function buttonVoiceLeaks(page: Page) {
  * both widths, so tests/browser/page-bounds-baseline.json is {} and must stay so. Any
  * offence fails, and regenerating the baseline cannot accept one either:
  *
- *   UPDATE_BOUNDS_BASELINE=1 npx playwright test tests/browser/layout-census.spec.ts
+ *   UPDATE_BOUNDS_BASELINE=1 npx playwright test layout-census.spec
  *
  * still measures every page, but fails instead of writing if any page has an offence.
  * (It was a ratchet while the migrations shrank that file to {}.)
@@ -535,6 +535,10 @@ export const FIRST_GAP_OTHERS: Record<string, { gap: number; why: string }> = {
  * so the baseline holds them to ONE inset; everything else is strict, and an accepted
  * entry that no page shows any more is stale and fails. */
 export const STACK_BASELINE_FILE = path.join(__dirname, 'stack-align-baseline.json');
+/* The census writes the accepted insets each page bounds run saw here, one file per page and
+   width; the stale check (layout-census-after.spec.ts) reads them once both projects are done.
+   Playwright empties the output directory at the start of every run. */
+export const stackDir = (info: TestInfo) => path.join(info.project.outputDir, 'layout-census-stack-align');
 /* `optional`: an entry that shows only on some days (a card in a date window, a stage
    open by weekday), so the stale check leaves it alone; it is still held to the inset. */
 export const stackBaseline: { accepted: { parent: string; child: string; why: string; optional?: boolean }[] } = JSON.parse(fs.readFileSync(STACK_BASELINE_FILE, 'utf8'));

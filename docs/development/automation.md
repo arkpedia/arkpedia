@@ -113,5 +113,6 @@ browser CI is deterministic; it does not claim to verify every recording. Publis
 media integrity is checked separately. The suite tests the production build on
 port 3192. Every page's layout checks (headings, picture cards, page bounds, the row
 census) run in one layout census, `tests/browser/layout-census.spec.ts`, which loads
-each page once per theme per project; see
+each page once per theme per project and spreads them over the workers (one browser
+per two CPUs, at most three; `PW_WORKERS=1 npm run test:browser` runs serially); see
 [ui-primitives.md](ui-primitives.md#3-the-layout-census-every-per-page-check-on-one-load-testsbrowserlayout-censusspects). CI uploads no reports; failures remain visible in the Actions log.
