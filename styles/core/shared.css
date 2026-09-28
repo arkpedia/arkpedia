@@ -222,12 +222,20 @@
                        big container, so it is shadowed less than a lifted card.
        --shadow-lift   a picture card or tile raised under the pointer (hover and
                        keyboard focus only, never at rest: hundreds of cards on
-                       /operators would each pay for a resting shadow) */
+                       /operators would each pay for a resting shadow). Sized to the
+                       room the home panels leave a card (13px under it, 5px beside):
+                       a panel that clips its overflow cut the first, 26px one flat.
+       --shadow-lift-tight  the same lift in a scroller that leaves a card no room (a
+                       .scroll-row's 4-6px under the cards, the score rail's 2px ends,
+                       the enemy grid flush to its pane): a contact shadow that fits,
+                       where the full one was cut into a grey band with a hard edge
+                       (tests/browser/motion.spec.ts measures every lifted card). */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur-1: 0.15s;
   --dur-2: 0.3s;
   --shadow-panel: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.22), 0 10px 24px -14px rgb(0 0 0 / 0.6);
-  --shadow-lift: 0 12px 24px -10px rgb(0 0 0 / 0.7);
+  --shadow-lift: 0 8px 14px -6px rgb(0 0 0 / 0.75);
+  --shadow-lift-tight: 0 3px 5px -4px rgb(0 0 0 / 0.85);
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -318,7 +326,8 @@
   /* r11 quiet polish: the same two shadows on a white ground, lighter (a dark shadow
      that reads as depth on the dark ground reads as dirt on this one). */
   --shadow-panel: 0 1px 2px rgb(16 28 38 / 0.05), 0 8px 22px -14px rgb(16 28 38 / 0.2);
-  --shadow-lift: 0 12px 22px -12px rgb(16 28 38 / 0.3);
+  --shadow-lift: 0 8px 14px -6px rgb(16 28 38 / 0.28);
+  --shadow-lift-tight: 0 3px 5px -4px rgb(16 28 38 / 0.4);
 }
 /* Phones: the control height plus 4px for the thumb, from the one base value above. */
 @media (max-width: 720px) {
@@ -1374,13 +1383,19 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 
 /* components/ui/ScrollRow: one line of cards that never wraps, under the drawn bar
    below. Children keep their own width; the gap is the site's 12px card rhythm.
-   The focus ring is drawn inside, because the scroller would clip one outside. */
+   The focus ring is drawn inside, because the scroller would clip one outside.
+   r11 quiet polish: 4px of room above the cards, given back by the margin so they sit
+   where they did: a card lifts 3px on hover (styles/core/motion.css), and the scroller
+   clipped its top edge off. A row with a margin of its own takes the 4px off it too
+   (.front-skins-row). */
 .scroll-row {
   display: flex;
   gap: 12px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
+  padding-top: 4px;
+  margin-top: -4px;
   padding-bottom: 6px;
 }
 .scroll-row > * { flex: none; }

@@ -155,8 +155,17 @@
     /* The home banner strip's current thumbnail draws its teal edge as an inset shadow:
        it keeps it while lifted. */
     .front-gacha-thumb.active:hover { box-shadow: inset 0 0 0 1px var(--teal), var(--shadow-lift); }
+    /* In a scroller that leaves a card no room around it, the contact shadow that fits
+       (--shadow-lift-tight, shared.css): the full one was cut flat at the scroller's
+       edge. A scroller clips at its padding box, so the room is its padding. */
+    :is(.scroll-row, .score-rail, .enemy-grid-pane) :is(.lift, .roster-card, .enemy-tile, .front-skin-item, .skin-card, .skins-current-item, .video-card, .music-discover-album-tile, .music-discover-character-tile, .score-node):hover {
+      box-shadow: var(--shadow-lift-tight);
+    }
   }
   .front-gacha-thumb.active:focus-visible { box-shadow: inset 0 0 0 1px var(--teal), var(--shadow-lift); }
+  :is(.scroll-row, .score-rail, .enemy-grid-pane) :is(.lift, .roster-card, .enemy-tile, .front-skin-item, .skin-card, .skins-current-item, .video-card, .music-discover-album-tile, .music-discover-character-tile, .score-node):focus-visible {
+    box-shadow: var(--shadow-lift-tight);
+  }
 
   /* --- tabs: the underline slides -------------------------------------------------
      Tabs.tsx places the bar with transform and sets data-slide only once it sits

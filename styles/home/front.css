@@ -233,7 +233,8 @@ body.front-page-no-scroll {
 /* Skins on sale: a ScrollRow (components/ui) of cards the reader scrolls, under the
    site's drawn bar. It was a marquee; see components/skins/SkinsCarousel.tsx. Each
    card opens the skin's sheet, so it has a control's frame and the teal hover. */
-.front-skins-row { margin: -6px -6px 0; padding-bottom: 4px; }
+/* -10px, not -6px: 4px of it is .scroll-row's room for a lifted card (shared.css). */
+.front-skins-row { margin: -10px -6px 0; padding-bottom: 4px; }
 .front-skin-item {
   display: flex;
   flex-direction: column;

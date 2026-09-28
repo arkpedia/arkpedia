@@ -19,7 +19,8 @@ import { censusRoutes, fontsSettled, plannerExperimental, PLANNER_PLAN, readOnly
  *     changes page under reduced motion without blanking its cards;
  *   - every picture card and pressable tile rises on hover and on keyboard focus (found
  *     on the page the way cards-and-headings.spec.ts finds them, so a new card that
- *     does not lift fails), and none of them shrinks as a button does when pressed;
+ *     does not lift fails), is not cut by a box that clips it (its top edge, its shadow),
+ *     and none of them shrinks as a button does when pressed;
  *   - a boxed panel on the page ground carries the soft depth (--shadow-panel);
  *   - the <Tabs> underline sits under the current tab (1px) at first paint, after
  *     clicks, keyboard moves and a resize, and never slides in on its first placement;
@@ -202,6 +203,51 @@ const CONTENT_CARDS: Record<string, string[]> = {
 
 const HOVER_LIFT = '0px -3px';
 
+/** Where a lifted card is cut: for every ancestor that clips (overflow not visible), the
+ *  room the lifted box has inside its padding box against what the rise and the card's
+ *  computed shadow need. A shadow's reach is its offset, spread and 0.75 of its blur:
+ *  past that less than 7% of its strength is left, and a cut there does not show; the
+ *  first lift shadow reached 26px under the card, and a .scroll-row (4-6px) or the score
+ *  rail (10px) cut it into a grey band with a hard edge, and clipped the 3px rise off a
+ *  card's top edge. An axis on which the card was not wholly inside the scroller at rest
+ *  (scrolled partly out of view) is not judged. */
+const clipCuts = (el: ReturnType<Page['locator']>, rest: { top: number; bottom: number; left: number; right: number }) => el.evaluate((e, at) => {
+  const need = { top: 0, bottom: 0, side: 0 };
+  const shadow = getComputedStyle(e).boxShadow;
+  if (shadow !== 'none') {
+    for (const part of shadow.split(/,(?![^(]*\))/)) {
+      if (/inset/.test(part)) continue;
+      const [x = 0, y = 0, blur = 0, spread = 0] = part.replace(/rgba?\([^)]*\)/, '').trim().split(/\s+/).map(parseFloat);
+      const reach = 0.75 * blur + spread;
+      need.top = Math.max(need.top, reach - y);
+      need.bottom = Math.max(need.bottom, reach + y);
+      need.side = Math.max(need.side, reach + Math.abs(x));
+    }
+  }
+  const box = e.getBoundingClientRect();
+  const cuts: string[] = [];
+  for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+    const cs = getComputedStyle(a);
+    if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+    const c = a.getBoundingClientRect();
+    const top = c.top + a.clientTop;
+    const left = c.left + a.clientLeft;
+    const bottom = top + a.clientHeight;
+    const right = left + a.clientWidth;
+    const name = `${a.tagName.toLowerCase()}.${a.className.toString().split(' ')[0]}`;
+    if (at.top >= top - 0.5 && at.bottom <= bottom + 0.5) {
+      if (box.top - top < -0.5) cuts.push(`${name} cuts ${(top - box.top).toFixed(1)}px off its top`);
+      else if (box.top - top < need.top - 0.5) cuts.push(`${name} leaves ${(box.top - top).toFixed(1)}px above, its shadow needs ${need.top.toFixed(1)}`);
+      if (bottom - box.bottom < need.bottom - 0.5) cuts.push(`${name} leaves ${(bottom - box.bottom).toFixed(1)}px under it, its shadow needs ${need.bottom.toFixed(1)}`);
+    }
+    if (at.left >= left - 0.5 && at.right <= right + 0.5) {
+      const side = Math.min(box.left - left, right - box.right);
+      if (side < need.side - 0.5) cuts.push(`${name} leaves ${side.toFixed(1)}px beside it, its shadow needs ${need.side.toFixed(1)}`);
+    }
+  }
+  return cuts;
+}, rest);
+
 /** Holds `:active` on the element tagged `selector` (a press without a click: nothing is
  *  opened, followed or dragged), through the DevTools protocol, or lets it go. */
 async function forceActive(page: Page, selector: string, on: boolean) {
@@ -297,6 +343,14 @@ test('reduced motion: the /community carousel changes page at once, and never bl
   await context.close();
 });
 
+/* Routes whose load shift is the frames' luck, on 957d76b as here and with either
+   preference, so its score cannot tell motion apart: their boxes, height and opacity are
+   still compared, their load CLS is not. Measured 2026-09-28, the same build, one load at a
+   time: /music read 0.2035 and 0.3899 (the player growing in one frame or two), and 0.06
+   to 0.21 with the CPU slowed 4x, on both builds, both preferences. */
+const CLS_NOISY: Record<string, string> = {
+  '/music': 'the player and its queue grow at load in one frame or two, 0.06 to 0.39 on the same build either way',
+};
 test.describe('motion never moves the layout', () => {
   for (const route of censusRoutes()) {
     test(`${route}: the same boxes, height and opacity with motion on and off, and no more layout shift`, async ({ browser }, info) => {
@@ -363,6 +417,7 @@ test.describe('motion never moves the layout', () => {
         && (off.layout.opacity[key] < on.layout.opacity[key] - 0.01 || (/\/img\d+$/.test(key) && Math.abs(off.layout.opacity[key] - on.layout.opacity[key]) > 0.01)))
         .map((key) => `${on.layout.boxes[key]} at ${on.layout.opacity[key]} with motion, ${off.layout.opacity[key]} without`);
       expect(dim.slice(0, 12), 'nothing is left faded').toEqual([]);
+      if (CLS_NOISY[route]) { test.info().annotations.push({ type: 'load CLS not compared', description: CLS_NOISY[route] }); return; }
       expect(on.cls, `the load's layout shift with motion (${on.cls.toFixed(4)}, the worse of two loads) is no worse than without (${off.cls.toFixed(4)})\n  with motion:\n    ${on.shifts.join('\n    ')}\n  without:\n    ${off.shifts.join('\n    ')}`).toBeLessThanOrEqual(off.cls + 0.01);
     });
   }
@@ -383,6 +438,7 @@ test.describe('cards lift, and only by paint', () => {
         await el.scrollIntoViewIfNeeded();
         await page.mouse.move(0, 0);
         const rest = await el.evaluate((e) => ({ box: `${(e as HTMLElement).offsetLeft},${(e as HTMLElement).offsetTop},${(e as HTMLElement).offsetWidth},${(e as HTMLElement).offsetHeight}`, shadow: getComputedStyle(e).boxShadow, height: document.documentElement.scrollHeight }));
+        const restRect = await el.evaluate((e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; });
         await el.hover();
         await expect.poll(() => el.evaluate((e) => getComputedStyle(e).translate), { message: `${card.kind} rises 3px on hover` }).toBe(HOVER_LIFT);
         const lifted = await el.evaluate((e) => ({ box: `${(e as HTMLElement).offsetLeft},${(e as HTMLElement).offsetTop},${(e as HTMLElement).offsetWidth},${(e as HTMLElement).offsetHeight}`, shadow: getComputedStyle(e).boxShadow, height: document.documentElement.scrollHeight }));
@@ -390,6 +446,8 @@ test.describe('cards lift, and only by paint', () => {
         expect(lifted.height, 'nor does the document').toBe(rest.height);
         expect(lifted.shadow, `${card.kind} casts a shadow while lifted`).not.toBe('none');
         expect(lifted.shadow, `${card.kind}'s shadow is the lift's, not its resting one`).not.toBe(rest.shadow);
+        await page.waitForTimeout(200); // the shadow's own transition, to its full reach
+        expect(await clipCuts(el, restRect), `${card.kind}, lifted, is not cut by a box that clips it`).toEqual([]);
         // Pressed, a card stays its size: it is lifted, not pushed in like a button.
         await forceActive(page, `[data-motion-card="${card.id}"]`, true);
         await page.waitForTimeout(200);
@@ -405,8 +463,12 @@ test.describe('cards lift, and only by paint', () => {
       for (const selector of CONTENT_CARDS[route] ?? []) {
         const el = page.locator(selector).first();
         if (!(await el.count())) continue;
+        await el.scrollIntoViewIfNeeded();
+        const restRect = await el.evaluate((e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; });
         await el.hover();
         await expect.poll(() => el.evaluate((e) => getComputedStyle(e).translate), { message: `${selector} rises 3px on hover` }).toBe(HOVER_LIFT);
+        await page.waitForTimeout(200);
+        expect(await clipCuts(el, restRect), `${selector}, lifted, is not cut by a box that clips it`).toEqual([]);
         await page.mouse.move(0, 0);
       }
     });
@@ -421,8 +483,12 @@ test.describe('cards lift, and only by paint', () => {
         const el = page.locator(selector).first();
         if (!(await el.count())) continue;
         found += 1;
+        await el.scrollIntoViewIfNeeded();
+        const restRect = await el.evaluate((e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; });
         await el.hover();
         await expect.poll(() => el.evaluate((e) => getComputedStyle(e).translate), { message: `${selector} rises 3px on hover` }).toBe(HOVER_LIFT);
+        await page.waitForTimeout(200);
+        expect(await clipCuts(el, restRect), `${selector}, lifted, is not cut by a box that clips it`).toEqual([]);
         await page.mouse.move(0, 0);
       }
       expect(found, `${route} shows its content cards`).toBeGreaterThan(0);
