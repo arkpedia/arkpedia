@@ -877,6 +877,26 @@ test.describe('images fade in only as they arrive', () => {
     expect(await page.locator('#motion-closed').evaluate((img) => img.getAnimations().length), 'and the box opening does not fade it').toBe(0);
     await expect.poll(() => state(['unseen']), { message: 'a held image in a box shown later is shown within the hold', timeout: HOLD_MS + 1500 })
       .toEqual(['unseen: opacity 1, 0 running, unmarked, not loaded']);
+    // A copy of a picture the browser already has, put in later, came in at once: shown as
+    // it is, never held or faded (the operator artwork's cross-fade puts the outgoing
+    // picture in again, and a fade from nothing blinked it off at the switch).
+    const copy = await page.evaluate(() => new Promise<string>((resolve) => {
+      const source = document.getElementById('motion-quick') as HTMLImageElement;
+      const img = document.createElement('img');
+      img.id = 'motion-copy';
+      img.width = 40;
+      img.height = 40;
+      img.alt = '';
+      let faded = false;
+      img.addEventListener('animationstart', () => { faded = true; });
+      img.src = source.currentSrc;
+      source.after(img);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const first = getComputedStyle(img).opacity;
+        setTimeout(() => resolve(`${img.complete ? 'in already' : 'loading'}, opacity ${first} at its first paint, ${faded ? 'faded' : 'not faded'}`), 500);
+      }));
+    }));
+    expect(copy, 'a copy of a picture already in is shown at once, unfaded').toBe('in already, opacity 1 at its first paint, not faded');
     // A panel shown again does not fade its images a second time.
     await page.evaluate(() => { const img = document.getElementById('motion-quick')!; img.style.display = 'none'; void img.offsetWidth; img.style.display = ''; });
     expect(await page.locator('#motion-quick').evaluate((img) => img.getAnimations().length), 'shown again, it does not fade again').toBe(0);
@@ -893,6 +913,28 @@ test.describe('images fade in only as they arrive', () => {
       setTimeout(() => resolve('never loaded'), 3000);
     }));
     expect(swapped, 'a new src on it is not held or faded').toBe('not faded, shown while it loaded, opacity 1');
+  });
+test('the operator artwork cross-fades: the outgoing picture is not faded in again', async ({ page }) => {
+    await readOnly(page);
+    await page.goto('/operators/Amiya');
+    await settle(page);
+    await page.evaluate(() => {
+      const w = window as unknown as { __arrive: string[] };
+      w.__arrive = [];
+      document.addEventListener('animationstart', (e) => {
+        const img = e.target;
+        if (img instanceof HTMLImageElement && e.animationName === 'img-arrive') w.__arrive.push(img.closest('.op-carousel-img-exit') ? 'outgoing' : img.closest('.op-carousel-img-enter') ? 'incoming' : 'elsewhere');
+      }, true);
+    });
+    // Elite 2's artwork, then back to Elite 1's (in the browser by then: both switches
+    // put a picture in that is already there).
+    for (const name of [/^Elite 2/, /^Elite 1/]) {
+      await page.locator('main button[aria-pressed]').filter({ hasText: name }).first().click();
+      await page.waitForTimeout(700);
+    }
+    const arrive = await page.evaluate(() => (window as unknown as { __arrive: string[] }).__arrive);
+    expect(arrive.filter((a) => a === 'outgoing'), 'the picture going out is not faded in from nothing').toEqual([]);
+    expect(arrive.filter((a) => a === 'incoming').length, 'the one coming in fades at most once, as it arrives').toBeLessThanOrEqual(1);
   });
 test('an image already loaded when the page hydrates is not faded, and a page without scripts shows every image', async ({ browser, page }, info) => {
     // The images load before the app can hydrate: the art is answered at once, and the app's

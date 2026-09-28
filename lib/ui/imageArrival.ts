@@ -13,10 +13,13 @@
  *     stays up until the new one is in.
  *
  * Only an image that has drawn nothing is held, so holding it changes nothing on screen.
- * When this starts (once the app has hydrated), every image already in, or already
- * drawing (its size is known, so its first rows can be on screen), or broken, is shown as
- * it is: an image complete before hydration never fades. After that, an image put into
- * the page is held from its first paint, and fades in when it loads.
+ * Every image already in when it enters the page (the server's, found when this starts
+ * once the app has hydrated, or one put in later whose picture the browser already has),
+ * or already drawing (its size is known, so its first rows can be on screen), or broken,
+ * is shown as it is: it never fades. A copy of a picture already on screen came in at
+ * once, and fading it from nothing blinked it: the operator artwork's cross-fade puts the
+ * outgoing picture in again inside the box that fades it out, and it dropped to nothing
+ * at the switch. Only an image that loads after it is put in fades.
  *
  * It fails open. An image that errors is shown at once. One that has not arrived
  * HOLD_MS after it came on screen is shown as it is and not faded later: a slow line
@@ -41,15 +44,14 @@ export const ARRIVE_ANIMATION = 'img-arrive';
 export const HOLD_MS = 1500;
 
 type ImageState = Pick<HTMLImageElement, 'complete' | 'naturalWidth'>;
-/** What to do with an image found in the page: `shown` as it is, `fade` in now, or `held`
- *  until it loads. `atStart` is the first look, when the watch begins after hydration:
- *  what is there then was put in by the server's HTML, and may have drawn already. */
-export function arrivalOf(img: ImageState, atStart: boolean): 'shown' | 'fade' | 'held' {
-  // Broken, or with no address: complete, but nothing to draw. Nothing to wait for.
-  if (img.complete && img.naturalWidth === 0) return 'shown';
+/** What to do with an image as it enters the page (or is found there when the watch
+ *  starts): `shown` as it is, or `held` until it loads, and fades in then. */
+export function arrivalOf(img: ImageState): 'shown' | 'held' {
+  // In already (a picture the browser has), or broken or with no address (complete, with
+  // nothing to draw): nothing to wait for.
+  if (img.complete) return 'shown';
   // Its size is known, so its bytes are coming in, and its first rows may be on screen.
-  if (!img.complete && img.naturalWidth > 0) return 'shown';
-  if (img.complete) return atStart ? 'shown' : 'fade';
+  if (img.naturalWidth > 0) return 'shown';
   return 'held';
 }
 
@@ -78,20 +80,19 @@ export function watchImageArrivals(doc: Document): () => void {
       if (!img.hasAttribute(SHOWN) && !timers.has(img)) timers.set(img, view.setTimeout(() => { timers.delete(img); show(img, false); }, HOLD_MS));
     }
   }) : null;
-  const adopt = (img: HTMLImageElement, atStart: boolean) => {
+  const adopt = (img: HTMLImageElement) => {
     if (img.hasAttribute(SHOWN)) return;
-    const state = arrivalOf(img, atStart);
-    if (state === 'held') {
-      // No way to time it: never hold it.
-      if (seen) seen.observe(img); else show(img, false);
-    } else show(img, state === 'fade');
+    if (arrivalOf(img) === 'shown') { show(img, false); return; }
+    // Held until it loads, or until HOLD_MS after it is on screen; with no way to time
+    // it, never held.
+    if (seen) seen.observe(img); else show(img, false);
   };
   const imagesIn = (node: Node): HTMLImageElement[] => (node instanceof view.HTMLImageElement
     ? [node]
     : node instanceof view.Element ? Array.from(node.getElementsByTagName('img')) : []);
   const added = new view.MutationObserver((records) => {
     for (const record of records) {
-      record.addedNodes.forEach((node) => { for (const img of imagesIn(node)) adopt(img, false); });
+      record.addedNodes.forEach((node) => { for (const img of imagesIn(node)) adopt(img); });
       record.removedNodes.forEach((node) => {
         for (const img of imagesIn(node)) {
           if (img.isConnected) continue;
@@ -110,7 +111,7 @@ export function watchImageArrivals(doc: Document): () => void {
   const options: AddEventListenerOptions = { capture: true, passive: true };
   // All in one task, before the next paint: what is there is sorted, then the hold turns
   // on, so nothing already drawn is hidden for a frame.
-  for (const img of Array.from(doc.images)) adopt(img, true);
+  for (const img of Array.from(doc.images)) adopt(img);
   root.setAttribute(WATCHING, '');
   added.observe(root, { childList: true, subtree: true });
   doc.addEventListener('load', onLoad, options);
