@@ -27,7 +27,47 @@ permissions:
   issues: write
 
 jobs:
+  # A push to main whose code a pull request's Check already passed is not checked again:
+  # its merge result had this same git tree, so Deploy follows at once. Anything else that
+  # landed in between changes the tree, and the full Check runs (scripts/ci/already-checked.mjs).
+  seen:
+    if: github.event_name == 'push'
+    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    outputs:
+      checked: ${{ steps.seen.outputs.checked }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node for the two scripts below (built-in modules only, so no npm ci).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Look for a green pull request Check of this exact code
+        id: seen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Mark main green again when its pull request's Check vouches
+        if: steps.seen.outputs.checked == 'true' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/content/alert-issue.mjs close --alert check-failing-main --title 'Check failing on main' --comment "Green again at ${GITHUB_SHA:0:12} (its pull request's Check): $RUN_URL"
+
   check:
+    needs: seen
+    # Runs when `seen` found nothing, and on every pull request (where `seen` is skipped);
+    # a failed `seen` runs it too.
+    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' }}
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     # Dependabot pull requests install dependency versions nobody has reviewed yet. They run
@@ -177,6 +217,21 @@ jobs:
           body="$RUNNER_TEMP/red-check.md"
           echo "Check ended with $JOB_STATUS on main at ${GITHUB_SHA:0:12} ($(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Nothing deploys until a Check on main passes, and content releases stay held while production runs older code." > "$body"
           node scripts/content/alert-issue.mjs open --alert check-failing-main --title 'Check failing on main' --body-file "$body"
+
+      # The code this pull request's Check passed, so the push that merges it need not run
+      # it again (the `seen` job above).
+      - name: Name the code this Check passed
+        id: tree
+        if: success() && github.event_name == 'pull_request'
+        run: echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+
+      - name: Record the code this Check passed
+        if: success() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: checked-tree-${{ steps.tree.outputs.tree }}
+          path: package.json
+          retention-days: 7
 
       - name: Close the red-Check report
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'

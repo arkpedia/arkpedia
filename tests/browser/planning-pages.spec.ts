@@ -253,7 +253,13 @@ test.describe('home', () => {
     const panel = page.locator('.front-skins-panel');
     await expect(panel).toBeVisible();
     const state = await panel.evaluate((el) => {
-      const animated = Array.from(el.querySelectorAll('*')).filter((node) => getComputedStyle(node).animationName !== 'none');
+      // r11 quiet polish: a skin's picture fades in once as it arrives (img-arrive, rule 23:
+      // one 0.3s opacity fade, then its mark comes off). That is not the row moving on its
+      // own, so it alone is set aside, and only while it is that one finite fade; any other
+      // animation here, a marquee above all, still counts.
+      const arriving = (node: Element) => node instanceof HTMLImageElement && getComputedStyle(node).animationName === 'img-arrive'
+        && node.getAnimations().every((a) => a.effect?.getComputedTiming().iterations === 1);
+      const animated = Array.from(el.querySelectorAll('*')).filter((node) => getComputedStyle(node).animationName !== 'none' && !arriving(node));
       const row = el.querySelector('.scroll-row');
       const names = Array.from(el.querySelectorAll('.front-skin-name')).map((n) => n.textContent);
       return {

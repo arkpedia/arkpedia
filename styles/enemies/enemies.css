@@ -1182,6 +1182,10 @@ main.enemy-page {
   overflow-y: auto;
   scrollbar-width: thin;
 }
+/* r11 quiet polish: 4px of room above the first row, given back by the margin so the
+   tiles sit where they did: a tile lifts 3px on hover (styles/core/motion.css), and the
+   pane clipped its top edge off. The phone pane has its own padding and frame (below). */
+.enemy-grid-pane { padding-top: 4px; margin-top: -4px; }
 .enemy-grid-pane:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
 .enemy-detail-pane { position: relative; }
 .enemy-grid-empty { padding: 10px 2px; }
@@ -1306,6 +1310,7 @@ main.enemy-page {
     scrollbar-width: auto;
     scrollbar-color: auto;
     padding: 6px 0 6px 6px;
+    margin-top: 0;
     border: 1px solid var(--line);
     border-radius: var(--radius-frame);
   }

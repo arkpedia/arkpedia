@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { XGlyph } from './XButton';
 
 export interface TabOption<V extends string | number> {
@@ -38,6 +38,27 @@ interface TabsProps<V extends string | number> {
   removable?: { onRemove: (value: V) => void; label: (option: TabOption<V>) => string | null };
 }
 
+/* Layout effects are the browser's; on the server React only warns about them. */
+const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+/** Where the strip's sliding underline goes: under the current tab, in the strip's own
+ *  coordinates, or null when no enabled tab is current (or the strip is not rendered).
+ *  Read from the boxes the browser draws, so a label's fractional width is kept (the
+ *  static ::after it replaces is exactly the tab's width), and with the tab's own press
+ *  scale taken back out: a click selects on mouseup, while the tab is still easing back
+ *  from `:active`'s scale(.97) (styles/core/motion.css), and that is paint, not layout. */
+function underlineOf(strip: HTMLElement): { x: number; y: number; w: number } | null {
+  const tab = strip.querySelector<HTMLElement>(':scope > [role="tab"][aria-selected="true"]');
+  if (!tab || !tab.offsetParent) return null;
+  const s = strip.getBoundingClientRect();
+  const t = tab.getBoundingClientRect();
+  const k = parseFloat(getComputedStyle(tab).scale) || 1;
+  const w = t.width / k;
+  const left = (t.left + t.right) / 2 - w / 2;
+  const bottom = (t.top + t.bottom) / 2 + t.height / k / 2;
+  return { x: left - s.left - strip.clientLeft, y: bottom - s.top - strip.clientTop - 2, w };
+}
+
 const slug = (value: string | number) => String(value).replace(/[^A-Za-z0-9_-]/g, '_');
 /** The id of the tab for `value` in the strip `id`. */
 export const tabId = (id: string, value: string | number) => `${id}-tab-${slug(value)}`;
@@ -60,8 +81,9 @@ export function tabPanelProps(id: string, value: string | number) {
  * content-width labels in the button voice (Rajdhani 600, uppercase, 0.09em) with no
  * box and no side padding, so the first label starts exactly where the section heading
  * does. --text-dim at rest, --text on hover, --teal with a 2px --teal underline when
- * current. The underline is each tab's ::after, static; a sliding indicator can take
- * its place later without changing the markup.
+ * current. The server draws the underline as each tab's ::after; once the browser has
+ * measured the current tab, one indicator per strip (.tabs-indicator) takes over in
+ * the same paint and slides from tab to tab (docs/development/ui-primitives.md, rule 23).
  *
  * Pick-one VALUES (a sort order, a level, a filter) are not tabs: they stay
  * SegmentedControl. Links between routes take the same .tabs / .tab classes on
@@ -76,6 +98,7 @@ export default function Tabs<V extends string | number>({
 }: TabsProps<V>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const list = useRef<HTMLDivElement | null>(null);
+  const bar = useRef<HTMLSpanElement | null>(null);
   const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
   const current = options.findIndex((o) => o.value === value);
   // The one tab in the Tab order: the current one, or the first enabled one when the
@@ -122,6 +145,42 @@ export default function Tabs<V extends string | number>({
     go(next, true);
   };
 
+  /* The sliding underline (r11 quiet polish). The server's HTML draws each current tab's
+     own ::after; here, before the first paint after hydration, the bar is put exactly
+     there and only then does data-slide hand the underline over to it, so the swap is
+     invisible and nothing slides in from the corner. Afterwards a new value moves the
+     bar (the transition is motion.css's, and only under prefers-reduced-motion:
+     no-preference), while a relayout -- the webfont arriving, a count changing a label,
+     the window resizing, the strip wrapping -- puts it in place at once: one
+     ResizeObserver per strip, watching the strip and each of its tabs. */
+  const optionKeys = options.map((o) => `${String(o.value)}:${o.disabled ? 1 : 0}`).join('|');
+  useClientLayoutEffect(() => {
+    const strip = list.current;
+    const indicator = bar.current;
+    if (!strip || !indicator) return;
+    const place = (instant: boolean) => {
+      const at = underlineOf(strip);
+      if (!at) { strip.removeAttribute('data-slide'); return; }
+      const next = `translate(${at.x}px, ${at.y}px) scaleX(${at.w})`;
+      const first = !strip.hasAttribute('data-slide');
+      if (indicator.dataset.at === next && !first) return;
+      if (instant || first) indicator.style.transition = 'none';
+      indicator.style.transform = next;
+      indicator.dataset.at = next;
+      if (instant || first) {
+        void indicator.offsetWidth; // commit the jump before the transition comes back
+        indicator.style.transition = '';
+      }
+      if (first) strip.setAttribute('data-slide', '');
+    };
+    place(false);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => place(true));
+    observer.observe(strip);
+    for (const tab of Array.from(strip.children)) if (tab !== indicator) observer.observe(tab);
+    return () => observer.disconnect();
+  }, [value, optionKeys]);
+
   return (
     <>
       <div ref={list} role="tablist" aria-label={label} className={`tabs${className ? ` ${className}` : ''}`}>
@@ -166,6 +225,7 @@ export default function Tabs<V extends string | number>({
             </button>
           );
         })}
+        <span ref={bar} className="tabs-indicator" aria-hidden="true" />
       </div>
       {hint && <span id={hint} hidden>Press Delete to remove it.</span>}
     </>

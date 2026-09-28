@@ -27,26 +27,25 @@ export default function FadeCarousel<T>({ items, renderItem, perPage = 2, interv
     setPageIndex(0);
   }, [items.length]);
 
-  // Fade out, swap underneath, fade back in -- shared by the timer and swipes.
+  // Fade out, swap underneath, fade back in -- shared by the timer and swipes. Under
+  // reduced motion the page simply changes: the site stops every transition there
+  // (styles/core/shared.css), so a fade would only blank the cards for fadeMs.
   const swap = (next: (p: number) => number) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setPageIndex(next); return; }
     setFading(true);
     setTimeout(() => {
       setPageIndex(next);
       setFading(false);
     }, fadeMs);
   };
+  const swapRef = useRef(swap);
+  swapRef.current = swap;
 
   useEffect(() => {
     if (totalPages <= 1) return;
-    const timer = setInterval(() => {
-      setFading(true);
-      setTimeout(() => {
-        setPageIndex((p) => (p + 1) % totalPages);
-        setFading(false);
-      }, fadeMs);
-    }, intervalMs);
+    const timer = setInterval(() => swapRef.current((p) => (p + 1) % totalPages), intervalMs);
     return () => clearInterval(timer);
-  }, [totalPages, intervalMs, fadeMs, interactionKey]);
+  }, [totalPages, intervalMs, interactionKey]);
 
   if (items.length === 0) return null;
 

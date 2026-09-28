@@ -224,6 +224,10 @@
   0% { r: 4.5; opacity: 0.5; }
   100% { r: 14; opacity: 0; }
 }
+/* Reduced motion: the halo stays, still, at its drawn radius. */
+@media (prefers-reduced-motion: reduce) {
+  .map-pin-pulse { animation: none; }
+}
 
 .map-tooltip-portal {
   position: fixed;

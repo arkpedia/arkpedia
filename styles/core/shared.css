@@ -126,6 +126,10 @@
      tests/browser/overlay-badges.spec.ts every overlay's text, at 4.5:1 in both themes. */
   --scrim-ink: #BCC8CF;
   --scrim-ink-dim: #93a6b1;
+  /* The amber a figure takes on a scrim: the stage map HUD's DP cost, which took the
+     theme's --amber and read 1.96:1 in the light theme's dark #8F5808 on its 82% plate.
+     The dark theme's --amber, 5.5:1 there over white art. One value, like the two above. */
+  --scrim-amber: #e0aa4e;
 
   /* A panel's surface as a gradient. Use var(--panel-grad) on panels and cards;
      the flat --panel stays available for children that sit on top of one. */
@@ -209,6 +213,33 @@
      the light theme can restate the pair without restating the geometry. */
   --bevel-top: #1B242D;
   --bevel-bottom: #171F27;
+
+  /* --- r11 quiet polish: motion and depth ------------------------------------------
+     Option C, "Quiet polish" (maintainer, 2026-09-26). The motion itself is all in
+     styles/core/motion.css, inside prefers-reduced-motion: no-preference; these are
+     its timings, defined once (no light twin: they are times).
+       --ease   a soft ease-out: quick to start, slow to land
+       --dur-1  small feedback: a hover's lift, a press
+       --dur-2  a move the eye follows: the tab underline sliding, an image fading in
+     And two shadows, restated for the light theme below, lighter there:
+       --shadow-panel  a boxed panel's soft depth off the ground. Quiet: a panel is a
+                       big container, so it is shadowed less than a lifted card.
+       --shadow-lift   a picture card or tile raised under the pointer (hover and
+                       keyboard focus only, never at rest: hundreds of cards on
+                       /operators would each pay for a resting shadow). Sized to the
+                       room the home panels leave a card (13px under it, 5px beside):
+                       a panel that clips its overflow cut the first, 26px one flat.
+       --shadow-lift-tight  the same lift in a scroller that leaves a card no room (a
+                       .scroll-row's 4-6px under the cards, the score rail's 2px ends,
+                       the enemy grid flush to its pane): a contact shadow that fits,
+                       where the full one was cut into a grey band with a hard edge
+                       (tests/browser/motion.spec.ts measures every lifted card). */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-1: 0.15s;
+  --dur-2: 0.3s;
+  --shadow-panel: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.22), 0 10px 24px -14px rgb(0 0 0 / 0.6);
+  --shadow-lift: 0 8px 14px -6px rgb(0 0 0 / 0.75);
+  --shadow-lift-tight: 0 3px 5px -4px rgb(0 0 0 / 0.85);
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -295,6 +326,12 @@
      off its ground. The dark theme's value is a dark surface, and under this
      theme's dark --text it would have been text the colour of its own tile. */
   --row-grad-hi: linear-gradient(180deg, #FFFFFF, #F7F9FA);
+
+  /* r11 quiet polish: the same two shadows on a white ground, lighter (a dark shadow
+     that reads as depth on the dark ground reads as dirt on this one). */
+  --shadow-panel: 0 1px 2px rgb(16 28 38 / 0.05), 0 8px 22px -14px rgb(16 28 38 / 0.2);
+  --shadow-lift: 0 8px 14px -6px rgb(16 28 38 / 0.28);
+  --shadow-lift-tight: 0 3px 5px -4px rgb(16 28 38 / 0.4);
 }
 /* Phones: the control height plus 4px for the thumb, from the one base value above. */
 @media (max-width: 720px) {
@@ -426,12 +463,17 @@ html, body {
    moves. No effect where the OS uses overlay scrollbars (macOS by default),
    which is why it is easy to miss while developing on a Mac. */
 html { scrollbar-gutter: stable; }
+/* r11 quiet polish: reduced motion means no motion (maintainer, 2026-09-26). Every
+   transition the site adds is in styles/core/motion.css and only under no-preference,
+   but the ones written before it (the hover fades on the cards, a drawer's slide, the
+   /community carousel's cross-fade) each needed their own override here, and most had
+   none: tests/browser/motion.spec.ts hovered, pressed and clicked through the census
+   routes with reduced motion and found them running. So all of them stop here: a state
+   change is instant. Transitions only -- an animation can be a state as well as a
+   motion (a fill that ends hidden), so each one keeps its own override in its own file,
+   after it (docs/development/ui-primitives.md, rule 23). */
 @media (prefers-reduced-motion: reduce) {
-  /* The invalid-card shake goes -- the danger border alone carries the
-     message. The scanbar used to be here too, for the same reason; it does not
-     animate at all any more (arkpedia-theme.css retires it to a static
-     hairline), so there is nothing left to hold still. */
-  .card.invalid { animation: none; }
+  *, *::before, *::after { transition: none !important; }
 }
 /* The page header: eyebrow, h1, optional .sub and actions, and a hairline under it.
    Render it with components/ui/PageHeader, as a SIBLING of <main> -- never inside
@@ -673,6 +715,14 @@ main {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The invalid-card shake goes -- the danger border alone carries the
+     message. After the rule it stops (r11 quiet polish: it sat 250 lines above it and
+     lost the cascade, so the card shook anyway; audit:styles motionScope). The scanbar
+     used to be here too; it does not animate at all any more (arkpedia-theme.css
+     retires it to a static hairline), so there is nothing left to hold still. */
+  .card.invalid { animation: none; }
 }
 /* Paint and focus are in arkpedia-theme.css with the other inputs. These two are
    the power page's own: a select that stacks with 8px under it, and the disabled
@@ -986,12 +1036,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   gap: 8px;
   margin-bottom: 10px;
 }
-@media (prefers-reduced-motion: reduce) {
-  .gacha-pull-slide-bottom,
-  .gacha-pull-slide-top {
-    animation: none;
-  }
-}
 
 @media (max-width: 640px) {
   .timeline-bar, .timeline-pill { font-size: 8px; }
@@ -1261,6 +1305,8 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   border-radius: var(--radius-frame, 3px);
   border: 1px solid var(--line-soft);
   background: var(--panel-grad, var(--panel-2));
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 /* Each tier's name is a .label-tag micro-label (arkpedia-theme.css); it stays an h3,
    heading its list of names. */
@@ -1285,6 +1331,8 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   border-radius: var(--radius-frame, 3px);
   border: 1px solid var(--line-soft);
   background: var(--panel-grad, var(--panel-2));
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 .support-option h3 {
   display: flex;
@@ -1339,13 +1387,19 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 
 /* components/ui/ScrollRow: one line of cards that never wraps, under the drawn bar
    below. Children keep their own width; the gap is the site's 12px card rhythm.
-   The focus ring is drawn inside, because the scroller would clip one outside. */
+   The focus ring is drawn inside, because the scroller would clip one outside.
+   r11 quiet polish: 4px of room above the cards, given back by the margin so they sit
+   where they did: a card lifts 3px on hover (styles/core/motion.css), and the scroller
+   clipped its top edge off. A row with a margin of its own takes the 4px off it too
+   (.front-skins-row). */
 .scroll-row {
   display: flex;
   gap: 12px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
+  padding-top: 4px;
+  margin-top: -4px;
   padding-bottom: 6px;
 }
 .scroll-row > * { flex: none; }

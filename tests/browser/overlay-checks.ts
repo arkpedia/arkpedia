@@ -21,6 +21,15 @@ import type { Page } from '@playwright/test';
  * counts. Text a clipping ancestor hides (a closed panel parked outside its frame) is
  * not read. Computed colours only, so the same on any font; one load per address, with
  * the theme switched on the root element between the two readings.
+ *
+ * A plate need not be positioned itself to sit over art: the stage map's HUD is one
+ * absolute box (.stage-hud) with nothing painted, and its readings are static chips
+ * inside it, each on a fixed dark translucent plate. Its DP figure took the theme's
+ * --amber there and read 1.96:1 in the light theme, and its "Recommended" label a 55%
+ * white, 3.74:1 (r11 verify). So a translucent ground (50% to under 100% opaque) inside
+ * an absolutely or fixed positioned box counts as an overlay too; an opaque one there is
+ * a panel of its own, whose text the page's other checks read. Visually hidden text (the
+ * 1px clip-path pattern a glyph's word hides behind) is not drawn and is not read.
  */
 
 export interface Offence { what: string; text: string; ink: string; ground: string; ratio: number }
@@ -58,11 +67,21 @@ export function overlayText(): { checked: number; offences: Offence[] } {
   const offences = new Map<string, Offence>();
   let checked = 0;
   const range = document.createRange();
+  /** Whether an ancestor of `el` is absolutely or fixed positioned: `el` is drawn over
+   *  whatever that box sits on. */
+  const inOverlay = (el: Element) => {
+    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+      const p = getComputedStyle(n).position;
+      if (p === 'absolute' || p === 'fixed') return true;
+    }
+    return false;
+  };
   for (const el of Array.from(document.querySelectorAll('body *'))) {
     const cs = getComputedStyle(el);
-    if (cs.position !== 'absolute') continue;
     const bg = parse(cs.backgroundColor);
     if (!bg || bg.a < 0.5) continue;
+    // An overlay's own ground, or a translucent plate inside one (the HUD's chips).
+    if (cs.position !== 'absolute' && !(bg.a < 1 && inOverlay(el))) continue;
     if (!el.checkVisibility({ visibilityProperty: true, opacityProperty: true })) continue;
     const grounds = bg.a >= 1 ? [bg] : [over(bg, BLACK), over(bg, WHITE)];
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -77,6 +96,8 @@ export function overlayText(): { checked: number; offences: Offence[] } {
         if (n === el) break;
       }
       if (ground !== el || !parent.checkVisibility({ visibilityProperty: true, opacityProperty: true })) continue;
+      // Visually hidden (the 1px clip-path pattern): kept for a screen reader, not drawn.
+      if (/inset\(50%\)/.test(getComputedStyle(parent).clipPath)) continue;
       range.selectNodeContents(node);
       const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0.5 && r.height > 0.5);
       if (!rects.some((r) => unclipped(parent, r))) continue;

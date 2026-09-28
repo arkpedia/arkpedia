@@ -36,11 +36,17 @@ import '@/styles/survey/fragility.css';
 import '@/styles/maps/terra.css';
 import '@/styles/ui/price-display.css';
 import '@/styles/gamemodes/gamemodes.css';
+/* Last: every transition and animation the site adds (r11 quiet polish), all under
+   prefers-reduced-motion: no-preference. At equal specificity it beats the transitions
+   the primitives and cards above already declare, which it restates with its own. */
+import '@/styles/core/motion.css';
 import SiteNav from '@/components/layout/Sitenav';
 import MusicPlayer from '@/components/music/MusicPlayer';
 import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
+import { watchImageArrivals } from '@/lib/ui/imageArrival';
+import { useEffect } from 'react';
 
 export default function App({ Component, pageProps }: AppProps) {
   // Dedicated compact tools declare their layout before the server's first paint.
@@ -51,6 +57,9 @@ export default function App({ Component, pageProps }: AppProps) {
      The result is already absolute, which is what a link preview needs. */
   const logoPath = getEssentialIconPath('Arkpedia');
   const logoUrl = logoPath ? contentUrl(logoPath, pageProps.__contentRelease ?? null) : null;
+  // Images that arrive from here on fade in (lib/ui/imageArrival.ts); an effect, so only
+  // once the app has hydrated: what was already loaded, or already drawing, is simply shown.
+  useEffect(() => watchImageArrivals(document), []);
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>

@@ -125,3 +125,25 @@ test("only a green Check of a push to this repository's main deploys", () => {
     'github.event.workflow_run.head_repository.full_name == github.repository',
   ]) assert.ok(condition.includes(part), `deploy.yml's if requires ${part}: ${condition}`);
 });
+
+test("main runs the full Check unless a green pull request Check already ran its exact code", () => {
+  const workflow = load('check.yml') as unknown as { jobs: Record<string, Job & { needs?: unknown; outputs?: Record<string, string>; permissions?: Record<string, string> }> };
+  const seen = workflow.jobs.seen;
+  const check = workflow.jobs.check;
+  assert.equal(String(seen.if), "github.event_name == 'push'", 'the lookup runs on pushes only');
+  assert.equal(String(seen['runs-on']), String(check['runs-on']), 'the lookup runs where Check does (never a hosted runner for our pushes)');
+  assert.equal(seen.permissions?.actions, 'read', 'it lists artifacts');
+  assert.equal(seen.outputs?.checked, '${{ steps.seen.outputs.checked }}');
+  assert.ok(seen.steps!.some(step => step.run === 'node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"'));
+  assert.equal(check.needs, 'seen');
+  // A failed or skipped lookup (every pull request) still runs everything; only an explicit true skips.
+  assert.equal(String(check.if).replace(/\s+/g, ' '), "${{ !cancelled() && needs.seen.outputs.checked != 'true' }}");
+  const steps = (check.steps ?? []) as (Step & { with?: Record<string, unknown> })[];
+  const record = steps.find(step => step.name === 'Record the code this Check passed');
+  assert.ok(record, 'a green pull request Check records its tree');
+  assert.equal(String(record!.if), "success() && github.event_name == 'pull_request'");
+  assert.equal(String(record!.with?.name), 'checked-tree-${{ steps.tree.outputs.tree }}');
+  // Recorded last, so an upload means every step before it passed.
+  const last = steps.map(step => step.name).filter(name => name && !['Report a red Check on main', 'Close the red-Check report'].includes(name));
+  assert.equal(last[last.length - 1], 'Record the code this Check passed');
+});

@@ -85,7 +85,9 @@ export default function UiPrimitivesPage() {
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'a'} onClick={() => setPreset('a')}>Preset A (pick-card)</button>
             <button type="button" className="btn-bare pick-card" style={{ ...card, border: undefined }} aria-pressed={preset === 'b'} onClick={() => setPreset('b')}>Preset B</button>
             <button type="button" className="btn-bare" style={card}>btn-bare: a card</button>
+            <a className="lift" href="#buttons" style={{ ...card, border: '1px solid transparent', color: 'var(--text)', textDecoration: 'none' }}>.lift: rises on hover</a>
           </div>
+          <p className="hint">Motion (rule 23, styles/core/motion.css, none under reduced motion): buttons, chips and tabs press in; picture cards rise 3px on hover and focus (.lift for a card whose class is a module&apos;s); the tab underline below slides; images fade in as they arrive; the LIVE dot blinks.</p>
         </section>
 
         <section className="op-section" id="tabs">

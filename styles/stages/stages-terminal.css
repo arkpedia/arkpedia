@@ -464,6 +464,8 @@
   border: 1px solid var(--line-soft);
   background: var(--panel);
   border-radius: var(--radius-frame);
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 /* An .op-section's --section-gap foot is for sections stacked in a column; these sit on
    the home board's grid (gap 14px, a board of panels like the home page's) or stack with

@@ -86,3 +86,16 @@ test('removable tabs say Delete removes them, except the one that stays', () => 
   assert.match(html, /<span id="event-section-remove-hint" hidden="">Press Delete to remove it\.<\/span>/);
   assert.doesNotMatch(html, /<button[^>]*>[^<]*<button/, 'no button inside a tab');
 });
+
+test('the sliding underline is in the server markup, hidden, one per strip, after the tabs', () => {
+  // r11 quiet polish (docs/development/ui-primitives.md rule 23): the bar is rendered on
+  // the server as well, so hydration adds no element; it is aria-hidden, takes no Tab
+  // stop, and the strip carries no data-slide yet, so the first paint is each tab's own
+  // static ::after (arkpedia-theme.css) until the browser has measured the current tab.
+  const html = render('rewards');
+  const bars = [...html.matchAll(/<span class="tabs-indicator"([^>]*)><\/span>/g)];
+  assert.equal(bars.length, 1, 'one indicator for the strip');
+  assert.equal(bars[0][1], ' aria-hidden="true"', 'hidden from the accessibility tree, no attributes beyond that');
+  assert.match(html, /<\/button><span class="tabs-indicator" aria-hidden="true"><\/span><\/div>/, 'the last child of the tablist');
+  assert.doesNotMatch(html, /data-slide/, 'the server never hands the underline over');
+});

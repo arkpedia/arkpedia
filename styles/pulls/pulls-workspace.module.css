@@ -199,6 +199,8 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
   background: var(--panel-grad);
+  /* r11 quiet polish: a boxed panel's soft depth (docs/development/ui-primitives.md rule 23). */
+  box-shadow: var(--shadow-panel);
 }
 .page .resourceHeading { margin: 16px 16px 0; }
 /* The heading's --heading-gap is the wallet's top padding (the heading has no margin
