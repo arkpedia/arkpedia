@@ -4,9 +4,21 @@
 
 ## Page flow
 
-The resource card uses in-game icons and keeps recurring-income toggles visible. Income details, past clears, and the skin wishlist open in place; their state stays mounted while another section is open. The pull calculation and banner plan remain visible below, and phones collapse the same content into a single bounded column. Numeric fields select their contents on focus/click.
+The page opens with the shared page header (the eyebrow, the title and the **Export** and **Import** buttons) and three sections, in this order. `/schedule` links to a banner through `?banner=<name>`: a **Plan pulls** button on each event row and **Add to Pull Planner** under a banner's pullable operators.
 
-Income keeps a themed banner selector, calendar, and first/last-day buttons together. Banner options include featured operator names, and the selected banner shows its art. Manually changing the date clears the banner selection and disables the day buttons. The rerun checklist remains independent of the forecast date. Per-banner income actions switch to Income; desktop has no duplicate forecast popup.
+1. **Resources & income.**
+   - The wallet: Orundum, Originite Prime, permits and yellow certificates, each a numeric field with its in-game icon. Numeric fields select their contents on focus.
+   - The recurring income as real checkboxes (daily and weekly missions, Annihilation, the yellow and green certificate shops, the monthly card), with the resulting pulls per 30 days beside them.
+   - Three disclosure triggers in one row, each opening its panel in place under the row and keeping the others' state mounted:
+     - **Income & events**: the forecast banner (a dropdown with its art and featured operators), the calendar date with first- and last-day buttons, the Wishing Wall scenario, and the income lines.
+     - **Past events**: the back catalogue of first clears. Its **Include** checkbox sits inside the same frame as the trigger (a sibling of the button, never inside it). Ticking Include counts the unclaimed rewards in the forecast without opening the panel.
+     - **Skin wishlist**, showing the OP it reserves.
+2. **Pull calculation.** The forecast for one date, set by the **Until** date field: available now, plus income, plus event rewards, equals the pulls before spending. The skin reserve is already taken out.
+3. **Your banners.** The **+ Add banner** button opens the banner picker. Each planned banner is one row: the banner (its art, name and a goals toggle), until when, the pulls budget, the pulls available, all goals, and the pulls left, with a borderless × to remove it. The row's values sit on one line with the budget field; captions such as *Estimated* hang below without moving them.
+   - Under a banner, **Operator goals** picks operators and copies and shows individual and combined chances. Its help panel's "pull budget" link goes to that banner's budget field.
+   - Each row's footer shows the banner's free pulls, what comes from savings, and what is left after earlier banners. The section's footer shows how far the budgets are covered and the savings after the plan.
+
+Phones stack the same sections in one column; the triggers and the banner rows reflow, and no content moves out of reach.
 
 Past Events opens one category at a time. Tick completed chapters, events, resource stages and Annihilation maps, then enable their remaining rewards. Individual first clears are projected from the existing reward pools by `node scripts/build-pull-first-clears.mjs`; generation fails if those lists do not reconcile with the old totals. Old all-cleared resource/Annihilation flags keep their meaning and expand into individual IDs only when that category is edited.
 
@@ -30,7 +42,7 @@ The forecast headline shows available pulls before planned spending, with the sk
 
 ## Wishing Wall scenarios
 
-Income offers Minimum, Average (default), and I AM LUCKY. The selection saves with the plan; older files default to Minimum. It applies to all Wishing Walls in the forecast, including chronological banner budgets and the net-forecast popup. Existing event-end reward timing is unchanged.
+Income offers Minimum, Average (default), and I AM LUCKY. The selection saves with the plan; older files default to Minimum. It applies to all Wishing Walls in the forecast, including chronological banner budgets. Existing event-end reward timing is unchanged.
 
 - Minimum preserves the existing guaranteed 200 Orundum/day (2,800 over 14 days).
 - Average assumes independent, equally likely strips worth 200/300/400/500/600/800. Keep the highest of two; a result below 400 unlocks three draws the following day. The exact expected maximum is 577.777… for two draws and 637.962… for three. Starting with no bonus, update its probability as `(1-p)/9 + p/27`, summing each day's weighted expectation. Fourteen days yield 8,170.256969… Orundum, rounded once per event to 8,170. This is an estimate under that distribution assumption, not verified drop odds.
