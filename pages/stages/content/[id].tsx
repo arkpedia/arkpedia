@@ -17,6 +17,7 @@ import { isFloor, isNodeCode } from '@/lib/stages/isNodes';
 import { compareStageSummaries } from '@/lib/stages/stageSort';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import indexData from '@/public/stages-index.json';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 /** Cards per press. A season of Integrated Strategies is 179 nodes, each with a
  *  map render behind it, and rendering the lot is 179 requests to the image
@@ -258,16 +259,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
         <p className="hint">No stage in this one matches that.</p>
       )}
 
-      {shownCount < matched && (
-        <div className="stage-mode-more">
-          <button type="button" className="ghost" onClick={() => setLimit((n) => n + CARD_PAGE)}>
-            Show {Math.min(CARD_PAGE, matched - shownCount)} more
-          </button>
-          <span className="stage-count">
-            {shownCount} of {matched}
-          </span>
-        </div>
-      )}
+      <LoadOnScroll shown={shownCount} total={matched} onMore={() => setLimit((n) => n + CARD_PAGE)} />
     </>
   );
 

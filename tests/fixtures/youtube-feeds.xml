@@ -6,7 +6,7 @@
   each entry tagged with its <yt:channelId> as a real feed's entries are, newest first; the
   reader hands each channel its own. Six a channel, as VIDEOS_PER_CHANNEL keeps, and two
   channels lead with a title the feed filter drops (Endfield; no "Arknights"), so
-  /community/videos has 34 cards, more than its 24-card page, and its "Show more" button.
+  /community/videos has 34 cards, more than its first 24-card batch, so it grows on scroll.
   The thumbnails are inline SVG, so the cards draw their art with no network.
 -->
 <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">

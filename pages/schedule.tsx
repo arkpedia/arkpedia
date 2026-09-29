@@ -39,6 +39,7 @@ import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { Skin } from '@/lib/skins/skinTypes';
 import XButton from '@/components/ui/XButton';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 interface Props {
   events: ScheduleEvent[];
@@ -743,16 +744,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 );
               })}
             </div>
-            {showAllVisibleCount < panelSkins.length && (
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14 }}>
-                <button type="button" className="ghost" onClick={() => setShowAllVisibleCount((c) => c + 20)}>
-                  Show More
-                </button>
-                <button type="button" className="ghost" onClick={() => setShowAllVisibleCount(panelSkins.length)}>
-                  Show Everything
-                </button>
-              </div>
-            )}
+            <LoadOnScroll shown={showAllVisibleCount} total={panelSkins.length} onMore={() => setShowAllVisibleCount((c) => c + 20)} />
           </div>
         </div>
       )}

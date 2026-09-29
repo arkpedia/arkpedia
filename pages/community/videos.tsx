@@ -6,10 +6,11 @@ import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
 import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterArknightsVideos } from '@/lib/music/contentFilter';
 import { CommunityEyebrow, VideoCard } from '@/components/community/StreamCards';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import PageHeader from '@/components/ui/PageHeader';
 
-/** Cards per page: six rows of four in the frame. The whole feed was 61 cards and
- *  16,886px tall on a phone; the rest is one press away. */
+/** Cards per batch: six rows of four in the frame. The whole feed was 61 cards and
+ *  16,886px tall on a phone; the rest arrive as the reader scrolls. */
 const PAGE = 24;
 
 interface Props {
@@ -18,7 +19,6 @@ interface Props {
 
 export default function VideosPage({ videos }: Props) {
   const [shown, setShown] = useState(PAGE);
-  const left = videos.length - shown;
   return (
     <>
       <Head><title>Videos — Arkpedia</title></Head>
@@ -37,13 +37,7 @@ export default function VideosPage({ videos }: Props) {
                 <VideoCard key={v.videoId} v={v} />
               ))}
             </div>
-            {left > 0 && (
-              <div className="video-more">
-                <button type="button" onClick={() => setShown((n) => n + PAGE)}>
-                  Show {Math.min(PAGE, left)} more ({left} left)
-                </button>
-              </div>
-            )}
+            <LoadOnScroll shown={shown} total={videos.length} onMore={() => setShown((n) => n + PAGE)} />
           </>
         )}
       </main>

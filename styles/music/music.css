@@ -357,7 +357,6 @@
 /* "Songs (884)" is the page's section heading, .section-title (shared.css): it was the
    global 22px h2 at a 10px gap. The panel's flex gap is part of the heading gap. */
 .music-queue-panel > h2 { margin: 0 0 calc(var(--heading-gap) - var(--queue-gap)); }
-.music-queue-show-more { width: 100%; }
 .music-queue-list {
   display: flex;
   flex-direction: column;
@@ -551,7 +550,6 @@
 .music-discover-song-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .music-discover-song-title { overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .music-discover-song-meta { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.music-discover-show-more { align-self: center; margin-top: 8px; }
 
 /* A preview row (inside ScrollRow) or, with Show all, every item wrapped. */
 .music-discover-row { gap: 14px; padding-bottom: 6px; }

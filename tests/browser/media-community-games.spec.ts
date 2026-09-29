@@ -129,6 +129,11 @@ test('GE-10/GM-04: the music widget never covers the last row, and stays off /mu
   await page.goto('/community/videos');
   const toggle = page.locator('[data-music-widget] .music-collapse-toggle');
   await expect(toggle).toBeVisible();
+  // To the very end: the list grows as it is read, so the bottom moves until every card is in.
+  await expect.poll(async () => {
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+    return page.locator('.video-card').count();
+  }).toBe(34);
   await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
   await page.waitForTimeout(400);
   const lastBottom = await page.locator('main').evaluate(el => el.lastElementChild!.getBoundingClientRect().bottom);
@@ -138,6 +143,21 @@ test('GE-10/GM-04: the music widget never covers the last row, and stays off /mu
   await page.goto('/music');
   await expect(page.locator('.music-collapse-toggle')).toHaveCount(0);
   await expect(page.locator('[data-music-widget]')).toHaveCount(0);
+});
+
+test('/community/videos grows as it is read, with no "Show more" button and no jump', async ({ page }) => {
+  // A short window, so the first batch's end starts out of reach (600px past the fold).
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: 480 });
+  await page.goto('/community/videos');
+  const cards = page.locator('.video-card');
+  await expect(cards).toHaveCount(24);
+  await expect(page.getByRole('button', { name: /more/i })).toHaveCount(0);
+  const first = await cards.nth(20).evaluate(el => el.getBoundingClientRect().top + window.scrollY);
+  await cards.last().scrollIntoViewIfNeeded();
+  await expect(cards).toHaveCount(34);
+  // The next batch lands below what the reader has: nothing already shown moves.
+  expect(await cards.nth(20).evaluate(el => el.getBoundingClientRect().top + window.scrollY)).toBe(first);
+  await expect(page.locator('.load-on-scroll')).toHaveCount(0);
 });
 
 test('GM-07: nav triggers use the nav links voice', async ({ page }, info) => {

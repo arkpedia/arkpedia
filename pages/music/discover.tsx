@@ -14,6 +14,7 @@ import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import AlbumCover from '@/components/music/AlbumCover';
 import { discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 interface Props {
   songs: DiscoverSong[];
@@ -261,15 +262,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
                       </div>
                     </button>
                   ))}
-                  {songsVisibleCount < filteredSongs.length && (
-                    <button
-                      type="button"
-                      className="ghost music-discover-show-more"
-                      onClick={() => setSongsVisibleCount((c) => c + SONGS_PAGE_SIZE)}
-                    >
-                      Show more ({filteredSongs.length - songsVisibleCount} remaining)
-                    </button>
-                  )}
+                  <LoadOnScroll shown={songsVisibleCount} total={filteredSongs.length} onMore={() => setSongsVisibleCount((c) => c + SONGS_PAGE_SIZE)} />
                   {songsVisibleCount >= filteredSongs.length && filteredPending.map((s) => (
                     <a key={s.songId} className="music-discover-song-row music-discover-song-row-pending" href={monsterSirenSong(s.songId)} target="_blank" rel="noopener noreferrer">
                       <div className="music-discover-song-cover">

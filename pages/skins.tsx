@@ -11,6 +11,7 @@ import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import PageHeader from '@/components/ui/PageHeader';
 import ScrollRow from '@/components/ui/ScrollRow';
 import SearchInput from '@/components/ui/SearchInput';
@@ -170,7 +171,6 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const SKIN_PAGE_SIZE = 30;
   const [visibleSkinCount, setVisibleSkinCount] = useState(SKIN_PAGE_SIZE);
   const resultsRef = useRef<HTMLElement>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
   const [currentShelfOpen, setCurrentShelfOpen] = useState(true);
   function closeCurrentShelf() {
     setCurrentShelfOpen(false);
@@ -243,18 +243,6 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   useEffect(() => {
     setVisibleSkinCount(SKIN_PAGE_SIZE);
   }, [search, selectedSeries, wishlistOnly, availabilityFilter, sortByAvailableDate]);
-
-  useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel || visibleSkinCount >= filteredSkins.length) return;
-    const observer = new IntersectionObserver(entries => {
-      if (!entries.some(entry => entry.isIntersecting)) return;
-      observer.disconnect();
-      setVisibleSkinCount(count => Math.min(count + SKIN_PAGE_SIZE, filteredSkins.length));
-    }, { rootMargin: '600px 0px' });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [visibleSkinCount, filteredSkins]);
 
   function renderSkinCards(list: Skin[], keyPrefix: string) {
     return list.map((skin, i) => {
@@ -358,9 +346,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
             <div className="skin-grid">
               {renderSkinCards(filteredSkins.slice(0, visibleSkinCount), '')}
             </div>
-            {visibleSkinCount < filteredSkins.length && (
-              <div ref={loadMoreRef} className="skins-load-sentinel" aria-hidden="true" />
-            )}
+            <LoadOnScroll shown={visibleSkinCount} total={filteredSkins.length}
+              onMore={() => setVisibleSkinCount(count => Math.min(count + SKIN_PAGE_SIZE, filteredSkins.length))} />
           </>
         )}
       </main>

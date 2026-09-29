@@ -15,6 +15,7 @@ import TransportIcon from '@/components/music/TransportIcons';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import XButton from '@/components/ui/XButton';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -671,15 +672,7 @@ export default function MusicPage({ songLookup }: Props) {
                     onRemove={() => removeFromQueue(queueIdx)}
                   />
                 ))}
-                {queueVisibleCount < displayListWithPos.length && (
-                  <button
-                    type="button"
-                    className="ghost music-queue-show-more"
-                    onClick={() => setQueueVisibleCount((c) => c + QUEUE_PAGE_SIZE)}
-                  >
-                    Show more ({displayListWithPos.length - queueVisibleCount} remaining)
-                  </button>
-                )}
+                <LoadOnScroll shown={queueVisibleCount} total={displayListWithPos.length} onMore={() => setQueueVisibleCount((c) => c + QUEUE_PAGE_SIZE)} />
               </div>
             )}
           </div>
