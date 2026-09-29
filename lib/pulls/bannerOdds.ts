@@ -46,9 +46,16 @@ export function resolveLimitedRules(verified: LimitedRules, nameOf: ReadonlyMap<
   return { resolved: { source: verified.source, bonus: nameOf.get(verified.bonus)!, returning300: names(verified.returning300), returning200: names(verified.returning200) } };
 }
 
+/** Crossover pools whose announcement was read for the rules probability.ts models: the
+ *  featured 6★ guaranteed within every 120 pulls, resetting when obtained; a rate-up 5★
+ *  guaranteed as the next 5★ if none came in the first 50 pulls; and, with two rate-up
+ *  5★, the next 5★ after the first of them is the other, once. */
 const CROSSOVER_SOURCES: Record<string, string> = {
   LINKAGE_74_0_1: 'https://ak.hypergryph.com/news/7377.html',
   LINKAGE_74_0_3: 'https://ak.hypergryph.com/news/9699',
+  // [Crossover · Persona 3 Reload] Some Evening of White and Mystic Blue: Makoto Yuki,
+  // with Aegis and Yukari Takeba as the two rate-up 5★.
+  LINKAGE_77_0_1: 'https://ak.hypergryph.com/news/1457',
 };
 export function getBannerOdds(schedule: UpcomingBanner[]): Record<string, BannerOdds> {
   const banners = getAllHeadhuntingBanners();

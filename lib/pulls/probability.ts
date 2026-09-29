@@ -81,10 +81,21 @@ export function simulateOdds(request: OddsRequest, sampleOverride?: number, rand
   };
   const index = new Map(ops.map((op, i) => [op.name, i]));
   const featuredSix = six.find(op => op.kind === 'featured')?.name;
-  const featuredFive = five.find(op => op.kind === 'featured')?.name;
+  // A crossover's rate-up 5★, drawn by their shares when a guarantee names one of them.
+  const featuredFives = five.filter(op => op.kind === 'featured');
+  const featuredFiveShare = featuredFives.reduce((total, op) => total + op.share, 0);
+  const pickFeaturedFive = (): string | undefined => {
+    if (featuredFives.length < 2) return featuredFives[0]?.name; // no draw: one-5★ banners sample as before
+    let roll = random() * featuredFiveShare;
+    for (const op of featuredFives) { roll -= op.share; if (roll < 0) return op.name; }
+    return featuredFives.at(-1)?.name;
+  };
   for (let run = 0; run < samples; run++) {
     const counts = ops.map(() => 0);
+    // fiveSeen: a rate-up 5★ has come. owedFive: the other rate-up 5★, which the next 5★ is
+    // once the first of two has come (pairDone once it has been paid).
     let pity = 0, sinceFeatured = 0, usedSingleGuarantee = false, fiveSeen = false, firstTenDone = false;
+    let owedFive: string | undefined, pairDone = false;
     for (let pull = 1; pull <= pulls; pull++) {
       const hardSix = rules.type === 'crossover' && sinceFeatured >= 119;
       const sixRate = sixStarChance(pity);
@@ -99,9 +110,14 @@ export function simulateOdds(request: OddsRequest, sampleOverride?: number, rand
       } else {
         pity++;
         if ((!firstTenDone && pull === 10) || rarityRoll < sixRate + (1 - sixRate) * (.08 / .98)) {
-          name = rules.type === 'crossover' && pull > 50 && !fiveSeen ? featuredFive : pick(five);
+          if (rules.type !== 'crossover') name = pick(five);
+          else if (owedFive) { name = owedFive; owedFive = undefined; pairDone = true; }
+          else name = pull > 50 && !fiveSeen ? pickFeaturedFive() : pick(five);
           firstTenDone = true;
-          if (name === featuredFive) fiveSeen = true;
+          if (rules.type === 'crossover' && featuredFives.some(op => op.name === name)) {
+            if (!fiveSeen && !pairDone && featuredFives.length > 1) owedFive = featuredFives.find(op => op.name !== name)?.name;
+            fiveSeen = true;
+          }
         }
       }
       sinceFeatured = name === featuredSix ? 0 : sinceFeatured + 1;

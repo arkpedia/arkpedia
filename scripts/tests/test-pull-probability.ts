@@ -132,6 +132,34 @@ test('single safety net and recurring crossover guarantees use different boundar
   const five = simulateOdds(request(cross,52,[cross.operators[1].name]),1,()=>draws.shift()!);
   assert.equal(five.copies[0][0].probability,1); assert.equal(five.copies[0][1].probability,0);
 });
+test('the Persona 3 Reload crossover gets its announced rates: Makoto Yuki 50% of 6★ rolls, Aegis and Yukari Takeba 25% of 5★ each', () => {
+  const rules = Object.values(catalogue).find(r => r.id === 'LINKAGE_77_0_1');
+  assert.ok(rules, 'the pool is in the schedule and verified');
+  assert.equal(rules.type, 'crossover');
+  assert.deepEqual(rules.sources, ['https://ak.hypergryph.com/news/1457']);
+  assert.deepEqual(rules.operators.map(op => [op.name, op.rarity, op.share]),
+    [['Makoto Yuki', 6, .5], ['Aegis', 5, .25], ['Yukari Takeba', 5, .25]]);
+});
+
+/* A crossover with two rate-up 5★, as Persona 3 Reload has. Names invented. */
+const pair: BannerOdds = { id: 'LINKAGE_TEST', type: 'crossover', sources: [], operators: [
+  featured('Crossover Six', 6, .5, 0), featured('Five A', 5, .25, 0), featured('Five B', 5, .25, 0)].map(({ spark, ...op }) => op) };
+test('with two rate-up 5★, the next 5★ after the first of them is the other, once', () => {
+  // Three 5★ in a row: A by its roll, then B owed without a roll, then A by its roll again.
+  const draws = [.03, .1, .03, .03, .1];
+  const result = simulateOdds(request(pair, 3, ['Five A', 'Five B']), 1, () => draws.shift()!);
+  assert.equal(draws.length, 0, 'the owed 5★ takes no roll');
+  assert.deepEqual(result.copies.map(row => row.slice(0, 2).map(c => c.probability)), [[1, 1], [1, 0]]);
+});
+test('with two rate-up 5★, the 50-pull guarantee can give either, and either counts as the first', () => {
+  // Fifty pulls with no rate-up 5★ (pull 10's forced 5★ is off-banner), then a 5★ whose
+  // roll lands in the second half of the rate-up share: Five B, where the model used to
+  // give the first-listed every time. The next 5★ is then Five A, owed.
+  const draws = [...Array(9).fill(.5), .5, .9, ...Array(40).fill(.5), .05, .9, .07];
+  const result = simulateOdds(request(pair, 52, ['Five A', 'Five B']), 1, () => draws.shift()!);
+  assert.equal(draws.length, 0);
+  assert.deepEqual(result.copies.map(row => row[0].probability), [1, 1]);
+});
 test('Orienteering requires three of each rarity and only permits selected targets', () => {
   const rules=ofType('orienteering');const r=request(rules,100,[rules.operators[0].name]);
   assert.throws(()=>selectedRules(r),/three/);

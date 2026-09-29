@@ -66,14 +66,15 @@ export interface GachaState {
   featuredGuaranteeUsed: boolean; // Featured banner: the 150-pull guarantee is a ONE-TIME safety net per session, never recurs once fired -- confirmed correct
   limitedObtained: boolean; // Limited banner: whether the limited 6-star has been obtained at least once (natural pull or the 300-pull bonus) -- informational, does NOT gate the guarantee below
   limitedGuaranteeGranted: boolean; // Limited banner: whether the 300-pull bonus COPY has specifically been granted -- independent of limitedObtained, since a natural pull before 300 should NOT skip the bonus copy
-  // Crossover is a genuinely different mechanic: its own 120-pull hard
-  // guarantee (separate from Featured's 150-pull one), and its two
-  // featured 5-stars guarantee-complete each other once one is obtained
-  // -- no 50/50 randomness once you have one of the pair.
+  // Crossover rules, as each crossover's announcement states them (ak.hypergryph.com/news/1457,
+  // 7377, 9699): the featured 6-star is guaranteed within every 120 pulls, the count starting
+  // over each time it is obtained -- it recurs, unlike Featured's one-time 150; if no rate-up
+  // 5-star came in the first 50 pulls, the next 5-star is a rate-up one; and with two rate-up
+  // 5-stars, the next 5-star after the first of them is the other, once.
   pullsSinceCrossover6Star: number;
-  crossoverGuaranteeUsed: boolean; // unlike Featured, ANY obtain of the featured six-star (natural or the forced 120-pull grant) locks this -- one-time use per session either way, confirmed correct
+  crossoverFiveStarSeen: boolean; // a rate-up 5-star has been obtained, so the 50-pull rule no longer applies
   crossoverFiveStarObtainedName: string | null;
-  crossoverFiveStarPairCompleted: boolean; // ONE-TIME safety net, same family as firstTenGuaranteeUsed/featuredGuaranteeUsed/crossoverGuaranteeUsed -- once the pair has been fully completed once, obtaining either one again later must NOT re-lock the next 5-star roll to guarantee the other one a second time
+  crossoverFiveStarPairCompleted: boolean; // ONE-TIME, same family as firstTenGuaranteeUsed/featuredGuaranteeUsed -- once the pair has been completed, obtaining either one again later must NOT re-lock the next 5-star roll to the other one a second time
   obtainedCounts: Record<string, number>; // per-operator name -> how many times obtained this session
   history: PulledItem[];
 }
@@ -88,7 +89,7 @@ export function createInitialState(): GachaState {
     limitedObtained: false,
     limitedGuaranteeGranted: false,
     pullsSinceCrossover6Star: 0,
-    crossoverGuaranteeUsed: false,
+    crossoverFiveStarSeen: false,
     crossoverFiveStarObtainedName: null,
     crossoverFiveStarPairCompleted: false,
     obtainedCounts: {},

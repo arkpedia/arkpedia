@@ -180,3 +180,34 @@ test('an empty 6★ lineup pulls from the rest of the pool, and an empty pool do
   assert.ok(pulled.length > 0);
   assert.ok(pulled.every(item => item.name === 'Unknown Operator'));
 });
+
+/* The crossover rules as the Persona 3 Reload announcement states them
+   (ak.hypergryph.com/news/1457), on its banner in the fixture. Each pull draws twice (rarity,
+   then who), so a scripted Math.random decides every pull. */
+function scripted<T>(draw: (index: number) => number, run: () => T): T {
+  const real = Math.random;
+  let index = 0;
+  Math.random = () => draw(index++);
+  try { return run(); } finally { Math.random = real; }
+}
+const P3 = '[Crossover · Persona 3 Reload] Some Evening of White and Mystic Blue';
+
+test('a crossover guarantees its featured 6★ within every 120 pulls, not just the first', () => {
+  const built = config(banner(P3));
+  assert.equal(built.type, 'crossover');
+  // Every roll as high as it goes: no featured 6★ by chance, only by the guarantee.
+  const { items } = scripted(() => .999, () => doPulls(built, createInitialState(), 240));
+  const featured = items.map((item, i) => [i + 1, item] as const).filter(([, item]) => item.rarity === 6 && item.isFeatured).map(([pull]) => pull);
+  assert.deepEqual(featured, [120, 240]);
+});
+
+test('a crossover with no rate-up 5★ in its first 50 pulls makes the next 5★ one of them', () => {
+  const built = config(banner(P3));
+  // Pull 10's forced 5★ is off-banner; pull 51's rarity roll lands on a 5★, and its high
+  // roll would pick an off-banner one without the rule.
+  const { items } = scripted(i => (i === 100 ? .05 : .999), () => doPulls(built, createInitialState(), 51));
+  assert.equal(items[9].rarity, 5);
+  assert.equal(items[9].isFeatured, false);
+  assert.equal(items[50].rarity, 5);
+  assert.ok(['Aegis', 'Yukari Takeba'].includes(items[50].name), items[50].name);
+});
