@@ -4,10 +4,11 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EnemyContent, EnemySummary } from '@/lib/enemies/enemyTypes';
+import { listedEnemies } from '@/lib/enemies/enemyListing';
 import ContentPicker, { ContentPickerOption } from '@/components/ui/ContentPicker';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import SearchInput from '@/components/ui/SearchInput';
-import { matchesSearch } from '@/lib/search/searchNormalize';
+import { searchEnemies } from '@/lib/enemies/enemySearch';
 import { useVirtualRows, type VirtualRowLayout } from '@/components/ui/useVirtualRows';
 
 /**
@@ -198,19 +199,19 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
      are dropped rather than offered as options that can only empty the grid -- the
      same rule the appearances picker follows in the other direction, where an enemy
      lists only the contents it actually turns up in. */
+  const listed = useMemo(() => listedEnemies(rows), [rows]);
   const contentOptions: ContentPickerOption[] = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const e of rows) {
-      if (e.hidden) continue;
+    for (const e of listed) {
       for (const id of e.appears_in || []) counts.set(id, (counts.get(id) || 0) + 1);
     }
     return contents
       .filter((c) => counts.has(c.id))
       .map((c) => ({ kind: c.kind, id: c.id, label: c.label, name: c.name, count: counts.get(c.id) || 0 }));
-  }, [contents, rows]);
+  }, [contents, listed]);
 
   const shown = useMemo(() => {
-    let list = rows.filter((e) => !e.hidden);
+    let list = listed;
     if (filters.type !== 'all') list = list.filter((e) => e.rank === filters.type);
     if (filters.movement !== 'all') list = list.filter((e) => e.movement === filters.movement);
     if (filters.position !== 'all') list = list.filter((e) => e.attack_position === filters.position);
@@ -229,12 +230,14 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
     if (filters.content !== 'all') {
       list = list.filter((e) => (e.appears_in || []).includes(filters.content));
     }
-    if (filters.search.trim()) {
-      list = list.filter((e) => matchesSearch(e.name, filters.search) || matchesSearch(e.index || '', filters.search));
-    }
+    // Names and codes, and also chapters, events and every chip's values (lib/enemies/enemySearch.ts).
+    // An enemy whose own name or code matched comes first; the chosen sort orders each part.
+    const found = searchEnemies(list, filters.search, contents);
+    list = found.rows;
+    const lead = (e: EnemySummary) => (found.own(e) ? 0 : 1);
 
     const flip = sortDir === 'asc' ? 1 : -1;
-    return [...list].sort((a, b) => {
+    const byField = (a: EnemySummary, b: EnemySummary) => {
       if (sortField === 'name') return a.name.localeCompare(b.name) * flip;
       if (sortField === 'handbook') return (a.sort - b.sort) * flip || a.name.localeCompare(b.name);
       const va = a[sortField];
@@ -244,8 +247,9 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
       // unknowns to the front.
       if (va == null || vb == null) return va == null && vb == null ? 0 : va == null ? 1 : -1;
       return (va - vb) * flip || a.name.localeCompare(b.name);
-    });
-  }, [rows, filters, sortField, sortDir]);
+    };
+    return [...list].sort((a, b) => lead(a) - lead(b) || byField(a, b));
+  }, [listed, contents, filters, sortField, sortDir]);
 
   function pickSort(field: SortField) {
     if (field === sortField) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -329,7 +333,7 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
               set={set}
               races={races}
               contentOptions={contentOptions}
-              contentTotal={rows.filter((enemy) => !enemy.hidden).length}
+              contentTotal={listed.length}
               onClose={() => setFiltersOpen(false)}
               shown={shown.length}
             />
@@ -444,7 +448,7 @@ function EnemyFilterPanel({
       <SearchInput
         className="enemy-filter-search"
         label="Search enemies"
-        placeholder="Search by name or code..."
+        placeholder="Name, code, chapter, event, trait..."
         value={filters.search}
         onChange={(search) => set('search', search)}
       />

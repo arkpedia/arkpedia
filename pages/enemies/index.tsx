@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import EnemyBrowser from '@/components/enemies/EnemyBrowser';
 import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
 import { getEnemyContents, getEnemySummaries } from '@/lib/enemies/enemies';
+import { listedEnemies } from '@/lib/enemies/enemyListing';
 import { EnemyContent, EnemySummary } from '@/lib/enemies/enemyTypes';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { getAllOperators } from '@/lib/operators/operators';
@@ -143,7 +144,7 @@ export default function EnemiesPage({ siblings, contents, firstSlug, statusCandi
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/enemies", async () => {
-  const summaries = getEnemySummaries().filter((e) => !e.hidden);
+  const summaries = listedEnemies(getEnemySummaries());
   const first = summaries[0];
   // Released or not is decided at render (selectEnemyStatusOperators), never here.
   const releases = new Map(getAllOperators().map(operator => [operator.name, releaseMarker(operator)]));
