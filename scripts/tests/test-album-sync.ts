@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Node import scripts are plain JavaScript.
-import { adoptCovers, API, applyPlan, COPYRIGHT_DEFAULT, exclusionsOutsideLibrary, formatRecord, newSongRecord, syncAlbums } from '../sync/sync-albums.mjs';
+import { adoptCovers, API, applyPlan, COPYRIGHT_DEFAULT, exclusionsOutsideLibrary, formatRecord, newSongRecord, syncAlbums, UPLOAD_WAIT_DAYS } from '../sync/sync-albums.mjs';
+// @ts-expect-error Node import scripts are plain JavaScript.
+import { matchUploads, MSR_FEED, normalizeTitle, parseFeed } from '../lib/youtube-uploads.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { readQuarantine } from '../lib/quarantine.mjs';
 
@@ -133,7 +135,8 @@ function wavHeader(seconds: number) {
   return bytes;
 }
 
-type Upstream = { albums: object[]; songs: object[]; details: Record<string, object | null>; info: Record<string, object> };
+// feed: Monster Siren's YouTube channel feed, or null for a feed that answers 404.
+type Upstream = { albums: object[]; songs: object[]; details: Record<string, object | null>; info: Record<string, object>; feed?: string | null };
 function monsterSiren(): Upstream {
   return {
     // Newest first, as Monster Siren lists them.
@@ -163,6 +166,7 @@ function monsterSiren(): Upstream {
 function fetcherFor(upstream: Upstream) {
   const json = (data: unknown, status = 200) => ({ ok: status < 400, status, json: async () => ({ code: 0, msg: '', data }), arrayBuffer: async () => new ArrayBuffer(0) });
   return async (url: string) => {
+    if (url === MSR_FEED) return { ok: upstream.feed != null, status: upstream.feed != null ? 200 : 404, text: async () => upstream.feed ?? '' };
     if (url === `${API}/albums`) return json(upstream.albums);
     if (url === `${API}/songs`) return json({ list: upstream.songs });
     let match = url.match(/\/album\/(\d+)\/detail$/);
@@ -378,7 +382,7 @@ test('an exclusion written for a waiting track holds through a Monster Siren out
   }
 });
 
-test('an imported song\'s copyright flag is the catalogue\'s own "no", which the site reads, and the flag says to check it', async () => {
+test('an imported song\'s copyright flag is the catalogue\'s own "no", which the site reads, and its flag waits weeks for the upload', async () => {
   const record = newSongRecord({ cid: 100009, name: 'Imported' }, '1001', '03:00');
   assert.equal(record.copyright, 'no');
   assert.equal(COPYRIGHT_DEFAULT, 'no');
@@ -390,8 +394,124 @@ test('an imported song\'s copyright flag is the catalogue\'s own "no", which the
   try {
     await run(t.root, monsterSiren(), '2026-09-25');
     const flag = readQuarantine(t.root).entries.find((entry: { key: string }) => entry.key === 'song:100003');
-    assert.match(flag.reason, /Its copyright flag is the default "no"; check it when adding the videoId/);
+    assert.match(flag.reason, /has no upload on Monster Siren's YouTube channel yet: .* until the daily run finds the upload and fills in its videoId/);
+    assert.equal(flag.overdueAfterDays, UPLOAD_WAIT_DAYS);
   } finally {
     t.cleanup();
+  }
+});
+
+/* --- a flagged song's videoId, from Monster Siren's YouTube uploads ---------------------- */
+
+/** A channel feed in YouTube's own shape, newest first. */
+const feed = (uploads: [string, string][]) => `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
+ <title>塞壬唱片-MSR</title>
+${uploads.map(([videoId, title]) => ` <entry>
+  <id>yt:video:${videoId}</id>
+  <yt:videoId>${videoId}</yt:videoId>
+  <yt:channelId>UCzow4LPT9IunlkFdt4Y0-FQ</yt:channelId>
+  <title>${title}</title>
+  <published>2026-09-28T16:00:00+00:00</published>
+ </entry>`).join('\n')}
+</feed>`;
+const LABEL_ONLY = ['塞壬唱片-MSR'];
+type Song = { songId: string; songName: string; videoId: string; albumName: string; albumAltName?: string; albumSize: number };
+const song = (songId: string, songName: string, extra: Partial<Song> = {}): Song => ({ songId, songName, videoId: '', albumName: 'Some OST', albumSize: 5, ...extra });
+
+test('an upload title is matched the way the distributor writes it: Traditional Chinese, ASCII punctuation, its own case and "Instrumental Version"', () => {
+  assert.equal(normalizeTitle('水槍生死鬥'), normalizeTitle('水枪生死斗'));
+  assert.equal(normalizeTitle('毛茸茸大決戰!'), normalizeTitle('毛茸茸大决战！'));
+  assert.equal(normalizeTitle('Every Road Is a Yes (Instrumental Version)'), normalizeTitle('Every Road is a Yes (Instrumental)'));
+  assert.equal(normalizeTitle('Yanking（Instrumental）'), normalizeTitle('Yanking (Instrumental)'));
+  assert.notEqual(normalizeTitle('Summer Calling (Instrumental Version)'), normalizeTitle('Summer Calling'));
+  assert.deepEqual(parseFeed(feed([['aaaaaaaaaaa', 'Rock &amp; Roll &#39;Night&#x27;']])), [{ videoId: 'aaaaaaaaaaa', title: "Rock & Roll 'Night'" }]);
+});
+
+test('a match is unique both ways, and a video already in the catalogue is never given to another song', () => {
+  const uploads = [{ videoId: 'vvvvvvvvvv1', title: '連煩惱也融入天空' }];
+  const wanted = new Set(['1']);
+  assert.deepEqual(matchUploads({ songs: [song('1', '连烦恼也融入天空')], wanted, uploads }).map((m: { videoId: string }) => m.videoId), ['vvvvvvvvvv1']);
+  // Two uploads that could be the song: neither.
+  assert.deepEqual(matchUploads({ songs: [song('1', '连烦恼也融入天空')], wanted, uploads: [...uploads, { videoId: 'vvvvvvvvvv2', title: '連煩惱也融入天空' }] }), []);
+  // Another song in the catalogue has the same name (an older track, already on YouTube): the upload could be either.
+  assert.deepEqual(matchUploads({ songs: [song('1', '连烦恼也融入天空'), song('2', '連煩惱也融入天空', { videoId: 'oldoldold01' })], wanted, uploads }), []);
+  // The upload is already another song's.
+  assert.deepEqual(matchUploads({ songs: [song('1', '连烦恼也融入天空'), song('2', 'Other', { videoId: 'vvvvvvvvvv1' })], wanted, uploads }), []);
+  // Only the wanted songs take a videoId.
+  assert.deepEqual(matchUploads({ songs: [song('1', '连烦恼也融入天空')], wanted: new Set(), uploads }), []);
+});
+
+test('the "<album>: <song> (Original Soundtrack)" form matches only the one song of a single-track album of that name', () => {
+  const uploads = [{ videoId: 'chBNJdaKaPA', title: '月行水上: 凡常恩典 (Original Soundtrack)' }];
+  const wanted = new Set(['1']);
+  assert.equal(matchUploads({ songs: [song('1', '凡常恩典', { albumName: '月行水上', albumSize: 1 })], wanted, uploads }).length, 1);
+  // Its album's OST suffix is not part of the name the upload uses.
+  assert.equal(matchUploads({ songs: [song('1', 'Rondo in the Clouds', { albumName: '逐影集趣ost', albumSize: 1 })], wanted,
+    uploads: [{ videoId: 'rrrrrrrrrrr', title: '逐影集趣: Rondo in the Clouds (Original Soundtrack)' }] }).length, 1);
+  assert.deepEqual(matchUploads({ songs: [song('1', '凡常恩典', { albumName: '别的专辑', albumSize: 1 })], wanted, uploads }), [], 'another album');
+  assert.deepEqual(matchUploads({ songs: [song('1', '凡常恩典', { albumName: '月行水上', albumSize: 2 })], wanted, uploads }), [], 'an album of two');
+});
+
+test('a flagged song takes its upload\'s videoId, spliced in alone, and its flag goes; a song with an outside artist is left for a person with the upload linked', async () => {
+  const t = tree();
+  try {
+    const upstream = monsterSiren();
+    upstream.info[100003] = { ...upstream.info[100003], artists: LABEL_ONLY };
+    upstream.info[100004] = { ...upstream.info[100004], artists: ['塞壬唱片-MSR', 'DJ Okawari'] };
+    upstream.feed = feed([['zzzzzzzzzz9', 'Unrelated Song']]);
+    await run(t.root, upstream, '2026-09-25');
+    const imported = t.albums();
+    assert.deepEqual(t.held(), ['album:1003 published-partial 2026-09-25', 'song:100003 published-partial 2026-09-25', 'song:100004 published-partial 2026-09-25']);
+
+    // Weeks later both are on the channel: the new album's single in the OST form, in
+    // Traditional Chinese, and the late song under its own name.
+    upstream.feed = feed([['RondoVideo1', '新專輯: Rondo in the Clouds (Original Soundtrack)'], ['LateVideo01', 'Late Addition'], ['zzzzzzzzzz9', 'Unrelated Song']]);
+    const result = await run(t.root, upstream, '2026-10-12');
+    assert.deepEqual(result.filled.map((m: { songId: string; videoId: string }) => `${m.songId} ${m.videoId}`), ['100003 RondoVideo1']);
+    assert.equal(t.albums(), imported.replace(/("songId": "100003",[\s\S]*?"videoId": )""/, '$1"RondoVideo1"'), 'the one field changes');
+    const held = readQuarantine(t.root).entries.filter((entry: { stage: string }) => entry.stage === 'albums');
+    assert.deepEqual(held.map((entry: { key: string }) => entry.key), ['album:1003', 'song:100004']);
+    const late = held.find((entry: { key: string }) => entry.key === 'song:100004');
+    assert.equal(late.sourceRef, 'https://www.youtube.com/watch?v=LateVideo01');
+    assert.match(late.reason, /credits an outside artist \(DJ Okawari\), so it is not filled in: check its copyright flag \(the default "no"\), then add the videoId/);
+    assert.equal(late.overdueAfterDays, undefined, 'a person clears it, so it is overdue on the usual clock');
+    assert.equal(late.firstSeen, '2026-09-25');
+  } finally {
+    t.cleanup();
+  }
+});
+
+test('a song whose upload is already on the channel when it is imported comes in with its videoId', async () => {
+  const t = tree();
+  try {
+    const upstream = monsterSiren();
+    upstream.info[100003] = { ...upstream.info[100003], artists: LABEL_ONLY };
+    upstream.feed = feed([['RondoVideo1', 'Rondo in the Clouds']]);
+    await run(t.root, upstream, '2026-09-25');
+    assert.equal(JSON.parse(t.albums()).find((album: { albumId: string }) => album.albumId === '1003').songs[0].videoId, 'RondoVideo1');
+    assert.deepEqual(t.held(), ['album:1003 published-partial 2026-09-25', 'song:100004 published-partial 2026-09-25']);
+  } finally {
+    t.cleanup();
+  }
+});
+
+test('a feed that does not load, or a song lookup that fails, fills nothing and keeps every flag', async () => {
+  for (const broken of ['feed', 'song'] as const) {
+    const t = tree();
+    try {
+      const upstream = monsterSiren();
+      await run(t.root, upstream, '2026-09-25');
+      const before = t.albums();
+      upstream.feed = broken === 'feed' ? null : feed([['RondoVideo1', 'Rondo in the Clouds']]);
+      // No artists for the song: the lookup told the stage nothing.
+      const lines: string[] = [];
+      await run(t.root, upstream, '2026-09-26', { log: (line: string) => lines.push(line) });
+      assert.equal(t.albums(), before, broken);
+      assert.deepEqual(t.held(), ['album:1003 published-partial 2026-09-25', 'song:100003 published-partial 2026-09-25', 'song:100004 published-partial 2026-09-25'], broken);
+      if (broken === 'feed') assert.ok(lines.some(line => /YouTube feed did not load \(HTTP 404\)/.test(line)), 'the log says why');
+    } finally {
+      t.cleanup();
+    }
   }
 });

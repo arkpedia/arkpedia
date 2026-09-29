@@ -165,6 +165,20 @@ test('the quarantine report names why a stage failed, whichever runtime printed 
   assert.match(report.body, /^\| {2}\| `catalogue` \| failed \| 2026-09-23 \(0 d\) \| exited 1: \\\[cause\\\]: Error: connect ECONNREFUSED 185\.199\.108\.133:443 \|$/m);
 });
 
+test('an entry that names a longer wait is overdue only after it', () => {
+  const now = new Date('2026-09-29T20:00:00Z');
+  const entry = (key: string, extra: object = {}) => ({ key, stage: 'albums', reason: `why ${key}`, action: 'published-partial', firstSeen: '2026-09-25', ...extra });
+  const report = renderQuarantineReport({ quarantine: { version: 1, entries: [entry('song:1', { overdueAfterDays: 45 }), entry('song:2')] }, stageReport: null, now });
+  const rows = report.body.split('\n').filter((line: string) => /^\| .*`song:/.test(line));
+  assert.deepEqual(rows, [
+    '| **overdue** | `song:2` | albums | published-partial | 2026-09-25 (4 d) | why song:2 |',
+    '|  | `song:1` | albums | published-partial | 2026-09-25 (4 d) | why song:1 |',
+  ]);
+  assert.match(report.body, /\*\*Quarantined records: 2 \(1 overdue\)\*\*/);
+  const late = renderQuarantineReport({ quarantine: { version: 1, entries: [entry('song:1', { overdueAfterDays: 45 })] }, stageReport: null, now: new Date('2026-11-10T20:00:00Z') });
+  assert.match(late.body, /\| \*\*overdue\*\* \| `song:1` \|/);
+});
+
 test('the quarantine report lists held records and failed stages, and marks entries overdue after 3 days', () => {
   // lastSeen may or may not be there: the age counts from firstSeen alone.
   const entry = (key: string, firstSeen: string, extra: object = {}) => ({ key, stage: 'catalogue', reason: `why ${key}`, action: 'omitted-new', firstSeen, ...extra });

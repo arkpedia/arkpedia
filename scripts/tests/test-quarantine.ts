@@ -112,6 +112,24 @@ test('lastSeen, which files written before 2026-09 carry, is dropped from every 
   });
 });
 
+test('an entry may name a longer wait before it is overdue; it is written, kept across days, and a whole number', () => {
+  temporary(root => {
+    const first = beginStage(root, 'albums', new Date('2026-09-25T10:00:00Z'));
+    first.add({ key: 'song:1', reason: 'no upload yet', action: 'published-partial', overdueAfterDays: 45 });
+    first.add({ key: 'song:2', reason: 'upload found, needs a person', action: 'published-partial' });
+    first.commit();
+    const later = beginStage(root, 'albums', new Date('2026-10-01T10:00:00Z'));
+    later.add({ key: 'song:1', reason: 'no upload yet', action: 'published-partial', overdueAfterDays: 45 });
+    later.add({ key: 'song:2', reason: 'upload found, needs a person', action: 'published-partial' });
+    later.commit();
+    assert.deepEqual(readQuarantine(root).entries.map(({ key, overdueAfterDays, firstSeen }: { key: string; overdueAfterDays?: number; firstSeen: string }) => [key, overdueAfterDays, firstSeen]),
+      [['song:1', 45, '2026-09-25'], ['song:2', undefined, '2026-09-25']]);
+    for (const bad of [0, -1, 1.5, '45']) {
+      assert.throws(() => later.add({ key: 'song:3', reason: 'r', action: 'published-partial', overdueAfterDays: bad }), /expected a whole number of days/);
+    }
+  });
+});
+
 test('dates are UTC days, the first report of a key in a run stands, and a malformed entry is a bug', () => {
   temporary(root => {
     // 23:30 in UTC-5 is already the next UTC day.
