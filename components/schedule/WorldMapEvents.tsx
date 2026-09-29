@@ -11,14 +11,21 @@ import { project, getEventStatus, formatCountdown, MAP_WIDTH, MAP_HEIGHT } from 
 import { XGlyph } from '@/components/ui/XButton';
 
 function geometryToPath(geometry: Geometry): string {
-  const ringToPoints = (ring: number[][]) =>
-    ring.map(([lng, lat]) => {
+  // A ring that crosses the date line (Chukotka, Fiji) jumps from one edge of the map to
+  // the other; drawn as one line that jump crossed the whole map. The ring starts a new
+  // subpath at the jump instead, and each piece is filled on its own side.
+  const ringToPath = (ring: number[][]) => {
+    let d = '';
+    let previous: number | null = null;
+    for (const [lng, lat] of ring) {
       const { x, y } = project(lat, lng);
-      return `${x},${y}`;
-    });
+      d += `${previous === null || Math.abs(x - previous) > MAP_WIDTH / 2 ? 'M' : 'L'}${x},${y}`;
+      previous = x;
+    }
+    return `${d}Z`;
+  };
 
-  const polygonToPath = (rings: number[][][]) =>
-    rings.map((ring) => `M${ringToPoints(ring).join('L')}Z`).join(' ');
+  const polygonToPath = (rings: number[][][]) => rings.map(ringToPath).join(' ');
 
   if (geometry.type === 'Polygon') {
     return polygonToPath(geometry.coordinates as number[][][]);

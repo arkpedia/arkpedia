@@ -43,10 +43,20 @@
   top: 32px;
   right: 32px;
 }
-.world-map-bg { fill: var(--panel); }
+/* Land reads against the sea in both themes: the fill is the page's ink mixed into the
+   panel (lighter than the sea in the dark theme, darker in the light), and the coast is a
+   line of 3:1 or more (WCAG 1.4.11). It was --panel-2 on --panel with a --line coast, three
+   near-identical tones. media-community-games.spec.ts holds both ratios. */
+.world-map-svg {
+  --map-sea: var(--panel);
+  --map-land: color-mix(in srgb, var(--text) 18%, var(--panel));
+  --map-coast: color-mix(in srgb, var(--text) 58%, var(--panel));
+}
+.world-map-bg { fill: var(--map-sea); }
 .world-map-land {
-  fill: var(--panel-2);
-  stroke: var(--line);
-  stroke-width: 1;
+  fill: var(--map-land);
+  stroke: var(--map-coast);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
 }
 .world-map-equator { stroke: var(--teal-dim); stroke-width: 1; stroke-dasharray: 4 3; }
