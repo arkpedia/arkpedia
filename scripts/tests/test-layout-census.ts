@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { CENSUS_STATES, censusRoutes } from '../../tests/browser/census-routes';
-import { boundsRoutes, HEADING_ROUTES, PICTURE_ROUTES } from '../../tests/browser/layout-checks';
+import { boundsRoutes, EAGER_ALLOWED, HEADING_ROUTES, PICTURE_ROUTES } from '../../tests/browser/layout-checks';
 
 /*
  * The browser suite loads each census page once per theme per project (r11). Until then
@@ -46,7 +46,7 @@ test('only the layout census declares a test for every census page', () => {
 });
 
 test('the per-page tables live in layout-checks.ts', () => {
-  const tables = ['HEADING_ROUTES', 'PICTURE_ROUTES', 'CONTENT_CARDS', 'HOME_CARDS', 'FIRST_GAP_OTHERS', 'ALLOWED', 'TOLERANCE', 'BOUNDS_EXCLUDED', 'BOUNDS_SAMPLES'];
+  const tables = ['HEADING_ROUTES', 'PICTURE_ROUTES', 'CONTENT_CARDS', 'HOME_CARDS', 'FIRST_GAP_OTHERS', 'ALLOWED', 'TOLERANCE', 'BOUNDS_EXCLUDED', 'BOUNDS_SAMPLES', 'EAGER_ALLOWED'];
   const defined = specs.flatMap((file) => {
     const source = fs.readFileSync(path.join(DIR, file), 'utf8');
     return tables.filter((name) => new RegExp(`(?:const|let|var)\\s+${name}\\b`).test(source)).map((name) => `${file} defines ${name}`);
@@ -60,6 +60,9 @@ test('every address a census table names is a census address', () => {
   const routes = new Set(censusRoutes());
   assert.deepEqual(Object.keys(HEADING_ROUTES).filter((route) => !routes.has(route)), [], 'HEADING_ROUTES');
   assert.deepEqual(boundsRoutes().filter((route) => !routes.has(route)), [], 'boundsRoutes()');
+  // The image-loading check runs on the page-bounds load, so its heroes are page-bounds addresses.
+  const bounds = new Set(boundsRoutes());
+  assert.deepEqual(Object.keys(EAGER_ALLOWED).filter((route) => !bounds.has(route)), [], 'EAGER_ALLOWED');
   // The picture census also loads three addresses of its own; they are real pages.
   assert.ok(Object.keys(PICTURE_ROUTES).filter((route) => !routes.has(route)).length <= 3, 'PICTURE_ROUTES adds at most its three addresses of its own');
   const ids = CENSUS_STATES.map((state) => state.id);

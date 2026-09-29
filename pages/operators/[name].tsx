@@ -151,6 +151,15 @@ function formatLevelList(labels: string[]): string {
   return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
 }
 
+/** The artwork's `sizes`: the shown outfit, the one going out and the one fetched ahead
+ *  all say the same, so the browser picks the same rendition for each and a fetched-ahead
+ *  picture is the one shown. */
+const ARTWORK_SIZES = '(max-width: 900px) 100vw, 40vw';
+/** How long the artwork on screen waits for the next outfit's picture before it turns
+ *  anyway (ms): lib/ui/imageArrival.ts's HOLD_MS, after which a picture that has not come
+ *  is shown as it is. */
+const WARM_WAIT_MS = 1500;
+
 /* A form's label is its class, except that our class icons are filed under the class
    names our records use. Amiya's three labels happen to BE those names, so this is a
    pass-through today and the lookup exists so a future form labelled something other
@@ -441,7 +450,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
       className="video-card"
     >
       <div className="video-thumb-wrap">
-        <Image src={`https://i.ytimg.com/vi/${guide.videoId}/mqdefault.jpg`} alt={displayTitle} fill loading="lazy" sizes="384px" style={{ objectFit: 'cover' }} />
+        <Image src={`https://i.ytimg.com/vi/${guide.videoId}/mqdefault.jpg`} alt={displayTitle} fill sizes="384px" style={{ objectFit: 'cover' }} />
       </div>
       <div className="video-card-copy">
         <p className="video-card-title">{displayTitle}</p>
@@ -506,6 +515,13 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
   // --- Skin carousel state ---
   const [activeIndex, setActiveIndex] = useState(0);
+  /** The outfit whose artwork is on screen: it follows activeIndex once that outfit's
+   *  picture is in (below). */
+  const [shownIndex, setShownIndex] = useState(0);
+  /** An outfit whose control the reader is on: its artwork is fetched ahead (below). */
+  const [warmIndex, setWarmIndex] = useState<number | null>(null);
+  /** The outfits whose artwork is in the browser: fetched ahead, or shown before. */
+  const [ready, setReady] = useState<ReadonlySet<number>>(() => new Set([0]));
   const [rotating, setRotating] = useState(true);
   const [zooming, setZooming] = useState(false);
   const [infoExpanded, setInfoExpanded] = useState(false);
@@ -517,6 +533,9 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   // skin whenever the operator itself changes.
   useEffect(() => {
     setActiveIndex(0);
+    setShownIndex(0);
+    setWarmIndex(null);
+    setReady(new Set([0]));
     setRotating(true);
     setZooming(false);
     setInfoExpanded(false);
@@ -528,27 +547,50 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
     return () => clearInterval(timer);
   }, [rotating, appearances.length, operator.name]);
 
+  /* Only the outfit on screen is fetched at load (the picker's thumbnails are its 320px
+     renditions, not the artwork). Another outfit's artwork is fetched just before it is
+     shown, into a hidden copy inside the artwork's box (`warm`, which sizes nothing):
+     when the reader points at, focuses or presses the control that would show it (an
+     arrow, for its neighbour that way; a thumbnail or dot, for its own), and when it is
+     picked (a click, a key, autoplay's turn). The picture on screen stays until the
+     picked one is in, or for WARM_WAIT_MS at most, as a new src on any image does
+     (lib/ui/imageArrival.ts), so the cross-fade never fades to an empty frame. */
+  useEffect(() => {
+    setReady((was) => (was.has(shownIndex) ? was : new Set(was).add(shownIndex)));
+  }, [shownIndex]);
+  useEffect(() => {
+    if (activeIndex !== shownIndex && ready.has(activeIndex)) setShownIndex(activeIndex);
+  }, [activeIndex, shownIndex, ready]);
+  useEffect(() => {
+    if (activeIndex === shownIndex) return;
+    const timer = setTimeout(() => setShownIndex(activeIndex), WARM_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [activeIndex, shownIndex]);
+
   function selectAppearance(index: number) {
     setRotating(false);
     setActiveIndex(index);
   }
 
-  const activeAppearance = appearances[activeIndex];
+  /** What the artwork, its caption, its zoom and its credits show: the outfit on screen. */
+  const shownAppearance = appearances[shownIndex];
+  const warmTarget = activeIndex !== shownIndex ? activeIndex : warmIndex !== null && warmIndex !== shownIndex ? warmIndex : null;
+  const warmAppearance = warmTarget !== null ? appearances[warmTarget] : null;
   const [prevAppearance, setPrevAppearance] = useState<Appearance | null>(null);
   const prevAppearanceRef = useRef<Appearance | null>(null);
   const imageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (prevAppearanceRef.current !== null && prevAppearanceRef.current.label !== activeAppearance?.label) {
+    if (prevAppearanceRef.current !== null && prevAppearanceRef.current.label !== shownAppearance?.label) {
       setPrevAppearance(prevAppearanceRef.current);
       if (imageTimeoutRef.current) clearTimeout(imageTimeoutRef.current);
       imageTimeoutRef.current = setTimeout(() => setPrevAppearance(null), 450);
     }
-    prevAppearanceRef.current = activeAppearance || null;
+    prevAppearanceRef.current = shownAppearance || null;
     return () => {
       if (imageTimeoutRef.current) clearTimeout(imageTimeoutRef.current);
     };
-  }, [activeAppearance]);
+  }, [shownAppearance]);
 
   // Each section keeps its controls mounted while only the selected one is visible.
   const availableSections: { key: SectionKey; label: string }[] = [];
@@ -877,23 +919,30 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
           <section id="operator-artwork" tabIndex={-1} aria-label="Operator artwork" className={pageStyles.gallery}>
             <div className="op-carousel-main">
               {factionEmblem && <span aria-hidden="true" className={pageStyles.artworkEmblem} style={{ maskImage: cssUrl(contentUrl(factionEmblem)), WebkitMaskImage: cssUrl(contentUrl(factionEmblem)) }} />}
-              {prevAppearance?.fullPath && (
-                <div key={`prev-img-${prevAppearance.label}`} className="op-carousel-main-img op-carousel-img-exit">
-                  <ResponsiveSkinArtwork src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes="(max-width: 900px) 100vw, 40vw" />
+              {warmAppearance?.fullPath && (
+                <div key={`warm-img-${warmAppearance.label}`} className="op-carousel-main-img op-carousel-warm" aria-hidden="true">
+                  <ResponsiveSkinArtwork src={warmAppearance.fullPath} alt="" fill sizes={ARTWORK_SIZES}
+                    onLoad={() => setReady((was) => (was.has(warmTarget!) ? was : new Set(was).add(warmTarget!)))} />
                 </div>
               )}
-              {activeAppearance?.fullPath ? (
+              {prevAppearance?.fullPath && (
+                <div key={`prev-img-${prevAppearance.label}`} className="op-carousel-main-img op-carousel-img-exit">
+                  <ResponsiveSkinArtwork src={prevAppearance.fullPath} alt={prevAppearance.label} fill sizes={ARTWORK_SIZES} />
+                </div>
+              )}
+              {shownAppearance?.fullPath ? (
                 <button
                   type="button"
                   className="op-carousel-main-btn"
-                  aria-label={`Enlarge ${operator.name} artwork: ${activeAppearance?.label}`}
+                  aria-label={`Enlarge ${operator.name} artwork: ${shownAppearance?.label}`}
                   onClick={() => {
                     setRotating(false);
                     setZooming(true);
                   }}
                 >
-                  <div key={`current-img-${activeAppearance.label}`} className="op-carousel-main-img op-carousel-img-enter">
-                    <ResponsiveSkinArtwork src={activeAppearance.fullPath} alt={activeAppearance.label} fill priority sizes="(max-width: 900px) 100vw, 40vw" />
+                  <div key={`current-img-${shownAppearance.label}`} className="op-carousel-main-img op-carousel-img-enter">
+                    {/* The page's hero (its LCP): fetched at once and first. */}
+                    <ResponsiveSkinArtwork src={shownAppearance.fullPath} alt={shownAppearance.label} fill priority sizes={ARTWORK_SIZES} />
                   </div>
                 </button>
               ) : (
@@ -901,9 +950,9 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
               )}
             </div>
 
-            <OperatorArtworkCaption appearances={appearances} activeIndex={activeIndex} prices={skinObtainByLabel} />
+            <OperatorArtworkCaption appearances={appearances} activeIndex={shownIndex} prices={skinObtainByLabel} />
             <OperatorAppearancePicker key={operator.name} appearances={appearances} activeIndex={activeIndex}
-              onSelect={selectAppearance} rotating={rotating} onRotationChange={setRotating} />
+              onSelect={selectAppearance} onWarm={setWarmIndex} rotating={rotating} onRotationChange={setRotating} />
 
 
           </section>
@@ -1006,7 +1055,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                   </div>
                   {howToObtainDisplay !== 'Unknown' && <p className={pageStyles.obtain}>{howToObtainDisplay}</p>}
                   <OperatorCredits
-                    artwork={artworkCredits[activeAppearance?.label ?? 'Base'] ?? artworkCredits.Base}
+                    artwork={artworkCredits[shownAppearance?.label ?? 'Base'] ?? artworkCredits.Base}
                     variants={Object.values(artworkCredits)}
                     voicePacks={voiceData?.packs}
                     relatedByArtist={relatedByArtist}
@@ -1530,8 +1579,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       </main>
       </div>
 
-      {zooming && activeAppearance?.fullPath && (
-        <SkinZoomOverlay image={activeAppearance.fullPath} name={activeAppearance.label} onClose={() => setZooming(false)} />
+      {zooming && shownAppearance?.fullPath && (
+        <SkinZoomOverlay image={shownAppearance.fullPath} name={shownAppearance.label} onClose={() => setZooming(false)} />
       )}
     </>
   );

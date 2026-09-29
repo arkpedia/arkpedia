@@ -46,6 +46,7 @@ Only Wishing Wall Orundum changes. Stage OP, permits, free pulls and reward timi
 - OP reservations apply across held and future OP. The summary shows only spendable holdings, excluding selected unclaimed rewards. The forecast separates holdings, recurring income, rewards still to collect, and banner-only free pulls.
 - Manually estimated event rewards require a collection date and cannot fund an earlier goal. Existing source rules continue to determine when scheduled event rewards arrive and avoid counting back-catalogue rewards twice.
 - Banner dates are resolved from current headhunting data during page generation/ISR, so an older reward snapshot cannot restore a corrected banner date. The schedule's predicted-event status is retained in labels. Missing or rescheduled goals require review; expired goals are not deducted again from updated holdings.
+- Every number and date the planner renders goes through `lib/pulls/format.ts`: numbers in `en-US` and dates in `en-GB`, read in UTC, whatever the reader's locale and time zone. The page is prerendered and hydrated in the reader's browser, and the bare `toLocaleString()` it used printed "49.700" for a reader in de-DE (fr-FR, pt-BR, ru-RU) where the server printed "49,700", so React threw the server HTML away (errors 418/423/425); two of its dates (a goal's spending date, the Add banner list's) were also read in the reader's time zone.
 
 The existing monthly-card model assumes purchases covering the selected window, including their OP. Forecasts assume completion of the selected missions/content. Per-banner operator acquisition probabilities are calculated separately from the income forecast. Updating actual holdings after pulling remains the player's responsibility.
 
@@ -53,6 +54,7 @@ The existing monthly-card model assumes purchases covering the selected window, 
 
 - `npm run audit:pulls` — existing reward and income calculations.
 - `npm run test:pull-plan` — budgets, free-pull isolation, shortfalls, persistence validation, schedule corrections, skin pricing, and legacy-save compatibility.
+- `scripts/tests/test-pulls-format.ts` (in `npm test`) — fails a number or date formatted anywhere in `pages/pulls.tsx`, `components/pulls` or `lib/pulls` but `lib/pulls/format.ts`, and a formatter there without a fixed locale or, for dates, UTC.
 - `npm run typecheck`, `npm run lint -- --max-warnings 15`, strict rendered-class check, and production build.
 - Browser coverage: desktop/mobile layout, shared artwork, multi-banner selection, persistent picker behavior, direct schedule links, and horizontal overflow.
 

@@ -4,8 +4,8 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { CENSUS_STATES, censusRoutes, fontsSettled, openCensus, readOnly, type CensusState } from './census-routes';
 import { sectionCensus, type StackOffence } from './section-census';
 import {
-  baseline, BASELINE_FILE, boundsRoutes, buttonVoiceLeaks, census, censusWidth, CONTENT_CARDS, expectOnlyAllowed, FIRST_GAP, FIRST_GAP_OTHERS,
-  HEADING_GAP, HEADING_ROUTES, HOME_CARDS, movingAnimations, PICTURE_DRIVES, PICTURE_ROUTES, PICTURE_STATES, pictureCards, SECTION_GAP, settled, stackBaseline, stackDir, tabAlignBothThemes,
+  baseline, BASELINE_FILE, boundsRoutes, buttonVoiceLeaks, census, censusWidth, CONTENT_CARDS, EAGER_ALLOWED, expectOnlyAllowed, FIRST_GAP, FIRST_GAP_OTHERS,
+  HEADING_GAP, HEADING_ROUTES, HOME_CARDS, imageLoading, LAZY_FOLD, movingAnimations, PICTURE_DRIVES, PICTURE_ROUTES, PICTURE_STATES, pictureCards, SECTION_GAP, settled, stackBaseline, stackDir, tabAlignBothThemes,
   themeOf, tokenColour, UPDATE, type Baseline,
 } from './layout-checks';
 import { musicTabCheck } from './music-tab-checks';
@@ -33,6 +33,8 @@ import { overlayText, setTheme, themeStillOff } from './overlay-checks';
  *   page bounds     boundsRoutes(): no-h1, h1-align, frame, page-scroll-x, motion,
  *                   tab-align (both themes, flipped in place), first-gap, stack-align
  *                                                            dark        1440+390
+ *   image loading   boundsRoutes(), on the same load: every image lazy but the page's
+ *                   hero (EAGER_ALLOWED), and the hero eager   dark      1440+390
  *   first-gap       every driven state                       dark        1440+390
  *   tab-align       every driven state (both themes, flipped in place; tabs.spec.ts
  *                   keeps the states the census does not drive)  dark    1440+390
@@ -322,6 +324,11 @@ async function run(page: Page, info: TestInfo, t: Target, theme: 'dark' | 'light
       await readOnly(page);
       await page.goto(t.route, { waitUntil: 'load' });
       await fontsSettled(page);
+    });
+    // lazy-images: at the load, before anything scrolls or hovers (layout-checks.ts).
+    await part(p('image-loading'), async () => {
+      expect.soft(await page.evaluate(imageLoading, { allowed: EAGER_ALLOWED[t.route] ?? [], fold: LAZY_FOLD }),
+        `${p('image-loading')}images fetched at load that are not the page's hero, or a hero that is not fetched at once (EAGER_ALLOWED)`).toEqual([]);
     });
     let seen: string[] = [];
     await part(p('page-bounds'), async () => { seen = await pageBounds(page, t, width, p('page-bounds')); });

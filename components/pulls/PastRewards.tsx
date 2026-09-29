@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { BacklogSources } from '@/lib/pulls/pulls';
+import { formatNumber } from '@/lib/pulls/format';
 
 /** `backlog` is the page's release copy, never an import of data/: see BacklogSources. */
 /** Whether these count toward the forecast is the Include checkbox in the Past events
@@ -29,7 +30,7 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
     <div className="pulls-panel-head"><h2>Unclaimed rewards</h2></div>
     <p className="hint">Tick completed content.</p>
     {groups.map(group => <details className="pulls-disclosure" key={group.id} open={open === group.id}>
-      <summary onClick={event => { event.preventDefault(); setOpen(previous => previous === group.id ? '' : group.id); }}>{group.name}<span className="hint pulls-note">{group.items.reduce((n,item) => n + (complete(group.id,item.id) ? 0 : item.amount),0).toLocaleString()} {group.unit} left</span></summary>
+      <summary onClick={event => { event.preventDefault(); setOpen(previous => previous === group.id ? '' : group.id); }}>{group.name}<span className="hint pulls-note">{formatNumber(group.items.reduce((n,item) => n + (complete(group.id,item.id) ? 0 : item.amount),0))} {group.unit} left</span></summary>
       <div className="pulls-eventlist-acts"><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map(item => item.id), true)}>All completed</button><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map(item => item.id), false)}>None completed</button></div>
       {/* A list you tick: each item a real checkbox in the .check primitive (it was a
           button drawing its own box and tick). */}

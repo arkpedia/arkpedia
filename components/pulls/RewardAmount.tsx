@@ -1,4 +1,5 @@
 import Image from '@/components/content/ContentImage';
+import { formatNumber } from '@/lib/pulls/format';
 
 const resources = {
   op: { name: 'Originite Prime', unit: 'OP', path: '/material-icons/Originite%20Prime.webp' },
@@ -10,6 +11,6 @@ export function RewardAmount({ resource, amount }: { resource: keyof typeof reso
   const item = resources[resource];
   return <span className="pulls-reward-amount" title={item.name}>
     <Image src={item.path} width={24} height={24} alt="" />
-    <span>{amount.toLocaleString()} <small>{item.unit}</small></span>
+    <span>{formatNumber(amount)} <small>{item.unit}</small></span>
   </span>;
 }

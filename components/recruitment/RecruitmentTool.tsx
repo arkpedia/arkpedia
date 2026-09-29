@@ -161,7 +161,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
              narrow window beside the game, so they keep a compact header of their own. */
           <header className="recruit-header">
             <div className="recruit-heading">
-              <Image src="/item-icons/recruitment_permit.png" alt="" width={30} height={30} priority />
+              <Image src="/item-icons/recruitment_permit.png" alt="" width={30} height={30} />
               <div>
                 <h1>Recruitment</h1>
                 <p>Arkpedia</p>

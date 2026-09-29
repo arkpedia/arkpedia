@@ -1279,7 +1279,6 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                     <ContentImg
                       src={`/stages-images/${encodeURIComponent(shownPreview)}`}
                       alt={`In-game view of ${stage.code || stage.slug}${emergencyOn ? ', Emergency Ops' : ''}`}
-                      loading="lazy"
                     />
                   </figure>
                 )}
@@ -1333,7 +1332,6 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                               className={`stage-drop-icon${d.item.is_operator ? ' operator' : ''}`}
                               src={dropIcons[d.item.id]}
                               alt=""
-                              loading="lazy"
                             />
                           ) : (
                             <span className="stage-drop-icon blank" aria-hidden="true" />
@@ -2129,7 +2127,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                           >
                             {detail?.icon ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <ContentImg className="stage-enemy-icon" src={detail.icon} alt="" loading="lazy" />
+                              <ContentImg className="stage-enemy-icon" src={detail.icon} alt="" />
                             ) : (
                               <span className="stage-enemy-icon stage-enemy-icon-blank" aria-hidden="true" />
                             )}

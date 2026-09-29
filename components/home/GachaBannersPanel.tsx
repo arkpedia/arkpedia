@@ -27,7 +27,9 @@ export default function GachaBannersPanel({ banners, activeIndex, onSelect }: Pr
       <h2 className="section-title">Gacha Banners</h2>
       <div className="front-gacha-main">
         <Link prefetch={false} href={`/gacha?banner=${encodeURIComponent(active.name)}`} className="front-gacha-poster-wrap">
-          {active.banner_image && <Image src={active.banner_image} alt={bannerDisplayName(active.name)} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+          {/* The home page's hero on a phone (its LCP at 390): the first banner is fetched
+              at once and first, and a banner picked later comes in on screen. */}
+          {active.banner_image && <Image src={active.banner_image} alt={bannerDisplayName(active.name)} fill sizes="600px" style={{ objectFit: 'contain' }} priority={activeIndex === 0} />}
         </Link>
         <div className="front-gacha-info">
           <span className="front-gacha-name">{bannerDisplayName(active.name)}</span>

@@ -146,7 +146,6 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
             cursor: scale > MIN_SCALE ? 'grab' : 'default',
           }}
           draggable={false}
-          decoding="async"
         />
       </div>
 
