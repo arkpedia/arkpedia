@@ -52,6 +52,11 @@ const SEEDED_SOURCE_FILES = new Set([
   // build-mode-exclusions.mjs in the refresh and by the stage pages, so a release without
   // it would fail at the stage build.
   'data/game-modes.json',
+  // Which banners' pull odds were verified against their announcement, and what it says
+  // (lib/pulls/bannerOdds.ts), kept by hand: a new banner's rules go in here, in the data
+  // repository, and out with the next release. The odds-rules stage lists a banner still
+  // waiting for them (scripts/content/check-pull-odds.ts).
+  'data/pull-odds-rules.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

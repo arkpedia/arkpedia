@@ -203,6 +203,11 @@ jobs:
           stage palettes -- python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json
           stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
           stage event-farming -- node scripts/sync/sync-event-farming.mjs
+          # A scheduled limited, crossover or Orienteering banner whose announcement nobody has
+          # read shows no odds in the pull planner. Each is listed in the daily issue until its
+          # rules are in data/pull-odds-rules.json (scripts/content/check-pull-odds.ts). It reads
+          # the day's banners, so it runs after every stage that adds them.
+          stage odds-rules -- npx tsx scripts/content/check-pull-odds.ts
           # What the guessers send to readers, measured once every stage that adds records has
           # run. It writes nothing: over budget fails only this stage, so the daily issue names
           # it until the payload is trimmed or the budget raised, and the release still goes
