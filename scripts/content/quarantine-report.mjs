@@ -11,8 +11,9 @@
  * case <out-dir> gets body.md and comment.md for alert-issue.mjs. JOB_STATUS other than
  * `success` says the run published nothing, which the body then says too. Reads the
  * quarantine file by its documented format only: {"version":1,"entries":[{key, stage,
- * reason, action, sourceRef?, firstSeen}]} (scripts/lib/quarantine.mjs); an entry's age is
- * counted from firstSeen.
+ * reason, action, sourceRef?, overdueAfterDays?, firstSeen}]} (scripts/lib/quarantine.mjs);
+ * an entry's age is counted from firstSeen, and it is overdue after its overdueAfterDays,
+ * or OVERDUE_DAYS when it names none.
  *
  * A stage's age comes from the entry the stage runner keeps for it (stage 'refresh', key
  * stage:<name>), so a stage failing for more than OVERDUE_DAYS is overdue like a record.
@@ -72,7 +73,7 @@ export function renderQuarantineReport({ quarantine, stageReport, now = new Date
   const aged = entry => {
     const age = Math.max(0, Math.round((day(today) - day(entry.firstSeen)) / 86_400_000));
     const days = Number.isFinite(age) ? age : 0;
-    return { ...entry, age: days, overdue: days > OVERDUE_DAYS };
+    return { ...entry, age: days, overdue: days > (entry.overdueAfterDays ?? OVERDUE_DAYS) };
   };
   const all = (quarantine?.entries ?? []).map(aged);
   const entries = all.filter(entry => entry.stage !== HOLDER)
@@ -93,7 +94,7 @@ export function renderQuarantineReport({ quarantine, stageReport, now = new Date
     stages: stages.map(stage => [stage.stage, stage.status, stage.overdue]).sort(),
   })).digest('hex').slice(0, 16);
   const lines = [`<!-- arkpedia-alert-digest:${digest} -->`,
-    `Checked on ${today}${runUrl ? ` by ${runUrl}` : ''}. ${published ? 'The day\'s release went out without what is listed here' : 'This run published nothing (see the \'Content release failing\' issue); this is what it found'}, and every run retries it. A record held back, or a stage failing, for more than ${OVERDUE_DAYS} days is **overdue**: it will not fix itself, so correct the source record (a correction branch in arkpedia-data), the importer or the source it reads.`];
+    `Checked on ${today}${runUrl ? ` by ${runUrl}` : ''}. ${published ? 'The day\'s release went out without what is listed here' : 'This run published nothing (see the \'Content release failing\' issue); this is what it found'}, and every run retries it. A record held back, or a stage failing, for more than ${OVERDUE_DAYS} days (or the longer wait a slower source gets, such as a song's YouTube upload) is **overdue**: it will not fix itself, so correct the source record (a correction branch in arkpedia-data), the importer or the source it reads.`];
   let length = lines.join('\n').length;
   const push = line => { lines.push(line); length += line.length + 1; };
   const room = reserve => length < MAX_BODY - reserve;

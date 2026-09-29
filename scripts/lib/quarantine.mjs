@@ -9,6 +9,10 @@
  *   {"version":1,"entries":[{"key":"banner:SINGLE_77_0_1","stage":"catalogue",
  *     "reason":"...","action":"omitted-new","sourceRef":"...","firstSeen":"2026-09-23"}]}
  *
+ * An entry may also carry overdueAfterDays: how long it may wait before the daily issue
+ * calls it overdue, for an entry that clears by itself on a slower clock than the usual
+ * three days (a song's YouTube upload comes weeks after the song).
+ *
  * Each stage owns its entries. A stage that runs to completion replaces every entry
  * under its name with the ones it reported this run, so a record that recovered drops
  * off by itself; a key reported again keeps its firstSeen. A stage that did not run
@@ -86,7 +90,7 @@ export function beginStage(root, stage, now = defaultNow()) {
   return {
     stage,
     get entries() { return [...reported.values()]; },
-    add({ key, reason, action, sourceRef } = {}) {
+    add({ key, reason, action, sourceRef, overdueAfterDays } = {}) {
       // A malformed entry is a bug in the importer, not bad input: fail loudly.
       if (typeof key !== 'string' || !key.trim()) throw new Error(`Quarantine entry in ${stage} has no key`);
       if (typeof reason !== 'string' || !reason.trim()) throw new Error(`Quarantine entry ${key} has no reason`);
@@ -97,16 +101,17 @@ export function beginStage(root, stage, now = defaultNow()) {
           + `name the kind of failure there and print the error to the log: ${reason}`);
       }
       if (sourceRef != null && typeof sourceRef !== 'string') throw new Error(`Quarantine entry ${key} has a non-string sourceRef`);
+      if (overdueAfterDays != null && !(Number.isInteger(overdueAfterDays) && overdueAfterDays > 0)) throw new Error(`Quarantine entry ${key} has overdueAfterDays ${overdueAfterDays}; expected a whole number of days`);
       // One entry per key: the first report of a run stands.
-      if (!reported.has(key)) reported.set(key, { key, reason: reason.trim(), action, ...(sourceRef ? { sourceRef } : {}) });
+      if (!reported.has(key)) reported.set(key, { key, reason: reason.trim(), action, ...(sourceRef ? { sourceRef } : {}), ...(overdueAfterDays ? { overdueAfterDays } : {}) });
     },
     /** Replaces this stage's entries in the file; returns the stage's entries as written. */
     commit() {
       const current = readQuarantine(root);
       const previous = new Map(current.entries.filter(entry => entry.stage === stage).map(entry => [entry.key, entry]));
-      const mine = [...reported.values()].map(({ key, reason, action, sourceRef }) => {
+      const mine = [...reported.values()].map(({ key, reason, action, sourceRef, overdueAfterDays }) => {
         const ref = sameSource(previous.get(key)?.sourceRef, sourceRef);
-        return { key, stage, reason, action, ...(ref ? { sourceRef: ref } : {}), firstSeen: previous.get(key)?.firstSeen ?? today };
+        return { key, stage, reason, action, ...(ref ? { sourceRef: ref } : {}), ...(overdueAfterDays ? { overdueAfterDays } : {}), firstSeen: previous.get(key)?.firstSeen ?? today };
       });
       const entries = [...current.entries.filter(entry => entry.stage !== stage).map(withoutLastSeen), ...mine]
         .sort((a, b) => byCodePoint(a.stage, b.stage) || byCodePoint(a.key, b.key));

@@ -16,10 +16,16 @@
  *   are editorial and start empty. The release date is the day the cover was uploaded,
  *   since Monster Siren publishes none (lib/music/releaseDate.mjs).
  * - A new song, appended to its album, with its id, name and exact length (read from the
- *   WAV header of the audio, as the lyrics sync does for its drafts). Its videoId stays
- *   empty: the YouTube upload is not derivable, and a song without one still plays in the
+ *   WAV header of the audio, as the lyrics sync does for its drafts). Its videoId starts
+ *   empty: the YouTube upload comes weeks later, and a song without one still plays in the
  *   song guesser, which streams from Monster Siren. It is flagged, not held back. Its
  *   copyright flag is the catalogue's own default, "no" (COPYRIGHT_DEFAULT).
+ * - A flagged song's videoId, once Monster Siren's YouTube channel has an upload whose
+ *   title is that song's and no other's (scripts/lib/youtube-uploads.mjs), and only for a
+ *   song Monster Siren credits to its label alone (LABEL). Every song the catalogue marks
+ *   copyrighted credits an outside artist (DJ Okawari, Low Roar, Mili, ...), so a label-only
+ *   song keeps the default "no" rightly; a song with an outside artist is left for a person,
+ *   whose entry links the upload found.
  * - A cover filename, for an album without one, once the image repository publishes the
  *   file under the catalogue's naming (spaces as underscores, as 286 of 293 are named).
  * - A release date in stored form (YYYY/MM/DD) where the record has it typed some other
@@ -40,8 +46,11 @@
  *   catalogue after this run (its detail did not load). This is the completeness check:
  *   the run's log also compares the two catalogues' album and song counts.
  * - song:<cid>, published-partial: a song this stage imported that still has no YouTube
- *   videoId, so the music player skips it. The flag stays until someone adds one, and says
- *   to check the copyright flag when they do. Songs
+ *   videoId, so the music player skips it. While no upload is found it waits
+ *   UPLOAD_WAIT_DAYS before it counts as overdue (overdueAfterDays), since uploads come weeks
+ *   after the song; an upload found for a song with an outside artist is overdue at the
+ *   usual 3 days, since only a person can clear it (check the copyright flag, add the
+ *   videoId). Songs
  *   that were in the catalogue before this stage existed are not flagged: the 2026-09-08
  *   review (docs/archive/music-player-catalogue-review-2026-09-08.md) found no verified
  *   upload for them.
@@ -64,6 +73,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { beginStage, defaultNow, readQuarantine } from '../lib/quarantine.mjs';
+import { fetchUploads, matchUploads } from '../lib/youtube-uploads.mjs';
 import { beginStaging, imageExtension } from '../lib/staged-art.mjs';
 import { coverUploadDate, normalizeReleaseDate, parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 
@@ -82,6 +92,11 @@ const WIDTH = 80;
 // out, lib/music/albumsData.ts), the rows without a videoId included, so an import says "no"
 // too rather than a blank no reader of the file expects.
 export const COPYRIGHT_DEFAULT = 'no';
+// The credit on a song Monster Siren made itself; any other name is an outside artist.
+export const LABEL = '塞壬唱片-MSR';
+// How long a song may wait for its YouTube upload before its entry is overdue: uploads
+// arrived 17 to 25 days after the song in 2026-08.
+export const UPLOAD_WAIT_DAYS = 45;
 // Album categories whose every track needs a song-guesser disposition
 // (scripts/tests/test-music-guesser.ts, 'every event and vignette album track ...').
 const REVIEWED_CATEGORIES = ['Event OST', 'Vignette OST'];
@@ -221,7 +236,7 @@ export function formatRecord(value, indent = '', column = indent.length) {
  * and compared with the same plan applied to the parsed catalogue, so a splice that went
  * anywhere it should not stops the stage instead of publishing a damaged file.
  */
-export function applyPlan(text, { newAlbums = [], newSongs = new Map(), fields = new Map() }) {
+export function applyPlan(text, { newAlbums = [], newSongs = new Map(), fields = new Map(), songFields = new Map() }) {
   const albums = JSON.parse(text);
   if (!Array.isArray(albums)) throw new Error('Unrecognised albums.json shape');
   const expected = structuredClone(albums);
@@ -237,6 +252,19 @@ export function applyPlan(text, { newAlbums = [], newSongs = new Map(), fields =
       edits.push({ start: at.start, end: at.end, text: JSON.stringify(value) });
       expected[index][key] = value;
     }
+    // A field of a song already in the album (a found videoId), spliced in at its value.
+    (albums[index].songs ?? []).forEach((song, position) => {
+      const fixes = songFields.get(String(song.songId));
+      if (!fixes) return;
+      const at = props.get('songs');
+      const songProps = properties(text, elements(text, at.start).spans[position].start);
+      for (const [key, value] of Object.entries(fixes)) {
+        const field = songProps.get(key);
+        if (!field) throw new Error(`Song ${song.songId} has no ${key} to rewrite`);
+        edits.push({ start: field.start, end: field.end, text: JSON.stringify(value) });
+        expected[index].songs[position][key] = value;
+      }
+    });
     const songs = newSongs.get(id);
     if (songs?.length) {
       const at = props.get('songs');
@@ -333,7 +361,7 @@ export function albumFieldFixes(album, assets) {
  * Siren lists that is still missing, the imported songs still without a videoId (this
  * run's imports and every song an earlier run flagged), and albums without a cover.
  */
-export function reviewAlbumCoverage({ albums, msrAlbums, msrSongs, flagged, awaitingReview = new Set() }) {
+export function reviewAlbumCoverage({ albums, msrAlbums, msrSongs, flagged, awaitingReview = new Set(), found = new Map() }) {
   const entries = [];
   const localAlbums = new Map(albums.map(album => [String(album.albumId), album]));
   const localSongs = new Map(albums.flatMap(album => (album.songs ?? []).map(song => [String(song.songId), { song, album }])));
@@ -351,10 +379,14 @@ export function reviewAlbumCoverage({ albums, msrAlbums, msrSongs, flagged, awai
         : `Monster Siren song ${song.cid} (${song.name}) is not in albums.json yet (album ${song.albumCid})` });
   }
   for (const id of [...flagged].sort()) {
-    const found = localSongs.get(id);
-    if (!found || found.song.videoId) continue;
-    entries.push({ key: `song:${id}`, action: 'published-partial', sourceRef: `https://monster-siren.hypergryph.com/music/${id}`,
-      reason: `${found.song.songName} (album ${found.album.albumId}) has no YouTube videoId yet: the song guesser plays it, the music player skips it. Its copyright flag is the default "${COPYRIGHT_DEFAULT}"; check it when adding the videoId` });
+    const song = localSongs.get(id);
+    if (!song || song.song.videoId) continue;
+    const upload = found.get(id);
+    entries.push(upload
+      ? { key: `song:${id}`, action: 'published-partial', sourceRef: `https://www.youtube.com/watch?v=${upload.videoId}`,
+        reason: `${song.song.songName} (album ${song.album.albumId}) has an upload on Monster Siren's YouTube channel (the source), but Monster Siren credits an outside artist (${upload.artists.filter(name => name !== LABEL).join(', ')}), so it is not filled in: check its copyright flag (the default "${COPYRIGHT_DEFAULT}"), then add the videoId` }
+      : { key: `song:${id}`, action: 'published-partial', sourceRef: `https://monster-siren.hypergryph.com/music/${id}`, overdueAfterDays: UPLOAD_WAIT_DAYS,
+        reason: `${song.song.songName} (album ${song.album.albumId}) has no upload on Monster Siren's YouTube channel yet: the song guesser plays it, the music player skips it until the daily run finds the upload and fills in its videoId` });
   }
   for (const album of albums) {
     if (album.coverFilename) continue;
@@ -445,6 +477,37 @@ function readAssets(root) {
   return new Set();
 }
 
+/**
+ * The videoIds Monster Siren's YouTube uploads give the flagged songs (the ones this stage
+ * imported, now or on an earlier run, still without one). A match on a label-only song is
+ * filled in: straight into its record when this run imports it, as a field edit otherwise.
+ * A match on a song with an outside artist is only reported (found). The feed is read only
+ * when a song is waiting, and a feed or song lookup that fails fills nothing.
+ */
+export async function findVideoIds({ albums, newAlbums, newSongs, flagged, fetcher, log = () => {} }) {
+  const records = new Map([...newSongs.values(), ...newAlbums.map(album => album.songs ?? [])].flat().map(song => [song.songId, song]));
+  const songs = [...albums, ...newAlbums].flatMap(album => {
+    const list = [...(album.songs ?? []), ...(newSongs.get(String(album.albumId)) ?? [])];
+    return list.map(song => ({ songId: String(song.songId), songName: song.songName, videoId: song.videoId || '', hasField: 'videoId' in song,
+      albumName: album.albumName, albumAltName: album.albumAltName, albumSize: list.length }));
+  });
+  const wanted = new Set(songs.filter(song => !song.videoId && song.hasField && flagged.has(song.songId)).map(song => song.songId));
+  const songFields = new Map(), found = new Map(), filled = [];
+  if (!wanted.size) return { songFields, found, filled };
+  const uploads = await fetchUploads(fetcher, log);
+  for (const match of matchUploads({ songs, wanted, uploads })) {
+    let artists;
+    try { artists = (await apiData(fetcher, `${API}/song/${match.songId}`))?.artists; } catch (error) { log(`  ! song ${match.songId}: ${error.message}`); }
+    if (!Array.isArray(artists) || !artists.length) continue;
+    if (artists.some(name => String(name).trim() !== LABEL)) { found.set(match.songId, { videoId: match.videoId, artists: artists.map(name => String(name).trim()) }); continue; }
+    const record = records.get(match.songId);
+    if (record) record.videoId = match.videoId;
+    else songFields.set(match.songId, { videoId: match.videoId });
+    filled.push(match);
+  }
+  return { songFields, found, filled };
+}
+
 /** One run of the stage. Returns what it found; writes nothing when dryRun is set. */
 export async function syncAlbums({ root = process.cwd(), fetcher = fetch, now = defaultNow(), dryRun = false, log = console.log, minimum = { albums: MIN_ALBUMS, songs: MIN_SONGS } } = {}) {
   const file = path.join(root, ALBUMS);
@@ -501,23 +564,25 @@ export async function syncAlbums({ root = process.cwd(), fetcher = fetch, now = 
     const fixes = albumFieldFixes(album, assets);
     if (Object.keys(fixes).length) fields.set(String(album.albumId), fixes);
   }
-  const out = applyPlan(text, { newAlbums, newSongs, fields });
-  const after = JSON.parse(out);
-
   const flagged = new Set([...imported, ...readQuarantine(root).entries
     .filter(entry => entry.stage === STAGE && entry.action === 'published-partial' && entry.key.startsWith('song:'))
     .map(entry => entry.key.slice('song:'.length))]);
-  const entries = reviewAlbumCoverage({ albums: after, msrAlbums, msrSongs, flagged, awaitingReview });
+  const { songFields, found, filled } = await findVideoIds({ albums, newAlbums, newSongs, flagged, fetcher, log });
+  const out = applyPlan(text, { newAlbums, newSongs, fields, songFields });
+  const after = JSON.parse(out);
+  const entries = reviewAlbumCoverage({ albums: after, msrAlbums, msrSongs, flagged, awaitingReview, found });
 
   const songCount = after.reduce((total, album) => total + (album.songs ?? []).length, 0);
   log(`Monster Siren lists ${msrAlbums.length} albums and ${msrSongs.length} songs; albums.json now holds ${after.length} and ${songCount}.`);
   for (const album of newAlbums) log(`  + album ${album.albumId} ${album.albumName} (${album.songs.length} song(s), dated ${album.releaseDate || 'unknown'})`);
   for (const [id, songs] of newSongs) for (const song of songs) log(`  + song ${song.songId} ${song.songName} in album ${id}`);
   for (const [id, fixes] of fields) for (const [key, value] of Object.entries(fixes)) log(`  ~ album ${id} ${key}: ${JSON.stringify(localAlbums.get(id)[key])} -> ${JSON.stringify(value)}`);
+  for (const match of filled) log(`  ~ song ${match.songId} videoId: ${match.videoId} (the upload "${match.title}")`);
+  for (const [id, upload] of found) log(`  ? song ${id}: upload ${upload.videoId} found, left for a person (credits ${upload.artists.join(', ')})`);
 
   if (dryRun) {
     log('Dry run: nothing written.');
-    return { newAlbums, newSongs, fields, entries, text: out };
+    return { newAlbums, newSongs, fields, filled, found, entries, text: out };
   }
   if (out !== text) fs.writeFileSync(file, out);
   await stageCovers({ root, albums: after, fetcher, log });
@@ -525,7 +590,7 @@ export async function syncAlbums({ root = process.cwd(), fetcher = fetch, now = 
   for (const entry of entries) stage.add(entry);
   const written = stage.commit();
   if (written.length) log(`${written.length} record(s) flagged (${path.join('data', 'quarantine.json')}):\n${written.map(entry => `  ! ${entry.key} (${entry.action}): ${entry.reason}`).join('\n')}`);
-  return { newAlbums, newSongs, fields, entries, text: out };
+  return { newAlbums, newSongs, fields, filled, found, entries, text: out };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
