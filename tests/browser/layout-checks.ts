@@ -26,8 +26,8 @@ import { tabAlign } from './tab-align';
  * counts are what a page always shows, not what it showed on the day: a panel that
  * depends on the clock (a banner, an open event, a live feed) is not counted.
  * On each: every section heading (.op-section h2, .section-title, .waiting-box h2) is
- * the canonical look -- Rajdhani 18px, 700, 0.03em, uppercase, --heading (never amber,
- * never the on-state --teal) -- and, in the dark theme, sits --heading-gap (14px) above
+ * the canonical look -- Rajdhani 18px, 700, 0.03em, uppercase, --heading (the site's
+ * --teal since 2026-09-29, never amber) -- and, in the dark theme, sits --heading-gap (14px) above
  * the first content under it, consecutive stacked .op-sections are --section-gap (36px)
  * apart, and every .entity-title is 22px at most and no larger than the section h2
  * above it (docs/development/ui-primitives.md rules 15 and 16). Gaps are box geometry,

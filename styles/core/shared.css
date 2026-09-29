@@ -55,8 +55,10 @@
   --card-border: rgba(255, 255, 255, 0.16);
 
   --teal: #5fd9c6;
-  /* Section headings: teal-ish, but not the --teal that marks on/current states. */
-  --heading: #67cbdd;
+  /* Section headings: the site's green, --teal, as the eyebrows and on-states are. Most
+     pages have one heading level, and a second, bluer teal for it read as a mismatch
+     rather than a hierarchy (maintainer, 2026-09-29; it was #67cbdd from 2026-09-26). */
+  --heading: var(--teal);
   --teal-dim: rgba(95, 217, 198, 0.14);
   /* Text and glyphs ON a teal fill. 9.6:1 against the fill's darker stop, where
      the old #06211C under the old brighter teal was needlessly severe. */
@@ -267,7 +269,7 @@
      measured 2.9-3.4:1 on light grounds, under AA.
      --teal-ink flips to white, matching the .primary:not(button) fix below. */
   --teal: #07695a;
-  --heading: #0b6879;
+  --heading: var(--teal);
   --teal-dim: rgba(7, 105, 90, 0.12);
   --teal-ink: #FFFFFF;
   /* Taken down from #097565 so the selected state -- teal text on --teal-dim --
@@ -579,8 +581,8 @@ h1 {
    shared primitive living in operator-detail.css: whichever stylesheet happened to load
    last decided how a section heading looked, and on the pages that only borrowed the
    class its h2 arrived as a surprise. Same rules, moved to where its users are. The h2
-   is --heading: teal-ish, kept apart from the --teal of on/current states, and never
-   amber, which is for countdowns, costs and warnings (maintainer, 2026-09-26). */
+   is --heading, the site's --teal (maintainer, 2026-09-29), and never amber, which is
+   for countdowns, costs and warnings (2026-09-26). */
 /* --- r9 section rhythm and heading roles (headings-spacing) ------------------------
    Sections stack --section-gap apart and their h2 sits --heading-gap above the first
    content. margin-top is 0: the h2 used to inherit the global h2's 18px, so a page that
