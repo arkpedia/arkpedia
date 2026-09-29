@@ -2165,6 +2165,7 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
             slug={enemyRecord.slug}
             name={enemyRecord.name}
             intro={<StageEnemyIntro record={enemyRecord} />}
+            fieldedLevel={enemyRecord.detail?.level ?? null}
             onClose={closeEnemyRecord}
           />
         )}
@@ -2177,7 +2178,8 @@ interface StageEnemyRecord { slug: string | null; name: string; code: string | n
 
 /**
  * Above the handbook's panel in an enemy's record: what THIS stage fields, which the
- * handbook cannot say -- how many, and which level. Its figures only when the stage
+ * handbook cannot say -- how many (the handbook panel below it shows only the level the
+ * stage fields). Its figures only when the stage
  * re-stats the enemy; otherwise they are the handbook's own, drawn right below, and a
  * second copy of them was a screen of repeats on a phone. These were the stage's
  * expanding enemy rows, which had no handbook panel to lean on.
@@ -2214,15 +2216,10 @@ function StageEnemyIntro({ record: { code, count, detail } }: { record: StageEne
           ))}
         </div>
       )}
-      {detail && (detail.levelCount > 1 || detail.statsOverridden) && (
-        <p className="hint">
-          {detail.levelCount > 1 &&
-            (detail.levelAssumed
-              ? `This stage does not say which of the ${detail.levelCount} level variants it fields; the strongest is shown. `
-              : `Level ${(detail.level ?? 0) + 1} of ${detail.levelCount}, which is the one this stage fields. `)}
-          {detail.statsOverridden &&
-            'This stage re-stats this enemy, and the figures shown are the ones it fields.'}
-        </p>
+      {/* No word on the level: the handbook panel below shows only the one this stage
+          fields (fieldedLevel), with no Lv switch, so there is nothing to choose between. */}
+      {detail?.statsOverridden && (
+        <p className="hint">This stage re-stats this enemy, and the figures shown are the ones it fields.</p>
       )}
     </div>
   );

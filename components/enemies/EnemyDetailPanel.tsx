@@ -270,8 +270,16 @@ const appearanceRow = (o: AppearanceOption) => (
   </>
 );
 
-export default function EnemyDetailPanel({ enemy, introducedBy, appearances, referenced, statusOperators = {} }: EnemyDetailData & { statusOperators?: EnemyStatusOperatorMap }) {
-  const [levelIndex, setLevelIndex] = useState(0);
+export default function EnemyDetailPanel({ enemy, introducedBy, appearances, referenced, statusOperators = {}, fieldedLevel = null }: EnemyDetailData & {
+  statusOperators?: EnemyStatusOperatorMap;
+  /** The level a stage fields, when the panel is that stage's record (components/enemies/
+   *  EnemyRecord.tsx): only that version is shown, with no Lv switch, since the others are
+   *  not what the reader meets there. Matched by gamedata's level number. */
+  fieldedLevel?: number | null;
+}) {
+  const fieldedIndex = fieldedLevel == null ? -1 : enemy.levels.findIndex((lv) => lv.level === fieldedLevel);
+  const fixedLevel = fieldedIndex >= 0;
+  const [levelIndex, setLevelIndex] = useState(fixedLevel ? fieldedIndex : 0);
   const [tab, setTab] = useState<DetailTab>('resistances');
   /* The tabs below swap content of very different heights (nine immunity rows against
      a long list of stages), and on a phone the pane flows in the page: switching to a
@@ -439,7 +447,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
   if (shownSlug !== enemy.slug) {
     setShownSlug(enemy.slug);
     setTab('resistances');
-    setLevelIndex(0);
+    setLevelIndex(fixedLevel ? fieldedIndex : 0);
     setContentId(defaultContentId);
   }
   const selected = appearances.find((a) => a.id === contentId) || appearances[0];
@@ -517,7 +525,7 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
                   implies nothing about strength -- five get WEAKER higher up, Dual
                   Swordsman going 2,000 HP to 1,950. */}
               <span className="enemy-hero-name-right">
-                {enemy.levels.length > 1 && (
+                {enemy.levels.length > 1 && !fixedLevel && (
                   <SegmentedControl
                     className="enemy-level-tabs"
                     label="Stat level"

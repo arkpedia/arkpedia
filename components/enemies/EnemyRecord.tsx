@@ -13,7 +13,7 @@ import RecordDialog from '@/components/ui/RecordDialog';
  * paraphrasing it. Fetched on open rather than shipped with the page: a stage fields up
  * to forty creatures and a visit reads one or two.
  */
-export default function EnemyRecord({ slug, name, intro, onClose }: {
+export default function EnemyRecord({ slug, name, intro, fieldedLevel = null, onClose }: {
   /** The handbook's slug, or null for a creature the handbook has no record of: the
    *  record then holds only what the page itself knows (intro). */
   slug: string | null;
@@ -21,6 +21,8 @@ export default function EnemyRecord({ slug, name, intro, onClose }: {
   /** Drawn above the handbook's panel, for what the opening page knows that the handbook
    *  does not -- a boss's HP at each Stronghold difficulty, the level a stage fields. */
   intro?: ReactNode;
+  /** The level the opening stage fields: the handbook panel shows only that version. */
+  fieldedLevel?: number | null;
   onClose: () => void;
 }) {
   const contentUrl = useContentUrl();
@@ -46,7 +48,7 @@ export default function EnemyRecord({ slug, name, intro, onClose }: {
       {!slug
         ? <p className="hint record-dialog-wait">The enemy handbook has no record of {name}.</p>
         : detail
-          ? <EnemyDetailPanel key={detail.enemy.slug} {...detail} />
+          ? <EnemyDetailPanel key={detail.enemy.slug} {...detail} fieldedLevel={fieldedLevel} />
           : <p className="hint record-dialog-wait">{failed ? `${name} could not be loaded.` : 'Loading...'}</p>}
     </RecordDialog>
   );
