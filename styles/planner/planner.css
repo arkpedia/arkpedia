@@ -319,7 +319,7 @@
 .planner-clear-button[data-armed="true"] { background:var(--danger-solid); border-color:var(--danger-solid); color:#fff; }
 
 .state-level { gap:12px; margin-top:10px; }
-.state-level .state-level-number { width:58px; min-width:58px; flex:0 0 58px; height:var(--control-h); padding:0 6px; text-align:center; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bg); color:var(--text); font:600 20px var(--font-display); appearance:textfield; }
+.state-level .state-level-number { width:58px; min-width:58px; flex:0 0 58px; height:var(--control-h); padding:0 6px; text-align:center; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bg); color:var(--text); font:600 22px var(--font-display); appearance:textfield; }
 .state-level-number::-webkit-inner-spin-button,.state-level-number::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 .state-block .state-level .state-level-range { display:block; width:0; flex:1 1 0; min-width:0; margin:0; }
 /* MAX is a .btn-sm, one line at the control height (it was a 48px two-line tile). */

@@ -15,7 +15,7 @@
    4px down (measured). */
 .thumbnail picture { display: contents; }
 .thumbnail source { display: none; }
-.fallback { display: grid; place-items: center; font: 700 24px var(--font-display); }
+.fallback { display: grid; place-items: center; font: 700 22px var(--font-display); }
 .name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 100%; margin-block: auto; font: 500 11px/1.3 var(--font-body); text-align: center; overflow-wrap: anywhere; }
 .picker .thumbnail[aria-pressed="true"], .picker .thumbnail:hover { color: var(--teal); }
 .picker .thumbnail:focus-visible { outline: 2px solid var(--teal); outline-offset: -3px; }

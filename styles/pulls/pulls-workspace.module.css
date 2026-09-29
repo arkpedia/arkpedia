@@ -40,7 +40,7 @@
 .forecast dl>span { color: var(--text-faint); }
 .forecast dl div { display: flex; flex-direction: column; gap: 2px; }
 .forecast dt { font-size: 11px; color: var(--text-dim); }
-.forecast dd { font: 600 24px var(--font-display); margin: 0; font-variant-numeric: tabular-nums; }
+.forecast dd { font: 600 22px var(--font-display); margin: 0; font-variant-numeric: tabular-nums; }
 .forecastTotal dd { color: var(--text-bright); }
 .forecast small { font: 12px var(--font-body); }
 .plan { border: 1px solid var(--line); border-radius: var(--radius-frame); overflow: visible; background: var(--panel); }
@@ -58,15 +58,15 @@
 /* Art not published yet: the same box, so the row lines up with its neighbours. */
 .bannerArtPending { width: 96px; height: 60px; border-radius: var(--radius); flex-shrink: 0; background: var(--panel-2); }
 .bannerIdentity>span { min-width: 0; display: grid; gap: 3px; }
-.bannerIdentity strong { font: 600 19px/1.2 var(--font-display); }
+.bannerIdentity strong { font: 600 18px/1.2 var(--font-display); }
 .bannerIdentity small { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bannerIdentity em { font: normal 11px var(--font-body); color: var(--amber); }
 .date,.figure { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .date b { font-weight: 500; font-size: 13px; }
 .date small,.figure small { min-height: 14px; font-size: 10px; color: var(--text-dim); }
-.figure b { font: 600 23px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
+.figure b { font: 600 22px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
 .chance b { color: var(--text-bright); }
-.budget input { width: 100%; min-height: var(--control-h); background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 0 3px; text-align: center; font: 600 23px var(--font-display); appearance: textfield; }
+.budget input { width: 100%; min-height: var(--control-h); background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 0 3px; text-align: center; font: 600 22px var(--font-display); appearance: textfield; }
 .budget input::-webkit-inner-spin-button { appearance: none; }
 /* The goal's remove is an XButton (the borderless × in a control-height square); its
    column is that wide at every width, and .remove only places it on a phone. */
@@ -149,7 +149,7 @@
 .pickerPortraits img { width:68px; height:68px; object-fit:contain; }
 .pickerPortraits img+img { margin-left:-28px; }
 .pickerCopy { display:grid; gap:5px; min-width:0; flex:1; }
-.pickerCopy strong { font:600 20px/1.15 var(--font-display); }
+.pickerCopy strong { font:600 18px/1.15 var(--font-display); }
 .pickerCopy small { font-size:11px; color:var(--text-dim); }
 .pickerAdd { color:var(--text-dim); font-size:22px; flex-shrink:0; }
 @media(max-width:700px) {

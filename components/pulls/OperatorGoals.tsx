@@ -55,7 +55,7 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
     </div>;
   };
   return <section className="pulls-operator-goals" aria-label={`Operator goals for ${goal.banner}`}>
-    <div className="pulls-goals-heading"><h3>Operator goals</h3>    <SectionHelp title={`Operator goals: ${goal.banner.replace(/^\[[^\]]*\]\s*/, '')}`} links={[{label: 'pull budget', selector: '.pulls-plan-controls'}]}>
+    <div className="pulls-goals-heading"><h3>Operator goals</h3>    <SectionHelp title={`Operator goals: ${goal.banner.replace(/^\[[^\]]*\]\s*/, '')}`} links={[{label: 'pull budget', selector: `input[aria-label=${JSON.stringify(`Pull budget for ${goal.banner}`)}]`}]}>
       <ol><li>{rules.type === 'orienteering' ? 'Choose three rate-up operators of each rarity, then select your goals.' : 'Select one or more operators.'}</li><li>Choose how many new copies you want.</li><li>Enter your pull budget to compare individual and combined chances.</li></ol>
       <p>Individual rows show at least the listed number of new copies. With sparking, each row spends all spark tokens on that operator. The combined chance shares one spark token balance across all your goals.</p>
       {rules.type === 'limited' && <p>One pull earns one spark token. Exchange costs appear on each operator. The extra {rules.bonus} at 300 pulls is always included, even with sparking off.</p>}

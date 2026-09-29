@@ -60,6 +60,52 @@ test('UI-16: /community shows no developer setup notes', async ({ page }) => {
    upcoming (2026-09-25), and with none upcoming the whole map was gone. It is drawn with
    the list whatever the page's clock says: here the page data is fetched on a client
    navigation with its clock moved past the last event, so every event has ended. */
+/* The map's land reads against its sea (maintainer, 2026-09-29: "i can barely make out the
+   continents because of the low contrast"). In both themes the coastline is 3:1 or more
+   against the sea (WCAG 1.4.11) and the land fill visibly apart from it, and no stroke runs
+   across the map: a ring crossing the date line (Chukotka, Fiji) used to be drawn as one
+   line spanning the whole width. */
+test('the /community map draws land that reads against the sea, in both themes', async ({ page }) => {
+  await page.goto('/community');
+  const map = page.locator('.community-map-row .world-map-svg');
+  await expect(map).toBeVisible();
+  for (const theme of ['dark', 'light'] as const) {
+    const found = await map.evaluate((svg, t) => {
+      document.documentElement.setAttribute('data-theme', t);
+      const probe = document.createElement('span');
+      document.body.appendChild(probe);
+      const rgb = (value: string) => {
+        probe.style.color = value;
+        const canvas = document.createElement('canvas').getContext('2d')!;
+        canvas.fillStyle = getComputedStyle(probe).color;
+        canvas.fillRect(0, 0, 1, 1);
+        return Array.from(canvas.getImageData(0, 0, 1, 1).data.slice(0, 3));
+      };
+      const lum = ([r, g, b]: number[]) => [r, g, b].map((c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+        .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const ratio = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+      const land = svg.querySelector('.world-map-land')!;
+      const sea = rgb(getComputedStyle(svg.querySelector('.world-map-bg')!).fill);
+      const out = { coast: ratio(rgb(getComputedStyle(land).stroke), sea), fill: ratio(rgb(getComputedStyle(land).fill), sea) };
+      probe.remove();
+      return out;
+    }, theme);
+    expect(found.coast, `${theme}: the coastline against the sea`).toBeGreaterThanOrEqual(3);
+    expect(found.fill, `${theme}: the land fill against the sea`).toBeGreaterThanOrEqual(1.3);
+  }
+  const spans = await map.locator('.world-map-land').evaluate((path) => {
+    const d = path.getAttribute('d') ?? '';
+    let previous: number | null = null; let widest = 0;
+    for (const [, cmd, x] of d.matchAll(/([ML])([\d.-]+),[\d.-]+/g)) {
+      const value = Number(x);
+      if (cmd === 'L' && previous !== null) widest = Math.max(widest, Math.abs(value - previous));
+      previous = value;
+    }
+    return widest;
+  });
+  expect(spans, 'no coastline segment crosses the map (the date line splits a ring)').toBeLessThan(500);
+});
+
 test('/community always shows the world map and the event list, even when every event has ended', async ({ page }) => {
   await page.goto('/community');
   await expect(page.locator('.community-map-row .world-map-svg'), 'the map, at the build\'s clock').toBeVisible();
