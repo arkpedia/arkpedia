@@ -2310,9 +2310,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                         <div className="gacha-pity-stat">
                           <span className="gacha-pity-label">Crossover guarantee (120)</span>
                           <span className="gacha-pity-value">
-                            {state.crossoverGuaranteeUsed
-                              ? 'Used'
-                              : state.pullsSinceCrossover6Star >= 120
+                            {state.pullsSinceCrossover6Star >= 120
                               ? 'Active'
                               : `${120 - state.pullsSinceCrossover6Star} left`}
                           </span>

@@ -105,11 +105,15 @@ assumed. The budget remains fully spent in the forecast.
   its own returning roster and exchange list. Gavial and Ch'en cost 200 here.
 - [Single-featured safety net](https://ak.hypergryph.com/news/2023033352): after
   150 consecutive featured misses, the next six-star is featured, once per banner.
-- [Hunters of the Umbral Wilds](https://ak.hypergryph.com/news/7377.html) and
-  [Sharpened by Flame rerun](https://ak.hypergryph.com/news/9699): recurring
-  120-pull six-star guarantees and a next-five-star guarantee if the featured
-  five-star was absent from the first 50 draws. These are the 2026 Monster Hunter
-  rules, not the older crossover simulator's generic one-time guarantee.
+- [Hunters of the Umbral Wilds](https://ak.hypergryph.com/news/7377.html),
+  [Sharpened by Flame rerun](https://ak.hypergryph.com/news/9699) and
+  [Some Evening of White and Mystic Blue](https://ak.hypergryph.com/news/1457)
+  (Persona 3 Reload): the featured six-star within every 120 pulls, the count
+  starting over each time it is obtained; a rate-up five-star as the next
+  five-star if none came in the first 50 pulls; and, with two rate-up
+  five-stars (Aegis and Yukari Takeba), the next five-star after the first of
+  them is the other, once. /gacha's simulator follows the same rules (it had
+  the 120 once, and only for a six-star rolled on or after it).
 - [Orienteering #7](https://ak.hypergryph.com/news/3046): choose three six-stars
   and three five-stars; chosen six-stars share 100%, chosen five-stars share 60%.
   Other Standard five-stars remain in the remaining 40%, aggregated in this model.

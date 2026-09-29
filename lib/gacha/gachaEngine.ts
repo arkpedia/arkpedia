@@ -157,7 +157,7 @@ function pickSixStar(banner: BannerConfig, state: GachaState, rand: number): { i
   if (banner.type === 'featured' && feat[0] && !state.featuredGuaranteeUsed && state.pullsSinceFeatured6Star >= 150) {
     return { item: feat[0], isFeatured: true, isRateUp: false };
   }
-  if (banner.type === 'crossover' && feat[0] && !state.crossoverGuaranteeUsed && state.pullsSinceCrossover6Star >= 120) {
+  if (banner.type === 'crossover' && feat[0] && state.pullsSinceCrossover6Star >= 120) {
     return { item: feat[0], isFeatured: true, isRateUp: false };
   }
 
@@ -247,6 +247,11 @@ function pickFiveStar(banner: BannerConfig, state: GachaState, rand: number): { 
     case 'kernelLocating':
       return { item: pickFromPool(feat.slice(0, 3), rand), isFeatured: true };
     default: {
+      // No rate-up 5-star in the first 50 pulls: the next 5-star is one of them. The pair
+      // rule never overlaps it, since it starts only once a rate-up 5-star has come.
+      if (banner.type === 'crossover' && !state.crossoverFiveStarSeen && state.pullCount > 50 && feat.length) {
+        return { item: pickFromPool(feat.slice(0, 2), rand), isFeatured: true };
+      }
       const pool = fiveStarWeightedPool(banner, banner.type === 'crossover' ? state.crossoverFiveStarObtainedName : null);
       if (pool.length === 0) return { item: UNKNOWN_OPERATOR, isFeatured: false };
       const picked = pickWeighted(pool, rand);
@@ -282,7 +287,12 @@ export function doSinglePull(banner: BannerConfig, prevState: GachaState): { sta
   // only within the first 10 pulls of this banner session.
   const forced = !state.firstTenGuaranteeUsed && state.pullCount === 10;
 
-  const rarity = rollRarity(state.softPitySince6, forced, Math.random());
+  // The 120th pull since a crossover's featured 6-star is that 6-star: the guarantee forces
+  // the rarity too, not just who a 6-star rolled on or after it is. The roll is still drawn,
+  // so every pull draws the same number of times.
+  const crossoverDue = banner.type === 'crossover' && Boolean(banner.sixStarFeatured[0]) && state.pullsSinceCrossover6Star >= 120;
+  const rarityRoll = Math.random();
+  const rarity = crossoverDue ? 6 : rollRarity(state.softPitySince6, forced, rarityRoll);
   const limitedTarget = banner.limitedExclusiveSixStar || banner.sixStarFeatured[1];
 
   function recordObtained(name: string) {
@@ -306,10 +316,8 @@ export function doSinglePull(banner: BannerConfig, prevState: GachaState): { sta
         if (!guaranteeAlreadyUsedBeforeThisPull) items[items.length - 1].featuredGuaranteeEvent = 'reset';
       }
     }
-    if (banner.type === 'crossover' && isFeatured) {
-      state.crossoverGuaranteeUsed = true;
-      state.pullsSinceCrossover6Star = 0;
-    }
+    // Every featured 6-star starts the 120 over: the guarantee recurs.
+    if (banner.type === 'crossover' && isFeatured) state.pullsSinceCrossover6Star = 0;
     if (banner.type === 'limited' && item.name === limitedTarget?.name) state.limitedObtained = true;
   } else if (rarity === 5) {
     const { item, isFeatured } = pickFiveStar(banner, state, Math.random());
@@ -318,6 +326,7 @@ export function doSinglePull(banner: BannerConfig, prevState: GachaState): { sta
     state.softPitySince6 += 1;
     state.firstTenGuaranteeUsed = true;
     if (banner.type === 'crossover' && isFeatured) {
+      state.crossoverFiveStarSeen = true;
       if (!state.crossoverFiveStarObtainedName && !state.crossoverFiveStarPairCompleted) {
         // First of the pair obtained -- lock the NEXT pull to guarantee
         // whichever one is still missing. Only applies if the pair
