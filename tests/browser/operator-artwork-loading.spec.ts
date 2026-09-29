@@ -52,7 +52,11 @@ test('the operator artwork fetches the outfit on screen, and another only when t
   expect(fullArt(), 'at load, the artwork of the outfit on screen and no other').toEqual([first]);
   const thumbnails = await page.locator('[aria-label="Operator outfits"] img').evaluateAll((imgs) => [...new Set(imgs.map((img) => decodeURIComponent((img as HTMLImageElement).currentSrc)).filter(Boolean))]);
   expect(thumbnails.length, 'the thumbnails on screen have loaded').toBeGreaterThan(1);
-  expect(thumbnails.filter((src) => !THUMB.test(src)), 'every thumbnail is its outfit\'s 320px rendition').toEqual([]);
+  // A thumbnail is its outfit's 320px rendition, or the artwork already fetched for the
+  // outfit on screen: Chrome picks a cached candidate of the same picture when one fits
+  // (the phone project in CI chose the hero's w1280 for its own thumbnail), which fetches
+  // nothing more. Every other size is caught by the request list below.
+  expect(thumbnails.filter((src) => !THUMB.test(src) && src !== first), 'every thumbnail is its outfit\'s 320px rendition, or the artwork already on screen').toEqual([]);
   expect(images.filter((url) => SKIN_ART.test(url) && !FULL_ART.test(url) && !THUMB.test(url)), 'no other size of any outfit').toEqual([]);
   // The renditions came in a <picture>, and its <source>s once drew boxes of their own: flex
   // items, so the tile's gap put every stamp 4px down. The stamp is the tile's first box.
