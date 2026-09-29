@@ -42,7 +42,7 @@ export const HEADING_ROUTES: Record<string, number> = {
   '/games/music-guesser': 0, '/games/operator-guesser': 1, '/games/recruitment-guesser': 1,
   '/games/stage-guesser': 1, '/music': 1, '/music/discover': 1, '/obtain-method': 0, '/operators': 0,
   '/operators/Amiya': 10, '/planner': 1, '/pulls': 3, '/recruitment': 2, '/results': 0, '/schedule': 0,
-  '/skins': 1, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
+  '/skins': 0, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
   '/stages/exploration': 2, '/stages/regular': 2, '/stages/score': 2, '/stages/seasonal': 2,
   '/stages/supplies': 0, '/support': 1, '/synergies': 10, '/techniques': 10,
 };
