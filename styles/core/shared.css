@@ -1411,6 +1411,10 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .scroll-row-controls[data-idle] { visibility: hidden; }
 .scroll-row-controls button { display: inline-flex; align-items: center; justify-content: center; width: 38px; padding: 6px 0; line-height: 1; }
 
+/* --- lists that grow as they are read (components/ui/LoadOnScroll.tsx) -----------
+   The 1px foot the next batch waits on. No "Show more" button anywhere. */
+.load-on-scroll { height: 1px; }
+
 /* --- side-scrolling rows ----------------------------------------------------
    Every box on this site whose content runs off to the right gets a scrollbar that is
    DRAWN and takes up space, not the overlay kind that fades. A mouse with only a

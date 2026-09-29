@@ -7,6 +7,7 @@ import { skinReservation, skinPurchasePlan, type PlannedSkin } from '@/lib/pulls
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
 import { openSkinCollections } from '@/lib/pulls/currentPlan';
 import { ContentImg } from '@/components/content/ContentImage';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 export function SkinPlan({ catalogue, collections, today, ids, onChange, heldOP, extraOP, extraField, forecastOP }: {
   catalogue: PlannedSkin[]; collections: SkinCollection[]; today: string | null;
@@ -53,7 +54,7 @@ export function SkinPlan({ catalogue, collections, today, ids, onChange, heldOP,
           </button>)}
         </div>
         {matches.length === 0 && collection && <p className="hint">No outfits match these filters.</p>}
-        {matches.length > limit && <button type="button" className="ghost" onClick={() => setLimit(value => value + 12)}>Show more outfits ({matches.length - limit})</button>}
+        <LoadOnScroll shown={limit} total={matches.length} onMore={() => setLimit(value => value + 12)} />
       </div>
       <aside className="pulls-skin-wishlist" aria-labelledby="pulls-skin-wishlist-title">
         <h3 id="pulls-skin-wishlist-title">Your skins <span>{selection.skins.length}</span></h3>

@@ -45,7 +45,6 @@
 .skins-results:focus { outline: none; }
 .skins-result-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .skins-acquisition-note { margin: 0 0 12px; color: var(--text-dim); font-size: 13px; }
-.skins-load-sentinel { height: 1px; }
 .skin-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
 .skin-card {
   display: flex;

@@ -1461,14 +1461,6 @@ button.stage-tile-pop-close:hover { color: white; }
   color: white;
 }
 
-/* The "show more" foot under either card grid. */
-.stage-mode-more {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-}
-
 /* --- Deploying an operator on the map -------------------------------------- */
 
 /* The squad bar, under the playback row in fullscreen: promotion on the left because

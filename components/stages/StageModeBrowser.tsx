@@ -9,6 +9,7 @@ import { compareStageSummaries } from '@/lib/stages/stageSort';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import SearchInput from '@/components/ui/SearchInput';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 interface Props {
   cards: StageModeCard[];
@@ -212,16 +213,7 @@ export default function StageModeBrowser({ cards, counts, now }: Props) {
         )}
       </div>
 
-      {shown.length > visible.length && (
-        <div className="stage-mode-more">
-          <button type="button" className="ghost" onClick={() => setCardLimit((n) => n + CARD_PAGE)}>
-            Show {Math.min(CARD_PAGE, shown.length - visible.length)} more
-          </button>
-          <span className="stage-count">
-            {visible.length} of {shown.length}
-          </span>
-        </div>
-      )}
+      <LoadOnScroll shown={visible.length} total={shown.length} onMore={() => setCardLimit((n) => n + CARD_PAGE)} />
 
       {wanted && (
         <section className="op-section stage-mode-stages">

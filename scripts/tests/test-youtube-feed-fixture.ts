@@ -59,7 +59,7 @@ test('with the fixture named, the videos come from it and nothing is fetched', a
   ));
   assert.deepEqual(urls, []);
   const shown = filterArknightsVideos(videos);
-  // More than /community/videos' 24-card page, so its "Show more" button renders too.
+  // More than /community/videos' first 24-card batch, so it grows as it is read too.
   assert.ok(shown.length > 24, `the fixture gives ${shown.length} cards after the feed filter`);
   assert.ok(shown.length < videos.length, 'the fixture holds a title the feed filter drops');
   const labels = new Set(YOUTUBE_CHANNELS.map((c) => c.label));

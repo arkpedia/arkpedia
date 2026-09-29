@@ -23,6 +23,7 @@ import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 interface Props {
   operators: RosterOperator[];
@@ -503,16 +504,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
                 </Link>
               ))}
             </div>
-            {visibleCount < filtered.length && (
-              <div className="roster-show-more-row">
-                <p className="hint">
-                  Showing {Math.min(visibleCount, filtered.length)} of {filtered.length}.
-                </p>
-                <button type="button" className="ghost" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-                  Show more
-                </button>
-              </div>
-            )}
+            <LoadOnScroll shown={visibleCount} total={filtered.length} onMore={() => setVisibleCount((c) => c + PAGE_SIZE)} />
           </>
         )}
       </main>
