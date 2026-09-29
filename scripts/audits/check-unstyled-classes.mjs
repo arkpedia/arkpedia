@@ -57,7 +57,7 @@ const LAYOUT_ONLY = new Set([
  */
 const INTENTIONALLY_UNSTYLED = new Map([
   ['gm-co-hintlayer', 'fixed overlay host; .gm-co-hintcard supplies the visible hint panel'],
-  ['gm-recordwrap', 'fixed overlay host; the record dialog and backdrop supply the appearance'],
+  ['record-dialog-wrap', 'fixed overlay host; the record dialog and backdrop supply the appearance (components/ui/RecordDialog.tsx)'],
   ['site-nav-menu', 'relative positioning anchor for the styled dropdown and trigger'],
   ['enemy-appear-list-group', 'role="group" hook for the listbox; the stages page leaves .stage-picker-group unstyled for the same reason'],
   ['stage-picker-group', 'role="group" hook inside the picker popover; the options carry the styling'],
