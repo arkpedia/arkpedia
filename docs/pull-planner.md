@@ -95,6 +95,29 @@ banner at zero pity, with its initial ten-pull guarantee unused; carried Standar
 pity and already-spent pulls are **not** modeled. No stop-on-success savings are
 assumed. The budget remains fully spent in the forecast.
 
+### Where the verified rules live
+
+A banner gets odds only once its announcement's rules are recorded by pool ID in
+`data/pull-odds-rules.json`, a game record in arkpedia-data
+(`source/data/pull-odds-rules.json`), so a new banner's rules go out with the next
+content release and need no redeploy. It has three kinds, by pool-ID prefix:
+- `LIMITED_*` pools under `limited`: the 300-pull gift and the returning roster at each
+  exchange cost, as character IDs.
+- `LINKAGE_*` pools under `crossover`: the announcement only.
+- Orienteering `SPECIAL_*` pools under `orienteering`: the announcement only.
+
+Single-featured banners need no entry; their rules are one for all. Kernel and Standard
+banners have no model.
+
+Until a scheduled banner of those kinds is in the file, the refresh's `odds-rules` stage
+lists it in the daily 'Content quarantined' issue, with its announcement linked
+(`scripts/content/check-pull-odds.ts`).
+
+To add one:
+1. Read the announcement.
+2. Add the pool under its kind, with the banner's `name` and the announcement as `source`.
+3. The next refresh release gives it odds and clears the entry.
+
 ### Sources checked September 9, 2026
 
 - [Sealed With Time / 承诺](https://ak.hypergryph.com/news/2825): featured shares,

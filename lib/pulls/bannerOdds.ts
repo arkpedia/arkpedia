@@ -9,28 +9,39 @@ import type { UpcomingBanner } from './pulls';
 import type { BannerOdds, OddsOperator } from './probability';
 import { pullArtworkUrl } from './artwork';
 
-/** Operators by character id, never by name: the gift of both limited banners below
- *  opens on Global under a community English name that the official one replaces on
- *  launch day, and a name kept here would then match no one on the banner. */
-export const LIMITED_RULES: Record<string, { bonus: string; source: string; returning300: string[]; returning200: string[] }> = {
-  LIMITED_73_0_1: {
-    // Kal'tsit - Esperanta
-    bonus: 'char_1052_kalts2', source: 'https://ak.hypergryph.com/news/2825',
-    // Exusiai the New Covenant, Lappland the Decadenza, Wiš'adel, Virtuosa, Muelsyse, Texas the Omertosa
-    returning300: ['char_1041_angel2', 'char_1038_whitw2', 'char_1035_wisdel', 'char_245_cello', 'char_249_mlyss', 'char_1028_texas2'],
-    // Specter the Unchained, Nearl the Radiant Knight, Skadi the Corrupting Heart, Rosmontis, W
-    returning200: ['char_1023_ghost2', 'char_1014_nearl2', 'char_1012_skadi2', 'char_391_rosmon', 'char_113_cqbw'],
-  },
-  LIMITED_76_0_1: {
-    // Angelina the Mellow Wish
-    bonus: 'char_1015_aglna2', source: 'https://ak.hypergryph.com/news/6247.html',
-    // Hoshiguma the Breacher, Pepe, Eyjafjalla the Hvít Aska
-    returning300: ['char_1044_hsgma2', 'char_4058_pepe', 'char_1016_agoat2'],
-    // Gavial the Invincible, Ch'en the Holungday
-    returning200: ['char_1026_gvial2', 'char_1013_chen2'],
-  },
-};
-type LimitedRules = (typeof LIMITED_RULES)[string];
+/**
+ * Which banners' odds were verified against their official announcement, and what that
+ * announcement says: data/pull-odds-rules.json, a game record like the banner list, so a
+ * new banner's rules go out with the next content release and need no redeploy. A limited,
+ * crossover or Orienteering pool the file does not name gets no odds, and the release's
+ * odds-rules stage lists it in the daily 'Content quarantined' issue until someone reads
+ * its announcement and adds it (scripts/content/check-pull-odds.ts). Kernel and Standard
+ * banners have no model here at all, verified or not.
+ *
+ *   limited:      a pool's 300-pull gift and its returning roster at each exchange cost.
+ *                 Operators by character id, never by name: the gift of both limited
+ *                 banners opened on Global under a community English name that the
+ *                 official one replaced on launch day, and a name kept here would then
+ *                 match no one on the banner.
+ *   crossover:    the rules probability.ts models -- the featured 6★ within every 120
+ *                 pulls, resetting when obtained; a rate-up 5★ as the next 5★ if none came
+ *                 in the first 50 pulls; and, with two rate-up 5★, the next 5★ after the
+ *                 first of them is the other, once.
+ *   orienteering: choose three 6★ and three 5★; the chosen 6★ share 100%, the chosen 5★
+ *                 60%.
+ */
+import rules from '@/data/pull-odds-rules.json';
+
+interface VerifiedPool { name: string; source: string }
+export interface OddsRules {
+  version: 1;
+  limited: Record<string, VerifiedPool & { bonus: string; returning300: string[]; returning200: string[] }>;
+  crossover: Record<string, VerifiedPool>;
+  orienteering: Record<string, VerifiedPool>;
+}
+export const ODDS_RULES = rules as OddsRules;
+export const LIMITED_RULES = ODDS_RULES.limited;
+type LimitedRules = Omit<(typeof LIMITED_RULES)[string], 'name'>;
 
 /** A verified rule with every character id put to today's operator name, or the ids no
  *  operator record answers to. One unresolved id -- a record not imported yet, or held
@@ -46,17 +57,8 @@ export function resolveLimitedRules(verified: LimitedRules, nameOf: ReadonlyMap<
   return { resolved: { source: verified.source, bonus: nameOf.get(verified.bonus)!, returning300: names(verified.returning300), returning200: names(verified.returning200) } };
 }
 
-/** Crossover pools whose announcement was read for the rules probability.ts models: the
- *  featured 6★ guaranteed within every 120 pulls, resetting when obtained; a rate-up 5★
- *  guaranteed as the next 5★ if none came in the first 50 pulls; and, with two rate-up
- *  5★, the next 5★ after the first of them is the other, once. */
-const CROSSOVER_SOURCES: Record<string, string> = {
-  LINKAGE_74_0_1: 'https://ak.hypergryph.com/news/7377.html',
-  LINKAGE_74_0_3: 'https://ak.hypergryph.com/news/9699',
-  // [Crossover · Persona 3 Reload] Some Evening of White and Mystic Blue: Makoto Yuki,
-  // with Aegis and Yukari Takeba as the two rate-up 5★.
-  LINKAGE_77_0_1: 'https://ak.hypergryph.com/news/1457',
-};
+const CROSSOVER_SOURCES = Object.fromEntries(Object.entries(ODDS_RULES.crossover).map(([id, pool]) => [id, pool.source]));
+const ORIENTEERING_SOURCES = Object.fromEntries(Object.entries(ODDS_RULES.orienteering).map(([id, pool]) => [id, pool.source]));
 export function getBannerOdds(schedule: UpcomingBanner[]): Record<string, BannerOdds> {
   const banners = getAllHeadhuntingBanners();
   const pools = getGachaIconPools();
@@ -94,7 +96,7 @@ export function getBannerOdds(schedule: UpcomingBanner[]): Record<string, Banner
     }
     const limited = verified && 'resolved' in verified ? verified.resolved : null;
     const crossover = CROSSOVER_SOURCES[banner.poolId];
-    const type = limited ? 'limited' : crossover ? 'crossover' : raw.pull_type === 'featured' && banner.ruleType === 'SINGLE' ? 'single' : banner.poolId === 'SPECIAL_73_0_3' ? 'orienteering' : null;
+    const type = limited ? 'limited' : crossover ? 'crossover' : raw.pull_type === 'featured' && banner.ruleType === 'SINGLE' ? 'single' : ORIENTEERING_SOURCES[banner.poolId] ? 'orienteering' : null;
     if (!type || !raw.six_stars.length || !raw.five_stars.length) continue; // unknown special rules need verification
     const ordinarySix = buildEligiblePool(pools.six, obtain, release, kernel, new Date(`${banner.start}T00:00:00`), false, new Set(raw.six_stars)).map(op => op.name);
     const operators: OddsOperator[] = [];
@@ -113,9 +115,45 @@ export function getBannerOdds(schedule: UpcomingBanner[]): Record<string, Banner
     }
     result[banner.name] = {
       id: banner.poolId, type, operators,
-      sources: [limited?.source || crossover || (type === 'orienteering' ? 'https://ak.hypergryph.com/news/3046' : 'https://ak.hypergryph.com/news/2023033352')],
+      sources: [limited?.source || crossover || ORIENTEERING_SOURCES[banner.poolId] || 'https://ak.hypergryph.com/news/2023033352'],
       ...(limited ? { bonus: limited.bonus, ordinarySix } : {}),
     };
   }
   return result;
+}
+
+/** The verified rules a pool needs before the planner gives it odds, by its id: LIMITED_*
+ *  limited, LINKAGE_* crossover (P3 Reload's is pull_type "limited" but LINKAGE_), and a
+ *  SPECIAL_* pool named Orienteering. Any other pool (Kernel, Standard, a Joint banner) has
+ *  no model to verify rules for. */
+export function rulesKindFor(poolId: string | null | undefined, name: string): keyof Omit<OddsRules, 'version'> | null {
+  if (!poolId) return null;
+  if (poolId.startsWith('LIMITED_')) return 'limited';
+  if (poolId.startsWith('LINKAGE_')) return 'crossover';
+  if (poolId.startsWith('SPECIAL_') && /orienteering/i.test(name)) return 'orienteering';
+  return null;
+}
+
+/**
+ * The scheduled banners the planner shows without odds for want of verified rules, each
+ * with why: its pool is not in data/pull-odds-rules.json, or its limited rules name a
+ * character id no operator record has (resolveLimitedRules). A verified pool without odds
+ * for another reason -- its lineup not listed yet -- is not one of these: the lineup
+ * arrives with the data, and the completeness stage holds a banner that lacks one.
+ */
+export function unverifiedBanners(schedule: readonly UpcomingBanner[], odds: Readonly<Record<string, BannerOdds>>): { banner: UpcomingBanner; kind: keyof Omit<OddsRules, 'version'>; reason: string }[] {
+  const nameOf = new Map(getAllOperators().filter(op => op.internalName).map(op => [op.internalName!, op.name]));
+  return schedule.flatMap(banner => {
+    const kind = rulesKindFor(banner.poolId, banner.name);
+    if (!kind || odds[banner.name]) return [];
+    const verified = ODDS_RULES[kind][banner.poolId!];
+    if (!verified) {
+      return [{ banner, kind, reason: `${banner.name}: the pull planner shows this ${kind} banner without odds until someone reads its announcement and adds its rules under "${kind}" in data/pull-odds-rules.json (arkpedia-data, source/data/pull-odds-rules.json); the next content release gives it odds` }];
+    }
+    const resolved = kind === 'limited' ? resolveLimitedRules(verified as OddsRules['limited'][string], nameOf) : null;
+    if (resolved && 'missing' in resolved) {
+      return [{ banner, kind, reason: `${banner.name}: its rules in data/pull-odds-rules.json name ${resolved.missing.join(', ')}, which no operator record has, so the pull planner shows it without odds` }];
+    }
+    return [];
+  });
 }
