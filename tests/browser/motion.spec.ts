@@ -534,7 +534,6 @@ test.describe('cards lift, and only by paint', () => {
       await expect.poll(() => el.evaluate((e) => getComputedStyle(e).scale), { message: `${what} ${scale === 'none' ? 'does not press in' : 'presses in'}` }).toBe(scale);
       await forceActive(page, '[data-motion-press]', false);
     };
-    await press('a ghost button', () => page.locator('main button.ghost:visible, main .ghost:visible'), '0.97');
     await press('a chip', () => page.locator('.filter-chip:visible'), '0.97');
     await page.goto('/events/%5BSide%20Story%5D%20People%2C%20A%20People');
     await settle(page);
@@ -542,6 +541,8 @@ test.describe('cards lift, and only by paint', () => {
     await page.goto('/gacha');
     await settle(page);
     await press('a base button (the pull buttons, which also rise on hover)', () => page.locator('button.gacha-action:visible'), '0.97');
+    // /operators' only ghost button was its "Show more"; the roster grows on scroll now.
+    await press('a ghost button', () => page.locator('main button.ghost:visible:not([disabled])'), '0.97');
     // The operator page's eyebrow links back to the roster: a text link.
     await page.goto('/operators/Amiya');
     await settle(page);
