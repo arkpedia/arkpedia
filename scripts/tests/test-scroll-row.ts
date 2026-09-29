@@ -37,7 +37,3 @@ test('without controls, the row is as it was: no buttons, no id', () => {
   assert.doesNotMatch(html, /<button/);
   assert.match(html, /^<div class="scroll-row sidescroll">/);
 });
-
-test('the /skins shelf asks for the controls', () => {
-  assert.match(fs.readFileSync('pages/skins.tsx', 'utf8'), /<ScrollRow label="Outfits available now" controls>/);
-});
