@@ -4,6 +4,7 @@ import { formatChance, type BannerOdds, type OddsRequest, type OddsResult } from
 import { OperatorGoals } from './OperatorGoals';
 import styles from '@/styles/pulls/pulls-workspace.module.css';
 import { ContentImg } from '@/components/content/ContentImage';
+import { formatDayMonth } from '@/lib/pulls/format';
 import XButton from '@/components/ui/XButton';
 
 export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRemove}: {row:BudgetRow;rules?:BannerOdds;expanded:boolean;onExpand:()=>void;onChange:(goal:BannerGoal)=>void;onRemove:()=>void}) {
@@ -23,7 +24,7 @@ export default function PullBannerRow({row,rules,expanded,onExpand,onChange,onRe
   },[key,request]);
   const result=response?.key===key?response.result:undefined;
   const names=row.goal.targets?.map(t=>t.name).join(' · ') || row.banner?.sixStars.join(' · ') || 'Select operator goals';
-  const date=new Date(`${row.goal.spendOn}T12:00:00Z`).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  const date=formatDayMonth(row.goal.spendOn);
   return <article className={styles.banner} data-expanded={expanded}>
     <div className={styles.bannerRow}>
       <button className={styles.bannerIdentity} type="button" onClick={onExpand} aria-expanded={expanded} aria-label={`Edit ${row.goal.banner}`}>

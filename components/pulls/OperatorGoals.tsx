@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { BannerGoal } from '@/lib/pulls/plan';
 import { formatChance, selectedRules, type BannerOdds, type OddsRequest, type OddsResult, type OddsOperator } from '@/lib/pulls/probability';
 import { ContentImg } from '@/components/content/ContentImage';
+import { formatNumber } from '@/lib/pulls/format';
 
 export function OperatorGoals({ rules, goal, onChange, children }: { children: ReactNode; rules?: BannerOdds; goal: BannerGoal; onChange: (goal: BannerGoal) => void }) {
   const [response, setResponse] = useState<{ key: string; result?: OddsResult; error?: string } | null>(null);
@@ -59,7 +60,7 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
       <p>Individual rows show at least the listed number of new copies. With sparking, each row spends all spark tokens on that operator. The combined chance shares one spark token balance across all your goals.</p>
       {rules.type === 'limited' && <p>One pull earns one spark token. Exchange costs appear on each operator. The extra {rules.bonus} at 300 pulls is always included, even with sparking off.</p>}
       <details className="pulls-help-rules"><summary>Calculation rules &amp; sources</summary>
-      {result && <p>{result.samples.toLocaleString()} simulated runs; approximate 95% sampling margin up to ±{(98 / Math.sqrt(result.samples)).toFixed(1)} percentage points. Only rule-backed guarantees display 100%.</p>}
+      {result && <p>{formatNumber(result.samples)} simulated runs; approximate 95% sampling margin up to ±{(98 / Math.sqrt(result.samples)).toFixed(1)} percentage points. Only rule-backed guarantees display 100%.</p>}
 
       <p className="hint">Assumes a fresh banner: zero starting pity, no previous pulls, and the first-ten 5★-or-higher guarantee unused. Each banner is calculated independently; Standard pity carried from another banner is not included. Counts mean new copies, excluding operators you already own. All budgeted pulls are spent, even after reaching a goal.</p>
       <p className="hint">6★ starts at 2%. After 50 misses, pull 51 is 4%, then +2 percentage points per miss, up to 100% on pull 99. Any 6★ resets pity. Base 5★ is 8%; this model scales the non-6★ rarity rates proportionally as pity rises.</p>
@@ -90,7 +91,7 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
     {targets.length > 0 ? (
       <div className="pulls-odds-result" aria-live="polite" aria-busy={!result && !error}>
         {error ? <p className="pulls-plan-warning">{error} <button type="button" className="ghost btn-sm" onClick={() => setRetry(n => n + 1)}>Retry</button></p> : result ? <>
-          <div className="pulls-odds-headline"><span>{targets.length > 1 ? 'All goals' : 'Goal chance'}<small>Estimate · {goal.pulls.toLocaleString()} pulls · 0 pity</small></span><strong>{formatChance(result.all)}</strong></div>
+          <div className="pulls-odds-headline"><span>{targets.length > 1 ? 'All goals' : 'Goal chance'}<small>Estimate · {formatNumber(goal.pulls)} pulls · 0 pity</small></span><strong>{formatChance(result.all)}</strong></div>
           <details className="pulls-odds-details pulls-copy-details" open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)}>
           <summary>{goal.includeSpark && rules.type === 'limited' ? 'Chance when prioritising each operator' : 'Chances per operator'}</summary>
           <p className="hint pulls-note">{goal.includeSpark && rules.type === 'limited' && <>Each row can use the full spark budget. All goals share it. </>}At least N new copies{goal.includeSpark && rules.type === 'limited' ? ' · each operator prioritized' : ''}</p>

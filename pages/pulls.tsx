@@ -9,6 +9,7 @@ import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
 import { withContentPage } from '@/lib/content/server';
 import { ContentImg } from '@/components/content/ContentImage';
+import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } from '@/lib/pulls/format';
 import { pullSkinCollections, skinReleaseDates, type SkinCollection } from '@/lib/pulls/skinCollections';
 import { getBannerOdds } from '@/lib/pulls/bannerOdds';
 import type { BannerOdds } from '@/lib/pulls/probability';
@@ -82,7 +83,7 @@ function Line({ what, sum, amount, muted }: { what: string; sum: string; amount:
     <div className={`pulls-line${muted ? ' muted' : ''}`}>
       <span className="pulls-line-what">{what}</span>
       <span className="pulls-line-sum">{sum}</span>
-      <span className="pulls-line-amount">{amount.toLocaleString()}</span>
+      <span className="pulls-line-amount">{formatNumber(amount)}</span>
     </div>
   );
 }
@@ -341,7 +342,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
             {/* Six settings, each a real checkbox (.check): #64 had made them highlighted
                 .tgl buttons, and the maintainer asked for the checkboxes back. */}
             <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key} className="check" title={rate}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} />{label}</label>)}<label className="check"><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label></div>
-<div className={workspace.rate}><strong>{monthlyIncome.toLocaleString(undefined,{maximumFractionDigits:1})}</strong><span>pulls / 30 days</span></div></div>
+<div className={workspace.rate}><strong>{formatOneDecimal(monthlyIncome)}</strong><span>pulls / 30 days</span></div></div>
         <div className={workspace.utilities}>
           <button type="button" id="tab-income" aria-controls="panel-income" aria-expanded={activeTab === 'income'} onClick={() => setActiveTab(activeTab === 'income' ? '' : 'income')}><span>Income & events</span><span>{activeTab === 'income' ? '−' : '+'}</span></button>
           {/* One frame, "PAST EVENTS  [ ] Include  +" (the maintainer, 2026-09-27): the
@@ -361,7 +362,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
               renderOption={option => <DetailOptionContent option={option} />} renderValue={option => <DetailOptionContent option={option} compact />}
               options={[{ value: '', label: 'Choose a banner…' }, ...banners.map((b): DetailOption => {
                 const rateUp = bannerOdds[b.name]?.operators.filter(operator => operator.kind === 'featured') ?? [];
-                const dateLabel = (date: string, year: boolean) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' as const } : {}), timeZone: 'UTC' });
+                const dateLabel = (date: string, year: boolean) => (year ? formatDayMonthYear(date) : formatDayMonth(date));
                 return { value: b.name, label: (rateUp.length ? rateUp.map(operator => operator.name) : b.sixStars).join(' · ') || b.name,
                   detail: b.name.replace(/^\[[^\]]*\]\s*/, ''),
                   meta: `${dateLabel(b.start, b.start.slice(0, 4) !== b.end.slice(0, 4))} – ${dateLabel(b.end, true)}`,
@@ -393,7 +394,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
               <span className="pulls-line-what">Recurring Orundum equivalent</span>
               <span className="pulls-line-sum" />
               <span className="pulls-line-amount">
-                {(income.orundum + greenIncome.orundum + greenIncome.permits * ORUNDUM_PER_PULL + (now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) * ORUNDUM_PER_PULL : 0) + (monthlyCard ? card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE : 0)).toLocaleString()}
+                {formatNumber(income.orundum + greenIncome.orundum + greenIncome.permits * ORUNDUM_PER_PULL + (now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) * ORUNDUM_PER_PULL : 0) + (monthlyCard ? card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE : 0))}
               </span>
             </div>
           </div>

@@ -4,6 +4,7 @@ import type { UpcomingBanner } from '@/lib/pulls/pulls';
 import type { BannerOdds } from '@/lib/pulls/probability';
 import styles from '@/styles/pulls/pulls-workspace.module.css';
 import { ContentImg } from '@/components/content/ContentImage';
+import { formatDayMonth } from '@/lib/pulls/format';
 import SearchInput from '@/components/ui/SearchInput';
 
 export default function BannerPicker({ banners, selected, odds, onAdd }: {
@@ -23,7 +24,7 @@ export default function BannerPicker({ banners, selected, odds, onAdd }: {
             // eslint-disable-next-line @next/next/no-img-element
             <ContentImg key={op.name} src={op.icon!} alt="" width="68" height="68" />
           ))}</span>
-          <span className={styles.pickerCopy}><strong>{names || bannerDisplayName(banner.name)}</strong><small>{bannerDisplayName(banner.name).replace(/^\[[^\]]*\]\s*/, '')}</small><small>{new Date(`${banner.start}T12:00:00Z`).toLocaleDateString('en-GB', {day:'numeric',month:'short'})} – {new Date(`${banner.end}T12:00:00Z`).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}{banner.datesEstimated ? ' · Estimated' : ''}</small></span>
+          <span className={styles.pickerCopy}><strong>{names || bannerDisplayName(banner.name)}</strong><small>{bannerDisplayName(banner.name).replace(/^\[[^\]]*\]\s*/, '')}</small><small>{formatDayMonth(banner.start)} – {formatDayMonth(banner.end)}{banner.datesEstimated ? ' · Estimated' : ''}</small></span>
           <span className={styles.pickerAdd} aria-hidden="true">{added ? '✓' : '+'}</span>
         </button>;
       })}
