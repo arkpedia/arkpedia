@@ -137,7 +137,7 @@ async function headings(page: Page, t: Target, theme: 'dark' | 'light', p: strin
   const heading = await tokenColour(page, '--heading');
   const amber = await tokenColour(page, '--amber');
   const teal = await tokenColour(page, '--teal');
-  expect.soft(heading, `${p}the heading colour is its own token`).not.toBe(teal);
+  expect.soft(heading, `${p}section headings are the site's green, --teal (2026-09-29)`).toBe(teal);
   // A page that fetches its sections after it hydrates can go network-quiet before
   // the fetch starts: /stages/browse's rail comes from /stages-index.json on mount,
   // and in the Linux image the test measured "Loading the stage list..." with no

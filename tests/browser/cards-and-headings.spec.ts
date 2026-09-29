@@ -5,8 +5,8 @@ import { themeOf } from './layout-checks';
 /*
  * Two maintainer decisions from 2026-09-26, after the site-wide restyle:
  *
- * - Section headings are teal-ish (--heading), not amber, and not the --teal that marks
- *   an on/current state either.
+ * - Section headings are --heading, which is the site's green (--teal) since 2026-09-29,
+ *   and never amber.
  * - Picture and content cards carry no resting frame: the art already says they can be
  *   clicked, and a grey box around every poster, portrait and tile was noise. They draw
  *   the teal edge on hover and keyboard focus. Real controls keep --control-border.

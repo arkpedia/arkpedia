@@ -272,15 +272,15 @@ for (const theme of ['dark', 'light'] as const) {
     // The panels' labels were a 10px teal tab painted by CSS from a data-tab attribute:
     // no outline saw them (each carried a visually hidden twin), /stages/regular jumped
     // from h1 to h3, and /stages/seasonal had no visible heading at all. The heading is
-    // the site's .op-section h2, in --heading: teal-ish, never amber (tried and rejected,
-    // 2026-09-26) and never the --teal that marks an on/current state
-    // (cards-and-headings.spec.ts holds the rest of the site to the same).
+    // the site's .op-section h2, in --heading: the site's green, --teal (2026-09-29), and
+    // never amber (tried and rejected, 2026-09-26). cards-and-headings.spec.ts holds the
+    // rest of the site to the same.
     await page.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch { /* none */ } }, theme);
     for (const route of ['/stages', '/stages/regular', '/stages/seasonal', '/stages/score']) {
       await page.goto(route);
       expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme') ?? 'dark'), `${route}: the ${theme} theme`).toBe(theme);
       const [heading, amber, teal] = [await tokenColour(page, '--heading'), await tokenColour(page, '--amber'), await tokenColour(page, '--teal')];
-      expect(heading, 'the heading colour is its own token, not the on-state teal').not.toBe(teal);
+      expect(heading, 'section headings are the site\'s green, --teal (2026-09-29)').toBe(teal);
       expect(heading, 'the heading colour is not amber').not.toBe(amber);
       const panels = page.locator('main .terminal-panel, main .score-block');
       expect(await panels.count(), `${route}: panels`).toBeGreaterThan(1);
