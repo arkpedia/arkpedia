@@ -1406,7 +1406,7 @@
 }
 /* The box takes focus when an operator opens (OperatorWizard), so a screen reader
    names the dialog and the first Tab reaches its ×; a box you cannot press draws no
-   ring, as .gm-record does not. */
+   ring, as .record-dialog does not. */
 .wizard-box:focus { outline: none; }
 
 .wizard-head {

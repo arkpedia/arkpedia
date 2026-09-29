@@ -1,4 +1,3 @@
-import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
@@ -21,7 +20,8 @@ import { Badge, Funds } from '@/components/gamemodes/StrongholdIcons';
 import { buildableAlliances } from '@/lib/gamemodes/strongholdPlaybook';
 import { ISOMORPH_ITEM } from '@/lib/gamemodes/strongholdOpening';
 import StrongholdCompanion from '@/components/gamemodes/StrongholdCompanion';
-import EnemyDetailPanel, { type EnemyDetailData } from '@/components/enemies/EnemyDetailPanel';
+import EnemyRecord from '@/components/enemies/EnemyRecord';
+import RecordDialog from '@/components/ui/RecordDialog';
 import XButton from '@/components/ui/XButton';
 
 type Picker = ReturnType<typeof alliancesForPicker>;
@@ -211,79 +211,6 @@ function Pick({ label, value, options, onChange }: {
         </>
       )}
     />
-  );
-}
-
-/**
- * The enemy handbook's own record, over the pool the creature was found in.
- *
- * The mode's enemy data carries a name, a code and a picture and nothing a player
- * actually asks -- how much HP, what it is immune to, whether it flies. All of that
- * already exists, drawn by the handbook, and it arrives as a static JSON file per
- * creature, so the pool sheet can open the real thing instead of paraphrasing it.
- * Fetched on open rather than shipped with the page: 119 records is far more than any
- * one visit reads, and the handbook pays the same cost for the same reason.
- */
-function EnemyRecord({ slug, name, intro, onClose }: {
-  slug: string;
-  name: string;
-  /** Drawn above the handbook's own panel, for what THIS MODE does to the creature
-   *  that the handbook has no idea about -- a boss's HP at each difficulty. Absent for
-   *  a pool face or a bounty, where the handbook record is the whole answer. */
-  intro?: ReactNode;
-  onClose: () => void;
-}) {
-  const contentUrl = useContentUrl();
-  const [detail, setDetail] = useState<EnemyDetailData | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let live = true;
-    setDetail(null);
-    setFailed(false);
-    fetch(contentUrl(`/enemy-detail/${encodeURIComponent(slug)}.json`))
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: EnemyDetailData) => { if (live) setDetail(d); })
-      .catch(() => { if (live) setFailed(true); });
-    return () => { live = false; };
-  }, [slug, contentUrl]);
-
-  /* Focus moves in on open so Tab starts inside the record rather than at the top of
-     the page behind it. The backdrop is a sibling rather than a parent: a
-     click-to-dismiss parent swallows every click meant for the panel inside it. */
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => { box.current?.focus(); }, []);
-
-  /* Escape on the window, not on the box. aria-modal is a promise to assistive tech
-     and not a focus trap, so Tab past the last link in the panel puts focus on the
-     body -- and an Escape handler that only fires inside the box would then answer
-     nothing at all, while the page's own handler is standing down because this record
-     is open. The page defers to this one; this one is always listening. */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div className="gm-recordwrap">
-      <div className="gm-recordback" onClick={onClose} aria-hidden="true" />
-      <div
-        className="gm-record"
-        role="dialog"
-        aria-modal="true"
-        aria-label={name}
-        tabIndex={-1}
-        ref={box}
-      >
-        <XButton className="gm-recordshut" onClick={onClose} label={`Close ${name}`} />
-        {/* Before the fetch resolves, not after: the mode's own numbers are already
-            here and there is no reason to make them wait on a network round trip. */}
-        {intro}
-        {detail
-          ? <EnemyDetailPanel key={detail.enemy.slug} {...detail} />
-          : <p className="hint gm-recordwait">{failed ? `${name} could not be loaded.` : 'Loading...'}</p>}
-      </div>
-    </div>
   );
 }
 
@@ -515,7 +442,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
       const el = e.target as HTMLElement | null;
       /* The record counts as inside: it is opened FROM the sheet and reading it must
          not dismiss the pool it was opened from. */
-      if (el?.closest('.gm-sheet') || el?.closest('.gm-row') || el?.closest('.gm-recordwrap')) return;
+      if (el?.closest('.gm-sheet') || el?.closest('.gm-row') || el?.closest('.record-dialog-wrap')) return;
       close();
     };
     // Measured on open, so a resize would leave it hanging off its row. The sideways
@@ -722,12 +649,12 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
                     thing", and the picture answers that faster than the name does.
                     Pressing one opens the handbook's record for it -- the stats, the
                     immunities and the stages, which is what you wanted the name FOR. */}
-                <div className="gm-faces">
+                <div className="enemy-faces">
                   {g.enemies.map((e) => (
                     <button
                       key={`${e.code}-${e.name}`}
                       type="button"
-                      className="gm-face"
+                      className="btn-bare enemy-face"
                       title={`${e.code ? `${e.code} · ` : ''}${e.name}`}
                       aria-label={`${e.name}${e.code ? `, ${e.code}` : ''}`}
                       /* A creature the handbook has no record of cannot be opened, and
@@ -1294,18 +1221,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
           the sentence would be the same fourteen times over with two nouns swapped,
           and the icons are what the shop screen actually shows you. */}
       {isoOpen && (
-        <div className="gm-recordwrap">
-          <div className="gm-recordback" onClick={() => setIsoOpen(false)} aria-hidden="true" />
-          <div
-            className="gm-record gm-isorecord"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Damazti Isomorph pairings"
-            tabIndex={-1}
-            ref={(el) => { el?.focus(); }}
-            onKeyDown={(e) => { if (e.key === 'Escape') setIsoOpen(false); }}
-          >
-            <XButton className="gm-recordshut" onClick={() => setIsoOpen(false)} label="Close" />
+        <RecordDialog label="Damazti Isomorph pairings" className="gm-isorecord" onClose={() => setIsoOpen(false)}>
             <div className="gm-sheethead">
               <Badge name="Damazti Isomorph" icon={isomorph?.icon ?? null} />
               <div className="gm-modaltitle">
@@ -1331,8 +1247,7 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+        </RecordDialog>
       )}
 
       {record && (

@@ -169,14 +169,21 @@ const PLACES: Place[] = [
   },
   {
     id: 'Stronghold record', route: '/gamemodes/stronghold-protocol',
-    open: async (page) => { await page.getByRole('tab', { name: 'Enemies', exact: true }).first().click(); await page.locator('.gm-row:visible').first().click(); await expect(page.locator('.gm-record')).toBeVisible(); },
-    x: (page) => page.locator('.gm-record').getByRole('button', { name: /^Close/ }),
-    gone: async (page) => { await expect(page.locator('.gm-record')).toHaveCount(0); },
+    open: async (page) => { await page.getByRole('tab', { name: 'Enemies', exact: true }).first().click(); await page.locator('.gm-row:visible').first().click(); await expect(page.locator('.record-dialog')).toBeVisible(); },
+    x: (page) => page.locator('.record-dialog').getByRole('button', { name: /^Close/ }),
+    gone: async (page) => { await expect(page.locator('.record-dialog')).toHaveCount(0); },
+  },
+  {
+    // A stage's enemies open the same record (components/enemies/EnemyRecord.tsx).
+    id: 'stage enemy record', route: '/stages/browse?s=1-7',
+    open: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await expect(page.locator('.record-dialog')).toBeVisible(); },
+    x: (page) => page.locator('.record-dialog').getByRole('button', { name: /^Close/ }),
+    gone: async (page) => { await expect(page.locator('.record-dialog')).toHaveCount(0); },
   },
   {
     id: 'Stronghold Isomorph pairings', route: '/gamemodes/stronghold-protocol',
     open: async (page) => { await page.getByRole('tab', { name: 'Items', exact: true }).first().click(); await page.locator('.gm-isoopen').first().click(); await expect(page.locator('.gm-isorecord')).toBeVisible(); },
-    x: (page) => page.locator('.gm-isorecord').getByRole('button', { name: 'Close', exact: true }),
+    x: (page) => page.locator('.gm-isorecord').getByRole('button', { name: /^Close/ }),
     gone: async (page) => { await expect(page.locator('.gm-isorecord')).toHaveCount(0); },
   },
   {

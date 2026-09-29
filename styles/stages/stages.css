@@ -402,80 +402,11 @@
 }
 .stage-enemy-rank-title { display: block; margin: 0 0 6px; }
 .stage-enemy-rank-group { margin-bottom: 14px; }
-.stage-enemy-cards { display: flex; flex-direction: column; gap: 4px; }
-.stage-enemy-card {
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-control);
-  background: var(--panel-2);
-  overflow: hidden;
-}
-.stage-enemy-card.open { border-color: var(--teal-dim); }
-/* Metrics pinned across both states, so expanding a row changes what is shown
-   and not the size of the header above it. */
-/* Columns rather than a flex row: the stats used to be pushed right by
-   margin-left:auto, so where HP started depended on how long the enemy's name was
-   and no two cards' numbers lined up. */
-.stage-enemy-head-btn {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto 14px;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  text-align: left;
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text);
-  cursor: pointer;
-}
-.stage-enemy-head-btn:hover { color: var(--teal); background: transparent; }
-.stage-enemy-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-control);
-  flex-shrink: 0;
-  object-fit: cover;
-  background: var(--panel);
-}
-.stage-enemy-icon-blank { border: 1px dashed var(--line); }
-.stage-enemy-card-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.stage-enemy-card-sub {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
-}
-.stage-enemy-card-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 64px);
-  gap: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-.stage-enemy-chevron {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text-faint);
-  width: 14px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.stage-enemy-detail {
-  padding: 0 10px 12px 54px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-/* Paragraphs keep their default 1em margins otherwise, which on top of the flex
-   gap left a 40px hole between the flavour text and the note under it. */
-.stage-enemy-detail p { margin: 0; }
+/* A stage's enemies are .enemy-faces (shared.css); pressing one opens its record, whose
+   intro (StageEnemyIntro) holds what this stage fields: the count, the level, the stats. */
+.stage-enemy-faces { margin-top: 0; }
+.stage-enemy-intro { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.stage-enemy-intro p { margin: 0; }
 /* Label column, then value. It was a flex row with justify-content:space-between
    inside cells 180px and wider, so each value was flung to the right edge of its
    own cell and the pairs read as "DAMAGE ......... Physical ATTACKS ....... Melee"
@@ -502,10 +433,6 @@
 }
 .stage-enemy-kv-value { font-family: var(--font-mono); font-size: 11px; }
 
-@media (max-width: 700px) {
-  .stage-enemy-card-stats { display: none; }
-  .stage-enemy-detail { padding-left: 10px; }
-}
 
 /* Battle timeline: play/pause, a scrubber, and the clock. */
 .stage-playback {
