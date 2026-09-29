@@ -234,11 +234,8 @@
 .pulls-event-row.muted { opacity: 0.55; }
 .pulls-empty { margin: 4px 0 0; }
 
-.pulls-plan-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 14px 0; }
 
-.pulls-plan-controls label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-dim); }
 /* 16px: an input under 16px makes iOS zoom the page when it takes focus. */
-.pulls-plan-controls input { min-width: 0; width: 100%; box-sizing: border-box; color: var(--text); background: var(--panel); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 10px; font: inherit; font-size: 16px; }
 
 .pulls-plan-warning { color: var(--amber); }
 .pulls-plan-funded { color: var(--text-bright); }
@@ -274,14 +271,14 @@
 }
 
 .pulls-wishing-wall { min-width: 0; margin: 12px 0 0; padding: 0; border: 0; }
-.pulls-wishing-wall legend { padding: 0 12px 0 0; font: 700 20px var(--font-display); color: var(--text); }
+.pulls-wishing-wall legend { padding: 0 12px 0 0; font: 700 18px var(--font-display); color: var(--text); }
 .pulls-wish-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .pulls-wish-option { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--panel-2); color: var(--text); cursor: pointer; transition: border-color 0.15s ease; }
 .pulls-wish-option:hover { border-color: var(--teal); }
 .pulls-wish-option.on { border-color: var(--teal); background: var(--teal-dim); }
 .pulls-wish-option input { accent-color: var(--teal); flex-shrink: 0; margin: 4px 0 0; }
 .pulls-wish-option > span { display: flex; flex-direction: column; gap: 6px; }
-.pulls-wish-option b { font: 600 14px/1.4 var(--font-body); }
+.pulls-wish-option b { font: 600 13px/1.4 var(--font-body); }
 .pulls-wish-option span span { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
 @media (max-width: 650px) { .pulls-wish-options { grid-template-columns: 1fr; } }
 
@@ -321,7 +318,6 @@
 .pulls-odds-details summary:hover { color: var(--teal); }
 
 .pulls-goals-outcome { min-width: 0; padding-left: 24px; border-left: 1px solid var(--line); }
-.pulls-goals-outcome .pulls-plan-controls { margin-top: 0; }
 .pulls-odds-result { min-width: 0; padding-top: 18px; }
 .pulls-odds-result > .pulls-note { font-size: 11px; margin: 12px 0 8px; letter-spacing: normal; }
 .pulls-odds-headline { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 14px; }
@@ -347,7 +343,6 @@
 
 @media (max-width: 420px) {
 
-  .pulls-operator-goals .pulls-plan-controls { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 360px) {
@@ -474,7 +469,7 @@
 .pulls-event-rewards .pulls-event-who b { font-size:13px; line-height:1.4; }
 .pulls-event-rewards .pulls-event-who i { font:12px/1.4 var(--font-body); }
 .pulls-event-rewards .pulls-event-op { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px 14px; }
-.pulls-reward-amount { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font:600 14px var(--font-body); color:var(--text); }
+.pulls-reward-amount { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font:600 13px var(--font-body); color:var(--text); }
 .pulls-reward-amount img { flex-shrink:0; object-fit:contain; }
 .pulls-reward-amount small { font-size:12px; font-weight:400; color:var(--text-dim); }
 .pulls-event-total { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:12px; margin-top:12px; background:var(--panel-2); border:1px solid var(--line-soft); border-radius:var(--radius); font-size:13px; }
@@ -492,10 +487,7 @@
 
 .pulls-banner-editor .pulls-operator-choice[aria-pressed="true"] { box-shadow:none; }
 
-.pulls-banner-editor .pulls-plan-controls { margin:0 0 6px; }
 
-.pulls-banner-editor .pulls-plan-controls label{ flex-direction:row; align-items:center; gap:10px; }
-.pulls-banner-editor .pulls-plan-controls input { width:88px; min-height:var(--control-h); padding:0 8px; }
 
 .pulls-banner-editor .pulls-odds-result { padding-top:10px; min-height:100px; box-sizing:border-box; }
 .pulls-banner-editor .pulls-odds-headline { min-height:44px; margin-bottom:6px; }

@@ -121,6 +121,7 @@
  * set from TSX are invisible here. tests/browser/page-bounds.spec.ts and the
  * ui-reference rig measure the rendered page.
  */
+import { fontShorthandPx } from './font-shorthand.mjs';
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -563,6 +564,13 @@ function collect() {
     for (const m of raw.matchAll(/font-size:\s*([0-9.]+)px/g)) {
       const px = Number(m[1]);
       if (!SCALE.has(px)) out.fontSizes.push(`${file}: ${px}px`);
+    }
+    // The `font:` shorthand carries a size too (`font: 700 20px/1.1 var(--font-display)`):
+    // eight off-scale sizes on /pulls hid in it. The size is the first length before the
+    // family, optionally followed by /line-height; `font: inherit` and the like have none.
+    for (const m of raw.matchAll(/(?<![-\w])font:\s*([^;}]+)/g)) {
+      const size = fontShorthandPx(m[1]);
+      if (size !== null && !SCALE.has(size)) out.fontSizes.push(`${file}: ${size}px`);
     }
     for (const m of raw.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
       const hex = m[0].toLowerCase();
