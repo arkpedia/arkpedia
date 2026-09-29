@@ -18,6 +18,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
+import { recommendationsTellApart } from '@/lib/operators/skillRecommendation';
 import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
@@ -595,6 +596,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   // Each section keeps its controls mounted while only the selected one is visible.
   const availableSections: { key: SectionKey; label: string }[] = [];
   const skillList = useMemo(() => getSkillList(operator), [operator]);
+  // The badge beside a skill's name only where the recommendations tell the skills apart.
+  const showRecommendations = useMemo(() => recommendationsTellApart(skillList), [skillList]);
   const skillCost = useMemo(() => getSkillCost(operator), [operator]);
   const priorityGuideGroups = useMemo(() => {
     type Row = { skillIndex: number; iconPath: string | null; entry: SkillRecommendationEntry };
@@ -1097,7 +1100,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                           aria-hidden={index !== activeSkillIndex}
                           style={{ visibility: index === activeSkillIndex ? 'visible' : 'hidden' }}>
                           <span>{skill.name || `Skill ${index + 1}`}</span>
-                          <RecommendationBadge entries={skill.recommendation} />
+                          {showRecommendations && <RecommendationBadge entries={skill.recommendation} />}
                         </span>
                       ))}
                     </h3>
