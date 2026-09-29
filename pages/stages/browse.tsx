@@ -21,6 +21,7 @@ import { stageProperties, stageTokens } from '@/lib/stages/stageProperties';
 import { getDropIcons } from '@/lib/stages/dropIcon';
 import { describeStage } from '@/lib/stages/stageText';
 import XButton from '@/components/ui/XButton';
+import EnemyRecord from '@/components/enemies/EnemyRecord';
 
 /**
  * The operator catalogue, fetched once per session and shared.
@@ -432,9 +433,10 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
       );
   }, [playback, time]);
 
-  // Which enemy rows are expanded. Collapsed by default: a stage can field 40
-  // enemies and the flavour text alone would bury the map.
-  const [openEnemies, setOpenEnemies] = useState<Set<string>>(new Set());
+  // The enemy whose handbook record is open over the page, with what this stage says
+  // about it: the record opens from the faces under Enemies.
+  const [enemyRecord, setEnemyRecord] = useState<StageEnemyRecord | null>(null);
+  const closeEnemyRecord = useCallback(() => setEnemyRecord(null), []);
   /** The game's briefing: its render of the stage, the description and the drops.
    *  Forced on where there is no schematic, since that is all the section has. */
   const [briefingOpen, setBriefingOpen] = useState(false);
@@ -2102,100 +2104,40 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
                   <h3 className={section.title ? 'label-tag stage-enemy-rank-title' : 'stage-drop-group-title'}>
                     {group.title}
                   </h3>
-                  <div className="stage-enemy-cards">
+                  {/* Faces, as Stronghold Protocol's pools draw them: the picture is what a
+                      player recognises, and pressing one opens the handbook's whole record
+                      with this stage's own figures above it. They were rows of name, code
+                      and four stats, each expanding in place. */}
+                  <div className="enemy-faces stage-enemy-faces">
                     {group.list.map(({ entry: e, certain, conditional }) => {
                       const detail = enemyDetails[e.slug] ?? (e.name ? detailByName[e.name] : undefined);
                       // Unranked enemies have no slug -- 21 of them share one
                       // group on the worst page -- so identity has to include
-                      // the name, or they collide as one card.
+                      // the name, or they collide as one face.
                       const id = e.slug || `${e.name || 'unnamed'}-${e.index ?? ''}`;
-                      const open = openEnemies.has(id);
+                      const name = e.name || e.slug || 'Unnamed enemy';
+                      // Under May appear the heading has already said so, so the count is
+                      // just a count. In Always it is an addition to a certainty and stays
+                      // marked: this enemy turns up, and sometimes three more of it.
+                      const count = conditional ? (certain ? `\u00d7${certain} +${conditional}` : `\u00d7${conditional}`) : `\u00d7${certain}`;
                       return (
-                        <div key={`${section.key}-${group.key}-${id}`} className={`stage-enemy-card${open ? ' open' : ''}`}>
-                          <button
-                            type="button"
-                            className="stage-enemy-head-btn"
-                            aria-expanded={open}
-                            onClick={() =>
-                              setOpenEnemies((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(id)) next.delete(id);
-                                else next.add(id);
-                                return next;
-                              })
-                            }
-                          >
-                            {detail?.icon ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <ContentImg className="stage-enemy-icon" src={detail.icon} alt="" />
-                            ) : (
-                              <span className="stage-enemy-icon stage-enemy-icon-blank" aria-hidden="true" />
-                            )}
-                            <span className="stage-enemy-card-name">
-                              {e.name || e.slug || 'Unnamed enemy'}
-                              <span className="stage-enemy-card-sub">
-                                {e.index ? `#${e.index}` : ''}
-                                {certain ? ` · x${certain}` : ''}
-                                {/* Under May appear the heading has already said so,
-                                    so the count is just a count. In Always it is an
-                                    addition to a certainty and stays marked: this
-                                    enemy turns up, and sometimes three more of it. */}
-                                {conditional ? (certain
-                                  ? ` · +${conditional} may appear`
-                                  : ` · x${conditional}`) : ''}
-                                {detail?.movement ? ` · ${detail.movement}` : ''}
-                              </span>
-                            </span>
-                            {detail?.stats && (
-                              <span className="stage-enemy-card-stats">
-                                <span>HP {detail.stats.hp ?? '--'}</span>
-                                <span>ATK {detail.stats.atk ?? '--'}</span>
-                                <span>DEF {detail.stats.def ?? '--'}</span>
-                                <span>RES {detail.stats.res != null ? `${Math.round(detail.stats.res)}%` : '--'}</span>
-                              </span>
-                            )}
-                            <span className="stage-enemy-chevron" aria-hidden="true">{open ? '−' : '+'}</span>
-                          </button>
-
-                          {open && detail && (
-                            <div className="stage-enemy-detail">
-                              <div className="stage-enemy-detail-stats">
-                                {[
-                                  ['Damage', detail.damageType.join(', ') || '--'],
-                                  ['Attacks', detail.attackPosition || '--'],
-                                  ['Attack interval', detail.stats?.attackInterval != null ? `${detail.stats.attackInterval}s` : '--'],
-                                  ['Movement speed', detail.moveSpeed != null ? `${detail.moveSpeed} tiles/s` : '--'],
-                                  // The two elemental figures gamedata keeps
-                                  // separate: resistance to elemental damage, and
-                                  // resistance to elemental BUILD-UP. Absent means
-                                  // none -- an enemy the data says nothing about
-                                  // takes elemental damage in full -- so they read
-                                  // 0% rather than "--", which looked like the
-                                  // figure was missing. 1,376 of the level entries
-                                  // leave them out where 394 state a zero.
-                                  ['Elemental RES', `${Math.round(detail.stats?.elementalRes ?? 0)}%`],
-                                  ['Effect Res', `${Math.round(detail.stats?.elementalDamageRes ?? 0)}%`],
-                                  ['Race', detail.race || '--'],
-                                ].map(([label, value]) => (
-                                  <span key={label} className="stage-enemy-kv">
-                                    <span className="stage-enemy-kv-label">{label}</span>
-                                    <span className="stage-enemy-kv-value">{value}</span>
-                                  </span>
-                                ))}
-                              </div>
-                              {(detail.levelCount > 1 || detail.statsOverridden) && (
-                                <p className="hint">
-                                  {detail.levelCount > 1 &&
-                                    (detail.levelAssumed
-                                      ? `This stage does not say which of the ${detail.levelCount} level variants it fields; the strongest is shown. `
-                                      : `Level ${(detail.level ?? 0) + 1} of ${detail.levelCount}, which is the one this stage fields. `)}
-                                  {detail.statsOverridden &&
-                                    'This stage re-stats this enemy, and the figures shown are the ones it fields.'}
-                                </p>
-                              )}
-                            </div>
+                        <button
+                          key={`${section.key}-${group.key}-${id}`}
+                          type="button"
+                          className="btn-bare enemy-face"
+                          title={`${e.index ? `${e.index} \u00b7 ` : ''}${name}`}
+                          aria-label={`${name}${e.index ? `, ${e.index}` : ''}, ${count.replace('\u00d7', '')} in this stage`}
+                          onClick={() => setEnemyRecord({ slug: e.slug || detail?.slug || null, name, code: e.index ?? null, count, detail })}
+                        >
+                          {detail?.icon ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <ContentImg src={detail.icon} alt="" />
+                          ) : (
+                            <span className="enemy-face-blank" aria-hidden="true" />
                           )}
-                        </div>
+                          <span className="enemy-face-count">{count}</span>
+                          <b>{e.index || '\u2014'}</b>
+                        </button>
                       );
                     })}
                   </div>
@@ -2217,6 +2159,71 @@ function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails,
             ) : null}
           </section>
         )}
+        {enemyRecord && (
+          <EnemyRecord
+            key={`${enemyRecord.slug}-${enemyRecord.name}`}
+            slug={enemyRecord.slug}
+            name={enemyRecord.name}
+            intro={<StageEnemyIntro record={enemyRecord} />}
+            onClose={closeEnemyRecord}
+          />
+        )}
+    </div>
+  );
+}
+
+/** A stage enemy's record: which handbook entry, and what this stage says about it. */
+interface StageEnemyRecord { slug: string | null; name: string; code: string | null; count: string; detail?: StageEnemyDetail }
+
+/**
+ * Above the handbook's panel in an enemy's record: what THIS stage fields, which the
+ * handbook cannot say -- how many, and which level. Its figures only when the stage
+ * re-stats the enemy; otherwise they are the handbook's own, drawn right below, and a
+ * second copy of them was a screen of repeats on a phone. These were the stage's
+ * expanding enemy rows, which had no handbook panel to lean on.
+ */
+function StageEnemyIntro({ record: { code, count, detail } }: { record: StageEnemyRecord }) {
+  return (
+    <div className="stage-enemy-intro">
+      <div className="eyebrow">{`In this stage${code ? ` \u00b7 ${code}` : ''} \u00b7 ${count}`}</div>
+      {!detail && <p className="hint">This stage&apos;s data names the enemy but gives no figures for it.</p>}
+      {detail?.stats && detail.statsOverridden && (
+        <div className="stage-enemy-detail-stats">
+          {[
+            ['HP', detail.stats.hp ?? '--'],
+            ['ATK', detail.stats.atk ?? '--'],
+            ['DEF', detail.stats.def ?? '--'],
+            ['RES', detail.stats.res != null ? `${Math.round(detail.stats.res)}%` : '--'],
+            ['Damage', detail.damageType.join(', ') || '--'],
+            ['Attacks', detail.attackPosition || '--'],
+            ['Attack interval', detail.stats.attackInterval != null ? `${detail.stats.attackInterval}s` : '--'],
+            ['Movement speed', detail.moveSpeed != null ? `${detail.moveSpeed} tiles/s` : '--'],
+            // The two elemental figures gamedata keeps separate: resistance to elemental
+            // damage, and resistance to elemental BUILD-UP. Absent means none -- an enemy
+            // the data says nothing about takes elemental damage in full -- so they read
+            // 0% rather than "--", which looked like the figure was missing. 1,376 of the
+            // level entries leave them out where 394 state a zero.
+            ['Elemental RES', `${Math.round(detail.stats.elementalRes ?? 0)}%`],
+            ['Effect Res', `${Math.round(detail.stats.elementalDamageRes ?? 0)}%`],
+            ['Race', detail.race || '--'],
+          ].map(([label, value]) => (
+            <span key={label} className="stage-enemy-kv">
+              <span className="stage-enemy-kv-label">{label}</span>
+              <span className="stage-enemy-kv-value">{value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {detail && (detail.levelCount > 1 || detail.statsOverridden) && (
+        <p className="hint">
+          {detail.levelCount > 1 &&
+            (detail.levelAssumed
+              ? `This stage does not say which of the ${detail.levelCount} level variants it fields; the strongest is shown. `
+              : `Level ${(detail.level ?? 0) + 1} of ${detail.levelCount}, which is the one this stage fields. `)}
+          {detail.statsOverridden &&
+            'This stage re-stats this enemy, and the figures shown are the ones it fields.'}
+        </p>
+      )}
     </div>
   );
 }

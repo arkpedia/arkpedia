@@ -1411,6 +1411,88 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .scroll-row-controls[data-idle] { visibility: hidden; }
 .scroll-row-controls button { display: inline-flex; align-items: center; justify-content: center; width: 38px; padding: 6px 0; line-height: 1; }
 
+/* --- enemies as faces (Stronghold Protocol's pools, a stage's enemies) ------------ */
+
+.enemy-faces {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+/* The picture, with the code under it as the one word that fits. The name is the
+   tooltip and the label; pressing opens the handbook's whole record. A face is a
+   .btn-bare button (a card, not a button's voice), and .btn-bare resets border, padding
+   and ground in a sheet that loads after this one, so the face names it too. */
+.btn-bare.enemy-face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 3px 3px;
+  /* A picture card: no resting edge, the teal one on hover and focus (below). The
+     1px stays, transparent, so the edge appearing moves nothing. */
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+}
+.enemy-face img { width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; }
+.enemy-face b { font-weight: 400; color: var(--amber); }
+.enemy-face:hover:not(:disabled), .enemy-face:focus-visible { border-color: var(--teal); }
+/* A creature the handbook has no record of: still readable, plainly not pressable. */
+.enemy-face:disabled { opacity: 0.45; cursor: default; }
+/* A stage's count of it, over the picture's corner: x13, or x2 +1 where more may appear. */
+.enemy-face-count {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  padding: 0 3px;
+  /* The 72% badge --scrim-ink is measured on: the ground is dark in both themes. */
+  background: rgb(0 0 0 / 0.72);
+  color: var(--scrim-ink);
+  font-size: 10px;
+  line-height: 14px;
+}
+/* No picture upstream: the space it would take, so the codes stay in one line. */
+.enemy-face-blank { width: 100%; aspect-ratio: 1; border: 1px dashed var(--line); }
+
+/* --- a record over the page (components/ui/RecordDialog.tsx) --------------------- */
+
+.record-dialog-wrap { position: fixed; inset: 0; z-index: 60; }
+.record-dialog-back { position: absolute; inset: 0; background: rgb(4 6 9 / 0.72); }
+/* Centred and capped, scrolling inside itself: the handbook panel is as tall as the
+   creature's stage list, which for a common enemy is 25 rows and taller than any
+   window. */
+.record-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: min(1160px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--teal-dim);
+  background: var(--bg, #0B0F14);
+  border-radius: var(--radius-control);
+}
+.record-dialog:focus { outline: none; }
+/* An XButton, kept in the record's corner while it scrolls. */
+.record-dialog-shut {
+  position: sticky;
+  top: 0;
+  float: right;
+  z-index: 1;
+}
+.record-dialog-wait { padding: 40px 0; text-align: center; }
+@media (max-width: 700px) {
+  .record-dialog { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); padding: 12px; }
+}
+
 /* --- lists that grow as they are read (components/ui/LoadOnScroll.tsx) -----------
    The 1px foot the next batch waits on. No "Show more" button anywhere. */
 .load-on-scroll { height: 1px; }

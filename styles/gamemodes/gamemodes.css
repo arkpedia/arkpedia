@@ -286,7 +286,7 @@
 .gm-warn { margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--amber); white-space: pre-line; }
 .gm-flavour { margin: 0; font-size: 12px; line-height: 1.6; color: var(--text-faint); font-style: italic; white-space: pre-line; }
 /* The code-and-name chip list that used to fill a pool sheet is gone: a pool is
-   drawn as faces now (.gm-faces below), each of which opens the handbook record. */
+   drawn as faces now (.enemy-faces, styles/core/shared.css), each of which opens the handbook record. */
 
 /* --- the page's own scale --------------------------------------------------------
    Everything here was sized for a 390px pop-out and then reused on a full page, where
@@ -422,70 +422,10 @@
    the tile back to being a row with a picture on it. */
 .gm-pool .gm-tag { position: absolute; right: 3px; bottom: 3px; }
 
-/* --- a pool's creatures, as faces ----------------------------------------------- */
-
-.gm-faces {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 6px;
-  margin-top: 6px;
-}
-/* The picture, with the code under it as the one word that fits. The name is the
-   tooltip and the label; pressing opens the handbook's whole record. */
-.gm-face {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 5px 3px 3px;
-  border: 1px solid var(--line-soft);
-  border-radius: 0;
-  background: var(--panel);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  cursor: pointer;
-}
-.gm-face img { width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; }
-.gm-face b { font-weight: 400; color: var(--amber); }
-.gm-face:hover:not(:disabled), .gm-face:focus-visible { border-color: var(--teal); }
-/* A creature the handbook has no record of: still readable, plainly not pressable. */
-.gm-face:disabled { opacity: 0.45; cursor: default; }
-
-/* --- the handbook record, over the page ----------------------------------------- */
-
-.gm-recordwrap { position: fixed; inset: 0; z-index: 60; }
-.gm-recordback { position: absolute; inset: 0; background: rgb(4 6 9 / 0.72); }
-/* Centred and capped, scrolling inside itself: the handbook panel is as tall as the
-   creature's stage list, which for a common enemy is 25 rows and taller than any
-   window. */
-.gm-record {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-sizing: border-box;
-  width: min(1160px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
-  padding: 16px 18px 18px;
-  border: 1px solid var(--teal-dim);
-  background: var(--bg, #0B0F14);
-  border-radius: var(--radius-control);
-}
-.gm-record:focus { outline: none; }
-/* An XButton, kept in the record's corner while it scrolls. */
-.gm-recordshut {
-  position: sticky;
-  top: 0;
-  float: right;
-  z-index: 1;
-}
-.gm-recordwait { padding: 40px 0; text-align: center; }
-
 /* --- the Isomorph's pairings ------------------------------------------------------ */
 
 /* Narrower than an enemy record: fourteen rows of three icons, not a stat block. */
-.gm-isorecord { width: min(560px, calc(100vw - 32px)); }
+.record-dialog.gm-isorecord { width: min(560px, calc(100vw - 32px)); }
 /* Two columns where there is room, one where there is not. Each row is its own line
    of arithmetic, so they must not run together. */
 .gm-isogrid {
@@ -530,7 +470,6 @@
 .gm-isoopen:hover .gm-opname b, .gm-isoopen:focus-visible .gm-opname b { color: var(--teal); }
 
 @media (max-width: 700px) {
-  .gm-record { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); padding: 12px; }
   .gm-pool { width: 84px; height: 84px; }
 }
 
@@ -2717,7 +2656,7 @@ body.gm-companionpage:not(.gm-popout) .gm-co-topbar { background: var(--panel); 
    `border-radius: 0` and read as a different kit sitting next to it. The panels went
    the same way earlier for the same reason: rounded like the rest of the site, which
    they were not.
-   NOT the portrait tiles (.gm-face, .gm-co-face, .gm-pool) or the list rows (.gm-row).
+   NOT the portrait tiles (.enemy-face, .gm-co-face, .gm-pool) or the list rows (.gm-row).
    A portrait needs its art clipped to the corner to round honestly, and that is a
    change to the most recognisable thing on the screen rather than to its furniture. */
 .gm-co-footbtn {

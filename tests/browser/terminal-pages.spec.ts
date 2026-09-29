@@ -539,7 +539,9 @@ test.describe('state changes near the foot of a page do not move what was presse
     test.skip(testInfo.project.name === 'mobile', 'Below 900px the rail stacks above the stage and nothing is pinned.');
     // 120px in the review (155px measured on the bundled data): the new stage's detail
     // column is shorter, the page clamped, and the sticky rail went with it.
-    await page.goto('/stages/browse?s=1-7');
+    // 1-8 to 1-9: 131px shorter. The pair was 1-7 to 1-6 until a stage's enemies became
+    // faces instead of rows, which made most of chapter 1 the same height.
+    await page.goto('/stages/browse?s=1-8');
     await expect(page.locator('.stage-detail-col .stage-brief')).toBeVisible();
     await page.waitForTimeout(800);
     await page.evaluate(() => window.scrollTo({ top: 1e6, behavior: 'instant' }));
@@ -548,10 +550,10 @@ test.describe('state changes near the foot of a page do not move what was presse
     const column = page.locator('.stage-detail-col');
     const before = { rail: (await rail.boundingBox())!.y, column: (await column.boundingBox())!.height, y: await page.evaluate(() => window.scrollY) };
     expect(before.y, 'the page is scrolled, so there is a position to lose').toBeGreaterThan(0);
-    // 1-6 from 1-7's own chapter, which the rail now shows beside it (it used to show
-    // Act or Die here, and this test picked AD-1 from that).
-    await page.locator('.stage-rail .stage-row', { hasText: 'Catastrophe' }).first().click();
-    await expect(page.locator('h1')).toContainText('1-6');
+    // 1-9 from 1-8's own chapter, which the rail shows beside it (it used to show Act or
+    // Die here, and this test picked AD-1 from that).
+    await page.locator('.stage-rail .stage-row', { hasText: 'Rout' }).first().click();
+    await expect(page.locator('h1')).toContainText('1-9');
     await page.waitForTimeout(900);
     const after = { rail: (await rail.boundingBox())!.y, column: (await column.boundingBox())!.height, y: await page.evaluate(() => window.scrollY) };
     expect(after.column, 'the new stage is shorter, or this test proves nothing').toBeLessThan(before.column);
