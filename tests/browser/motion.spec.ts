@@ -192,7 +192,7 @@ const NO_LIFT: Record<string, string> = {
 /* The addresses whose picture cards are checked, with how many kinds each shows at least
    (the cards-and-headings list, and /games, whose cards are .lift, and /obtain-method). */
 const LIFT_ROUTES: Record<string, number> = {
-  '/': 5, '/skins': 2, '/gacha': 1, '/enemies': 1, '/community': 1, '/results': 1, '/music/discover': 2, '/stages': 1,
+  '/': 5, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/results': 1, '/music/discover': 2, '/stages': 1,
   '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/all': 1, '/stages/exploration': 1, '/operators': 1,
   '/operators/Amiya': 1, '/synergies': 1, [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}`]: 1,
 };

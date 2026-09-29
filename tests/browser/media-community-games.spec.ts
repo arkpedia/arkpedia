@@ -160,6 +160,25 @@ test('/community/videos grows as it is read, with no "Show more" button and no j
   await expect(page.locator('.load-on-scroll')).toHaveCount(0);
 });
 
+test('a scroll row is a named region that the keyboard scrolls, on the site\'s drawn scrollbar', async ({ page }) => {
+  // It was measured on /skins' Available now shelf, which the gallery's own order replaced
+  // (2026-09-29); Discover's albums row is the same ScrollRow.
+  await page.goto('/music/discover');
+  const row = page.getByRole('region', { name: 'Recently added albums', exact: true });
+  await expect(row).toBeVisible();
+  await expect(row).toHaveClass(/sidescroll/);
+  expect(await row.evaluate(el => getComputedStyle(el).overflowX)).toBe('auto');
+  const scrollLeft = () => row.evaluate(el => el.scrollLeft);
+  await row.focus();
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+  await expect.poll(scrollLeft).toBeGreaterThan(0);
+  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowLeft');
+  await expect.poll(scrollLeft).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  // The page does not switch the whole document to a thin scrollbar.
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarWidth)).not.toBe('thin');
+});
+
 test('GM-07: nav triggers use the nav links voice', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'the desktop nav bar');
   await page.goto('/support');
