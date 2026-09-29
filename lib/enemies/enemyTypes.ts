@@ -117,12 +117,11 @@ export interface Enemy {
   /** In-game handbook ordering. */
   sort: number;
   /**
-   * The in-game handbook doesn't list this one. 45 of 1,585 -- usually the
-   * harder copy of an entry that IS listed, sharing its index (`SP08` OpFor:
-   * Armor exists at both 600k and 1.2m HP). They trail the very end of `sort`
-   * instead of sitting beside what they duplicate, so reproducing the game's
-   * order means excluding them: the last row a player sees is `SP18` at 1604,
-   * not `SAM` at 1609.
+   * The in-game handbook doesn't list this one (hideInHandbook). 45 of 1,604 -- usually
+   * the harder copy of an entry that IS listed, with its name and index (`SP08` OpFor:
+   * Armor exists at both 600k and 1.2m HP), but 28 copy nothing ('Misery', Blade of
+   * Silence). They trail the very end of `sort`. /enemies lists every row but the copies
+   * (listedEnemies in lib/enemies/enemyListing.ts), never filtering on this alone.
    */
   hidden: boolean;
   /** `/enemies-icons/<name>.webp`, or null for the 11 with no upstream art. */
