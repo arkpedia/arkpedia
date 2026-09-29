@@ -54,6 +54,15 @@ test('the operator artwork fetches the outfit on screen, and another only when t
   expect(thumbnails.length, 'the thumbnails on screen have loaded').toBeGreaterThan(1);
   expect(thumbnails.filter((src) => !THUMB.test(src)), 'every thumbnail is its outfit\'s 320px rendition').toEqual([]);
   expect(images.filter((url) => SKIN_ART.test(url) && !FULL_ART.test(url) && !THUMB.test(url)), 'no other size of any outfit').toEqual([]);
+  // The renditions came in a <picture>, and its <source>s once drew boxes of their own: flex
+  // items, so the tile's gap put every stamp 4px down. The stamp is the tile's first box.
+  const stamps = await page.locator('[aria-label="Operator outfits"] button[aria-pressed]').evaluateAll((buttons) => buttons.map((button) => {
+    const img = button.querySelector('img');
+    if (!img) return `${button.getAttribute('aria-label')}: no stamp`;
+    const cs = getComputedStyle(button);
+    return Math.round(img.getBoundingClientRect().top - button.getBoundingClientRect().top - parseFloat(cs.borderTopWidth) - parseFloat(cs.paddingTop));
+  }));
+  expect([...new Set(stamps)], 'every thumbnail\'s stamp starts at its tile\'s top padding').toEqual([0]);
   const before = await frame(page);
 
   // The reader moves to the next outfit: its artwork is fetched then, and only it.
