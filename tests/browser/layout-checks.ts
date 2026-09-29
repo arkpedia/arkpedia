@@ -559,6 +559,72 @@ export async function settled(page: Page): Promise<Measurement> {
 }
 
 /* ======================================================================================
+ * Images load as the reader nears them (lazy-images, 2026-09-29)
+ * ==================================================================================== */
+
+/*
+ * "can you implement lazy loading for all, like operators don't have lazy loading"
+ * (maintainer, 2026-09-29). On 2026-09-29 /operators/Amiya fetched eight icons at load
+ * from one to five screens down its panel (ContentImg was eager unless each caller said
+ * otherwise), /pulls four more, and the pages' heroes -- /gacha's banner, the home
+ * page's posters -- were lazy like any icon. ContentImg and ContentImage are lazy now,
+ * and eager only through `priority` (components/content/ContentImage.tsx).
+ *
+ * On the census's page load (the page-bounds load: the load event, at the top), every
+ * <img> the page will fetch is held to it:
+ *   - an eager image that EAGER_ALLOWED does not name for the page fails, wherever it is;
+ *   - a named hero more than LAZY_FOLD screens below the top fails too (a hero is on the
+ *     first screen, or it is not one);
+ *   - a named hero drawn lazy fails (its `priority` was dropped), and one the page does not
+ *     show at all fails as stale unless it is `optional` (a panel that shows only while an
+ *     event or banner runs).
+ * A data: or blob: image fetches nothing (next/image makes those eager) and is left out.
+ * The static half is scripts/tests/test-image-loading.ts: ContentImg's default, and every
+ * `priority` in the source, each with its reason.
+ */
+/** How far below the top of the screen, in screen heights, an image may be eager at all. */
+export const LAZY_FOLD = 1.25;
+export interface EagerAllowed { selector: string; why: string; optional?: boolean }
+export const EAGER_ALLOWED: Record<string, EagerAllowed[]> = {
+  '/operators/Amiya': [{ selector: '.op-carousel-img-enter img', why: 'the outfit on screen: the page\'s hero, its LCP at 1440 and 390' }],
+  '/': [
+    { selector: '.front-events-poster-wrap img', why: 'the first event\'s poster: the home page\'s LCP at 1440', optional: true },
+    { selector: '.front-gacha-poster-wrap img', why: 'the first banner\'s art: the home page\'s LCP at 390', optional: true },
+  ],
+  '/gacha': [{ selector: 'img.gacha-banner-main-image', why: 'the chosen banner\'s art: the page\'s LCP at 1440 and 390 (none until the art is published)', optional: true }],
+  '/stages': [{ selector: '.terminal-lead-art img', why: 'the event the Terminal leads with: the page\'s LCP (none between events)', optional: true }],
+};
+
+/** Runs in the page: the load's offences against EAGER_ALLOWED[route], as sentences. */
+export function imageLoading({ allowed, fold }: { allowed: EagerAllowed[]; fold: number }): string[] {
+  const name = (img: HTMLImageElement) => {
+    const where = img.closest('[class]');
+    const cls = (typeof where?.className === 'string' ? where.className : '').split(/\s+/).filter(Boolean).slice(0, 2).join('.');
+    const src = decodeURIComponent((img.currentSrc || img.getAttribute('src') || img.srcset || '').split('/').pop() ?? '').slice(0, 48);
+    return `${img === where ? 'img' : `${where?.tagName.toLowerCase() ?? ''}${cls ? `.${cls}` : ''} img`} "${src}" at ${(img.getBoundingClientRect().top / innerHeight).toFixed(2)} screens`;
+  };
+  const fetched = Array.from(document.images).filter((img) => {
+    const src = img.getAttribute('src') ?? '';
+    return !!(src || img.srcset || img.closest('picture')) && !/^(data|blob):/.test(src);
+  });
+  const eager = (img: HTMLImageElement) => img.loading !== 'lazy';
+  const out: string[] = [];
+  for (const img of fetched) {
+    const hero = allowed.find((a) => img.matches(a.selector));
+    const far = img.getBoundingClientRect().top > innerHeight * fold;
+    if (eager(img) && !hero) out.push(`${name(img)} is eager (loading="${img.getAttribute('loading') ?? 'auto'}"): a picture that is not the page's hero waits for the reader (ContentImg / ContentImage, no priority)`);
+    else if (eager(img) && far) out.push(`${name(img)} is a hero more than ${fold} screens down: ${hero!.why}`);
+  }
+  for (const a of allowed) {
+    const matches = fetched.filter((img) => img.matches(a.selector));
+    if (!matches.length) { if (!a.optional) out.push(`the hero ${a.selector} is not on the page (${a.why}): stale in EAGER_ALLOWED, or its selector drifted`); continue; }
+    if (!matches.some(eager)) out.push(`the hero ${a.selector} is lazy (${a.why}): it lost its priority`);
+    else if (!matches.filter(eager).some((img) => img.getAttribute('fetchpriority') === 'high')) out.push(`the hero ${a.selector} is eager but not fetchpriority="high"`);
+  }
+  return out;
+}
+
+/* ======================================================================================
  * From row-alignment.spec.ts
  * ==================================================================================== */
 

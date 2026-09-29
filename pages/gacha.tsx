@@ -784,16 +784,14 @@ function BasicsPageSixStarGuarantee() {
   );
 }
 
-// Fixed closing celebration image -- next/image handles caching and
-// optimization automatically (same as every other image on this page),
-// and `priority` gets it preloaded rather than lazily loaded since
-// it's the very last thing shown in the guide.
+// Fixed closing celebration image. Lazy, as every image but a page's hero: it is
+// put in with the guide's last page and is on screen then, so it loads at once.
 const BASICS_DONE_IMAGE = "/six-star-skins/Wiš'adel - I am Wiš'adel.webp";
 
 function BasicsPageDone() {
   return (
     <div className="gacha-tutorial-done-row">
-      <Image src={BASICS_DONE_IMAGE} alt="Wiš'adel" width={120} height={120} className="gacha-tutorial-done-image" priority />
+      <Image src={BASICS_DONE_IMAGE} alt="Wiš'adel" width={120} height={120} className="gacha-tutorial-done-image" />
       <span className="gacha-tutorial-done-thumb">👍</span>
     </div>
   );
@@ -2044,12 +2042,14 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     </h2>
                     {!selectedBanner?.global_date && <p className="hint">Global release date unannounced.</p>}
                     {selectedBanner?.banner_image ? (
+                      /* The page's hero (its LCP at 1440 and 390): fetched at once and first. */
                       <Image
                         src={selectedBanner.banner_image}
                         alt={banner.label}
                         width={1600}
                         height={900}
                         className="gacha-banner-main-image"
+                        priority
                       />
                     ) : (
                       /* No art yet (null until the image repository publishes it): an

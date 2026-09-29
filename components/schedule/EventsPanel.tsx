@@ -82,7 +82,9 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
         {/* The box keeps its size without art: a poster the image repository has not
             published yet is null (publishedArt), never a broken image. */}
         <div className="front-events-poster-wrap">
-          {active.event.poster && <Image src={active.event.poster} alt={active.event.name} fill sizes="600px" style={{ objectFit: 'contain' }} />}
+          {/* The first slide is the home page's hero at 1440 (its LCP), so it is fetched at
+              once and first; the slides after it come in on screen, as the carousel turns. */}
+          {active.event.poster && <Image src={active.event.poster} alt={active.event.name} fill sizes="600px" style={{ objectFit: 'contain' }} priority={activeIndex === 0} />}
         </div>
         <div className="front-events-info">
           <span className="front-events-name">{active.event.name}</span>

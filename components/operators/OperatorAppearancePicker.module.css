@@ -9,6 +9,9 @@
    teal on --teal-dim for the one showing. This module only lays it out. */
 .picker .thumbnail { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 0; height: 90px; padding: 4px 2px; border-radius: var(--radius-control); color: var(--text-dim); cursor: inherit; user-select: none; }
 .thumbnail img, .fallback { width: 68px; height: 46px; flex-shrink: 0; object-fit: contain; }
+/* A thumbnail's <picture> (its AVIF and WebP renditions) draws no box of its own: the
+   <img> is the tile's flex item, as it was before the renditions, with no line box. */
+.thumbnail picture { display: contents; }
 .fallback { display: grid; place-items: center; font: 700 24px var(--font-display); }
 .name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 100%; margin-block: auto; font: 500 11px/1.3 var(--font-body); text-align: center; overflow-wrap: anywhere; }
 .picker .thumbnail[aria-pressed="true"], .picker .thumbnail:hover { color: var(--teal); }

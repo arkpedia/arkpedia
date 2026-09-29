@@ -40,7 +40,7 @@ export function OperatorGoals({ rules, goal, onChange, children }: { children: R
   const toggle = (name: string) => onChange({ ...goal, targets: targets.some(t => t.name === name) ? targets.filter(t => t.name !== name) : [...targets, { name, copies: 1 }] });
   const chip = (op: OddsOperator, selection: string[], onClick: () => void, disabled = false) => <button key={op.name} type="button" className="btn-bare pulls-operator-choice" aria-pressed={selection.includes(op.name)} onClick={onClick} disabled={disabled}>
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    {op.icon && <ContentImg src={op.icon} alt="" width="42" height="42" loading="lazy" />}
+    {op.icon && <ContentImg src={op.icon} alt="" width="42" height="42" />}
     <span><b>{op.name}</b><small><Rarity n={rarityLevel(op.rarity)} />{op.spark ? ` · ${op.spark} spark tokens` : ''}</small></span>
   </button>;
   const goalChip = (op: OddsOperator) => {

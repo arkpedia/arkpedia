@@ -582,3 +582,10 @@
   background: var(--cat-blue);
   border-color: var(--cat-blue);
 }
+/* The next outfit's artwork, fetched ahead of a switch (pages/operators/[name].tsx): in
+   the artwork's box, absolutely placed like the pictures it stands behind, so it sizes
+   nothing, and never drawn or hit. */
+.op-carousel-warm {
+  visibility: hidden;
+  pointer-events: none;
+}

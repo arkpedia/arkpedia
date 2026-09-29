@@ -1,7 +1,7 @@
 import { useContentUrl } from '@/lib/content/context';
 import { ContentImg } from '@/components/content/ContentImage';
 /* eslint-disable @next/next/no-img-element -- picture sources are prebuilt in the asset repository. */
-import { CSSProperties, MouseEventHandler } from 'react';
+import { CSSProperties, MouseEventHandler, ReactEventHandler } from 'react';
 import { getSkinArtworkSources, skinArtworkSrcSet } from '@/lib/assets/skinArtwork';
 
 interface Props {
@@ -12,9 +12,12 @@ interface Props {
   width?: number;
   height?: number;
   fill?: boolean;
+  /** The page's hero (ContentImg's priority): fetched at once and first. */
   priority?: boolean;
   sizes?: string;
   onClick?: MouseEventHandler<HTMLImageElement>;
+  onLoad?: ReactEventHandler<HTMLImageElement>;
+  draggable?: boolean;
 }
 
 /**
@@ -23,7 +26,7 @@ interface Props {
  * for portraits whose public original is smaller than that.
  */
 export default function ResponsiveSkinArtwork({
-  src, alt, className, style, width, height, fill = false, priority = false, sizes = '100vw', onClick,
+  src, alt, className, style, width, height, fill = false, priority = false, sizes = '100vw', onClick, onLoad, draggable,
 }: Props) {
   const url = useContentUrl();
   const sources = getSkinArtworkSources(src);
@@ -33,7 +36,7 @@ export default function ResponsiveSkinArtwork({
 
   if (!sources) {
     return <ContentImg src={src} alt={alt} className={className} style={imageStyle} width={width} height={height}
-      loading={priority ? 'eager' : 'lazy'} onClick={onClick} />;
+      priority={priority} onClick={onClick} onLoad={onLoad} draggable={draggable} />;
   }
 
   return (
@@ -41,7 +44,7 @@ export default function ResponsiveSkinArtwork({
       <source type="image/avif" sizes={sizes} srcSet={skinArtworkSrcSet(sources.avif, url)} />
       <source type="image/webp" sizes={sizes} srcSet={skinArtworkSrcSet(sources.webp, url)} />
       <ContentImg src={sources.fallback} alt={alt} className={className} style={imageStyle} width={width} height={height}
-        loading={priority ? 'eager' : 'lazy'} decoding="async" onClick={onClick} />
+        priority={priority} onClick={onClick} onLoad={onLoad} draggable={draggable} />
     </picture>
   );
 }

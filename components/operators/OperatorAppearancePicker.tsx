@@ -2,6 +2,8 @@ import Image from '@/components/content/ContentImage';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import type { Appearance } from '@/lib/operators/operatorAppearances';
+import { getSkinArtworkSources } from '@/lib/assets/skinArtwork';
+import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import styles from './OperatorAppearancePicker.module.css';
 
 const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -12,11 +14,28 @@ interface Props {
   appearances: Appearance[];
   activeIndex: number;
   onSelect: (index: number) => void;
+  /** The reader is pointing at, focusing or pressing a control that would show this
+   *  outfit: its artwork is fetched ahead of the switch. Required, so a picker cannot
+   *  switch to an artwork nothing fetched before it was asked for. */
+  onWarm: (index: number) => void;
   rotating: boolean;
   onRotationChange: (rotating: boolean) => void;
 }
 
-export default function OperatorAppearancePicker({ appearances, activeIndex, onSelect, rotating, onRotationChange }: Props) {
+/** A thumbnail is its outfit's artwork at the smallest rendition the asset repository
+ *  publishes, 320px, AVIF where the browser takes it (a 68px tile is 179px wide at a
+ *  phone's 2.6x, so `sizes` picks it at every density): the thumbnails were each outfit's
+ *  full artwork, all fetched at load for a strip of 68x46 stamps (1.8 MB of Amiya's six,
+ *  121 KB now). Art without renditions keeps its one file. */
+function Thumbnail({ appearance }: { appearance: Appearance }) {
+  if (appearance.fullPath && getSkinArtworkSources(appearance.fullPath)) {
+    return <ResponsiveSkinArtwork src={appearance.fullPath} alt="" width={68} height={50} sizes="68px" draggable={false} />;
+  }
+  const src = appearance.fullPath || appearance.iconPath;
+  return src ? <Image src={src} alt="" width={68} height={50} draggable={false} /> : <span className={styles.fallback}>{appearance.label[0]}</span>;
+}
+
+export default function OperatorAppearancePicker({ appearances, activeIndex, onSelect, onWarm, rotating, onRotationChange }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
   const trackId = useId();
@@ -117,6 +136,13 @@ export default function OperatorAppearancePicker({ appearances, activeIndex, onS
     else if (track.scrollLeft >= cycle * 2 - 0.5) track.scrollLeft -= cycle;
   }
 
+  /** What a control does to fetch the outfit it would show, before it is pressed. */
+  const warmOn = (index: number | (() => number)) => {
+    const warm = () => onWarm(typeof index === 'number' ? index : index());
+    return { onPointerEnter: warm, onFocus: warm, onPointerDown: warm };
+  };
+  const neighbour = (direction: -1 | 1) => () => (activeRef.current + direction + count) % count;
+
   function cycle(direction: -1 | 1) {
     onRotationChange(false);
     choose((activeRef.current + direction + count) % count);
@@ -171,17 +197,16 @@ export default function OperatorAppearancePicker({ appearances, activeIndex, onS
         aria-label={appearance.label} title={appearance.label} aria-pressed={index === activeIndex}
         aria-hidden={copy !== 1 || undefined} tabIndex={copy === 1 && index === activeIndex ? 0 : -1}
         onMouseDown={event => { if (copy !== 1) event.preventDefault(); }}
+        {...warmOn(index)}
         onClick={() => choose(index)} onKeyDown={event => handleKey(event, index, false)}>
-        {appearance.fullPath || appearance.iconPath
-          ? <Image src={(appearance.fullPath || appearance.iconPath)!} alt="" width={68} height={50} draggable={false} />
-          : <span className={styles.fallback}>{appearance.label[0]}</span>}
+        <Thumbnail appearance={appearance} />
         <span className={styles.name}>{appearance.label}</span>
       </button>))}
     </div>
     {multiple && <div className={`${styles.controls}${showArrows ? ` ${styles.withArrows}` : ''}`}>
       {showArrows && <button type="button" className={`${styles.arrow} ${styles.previous}`}
         aria-label="Show previous outfit" title="Show previous outfit" aria-controls="operator-artwork"
-        onClick={() => cycle(-1)}>
+        {...warmOn(neighbour(-1))} onClick={() => cycle(-1)}>
         <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m10 3-5 5 5 5" /></svg>
       </button>}
       <div ref={dotsRef} className={styles.dots} role="group" aria-label="Choose outfit">
@@ -189,11 +214,11 @@ export default function OperatorAppearancePicker({ appearances, activeIndex, onS
           className={`front-events-dot${index === activeIndex ? ' active' : ''}`} aria-controls={trackId}
           aria-label={`${appearance.label}, ${index + 1} of ${count}`} title={appearance.label}
           aria-current={index === activeIndex ? 'true' : undefined} tabIndex={index === activeIndex ? 0 : -1}
-          onClick={() => choose(index)} onKeyDown={event => handleKey(event, index, true)} />)}
+          {...warmOn(index)} onClick={() => choose(index)} onKeyDown={event => handleKey(event, index, true)} />)}
       </div>
       {showArrows && <button type="button" className={`${styles.arrow} ${styles.next}`}
         aria-label="Show next outfit" title="Show next outfit" aria-controls="operator-artwork"
-        onClick={() => cycle(1)}>
+        {...warmOn(neighbour(1))} onClick={() => cycle(1)}>
         <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m6 3 5 5-5 5" /></svg>
       </button>}
       <button type="button" className={styles.play} aria-controls={trackId}

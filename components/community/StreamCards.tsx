@@ -14,7 +14,7 @@ export function VideoCard({ v, live }: { v: YouTubeVideo; live?: boolean }) {
       <div className="video-thumb">
         {live && <span className="badge-live live-now-badge">LIVE NOW</span>}
         <span className="creator-name-badge">{v.channelLabel}</span>
-        <Image src={v.thumbnail} alt={v.title} fill loading="lazy" sizes="384px" style={{ objectFit: 'cover' }} />
+        <Image src={v.thumbnail} alt={v.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
       </div>
       <div className="video-card-body">
         <p className="video-title">{v.title}</p>
@@ -30,7 +30,7 @@ export function TwitchCard({ s }: { s: TwitchStream }) {
         <span className="badge-live live-now-badge">LIVE</span>
         <span className="viewer-count-badge">{s.viewerCount.toLocaleString()} watching</span>
         <span className="creator-name-badge">{s.displayName}</span>
-        <Image src={s.thumbnailUrl} alt={s.title} fill loading="lazy" sizes="384px" style={{ objectFit: 'cover' }} />
+        <Image src={s.thumbnailUrl} alt={s.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
       </div>
       <div className="video-card-body">
         <p className="video-title">{s.title}</p>
