@@ -248,6 +248,31 @@ test.describe('/events/[slug]', () => {
 });
 
 test.describe('home', () => {
+  test('every event slide has one shape: the name, then the countdown on its own line', async ({ browser }) => {
+    // A wrapping row put the countdown beside a short name ("Duel Channel: Ivy Vine") and
+    // under a long one, so the panel changed height as the carousel turned (2026-09-30).
+    for (const use of [{ viewport: { width: 1440, height: 900 } }, PHONE]) {
+      const context = await browser.newContext(use);
+      const page = await context.newPage();
+      await page.goto('/');
+      await expect(page.locator('.front-events-info')).toBeVisible();
+      const dots = page.locator('.front-events-dots button');
+      const slides = Math.max(await dots.count(), 1);
+      const shapes: { name: string; height: number; below: boolean }[] = [];
+      for (let i = 0; i < slides; i++) {
+        if (slides > 1) await dots.nth(i).click();
+        await page.waitForTimeout(150);
+        shapes.push(await page.locator('.front-events-info').evaluate((el) => {
+          const name = el.querySelector('.front-events-name')!, timer = el.querySelector('.countdown-timer')!;
+          return { name: name.textContent ?? '', height: el.getBoundingClientRect().height, below: timer.getBoundingClientRect().top >= name.getBoundingClientRect().bottom - 0.5 };
+        }));
+      }
+      for (const shape of shapes) expect(shape.below, `${shape.name}: the countdown sits under the name at ${use.viewport.width}`).toBe(true);
+      expect(new Set(shapes.map((shape) => Math.round(shape.height))).size, `one height for every slide at ${use.viewport.width}: ${JSON.stringify(shapes)}`).toBe(1);
+      await context.close();
+    }
+  });
+
   test('the skins row scrolls by hand, with nothing moving on its own (GE-09)', async ({ page }) => {
     await page.goto('/');
     const panel = page.locator('.front-skins-panel');
