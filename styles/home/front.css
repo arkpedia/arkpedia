@@ -93,12 +93,14 @@ body.front-page-no-scroll {
   overflow: hidden;
   background: var(--panel-2);
 }
+/* The name, then the countdown on a line of its own, on every slide. A wrapping row put the
+   countdown beside a short name ("Duel Channel: Ivy Vine") and under a long one, so the
+   panel changed height as the carousel turned (2026-09-30). */
 .front-events-info {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   margin-top: 8px;
-  flex-wrap: wrap;
   gap: 6px;
 }
 .front-events-name {
