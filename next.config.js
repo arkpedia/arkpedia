@@ -26,6 +26,11 @@ const nextConfig = {
   // own so the first build's output stays for the browser suites (check.yml, "Pages render
   // the live content release"). Unset everywhere else.
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+  // Vercel Web Analytics loads only in a build made for Vercel: Deploy's `vercel build`, whose
+  // pulled project settings carry VERCEL=1. Anywhere else /_vercel/insights/script.js is a 404,
+  // which the browser suites count as a console error (request-clock.spec.ts), and a local or
+  // Check build has no visitors to count anyway.
+  env: { ARKPEDIA_WEB_ANALYTICS: process.env.VERCEL === '1' ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer }) {

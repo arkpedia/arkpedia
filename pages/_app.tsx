@@ -47,6 +47,7 @@ import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
 import { watchImageArrivals } from '@/lib/ui/imageArrival';
 import { useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 
 export default function App({ Component, pageProps }: AppProps) {
   // Dedicated compact tools declare their layout before the server's first paint.
@@ -127,6 +128,11 @@ export default function App({ Component, pageProps }: AppProps) {
         <Component {...pageProps} />
       </div>
       {!hideSiteChrome && <MusicPlayer />}
+      {/* Page views for Vercel Web Analytics (cookieless; client-side navigations too). Only
+          in a build made for Vercel -- see ARKPEDIA_WEB_ANALYTICS in next.config.js. The
+          react entry, not the next one: that one reads App Router hooks, and this is the
+          Pages Router. */}
+      {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <Analytics />}
     </MusicPlayerProvider>
     </ContentTablesContext.Provider>
     </ContentContext.Provider>
