@@ -1,14 +1,25 @@
 # Deploy to Vercel from CI, after the Check workflow has passed on main.
 #
-# The Vercel project (arkpedia-dev) has no Git integration, so until now production
-# was whatever `npm run deploy:vercel` found in someone's working tree: no CI in front
-# of it, the bundle built on a laptop's Node (26) for functions declared nodejs24.x,
-# and vercel.json's ignoreCommand never consulted. This runs the same three commands
-# the script runs, on Node 24, only after check.yml is green for that exact commit.
+# The only way this repository reaches Vercel: Vercel's own Git deployments must stay off for
+# every project config/production.json lists, since they build without the Check and cannot
+# say which commit they are (write-build-info.mjs needs .git, which .vercelignore strips).
+# Production was once whatever `npm run deploy:vercel` found in someone's working tree: no CI
+# in front of it, the bundle built on a laptop's Node (26) for functions declared nodejs24.x.
+# This runs the same three commands the script runs, on Node 24, only after check.yml is
+# green for that exact commit, and uploads the prebuilt output, so no build minute is spent
+# on Vercel.
 #
-# One secret is needed: VERCEL_TOKEN (Vercel → Account Settings → Tokens, scoped to
-# the Mocchibirds team). The org and project ids below are not secrets; they are what
-# `.vercel/project.json` holds locally.
+# Where it goes is config/production.json (scripts/deploy/deploy-targets.mjs): every
+# deployment there that is live, one after another, each built with its own project's
+# settings and environment. Since 2026-09-30 that lists kukki's project, which serves
+# www.arkpedia.net and had been Git-linked to this repository with its domains assigned
+# automatically; it is not live until the change that flips it, and until then a manual run
+# with "preview" ticked uploads a preview there, which moves none of its domains.
+#
+# Each deployment names the secret holding its Vercel token (Vercel → Account Settings →
+# Tokens, scoped to that team): VERCEL_TOKEN for Mocchibirds, VERCEL_TOKEN_ARKPEDIA_NET for
+# kukki's team. The org and project ids are not secrets; they are what `.vercel/project.json`
+# holds locally.
 name: Deploy
 
 on:
@@ -17,6 +28,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      preview:
+        description: Upload a preview to each deployment that is not live yet (config/production.json), instead of deploying production
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-production
@@ -30,7 +46,7 @@ permissions:
   actions: write
 
 jobs:
-  deploy:
+  targets:
     # Only a green Check on main deploys; a manual run trusts the operator.
     # Only a green Check of a push to this repository's main: a pull request whose branch is
     # also called main (a fork's) must never deploy with the production token.
@@ -41,11 +57,39 @@ jobs:
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      # The commit Deploy builds decides where it goes, so a flip to live deploys with the gate
+      # that reads it.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: List the deployments
+        id: list
+        run: node scripts/deploy/deploy-targets.mjs ${{ inputs.preview && '--preview' || '' }} >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: targets
+    name: deploy (${{ matrix.target.name }}, ${{ matrix.target.environment }})
+    strategy:
+      # One after another, in the file's order: the last one starts a held release again. A
+      # failed one does not stop the next.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.targets) }}
+    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 45 || 30 }}
     env:
-      VERCEL_ORG_ID: team_PdK2g24xbV0rLWIQrHvkTNnN
-      VERCEL_PROJECT_ID: prj_rGdk34hEbAky1IniF9GLXeRCFtSj
-      VERCEL_SCOPE: mocchibirds
+      VERCEL_ORG_ID: ${{ matrix.target.orgId }}
+      VERCEL_PROJECT_ID: ${{ matrix.target.projectId }}
+      VERCEL_SCOPE: ${{ matrix.target.scope }}
+      VERCEL_ENVIRONMENT: ${{ matrix.target.environment }}
       VERCEL_CLI_VERSION: 59.23.1
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
@@ -62,32 +106,38 @@ jobs:
           cache: npm
       - name: Refuse to run without the deploy token
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets[matrix.target.tokenSecret] }}
+          TOKEN_SECRET: ${{ matrix.target.tokenSecret }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::VERCEL_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            echo "::error::$TOKEN_SECRET is not set. Add a Vercel token for the $VERCEL_SCOPE team under Settings → Secrets and variables → Actions."
             exit 1
           fi
       - run: npm ci
-      - name: Link the project and pull production settings
+      - name: Link the project and pull its settings
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx --yes "vercel@$VERCEL_CLI_VERSION" pull --yes --environment=production --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          VERCEL_TOKEN: ${{ secrets[matrix.target.tokenSecret] }}
+        run: npx --yes "vercel@$VERCEL_CLI_VERSION" pull --yes --environment="$VERCEL_ENVIRONMENT" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
       # prebuild builds with the live content release's asset pins where they are newer than
       # the committed ones (scripts/build/adopt-release-asset-pins.mjs); the token only raises
       # the GitHub API limit for the one compare call per repository whose pins differ.
       - name: Build
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets[matrix.target.tokenSecret] }}
           GH_TOKEN: ${{ github.token }}
-        run: npx --yes "vercel@$VERCEL_CLI_VERSION" build --prod --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          PROD: ${{ matrix.target.production && '--prod' || '' }}
+        run: npx --yes "vercel@$VERCEL_CLI_VERSION" build $PROD --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
       - name: Prepare the Build Output bundle
         run: node scripts/deploy/prepare-vercel-output.mjs
       - name: Deploy
         id: deploy
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx --yes "vercel@$VERCEL_CLI_VERSION" deploy --prebuilt --prod --archive=tgz --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          VERCEL_TOKEN: ${{ secrets[matrix.target.tokenSecret] }}
+          PROD: ${{ matrix.target.production && '--prod' || '' }}
+          TARGET: ${{ matrix.target.name }}
+        run: |
+          url=$(npx --yes "vercel@$VERCEL_CLI_VERSION" deploy --prebuilt $PROD --archive=tgz --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
+          echo "$VERCEL_ENVIRONMENT deployment for $TARGET: $url" | tee -a "$GITHUB_STEP_SUMMARY"
       # Every /<folder>/... asset path is a redirect to the commit this build pinned. The
       # nightly release moves its own pins, and a build that lags them sends newer art to a
       # commit without it (the 2026-09-25 404 on /material-icons/). prebuild adopts the
@@ -97,50 +147,64 @@ jobs:
       # that went live while Build ran (newer than a pin the build adopted) is a warning
       # instead, since no build could have had it: the file asked for is then one of the pin
       # this build used, and the next deploy adopts the newer one. The token is for the one
-      # GitHub compare call that orders the two pins.
+      # GitHub compare call that orders the two pins. Production only: a preview sits behind
+      # its team's Vercel login.
       - name: Check that asset links reach the release's art
         id: asset-links
+        if: matrix.target.production
         env:
           GH_TOKEN: ${{ github.token }}
+          ARKPEDIA_DEPLOYMENTS: ${{ matrix.target.url }}
         run: node scripts/deploy/check-asset-redirects.mjs
-      # One open issue per outage, found by its marker (scripts/content/alert-issue.mjs): the
-      # 09-18..09-22 outage was nine red runs that only the Actions tab showed. Production keeps
-      # its last build meanwhile, and content releases stay held while it runs other code than
-      # main (scripts/content/deploy-gate.mjs). The next successful deploy closes it.
+      # The pulled settings include the project's environment variables, secrets among them
+      # (kukki's project has its database's); the runner's workspace outlives the job.
+      - name: Forget the pulled project settings
+        if: always()
+        run: rm -rf .vercel
+      # One open issue per deployment's outage, found by its marker (scripts/content/
+      # alert-issue.mjs): the 09-18..09-22 outage was nine red runs that only the Actions tab
+      # showed. Production keeps its last build meanwhile, and content releases stay held while
+      # it runs other code than main (scripts/content/deploy-gate.mjs). The next successful
+      # deploy there closes it.
       - name: Report the failed deploy
-        if: failure() || cancelled()
+        if: matrix.target.production && (failure() || cancelled())
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
           DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
           ASSET_LINKS: ${{ steps.asset-links.outcome }}
+          ALERT: ${{ matrix.target.alert }}
+          SITE: ${{ matrix.target.url }}
         run: |
           body="$RUNNER_TEMP/failed-deploy.md"
           if [ "$ASSET_LINKS" = failure ]; then
-            echo "Deployed ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')), but its asset links lag the live content release: a root-relative path to art the release has redirects to an asset commit without it, and 404s. The check's log names the file: $RUN_URL. Production runs this build; redeploy once the Build step can adopt the release's pins (its warning says why it could not), or bump data/assets/revisions.json as the check's log says." > "$body"
+            echo "Deployed ${DEPLOYING:0:12} to $SITE ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')), but its asset links lag the live content release: a root-relative path to art the release has redirects to an asset commit without it, and 404s. The check's log names the file: $RUN_URL. Production runs this build; redeploy once the Build step can adopt the release's pins (its warning says why it could not), or bump data/assets/revisions.json as the check's log says." > "$body"
           else
-            echo "Deploy ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs main's code." > "$body"
+            echo "Deploy to $SITE ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs main's code." > "$body"
           fi
-          node scripts/content/alert-issue.mjs open --alert deploy-failing --title 'Deploy failing' --body-file "$body"
+          node scripts/content/alert-issue.mjs open --alert "$ALERT" --title "Deploy failing: ${SITE#https://}" --body-file "$body"
       - name: Close the failed-deploy report
-        if: success()
+        if: matrix.target.production && success()
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           DEPLOYING: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ALERT: ${{ matrix.target.alert }}
+          SITE: ${{ matrix.target.url }}
         run: |
-          node scripts/content/alert-issue.mjs close --alert deploy-failing --title 'Deploy failing' --comment "Deployed ${DEPLOYING:0:12}: $RUN_URL"
+          node scripts/content/alert-issue.mjs close --alert "$ALERT" --title "Deploy failing: ${SITE#https://}" --comment "Deployed ${DEPLOYING:0:12}: $RUN_URL"
       # A release is held while production runs other code than the one compiling it
       # (scripts/content/deploy-gate.mjs), and nothing else retries it. On one runner that is
       # easy to hit: a push near the nightly run lets the release take the runner before this
       # Deploy, and the site would miss a day of content. Production runs this build now, so
-      # start the release again, a full refresh like the scheduled one. On the deploy step's
+      # start the release again, a full refresh like the scheduled one. After the last
+      # deployment only, when every earlier one has had its turn. On the deploy step's
       # success, not the job's: production runs this build even when the asset-link check
       # after it failed.
       - name: Release again if one was held for this deploy
-        if: ${{ !cancelled() && steps.deploy.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.production && matrix.target.last }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

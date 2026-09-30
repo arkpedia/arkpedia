@@ -32,17 +32,20 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { codeFingerprint } from './code-fingerprint.mjs';
 import { SCHEMA } from './release-input.mjs';
+import { readDeployments } from '../deploy/deploy-targets.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HEX64 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const short = value => String(value).slice(0, 12);
 
-/** Where production is: https only, but for a local test server. */
+/** Where production is: https only, but for a local test server. The live deployments only:
+ *  one config/production.json lists but has not switched on yet serves other code, and would
+ *  hold every release. */
 export function deploymentUrls(env = process.env) {
   const listed = env.ARKPEDIA_DEPLOYMENTS?.trim()
     ? env.ARKPEDIA_DEPLOYMENTS.trim().split(/[\s,]+/)
-    : JSON.parse(fs.readFileSync(path.join(root, 'config/production.json'), 'utf8')).deployments;
+    : readDeployments().filter(deployment => deployment.live).map(deployment => deployment.url);
   return listed.map(url => {
     const parsed = new URL(url);
     const local = parsed.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(parsed.hostname);

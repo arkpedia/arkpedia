@@ -31,6 +31,8 @@ The lint warning ceiling preserves existing warnings. Do not raise it to accommo
 
 ## Deploy
 
+Production deploys come from CI: after a green Check on `main`, `.github/workflows/deploy.yml` builds the commit on the runner and uploads the prebuilt output to every live deployment in `config/production.json`, one after another, each with its own project's settings and the token its `tokenSecret` names. A deployment listed with `"live": false` (www.arkpedia.net, kukki's project, until the cutover) gets nothing automatically; Actions → Deploy → Run workflow with **preview** ticked uploads a preview to it, which moves none of its domains. Going live is one change that flips `live` to `true`, which the content release gate then reads as well. Vercel's own Git deployments must stay off for every listed project: they build without the Check, and cannot say which commit they are.
+
 Vercel builds with `npm run build`. Configure `DATABASE_URL` only if the submission API is needed. `vercel.json` uses `scripts/deploy/vercel-ignore-build.sh`: production builds run; branch previews need `[preview]` in the commit message, or an explicit manual deployment.
 
 A build reads the checked-in game records and emits JSON under `public/`. Media stays in the public asset repositories and is delivered through the redirects in `next.config.js`.

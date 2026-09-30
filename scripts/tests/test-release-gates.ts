@@ -10,7 +10,7 @@ import { promisify } from 'node:util';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { DOCS_ONLY_PATHS, codeFingerprint, globToRegExp, isDocsOnly, uncommittedChanges } from '../content/code-fingerprint.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { judge, main as gate, releaseFromRef } from '../content/deploy-gate.mjs';
+import { deploymentUrls, judge, main as gate, releaseFromRef } from '../content/deploy-gate.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { SCHEMA } from '../content/release-input.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -295,9 +295,16 @@ test('the gate CLI reads production with one uncached GET and holds with a reaso
   }
 });
 
-test('the gate reads the deployments config/production.json lists', async () => {
+test('the gate reads the live deployments config/production.json lists, and only those', async () => {
+  // www.arkpedia.net is listed and not live: it serves kukki's build until the flip, so
+  // reading it would hold every release.
   const config = JSON.parse(fs.readFileSync('config/production.json', 'utf8'));
-  assert.deepEqual(config.deployments, ['https://arkpedia-dev.vercel.app']);
+  assert.deepEqual(config.deployments.map((entry: { url: string; live: boolean }) => [entry.url, entry.live]), [
+    ['https://arkpedia-dev.vercel.app', true],
+    ['https://www.arkpedia.net', false],
+  ]);
+  assert.deepEqual(deploymentUrls({}), ['https://arkpedia-dev.vercel.app']);
+  assert.deepEqual(deploymentUrls({ ARKPEDIA_DEPLOYMENTS: 'https://a.example https://b.example/' }), ['https://a.example', 'https://b.example']);
   const urls: string[] = [];
   const fetch = async (url: string) => { urls.push(url.replace(/\?.*$/, '')); return new Response('nope', { status: 404 }); };
   const log = console.log;
