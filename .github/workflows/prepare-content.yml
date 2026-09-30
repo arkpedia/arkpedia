@@ -317,6 +317,7 @@ jobs:
       # keeps current.json in its cache for five minutes. Never fails the run: the data is on
       # data main either way, and the issue says what is missing.
       - name: Confirm the release went live
+        id: live
         if: steps.publish.outputs.pushed != ''
         continue-on-error: true
         timeout-minutes: 8
@@ -344,6 +345,17 @@ jobs:
             echo "::warning::The live pointer did not move to $PUSHED."
             exit 1
           fi
+      # The pages that regenerate slowest (lib/content/releaseRefresh.ts: the home page every
+      # 25 minutes, for its live feeds) showed the previous release until their interval ran
+      # out. Ask each live deployment for them now (pages/api/release-refresh.ts). Only once the
+      # pointer moved, and never failing the run: they refresh on their own interval anyway.
+      - name: Refresh the pages that wait longest for a release
+        if: steps.live.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          ARKPEDIA_RELEASE_REFRESH_SECRET: ${{ secrets.ARKPEDIA_RELEASE_REFRESH_SECRET }}
+        run: node scripts/content/refresh-pages.mjs
       # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
       # here on its own. Report it, but never hold back the day's content over it: this
       # runs after the publish step, and a slow or failing GitHub API call only fails

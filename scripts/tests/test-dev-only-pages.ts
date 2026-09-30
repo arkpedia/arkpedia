@@ -84,9 +84,19 @@ test('a page that calls a local-only route is itself local-only', () => {
   assert.ok(fetches.some(({ file }) => file === path.join('pages', 'bases', 'whole-base-optimizer.tsx')));
 });
 
+/** API routes no page calls because a workflow does, each with the script that calls it. The
+ *  script must name the route's address, so a renamed or dropped caller fails here. */
+const CALLED_BY_WORKFLOWS: Record<string, string> = {
+  // prepare-content.yml, once a release is live (lib/content/releaseRefresh.ts).
+  'pages/api/release-refresh.ts': 'scripts/content/refresh-pages.mjs',
+};
+
 test('every API route is called by client code or refuses outside development', () => {
   const called = new Set(fetches.map(({ address }) => routeFor(address, routes)));
-  const orphans = routes.filter(route => !called.has(route)
+  const byWorkflow = (route: string) => route in CALLED_BY_WORKFLOWS
+    && fs.readFileSync(path.join(ROOT, CALLED_BY_WORKFLOWS[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).replace(/\.tsx?$/, '')}`);
+  const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route)
     && !/process\.env\.NODE_ENV\s*!==\s*'development'|NODE_ENV\s*===\s*'development'/.test(fs.readFileSync(path.join(ROOT, route), 'utf8')));
   assert.deepEqual(orphans, []);
+  for (const route of Object.keys(CALLED_BY_WORKFLOWS)) assert.ok(byWorkflow(route), `${CALLED_BY_WORKFLOWS[route]} calls ${route}`);
 });
