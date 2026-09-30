@@ -4,10 +4,12 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseGameWindow, windowCountdown } from '@/lib/schedule/gameWindow';
+import { eventShopEnd, parseGameWindow, windowCountdown } from '@/lib/schedule/gameWindow';
 import { parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { getHomeGachaBanners, getOngoingGachaBanners, getOngoingEvents, loadGameEvents } from '@/lib/home/frontPageContent';
+import { isDebutAvailable } from '@/lib/operators/operatorAvailability';
+import { getAllOperators } from '@/lib/operators/operators';
 
 const start = new Date('2026-09-16T15:00:00Z');
 const end = new Date('2026-09-30T11:00:00Z');
@@ -33,6 +35,20 @@ test('an event and its banner share the announced opening, not midnight or reset
   assert.equal(getOngoingEvents(end, [event]).length, 0);
   assert.equal(getOngoingGachaBanners(end, [banner]).length, 0);
   assert.equal(getHomeGachaBanners(start, [{ ...banner, global_date: null, global_window: undefined }]).length, 0);
+});
+
+test("the home page keeps an event until its store closes, then lets it go", () => {
+  // People, A People: stages to 09-30 11:00Z, store to 10-07 11:00Z (activity_table rewardEndTime).
+  const shopping = { ...event, shopEndAt: '2026-10-07T11:00:00.000Z' };
+  assert.deepEqual(eventShopEnd(shopping), new Date('2026-10-07T11:00:00Z'));
+  assert.equal(eventShopEnd(event), null);
+  assert.equal(eventShopEnd({ ...event, shopEndAt: event.endAt }), null, 'a store closing with the stages is no store phase');
+  for (const now of [end, new Date('2026-10-07T10:59:59Z')]) assert.equal(getOngoingEvents(now, [shopping]).length, 1, now.toISOString());
+  assert.equal(getOngoingEvents(new Date('2026-10-07T11:00:00Z'), [shopping]).length, 0);
+  // Soonest to close first, by whichever closes next: an open event ending tomorrow leads a
+  // store that closes in a week.
+  const openTomorrow = { ...event, name: 'Open', end: new Date('2026-10-01T11:00:00Z'), endAt: '2026-10-01T11:00:00.000Z' };
+  assert.deepEqual(getOngoingEvents(new Date('2026-09-30T12:00:00Z'), [shopping, openTomorrow]).map(e => e.name), ['Open', shopping.name]);
 });
 
 test('countdown crosses opening and closing without stale labels or negative time', () => {
@@ -108,4 +124,71 @@ test('sync retains exact hours even when calendar days are unchanged, and is ide
     assert.deepEqual([community.global_date, community.global_window.startAt], [range, event.startAt]);
     assert.equal(rerun.global_window.startAt, new Date(later * 1000).toISOString());
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+/*
+ * An event's store outlasts its stages, and the client says until when (rewardEndTime).
+ * [Side Story] People, A People's stages closed 2026-09-30 11:00Z and its store 2026-10-07
+ * 11:00Z; the home page took the event down with the stages while readers had a week of
+ * shopping left. The sync records the store's close on every current event, the ones with an
+ * official notice's hours too, and matches it to the run by its close.
+ */
+test("sync records the event store's close from the client, official-notice entries included", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-shop-test-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'data/events'), { recursive: true });
+    const year = new Date().getUTCFullYear() + 1;
+    const range = `${year}/09/16–${year}/09/30`;
+    const open = Date.UTC(year, 8, 16, 15) / 1000, close = Date.UTC(year, 8, 30, 11) / 1000, shop = Date.UTC(year, 9, 7, 11) / 1000;
+    const official = { dateRange: range, note: '', startAt: new Date(open * 1000).toISOString(), endAt: new Date(close * 1000).toISOString(), timingSource: 'https://www.arknights.global/news/4635' };
+    const eventFile = path.join(tmp, `data/events/events_${year}.json`);
+    fs.writeFileSync(eventFile, JSON.stringify([
+      { name: '[Side Story] Shop Event', global: official },
+      { name: 'Closes With Stages', global: { ...official, timingSource: undefined } },
+      // A rerun far from the client's run keeps no store of the original's.
+      { name: 'Old Run', global: { ...official, dateRange: `${year}/03/01–${year}/03/15`, startAt: `${year}-03-01T15:00:00.000Z`, endAt: `${year}-03-15T11:00:00.000Z` } },
+    ]));
+    fs.writeFileSync(path.join(tmp, 'data/headhunting_banners.json'), '[]');
+    for (const region of ['en', 'cn']) {
+      const dir = path.join(tmp, region, 'gamedata/excel'); fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'activity_table.json'), JSON.stringify({ basicInfo: region === 'en' ? {
+        a: { name: 'Shop Event', startTime: open, endTime: close - 1, rewardEndTime: shop - 1 },
+        b: { name: 'Closes With Stages', startTime: open, endTime: close - 1, rewardEndTime: close - 1 },
+        c: { name: 'Old Run', startTime: open, endTime: close - 1, rewardEndTime: shop - 1 },
+      } : {} }));
+      fs.writeFileSync(path.join(dir, 'gacha_table.json'), JSON.stringify({ gachaPoolClient: [] }));
+    }
+    const run = () => execFileSync(process.execPath, [path.resolve('scripts/sync/sync-event-windows.mjs')], { cwd: tmp, env: { ...process.env, ARKPEDIA_EN: 'en', ARKPEDIA_CN: 'cn' }, encoding: 'utf8' });
+    run();
+    const [shopEvent, withStages, oldRun] = JSON.parse(fs.readFileSync(eventFile, 'utf8')).map((event: { global: Record<string, unknown> }) => event.global);
+    assert.equal(shopEvent.shopEndAt, `${year}-10-07T11:00:00.000Z`);
+    // The official notice's hours are untouched.
+    assert.deepEqual([shopEvent.startAt, shopEvent.endAt, shopEvent.timingSource], [official.startAt, official.endAt, official.timingSource]);
+    assert.equal('shopEndAt' in withStages, false, 'a store closing with the stages adds nothing');
+    assert.equal('shopEndAt' in oldRun, false);
+    const saved = fs.readFileSync(eventFile, 'utf8');
+    run();
+    assert.equal(fs.readFileSync(eventFile, 'utf8'), saved, 'idempotent');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('"Now Available" lasts as long as the debut: its banner, or an event operator\'s stages', () => {
+  // Ukusik on Rage of The Many and Botani from People, A People, both to 09-30 11:00Z; it
+  // counted two weeks from 09-16 15:00Z and ran past both. Not the event store (to 10-07):
+  // it sells Botani's potential tokens, never Botani.
+  const at = (iso: string) => Date.parse(iso);
+  const banner = { releaseAt: '2026-09-16T15:00:00.000Z', availableUntil: '2026-09-30T11:00:00.000Z' };
+  assert.equal(isDebutAvailable(banner, at('2026-09-16T14:59:00Z')), false, 'not before the release');
+  assert.equal(isDebutAvailable(banner, at('2026-09-30T10:59:00Z')), true);
+  assert.equal(isDebutAvailable(banner, at('2026-09-30T11:00:00Z')), false, 'the banner closed');
+  const botani = getAllOperators().find(op => op.name === 'Botani');
+  if (botani?.availableUntil) assert.equal(botani.availableUntil, '2026-09-30T11:00:00.000Z', 'the stages, not the store');
+  // No known end (or a release from before the records carried one): two weeks.
+  const bare = { releaseAt: '2026-09-16T15:00:00.000Z' };
+  assert.equal(isDebutAvailable(bare, at('2026-09-30T14:59:00Z')), true);
+  assert.equal(isDebutAvailable(bare, at('2026-09-30T15:01:00Z')), false);
+  // Every record's debut ends after it starts, so none can read as never available.
+  for (const op of getAllOperators()) {
+    if (op.availableUntil) assert.ok(op.releaseAt && Date.parse(op.availableUntil) > Date.parse(op.releaseAt), `${op.name}: ${op.releaseAt} .. ${op.availableUntil}`);
+  }
 });

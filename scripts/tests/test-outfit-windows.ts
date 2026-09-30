@@ -5,6 +5,8 @@ import { unconfirmedOutfitSales } from '../content/outfit-windows.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { reviewCompleteness } from '../content/check-completeness.mjs';
 import { emptyCatalogue } from './fixtures/catalogue';
+import { availableSkins, type SkinWindow } from '../../lib/skins/skinAvailability';
+import fs from 'node:fs';
 
 /* Duel Channel: Ivy Vine as it stood on 25 September 2026: the event's announced window,
    its three Outfit Store outfits, and no confirmed window for them, which is how /skins
@@ -99,4 +101,27 @@ test('publication holds each such outfit back as published-partial, naming the n
   const { quarantine } = reviewCompleteness(emptyCatalogue({ skins: skins.slice(0, 1), events: [synced], skinWindows: [], now }));
   assert.deepEqual(quarantine.filter((entry: { reason: string }) => /confirmed window/.test(entry.reason)).map((entry: { reason: string }) => entry.reason.split('; ')[1]),
     ['add the Outfit Store window from the official notice']);
+});
+
+/*
+ * The home page's carousel lists what /skins' Available now tab does (availableSkins). It
+ * used to list the skins of whichever events were running, matched by name, and so left out
+ * Surtr, Nymph and Ethan, on sale in the shop with no event running for them (2026-09-30).
+ */
+test('what is on sale now: live shop and reward windows, never a draw or an estimate, new releases first', () => {
+  const skin = (model: string, name: string) => ({ model, name, series: 'Test' }) as unknown as Parameters<typeof availableSkins>[0][number];
+  const skins = [skin('A', 'Reissue'), skin('B', 'New'), skin('C', 'Draw'), skin('D', 'Estimate'), skin('E', 'Later')];
+  const window = (id: string, extra: Partial<SkinWindow>): SkinWindow => ({ event: 'Store', kind: 'shop', label: '', startAt: '2026-09-20T11:00:00.000Z', endAt: '2026-10-04T11:00:00.000Z', skinIds: [id], newRelease: false, ...extra });
+  const windows = [
+    window('A / Reissue', {}),
+    window('B / New', { newRelease: true, startAt: '2026-09-16T15:00:00.000Z' }),
+    window('C / Draw', { kind: 'draw' }),
+    window('D / Estimate', { estimated: true }),
+    window('E / Later', { startAt: '2026-10-01T11:00:00.000Z' }),
+  ];
+  assert.deepEqual(availableSkins(skins, windows, new Date('2026-09-30T12:00:00Z')).map(s => s.name), ['New', 'Reissue']);
+  // The home page reads the same helper, over the release's windows.
+  const home = fs.readFileSync('pages/index.tsx', 'utf8');
+  assert.match(home, /availableSkins\(__calendar\.skins, withLocalConfirmedSkinWindows\(__calendar\.skinWindows\), now\)/);
+  assert.match(home, /skinWindows: getSkinWindows\(getAllSkins\(\), getAllEvents\(\)/);
 });

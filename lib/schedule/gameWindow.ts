@@ -3,6 +3,10 @@ export interface GameWindowTimes {
   startAt?: string;
   endAt?: string;
   timingSource?: string;
+  /** When the event's store closes, exclusive, where it outlasts the stages: the client's
+   *  rewardEndTime (scripts/sync/sync-event-windows.mjs). Absent when the store closes with
+   *  the stages, and on events from before the sync recorded it. */
+  shopEndAt?: string;
 }
 
 function instant(value: string | undefined): Date | null {
@@ -28,6 +32,13 @@ export function parseGameWindow(range: string | null | undefined, times: GameWin
   const start = times.startAt ? instant(times.startAt) : day(1, region === 'global' ? (routinePool ? 11 : 15) : (routinePool ? -4 : 8));
   const end = times.endAt ? instant(times.endAt) : day(4, region === 'global' ? 11 : -4);
   return start && end && start < end ? { start, end } : null;
+}
+
+/** When an event's store closes, if after its stages (GameWindowTimes.shopEndAt); null when it
+ *  closes with them. */
+export function eventShopEnd(event: { end: Date; shopEndAt?: string }): Date | null {
+  const at = event.shopEndAt ? Date.parse(event.shopEndAt) : NaN;
+  return Number.isFinite(at) && at > event.end.getTime() ? new Date(at) : null;
 }
 
 export function windowCountdown(start: Date, end: Date, now: Date): { label: 'Starts in' | 'Ends in' | 'Ended'; remaining: number } {

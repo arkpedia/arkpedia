@@ -385,11 +385,17 @@ test.describe('motion never moves the layout', () => {
       // player grows in one frame or two, 0.39 or 0.20, on either build and either
       // preference), so one load against one load compares luck. Worst against worst.
       const loads = [['no-preference', 0], ['reduce', 0], ['no-preference', 1], ['reduce', 1]] as const;
+      // One instant for every load, timers still running (setFixedTime): a countdown shows
+      // seconds once its event ends within a day, so two loads seconds apart drew
+      // "41m 5s" and "41m 11s", and the box of the text read as moved by motion
+      // (/, 2026-09-30, Stronghold Protocol's last 22 hours).
+      const instant = Date.now();
       for (const [motion, again] of loads) {
         const context = await contextFor(browser, info, motion);
         await context.addInitScript(CLS_PROBE);
         await context.addInitScript(SEEDED_RANDOM);
         const page = await context.newPage();
+        await page.clock.setFixedTime(instant);
         await readOnly(page);
         // Google Fonts refused in both: when the webfont lands against hydration decides
         // whether two shifts share a frame, and one frame scores more than two (/gacha read

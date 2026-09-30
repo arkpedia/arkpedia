@@ -236,6 +236,9 @@ export interface Operator {
   otherLanguages?: Record<string, string> | null;
   /** Confirmed Global release instant, including timezone. */
   releaseAt?: string;
+  /** Until when the debut lasts, exclusive: its banner, or an event operator's event stages
+   *  (getScheduledOperatorDebut). The roster's "Now Available" ends here. */
+  availableUntil?: string;
   characterInfo?: Record<string, string> | null;
   characterVoices?: Record<string, string> | null;
   basicInfo?: Record<string, string> | null;
@@ -269,6 +272,8 @@ export interface RosterOperator {
   isFuture?: boolean;
   /** Confirmed Global release instant, including timezone. */
   releaseAt?: string;
+  /** Until when the debut lasts (Operator.availableUntil); absent in releases from before it. */
+  availableUntil?: string;
   characterInfo?: Record<string, string> | null;
 }
 

@@ -241,6 +241,9 @@ function missingFromRelease(current: Shape, previous: Shape): string[] {
  * component cannot read it as undefined; anything else belongs in the page's finalize.
  */
 const DATA_ONLY: Record<string, Record<string, string>> = {
+  '/operators': {
+    '.operators[].availableUntil': 'the debut\'s end (getScheduledOperatorDebut), new on 2026-09-30; RosterOperator has it optional, and isDebutAvailable counts two weeks from the release without it, as the roster did before',
+  },
   '/stages/content/sandbox_1': {
     '.ra.contentId': 'data/ra-nodes.json names its season now; RaNodeData has it optional, and only raMapData reads it, on the server, to pick the file -- RaMap never does',
   },

@@ -3,6 +3,9 @@ import { withContentPage } from '@/lib/content/server';
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
 import { getAllSkins } from '@/lib/skins/skins';
+import { availableSkins, getSkinWindows, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
+import { getAllEvents } from '@/lib/schedule/schedule';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
 import { GetStaticProps } from 'next';
@@ -53,7 +56,12 @@ interface Props {
    *  (lib/content/pageClock.ts). finalizeHome picks the panels' rows by it, and the
    *  Events panel's first paint uses it too, so the server markup and hydration agree. */
   now: number;
-  __calendar?: { events: (Omit<GameEvent, 'start' | 'end'> & { start: string; end: string })[]; banners: HeadhuntingBanner[]; skins: Skin[] };
+  __calendar?: {
+    events: (Omit<GameEvent, 'start' | 'end'> & { start: string; end: string })[]; banners: HeadhuntingBanner[]; skins: Skin[];
+    /** Every outfit's acquisition windows, from the release's tables, as /skins has them
+     *  (getSkinWindows). Absent in releases from before the carousel read them. */
+    skinWindows?: SkinWindow[];
+  };
 }
 
 export default function HomePage({
@@ -137,7 +145,11 @@ async function finalizeHome(props: Props): Promise<Props> {
     ongoingEvents: getOngoingEvents(now, events).map(serialize),
     upcomingEvent: upcoming ? serialize(upcoming) : null,
     ongoingBanners: getHomeGachaBanners(now, __calendar?.banners).map(banner => ({ ...banner, start: banner.start.toISOString(), end: banner.end.toISOString() })),
-    ongoingSkins: getOngoingSkins(now, __calendar?.skins, events),
+    // What is on sale now, as /skins' Available now tab has it. A release from before the
+    // windows were stored falls back to the old match against running events.
+    ongoingSkins: __calendar?.skinWindows
+      ? availableSkins(__calendar.skins, withLocalConfirmedSkinWindows(__calendar.skinWindows), now)
+      : getOngoingSkins(now, __calendar?.skins, events),
     featuredVideo: videos[0] || null, featuredStream: streams[0] || null, earliestCommunityEvent: communityEvent,
   };
 }
@@ -146,7 +158,13 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/',
   ongoingEvents: [], upcomingEvent: null, ongoingBanners: [], ongoingSkins: [],
   farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
   // Stored in the data release, consumed on the server, and never sent to the browser.
-  __calendar: { events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins() },
+  __calendar: {
+    events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins(),
+    skinWindows: getSkinWindows(getAllSkins(), getAllEvents(), {
+      confirmed: (await import('@/data/skin-availability-windows.json')).default,
+      rotations: (await import('@/data/skin-shop-rotations.json')).default,
+    }),
+  },
 } }), { finalize: finalizeHome, revalidate: 1500, tables: {
   // Only what the ticker reads: the record's own "about" stays in data/.
   'sss-cycle': async () => { const { version, cycleEnd, periodDays } = checkSssCycle((await import('@/data/sss-cycle.json')).default); return { version, cycleEnd, periodDays }; },

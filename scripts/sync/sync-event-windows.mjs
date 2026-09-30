@@ -3,6 +3,7 @@
  * Reconciles the hand-maintained calendars against the game's own client data:
  *
  *   data/events/events_<year>.json   global/cn dateRange  <- activity_table.json
+ *                                    global shopEndAt     <- activity_table.json rewardEndTime
  *   data/headhunting_banners.json    global_date/cn_date  <- gacha_table.json
  *
  * The events files are written by hand from announcements, so future entries
@@ -94,8 +95,8 @@ function parseRange(dateRange) {
   return { startDay: day(a), endDay: day(b), endTs: Date.UTC(+b[1], +b[2] - 1, +b[3], 23) / 1000 };
 }
 
-/** name -> [{start, end}] with ambiguity kept, resolved per entry. */
-function windowsByName(rows, getName, getStart, getEnd) {
+/** name -> [{start, end, rewardEnd?}] with ambiguity kept, resolved per entry. */
+function windowsByName(rows, getName, getStart, getEnd, getRewardEnd = () => null) {
   const map = new Map();
   for (const r of rows) {
     const key = fold(getName(r));
@@ -106,10 +107,14 @@ function windowsByName(rows, getName, getStart, getEnd) {
     // the same lists; a "window" longer than 60 days is not an event run.
     if (end - start > 60 * 86400) continue;
     if (!map.has(key)) map.set(key, []);
-    map.get(key).push({ start, end });
+    map.get(key).push({ start, end, rewardEnd: getRewardEnd(r) || null });
   }
   return map;
 }
+
+/** Client tables sometimes use the final inclusive second (03:59:59), sometimes the exclusive
+ *  minute boundary: one exclusive instant, in unix seconds. */
+const exclusiveEnd = (ts) => ts + (ts % 60 === 59 ? 1 : 0);
 
 /** How far a client window may sit from the entry's own dates and still be
  *  the same run. A rerun whose pool has not shipped yet must not inherit the
@@ -154,7 +159,7 @@ function apply(block, cands, offset, label, source) {
   const startAt = new Date(win.start * 1000).toISOString();
   // Client tables sometimes use the final inclusive second (03:59:59),
   // sometimes the exclusive minute boundary. Store one exclusive end.
-  const endAt = new Date((win.end + (win.end % 60 === 59 ? 1 : 0)) * 1000).toISOString();
+  const endAt = new Date(exclusiveEnd(win.end) * 1000).toISOString();
   const sameDays = existing && existing.startDay === startDay && existing.endDay === endDay;
   if (isOfficialAnnouncement(block.timingSource) && block.startAt && block.endAt) {
     if (!sameDays || block.startAt !== startAt || block.endAt !== endAt) {
@@ -171,6 +176,31 @@ function apply(block, cands, offset, label, source) {
   return `  ${label}: ${was} -> ${next}`;
 }
 
+/**
+ * The event store's close, when it outlasts the stages: the client's rewardEndTime. An
+ * event's shop stays open after its stages close -- [Side Story] People, A People's stages
+ * closed 2026-09-30 11:00Z and its store 2026-10-07 11:00Z -- and the home page took the
+ * event down with the stages, while readers still had a week of shopping (and its welfare
+ * operator) left. Every current event gets it, the official-notice ones apply() leaves alone
+ * included: a notice rarely states the store's close, and the client always does. Matched to
+ * the run by its own close, so a rerun can never take its original's store. Returns a log
+ * line or null.
+ */
+function applyShop(block, cands, label) {
+  if (!block?.endAt || !cands) return null;
+  const endTs = Date.parse(block.endAt) / 1000;
+  // History stays history, as in apply().
+  if (!Number.isFinite(endTs) || endTs < RECENT) return null;
+  const run = cands.find((c) => Math.abs(exclusiveEnd(c.end) - endTs) <= 2 * 3600);
+  if (!run?.rewardEnd) return null;
+  const shopEnd = exclusiveEnd(run.rewardEnd);
+  const shopEndAt = shopEnd > endTs ? new Date(shopEnd * 1000).toISOString() : null;
+  if ((block.shopEndAt ?? null) === shopEndAt) return null;
+  if (shopEndAt) block.shopEndAt = shopEndAt;
+  else delete block.shopEndAt;
+  return `  ${label}: store closes ${shopEndAt ?? 'with the stages'}`;
+}
+
 const [actEn, actCn, gachaEn, gachaCn] = await Promise.all([
   readTable(EN, RAW.en, 'activity_table.json'),
   readTable(CN, RAW.cn, 'activity_table.json'),
@@ -179,7 +209,7 @@ const [actEn, actCn, gachaEn, gachaCn] = await Promise.all([
 ]);
 
 const acts = (t) => Object.values(t.basicInfo || {});
-const enActs = windowsByName(acts(actEn), (a) => a.name, (a) => a.startTime, (a) => a.endTime);
+const enActs = windowsByName(acts(actEn), (a) => a.name, (a) => a.startTime, (a) => a.endTime, (a) => a.rewardEndTime);
 const cnActs = windowsByName(acts(actCn), (a) => a.name, (a) => a.startTime, (a) => a.endTime);
 const enPools = windowsByName(gachaEn.gachaPoolClient || [], (p) => p.gachaPoolName, (p) => p.openTime, (p) => p.endTime);
 const cnPools = windowsByName(gachaCn.gachaPoolClient || [], (p) => p.gachaPoolName, (p) => p.openTime, (p) => p.endTime);
@@ -201,8 +231,11 @@ for (const file of fs.readdirSync(path.join(root, 'data', 'events')).filter((f) 
     const key = fold(e.name);
     const line = apply(e.global, enActs.get(key), -7, `${e.name} [global]`, `${RAW.en}/activity_table.json`);
     const cnLine = apply(e.cn, cnActs.get(key), 8, `${e.name} [cn]`, `${RAW.cn}/activity_table.json`);
+    // After apply(), so an event whose window the client just shipped gets its store too.
+    const shopLine = applyShop(e.global, enActs.get(key), `${e.name} [global]`);
     if (line) log.push(line);
     if (cnLine) log.push(cnLine);
+    if (shopLine) log.push(shopLine);
   }
   if (log.length) {
     fs.writeFileSync(at, `${JSON.stringify(rows, null, 2)}\n`);

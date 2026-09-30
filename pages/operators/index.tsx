@@ -12,7 +12,7 @@ import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
-import { operatorRelease, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
+import { isDebutAvailable, operatorRelease, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { RosterOperator } from '@/lib/operators/operatorTypes';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
@@ -108,17 +108,13 @@ export default function OperatorsIndex({ operators, now }: Props) {
     return (release.at - clock) / (24 * 60 * 60 * 1000);
   }
   const COMING_SOON_WINDOW_DAYS = 10;
-  const RECENTLY_RELEASED_WINDOW_DAYS = 14;
   function isComingSoon(op: RosterOperator): boolean {
     const days = daysUntilRelease(op);
     if (days === null) return false; // no known date -- can't be "coming soon" specifically
     return days > 0 && days <= COMING_SOON_WINDOW_DAYS;
   }
-  function isRecentlyReleased(op: RosterOperator): boolean {
-    const days = daysUntilRelease(op);
-    if (days === null) return false; // no known date -- can't be "recently released" specifically
-    return days <= 0 && days >= -RECENTLY_RELEASED_WINDOW_DAYS;
-  }
+  // "Now Available": released, with its debut banner or event still open.
+  const isRecentlyReleased = (op: RosterOperator) => isDebutAvailable(op, clock);
 
   // When a faction filter is active, ranks which tier an operator
   // matched on -- main first, then umbrella, then connected -- so the
@@ -536,6 +532,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     ...portraitStatus(op),
     ...(op.sourceRegion ? { sourceRegion: op.sourceRegion } : {}),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
+    ...(op.availableUntil ? { availableUntil: op.availableUntil } : {}),
     characterInfo: op.characterInfo ? { 'Release Date': op.characterInfo['Release Date'] || '' } : null,
   }));
   /**
