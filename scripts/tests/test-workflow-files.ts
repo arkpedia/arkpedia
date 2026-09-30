@@ -110,20 +110,68 @@ test("Deploy checks that production's asset links reach the live release's art, 
   assert.ok(index('Deploy') < index("Check that asset links reach the release's art") && index("Check that asset links reach the release's art") < index('Report the failed deploy'));
   assert.equal(steps[index('Deploy')].id, 'deploy');
   assert.equal(steps[index('Report the failed deploy')].env?.ASSET_LINKS, '${{ steps.asset-links.outcome }}');
-  // A failed asset check leaves production on the new build, so a held release still goes out.
-  assert.equal(String(steps[index('Release again if one was held for this deploy')].if).replace(/\s+/g, ' '), "${{ !cancelled() && steps.deploy.outcome == 'success' }}");
+  // A failed asset check leaves production on the new build, so a held release still goes out:
+  // after the last of main's deployments (the ones the gate asks), once every earlier one has
+  // had its turn.
+  assert.equal(String(steps[index('Release again if one was held for this deploy')].if).replace(/\s+/g, ' '), "${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.releaseGate && matrix.target.last }}");
+  // Each deployment's own site, not every one config/production.json lists.
+  assert.equal(check.env?.ARKPEDIA_DEPLOYMENTS, '${{ matrix.target.url }}');
   // prebuild adopts the release's pins through one GitHub compare per differing repository.
   assert.equal(steps[index('Build')].env?.GH_TOKEN, '${{ github.token }}');
 });
 
-test("only a green Check of a push to this repository's main deploys", () => {
-  const condition = String(load('deploy.yml').jobs!.deploy.if).replace(/\s+/g, ' ');
+test("only a green Check of a push to this repository's main or dev deploys", () => {
+  // The targets job decides; every deployment waits on it and adds no condition that could
+  // run it anyway (always(), a bare !cancelled()).
+  const workflow = load('deploy.yml') as unknown as { concurrency?: { group?: string }; jobs: Record<string, Job & { needs?: unknown }> };
+  const jobs = workflow.jobs;
+  assert.equal(jobs.deploy.needs, 'targets');
+  assert.equal(jobs.deploy.if, "needs.targets.outputs.targets != '[]'");
+  // A group holds one waiting run: shared, a dev deploy queued behind main's would cancel it.
+  assert.equal(workflow.concurrency?.group, 'deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}');
+  const condition = String(jobs.targets.if).replace(/\s+/g, ' ');
   for (const part of [
     "github.event.workflow_run.conclusion == 'success'",
-    "github.event.workflow_run.head_branch == 'main'",
+    "(github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')",
     "github.event.workflow_run.event == 'push'",
     'github.event.workflow_run.head_repository.full_name == github.repository',
   ]) assert.ok(condition.includes(part), `deploy.yml's if requires ${part}: ${condition}`);
+});
+
+/*
+ * Deploy uploads to every live deployment in config/production.json, one after another, each
+ * with its own project's ids and token (scripts/deploy/deploy-targets.mjs). On 2026-09-30
+ * kukki's project (www.arkpedia.net) was Git-linked to this repository with its domains
+ * assigned automatically; the listed-but-not-live entry is how it waits for the cutover.
+ */
+test('Deploy runs once per listed deployment, with that project\'s ids and token', () => {
+  const workflow = load('deploy.yml') as unknown as { on: Record<string, { inputs?: Record<string, { description?: string; type?: string; default?: unknown }> }>; jobs: Record<string, Job & { strategy?: { 'max-parallel'?: number; 'fail-fast'?: boolean; matrix?: Record<string, string> }; env?: Record<string, string>; outputs?: Record<string, string> }> };
+  const { targets, deploy } = workflow.jobs;
+  const list = (targets.steps ?? []).find(step => step.name === 'List the deployments') as Step & { id?: string };
+  assert.equal(list?.id, 'list');
+  assert.equal(list?.run, `node scripts/deploy/deploy-targets.mjs --branch "$BRANCH" \${{ inputs.preview && '--preview' || '' }} >> "$GITHUB_OUTPUT"`);
+  assert.equal((list as Step & { env?: Record<string, string> }).env?.BRANCH, '${{ github.event.workflow_run.head_branch || github.ref_name }}');
+  assert.equal(targets.outputs?.targets, '${{ steps.list.outputs.targets }}');
+  assert.deepEqual(deploy.strategy, { 'max-parallel': 1, 'fail-fast': false, matrix: { target: '${{ fromJSON(needs.targets.outputs.targets) }}' } });
+  assert.deepEqual({ org: deploy.env?.VERCEL_ORG_ID, project: deploy.env?.VERCEL_PROJECT_ID, scope: deploy.env?.VERCEL_SCOPE }, { org: '${{ matrix.target.orgId }}', project: '${{ matrix.target.projectId }}', scope: '${{ matrix.target.scope }}' });
+  const preview = workflow.on.workflow_dispatch.inputs?.preview;
+  assert.deepEqual([preview?.type, preview?.default], ['boolean', false]);
+  assert.match(String(preview?.description), /not live yet/);
+  const steps = (deploy.steps ?? []) as (Step & { env?: Record<string, string> })[];
+  // No step reads a fixed secret: each takes the token its deployment names.
+  for (const step of steps) {
+    if (step.env?.VERCEL_TOKEN) assert.equal(step.env.VERCEL_TOKEN, '${{ secrets[matrix.target.tokenSecret] }}', `${step.name}'s token`);
+  }
+  assert.ok(steps.filter(step => step.env?.VERCEL_TOKEN).length >= 4);
+  // A preview deploys no production and reports nothing: its site sits behind a Vercel login.
+  const byName = (name: string) => steps.find(step => step.name === name)!;
+  assert.equal(byName('Build').env?.PROD, "${{ matrix.target.production && '--prod' || '' }}");
+  assert.equal(byName('Deploy').env?.PROD, "${{ matrix.target.production && '--prod' || '' }}");
+  assert.equal(byName("Check that asset links reach the release's art").if, 'matrix.target.production');
+  assert.match(String(byName('Report the failed deploy').if), /^matrix\.target\.production && /);
+  assert.match(String(byName('Close the failed-deploy report').if), /^matrix\.target\.production && /);
+  // The pulled settings carry the project's secrets; they leave the runner whatever happened.
+  assert.deepEqual([byName('Forget the pulled project settings').if, byName('Forget the pulled project settings').run], ['always()', 'rm -rf .vercel']);
 });
 
 test("main runs the full Check unless a green pull request Check already ran its exact code", () => {

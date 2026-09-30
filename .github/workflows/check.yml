@@ -7,10 +7,10 @@ on:
   # (scripts/content/code-fingerprint.mjs): keep the two the same, a test holds them to it.
   # A push or pull request that touches any other file still runs every step below.
   push:
-    branches: [main]
+    branches: [main, dev]
     paths-ignore: ['docs/**', '**/*.md']
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths-ignore: ['docs/**', '**/*.md']
   # So a branch can be checked before it has a pull request, and so this file can
   # be tried by hand once it lands.

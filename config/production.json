@@ -1,4 +1,21 @@
 {
-  "about": "Every deployment that reads the arkpedia-data content release. The content release job publishes a release only when each of these serves a /build-info.json naming the code the release was compiled from (scripts/content/deploy-gate.mjs). Add a deployment here when it starts reading the release; www.arkpedia.net does not (checked 2026-09-25: its pages carry no __contentRelease).",
-  "deployments": ["https://arkpedia-dev.vercel.app"]
+  "about": "Every Vercel project this repository deploys to (.github/workflows/deploy.yml, through scripts/deploy/deploy-targets.mjs), and the branch each one follows. A deployment that is live gets every green Check of a push to its branch, built in CI and uploaded prebuilt. The content release job compiles with main's code, so it publishes a release only when each live deployment of main serves a /build-info.json naming the code the release was compiled from (scripts/content/deploy-gate.mjs); a deployment of another branch runs other code by design and is not asked. One that is not live yet gets nothing automatically: a manual Deploy run with preview ticked uploads a preview to its project, which moves none of its domains. tokenSecret names the GitHub secret holding a Vercel token for that team. vercel.json turns Vercel's own Git deployments off: they build without the Check, and cannot say which commit they are.",
+  "deployments": [
+    {
+      "name": "arkpedia-net",
+      "url": "https://www.arkpedia.net",
+      "branch": "main",
+      "vercel": { "scope": "kukkikazes-projects", "orgId": "team_HnaZMOxh1kZqA9fCWV9FNjTd", "projectId": "prj_onqP9wnDB7c8qzYPIJAGNMcTyjLC" },
+      "tokenSecret": "VERCEL_TOKEN_ARKPEDIA_NET",
+      "live": true
+    },
+    {
+      "name": "arkpedia-dev",
+      "url": "https://arkpedia-dev.vercel.app",
+      "branch": "dev",
+      "vercel": { "scope": "mocchibirds", "orgId": "team_PdK2g24xbV0rLWIQrHvkTNnN", "projectId": "prj_rGdk34hEbAky1IniF9GLXeRCFtSj" },
+      "tokenSecret": "VERCEL_TOKEN",
+      "live": true
+    }
+  ]
 }

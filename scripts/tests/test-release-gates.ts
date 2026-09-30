@@ -10,7 +10,7 @@ import { promisify } from 'node:util';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { DOCS_ONLY_PATHS, codeFingerprint, globToRegExp, isDocsOnly, uncommittedChanges } from '../content/code-fingerprint.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { judge, main as gate, releaseFromRef } from '../content/deploy-gate.mjs';
+import { deploymentUrls, judge, main as gate, releaseFromRef } from '../content/deploy-gate.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { SCHEMA } from '../content/release-input.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -117,9 +117,9 @@ test('Check skips exactly the docs-only paths, on push and pull request, and Dep
   const ignored = [...check.matchAll(/^ {4}paths-ignore: (\[.*\])$/gm)].map(match => JSON.parse(match[1].replace(/'/g, '"')));
   assert.deepEqual(ignored, [DOCS_ONLY_PATHS, DOCS_ONLY_PATHS], 'push and pull_request each ignore exactly config/docs-only-paths.json');
   assert.doesNotMatch(check, /^\s+paths:/m, 'no paths allow-list, which would skip code changes');
-  assert.match(check, /^ {2}push:\n {4}branches: \[main\]\n( {4}#.*\n)* {4}paths-ignore:/m);
+  assert.match(check, /^ {2}push:\n {4}branches: \[main, dev\]\n( {4}#.*\n)* {4}paths-ignore:/m);
   const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
-  assert.match(deploy, /^ {2}workflow_run:\n {4}workflows: \[Check\]\n {4}types: \[completed\]\n {4}branches: \[main\]\n/m);
+  assert.match(deploy, /^ {2}workflow_run:\n {4}workflows: \[Check\]\n {4}types: \[completed\]\n {4}branches: \[main, dev\]\n/m);
   assert.doesNotMatch(deploy, /paths(-ignore)?:/, 'Deploy runs after every Check on main, never filtered by path');
 });
 
@@ -295,9 +295,16 @@ test('the gate CLI reads production with one uncached GET and holds with a reaso
   }
 });
 
-test('the gate reads the deployments config/production.json lists', async () => {
+test("the gate reads main's live deployments config/production.json lists, and only those", async () => {
+  // arkpedia-dev.vercel.app follows dev, which runs other code than the release job compiles
+  // with by design: asking it would hold every release while dev is ahead of main.
   const config = JSON.parse(fs.readFileSync('config/production.json', 'utf8'));
-  assert.deepEqual(config.deployments, ['https://arkpedia-dev.vercel.app']);
+  assert.deepEqual(config.deployments.map((entry: { url: string; branch: string; live: boolean }) => [entry.url, entry.branch, entry.live]), [
+    ['https://www.arkpedia.net', 'main', true],
+    ['https://arkpedia-dev.vercel.app', 'dev', true],
+  ]);
+  assert.deepEqual(deploymentUrls({}), ['https://www.arkpedia.net']);
+  assert.deepEqual(deploymentUrls({ ARKPEDIA_DEPLOYMENTS: 'https://a.example https://b.example/' }), ['https://a.example', 'https://b.example']);
   const urls: string[] = [];
   const fetch = async (url: string) => { urls.push(url.replace(/\?.*$/, '')); return new Response('nope', { status: 404 }); };
   const log = console.log;
@@ -307,7 +314,7 @@ test('the gate reads the deployments config/production.json lists', async () => 
   } finally {
     console.log = log;
   }
-  assert.deepEqual(urls, ['https://arkpedia-dev.vercel.app/build-info.json']);
+  assert.deepEqual(urls, ['https://www.arkpedia.net/build-info.json']);
 });
 
 // arkpedia-data's Content release moves the live pointer only after its own validator passes;

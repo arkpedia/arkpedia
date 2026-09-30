@@ -562,14 +562,20 @@ test('a red Check on main opens one issue, a superseded run does not, and the ne
   assert.match(check, /^permissions:\n {2}contents: read\n( {2}#.*\n)* {2}issues: write$/m);
 });
 
-test('a failed deploy opens one issue that the next deploy closes, even when the token is missing', () => {
+test('a failed deploy opens one issue per deployment that its next deploy closes, even when the token is missing', () => {
+  // What the matrix gives each step (scripts/deploy/deploy-targets.mjs).
+  const SITE = { ALERT: 'deploy-failing-arkpedia-dev', SITE: 'https://arkpedia-dev.vercel.app' };
   withGitHub(github => {
     const report = stepScript('Report the failed deploy', 'deploy'), close = stepScript('Close the failed-deploy report', 'deploy');
-    const failed = github.step(report, { FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
+    const failed = github.step(report, { ...SITE, FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
     assert.equal(failed.status, 0, failed.output);
-    assert.equal(github.issues()[0].title, 'Deploy failing');
-    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing -->\nDeploy ended with failure for dddddddddddd \(workflow_run, .*\): https:\/\/example\.invalid\/run\/1\. Production keeps its previous build/);
-    assert.equal(github.step(close, { DEPLOYING: 'e'.repeat(40) }).status, 0);
+    assert.equal(github.issues()[0].title, 'Deploy failing: arkpedia-dev.vercel.app');
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing-arkpedia-dev -->\nDeploy to https:\/\/arkpedia-dev\.vercel\.app ended with failure for dddddddddddd \(workflow_run, .*\): https:\/\/example\.invalid\/run\/1\. Production keeps its previous build/);
+    // Another deployment's outage is its own issue, which this one's success leaves open.
+    github.step(report, { ALERT: 'deploy-failing-arkpedia-net', SITE: 'https://www.arkpedia.net', FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
+    assert.equal(github.issues()[1].title, 'Deploy failing: www.arkpedia.net');
+    assert.equal(github.step(close, { ...SITE, DEPLOYING: 'e'.repeat(40) }).status, 0);
+    assert.equal(github.issues()[1].state, 'open');
     assert.equal(github.issues()[0].state, 'closed');
     assert.match(github.issues()[0].comments.at(-1)!.body, /^Deployed eeeeeeeeeeee: https:\/\/example\.invalid\/run\/1$/);
   });
@@ -577,9 +583,9 @@ test('a failed deploy opens one issue that the next deploy closes, even when the
   // the issue says so instead of "keeps its previous build".
   withGitHub(github => {
     const report = stepScript('Report the failed deploy', 'deploy');
-    const failed = github.step(report, { FAKE_NOW: '2026-09-26T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'f'.repeat(40), ASSET_LINKS: 'failure' });
+    const failed = github.step(report, { ...SITE, FAKE_NOW: '2026-09-26T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'f'.repeat(40), ASSET_LINKS: 'failure' });
     assert.equal(failed.status, 0, failed.output);
-    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing -->\nDeployed ffffffffffff \(workflow_run, .*\), but its asset links lag the live content release: .* Production runs this build;/);
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing-arkpedia-dev -->\nDeployed ffffffffffff to https:\/\/arkpedia-dev\.vercel\.app \(workflow_run, .*\), but its asset links lag the live content release: .* Production runs this build;/);
     assert.doesNotMatch(github.issues()[0].body, /keeps its previous build/);
   });
   // The report needs the checkout; the token check used to run first and fail without one.
