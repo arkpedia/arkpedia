@@ -241,6 +241,15 @@ function missingFromRelease(current: Shape, previous: Shape): string[] {
  * component cannot read it as undefined; anything else belongs in the page's finalize.
  */
 const DATA_ONLY: Record<string, Record<string, string>> = {
+  '/': {
+    '.ongoingEvents[].shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before",
+  },
+  '/schedule': {
+    '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
+  },
+  '/skins': {
+    '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
+  },
   '/operators': {
     '.operators[].availableUntil': 'the debut\'s end (getScheduledOperatorDebut), new on 2026-09-30; RosterOperator has it optional, and isDebutAvailable counts two weeks from the release without it, as the roster did before',
   },
