@@ -1,20 +1,21 @@
-# Deploy to Vercel from CI, after the Check workflow has passed on main.
+# Deploy to Vercel from CI, after the Check workflow has passed on main or dev.
 #
-# The only way this repository reaches Vercel: Vercel's own Git deployments must stay off for
-# every project config/production.json lists, since they build without the Check and cannot
-# say which commit they are (write-build-info.mjs needs .git, which .vercelignore strips).
+# The only way this repository reaches Vercel: vercel.json turns Vercel's own Git deployments
+# off for every project linked to it, since they build without the Check and cannot say which
+# commit they are (write-build-info.mjs needs .git, which .vercelignore strips).
 # Production was once whatever `npm run deploy:vercel` found in someone's working tree: no CI
 # in front of it, the bundle built on a laptop's Node (26) for functions declared nodejs24.x.
 # This runs the same three commands the script runs, on Node 24, only after check.yml is
 # green for that exact commit, and uploads the prebuilt output, so no build minute is spent
 # on Vercel.
 #
-# Where it goes is config/production.json (scripts/deploy/deploy-targets.mjs): every
-# deployment there that is live, one after another, each built with its own project's
-# settings and environment. Since 2026-09-30 that lists kukki's project, which serves
-# www.arkpedia.net and had been Git-linked to this repository with its domains assigned
-# automatically; it is not live until the change that flips it, and until then a manual run
-# with "preview" ticked uploads a preview there, which moves none of its domains.
+# Where it goes is config/production.json (scripts/deploy/deploy-targets.mjs): every live
+# deployment that follows the branch Check passed, one after another, each built with its own
+# project's settings and environment. Since 2026-09-30 main is www.arkpedia.net (kukki's
+# project, which had been Git-linked to this repository with its domains assigned
+# automatically) and dev is arkpedia-dev.vercel.app. A deployment listed as not live gets
+# nothing automatically; a manual run with "preview" ticked uploads a preview there, which
+# moves none of its domains.
 #
 # Each deployment names the secret holding its Vercel token (Vercel → Account Settings →
 # Tokens, scoped to that team): VERCEL_TOKEN for Mocchibirds, VERCEL_TOKEN_ARKPEDIA_NET for
@@ -26,7 +27,7 @@ on:
   workflow_run:
     workflows: [Check]
     types: [completed]
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
     inputs:
       preview:
@@ -34,8 +35,10 @@ on:
         type: boolean
         default: false
 
+# One queue per branch: a group holds one waiting run, and a dev deploy queued behind a main
+# one would otherwise cancel it.
 concurrency:
-  group: deploy-production
+  group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -47,12 +50,13 @@ permissions:
 
 jobs:
   targets:
-    # Only a green Check on main deploys; a manual run trusts the operator.
-    # Only a green Check of a push to this repository's main: a pull request whose branch is
-    # also called main (a fork's) must never deploy with the production token.
+    # Only a green Check on main or dev deploys; a manual run trusts the operator.
+    # Only a green Check of a push to this repository's main or dev: a pull request whose
+    # branch is also called main (a fork's) must never deploy with the production token.
     if: >-
       github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success'
-      && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push'
+      && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')
+      && github.event.workflow_run.event == 'push'
       && github.event.workflow_run.head_repository.full_name == github.repository)
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
@@ -71,10 +75,14 @@ jobs:
           node-version: '24'
       - name: List the deployments
         id: list
-        run: node scripts/deploy/deploy-targets.mjs ${{ inputs.preview && '--preview' || '' }} >> "$GITHUB_OUTPUT"
+        env:
+          BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+        run: node scripts/deploy/deploy-targets.mjs --branch "$BRANCH" ${{ inputs.preview && '--preview' || '' }} >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: targets
+    # A branch no deployment follows (a manual run from a feature branch) has nothing to do.
+    if: needs.targets.outputs.targets != '[]'
     name: deploy (${{ matrix.target.name }}, ${{ matrix.target.environment }})
     strategy:
       # One after another, in the file's order: the last one starts a held release again. A
@@ -199,12 +207,13 @@ jobs:
       # (scripts/content/deploy-gate.mjs), and nothing else retries it. On one runner that is
       # easy to hit: a push near the nightly run lets the release take the runner before this
       # Deploy, and the site would miss a day of content. Production runs this build now, so
-      # start the release again, a full refresh like the scheduled one. After the last
-      # deployment only, when every earlier one has had its turn. On the deploy step's
+      # start the release again, a full refresh like the scheduled one. For main's deployments
+      # only, the ones the gate asks, and after the last of them, when every earlier one has
+      # had its turn. On the deploy step's
       # success, not the job's: production runs this build even when the asset-link check
       # after it failed.
       - name: Release again if one was held for this deploy
-        if: ${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.production && matrix.target.last }}
+        if: ${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.releaseGate && matrix.target.last }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

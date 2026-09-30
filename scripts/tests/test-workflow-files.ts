@@ -111,24 +111,28 @@ test("Deploy checks that production's asset links reach the live release's art, 
   assert.equal(steps[index('Deploy')].id, 'deploy');
   assert.equal(steps[index('Report the failed deploy')].env?.ASSET_LINKS, '${{ steps.asset-links.outcome }}');
   // A failed asset check leaves production on the new build, so a held release still goes out:
-  // after the last production deployment, once every earlier one has had its turn.
-  assert.equal(String(steps[index('Release again if one was held for this deploy')].if).replace(/\s+/g, ' '), "${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.production && matrix.target.last }}");
+  // after the last of main's deployments (the ones the gate asks), once every earlier one has
+  // had its turn.
+  assert.equal(String(steps[index('Release again if one was held for this deploy')].if).replace(/\s+/g, ' '), "${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.releaseGate && matrix.target.last }}");
   // Each deployment's own site, not every one config/production.json lists.
   assert.equal(check.env?.ARKPEDIA_DEPLOYMENTS, '${{ matrix.target.url }}');
   // prebuild adopts the release's pins through one GitHub compare per differing repository.
   assert.equal(steps[index('Build')].env?.GH_TOKEN, '${{ github.token }}');
 });
 
-test("only a green Check of a push to this repository's main deploys", () => {
+test("only a green Check of a push to this repository's main or dev deploys", () => {
   // The targets job decides; every deployment waits on it and adds no condition that could
   // run it anyway (always(), a bare !cancelled()).
-  const jobs = load('deploy.yml').jobs as Record<string, Job & { needs?: unknown }>;
+  const workflow = load('deploy.yml') as unknown as { concurrency?: { group?: string }; jobs: Record<string, Job & { needs?: unknown }> };
+  const jobs = workflow.jobs;
   assert.equal(jobs.deploy.needs, 'targets');
-  assert.equal(jobs.deploy.if, undefined);
+  assert.equal(jobs.deploy.if, "needs.targets.outputs.targets != '[]'");
+  // A group holds one waiting run: shared, a dev deploy queued behind main's would cancel it.
+  assert.equal(workflow.concurrency?.group, 'deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}');
   const condition = String(jobs.targets.if).replace(/\s+/g, ' ');
   for (const part of [
     "github.event.workflow_run.conclusion == 'success'",
-    "github.event.workflow_run.head_branch == 'main'",
+    "(github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')",
     "github.event.workflow_run.event == 'push'",
     'github.event.workflow_run.head_repository.full_name == github.repository',
   ]) assert.ok(condition.includes(part), `deploy.yml's if requires ${part}: ${condition}`);
@@ -145,7 +149,8 @@ test('Deploy runs once per listed deployment, with that project\'s ids and token
   const { targets, deploy } = workflow.jobs;
   const list = (targets.steps ?? []).find(step => step.name === 'List the deployments') as Step & { id?: string };
   assert.equal(list?.id, 'list');
-  assert.equal(list?.run, `node scripts/deploy/deploy-targets.mjs \${{ inputs.preview && '--preview' || '' }} >> "$GITHUB_OUTPUT"`);
+  assert.equal(list?.run, `node scripts/deploy/deploy-targets.mjs --branch "$BRANCH" \${{ inputs.preview && '--preview' || '' }} >> "$GITHUB_OUTPUT"`);
+  assert.equal((list as Step & { env?: Record<string, string> }).env?.BRANCH, '${{ github.event.workflow_run.head_branch || github.ref_name }}');
   assert.equal(targets.outputs?.targets, '${{ steps.list.outputs.targets }}');
   assert.deepEqual(deploy.strategy, { 'max-parallel': 1, 'fail-fast': false, matrix: { target: '${{ fromJSON(needs.targets.outputs.targets) }}' } });
   assert.deepEqual({ org: deploy.env?.VERCEL_ORG_ID, project: deploy.env?.VERCEL_PROJECT_ID, scope: deploy.env?.VERCEL_SCOPE }, { org: '${{ matrix.target.orgId }}', project: '${{ matrix.target.projectId }}', scope: '${{ matrix.target.scope }}' });

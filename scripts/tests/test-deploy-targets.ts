@@ -1,67 +1,85 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 // @ts-expect-error Node import scripts are plain JavaScript.
-import { deployTargets, readDeployments } from '../deploy/deploy-targets.mjs';
+import { RELEASE_BRANCH, deployTargets, readDeployments } from '../deploy/deploy-targets.mjs';
 
 /*
  * Where Deploy uploads a build (scripts/deploy/deploy-targets.mjs, from config/production.json).
  * On 2026-09-30 kukki's Vercel project, which serves www.arkpedia.net, was Git-linked to this
  * repository with its domains assigned automatically: the first push to main that built would
- * have replaced the public site without a Check. It is listed here as not live, so it gets
- * nothing but a preview a manual run asks for, until the change that flips it.
+ * have replaced the public site without a Check. Now Deploy uploads it from CI after a green
+ * Check of main, and arkpedia-dev.vercel.app follows dev.
  */
-const entry = (name: string, live: boolean, extra: object = {}) => ({
+const entry = (name: string, branch: string, live: boolean, extra: object = {}) => ({
   name,
   url: `https://${name}.example`,
+  branch,
   vercel: { scope: 'some-team', orgId: 'team_abc123', projectId: `prj_${name.replace(/-/g, '')}` },
   tokenSecret: 'VERCEL_TOKEN',
   live,
   ...extra,
 });
+type Target = { name: string; environment: string; production: boolean; releaseGate: boolean; last: boolean; alert: string };
 
-test('the checked-in list: arkpedia-dev live, www.arkpedia.net listed and not live yet', () => {
+test('the checked-in list: main is www.arkpedia.net, dev is arkpedia-dev.vercel.app', () => {
   const deployments = readDeployments();
-  assert.deepEqual(deployments.map(({ name, url, scope, tokenSecret, live }: Record<string, unknown>) => ({ name, url, scope, tokenSecret, live })), [
-    { name: 'arkpedia-dev', url: 'https://arkpedia-dev.vercel.app', scope: 'mocchibirds', tokenSecret: 'VERCEL_TOKEN', live: true },
-    { name: 'arkpedia-net', url: 'https://www.arkpedia.net', scope: 'kukkikazes-projects', tokenSecret: 'VERCEL_TOKEN_ARKPEDIA_NET', live: false },
+  assert.deepEqual(deployments.map(({ name, url, branch, scope, tokenSecret, live }: Record<string, unknown>) => ({ name, url, branch, scope, tokenSecret, live })), [
+    { name: 'arkpedia-net', url: 'https://www.arkpedia.net', branch: 'main', scope: 'kukkikazes-projects', tokenSecret: 'VERCEL_TOKEN_ARKPEDIA_NET', live: true },
+    { name: 'arkpedia-dev', url: 'https://arkpedia-dev.vercel.app', branch: 'dev', scope: 'mocchibirds', tokenSecret: 'VERCEL_TOKEN', live: true },
   ]);
   // kukki's project, as `vercel project inspect arkpedia --scope kukkikazes-projects` names it.
-  assert.equal(deployments[1].orgId, 'team_HnaZMOxh1kZqA9fCWV9FNjTd');
-  assert.equal(deployments[1].projectId, 'prj_onqP9wnDB7c8qzYPIJAGNMcTyjLC');
+  assert.equal(deployments[0].orgId, 'team_HnaZMOxh1kZqA9fCWV9FNjTd');
+  assert.equal(deployments[0].projectId, 'prj_onqP9wnDB7c8qzYPIJAGNMcTyjLC');
+  assert.equal(RELEASE_BRANCH, 'main', 'prepare-content.yml compiles with main');
 });
 
-test('a production deploy goes to the live deployments, a preview to the ones not live yet', () => {
-  const deployments = readDeployments({ deployments: [entry('one', true), entry('two', false), entry('three', true)] });
-  const live = deployTargets({ deployments });
-  assert.deepEqual(live.map((target: { name: string; environment: string; production: boolean; last: boolean; alert: string }) => [target.name, target.environment, target.production, target.last, target.alert]), [
+test("a push deploys its branch's live deployments; a preview, its ones not live yet", () => {
+  const deployments = readDeployments({ deployments: [entry('one', 'main', true), entry('two', 'main', false), entry('three', 'main', true), entry('four', 'dev', true)] });
+  const main = deployTargets({ branch: 'main', deployments });
+  assert.deepEqual(main.map((target: Target) => [target.name, target.environment, target.releaseGate, target.last, target.alert]), [
     ['one', 'production', true, false, 'deploy-failing-one'],
     ['three', 'production', true, true, 'deploy-failing-three'],
   ]);
-  const preview = deployTargets({ deployments, preview: true });
-  assert.deepEqual(preview.map((target: { name: string; environment: string; production: boolean; last: boolean }) => [target.name, target.environment, target.production, target.last]), [['two', 'preview', false, true]]);
-  assert.throws(() => deployTargets({ deployments: readDeployments({ deployments: [entry('one', true)] }), preview: true }), /nothing to preview/);
-  assert.throws(() => deployTargets({ deployments: readDeployments({ deployments: [entry('one', false)] }) }), /No deployment is live/);
+  // dev's deployments run other code than the release job compiles with: the gate never asks them.
+  assert.deepEqual(deployTargets({ branch: 'dev', deployments }).map((target: Target) => [target.name, target.releaseGate, target.last]), [['four', false, true]]);
+  assert.deepEqual(deployTargets({ branch: 'main', deployments, preview: true }).map((target: Target) => [target.name, target.environment, target.production, target.releaseGate]), [['two', 'preview', false, false]]);
+  // A branch nothing follows deploys nothing.
+  assert.deepEqual(deployTargets({ branch: 'feat/x', deployments }), []);
+  assert.throws(() => deployTargets({ deployments }), /Not a branch/);
 });
 
 test('a malformed entry is refused, naming what is wrong', () => {
   const refuse = (deployments: unknown, pattern: RegExp) => assert.throws(() => readDeployments({ deployments }), pattern);
   refuse([], /lists no deployments/);
-  refuse([entry('one', true), entry('one', false)], /listed twice/);
-  refuse([entry('One', true)], /name must be/);
-  refuse([entry('one', true, { url: 'http://one.example' })], /bare https origin/);
-  refuse([entry('one', true, { url: 'https://one.example/path' })], /bare https origin/);
-  refuse([entry('one', true, { vercel: { scope: 'x', orgId: 'org', projectId: 'prj_1' } })], /orgId \(team_/);
-  refuse([entry('one', true, { tokenSecret: 'vercel token' })], /tokenSecret/);
-  refuse([entry('one', true, { live: 'yes' })], /live must be/);
+  refuse([entry('one', 'main', true), entry('one', 'dev', false)], /listed twice/);
+  refuse([entry('One', 'main', true)], /name must be/);
+  refuse([entry('one', 'main', true, { url: 'http://one.example' })], /bare https origin/);
+  refuse([entry('one', 'main', true, { url: 'https://one.example/path' })], /bare https origin/);
+  refuse([entry('one', '', true)], /branch must/);
+  refuse([entry('one', 'main', true, { vercel: { scope: 'x', orgId: 'org', projectId: 'prj_1' } })], /orgId \(team_/);
+  refuse([entry('one', 'main', true, { tokenSecret: 'vercel token' })], /tokenSecret/);
+  refuse([entry('one', 'main', true, { live: 'yes' })], /live must be/);
 });
 
 test('the script prints the matrix for $GITHUB_OUTPUT', () => {
   const run = (...args: string[]) => spawnSync(process.execPath, ['scripts/deploy/deploy-targets.mjs', ...args], { encoding: 'utf8' });
-  const live = run();
-  assert.equal(live.status, 0, live.stderr);
-  assert.match(live.stdout, /^targets=\[.*\]\n$/);
-  assert.deepEqual(JSON.parse(live.stdout.slice('targets='.length)).map((target: { name: string }) => target.name), ['arkpedia-dev']);
-  const preview = run('--preview');
-  assert.deepEqual(JSON.parse(preview.stdout.slice('targets='.length)).map((target: { name: string; environment: string }) => [target.name, target.environment]), [['arkpedia-net', 'preview']]);
+  const names = (args: string[]) => {
+    const result = run(...args);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /^targets=\[.*\]\n$/);
+    return JSON.parse(result.stdout.slice('targets='.length)).map((target: Target) => target.name);
+  };
+  assert.deepEqual(names(['--branch', 'main']), ['arkpedia-net']);
+  assert.deepEqual(names(['--branch', 'dev']), ['arkpedia-dev']);
+  assert.deepEqual(names(['--branch', 'feat/x']), []);
+  assert.deepEqual(names(['--branch', 'main', '--preview']), []);
+});
+
+test('Vercel never builds this repository itself: Git deployments are off', () => {
+  // With them on, a push to main that built on kukki's project went straight to
+  // www.arkpedia.net, before any Check, and a branch push built a preview there.
+  const config = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+  assert.equal(config.git?.deploymentEnabled, false);
 });
