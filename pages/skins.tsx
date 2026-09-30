@@ -6,7 +6,7 @@ import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
-import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, isAvailableNow, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
 import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
@@ -198,7 +198,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       if ((wishlistOnly === '1' || selectedSeries === 'WISHLIST') && !wishlist.has(skin.name)) return false;
       if (selectedSeries && selectedSeries !== 'WISHLIST' && seriesKey(skin.series) !== seriesKey(selectedSeries)) return false;
       const window = availability.get(skinKey(skin));
-      if (availabilityFilter === 'now') return !!window?.live && window.kind !== 'draw';
+      if (availabilityFilter === 'now') return isAvailableNow(window);
       if (availabilityFilter === 'upcoming') return (!!window && !window.live) || skin.sourceRegion === 'CN' || /^\[CN\]/.test(skin.release || '');
       if (['shop', 'reward'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
       return true;
@@ -215,7 +215,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
     // and the rest follows in its own order. It had a shelf of its own above the gallery,
     // the same outfits the Available now tab lists, twice on one page (2026-09-29).
     if (!sortByAvailableDate && !searching && !['now', 'shop', 'reward'].includes(availabilityFilter)) {
-      const now = base.filter((skin) => { const window = availability.get(skinKey(skin)); return !!window?.live && window.kind !== 'draw'; })
+      const now = base.filter((skin) => isAvailableNow(availability.get(skinKey(skin))))
         .sort((a, b) => compareCurrentSkins(a, b, availability));
       if (!now.length) return base;
       const leading = new Set(now.map(skinKey));

@@ -4,6 +4,7 @@ import { useReaderClock } from '@/lib/time/readerClock';
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import CountdownTimer from '../ui/CountdownTimer';
+import { eventShopEnd } from '@/lib/schedule/gameWindow';
 import { GameEvent } from '@/lib/home/frontPageContent';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';
 
@@ -72,6 +73,9 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
   }
 
   const active = slides[Math.min(activeIndex, slides.length - 1)];
+  // Stages closed, store still open: the event stays, counting down to the store's close.
+  const shopEnd = eventShopEnd(active.event);
+  const shopOnly = !!shopEnd && clock >= active.event.end.getTime();
 
   return (
     <section className="front-panel front-home-panel front-events-panel">
@@ -88,7 +92,9 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
         </div>
         <div className="front-events-info">
           <span className="front-events-name">{active.event.name}</span>
-          <CountdownTimer start={active.event.start} target={active.event.end} />
+          {shopOnly
+            ? <CountdownTimer target={shopEnd!} label="Stages closed · Shop closes in" />
+            : <CountdownTimer start={active.event.start} target={active.event.end} />}
         </div>
       </Link>
 

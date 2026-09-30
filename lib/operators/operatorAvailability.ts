@@ -1,5 +1,7 @@
 export type ReleaseOperator = {
   releaseAt?: string;
+  /** Until when the debut lasts (Operator.availableUntil). */
+  availableUntil?: string;
   characterInfo?: Record<string, string> | null;
   /** Only a fallback for placeholder records that have no release date. */
   isFuture?: boolean | null;
@@ -23,6 +25,24 @@ export function operatorRelease(op: ReleaseOperator): { at: number; dayStart: nu
   if (match && (date.getUTCFullYear() !== +match[1] || date.getUTCMonth() !== +match[2] - 1 || date.getUTCDate() !== +match[3])) return null;
   const dayStart = day + 7 * 3_600_000;
   return { at: dayStart + DAY, dayStart, exact: false };
+}
+
+/** Two weeks, for an operator whose debut has no known end (or a release from before the
+ *  records carried one). */
+const NEW_WINDOW_DAYS = 14;
+
+/**
+ * Whether an operator reads as newly available ("Now Available" on the roster): released, and
+ * its debut still running -- the banner it came on, or an event operator's event stages
+ * (Operator.availableUntil). It counted two weeks from the release, and so still named the
+ * People, A People operators after its banner and stages closed (2026-09-30).
+ */
+export function isDebutAvailable(op: ReleaseOperator, now: number): boolean {
+  const release = operatorRelease(op);
+  if (!release || now < release.at) return false;
+  const until = op.availableUntil ? Date.parse(op.availableUntil) : NaN;
+  if (Number.isFinite(until)) return now < until;
+  return now - release.at <= NEW_WINDOW_DAYS * DAY;
 }
 
 export function operatorReleaseLabel(op: ReleaseOperator, now: number): string | null {

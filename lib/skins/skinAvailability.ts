@@ -106,6 +106,21 @@ export function computeSkinCountdowns(skins: Skin[], events: ScheduleEvent[], as
 
 export const acquisitionLabel = (window: SkinWindow) => window.kind === 'shop' ? 'Outfit shop' : window.kind === 'reward' ? 'Event reward' : 'Random draw';
 
+/** On sale now, as /skins' Available now tab counts it: a live shop or event-reward window, never
+ *  a random draw. */
+export const isAvailableNow = (window: SkinCountdown | undefined) => !!window?.live && window.kind !== 'draw';
+
+/**
+ * What can be had now, current releases first: /skins' Available now tab, and the home page's
+ * carousel. The home page used to list the skins of whichever events were running, matched by
+ * name, so an outfit on sale in the shop outside a running event never reached it (2026-09-30).
+ */
+export function availableSkins(skins: Skin[], windows: SkinWindow[], asOf: Date): Skin[] {
+  const availability = computeSkinCountdowns(skins, [], asOf, windows);
+  return skins.filter(skin => isAvailableNow(availability.get(skinKey(skin))))
+    .sort((a, b) => compareCurrentSkins(a, b, availability));
+}
+
 /** Current releases precede reissues, independent of catalogue/scrape order. */
 export function compareCurrentSkins(a: Skin, b: Skin, availability: Map<string, SkinCountdown>): number {
   const first = availability.get(skinKey(a)), second = availability.get(skinKey(b));

@@ -1,4 +1,4 @@
-import { parseGameWindow, type GameWindowTimes } from '@/lib/schedule/gameWindow';
+import { eventShopEnd, parseGameWindow, type GameWindowTimes } from '@/lib/schedule/gameWindow';
 import { loadAllEventYears } from '../events/loadEventsData';
 import type { HeadhuntingBanner } from '../gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '../gacha/headhuntingBannerData';
@@ -43,10 +43,14 @@ export function loadGameEvents(): GameEvent[] {
   return events;
 }
 
+/** Events a reader can still take part in: stages open, or stages closed with the store still
+ *  open ([Side Story] People, A People stayed shoppable a week after its stages closed, and the
+ *  home page had taken it down). Soonest to close first, by whichever of the two closes next. */
 export function getOngoingEvents(now: Date, events = loadGameEvents()): GameEvent[] {
+  const closes = (e: GameEvent) => (now < e.end ? e.end : eventShopEnd(e) ?? e.end).getTime();
   return events
-    .filter((e) => e.start <= now && now < e.end)
-    .sort((a, b) => a.end.getTime() - b.end.getTime());
+    .filter((e) => e.start <= now && now < (eventShopEnd(e) ?? e.end))
+    .sort((a, b) => closes(a) - closes(b));
 }
 
 /** The single soonest upcoming event -- guarantees there's always at
