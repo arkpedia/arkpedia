@@ -361,6 +361,32 @@ test.describe('/gacha', () => {
         await expect(page.locator('.gacha-pull-tile-empty'), 'Latest pull keeps its ten frames').toHaveCount(10);
         await expect(page.getByRole('button', { name: /Pull history/ }), 'the history header stays').toBeVisible();
       });
+
+      test('scrolling up after closing the history from the foot of the page is never pulled back', async ({ page }) => {
+        // Closing it from the bottom and wheeling up put the reader back where they closed it
+        // every second step, 1017 -> 717 -> 417 -> 1017 at 1440: useHeightFloor kept the press
+        // reading from the close, and when the released spacer came out the container's
+        // collapsed margin read as a shrink, which restored that reading.
+        await page.goto('/gacha');
+        const ten = page.getByRole('button', { name: 'Pull ten operators' });
+        for (let i = 0; i < 5; i += 1) { await ten.click(); await page.waitForTimeout(400); }
+        const toggle = page.getByRole('button', { name: /Pull history/ });
+        await toggle.click();
+        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+        await page.waitForTimeout(400);
+        await toggle.click();
+        await page.waitForTimeout(700);
+        const ys = [await page.evaluate(() => Math.round(window.scrollY))];
+        expect(ys[0], 'the history closed from low on the page').toBeGreaterThan(600);
+        for (let i = 0; i < 25 && ys[ys.length - 1] > 0; i += 1) {
+          await page.mouse.move(200, 400);
+          await page.mouse.wheel(0, -300);
+          await page.waitForTimeout(300);
+          ys.push(await page.evaluate(() => Math.round(window.scrollY)));
+        }
+        for (let i = 1; i < ys.length; i += 1) expect(ys[i], `scrollY per wheel step up: ${ys.join(' -> ')}`).toBeLessThan(ys[i - 1]);
+        expect(ys[ys.length - 1], `the reader reaches the top: ${ys.join(' -> ')}`).toBe(0);
+      });
     });
   }
 

@@ -286,7 +286,7 @@ export default function GuesserPage({ operators, skins }: Props) {
         <title>Operator Guesser — Arkpedia</title>
         <meta name="description" content="Identify Arknights operators from their skills, stories and profiles. Choose your hints or try a themed challenge." />
       </Head>
-      <PageHeader eyebrow={<GamesEyebrow />} title="Operator Guesser"
+      <PageHeader eyebrow={<GamesEyebrow />} title="Operator Guesser" sub="Name the operator from their skills, stories and profile."
         actions={<>
           {(!vasebreakerMode || status === 'notStarted') && <GameLinks />}
           {status !== 'notStarted' && <span className="badge">{modeLabel}{vasebreakerMode ? ' · Vasebreaker' : ''}</span>}
