@@ -119,8 +119,26 @@ export function useHeightFloor(resetKey: unknown) {
 
   useEffect(() => {
     const note = () => { bottomRef.current = window.scrollY + window.innerHeight; };
-    /* A scroll is the reader moving: record it and release against it. */
-    const onScroll = () => { note(); settle(false); };
+    /* A scroll is the reader moving: record it and release against it.
+
+       It also retires the press reading, unless the scroll left the reader at the foot
+       of the document, which is where the browser's clamp always leaves them. A press
+       only describes the collapse it came before; once the reader has scrolled away
+       from it, a later shrink restored them to where they pressed. Measured on the
+       gacha simulator: open the history, read to its end, collapse it, then scroll
+       up. The reserve released, and when it reached nothing the spacer came out, the
+       history section's 36px bottom margin collapsed through the container, the
+       container read 36px shorter, and that "shrink" put the reader back at 1017
+       every second wheel step. A touch that starts a scroll, and Space or Page Down,
+       are presses too, so their readings went stale the same way. */
+    const onScroll = () => {
+      note();
+      if (bottomRef.current < document.documentElement.scrollHeight - 2) {
+        pressRef.current = 0;
+        pressYRef.current = 0;
+      }
+      settle(false);
+    };
     /* A press is the last honest reading before a collapse. Capture phase, so it
        lands before React's own handler runs and changes the layout. `click` as
        well as `pointerdown`, so a button activated from the keyboard -- which
