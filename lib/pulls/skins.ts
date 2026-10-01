@@ -2,13 +2,15 @@ import { pullArtworkUrl } from './artwork';
 import { parsePrices } from '../skins/skinPrice';
 import type { Skin } from '../skins/skinTypes';
 
-export interface PlannedSkin { id: string; name: string; operator: string; image: string | null; op: number; releaseDate?: string }
+/** skinId: the game's id for the outfit, which an imported account owns it by (lib/account).
+ *  Absent in a release exported before it was added. */
+export interface PlannedSkin { id: string; name: string; operator: string; image: string | null; op: number; releaseDate?: string; skinId?: string }
 /** Share the catalogue's actual prices and resolved artwork. Free, certificate,
  * redemption and unknown-price outfits are not OP purchases. */
 export function pullSkinCatalogue(skins: readonly Skin[], releaseDates: ReadonlyMap<string, string> = new Map()): PlannedSkin[] {
   return skins.flatMap(skin => {
     const price = parsePrices(skin.howToObtain).find(p => p.currency === 'Originite Prime');
-    return price && price.amount > 0 && skin.model ? [{ id: `${skin.model} / ${skin.name}`, name: skin.name, operator: skin.model, image: pullArtworkUrl(skin.image), op: price.amount, releaseDate: releaseDates.get(`${skin.model} / ${skin.name}`) ?? '' }] : [];
+    return price && price.amount > 0 && skin.model ? [{ id: `${skin.model} / ${skin.name}`, name: skin.name, operator: skin.model, image: pullArtworkUrl(skin.image), op: price.amount, releaseDate: releaseDates.get(`${skin.model} / ${skin.name}`) ?? '', ...(skin.skinId ? { skinId: skin.skinId } : {}) }] : [];
   }).sort((a, b) => b.releaseDate.localeCompare(a.releaseDate) || a.operator.localeCompare(b.operator) || a.name.localeCompare(b.name));
 }
 export function skinReservation(ids: readonly string[], catalogue: readonly PlannedSkin[], extra: number) {

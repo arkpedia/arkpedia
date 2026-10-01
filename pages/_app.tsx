@@ -14,6 +14,7 @@ import '@/styles/schedule/events.css';
 import '@/styles/gacha/gacha.css';
 import '@/styles/gacha/gacha-tutorial.css';
 import '@/styles/skins/skins.css';
+import '@/styles/skins/skin-planner.css';
 import '@/styles/operators/roster.css';
 import '@/styles/operators/operator-detail.css';
 import '@/styles/planner/planner.css';

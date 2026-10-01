@@ -35,6 +35,7 @@ export const LINKS: NavLink[] = [
   { href: '/account', label: 'Account', icon: 'roster' },
   { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
+  { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
   { href: '/community', label: 'Community', icon: 'community' },
   { href: '/gacha', label: 'Gacha', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
@@ -73,7 +74,7 @@ export const GROUPS: NavGroup[] = [
   { label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
   { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
   /* The reader's own: their account, and the planners that read it (issue #94). */
-  { label: 'Planner', items: [at('/account'), at('/planner'), at('/pulls')] },
+  { label: 'Planner', items: [at('/account'), at('/planner'), at('/pulls'), at('/skin-planner')] },
   { label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
 ];
 

@@ -15,6 +15,7 @@ import { getBannerOdds } from '@/lib/pulls/bannerOdds';
 import type { BannerOdds } from '@/lib/pulls/probability';
 import { WISHING_WALL_LABELS, type WishingWallMode } from '@/lib/pulls/wishingWall';
 import Head from 'next/head';
+import Link from 'next/link';
 import type { GetStaticProps } from 'next';
 import { getPullEventSchedule, getPullSchedule } from '@/lib/pulls/schedule';
 import { bundledBacklogSources } from '@/lib/pulls/sources';
@@ -24,7 +25,10 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import PageHeader from '@/components/ui/PageHeader';
 import { DetailOptionContent, type DetailOption } from '@/components/pulls/DetailOption';
 import { IncludePastCheckbox } from '@/components/pulls/IncludePastCheckbox';
-import { SkinPlan } from '@/components/pulls/SkinPlan';
+import SkinPlanner from '@/components/skins/SkinPlanner';
+import { SkinsHelp } from '@/components/pulls/PlannerHelp';
+import { useSkinPlan } from '@/lib/skins/skinPlan';
+import { useAccount } from '@/lib/account/accountStore';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, MAX_PLAN_FILE_SIZE, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -96,8 +100,17 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [choosingBanner, setChoosingBanner] = useState(false);
   const [editingBanner, setEditingBanner] = useState<string | null>(null);
   const [reservedOP, setReservedOP] = useState('');
-  const [skinIds, setSkinIds] = useState<string[]>([]);
-  const skinBudget = useMemo(() => skinReservation(skinIds, skinCatalogue, readNumber(reservedOP)), [skinIds, skinCatalogue, reservedOP]);
+  /* The skin plan the Skin Planner and the Skins page's ☆ share (lib/skins/skinPlan). The OP it
+     reserves counts the outfits sold for OP that the imported account does not own yet. */
+  const skinByName = useMemo(() => new Map(skinCatalogue.map((skin) => [skin.name, skin.id])), [skinCatalogue]);
+  const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name));
+  const account = useAccount();
+  const ownedSkins = useMemo(() => (account ? new Set(account.skins) : null), [account]);
+  const skinsToBuy = useMemo(() => {
+    const byId = new Map(skinCatalogue.map((skin) => [skin.id, skin]));
+    return skinIds.filter((id) => byId.has(id) && !(ownedSkins && byId.get(id)!.skinId && ownedSkins.has(byId.get(id)!.skinId!)));
+  }, [skinIds, skinCatalogue, ownedSkins]);
+  const skinBudget = useMemo(() => skinReservation(skinsToBuy, skinCatalogue, readNumber(reservedOP)), [skinsToBuy, skinCatalogue, reservedOP]);
   const reserve = skinBudget.reserved;
   const [goals, setGoals] = useState<BannerGoal[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -130,15 +143,18 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
   const [now, setNow] = useState<Date | null>(null);
 
-  const applyPlan = useCallback((plan: SavedPullPlan) => {
+  /* `skins`: take the plan's outfits into the shared skin plan -- for an imported file, not for
+     the copy this page saved, which the shared plan already holds and may have moved past. */
+  const applyPlan = useCallback((plan: SavedPullPlan, skins: boolean) => {
     setYellowCerts(plan.yellowCerts ?? ''); setIncomeSettings(plan.incomeSettings ?? DEFAULT_INCOME_SETTINGS);
     setOrundum(plan.orundum); setOriginite(plan.originite); setPermits(plan.permits); setReservedOP(plan.reservedOP);
     setUntil(plan.until); setBannerName(plan.bannerName);
     setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setAnnihilationDone(plan.annihilationDone);
     setDoneEvents(new Set(plan.doneEvents)); setDoneKeys(new Set(plan.doneKeys)); setClearedReruns(new Set(plan.clearedReruns));
     setWishingWallMode(plan.wishingWallMode ?? 'average');
-    setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners)); setSkinIds(plan.skinIds ?? []);
-  }, [scheduledBanners]);
+    setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners));
+    if (skins) setSkinIds(plan.skinIds ?? []);
+  }, [scheduledBanners, setSkinIds]);
 
   useEffect(() => {
     const today = new Date();
@@ -146,7 +162,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setUntil(new Date(today.getTime() + 30 * DAY_MS).toISOString().slice(0, 10));
     try {
       const saved = localStorage.getItem(PULL_PLAN_KEY);
-      if (saved) applyPlan(parsePullPlan(saved));
+      if (saved) applyPlan(parsePullPlan(saved), false);
     } catch {
       setSaveBlocked(true);
       setSaveStatus('Could not load your saved plan. It has not been overwritten.');
@@ -175,7 +191,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     try {
       if (file.size > MAX_PLAN_FILE_SIZE) throw new Error('Choose a pull plan smaller than 250 KB.');
       const plan = parsePullPlan(await file.text());
-      applyPlan(plan); setSaveBlocked(false); setNotice('Imported your pull plan.');
+      applyPlan(plan, true); setSaveBlocked(false); setNotice('Imported your pull plan.');
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not read this pull plan.'); }
   }
 
@@ -473,9 +489,14 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
           </section>
           <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={`op-section ${workspace.detailPanel}`}><PastRewards backlog={backlogSources} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} /></section>
-          <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={`op-section ${workspace.detailPanel}`}>        <SkinPlan collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} heldOP={held.originitePrime} extraOP={readNumber(reservedOP)} forecastOP={date => totalAt(new Date(`${date}T23:59:59Z`)).grossOP}
-          extraField={<Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} />} />
-</section>
+          <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={`op-section ${workspace.detailPanel}`}>
+            {/* The Skin Planner's own view, with this plan's OP set against it. */}
+            <div className="pulls-panel-head"><h2 id="pulls-skins-heading">Skins</h2><SkinsHelp /></div>
+            <p className="hint">The same plan as the <Link prefetch={false} href="/skin-planner">Skin Planner</Link>: a change here shows there, and the other way round.</p>
+            <SkinPlanner collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
+              budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(`${date}T23:59:59Z`)).grossOP,
+                extraField: <Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} /> }} />
+          </section>
 </div>
       </section>
       <section className={`op-section ${workspace.forecast}`} aria-label="Pull calculation">

@@ -9,7 +9,8 @@ import path from 'node:path';
  * `.pulls-plan-controls`, which no component renders any more, so its "pull budget" link
  * went nowhere. Every link's target must be something /pulls renders.
  */
-const files = [...fs.readdirSync('components/pulls').map((name) => path.join('components/pulls', name)), 'pages/pulls.tsx']
+// The skin section is the Skin Planner's component (components/skins/SkinPlanner), rendered here too.
+const files = [...fs.readdirSync('components/pulls').map((name) => path.join('components/pulls', name)), 'pages/pulls.tsx', 'components/skins/SkinPlanner.tsx']
   .filter((file) => file.endsWith('.tsx'));
 const source = files.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const classNames = new Set([...source.matchAll(/className=(?:"([^"]+)"|\{`([^`]+)`\}|\{'([^']+)'\})/g)]

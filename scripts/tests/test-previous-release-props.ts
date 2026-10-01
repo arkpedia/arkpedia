@@ -319,6 +319,13 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     const now = props.now as number;
     assert.ok(now >= Math.floor(from / 60_000) * 60_000 && now <= to, `now (${new Date(now).toISOString()}) is the server's clock at the regeneration`);
   },
+  // From the skins, events and shop rotations compiled into the bundle: the outfits sold for OP
+  // and the shops that sell them.
+  '/skin-planner': (props) => {
+    const catalogue = props.catalogue as { id: string; op: number }[];
+    assert.ok(catalogue.length > 100 && catalogue.every((skin) => / \/ /.test(skin.id) && skin.op > 0), 'the outfits sold for OP, by "Operator / Outfit"');
+    assert.ok((props.collections as { skinIds: string[] }[]).length > 0, 'the shops');
+  },
   // Built from the skins compiled into the bundle, with the id map and the planner's depot
   // tables from their module imports: nothing read from data/.
   '/account': (props) => {

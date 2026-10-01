@@ -226,19 +226,22 @@ test('the goal editor\'s outcome is one stacked block with one rule', async ({ p
   expect(picked, 'with a goal picked').toMatchObject({ side: false, top: true, below: true, detailsRule: false });
 });
 
-/* The skin wishlist's two field captions are one voice: "Event shop" was 16px regular
- * over "Search this shop" at 16px 600. Computed styles, not glyph widths. */
-test('the skin wishlist\'s field captions share one voice', async ({ page }) => {
+/* The Pull Planner's skin section and the Skin Planner are one plan (lib/skins/skinPlan): an
+ * outfit planned in one is planned in the other (the maintainer's request, 2026-10-01). */
+test('an outfit planned in the Pull Planner is planned on the Skin Planner', async ({ page }) => {
   await page.goto('/pulls');
   await page.getByRole('button', { name: /Skin wishlist/ }).click();
-  const captions = await page.locator('#panel-skins').evaluate((panel) => ['.pulls-shop-field > span', '.pulls-skin-search > span'].map((sel) => {
-    const el = panel.querySelector(sel);
-    if (!el) return null;
-    const s = getComputedStyle(el);
-    return `${s.fontFamily} ${s.fontSize} ${s.fontWeight} ${s.color} ${s.textTransform}`;
-  }));
-  if (captions[0] === null) test.skip(await page.getByText('No upcoming shop rotations are listed.').count() > 0, 'no skin shop rotation is listed in this build');
-  expect(captions[0], 'the Event shop caption').not.toBeNull();
-  expect(captions[1], 'the Search this shop caption').toBe(captions[0]);
-  expect(captions[0]).toMatch(/ 13px 400 /);
+  const card = page.locator('#panel-skins .skin-plan-card').first();
+  test.skip(await page.getByText('No shop that sells outfits for Originite Prime is open or listed ahead.').count() > 0, 'no skin shop rotation is listed in this build');
+  await expect(card).toHaveAttribute('aria-pressed', 'false');
+  const label = await card.getAttribute('aria-label');
+  await card.click();
+  await expect(card).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('/skin-planner');
+  await expect(page.locator(`.skin-plan-card[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'true');
+  // And back: unplanned there, it is unplanned here.
+  await page.locator(`.skin-plan-card[aria-label=${JSON.stringify(label)}]`).first().click();
+  await page.goto('/pulls');
+  await page.getByRole('button', { name: /Skin wishlist/ }).click();
+  await expect(page.locator(`#panel-skins .skin-plan-card[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'false');
 });
