@@ -8,7 +8,7 @@ import { eventShopEnd, parseGameWindow, windowCountdown } from '@/lib/schedule/g
 import { parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { getHomeGachaBanners, getOngoingGachaBanners, getOngoingEvents, loadGameEvents } from '@/lib/home/frontPageContent';
-import { isDebutAvailable } from '@/lib/operators/operatorAvailability';
+import { isDebutAvailable, plannerOperators, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { getAllOperators } from '@/lib/operators/operators';
 
 const start = new Date('2026-09-16T15:00:00Z');
@@ -191,4 +191,25 @@ test('"Now Available" lasts as long as the debut: its banner, or an event operat
   for (const op of getAllOperators()) {
     if (op.availableUntil) assert.ok(op.releaseAt && Date.parse(op.availableUntil) > Date.parse(op.releaseAt), `${op.name}: ${op.releaseAt} .. ${op.availableUntil}`);
   }
+});
+
+test('the planner offers every operator, the ones not on Global yet marked CN', () => {
+  // Nineteen CN operators (Closure, Viy, Kal'tsit - Esperanta, the Persona 3 crossover) could not be
+  // added after the switch on 2026-09-30: the planner kept Global-released operators alone. From the
+  // release markers alone, so the release in use (main's code compiles it) needs nothing new.
+  const now = Date.parse('2026-10-01T12:00:00Z');
+  const ops = [
+    { name: 'out', releasedAt: Date.parse('2026-09-16T15:00:00Z') },
+    { name: 'dated', releasedAt: Date.parse('2026-10-15T15:00:00Z') },
+    { name: 'undated', releasedAt: null, isFuture: true as const },
+    { name: 'old payload' },
+  ];
+  assert.deepEqual(plannerOperators(ops, now).map((op) => [op.name, op.cnOnly ?? false]), [['out', false], ['dated', true], ['undated', true], ['old payload', false]]);
+  // Every operator the data has is offered, and everything not out on Global is a CN record.
+  const all = getAllOperators().map((op) => ({ ...releaseMarker(op), name: op.name, sourceRegion: op.sourceRegion }));
+  const offered = plannerOperators(all, now);
+  assert.equal(offered.length, all.length);
+  for (const op of offered.filter((o) => o.cnOnly)) assert.equal(op.sourceRegion, 'CN', `${op.name} is marked CN and is a CN record`);
+  assert.ok(offered.some((op) => op.cnOnly), 'some operator is not on Global yet');
+  assert.match(fs.readFileSync('pages/planner.tsx', 'utf8'), /useMemo\(\(\) => plannerOperators\(exportedOperators, now\)/);
 });

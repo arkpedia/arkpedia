@@ -16,7 +16,7 @@ import path from 'path';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllOperators } from '@/lib/operators/operators';
-import { isReleasedAt, releaseMarker } from '@/lib/operators/operatorAvailability';
+import { plannerOperators, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import { highlightStats } from '@/components/ui/HighlightedText';
@@ -229,9 +229,9 @@ function costLine(cost: CostGroup): string {
 
 
 export default function PlannerPage({ operators: exportedOperators, now }: Props) {
-  /* Released as of this request, not as of the content export: an operator whose Global day
-     comes between two releases appears on it. */
-  const operators = useMemo(() => exportedOperators.filter((op) => isReleasedAt(op, now)), [exportedOperators, now]);
+  /* Every operator the export offers, the ones not on Global as of this request (not as of the
+     content export) marked CN: plannerOperators. */
+  const operators = useMemo(() => plannerOperators(exportedOperators, now), [exportedOperators, now]);
   /* For "edited 2 hours ago": the reader's clock after mount, re-read each minute. */
   const readerClock = useReaderClock(now, { tickMs: 60_000 });
   /* depotCatalogue: every material the depot can hold, from the release's catalogue

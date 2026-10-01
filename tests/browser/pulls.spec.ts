@@ -6,16 +6,22 @@ test.describe('pull planner integration', () => {
     await expect(page.getByRole('heading', { name: 'Pull Planner' })).toBeVisible();
   });
 
+  // Whatever the planner offers today, never a banner by name: it leaves out banners that have
+  // ended, and naming Rage of The Many failed every Check from the day it ended (2026-10-01).
   test('adds several banners without closing the picker and loads shared operator art', async ({ page }) => {
     await page.getByRole('button', { name: '+ Add banner' }).click();
-    const zima = page.getByRole('button', { name: /Add Zima the Raging Tide/ });
-    await expect(zima.locator('img')).toHaveCount(1);
-    await expect(zima.locator('img')).toHaveJSProperty('complete', true);
-    await zima.click();
+    const choices = page.getByRole('button', { name: /^Add / });
+    await expect(choices.first()).toBeVisible();
+    expect(await choices.count(), 'more than one banner to add').toBeGreaterThan(1);
+    const withArt = choices.filter({ has: page.locator('img') }).first();
+    await expect(withArt.locator('img').first()).toHaveJSProperty('complete', true);
+    const first = choices.first();
+    const label = (await first.getAttribute('aria-label'))!.replace(/^Add /, '');
+    await first.click();
 
     await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Added Zima the Raging Tide/ })).toBeDisabled();
-    await expect(page.getByRole('button', { name: /Add Closure/ })).toBeEnabled();
+    await expect(page.getByRole('button', { name: `Added ${label}`, exact: true })).toBeDisabled();
+    await expect(choices.first(), 'the next banner can still be added').toBeEnabled();
     await expect(page.getByRole('heading', { name: /Your banners 1/ })).toBeVisible();
   });
 
@@ -26,9 +32,15 @@ test.describe('pull planner integration', () => {
   });
 
   test('schedule deep links add the requested banner', async ({ page }) => {
-    await page.goto('/pulls?banner=Rage%20of%20The%20Many');
+    // A link the schedule draws today (its "Plan" button on an event's row), followed.
+    await page.goto('/schedule');
+    const link = page.locator('a.events-row-plan[href*="/pulls?banner="]').first();
+    await expect(link, 'the schedule links an upcoming banner to the planner').toBeAttached();
+    const href = (await link.getAttribute('href'))!;
+    const banner = new URL(href, 'http://localhost').searchParams.get('banner')!;
+    await page.goto(href);
     await expect(page.getByRole('heading', { name: /Your banners 1/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Edit Rage of The Many/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: `Edit ${banner}`, exact: true })).toBeVisible();
   });
 });
 

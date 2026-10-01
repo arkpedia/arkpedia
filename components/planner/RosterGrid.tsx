@@ -252,8 +252,8 @@ export function RosterGrid({
                   key={op.name}
                   ref={(el) => { if (el) tileRefs.current.set(op.name, el); else tileRefs.current.delete(op.name); }}
                   className={`btn-bare roster-tile${state ? ' owned' : ''}${planned ? ' planned' : ''}`}
-                  aria-label={`${op.name} — ${state ? `owned, ${state}` : 'not owned'}${planned ? ', in the plan' : ''}`}
-                  title={planned ? `${op.name} · in the plan` : op.name}
+                  aria-label={`${op.name}${op.cnOnly ? ' (CN only)' : ''} — ${state ? `owned, ${state}` : 'not owned'}${planned ? ', in the plan' : ''}`}
+                  title={`${op.name}${op.cnOnly ? ' · CN only' : ''}${planned ? ' · in the plan' : ''}`}
                   onClick={() => onOpen(op.name, order)}
                 >
                   <span className="roster-tile-face">
@@ -265,7 +265,8 @@ export function RosterGrid({
                       every tile is the same height and the grid's rows line up.
                       The dimming carries the state to the eye; the aria-label
                       carries it in words. */}
-                  <i>{state ? <PlannerStateLabel label={state} /> : ' '}</i>
+                  {/* Not on Global yet (plannerOperators): says CN on the line an unowned tile leaves empty. */}
+                  <i>{state ? <PlannerStateLabel label={state} /> : op.cnOnly ? 'CN' : ' '}</i>
                 </button>
               );
             })}

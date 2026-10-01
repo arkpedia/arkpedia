@@ -169,7 +169,8 @@ export function SimplePlanner({
             <Image src={getOperatorIconPath(o)} alt="" width={36} height={36} className={o.rarity ? `tier-${rarityLevel(o.rarity)}` : undefined} />
             <span className="simple-search-text">
               <b>{o.name}</b>
-              <small>{o.rarity ? <Rarity n={rarityLevel(o.rarity)} /> : null} {o.className}</small>
+              {/* Not on Global yet (plannerOperators): plannable all the same, and says CN. */}
+              <small>{o.rarity ? <Rarity n={rarityLevel(o.rarity)} /> : null} {o.className}{o.cnOnly ? ' · CN' : ''}</small>
             </span>
             <span className="simple-search-add">{selectedNames.includes(o.name) ? "Edit" : "+"}</span>
           </>

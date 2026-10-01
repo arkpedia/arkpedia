@@ -247,6 +247,40 @@ test.describe('/events/[slug]', () => {
   });
 });
 
+test.describe('/planner operators', () => {
+  const STATE = { elite: 2, level: 1, skillLevel: 7, masteryTargets: {}, moduleStageTargets: {}, startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {} };
+
+  test('a CN record can be found, says CN, and is added to the plan', async ({ page }) => {
+    // After the switch on 2026-09-30 the planner kept Global-released operators alone, and
+    // nineteen CN operators could not be added (plannerOperators).
+    await page.goto('/planner');
+    // Not on Global yet by the page's own release markers (plannerOperators).
+    const cn = await page.evaluate(() => {
+      const ops = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { operators: { name: string; releasedAt?: number | null; isFuture?: true }[] } } } }).__NEXT_DATA__.props.pageProps.operators;
+      return ops.filter((op) => (op.releasedAt != null && op.releasedAt > Date.now()) || (op.releasedAt === null && op.isFuture)).map((op) => op.name);
+    });
+    expect(cn.length, 'the planner carries operators not on Global yet').toBeGreaterThan(0);
+    const search = page.getByPlaceholder('Search operators…');
+    await search.fill(cn[0]);
+    const option = page.getByRole('option').filter({ hasText: cn[0] }).first();
+    await expect(option, `${cn[0]} is offered`).toBeVisible();
+    await expect(option).toContainText('CN');
+    await option.click();
+    await expect(page.getByRole('tab', { name: new RegExp(cn[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }), `${cn[0]} is in the plan`).toBeVisible();
+  });
+
+  test("a planned operator's portrait starts at the top of its frame", async ({ page }) => {
+    // Enlarged from its centre, tall art lost its head (Executor, 2026-10-01).
+    await page.addInitScript((state) => { try { localStorage.setItem('plannerState', state); } catch {} }, JSON.stringify({ selectedNames: ['Executor'], builderStates: { Executor: STATE } }));
+    await page.goto('/planner');
+    await page.getByRole('tab', { name: /Executor/ }).first().click();
+    const portrait = page.locator('.simple-portrait').first();
+    await expect(portrait.locator('img')).toBeVisible();
+    const { frameTop, imgTop } = await portrait.evaluate((el) => ({ frameTop: el.getBoundingClientRect().top, imgTop: el.querySelector('img')!.getBoundingClientRect().top }));
+    expect(imgTop, 'the image is not enlarged up past the frame').toBeGreaterThanOrEqual(frameTop - 1);
+  });
+});
+
 test.describe('home', () => {
   test('every event slide has one shape: the name, then the countdown on its own line', async ({ browser }) => {
     // A wrapping row put the countdown beside a short name ("Duel Channel: Ivy Vine") and
