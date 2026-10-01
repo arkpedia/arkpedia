@@ -33,6 +33,7 @@ import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWi
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
 import { bundleFilename, describeTransfer, formatBundle, parseTransfer, type ParsedTransfer } from '@/lib/planner/transfer';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
+import { clampOwned, liftToOwned, syncPlansToRoster } from '@/lib/planner/ownedSync';
 import { checkImportAliases, unheldSummary } from '@/lib/planner/foreignImport';
 import { checkGameAccountMap, readGameAccount } from '@/lib/planner/gameAccount';
 import { accountFromGame, writeAccount } from '@/lib/account/accountStore';
@@ -402,7 +403,14 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   }, []);
 
   useEffect(() => {
-    const sync = () => setRoster(readRoster());
+    /* A roster written anywhere -- this page, another tab, the account import -- moves the
+       plans' starts with it (lib/planner/ownedSync.ts). */
+    const rarities = new Map(operators.map((o) => [o.name, o.rarity ?? null]));
+    const sync = () => {
+      const next = readRoster();
+      setRoster(next);
+      setBuilderStates((cur) => syncPlansToRoster(cur, next, (n) => rarities.get(n) ?? null));
+    };
     sync();
     window.addEventListener('storage', sync);
     window.addEventListener(ROSTER_EVENT, sync);
@@ -508,7 +516,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.builderStates && typeof parsed.builderStates === 'object') {
-          const states = clampBuilderStates(parsed.builderStates, operators);
+          /* Starting where the roster says: a plan saved before the roster last changed
+             (an import, before this ran on load) still held its old start. */
+          const rarities = new Map(operators.map((o) => [o.name, o.rarity ?? null]));
+          const states = syncPlansToRoster(clampBuilderStates(parsed.builderStates, operators), readRoster(), (n) => rarities.get(n) ?? null);
           setBuilderStates(states);
           /* Known operators, once each, with a state behind them -- the same
              gate the import uses. A stored list is the import that landed last
@@ -699,6 +710,12 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       setBuilderStates(states);
       setWizard(null);
     }
+    /* A roster that arrived whole moves every plan's start with it, the goals the file
+       may have brought included (lib/planner/ownedSync.ts). */
+    if (parsed.roster) {
+      const rosterNow = parsed.roster;
+      setBuilderStates((cur) => syncPlansToRoster(cur, rosterNow, (n) => operatorByName.get(n)?.rarity ?? null));
+    }
     /* The foreign parsers report their own skips inside describeTransfer and
        emit only catalogue names, so `skipped` is empty for them. */
     setTransferNote(describeTransfer(parsed) + unheldSummary(skipped));
@@ -765,66 +782,15 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     const op = operatorByName.get(name);
     if (!op) return;
     const rarity = op.rarity || 1;
-
     /* The game's own rules, applied on the way in -- the same ones readRoster
        applies to a stored roster, so a state typed here and a state loaded
        from storage cannot disagree. */
-    const elite = Math.min(Math.max(0, next.elite), maxEliteForRarity(rarity));
-    const level = Math.min(Math.max(1, next.level), maxLevelForElite(rarity, elite));
-    const skillLevel = Math.min(Math.max(1, next.skillLevel), maxSkillRankForElite(elite));
-    const unlock = moduleUnlock(rarity);
-    const masteries = elite === 2 && skillLevel === 7 ? next.masteries : {};
-    const modules = unlock && elite >= unlock.elite && level >= unlock.level ? (next.modules ?? {}) : {};
-
-    const owned: Owned = {
-      elite,
-      level,
-      skillLevel,
-      masteries,
-      ...(Object.keys(modules).length ? { modules } : {}),
-    };
+    const owned = clampOwned(next, rarity);
     setOwned(name, owned);
-
+    /* Nothing to reconcile for an operator with no target yet; otherwise its start
+       follows, and a target below it is carried up (lib/planner/ownedSync.ts). */
     const b = builderStates[name];
-    /* Nothing to reconcile for an operator with no target yet. */
-    if (!b) return;
-
-    /* A target can never sit below where the operator already is, so raising
-       the starting point carries the target up with it. */
-    let nextElite = b.elite;
-    let nextLevel = b.level;
-    if (elite > nextElite) {
-      nextElite = elite;
-      nextLevel = Math.min(level, maxLevelForElite(rarity, nextElite));
-    } else if (elite === nextElite && level > nextLevel) {
-      nextLevel = Math.min(level, maxLevelForElite(rarity, nextElite));
-    }
-    const nextSkillLevel = Math.min(Math.max(b.skillLevel, skillLevel), maxSkillRankForElite(nextElite));
-    const nextMasteryTargets = { ...b.masteryTargets };
-    for (const [idxStr, m] of Object.entries(masteries)) {
-      const idx = Number(idxStr);
-      if (m > 0 && (!nextMasteryTargets[idx] || nextMasteryTargets[idx] < m)) {
-        nextMasteryTargets[idx] = m as 1 | 2 | 3;
-      }
-    }
-    const nextModuleTargets = { ...b.moduleStageTargets };
-    for (const [idxStr, stage] of Object.entries(modules)) {
-      const idx = Number(idxStr);
-      if (nextModuleTargets[idx] === undefined || nextModuleTargets[idx] < stage) nextModuleTargets[idx] = stage;
-    }
-
-    updateBuilder(name, {
-      startingElite: elite,
-      startingLevel: level,
-      startingSkillLevel: skillLevel,
-      startingMasteryLevels: masteries,
-      startingModuleStages: modules,
-      elite: nextElite,
-      level: nextLevel,
-      skillLevel: nextSkillLevel,
-      masteryTargets: nextElite === 2 && nextSkillLevel === 7 ? nextMasteryTargets : {},
-      moduleStageTargets: nextModuleTargets,
-    });
+    if (b) setBuilderStates((cur) => (cur[name] ? { ...cur, [name]: liftToOwned(cur[name], owned, rarity) } : cur));
   }
 
   /** Where an operator is now: the roster first, the plan's stated start
