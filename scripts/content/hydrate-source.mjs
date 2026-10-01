@@ -45,6 +45,9 @@ const SEEDED_SOURCE_FILES = new Set([
   // every run) and the English names of CN-only materials it reads (kept by hand).
   'data/material-catalogue.json',
   'data/material-names.json',
+  // The game's character and module ids, for importing an account into the planner
+  // (scripts/build/build-game-account-map.ts, regenerated every run).
+  'data/game-account-map.json',
   // The announcement ticker's SSS cycle (lib/schedule/sssCycle.ts), kept by hand.
   'data/sss-cycle.json',
   // How the game's activity types map onto the Terminal: the excluded modes, the seasonal

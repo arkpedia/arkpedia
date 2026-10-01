@@ -5,6 +5,7 @@ import { inGameOrder } from '@/lib/farming/materialSortOrder';
 import type { FarmingTier } from '@/lib/farming/farmingTypes';
 import { createCraftTools, type Formula } from '@/lib/planner/craft';
 import type { ImportAliases } from '@/lib/planner/foreignImport';
+import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import type { LevelTable } from '@/lib/planner/plannerLogic';
 import { createSourceTools } from '@/lib/planner/sources';
 import { planBuild as build } from '@/lib/planner/build';
@@ -29,13 +30,14 @@ export function usePlannerContent() {
   const sortIds = useReleaseTable<Record<string, number>>('item-sort-ids');
   const farmingTiers = useReleaseTable<FarmingTier[]>('farming-tiers');
   const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
+  const gameAccountMap = useReleaseTable<GameAccountMap>('game-account-map');
   return useMemo(() => {
     const craft = createCraftTools(recipes, battleRecords, catalogue.order);
     return { ...craft, ...createSourceTools(stages, craft.formulaFor, farmingTiers),
-      levels, importAliases, catalogue,
+      levels, importAliases, catalogue, gameAccountMap,
       /** Every material the depot can hold, in the catalogue's (tier) order. */
       depotCatalogue: depotNames(catalogue),
       inGameOrder: inGameOrder(catalogue, sortIds),
       planBuild: (cost: BuildArgs[0], depot: BuildArgs[1], opts: BuildArgs[2]) => build(cost, depot, opts, craft) };
-  }, [recipes, battleRecords, stages, levels, importAliases, sortIds, farmingTiers, catalogue]);
+  }, [recipes, battleRecords, stages, levels, importAliases, sortIds, farmingTiers, catalogue, gameAccountMap]);
 }

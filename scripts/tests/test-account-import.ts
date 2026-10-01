@@ -103,3 +103,14 @@ test('a refusal names the step that failed and what the server said', async () =
   const down: Transport = async () => { throw new Error('Request failed with error code 35: SSL connect error'); };
   await refusal(sendCode({ transport: down, server: 'en', deviceId: 'd' }, 'a@b.c'), 'send-code', /could not reach en-sdk-api\.yostarplat\.com: .*SSL connect error/);
 });
+
+test('a saved login is read back only when it is a whole one, and its email is masked', async () => {
+  const { parseSavedLogin, maskEmail } = await import('../../lib/account-import/savedLogin');
+  const login = { server: 'en', uid: '4242', token: 'yostar-token', deviceId: 'device-1', label: 'd•••@example.com' };
+  assert.deepEqual(parseSavedLogin(JSON.stringify(login)), login);
+  for (const broken of [null, '', 'not json', '[]', JSON.stringify({ ...login, server: 'cn' }), JSON.stringify({ ...login, token: '' }), JSON.stringify({ ...login, uid: 4242 })]) {
+    assert.equal(parseSavedLogin(broken), null, String(broken));
+  }
+  assert.equal(maskEmail(' doctor@example.com '), 'd•••@example.com');
+  assert.equal(maskEmail('nonsense'), '•••');
+});

@@ -65,7 +65,7 @@ export interface ParsedTransfer {
    */
   crafting: string[] | null;
   /** What the file turned out to be, for the line that reports the load. */
-  shape: 'bundle' | 'depot' | 'roster' | ForeignShape;
+  shape: 'bundle' | 'depot' | 'roster' | 'game' | ForeignShape;
   /** Entries a foreign export named that this planner cannot hold. Never fatal:
    *  every real export carries some -- operator EXP, CN-only materials -- so
    *  they are counted and reported rather than refused. */
@@ -227,6 +227,15 @@ export function describeTransfer(t: ParsedTransfer): string {
       + '.' + unheldSummary(t.unheld)
       + ' No operators or goals -- these formats only carry an inventory, and what you'
       + ' still need is worked out here from your own targets.';
+  }
+  if (t.shape === 'game') {
+    // lib/planner/gameAccount.ts: the account replaces both stores; unheld is the
+    // character ids the planner has no record for yet.
+    const operators = Object.keys(t.roster ?? {}).length;
+    const held = Object.values(t.depot ?? {}).filter((count) => count > 0).length;
+    return `Read your game account: ${operators} ${operators === 1 ? 'operator' : 'operators'} into your roster and `
+      + `${held} ${held === 1 ? 'material' : 'materials'} you hold into your depot, in place of what they held. Your goals are as they were.`
+      + unheldSummary(t.unheld);
   }
   if (t.shape === 'depot') return `Loaded a depot on its own: ${Object.keys(t.depot ?? {}).length} materials.`;
   if (t.shape === 'roster') return `Loaded operators on their own: ${Object.keys(t.roster ?? {}).length} recorded.`;
