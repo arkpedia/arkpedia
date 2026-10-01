@@ -1,0 +1,4 @@
+{
+  "about": "The account-import relay the site's pages tunnel through (lib/account-import/relay.ts). It is its own repository, arkpedia/arkpedia-relay, where relay.config.json lists this site's origins and the game servers it may reach. To move the relay to a new server, set it up from that repository; if its domain changes, change url here and add this site's domains to its origins there.",
+  "url": "wss://relay.arkpedia.net/wisp/"
+}
