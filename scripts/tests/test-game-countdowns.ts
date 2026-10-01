@@ -8,7 +8,7 @@ import { eventShopEnd, parseGameWindow, windowCountdown } from '@/lib/schedule/g
 import { parseBannerDate, parseBannerEndDate } from '@/lib/gacha/realGachaBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { getHomeGachaBanners, getOngoingGachaBanners, getOngoingEvents, loadGameEvents } from '@/lib/home/frontPageContent';
-import { isDebutAvailable } from '@/lib/operators/operatorAvailability';
+import { isDebutAvailable, isPlannable, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { getAllOperators } from '@/lib/operators/operators';
 
 const start = new Date('2026-09-16T15:00:00Z');
@@ -191,4 +191,22 @@ test('"Now Available" lasts as long as the debut: its banner, or an event operat
   for (const op of getAllOperators()) {
     if (op.availableUntil) assert.ok(op.releaseAt && Date.parse(op.availableUntil) > Date.parse(op.releaseAt), `${op.name}: ${op.releaseAt} .. ${op.availableUntil}`);
   }
+});
+
+test('the planner offers CN records before Global has them, and nothing else that is not out', () => {
+  // Nineteen CN operators (Closure, Viy, Kal'tsit - Esperanta, the Persona 3 crossover) could not be
+  // added after the switch on 2026-09-30: the planner kept Global-released operators alone.
+  const now = Date.parse('2026-10-01T12:00:00Z');
+  assert.equal(isPlannable({ releasedAt: Date.parse('2026-10-15T15:00:00Z'), sourceRegion: 'CN' }, now), true, 'a CN record with a Global date ahead');
+  assert.equal(isPlannable({ releasedAt: null, isFuture: true, sourceRegion: 'CN' }, now), true, 'a CN record with no Global date');
+  assert.equal(isPlannable({ releasedAt: Date.parse('2026-09-16T15:00:00Z') }, now), true, 'released on Global');
+  assert.equal(isPlannable({ releasedAt: Date.parse('2026-10-15T15:00:00Z') }, now), false, 'a Global record not out yet');
+  assert.equal(isPlannable({ releasedAt: null, isFuture: true }, now), false, 'a placeholder');
+  // Every CN record in the data is plannable today; the planner page uses the rule and marks them.
+  const cn = getAllOperators().filter((op) => op.sourceRegion === 'CN');
+  assert.ok(cn.length > 0);
+  for (const op of cn) assert.equal(isPlannable({ ...releaseMarker(op), sourceRegion: op.sourceRegion }, now), true, op.name);
+  const page = fs.readFileSync('pages/planner.tsx', 'utf8');
+  assert.match(page, /exportedOperators\.filter\(\(op\) => isPlannable\(op, now\)\)/);
+  assert.match(page, /op\.sourceRegion === 'CN' \? \{ sourceRegion: 'CN' as const \}/);
 });

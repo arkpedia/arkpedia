@@ -317,6 +317,9 @@ export interface PlannerOperatorSummary {
    *  payload from before markers, which was filtered at export already. */
   releasedAt?: number | null;
   isFuture?: true;
+  /** A CN record (lib/operators/operatorAvailability.ts isPlannable): the planner offers it
+   *  before Global has it, marked CN. Absent for everything else. */
+  sourceRegion?: 'CN';
 }
 
 // Lightweight projection for the schedule/timeline page -- it only
