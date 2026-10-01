@@ -17,3 +17,43 @@
 .account-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .account-dialog header h2 { margin: 0; }
 .account-dialog-body { padding: 18px; }
+
+/* components/account/ProfileCard: the game's profile card. It sits on the business card
+   style's art in both themes, so its plates are dark and its text is the scrim ink. */
+.account-card { position: relative; display: grid; grid-template-columns: minmax(180px, 2fr) minmax(0, 3fr); gap: 20px; min-height: 420px; padding: 20px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--scrim-ink); }
+.account-card-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+.account-card::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.35) 45%, rgba(0, 0, 0, 0.15) 100%); }
+.account-card-side, .account-card-main { position: relative; z-index: 2; display: grid; align-content: start; gap: 12px; min-width: 0; }
+.account-card-side { align-content: space-between; }
+.account-card-tag { display: inline-flex; align-items: center; gap: 8px; margin: 0; font: 600 12px var(--font-mono); }
+.account-card-tag span { padding: 2px 6px; border-radius: 2px; background: var(--scrim-amber); color: var(--panel); font-weight: 700; }
+.account-card-theme, .account-card-stat { display: grid; gap: 2px; }
+.account-card-theme span, .account-card-stat span, .account-card-box-label { font: 11px var(--font-mono); color: var(--scrim-ink-dim); text-transform: uppercase; }
+.account-card-theme b { font: 700 18px var(--font-display); color: var(--scrim-ink); }
+.account-card-stat b { font: 700 22px var(--font-display); color: var(--scrim-ink); }
+.account-card-hired b { font-size: 30px; }
+.account-card-head { position: relative; display: flex; align-items: center; gap: 14px; min-height: 88px; padding: 10px 14px; overflow: hidden; border-radius: var(--radius); background: rgba(0, 0, 0, 0.55); }
+.account-card-strip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.45; }
+.account-card-avatar { position: relative; flex: none; width: 64px; height: 64px; }
+.account-card-avatar img { width: 64px; height: 64px; border-radius: var(--radius); display: block; }
+.account-card-level { position: absolute; left: -8px; top: -8px; display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid var(--scrim-amber); border-radius: var(--radius); background: rgba(0, 0, 0, 0.8); font: 9px var(--font-mono); line-height: 1; color: var(--scrim-ink-dim); }
+.account-card-level b { font-size: 11px; color: var(--scrim-ink); }
+.account-card-name { position: relative; display: grid; gap: 2px; min-width: 0; }
+.account-card-name b { font: 700 22px var(--font-display); color: var(--scrim-ink); overflow-wrap: anywhere; }
+.account-card-name small { font-size: 13px; font-weight: 400; color: var(--scrim-ink-dim); }
+.account-card-name span { font: 11px var(--font-mono); color: var(--scrim-ink-dim); }
+.account-card-bio { margin: 0; padding: 10px 14px; border-radius: var(--radius); background: rgba(0, 0, 0, 0.55); font-size: 13px; }
+.account-card-box { display: grid; gap: 8px; padding: 10px 14px 12px; border-radius: var(--radius); background: rgba(0, 0, 0, 0.55); }
+.account-card-supports { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-card-support { display: grid; gap: 4px; justify-items: start; font: 11px var(--font-mono); color: var(--scrim-ink-dim); }
+.account-card-support img { width: 64px; height: 64px; border-radius: var(--radius); display: block; }
+.account-card-medals { position: relative; max-width: 100%; }
+.account-card-medals img { position: absolute; height: auto; }
+.account-card-medals-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.account-card-medals-list img { height: 48px; width: auto; }
+@media (max-width: 720px) {
+  .account-card { grid-template-columns: 1fr; min-height: 0; }
+  .account-card::before { background: rgba(0, 0, 0, 0.6); }
+  .account-card-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+}
+.account-card-empty { display: grid; place-items: center; }

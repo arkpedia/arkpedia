@@ -42,6 +42,26 @@ export interface AccountProfile {
   secretary: string | null;
   /** The profile's signature line (status.resume). */
   bio: string | null;
+  /** What the game's profile card shows, by the game's ids where the art is named by them
+   *  (arkpedia-image-assets' profile-* folders). Absent on a record from before them. */
+  uid?: string | null;
+  avatar?: string | null;
+  nameCard?: string | null;
+  /** Operators hired, as the card counts them (Amiya once). */
+  hired?: number;
+  supports?: SupportUnit[];
+  /** The medal board: each medal at its board position, or without one on a template board. */
+  medals?: { id: string; x: number | null; y: number | null }[];
+}
+
+export interface SupportUnit {
+  name: string;
+  rarity: number | null;
+  level: number;
+  elite: number;
+  potential: number;
+  /** 1-based, the skill it lends with. */
+  skill: number | null;
 }
 
 const strings = (value: unknown, max: number) => Array.isArray(value) && value.length <= max && value.every((item) => typeof item === 'string' && item.length <= 200);
@@ -66,6 +86,10 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     ...(profile ? { profile: {
       level: typeof profile.level === 'number' && Number.isFinite(profile.level) ? profile.level : null,
       registeredAt: text(profile.registeredAt), secretary: text(profile.secretary), bio: text(profile.bio),
+      uid: text(profile.uid), avatar: text(profile.avatar), nameCard: text(profile.nameCard),
+      ...(typeof profile.hired === 'number' ? { hired: profile.hired } : {}),
+      supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3) : [],
+      medals: Array.isArray(profile.medals) ? (profile.medals as { id: string; x: number | null; y: number | null }[]).filter((medal) => medal && typeof medal.id === 'string').slice(0, 64) : [],
     } } : {}),
   };
 }
@@ -97,8 +121,41 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
       registeredAt: typeof status.registerTs === 'number' && status.registerTs > 0 ? new Date(status.registerTs * 1000).toISOString() : null,
       secretary: map.chars[status.secretary]?.name ?? null,
       bio: typeof status.resume === 'string' && status.resume.trim() ? status.resume.trim().slice(0, 500) : null,
+      uid: status.uid != null ? String(status.uid) : null,
+      avatar: typeof status.avatar?.id === 'string' ? status.avatar.id : null,
+      nameCard: typeof user.nameCardStyle?.skin?.selected === 'string' ? user.nameCardStyle.skin.selected : null,
+      hired: Object.keys(user.troop?.chars ?? {}).length,
+      supports: supportUnits(user, map),
+      medals: medalBoard(user),
     },
   };
+}
+
+/** The support units the profile shows (social.assistCharList), from the troop's own records. */
+function supportUnits(user: Record<string, any>, map: GameAccountMap): SupportUnit[] {
+  const chars = (user.troop?.chars ?? {}) as Record<string, Record<string, any>>;
+  return ((user.social?.assistCharList ?? []) as ({ charInstId?: number; skillIndex?: number } | null)[]).flatMap((slot) => {
+    const char = slot && chars[String(slot.charInstId)];
+    const entry = char && (map.chars[char.currentTmpl ?? ''] ?? map.chars[char.charId ?? '']);
+    if (!char || !entry) return [];
+    return [{
+      name: entry.name, rarity: entry.rarity ?? null,
+      level: Number(char.level) || 1, elite: Number(char.evolvePhase) || 0, potential: (Number(char.potentialRank) || 0) + 1,
+      skill: typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? slot!.skillIndex + 1 : null,
+    }];
+  }).slice(0, 3);
+}
+
+/** The medal board the profile shows: the custom layout it names, with positions, or a
+ *  template's list without them. */
+function medalBoard(user: Record<string, any>): { id: string; x: number | null; y: number | null }[] {
+  const board = user.social?.medalBoard ?? {};
+  if (board.type === 'CUSTOM') {
+    const layout = user.medal?.custom?.customs?.[String(board.custom)]?.layout ?? [];
+    return (layout as { id?: string; pos?: number[] }[]).filter((item) => typeof item?.id === 'string')
+      .map((item) => ({ id: item.id!, x: Number.isFinite(item.pos?.[0]) ? item.pos![0] : null, y: Number.isFinite(item.pos?.[1]) ? item.pos![1] : null }));
+  }
+  return ((board.templateMedalList ?? []) as unknown[]).filter((id): id is string => typeof id === 'string').map((id) => ({ id, x: null, y: null }));
 }
 
 export function writeAccount(record: AccountRecord | null): void {

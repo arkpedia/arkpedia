@@ -5,6 +5,7 @@ import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import GameSignIn from '@/components/account-import/GameSignIn';
 import ImportDialog from '@/components/account/ImportDialog';
+import ProfileCard from '@/components/account/ProfileCard';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, checkMaterialCatalogue, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
@@ -92,19 +93,20 @@ export default function AccountPage({ skins }: Props) {
       <main>
         {/* Drawn the same with or without an account, so the record arriving after
             hydration fills it in rather than moving everything below. */}
+        {/* Drawn the same with or without an account until it arrives: the profile then
+            replaces the placeholder of the same height (the Anti-Page Jump rule). */}
         <section className="op-section">
           <h2>Profile</h2>
-          <dl className="import-summary">
-            <div><dt>Doctor</dt><dd>{account?.doctor ?? '—'}</dd></div>
-            <div><dt>Level</dt><dd>{profile?.level ?? '—'}</dd></div>
-            <div><dt>Account age</dt><dd>{profile?.registeredAt ? age(profile.registeredAt, Date.now()) : '—'}</dd></div>
-            <div><dt>Assistant</dt><dd>{profile?.secretary ?? '—'}</dd></div>
-          </dl>
-          <p className="hint">
-            {account
-              ? `${profile?.registeredAt ? `Registered ${day(profile.registeredAt)}. ` : ''}Imported ${day(account.importedAt)}.${profile?.bio ? ` “${profile.bio}”` : ''}`
-              : forgotten ? 'Forgotten on this browser.' : 'No account imported yet: use Import above.'}
-          </p>
+          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} /> : (
+            <div className="account-card account-card-empty">
+              <p className="hint">{forgotten ? 'Forgotten on this browser.' : 'No account imported yet: use Import above.'}</p>
+            </div>
+          )}
+          {account && (
+            <p className="hint">
+              {`${profile?.registeredAt ? `Registered ${day(profile.registeredAt)}, ${age(profile.registeredAt, Date.now())} ago. ` : ''}Imported ${day(account.importedAt)}.${profile?.secretary ? ` Assistant: ${profile.secretary}.` : ''}`}
+            </p>
+          )}
         </section>
 
         <section className="op-section">
