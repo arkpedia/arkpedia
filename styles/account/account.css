@@ -10,3 +10,10 @@
 .account-bar > span { display: block; height: 100%; background: var(--teal); }
 .account-count-link { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); text-decoration: underline; }
 .account-count-link:hover { color: var(--teal); }
+
+/* components/account/ImportDialog: the Import popup. */
+.account-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; margin: auto; border: 1px solid var(--line); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); box-shadow: 0 20px 70px #0008; }
+.account-dialog::backdrop { background: #0009; backdrop-filter: blur(3px); }
+.account-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.account-dialog header h2 { margin: 0; }
+.account-dialog-body { padding: 18px; }

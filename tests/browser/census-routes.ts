@@ -190,7 +190,9 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'account with an import', route: '/account', act: async (page) => {
     await page.evaluate(() => localStorage.setItem('arkpediaGameLogin', JSON.stringify({ server: 'en', uid: '1', token: 'census', deviceId: 'census', label: 'd•••@example.com' })));
     await seedAccount(page);
-    await page.getByRole('button', { name: 'Import again', exact: true }).waitFor();
+    // The Import popup (components/account/ImportDialog), with the kept login's row.
+    await page.locator('.page-header').getByRole('button', { name: 'Import again', exact: true }).click();
+    await page.locator('dialog.account-dialog').getByRole('button', { name: 'Import again', exact: true }).waitFor();
   } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
   { id: 'stage enemy record', route: '/stages/browse?s=1-7', act: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await page.locator('.record-dialog .enemy-hero').first().waitFor(); } },

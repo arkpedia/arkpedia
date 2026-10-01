@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import GameSignIn from '@/components/account-import/GameSignIn';
+import ImportDialog from '@/components/account/ImportDialog';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, checkMaterialCatalogue, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
@@ -59,6 +60,7 @@ export default function AccountPage({ skins }: Props) {
   const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [forgotten, setForgotten] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // Every operator the Global client carries (scripts/build/build-game-account-map.ts).
   const released = useMemo(() => new Set(Object.values(map.chars).filter((char) => char.global).map((char) => char.name)), [map]);
@@ -84,7 +86,8 @@ export default function AccountPage({ skins }: Props) {
       </Head>
 
       <PageHeader eyebrow="Rhodes Island // Account" title="Account"
-        sub="Your Arknights (Global) account: what you own, for the planners and the lists." />
+        sub="Your Arknights (Global) account: what you own, for the planners and the lists."
+        actions={<button type="button" className="primary btn-sm" onClick={() => setImporting(true)}>{account ? 'Import again' : 'Import'}</button>} />
 
       <main>
         {/* Drawn the same with or without an account, so the record arriving after
@@ -100,7 +103,7 @@ export default function AccountPage({ skins }: Props) {
           <p className="hint">
             {account
               ? `${profile?.registeredAt ? `Registered ${day(profile.registeredAt)}. ` : ''}Imported ${day(account.importedAt)}.${profile?.bio ? ` “${profile.bio}”` : ''}`
-              : forgotten ? 'Forgotten on this browser.' : 'No account imported yet.'}
+              : forgotten ? 'Forgotten on this browser.' : 'No account imported yet: use Import above.'}
           </p>
         </section>
 
@@ -113,7 +116,19 @@ export default function AccountPage({ skins }: Props) {
         </section>
 
         <section className="op-section">
-          <h2>Import from the game</h2>
+          <h2>On this browser</h2>
+          <p className="import-copy">
+            The account is kept only in this browser. Forgetting it clears what the lists filter by; the Operator
+            Planner keeps its roster and depot until you clear them there.
+          </p>
+          <button type="button" className="ghost btn-sm" disabled={!account} onClick={() => { writeAccount(null); setResult(null); setForgotten(true); }}>
+            Forget this account
+          </button>
+        </section>
+      </main>
+
+      {importing && (
+        <ImportDialog title="Import from the game" onClose={() => setImporting(false)}>
           <p className="import-copy">
             Import data directly from your Arknights (Global) account. Your login token is sent encrypted and is never
             read by Arkpedia itself; Arkpedia only receives your account data. For future imports, the login token is
@@ -129,19 +144,8 @@ export default function AccountPage({ skins }: Props) {
               <Link prefetch={false} href="/planner">Operator Planner</Link> starts your plans from them.{unheldSummary(result.unknown)}
             </p>
           )}
-        </section>
-
-        <section className="op-section">
-          <h2>On this browser</h2>
-          <p className="import-copy">
-            The account is kept only in this browser. Forgetting it clears what the lists filter by; the Operator
-            Planner keeps its roster and depot until you clear them there.
-          </p>
-          <button type="button" className="ghost btn-sm" disabled={!account} onClick={() => { writeAccount(null); setResult(null); setForgotten(true); }}>
-            Forget this account
-          </button>
-        </section>
-      </main>
+        </ImportDialog>
+      )}
     </>
   );
 }
