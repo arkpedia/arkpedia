@@ -23,6 +23,7 @@
         "pages/games/music-guesser.tsx",
         "pages/planner.tsx",
         "pages/community.tsx",
+        "pages/skin-planner.tsx",
         "components/schedule/EventsPanel.tsx"
       ],
       "rules": {

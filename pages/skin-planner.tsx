@@ -20,7 +20,7 @@ import type { SkinCollection } from '@/lib/pulls/skinCollections';
 interface Props {
   catalogue: PlannedSkin[];
   collections: SkinCollection[];
-  /** The build's clock, unix milliseconds, rounded to the minute. */
+  /** The request's clock, unix milliseconds, rounded to the minute (contentPageClock). */
   now: number;
 }
 
@@ -56,5 +56,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/sk
   const events = getAllEvents();
   const catalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins));
   const predicted = new Set(getEventCalendar().filter((event) => event.isPredicted).map((event) => event.name));
-  return { props: { catalogue, collections: pullSkinCollections(events, skins, catalogue, predicted), now: Math.floor(Date.now() / 60_000) * 60_000 } };
+  // `now` is the request's clock, from contentPageClock (lib/content/pageClock.ts).
+  return { props: { catalogue, collections: pullSkinCollections(events, skins, catalogue, predicted) } };
 }, { bundledWhenUnpublished: true });
