@@ -269,6 +269,29 @@ test.describe('/planner operators', () => {
     await expect(page.getByRole('tab', { name: new RegExp(cn[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }), `${cn[0]} is in the plan`).toBeVisible();
   });
 
+  test('a plan made before an import starts where the imported roster says', async ({ page }) => {
+    // Planned from E0 L1, then a game import recorded E2 L60: the plan kept saying "Current
+    // Level Lv. 1" and pricing from there until the level slider was nudged (2026-10-01).
+    await page.addInitScript(() => {
+      try {
+        if (sessionStorage.getItem('seeded')) return;
+        sessionStorage.setItem('seeded', '1');
+        localStorage.setItem('plannerState', JSON.stringify({ selectedNames: ['Surtr'], builderStates: { Surtr: { elite: 2, level: 90, skillLevel: 7, masteryTargets: {}, moduleStageTargets: {},
+          startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {} } } }));
+        localStorage.setItem('plannerRoster', JSON.stringify({ Surtr: { elite: 2, level: 60, skillLevel: 7, masteries: {} } }));
+      } catch { /* none */ }
+    });
+    await page.goto('/planner');
+    await page.getByRole('tab', { name: /Surtr/ }).first().click();
+    const current = page.locator('.simple-state-link').first();
+    await expect(current).toContainText('Lv. 60');
+    // And it stays put: what the page saved starts there too.
+    await page.reload();
+    await page.getByRole('tab', { name: /Surtr/ }).first().click();
+    await expect(page.locator('.simple-state-link').first()).toContainText('Lv. 60');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plannerState')!).builderStates.Surtr.startingLevel)).toBe(60);
+  });
+
   test("a planned operator's portrait starts at the top of its frame", async ({ page }) => {
     // Enlarged from its centre, tall art lost its head (Executor, 2026-10-01).
     await page.addInitScript((state) => { try { localStorage.setItem('plannerState', state); } catch {} }, JSON.stringify({ selectedNames: ['Executor'], builderStates: { Executor: STATE } }));
