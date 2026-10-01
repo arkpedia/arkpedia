@@ -172,6 +172,9 @@ export const CENSUS_STATES: CensusState[] = [
   // dialog had a 44px-wide glyph box stretched to its head's height; as a square it sat 6px
   // above the steps beside it until placed on the head's centre line.
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
+  // The Export / import dialog with the game sign-in open (components/account-import/GameSignIn):
+  // two fields and their buttons on one grid, and the five steps under them.
+  { id: 'planner import from the game', route: '/planner', act: async (page) => { await page.getByRole('button', { name: 'Export / import', exact: true }).click(); await page.locator('.plan-transfer-game summary').click(); await page.locator('#planner-game-email').waitFor(); } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
   { id: 'stage enemy record', route: '/stages/browse?s=1-7', act: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await page.locator('.record-dialog .enemy-hero').first().waitFor(); } },
   ...PLANNER_STATES,

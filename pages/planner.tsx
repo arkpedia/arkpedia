@@ -31,9 +31,11 @@ import { PlanRows, type PlanRowView } from '@/components/planner/PlanRows';
 import { OperatorStateForm } from '@/components/planner/OperatorStateForm';
 import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWizard';
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
-import { bundleFilename, describeTransfer, formatBundle, parseTransfer } from '@/lib/planner/transfer';
+import { bundleFilename, describeTransfer, formatBundle, parseTransfer, type ParsedTransfer } from '@/lib/planner/transfer';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
 import { checkImportAliases, unheldSummary } from '@/lib/planner/foreignImport';
+import { checkGameAccountMap, readGameAccount } from '@/lib/planner/gameAccount';
+import GameSignIn from '@/components/account-import/GameSignIn';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { hasFilePicker, hasFolderPicker, loadFromFile, saveToFile, showFolder } from '@/lib/planner/fileTransfer';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
@@ -236,7 +238,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const readerClock = useReaderClock(now, { tickMs: 60_000 });
   /* depotCatalogue: every material the depot can hold, from the release's catalogue
      (data/material-catalogue.json), which only lists materials with a published icon. */
-  const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
+  const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue, gameAccountMap } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   /* The Anti-Page Jump hold for the mode tabs (useSwitchHold): Simple is shorter than
@@ -628,7 +630,17 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       setTransferNote(`That is not a planner file this can read -- nothing changed. (${source})`);
       return;
     }
+    applyParsed(parsed);
+  }
 
+  /** A Global account, read by the sign-in in this dialog (components/account-import):
+   *  the game's roster and depot replace the planner's, through the same door as a file. */
+  function applyGameAccount(user: Record<string, any>) {
+    const { roster: owned, depot: held, unknown } = readGameAccount(user, gameAccountMap, importAliases, depotCatalogue);
+    applyParsed({ depot: held, roster: owned, goals: null, crafting: null, shape: 'game', unheld: unknown });
+  }
+
+  function applyParsed(parsed: ParsedTransfer) {
     /**
      * Only what this page can hold. Material names not in the catalogue and
      * operator names the page does not know are dropped and REPORTED, the way
@@ -1290,6 +1302,17 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                   Import file
                 </button>
               </div>
+              <details className="plan-transfer-game">
+                <summary>From the game (Global)</summary>
+                <p className="hint">
+                  Sign in with your Yostar email, and your roster and depot become what your account holds: every
+                  operator at its promotion, level, skill rank, masteries and modules, and every material. Your goals
+                  stay as they are. If the game is open on your phone it goes back to the title screen, and starting it
+                  again signs you straight back in. The sign-in&apos;s tokens are not kept; the roster and depot are saved in
+                  this browser, as the planner always does.
+                </p>
+                <GameSignIn server="en" idPrefix="planner-game" onAccount={applyGameAccount} />
+              </details>
               <details>
                 <summary>Supported formats</summary>
                 <p>Arkpedia backups include your inventory, operators and goals. Krooster CSV, Penguin Stats JSON and ark-nights files import inventory only.</p>
@@ -2017,6 +2040,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     // Both checked against the material catalogue wherever they are read from data/,
     // so a release that disagrees fails its export (they used to fail at import).
     'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
+    // The game's character and module ids, for importing an account (scripts/build/build-game-account-map.ts).
+    'game-account-map': async () => checkGameAccountMap((await import('@/data/game-account-map.json')).default),
     'item-sort-ids': async () => checkItemSortIds((await import('@/data/item-sort-ids.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
     // The depot's materials, their order and groups (scripts/build/build-material-catalogue.mjs).

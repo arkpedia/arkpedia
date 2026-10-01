@@ -183,6 +183,10 @@ jobs:
           # aliases cannot be rebuilt the catalogue goes back to yesterday's with them (--output).
           stage material-catalogue -- node scripts/build/build-material-catalogue.mjs
           stage import-aliases --needs material-catalogue --output data/material-catalogue.json -- npx tsx scripts/build/build-import-aliases.ts
+          # The game's character and module ids, for importing an account into the planner: from
+          # the operator records as they now stand and the EN client's tables. A record that no
+          # longer lines up with the client fails it, and yesterday's map stays.
+          stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
           # without it they keep yesterday's lines rather than fall back to Chinese.
