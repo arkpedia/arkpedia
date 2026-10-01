@@ -1,10 +1,10 @@
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const keys = ['skin', 'series', 'q', 'sort', 'availability', 'wishlist'] as const;
+const keys = ['skin', 'series', 'q', 'sort', 'availability', 'wishlist', 'owned'] as const;
 type Key = typeof keys[number];
 type State = Record<Key, string>;
-const empty: State = { skin: '', series: '', q: '', sort: '', availability: '', wishlist: '' };
+const empty: State = { skin: '', series: '', q: '', sort: '', availability: '', wishlist: '', owned: '' };
 
 /** Batch rapid filter updates into one URL write and follow browser navigation. */
 export function useSkinGalleryState(): [State, (key: Key, value: string) => void] {

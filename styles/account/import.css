@@ -1,4 +1,7 @@
-/* Account import (pages/import.tsx). */
+/* Account import (pages/import.tsx, components/account-import) and what reads it. */
+
+/* components/account/OwnedFilter: the roster's and the skins' Owned / Not owned chips. */
+.owned-filter { display: flex; gap: 6px; }
 
 .import-copy { max-width: 70ch; font-size: 13px; line-height: 1.6; color: var(--text-dim); margin: 0 0 12px; }
 .import-note { max-width: 70ch; }
