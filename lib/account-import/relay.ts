@@ -2,7 +2,7 @@
  * The transports the account import runs on (yostar.ts).
  *
  * relayTransport is libcurl.js, curl and mbedTLS compiled to WebAssembly, tunnelling TCP
- * through the Wisp relay at relay.arkpedia.net (infra/relay). TLS runs here, in the page,
+ * through the Wisp relay (config/relay.json; arkpedia/arkpedia-relay). TLS runs here, in the page,
  * against the real hosts' certificates (libcurl.js carries Mozilla's CA bundle), so the
  * relay forwards ciphertext it cannot read or alter. The relay answers only this site's
  * origins and connects only to the Yostar and game hosts the import needs.
@@ -11,8 +11,10 @@
  * as its own chunk the first time an import starts, never with the page.
  */
 import type { Transport } from './yostar';
+import relayConfig from '@/config/relay.json';
 
-export const RELAY_URL = 'wss://relay.arkpedia.net/wisp/';
+/** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
+export const RELAY_URL = relayConfig.url;
 
 interface Libcurl {
   load_wasm(): Promise<void>;
