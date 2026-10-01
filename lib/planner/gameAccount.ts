@@ -20,7 +20,8 @@ import { isSafeKey, MAX_COUNT } from './untrusted';
 
 export interface GameAccountMap {
   version: 1;
-  chars: Record<string, { name: string; modules: Record<string, number> }>;
+  /** global: the EN client has the operator, so the account page counts it. */
+  chars: Record<string, { name: string; modules: Record<string, number>; global?: true }>;
 }
 
 /** The table's shape, checked where it is loaded, as the other planner tables are. */

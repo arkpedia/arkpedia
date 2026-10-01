@@ -6,6 +6,7 @@
   "/gacha",
   "/planner",
   "/pulls",
+  "/account",
   "/schedule",
   "/events/[slug]",
   "/enemies",

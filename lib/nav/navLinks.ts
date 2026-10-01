@@ -32,7 +32,8 @@ export const LINKS: NavLink[] = [
   { href: '/enemies', label: 'Enemies', icon: 'enemies' },
   { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
-  { href: '/planner', label: 'Planner', icon: 'planner' },
+  { href: '/account', label: 'Account', icon: 'roster' },
+  { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/community', label: 'Community', icon: 'community' },
   { href: '/gacha', label: 'Gacha', icon: 'gacha' },
@@ -70,7 +71,9 @@ const at = (href: string): NavLink => {
 
 export const GROUPS: NavGroup[] = [
   { label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
-  { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha'), at('/pulls')] },
+  { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
+  /* The reader's own: their account, and the planners that read it (issue #94). */
+  { label: 'Planner', items: [at('/account'), at('/planner'), at('/pulls')] },
   { label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
 ];
 
@@ -79,7 +82,7 @@ export const GROUPS: NavGroup[] = [
    it alone in Planning. Schedule joined them when the Events list became a view of the
    Schedule page rather than a page of its own, which left that menu holding one thing
    too. */
-export const LOOSE: NavLink[] = [at('/planner'), at('/schedule'), at('/support')];
+export const LOOSE: NavLink[] = [at('/schedule'), at('/support')];
 
 /**
  * Every destination the bar shows, in the order it shows them: each menu's contents in

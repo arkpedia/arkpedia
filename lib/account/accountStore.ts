@@ -6,6 +6,8 @@
  *   operators  the operators owned, by the name the site uses (Amiya's forms each by theirs)
  *   skins      the outfits owned, by the game's skin id, which every skin record carries
  *   cleared    the stages cleared, by the game's stage id
+ *   profile    what the account page shows: level, when it was registered, the assistant, the
+ *              signature (absent on a record written before it had them)
  *
  * The planner's import writes it (Export / import > From the game), where the id map it
  * needs is a release table; it lives only in this browser's localStorage. Nothing
@@ -29,6 +31,17 @@ export interface AccountRecord {
   operators: string[];
   skins: string[];
   cleared: string[];
+  profile?: AccountProfile;
+}
+
+export interface AccountProfile {
+  level: number | null;
+  /** status.registerTs, ISO. */
+  registeredAt: string | null;
+  /** The assistant (status.secretary), by the site's name. */
+  secretary: string | null;
+  /** The profile's signature line (status.resume). */
+  bio: string | null;
 }
 
 const strings = (value: unknown, max: number) => Array.isArray(value) && value.length <= max && value.every((item) => typeof item === 'string' && item.length <= 200);
@@ -44,10 +57,16 @@ export function parseAccount(raw: string | null): AccountRecord | null {
   }
   if (!value || typeof value !== 'object' || value.version !== 1 || value.server !== 'en' || typeof value.importedAt !== 'string') return null;
   if (!strings(value.operators, 5000) || !strings(value.skins, 20000) || !strings(value.cleared, 50000)) return null;
+  const profile = value.profile && typeof value.profile === 'object' ? value.profile as Record<string, unknown> : null;
+  const text = (field: unknown) => (typeof field === 'string' && field.length <= 500 ? field : null);
   return {
     version: 1, server: 'en', importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
+    ...(profile ? { profile: {
+      level: typeof profile.level === 'number' && Number.isFinite(profile.level) ? profile.level : null,
+      registeredAt: text(profile.registeredAt), secretary: text(profile.secretary), bio: text(profile.bio),
+    } } : {}),
   };
 }
 
@@ -73,6 +92,12 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     operators: [...operators].sort(),
     skins: Object.keys(user.skin?.characterSkins ?? {}).sort(),
     cleared: Object.entries(stages).filter(([, stage]) => (stage?.state ?? 0) >= 2).map(([id]) => id).sort(),
+    profile: {
+      level: typeof status.level === 'number' ? status.level : null,
+      registeredAt: typeof status.registerTs === 'number' && status.registerTs > 0 ? new Date(status.registerTs * 1000).toISOString() : null,
+      secretary: map.chars[status.secretary]?.name ?? null,
+      bio: typeof status.resume === 'string' && status.resume.trim() ? status.resume.trim().slice(0, 500) : null,
+    },
   };
 }
 
