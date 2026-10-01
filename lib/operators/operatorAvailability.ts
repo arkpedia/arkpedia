@@ -86,6 +86,18 @@ export function releaseMarker(op: ReleaseOperator): ReleaseMarker {
   return op.isFuture === true ? { releasedAt: null, isFuture: true } : { releasedAt: null };
 }
 
+/**
+ * Whether the planner offers an operator: released on Global, or a CN record. Planning the
+ * materials for an operator before Global has it is what the planner is for, and kukki's site
+ * offered them (it hid only placeholders); this one kept Global-released operators alone, so
+ * nineteen CN operators -- Closure, Viy, Kal'tsit - Esperanta, the Persona 3 crossover -- could
+ * not be added after the switch to it on 2026-09-30. An operator without art or build data is
+ * still left out where the page's export decides that.
+ */
+export function isPlannable(op: Partial<ReleaseMarker> & { sourceRegion?: string }, now: number): boolean {
+  return op.sourceRegion === 'CN' || isReleasedAt(op, now);
+}
+
 /** isOperatorReleased for a marker. A payload from before markers existed has none,
  * and was already filtered to released operators when it was exported. */
 export function isReleasedAt(marker: Partial<ReleaseMarker> | undefined, now: number): boolean {
