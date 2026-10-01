@@ -35,6 +35,8 @@ const gachaTable = { gachaPoolClient: [
 test('parses recurring rows and requires matching shipped client windows', () => {
   const result = reconcileRecurringBanners({ banners: [], gachaTable, characters, wikiRows, roster });
   assert.deepEqual(result.additions, ['Standard Pool #175 (Global)', 'Kernel #61 (Global)']);
+  // A pool with a wiki row has its lineup; no art is read for it.
+  assert.deepEqual(result.wantsArt, []);
   assert.deepEqual(result.banners[0].six_stars, ['Six A', 'Six B']);
   assert.equal(result.banners[0].global_window.startAt, '2026-09-11T11:00:00.000Z');
   assert.equal(result.banners[1].global_window.endAt, '2026-09-22T11:00:00.000Z');
@@ -72,7 +74,9 @@ test('a pool the wiki has no row for is still added after the recorded one: Kern
   assert.deepEqual([standard.global_date, standard.six_stars, standard.lineupSource, standard.globalPoolId], ['2026/09/25–2026/10/09', [], 'pending', 'standard_2']);
   assert.deepEqual([kernel.six_stars, kernel.five_stars, kernel.lineupSource, kernel.globalPoolId], [['Six D', 'Six C'], ['Five F', 'Five E', 'Five D'], 'client', 'kernel_2']);
   assert.deepEqual(result.quarantine.map((entry) => [entry.key, entry.action]), [['banner:standard_2', 'published-partial']]);
-  assert.match(result.quarantine[0].reason, /without its rate-up lineup, which only the wiki's yearly banner page supplies/);
+  assert.match(result.quarantine[0].reason, /without its rate-up lineup, which only the wiki's yearly banner page or the banner's art in the client supplies/);
+  // With no row, the Standard pool's art is asked for; the Kernel pool's lineup is the client's.
+  assert.deepEqual(result.wantsArt, ['standard_2']);
   // The row arrives and fills the lineup in; nothing is added twice.
   const row = { type: 'standard', number: 176, start: '2026/09/25', end: '2026/10/09', operators: ['Six A', 'Five A', 'Six B', 'Five B', 'Five C'] };
   const filled = reconcileRecurringBanners({ banners: result.banners, gachaTable: later, characters, wikiRows: [...wikiRows, row], roster, now: october });
@@ -162,3 +166,52 @@ test('a wiki row naming its operators in another word order still gives the bann
   assert.deepEqual([result.banners[0].six_stars, result.banners[0].five_stars, result.banners[0].lineupSource], [['A Six', 'B Six'], ['A Five', 'B Five', 'C Five'], 'wiki']);
 });
 
+
+// A Standard pool's art (banner-art-lineup.mjs) ships with the client, about two weeks
+// before the wiki's row. syncRecurringBanners reads what wantsArt asks for and reconciles
+// again with it as artLineups; here the reads are given.
+test('a Standard pool with no wiki row takes its lineup from its art, and a wiki row that disagrees later is reported, not applied', () => {
+  const recorded = reconcileRecurringBanners({ banners: [], gachaTable, characters, wikiRows, roster }).banners;
+  const artLineups = new Map([['standard_2', { sixStars: ['Six B', 'Six A'], fiveStars: ['Five C', 'Five A', 'Five B'] }]]);
+  const result = reconcileRecurringBanners({ banners: recorded, gachaTable: later, characters, wikiRows, roster, artLineups, now: october });
+  const standard = result.banners.find((banner) => banner.globalPoolId === 'standard_2');
+  assert.deepEqual([standard.name, standard.six_stars, standard.five_stars, standard.lineupSource], ['Standard Pool #176 (Global)', ['Six B', 'Six A'], ['Five C', 'Five A', 'Five B'], 'client-art']);
+  assert.deepEqual([result.quarantine, result.wantsArt], [[], []]);
+  // The next day nothing is read again, and nothing changes.
+  const nextDay = reconcileRecurringBanners({ banners: result.banners, gachaTable: later, characters, wikiRows, roster, now: october + 86400000 });
+  assert.deepEqual([nextDay.changed, nextDay.wantsArt, nextDay.quarantine], [false, [], []]);
+  // The wiki's row arrives agreeing, in its own order: still nothing to report.
+  const row = (operators) => ({ type: 'standard', number: 176, start: '2026/09/25', end: '2026/10/09', operators });
+  const agreeing = reconcileRecurringBanners({ banners: result.banners, gachaTable: later, characters, wikiRows: [...wikiRows, row(['Six A', 'Five A', 'Six B', 'Five B', 'Five C'])], roster, now: october });
+  assert.deepEqual([agreeing.changed, agreeing.quarantine], [false, []]);
+  // Or disagreeing: the art's lineup stays published, and the row is reported every day it disagrees.
+  const disagreeing = reconcileRecurringBanners({ banners: result.banners, gachaTable: later, characters, wikiRows: [...wikiRows, row(['Six A', 'Five A', 'Six B', 'Five B', 'Five D'])], roster, now: october });
+  assert.equal(disagreeing.changed, false);
+  assert.deepEqual(disagreeing.banners.find((banner) => banner.globalPoolId === 'standard_2').five_stars, ['Five C', 'Five A', 'Five B']);
+  assert.deepEqual(disagreeing.quarantine.map((entry) => [entry.key, entry.action, entry.reason]), [['banner:standard_2', 'published-partial',
+    "Standard Pool #176 (Global): the wiki's rate-ups (Six A, Five A, Six B, Five B, Five D) disagree with the banner art's (Six B, Six A, Five C, Five A, Five B); the art's are published."]]);
+});
+
+test('art not out yet leaves the lineup pending, and art that cannot be read is reported in the same words every day until it can', () => {
+  const recorded = reconcileRecurringBanners({ banners: [], gachaTable, characters, wikiRows, roster }).banners;
+  const notOut = reconcileRecurringBanners({ banners: recorded, gachaTable: later, characters, wikiRows, roster, artLineups: new Map([['standard_2', null]]), now: october });
+  const pending = notOut.banners.find((banner) => banner.globalPoolId === 'standard_2');
+  assert.deepEqual([pending.six_stars, pending.lineupSource, notOut.wantsArt], [[], 'pending', []]);
+  assert.match(notOut.quarantine[0].reason, /which only the wiki's yearly banner page or the banner's art in the client supplies\.$/);
+  const problem = 'the banner art\'s name 3 reads "Fiv A", closest to Five A (distance 0.20, margin 0.10), which is not clearly one 5-star operator';
+  const unreadable = new Map([['standard_2', { problem }]]);
+  const day1 = reconcileRecurringBanners({ banners: notOut.banners, gachaTable: later, characters, wikiRows, roster, artLineups: unreadable, now: october });
+  const day2 = reconcileRecurringBanners({ banners: day1.banners, gachaTable: later, characters, wikiRows, roster, artLineups: unreadable, now: october + 86400000 });
+  assert.deepEqual(day1.quarantine.map((entry) => [entry.key, entry.action, entry.reason]), [['banner:standard_2', 'published-partial', `Standard Pool #176 (Global) is published without its rate-up lineup: ${problem}.`]]);
+  assert.deepEqual([day2.quarantine, day2.changed], [day1.quarantine, false]);
+  // Art naming someone no record knows (a read is matched against the records, so only a
+  // hand-made artLineups can) is reported as the art's problem.
+  const stranger = reconcileRecurringBanners({ banners: notOut.banners, gachaTable: later, characters, wikiRows, roster,
+    artLineups: new Map([['standard_2', { sixStars: ['Six A', 'Six Z'], fiveStars: ['Five A', 'Five B', 'Five C'] }]]), now: october });
+  assert.match(stranger.quarantine[0].reason, /lineup: the banner art names Six Z, which no 5- or 6-star operator record matches\.$/);
+  // Once it reads, the pending banner takes the lineup.
+  const filled = reconcileRecurringBanners({ banners: day2.banners, gachaTable: later, characters, wikiRows, roster,
+    artLineups: new Map([['standard_2', { sixStars: ['Six A', 'Six B'], fiveStars: ['Five A', 'Five B', 'Five C'] }]]), now: october + 2 * 86400000 });
+  const standard = filled.banners.find((banner) => banner.globalPoolId === 'standard_2');
+  assert.deepEqual([standard.six_stars, standard.five_stars, standard.lineupSource, filled.changed, filled.quarantine], [['Six A', 'Six B'], ['Five A', 'Five B', 'Five C'], 'client-art', true, []]);
+});

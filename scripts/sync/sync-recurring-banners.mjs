@@ -10,11 +10,14 @@
  * stale or speculative wiki row from becoming a live countdown.
  *
  * The wiki only enriches. A pool it has no row for is still added when it follows a
- * recorded one (numbered after it; the wiki's own number wins when there is a row),
- * a Standard pool then with lineupSource 'pending' until the row arrives. A row that
- * cannot be used -- an unknown name, not two 6-stars and three 5-stars, a Kernel
- * lineup the client contradicts (the client wins) -- is reported to the quarantine
- * list under 'recurring-banners', never thrown.
+ * recorded one (numbered after it; the wiki's own number wins when there is a row).
+ * A Standard pool then takes its lineup from the banner's own art in the client
+ * (banner-art-lineup.mjs, lineupSource 'client-art'), which ships about two weeks before
+ * the wiki's row, or stays 'pending' until one of the two names it. A row that cannot be
+ * used -- an unknown name, not two 6-stars and three 5-stars, a Kernel lineup the
+ * client contradicts (the client wins), a Standard lineup its art contradicts (the art,
+ * published first, stays) -- is reported to the quarantine list under
+ * 'recurring-banners', never thrown, as is art that cannot be read.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,6 +26,7 @@ import { lineupNameLookup, parseWikiRows } from './catalogue-model.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
+import { lineReader, nameArtUrl, readArtLineup } from './banner-art-lineup.mjs';
 
 // At the commit this run pinned (run-stage.mjs), else the branch; a banner created from it
 // records that URL as its timingSource.
@@ -89,19 +93,26 @@ function splitLineup(names, roster) {
  *  same on the day the banner is added and every day after (a recorded banner still
  *  pending, and the day-to-day loop below), since data/quarantine.json is a release input:
  *  a change of words alone would make a new release. */
-const pendingReason = (name, type, split) => (split?.problem
-  ? `${name} is published without its rate-up lineup: the ${type === 'kernel' ? 'lineup' : 'wiki row'} ${split.problem}.`
-  : `${name} is published without its rate-up lineup, which only ${type === 'kernel' ? 'the client or the wiki\'s yearly banner page supplies' : 'the wiki\'s yearly banner page supplies'}.`);
+const pendingReason = (name, type, split, subject = type === 'kernel' ? 'lineup' : 'wiki row') => (split?.problem
+  ? `${name} is published without its rate-up lineup: the ${subject} ${split.problem}.`
+  : `${name} is published without its rate-up lineup, which only ${type === 'kernel' ? 'the client or the wiki\'s yearly banner page supplies' : 'the wiki\'s yearly banner page or the banner\'s art in the client supplies'}.`);
 
 export const parseRecurringWikiRows = (wikitext) => recurringRows(parseWikiRows(wikitext, 'Banners cell'));
 
-export function reconcileRecurringBanners({ banners, gachaTable, characters, wikiRows: rawWikiRows, roster, now = Date.now() }) {
+/**
+ * The banners with every shipped Standard and Kernel pool reconciled. `artLineups` holds
+ * what each Standard pool's art names, by pool id (syncRecurringBanners reads it): the
+ * lineup, {problem} when it could not be read, or null when the client has no art for it
+ * yet. `wantsArt` lists the pools whose lineup would come from their art and which
+ * `artLineups` does not answer for: read them and reconcile again.
+ */
+export function reconcileRecurringBanners({ banners, gachaTable, characters, wikiRows: rawWikiRows, roster, artLineups = new Map(), now = Date.now() }) {
   // The wiki's names as the records spell them, whatever their word order
   // (lineupNameLookup); a name no record answers to stays as written, and is reported.
   const recordName = lineupNameLookup([...roster.keys()].map((name) => [name, name]));
   const wikiRows = rawWikiRows.map((row) => ({ ...row, operators: row.operators.map((name) => recordName(name) ?? name) }));
   const next = structuredClone(banners);
-  const additions = [], quarantine = [];
+  const additions = [], quarantine = [], wantsArt = new Set();
   let changed = false;
   const report = (client, action, reason) => quarantine.push({ key: `banner:${client.gachaPoolId}`, action, reason, sourceRef: CLIENT_SOURCE });
 
@@ -119,15 +130,30 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
       }
       return clientNames;
     };
+    /* A Standard pool's lineup as its art names it, for a pool with no wiki row: the names in
+       plate order (the two 6-stars, then the three 5-stars), {problem}, or null when the art
+       is not out yet or not read yet (then wantsArt asks for it). */
+    const artLineup = (client) => {
+      if (type !== 'standard') return null;
+      if (!artLineups.has(client.gachaPoolId)) { wantsArt.add(client.gachaPoolId); return null; }
+      const art = artLineups.get(client.gachaPoolId);
+      return art?.problem ? art : art ? { names: [...art.sixStars, ...art.fiveStars] } : null;
+    };
     /* The lineup a pool's banner takes, the same on the day it is added and every day after:
-       for Kernel the client's (clientLineup), else the wiki row's. */
+       for Kernel the client's (clientLineup), else the wiki row's, else for Standard its art's. */
     const lineupOf = (client, wiki, name) => {
       const clientNames = clientLineup(client, wiki, name);
-      const names = clientNames ?? wiki?.operators ?? null, source = clientNames ? 'client' : wiki ? 'wiki' : 'pending';
+      const art = clientNames || wiki ? null : artLineup(client);
+      if (art?.problem) {
+        report(client, 'published-partial', `${name} is published without its rate-up lineup: ${art.problem}.`);
+        return { split: null, source: 'pending' };
+      }
+      const names = clientNames ?? wiki?.operators ?? art?.names ?? null;
+      const source = clientNames ? 'client' : wiki ? 'wiki' : art ? 'client-art' : 'pending';
       const split = names ? splitLineup(names, roster) : null;
       if (!split || split.problem) {
         // No split: the day-to-day loop below reports it, in the same words.
-        if (split) report(client, 'published-partial', pendingReason(name, type, split));
+        if (split) report(client, 'published-partial', pendingReason(name, type, split, art ? 'banner art' : undefined));
         return { split, source: 'pending' };
       }
       return { split, source };
@@ -137,7 +163,7 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
       const recorded = recordOf(client) ?? (wiki ? next.find((banner) => banner.name === nameFor(type, wiki.number)) : null);
       if (recorded) {
         // A banner added before its lineup was known takes it once it is: a Standard one
-        // from its wiki row, a Kernel one from the client, as when it was added.
+        // from its wiki row or its art, a Kernel one from the client, as when it was added.
         if (recorded.lineupSource === 'pending') {
           const { split, source } = lineupOf(client, wiki, recorded.name);
           if (source !== 'pending') {
@@ -147,6 +173,13 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
         } else if (recorded.lineupSource === 'client') {
           // Published from the client: a wiki row that disagrees stays reported until it agrees.
           clientLineup(client, wiki, recorded.name);
+        } else if (recorded.lineupSource === 'client-art' && wiki) {
+          // Published from the art: the same, against the names the record carries. Nothing
+          // is read again, so a later read cannot change a published lineup.
+          const art = [...recorded.six_stars, ...recorded.five_stars];
+          if (new Set(art).size !== wiki.operators.length || wiki.operators.some((operator) => !art.includes(operator))) {
+            report(client, 'published-partial', `${recorded.name}: the wiki's rate-ups (${wiki.operators.join(', ')}) disagree with the banner art's (${art.join(', ')}); the art's are published.`);
+          }
         }
         return;
       }
@@ -196,13 +229,46 @@ export function reconcileRecurringBanners({ banners, gachaTable, characters, wik
         reason: pendingReason(banner.name, banner.pull_type) });
     }
   }
-  return { banners: next, additions, quarantine, changed };
+  return { banners: next, additions, quarantine, changed, wantsArt: [...wantsArt] };
 }
 
 async function json(url) {
   const response = await fetch(url, { headers: { 'User-Agent': 'Arkpedia-refresh/1.0 (+https://arkpedia.net)' } });
   if (!response.ok) throw new Error(`${url}: ${response.status}`);
   return response.json();
+}
+
+/** A name plate's PNG bytes, or null when the client has none at that path (404). */
+async function nameArt(url) {
+  const response = await fetch(url, { headers: { 'User-Agent': 'Arkpedia-refresh/1.0 (+https://arkpedia.net)' } });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`${url}: ${response.status}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
+/**
+ * What each pool's art names (see reconcileRecurringBanners' artLineups). Art that cannot
+ * be downloaded is a problem for that pool, reported like art that cannot be read, so a
+ * day the mirror is down still updates every banner's window.
+ */
+export async function readArtLineups(poolIds, roster, fetchArt = nameArt) {
+  const lineups = new Map();
+  const reader = await lineReader();
+  try {
+    for (const poolId of poolIds) {
+      try {
+        const art = await readArtLineup({ roster, reader, fetchImage: (slot) => fetchArt(nameArtUrl(poolId, slot)) });
+        lineups.set(poolId, art && (art.problem ? { problem: art.problem } : { sixStars: art.sixStars, fiveStars: art.fiveStars }));
+        if (art) console.log(`${poolId}: the banner art reads ${art.reads.map((read) => `"${read.text}"`).join(', ')}`);
+      } catch (error) {
+        console.warn(`${poolId}: cannot read the banner art: ${error.message}`);
+        lineups.set(poolId, { problem: 'its banner art could not be downloaded' });
+      }
+    }
+  } finally {
+    await reader.close();
+  }
+  return lineups;
 }
 
 async function readTable(root, file) {
@@ -239,14 +305,10 @@ export async function syncRecurringBanners(root = process.cwd(), now = new Date(
     readWikiRows(root, page, 'Banners cell', { now, alerts }),
   ]);
   const banners = JSON.parse(fs.readFileSync(bannersAt, 'utf8'));
-  const result = reconcileRecurringBanners({
-    banners,
-    gachaTable,
-    characters,
-    wikiRows: recurringRows(cells),
-    roster,
-    now: now.getTime(),
-  });
+  const input = { banners, gachaTable, characters, wikiRows: recurringRows(cells), roster, now: now.getTime() };
+  let result = reconcileRecurringBanners(input);
+  // Most days no pool needs its art read, and no reader is started.
+  if (result.wantsArt.length) result = reconcileRecurringBanners({ ...input, artLineups: await readArtLineups(result.wantsArt, roster) });
   if (result.changed) fs.writeFileSync(bannersAt, `${JSON.stringify(result.banners, null, 2)}\n`);
   for (const entry of result.quarantine) alerts.add(entry);
   alerts.commit();
