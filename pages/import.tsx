@@ -154,7 +154,8 @@ export default function ImportPage() {
             is stored, not in this browser and not on our servers.
           </p>
           <p className="hint import-note">
-            This is a sign-in like the game&apos;s own, so the game on your phone may ask you to log in again.
+            This is a sign-in like the game&apos;s own: if the game is open on your phone, it goes back to the
+            title screen, and starting it again signs you straight back in, with no new code.
             Server: {SERVERS[server].label}. Test version: the account is read and summarized, not used anywhere yet.
           </p>
 
