@@ -20,8 +20,12 @@ import { isSafeKey, MAX_COUNT } from './untrusted';
 
 export interface GameAccountMap {
   version: 1;
-  /** global: the EN client has the operator, so the account page counts it. */
-  chars: Record<string, { name: string; modules: Record<string, number>; global?: true }>;
+  /** global: the EN client has the operator, so the account page counts it. rarity: for its
+   *  icon on the profile card. Absent from a map built before either was added. */
+  chars: Record<string, { name: string; rarity?: number; modules: Record<string, number>; global?: true }>;
+  /** The profile card's names, by the game's ids (absent before they were added). */
+  nameCards?: Record<string, string>;
+  medals?: Record<string, string>;
 }
 
 /** The table's shape, checked where it is loaded, as the other planner tables are. */

@@ -3,16 +3,19 @@ import { test } from 'node:test';
 import { accountFromGame, ownedFilter, parseAccount } from '../../lib/account/accountStore';
 
 const MAP = { version: 1 as const, chars: {
-  char_300_phenxi: { name: 'Fiammetta', modules: {} },
+  char_300_phenxi: { name: 'Fiammetta', rarity: 6, modules: {} },
   char_002_amiya: { name: 'Amiya', modules: {} },
   char_1001_amiya2: { name: 'Amiya (Guard)', modules: {} },
 } };
 
 test('an account gives the operators it owns by name, its outfits by skin id and the stages it cleared', () => {
   const record = accountFromGame({
-    status: { nickName: 'Doctor', nickNumber: '1234', level: 120, registerTs: 1580712160, secretary: 'char_002_amiya', resume: ' yes ' },
+    status: { nickName: 'Doctor', nickNumber: '1234', level: 120, registerTs: 1580712160, secretary: 'char_002_amiya', resume: ' yes ', uid: 11311084, avatar: { type: 'ICON', id: 'avatar_special_41' } },
+    nameCardStyle: { skin: { selected: 'nc_moon_1' } },
+    social: { assistCharList: [{ charInstId: 1, skillIndex: 2 }, null, { charInstId: 99 }], medalBoard: { type: 'CUSTOM', custom: '1' } },
+    medal: { custom: { customs: { 1: { layout: [{ id: 'medal_a', pos: [6, 12] }, { id: 'medal_b', pos: [9, 9] }] } } } },
     troop: { chars: {
-      1: { charId: 'char_300_phenxi' },
+      1: { charId: 'char_300_phenxi', level: 60, evolvePhase: 2, potentialRank: 5 },
       2: { charId: 'char_002_amiya', tmpl: { char_002_amiya: {}, char_1001_amiya2: {} } },
       3: { charId: 'char_9999_brandnew' },
     } },
@@ -26,7 +29,10 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     operators: ['Amiya', 'Amiya (Guard)', 'Fiammetta'],
     skins: ['char_002_amiya@winter#1', 'char_300_phenxi@summer#1'],
     cleared: ['main_02', 'main_03'],
-    profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes' },
+    profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes', uid: '11311084', avatar: 'avatar_special_41', nameCard: 'nc_moon_1', hired: 3,
+      // The support units by the troop's own records; a slot with no operator behind it is left out.
+      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3 }],
+      medals: [{ id: 'medal_a', x: 6, y: 12 }, { id: 'medal_b', x: 9, y: 9 }] },
   });
   assert.deepEqual(parseAccount(JSON.stringify(record)), record);
 });

@@ -36,6 +36,7 @@ const OUTPUT = path.join(root, 'data', 'game-account-map.json');
 
 interface RecordFile {
   name: string;
+  rarity?: number;
   internalName?: string;
   modules?: { type?: string; name: string }[];
   skills?: { skillList?: { name?: string }[] };
@@ -45,7 +46,11 @@ export interface GameAccountMapFile {
   version: 1;
   /** character id -> the record's name, by equipment id the planner's module index, and
    *  whether the Global client has it (the account page's operator count). */
-  chars: Record<string, { name: string; modules: Record<string, number>; global?: true }>;
+  chars: Record<string, { name: string; rarity: number; modules: Record<string, number>; global?: true }>;
+  /** The profile card's names (the account page): each business card style's, by id, and
+   *  each medal's, from the EN client's display_meta_table and medal_table. */
+  nameCards: Record<string, string>;
+  medals: Record<string, string>;
 }
 
 const GREEK: Record<string, string> = { A: 'α', B: 'β', D: 'Δ' };
@@ -59,6 +64,8 @@ export function buildGameAccountMap(
     uniequip: { charEquip: Record<string, string[] | Record<string, never>>; equipDict: Record<string, { type?: string; typeName1?: string; typeName2?: string | null }> };
     characters: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null }>;
     skills: Record<string, { levels?: { name?: string }[] }>;
+    displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string }> } };
+    medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
   },
 ): GameAccountMapFile {
   const problems: string[] = [];
@@ -86,10 +93,14 @@ export function buildGameAccountMap(
       const ours = (record.skills?.skillList ?? []).map((skill) => norm(skill.name));
       if (game.join('|') !== ours.join('|')) problems.push(`${record.name}: the client's skills (${game.join(', ')}) are not the record's (${ours.join(', ')}), in order`);
     }
-    chars[id] = { name: record.name, modules, ...(character ? { global: true as const } : {}) };
+    chars[id] = { name: record.name, rarity: record.rarity ?? 1, modules, ...(character ? { global: true as const } : {}) };
   }
   if (problems.length) throw new Error(`build-game-account-map: ${problems.length} problem(s):\n  ${problems.join('\n  ')}`);
-  return { version: 1, chars };
+  const nameCards = Object.fromEntries(Object.entries(tables.displayMeta?.nameCardV2Data?.skinData ?? {})
+    .filter(([, skin]) => typeof skin?.name === 'string').map(([id, skin]) => [id, skin.name as string]).sort(([a], [b]) => a.localeCompare(b)));
+  const medals = Object.fromEntries((tables.medalTable?.medalList ?? [])
+    .filter((medal) => medal.medalId && medal.medalName).map((medal) => [medal.medalId as string, medal.medalName as string]).sort(([a], [b]) => a.localeCompare(b)));
+  return { version: 1, chars, nameCards, medals };
 }
 
 function readJson<T>(file: string): T {
@@ -97,7 +108,7 @@ function readJson<T>(file: string): T {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename)) {
-  for (const file of ['uniequip_table.json', 'character_table.json', 'char_patch_table.json', 'skill_table.json']) {
+  for (const file of ['uniequip_table.json', 'character_table.json', 'char_patch_table.json', 'skill_table.json', 'display_meta_table.json', 'medal_table.json']) {
     if (!fs.existsSync(path.join(excel, file))) {
       console.error(`Missing ${path.join(excel, file)}.\nRun scripts/sync/refresh-stage-data.sh to populate .cache/upstream, or set ARKPEDIA_EN.`);
       process.exit(1);
@@ -112,8 +123,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
     uniequip: readJson(path.join(excel, 'uniequip_table.json')),
     characters: { ...readJson<Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null }>>(path.join(excel, 'character_table.json')), ...(patch.patchChars ?? {}) },
     skills: readJson(path.join(excel, 'skill_table.json')),
+    displayMeta: readJson(path.join(excel, 'display_meta_table.json')),
+    medalTable: readJson(path.join(excel, 'medal_table.json')),
   });
   fs.writeFileSync(OUTPUT, `${JSON.stringify(map)}\n`);
   const modules = Object.values(map.chars).reduce((sum, char) => sum + Object.keys(char.modules).length, 0);
-  console.log(`Wrote ${path.relative(root, OUTPUT)}: ${Object.keys(map.chars).length} operators, ${modules} modules.`);
+  console.log(`Wrote ${path.relative(root, OUTPUT)}: ${Object.keys(map.chars).length} operators, ${modules} modules, ${Object.keys(map.nameCards).length} card styles, ${Object.keys(map.medals).length} medals.`);
 }

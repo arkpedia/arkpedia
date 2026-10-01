@@ -7,7 +7,7 @@ import gameAccountMap from '../../data/game-account-map.json';
 
 // Two records and the client's view of them, as small as the rules need.
 const records = [
-  { name: 'Fiammetta', internalName: 'char_300_phenxi',
+  { name: 'Fiammetta', rarity: 6, internalName: 'char_300_phenxi',
     modules: [{ type: 'Original', name: 'Badge' }, { type: 'Upgrade', name: 'ART-X: A Long Journey' }, { type: 'Upgrade', name: 'ART-Y: "Out-Law" Surplus' }],
     skills: { skillList: [{ name: '"Provocate"' }, { name: 'Embers' }] } },
   { name: 'Raidian', internalName: 'char_4145_radian',
@@ -34,7 +34,11 @@ const tables = {
 test('the map places a module by its type code, whatever order the client lists it in', () => {
   const map = buildGameAccountMap(records, tables);
   // global: the client has the operator, which the account page counts.
-  assert.deepEqual(map.chars.char_300_phenxi, { name: 'Fiammetta', modules: { uniequip_002_phenxi: 1, uniequip_003_phenxi: 0 }, global: true });
+  assert.deepEqual(map.chars.char_300_phenxi, { name: 'Fiammetta', rarity: 6, modules: { uniequip_002_phenxi: 1, uniequip_003_phenxi: 0 }, global: true });
+  // The profile card's names, from the display and medal tables.
+  const named = buildGameAccountMap(records, { ...tables, displayMeta: { nameCardV2Data: { skinData: { nc_moon_1: { name: 'An Invitation to Moons' } } } },
+    medalTable: { medalList: [{ medalId: 'medal_a', medalName: 'A Medal' }, { medalId: 'medal_b' }] } });
+  assert.deepEqual([named.nameCards, named.medals], [{ nc_moon_1: 'An Invitation to Moons' }, { medal_a: 'A Medal' }]);
   // The client spells the Greek letters A and B.
   assert.deepEqual(map.chars.char_4145_radian.modules, { uniequip_002_radian: 0, uniequip_003_radian: 1 });
   // This mirror writes an empty list as {}: no skills, as a record without any has.
