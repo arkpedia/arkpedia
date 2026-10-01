@@ -109,8 +109,8 @@ export const PICTURE_DRIVES: Record<string, (page: Page) => Promise<void>> = {
     await page.getByRole('button', { name: /Skin wishlist/ }).click();
     // The shops on offer are the data's, dropped once they close (lib/pulls/currentPlan.ts),
     // as pulls.spec.ts's caption test has it: with none listed there are no tiles to measure.
-    test.skip(await page.getByText('No upcoming shop rotations are listed.').count() > 0, 'no skin shop rotation is listed in this build');
-    await page.locator('.pulls-skin-option').first().waitFor();
+    test.skip(await page.getByText('No shop that sells outfits for Originite Prime is open or listed ahead.').count() > 0, 'no skin shop rotation is listed in this build');
+    await page.locator('#panel-skins .skin-plan-card').first().waitFor();
   },
 };
 

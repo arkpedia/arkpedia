@@ -25,6 +25,8 @@ const CLOCK_UNITS: Record<string, number> = {
   '/games/music-guesser': 60_000,
   '/planner': 60_000,
   '/community': 60_000,
+  // Which outfit shops are over (components/skins/SkinPlanner).
+  '/skin-planner': 60_000,
 };
 
 /** Every route contentPageClock gives a clock: each CLOCK_UNITS route (`now`), and
