@@ -1302,7 +1302,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                   Import file
                 </button>
               </div>
-              <details className="plan-transfer-game">
+              <details>
                 <summary>From the game (Global)</summary>
                 <p className="hint">
                   Import data directly from your Arknights (Global) account. Your login token is sent encrypted and is
@@ -1310,8 +1310,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                   token is saved in your own browser, not on Arkpedia.
                 </p>
                 <p className="hint">
-                  The import replaces your roster and depot with what your account holds; your goals stay. If the game is
-                  open on your phone, it goes back to the title screen, and starting it again signs you straight back in.
+                  Importing replaces all your existing data and kicks you out of the game if you are logged in.
                 </p>
                 <GameSignIn server="en" idPrefix="planner-game" onAccount={applyGameAccount} />
               </details>

@@ -179,7 +179,7 @@ export const CENSUS_STATES: CensusState[] = [
     await page.evaluate(() => localStorage.setItem('arkpediaGameLogin', JSON.stringify({ server: 'en', uid: '1', token: 'census', deviceId: 'census', label: 'd•••@example.com' })));
     await page.reload();
     await page.getByRole('button', { name: 'Export / import', exact: true }).click();
-    await page.locator('.plan-transfer-game summary').click();
+    await page.locator('dialog summary', { hasText: 'From the game (Global)' }).click();
     await page.getByRole('button', { name: 'Import again', exact: true }).waitFor();
   } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
