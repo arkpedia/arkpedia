@@ -87,15 +87,18 @@ export function releaseMarker(op: ReleaseOperator): ReleaseMarker {
 }
 
 /**
- * Whether the planner offers an operator: released on Global, or a CN record. Planning the
- * materials for an operator before Global has it is what the planner is for, and kukki's site
- * offered them (it hid only placeholders); this one kept Global-released operators alone, so
- * nineteen CN operators -- Closure, Viy, Kal'tsit - Esperanta, the Persona 3 crossover -- could
- * not be added after the switch to it on 2026-09-30. An operator without art or build data is
- * still left out where the page's export decides that.
+ * The planner's operators as the reader sees them: every operator the export offers, the ones
+ * not on Global yet marked cnOnly. Planning an operator's materials before Global has them is
+ * what the planner is for, and kukki's site offered them (it hid only placeholders); this one
+ * kept Global-released operators alone, so nineteen CN operators -- Closure, Viy, Kal'tsit -
+ * Esperanta, the Persona 3 crossover -- could not be added after the switch on 2026-09-30.
+ * Read from the release markers the export already carries, so the content release in use,
+ * which main's code compiles, needs nothing new: a field added to the export reached neither
+ * site until main shipped it. Every operator reaches CN first, so not on Global yet is CN only.
+ * An operator without art or build data is still left out where the page's export decides that.
  */
-export function isPlannable(op: Partial<ReleaseMarker> & { sourceRegion?: string }, now: number): boolean {
-  return op.sourceRegion === 'CN' || isReleasedAt(op, now);
+export function plannerOperators<T extends Partial<ReleaseMarker>>(ops: T[], now: number): (T & { cnOnly?: true })[] {
+  return ops.map((op) => (isReleasedAt(op, now) ? op : { ...op, cnOnly: true as const }));
 }
 
 /** isOperatorReleased for a marker. A payload from before markers existed has none,

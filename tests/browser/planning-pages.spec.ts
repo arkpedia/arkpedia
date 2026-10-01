@@ -252,13 +252,14 @@ test.describe('/planner operators', () => {
 
   test('a CN record can be found, says CN, and is added to the plan', async ({ page }) => {
     // After the switch on 2026-09-30 the planner kept Global-released operators alone, and
-    // nineteen CN operators could not be added (isPlannable).
+    // nineteen CN operators could not be added (plannerOperators).
     await page.goto('/planner');
+    // Not on Global yet by the page's own release markers (plannerOperators).
     const cn = await page.evaluate(() => {
-      const ops = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { operators: { name: string; sourceRegion?: string }[] } } } }).__NEXT_DATA__.props.pageProps.operators;
-      return ops.filter((op) => op.sourceRegion === 'CN').map((op) => op.name);
+      const ops = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { operators: { name: string; releasedAt?: number | null; isFuture?: true }[] } } } }).__NEXT_DATA__.props.pageProps.operators;
+      return ops.filter((op) => (op.releasedAt != null && op.releasedAt > Date.now()) || (op.releasedAt === null && op.isFuture)).map((op) => op.name);
     });
-    expect(cn.length, 'the planner carries CN records').toBeGreaterThan(0);
+    expect(cn.length, 'the planner carries operators not on Global yet').toBeGreaterThan(0);
     const search = page.getByPlaceholder('Search operators…');
     await search.fill(cn[0]);
     const option = page.getByRole('option').filter({ hasText: cn[0] }).first();
