@@ -1305,11 +1305,13 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               <details className="plan-transfer-game">
                 <summary>From the game (Global)</summary>
                 <p className="hint">
-                  Sign in with your Yostar email, and your roster and depot become what your account holds: every
-                  operator at its promotion, level, skill rank, masteries and modules, and every material. Your goals
-                  stay as they are. If the game is open on your phone it goes back to the title screen, and starting it
-                  again signs you straight back in. The sign-in&apos;s tokens are not kept; the roster and depot are saved in
-                  this browser, as the planner always does.
+                  Import data directly from your Arknights (Global) account. Your login token is sent encrypted and is
+                  never read by Arkpedia itself; Arkpedia only receives your account data. For future imports, the login
+                  token is saved in your own browser, not on Arkpedia.
+                </p>
+                <p className="hint">
+                  The import replaces your roster and depot with what your account holds; your goals stay. If the game is
+                  open on your phone, it goes back to the title screen, and starting it again signs you straight back in.
                 </p>
                 <GameSignIn server="en" idPrefix="planner-game" onAccount={applyGameAccount} />
               </details>

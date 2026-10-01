@@ -64,10 +64,9 @@ export default function ImportPage() {
         <section className="op-section">
           <h2>How it works</h2>
           <p className="import-copy">
-            You sign in with your Yostar email, as the game does. Your email, the code and the game&apos;s tokens go
-            from this page to Yostar and the game&apos;s servers, encrypted end to end. The requests a browser cannot
-            send by itself pass through <code>relay.arkpedia.net</code> as encrypted traffic it cannot read. Nothing
-            is stored, not in this browser and not on our servers.
+            Import data directly from your Arknights (Global) account. Your login token is sent encrypted and is never
+            read by Arkpedia itself; Arkpedia only receives your account data. For future imports, the login token is
+            saved in your own browser, not on Arkpedia.
           </p>
           <p className="hint import-note">
             This is a sign-in like the game&apos;s own: if the game is open on your phone, it goes back to the
