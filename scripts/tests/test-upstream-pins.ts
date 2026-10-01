@@ -13,6 +13,7 @@ const commit = (c: string) => c.repeat(40);
 const heads: Record<string, string> = {
   'Kengxxiao/ArknightsGameData': commit('1'), 'ArknightsAssets/ArknightsGamedata': commit('2'),
   'yuanyan3060/ArknightsGameResource': commit('3'), 'PuppiizSunniiz/ArknightsGameData_YoStar': commit('4'),
+  'ArknightsAssets/ArknightsAssets2': commit('5'),
 };
 const resolveAll = async (repository: string) => heads[repository];
 
@@ -25,6 +26,8 @@ test('every mirror the refresh reads is pinned to one commit, under its own vari
   assert.equal(lock.repositories['PuppiizSunniiz/ArknightsGameData_YoStar'].variable, 'ARKPEDIA_PIN_PUPPIIZSUNNIIZ_ARKNIGHTSGAMEDATA_YOSTAR');
   assert.equal(lock.repositories['ArknightsAssets/ArknightsGamedata'].variable, 'ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSGAMEDATA');
   assert.equal(lock.repositories['Kengxxiao/ArknightsGameData'].variable, 'ARKPEDIA_PIN_KENGXXIAO_ARKNIGHTSGAMEDATA');
+  assert.deepEqual(lock.repositories['ArknightsAssets/ArknightsAssets2'],
+    { branch: 'en', commit: commit('5'), variable: 'ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSASSETS2', source: 'resolved' });
 });
 
 test('a mirror that cannot be reached keeps the last known commit, and never fails the pin', async () => {

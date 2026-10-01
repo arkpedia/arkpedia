@@ -40,6 +40,8 @@ export const MIRRORS = [
   { repository: 'ArknightsAssets/ArknightsGamedata', branch: 'master' },
   { repository: 'yuanyan3060/ArknightsGameResource', branch: 'main' },
   { repository: 'PuppiizSunniiz/ArknightsGameData_YoStar', branch: 'main' },
+  // The Global client's art, for the Standard banners' name plates (banner-art-lineup.mjs).
+  { repository: 'ArknightsAssets/ArknightsAssets2', branch: 'en' },
 ];
 /*
  * Where the CN tables (gamedata/excel and gamedata/levels) may come from, in order: ALL of

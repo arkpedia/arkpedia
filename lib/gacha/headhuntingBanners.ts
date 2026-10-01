@@ -11,10 +11,11 @@ import type { GameWindowTimes } from '@/lib/schedule/gameWindow';
 
 /** Where a banner's featured lineup came from, as scripts/sync/catalogue-model.mjs and
  *  sync-recurring-banners.mjs record it: the wiki's row, the six-stars the game client
- *  names (five-stars still unknown), or nothing yet -- 'pending' ships with empty
+ *  names (five-stars still unknown), the names on a Standard banner's art in the client
+ *  (scripts/sync/banner-art-lineup.mjs), or nothing yet -- 'pending' ships with empty
  *  lineup arrays until the wiki has a row for the banner's window. Hand-kept records
  *  carry none. */
-export type BannerLineupSource = 'wiki' | 'client' | 'pending';
+export type BannerLineupSource = 'wiki' | 'client' | 'client-art' | 'pending';
 
 /** Which name the record carries: the client's Chinese one while the wiki has none,
  *  the wiki's community English one, or the official Global one. Undefined -- every
