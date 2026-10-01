@@ -43,8 +43,9 @@ interface RecordFile {
 
 export interface GameAccountMapFile {
   version: 1;
-  /** character id -> the record's name and, by equipment id, the planner's module index. */
-  chars: Record<string, { name: string; modules: Record<string, number> }>;
+  /** character id -> the record's name, by equipment id the planner's module index, and
+   *  whether the Global client has it (the account page's operator count). */
+  chars: Record<string, { name: string; modules: Record<string, number>; global?: true }>;
 }
 
 const GREEK: Record<string, string> = { A: 'α', B: 'β', D: 'Δ' };
@@ -85,7 +86,7 @@ export function buildGameAccountMap(
       const ours = (record.skills?.skillList ?? []).map((skill) => norm(skill.name));
       if (game.join('|') !== ours.join('|')) problems.push(`${record.name}: the client's skills (${game.join(', ')}) are not the record's (${ours.join(', ')}), in order`);
     }
-    chars[id] = { name: record.name, modules };
+    chars[id] = { name: record.name, modules, ...(character ? { global: true as const } : {}) };
   }
   if (problems.length) throw new Error(`build-game-account-map: ${problems.length} problem(s):\n  ${problems.join('\n  ')}`);
   return { version: 1, chars };

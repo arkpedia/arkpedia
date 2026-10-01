@@ -47,7 +47,8 @@ export function censusRoutes(): string[] {
 /** A game import's record (lib/account/accountStore), then the page as it loads with one. */
 async function seedAccount(page: Page) {
   await page.evaluate(() => localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null,
-    operators: ['Surtr', 'Eyjafjalla', 'Amiya'], skins: ['char_002_amiya@winter#1'], cleared: [] })));
+    operators: ['Surtr', 'Eyjafjalla', 'Amiya'], skins: ['char_002_amiya@winter#1'], cleared: [],
+    profile: { level: 120, registeredAt: '2020-02-03T03:42:40.000Z', secretary: 'Nian', bio: 'yes' } })));
   await page.reload();
 }
 
@@ -183,14 +184,12 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: 'Owned', exact: true }).click(); } },
   { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: 'Not owned', exact: true }).click(); } },
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
-  // The Export / import dialog with the game sign-in open (components/account-import/GameSignIn):
-  // a login a past import kept (lib/account-import/savedLogin, never used here), two fields and
-  // their buttons on one grid, and the five steps under them.
-  { id: 'planner import from the game', route: '/planner', act: async (page) => {
+  // The account page with an import and a kept login (lib/account/accountStore,
+  // lib/account-import/savedLogin, neither used here): the profile and counts filled in, and
+  // the sign-in's Import again row.
+  { id: 'account with an import', route: '/account', act: async (page) => {
     await page.evaluate(() => localStorage.setItem('arkpediaGameLogin', JSON.stringify({ server: 'en', uid: '1', token: 'census', deviceId: 'census', label: 'd•••@example.com' })));
-    await page.reload();
-    await page.getByRole('button', { name: 'Export / import', exact: true }).click();
-    await page.locator('dialog summary', { hasText: 'From the game (Global)' }).click();
+    await seedAccount(page);
     await page.getByRole('button', { name: 'Import again', exact: true }).waitFor();
   } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },

@@ -10,7 +10,7 @@ const MAP = { version: 1 as const, chars: {
 
 test('an account gives the operators it owns by name, its outfits by skin id and the stages it cleared', () => {
   const record = accountFromGame({
-    status: { nickName: 'Doctor', nickNumber: '1234' },
+    status: { nickName: 'Doctor', nickNumber: '1234', level: 120, registerTs: 1580712160, secretary: 'char_002_amiya', resume: ' yes ' },
     troop: { chars: {
       1: { charId: 'char_300_phenxi' },
       2: { charId: 'char_002_amiya', tmpl: { char_002_amiya: {}, char_1001_amiya2: {} } },
@@ -26,6 +26,7 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     operators: ['Amiya', 'Amiya (Guard)', 'Fiammetta'],
     skins: ['char_002_amiya@winter#1', 'char_300_phenxi@summer#1'],
     cleared: ['main_02', 'main_03'],
+    profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes' },
   });
   assert.deepEqual(parseAccount(JSON.stringify(record)), record);
 });
