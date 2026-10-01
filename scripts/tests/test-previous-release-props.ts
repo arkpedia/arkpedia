@@ -243,6 +243,13 @@ function missingFromRelease(current: Shape, previous: Shape): string[] {
 const DATA_ONLY: Record<string, Record<string, string>> = {
   '/': {
     '.ongoingEvents[].shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before",
+    // loadGameEvents spreads each event's `global` onto it, note included. The note is null on
+    // most events, '' on some and a sentence on others ("ESTIMATED Global date"), and the shape
+    // skips nulls, so whether the field shows depends on which events run on the day: the
+    // ongoing ones on 2026-10-01 had '' where the release's had null, and the content release
+    // runs this test on that day's data. The page reads it only as optional text (isPredicted).
+    '.ongoingEvents[].note': "each event's global.note, spread onto it (loadGameEvents): null, '' or a sentence depending on the event, so present or not by which events run that day",
+    '.upcomingEvent.note': "the same global.note, on the next event to open",
   },
   '/schedule': {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
