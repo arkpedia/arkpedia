@@ -44,6 +44,13 @@ export function censusRoutes(): string[] {
   return [...out, ...EXTRA];
 }
 
+/** A game import's record (lib/account/accountStore), then the page as it loads with one. */
+async function seedAccount(page: Page) {
+  await page.evaluate(() => localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null,
+    operators: ['Surtr', 'Eyjafjalla', 'Amiya'], skins: ['char_002_amiya@winter#1'], cleared: [] })));
+  await page.reload();
+}
+
 /** An interaction that puts new controls on screen: a dialog, a tab, a disclosure. */
 export interface CensusState { id: string; route: string; act: (page: Page) => Promise<void> }
 
@@ -171,6 +178,10 @@ export const CENSUS_STATES: CensusState[] = [
   // r10 x-buttons: dialogs whose close became the borderless × (XButton). The planner's goal
   // dialog had a 44px-wide glyph box stretched to its head's height; as a square it sat 6px
   // above the steps beside it until placed on the head's centre line.
+  // The Owned / Not owned chips (components/account/OwnedFilter) lit, on an imported account
+  // (lib/account/accountStore): drawn for everyone, enabled only with an import.
+  { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: 'Owned', exact: true }).click(); } },
+  { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: 'Not owned', exact: true }).click(); } },
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
   // The Export / import dialog with the game sign-in open (components/account-import/GameSignIn):
   // a login a past import kept (lib/account-import/savedLogin, never used here), two fields and

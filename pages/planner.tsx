@@ -35,6 +35,7 @@ import { bundleFilename, describeTransfer, formatBundle, parseTransfer, type Par
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
 import { checkImportAliases, unheldSummary } from '@/lib/planner/foreignImport';
 import { checkGameAccountMap, readGameAccount } from '@/lib/planner/gameAccount';
+import { accountFromGame, writeAccount } from '@/lib/account/accountStore';
 import GameSignIn from '@/components/account-import/GameSignIn';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { hasFilePicker, hasFolderPicker, loadFromFile, saveToFile, showFolder } from '@/lib/planner/fileTransfer';
@@ -636,6 +637,8 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   /** A Global account, read by the sign-in in this dialog (components/account-import):
    *  the game's roster and depot replace the planner's, through the same door as a file. */
   function applyGameAccount(user: Record<string, any>) {
+    // What the account owns, for every page that filters by it (the roster, the skins).
+    writeAccount(accountFromGame(user, gameAccountMap));
     const { roster: owned, depot: held, unknown } = readGameAccount(user, gameAccountMap, importAliases, depotCatalogue);
     applyParsed({ depot: held, roster: owned, goals: null, crafting: null, shape: 'game', unheld: unknown });
   }

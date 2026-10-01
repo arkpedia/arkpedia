@@ -23,6 +23,8 @@ import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
+import OwnedFilter from '@/components/account/OwnedFilter';
+import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
 interface Props {
@@ -45,6 +47,11 @@ export default function OperatorsIndex({ operators, now }: Props) {
   const [classFilter, setClassFilter] = useQueryState('class', 'all');
   const [branchFilter, setBranchFilter] = useQueryState('branch', 'all');
   const [factionFilter, setFactionFilter] = useQueryState('faction', 'all');
+  // Owned or not, by the imported account (lib/account/accountStore); ignored without one.
+  const [ownedRaw, setOwned] = useQueryState('owned', 'all');
+  const owned = ownedFilter(ownedRaw);
+  const account = useAccount();
+  const ownedNames = useMemo(() => new Set(account?.operators ?? []), [account]);
   // A shared URL can carry anything ("?dir=banana") -- narrow the raw
   // strings back to the two values each of these actually has, so the
   // sort logic below never sees garbage.
@@ -152,6 +159,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
     if (factionFilter !== 'all') {
       list = list.filter((op) => operatorBelongsToFaction(op, factionFilter));
     }
+    if (account && owned !== 'all') list = list.filter((op) => ownedNames.has(op.name) === (owned === 'owned'));
     if (search.trim()) {
       list = list.filter((op) => matchesSearch(op.name, search));
     }
@@ -224,7 +232,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
       if (ra !== rb) return sortDir === 'desc' ? rb - ra : ra - rb;
       return a.name.localeCompare(b.name);
     });
-  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, search, sortDir, sortField, clock]);
+  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, search, sortDir, sortField, clock, account, owned, ownedNames]);
 
   function resetFilters() {
     setSearch('');
@@ -407,6 +415,8 @@ export default function OperatorsIndex({ operators, now }: Props) {
           >
             Show CN
           </button>
+
+          <OwnedFilter label="Operators you own" value={owned} onChange={setOwned} account={account} />
 
           <SegmentedControl label="Sort by" value={sortField === 'releaseDate' ? 'releaseDate' : 'rarity'}
             options={[{ value: 'rarity', label: 'Rarity' }, { value: 'releaseDate', label: 'Release date' }]}
