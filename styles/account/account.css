@@ -94,13 +94,17 @@
 .account-card-support { position: relative; flex: 0 1 92px; min-width: 0; aspect-ratio: 1; outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: -1px; background: rgba(0, 0, 0, 0.35); }
 .account-card-support-icon { width: 100%; height: 100%; display: block; }
 /* The portrait is 1:2, the game's crop of the operator; the tile shows its head and shoulders. */
-.account-card-support-portrait { object-fit: cover; object-position: 50% 0; }
+/* The game crops it a tenth of the tile lower than the top (compared against an in-game card,
+   2026-10-02): the face sits where it does there, and a tall horn or hood runs off the top. */
+.account-card-support-portrait { object-fit: cover; object-position: 50% 10%; }
 .account-card-support-level { position: absolute; left: 0; top: 0; display: grid; padding: 4px 6px 8px 5px; background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), transparent 85%); font: 600 15px var(--font-display); line-height: 1; color: var(--scrim-ink); }
 .account-card-support-level small { font-size: 9px; font-weight: 400; }
 /* The elite mark in the top corner, and the Mastery 3 badge under it, as the game stacks them. */
-.account-card-support-marks { position: absolute; right: 4px; top: 4px; display: grid; justify-items: center; gap: 2px; }
-.account-card-support-elite { width: 22px; height: auto; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
-.account-card-support-mastery { width: 20px; height: auto; }
+/* Placed in fractions of the tile, as the game's card is measured: the elite mark in the top
+   corner, a fifth of the tile wide, and the M3 badge centred under it a third of the way down. */
+.account-card-support-marks { position: absolute; inset: 0; pointer-events: none; }
+.account-card-support-elite { position: absolute; right: 4%; top: 6%; width: 22%; height: auto; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
+.account-card-support-mastery { position: absolute; right: 5.5%; top: 31%; width: 19%; height: auto; }
 .account-card-medal-box { justify-items: center; }
 .account-card-medals { --medal-unit: 8px; position: relative; max-width: 100%; }
 .account-card-medals img { position: absolute; height: auto; }
