@@ -10,8 +10,9 @@ runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
 - **Set**: the jobs run on the self-hosted runners that carry that label. Two are
   registered, to this repository only:
   - `truenas` and `truenas-2` (labels `arkpedia-nas`, `arkpedia-self`): two containers on a
-    maintainer's NAS, 4 of its 8 cores and 6 GB each, so two jobs run at once instead of
-    queueing (since 2026-10-02; one runner had every job wait behind every other).
+    maintainer's NAS, 6 GB and up to 6 of its 8 cores each, so two jobs run at once instead of
+    queueing (since 2026-10-02; one runner had every job wait behind every other). One Check
+    alone takes about 15 minutes; two at once share the cores.
   - `hetzner-vps` (labels `arkpedia-vps`, `arkpedia-self`): a maintainer's VPS, 2 vCPUs,
     about 3 GB. A full Check takes about 19 minutes.
 

@@ -26,7 +26,8 @@ python3 infra/runners/nas/gen-compose.py   # writes compose.yaml from Dockerfile
 - **Compose:**
   - read-only root and tmpfs `/tmp`;
   - public DNS;
-  - 6 GB and 4 CPUs each, low CPU shares, and two browser workers each (`PW_WORKERS=2`).
+  - 6 GB each and up to 6 CPUs each (a cap, so one Check alone runs at full speed and two
+    share the eight cores), low CPU shares, and three browser workers each (`PW_WORKERS=3`).
     A full Check fits in 6 GB, measured in this container on 2026-10-02;
   - each runner's home is a bind-backed volume on its own dataset with a quota
     (`RUNNER_HOME_DIR`, `RUNNER2_HOME_DIR`).

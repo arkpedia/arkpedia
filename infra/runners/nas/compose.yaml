@@ -181,12 +181,15 @@ x-runner: &runner
     net.ipv6.conf.all.disable_ipv6: 1
     net.ipv6.conf.default.disable_ipv6: 1
   shm_size: 1gb
-  # Two of these share an 8-core, 32 GB NAS with its own apps: 4 CPUs and 6 GB each, and two
-  # browser workers each (PW_WORKERS, read by playwright.config.ts; the runner hands its
-  # environment to the jobs). One full Check fits in 6 GB (measured in this container).
+  # Two of these share an 8-core, 32 GB NAS with its own apps. `cpus` is a cap, not a
+  # reservation: a Check running alone may use 6 cores, as the one runner did, and two running
+  # at once share the eight (cpu_shares keeps the NAS's apps first). At 4 each, a lone Check
+  # took 20 minutes instead of 15 (2026-10-02). Three browser workers each (PW_WORKERS, read by
+  # playwright.config.ts; the runner hands its environment to the jobs). 6 GB each: a full
+  # Check fits, measured in this container at these limits (the browser tests peaked at 4 GB).
   mem_limit: 6g
   memswap_limit: 6g
-  cpus: 4
+  cpus: 6
   cpu_shares: 512
   pids_limit: 4096
   logging:
@@ -202,7 +205,7 @@ services:
       RUNNER_TOKEN: ${RUNNER_TOKEN:-}
       RUNNER_NAME: ${RUNNER_NAME:-truenas}
       RUNNER_LABELS: ${RUNNER_LABELS:-arkpedia-nas}
-      PW_WORKERS: "2"
+      PW_WORKERS: "3"
     volumes:
       - runner-home:/home/runner
   runner-2:
@@ -212,7 +215,7 @@ services:
       RUNNER_TOKEN: ${RUNNER2_TOKEN:-}
       RUNNER_NAME: ${RUNNER2_NAME:-truenas-2}
       RUNNER_LABELS: ${RUNNER_LABELS:-arkpedia-nas}
-      PW_WORKERS: "2"
+      PW_WORKERS: "3"
     volumes:
       - runner-home-2:/home/runner
 volumes:
