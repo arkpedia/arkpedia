@@ -640,3 +640,32 @@ test.describe('/planner shortfall (r10)', () => {
     }
   });
 });
+
+/* "the base so it only uses operators you actually have (you can still manually add operators
+   you don't have or adjust the level of operators you have for the base for future planning)"
+   (maintainer, 2026-10-01): with an import, a room's picker lists the account's operators,
+   placed at the elite the planner's roster has them at, and "Not owned too" adds the rest. */
+test('with an import, the base room picker offers the owned operators at their own elite', async ({ page }) => {
+  await page.goto('/base');
+  await page.evaluate(() => {
+    localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null,
+      operators: ['Texas', 'Lappland', 'Exusiai', 'Proviso'], skins: [], cleared: [] }));
+    const owned = (elite: number) => ({ elite, level: 1, skillLevel: 1, masteries: {} });
+    localStorage.setItem('plannerRoster', JSON.stringify({ Texas: owned(1), Lappland: owned(2), Exusiai: owned(0), Proviso: owned(2) }));
+  });
+  await page.reload();
+  await page.locator('.base-setup-preset-card').first().click();
+  await page.getByRole('button', { name: 'Begin Simulation' }).click();
+  await page.locator('.base-facility:not(.base-facility-unbuilt)').nth(2).click();
+  await page.locator('.base-slot').first().click();
+  await expect(page.getByRole('button', { name: 'Your elite', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const names = await page.locator('.base-room-card .base-room-card-name').allTextContents();
+  expect(names.sort()).toEqual(['Exusiai', 'Lappland', 'Proviso', 'Texas']);
+  // Texas is at Elite 1 in the roster, so that is where she lands.
+  await page.locator('.base-room-card', { hasText: 'Texas' }).click();
+  await expect(page.locator('.base-room-card', { hasText: 'Texas' }).locator('.base-room-card-number')).toHaveText(/E1$/);
+  // Planning ahead: the rest of the roster, each marked as not owned.
+  await page.getByRole('button', { name: 'Not owned too', exact: true }).click();
+  expect(await page.locator('.base-room-card').count()).toBeGreaterThan(50);
+  await expect(page.locator('.base-room-card', { hasText: 'Amiya' }).first().locator('.base-op-unowned-tag')).toHaveText('Not owned');
+});

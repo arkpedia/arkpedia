@@ -225,6 +225,13 @@
   font-size: 9px;
   color: var(--amber);
 }
+/* An operator the imported account does not have, listed with "Not owned too" to plan ahead. */
+.base-op-unowned-tag {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+}
 .base-sidebar-empty {
   padding: 12px 4px;
   line-height: 1.5;

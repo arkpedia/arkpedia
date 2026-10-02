@@ -38,6 +38,8 @@ import { BaseAssignments, FactoryProduct, FactoryProducts, DormitoryAmbience, Sl
 import { calcProductivity, calcCapacity, calcCapacityPerOperator, calcOrderLimit, calcMorale, calcClueSpeed, calcReceptionRoomBaseSpeed, receptionRoomBaseContribution, calcDroneRate, calcFullTime, calcDeadTime, calcDailyProduction, calcControlCenterEffects, clueCollectionBonusFrom, calcControlCenterMoraleRelief, calcOffice, calcTradingPostFullTime, calcTradingPostGoldPerHourStandardized, calcTradingPostGoldAndLmdPerHour, formatHours, ControlCenterEffects, calcGreyProductivity, factoryYellowContribution, tradingPostYellowContribution, calcDormitoryRecovery, defaultDormitoryAmbience, dormitoryAmbienceCap } from '@/lib/base/baseProductivity';
 import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from '@/lib/base/factorySpecialSkills';
 import { checkBaseRosters, toBaseRosters, type BaseRosterData } from '@/lib/base/baseGroupRosters';
+import { useAccount } from '@/lib/account/accountStore';
+import { readRoster, ROSTER_EVENT } from '@/lib/planner/roster';
 import { DORMITORY_SPECIAL_SKILLS, DORMITORY_PREFERRED_TARGET } from '@/lib/base/dormitorySpecialSkills';
 import { RECEPTION_ROOM_SPECIAL_SKILLS, ReceptionRoomContext } from '@/lib/base/receptionRoomSpecialSkills';
 import { POWER_PLANT_SPECIAL_SKILLS } from '@/lib/base/powerPlantSpecialSkills';
@@ -192,7 +194,33 @@ export default function BasePage({ operators }: Props) {
   const [moraleAbove12, setMoraleAbove12] = useState(true);
   const [swapPolicy, setSwapPolicy] = useState<SwapPolicy>('onMoraleZero');
   const [showResourceSettings, setShowResourceSettings] = useState(false);
-  const [roomPanelEliteLevel, setRoomPanelEliteLevel] = useState<'Base' | 'Elite 1' | 'Elite 2'>('Base');
+  const [roomPanelEliteLevel, setRoomPanelEliteLevel] = useState<'Yours' | 'Base' | 'Elite 1' | 'Elite 2'>('Base');
+  /* With an imported account (lib/account/accountStore) the room picker offers the operators
+     the reader owns, placed at the elite they are at in the planner's roster (which the import
+     fills): 'Yours'. Planning ahead is still a click away -- "Not owned too" adds the rest,
+     and a placed operator's elite is changed on their chip. */
+  const account = useAccount();
+  const ownedOperators = useMemo(() => (account ? new Set(account.operators) : null), [account]);
+  const [includeUnowned, setIncludeUnowned] = useState(false);
+  const [rosterElite, setRosterElite] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const read = () => setRosterElite(Object.fromEntries(Object.entries(readRoster()).map(([name, owned]) => [name, owned.elite])));
+    read();
+    window.addEventListener(ROSTER_EVENT, read);
+    window.addEventListener('storage', read);
+    return () => { window.removeEventListener(ROSTER_EVENT, read); window.removeEventListener('storage', read); };
+  }, []);
+  // Once an import is there, picks land at the reader's own elite unless they choose otherwise.
+  const eliteDefaulted = useRef(false);
+  useEffect(() => {
+    if (account && !eliteDefaulted.current) { eliteDefaulted.current = true; setRoomPanelEliteLevel('Yours'); }
+  }, [account]);
+  /** The elite a pick of this operator lands at: the tab's, or with 'Yours' the roster's (an
+   *  operator the reader does not own, added for planning, at Elite 0). */
+  function pickElite(name: string): 'Base' | 'Elite 1' | 'Elite 2' {
+    if (roomPanelEliteLevel !== 'Yours') return roomPanelEliteLevel;
+    return (['Base', 'Elite 1', 'Elite 2'] as const)[ownedOperators?.has(name) ? Math.min(2, Math.max(0, rosterElite[name] ?? 0)) : 0];
+  }
   const [statsPeriod, setStatsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
   const STATS_PERIOD_MULTIPLIER: Record<typeof statsPeriod, number> = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
 
@@ -3233,7 +3261,8 @@ export default function BasePage({ operators }: Props) {
   }
   const roomOperatorRows: RoomOperatorRow[] = facility
     ? (() => {
-        const searched = operators.filter((op) => op.name.toLowerCase().includes(search.trim().toLowerCase()));
+        const searched = operators.filter((op) => op.name.toLowerCase().includes(search.trim().toLowerCase())
+          && (!ownedOperators || includeUnowned || ownedOperators.has(op.name)));
         const facilitySlots = assignments[facility.id] || [];
         // Everyone already working in some OTHER facility. They stay in the
         // list -- you may well want to move one -- but they belong at the
@@ -3254,8 +3283,8 @@ export default function BasePage({ operators }: Props) {
              what kept the run legible: switching to Elite 2 to shop no longer
              silently rewrites what the people already in the room appear as. */
           const eliteForRow = slotIndex !== -1
-            ? (facilitySlots[slotIndex]?.eliteLevel ?? roomPanelEliteLevel)
-            : roomPanelEliteLevel;
+            ? (facilitySlots[slotIndex]?.eliteLevel ?? pickElite(op.name))
+            : pickElite(op.name);
           let skills = combinedSkillsForElite(op, facility.label, eliteForRow);
           if (facility.kind === 'factory' && selectedProduct) {
             skills = skills.filter((sk) => {
@@ -3793,7 +3822,7 @@ export default function BasePage({ operators }: Props) {
                         {/* This sets what the NEXT pick lands as -- never what the
                             placed ones are. Their elite lives on their chip below. */}
                         <span className="base-room-elite-label">Place at</span>
-                        {(['Base', 'Elite 1', 'Elite 2'] as const).map((lvl) => (
+                        {([...(account ? ['Yours' as const] : []), 'Base', 'Elite 1', 'Elite 2'] as const).map((lvl) => (
                           <button
                             key={lvl}
                             type="button"
@@ -3801,10 +3830,16 @@ export default function BasePage({ operators }: Props) {
                             aria-pressed={roomPanelEliteLevel === lvl}
                             onClick={() => setRoomPanelEliteLevel(lvl)}
                           >
-                            {lvl === 'Base' ? 'Elite 0' : lvl}
+                            {lvl === 'Base' ? 'Elite 0' : lvl === 'Yours' ? 'Your elite' : lvl}
                           </button>
                         ))}
                       </div>
+                      {account && (
+                        <button type="button" className="filter-chip" aria-pressed={includeUnowned} onClick={() => setIncludeUnowned(!includeUnowned)}
+                          title="Also list the operators your imported account does not have, to plan ahead.">
+                          Not owned too
+                        </button>
+                      )}
                     </div>
 
                     {facility.kind === 'factory' && (
@@ -3823,6 +3858,7 @@ export default function BasePage({ operators }: Props) {
                     )}
 
                     <p className="hint base-room-panel-hint">
+                      {account ? 'The operators your imported account has, at the Elite they are at (Your elite). ' : ''}
                       Pick an operator to place them in the next open slot at the Elite chosen above; pick them again
                       to remove. Everyone already placed keeps their own Elite &mdash; shown and changed on their chip
                       below. Order matters in facilities like the Dormitory, where slot #1 gets priority.
@@ -3845,12 +3881,12 @@ export default function BasePage({ operators }: Props) {
                             tabIndex={0}
                             aria-pressed={selected}
                             className={`base-room-card${selected ? ' selected' : ''}${!selected && roomFull ? ' disabled' : ''}`}
-                            onClick={() => toggleRoomOperator(facilityId, op.name, roomPanelEliteLevel)}
+                            onClick={() => toggleRoomOperator(facilityId, op.name, pickElite(op.name))}
                             onKeyDown={(e) => {
                               if (e.target !== e.currentTarget) return;
                               if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
-                                toggleRoomOperator(facilityId, op.name, roomPanelEliteLevel);
+                                toggleRoomOperator(facilityId, op.name, pickElite(op.name));
                               }
                             }}
                           >
@@ -3883,7 +3919,7 @@ export default function BasePage({ operators }: Props) {
                               );
                             })() : (
                               <span className="hint base-room-card-noskill">
-                                No {roomPanelEliteLevel === 'Base' ? 'Elite 0' : roomPanelEliteLevel} skill here
+                                No {pickElite(op.name) === 'Base' ? 'Elite 0' : pickElite(op.name)} skill here
                               </span>
                             )}
                             {needsManualValue && (
@@ -3896,6 +3932,7 @@ export default function BasePage({ operators }: Props) {
                                 onChange={(e) => setManualValue(facilityId, slotIndex, Number(e.target.value))}
                               />
                             )}
+                            {ownedOperators && !ownedOperators.has(op.name) && <span className="base-op-unowned-tag">Not owned</span>}
                             {placedElsewhere && (
                               <span className="base-op-placed-tag">In {FACILITIES.find((f) => f.id === placedElsewhere)?.label}</span>
                             )}
@@ -3947,7 +3984,7 @@ export default function BasePage({ operators }: Props) {
                                     className="base-room-team-x"
                                     label={`Remove ${op.name}`}
                                     title={`Remove ${op.name}`}
-                                    onClick={() => toggleRoomOperator(facility.id, op.name, roomPanelEliteLevel)}
+                                    onClick={() => toggleRoomOperator(facility.id, op.name, pickElite(op.name))}
                                   />
                                 </div>
                               );
