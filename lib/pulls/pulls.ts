@@ -130,10 +130,13 @@ export interface PastEvent {
   op: number;
   stages: string[];
   stageCodes: string[];
+  /** When it opened on Global, as a day ("" when unknown): the order events are listed in. */
+  start: string;
 }
 
-/** One first clear the reader can tick off: a resource stage or an Annihilation map. */
-export interface FirstClear { id: string; name: string; amount: number }
+/** One first clear the reader can tick off: a resource stage or an Annihilation map. A
+ *  permanent Annihilation pays no Orundum (amount 0) but Distinction Certificates (`certs`). */
+export interface FirstClear { id: string; name: string; amount: number; certs?: number }
 
 /**
  * The back catalogue, as the page's content release has it.
@@ -149,33 +152,38 @@ export interface BacklogSources {
   chapters: WithStageIds<Chapter>[];
   originiteByStageType: Record<string, number>;
   annihilationOrundum: number;
-  playable: WithStageIds<Pick<PastEvent, 'id' | 'name' | 'op' | 'stages' | 'stageCodes'>>[];
+  playable: (WithStageIds<Pick<PastEvent, 'id' | 'name' | 'op' | 'stages' | 'stageCodes'>> & { start?: string })[];
   resources: FirstClear[];
   annihilation: FirstClear[];
 }
 
 /** `stages` and `stageCodes` are absent from a release exported by code from before they were
- *  kept (the nightly release is compiled by main's code, so dev met one), and fillStageIds can
+ *  kept (the nightly release is compiled by main's code, so dev met one), and fillFromDeployment can
  *  only fill an item the deployment also knows. */
 type WithStageIds<T extends { stages: string[]; stageCodes: string[] }> = Omit<T, 'stages' | 'stageCodes'> & { stages?: string[]; stageCodes?: string[] };
 
 /**
- * The release's back catalogue with each chapter's and event's stage ids filled in, by id,
- * from the deployment's own copy where the release has none. The release's list stays the
- * list: the deployment's lags every Global event until a redeploy.
+ * The release's back catalogue with what an older release lacks filled in from the
+ * deployment's own copy: each chapter's and event's stage ids and codes, each event's start
+ * date, and the Annihilation maps it does not list (the permanent three, which pay
+ * certificates rather than Orundum). The release's chapters and events stay the list: the
+ * deployment's lags every Global event until a redeploy.
  */
-export function fillStageIds(release: BacklogSources, deployment: BacklogSources): BacklogSources {
-  const known = new Map([...deployment.chapters, ...deployment.playable].map((item) => [item.id, item]));
+export function fillFromDeployment(release: BacklogSources, deployment: BacklogSources): BacklogSources {
+  const known = new Map<string, { stages?: string[]; stageCodes?: string[]; start?: string }>([...deployment.chapters, ...deployment.playable].map((item) => [item.id, item]));
   /* The codes go with the ids they were written for: a release's own ids keep codes only from
      a deployment entry with the very same ids. */
-  const fill = <T extends { id: string; stages?: string[]; stageCodes?: string[] }>(item: T): T => {
-    if (item.stages && item.stageCodes?.length === item.stages.length) return item;
+  const fill = <T extends { id: string; stages?: string[]; stageCodes?: string[]; start?: string }>(item: T): T => {
     const same = known.get(item.id);
+    const start = item.start || same?.start;
+    if (item.stages && item.stageCodes?.length === item.stages.length) return start === item.start ? item : { ...item, start };
     const stages = item.stages ?? same?.stages;
     const stageCodes = same?.stages && stages && same.stages.join() === stages.join() ? same.stageCodes : undefined;
-    return { ...item, stages, stageCodes };
+    return { ...item, stages, stageCodes, ...(start ? { start } : {}) };
   };
-  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill) };
+  const listed = new Set(release.annihilation.map((map) => map.id));
+  const annihilation = [...release.annihilation, ...deployment.annihilation.filter((map) => !listed.has(map.id))].sort((a, b) => a.id.localeCompare(b.id));
+  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation };
 }
 
 /** The labels a reader knows these by; the gamedata's own words are internal. */

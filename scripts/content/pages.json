@@ -8,6 +8,7 @@
   "/pulls",
   "/account",
   "/skin-planner",
+  "/free-op",
   "/schedule",
   "/events/[slug]",
   "/enemies",

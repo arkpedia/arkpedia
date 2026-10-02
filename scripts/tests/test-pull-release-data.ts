@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserImports, pages, pathToTarget } from './browser-graph';
 import eventRewards from '../../data/pull-event-rewards.json';
-import { backlogFromAccount, bannerHaul, fillStageIds, remainingBacklog, unclaimedBacklog, type BacklogSources } from '../../lib/pulls/pulls';
+import { backlogFromAccount, bannerHaul, fillFromDeployment, remainingBacklog, unclaimedBacklog, type BacklogSources } from '../../lib/pulls/pulls';
 import { resolvePullEventSchedule } from '../../lib/pulls/schedule';
 import type { getAllEvents } from '../../lib/schedule/schedule';
 
@@ -96,13 +96,13 @@ test('a release from before stage ids were kept takes them from the deployment, 
   const strip = <T extends { stages?: string[]; stageCodes?: string[] }>({ stages: _, stageCodes: __, ...item }: T) => item;
   const extra = { id: 'act99new', name: 'Newer than the deploy', op: 30 };
   const release: BacklogSources = { ...bundled, chapters: bundled.chapters.map(strip), playable: [...bundled.playable.map(strip), extra] };
-  const filled = fillStageIds(release, bundled);
+  const filled = fillFromDeployment(release, bundled);
   assert.deepEqual(filled.chapters[0].stages, bundled.chapters[0].stages);
   assert.deepEqual(filled.playable[0].stages, bundled.playable[0].stages);
   // The codes come with them, one per id; a release whose own ids differ keeps none.
   assert.deepEqual(filled.chapters[0].stageCodes, bundled.chapters[0].stageCodes);
   assert.equal(filled.chapters[0].stageCodes!.length, filled.chapters[0].stages!.length);
-  const renamed = fillStageIds({ ...release, chapters: [{ ...release.chapters[0], stages: ['other_01'] }] }, bundled);
+  const renamed = fillFromDeployment({ ...release, chapters: [{ ...release.chapters[0], stages: ['other_01'] }] }, bundled);
   assert.equal(renamed.chapters[0].stageCodes, undefined);
   assert.equal(filled.playable.at(-1)!.stages, undefined);
   const cleared = new Set([...bundled.chapters[0].stages!, ...bundled.playable[0].stages!]);
@@ -136,3 +136,29 @@ test('the bundled back catalogue names every Originite stage by its code, Challe
   assert.ok(prologue.stageCodes!.includes('0-1 CM'));
 });
 
+
+test('an older release takes each event\'s start date and the permanent Annihilations from the deployment', () => {
+  const deployment: BacklogSources = {
+    ...bundled,
+    playable: bundled.playable.map((event) => ({ ...event, start: '2023-04-14' })),
+    annihilation: [{ id: 'annihilation:camp_03', name: 'Lungmen Downtown', amount: 0, certs: 30 }, ...bundled.annihilation],
+  };
+  const filled = fillFromDeployment(bundled, deployment);
+  assert.equal(filled.playable[0].start, '2023-04-14');
+  assert.deepEqual(filled.annihilation.map((map) => map.id), ['annihilation:camp_03', 'annihilation:camp_r_01']);
+  // A permanent map pays certificates, not Orundum: the Orundum left is unchanged.
+  const none = new Set<string>();
+  assert.equal(remainingBacklog(filled, none, none, false).annihilationOrundum, remainingBacklog(bundled, none, none, false).annihilationOrundum);
+});
+
+test('the claimed rewards are read back only when whole, and start from the ticks the pull plan held', async () => {
+  const { parsePastProgress } = await import('../../lib/pulls/pastProgress');
+  assert.deepEqual(parsePastProgress(JSON.stringify({ doneKeys: ['main_01', 'main_01'], doneEvents: ['act_old'], annihilationDone: true, ticksFrom: '2026-10-02T12:00:00.000Z' })),
+    { doneKeys: ['main_01'], doneEvents: ['act_old'], annihilationDone: true, ticksFrom: '2026-10-02T12:00:00.000Z' });
+  // The pull plan's own fields read as the same record (the first read migrates them).
+  assert.deepEqual(parsePastProgress(JSON.stringify({ version: 1, orundum: '', doneKeys: ['main_02'], doneEvents: [], annihilationDone: false, goals: [] })),
+    { doneKeys: ['main_02'], doneEvents: [], annihilationDone: false, ticksFrom: '' });
+  for (const broken of [null, '', '{', '[]', JSON.stringify({ doneKeys: 'main_01', doneEvents: [] }), JSON.stringify({ doneKeys: [1], doneEvents: [] })]) {
+    assert.equal(parsePastProgress(broken), null, String(broken));
+  }
+});

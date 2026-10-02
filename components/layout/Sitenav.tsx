@@ -9,6 +9,8 @@ import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import { GROUPS, LOOSE, isActiveLink, type NavLink } from '@/lib/nav/navLinks';
+import { useAccount } from '@/lib/account/accountStore';
+import { storyAI } from '@/lib/account/prts';
 
 /**
  * A game icon drawn in the current text colour.
@@ -119,6 +121,13 @@ export const ICONS: Record<string, JSX.Element> = {
       <path d="M13 4.5H17.5V9" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  // Originite Prime's cut stone: the Free OP Tracker.
+  prime: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 2.5L16.5 8L10 17.5L3.5 8Z" strokeLinejoin="round" />
+      <path d="M3.5 8H16.5M7.5 8L10 17.5L12.5 8M7.5 8L10 2.5L12.5 8" strokeLinejoin="round" />
+    </svg>
+  ),
   calculator: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <rect x="4" y="2.5" width="12" height="15" rx="1.5" />
@@ -151,6 +160,8 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
   /* Which menu is open, by label, or null. One at a time: opening a second closes the
      first, the way a menu bar has always worked. */
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  // The reader's own menu is named after their story's AI (lib/account/prts.ts).
+  const account = useAccount();
 
   /**
    * The nav's height, published for sticky page furniture to sit below.
@@ -241,20 +252,21 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
 
           <div className="site-nav-links">
             {GROUPS.map((group) => {
-              const open = openMenu === group.label;
+              const open = openMenu === group.id;
+              const label = group.id === 'own' ? storyAI(account) : group.label;
               /* The menu lights when the page being read is one of its own. */
               const holdsCurrent = group.items.some((l) => isActiveLink(l, router.pathname));
               return (
-                <div key={group.label} className="site-nav-menu">
+                <div key={group.id} className="site-nav-menu">
                   <button
                     type="button"
-                    data-menu={group.label}
+                    data-menu={group.id}
                     className={`site-nav-trigger${holdsCurrent ? ' active' : ''}${open ? ' open' : ''}`}
                     aria-haspopup="menu"
                     aria-expanded={open}
-                    onClick={() => setOpenMenu(open ? null : group.label)}
+                    onClick={() => setOpenMenu(open ? null : group.id)}
                   >
-                    {group.label}
+                    {label}
                     <svg className="site-nav-chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="11" height="11" aria-hidden="true">
                       <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -262,7 +274,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
                   {/* Absolutely positioned, never in flow: a panel that pushed the page
                       down would be the layout shift this rework exists to remove. */}
                   {open && (
-                    <div className="site-nav-pop" role="menu" aria-label={group.label}>
+                    <div className="site-nav-pop" role="menu" aria-label={label}>
                       {group.items.map((l) => renderLink(l, 'site-nav-popitem'))}
                     </div>
                   )}

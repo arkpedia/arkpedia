@@ -246,6 +246,9 @@ function eventBreakdown() {
     /** Each of those stages' code as the game shows it, in the same order. */
     stageCodes: string[];
     codes: Record<string, string>;
+    /** When it opened on Global (activity_table basicInfo.startTime), as a day: the order the
+     *  Free OP Tracker lists events in. */
+    start: string;
   }
   const events = new Map<string, Ev>();
   for (const file of fs.readdirSync(STAGES)) {
@@ -282,6 +285,7 @@ function eventBreakdown() {
         stages: [],
         stageCodes: [],
         codes: {},
+        start: basicInfo[ev.id]?.startTime ? new Date(basicInfo[ev.id]!.startTime! * 1000).toISOString().slice(0, 10) : '',
       });
     }
     if ((rec.drops ?? []).some((d) => d.item?.id === ORIGINITE_PRIME)) {
@@ -695,6 +699,9 @@ function upcomingBanners(
   return out.sort((a, b) => a.start.localeCompare(b.start));
 }
 
+/** Distinction Certificate, the yellow one. */
+const DISTINCTION = '4004';
+
 function orundumFromAnnihilation() {
   if (!fs.existsSync(CAMPAIGN)) {
     throw new Error(
@@ -708,16 +715,20 @@ function orundumFromAnnihilation() {
     campaigns: Record<string, { breakLadders?: { rewards?: { id: string; count: number }[] }[] }>;
   };
   const maps: { id: string; orundum: number }[] = [];
+  /* The three permanent maps (Chernobog, Lungmen Outskirts and Downtown) pay no Orundum: their
+     kill-count rewards are LMD, battle records and certificates. Listed by their Distinction
+     Certificates, so the tracker shows every Annihilation the game has. */
+  const certMaps: { id: string; certs: number }[] = [];
   let total = 0;
   for (const [id, camp] of Object.entries(table.campaigns || {})) {
-    const orundum = (camp.breakLadders ?? [])
-      .flatMap((l) => l.rewards ?? [])
-      .filter((r) => r.id === ORUNDUM)
-      .reduce((n, r) => n + r.count, 0);
-    if (orundum > 0) { maps.push({ id, orundum }); total += orundum; }
+    const rewards = (camp.breakLadders ?? []).flatMap((l) => l.rewards ?? []);
+    const orundum = rewards.filter((r) => r.id === ORUNDUM).reduce((n, r) => n + r.count, 0);
+    const certs = rewards.filter((r) => r.id === DISTINCTION).reduce((n, r) => n + r.count, 0);
+    if (orundum > 0) { maps.push({ id, orundum }); total += orundum; } else if (certs > 0) certMaps.push({ id, certs });
   }
   maps.sort((a, b) => a.id.localeCompare(b.id));
-  return { total, maps };
+  certMaps.sort((a, b) => a.id.localeCompare(b.id));
+  return { total, maps, certMaps };
 }
 
 const events = eventBreakdown();

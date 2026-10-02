@@ -192,6 +192,14 @@
 /* The list scrolls under the dialog's header. */
 .pulls-past-body { display: grid; gap: 12px; max-height: calc(100dvh - 140px); margin: -4px -6px; padding: 4px 6px; overflow-y: auto; overscroll-behavior: contain; }
 .pulls-past-body .pulls-disclosure { margin-top: 0; }
+/* The Free OP Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
+.pulls-past-page { display: grid; gap: 12px; align-content: start; }
+.pulls-past-section h2 .pulls-note { margin-left: 10px; font-weight: 400; }
+.free-op-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.free-op-summary div { display: grid; gap: 4px; }
+.free-op-summary dt { color: var(--text-dim); font: 12px var(--font-body); }
+.free-op-summary dd { margin: 0; color: var(--text-bright); font: 600 22px var(--font-display); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .free-op-summary { grid-template-columns: 1fr 1fr; } }
 .pulls-past-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .pulls-past-row {
   display: grid;

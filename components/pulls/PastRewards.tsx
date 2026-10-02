@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import type { BacklogSources } from '@/lib/pulls/pulls';
 import { formatDayMonthYear, formatNumber } from '@/lib/pulls/format';
@@ -11,7 +11,7 @@ const SHOW = [
   { value: 'claimed', label: 'Claimed' },
 ] as const;
 
-interface Item { id: string; name: string; amount: number; stages?: string[]; stageCodes?: string[] }
+interface Item { id: string; name: string; amount: number; stages?: string[]; stageCodes?: string[]; certs?: number }
 
 /**
  * The Past events popup's contents (pages/pulls.tsx): what is left of the back catalogue,
@@ -22,19 +22,24 @@ interface Item { id: string; name: string; amount: number; stages?: string[]; st
  * item is opened. Whether any of it counts toward the forecast is the Include checkbox on
  * the frame that opens this.
  */
-export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, onKeys, onEvents, onAnnihilation, imported, cleared }: {
+export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, onKeys, onEvents, onAnnihilation, imported, cleared, layout }: {
   backlog: BacklogSources;
   doneKeys: Set<string>; doneEvents: Set<string>; annihilationDone: boolean;
   onKeys: (keys: Set<string>) => void; onEvents: (keys: Set<string>) => void; onAnnihilation: (done: boolean) => void;
   imported: { at: string } | null;
   cleared: ReadonlySet<string> | null;
+  /** 'popup': the Pull Planner's dialog, one group open at a time in a scrolling body. 'page':
+   *  the Free OP Tracker, every group a section of the page. */
+  layout: 'popup' | 'page';
 }) {
   const [open, setOpen] = useState('story');
   const [show, setShow] = useState<Show>('all');
   const [detail, setDetail] = useState<string | null>(null);
   const groups: { id: string; name: string; unit: string; items: Item[] }[] = [
     { id: 'story', name: 'Main story', unit: 'OP', items: backlog.chapters.map((c) => ({ id: c.id, name: `${c.label} · ${c.name}`, amount: c.op, stages: c.stages, stageCodes: c.stageCodes })) },
-    { id: 'events', name: 'Events', unit: 'OP', items: backlog.playable.map((e) => ({ id: e.id, name: e.name, amount: e.op, stages: e.stages, stageCodes: e.stageCodes })) },
+    // By release date, oldest first, as the chapters and the Annihilation maps are listed.
+    { id: 'events', name: 'Events', unit: 'OP', items: [...backlog.playable].sort((a, b) => (a.start || '9999').localeCompare(b.start || '9999'))
+      .map((e) => ({ id: e.id, name: e.name, amount: e.op, stages: e.stages, stageCodes: e.stageCodes })) },
     { id: 'annihilation', name: 'Annihilation', unit: 'Orundum', items: backlog.annihilation },
     { id: 'resources', name: 'Resource stages', unit: 'OP', items: backlog.resources },
   ];
@@ -58,33 +63,61 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
     if (cleared && !left.length) return <p className="hint pulls-past-detail">Every stage is cleared in your import; untick it only to count it anyway.</p>;
     return <p className="hint pulls-past-detail">{cleared ? 'Not cleared' : 'Its Originite Prime stages'} ({left.length}): {left.join(', ')}</p>;
   };
-  return <div className="pulls-past-body">
+  /* On the page, opening an item adds a line and closing it takes the line away: the list holds
+     the tallest height it has had, so closing one never shortens the page under the reader
+     (the Anti-Page Jump rule). A new filter starts afresh; the reader is at the filter then. */
+  const rootRef = useRef<HTMLDivElement>(null);
+  const floor = useRef(0);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (layout !== 'page' || !root) return;
+    const observer = new ResizeObserver(() => {
+      if (root.offsetHeight > floor.current) { floor.current = root.offsetHeight; root.style.minHeight = `${floor.current}px`; }
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [layout]);
+  const pick = (next: Show) => {
+    floor.current = 0;
+    if (rootRef.current) rootRef.current.style.minHeight = '';
+    setShow(next);
+  };
+  const left = (group: typeof groups[number]) => `${formatNumber(group.items.reduce((n, item) => n + (complete(group.id, item.id) ? 0 : item.amount), 0))} ${group.unit} left`;
+  const body = (group: typeof groups[number]) => {
+    const items = group.items.filter((item) => shown(group.id, item));
+    const staged = group.id === 'story' || group.id === 'events';
+    return <>
+      <div className="pulls-eventlist-acts"><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map((item) => item.id), true)}>All claimed</button><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map((item) => item.id), false)}>None claimed</button></div>
+      {!items.length && <p className="hint pulls-past-empty">{show === 'claimed' ? 'Nothing claimed here yet.' : 'Everything here is claimed.'}</p>}
+      {/* One row each: the tick (the .check primitive), and for a chapter or event a button
+          that names the stages left. */}
+      <ul className="pulls-past-list" aria-label={`${group.name}: claimed`}>{items.map((item) => {
+        const key = `${group.id}:${item.id}`;
+        const done = complete(group.id, item.id);
+        return <li key={item.id} className={`pulls-past-row${done ? ' on' : ''}`}>
+          <label className="check pulls-past-check"><input type="checkbox" checked={done} onChange={(event) => setCompleted(group, [item.id], event.target.checked)} /><span className="visually-hidden">{item.name}: claimed</span></label>
+          {staged
+            ? <button type="button" className="btn-bare pulls-past-name" aria-expanded={detail === key} onClick={() => setDetail(detail === key ? null : key)}>{item.name}</button>
+            : <span className="pulls-past-name">{item.name}</span>}
+          <span className="pulls-past-amount">{done ? '✓' : item.certs && !item.amount ? `${item.certs} yellow certs` : `${formatNumber(item.amount)} ${group.unit}`}</span>
+          {staged && detail === key && stagesLeft(group.id, item)}
+        </li>;
+      })}</ul>
+    </>;
+  };
+  return <div ref={rootRef} className={layout === 'page' ? 'pulls-past-page' : 'pulls-past-body'}>
     {imported
       ? <p className="hint">Ticked from your account, imported {formatDayMonthYear(imported.at.slice(0, 10))}. Change any tick to adjust it; <Link href="/account">import again</Link> to tick them afresh.</p>
       : <p className="hint">Tick what you have done, or <Link href="/account">import your account</Link> to tick it for you.</p>}
-    <SegmentedControl label="Show" value={show} options={SHOW} onChange={setShow} />
-    {groups.map((group) => {
-      const items = group.items.filter((item) => shown(group.id, item));
-      const staged = group.id === 'story' || group.id === 'events';
-      return <details className="pulls-disclosure" key={group.id} open={open === group.id}>
-        <summary onClick={(event) => { event.preventDefault(); setOpen((previous) => (previous === group.id ? '' : group.id)); }}>{group.name}<span className="hint pulls-note">{formatNumber(group.items.reduce((n, item) => n + (complete(group.id, item.id) ? 0 : item.amount), 0))} {group.unit} left</span></summary>
-        <div className="pulls-eventlist-acts"><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map((item) => item.id), true)}>All claimed</button><button type="button" className="ghost btn-sm" onClick={() => setCompleted(group, group.items.map((item) => item.id), false)}>None claimed</button></div>
-        {!items.length && <p className="hint pulls-past-empty">{show === 'claimed' ? 'Nothing claimed here yet.' : 'Everything here is claimed.'}</p>}
-        {/* One row each: the tick (the .check primitive), and for a chapter or event a button
-            that names the stages left. */}
-        <ul className="pulls-past-list" aria-label={`${group.name}: claimed`}>{items.map((item) => {
-          const key = `${group.id}:${item.id}`;
-          const done = complete(group.id, item.id);
-          return <li key={item.id} className={`pulls-past-row${done ? ' on' : ''}`}>
-            <label className="check pulls-past-check"><input type="checkbox" checked={done} onChange={(event) => setCompleted(group, [item.id], event.target.checked)} /><span className="visually-hidden">{item.name}: claimed</span></label>
-            {staged
-              ? <button type="button" className="btn-bare pulls-past-name" aria-expanded={detail === key} onClick={() => setDetail(detail === key ? null : key)}>{item.name}</button>
-              : <span className="pulls-past-name">{item.name}</span>}
-            <span className="pulls-past-amount">{done ? '✓' : `${formatNumber(item.amount)} ${group.unit}`}</span>
-            {staged && detail === key && stagesLeft(group.id, item)}
-          </li>;
-        })}</ul>
-      </details>;
-    })}
+    <SegmentedControl label="Show" value={show} options={SHOW} onChange={pick} />
+    {groups.map((group) => layout === 'page'
+      ? <section key={group.id} className="op-section pulls-past-section" aria-labelledby={`past-${group.id}`}>
+          <h2 id={`past-${group.id}`}>{group.name} <span className="hint pulls-note">{left(group)}</span></h2>
+          {body(group)}
+        </section>
+      : <details className="pulls-disclosure" key={group.id} open={open === group.id}>
+          <summary onClick={(event) => { event.preventDefault(); setOpen((previous) => (previous === group.id ? '' : group.id)); }}>{group.name}<span className="hint pulls-note">{left(group)}</span></summary>
+          {body(group)}
+        </details>)}
   </div>;
 }

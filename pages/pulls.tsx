@@ -32,6 +32,7 @@ import SkinPlanner from '@/components/skins/SkinPlanner';
 import { SkinsHelp } from '@/components/pulls/PlannerHelp';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import { useAccount } from '@/lib/account/accountStore';
+import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -40,7 +41,7 @@ import {
   MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
   WEEKLY_ORUNDUM,
   eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
-  backlogFromAccount, fillStageIds, pullsFrom, remainingBacklog, unclaimedBacklog,
+  fillFromDeployment, pullsFrom,
   type BacklogSources, type Holdings, type UpcomingBanner, type PullEventReward,
 } from '@/lib/pulls/pulls';
 
@@ -108,6 +109,9 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const skinByName = useMemo(() => new Map(skinCatalogue.map((skin) => [skin.name, skin.id])), [skinCatalogue]);
   const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name));
   const account = useAccount();
+  /* The Past events ticks, shared with the Free OP Tracker (lib/pulls/usePastRewards.ts): ticked
+     once per import from its cleared stages, the reader's to change after that. */
+  const past = usePastRewards(backlogSources);
   const ownedSkins = useMemo(() => (account ? new Set(account.skins) : null), [account]);
   const skinsToBuy = useMemo(() => {
     const byId = new Map(skinCatalogue.map((skin) => [skin.id, skin]));
@@ -130,9 +134,6 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [includeBacklog, setIncludeBacklog] = useState(false);
   /* What the reader has already cleared. Empty means "new account", which is
      the only state where the whole back catalogue is honest. */
-  const [doneEvents, setDoneEvents] = useState<Set<string>>(new Set());
-  const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set());
-  const [annihilationDone, setAnnihilationDone] = useState(false);
   /* Empty until the client picks it: a date computed on the server renders one
      value in the HTML and another after hydration, which React calls a
      mismatch and the reader sees as a flicker. */
@@ -144,7 +145,6 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [bannerName, setBannerName] = useState('');
   const [clearedReruns, setClearedReruns] = useState<Set<string>>(new Set());
   const [walletFrom, setWalletFrom] = useState('');
-  const [ticksFrom, setTicksFrom] = useState('');
   const [pastOpen, setPastOpen] = useState(false);
 
   const [now, setNow] = useState<Date | null>(null);
@@ -155,9 +155,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setYellowCerts(plan.yellowCerts ?? ''); setIncomeSettings(plan.incomeSettings ?? DEFAULT_INCOME_SETTINGS);
     setOrundum(plan.orundum); setOriginite(plan.originite); setPermits(plan.permits); setReservedOP(plan.reservedOP);
     setUntil(plan.until); setBannerName(plan.bannerName);
-    setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setAnnihilationDone(plan.annihilationDone);
-    setDoneEvents(new Set(plan.doneEvents)); setDoneKeys(new Set(plan.doneKeys)); setClearedReruns(new Set(plan.clearedReruns));
-    setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? ''); setTicksFrom(plan.ticksFrom ?? '');
+    setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setClearedReruns(new Set(plan.clearedReruns));
+    setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? '');
     setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners));
     if (skins) setSkinIds(plan.skinIds ?? []);
   }, [scheduledBanners, setSkinIds]);
@@ -177,9 +176,11 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   }, [applyPlan]);
 
   const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings,
-    monthlyCard, includeBacklog, annihilationDone, doneEvents: [...doneEvents], doneKeys: [...doneKeys], clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
-    ...(walletFrom ? { walletFrom } : {}), ...(ticksFrom ? { ticksFrom } : {}),
-  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, annihilationDone, doneEvents, doneKeys, clearedReruns, goals, skinIds, wishingWallMode, walletFrom, ticksFrom]);
+    monthlyCard, includeBacklog, annihilationDone: past.annihilationDone, doneEvents: past.progress.doneEvents, doneKeys: past.progress.doneKeys, clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
+    /* The ticks live in their own store now (lib/pulls/pastProgress.ts); the plan mirrors them
+       for an older build reading this browser's storage. */
+    ...(walletFrom ? { walletFrom } : {}), ...(past.progress.ticksFrom ? { ticksFrom: past.progress.ticksFrom } : {}),
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, past.progress, past.annihilationDone, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
 
   /* An account import fills the resources (and the Monthly Card, ticked while it runs), once
      per import: after that they are the reader's to edit, until the next import. Run after
@@ -204,7 +205,9 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   /* A pull plan from the Import / export dialog (an older Export of this page): its resources
      and ticks stand over the current account import's. */
   function loadPlanFile(plan: SavedPullPlan) {
-    applyPlan(plan, true); if (account) { setWalletFrom(account.importedAt); setTicksFrom(account.importedAt); } setSaveBlocked(false); setNotice('Imported your pull plan.');
+    applyPlan(plan, true); if (account) setWalletFrom(account.importedAt);
+    past.setProgress({ doneKeys: plan.doneKeys, doneEvents: plan.doneEvents, annihilationDone: plan.annihilationDone, ticksFrom: account?.importedAt ?? plan.ticksFrom ?? '' });
+    setSaveBlocked(false); setNotice('Imported your pull plan.');
   }
 
   const held: Holdings = {
@@ -238,29 +241,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   /* Only what is actually left: a returning player is the normal case, and
      telling somebody with three years of clears that 2,717 OP is waiting would
      be worse than not offering the figure. */
-  /* With an import, the account says what is cleared, stage by stage (backlogFromAccount). It
-     ticks the Past events once per import, as the wallet is filled; after that the ticks are
-     the reader's (an older import, or trying something out). Annihilation on a record from
-     before it was kept stays as the reader ticked it. */
-  const fromAccount = useMemo(
-    () => (account ? backlogFromAccount(backlogSources, new Set(account.cleared), account.annihilation ? new Set(account.annihilation) : null) : null),
-    [account, backlogSources],
-  );
-  useEffect(() => {
-    if (!hydrated || !account || !fromAccount || ticksFrom === account.importedAt) return;
-    const annihilationKept = !!account.annihilation;
-    setDoneKeys((previous) => new Set([...fromAccount.doneKeys, ...(annihilationKept ? [] : [...previous].filter((key) => key.startsWith('annihilation:')))]));
-    setDoneEvents(fromAccount.doneEvents);
-    if (annihilationKept) setAnnihilationDone(false);
-    setTicksFrom(account.importedAt);
-  }, [hydrated, account, fromAccount, ticksFrom]);
-  const clearedStages = useMemo(() => new Set(account?.cleared ?? []), [account]);
-  /* What each unticked chapter and event still pays: what the import left of it. */
-  const counting = useMemo(() => (fromAccount ? unclaimedBacklog(backlogSources, fromAccount.sources) : backlogSources), [fromAccount, backlogSources]);
-  const backlog = useMemo(
-    () => remainingBacklog(counting, doneEvents, doneKeys, annihilationDone),
-    [counting, doneEvents, doneKeys, annihilationDone],
-  );
+  const backlog = past.remaining;
 
 
   /* Potential funds include selected, still-unclaimed content. The holdings
@@ -551,8 +532,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     {dataOpen && <DataDialog onClose={() => setDataOpen(false)} onPullPlan={loadPlanFile} />}
     {pastOpen && (
       <ImportDialog title="Past events" className="pulls-past-dialog" onClose={() => setPastOpen(false)}>
-        <PastRewards backlog={counting} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone}
-          imported={account && ticksFrom === account.importedAt ? { at: account.importedAt } : null} cleared={account ? clearedStages : null} />
+        <PastRewards backlog={past.counting} doneKeys={past.doneKeys} doneEvents={past.doneEvents} annihilationDone={past.annihilationDone} onKeys={past.onKeys} onEvents={past.onEvents} onAnnihilation={past.onAnnihilation}
+          imported={past.imported} cleared={past.cleared} layout="popup" />
       </ImportDialog>
     )}
   </>;
@@ -574,7 +555,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
 }, { tables: DATA_DIALOG_TABLES, finalize: async props => {
   const current = currentPullPlan(props, Date.now());
-  if (current.backlogSources) return { ...current, backlogSources: fillStageIds(current.backlogSources, bundledBacklogSources()) };
+  if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content
   // run after this deploy re-exports /pulls (the generator commit changes the
   // release fingerprint), and scripts/content/validate-release.mjs refuses a

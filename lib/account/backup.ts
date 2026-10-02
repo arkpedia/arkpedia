@@ -1,6 +1,7 @@
 /**
  * Everything the site keeps for the reader, as one file: the account import, the Operator
- * Planner (its operators, depot, goals and crafting), the Pull Planner's plan, the skin
+ * Planner (its operators, depot, goals and crafting), the Pull Planner's plan and the claimed
+ * first-clear rewards (the Free OP Tracker's ticks), the skin
  * wishlist, the base setups and the music favourites. All of it lives only in this browser's
  * localStorage, so this file is the only way to take it to another browser or keep it past
  * clearing site data. The Import / export dialog (components/account/DataDialog) writes and
@@ -25,6 +26,7 @@ import { PLANNER_STATE_EVENT } from '@/lib/planner/plannerStorage';
 import { ROSTER_EVENT, ROSTER_STORAGE_KEY, parseRosterExport } from '@/lib/planner/roster';
 import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
 import { PULL_PLAN_KEY, parsePullPlan } from '@/lib/pulls/plan';
+import { PAST_PROGRESS_EVENT, PAST_PROGRESS_KEY, parsePastProgress } from '@/lib/pulls/pastProgress';
 import { SKIN_PLAN_EVENT, SKIN_PLAN_KEY, parseSkinPlan } from '@/lib/skins/skinPlan';
 
 export const BACKUP_KIND = 'arkpedia-backup';
@@ -53,6 +55,7 @@ export const BACKUP_STORES: readonly Store[] = [
   // The planner clamps every goal to its operator's rules when it reads them (clampBuilderStates).
   { key: 'plannerState', label: 'planner goals', valid: (_, value) => isObject(value) && isStringList((value as Record<string, unknown>).selectedNames) && isObject((value as Record<string, unknown>).builderStates), event: PLANNER_STATE_EVENT },
   { key: PULL_PLAN_KEY, label: 'pull plan', valid: pullPlan },
+  { key: PAST_PROGRESS_KEY, label: 'claimed rewards', valid: (raw) => parsePastProgress(raw) !== null, event: PAST_PROGRESS_EVENT },
   { key: SKIN_PLAN_KEY, label: 'skin wishlist', valid: (raw) => parseSkinPlan(raw) !== null, event: SKIN_PLAN_EVENT },
   // The base page reads each of these defensively, as it would a value an older build wrote.
   { key: 'baseSetup_v2', label: 'base setup', valid: (_, value) => isObject(value) || Array.isArray(value) },

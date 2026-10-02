@@ -33,6 +33,7 @@ export const LINKS: NavLink[] = [
   { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
   { href: '/account', label: 'Account', icon: 'roster' },
+  { href: '/free-op', label: 'Free OP Tracker', icon: 'prime' },
   { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
@@ -60,6 +61,8 @@ export const LINKS: NavLink[] = [
  * single item is a click in front of a link.
  */
 export interface NavGroup {
+  /** Stable: the menu's key and its data-menu, whatever its label reads. */
+  id: string;
   label: string;
   items: NavLink[];
 }
@@ -71,11 +74,13 @@ const at = (href: string): NavLink => {
 };
 
 export const GROUPS: NavGroup[] = [
-  { label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
-  { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
-  /* The reader's own: their account, and the planners that read it (issue #94). */
-  { label: 'Planner', items: [at('/account'), at('/planner'), at('/skin-planner'), at('/pulls')] },
-  { label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
+  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
+  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
+  /* The reader's own: their account, and the planners that read it (issue #94). Named after
+     Rhodes Island's AI, PRTS, and ZOOT once the reader's import has Episode 15 cleared
+     (lib/account/prts.ts; the nav swaps the label). */
+  { id: 'own', label: 'PRTS', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
+  { id: 'community', label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
 ];
 
 /* Not in a menu: one destination each, and a menu of one is a click in front of a
