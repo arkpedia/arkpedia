@@ -46,7 +46,9 @@ export interface GameAccountMapFile {
   version: 1;
   /** character id -> the record's name, by equipment id the planner's module index, and
    *  whether the Global client has it (the account page's operator count). */
-  chars: Record<string, { name: string; rarity: number; modules: Record<string, number>; global?: true }>;
+  /** formOf: for another form of one character (Amiya's Guard and Medic), the character id
+   *  of its default form, so the account page counts the character once, as the game does. */
+  chars: Record<string, { name: string; rarity: number; modules: Record<string, number>; global?: true; formOf?: string }>;
   /** The profile card's names (the account page): each business card style's, by id, and
    *  each medal's, from the EN client's display_meta_table and medal_table. */
   nameCards: Record<string, string>;
@@ -65,6 +67,8 @@ export function buildGameAccountMap(
     characters: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null }>;
     skills: Record<string, { levels?: { name?: string }[] }>;
     displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string }> } };
+    /** data/operator-forms.json: each form's name and character id, and the default form. */
+    forms?: Record<string, { forms?: { name: string; internalName?: string }[]; default?: string }>;
     medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
   },
 ): GameAccountMapFile {
@@ -94,6 +98,12 @@ export function buildGameAccountMap(
       if (game.join('|') !== ours.join('|')) problems.push(`${record.name}: the client's skills (${game.join(', ')}) are not the record's (${ours.join(', ')}), in order`);
     }
     chars[id] = { name: record.name, rarity: record.rarity ?? 1, modules, ...(character ? { global: true as const } : {}) };
+  }
+  for (const entry of Object.values(tables.forms ?? {})) {
+    const base = entry.forms?.find((form) => form.name === entry.default)?.internalName;
+    for (const form of entry.forms ?? []) {
+      if (base && form.internalName && form.internalName !== base && chars[form.internalName]) chars[form.internalName].formOf = base;
+    }
   }
   if (problems.length) throw new Error(`build-game-account-map: ${problems.length} problem(s):\n  ${problems.join('\n  ')}`);
   const nameCards = Object.fromEntries(Object.entries(tables.displayMeta?.nameCardV2Data?.skinData ?? {})
@@ -125,6 +135,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
     skills: readJson(path.join(excel, 'skill_table.json')),
     displayMeta: readJson(path.join(excel, 'display_meta_table.json')),
     medalTable: readJson(path.join(excel, 'medal_table.json')),
+    forms: fs.existsSync(path.join(root, 'data', 'operator-forms.json')) ? readJson(path.join(root, 'data', 'operator-forms.json')) : {},
   });
   fs.writeFileSync(OUTPUT, `${JSON.stringify(map)}\n`);
   const modules = Object.values(map.chars).reduce((sum, char) => sum + Object.keys(char.modules).length, 0);

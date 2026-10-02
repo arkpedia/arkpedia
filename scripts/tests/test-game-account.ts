@@ -39,6 +39,11 @@ test('the map places a module by its type code, whatever order the client lists 
   const named = buildGameAccountMap(records, { ...tables, displayMeta: { nameCardV2Data: { skinData: { nc_moon_1: { name: 'An Invitation to Moons' } } } },
     medalTable: { medalList: [{ medalId: 'medal_a', medalName: 'A Medal' }, { medalId: 'medal_b' }] } });
   assert.deepEqual([named.nameCards, named.medals], [{ nc_moon_1: 'An Invitation to Moons' }, { medal_a: 'A Medal' }]);
+  // Another form of one character (Amiya's Guard and Medic) names its default form's id, so
+  // the account page counts the character once, as the game does.
+  const formed = buildGameAccountMap(records, { ...tables, forms: { Raidian: { default: 'Fiammetta', forms: [{ name: 'Fiammetta', internalName: 'char_300_phenxi' }, { name: 'Raidian', internalName: 'char_4145_radian' }] } } });
+  assert.equal(formed.chars.char_4145_radian.formOf, 'char_300_phenxi');
+  assert.equal(formed.chars.char_300_phenxi.formOf, undefined);
   // The client spells the Greek letters A and B.
   assert.deepEqual(map.chars.char_4145_radian.modules, { uniequip_002_radian: 0, uniequip_003_radian: 1 });
   // This mirror writes an empty list as {}: no skills, as a record without any has.

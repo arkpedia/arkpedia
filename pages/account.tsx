@@ -63,9 +63,11 @@ export default function AccountPage({ skins }: Props) {
   const [forgotten, setForgotten] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  // Every operator the Global client carries (scripts/build/build-game-account-map.ts).
-  const released = useMemo(() => new Set(Object.values(map.chars).filter((char) => char.global).map((char) => char.name)), [map]);
-  const ownedOperators = account ? account.operators.filter((name) => released.has(name)).length : null;
+  // Every character the Global client carries (scripts/build/build-game-account-map.ts), each
+  // once: Amiya's three forms are one character, as the game counts her (formOf).
+  const characterOf = useMemo(() => new Map(Object.entries(map.chars).map(([id, char]) => [char.name, char.formOf ?? id])), [map]);
+  const released = useMemo(() => new Set(Object.entries(map.chars).filter(([, char]) => char.global).map(([id, char]) => char.formOf ?? id)), [map]);
+  const ownedOperators = account ? new Set(account.operators.map((name) => characterOf.get(name)).filter((id): id is string => !!id && released.has(id))).size : null;
   // Global's outfits, and any the account owns: an outfit someone has on Global is Global's,
   // whatever the catalogue's release line still says (five event outfits read "[CN] ..." on
   // the day they were on sale, 2026-10-01).

@@ -74,7 +74,7 @@ export const GROUPS: NavGroup[] = [
   { label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
   { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
   /* The reader's own: their account, and the planners that read it (issue #94). */
-  { label: 'Planner', items: [at('/account'), at('/planner'), at('/pulls'), at('/skin-planner')] },
+  { label: 'Planner', items: [at('/account'), at('/planner'), at('/skin-planner'), at('/pulls')] },
   { label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
 ];
 

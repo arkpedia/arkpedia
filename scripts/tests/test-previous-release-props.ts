@@ -250,6 +250,11 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     // runs this test on that day's data. The page reads it only as optional text (isPredicted).
     '.ongoingEvents[].note': "each event's global.note, spread onto it (loadGameEvents): null, '' or a sentence depending on the event, so present or not by which events run that day",
     '.upcomingEvent.note': "the same global.note, on the next event to open",
+    // The finalize fetches the channels' live feeds at each request, and they answer nothing
+    // for hours at a time (YouTube's returned 404 on 2026-09-27): the release's copy was made
+    // while they did, and on 2026-10-02 they answered, so the field showed here and not there.
+    '.featuredVideo': "the newest video from the channels' live YouTube feeds, fetched at the request; null whenever the feeds answer nothing",
+    '.featuredStream': "the live Twitch stream, fetched at the request the same way; null whenever none is live or the API answers nothing",
   },
   '/schedule': {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
