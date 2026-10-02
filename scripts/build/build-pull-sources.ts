@@ -72,6 +72,7 @@ const NO_ORIGINITE_TYPES = new Set([
 ]);
 
 interface StageRecord {
+  id?: string;
   stage_type?: string;
   chapter?: number;
   zone?: { id?: string; name?: string; group?: string };
@@ -89,7 +90,9 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
      for them would expect them. Episodes 15 and 16 ship as activities rather
      than mainline zones, so they have no group name either, and fall back to
      their own chapter number. */
-  const zones: Record<string, { id: string; label: string; name: string; op: number; chapter: number }> = {};
+  /* Each chapter's stages too, by the game's stage id, so an imported account's cleared
+     stages (lib/account/accountStore) say exactly what is left of it. */
+  const zones: Record<string, { id: string; label: string; name: string; op: number; chapter: number; stages: string[] }> = {};
   let total = 0;
   for (const file of fs.readdirSync(STAGES)) {
     if (!file.endsWith('.json')) continue;
@@ -119,8 +122,10 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
         name: rec.zone?.name ?? '',
         op: 0,
         chapter: Number.POSITIVE_INFINITY,
+        stages: [],
       });
       z.op += 1;
+      if (rec.id) z.stages.push(rec.id);
       if (typeof rec.chapter === 'number' && rec.chapter >= 0) z.chapter = Math.min(z.chapter, rec.chapter);
     }
   }
@@ -132,6 +137,7 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
       label: z.label || (Number.isFinite(z.chapter) ? `Episode ${z.chapter}` : z.name),
       name: z.name,
       op: z.op,
+      stages: z.stages.sort(),
     }));
 
   /* The chapters ARE the mainline, so they must add up to it exactly. If a zone
@@ -139,6 +145,8 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
      episode's worth of Originite out of the back catalogue. */
   const mainline = (byType.main ?? 0) + (byType.sub ?? 0);
   const chaptered = chapters.reduce((n, c) => n + c.op, 0);
+  const unnamed = chapters.filter((c) => c.stages.length !== c.op).map((c) => c.id);
+  if (unnamed.length) throw new Error(`build-pull-sources: a stage with no id in ${unnamed.join(', ')}; every Originite stage must name its stage id.`);
   if (chaptered !== mainline) {
     throw new Error(
       `build-pull-sources: the chapters add up to ${chaptered} but the mainline is ${mainline}.`
@@ -223,6 +231,8 @@ function eventBreakdown() {
     /** Does this event have a token shop at all. Derivable; what the shop
      *  STOCKS is not -- see EVENT_SHOP_PERMITS in the model. */
     hasShop: boolean;
+    /** Its Originite Prime stages, by the game's stage id (an imported account's cleared). */
+    stages: string[];
   }
   const events = new Map<string, Ev>();
   for (const file of fs.readdirSync(STAGES)) {
@@ -256,12 +266,18 @@ function eventBreakdown() {
         playable: restored.has(ev.id)
           || ((basicInfo[ev.id]?.startTime ?? 0) <= nowSec && (basicInfo[ev.id]?.endTime ?? 0) > nowSec),
         op: 0,
+        stages: [],
       });
     }
-    if ((rec.drops ?? []).some((d) => d.item?.id === ORIGINITE_PRIME)) events.get(ev.id)!.op += 1;
+    if ((rec.drops ?? []).some((d) => d.item?.id === ORIGINITE_PRIME)) {
+      events.get(ev.id)!.op += 1;
+      if (rec.id) events.get(ev.id)!.stages.push(rec.id);
+    }
   }
 
-  const all = [...events.values()].filter((e) => e.op > 0);
+  const all = [...events.values()].filter((e) => e.op > 0).map((e) => ({ ...e, stages: e.stages.sort() }));
+  const unnamed = all.filter((e) => e.stages.length !== e.op).map((e) => e.id);
+  if (unnamed.length) throw new Error(`build-pull-sources: a stage with no id in ${unnamed.join(', ')}; every Originite stage must name its stage id.`);
   const excluded = all
     .filter((e) => NO_ORIGINITE_TYPES.has(e.kind))
     .map((e) => ({ id: e.id, name: e.name, kind: e.kind, claimed: e.op }))

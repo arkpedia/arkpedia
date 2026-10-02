@@ -24,6 +24,8 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     skin: { characterSkins: { 'char_300_phenxi@summer#1': 1, 'char_002_amiya@winter#1': 1 } },
     // The game's stage states: 0 opened, 1 played, 2 cleared, 3 cleared with every star.
     dungeon: { stages: { main_00: { state: 0 }, main_01: { state: 1 }, main_02: { state: 2 }, main_03: { state: 3 } } },
+    // Annihilation: a map counts once every kill-count reward is claimed.
+    campaignsV2: { instances: { camp_r_01: { maxKills: 400, rewardStatus: [1, 1, 1] }, camp_r_02: { maxKills: 250, rewardStatus: [1, 0, 0] }, camp_r_03: { rewardStatus: [] } } },
   }, MAP, new Date('2026-10-01T12:00:00Z'));
   assert.deepEqual(record, {
     version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: 'Doctor#1234',
@@ -31,6 +33,7 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     operators: ['Amiya', 'Amiya (Guard)', 'Fiammetta'],
     skins: ['char_002_amiya@winter#1', 'char_300_phenxi@summer#1'],
     cleared: ['main_02', 'main_03'],
+    annihilation: ['camp_r_01'],
     // The outfit each wears, Amiya's forms each their own; anything not a skin id is left out.
     outfits: { Amiya: 'char_002_amiya#1+', 'Amiya (Guard)': 'char_1001_amiya2#2', Fiammetta: 'char_300_phenxi@summer#1' },
     profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes', uid: '11311084', avatar: 'avatar_special_41', nameCard: 'nc_moon_1', hired: 4,

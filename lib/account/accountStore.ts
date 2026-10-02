@@ -6,6 +6,8 @@
  *   operators  the operators owned, by the name the site uses (Amiya's forms each by theirs)
  *   skins      the outfits owned, by the game's skin id, which every skin record carries
  *   cleared    the stages cleared, by the game's stage id
+ *   annihilation  the Annihilation maps whose every kill-count reward is claimed
+ *              (campaignsV2), by the game's map id; absent on a record from before it
  *   outfits    the outfit each operator wears, by the site's name, as the game's skin id (its
  *              default art too: "char_1013_chen2#2"); absent on a record from before it
  *   profile    what the account page shows: level, when it was registered, the assistant, the
@@ -33,6 +35,7 @@ export interface AccountRecord {
   operators: string[];
   skins: string[];
   cleared: string[];
+  annihilation?: string[];
   outfits?: Record<string, string>;
   profile?: AccountProfile;
 }
@@ -92,6 +95,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     version: 1, server: 'en', importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
+    ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
     ...(value.outfits && typeof value.outfits === 'object' ? { outfits: Object.fromEntries(Object.entries(value.outfits as Record<string, unknown>)
       .slice(0, 5000).flatMap(([name, skin]) => (name.length <= 200 && skinId(skin) ? [[name, skinId(skin)!]] : []))) } : {}),
     ...(profile ? { profile: {
@@ -134,6 +138,9 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     operators: [...operators].sort(),
     skins: Object.keys(user.skin?.characterSkins ?? {}).sort(),
     cleared: Object.entries(stages).filter(([, stage]) => (stage?.state ?? 0) >= 2).map(([id]) => id).sort(),
+    annihilation: Object.entries((user.campaignsV2?.instances ?? {}) as Record<string, { rewardStatus?: unknown }>)
+      .filter(([, map]) => Array.isArray(map?.rewardStatus) && map.rewardStatus.length > 0 && map.rewardStatus.every((claimed) => claimed === 1))
+      .map(([id]) => id).sort(),
     outfits: Object.fromEntries(Object.entries(outfits).sort(([a], [b]) => a.localeCompare(b))),
     profile: {
       level: typeof status.level === 'number' ? status.level : null,

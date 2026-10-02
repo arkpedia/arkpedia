@@ -37,7 +37,7 @@ import {
   MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
   WEEKLY_ORUNDUM,
   eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
-  pullsFrom, remainingBacklog,
+  backlogFromAccount, pullsFrom, remainingBacklog,
   type BacklogSources, type Holdings, type UpcomingBanner, type PullEventReward,
 } from '@/lib/pulls/pulls';
 
@@ -226,9 +226,18 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   /* Only what is actually left: a returning player is the normal case, and
      telling somebody with three years of clears that 2,717 OP is waiting would
      be worse than not offering the figure. */
+  /* With an import, the account says what is cleared, stage by stage (backlogFromAccount);
+     the reader's ticks stand only where the record does not say (Annihilation, on a record
+     from before it was kept). */
+  const fromAccount = useMemo(() => {
+    if (!account) return null;
+    const derived = backlogFromAccount(backlogSources, new Set(account.cleared), account.annihilation ? new Set(account.annihilation) : null);
+    if (!account.annihilation) backlogSources.annihilation.forEach((map) => { if (doneKeys.has(map.id)) derived.doneKeys.add(map.id); });
+    return { ...derived, annihilationDone: account.annihilation ? false : annihilationDone, annihilationKept: !!account.annihilation, importedAt: account.importedAt };
+  }, [account, backlogSources, doneKeys, annihilationDone]);
   const backlog = useMemo(
-    () => remainingBacklog(backlogSources, doneEvents, doneKeys, annihilationDone),
-    [backlogSources, doneEvents, doneKeys, annihilationDone],
+    () => (fromAccount ? remainingBacklog(fromAccount.sources, fromAccount.doneEvents, fromAccount.doneKeys, fromAccount.annihilationDone) : remainingBacklog(backlogSources, doneEvents, doneKeys, annihilationDone)),
+    [fromAccount, backlogSources, doneEvents, doneKeys, annihilationDone],
   );
 
 
@@ -488,7 +497,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
 
           </section>
-          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={`op-section ${workspace.detailPanel}`}><PastRewards backlog={backlogSources} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} /></section>
+          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={`op-section ${workspace.detailPanel}`}><PastRewards backlog={fromAccount?.sources ?? backlogSources} doneKeys={fromAccount?.doneKeys ?? doneKeys} doneEvents={fromAccount?.doneEvents ?? doneEvents} annihilationDone={fromAccount?.annihilationDone ?? annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} editKeys={doneKeys}
+            imported={fromAccount ? { at: fromAccount.importedAt, annihilation: fromAccount.annihilationKept } : null} /></section>
           <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={`op-section ${workspace.detailPanel}`}>
             {/* The Skin Planner's own view, with this plan's OP set against it. */}
             <div className="pulls-panel-head"><h2 id="pulls-skins-heading">Skins</h2><SkinsHelp /></div>

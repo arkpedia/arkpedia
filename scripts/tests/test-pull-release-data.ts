@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserImports, pages, pathToTarget } from './browser-graph';
 import eventRewards from '../../data/pull-event-rewards.json';
-import { bannerHaul, remainingBacklog, type BacklogSources } from '../../lib/pulls/pulls';
+import { backlogFromAccount, bannerHaul, remainingBacklog, type BacklogSources } from '../../lib/pulls/pulls';
 import { resolvePullEventSchedule } from '../../lib/pulls/schedule';
 import type { getAllEvents } from '../../lib/schedule/schedule';
 
@@ -31,7 +31,7 @@ test('no page ships the bundled pull data to the browser', () => {
 });
 
 /** The release's back catalogue with one event the deployed bundle has never heard of. */
-function withReleaseOnly(bundled: BacklogSources, event: { id: string; name: string; op: number }): BacklogSources {
+function withReleaseOnly(bundled: BacklogSources, event: { id: string; name: string; op: number; stages: string[] }): BacklogSources {
   assert.ok(!bundled.playable.some(known => known.id === event.id || known.name === event.name));
   return { ...bundled, playable: [...bundled.playable, event] };
 }
@@ -40,12 +40,12 @@ function withReleaseOnly(bundled: BacklogSources, event: { id: string; name: str
    the day the last scheduled event that pays Originite joins the back catalogue,
    a test that looked one up in them would fail the release. */
 const bundled: BacklogSources = {
-  chapters: [{ id: 'main_01', label: 'Episode 01', name: 'Chapter', op: 20 }],
+  chapters: [{ id: 'main_01', label: 'Episode 01', name: 'Chapter', op: 20, stages: Array.from({ length: 20 }, (_, i) => `main_01-${i}`) }],
   originiteByStageType: { daily: 12, main: 99, activity: 99 },
   annihilationOrundum: 1800,
-  playable: [{ id: 'act_old', name: 'Old Event', op: 24 }],
-  resources: [{ id: 'wk_melee_1', name: 'Tough Siege', amount: 2 }],
-  annihilation: [{ id: 'camp_r_01', name: 'Chernobog', amount: 400 }],
+  playable: [{ id: 'act_old', name: 'Old Event', op: 24, stages: Array.from({ length: 24 }, (_, i) => `act_old_${i}`) }],
+  resources: [{ id: 'resource:wk_melee_1', name: 'Tough Siege', amount: 2 }],
+  annihilation: [{ id: 'annihilation:camp_r_01', name: 'Chernobog', amount: 400 }],
 };
 // resolvePullEventSchedule reads the rewards file itself; any event in it that pays
 // Originite will do, given a window of its own.
@@ -53,7 +53,7 @@ const reward = eventRewards.find(event => event.op > 0 && !/rerun/i.test(event.e
 
 test('an event only the content release lists is counted, once', () => {
   const none = new Set<string>();
-  const release = withReleaseOnly(bundled, { id: 'act_release_only', name: 'Release Only', op: 27 });
+  const release = withReleaseOnly(bundled, { id: 'act_release_only', name: 'Release Only', op: 27, stages: Array.from({ length: 27 }, (_, i) => `act_release_only_${i}`) });
   assert.equal(remainingBacklog(release, none, none, false).originitePrime, remainingBacklog(bundled, none, none, false).originitePrime + 27);
   assert.equal(remainingBacklog(release, new Set(['act_release_only']), none, false).originitePrime, remainingBacklog(bundled, none, none, false).originitePrime);
 
@@ -64,7 +64,7 @@ test('an event only the content release lists is counted, once', () => {
   const before = resolvePullEventSchedule(events, bundled);
   const target = before.find(event => event.name === reward.event);
   assert.ok(target && target.op > 0 && !target.inBacklog && !target.rerun);
-  const moved = withReleaseOnly(bundled, { id: 'act_release_only', name: target.event!, op: target.op });
+  const moved = withReleaseOnly(bundled, { id: 'act_release_only', name: target.event!, op: target.op, stages: [] });
   const after = resolvePullEventSchedule(events, moved);
   assert.equal(after.find(event => event.name === target.name)?.inBacklog, true);
   const farFuture = new Date('2099-12-31T23:59:59Z');
@@ -72,4 +72,20 @@ test('an event only the content release lists is counted, once', () => {
     bannerHaul(schedule, farFuture, { cleared: none }).op + remainingBacklog(sources, none, none, false).originitePrime;
   assert.equal(counted(moved, after), counted(bundled, before));
   assert.equal(bannerHaul(after, farFuture, { cleared: none }).op, bannerHaul(before, farFuture, { cleared: none }).op - target.op);
+});
+
+test("an imported account's cleared stages say what is left, stage by stage", () => {
+  const cleared = new Set([...bundled.chapters[0].stages, ...bundled.playable[0].stages.slice(0, 20), 'wk_melee_1']);
+  const fromAccount = backlogFromAccount(bundled, cleared, new Set(['camp_r_01']));
+  // The chapter is done; the event is worth its four uncleared stages; the resource stage and
+  // the Annihilation map are done.
+  assert.deepEqual([...fromAccount.doneKeys].sort(), ['annihilation:camp_r_01', 'main_01', 'resource:wk_melee_1']);
+  assert.equal(fromAccount.sources.playable[0].op, 4);
+  assert.deepEqual([...fromAccount.doneEvents], []);
+  const left = remainingBacklog(fromAccount.sources, fromAccount.doneEvents, fromAccount.doneKeys, false);
+  // The event's 4, and the resource stages' 12 less the 2 the cleared one paid.
+  assert.equal(left.originitePrime, 4 + 10);
+  assert.equal(left.annihilationOrundum, 1800 - 400);
+  // A record from before Annihilation was kept leaves the maps to the reader's ticks.
+  assert.ok(![...backlogFromAccount(bundled, cleared, null).doneKeys].includes('annihilation:camp_r_01'));
 });

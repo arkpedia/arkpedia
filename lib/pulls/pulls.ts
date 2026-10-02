@@ -114,6 +114,8 @@ export interface Chapter {
   /** The episode's own title, which is the half a reader recognises. */
   name: string;
   op: number;
+  /** Its Originite Prime stages, by the game's stage id: what an import's cleared counts against. */
+  stages: string[];
 }
 
 export interface PastEvent {
@@ -124,6 +126,7 @@ export interface PastEvent {
    *  clear it. An event that has been and gone is not a pool to draw on. */
   playable: boolean;
   op: number;
+  stages: string[];
 }
 
 /** One first clear the reader can tick off: a resource stage or an Annihilation map. */
@@ -143,7 +146,7 @@ export interface BacklogSources {
   chapters: Chapter[];
   originiteByStageType: Record<string, number>;
   annihilationOrundum: number;
-  playable: Pick<PastEvent, 'id' | 'name' | 'op'>[];
+  playable: Pick<PastEvent, 'id' | 'name' | 'op' | 'stages'>[];
   resources: FirstClear[];
   annihilation: FirstClear[];
 }
@@ -197,6 +200,28 @@ export function remainingBacklog(
     orundum: op * ORUNDUM_PER_ORIGINITE + annihilationOrundum,
     permits,
   };
+}
+
+/**
+ * The back catalogue as an imported account leaves it (lib/account/accountStore): each
+ * chapter and event worth only its Originite stages the account has not cleared, a resource
+ * stage done when cleared, and an Annihilation map done when every kill-count reward is
+ * claimed. What it gives back is what remainingBacklog takes, so the totals and the
+ * Unclaimed rewards panel come from one count. `annihilation` is null for a record from
+ * before it was kept; the reader's own ticks say then.
+ */
+export function backlogFromAccount(backlog: BacklogSources, cleared: ReadonlySet<string>, annihilation: ReadonlySet<string> | null): {
+  sources: BacklogSources; doneEvents: Set<string>; doneKeys: Set<string>;
+} {
+  const left = (stages: string[]) => stages.filter((id) => !cleared.has(id)).length;
+  const chapters = backlog.chapters.map((chapter) => ({ ...chapter, op: left(chapter.stages) }));
+  const playable = backlog.playable.map((event) => ({ ...event, op: left(event.stages) }));
+  const doneKeys = new Set([
+    ...chapters.filter((chapter) => !chapter.op).map((chapter) => chapter.id),
+    ...backlog.resources.filter((stage) => cleared.has(stage.id.replace(/^resource:/, ''))).map((stage) => stage.id),
+    ...(annihilation ? backlog.annihilation.filter((map) => annihilation.has(map.id.replace(/^annihilation:/, ''))).map((map) => map.id) : []),
+  ]);
+  return { sources: { ...backlog, chapters, playable }, doneEvents: new Set(playable.filter((event) => !event.op).map((event) => event.id)), doneKeys };
 }
 
 /*

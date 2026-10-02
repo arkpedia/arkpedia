@@ -193,6 +193,13 @@ export const CENSUS_STATES: CensusState[] = [
   // The account page with an import and a kept login (lib/account/accountStore,
   // lib/account-import/savedLogin, neither used here): the profile and counts filled in, and
   // the sign-in's Import again row.
+  // The Pull Planner's Unclaimed rewards with an import (components/pulls/PastRewards): counted
+  // from the account's cleared stages, the lists shown but not ticked by hand.
+  { id: 'pulls past events from an import', route: '/pulls', act: async (page) => {
+    await seedAccount(page);
+    await page.locator('#tab-past').click();
+    await page.locator('#panel-past .pulls-disclosure').first().waitFor();
+  } },
   { id: 'account with an import', route: '/account', act: async (page) => {
     await page.evaluate(() => localStorage.setItem('arkpediaGameLogin', JSON.stringify({ server: 'en', uid: '1', token: 'census', deviceId: 'census', label: 'd•••@example.com' })));
     await seedAccount(page);
