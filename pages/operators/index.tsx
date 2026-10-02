@@ -23,7 +23,7 @@ import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
-import OwnedFilter from '@/components/account/OwnedFilter';
+import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 
@@ -136,7 +136,9 @@ export default function OperatorsIndex({ operators, now }: Props) {
     return 3; // shouldn't happen post-filter, but a safe fallback either way
   }
 
-  const filtered = useMemo(() => {
+  /* Every filter but Owned, so the Owned filter can count what each of its options would
+     show (components/account/OwnedFilter). */
+  const matching = useMemo(() => {
     let list = operators;
     if (showUnreleased) {
       // Show CN: ONLY unreleased operators, not the already-released
@@ -159,11 +161,15 @@ export default function OperatorsIndex({ operators, now }: Props) {
     if (factionFilter !== 'all') {
       list = list.filter((op) => operatorBelongsToFaction(op, factionFilter));
     }
-    if (account && owned !== 'all') list = list.filter((op) => ownedNames.has(op.name) === (owned === 'owned'));
     if (search.trim()) {
       list = list.filter((op) => matchesSearch(op.name, search));
     }
+    return list;
+  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, search, clock]);
+  const ownedCounts = useMemo(() => countOwned(matching, (op) => ownedNames.has(op.name)), [matching, ownedNames]);
 
+  const filtered = useMemo(() => {
+    const list = account && owned !== 'all' ? matching.filter((op) => ownedNames.has(op.name) === (owned === 'owned')) : matching;
     return [...list].sort((a, b) => {
       if (search.trim()) {
         const relDiff = searchRelevance(a.name, search) - searchRelevance(b.name, search);
@@ -232,7 +238,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
       if (ra !== rb) return sortDir === 'desc' ? rb - ra : ra - rb;
       return a.name.localeCompare(b.name);
     });
-  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, search, sortDir, sortField, clock, account, owned, ownedNames]);
+  }, [matching, showUnreleased, factionFilter, search, sortDir, sortField, clock, account, owned, ownedNames]);
 
   function resetFilters() {
     setSearch('');
@@ -394,7 +400,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
             Show CN
           </button>
 
-          <OwnedFilter label="Operators you own" value={owned} onChange={setOwned} account={account} />
+          <OwnedFilter label="Operators you own" value={owned} onChange={setOwned} account={account} counts={ownedCounts} />
 
           <span className="toolbar-spacer" aria-hidden="true" />
           <SegmentedControl label="Sort by" value={sortField === 'releaseDate' ? 'releaseDate' : 'rarity'}

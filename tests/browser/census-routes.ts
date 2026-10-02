@@ -188,8 +188,8 @@ export const CENSUS_STATES: CensusState[] = [
   // The Skin Planner (components/skins/SkinPlanner) with an outfit planned: its card lit and
   // the summary's shop deadline filled in.
   { id: 'skin planner with a plan', route: '/skin-planner', act: async (page) => { await page.locator('.skin-plan-card').first().click(); await page.locator('.skin-plan-deadlines').waitFor(); } },
-  { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: 'Owned', exact: true }).click(); } },
-  { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: 'Not owned', exact: true }).click(); } },
+  { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: /^Owned\s*\d+$/ }).click(); } },
+  { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: /^Not owned\s*\d+$/ }).click(); } },
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
   // The account page with an import (lib/account/accountStore): the profile and counts filled
   // in, and Import / export open.

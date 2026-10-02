@@ -16,7 +16,7 @@ import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import OwnedFilter from '@/components/account/OwnedFilter';
+import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
@@ -192,7 +192,6 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const seriesFiltered = useMemo(() => {
     return skins.filter(skin => {
       if ((wishlistOnly === '1' || selectedSeries === 'WISHLIST') && !isWished(skin)) return false;
-      if (account && owned !== 'all' && ownedSkins.has(skin.skinId ?? '') !== (owned === 'owned')) return false;
       if (selectedSeries && selectedSeries !== 'WISHLIST' && seriesKey(skin.series) !== seriesKey(selectedSeries)) return false;
       const window = availability.get(skinKey(skin));
       if (availabilityFilter === 'now') return isAvailableNow(window);
@@ -200,12 +199,16 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       if (['shop', 'reward'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
       return true;
     });
-  }, [skins, selectedSeries, isWished, wishlistOnly, availability, availabilityFilter, account, owned, ownedSkins]);
+  }, [skins, selectedSeries, isWished, wishlistOnly, availability, availabilityFilter]);
+  /* Every filter but Owned, so the Owned filter can count what each of its options would show
+     (components/account/OwnedFilter). */
+  const matchingSkins = useMemo(() => (!search.trim()
+    ? seriesFiltered
+    : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series} ${s.release || ''} ${(s.searchAliases || []).join(' ')}`, search))), [seriesFiltered, search]);
+  const ownedCounts = useMemo(() => countOwned(matchingSkins, (skin) => ownedSkins.has(skin.skinId ?? '')), [matchingSkins, ownedSkins]);
 
   const filteredSkins = useMemo(() => {
-    const base = !search.trim()
-      ? seriesFiltered
-      : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series} ${s.release || ''} ${(s.searchAliases || []).join(' ')}`, search));
+    const base = account && owned !== 'all' ? matchingSkins.filter((skin) => ownedSkins.has(skin.skinId ?? '') === (owned === 'owned')) : matchingSkins;
 
     const searching = search.trim().length > 0;
     // What can be had now leads the gallery, in the order the Available now tab lists it,
@@ -235,7 +238,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       return (aWindow ? Date.parse(aWindow.live ? aWindow.endAt : aWindow.startAt) : Infinity)
         - (bWindow ? Date.parse(bWindow.live ? bWindow.endAt : bWindow.startAt) : Infinity);
     });
-  }, [seriesFiltered, search, sortByAvailableDate, availability, availabilityFilter]);
+  }, [matchingSkins, account, owned, ownedSkins, search, sortByAvailableDate, availability, availabilityFilter]);
 
   useEffect(() => {
     setVisibleSkinCount(SKIN_PAGE_SIZE);
@@ -303,7 +306,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               row, with the owned filter in the same place. */}
           <div className="skins-filter-row">
             <SegmentedControl label="Skin availability" value={availabilityFilter} options={AVAILABILITY_OPTIONS} onChange={setAvailabilityFilter} />
-            <OwnedFilter label="Outfits you own" value={owned} onChange={setOwned} account={account} />
+            <OwnedFilter label="Outfits you own" value={owned} onChange={setOwned} account={account} counts={ownedCounts} />
             <span className="toolbar-spacer" aria-hidden="true" />
             <button type="button" className="filter-chip skins-wishlist-filter"
               aria-pressed={wishlistOnly === '1' || selectedSeries === 'WISHLIST'} onClick={() => {

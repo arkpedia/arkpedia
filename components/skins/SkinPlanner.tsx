@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import OwnedFilter from '@/components/account/OwnedFilter';
+import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { useAccount, type OwnedFilter as Owned } from '@/lib/account/accountStore';
 import { ContentImg } from '@/components/content/ContentImage';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
@@ -78,8 +78,13 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   const short = budget ? Math.max(0, cost + extra - budget.heldOP) : 0;
 
   const words = query.normalize('NFKC').toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
-  const shows = (skin: PlannedSkin) => (!plannedOnly || planned.has(skin.id)) && (!owned || ownedFilter === 'all' || (ownedFilter === 'owned') === isOwned(skin))
+  const matches = (skin: PlannedSkin) => (!plannedOnly || planned.has(skin.id))
     && words.every((word) => `${skin.operator} ${skin.name}`.normalize('NFKC').toLocaleLowerCase().includes(word));
+  const shows = (skin: PlannedSkin) => matches(skin) && (!owned || ownedFilter === 'all' || (ownedFilter === 'owned') === isOwned(skin));
+  /* What each Owned option would show under the other filters, each outfit once though a
+     returning one is in more than one shop. */
+  const ownedCounts = countOwned([...new Map(shops.flatMap((shop) => shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])))
+    .filter(matches).map((skin) => [skin.id, skin])).values()], isOwned);
   // The shops with something to show under the search and the chips.
   const visibleShops = shops.map((shop) => ({ shop, skins: shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(shows) }))
     .filter(({ skins }) => skins.length > 0);
@@ -110,7 +115,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
           <SearchInput className="skin-plan-search" label="Search outfits" value={query} onChange={setQuery} placeholder="Operator or outfit" />
           <div className="skin-plan-filter-row">
             <button type="button" className="filter-chip" aria-pressed={plannedOnly} onClick={() => setPlannedOnly(!plannedOnly)}>Planned only</button>
-            <OwnedFilter label="Outfits you own" value={ownedFilter} onChange={setOwnedFilter} account={account} />
+            <OwnedFilter label="Outfits you own" value={ownedFilter} onChange={setOwnedFilter} account={account} counts={ownedCounts} />
             <span className="toolbar-spacer" aria-hidden="true" />
             <SegmentedControl label="Order shops by" value={order} options={ORDER_OPTIONS} onChange={setOrder} />
           </div>
