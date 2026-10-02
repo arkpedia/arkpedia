@@ -32,7 +32,10 @@ jobs:
   # landed in between changes the tree, and the full Check runs (scripts/ci/already-checked.mjs).
   seen:
     if: github.event_name == 'push'
-    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
+    # merge's push is not queued behind another pull request's whole Check on the NAS before
+    # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.
+    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
       actions: read

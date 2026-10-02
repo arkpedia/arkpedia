@@ -60,7 +60,9 @@ jobs:
       && github.event.workflow_run.head_repository.full_name == github.repository)
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
-    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    # This job only lists the targets, so it takes the light runner (ARKPEDIA_LIGHT_RUNNER)
+    # and does not wait behind a Check on the main one.
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     outputs:
       targets: ${{ steps.list.outputs.targets }}
