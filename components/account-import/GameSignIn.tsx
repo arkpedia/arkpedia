@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImportError, readAccount, readNetwork, sendCode, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
 import { directTransport, relayTransport } from '@/lib/account-import/relay';
-import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
 
 /*
  * The sign-in with a Yostar email code, and the account it reads (lib/account-import):
  * an email field, a code field and the five steps as they run. Used by /import and by the
  * planner's Export / import dialog. `onAccount` gets the account as the game server sent
- * it. The Yostar login is then kept in this browser (lib/account-import/savedLogin), so the
- * next import is one button; the email and the code are not kept.
+ * it. Nothing of the sign-in is kept: every import asks Yostar for a new code.
  */
+
+/* Where an earlier build kept the Yostar login (a uid and an access token) for one-button
+   re-imports. That is gone (the maintainer, 2026-10-02); a login one left behind is
+   removed the first time the sign-in is shown. */
+export const LEGACY_LOGIN_KEY = 'arkpediaGameLogin';
 
 const STEPS: { id: ImportStep; label: string }[] = [
   { id: 'network', label: 'Open the encrypted connection' },
@@ -35,12 +38,9 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [step, setStep] = useState<ImportStep | null>(null);
   const [failed, setFailed] = useState<{ step: ImportStep | null; message: string } | null>(null);
   const [done, setDone] = useState(false);
-  // The login a past import kept: read after mount (localStorage is not there to render
-  // from on the server). Once it is forgotten or has expired, `gone` says so in its place,
-  // and its buttons keep their space, so nothing below moves.
-  const [saved, setSaved] = useState<SavedLogin | null>(null);
-  const [gone, setGone] = useState<string | null>(null);
-  useEffect(() => { setSaved(readSavedLogin()); }, []);
+  useEffect(() => {
+    try { window.localStorage?.removeItem(LEGACY_LOGIN_KEY); } catch { /* Nothing was kept. */ }
+  }, []);
   // One device id per visit, as one phone signing in.
   const deviceId = useRef<string | null>(null);
   const flow = () => {
@@ -96,50 +96,15 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setStep('sign-in');
     try {
       const yostar = await signIn(flow(), email.trim(), code.trim());
-      const login: SavedLogin = { server, ...yostar, deviceId: flow().deviceId, label: maskEmail(email) };
-      saveLogin(login);
-      setSaved(login);
-      setGone(null);
-      await read(yostar, login.deviceId);
-      // The code is spent, and the login is kept: neither field is needed again.
+      await read(yostar, flow().deviceId);
+      // The code is spent; the email stays for the next import's code.
       setCode('');
-      setEmail('');
       setCodeSent(false);
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'account', message: describe(error) });
     } finally {
       setBusy(false);
     }
-  }
-
-  async function onImportSaved() {
-    if (!saved) return;
-    setBusy(true);
-    setFailed(null);
-    setDone(false);
-    setStep('game-token');
-    try {
-      await read({ uid: saved.uid, token: saved.token }, saved.deviceId);
-    } catch (error) {
-      const step = error instanceof ImportError ? error.step : 'account';
-      // The game no longer takes this login (it expires, or a sign-in elsewhere replaced it).
-      if (step === 'game-token') {
-        forgetLogin();
-        setSaved(null);
-        setGone('The saved login has expired.');
-        setFailed({ step, message: 'The saved login has expired. Sign in with a new code from your email.' });
-      } else {
-        setFailed({ step, message: describe(error) });
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function onForget() {
-    forgetLogin();
-    setSaved(null);
-    setGone('The login is forgotten on this browser.');
   }
 
   const stepIndex = STEPS.findIndex((entry) => entry.id === (failed?.step ?? step));
@@ -154,15 +119,6 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
 
   return (
     <>
-      {(saved || gone) && (
-        <div className="import-saved">
-          <span className="hint">{saved ? `Saved login: ${saved.label}` : gone}</span>
-          <div className={`import-saved-actions${saved ? '' : ' import-saved-gone'}`} aria-hidden={!saved}>
-            <button type="button" className="primary btn-sm" onClick={onImportSaved} disabled={busy || !saved}>Import again</button>
-            <button type="button" className="ghost btn-sm" onClick={onForget} disabled={busy || !saved}>Forget this login</button>
-          </div>
-        </div>
-      )}
       <div className="import-forms">
         <form className="import-row" onSubmit={onSendCode}>
           <label className="visually-hidden" htmlFor={`${idPrefix}-email`}>Yostar email</label>

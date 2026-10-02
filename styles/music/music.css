@@ -14,7 +14,9 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  width: 320px;
+  /* Room for the row beside the 44px toggle: five 36px buttons, their gaps and the volume
+     slider at its 48px minimum (262px). At 320 the slider ran off the right edge. */
+  width: 344px;
   overflow: hidden;
   padding: 10px 12px;
   border: 1px solid var(--line);

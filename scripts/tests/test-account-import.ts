@@ -104,15 +104,12 @@ test('a refusal names the step that failed and what the server said', async () =
   await refusal(sendCode({ transport: down, server: 'en', deviceId: 'd' }, 'a@b.c'), 'send-code', /could not reach en-sdk-api\.yostarplat\.com: .*SSL connect error/);
 });
 
-test('a saved login is read back only when it is a whole one, and its email is masked', async () => {
-  const { parseSavedLogin, maskEmail } = await import('../../lib/account-import/savedLogin');
-  const login = { server: 'en', uid: '4242', token: 'yostar-token', deviceId: 'device-1', label: 'd•••@example.com' };
-  assert.deepEqual(parseSavedLogin(JSON.stringify(login)), login);
-  for (const broken of [null, '', 'not json', '[]', JSON.stringify({ ...login, server: 'cn' }), JSON.stringify({ ...login, token: '' }), JSON.stringify({ ...login, uid: 4242 })]) {
-    assert.equal(parseSavedLogin(broken), null, String(broken));
-  }
-  assert.equal(maskEmail(' doctor@example.com '), 'd•••@example.com');
-  assert.equal(maskEmail('nonsense'), '•••');
+test('no login is kept: the sign-in removes the one an earlier build saved, and writes none', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync('components/account-import/GameSignIn.tsx', 'utf8');
+  assert.match(source, /removeItem\(LEGACY_LOGIN_KEY\)/);
+  assert.doesNotMatch(source, /setItem/);
+  assert.ok(!fs.existsSync('lib/account-import/savedLogin.ts'));
 });
 
 test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async () => {

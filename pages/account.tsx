@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
-import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import GameSignIn from '@/components/account-import/GameSignIn';
 import ImportDialog from '@/components/account/ImportDialog';
@@ -37,6 +36,13 @@ function age(iso: string, now: number): string {
   const years = Math.floor(months / 12), rest = months % 12;
   const parts = [years ? `${years} ${years === 1 ? 'year' : 'years'}` : '', rest || !years ? `${rest} ${rest === 1 ? 'month' : 'months'}` : ''];
   return parts.filter(Boolean).join(', ');
+}
+
+/** "412 operators, 375 skins, 77 materials, 1,840 stages cleared and your profile". */
+function importedSummary(result: ImportResult): string {
+  const n = (count: number, one: string, many: string) => `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
+  return [n(result.operators, 'operator', 'operators'), n(result.record.skins.length, 'skin', 'skins'), n(result.materials, 'material', 'materials'),
+    n(result.record.cleared.length, 'stage cleared', 'stages cleared')].join(', ') + (result.record.profile ? ' and your profile' : '');
 }
 
 export default function AccountPage({ skins }: Props) {
@@ -105,9 +111,9 @@ export default function AccountPage({ skins }: Props) {
       {importing && (
         <ImportDialog title="Import from the game" onClose={() => setImporting(false)}>
           <p className="import-copy">
-            Import data directly from your Arknights (Global) account. Your login token is sent encrypted and is never
-            read by Arkpedia itself; Arkpedia only receives your account data. For future imports, the login token is
-            saved in your own browser, not on Arkpedia.
+            Import data directly from your Arknights (Global) account. Your login is sent encrypted and is never
+            read by Arkpedia itself; Arkpedia only receives your account data. Nothing of the login is kept: each
+            import asks for a new code.
           </p>
           <p className="hint import-note">
             Importing replaces all your existing data and kicks you out of the game if you are logged in.
@@ -115,8 +121,7 @@ export default function AccountPage({ skins }: Props) {
           <GameSignIn server="en" idPrefix="account" onAccount={onAccount} />
           {result && (
             <p className="hint import-note" role="status">
-              Imported {result.operators} operators and {result.materials} materials you hold. The{' '}
-              <Link prefetch={false} href="/planner">Operator Planner</Link> starts your plans from them.{unheldSummary(result.unknown)}
+              Imported: {importedSummary(result)}.{unheldSummary(result.unknown)}
             </p>
           )}
         </ImportDialog>

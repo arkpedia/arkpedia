@@ -190,9 +190,8 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: 'Owned', exact: true }).click(); } },
   { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: 'Not owned', exact: true }).click(); } },
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
-  // The account page with an import and a kept login (lib/account/accountStore,
-  // lib/account-import/savedLogin, neither used here): the profile and counts filled in, and
-  // the sign-in's Import again row.
+  // The account page with an import (lib/account/accountStore): the profile and counts filled
+  // in, and the Import popup open.
   // The Pull Planner's Unclaimed rewards with an import (components/pulls/PastRewards): counted
   // from the account's cleared stages, the lists shown but not ticked by hand.
   { id: 'pulls past events from an import', route: '/pulls', act: async (page) => {
@@ -201,11 +200,10 @@ export const CENSUS_STATES: CensusState[] = [
     await page.locator('#panel-past .pulls-disclosure').first().waitFor();
   } },
   { id: 'account with an import', route: '/account', act: async (page) => {
-    await page.evaluate(() => localStorage.setItem('arkpediaGameLogin', JSON.stringify({ server: 'en', uid: '1', token: 'census', deviceId: 'census', label: 'd•••@example.com' })));
     await seedAccount(page);
-    // The Import popup (components/account/ImportDialog), with the kept login's row.
+    // The Import popup (components/account/ImportDialog).
     await page.locator('.page-header').getByRole('button', { name: 'Import again', exact: true }).click();
-    await page.locator('dialog.account-dialog').getByRole('button', { name: 'Import again', exact: true }).waitFor();
+    await page.locator('dialog.account-dialog .import-forms').waitFor();
   } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
   { id: 'stage enemy record', route: '/stages/browse?s=1-7', act: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await page.locator('.record-dialog .enemy-hero').first().waitFor(); } },
