@@ -315,6 +315,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
       <Head><title>Operator Roster — Arkpedia</title></Head>
 
       <PageHeader eyebrow="Rhodes Island // Personnel Archive" title="Operator roster"
+        sub={<span className="roster-reference">See also <Link prefetch={false} href="/techniques">Techniques</Link> · <Link prefetch={false} href="/synergies">Synergies</Link> · <Link prefetch={false} href="/obtain-method">Obtain method</Link></span>}
         actions={<div className="roster-controls">
           <SearchInput className="roster-search" label="Search operators" name="operator-search" placeholder="Search by name…" value={search} onChange={setSearch} />
 
@@ -378,32 +379,9 @@ export default function OperatorsIndex({ operators, now }: Props) {
             </div>
           )}
 
-          <nav className="roster-techniques-link-row" aria-label="Operator reference tools">
-            <Link prefetch={false} href="/techniques" className="btn btn-sm roster-techniques-btn">
-              <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
-                <path d="M10 2 L17 6 L17 14 L10 18 L3 14 L3 6 Z" strokeLinejoin="round" />
-                <path d="M10 2 V18 M3 6 L17 14 M17 6 L3 14" strokeLinecap="round" />
-              </svg>
-              <span>Techniques</span>
-            </Link>
-            <Link prefetch={false} href="/synergies" className="btn btn-sm roster-techniques-btn">
-              <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
-                <circle cx="6" cy="6" r="2.5" />
-                <circle cx="14" cy="6" r="2.5" />
-                <circle cx="10" cy="15" r="2.5" />
-                <path d="M8 7.5 L11.5 13 M12 7.5 L8.5 13 M8.5 6 L11.5 6" strokeLinecap="round" />
-              </svg>
-              <span>Synergies</span>
-            </Link>
-            <Link prefetch={false} href="/obtain-method" className="btn btn-sm roster-techniques-btn">
-              <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
-                <rect x="3" y="4" width="14" height="12" rx="1.5" />
-                <path d="M3 8 H17 M7 4 V16" strokeLinecap="round" />
-              </svg>
-              <span>Obtain method</span>
-            </Link>
-          </nav>
-
+          {/* Filters on the left, the order on the right: the same row on the skins gallery
+              and the Skin Planner, with the owned filter in the same place. */}
+          <div className="roster-filter-row">
           <StyledSelect className="roster-faction" label="Filter by faction" value={factionFilter} onChange={setFactionFilter}
             options={[{ value: 'all', label: 'All factions' }, ...factions.map((f) => ({ value: f, label: f }))]} />
 
@@ -418,6 +396,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
 
           <OwnedFilter label="Operators you own" value={owned} onChange={setOwned} account={account} />
 
+          <span className="toolbar-spacer" aria-hidden="true" />
           <SegmentedControl label="Sort by" value={sortField === 'releaseDate' ? 'releaseDate' : 'rarity'}
             options={[{ value: 'rarity', label: 'Rarity' }, { value: 'releaseDate', label: 'Release date' }]}
             onChange={setSortField} />
@@ -437,6 +416,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
           <button type="button" className="ghost" onClick={resetFilters}>
             Reset
           </button>
+          </div>
         </div>} />
 
       <main>

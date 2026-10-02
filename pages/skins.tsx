@@ -298,14 +298,19 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               onChange={value => setSelectedSeries(value || null)} />
             <StyledSelect label="Sort skins" value={sortByAvailableDate ? 'available' : ''} options={SORT_OPTIONS}
               onChange={value => setSortByAvailableDate(value === 'available')} />
+          </div>
+          {/* The filters, then the wishlist at the far end: the roster's and the Skin Planner's
+              row, with the owned filter in the same place. */}
+          <div className="skins-filter-row">
+            <SegmentedControl label="Skin availability" value={availabilityFilter} options={AVAILABILITY_OPTIONS} onChange={setAvailabilityFilter} />
+            <OwnedFilter label="Outfits you own" value={owned} onChange={setOwned} account={account} />
+            <span className="toolbar-spacer" aria-hidden="true" />
             <button type="button" className="filter-chip skins-wishlist-filter"
               aria-pressed={wishlistOnly === '1' || selectedSeries === 'WISHLIST'} onClick={() => {
                 if (selectedSeries === 'WISHLIST') setSelectedSeries(null);
                 setWishlistOnly(wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? '' : '1');
               }}>☆ Wishlist <span className="filter-chip-count">{wishCount}</span></button>
-            <OwnedFilter label="Outfits you own" value={owned} onChange={setOwned} account={account} />
           </div>
-          <SegmentedControl label="Skin availability" value={availabilityFilter} options={AVAILABILITY_OPTIONS} onChange={setAvailabilityFilter} />
           {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="skins-wishlist-total">{wishCount} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total · planned in the <Link prefetch={false} href="/skin-planner">Skin Planner</Link></p>}
         </div>} />
 

@@ -83,17 +83,10 @@
   padding-top: 4px;
 }
 
-.roster-techniques-link-row {
-  width: 100%;
-  padding-top: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-/* Secondary reference links: the site's .btn, sized to the controls row. */
-.roster-techniques-btn { flex: 0 0 auto; gap: 8px; }
-.roster-techniques-btn svg { flex-shrink: 0; color: var(--text-dim); }
-.roster-techniques-btn:hover svg { color: var(--teal); }
+/* Faction, Show CN and the owned filter, then the order and Reset at the far end. */
+.roster-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding-top: 4px; }
+/* The reference pages beside the roster, in the header's lede. */
+.roster-reference a { color: var(--teal); }
 
 /* --- Class / branch icons --- */
 .roster-class-branch {

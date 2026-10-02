@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import OwnedFilter from '@/components/account/OwnedFilter';
+import { useAccount, type OwnedFilter as Owned } from '@/lib/account/accountStore';
 import { ContentImg } from '@/components/content/ContentImage';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { skinPurchasePlan, type PlannedSkin } from '@/lib/pulls/skins';
@@ -27,6 +29,15 @@ type ShopOrder = 'closing' | 'opening';
 const ORDER_OPTIONS = [{ value: 'closing' as const, label: 'Closing soonest' }, { value: 'opening' as const, label: 'Opening soonest' }];
 const shopName = (name: string) => name.replace(/^\[[^\]]*\]\s*/, '');
 
+/** "closes in 5 days", "closes today", "opens in 6 days": how long a shop has, from the
+ *  reader's server day (YYYY-MM-DD, inclusive of the shop's last day). */
+function shopCountdown(shop: { start: string; end: string }, today: string): string {
+  const days = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+  if (today < shop.start) { const n = days(today, shop.start); return n === 1 ? 'opens tomorrow' : `opens in ${n} days`; }
+  const n = days(today, shop.end);
+  return n <= 0 ? 'closes today' : n === 1 ? 'closes tomorrow' : `closes in ${n} days`;
+}
+
 export default function SkinPlanner({ catalogue, collections, today, ids, onChange, owned, budget }: {
   catalogue: PlannedSkin[];
   collections: SkinCollection[];
@@ -41,7 +52,9 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   const [query, setQuery] = useState('');
   const [order, setOrder] = useState<ShopOrder>('closing');
   const [plannedOnly, setPlannedOnly] = useState(false);
-  const [hideOwned, setHideOwned] = useState(false);
+  const [ownedFilter, setOwnedFilter] = useState<Owned>('all');
+  // Only to know whether there is an import to filter by; what is owned is the `owned` prop.
+  const account = useAccount();
   // Shops a few at a time, more as the reader scrolls, as every long list on the site grows.
   const SHOPS_PER_STEP = 6;
   const [shopLimit, setShopLimit] = useState(SHOPS_PER_STEP);
@@ -65,7 +78,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   const short = budget ? Math.max(0, cost + extra - budget.heldOP) : 0;
 
   const words = query.normalize('NFKC').toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
-  const shows = (skin: PlannedSkin) => (!plannedOnly || planned.has(skin.id)) && (!hideOwned || !isOwned(skin))
+  const shows = (skin: PlannedSkin) => (!plannedOnly || planned.has(skin.id)) && (!owned || ownedFilter === 'all' || (ownedFilter === 'owned') === isOwned(skin))
     && words.every((word) => `${skin.operator} ${skin.name}`.normalize('NFKC').toLocaleLowerCase().includes(word));
   // The shops with something to show under the search and the chips.
   const visibleShops = shops.map((shop) => ({ shop, skins: shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(shows) }))
@@ -77,11 +90,11 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
     return (
       <button key={skin.id} type="button" className={`btn-bare pick-card pick-card-picture skin-plan-card${has ? ' skin-plan-owned' : ''}`}
         aria-pressed={isPlanned} aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP${has ? ', owned' : ''}`} onClick={() => toggle(skin.id)}>
-        {skin.image ? <ContentImg src={skin.image} alt="" /> : <span className="skin-plan-noart">Artwork unavailable</span>}
+        <span className="skin-plan-art">{skin.image ? <ContentImg src={skin.image} alt="" /> : <span className="skin-plan-noart">Artwork unavailable</span>}</span>
         <span className="skin-plan-card-text">
-          <b>{skin.operator}</b>
-          <span>{skin.name}</span>
-          <strong>{has ? 'Owned · ' : isPlanned ? '✓ Planned · ' : '+ Plan · '}{skin.op} OP</strong>
+          <span className="skin-plan-card-operator">{skin.operator}</span>
+          <b>{skin.name}</b>
+          <span className="skin-plan-card-foot"><span>{skin.op} OP</span><strong>{has ? 'Owned' : isPlanned ? '✓ Planned' : '+ Plan'}</strong></span>
         </span>
       </button>
     );
@@ -91,13 +104,15 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   return (
     <div className="skin-plan">
       <div className="skin-plan-main">
+        {/* The search, then the filters on the left and the order on the right: the roster's and
+            the skins gallery's row, with the owned filter in the same place. */}
         <div className="skin-plan-toolbar">
           <SearchInput className="skin-plan-search" label="Search outfits" value={query} onChange={setQuery} placeholder="Operator or outfit" />
-          <SegmentedControl label="Order shops by" value={order} options={ORDER_OPTIONS} onChange={setOrder} />
-          <div className="skin-plan-chips" role="group" aria-label="Show">
+          <div className="skin-plan-filter-row">
             <button type="button" className="filter-chip" aria-pressed={plannedOnly} onClick={() => setPlannedOnly(!plannedOnly)}>Planned only</button>
-            <button type="button" className="filter-chip" aria-pressed={!!owned && hideOwned} disabled={!owned} onClick={() => setHideOwned(!hideOwned)}
-              title={owned ? undefined : 'Import your account (Planner, Account) to hide the outfits you own.'}>Hide owned</button>
+            <OwnedFilter label="Outfits you own" value={ownedFilter} onChange={setOwnedFilter} account={account} />
+            <span className="toolbar-spacer" aria-hidden="true" />
+            <SegmentedControl label="Order shops by" value={order} options={ORDER_OPTIONS} onChange={setOrder} />
           </div>
         </div>
         {shops.length === 0 && <p className="hint">No shop that sells outfits for Originite Prime is open or listed ahead.</p>}
@@ -108,7 +123,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
               <div className="skin-plan-shop-head">
                 <h3 className="section-title">{shopName(shop.name)}</h3>
                 <span className="hint">
-                  {shop.start} – {shop.end}{shop.estimated ? (shop.sourceRegion === 'cn' ? ' · CN-based estimate' : ' · Estimated') : ''}
+                  {shop.start} – {shop.end}{today ? ` · ${shopCountdown(shop, today)}` : ''}{shop.estimated ? (shop.sourceRegion === 'cn' ? ' · CN-based estimate' : ' · Estimated') : ''}
                   {inPlan.length ? ` · ${inPlan.length} planned, ${inPlan.reduce((sum, id) => sum + byId.get(id)!.op, 0)} OP` : ''}
                 </span>
               </div>

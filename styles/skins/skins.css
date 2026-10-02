@@ -6,11 +6,12 @@
 .skins-controls { display: grid; gap: 10px; }
 .skins-toolbar {
   display: grid;
-  /* Search, series, sort, Wishlist, and Owned / Not owned (components/account/OwnedFilter). */
-  grid-template-columns: minmax(180px, 1fr) minmax(150px, 200px) minmax(150px, 180px) auto auto;
+  /* Search, series and sort; the filters are the row below. */
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 220px) minmax(150px, 200px);
   align-items: center;
   gap: 8px;
 }
+.skins-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .skins-wishlist-total { margin: 0; color: var(--text-dim); font: 11px var(--font-mono); }
 
 /* --- results ------------------------------------------------------------------------ */

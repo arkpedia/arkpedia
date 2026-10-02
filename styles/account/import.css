@@ -1,7 +1,13 @@
 /* Account import (pages/import.tsx, components/account-import) and what reads it. */
 
-/* components/account/OwnedFilter: the roster's and the skins' Owned / Not owned chips. */
-.owned-filter { display: flex; gap: 6px; }
+/* components/account/OwnedFilter: All / Owned / Not owned on the roster, the skins gallery and
+   the Skin Planner (a SegmentedControl), or, with no import, the link that makes one. */
+/* A hairline before it, so its All does not read as the end of the group beside it (the
+   skins gallery's availability ends in All too). */
+.owned-filter { flex: none; padding-left: 10px; border-left: 1px solid var(--line-soft); }
+.owned-filter-import { flex: none; }
+/* On a phone the row wraps, and a hairline would start a line. */
+@media (max-width: 720px) { .owned-filter { padding-left: 0; border-left: 0; } }
 
 .import-copy { max-width: 70ch; font-size: 13px; line-height: 1.6; color: var(--text-dim); margin: 0 0 12px; }
 .import-note { max-width: 70ch; }

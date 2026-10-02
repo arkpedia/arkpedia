@@ -1,10 +1,18 @@
+import Link from 'next/link';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import type { AccountRecord, OwnedFilter as Filter } from '@/lib/account/accountStore';
 
+const OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'owned', label: 'Owned' },
+  { value: 'missing', label: 'Not owned' },
+] as const;
+
 /*
- * Owned / Not owned, from the imported account (lib/account/accountStore): two independent
- * chips, the lit one clearing itself, as the roster's rarity chips do. Drawn on every visit,
- * so a reader with an import and one without get the same toolbar; without one they are
- * disabled, and say where the import is.
+ * All / Owned / Not owned, from the imported account (lib/account/accountStore): one
+ * pick-one control, drawn in the same place on the roster, the skins gallery and the Skin
+ * Planner. Without an import there is nothing to filter by, so it is a link to the Account
+ * page that makes one, not a row of disabled buttons.
  */
 export default function OwnedFilter({ value, onChange, account, label }: {
   value: Filter;
@@ -13,21 +21,12 @@ export default function OwnedFilter({ value, onChange, account, label }: {
   /** The group's accessible name: "Operators you own". */
   label: string;
 }) {
-  const hint = account ? undefined : 'Import your account in the planner (Export / import, From the game) to filter by what you own.';
-  return (
-    <div className="owned-filter" role="group" aria-label={label} title={hint}>
-      {(['owned', 'missing'] as const).map((option) => (
-        <button
-          type="button"
-          key={option}
-          className="filter-chip"
-          aria-pressed={!!account && value === option}
-          disabled={!account}
-          onClick={() => onChange(value === option ? 'all' : option)}
-        >
-          {option === 'owned' ? 'Owned' : 'Not owned'}
-        </button>
-      ))}
-    </div>
-  );
+  if (!account) {
+    return (
+      <Link prefetch={false} href="/account" className="btn btn-sm ghost owned-filter-import" title="Import your Arknights account to filter by what you own.">
+        Owned? Import account
+      </Link>
+    );
+  }
+  return <SegmentedControl className="owned-filter" label={label} value={value} options={OPTIONS} onChange={onChange} />;
 }
