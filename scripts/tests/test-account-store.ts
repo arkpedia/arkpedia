@@ -17,6 +17,7 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     medal: { custom: { customs: { 1: { layout: [{ id: 'medal_a', pos: [6, 12] }, { id: 'medal_b', pos: [9, 9] }] } } } },
     troop: { chars: {
       1: { charId: 'char_300_phenxi', level: 60, evolvePhase: 2, potentialRank: 5, skin: 'char_300_phenxi@summer#1',
+        skills: [{ specializeLevel: 0 }, { specializeLevel: 2 }, { specializeLevel: 3 }],
         equip: { uniequip_001_phenxi: { level: 1, locked: 0 }, uniequip_002_phenxi: { level: 3, locked: 0 }, uniequip_003_phenxi: { level: 1, locked: 1 } } },
       2: { charId: 'char_002_amiya', currentTmpl: 'char_1001_amiya2', tmpl: { char_002_amiya: { skinId: 'char_002_amiya#1+' }, char_1001_amiya2: { skinId: 'char_1001_amiya2#2' } } },
       3: { charId: 'char_9999_brandnew', skin: 'char_9999_brandnew#1' },
@@ -45,9 +46,10 @@ test('an account gives the operators it owns by name, its outfits by skin id and
       modules: { collected: 1, stage3: 1, operators: 1 },
       hired: 4,
       // The support units by the troop's own records; a slot with no operator behind it is left out.
-      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, skin: 'char_300_phenxi@summer#1' },
+      // The lent skill's mastery too: Fiammetta lends her third at M3.
+      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, mastery: 3, skin: 'char_300_phenxi@summer#1' },
         // Amiya lends the form she is in, in that form's outfit.
-        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, skin: 'char_1001_amiya2#2' }],
+        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, mastery: 0, skin: 'char_1001_amiya2#2' }],
       medals: [{ id: 'medal_a', x: 6, y: 12 }, { id: 'medal_b', x: 9, y: 9 }] },
   });
   assert.deepEqual(parseAccount(JSON.stringify(record)), record);

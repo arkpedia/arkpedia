@@ -93,6 +93,9 @@ export interface SupportUnit {
   potential: number;
   /** 1-based, the skill it lends with. */
   skill: number | null;
+  /** That skill's mastery, 0 to 3 (the game draws a badge at 3). Absent on a record from
+   *  before it. */
+  mastery?: number;
   /** The outfit it wears, as the game's skin id (its portrait: lib/account/portraits.ts).
    *  Absent on a record from before it. */
   skin?: string | null;
@@ -153,7 +156,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       uid: text(profile.uid), avatar: text(profile.avatar), nameCard: text(profile.nameCard),
       ...(typeof profile.hired === 'number' ? { hired: profile.hired } : {}),
       supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3)
-        .map((unit) => ({ ...unit, skin: skinId(unit.skin) })) : [],
+        .map((unit) => ({ ...unit, skin: skinId(unit.skin), ...(unit.mastery === undefined ? {} : { mastery: [0, 1, 2, 3].includes(unit.mastery) ? unit.mastery : 0 }) })) : [],
       ...(typeof profile.nameCardVariant === 'number' && Number.isInteger(profile.nameCardVariant) && profile.nameCardVariant >= 0 && profile.nameCardVariant < 20 ? { nameCardVariant: profile.nameCardVariant } : {}),
       ...(profile.secretarySkin !== undefined ? { secretarySkin: skinId(profile.secretarySkin) } : {}),
       ...(strings(profile.panels, 10) ? { panels: (profile.panels as string[]).filter((panel) => PANELS.has(panel)) } : {}),
@@ -226,10 +229,14 @@ function supportUnits(user: Record<string, any>, map: GameAccountMap): SupportUn
     const entry = char && (map.chars[char.currentTmpl ?? ''] ?? map.chars[char.charId ?? '']);
     if (!char || !entry) return [];
     const skin = char.currentTmpl ? char.tmpl?.[char.currentTmpl]?.skinId : char.skin;
+    // Amiya's forms each keep their own skills (tmpl), every other operator one list.
+    const skills = (char.currentTmpl ? char.tmpl?.[char.currentTmpl]?.skills : char.skills) as { specializeLevel?: unknown }[] | undefined;
+    const lent = typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? Number(skills?.[slot!.skillIndex]?.specializeLevel) : NaN;
     return [{
       name: entry.name, rarity: entry.rarity ?? null,
       level: Number(char.level) || 1, elite: Number(char.evolvePhase) || 0, potential: (Number(char.potentialRank) || 0) + 1,
       skill: typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? slot!.skillIndex + 1 : null,
+      mastery: [0, 1, 2, 3].includes(lent) ? lent : 0,
       skin: skinId(skin),
     }];
   }).slice(0, 3);

@@ -97,7 +97,10 @@
 .account-card-support-portrait { object-fit: cover; object-position: 50% 0; }
 .account-card-support-level { position: absolute; left: 0; top: 0; display: grid; padding: 4px 6px 8px 5px; background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), transparent 85%); font: 600 15px var(--font-display); line-height: 1; color: var(--scrim-ink); }
 .account-card-support-level small { font-size: 9px; font-weight: 400; }
-.account-card-support-elite { position: absolute; right: 4px; top: 4px; width: 22px; height: auto; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
+/* The elite mark in the top corner, and the Mastery 3 badge under it, as the game stacks them. */
+.account-card-support-marks { position: absolute; right: 4px; top: 4px; display: grid; justify-items: center; gap: 2px; }
+.account-card-support-elite { width: 22px; height: auto; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
+.account-card-support-mastery { width: 20px; height: auto; }
 .account-card-medal-box { justify-items: center; }
 .account-card-medals { --medal-unit: 8px; position: relative; max-width: 100%; }
 .account-card-medals img { position: absolute; height: auto; }

@@ -59,10 +59,13 @@ function SupportTile({ unit }: { unit: SupportUnit }) {
   const [portrait, setPortrait] = useState(true);
   const src = unit.skin && portrait ? portraitPath(unit.skin) : unit.rarity != null ? getOperatorIconPath({ name: unit.name, rarity: unit.rarity }) : null;
   return (
-    <div className="account-card-support" title={`${unit.name}: ${ELITE[unit.elite] ?? ''} Lv ${unit.level}, potential ${unit.potential}${unit.skill ? `, skill ${unit.skill}` : ''}`}>
+    <div className="account-card-support" title={`${unit.name}: ${ELITE[unit.elite] ?? ''} Lv ${unit.level}, potential ${unit.potential}${unit.skill ? `, skill ${unit.skill}${unit.mastery ? ` at M${unit.mastery}` : ''}` : ''}`}>
       {src && <ContentImg key={src} className={unit.skin && portrait ? 'account-card-support-icon account-card-support-portrait' : 'account-card-support-icon'} src={src} alt={unit.name} onError={unit.skin && portrait ? () => setPortrait(false) : undefined} />}
       <span className="account-card-support-level"><small>LV</small>{unit.level}</span>
-      {ELITE[unit.elite] && <ContentImg className="account-card-support-elite" src={UI(`elite_${unit.elite}`)} alt={ELITE[unit.elite]} />}
+      <span className="account-card-support-marks">
+        {ELITE[unit.elite] && <ContentImg className="account-card-support-elite" src={UI(`elite_${unit.elite}`)} alt={ELITE[unit.elite]} />}
+        {unit.mastery === 3 && <ContentImg className="account-card-support-mastery" src={UI('spec_max_icon')} alt="Mastery 3" />}
+      </span>
     </div>
   );
 }
