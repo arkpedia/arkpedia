@@ -4,9 +4,10 @@ import XButton from '@/components/ui/XButton';
 /*
  * The account page's Import popup: a modal <dialog> with the explanation and the sign-in
  * (components/account-import/GameSignIn) inside. Escape, the close button and a click on the
- * backdrop close it, and focus goes back to the button that opened it.
+ * backdrop close it, and focus goes back to the button that opened it. The Pull Planner's
+ * Past events open in the same frame (`className` widens it).
  */
-export default function ImportDialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+export default function ImportDialog({ title, children, onClose, className }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -16,7 +17,7 @@ export default function ImportDialog({ title, children, onClose }: { title: stri
     return () => { document.body.style.overflow = overflow; previous?.focus(); };
   }, []);
   return (
-    <dialog ref={ref} className="account-dialog" aria-labelledby="account-dialog-title" onCancel={onClose} onClick={(event) => {
+    <dialog ref={ref} className={`account-dialog${className ? ` ${className}` : ''}`} aria-labelledby="account-dialog-title" onCancel={onClose} onClick={(event) => {
       if (event.target !== event.currentTarget) return;
       const box = event.currentTarget.getBoundingClientRect();
       if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose();

@@ -179,8 +179,10 @@ check(Array.isArray(pullsProps.backlogSources?.playable) && pullsProps.backlogSo
 'The /pulls page does not carry this release\'s playable events (backlogSources)');
 // An import counts what is left of each chapter and event against its stage ids
 // (backlogFromAccount); a release without them leaves the page the deployment's.
-check([...(pullsProps.backlogSources?.chapters ?? []), ...(pullsProps.backlogSources?.playable ?? [])].every(item => Array.isArray(item.stages) && item.stages.length > 0),
-'A /pulls chapter or event carries no stage ids (backlogSources stages)');
+// and names the ones left by their codes (stageCodes, one per id).
+check([...(pullsProps.backlogSources?.chapters ?? []), ...(pullsProps.backlogSources?.playable ?? [])].every(item => Array.isArray(item.stages) && item.stages.length > 0
+  && Array.isArray(item.stageCodes) && item.stageCodes.length === item.stages.length),
+'A /pulls chapter or event carries no stage ids, or no code for each (backlogSources stages, stageCodes)');
 // A game table a page's browser code reads travels in that page's props
 // (lib/content/tables.mjs). Without it the page serves the deployment's copy, which
 // lags every release until a redeploy.

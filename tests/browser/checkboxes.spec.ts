@@ -60,13 +60,21 @@ test('the pull planner settings are checkboxes', async ({ page }) => {
 
   // In the Past events frame at every width (it was beside the trigger on a desktop only).
   await expectCheckPrimitive(page.getByRole('checkbox', { name: 'Include past rewards in forecast' }));
-  // The unclaimed-rewards list is ticked off item by item.
+  // The Past events popup's lists are ticked off item by item: each row's tick is a real
+  // checkbox (its name beside it is the button that names the stages left).
   await page.getByRole('button', { name: /Past events/ }).click();
-  const story = page.getByRole('group', { name: /: completed$/ }).first();
+  const dialog = page.getByRole('dialog', { name: 'Past events' });
+  const story = dialog.getByRole('list', { name: /: claimed$/ }).first();
   await expect.poll(() => story.getByRole('checkbox').count()).toBeGreaterThan(3);
-  await expect(story.getByRole('button')).toHaveCount(0);
-  await expectCheckPrimitive(story.getByRole('checkbox').first());
-  await expectLabelToggles(page, story.getByRole('checkbox').first());
+  const first = story.getByRole('checkbox').first();
+  await expectCheckPrimitive(first);
+  const before = await first.isChecked();
+  await first.click();
+  await expect(first).toBeChecked({ checked: !before });
+  await first.click();
+  await expect(first).toBeChecked({ checked: before });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 
   // Include sparking: shown for a limited banner's goals.
   const limited = await page.evaluate(() => {

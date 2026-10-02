@@ -90,6 +90,8 @@ test('the pull planner panels are on one line', async ({ page }) => {
   for (const name of [/Income & events/, /Past events/, /Skin wishlist/]) {
     await page.getByRole('button', { name }).click();
     expectOnlyAllowed(expect, '', await census(page), `/pulls?banner ${name.source}`, width);
+    // Past events is a popup (components/pulls/PastRewards): closed before the next trigger.
+    if (await page.getByRole('dialog').count()) await page.keyboard.press('Escape');
   }
   await page.getByRole('button', { name: '+ Add banner' }).click();
   expectOnlyAllowed(expect, '', await census(page), '/pulls?banner + Add banner', width);

@@ -85,7 +85,7 @@ export function bundledBacklogSources(): BacklogSources {
     chapters: ONE_TIME.chapters,
     originiteByStageType: ONE_TIME.originiteByStageType,
     annihilationOrundum: ONE_TIME.annihilationOrundum,
-    playable: PLAYABLE_EVENTS.map(({ id, name, op, stages }) => ({ id, name, op, stages })),
+    playable: PLAYABLE_EVENTS.map(({ id, name, op, stages, stageCodes }) => ({ id, name, op, stages, stageCodes })),
     resources: firstClears.resources,
     annihilation: firstClears.annihilation,
   };

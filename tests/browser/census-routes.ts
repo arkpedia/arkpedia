@@ -192,12 +192,13 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
   // The account page with an import (lib/account/accountStore): the profile and counts filled
   // in, and the Import popup open.
-  // The Pull Planner's Unclaimed rewards with an import (components/pulls/PastRewards): counted
-  // from the account's cleared stages, the lists shown but not ticked by hand.
+  // The Pull Planner's Past events popup with an import (components/pulls/PastRewards): ticked
+  // from the account's cleared stages, one chapter opened to the stages it has left.
   { id: 'pulls past events from an import', route: '/pulls', act: async (page) => {
     await seedAccount(page);
     await page.locator('#tab-past').click();
-    await page.locator('#panel-past .pulls-disclosure').first().waitFor();
+    await page.locator('dialog.pulls-past-dialog .pulls-past-row button.pulls-past-name').first().click();
+    await page.locator('dialog.pulls-past-dialog .pulls-past-detail').first().waitFor();
   } },
   { id: 'account with an import', route: '/account', act: async (page) => {
     await seedAccount(page);

@@ -104,16 +104,20 @@ test.describe('the Past events frame holds its Include setting', () => {
     expect(Math.abs((box!.top + box!.bottom) / 2 - (button!.top + button!.bottom) / 2), 'the checkbox is on the frame\'s centre line').toBeLessThanOrEqual(1);
   });
 
-  test('a press on the setting ticks it, and anywhere else in the frame opens the panel', async ({ page }) => {
-    const button = page.locator('#tab-past');
+  test('a press on the setting ticks it, and anywhere else in the frame opens the popup', async ({ page }) => {
     const box = page.getByRole('checkbox', { name: 'Include past rewards in forecast' });
-    const panel = page.locator('#panel-past');
+    const dialog = page.getByRole('dialog', { name: 'Past events' });
     const p = await parts(page);
     const cy = (p.button!.top + p.button!.bottom) / 2;
-    const check = async (expanded: boolean, ticked: boolean) => {
-      await expect(button).toHaveAttribute('aria-expanded', String(expanded));
-      await expect(panel).toBeVisible({ visible: expanded });
+    const check = async (open: boolean, ticked: boolean) => {
+      await expect(dialog).toHaveCount(open ? 1 : 0);
       await expect(box).toBeChecked({ checked: ticked });
+    };
+    const opens = async (x: number, y: number) => {
+      await page.mouse.click(x, y);
+      await check(true, false);
+      await page.keyboard.press('Escape');
+      await check(false, false);
     };
     await check(false, false);
     // The label's text (just past the box and its 8px gap), then the box itself.
@@ -122,37 +126,36 @@ test.describe('the Past events frame holds its Include setting', () => {
     await page.mouse.click((p.box!.left + p.box!.right) / 2, (p.box!.top + p.box!.bottom) / 2);
     await check(false, false);
     // The frame's start, the + at its end, the gap between the label and the +, and the
-    // frame's edge above the label: each is the button.
-    await page.mouse.click(p.button!.left + 6, cy);
-    await check(true, false);
-    await page.mouse.click((p.sign!.left + p.sign!.right) / 2, cy);
-    await check(false, false);
-    await page.mouse.click((p.label!.right + p.sign!.left) / 2, cy);
-    await check(true, false);
+    // frame's edge above the label: each is the button, and opens the popup.
+    await opens(p.button!.left + 6, cy);
+    await opens((p.sign!.left + p.sign!.right) / 2, cy);
+    await opens((p.label!.right + p.sign!.left) / 2, cy);
     // Halfway between the frame's top and the label's, on a whole pixel (a hit test on a
     // half pixel can round into the label).
-    await page.mouse.click((p.label!.left + p.label!.right) / 2, Math.floor((p.button!.top + p.label!.top) / 2));
-    await check(false, false);
+    await opens((p.label!.left + p.label!.right) / 2, Math.floor((p.button!.top + p.label!.top) / 2));
   });
 
   test('the keyboard reaches the button, then the setting, each with a focus ring', async ({ page }) => {
     const button = page.locator('#tab-past');
     const box = page.getByRole('checkbox', { name: 'Include past rewards in forecast' });
+    const dialog = page.getByRole('dialog', { name: 'Past events' });
     await page.locator('#tab-income').focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const ring = (el: Element) => { const s = getComputedStyle(el); return s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) >= 2; };
     expect(await button.evaluate(ring), 'the button shows the focus ring').toBe(true);
     await page.keyboard.press('Enter');
-    await expect(button).toHaveAttribute('aria-expanded', 'true');
-    await page.keyboard.press('Space');
-    await expect(button).toHaveAttribute('aria-expanded', 'false');
+    await expect(dialog).toBeVisible();
+    // Escape closes it, and focus goes back to the button that opened it.
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(button).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(box).toBeFocused();
     expect(await box.evaluate(ring), 'the checkbox shows the focus ring').toBe(true);
     await page.keyboard.press('Space');
     await expect(box).toBeChecked();
-    await expect(button).toHaveAttribute('aria-expanded', 'false');
+    await expect(dialog).toHaveCount(0);
   });
 
   test('the setting is saved', async ({ page }) => {

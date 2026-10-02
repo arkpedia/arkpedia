@@ -2,6 +2,7 @@ import BannerPicker from '@/components/pulls/BannerPicker';
 import PullBannerRow from '@/components/pulls/PullBannerRow';
 import workspace from '@/styles/pulls/pulls-workspace.module.css';
 import { RewardAmount } from "@/components/pulls/RewardAmount";
+import ImportDialog from '@/components/account/ImportDialog';
 import { PastRewards } from '@/components/pulls/PastRewards';
 import { certificatePulls, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
 import { getAllEvents } from '@/lib/schedule/schedule';
@@ -37,7 +38,7 @@ import {
   MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
   WEEKLY_ORUNDUM,
   eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
-  backlogFromAccount, fillStageIds, pullsFrom, remainingBacklog,
+  backlogFromAccount, fillStageIds, pullsFrom, remainingBacklog, unclaimedBacklog,
   type BacklogSources, type Holdings, type UpcomingBanner, type PullEventReward,
 } from '@/lib/pulls/pulls';
 
@@ -141,6 +142,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [bannerName, setBannerName] = useState('');
   const [clearedReruns, setClearedReruns] = useState<Set<string>>(new Set());
   const [walletFrom, setWalletFrom] = useState('');
+  const [ticksFrom, setTicksFrom] = useState('');
+  const [pastOpen, setPastOpen] = useState(false);
 
   const [now, setNow] = useState<Date | null>(null);
 
@@ -152,7 +155,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setUntil(plan.until); setBannerName(plan.bannerName);
     setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setAnnihilationDone(plan.annihilationDone);
     setDoneEvents(new Set(plan.doneEvents)); setDoneKeys(new Set(plan.doneKeys)); setClearedReruns(new Set(plan.clearedReruns));
-    setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? '');
+    setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? ''); setTicksFrom(plan.ticksFrom ?? '');
     setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners));
     if (skins) setSkinIds(plan.skinIds ?? []);
   }, [scheduledBanners, setSkinIds]);
@@ -173,8 +176,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
   const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings,
     monthlyCard, includeBacklog, annihilationDone, doneEvents: [...doneEvents], doneKeys: [...doneKeys], clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
-    ...(walletFrom ? { walletFrom } : {}),
-  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, annihilationDone, doneEvents, doneKeys, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
+    ...(walletFrom ? { walletFrom } : {}), ...(ticksFrom ? { ticksFrom } : {}),
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, annihilationDone, doneEvents, doneKeys, clearedReruns, goals, skinIds, wishingWallMode, walletFrom, ticksFrom]);
 
   /* An account import fills the resources (and the Monthly Card, ticked while it runs), once
      per import: after that they are the reader's to edit, until the next import. Run after
@@ -206,7 +209,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       if (file.size > MAX_PLAN_FILE_SIZE) throw new Error('Choose a pull plan smaller than 250 KB.');
       const plan = parsePullPlan(await file.text());
       // The file's resources stand over the current account import's.
-      applyPlan(plan, true); if (account) setWalletFrom(account.importedAt); setSaveBlocked(false); setNotice('Imported your pull plan.');
+      applyPlan(plan, true); if (account) { setWalletFrom(account.importedAt); setTicksFrom(account.importedAt); } setSaveBlocked(false); setNotice('Imported your pull plan.');
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not read this pull plan.'); }
   }
 
@@ -241,18 +244,28 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   /* Only what is actually left: a returning player is the normal case, and
      telling somebody with three years of clears that 2,717 OP is waiting would
      be worse than not offering the figure. */
-  /* With an import, the account says what is cleared, stage by stage (backlogFromAccount);
-     the reader's ticks stand only where the record does not say (Annihilation, on a record
-     from before it was kept). */
-  const fromAccount = useMemo(() => {
-    if (!account) return null;
-    const derived = backlogFromAccount(backlogSources, new Set(account.cleared), account.annihilation ? new Set(account.annihilation) : null);
-    if (!account.annihilation) backlogSources.annihilation.forEach((map) => { if (doneKeys.has(map.id)) derived.doneKeys.add(map.id); });
-    return { ...derived, annihilationDone: account.annihilation ? false : annihilationDone, annihilationKept: !!account.annihilation, importedAt: account.importedAt };
-  }, [account, backlogSources, doneKeys, annihilationDone]);
+  /* With an import, the account says what is cleared, stage by stage (backlogFromAccount). It
+     ticks the Past events once per import, as the wallet is filled; after that the ticks are
+     the reader's (an older import, or trying something out). Annihilation on a record from
+     before it was kept stays as the reader ticked it. */
+  const fromAccount = useMemo(
+    () => (account ? backlogFromAccount(backlogSources, new Set(account.cleared), account.annihilation ? new Set(account.annihilation) : null) : null),
+    [account, backlogSources],
+  );
+  useEffect(() => {
+    if (!hydrated || !account || !fromAccount || ticksFrom === account.importedAt) return;
+    const annihilationKept = !!account.annihilation;
+    setDoneKeys((previous) => new Set([...fromAccount.doneKeys, ...(annihilationKept ? [] : [...previous].filter((key) => key.startsWith('annihilation:')))]));
+    setDoneEvents(fromAccount.doneEvents);
+    if (annihilationKept) setAnnihilationDone(false);
+    setTicksFrom(account.importedAt);
+  }, [hydrated, account, fromAccount, ticksFrom]);
+  const clearedStages = useMemo(() => new Set(account?.cleared ?? []), [account]);
+  /* What each unticked chapter and event still pays: what the import left of it. */
+  const counting = useMemo(() => (fromAccount ? unclaimedBacklog(backlogSources, fromAccount.sources) : backlogSources), [fromAccount, backlogSources]);
   const backlog = useMemo(
-    () => (fromAccount ? remainingBacklog(fromAccount.sources, fromAccount.doneEvents, fromAccount.doneKeys, fromAccount.annihilationDone) : remainingBacklog(backlogSources, doneEvents, doneKeys, annihilationDone)),
-    [fromAccount, backlogSources, doneEvents, doneKeys, annihilationDone],
+    () => remainingBacklog(counting, doneEvents, doneKeys, annihilationDone),
+    [counting, doneEvents, doneKeys, annihilationDone],
   );
 
 
@@ -394,7 +407,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
               laid over it, never inside it (a <button> may not hold an input, and the
               accessibility tree flattens one that does). */}
           <div className={workspace.pastUtility}>
-            <button type="button" id="tab-past" aria-controls="panel-past" aria-expanded={activeTab === 'past'} onClick={() => setActiveTab(activeTab === 'past' ? '' : 'past')}><span>Past events</span><span aria-hidden="true">{activeTab === 'past' ? '−' : '+'}</span></button>
+            <button type="button" id="tab-past" aria-haspopup="dialog" onClick={() => setPastOpen(true)}><span>Past events</span><span aria-hidden="true">+</span></button>
             <IncludePastCheckbox checked={includeBacklog} onChange={setIncludeBacklog} />
           </div>
           <button type="button" id="tab-skins" aria-controls="panel-skins" aria-expanded={activeTab === 'skins'} onClick={() => setActiveTab(activeTab === 'skins' ? '' : 'skins')}><span>Skin wishlist <b>{skinIds.length}</b></span><span>{reserve} OP reserved {activeTab === 'skins' ? '−' : '+'}</span></button>
@@ -515,8 +528,6 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
 
           </section>
-          <section role="region" id="panel-past" aria-labelledby="tab-past" hidden={activeTab !== 'past'} className={`op-section ${workspace.detailPanel}`}><PastRewards backlog={fromAccount?.sources ?? backlogSources} doneKeys={fromAccount?.doneKeys ?? doneKeys} doneEvents={fromAccount?.doneEvents ?? doneEvents} annihilationDone={fromAccount?.annihilationDone ?? annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone} editKeys={doneKeys}
-            imported={fromAccount ? { at: fromAccount.importedAt, annihilation: fromAccount.annihilationKept } : null} /></section>
           <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={`op-section ${workspace.detailPanel}`}>
             {/* The Skin Planner's own view, with this plan's OP set against it. */}
             <div className="pulls-panel-head"><h2 id="pulls-skins-heading">Skins</h2><SkinsHelp /></div>
@@ -546,6 +557,12 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       </section>
       </div>
     </main>
+    {pastOpen && (
+      <ImportDialog title="Past events" className="pulls-past-dialog" onClose={() => setPastOpen(false)}>
+        <PastRewards backlog={counting} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone}
+          imported={account && ticksFrom === account.importedAt ? { at: account.importedAt } : null} cleared={account ? clearedStages : null} />
+      </ImportDialog>
+    )}
   </>;
 }
 
