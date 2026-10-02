@@ -28,6 +28,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
 
 const root = process.cwd();
 const upstream = process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata';
@@ -52,7 +53,13 @@ export interface GameAccountMapFile {
   /** The profile card's names (the account page): each business card style's, by id, and
    *  each medal's, from the EN client's display_meta_table and medal_table. */
   nameCards: Record<string, string>;
+  /** Each card style's subtitle under its name (themeEnName: "An invitation to moons"). */
+  nameCardThemes: Record<string, string>;
   medals: Record<string, string>;
+  /** The nations whose emblems the card's Operator Hiring Progress shows, in the game's
+   *  order (handbook_team_table's nations, powerLevel 0), by the name their emblem
+   *  (/faction-icons/) is filed under. */
+  nations: string[];
 }
 
 const GREEK: Record<string, string> = { A: 'α', B: 'β', D: 'Δ' };
@@ -66,7 +73,8 @@ export function buildGameAccountMap(
     uniequip: { charEquip: Record<string, string[] | Record<string, never>>; equipDict: Record<string, { type?: string; typeName1?: string; typeName2?: string | null }> };
     characters: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null }>;
     skills: Record<string, { levels?: { name?: string }[] }>;
-    displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string }> } };
+    displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string; themeEnName?: string }> } };
+    teams?: Record<string, { powerLevel?: number; powerName?: string; orderNum?: number }>;
     /** data/operator-forms.json: each form's name and character id, and the default form. */
     forms?: Record<string, { forms?: { name: string; internalName?: string }[]; default?: string }>;
     medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
@@ -110,7 +118,12 @@ export function buildGameAccountMap(
     .filter(([, skin]) => typeof skin?.name === 'string').map(([id, skin]) => [id, skin.name as string]).sort(([a], [b]) => a.localeCompare(b)));
   const medals = Object.fromEntries((tables.medalTable?.medalList ?? [])
     .filter((medal) => medal.medalId && medal.medalName).map((medal) => [medal.medalId as string, medal.medalName as string]).sort(([a], [b]) => a.localeCompare(b)));
-  return { version: 1, chars, nameCards, medals };
+  const nameCardThemes = Object.fromEntries(Object.entries(tables.displayMeta?.nameCardV2Data?.skinData ?? {})
+    .filter(([, skin]) => typeof skin?.themeEnName === 'string' && skin.themeEnName).map(([id, skin]) => [id, skin.themeEnName as string]).sort(([a], [b]) => a.localeCompare(b)));
+  const nations = Object.entries(tables.teams ?? {})
+    .filter(([id, team]) => id !== 'none' && team.powerLevel === 0 && typeof team.powerName === 'string')
+    .sort(([, a], [, b]) => (a.orderNum ?? 0) - (b.orderNum ?? 0)).map(([, team]) => team.powerName as string);
+  return { version: 1, chars, nameCards, nameCardThemes, medals, nations };
 }
 
 function readJson<T>(file: string): T {
@@ -118,7 +131,7 @@ function readJson<T>(file: string): T {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename)) {
-  for (const file of ['uniequip_table.json', 'character_table.json', 'char_patch_table.json', 'skill_table.json', 'display_meta_table.json', 'medal_table.json']) {
+  for (const file of ['uniequip_table.json', 'character_table.json', 'char_patch_table.json', 'skill_table.json', 'display_meta_table.json', 'medal_table.json', 'handbook_team_table.json']) {
     if (!fs.existsSync(path.join(excel, file))) {
       console.error(`Missing ${path.join(excel, file)}.\nRun scripts/sync/refresh-stage-data.sh to populate .cache/upstream, or set ARKPEDIA_EN.`);
       process.exit(1);
@@ -135,9 +148,18 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
     skills: readJson(path.join(excel, 'skill_table.json')),
     displayMeta: readJson(path.join(excel, 'display_meta_table.json')),
     medalTable: readJson(path.join(excel, 'medal_table.json')),
+    teams: readJson(path.join(excel, 'handbook_team_table.json')),
     forms: fs.existsSync(path.join(root, 'data', 'operator-forms.json')) ? readJson(path.join(root, 'data', 'operator-forms.json')) : {},
   });
+  // Each nation's emblem must be published, or the card shows a broken image: a nation the
+  // game adds, or an emblem filed under another name, fails the run (the stage keeps yesterday's).
+  const published = new Set(readJson<{ files: string[] }>(path.join(root, 'data', 'assets', 'external-asset-index.json')).files.map((file) => file.normalize('NFC')));
+  const unfiled = map.nations.filter((nation) => !published.has(getFactionIconPath(nation)!.slice(1).normalize('NFC')));
+  if (!map.nations.length || unfiled.length) {
+    console.error(`build-game-account-map: ${map.nations.length ? `no emblem in faction-icons/ for ${unfiled.join(', ')}; publish one or alias it in lib/operators/classBranchIcons.ts` : 'handbook_team_table lists no nations'}.`);
+    process.exit(1);
+  }
   fs.writeFileSync(OUTPUT, `${JSON.stringify(map)}\n`);
   const modules = Object.values(map.chars).reduce((sum, char) => sum + Object.keys(char.modules).length, 0);
-  console.log(`Wrote ${path.relative(root, OUTPUT)}: ${Object.keys(map.chars).length} operators, ${modules} modules, ${Object.keys(map.nameCards).length} card styles, ${Object.keys(map.medals).length} medals.`);
+  console.log(`Wrote ${path.relative(root, OUTPUT)}: ${Object.keys(map.chars).length} operators, ${modules} modules, ${Object.keys(map.nameCards).length} card styles, ${Object.keys(map.medals).length} medals, ${map.nations.length} nations.`);
 }

@@ -25,7 +25,11 @@ export interface GameAccountMap {
   chars: Record<string, { name: string; rarity?: number; modules: Record<string, number>; global?: true; formOf?: string }>;
   /** The profile card's names, by the game's ids (absent before they were added). */
   nameCards?: Record<string, string>;
+  /** Each card style's subtitle, and the nations whose emblems the card shows (absent before
+   *  they were added). */
+  nameCardThemes?: Record<string, string>;
   medals?: Record<string, string>;
+  nations?: string[];
 }
 
 /** The table's shape, checked where it is loaded, as the other planner tables are. */
