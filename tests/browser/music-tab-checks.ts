@@ -129,7 +129,9 @@ export async function musicTabCheck(page: Page, name: string, route: string) {
     await expect(widget, `${name} floats the widget`).toHaveCount(1);
     // A modal dialog over the page (the planner's windows, which end in a Done at the
     // right edge) has the tab step aside until it closes; the phone menu is one only open.
-    const modal = page.locator('[aria-modal="true"]:not(.mobile-nav-drawer:not(.open))').filter({ visible: true });
+    // So does an open native <dialog> (the popups in components/account/ImportDialog), which
+    // sets no aria-modal.
+    const modal = page.locator('[aria-modal="true"]:not(.mobile-nav-drawer:not(.open)), dialog[open]').filter({ visible: true });
     if (await modal.count()) {
       for (const width of WIDTHS) {
         await page.setViewportSize({ width, height: 844 });

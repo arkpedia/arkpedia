@@ -189,14 +189,14 @@
    first clear -- the tick, the name (a button naming the stages left, for a chapter or an
    event), what it still pays -- and the stages under it when opened. */
 .account-dialog.pulls-past-dialog { width: min(720px, calc(100vw - 32px)); }
-/* The list scrolls under the dialog's header. */
-.pulls-past-body { display: grid; gap: 12px; max-height: calc(100dvh - var(--dialog-top) - 140px); margin: -4px -6px; padding: 4px 6px; overflow-y: auto; overscroll-behavior: contain; }
+/* The dialog's body is what scrolls (account.css), under its header. */
+.pulls-past-body { display: grid; gap: 12px; }
 .pulls-past-body .pulls-disclosure { margin-top: 0; }
 /* The Income and Skin wishlist popups (pages/pulls.tsx), in the same frame as Past events. */
 /* Two classes: account.css's .account-dialog loads after this file and sets 560px. */
 .account-dialog.pulls-income-dialog { width: min(760px, calc(100vw - 32px)); }
 .account-dialog.pulls-skins-dialog { width: min(1080px, calc(100vw - 32px)); }
-.pulls-income-body, .pulls-skins-body { display: grid; gap: 14px; max-height: calc(100dvh - var(--dialog-top) - 110px); margin: -4px -6px; padding: 4px 6px; overflow-y: auto; overscroll-behavior: contain; }
+.pulls-income-body, .pulls-skins-body { display: grid; gap: 14px; }
 /* The condensed income report: one line per source -- what, its working, its pulls -- and the
    two sums the forecast adds, ruled above. */
 .pulls-report { width: 100%; border-collapse: collapse; font: 13px var(--font-body); }

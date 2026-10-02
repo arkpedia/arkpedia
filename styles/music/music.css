@@ -215,8 +215,11 @@
   /* A dialog that takes the whole screen puts its own controls in that corner (the
      planner's windows end in a Done at the right edge), so while a modal one is open the
      tab steps aside; the music plays on, and the tab is back when the dialog closes. The
-     phone menu is a modal dialog that stays in the page shut, so it counts only open. */
-  body:has([aria-modal="true"]:not(.mobile-nav-drawer:not(.open))) .music-player.collapsed { visibility: hidden; }
+     phone menu is a modal dialog that stays in the page shut, so it counts only open. A
+     native <dialog> opened modal (the popups in components/account/ImportDialog) sets no
+     aria-modal, so an open one counts too. */
+  body:has([aria-modal="true"]:not(.mobile-nav-drawer:not(.open))) .music-player.collapsed,
+  body:has(dialog[open]) .music-player.collapsed { visibility: hidden; }
 }
 
 /* --- Full player page (pages/music/index.tsx) --- */
