@@ -48,7 +48,10 @@ export function censusRoutes(): string[] {
 async function seedAccount(page: Page) {
   await page.evaluate(() => localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null,
     operators: ['Surtr', 'Eyjafjalla', 'Amiya'], skins: ['char_002_amiya@winter#1'], cleared: [],
-    profile: { level: 120, registeredAt: '2020-02-03T03:42:40.000Z', secretary: 'Nian', bio: 'yes' } })));
+    profile: { level: 120, registeredAt: '2020-02-03T03:42:40.000Z', secretary: 'Nian', bio: 'yes',
+      // The support tiles: one in an outfit's portrait, one from before outfits were kept (its icon).
+      supports: [{ name: 'Surtr', rarity: 6, level: 90, elite: 2, potential: 1, skill: 3, skin: 'char_350_surtr@summer#9' },
+        { name: 'Eyjafjalla', rarity: 6, level: 90, elite: 2, potential: 6, skill: 3 }] } })));
   await page.reload();
 }
 

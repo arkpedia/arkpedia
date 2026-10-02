@@ -84,6 +84,8 @@
 .account-card-supports { display: flex; gap: 10px; min-width: 0; }
 .account-card-support { position: relative; flex: 0 1 92px; min-width: 0; aspect-ratio: 1; outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: -1px; background: rgba(0, 0, 0, 0.35); }
 .account-card-support-icon { width: 100%; height: 100%; display: block; }
+/* The portrait is 1:2, the game's crop of the operator; the tile shows its head and shoulders. */
+.account-card-support-portrait { object-fit: cover; object-position: 50% 0; }
 .account-card-support-level { position: absolute; left: 0; top: 0; display: grid; padding: 4px 6px 8px 5px; background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), transparent 85%); font: 600 15px var(--font-display); line-height: 1; color: var(--scrim-ink); }
 .account-card-support-level small { font-size: 9px; font-weight: 400; }
 .account-card-support-elite { position: absolute; right: 4px; top: 4px; width: 22px; height: auto; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }

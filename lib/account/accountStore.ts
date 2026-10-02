@@ -6,6 +6,8 @@
  *   operators  the operators owned, by the name the site uses (Amiya's forms each by theirs)
  *   skins      the outfits owned, by the game's skin id, which every skin record carries
  *   cleared    the stages cleared, by the game's stage id
+ *   outfits    the outfit each operator wears, by the site's name, as the game's skin id (its
+ *              default art too: "char_1013_chen2#2"); absent on a record from before it
  *   profile    what the account page shows: level, when it was registered, the assistant, the
  *              signature (absent on a record written before it had them)
  *
@@ -31,6 +33,7 @@ export interface AccountRecord {
   operators: string[];
   skins: string[];
   cleared: string[];
+  outfits?: Record<string, string>;
   profile?: AccountProfile;
 }
 
@@ -62,7 +65,13 @@ export interface SupportUnit {
   potential: number;
   /** 1-based, the skill it lends with. */
   skill: number | null;
+  /** The outfit it wears, as the game's skin id (its portrait: lib/account/portraits.ts).
+   *  Absent on a record from before it. */
+  skin?: string | null;
 }
+
+const SKIN_ID = /^[\w@#+-]{1,100}$/;
+const skinId = (value: unknown) => (typeof value === 'string' && SKIN_ID.test(value) ? value : null);
 
 const strings = (value: unknown, max: number) => Array.isArray(value) && value.length <= max && value.every((item) => typeof item === 'string' && item.length <= 200);
 
@@ -83,12 +92,15 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     version: 1, server: 'en', importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
+    ...(value.outfits && typeof value.outfits === 'object' ? { outfits: Object.fromEntries(Object.entries(value.outfits as Record<string, unknown>)
+      .slice(0, 5000).flatMap(([name, skin]) => (name.length <= 200 && skinId(skin) ? [[name, skinId(skin)!]] : []))) } : {}),
     ...(profile ? { profile: {
       level: typeof profile.level === 'number' && Number.isFinite(profile.level) ? profile.level : null,
       registeredAt: text(profile.registeredAt), secretary: text(profile.secretary), bio: text(profile.bio),
       uid: text(profile.uid), avatar: text(profile.avatar), nameCard: text(profile.nameCard),
       ...(typeof profile.hired === 'number' ? { hired: profile.hired } : {}),
-      supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3) : [],
+      supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3)
+        .map((unit) => ({ ...unit, skin: skinId(unit.skin) })) : [],
       medals: Array.isArray(profile.medals) ? (profile.medals as { id: string; x: number | null; y: number | null }[]).filter((medal) => medal && typeof medal.id === 'string').slice(0, 64) : [],
     } } : {}),
   };
@@ -102,9 +114,15 @@ export function parseAccount(raw: string | null): AccountRecord | null {
  */
 export function accountFromGame(user: Record<string, any>, map: GameAccountMap, now = new Date()): AccountRecord {
   const operators = new Set<string>();
-  for (const char of Object.values((user.troop?.chars ?? {}) as Record<string, { charId?: string; tmpl?: Record<string, unknown> }>)) {
-    const ids = char?.tmpl && typeof char.tmpl === 'object' ? Object.keys(char.tmpl) : [char?.charId ?? ''];
-    for (const id of ids) if (map.chars[id]) operators.add(map.chars[id].name);
+  const outfits: Record<string, string> = {};
+  for (const char of Object.values((user.troop?.chars ?? {}) as Record<string, { charId?: string; skin?: unknown; tmpl?: Record<string, { skinId?: unknown }> }>)) {
+    // Amiya's forms each wear their own outfit (tmpl), every other operator one (skin).
+    const forms = char?.tmpl && typeof char.tmpl === 'object' ? Object.entries(char.tmpl).map(([id, form]) => [id, form?.skinId] as const) : [[char?.charId ?? '', char?.skin] as const];
+    for (const [id, skin] of forms) {
+      if (!map.chars[id]) continue;
+      operators.add(map.chars[id].name);
+      if (skinId(skin)) outfits[map.chars[id].name] = skinId(skin)!;
+    }
   }
   const stages = (user.dungeon?.stages ?? {}) as Record<string, { state?: number }>;
   const status = user.status ?? {};
@@ -116,6 +134,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
     operators: [...operators].sort(),
     skins: Object.keys(user.skin?.characterSkins ?? {}).sort(),
     cleared: Object.entries(stages).filter(([, stage]) => (stage?.state ?? 0) >= 2).map(([id]) => id).sort(),
+    outfits: Object.fromEntries(Object.entries(outfits).sort(([a], [b]) => a.localeCompare(b))),
     profile: {
       level: typeof status.level === 'number' ? status.level : null,
       registeredAt: typeof status.registerTs === 'number' && status.registerTs > 0 ? new Date(status.registerTs * 1000).toISOString() : null,
@@ -138,10 +157,12 @@ function supportUnits(user: Record<string, any>, map: GameAccountMap): SupportUn
     const char = slot && chars[String(slot.charInstId)];
     const entry = char && (map.chars[char.currentTmpl ?? ''] ?? map.chars[char.charId ?? '']);
     if (!char || !entry) return [];
+    const skin = char.currentTmpl ? char.tmpl?.[char.currentTmpl]?.skinId : char.skin;
     return [{
       name: entry.name, rarity: entry.rarity ?? null,
       level: Number(char.level) || 1, elite: Number(char.evolvePhase) || 0, potential: (Number(char.potentialRank) || 0) + 1,
       skill: typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? slot!.skillIndex + 1 : null,
+      skin: skinId(skin),
     }];
   }).slice(0, 3);
 }
