@@ -14,7 +14,8 @@
 .story-map-viewport.is-dragging { cursor: grabbing; user-select: none; }
 .story-map-sizer { position: relative; overflow: hidden; }
 .story-map-board { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-family: var(--font-body); line-height: 1.25; }
-.story-map-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+/* Decoration only: a frame or connector drawn after a picture must not take its clicks. */
+.story-map-shape { position: absolute; overflow: visible; pointer-events: none; }
 /* The board breaks its own lines; the site's font is a little wider than Canva's, so a line
    that would wrap here runs on past its box instead, as it fits on the board. */
 .story-map-text { position: absolute; white-space: pre; }
@@ -29,3 +30,12 @@ a.story-map-picture:hover, a.story-map-picture:focus-visible { outline: 12px sol
 .story-list-card { display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-decoration: none; }
 a.story-list-card:hover { border-color: var(--teal); }
 .story-list-card img { width: 44px; height: 54px; object-fit: cover; flex: none; }
+
+/* Full screen (StoryMapView toggleFull): the browser's own, or, where it grants none to an
+   element (iOS Safari), the map filling the window over the page. The viewport takes the rest. */
+.story-map-full { margin-left: auto; }
+.story-map-frame.is-full { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 16px; background: var(--bg); }
+.story-map-frame.is-window { position: fixed; inset: 0; z-index: 1000; }
+.story-map-frame::backdrop { background: var(--bg); }
+.story-map-frame.is-full .story-map-toolbar { margin-bottom: 0; }
+.story-map-frame.is-full .story-map-viewport { flex: 1; min-height: 0; max-height: none; }

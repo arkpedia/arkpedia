@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { storySections, type StoryElement, type StoryMap, type StoryPicture, type StoryText } from '@/lib/story/storyMap';
@@ -30,16 +30,37 @@ function textStyle(text: StoryText) {
   } as const;
 }
 
+/* Every element is its own positioned box, drawn in the board's order, so what the author put on
+   top stays on top: a heart or a star over the cover it marks, a tag over its frame. Positions are
+   relative to the board's top left (the caller subtracts its bounds). */
+
 /* A frame or a tag is a rectangle, outlined inside its box as the board draws it; a heart or a
    star is the board's own 64-unit path stretched over its box. */
 function Shape({ element }: { element: Extract<StoryElement, { type: 'shape' }> }) {
   const { x, y, width: w, height: h } = element;
   const stroke = element.stroke ? element.strokeWidth : 0;
-  return element.path === RECT
-    ? <rect x={x + stroke / 2} y={y + stroke / 2} width={Math.max(0, w - stroke)} height={Math.max(0, h - stroke)}
-        rx={Math.min(element.radius, h / 2, w / 2)} fill={ink(element.fill)} stroke={ink(element.stroke)} strokeWidth={stroke} />
-    : <path d={element.path} transform={`translate(${x} ${y}) scale(${w / 64} ${h / 64})`} fill={ink(element.fill)} stroke={ink(element.stroke)}
-        strokeWidth={(stroke * 64) / Math.max(w, h)} strokeLinejoin="round" />;
+  return (
+    <svg className="story-map-shape" style={{ left: x, top: y, width: w, height: h }} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      {element.path === RECT
+        ? <rect x={stroke / 2} y={stroke / 2} width={Math.max(0, w - stroke)} height={Math.max(0, h - stroke)}
+            rx={Math.min(element.radius, h / 2, w / 2)} fill={ink(element.fill)} stroke={ink(element.stroke)} strokeWidth={stroke} />
+        : <path d={element.path} transform={`scale(${w / 64} ${h / 64})`} fill={ink(element.fill)} stroke={ink(element.stroke)}
+            strokeWidth={(stroke * 64) / Math.max(w, h)} strokeLinejoin="round" />}
+    </svg>
+  );
+}
+
+/** A connector, in a box around its two ends padded by its width so the stroke is not cut. */
+function Line({ element }: { element: Extract<StoryElement, { type: 'line' }> }) {
+  const pad = element.width;
+  const left = Math.min(element.x1, element.x2) - pad, top = Math.min(element.y1, element.y2) - pad;
+  const width = Math.abs(element.x2 - element.x1) + 2 * pad, height = Math.abs(element.y2 - element.y1) + 2 * pad;
+  return (
+    <svg className="story-map-shape" style={{ left, top, width, height }} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <line x1={element.x1 - left} y1={element.y1 - top} x2={element.x2 - left} y2={element.y2 - top} stroke={ink(element.color)}
+        strokeWidth={element.width} strokeDasharray={element.dash ? element.dash.map((n) => n * element.width).join(' ') : undefined} />
+    </svg>
+  );
 }
 
 function Picture({ element }: { element: Extract<StoryElement, { type: 'picture' }> }) {
@@ -142,12 +163,54 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
     setTimeout(() => { drag.current = null; }, 0);
   };
 
+  /* Full screen: the map and its controls fill the screen. Where the browser grants it to an
+     element (not iOS Safari, which grants it to <video> only) it is the real thing, and Esc or the
+     browser's own control leaves it; elsewhere the map fills the window, over the page, until the
+     button or Esc closes it. The state follows fullscreenchange, not the click, so leaving by Esc
+     puts the button back. Either way the map leaves the page's flow, so a box of its height holds
+     its place: the page never shortens under the reader (the Anti-Page Jump rule). */
+  const frame = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState<'native' | 'window' | null>(null);
+  const [held, setHeld] = useState<number | null>(null);
+  useEffect(() => {
+    const sync = () => setFull((state) => (document.fullscreenElement === frame.current ? 'native' : state === 'native' ? null : state));
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  const toggleFull = () => {
+    if (full === 'native') { void document.exitFullscreen().catch(() => {}); return; }
+    if (full === 'window') { setFull(null); return; }
+    const element = frame.current;
+    if (!element) return;
+    setHeld(element.getBoundingClientRect().height);
+    if (document.fullscreenEnabled && element.requestFullscreen) void element.requestFullscreen().catch(() => setFull('window'));
+    else setFull('window');
+  };
+  /* Entering or leaving shows the whole board again, except on a portrait screen in full screen:
+     there the landscape board would be a strip across the middle, so it starts at the screen's
+     full height and pans sideways. The window form also takes Esc, and holds the page still. */
+  useLayoutEffect(() => {
+    setScale(null);
+    if (!full) setHeld(null);
+    const frameId = full ? requestAnimationFrame(() => {
+      const element = viewport.current;
+      if (element && element.clientHeight > element.clientWidth) setScale(Math.min(MAX_SCALE, element.clientHeight / bounds.height));
+    }) : 0;
+    if (full !== 'window') return () => cancelAnimationFrame(frameId);
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setFull(null); };
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(frameId); document.body.style.overflow = overflow; document.removeEventListener('keydown', onKey); };
+  }, [full, bounds.height]);
+
   const sections = useMemo(() => storySections(map), [map]);
   const count = sections.reduce((n, section) => n + section.stories.length, 0);
 
   const atFit = shown <= fit + 1e-6;
   return (
-    <div>
+    <div style={held ? { minHeight: held } : undefined}>
+    <div ref={frame} className={`story-map-frame${full ? ' is-full' : ''}${full === 'window' ? ' is-window' : ''}`}>
       <div className="story-map-toolbar">
         <SegmentedControl label="Show the map as" value={view} onChange={setView}
           options={[{ value: 'map', label: 'Map' }, { value: 'list', label: 'List', count }]} />
@@ -158,33 +221,33 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
             <button type="button" className="ghost btn-sm story-map-zoom-button" onClick={() => zoomTo(shown * STEP)} disabled={shown >= MAX_SCALE} aria-label="Zoom in">+</button>
           </div>
         )}
+        {view === 'map' && (
+          <button type="button" className="ghost btn-sm story-map-full" onClick={toggleFull} aria-pressed={!!full}>
+            {full ? 'Exit full screen' : 'Full screen'}
+          </button>
+        )}
       </div>
       {view === 'map' ? (
-        <div ref={viewport} className="story-map-viewport" style={{ aspectRatio: `${bounds.width} / ${bounds.height}` }} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+        <div ref={viewport} className="story-map-viewport" style={full ? undefined : { aspectRatio: `${bounds.width} / ${bounds.height}` }} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
           onPointerUp={endDrag} onPointerCancel={endDrag} onPointerLeave={endDrag}
           onClickCapture={(event) => { if (drag.current?.moved) { event.preventDefault(); event.stopPropagation(); } }}>
           <div className="story-map-sizer" style={{ width: bounds.width * shown, height: bounds.height * shown }}>
             <div className="story-map-board" style={{ width: bounds.width, height: bounds.height, transform: `scale(${shown})` }}>
-              <svg className="story-map-lines" viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`} aria-hidden="true">
-                {map.elements.map((element, index) => {
-                  if (element.type === 'shape') return <Shape key={index} element={element} />;
-                  if (element.type === 'line') {
-                    return <line key={index} x1={element.x1} y1={element.y1} x2={element.x2} y2={element.y2} stroke={ink(element.color)}
-                      strokeWidth={element.width} strokeDasharray={element.dash ? element.dash.map((n) => n * element.width).join(' ') : undefined} />;
-                  }
-                  return null;
-                })}
-              </svg>
               {map.elements.map((element, index) => {
-                const at = (x: number, y: number) => ({ left: x - bounds.x, top: y - bounds.y });
+                if (element.type === 'line') {
+                  return <Line key={index} element={{ ...element, x1: element.x1 - bounds.x, y1: element.y1 - bounds.y, x2: element.x2 - bounds.x, y2: element.y2 - bounds.y }} />;
+                }
+                const at = { left: element.x - bounds.x, top: element.y - bounds.y };
                 if (element.type === 'text') {
-                  return <div key={index} className="story-map-text" style={{ ...at(element.x, element.y), width: element.width, ...textStyle(element) }}>{element.text}</div>;
+                  return <div key={index} className="story-map-text" style={{ ...at, width: element.width, ...textStyle(element) }}>{element.text}</div>;
                 }
-                if (element.type === 'shape' && element.label) {
-                  return <div key={index} className="story-map-label" style={{ ...at(element.x, element.y), width: element.width, height: element.height, ...textStyle(element.label) }}>{element.label.text}</div>;
+                if (element.type === 'shape') {
+                  const shape = { ...element, x: at.left, y: at.top };
+                  return element.label
+                    ? <Fragment key={index}><Shape element={shape} /><div className="story-map-label" style={{ ...at, width: element.width, height: element.height, ...textStyle(element.label) }}>{element.label.text}</div></Fragment>
+                    : <Shape key={index} element={shape} />;
                 }
-                if (element.type === 'picture') return <Picture key={index} element={{ ...element, x: element.x - bounds.x, y: element.y - bounds.y }} />;
-                return null;
+                return <Picture key={index} element={{ ...element, x: at.left, y: at.top }} />;
               })}
             </div>
           </div>
@@ -201,6 +264,7 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 }
