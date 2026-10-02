@@ -34,6 +34,11 @@ export interface GameAccountMap {
   nameCardStyles?: Record<string, { theme: string; themeText: string; panel: string; panelText: string; panelIcon: string }>;
   medals?: Record<string, string>;
   nations?: string[];
+  /** A support unit shown full length: each module's type mark (by its equipment id), and each
+   *  skill's icon where it is not the skill's own id. Absent from a map built before them; the
+   *  account page fills them from the deployment's copy then. */
+  moduleTypes?: Record<string, string>;
+  skillIcons?: Record<string, string>;
 }
 
 /** The table's shape, checked where it is loaded, as the other planner tables are. */

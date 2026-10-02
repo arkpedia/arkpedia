@@ -6,7 +6,7 @@ import DataDialog from '@/components/account/DataDialog';
 import ProfileCard from '@/components/account/ProfileCard';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
-import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
+import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { useAccount } from '@/lib/account/accountStore';
 
@@ -98,4 +98,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/ac
 }, {
   bundledWhenUnpublished: true,
   tables: DATA_DIALOG_TABLES,
+  finalize: fillAccountMap,
 });

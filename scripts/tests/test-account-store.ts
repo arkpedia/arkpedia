@@ -17,7 +17,8 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     medal: { custom: { customs: { 1: { layout: [{ id: 'medal_a', pos: [6, 12] }, { id: 'medal_b', pos: [9, 9] }] } } } },
     troop: { chars: {
       1: { charId: 'char_300_phenxi', level: 60, evolvePhase: 2, potentialRank: 5, skin: 'char_300_phenxi@summer#1',
-        skills: [{ specializeLevel: 0 }, { specializeLevel: 2 }, { specializeLevel: 3 }],
+        skills: [{ skillId: 'skchr_phenxi_1', specializeLevel: 0 }, { skillId: 'skchr_phenxi_2', specializeLevel: 2 }, { skillId: 'skchr_phenxi_3', specializeLevel: 3 }],
+        currentEquip: 'uniequip_002_phenxi',
         equip: { uniequip_001_phenxi: { level: 1, locked: 0 }, uniequip_002_phenxi: { level: 3, locked: 0 }, uniequip_003_phenxi: { level: 1, locked: 1 } } },
       2: { charId: 'char_002_amiya', currentTmpl: 'char_1001_amiya2', tmpl: { char_002_amiya: { skinId: 'char_002_amiya#1+' }, char_1001_amiya2: { skinId: 'char_1001_amiya2#2' } } },
       3: { charId: 'char_9999_brandnew', skin: 'char_9999_brandnew#1' },
@@ -47,9 +48,9 @@ test('an account gives the operators it owns by name, its outfits by skin id and
       hired: 4,
       // The support units by the troop's own records; a slot with no operator behind it is left out.
       // Whether every skill is at M3 (the game's badge): Fiammetta's second is at M2, so not.
-      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, allMastered: false, skin: 'char_300_phenxi@summer#1' },
+      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, allMastered: false, module: 'uniequip_002_phenxi', skillId: 'skchr_phenxi_3', skin: 'char_300_phenxi@summer#1' },
         // Amiya lends the form she is in, in that form's outfit.
-        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, allMastered: false, skin: 'char_1001_amiya2#2' }],
+        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, allMastered: false, module: null, skillId: null, skin: 'char_1001_amiya2#2' }],
       medals: [{ id: 'medal_a', x: 6, y: 12 }, { id: 'medal_b', x: 9, y: 9 }] },
   });
   assert.deepEqual(parseAccount(JSON.stringify(record)), record);
@@ -104,5 +105,14 @@ test('a support unit wears the M3 badge only when every one of its skills is at 
   const unit = parseAccount(JSON.stringify(old))!.profile!.supports![0] as unknown as Record<string, unknown>;
   assert.equal(unit.mastery, undefined);
   assert.equal(unit.allMastered, undefined);
+});
+
+test('a support unit shown full length draws its module\'s mark and its skill\'s icon, as the image repository names them', async () => {
+  const { moduleMarkPath, skillIconPath } = await import('../../lib/account/portraits');
+  assert.equal(moduleMarkPath('uniequip_002_ascln', { uniequip_002_ascln: 'amb-x' }), '/profile-modules/amb-x.webp');
+  assert.equal(moduleMarkPath('uniequip_009_none', { uniequip_002_ascln: 'amb-x' }), null);
+  assert.equal(skillIconPath('skchr_ascln_2', {}), '/profile-skills/skchr_ascln_2.webp');
+  // A skill that shares another's icon: its bracketed index is a suffix in the file's name.
+  assert.equal(skillIconPath('skchr_midn_1', { skchr_midn_1: 'skcom_enchant[1]' }), '/profile-skills/skcom_enchant_1.webp');
 });
 

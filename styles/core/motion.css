@@ -213,6 +213,19 @@
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity var(--dur-1) var(--ease);
   }
 
+  /* --- the profile card's switches -----------------------------------------------
+     The two white arrows spin a turn when pressed (ProfileCard remounts the image, so each
+     press plays it again). The support units grow downwards to full length and back: the one
+     motion here that changes a layout box, because the maintainer asked for the game's
+     (2026-10-02). It changes the card's height, never the page's above it. The marks step,
+     and the potential, module and skill fade in, with it. */
+  .account-card-switch img { animation: account-card-spin 0.5s var(--ease); }
+  @keyframes account-card-spin { from { transform: rotate(-360deg); } }
+  .account-card-support::before { transition: padding-top 0.35s var(--ease); }
+  .account-card-support-potential, .account-card-support-elite, .account-card-support-mastery { transition: margin-top 0.35s var(--ease), opacity 0.25s var(--ease); }
+  .account-card-support-kit { transition: opacity 0.25s var(--ease) 0.1s; }
+  .account-card-hiring-art > * { transition: opacity var(--dur-2) var(--ease); }
+
   /* --- LIVE: the dot blinks (option A's, exactly) --------------------------------- */
   .badge-live::before {
     animation: blink 1.2s steps(2, jump-none) infinite;

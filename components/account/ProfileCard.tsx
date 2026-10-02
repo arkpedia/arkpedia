@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
-import { assistantArtPath, portraitPath, profileArtPath } from '@/lib/account/portraits';
+import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { toServerTime } from '@/lib/time/serverDay';
@@ -55,17 +55,29 @@ const unit = (count: number) => `calc(var(--medal-unit) * ${count})`;
 /** A support unit as the game's card shows it: its portrait in the outfit it wears, or its
  *  roster icon on a record from before outfits were kept, or until a new outfit's portrait
  *  is published. */
-function SupportTile({ unit }: { unit: SupportUnit }) {
+function SupportTile({ unit, full, map }: { unit: SupportUnit; full: boolean; map: GameAccountMap }) {
   const [portrait, setPortrait] = useState(true);
+  const [skillArt, setSkillArt] = useState(true);
   const src = unit.skin && portrait ? portraitPath(unit.skin) : unit.rarity != null ? getOperatorIconPath({ name: unit.name, rarity: unit.rarity }) : null;
+  const moduleMark = unit.module ? moduleMarkPath(unit.module, map.moduleTypes) : null;
+  const skill = unit.skillId && skillArt ? skillIconPath(unit.skillId, map.skillIcons) : null;
   return (
-    <div className="account-card-support" title={`${unit.name}: ${ELITE[unit.elite] ?? ''} Lv ${unit.level}, potential ${unit.potential}${unit.skill ? `, skill ${unit.skill}` : ''}${unit.allMastered ? ', every skill at M3' : ''}`}>
+    <div className={`account-card-support${full ? ' is-full' : ''}`} title={`${unit.name}: ${ELITE[unit.elite] ?? ''} Lv ${unit.level}, potential ${unit.potential}${unit.skill ? `, skill ${unit.skill}` : ''}${unit.allMastered ? ', every skill at M3' : ''}`}>
       {src && <ContentImg key={src} className={unit.skin && portrait ? 'account-card-support-icon account-card-support-portrait' : 'account-card-support-icon'} src={src} alt={unit.name} onError={unit.skin && portrait ? () => setPortrait(false) : undefined} />}
       <span className="account-card-support-level"><small>LV</small>{unit.level}</span>
       <span className="account-card-support-marks">
+        {/* Full length, the game adds the potential above the elite mark, and the module and
+            the lent skill at the foot. */}
+        {unit.potential >= 1 && unit.potential <= 6 && <ContentImg className="account-card-support-potential" src={UI(`potential_${unit.potential - 1}_small`)} alt={`Potential ${unit.potential}`} />}
         {ELITE[unit.elite] && <ContentImg className="account-card-support-elite" src={UI(`elite_${unit.elite}`)} alt={ELITE[unit.elite]} />}
         {unit.allMastered && <ContentImg className="account-card-support-mastery" src={UI('spec_max_icon')} alt="Every skill at Mastery 3" />}
       </span>
+      {(unit.module !== undefined || unit.skillId) && (
+        <span className="account-card-support-kit">
+          <span className="account-card-support-module">{moduleMark && <ContentImg src={moduleMark} alt="Module" />}</span>
+          {skill && <ContentImg className="account-card-support-skill" src={skill} alt={`Skill ${unit.skill ?? ''}`} onError={() => setSkillArt(false)} />}
+        </span>
+      )}
     </div>
   );
 }
@@ -127,6 +139,11 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
      under the reader (the Anti-Page Jump rule). The one not shown is inert: out of the tab
      order and the accessibility tree while it still fades. */
   const [collapsed, setCollapsed] = useState(false);
+  const [asShare, setAsShare] = useState(false);
+  const [fullLength, setFullLength] = useState(false);
+  // Every operator the Global game has, Amiya once: what the game's percentage divides by.
+  const globalOperators = useMemo(() => Object.values(map.chars).filter((char) => char.global && !char.formOf).length, [map]);
+  const hiredCount = profile.hired ?? account.operators.length;
 
   const avatar = (
     <div className="account-card-avatar">
@@ -146,14 +163,19 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
     }
     if (id === 'module_assist') {
       return (
-        <div key={id} className="account-card-box account-card-assist">
+        <div key={id} className={`account-card-box account-card-assist${fullLength ? ' is-full' : ''}`}>
+          {/* The game's switch: the units full length, with their module and skill, and back. */}
+          <button type="button" className="btn-bare account-card-switch account-card-assist-switch" aria-pressed={fullLength}
+            aria-label={fullLength ? 'Show the support units as tiles' : 'Show the support units full length'} onClick={() => setFullLength(!fullLength)}>
+            <ContentImg key={`assist-${fullLength}`} src={UI('style_change_icon')} alt="" />
+          </button>
           <div className="account-card-assist-label">
             <ContentArt className="account-card-icon" src={UI('assist_icon')} aria-hidden="true" />
             <b>Support Unit</b>
             <small>Support Unit</small>
           </div>
           <div className="account-card-supports">
-            {(profile.supports ?? []).map((unit) => <SupportTile key={unit.name} unit={unit} />)}
+            {(profile.supports ?? []).map((unit) => <SupportTile key={unit.name} unit={unit} full={fullLength} map={map} />)}
           </div>
         </div>
       );
@@ -221,9 +243,21 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
         </div>
         <div className="account-card-hiring">
           <p className="account-card-tag"><span>Operator Hiring Progress</span><ContentImg src={UI('human_resource')} alt="" aria-hidden="true" /></p>
-          <Link prefetch={false} href="/operators?owned=missing" className="account-card-hired account-card-link" title="The operators you don't have">{profile.hired ?? account.operators.length}</Link>
+          <div className="account-card-hired-row">
+            {/* The game's switch: the count, or the share of every Global operator hired. */}
+            <button type="button" className="btn-bare account-card-switch" aria-pressed={asShare}
+              aria-label={asShare ? 'Show the operators hired as a count' : 'Show the operators hired as a percentage'} onClick={() => setAsShare(!asShare)}>
+              <ContentImg key={`hired-${asShare}`} src={UI('style_change_icon')} alt="" />
+            </button>
+            <Link prefetch={false} href="/operators?owned=missing" className="account-card-hired account-card-link" title="The operators you don't have">
+              {asShare ? `${((100 * hiredCount) / Math.max(1, globalOperators)).toFixed(1)}%` : hiredCount}
+            </Link>
+          </div>
+          {/* The emblems, or the game's tower: one cell, so the switch moves nothing below. */}
+          <div className="account-card-hiring-art">
+          <ContentArt className="account-card-process" src={UI('operator_collect_bg')} role="img" aria-label="Operators process" {...hiddenUnless(asShare)} />
           {!!map.nations?.length && (
-            <div className="account-card-nations">
+            <div className="account-card-nations" {...hiddenUnless(!asShare)}>
               {map.nations.map((nation) => {
                 const { total = 0, missing = [] } = nations.get(nation) ?? {};
                 const complete = total > 0 && missing.length === 0;
@@ -238,6 +272,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
               })}
             </div>
           )}
+          </div>
         </div>
       </div>
       <div className="account-card-simple" {...hiddenUnless(collapsed)}>

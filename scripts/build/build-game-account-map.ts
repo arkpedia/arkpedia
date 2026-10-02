@@ -71,6 +71,10 @@ export interface GameAccountMapFile {
    *  order (handbook_team_table's nations, powerLevel 0), by the name their emblem
    *  (/faction-icons/) is filed under. */
   nations: string[];
+  /** Each module's type mark by its equipment id, and each skill's icon where another
+   *  skill's is shared: what a support unit shown full length draws. */
+  moduleTypes: Record<string, string>;
+  skillIcons: Record<string, string>;
 }
 
 export interface NameCardStyle { theme: string; themeText: string; panel: string; panelText: string; panelIcon: string }
@@ -83,9 +87,9 @@ const norm = (text: string | undefined) => (text ?? '').toLowerCase().replace(/[
 export function buildGameAccountMap(
   records: RecordFile[],
   tables: {
-    uniequip: { charEquip: Record<string, string[] | Record<string, never>>; equipDict: Record<string, { type?: string; typeName1?: string; typeName2?: string | null }> };
+    uniequip: { charEquip: Record<string, string[] | Record<string, never>>; equipDict: Record<string, { type?: string; typeName1?: string; typeName2?: string | null; typeIcon?: string | null }> };
     characters: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null; nationId?: string | null }>;
-    skills: Record<string, { levels?: { name?: string }[] }>;
+    skills: Record<string, { levels?: { name?: string }[]; iconId?: string | null }>;
     displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string; themeEnName?: string; skinTmplCnt?: number; isSpTheme?: boolean }> } };
     teams?: Record<string, { powerLevel?: number; powerName?: string; orderNum?: number }>;
     /** data/namecard-styles.json's themes. */
@@ -147,7 +151,16 @@ export function buildGameAccountMap(
   const nameCardStyles = Object.fromEntries(Object.entries(tables.styles ?? {}).sort(([a], [b]) => a.localeCompare(b))
     .filter(([, style]) => [style.theme, style.themeText, style.panel, style.panelText, style.panelIcon].every((value) => HEX.test(value)))
     .map(([id, { theme, themeText, panel, panelText, panelIcon }]) => [id, { theme, themeText, panel, panelText, panelIcon }]));
-  return { version: 1, chars, nameCards, nameCardThemes, nameCardVariants, nameCardPlain, nameCardStyles, medals, nations };
+  /* What a support unit shown full length carries (components/account/ProfileCard): its
+     module's mark, by the game's type icon (arkpedia-image-assets' profile-modules), and its
+     skill's icon, which is the skill id except where the skill shares another's icon. */
+  const moduleTypes = Object.fromEntries(Object.entries(tables.uniequip.equipDict)
+    .filter(([, equip]) => equip.type === 'ADVANCED' && typeof equip.typeIcon === 'string' && /^[\w-]+$/.test(equip.typeIcon))
+    .map(([id, equip]) => [id, (equip.typeIcon as string).toLowerCase()]).sort(([a], [b]) => a.localeCompare(b)));
+  const skillIcons = Object.fromEntries(Object.entries(tables.skills)
+    .filter(([id, skill]) => typeof skill.iconId === 'string' && skill.iconId && skill.iconId !== id)
+    .map(([id, skill]) => [id, skill.iconId as string]).sort(([a], [b]) => a.localeCompare(b)));
+  return { version: 1, chars, nameCards, nameCardThemes, nameCardVariants, nameCardPlain, nameCardStyles, medals, nations, moduleTypes, skillIcons };
 }
 
 function readJson<T>(file: string): T {

@@ -91,8 +91,12 @@
 .account-card-assist-label b { font: 500 13px var(--font-display); color: var(--card-panel-text); }
 .account-card-assist-label small { font: 9px var(--font-display); letter-spacing: 0.04em; color: var(--card-panel-text); opacity: 0.8; text-transform: uppercase; }
 .account-card-supports { display: flex; gap: 10px; min-width: 0; }
-.account-card-support { position: relative; flex: 0 1 92px; min-width: 0; aspect-ratio: 1; outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: -1px; background: rgba(0, 0, 0, 0.35); }
-.account-card-support-icon { width: 100%; height: 100%; display: block; }
+/* Square, or full length (.is-full) as the game's switch shows them: the height is a spacer's
+   padding, a fraction of the width, so the tile grows downwards (styles/core/motion.css). */
+.account-card-support { position: relative; flex: 0 1 92px; min-width: 0; overflow: hidden; outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: -1px; background: rgba(0, 0, 0, 0.35); }
+.account-card-support::before { content: ""; display: block; padding-top: 100%; }
+.account-card-support.is-full::before { padding-top: 180%; }
+.account-card-support-icon { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 /* The portrait is 1:2, the game's crop of the operator; the tile shows its head and shoulders. */
 /* The game crops it a tenth of the tile lower than the top (compared against an in-game card,
    2026-10-02): the face sits where it does there, and a tall horn or hood runs off the top. */
@@ -103,8 +107,35 @@
 /* Placed in fractions of the tile, as the game's card is measured: the elite mark in the top
    corner, a fifth of the tile wide, and the M3 badge centred under it a third of the way down. */
 .account-card-support-marks { position: absolute; inset: 0; pointer-events: none; }
-.account-card-support-elite { position: absolute; right: 4%; top: 6%; width: 22%; height: auto; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
-.account-card-support-mastery { position: absolute; right: 5.5%; top: 31%; width: 19%; height: auto; }
+/* Offsets are margins, which are fractions of the tile's width whatever its height: the marks
+   keep their places as the tile grows, and step down when the potential joins them. */
+.account-card-support-potential, .account-card-support-elite, .account-card-support-mastery { position: absolute; top: 0; height: auto; }
+.account-card-support-potential { right: 5%; width: 20%; margin-top: 4%; opacity: 0; }
+.account-card-support-elite { right: 4%; width: 22%; margin-top: 6%; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
+.account-card-support-mastery { right: 5.5%; width: 19%; margin-top: 31%; }
+.is-full .account-card-support-potential { opacity: 1; }
+.is-full .account-card-support-elite { margin-top: 27%; }
+.is-full .account-card-support-mastery { margin-top: 52%; }
+/* Full length: the module it wears and the skill it lends, at the foot. */
+.account-card-support-kit { position: absolute; right: 18%; bottom: 4%; display: flex; align-items: flex-end; gap: 7%; width: 62%; opacity: 0; pointer-events: none; }
+.is-full .account-card-support-kit { opacity: 1; }
+.account-card-support-module, .account-card-support-skill { flex: 1 1 0; aspect-ratio: 1; min-width: 0; outline: 1px solid rgba(255, 255, 255, 0.7); outline-offset: -1px; }
+.account-card-support-module { display: grid; place-items: center; background: rgba(20, 20, 22, 0.85); }
+.account-card-support-module img { width: 100%; height: auto; }
+.account-card-support-skill { display: block; width: auto; height: auto; }
+/* The game's two switches, white arrows in a circle: the support units full length, and the
+   operators hired as a share. They spin when pressed (styles/core/motion.css). */
+.account-card-switch { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; flex: none; }
+.account-card-switch img { width: 22px; height: auto; display: block; }
+.account-card-assist { position: relative; }
+.account-card-assist-switch { position: absolute; left: 10px; top: 8px; }
+.account-card-hired-row { display: flex; align-items: center; gap: 8px; }
+/* The emblems and the tower share one cell: switching shows the other, and nothing moves. */
+.account-card-hiring-art { display: grid; justify-items: start; }
+.account-card-hiring-art > * { grid-area: 1 / 1; }
+.account-card-hiring-art > [inert] { opacity: 0; }
+/* The game's tower, in the theme's colour as the game tints it (a mask over --card-accent). */
+.account-card-process { width: 148px; aspect-ratio: 174 / 94; align-self: start; background-color: var(--card-accent); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; }
 .account-card-medal-box { justify-items: center; }
 .account-card-medals { --medal-unit: 8px; position: relative; max-width: 100%; }
 .account-card-medals img { position: absolute; height: auto; }

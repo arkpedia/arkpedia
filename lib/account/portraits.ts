@@ -15,7 +15,7 @@ export function portraitPath(skinId: string): string {
 
 /** Any other profile art named by a game id (an avatar, a medal, a business card's
  *  "<id>-bg"), in lower case for the same reason. */
-export function profileArtPath(folder: 'profile-avatars' | 'profile-medals' | 'profile-namecards', name: string): string {
+export function profileArtPath(folder: 'profile-avatars' | 'profile-medals' | 'profile-namecards' | 'profile-modules' | 'profile-skills', name: string): string {
   return `/${folder}/${name.toLowerCase()}.webp`;
 }
 
@@ -34,4 +34,16 @@ export function assistantArtPath(skinId: string, chars: Record<string, { name: s
   const char = chars[charId];
   if (!char?.rarity || !RARITY_WORDS[char.rarity]) return null;
   return `/${RARITY_WORDS[char.rarity]}-star-skins/${char.name.replace(/[\\/*?:"<>|]/g, '').trim()} - ${form.startsWith('2') ? 'Elite 2' : 'Base'}.webp`;
+}
+
+/** A module's type mark (arkpedia-image-assets' profile-modules), by its equipment id. */
+export function moduleMarkPath(equipId: string, moduleTypes: Record<string, string> | undefined): string | null {
+  const type = moduleTypes?.[equipId];
+  return type ? profileArtPath('profile-modules', type) : null;
+}
+
+/** A skill's icon (profile-skills): its own id, or the shared icon it uses, a bracketed index
+ *  written as a suffix ("skcom_enchant[1]" -> "skcom_enchant_1"), as the sync publishes it. */
+export function skillIconPath(skillId: string, skillIcons: Record<string, string> | undefined): string {
+  return profileArtPath('profile-skills', (skillIcons?.[skillId] ?? skillId).replace(/\[(\d+)\]/g, '_$1'));
 }
