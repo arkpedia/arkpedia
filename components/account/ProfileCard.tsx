@@ -212,10 +212,13 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
   };
 
   return (
-    <div className={`account-card${collapsed ? ' is-collapsed' : ''}`}
+    <div className={`account-card${collapsed ? ' is-collapsed' : ''}${style ? ' has-banner' : ''}`}
       style={{ '--card-accent': colours.theme, '--card-accent-text': colours.themeText, '--card-panel': colours.panel, '--card-panel-text': colours.panelText,
         '--card-panel-icon': colours.panelIcon } as CSSProperties}>
       {style && <ContentImg className="account-card-bg" src={profileArtPath('profile-namecards', `${style}-bg`)} alt="" />}
+      {/* On a phone the card is portrait: the theme's art in full across the top, and the same
+          art blurred behind the rest (styles/account/account.css). Hidden on a wider screen. */}
+      {style && <ContentImg className="account-card-banner" src={profileArtPath('profile-namecards', `${style}-bg`)} alt="" aria-hidden="true" />}
       {assistant && <ContentImg className="account-card-assistant" src={assistant} alt="" />}
       <div className="account-card-side">
         {hired && <p className="account-card-tag"><span>Hired</span><b>{hired.getUTCFullYear()}-{hired.getUTCMonth() + 1}-{hired.getUTCDate()}</b></p>}

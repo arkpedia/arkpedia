@@ -174,20 +174,45 @@
 .account-card.is-collapsed .account-card-extend { transform: translateY(-50%); }
 .account-card-extend img { display: block; width: 100%; height: auto; }
 .account-card-extend:hover, .account-card-extend:focus-visible { opacity: 1; }
+/* Only on a phone: the banner (a wider card draws the art behind everything instead). */
+.account-card-banner { display: none; }
+/* A phone: the card turns portrait, since the game's card is landscape-only and a column of it
+   buried the name halfway down. The theme's art across the top in full, the head panel
+   overlapping its foot like a profile header, then the facts in a two-column grid and the
+   panels. The side and the main column dissolve (display: contents) so their parts take named
+   places; the decorations go. Behind it all, the art again, blurred and darkened, so the
+   card's light ink reads in either site theme. */
 @media (max-width: 720px) {
-  .account-card { grid-template-columns: 1fr; min-height: 0; }
-  .account-card::after { display: none; }
-  /* Landscape only, as in the game: on a phone the details stay. */
-  .account-card-extend { display: none; }
-  .account-card-side, .account-card-main { grid-area: auto; }
-  .account-card-simple { display: none; }
-  .account-card.is-collapsed .account-card-main { opacity: 1; transform: none; }
-  .account-card-assistant { width: 100%; left: 0; height: auto; max-height: 60%; }
-  .account-card::before { background: rgba(0, 0, 0, 0.6); }
-  .account-card-nations { grid-template-columns: repeat(auto-fill, 28px); width: 100%; }
+  .account-card { grid-template-columns: 1fr 1fr; grid-template-areas: "art art" "head head" "theme theme" "hired outfits" "hiring hiring"; gap: 12px; min-height: 0; padding: 0 0 14px; }
+  .account-card::after, .account-card-extend, .account-card-simple { display: none; }
+  .account-card::before { background: rgba(0, 0, 0, 0.35); }
+  .account-card-bg { filter: blur(16px) brightness(0.45); transform: scale(1.15); }
+  .account-card-banner { display: block; grid-area: art; position: relative; z-index: 2; width: 100%; aspect-ratio: 16 / 9; height: auto; object-fit: cover; }
+  .account-card-assistant { position: relative; z-index: 2; grid-area: art; left: 0; top: 0; width: 100%; height: 100%; max-height: none; object-fit: contain; object-position: 50% 0; align-self: stretch; }
+  .account-card-side, .account-card-main { display: contents; }
+  .account-card-side > *, .account-card-main > * { position: relative; z-index: 2; margin-inline: 14px; }
+  .account-card-marks, .account-card-prts, .account-card-outfits-decor { display: none; }
+  .account-card-head { grid-area: head; margin-inline: 10px; }
+  .account-card.has-banner .account-card-head { margin-top: -52px; }
+  .account-card-side > .account-card-tag { grid-area: hired; align-self: center; margin-right: 0; }
+  .account-card-theme { grid-area: theme; }
+  .account-card-theme b { font-size: 18px; }
+  .account-card-outfits { grid-area: outfits; align-self: center; margin-left: 0; }
+  .account-card-outfits-count img { width: 34px; }
+  .account-card-hiring { grid-area: hiring; }
+  .account-card-hired { font-size: 30px; }
+  .account-card-main > :not(.account-card-head) { grid-column: 1 / -1; }
+  .account-card.is-collapsed .account-card-main > * { opacity: 1; transform: none; }
+  .account-card-hiring { justify-items: stretch; }
+  .account-card-hiring > :not(.account-card-hiring-art) { justify-self: start; }
+  .account-card-hiring-art { justify-items: stretch; }
+  .account-card-nations { grid-template-columns: repeat(auto-fill, 26px); gap: 3px; }
+  .account-card-nation { width: 26px; height: 26px; }
+  .account-card-process { width: 120px; }
   .account-card-assist { grid-template-columns: 1fr; gap: 10px; }
   .account-card-assist-label { grid-auto-flow: column; justify-content: start; align-items: center; gap: 8px; text-align: start; }
-  .account-card-assist-label img { width: 26px; margin: 0; }
+  .account-card-assist-label .account-card-icon { width: 26px; height: 30px; margin: 0; }
+  .account-card-assist-switch { left: auto; right: 10px; top: 10px; }
   .account-card-medals { --medal-unit: 6px; }
   .account-card-name b { font-size: 18px; }
 }
