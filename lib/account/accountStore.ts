@@ -10,6 +10,8 @@
  *              (campaignsV2), by the game's map id; absent on a record from before it
  *   outfits    the outfit each operator wears, by the site's name, as the game's skin id (its
  *              default art too: "char_1013_chen2#2"); absent on a record from before it
+ *   wallet     what the account holds to pull with, as the Pull Planner's resources take it;
+ *              absent on a record from before it
  *   profile    what the account page shows: level, when it was registered, the assistant, the
  *              signature (absent on a record written before it had them)
  *
@@ -37,7 +39,21 @@ export interface AccountRecord {
   cleared: string[];
   annihilation?: string[];
   outfits?: Record<string, string>;
+  wallet?: AccountWallet;
   profile?: AccountProfile;
+}
+
+/** From the game's status: Orundum (diamondShard); Originite Prime (payDiamond plus
+ *  freeDiamond where the server splits it, otherwise the larger of the two platforms'
+ *  androidDiamond and iosDiamond); Headhunting Permits (gachaTicket, plus ten for each
+ *  tenGachaTicket); Distinction Certificates, the yellow ones (hggShard); and when the
+ *  Monthly Card runs out (monthlySubscriptionEndTime, ISO), null without one. */
+export interface AccountWallet {
+  orundum: number;
+  originitePrime: number;
+  permits: number;
+  yellowCerts: number;
+  monthlyCardUntil: string | null;
 }
 
 export interface AccountProfile {
@@ -90,6 +106,21 @@ export const PANELS = new Set(['module_sign', 'module_assist', 'module_medal', '
 const count = (value: unknown) => (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < 100000 ? value : 0);
 const moduleCounts = (value: Record<string, unknown>) => ({ collected: count(value.collected), stage3: count(value.stage3), operators: count(value.operators) });
 
+const amount = (value: unknown) => (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10_000_000 ? value : 0);
+const isoDate = (value: unknown) => (typeof value === 'string' && value.length <= 40 && Number.isFinite(Date.parse(value)) ? value : null);
+
+function walletFromStatus(status: Record<string, any>): AccountWallet {
+  const split = typeof status.payDiamond === 'number' || typeof status.freeDiamond === 'number';
+  const until = Number(status.monthlySubscriptionEndTime);
+  return {
+    orundum: amount(status.diamondShard),
+    originitePrime: split ? amount(status.payDiamond) + amount(status.freeDiamond) : Math.max(amount(status.androidDiamond), amount(status.iosDiamond)),
+    permits: amount(status.gachaTicket) + 10 * amount(status.tenGachaTicket),
+    yellowCerts: amount(status.hggShard),
+    monthlyCardUntil: Number.isFinite(until) && until > 0 ? new Date(until * 1000).toISOString() : null,
+  };
+}
+
 const strings = (value: unknown, max: number) => Array.isArray(value) && value.length <= max && value.every((item) => typeof item === 'string' && item.length <= 200);
 
 /** A stored record, or null for anything that is not one. */
@@ -112,6 +143,10 @@ export function parseAccount(raw: string | null): AccountRecord | null {
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
     ...(value.outfits && typeof value.outfits === 'object' ? { outfits: Object.fromEntries(Object.entries(value.outfits as Record<string, unknown>)
       .slice(0, 5000).flatMap(([name, skin]) => (name.length <= 200 && skinId(skin) ? [[name, skinId(skin)!]] : []))) } : {}),
+    ...(value.wallet && typeof value.wallet === 'object' ? (() => {
+      const wallet = value.wallet as Record<string, unknown>;
+      return { wallet: { orundum: amount(wallet.orundum), originitePrime: amount(wallet.originitePrime), permits: amount(wallet.permits), yellowCerts: amount(wallet.yellowCerts), monthlyCardUntil: isoDate(wallet.monthlyCardUntil) } };
+    })() : {}),
     ...(profile ? { profile: {
       level: typeof profile.level === 'number' && Number.isFinite(profile.level) ? profile.level : null,
       registeredAt: text(profile.registeredAt), secretary: text(profile.secretary), bio: text(profile.bio),
@@ -160,6 +195,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
       .filter(([, map]) => Array.isArray(map?.rewardStatus) && map.rewardStatus.length > 0 && map.rewardStatus.every((claimed) => claimed === 1))
       .map(([id]) => id).sort(),
     outfits: Object.fromEntries(Object.entries(outfits).sort(([a], [b]) => a.localeCompare(b))),
+    wallet: walletFromStatus(status),
     profile: {
       level: typeof status.level === 'number' ? status.level : null,
       registeredAt: typeof status.registerTs === 'number' && status.registerTs > 0 ? new Date(status.registerTs * 1000).toISOString() : null,

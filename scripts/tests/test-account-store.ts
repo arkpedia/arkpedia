@@ -37,6 +37,7 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     annihilation: ['camp_r_01'],
     // The outfit each wears, Amiya's forms each their own; anything not a skin id is left out.
     outfits: { Amiya: 'char_002_amiya#1+', 'Amiya (Guard)': 'char_1001_amiya2#2', Fiammetta: 'char_300_phenxi@summer#1' },
+    wallet: { orundum: 0, originitePrime: 0, permits: 0, yellowCerts: 0, monthlyCardUntil: null },
     profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes', uid: '11311084', avatar: 'avatar_special_41', nameCard: 'nc_moon_1',
       // The card style's variant, the assistant's outfit, the panels the page knows in the
       // player's order, and the Module panel's counts (the Original and a locked one are not).
@@ -68,4 +69,19 @@ test('a stored record is read back only when it is a whole one', () => {
     assert.equal(parseAccount(broken), null, String(broken));
   }
   assert.deepEqual(['owned', 'missing', 'banana', ''].map(ownedFilter), ['owned', 'missing', 'all', 'all']);
+});
+
+test("the import keeps what the account holds to pull with, for the Pull Planner's resources", () => {
+  const now = new Date('2026-10-02T12:00:00Z');
+  const status = { diamondShard: 12345, androidDiamond: 87, iosDiamond: 87, gachaTicket: 3, tenGachaTicket: 2, hggShard: 412, lggShard: 9000, monthlySubscriptionEndTime: 1793491200 };
+  assert.deepEqual(accountFromGame({ status }, MAP, now).wallet,
+    { orundum: 12345, originitePrime: 87, permits: 23, yellowCerts: 412, monthlyCardUntil: '2026-11-01T00:00:00.000Z' });
+  // A server that splits Originite Prime into paid and free says so; no card is null.
+  assert.deepEqual(accountFromGame({ status: { payDiamond: 10, freeDiamond: 5, androidDiamond: 99, monthlySubscriptionEndTime: 0 } }, MAP, now).wallet,
+    { orundum: 0, originitePrime: 15, permits: 0, yellowCerts: 0, monthlyCardUntil: null });
+  // Stored and read back; a bad amount reads as none, never as a number it is not.
+  const record = accountFromGame({ status }, MAP, now);
+  assert.deepEqual(parseAccount(JSON.stringify(record))!.wallet, record.wallet);
+  const bad = { ...record, wallet: { orundum: -5, originitePrime: 'lots', permits: 1.5, yellowCerts: 1e12, monthlyCardUntil: 'soon' } };
+  assert.deepEqual(parseAccount(JSON.stringify(bad))!.wallet, { orundum: 0, originitePrime: 0, permits: 0, yellowCerts: 0, monthlyCardUntil: null });
 });

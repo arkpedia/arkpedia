@@ -25,6 +25,9 @@ export interface SavedPullPlan {
   wishingWallMode?: WishingWallMode;
   yellowCerts?: string;
   incomeSettings?: IncomeSettings;
+  /** The account import (its importedAt) the resources were last filled from: a newer import
+   *  fills them again, and until then the reader's own edits stand. */
+  walletFrom?: string;
 }
 export function validPlanDate(value: unknown): value is string {
   if (typeof value !== 'string' || !/^20\d{2}-\d{2}-\d{2}$/.test(value)) return false;
@@ -102,7 +105,7 @@ export function parsePullPlan(raw: string): SavedPullPlan {
     if (value.greenCertificates !== undefined && typeof value.greenCertificates !== 'boolean') throw new Error('Invalid green certificate setting.');
     incomeSettings = { ...(value.greenCertificates === undefined ? {} : { greenCertificates: value.greenCertificates as boolean }), daily: value.daily as boolean, weekly: value.weekly as boolean, annihilation: value.annihilation as boolean, certificates: value.certificates as boolean };
   }
-  return { ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents'), doneKeys: list('doneKeys'), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }) };
+  return { ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), ...(data.walletFrom === undefined ? {} : { walletFrom: text('walletFrom', 40) }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents'), doneKeys: list('doneKeys'), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }) };
 }
 
 /** Past daily freebies cannot be saved. An unused banner ticket can be kept

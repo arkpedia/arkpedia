@@ -140,6 +140,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
      plain date instead, which is still a perfectly good question to ask. */
   const [bannerName, setBannerName] = useState('');
   const [clearedReruns, setClearedReruns] = useState<Set<string>>(new Set());
+  const [walletFrom, setWalletFrom] = useState('');
 
   const [now, setNow] = useState<Date | null>(null);
 
@@ -151,7 +152,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setUntil(plan.until); setBannerName(plan.bannerName);
     setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setAnnihilationDone(plan.annihilationDone);
     setDoneEvents(new Set(plan.doneEvents)); setDoneKeys(new Set(plan.doneKeys)); setClearedReruns(new Set(plan.clearedReruns));
-    setWishingWallMode(plan.wishingWallMode ?? 'average');
+    setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? '');
     setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners));
     if (skins) setSkinIds(plan.skinIds ?? []);
   }, [scheduledBanners, setSkinIds]);
@@ -172,7 +173,20 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
 
   const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings,
     monthlyCard, includeBacklog, annihilationDone, doneEvents: [...doneEvents], doneKeys: [...doneKeys], clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
-  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, annihilationDone, doneEvents, doneKeys, clearedReruns, goals, skinIds, wishingWallMode]);
+    ...(walletFrom ? { walletFrom } : {}),
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, annihilationDone, doneEvents, doneKeys, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
+
+  /* An account import fills the resources (and the Monthly Card, ticked while it runs), once
+     per import: after that they are the reader's to edit, until the next import. Run after
+     the saved plan is applied, so the plan never overwrites a newer import's numbers. */
+  useEffect(() => {
+    const wallet = account?.wallet;
+    if (!hydrated || !wallet || walletFrom === account.importedAt) return;
+    setOrundum(String(wallet.orundum)); setOriginite(String(wallet.originitePrime));
+    setPermits(String(wallet.permits)); setYellowCerts(String(wallet.yellowCerts));
+    setMonthlyCard(!!wallet.monthlyCardUntil && Date.parse(wallet.monthlyCardUntil) > Date.now());
+    setWalletFrom(account.importedAt);
+  }, [hydrated, account, walletFrom]);
 
   useEffect(() => {
     if (!hydrated || saveBlocked) return;
@@ -191,7 +205,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     try {
       if (file.size > MAX_PLAN_FILE_SIZE) throw new Error('Choose a pull plan smaller than 250 KB.');
       const plan = parsePullPlan(await file.text());
-      applyPlan(plan, true); setSaveBlocked(false); setNotice('Imported your pull plan.');
+      // The file's resources stand over the current account import's.
+      applyPlan(plan, true); if (account) setWalletFrom(account.importedAt); setSaveBlocked(false); setNotice('Imported your pull plan.');
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not read this pull plan.'); }
   }
 
@@ -361,6 +376,9 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
           <Field label="Originite Prime" unit="" icon="/material-icons/Originite%20Prime.webp" value={originite} onChange={setOriginite} />
           <Field label="Permits" unit="" icon="/material-icons/Headhunting%20Permit.webp" value={permits} onChange={setPermits} />
           <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} />
+          {account?.wallet && walletFrom === account.importedAt
+            ? <p className={`hint ${workspace.walletNote}`}>Filled from your account, imported {formatDayMonthYear(account.importedAt.slice(0, 10))}. Edit them as you spend; <Link href="/account">import again</Link> to refresh them.</p>
+            : account && !account.wallet && <p className={`hint ${workspace.walletNote}`}><Link href="/account">Import your account again</Link> to fill these in from it.</p>}
         </div>
         {skinBudget.missing.length > 0 && <p className="pulls-plan-warning">Some selected skins have missing prices. Review your wishlist.</p>}
         <div className={workspace.incomeRow}>

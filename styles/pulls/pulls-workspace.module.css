@@ -12,6 +12,8 @@
 .wallet :global(.pulls-field-label) { flex: 0 0 30px; display: flex; }
 .wallet :global(.pulls-field-box) { flex: 1; min-width: 0; }
 .wallet :global(.pulls-field-unit) { display: none; }
+/* Under the four fields: where an import filled them from. */
+.walletNote { grid-column: 1 / -1; margin: 0; }
 .wallet input:not([type=checkbox]) { font: 600 22px var(--font-display); padding: 0 8px; height: var(--control-h); }
 .incomeRow { display: flex; align-items: center; gap: 24px; padding: 12px 20px; }
 .incomeRow :global(.pulls-recurring-grid) { flex: 1; }
