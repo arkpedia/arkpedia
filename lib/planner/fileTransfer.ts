@@ -42,7 +42,7 @@ interface FilePickerWindow {
 const PICKER_ID = 'arkpediaPlanner';
 
 /** What Save offers, which is only what this writes. */
-const SAVE_TYPES = [{ description: 'Arkpedia planner', accept: { 'application/json': ['.json'] } }];
+const SAVE_TYPES = [{ description: 'Arkpedia backup', accept: { 'application/json': ['.json'] } }];
 
 /**
  * What Load will show, which is wider than what Save writes.

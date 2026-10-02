@@ -191,7 +191,7 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: 'Not owned', exact: true }).click(); } },
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
   // The account page with an import (lib/account/accountStore): the profile and counts filled
-  // in, and the Import popup open.
+  // in, and Import / export open.
   // The Pull Planner's Past events popup with an import (components/pulls/PastRewards): ticked
   // from the account's cleared stages, one chapter opened to the stages it has left.
   { id: 'pulls past events from an import', route: '/pulls', act: async (page) => {
@@ -202,9 +202,9 @@ export const CENSUS_STATES: CensusState[] = [
   } },
   { id: 'account with an import', route: '/account', act: async (page) => {
     await seedAccount(page);
-    // The Import popup (components/account/ImportDialog).
-    await page.locator('.page-header').getByRole('button', { name: 'Import again', exact: true }).click();
-    await page.locator('dialog.account-dialog .import-forms').waitFor();
+    // Import / export (components/account/DataDialog).
+    await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+    await page.locator('dialog.data-dialog .import-forms').waitFor();
   } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
   { id: 'stage enemy record', route: '/stages/browse?s=1-7', act: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await page.locator('.record-dialog .enemy-hero').first().waitFor(); } },

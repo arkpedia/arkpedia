@@ -2,12 +2,14 @@ import BannerPicker from '@/components/pulls/BannerPicker';
 import PullBannerRow from '@/components/pulls/PullBannerRow';
 import workspace from '@/styles/pulls/pulls-workspace.module.css';
 import { RewardAmount } from "@/components/pulls/RewardAmount";
+import DataDialog from '@/components/account/DataDialog';
 import ImportDialog from '@/components/account/ImportDialog';
 import { PastRewards } from '@/components/pulls/PastRewards';
 import { certificatePulls, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
+import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
 import { withContentPage } from '@/lib/content/server';
 import { ContentImg } from '@/components/content/ContentImage';
 import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } from '@/lib/pulls/format';
@@ -31,7 +33,7 @@ import { SkinsHelp } from '@/components/pulls/PlannerHelp';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import { useAccount } from '@/lib/account/accountStore';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
-import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, MAX_PLAN_FILE_SIZE, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
+import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
@@ -118,7 +120,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [saveBlocked, setSaveBlocked] = useState(false);
   const [saveStatus, setSaveStatus] = useState('Loading saved plan…');
   const [notice, setNotice] = useState('');
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [dataOpen, setDataOpen] = useState(false);
   const handledLink = useRef('');
   const [orundum, setOrundum] = useState('');
   const [yellowCerts, setYellowCerts] = useState('');
@@ -199,18 +201,10 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     } catch { setSaveStatus('Device storage is unavailable. Export your plan to keep a copy.'); }
   }, [hydrated, saveBlocked, savedPlan]);
 
-  function exportPlan() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(savedPlan, null, 2)], { type: 'application/json' }));
-    const link = document.createElement('a'); link.href = url; link.download = 'arkpedia-pull-plan.json'; link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  async function importPlan(file: File) {
-    try {
-      if (file.size > MAX_PLAN_FILE_SIZE) throw new Error('Choose a pull plan smaller than 250 KB.');
-      const plan = parsePullPlan(await file.text());
-      // The file's resources stand over the current account import's.
-      applyPlan(plan, true); if (account) { setWalletFrom(account.importedAt); setTicksFrom(account.importedAt); } setSaveBlocked(false); setNotice('Imported your pull plan.');
-    } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not read this pull plan.'); }
+  /* A pull plan from the Import / export dialog (an older Export of this page): its resources
+     and ticks stand over the current account import's. */
+  function loadPlanFile(plan: SavedPullPlan) {
+    applyPlan(plan, true); if (account) { setWalletFrom(account.importedAt); setTicksFrom(account.importedAt); } setSaveBlocked(false); setNotice('Imported your pull plan.');
   }
 
   const held: Holdings = {
@@ -368,15 +362,12 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   return <>
     <Head><title>Pull Planner — Arkpedia</title></Head>
     {/* The site's page header, outside <main> like every page's: it was a 34px
-        sentence-case h1 inside main, 12px from the edge on a phone. Export and Import
-        are ordinary secondary buttons, with the control border. */}
+        sentence-case h1 inside main, 12px from the edge on a phone. Import / export is the
+        one button every page with your data has (components/account/DataDialog). */}
     <PageHeader
       eyebrow="Rhodes Island // Headhunting Budget"
       title="Pull Planner"
-      actions={<div className={workspace.headerActions}>
-        <button type="button" className="ghost btn-sm" onClick={exportPlan}>Export</button><button type="button" className="ghost btn-sm" onClick={() => fileInput.current?.click()}>Import</button>
-        <input ref={fileInput} type="file" accept=".json" hidden aria-label="Import pull plan file" onChange={e => { const file = e.target.files?.[0]; if (file) void importPlan(file); e.target.value = ''; }} />
-      </div>}
+      actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setDataOpen(true)}>Import / export</button>}
     />
     <main className={`pulls-page ${workspace.page}`}>
       {notice && <p role="status">{notice}</p>}
@@ -557,6 +548,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       </section>
       </div>
     </main>
+    {dataOpen && <DataDialog onClose={() => setDataOpen(false)} onPullPlan={loadPlanFile} />}
     {pastOpen && (
       <ImportDialog title="Past events" className="pulls-past-dialog" onClose={() => setPastOpen(false)}>
         <PastRewards backlog={counting} doneKeys={doneKeys} doneEvents={doneEvents} annihilationDone={annihilationDone} onKeys={setDoneKeys} onEvents={setDoneEvents} onAnnihilation={setAnnihilationDone}
@@ -580,7 +572,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const predicted = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => event.name));
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
-}, { finalize: async props => {
+}, { tables: DATA_DIALOG_TABLES, finalize: async props => {
   const current = currentPullPlan(props, Date.now());
   if (current.backlogSources) return { ...current, backlogSources: fillStageIds(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content

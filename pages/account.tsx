@@ -2,22 +2,20 @@ import { useMemo, useState } from 'react';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
-import GameSignIn from '@/components/account-import/GameSignIn';
-import ImportDialog from '@/components/account/ImportDialog';
+import DataDialog from '@/components/account/DataDialog';
 import ProfileCard from '@/components/account/ProfileCard';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
-import { depotNames, checkMaterialCatalogue, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
-import { checkImportAliases, unheldSummary, type ImportAliases } from '@/lib/planner/foreignImport';
-import { checkGameAccountMap, type GameAccountMap } from '@/lib/planner/gameAccount';
-import { importGameAccount, type ImportResult } from '@/lib/account/importAccount';
-import { useAccount, writeAccount } from '@/lib/account/accountStore';
+import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
+import type { GameAccountMap } from '@/lib/planner/gameAccount';
+import { useAccount } from '@/lib/account/accountStore';
 
 /*
- * The reader's Arknights account (issue #94): the one place it is imported, and what it
- * holds. The import replaces what the site keeps of it -- the account record the lists filter
- * by (lib/account/accountStore), the Operator Planner's roster and depot -- all in this
- * browser. The profile and the counts are read from that record, after hydration.
+ * The reader's Arknights account (issue #94): what it holds, and Import / export
+ * (components/account/DataDialog, the same dialog the planners open). The import replaces what
+ * the site keeps of it -- the account record the lists filter by (lib/account/accountStore),
+ * the Operator Planner's roster and depot -- all in this browser. The profile and the counts
+ * are read from that record, after hydration.
  */
 
 interface Props {
@@ -38,20 +36,9 @@ function age(iso: string, now: number): string {
   return parts.filter(Boolean).join(', ');
 }
 
-/** "412 operators, 375 skins, 77 materials, 1,840 stages cleared and your profile". */
-function importedSummary(result: ImportResult): string {
-  const n = (count: number, one: string, many: string) => `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
-  return [n(result.operators, 'operator', 'operators'), n(result.record.skins.length, 'skin', 'skins'), n(result.materials, 'material', 'materials'),
-    n(result.record.cleared.length, 'stage cleared', 'stages cleared')].join(', ') + (result.record.profile ? ' and your profile' : '');
-}
-
 export default function AccountPage({ skins }: Props) {
   const account = useAccount();
   const map = useReleaseTable<GameAccountMap>('game-account-map');
-  const aliases = useReleaseTable<ImportAliases>('import-aliases');
-  const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
-  const [result, setResult] = useState<ImportResult | null>(null);
-  const [forgotten, setForgotten] = useState(false);
   const [importing, setImporting] = useState(false);
 
   // The outfits the account owns that the catalogue has (the card's Outfits Owned).
@@ -59,11 +46,6 @@ export default function AccountPage({ skins }: Props) {
   const ownedSkins = account ? skins.filter((skin) => owns.has(skin.id)).length : null;
   const outfitArt = useMemo(() => new Map(skins.flatMap((skin) => (skin.image ? [[skin.id, skin.image] as const] : []))), [skins]);
   const profile = account?.profile;
-
-  function onAccount(user: Record<string, any>) {
-    setResult(importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }));
-    setForgotten(false);
-  }
 
   return (
     <>
@@ -74,7 +56,7 @@ export default function AccountPage({ skins }: Props) {
 
       <PageHeader eyebrow="Rhodes Island // Account" title="Account"
         sub="Your Arknights (Global) account: what you own, for the planners and the lists."
-        actions={<button type="button" className="primary btn-sm" onClick={() => setImporting(true)}>{account ? 'Import again' : 'Import'}</button>} />
+        actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setImporting(true)}>Import / export</button>} />
 
       <main>
         {/* Drawn the same with or without an account, so the record arriving after
@@ -85,7 +67,7 @@ export default function AccountPage({ skins }: Props) {
           <h2>Profile</h2>
           {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} /> : (
             <div className="account-card account-card-empty">
-              <p className="hint">{forgotten ? 'Forgotten on this browser.' : 'No account imported yet: use Import above.'}</p>
+              <p className="hint">No account imported yet: use Import / export above.</p>
             </div>
           )}
           {account && (
@@ -96,36 +78,9 @@ export default function AccountPage({ skins }: Props) {
         </section>
 
 
-        <section className="op-section">
-          <h2>On this browser</h2>
-          <p className="import-copy">
-            The account is kept only in this browser. Forgetting it clears what the lists filter by; the Operator
-            Planner keeps its roster and depot until you clear them there.
-          </p>
-          <button type="button" className="ghost btn-sm" disabled={!account} onClick={() => { writeAccount(null); setResult(null); setForgotten(true); }}>
-            Forget this account
-          </button>
-        </section>
       </main>
 
-      {importing && (
-        <ImportDialog title="Import from the game" onClose={() => setImporting(false)}>
-          <p className="import-copy">
-            Import data directly from your Arknights (Global) account. Your login is sent encrypted and is never
-            read by Arkpedia itself; Arkpedia only receives your account data. Nothing of the login is kept: each
-            import asks for a new code.
-          </p>
-          <p className="hint import-note">
-            Importing replaces all your existing data and kicks you out of the game if you are logged in.
-          </p>
-          <GameSignIn server="en" idPrefix="account" onAccount={onAccount} />
-          {result && (
-            <p className="hint import-note" role="status">
-              Imported: {importedSummary(result)}.{unheldSummary(result.unknown)}
-            </p>
-          )}
-        </ImportDialog>
-      )}
+      {importing && <DataDialog onClose={() => setImporting(false)} />}
     </>
   );
 }
@@ -142,9 +97,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/ac
   } };
 }, {
   bundledWhenUnpublished: true,
-  tables: {
-    'game-account-map': async () => checkGameAccountMap((await import('@/data/game-account-map.json')).default),
-    'import-aliases': async () => checkImportAliases((await import('@/data/import-aliases.json')).default, checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default)),
-    'material-catalogue': async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
-  },
+  tables: DATA_DIALOG_TABLES,
 });

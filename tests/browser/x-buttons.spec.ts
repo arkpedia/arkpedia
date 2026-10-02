@@ -135,7 +135,20 @@ const PLACES: Place[] = [
   },
   {
     id: 'planner import dialog', route: '/planner',
-    open: async (page) => { await experimental(page); await page.getByRole('button', { name: 'Export / import' }).click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    open: async (page) => { await experimental(page); await page.getByRole('button', { name: 'Import / export' }).click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  // The same Import / export dialog on the Pull Planner, and its Past events popup.
+  {
+    id: 'pulls import dialog', route: '/pulls',
+    open: async (page) => { await page.getByRole('button', { name: 'Import / export' }).click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  {
+    id: 'pulls past events', route: '/pulls',
+    open: async (page) => { await page.locator('#tab-past').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },

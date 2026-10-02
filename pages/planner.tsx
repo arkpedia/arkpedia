@@ -1,7 +1,8 @@
 import { usePlannerContent } from '@/lib/content/planner';
 import { useContentUrl } from '@/lib/content/context';
+import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
 import { withContentPage } from '@/lib/content/server';
-import { TransferDialog } from "@/components/planner/TransferDialog";
+import DataDialog from "@/components/account/DataDialog";
 import { PlannerStateLabel } from '@/components/planner/PromotionIcon';
 import { withMasteryPrerequisites, withModulePrerequisites, withSkillRankPrerequisites } from '@/lib/planner/goalPrerequisites';
 import { SimplePlanner } from '@/components/planner/SimplePlanner';
@@ -32,12 +33,10 @@ import { PlanRows, type PlanRowView } from '@/components/planner/PlanRows';
 import { OperatorStateForm } from '@/components/planner/OperatorStateForm';
 import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWizard';
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
-import { bundleFilename, describeTransfer, formatBundle, parseTransfer, type ParsedTransfer } from '@/lib/planner/transfer';
+import { describeTransfer, type ParsedTransfer } from '@/lib/planner/transfer';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
 import { clampOwned, liftToOwned, syncPlansToRoster } from '@/lib/planner/ownedSync';
 import { checkImportAliases, unheldSummary } from '@/lib/planner/foreignImport';
-import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
-import { hasFilePicker, hasFolderPicker, loadFromFile, saveToFile, showFolder } from '@/lib/planner/fileTransfer';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
@@ -313,15 +312,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   /* When the depot was last written, so the summary line can say. Read once on
      mount and after every change, alongside the depot itself. */
   const [depotTouched, setDepotTouched] = useState<number | null>(null);
-  /* What this browser can do about files, read after mount rather than during
-     render: the server has no window, and a control that appears on the first
-     paint and vanishes on the second is a hydration mismatch. */
-  const [filePickerReady, setFilePickerReady] = useState(false);
-  const [folderPickerReady, setFolderPickerReady] = useState(false);
-  useEffect(() => {
-    setFilePickerReady(hasFilePicker());
-    setFolderPickerReady(hasFolderPicker());
-  }, []);
 
   /**
    * What you already own.
@@ -362,8 +352,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
 
   const [depot, setDepot] = useState<Depot>({});
   const [depotOpen, setDepotOpen] = useState(false);
-  const [transferText, setTransferText] = useState('');
-  const [transferNote, setTransferNote] = useState<string | null>(null);
   /* Which clear is primed, if any. One at a time: arming the second disarms the
      first, so there is never more than one loaded gun on screen. */
   const [armedClear, setArmedClear] = useState<'depot' | 'roster' | 'goals' | 'simple' | null>(null);
@@ -627,23 +615,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
    * door, and it can hold a state the game cannot produce just as easily as a
    * stored one can.
    */
-  function applyTransfer(text: string, source: string) {
-    /* Size before shape, and said in words: parseTransfer refuses it too, but
-       "not a planner file" would be the wrong explanation for a real export that
-       happens to be enormous. */
-    if (text.length > MAX_IMPORT_BYTES) {
-      setTransferNote(`That is ${(text.length / 1048576).toFixed(1)} MB -- far larger than any planner file, so it was not read. (${source})`);
-      return;
-    }
-    const parsed = parseTransfer(text, importAliases);
-    if (!parsed) {
-      setTransferNote(`That is not a planner file this can read -- nothing changed. (${source})`);
-      return;
-    }
-    applyParsed(parsed);
-  }
-
-  function applyParsed(parsed: ParsedTransfer) {
+  function applyParsed(parsed: ParsedTransfer): string {
     /**
      * Only what this page can hold. Material names not in the catalogue and
      * operator names the page does not know are dropped and REPORTED, the way
@@ -707,7 +679,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     }
     /* The foreign parsers report their own skips inside describeTransfer and
        emit only catalogue names, so `skipped` is empty for them. */
-    setTransferNote(describeTransfer(parsed) + unheldSummary(skipped));
+    return describeTransfer(parsed) + unheldSummary(skipped);
   }
 
   /** Forget an operator entirely: out of the plan and out of the roster. */
@@ -1215,7 +1187,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             onChange={(mode) => { modeHold.capture(); setPlannerMode(mode); setWizard(null); }}
             options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
           />
-          <button type="button" className="ghost" aria-expanded={transferOpen} onClick={() => setTransferOpen(v => !v)}>Export / import</button>
+          <button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setTransferOpen(true)}>Import / export</button>
         </div>}
       />
 
@@ -1224,83 +1196,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             clearing site data or moving machine loses the depot and the roster
             both -- which is why the way out lives in the page header rather
             than at the bottom of a panel nobody opens. */}
-        {transferOpen && (
-          <TransferDialog onClose={() => setTransferOpen(false)}>
-              {/* One file, all three stores. The two boxes this replaces carried
-                  the depot and the roster and left the GOALS behind -- the thing
-                  you spend the most time setting was the one thing you could not
-                  take with you. */}
-              <div className="plan-transfer-acts">
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={async () => {
-                    const text = formatBundle(depot, roster, selectedNames, builderStates, crafting);
-                    const saved = await saveToFile(text, bundleFilename());
-                    if (!saved) { setTransferNote('Nothing saved.'); return; }
-                    setTransferText(text);
-                    setTransferNote(saved.chosen
-                      ? `Saved as ${saved.name}, where you chose.`
-                      : `Downloaded as ${saved.name} — it is in your browser's downloads.`);
-                  }}
-                >
-                  Export file
-                </button>
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={async () => {
-                    const opened = await loadFromFile();
-                    if (!opened) { setTransferNote('Nothing loaded.'); return; }
-                    if (opened.tooLarge) { setTransferNote(`${opened.name} is far larger than any planner file, so it was not read.`); return; }
-                    setTransferText(opened.text);
-                    applyTransfer(opened.text, opened.name);
-                  }}
-                >
-                  Import file
-                </button>
-              </div>
-              <p className="hint">
-                To import from the game, use your <Link prefetch={false} href="/account">Account</Link>: it fills this
-                roster and depot from what your account holds.
-              </p>
-              <details>
-                <summary>Supported formats</summary>
-                <p>Arkpedia backups include your inventory, operators and goals. Krooster CSV, Penguin Stats JSON and ark-nights files import inventory only.</p>
-                <p>{filePickerReady ? 'Choose where to save your backup.' : 'Exports go to your browser’s downloads.'}</p>
-                {folderPickerReady && <button type="button" className="ghost" onClick={async () => { if (!await showFolder()) setTransferNote('Your browser would not open the folder.'); }}>Show folder</button>}
-              </details>
-
-              <details className="plan-transfer-text">
-                <summary>Paste / copy data</summary>
-                <textarea
-                  className="planner-depot-text"
-                  rows={4}
-                  aria-label="Planner data"
-                  placeholder="Paste planner data…"
-                  value={transferText}
-                  onChange={(e) => { setTransferText(e.target.value); setTransferNote(null); }}
-                />
-                <div className="submit-row-actions">
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      setTransferText(formatBundle(depot, roster, selectedNames, builderStates, crafting));
-                      setTransferNote('Export text ready to copy.');
-                    }}
-                  >
-                    Get export text
-                  </button>
-                  <button type="button" className="ghost" onClick={() => applyTransfer(transferText, 'the box')}>
-                    Import text
-                  </button>
-                </div>
-              </details>
-
-              {transferNote && <p className="hint plan-hint" role="status">{transferNote}</p>}
-          </TransferDialog>
-        )}
+        {transferOpen && <DataDialog onClose={() => setTransferOpen(false)} onPlannerFile={applyParsed} />}
 
         <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
@@ -1995,5 +1891,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
     // The depot's materials, their order and groups (scripts/build/build-material-catalogue.mjs).
     'material-catalogue': async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
+    // The Import / export dialog's game import (components/account/DataDialog).
+    'game-account-map': DATA_DIALOG_TABLES['game-account-map'],
   },
 });
