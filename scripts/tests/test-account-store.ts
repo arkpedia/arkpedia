@@ -46,10 +46,10 @@ test('an account gives the operators it owns by name, its outfits by skin id and
       modules: { collected: 1, stage3: 1, operators: 1 },
       hired: 4,
       // The support units by the troop's own records; a slot with no operator behind it is left out.
-      // The lent skill's mastery too: Fiammetta lends her third at M3.
-      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, mastery: 3, skin: 'char_300_phenxi@summer#1' },
+      // Whether every skill is at M3 (the game's badge): Fiammetta's second is at M2, so not.
+      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, allMastered: false, skin: 'char_300_phenxi@summer#1' },
         // Amiya lends the form she is in, in that form's outfit.
-        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, mastery: 0, skin: 'char_1001_amiya2#2' }],
+        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, allMastered: false, skin: 'char_1001_amiya2#2' }],
       medals: [{ id: 'medal_a', x: 6, y: 12 }, { id: 'medal_b', x: 9, y: 9 }] },
   });
   assert.deepEqual(parseAccount(JSON.stringify(record)), record);
@@ -87,3 +87,22 @@ test("the import keeps what the account holds to pull with, for the Pull Planner
   const bad = { ...record, wallet: { orundum: -5, originitePrime: 'lots', permits: 1.5, yellowCerts: 1e12, monthlyCardUntil: 'soon' } };
   assert.deepEqual(parseAccount(JSON.stringify(bad))!.wallet, { orundum: 0, originitePrime: 0, permits: 0, yellowCerts: 0, monthlyCardUntil: null });
 });
+
+test('a support unit wears the M3 badge only when every one of its skills is at Mastery 3', () => {
+  const user = (levels: number[]) => ({
+    social: { assistCharList: [{ charInstId: 1, skillIndex: 0 }] },
+    troop: { chars: { 1: { charId: 'char_300_phenxi', level: 90, evolvePhase: 2, potentialRank: 0, skills: levels.map((specializeLevel) => ({ specializeLevel })) } } },
+  });
+  const badge = (levels: number[]) => accountFromGame(user(levels), MAP).profile!.supports![0].allMastered;
+  assert.equal(badge([3, 3, 3]), true);
+  assert.equal(badge([3, 3]), true, 'a two-skill operator with both at M3');
+  assert.equal(badge([3, 3, 2]), false, 'the lent skill at M3 is not enough');
+  assert.equal(badge([]), false, 'no skills, no badge');
+  // A record from the first build kept the lent skill's mastery: no badge until a new import.
+  const old = { version: 1, server: 'en', importedAt: '2026-10-02T12:00:00.000Z', doctor: null, operators: [], skins: [], cleared: [],
+    profile: { level: 1, registeredAt: null, secretary: null, bio: null, supports: [{ name: 'Ascalon', rarity: 6, level: 60, elite: 2, potential: 1, skill: 2, mastery: 3, skin: null }] } };
+  const unit = parseAccount(JSON.stringify(old))!.profile!.supports![0] as unknown as Record<string, unknown>;
+  assert.equal(unit.mastery, undefined);
+  assert.equal(unit.allMastered, undefined);
+});
+

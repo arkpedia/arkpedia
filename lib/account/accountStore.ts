@@ -93,9 +93,9 @@ export interface SupportUnit {
   potential: number;
   /** 1-based, the skill it lends with. */
   skill: number | null;
-  /** That skill's mastery, 0 to 3 (the game draws a badge at 3). Absent on a record from
-   *  before it. */
-  mastery?: number;
+  /** Every one of its skills at Mastery 3: the game's badge on a support unit is for that,
+   *  not for the skill it lends. Absent on a record from before it. */
+  allMastered?: boolean;
   /** The outfit it wears, as the game's skin id (its portrait: lib/account/portraits.ts).
    *  Absent on a record from before it. */
   skin?: string | null;
@@ -156,7 +156,9 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       uid: text(profile.uid), avatar: text(profile.avatar), nameCard: text(profile.nameCard),
       ...(typeof profile.hired === 'number' ? { hired: profile.hired } : {}),
       supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3)
-        .map((unit) => ({ ...unit, skin: skinId(unit.skin), ...(unit.mastery === undefined ? {} : { mastery: [0, 1, 2, 3].includes(unit.mastery) ? unit.mastery : 0 }) })) : [],
+        // A record from the first build of the badge kept the lent skill's mastery instead
+      // (mastery): dropped, so no badge shows until the next import says.
+      .map(({ mastery: _, ...unit }: SupportUnit & { mastery?: unknown }) => ({ ...unit, skin: skinId(unit.skin), ...(unit.allMastered === undefined ? {} : { allMastered: unit.allMastered === true }) })) : [],
       ...(typeof profile.nameCardVariant === 'number' && Number.isInteger(profile.nameCardVariant) && profile.nameCardVariant >= 0 && profile.nameCardVariant < 20 ? { nameCardVariant: profile.nameCardVariant } : {}),
       ...(profile.secretarySkin !== undefined ? { secretarySkin: skinId(profile.secretarySkin) } : {}),
       ...(strings(profile.panels, 10) ? { panels: (profile.panels as string[]).filter((panel) => PANELS.has(panel)) } : {}),
@@ -231,12 +233,12 @@ function supportUnits(user: Record<string, any>, map: GameAccountMap): SupportUn
     const skin = char.currentTmpl ? char.tmpl?.[char.currentTmpl]?.skinId : char.skin;
     // Amiya's forms each keep their own skills (tmpl), every other operator one list.
     const skills = (char.currentTmpl ? char.tmpl?.[char.currentTmpl]?.skills : char.skills) as { specializeLevel?: unknown }[] | undefined;
-    const lent = typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? Number(skills?.[slot!.skillIndex]?.specializeLevel) : NaN;
+    const allMastered = !!skills?.length && skills.every((skill) => Number(skill?.specializeLevel) === 3);
     return [{
       name: entry.name, rarity: entry.rarity ?? null,
       level: Number(char.level) || 1, elite: Number(char.evolvePhase) || 0, potential: (Number(char.potentialRank) || 0) + 1,
       skill: typeof slot!.skillIndex === 'number' && slot!.skillIndex >= 0 ? slot!.skillIndex + 1 : null,
-      mastery: [0, 1, 2, 3].includes(lent) ? lent : 0,
+      allMastered,
       skin: skinId(skin),
     }];
   }).slice(0, 3);
