@@ -37,7 +37,7 @@ import {
   MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
   WEEKLY_ORUNDUM,
   eventWasCleared, eventShopPermits, bannerHaul, incomeBetween, monthlyCardIncome,
-  backlogFromAccount, pullsFrom, remainingBacklog,
+  backlogFromAccount, fillStageIds, pullsFrom, remainingBacklog,
   type BacklogSources, type Holdings, type UpcomingBanner, type PullEventReward,
 } from '@/lib/pulls/pulls';
 
@@ -547,7 +547,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
 }, { finalize: async props => {
   const current = currentPullPlan(props, Date.now());
-  if (current.backlogSources) return current;
+  if (current.backlogSources) return { ...current, backlogSources: fillStageIds(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content
   // run after this deploy re-exports /pulls (the generator commit changes the
   // release fingerprint), and scripts/content/validate-release.mjs refuses a

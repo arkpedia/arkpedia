@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserImports, pages, pathToTarget } from './browser-graph';
 import eventRewards from '../../data/pull-event-rewards.json';
-import { backlogFromAccount, bannerHaul, remainingBacklog, type BacklogSources } from '../../lib/pulls/pulls';
+import { backlogFromAccount, bannerHaul, fillStageIds, remainingBacklog, type BacklogSources } from '../../lib/pulls/pulls';
 import { resolvePullEventSchedule } from '../../lib/pulls/schedule';
 import type { getAllEvents } from '../../lib/schedule/schedule';
 
@@ -75,7 +75,7 @@ test('an event only the content release lists is counted, once', () => {
 });
 
 test("an imported account's cleared stages say what is left, stage by stage", () => {
-  const cleared = new Set([...bundled.chapters[0].stages, ...bundled.playable[0].stages.slice(0, 20), 'wk_melee_1']);
+  const cleared = new Set([...bundled.chapters[0].stages!, ...bundled.playable[0].stages!.slice(0, 20), 'wk_melee_1']);
   const fromAccount = backlogFromAccount(bundled, cleared, new Set(['camp_r_01']));
   // The chapter is done; the event is worth its four uncleared stages; the resource stage and
   // the Annihilation map are done.
@@ -89,3 +89,23 @@ test("an imported account's cleared stages say what is left, stage by stage", ()
   // A record from before Annihilation was kept leaves the maps to the reader's ticks.
   assert.ok(![...backlogFromAccount(bundled, cleared, null).doneKeys].includes('annihilation:camp_r_01'));
 });
+
+test('a release from before stage ids were kept takes them from the deployment, and an item neither has counts in full', () => {
+  // The nightly release is compiled by main's code: dev met one without stages and the
+  // page crashed reading them.
+  const strip = <T extends { stages?: string[] }>({ stages: _, ...item }: T) => item;
+  const extra = { id: 'act99new', name: 'Newer than the deploy', op: 30 };
+  const release: BacklogSources = { ...bundled, chapters: bundled.chapters.map(strip), playable: [...bundled.playable.map(strip), extra] };
+  const filled = fillStageIds(release, bundled);
+  assert.deepEqual(filled.chapters[0].stages, bundled.chapters[0].stages);
+  assert.deepEqual(filled.playable[0].stages, bundled.playable[0].stages);
+  assert.equal(filled.playable.at(-1)!.stages, undefined);
+  const cleared = new Set([...bundled.chapters[0].stages!, ...bundled.playable[0].stages!]);
+  const fromAccount = backlogFromAccount(filled, cleared, null);
+  assert.equal(fromAccount.sources.chapters[0].op, 0);
+  assert.equal(fromAccount.sources.playable.at(-1)!.op, 30);
+  assert.ok(!fromAccount.doneEvents.has('act99new'));
+  // Nothing filled at all still counts, rather than throwing.
+  assert.doesNotThrow(() => backlogFromAccount(release, cleared, null));
+});
+

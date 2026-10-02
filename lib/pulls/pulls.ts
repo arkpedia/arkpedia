@@ -143,12 +143,28 @@ export interface FirstClear { id: string; name: string; amount: number }
  * data by the content export), the same call that marks `inBacklog`.
  */
 export interface BacklogSources {
-  chapters: Chapter[];
+  chapters: WithStageIds<Chapter>[];
   originiteByStageType: Record<string, number>;
   annihilationOrundum: number;
-  playable: Pick<PastEvent, 'id' | 'name' | 'op' | 'stages'>[];
+  playable: WithStageIds<Pick<PastEvent, 'id' | 'name' | 'op' | 'stages'>>[];
   resources: FirstClear[];
   annihilation: FirstClear[];
+}
+
+/** `stages` is absent from a release exported by code from before it was kept (the nightly
+ *  release is compiled by main's code, so dev met one), and fillStageIds can only fill an
+ *  item the deployment also knows. */
+type WithStageIds<T extends { stages: string[] }> = Omit<T, 'stages'> & { stages?: string[] };
+
+/**
+ * The release's back catalogue with each chapter's and event's stage ids filled in, by id,
+ * from the deployment's own copy where the release has none. The release's list stays the
+ * list: the deployment's lags every Global event until a redeploy.
+ */
+export function fillStageIds(release: BacklogSources, deployment: BacklogSources): BacklogSources {
+  const known = new Map([...deployment.chapters, ...deployment.playable].map((item) => [item.id, item.stages]));
+  const fill = <T extends { id: string; stages?: string[] }>(item: T): T => (item.stages ? item : { ...item, stages: known.get(item.id) });
+  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill) };
 }
 
 /** The labels a reader knows these by; the gamedata's own words are internal. */
@@ -213,9 +229,12 @@ export function remainingBacklog(
 export function backlogFromAccount(backlog: BacklogSources, cleared: ReadonlySet<string>, annihilation: ReadonlySet<string> | null): {
   sources: BacklogSources; doneEvents: Set<string>; doneKeys: Set<string>;
 } {
-  const left = (stages: string[]) => stages.filter((id) => !cleared.has(id)).length;
-  const chapters = backlog.chapters.map((chapter) => ({ ...chapter, op: left(chapter.stages) }));
-  const playable = backlog.playable.map((event) => ({ ...event, op: left(event.stages) }));
+  /* An item whose stage ids neither the release nor the deployment has counts in full: an
+     import cannot say what of it is cleared, and the page answers the minimum left only
+     when it knows. */
+  const left = ({ stages, op }: { stages?: string[]; op: number }) => (stages ? stages.filter((id) => !cleared.has(id)).length : op);
+  const chapters = backlog.chapters.map((chapter) => ({ ...chapter, op: left(chapter) }));
+  const playable = backlog.playable.map((event) => ({ ...event, op: left(event) }));
   const doneKeys = new Set([
     ...chapters.filter((chapter) => !chapter.op).map((chapter) => chapter.id),
     ...backlog.resources.filter((stage) => cleared.has(stage.id.replace(/^resource:/, ''))).map((stage) => stage.id),

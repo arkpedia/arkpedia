@@ -177,6 +177,10 @@ const pullSources = JSON.parse(fs.readFileSync(path.join(root, 'source/data/pull
 check(Array.isArray(pullsProps.backlogSources?.playable) && pullsProps.backlogSources.playable.length > 0
   && playableIds(pullsProps.backlogSources.playable) === playableIds(pullSources.events.list.filter(event => event.playable)),
 'The /pulls page does not carry this release\'s playable events (backlogSources)');
+// An import counts what is left of each chapter and event against its stage ids
+// (backlogFromAccount); a release without them leaves the page the deployment's.
+check([...(pullsProps.backlogSources?.chapters ?? []), ...(pullsProps.backlogSources?.playable ?? [])].every(item => Array.isArray(item.stages) && item.stages.length > 0),
+'A /pulls chapter or event carries no stage ids (backlogSources stages)');
 // A game table a page's browser code reads travels in that page's props
 // (lib/content/tables.mjs). Without it the page serves the deployment's copy, which
 // lags every release until a redeploy.
