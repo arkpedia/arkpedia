@@ -107,6 +107,13 @@ export const ICONS: Record<string, JSX.Element> = {
       <path d="M7.5 8.5 9 9.7M12.5 8.5 11 9.7" strokeLinecap="round" />
     </svg>
   ),
+  // An open book: the Story page.
+  story: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 5.5C8.3 4.2 5.8 3.8 2.5 4v11.5c3.3-.2 5.8.2 7.5 1.5 1.7-1.3 4.2-1.7 7.5-1.5V4c-3.3-.2-5.8.2-7.5 1.5Z" strokeLinejoin="round" />
+      <path d="M10 5.5V17" />
+    </svg>
+  ),
   base: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <rect x="2.5" y="7" width="6" height="10" />

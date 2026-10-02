@@ -38,6 +38,7 @@ import '@/styles/maps/terra.css';
 import '@/styles/ui/price-display.css';
 import '@/styles/gamemodes/gamemodes.css';
 import '@/styles/account/import.css';
+import '@/styles/story/story.css';
 import '@/styles/account/account.css';
 /* Last: every transition and animation the site adds (r11 quiet polish), all under
    prefers-reduced-motion: no-preference. At equal specificity it beats the transitions

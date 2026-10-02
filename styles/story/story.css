@@ -1,0 +1,6 @@
+/* The Story page (pages/story.tsx): the places to read the story, as two link cards. */
+.story-link-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.story-link-card { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-decoration: none; }
+.story-link-card:hover { border-color: var(--teal); }
+.story-link-card strong { color: var(--text-bright); font: 600 18px var(--font-display); }
+@media (max-width: 640px) { .story-link-grid { grid-template-columns: 1fr; } }

@@ -30,6 +30,7 @@ export const LINKS: NavLink[] = [
      player's iframe mid-song. scripts/tests/test-nav-links.ts holds every href to a real
      page that no redirect matches. */
   { href: '/enemies', label: 'Enemies', icon: 'enemies' },
+  { href: '/story', label: 'Story', icon: 'story' },
   { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
   { href: '/account', label: 'Account', icon: 'roster' },
@@ -74,7 +75,7 @@ const at = (href: string): NavLink => {
 };
 
 export const GROUPS: NavGroup[] = [
-  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
+  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages'), at('/story')] },
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
   /* The reader's own: their account, and the planners that read it (issue #94). */
   { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
