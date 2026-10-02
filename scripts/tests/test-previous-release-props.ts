@@ -331,6 +331,15 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(catalogue.length > 100 && catalogue.every((skin) => / \/ /.test(skin.id) && skin.op > 0), 'the outfits sold for OP, by "Operator / Outfit"');
     assert.ok((props.collections as { skinIds: string[] }[]).length > 0, 'the shops');
   },
+  // The story map compiled into the bundle (a JSON import, nothing read from data/): the board
+  // with every picture, each linked to its story or titled.
+  '/story': (props) => {
+    const map = props.map as { elements: { type: string; image?: string | null; link?: { title: string } }[] };
+    const pictures = map.elements.filter((element) => element.type === 'picture');
+    assert.ok(pictures.length > 50, 'the board\'s pictures');
+    assert.ok(pictures.every((picture) => picture.link?.title), 'every picture titled, by its link');
+    assert.ok(map.elements.some((element) => element.type === 'line') && map.elements.some((element) => element.type === 'text'), 'the lines and the labels');
+  },
   // The back catalogue compiled into the bundle, filled by finalize.
   '/free-op': (props) => {
     const backlog = props.backlogSources as { chapters: { stages?: string[]; stageCodes?: string[] }[]; playable: { start?: string }[]; annihilation: { id: string }[] };

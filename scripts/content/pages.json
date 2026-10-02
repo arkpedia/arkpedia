@@ -9,6 +9,7 @@
   "/account",
   "/skin-planner",
   "/free-op",
+  "/story",
   "/schedule",
   "/events/[slug]",
   "/enemies",

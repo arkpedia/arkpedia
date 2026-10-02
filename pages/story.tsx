@@ -1,16 +1,25 @@
+import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
+import StoryMapView from '@/components/story/StoryMapView';
+import { withContentPage } from '@/lib/content/server';
+import type { StoryMap } from '@/lib/story/storyMap';
 
 /*
  * Where to read Arknights' story, and in what order: Timo's story reader, which has every
  * chapter of every server's script, and the Arknights Story Map, a community whiteboard of
- * which stories lead into which.
+ * which stories lead into which, drawn here with each story a link into the reader
+ * (components/story/StoryMapView.tsx).
  */
 
 const READER = 'https://arknights.timo.beer/index.html';
-const STORY_MAP = 'https://www.canva.com/design/DAHBABXJpds/tgUQ72n0pCw8HHq56-OBOA/view';
 
-export default function StoryPage() {
+interface Props {
+  /** The board, as scripts/imports/import_story_map.py reads it (lib/story/storyMap.ts). */
+  map: StoryMap;
+}
+
+export default function StoryPage({ map }: Props) {
   return (
     <>
       <Head><title>Story — Arkpedia</title></Head>
@@ -24,13 +33,30 @@ export default function StoryPage() {
               <strong>Timo&apos;s Arknights Story Reader <span aria-hidden="true">↗</span></strong>
               <span className="hint">Every main story, side story, vignette and operator record, read the way the game plays it.</span>
             </a>
-            <a className="story-link-card" href={STORY_MAP} target="_blank" rel="noopener noreferrer">
-              <strong>Arknights Story Map <span aria-hidden="true">↗</span></strong>
-              <span className="hint">Which stories lead into which, what to read first, and the community&apos;s favourites. By Joel Teo, on Canva.</span>
+            <a className="story-link-card" href={map.source} target="_blank" rel="noopener noreferrer">
+              <strong>{map.title} <span aria-hidden="true">↗</span></strong>
+              <span className="hint">Which stories lead into which, what to read first, and the community&apos;s favourites, on Canva.</span>
             </a>
           </div>
+        </section>
+        <section className="op-section" aria-labelledby="story-map">
+          <h2 id="story-map">Story map</h2>
+          <p className="hint story-map-credit">
+            The community <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from
+            the original. Click a story to start reading it in Timo&apos;s reader.
+          </p>
+          <StoryMapView map={map} />
         </section>
       </main>
     </>
   );
 }
+
+/* bundledWhenUnpublished: no release before this has /story, and on Vercel there is no data/
+   to build it from. The builder reads only the map compiled into the bundle (a JSON import);
+   once a release carries the page, the map comes from the release, so a change to the board
+   reaches readers without a deployment. */
+export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/story', async () => {
+  const { bundledStoryMap } = await import('@/lib/story/storyMapData');
+  return { props: { map: bundledStoryMap() } };
+}, { bundledWhenUnpublished: true });

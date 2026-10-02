@@ -91,6 +91,9 @@ FOLDERS = {
     'nation-marks': Folder((512, 512), method=6, lossless=True),
     # As the other 293 covers: 500px RGB webp.
     'album-covers': Folder((500, 500), mode='RGB', quality=85, method=6),
+    # The Arknights Story Map's pictures (scripts/imports/import_story_map.py): the board's own
+    # 384px resize of each cover, drawn at about 45-180px.
+    'story-map': Folder((384, 384), quality=85, method=6),
 }
 SKIN_FOLDER = re.compile(r'[a-z]+-star-skins')
 

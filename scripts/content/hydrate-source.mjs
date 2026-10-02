@@ -63,6 +63,10 @@ const SEEDED_SOURCE_FILES = new Set([
   // repository, and out with the next release. The odds-rules stage lists a banner still
   // waiting for them (scripts/content/check-pull-odds.ts).
   'data/pull-odds-rules.json',
+  // The Arknights Story Map the Story page draws (scripts/imports/import_story_map.py, every
+  // run): the board's layout, and each picture's link, which a person corrects in the data
+  // repository and the importer then keeps.
+  'data/story-map.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

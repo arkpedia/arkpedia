@@ -118,6 +118,11 @@ stage mode-rotations --needs stage-dataset -- node scripts/build/build-mode-rota
 # screenshots and traced art, not anything this script can fetch.
 stage nation-marks --needs stage-dataset -- python3 scripts/imports/import-nation-marks.py
 
+# The Arknights Story Map, the community whiteboard the Story page draws (data/story-map.json),
+# with each story a link into Timo's story reader. Reads no game data, so it needs no stage.
+# A new picture is staged in .cache/story-map/ for the staged-art stage.
+stage story-map -- python3 scripts/imports/import_story_map.py
+
 # Run windows, for the Current group and the default chapter.
 stage content-windows --needs stage-dataset -- node scripts/build/build-content-windows.mjs
 

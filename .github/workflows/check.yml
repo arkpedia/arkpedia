@@ -111,6 +111,9 @@ jobs:
       - name: Profile card theme colour import tests
         run: python3 scripts/imports/test-namecard-styles.py
 
+      - name: Story map import tests
+        run: python3 scripts/imports/test-story-map.py
+
       # The RA map, nation crest and reward icon importers against an unreachable wiki:
       # each reports to the quarantine list and exits 0 instead of failing the release.
       - name: Wiki importer degradation tests
