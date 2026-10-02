@@ -331,15 +331,12 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(catalogue.length > 100 && catalogue.every((skin) => / \/ /.test(skin.id) && skin.op > 0), 'the outfits sold for OP, by "Operator / Outfit"');
     assert.ok((props.collections as { skinIds: string[] }[]).length > 0, 'the shops');
   },
-  // The back catalogue compiled into the bundle, filled by finalize, and the Import / export
-  // dialog's tables.
+  // The back catalogue compiled into the bundle, filled by finalize.
   '/free-op': (props) => {
     const backlog = props.backlogSources as { chapters: { stages?: string[]; stageCodes?: string[] }[]; playable: { start?: string }[]; annihilation: { id: string }[] };
     assert.ok(backlog.chapters.length > 10 && backlog.chapters.every((chapter) => chapter.stages?.length === chapter.stageCodes?.length), 'every chapter with its stages and their codes');
     assert.ok(backlog.playable.length > 10 && backlog.playable.every((event) => event.start), 'every playable event with its start date');
     assert.ok(backlog.annihilation.some((map) => map.id === 'annihilation:camp_03'), 'the permanent Annihilations');
-    const tables = props.__contentTables as Record<string, unknown>;
-    assert.ok(tables['game-account-map'] && tables['import-aliases'] && tables['material-catalogue'], 'the Import / export dialog\'s tables');
   },
   // Built from the skins compiled into the bundle, with the id map and the planner's depot
   // tables from their module imports: nothing read from data/.

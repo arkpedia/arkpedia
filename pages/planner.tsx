@@ -1,8 +1,7 @@
 import { usePlannerContent } from '@/lib/content/planner';
 import { useContentUrl } from '@/lib/content/context';
-import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
 import { withContentPage } from '@/lib/content/server';
-import DataDialog from "@/components/account/DataDialog";
+import DataLink from "@/components/account/DataLink";
 import { PlannerStateLabel } from '@/components/planner/PromotionIcon';
 import { withMasteryPrerequisites, withModulePrerequisites, withSkillRankPrerequisites } from '@/lib/planner/goalPrerequisites';
 import { SimplePlanner } from '@/components/planner/SimplePlanner';
@@ -33,10 +32,9 @@ import { PlanRows, type PlanRowView } from '@/components/planner/PlanRows';
 import { OperatorStateForm } from '@/components/planner/OperatorStateForm';
 import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWizard';
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
-import { describeTransfer, type ParsedTransfer } from '@/lib/planner/transfer';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
 import { clampOwned, liftToOwned, syncPlansToRoster } from '@/lib/planner/ownedSync';
-import { checkImportAliases, unheldSummary } from '@/lib/planner/foreignImport';
+import { checkImportAliases } from '@/lib/planner/foreignImport';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
@@ -237,7 +235,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const readerClock = useReaderClock(now, { tickMs: 60_000 });
   /* depotCatalogue: every material the depot can hold, from the release's catalogue
      (data/material-catalogue.json), which only lists materials with a published icon. */
-  const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
+  const { resolveNeeds, shortShares, planBuild, levels, inGameOrder, depotCatalogue } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   /* The Anti-Page Jump hold for the mode tabs (useSwitchHold): Simple is shorter than
@@ -277,7 +275,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   /* Panel-level view state. None of it is persisted: they are ways of reading
      the same plan, not facts about it. */
   const [showAllMaterials, setShowAllMaterials] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
   /**
    * Closing the depot, without the page moving underneath you.
    *
@@ -599,88 +596,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       : cur));
   }
 
-  /**
-   * Everything a planner file carries, applied at once or not at all.
-   *
-   * One function for every door -- the file dialog, the paste box, an older
-   * single-store export, and the three other planners' formats -- because an
-   * import that half landed would leave the reader believing the whole file had.
-   *
-   * Which sections a file carries is the file's business: each is applied only
-   * when it is there, so a Krooster CSV fills the depot and leaves the plan
-   * standing rather than emptying it on the strength of silence.
-   *
-   * The goals go through `clampBuilderStates`, the same gate localStorage's own
-   * restore uses. An imported plan is untrusted input arriving by a different
-   * door, and it can hold a state the game cannot produce just as easily as a
-   * stored one can.
-   */
-  function applyParsed(parsed: ParsedTransfer): string {
-    /**
-     * Only what this page can hold. Material names not in the catalogue and
-     * operator names the page does not know are dropped and REPORTED, the way
-     * the foreign parsers already treat a key they cannot map: every real export
-     * has a few, and a renamed material should be a line in the note, not a
-     * refused file. (A malformed COUNT still fails the whole file, in the
-     * parsers.) Filtering here rather than in the parsers because this is where
-     * the catalogue and the operator list are.
-     */
-    const catalogue = new Set(depotCatalogue);
-    const skipped: string[] = [];
-    if (parsed.depot) {
-      const kept: Depot = {};
-      for (const [name, n] of Object.entries(parsed.depot)) {
-        if (catalogue.has(name)) kept[name] = n;
-        else skipped.push(name);
-      }
-      parsed.depot = kept;
-    }
-    if (parsed.roster) {
-      const kept: Roster = {};
-      for (const [name, owned] of Object.entries(parsed.roster)) {
-        if (operatorByName.has(name)) kept[name] = owned;
-        else skipped.push(name);
-      }
-      parsed.roster = kept;
-    }
 
-    if (parsed.depot) { setDepot(parsed.depot); writeDepot(parsed.depot); }
-    if (parsed.roster) { setRoster(parsed.roster); writeRoster(parsed.roster); }
-    /* Only names this planner actually has a material for, and only when the
-       file said something about crafting at all -- null means it did not, and
-       the reader's own toggles stay as they were. */
-    if (parsed.crafting) {
-      const next = new Set<string>();
-      for (const n of parsed.crafting) {
-        if (catalogue.has(n)) next.add(n);
-        else if (!skipped.includes(n)) skipped.push(n);
-      }
-      parsed.crafting = [...next];
-      setCrafting(next);
-      writeCrafting(next);
-    }
-    if (parsed.goals) {
-      const states = clampBuilderStates(parsed.goals.builderStates, operators);
-      /* Known operators, once each, and only with a state to price: a selected
-         name with no builder renders a row that can answer nothing, and an
-         unknown one fetches a file that does not exist on every load. */
-      const names = knownPlanNames(parsed.goals.selectedNames, states);
-      for (const n of parsed.goals.selectedNames) if (!names.includes(n) && !skipped.includes(n)) skipped.push(n);
-      parsed.goals = { selectedNames: names, builderStates: states };
-      setSelectedNames(names);
-      setBuilderStates(states);
-      setWizard(null);
-    }
-    /* A roster that arrived whole moves every plan's start with it, the goals the file
-       may have brought included (lib/planner/ownedSync.ts). */
-    if (parsed.roster) {
-      const rosterNow = parsed.roster;
-      setBuilderStates((cur) => syncPlansToRoster(cur, rosterNow, (n) => operatorByName.get(n)?.rarity ?? null));
-    }
-    /* The foreign parsers report their own skips inside describeTransfer and
-       emit only catalogue names, so `skipped` is empty for them. */
-    return describeTransfer(parsed) + unheldSummary(skipped);
-  }
 
   /** Forget an operator entirely: out of the plan and out of the roster. */
   function forgetOperator(name: string) {
@@ -1187,7 +1103,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             onChange={(mode) => { modeHold.capture(); setPlannerMode(mode); setWizard(null); }}
             options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
           />
-          <button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setTransferOpen(true)}>Import / export</button>
+          <DataLink />
         </div>}
       />
 
@@ -1196,7 +1112,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             clearing site data or moving machine loses the depot and the roster
             both -- which is why the way out lives in the page header rather
             than at the bottom of a panel nobody opens. */}
-        {transferOpen && <DataDialog onClose={() => setTransferOpen(false)} onPlannerFile={applyParsed} />}
 
         <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
@@ -1891,7 +1806,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/pl
     'farming-tiers': async () => (await import('@/data/farming-tiers.json')).default,
     // The depot's materials, their order and groups (scripts/build/build-material-catalogue.mjs).
     'material-catalogue': async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
-    // The Import / export dialog's game import (components/account/DataDialog).
-    'game-account-map': DATA_DIALOG_TABLES['game-account-map'],
   },
 });

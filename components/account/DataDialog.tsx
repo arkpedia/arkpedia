@@ -5,10 +5,10 @@ import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
 import { unheldSummary, type ImportAliases } from '@/lib/planner/foreignImport';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
-import type { ParsedTransfer } from '@/lib/planner/transfer';
 import { loadFromFile, saveToFile } from '@/lib/planner/fileTransfer';
 import { storePlannerTransfer } from '@/lib/planner/storeTransfer';
 import { PULL_PLAN_KEY, type SavedPullPlan } from '@/lib/pulls/plan';
+import { writePastProgress } from '@/lib/pulls/pastProgress';
 import { importGameAccount, type ImportResult } from '@/lib/account/importAccount';
 import { applyBackup, backupFilename, formatBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
@@ -22,22 +22,14 @@ function importedSummary(result: ImportResult): string {
 }
 
 /*
- * Import / export: the one dialog for everything the site keeps of the reader, the same on the
- * Account page, the Operator Planner and the Pull Planner (each opens it from the same header
- * button). From the game (components/account-import/GameSignIn); from a file or pasted text,
- * whatever lib/account/importFile reads; an export of all of it (lib/account/backup); and
- * Forget this account. The page it is on may apply a file to its own state as well
- * (`onPlannerFile`, `onPullPlan`); otherwise it is written to storage, which the page it
- * belongs to reads when it next loads. The page must carry the three tables it reads
- * (lib/content/tables.mjs).
+ * Import / export: the one dialog for everything the site keeps of the reader, on the Account
+ * page only (the planners link there: components/account/DataLink). From the game
+ * (components/account-import/GameSignIn); from a file or pasted text, whatever
+ * lib/account/importFile reads; an export of all of it (lib/account/backup); and Forget this
+ * account. A file is written to storage, which the page it belongs to reads when it next
+ * loads. The page must carry the three tables it reads (lib/content/tables.mjs).
  */
-export default function DataDialog({ onClose, onPlannerFile, onPullPlan }: {
-  onClose: () => void;
-  /** /planner: apply a planner file to the page, returning the line that reports it. */
-  onPlannerFile?: (parsed: ParsedTransfer) => string;
-  /** /pulls: apply a pull plan to the page. */
-  onPullPlan?: (plan: SavedPullPlan) => void;
-}) {
+export default function DataDialog({ onClose }: { onClose: () => void }) {
   const account = useAccount();
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const aliases = useReleaseTable<ImportAliases>('import-aliases');
@@ -66,12 +58,17 @@ export default function DataDialog({ onClose, onPlannerFile, onPullPlan }: {
       return;
     }
     if (file.kind === 'pull-plan') {
-      if (onPullPlan) onPullPlan(file.plan);
-      else window.localStorage.setItem(PULL_PLAN_KEY, JSON.stringify(file.plan));
-      setNote(`Loaded the pull plan from ${source}.`);
+      /* The file's resources and ticks stand over the current account import's: marked as
+         already filled from it (walletFrom, ticksFrom), and the ticks go to their own store
+         (lib/pulls/pastProgress.ts), which the Pull Planner and the Free OP Tracker read. */
+      const at = account?.importedAt ?? '';
+      const plan: SavedPullPlan = { ...file.plan, ...(at ? { walletFrom: at, ticksFrom: at } : {}) };
+      window.localStorage.setItem(PULL_PLAN_KEY, JSON.stringify(plan));
+      writePastProgress({ doneKeys: plan.doneKeys, doneEvents: plan.doneEvents, annihilationDone: plan.annihilationDone, ticksFrom: plan.ticksFrom ?? '' });
+      setNote(`Loaded the pull plan from ${source}. The Pull Planner opens with it.`);
       return;
     }
-    setNote(onPlannerFile ? onPlannerFile(file.parsed) : storePlannerTransfer(file.parsed, depotNames(catalogue)));
+    setNote(storePlannerTransfer(file.parsed, depotNames(catalogue)));
   }
 
   async function exportAll(): Promise<void> {

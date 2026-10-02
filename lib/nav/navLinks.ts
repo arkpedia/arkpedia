@@ -76,10 +76,8 @@ const at = (href: string): NavLink => {
 export const GROUPS: NavGroup[] = [
   { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
-  /* The reader's own: their account, and the planners that read it (issue #94). Named after
-     Rhodes Island's AI, PRTS, and ZOOT once the reader's import has Episode 15 cleared
-     (lib/account/prts.ts; the nav swaps the label). */
-  { id: 'own', label: 'PRTS', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
+  /* The reader's own: their account, and the planners that read it (issue #94). */
+  { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
   { id: 'community', label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
 ];
 
@@ -88,6 +86,15 @@ export const GROUPS: NavGroup[] = [
    it alone in Planning. Schedule joined them when the Events list became a view of the
    Schedule page rather than a page of its own, which left that menu holding one thing
    too. */
+/**
+ * A link's label for this reader: the Account page is "Import Account" until they have
+ * imported one, then "Account" -- what to do there, then what is there. The LINKS row keeps
+ * the short name, which the drawer, the bar and the page all use once an import exists.
+ */
+export function linkLabel(link: NavLink, hasAccount: boolean): string {
+  return link.href === '/account' && !hasAccount ? 'Import Account' : link.label;
+}
+
 export const LOOSE: NavLink[] = [at('/schedule'), at('/support')];
 
 /**

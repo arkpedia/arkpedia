@@ -2,14 +2,13 @@ import BannerPicker from '@/components/pulls/BannerPicker';
 import PullBannerRow from '@/components/pulls/PullBannerRow';
 import workspace from '@/styles/pulls/pulls-workspace.module.css';
 import { RewardAmount } from "@/components/pulls/RewardAmount";
-import DataDialog from '@/components/account/DataDialog';
+import DataLink from '@/components/account/DataLink';
 import ImportDialog from '@/components/account/ImportDialog';
 import { PastRewards } from '@/components/pulls/PastRewards';
 import { certificatePulls, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
-import { DATA_DIALOG_TABLES } from '@/lib/content/dataDialogTables';
 import { withContentPage } from '@/lib/content/server';
 import { ContentImg } from '@/components/content/ContentImage';
 import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } from '@/lib/pulls/format';
@@ -125,7 +124,6 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [saveBlocked, setSaveBlocked] = useState(false);
   const [saveStatus, setSaveStatus] = useState('Loading saved plan…');
   const [notice, setNotice] = useState('');
-  const [dataOpen, setDataOpen] = useState(false);
   const handledLink = useRef('');
   const [orundum, setOrundum] = useState('');
   const [yellowCerts, setYellowCerts] = useState('');
@@ -203,13 +201,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     } catch { setSaveStatus('Device storage is unavailable. Export your plan to keep a copy.'); }
   }, [hydrated, saveBlocked, savedPlan]);
 
-  /* A pull plan from the Import / export dialog (an older Export of this page): its resources
-     and ticks stand over the current account import's. */
-  function loadPlanFile(plan: SavedPullPlan) {
-    applyPlan(plan, true); if (account) setWalletFrom(account.importedAt);
-    past.setProgress({ doneKeys: plan.doneKeys, doneEvents: plan.doneEvents, annihilationDone: plan.annihilationDone, ticksFrom: account?.importedAt ?? plan.ticksFrom ?? '' });
-    setSaveBlocked(false); setNotice('Imported your pull plan.');
-  }
+
 
   const held: Holdings = {
     orundum: readNumber(orundum),
@@ -344,12 +336,12 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   return <>
     <Head><title>Pull Planner — Arkpedia</title></Head>
     {/* The site's page header, outside <main> like every page's: it was a 34px
-        sentence-case h1 inside main, 12px from the edge on a phone. Import / export is the
-        one button every page with your data has (components/account/DataDialog). */}
+        sentence-case h1 inside main, 12px from the edge on a phone. Import / export lives on
+        the Account page; this points there (components/account/DataLink). */}
     <PageHeader
       eyebrow="Rhodes Island // Headhunting Budget"
       title="Pull Planner"
-      actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setDataOpen(true)}>Import / export</button>}
+      actions={<DataLink />}
     />
     <main className={`pulls-page ${workspace.page}`}>
       {notice && <p role="status">{notice}</p>}
@@ -405,7 +397,6 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       </section>
       </div>
     </main>
-    {dataOpen && <DataDialog onClose={() => setDataOpen(false)} onPullPlan={loadPlanFile} />}
     {incomeOpen && (
       <ImportDialog title="Income" className="pulls-income-dialog" onClose={() => setIncomeOpen(false)}>
         <div className="pulls-income-body">
@@ -517,7 +508,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const predicted = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => event.name));
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
-}, { tables: DATA_DIALOG_TABLES, finalize: async props => {
+}, { finalize: async props => {
   const current = currentPullPlan(props, Date.now());
   if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content

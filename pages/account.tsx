@@ -9,6 +9,8 @@ import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { useAccount } from '@/lib/account/accountStore';
+// The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
+import { storyAI } from '@/lib/account/prts';
 
 /*
  * The reader's Arknights account (issue #94): what it holds, and Import / export
@@ -54,7 +56,7 @@ export default function AccountPage({ skins }: Props) {
         <meta name="robots" content="noindex" />
       </Head>
 
-      <PageHeader eyebrow="Rhodes Island // Account" title="Account"
+      <PageHeader eyebrow={`${storyAI(account)} // Account`} title="Account"
         sub="Your Arknights (Global) account: what you own, for the planners and the lists."
         actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setImporting(true)}>Import / export</button>} />
 
