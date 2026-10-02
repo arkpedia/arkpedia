@@ -212,6 +212,28 @@ test('only explicitly listed shop outfits are offered, never inferred Fashion Re
   assert.equal(openSkinCollections(pullSkinCollections(events,skins,catalogue,new Set(['Event']),[confirmed], []),'2026-09-01')[0].estimated,true);
 });
 
+test("a projected CN shop leaves out a new outfit Global already sold some other way", async () => {
+  const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
+  const { pullSkinCatalogue } = await import('../../lib/pulls/skins');
+  const skin = (name: string, globalReleaseAt?: number) => ({ name, model: name, release:'Event', howToObtain:'Outfit Store ( 18 Originite Prime )', image:null, series:'', seriesImage:null, code:null, illustrator:null, description:null, ...(globalReleaseAt ? { globalReleaseAt } : {}) });
+  // "Early" went on sale in a confirmed Global shop, "Released" came out on Global on
+  // 2026-09-16, both before the projected shop opens on 2026-10-08; "Fresh" is new.
+  const skins = [skin('Early'), skin('Released', Date.parse('2026-09-16T11:00:00Z') / 1000), skin('Fresh'), skin('Back')];
+  const event = (name: string, dateRange: string) => ({name,year:2026,poster:null,cn:{dateRange:'2026/05/01–2026/05/15',note:null},global:{dateRange,note:null},tw:{dateRange:null,note:null}});
+  const events = [event('Celebration', '2026/10/14–2026/10/28')];
+  const source = {event:'Celebration',source:'fixture',sourceRegion:'cn',eventStart:'2026-05-01',rotations:[
+    {label:'Early shop',start:'2026-04-25',end:'2026-05-23',dateBasis:'shop',new:['Early / Early','Released / Released','Fresh / Fresh'],returning:['Back / Back']},
+  ]};
+  const confirmed = [{ event:'Duel', kind:'shop', label:'New outfits', startAt:'2026-09-23T11:00:00Z', endAt:'2026-10-21T11:00:00Z', skinIds:['Early / Early'], newRelease:true }];
+  const collections = pullSkinCollections(events, skins, pullSkinCatalogue(skins), new Set(), [source], confirmed);
+  const projectedShop = collections.find((collection) => collection.name.startsWith('Celebration'))!;
+  assert.equal(projectedShop.start, '2026-10-08');
+  assert.deepEqual(projectedShop.skinIds, ['Fresh / Fresh', 'Back / Back']);
+  assert.deepEqual(projectedShop.featuredIds, ['Fresh / Fresh']);
+  // The confirmed Global shop keeps its own.
+  assert.deepEqual(collections.find((collection) => collection.name.startsWith('Duel'))!.skinIds, ['Early / Early']);
+});
+
 /* A CN shop in the shape of People, A People's: new outfits for a month, returning
    outfits in two batches with a gap between them. Invented names, so the rules hold
    whatever the live manifest lists and whatever its outfits are called by then. */
