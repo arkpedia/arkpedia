@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
 import { assistantArtPath, portraitPath, profileArtPath } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
@@ -96,6 +96,10 @@ function mainEpisode(cleared: string[]): number | null {
   return best;
 }
 
+/* React 18 does not know inert: it drops `inert={true}` and passes a string through, while
+   its types say boolean. */
+const hiddenUnless = (shown: boolean) => (shown ? {} : { inert: '' } as unknown as { inert: boolean });
+
 export default function ProfileCard({ account, map, outfits, outfitArt }: {
   account: AccountRecord; map: GameAccountMap; outfits: number;
   /** Each outfit's art by its game id, for the assistant on a theme without one of its own. */
@@ -115,15 +119,11 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
   const colours = (style && map.nameCardStyles?.[style]) || DEFAULT_STYLE;
   const panels = (profile.panels?.length ? profile.panels : DEFAULT_PANELS).slice(0, 3);
   const nations = useMemo(() => nationProgress(map, new Set(account.operators)), [map, account.operators]);
-  /* The arrow hides the right-hand panels. The card keeps the height it had, captured in the
-     click, so hiding them never shortens the page under the reader (the Anti-Page Jump rule). */
+  /* The arrow hides the right-hand panels. Both views stay mounted in the same grid cell and
+     cross-fade, so the card keeps the panels' height and hiding them never shortens the page
+     under the reader (the Anti-Page Jump rule). The one not shown is inert: out of the tab
+     order and the accessibility tree while it still fades. */
   const [collapsed, setCollapsed] = useState(false);
-  const [heldHeight, setHeldHeight] = useState<number | null>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const toggle = () => {
-    if (!collapsed) setHeldHeight(cardRef.current?.offsetHeight ?? null);
-    setCollapsed(!collapsed);
-  };
 
   const avatar = (
     <div className="account-card-avatar">
@@ -187,9 +187,9 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
   };
 
   return (
-    <div ref={cardRef} className={`account-card${collapsed ? ' is-collapsed' : ''}`}
+    <div className={`account-card${collapsed ? ' is-collapsed' : ''}`}
       style={{ '--card-accent': colours.theme, '--card-accent-text': colours.themeText, '--card-panel': colours.panel, '--card-panel-text': colours.panelText,
-        '--card-panel-icon': colours.panelIcon, ...(collapsed && heldHeight ? { minHeight: heldHeight } : {}) } as CSSProperties}>
+        '--card-panel-icon': colours.panelIcon } as CSSProperties}>
       {style && <ContentImg className="account-card-bg" src={profileArtPath('profile-namecards', `${style}-bg`)} alt="" />}
       {assistant && <ContentImg className="account-card-assistant" src={assistant} alt="" />}
       <div className="account-card-side">
@@ -237,25 +237,22 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
           )}
         </div>
       </div>
-      {collapsed ? (
-        <div className="account-card-simple">
-          <div className="account-card-name"><b>{account.doctor ?? 'Doctor'}</b>{profile.uid && <span>ID {profile.uid}</span>}</div>
+      <div className="account-card-simple" {...hiddenUnless(collapsed)}>
+        <div className="account-card-name"><b>{account.doctor ?? 'Doctor'}</b>{profile.uid && <span>ID {profile.uid}</span>}</div>
+        {avatar}
+      </div>
+      <div className="account-card-main" {...hiddenUnless(!collapsed)}>
+        <div className="account-card-head">
+          {head && <ContentImg className="account-card-head-art" src={head} alt="" />}
           {avatar}
-        </div>
-      ) : (
-        <div className="account-card-main">
-          <div className="account-card-head">
-            {head && <ContentImg className="account-card-head-art" src={head} alt="" />}
-            {avatar}
-            <div className="account-card-name">
-              <b>{account.doctor ?? 'Doctor'}</b>
-              {profile.uid && <span>ID {profile.uid}</span>}
-            </div>
+          <div className="account-card-name">
+            <b>{account.doctor ?? 'Doctor'}</b>
+            {profile.uid && <span>ID {profile.uid}</span>}
           </div>
-          {panels.map(panel)}
         </div>
-      )}
-      <button type="button" className="btn-bare account-card-extend" aria-expanded={!collapsed} onClick={toggle}
+        {panels.map(panel)}
+      </div>
+      <button type="button" className="btn-bare account-card-extend" aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}
         aria-label={collapsed ? 'Show the profile details' : 'Hide the profile details'} title={collapsed ? 'Show the details' : 'Hide the details'}>
         <ContentImg src={UI('extend_btn')} alt="" />
       </button>

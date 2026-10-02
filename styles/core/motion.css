@@ -198,6 +198,21 @@
     from { opacity: 0; }
   }
 
+  /* --- the profile card's arrow: the panels slide out, the corner name fades in ----
+     components/account/ProfileCard.tsx keeps both views in one grid cell (the one not
+     shown is inert); account.css holds their states. Hiding: the panels slide right and
+     fade, and the avatar and name fade in once they are mostly gone. Showing reverses
+     it, the corner name leaving quicker. */
+  .account-card-main, .account-card-simple {
+    transition: opacity 0.3s var(--ease), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .account-card.is-collapsed .account-card-simple { transition-delay: 0.2s; }
+  .account-card:not(.is-collapsed) .account-card-main { transition-delay: 0.1s; }
+  .account-card:not(.is-collapsed) .account-card-simple { transition-duration: var(--dur-1); }
+  .account-card-extend {
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity var(--dur-1) var(--ease);
+  }
+
   /* --- LIVE: the dot blinks (option A's, exactly) --------------------------------- */
   .badge-live::before {
     animation: blink 1.2s steps(2, jump-none) infinite;

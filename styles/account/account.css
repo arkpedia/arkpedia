@@ -7,11 +7,15 @@
 
 /* components/account/ProfileCard: the game's profile card. It sits on the business card
    style's art in both themes, so its plates are dark and its text is the scrim ink. */
-.account-card { position: relative; display: grid; grid-template-columns: minmax(200px, 1.13fr) minmax(0, 1fr); gap: 20px; min-height: 420px; aspect-ratio: 16 / 9; padding: 20px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--scrim-ink); }
+.account-card { position: relative; display: grid; grid-template-columns: minmax(200px, 1.13fr) minmax(0, 1fr); gap: 20px; min-height: 420px; padding: 20px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--scrim-ink); }
 .account-card-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+/* The game's 16:9, as a floor rather than the card's own aspect-ratio: with overflow hidden that
+   fixes the height and cuts off whatever the columns hold below it. This empty item spans the
+   row, so the row is 16:9 or as tall as its columns, whichever is more. */
+.account-card::after { content: ""; grid-area: 1 / 1 / 2 / -1; aspect-ratio: 16 / 9; pointer-events: none; }
 .account-card::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.4) 30%, rgba(0, 0, 0, 0.1) 55%, rgba(0, 0, 0, 0.15) 100%); }
 .account-card-side, .account-card-main { position: relative; z-index: 2; display: grid; align-content: start; gap: 10px; min-width: 0; }
-.account-card-side { gap: 12px; justify-items: start; }
+.account-card-side { grid-area: 1 / 1; gap: 12px; justify-items: start; }
 /* The theme's colours are the game's own (ProfileCard sets them from the id map): --card-accent
    and --card-accent-text for the tags, marks and complete emblems; --card-panel,
    --card-panel-text and --card-panel-icon for the right-hand panels, dark on most themes and
@@ -114,19 +118,29 @@
 .account-card-mainline > div { position: relative; display: grid; gap: 2px; }
 .account-card-mainline small { font: 11px var(--font-display); color: var(--card-panel-text); text-transform: uppercase; }
 .account-card-mainline b { font: 500 22px var(--font-display); color: var(--card-panel-text); }
-/* With the details hidden: the avatar, level, name and ID in the bottom corner, as the game's. */
+/* With the details hidden: the avatar, level, name and ID in the bottom corner, as the game's.
+   It shares the panels' cell, so the card keeps their height while it shows. The panels slide
+   out to the right and it fades in after them (styles/core/motion.css). */
+.account-card-main, .account-card-simple { grid-area: 1 / 2; }
 .account-card-simple { position: relative; z-index: 2; display: flex; align-items: flex-end; justify-content: flex-end; gap: 14px; align-self: end; justify-self: end; margin-right: 24px; }
 .account-card-simple .account-card-name { justify-items: end; text-align: end; gap: 4px; }
 .account-card-simple .account-card-name span { padding: 0; background: none; font-size: 11px; }
+.account-card:not(.is-collapsed) .account-card-simple, .account-card.is-collapsed .account-card-main { opacity: 0; }
+.account-card:not(.is-collapsed) .account-card-simple { transform: translateX(16px); }
+.account-card.is-collapsed .account-card-main { transform: translateX(calc(100% + 40px)); }
 /* The game's arrow at the card's right edge: hides the details, or brings them back. */
 .account-card-extend { position: absolute; z-index: 3; right: 2px; top: 50%; width: 22px; padding: 6px 2px; transform: translateY(-50%) scaleX(-1); opacity: 0.8; }
 .account-card.is-collapsed .account-card-extend { transform: translateY(-50%); }
 .account-card-extend img { display: block; width: 100%; height: auto; }
 .account-card-extend:hover, .account-card-extend:focus-visible { opacity: 1; }
 @media (max-width: 720px) {
-  .account-card { grid-template-columns: 1fr; min-height: 0; aspect-ratio: auto; }
+  .account-card { grid-template-columns: 1fr; min-height: 0; }
+  .account-card::after { display: none; }
   /* Landscape only, as in the game: on a phone the details stay. */
   .account-card-extend { display: none; }
+  .account-card-side, .account-card-main { grid-area: auto; }
+  .account-card-simple { display: none; }
+  .account-card.is-collapsed .account-card-main { opacity: 1; transform: none; }
   .account-card-assistant { width: 100%; left: 0; height: auto; max-height: 60%; }
   .account-card::before { background: rgba(0, 0, 0, 0.6); }
   .account-card-nations { grid-template-columns: repeat(auto-fill, 28px); width: 100%; }
