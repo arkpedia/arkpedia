@@ -49,7 +49,9 @@ export interface GameAccountMapFile {
    *  whether the Global client has it (the account page's operator count). */
   /** formOf: for another form of one character (Amiya's Guard and Medic), the character id
    *  of its default form, so the account page counts the character once, as the game does. */
-  chars: Record<string, { name: string; rarity: number; modules: Record<string, number>; global?: true; formOf?: string }>;
+  /** nation: the game's nation for it (character_table's nationId), by the name in `nations`,
+   *  so the card lights a nation's emblem only once every one of its operators is owned. */
+  chars: Record<string, { name: string; rarity: number; modules: Record<string, number>; global?: true; formOf?: string; nation?: string }>;
   /** The profile card's names (the account page): each business card style's, by id, and
    *  each medal's, from the EN client's display_meta_table and medal_table. */
   nameCards: Record<string, string>;
@@ -71,7 +73,7 @@ export function buildGameAccountMap(
   records: RecordFile[],
   tables: {
     uniequip: { charEquip: Record<string, string[] | Record<string, never>>; equipDict: Record<string, { type?: string; typeName1?: string; typeName2?: string | null }> };
-    characters: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null }>;
+    characters: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null; nationId?: string | null }>;
     skills: Record<string, { levels?: { name?: string }[] }>;
     displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string; themeEnName?: string }> } };
     teams?: Record<string, { powerLevel?: number; powerName?: string; orderNum?: number }>;
@@ -105,7 +107,9 @@ export function buildGameAccountMap(
       const ours = (record.skills?.skillList ?? []).map((skill) => norm(skill.name));
       if (game.join('|') !== ours.join('|')) problems.push(`${record.name}: the client's skills (${game.join(', ')}) are not the record's (${ours.join(', ')}), in order`);
     }
-    chars[id] = { name: record.name, rarity: record.rarity ?? 1, modules, ...(character ? { global: true as const } : {}) };
+    const nation = character?.nationId ? tables.teams?.[character.nationId] : undefined;
+    chars[id] = { name: record.name, rarity: record.rarity ?? 1, modules, ...(character ? { global: true as const } : {}),
+      ...(nation?.powerLevel === 0 && nation.powerName && character!.nationId !== 'none' ? { nation: nation.powerName } : {}) };
   }
   for (const entry of Object.values(tables.forms ?? {})) {
     const base = entry.forms?.find((form) => form.name === entry.default)?.internalName;
@@ -144,7 +148,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
   const patch = readJson<{ patchChars?: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null }> }>(path.join(excel, 'char_patch_table.json'));
   const map = buildGameAccountMap(records, {
     uniequip: readJson(path.join(excel, 'uniequip_table.json')),
-    characters: { ...readJson<Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null }>>(path.join(excel, 'character_table.json')), ...(patch.patchChars ?? {}) },
+    characters: { ...readJson<Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null; nationId?: string | null }>>(path.join(excel, 'character_table.json')), ...(patch.patchChars ?? {}) },
     skills: readJson(path.join(excel, 'skill_table.json')),
     displayMeta: readJson(path.join(excel, 'display_meta_table.json')),
     medalTable: readJson(path.join(excel, 'medal_table.json')),

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { accountFromGame, ownedFilter, parseAccount } from '../../lib/account/accountStore';
-import { portraitPath } from '../../lib/account/portraits';
+import { portraitPath, profileArtPath } from '../../lib/account/portraits';
 
 const MAP = { version: 1 as const, chars: {
   char_300_phenxi: { name: 'Fiammetta', rarity: 6, modules: {} },
@@ -50,6 +50,9 @@ test("an outfit's portrait is named as arkpedia-image-assets publishes it (sync_
   assert.equal(portraitPath('char_1013_chen2@boc#6'), '/profile-portraits/char_1013_chen2_boc_6.webp');
   assert.equal(portraitPath('char_1013_chen2#2'), '/profile-portraits/char_1013_chen2_2.webp');
   assert.equal(portraitPath('char_002_amiya#1+'), '/profile-portraits/char_002_amiya_1p.webp');
+  // The files are lower case where the ids are not, on a case-sensitive host.
+  assert.equal(portraitPath('char_4193_lemuen@ambienceSynesthesia#7'), '/profile-portraits/char_4193_lemuen_ambiencesynesthesia_7.webp');
+  assert.equal(profileArtPath('profile-namecards', 'nc_as2026_TheAphasic-bg'), '/profile-namecards/nc_as2026_theaphasic-bg.webp');
 });
 
 test('a stored record is read back only when it is a whole one', () => {

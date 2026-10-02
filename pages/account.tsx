@@ -40,20 +40,6 @@ function age(iso: string, now: number): string {
   return parts.filter(Boolean).join(', ');
 }
 
-function Count({ label, owned, total, href, linkLabel }: { label: string; owned: number | null; total: number; href: string; linkLabel: string }) {
-  const share = owned == null || !total ? 0 : Math.min(1, owned / total);
-  return (
-    <div className="account-count">
-      <div className="account-count-head">
-        <span className="account-count-label">{label}</span>
-        <span className="account-count-value">{owned == null ? '—' : owned} <small>/ {total}</small></span>
-      </div>
-      <div className="account-bar" aria-hidden="true"><span style={{ width: `${(share * 100).toFixed(1)}%` }} /></div>
-      <Link prefetch={false} href={href} className="account-count-link">{linkLabel}</Link>
-    </div>
-  );
-}
-
 export default function AccountPage({ skins }: Props) {
   const account = useAccount();
   const map = useReleaseTable<GameAccountMap>('game-account-map');
@@ -63,16 +49,8 @@ export default function AccountPage({ skins }: Props) {
   const [forgotten, setForgotten] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  // Every character the Global client carries (scripts/build/build-game-account-map.ts), each
-  // once: Amiya's three forms are one character, as the game counts her (formOf).
-  const characterOf = useMemo(() => new Map(Object.entries(map.chars).map(([id, char]) => [char.name, char.formOf ?? id])), [map]);
-  const released = useMemo(() => new Set(Object.entries(map.chars).filter(([, char]) => char.global).map(([id, char]) => char.formOf ?? id)), [map]);
-  const ownedOperators = account ? new Set(account.operators.map((name) => characterOf.get(name)).filter((id): id is string => !!id && released.has(id))).size : null;
-  // Global's outfits, and any the account owns: an outfit someone has on Global is Global's,
-  // whatever the catalogue's release line still says (five event outfits read "[CN] ..." on
-  // the day they were on sale, 2026-10-01).
+  // The outfits the account owns that the catalogue has (the card's Outfits Owned).
   const owns = useMemo(() => new Set(account?.skins ?? []), [account]);
-  const skinTotal = skins.filter((skin) => skin.global || owns.has(skin.id)).length;
   const ownedSkins = account ? skins.filter((skin) => owns.has(skin.id)).length : null;
   const profile = account?.profile;
 
@@ -111,13 +89,6 @@ export default function AccountPage({ skins }: Props) {
           )}
         </section>
 
-        <section className="op-section">
-          <h2>Collection</h2>
-          <div className="account-counts">
-            <Count label="Operators" owned={ownedOperators} total={released.size} href="/operators?owned=missing" linkLabel="Operators you don't have" />
-            <Count label="Outfits" owned={ownedSkins} total={skinTotal} href="/skins?owned=missing" linkLabel="Outfits you don't have" />
-          </div>
-        </section>
 
         <section className="op-section">
           <h2>On this browser</h2>

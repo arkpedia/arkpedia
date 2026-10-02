@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
-import { portraitPath } from '@/lib/account/portraits';
+import { portraitPath, profileArtPath } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { toServerTime } from '@/lib/time/serverDay';
@@ -19,6 +20,22 @@ import type { GameAccountMap } from '@/lib/planner/gameAccount';
 
 const ELITE = ['E0', 'E1', 'E2'];
 const UI = (name: string) => `/profile-ui/${name}.webp`;
+// The roster's faction filter spells two nations its own way (lib/operators/factionAliases).
+const ROSTER_FACTION: Record<string, string> = { 'Yan-Lungmen': 'Lungmen', Ægir: 'Aegir' };
+
+/** Each nation's operators on Global (Amiya once), and which the account does not have yet:
+ *  the game lights a nation's emblem only once every one of them is hired. */
+function nationProgress(map: GameAccountMap, owned: ReadonlySet<string>): Map<string, { total: number; missing: string[] }> {
+  const progress = new Map<string, { total: number; missing: string[] }>();
+  for (const char of Object.values(map.chars)) {
+    if (!char.nation || !char.global || char.formOf) continue;
+    const entry = progress.get(char.nation) ?? { total: 0, missing: [] };
+    entry.total += 1;
+    if (!owned.has(char.name)) entry.missing.push(char.name);
+    progress.set(char.nation, entry);
+  }
+  return progress;
+}
 // The medal board's positions are a staggered grid: a medal sits 6 units right of its
 // row-neighbour and 3 right of the medals in the next row, whose rows slope by half of x,
 // and a larger row value is higher on the board (the game puts (6, 12) above (9, 9)).
@@ -43,7 +60,7 @@ function SupportTile({ unit }: { unit: SupportUnit }) {
 function MedalBoard({ medals, names }: { medals: NonNullable<NonNullable<AccountRecord['profile']>['medals']>; names: Record<string, string> }) {
   const placed = medals.filter((medal) => medal.x != null && medal.y != null) as { id: string; x: number; y: number }[];
   if (!placed.length) {
-    return <div className="account-card-medals-list">{medals.map((medal) => <ContentImg key={medal.id} src={`/profile-medals/${medal.id}.webp`} alt={names[medal.id] ?? medal.id} title={names[medal.id]} />)}</div>;
+    return <div className="account-card-medals-list">{medals.map((medal) => <ContentImg key={medal.id} src={profileArtPath('profile-medals', medal.id)} alt={names[medal.id] ?? medal.id} title={names[medal.id]} />)}</div>;
   }
   const row = (medal: { x: number; y: number }) => medal.y - medal.x / 2;
   const minX = Math.min(...placed.map((medal) => medal.x)), minRow = Math.min(...placed.map(row)), maxRow = Math.max(...placed.map(row));
@@ -52,7 +69,7 @@ function MedalBoard({ medals, names }: { medals: NonNullable<NonNullable<Account
   return (
     <div className="account-card-medals" style={{ width, height }}>
       {placed.map((medal) => (
-        <ContentImg key={`${medal.id}-${medal.x}-${medal.y}`} src={`/profile-medals/${medal.id}.webp`} alt={names[medal.id] ?? medal.id} title={names[medal.id]}
+        <ContentImg key={`${medal.id}-${medal.x}-${medal.y}`} src={profileArtPath('profile-medals', medal.id)} alt={names[medal.id] ?? medal.id} title={names[medal.id]}
           style={{ left: unit(medal.x - minX), top: unit(maxRow - row(medal)), width: unit(6) }} />
       ))}
     </div>
@@ -65,9 +82,10 @@ export default function ProfileCard({ account, map, outfits }: { account: Accoun
   const hired = profile.registeredAt ? toServerTime(new Date(profile.registeredAt)) : null;
   const theme = profile.nameCard ? map.nameCards?.[profile.nameCard] ?? null : null;
   const subtitle = profile.nameCard ? map.nameCardThemes?.[profile.nameCard] ?? null : null;
+  const nations = useMemo(() => nationProgress(map, new Set(account.operators)), [map, account.operators]);
   return (
     <div className="account-card">
-      {profile.nameCard && <ContentImg className="account-card-bg" src={`/profile-namecards/${profile.nameCard}-bg.webp`} alt="" />}
+      {profile.nameCard && <ContentImg className="account-card-bg" src={profileArtPath('profile-namecards', `${profile.nameCard}-bg`)} alt="" />}
       <div className="account-card-side">
         {hired && <p className="account-card-tag"><span>Hired</span><b>{hired.getUTCFullYear()}-{hired.getUTCMonth() + 1}-{hired.getUTCDate()}</b></p>}
         <div className="account-card-marks" aria-hidden="true"><ContentArt className="account-card-mark-dots" src={UI('no_use_icon_circle')} /><ContentArt className="account-card-mark-x" src={UI('no_use_icon_x')} /></div>
@@ -84,32 +102,38 @@ export default function ProfileCard({ account, map, outfits }: { account: Accoun
         </div>
         <div className="account-card-outfits">
           <ContentImg className="account-card-outfits-decor" src={UI('decor_skin')} alt="" aria-hidden="true" />
-          <div className="account-card-outfits-count">
+          <Link prefetch={false} href="/skins?owned=missing" className="account-card-outfits-count account-card-link" title="The outfits you don't have">
             <ContentImg src={UI('icon_skin')} alt="" aria-hidden="true" />
             <span>Outfits Owned</span>
             <b>{outfits}</b>
-          </div>
+          </Link>
         </div>
         <div className="account-card-hiring">
           <p className="account-card-tag"><span>Operator Hiring Progress</span><ContentImg src={UI('human_resource')} alt="" aria-hidden="true" /></p>
-          <b>{profile.hired ?? account.operators.length}</b>
+          <Link prefetch={false} href="/operators?owned=missing" className="account-card-hired account-card-link" title="The operators you don't have">{profile.hired ?? account.operators.length}</Link>
           {!!map.nations?.length && (
             <div className="account-card-nations">
-              {map.nations.map((nation) => (
-                <span key={nation} className="account-card-nation" title={nation}>
-                  <ContentImg src={UI('team_back')} alt="" />
-                  <ContentArt src={getFactionIconPath(nation)!} role="img" aria-label={nation} />
-                </span>
-              ))}
+              {map.nations.map((nation) => {
+                const { total = 0, missing = [] } = nations.get(nation) ?? {};
+                const complete = total > 0 && missing.length === 0;
+                const label = `${nation}: ${total - missing.length} of ${total} hired${missing.length ? `. Not yet: ${missing.join(', ')}` : ''}`;
+                return (
+                  <Link key={nation} prefetch={false} href={`/operators?faction=${encodeURIComponent(ROSTER_FACTION[nation] ?? nation)}${complete ? '' : '&owned=missing'}`}
+                    className={`account-card-nation${complete ? ' is-complete' : ''}`} title={label} aria-label={label}>
+                    <ContentImg src={UI('team_back')} alt="" />
+                    <ContentArt src={getFactionIconPath(nation)!} />
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
       <div className="account-card-main">
         <div className="account-card-head">
-          {profile.nameCard && <ContentImg className="account-card-strip" src={`/profile-namecards/${profile.nameCard}-strip.webp`} alt="" />}
+          {profile.nameCard && <ContentImg className="account-card-strip" src={profileArtPath('profile-namecards', `${profile.nameCard}-strip`)} alt="" />}
           <div className="account-card-avatar">
-            {profile.avatar && <ContentImg src={`/profile-avatars/${profile.avatar}.webp`} alt="" />}
+            {profile.avatar && <ContentImg src={profileArtPath('profile-avatars', profile.avatar)} alt="" />}
             {profile.level != null && (
               <span className="account-card-level">
                 <ContentImg src={UI('level_bg')} alt="" />
@@ -122,7 +146,6 @@ export default function ProfileCard({ account, map, outfits }: { account: Accoun
             <b>{account.doctor ?? 'Doctor'}</b>
             {profile.uid && <span>ID {profile.uid}</span>}
           </div>
-          <ContentImg className="account-card-share" src={UI('share_btn')} alt="" aria-hidden="true" />
         </div>
         {profile.bio && <p className="account-card-bio"><ContentImg src={UI('resume_icon')} alt="" aria-hidden="true" />{profile.bio}</p>}
         {!!profile.supports?.length && (

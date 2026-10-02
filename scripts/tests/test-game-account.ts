@@ -27,7 +27,7 @@ const tables = {
       uniequip_003_radian: { type: 'ADVANCED', typeName1: 'SO', typeName2: 'B' },
     },
   },
-  characters: { char_300_phenxi: { skills: [{ skillId: 'p1' }, { skillId: 'p2' }] }, char_4145_radian: { skills: [{ skillId: 'r1' }] } },
+  characters: { char_300_phenxi: { skills: [{ skillId: 'p1' }, { skillId: 'p2' }], nationId: 'yan' }, char_4145_radian: { skills: [{ skillId: 'r1' }], nationId: 'lgd' } },
   skills: { p1: { levels: [{ name: "'Provocate'" }] }, p2: { levels: [{ name: 'Embers' }] }, r1: { levels: [{ name: 'One' }] } },
 };
 
@@ -42,6 +42,8 @@ test('the map places a module by its type code, whatever order the client lists 
   assert.deepEqual([named.nameCards, named.nameCardThemes, named.medals], [{ nc_moon_1: 'An Invitation to Moons', nc_rhodes_default: 'Rhodes Island' }, { nc_moon_1: 'An invitation to moons' }, { medal_a: 'A Medal' }]);
   // The card's nation emblems: the nations only (not their groups, not "No team"), in the game's order.
   assert.deepEqual(named.nations, ['Rhodes Island', 'Yan']);
+  // Each operator's nation, by that name, for the emblem it counts toward; a group is not a nation.
+  assert.deepEqual([named.chars.char_300_phenxi.nation, named.chars.char_4145_radian.nation], ['Yan', undefined]);
   // Another form of one character (Amiya's Guard and Medic) names its default form's id, so
   // the account page counts the character once, as the game does.
   const formed = buildGameAccountMap(records, { ...tables, forms: { Raidian: { default: 'Fiammetta', forms: [{ name: 'Fiammetta', internalName: 'char_300_phenxi' }, { name: 'Raidian', internalName: 'char_4145_radian' }] } } });

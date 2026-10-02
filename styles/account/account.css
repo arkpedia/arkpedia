@@ -1,16 +1,3 @@
-/* The account page (pages/account.tsx): owned out of total, for operators and outfits. */
-
-.account-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 24px; max-width: 760px; }
-.account-count { display: grid; gap: 6px; }
-.account-count-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.account-count-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); text-transform: uppercase; }
-.account-count-value { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text); }
-.account-count-value small { font-size: 13px; font-weight: 400; color: var(--text-dim); }
-.account-bar { height: 6px; border-radius: 3px; background: var(--well); overflow: hidden; }
-.account-bar > span { display: block; height: 100%; background: var(--teal); }
-.account-count-link { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); text-decoration: underline; }
-.account-count-link:hover { color: var(--teal); }
-
 /* components/account/ImportDialog: the Import popup. */
 .account-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; margin: auto; border: 1px solid var(--line); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); box-shadow: 0 20px 70px #0008; }
 .account-dialog::backdrop { background: #0009; backdrop-filter: blur(3px); }
@@ -51,11 +38,17 @@
 /* The hired count is the card's centrepiece, as large as the game draws it: the one size off
    the type scale here (a reviewed audit:styles exception). */
 .account-card-hiring { display: grid; justify-items: start; gap: 4px; }
-.account-card-hiring > b { font: 600 48px var(--font-display); color: var(--scrim-ink); line-height: 1.05; }
+.account-card-hired { font: 600 48px var(--font-display); color: var(--scrim-ink); line-height: 1.05; }
+/* The counts and emblems lead to the lists of what is missing; they keep the card's look. */
+.account-card-link { color: inherit; text-decoration: none; }
+.account-card-link:hover, .account-card-link:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
 .account-card-nations { display: grid; grid-template-columns: repeat(9, 28px); gap: 4px; margin-top: 4px; }
 .account-card-nation { position: relative; display: block; width: 28px; height: 28px; }
 .account-card-nation img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.account-card-nation > span { position: absolute; inset: 3px; background-color: var(--scrim-amber); opacity: 0.85; mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; }
+/* Gold only once every operator of the nation is hired, as in the game; dim until then. */
+.account-card-nation.is-complete > span { background-color: var(--scrim-amber); opacity: 0.85; }
+.account-card-nation:hover > span, .account-card-nation:focus-visible > span { opacity: 1; }
+.account-card-nation > span { position: absolute; inset: 3px; background-color: var(--scrim-ink-dim); opacity: 0.22; mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; }
 /* The right column: the game's dark plates. */
 .account-card-head { position: relative; display: flex; align-items: center; gap: 18px; min-height: 104px; padding: 12px 16px 12px 14px; overflow: visible; border-radius: var(--radius-frame); background: rgba(0, 0, 0, 0.6); }
 .account-card-strip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-frame); opacity: 0.55; }
@@ -69,10 +62,9 @@
 .account-card-level b, .account-card-level small { position: relative; color: var(--scrim-ink); }
 .account-card-level b { font: 600 15px var(--font-display); letter-spacing: -0.02em; }
 .account-card-level small { font: 9px var(--font-display); }
-.account-card-name { position: relative; display: grid; justify-items: start; gap: 8px; min-width: 0; padding-right: 28px; }
+.account-card-name { position: relative; display: grid; justify-items: start; gap: 8px; min-width: 0; }
 .account-card-name b { font: 500 22px var(--font-display); color: var(--scrim-ink); overflow-wrap: anywhere; }
 .account-card-name span { padding: 4px 10px; border-radius: var(--radius); background: rgba(0, 0, 0, 0.45); font: 13px var(--font-display); color: var(--scrim-ink); }
-.account-card-share { position: absolute; right: 14px; top: 12px; width: 22px; height: auto; opacity: 0.9; }
 .account-card-bio { display: flex; align-items: center; gap: 14px; margin: 0; min-height: 56px; padding: 10px 16px; border-radius: var(--radius-frame); background: rgba(0, 0, 0, 0.6); font: 13px var(--font-display); }
 .account-card-bio img { flex: none; width: 32px; height: auto; opacity: 0.75; }
 .account-card-box { display: grid; gap: 8px; padding: 12px 16px; border-radius: var(--radius-frame); background: rgba(0, 0, 0, 0.6); }
