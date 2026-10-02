@@ -22,9 +22,8 @@ import { useAccount, writeAccount } from '@/lib/account/accountStore';
  */
 
 interface Props {
-  /** Every outfit by skin id, and whether the catalogue has it on Global. (The operators
-   *  Global has come with the id map, which marks the ones its client carries.) */
-  skins: { id: string; global: boolean }[];
+  /** Every outfit by skin id, with its art (the card's assistant wears one). */
+  skins: { id: string; image: string | null }[];
 }
 
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -52,6 +51,7 @@ export default function AccountPage({ skins }: Props) {
   // The outfits the account owns that the catalogue has (the card's Outfits Owned).
   const owns = useMemo(() => new Set(account?.skins ?? []), [account]);
   const ownedSkins = account ? skins.filter((skin) => owns.has(skin.id)).length : null;
+  const outfitArt = useMemo(() => new Map(skins.flatMap((skin) => (skin.image ? [[skin.id, skin.image] as const] : []))), [skins]);
   const profile = account?.profile;
 
   function onAccount(user: Record<string, any>) {
@@ -77,7 +77,7 @@ export default function AccountPage({ skins }: Props) {
             replaces the placeholder of the same height (the Anti-Page Jump rule). */}
         <section className="op-section">
           <h2>Profile</h2>
-          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} /> : (
+          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} /> : (
             <div className="account-card account-card-empty">
               <p className="hint">{forgotten ? 'Forgotten on this browser.' : 'No account imported yet: use Import above.'}</p>
             </div>
@@ -132,7 +132,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/ac
   const { getAllSkins } = await import('@/lib/skins/skins');
   return { props: {
     // As /skins counts them: an outfit only CN has is not Global's yet.
-    skins: getAllSkins().filter((skin) => skin.skinId).map((skin) => ({ id: skin.skinId!, global: skin.sourceRegion !== 'CN' && !/^\[CN\]/.test(skin.release || '') })),
+    // Each outfit by its game id, with its art: the card shows the assistant in theirs.
+    skins: getAllSkins().filter((skin) => skin.skinId).map((skin) => ({ id: skin.skinId!, image: skin.image ?? null })),
   } };
 }, {
   bundledWhenUnpublished: true,

@@ -18,3 +18,20 @@ export function portraitPath(skinId: string): string {
 export function profileArtPath(folder: 'profile-avatars' | 'profile-medals' | 'profile-namecards', name: string): string {
   return `/${folder}/${name.toLowerCase()}.webp`;
 }
+
+const RARITY_WORDS: Record<number, string> = { 6: 'six', 5: 'five', 4: 'four', 3: 'three', 2: 'two', 1: 'one' };
+
+/**
+ * The assistant's illustration in the outfit it wears (status.secretarySkinId), from the skin
+ * art the site already has: an outfit ("char_2014_nian@spring#1") by the catalogue's own
+ * image for it (`outfitArt`, skin id to path), the default art ("char_2014_nian#1",
+ * "...#2" once promoted) by the operator's name as the art folders file it. Null when the
+ * id names neither.
+ */
+export function assistantArtPath(skinId: string, chars: Record<string, { name: string; rarity?: number }>, outfitArt: ReadonlyMap<string, string>): string | null {
+  if (skinId.includes('@')) return outfitArt.get(skinId) ?? null;
+  const [charId, form = ''] = skinId.split('#');
+  const char = chars[charId];
+  if (!char?.rarity || !RARITY_WORDS[char.rarity]) return null;
+  return `/${RARITY_WORDS[char.rarity]}-star-skins/${char.name.replace(/[\\/*?:"<>|]/g, '').trim()} - ${form.startsWith('2') ? 'Elite 2' : 'Base'}.webp`;
+}

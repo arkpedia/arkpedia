@@ -28,6 +28,10 @@ export interface GameAccountMap {
   /** Each card style's subtitle, and the nations whose emblems the card shows (absent before
    *  they were added). */
   nameCardThemes?: Record<string, string>;
+  nameCardVariants?: Record<string, number>;
+  nameCardPlain?: string[];
+  /** Each theme's colours, from its bundle in the client (scripts/imports/import-namecard-styles.py). */
+  nameCardStyles?: Record<string, { theme: string; themeText: string; panel: string; panelText: string; panelIcon: string }>;
   medals?: Record<string, string>;
   nations?: string[];
 }

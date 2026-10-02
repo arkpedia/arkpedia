@@ -36,10 +36,18 @@ test('the map places a module by its type code, whatever order the client lists 
   // global: the client has the operator, which the account page counts.
   assert.deepEqual(map.chars.char_300_phenxi, { name: 'Fiammetta', rarity: 6, modules: { uniequip_002_phenxi: 1, uniequip_003_phenxi: 0 }, global: true });
   // The profile card's names, from the display and medal tables.
-  const named = buildGameAccountMap(records, { ...tables, displayMeta: { nameCardV2Data: { skinData: { nc_moon_1: { name: 'An Invitation to Moons', themeEnName: 'An invitation to moons' }, nc_rhodes_default: { name: 'Rhodes Island', themeEnName: '' } } } },
+  const named = buildGameAccountMap(records, { ...tables, displayMeta: { nameCardV2Data: { skinData: { nc_moon_1: { name: 'An Invitation to Moons', themeEnName: 'An invitation to moons' }, nc_rhodes_default: { name: 'Rhodes Island', themeEnName: '', isSpTheme: false }, nc_avemujica_1: { name: 'The Eternal Show', themeEnName: 'The Eternal Show', isSpTheme: true, skinTmplCnt: 5 } } } },
     medalTable: { medalList: [{ medalId: 'medal_a', medalName: 'A Medal' }, { medalId: 'medal_b' }] },
     teams: { none: { powerLevel: 0, powerName: 'No team', orderNum: 0 }, yan: { powerLevel: 0, powerName: 'Yan', orderNum: 2 }, rhodes: { powerLevel: 0, powerName: 'Rhodes Island', orderNum: 1 }, lgd: { powerLevel: 1, powerName: 'Lungmen Guard Department', orderNum: 3 } } });
-  assert.deepEqual([named.nameCards, named.nameCardThemes, named.medals], [{ nc_moon_1: 'An Invitation to Moons', nc_rhodes_default: 'Rhodes Island' }, { nc_moon_1: 'An invitation to moons' }, { medal_a: 'A Medal' }]);
+  assert.deepEqual([named.nameCards, named.nameCardThemes, named.medals], [{ nc_avemujica_1: 'The Eternal Show', nc_moon_1: 'An Invitation to Moons', nc_rhodes_default: 'Rhodes Island' }, { nc_avemujica_1: 'The Eternal Show', nc_moon_1: 'An invitation to moons' }, { medal_a: 'A Medal' }]);
+  // A style's variants, and the styles with no theme (the assistant shows instead).
+  assert.deepEqual([named.nameCardVariants, named.nameCardPlain], [{ nc_avemujica_1: 5 }, ['nc_rhodes_default']]);
+  // Each theme's colours, as the importer read them; a malformed one is left out.
+  const coloured = buildGameAccountMap(records, { ...tables, styles: {
+    nc_avemujica_1: { md5: 'x', theme: '#c41c55', themeText: '#ffffff', panel: '#191919d9', panelText: '#ffffffb2', panelIcon: '#ffffff4c' },
+    nc_broken: { theme: 'red', themeText: '#ffffff', panel: '#000000', panelText: '#ffffff', panelIcon: '#ffffff' },
+  } });
+  assert.deepEqual(coloured.nameCardStyles, { nc_avemujica_1: { theme: '#c41c55', themeText: '#ffffff', panel: '#191919d9', panelText: '#ffffffb2', panelIcon: '#ffffff4c' } });
   // The card's nation emblems: the nations only (not their groups, not "No team"), in the game's order.
   assert.deepEqual(named.nations, ['Rhodes Island', 'Yan']);
   // Each operator's nation, by that name, for the emblem it counts toward; a group is not a nation.

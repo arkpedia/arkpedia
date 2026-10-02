@@ -48,6 +48,9 @@ const SEEDED_SOURCE_FILES = new Set([
   // The game's character and module ids, for importing an account into the planner
   // (scripts/build/build-game-account-map.ts, regenerated every run).
   'data/game-account-map.json',
+  // Each profile card theme's colours, from the client's theme bundles, and their md5s, so
+  // only a changed bundle is fetched (scripts/imports/import-namecard-styles.py, every run).
+  'data/namecard-styles.json',
   // The announcement ticker's SSS cycle (lib/schedule/sssCycle.ts), kept by hand.
   'data/sss-cycle.json',
   // How the game's activity types map onto the Terminal: the excluded modes, the seasonal

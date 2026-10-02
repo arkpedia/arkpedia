@@ -57,12 +57,23 @@ export interface GameAccountMapFile {
   nameCards: Record<string, string>;
   /** Each card style's subtitle under its name (themeEnName: "An invitation to moons"). */
   nameCardThemes: Record<string, string>;
+  /** How many variants a style has, for one with several (skinTmplCnt), and the styles with
+   *  no theme of their own (isSpTheme false: Default Skin, Determination), which show the
+   *  assistant's illustration and name instead. */
+  nameCardVariants: Record<string, number>;
+  nameCardPlain: string[];
+  /** Each theme's colours, from its bundle in the client (data/namecard-styles.json,
+   *  scripts/imports/import-namecard-styles.py): the accent and the text on it, and the
+   *  right-hand panels, their text and their icons. */
+  nameCardStyles: Record<string, NameCardStyle>;
   medals: Record<string, string>;
   /** The nations whose emblems the card's Operator Hiring Progress shows, in the game's
    *  order (handbook_team_table's nations, powerLevel 0), by the name their emblem
    *  (/faction-icons/) is filed under. */
   nations: string[];
 }
+
+export interface NameCardStyle { theme: string; themeText: string; panel: string; panelText: string; panelIcon: string }
 
 const GREEK: Record<string, string> = { A: 'α', B: 'β', D: 'Δ' };
 // This mirror writes an empty list as {} (Lancet-2's skills).
@@ -75,8 +86,10 @@ export function buildGameAccountMap(
     uniequip: { charEquip: Record<string, string[] | Record<string, never>>; equipDict: Record<string, { type?: string; typeName1?: string; typeName2?: string | null }> };
     characters: Record<string, { skills?: { skillId?: string | null }[] | Record<string, never> | null; nationId?: string | null }>;
     skills: Record<string, { levels?: { name?: string }[] }>;
-    displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string; themeEnName?: string }> } };
+    displayMeta?: { nameCardV2Data?: { skinData?: Record<string, { name?: string; themeEnName?: string; skinTmplCnt?: number; isSpTheme?: boolean }> } };
     teams?: Record<string, { powerLevel?: number; powerName?: string; orderNum?: number }>;
+    /** data/namecard-styles.json's themes. */
+    styles?: Record<string, NameCardStyle & { md5?: string }>;
     /** data/operator-forms.json: each form's name and character id, and the default form. */
     forms?: Record<string, { forms?: { name: string; internalName?: string }[]; default?: string }>;
     medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
@@ -127,7 +140,14 @@ export function buildGameAccountMap(
   const nations = Object.entries(tables.teams ?? {})
     .filter(([id, team]) => id !== 'none' && team.powerLevel === 0 && typeof team.powerName === 'string')
     .sort(([, a], [, b]) => (a.orderNum ?? 0) - (b.orderNum ?? 0)).map(([, team]) => team.powerName as string);
-  return { version: 1, chars, nameCards, nameCardThemes, medals, nations };
+  const styles = Object.entries(tables.displayMeta?.nameCardV2Data?.skinData ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  const nameCardVariants = Object.fromEntries(styles.filter(([, skin]) => (skin.skinTmplCnt ?? 0) > 1).map(([id, skin]) => [id, skin.skinTmplCnt as number]));
+  const nameCardPlain = styles.filter(([, skin]) => skin.isSpTheme === false).map(([id]) => id);
+  const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/;
+  const nameCardStyles = Object.fromEntries(Object.entries(tables.styles ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    .filter(([, style]) => [style.theme, style.themeText, style.panel, style.panelText, style.panelIcon].every((value) => HEX.test(value)))
+    .map(([id, { theme, themeText, panel, panelText, panelIcon }]) => [id, { theme, themeText, panel, panelText, panelIcon }]));
+  return { version: 1, chars, nameCards, nameCardThemes, nameCardVariants, nameCardPlain, nameCardStyles, medals, nations };
 }
 
 function readJson<T>(file: string): T {
@@ -153,6 +173,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
     displayMeta: readJson(path.join(excel, 'display_meta_table.json')),
     medalTable: readJson(path.join(excel, 'medal_table.json')),
     teams: readJson(path.join(excel, 'handbook_team_table.json')),
+    styles: fs.existsSync(path.join(root, 'data', 'namecard-styles.json')) ? readJson<{ themes: Record<string, NameCardStyle> }>(path.join(root, 'data', 'namecard-styles.json')).themes : {},
     forms: fs.existsSync(path.join(root, 'data', 'operator-forms.json')) ? readJson(path.join(root, 'data', 'operator-forms.json')) : {},
   });
   // Each nation's emblem must be published, or the card shows a broken image: a nation the
@@ -165,5 +186,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
   }
   fs.writeFileSync(OUTPUT, `${JSON.stringify(map)}\n`);
   const modules = Object.values(map.chars).reduce((sum, char) => sum + Object.keys(char.modules).length, 0);
-  console.log(`Wrote ${path.relative(root, OUTPUT)}: ${Object.keys(map.chars).length} operators, ${modules} modules, ${Object.keys(map.nameCards).length} card styles, ${Object.keys(map.medals).length} medals, ${map.nations.length} nations.`);
+  console.log(`Wrote ${path.relative(root, OUTPUT)}: ${Object.keys(map.chars).length} operators, ${modules} modules, ${Object.keys(map.nameCards).length} card styles, ${Object.keys(map.medals).length} medals, ${map.nations.length} nations, ${Object.keys(map.nameCardStyles).length} theme colours.`);
+  const uncoloured = Object.keys(map.nameCards).filter((id) => !map.nameCardStyles[id]);
+  if (uncoloured.length) console.warn(`build-game-account-map: no colours for ${uncoloured.join(', ')}; the card draws them in the default blue until import-namecard-styles.py reads their bundles.`);
 }

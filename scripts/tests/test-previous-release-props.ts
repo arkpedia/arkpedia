@@ -334,9 +334,9 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
   // Built from the skins compiled into the bundle, with the id map and the planner's depot
   // tables from their module imports: nothing read from data/.
   '/account': (props) => {
-    const skins = props.skins as { id: string; global: boolean }[];
+    const skins = props.skins as { id: string; image: string | null }[];
     assert.ok(skins.length > 400 && skins.every((skin) => /^char_\w+[@#]/.test(skin.id)), 'every outfit, by skin id');
-    assert.ok(skins.filter((skin) => skin.global).length > 400, 'most of them on Global');
+    assert.ok(skins.filter((skin) => skin.image?.startsWith('/')).length > 400, 'with its art, for the card\'s assistant');
     const tables = props.__contentTables as Record<string, { chars?: Record<string, unknown> }>;
     assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'the id map is attached');
     assert.ok(tables['import-aliases'] && tables['material-catalogue'], 'the depot tables are attached');

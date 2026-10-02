@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
-import { portraitPath, profileArtPath } from '@/lib/account/portraits';
+import { assistantArtPath, portraitPath, profileArtPath } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { toServerTime } from '@/lib/time/serverDay';
@@ -16,9 +16,19 @@ import type { GameAccountMap } from '@/lib/planner/gameAccount';
  * sync_profile_art.py), and so are the card's own sprites (profile-ui/): the level ring,
  * the icons, the marks and the elite badges. A piece that is not published yet is left
  * out, not broken.
+ *
+ * Each theme has its colours (its accent and its panels', which the game keeps in the theme's
+ * own bundle: scripts/imports/import-namecard-styles.py) and its head panel art, in the
+ * variant the player picked; a theme without one of its own (Default Skin and its kind)
+ * shows the assistant's illustration and name instead. The right-hand panels are the first
+ * three of the player's own order, and the arrow hides them, as the game's does.
  */
 
 const ELITE = ['E0', 'E1', 'E2'];
+// What the game's card shows with no order kept: the signature, the support units, the medals.
+const DEFAULT_PANELS = ['module_sign', 'module_assist', 'module_medal'];
+// Default Skin's, for a theme whose colours have not been read yet.
+const DEFAULT_STYLE = { theme: '#0098dc', themeText: '#323232', panel: '#0000004d', panelText: '#ffffffb2', panelIcon: '#ffffff4d' };
 const UI = (name: string) => `/profile-ui/${name}.webp`;
 // The roster's faction filter spells two nations its own way (lib/operators/factionAliases).
 const ROSTER_FACTION: Record<string, string> = { 'Yan-Lungmen': 'Lungmen', Ægir: 'Aegir' };
@@ -76,20 +86,118 @@ function MedalBoard({ medals, names }: { medals: NonNullable<NonNullable<Account
   );
 }
 
-export default function ProfileCard({ account, map, outfits }: { account: AccountRecord; map: GameAccountMap; outfits: number }) {
+/** The highest main story episode the account has cleared a stage of (main_14-01: 14). */
+function mainEpisode(cleared: string[]): number | null {
+  let best: number | null = null;
+  for (const id of cleared) {
+    const match = /^main_(\d+)-/.exec(id);
+    if (match && (best === null || Number(match[1]) > best)) best = Number(match[1]);
+  }
+  return best;
+}
+
+export default function ProfileCard({ account, map, outfits, outfitArt }: {
+  account: AccountRecord; map: GameAccountMap; outfits: number;
+  /** Each outfit's art by its game id, for the assistant on a theme without one of its own. */
+  outfitArt: ReadonlyMap<string, string>;
+}) {
   const profile = account.profile ?? { level: null, registeredAt: null, secretary: null, bio: null };
   // The game dates the card by its server's day (UTC-7, rolling over at 04:00), not UTC's.
   const hired = profile.registeredAt ? toServerTime(new Date(profile.registeredAt)) : null;
-  const theme = profile.nameCard ? map.nameCards?.[profile.nameCard] ?? null : null;
-  const subtitle = profile.nameCard ? map.nameCardThemes?.[profile.nameCard] ?? null : null;
+  const style = profile.nameCard ?? null;
+  const theme = style ? map.nameCards?.[style] ?? null : null;
+  const subtitle = style ? map.nameCardThemes?.[style] ?? null : null;
+  // No style kept, or one without a theme of its own: the assistant takes the theme's place.
+  const plain = !style || (map.nameCardPlain ?? []).includes(style);
+  const variants = style ? map.nameCardVariants?.[style] : undefined;
+  const head = style ? profileArtPath('profile-namecards', `${style}-head${variants ? `-${Math.min(profile.nameCardVariant ?? 0, variants - 1)}` : ''}`) : null;
+  const assistant = plain && profile.secretarySkin ? assistantArtPath(profile.secretarySkin, map.chars, outfitArt) : null;
+  const colours = (style && map.nameCardStyles?.[style]) || DEFAULT_STYLE;
+  const panels = (profile.panels?.length ? profile.panels : DEFAULT_PANELS).slice(0, 3);
   const nations = useMemo(() => nationProgress(map, new Set(account.operators)), [map, account.operators]);
+  /* The arrow hides the right-hand panels. The card keeps the height it had, captured in the
+     click, so hiding them never shortens the page under the reader (the Anti-Page Jump rule). */
+  const [collapsed, setCollapsed] = useState(false);
+  const [heldHeight, setHeldHeight] = useState<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const toggle = () => {
+    if (!collapsed) setHeldHeight(cardRef.current?.offsetHeight ?? null);
+    setCollapsed(!collapsed);
+  };
+
+  const avatar = (
+    <div className="account-card-avatar">
+      {profile.avatar && <ContentImg src={profileArtPath('profile-avatars', profile.avatar)} alt="" />}
+      {profile.level != null && (
+        <span className="account-card-level">
+          <ContentImg src={UI('level_bg')} alt="" />
+          <b>{profile.level}</b>
+          <small>LV</small>
+        </span>
+      )}
+    </div>
+  );
+  const panel = (id: string) => {
+    if (id === 'module_sign') {
+      return <p key={id} className="account-card-bio"><ContentArt className="account-card-icon" src={UI('resume_icon')} aria-hidden="true" />{profile.bio}</p>;
+    }
+    if (id === 'module_assist') {
+      return (
+        <div key={id} className="account-card-box account-card-assist">
+          <div className="account-card-assist-label">
+            <ContentArt className="account-card-icon" src={UI('assist_icon')} aria-hidden="true" />
+            <b>Support Unit</b>
+            <small>Support Unit</small>
+          </div>
+          <div className="account-card-supports">
+            {(profile.supports ?? []).map((unit) => <SupportTile key={unit.name} unit={unit} />)}
+          </div>
+        </div>
+      );
+    }
+    if (id === 'module_medal') {
+      return (
+        <div key={id} className="account-card-box account-card-medal-box">
+          {!!profile.medals?.length && <MedalBoard medals={profile.medals} names={map.medals ?? {}} />}
+        </div>
+      );
+    }
+    if (id === 'module_equip') {
+      const modules = profile.modules;
+      return (
+        <div key={id} className="account-card-box account-card-modules">
+          <ContentImg className="account-card-modules-bg" src={UI('module_collection_bg')} alt="" aria-hidden="true" />
+          <ContentArt className="account-card-icon" src={UI('module_collection_bg_icon')} aria-hidden="true" />
+          <dl>
+            <div><dt>Modules collected</dt><dd>{modules?.collected ?? '—'}</dd></div>
+            <div><dt>STAGE3 Module</dt><dd>{modules?.stage3 ?? '—'}</dd></div>
+            <div><dt>Operators with Modules</dt><dd>{modules?.operators ?? '—'}</dd></div>
+          </dl>
+        </div>
+      );
+    }
+    const episode = mainEpisode(account.cleared);
+    return (
+      <div key={id} className="account-card-box account-card-mainline">
+        <ContentImg className="account-card-mainline-art" src={UI('mainline_human')} alt="" aria-hidden="true" />
+        <ContentArt className="account-card-icon" src={UI('mainline_icon')} aria-hidden="true" />
+        <div><small>Main Theme</small><b>{episode === null ? '—' : episode === 0 ? 'Prologue' : `Episode ${episode}`}</b></div>
+      </div>
+    );
+  };
+
   return (
-    <div className="account-card">
-      {profile.nameCard && <ContentImg className="account-card-bg" src={profileArtPath('profile-namecards', `${profile.nameCard}-bg`)} alt="" />}
+    <div ref={cardRef} className={`account-card${collapsed ? ' is-collapsed' : ''}`}
+      style={{ '--card-accent': colours.theme, '--card-accent-text': colours.themeText, '--card-panel': colours.panel, '--card-panel-text': colours.panelText,
+        '--card-panel-icon': colours.panelIcon, ...(collapsed && heldHeight ? { minHeight: heldHeight } : {}) } as CSSProperties}>
+      {style && <ContentImg className="account-card-bg" src={profileArtPath('profile-namecards', `${style}-bg`)} alt="" />}
+      {assistant && <ContentImg className="account-card-assistant" src={assistant} alt="" />}
       <div className="account-card-side">
         {hired && <p className="account-card-tag"><span>Hired</span><b>{hired.getUTCFullYear()}-{hired.getUTCMonth() + 1}-{hired.getUTCDate()}</b></p>}
         <div className="account-card-marks" aria-hidden="true"><ContentArt className="account-card-mark-dots" src={UI('no_use_icon_circle')} /><ContentArt className="account-card-mark-x" src={UI('no_use_icon_x')} /></div>
-        {theme && (
+        {plain ? (
+          profile.secretary && <div className="account-card-theme"><span>Assistant</span><b>{profile.secretary}</b></div>
+        ) : theme && (
           <div className="account-card-theme">
             <span>Theme</span>
             <b>{theme}</b>
@@ -129,43 +237,28 @@ export default function ProfileCard({ account, map, outfits }: { account: Accoun
           )}
         </div>
       </div>
-      <div className="account-card-main">
-        <div className="account-card-head">
-          {profile.nameCard && <ContentImg className="account-card-strip" src={profileArtPath('profile-namecards', `${profile.nameCard}-strip`)} alt="" />}
-          <div className="account-card-avatar">
-            {profile.avatar && <ContentImg src={profileArtPath('profile-avatars', profile.avatar)} alt="" />}
-            {profile.level != null && (
-              <span className="account-card-level">
-                <ContentImg src={UI('level_bg')} alt="" />
-                <b>{profile.level}</b>
-                <small>LV</small>
-              </span>
-            )}
-          </div>
-          <div className="account-card-name">
-            <b>{account.doctor ?? 'Doctor'}</b>
-            {profile.uid && <span>ID {profile.uid}</span>}
-          </div>
+      {collapsed ? (
+        <div className="account-card-simple">
+          <div className="account-card-name"><b>{account.doctor ?? 'Doctor'}</b>{profile.uid && <span>ID {profile.uid}</span>}</div>
+          {avatar}
         </div>
-        {profile.bio && <p className="account-card-bio"><ContentImg src={UI('resume_icon')} alt="" aria-hidden="true" />{profile.bio}</p>}
-        {!!profile.supports?.length && (
-          <div className="account-card-box account-card-assist">
-            <div className="account-card-assist-label">
-              <ContentImg src={UI('assist_icon')} alt="" aria-hidden="true" />
-              <b>Support Unit</b>
-              <small>Support Unit</small>
-            </div>
-            <div className="account-card-supports">
-              {profile.supports.map((unit) => <SupportTile key={unit.name} unit={unit} />)}
+      ) : (
+        <div className="account-card-main">
+          <div className="account-card-head">
+            {head && <ContentImg className="account-card-head-art" src={head} alt="" />}
+            {avatar}
+            <div className="account-card-name">
+              <b>{account.doctor ?? 'Doctor'}</b>
+              {profile.uid && <span>ID {profile.uid}</span>}
             </div>
           </div>
-        )}
-        {!!profile.medals?.length && (
-          <div className="account-card-box account-card-medal-box">
-            <MedalBoard medals={profile.medals} names={map.medals ?? {}} />
-          </div>
-        )}
-      </div>
+          {panels.map(panel)}
+        </div>
+      )}
+      <button type="button" className="btn-bare account-card-extend" aria-expanded={!collapsed} onClick={toggle}
+        aria-label={collapsed ? 'Show the profile details' : 'Hide the profile details'} title={collapsed ? 'Show the details' : 'Hide the details'}>
+        <ContentImg src={UI('extend_btn')} alt="" />
+      </button>
     </div>
   );
 }

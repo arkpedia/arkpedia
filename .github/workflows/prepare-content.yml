@@ -122,7 +122,8 @@ jobs:
           python-version: '3.12'
       - run: npm ci
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-      - run: python -m pip install pillow certifi
+      # UnityPy and lz4 read the client's theme bundles (scripts/imports/import-namecard-styles.py).
+      - run: python -m pip install pillow certifi UnityPy==1.25.3 lz4==4.4.5
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
       - name: Refresh supported upstream records
         id: refresh
@@ -186,6 +187,10 @@ jobs:
           # The game's character and module ids, for importing an account into the planner: from
           # the operator records as they now stand and the EN client's tables. A record that no
           # longer lines up with the client fails it, and yesterday's map stays.
+          # Each profile card theme's colours, from the client's own theme bundles on Yostar's
+          # CDN (no table carries them); only a changed bundle is fetched. Before the id map,
+          # which carries them to the account page.
+          stage namecard-styles -- python3 scripts/imports/import-namecard-styles.py
           stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:

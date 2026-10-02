@@ -7,20 +7,24 @@
 
 /* components/account/ProfileCard: the game's profile card. It sits on the business card
    style's art in both themes, so its plates are dark and its text is the scrim ink. */
-.account-card { position: relative; display: grid; grid-template-columns: minmax(200px, 2fr) minmax(0, 3fr); gap: 20px; min-height: 420px; padding: 20px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--scrim-ink); }
+.account-card { position: relative; display: grid; grid-template-columns: minmax(200px, 1.13fr) minmax(0, 1fr); gap: 20px; min-height: 420px; aspect-ratio: 16 / 9; padding: 20px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--scrim-ink); }
 .account-card-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
 .account-card::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.4) 30%, rgba(0, 0, 0, 0.1) 55%, rgba(0, 0, 0, 0.15) 100%); }
 .account-card-side, .account-card-main { position: relative; z-index: 2; display: grid; align-content: start; gap: 10px; min-width: 0; }
 .account-card-side { gap: 12px; justify-items: start; }
-/* The game's labels: an amber tag before a white box or a mark. */
+/* The theme's colours are the game's own (ProfileCard sets them from the id map): --card-accent
+   and --card-accent-text for the tags, marks and complete emblems; --card-panel,
+   --card-panel-text and --card-panel-icon for the right-hand panels, dark on most themes and
+   light on a few. The labels: a tag in the accent before a white box or a mark. */
 .account-card-tag { display: inline-flex; align-items: stretch; gap: 0; margin: 0; font: 600 13px var(--font-display); line-height: 1; }
-.account-card-tag span { display: inline-flex; align-items: center; padding: 4px 8px; background: rgba(166, 122, 67, 0.92); color: var(--scrim-ink); }
+.account-card-tag span { display: inline-flex; align-items: center; padding: 4px 8px; background: var(--card-accent); color: var(--card-accent-text); }
 .account-card-tag b { display: inline-flex; align-items: center; padding: 4px 10px; background: var(--scrim-ink); color: rgba(0, 0, 0, 0.88); font: 700 15px var(--font-mono); letter-spacing: 0.04em; }
 .account-card-tag img { height: 26px; width: auto; margin-left: 6px; }
 .account-card-marks { display: grid; justify-items: center; gap: 6px; width: 16px; opacity: 0.9; }
-.account-card-marks > span { display: block; width: 16px; background-color: var(--scrim-amber); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; }
+.account-card-marks > span { display: block; width: 16px; background-color: var(--card-accent); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; }
 .account-card-mark-dots { height: 42px; }
-.account-card-mark-x { height: 15px; }
+/* The X under them is white on every theme; only the two dots take its colour. */
+.account-card-marks > .account-card-mark-x { height: 15px; background-color: white; }
 .account-card-theme { display: grid; justify-items: start; gap: 4px; }
 .account-card-theme span { padding: 3px 8px; background: var(--scrim-ink); color: rgba(0, 0, 0, 0.88); font: 600 13px var(--font-display); }
 .account-card-theme b { margin-top: 2px; font: 600 22px var(--font-display); color: var(--scrim-ink); }
@@ -45,13 +49,20 @@
 .account-card-nations { display: grid; grid-template-columns: repeat(9, 28px); gap: 4px; margin-top: 4px; }
 .account-card-nation { position: relative; display: block; width: 28px; height: 28px; }
 .account-card-nation img { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* Gold only once every operator of the nation is hired, as in the game; dim until then. */
-.account-card-nation.is-complete > span { background-color: var(--scrim-amber); opacity: 0.85; }
-.account-card-nation:hover > span, .account-card-nation:focus-visible > span { opacity: 1; }
-.account-card-nation > span { position: absolute; inset: 3px; background-color: var(--scrim-ink-dim); opacity: 0.22; mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; }
+/* White until every operator of the nation is hired, then the theme's accent, as in the game. */
+.account-card-nation > span { position: absolute; inset: 3px; background-color: var(--scrim-ink); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; }
+.account-card-nation.is-complete > span { background-color: var(--card-accent); }
+.account-card-nation:hover > span, .account-card-nation:focus-visible > span { filter: brightness(1.25); }
+/* A theme without one of its own (Default Skin and its kind): the assistant, standing over the
+   style's background on the left, under the side's text. */
+.account-card-assistant { position: absolute; z-index: 1; left: 4%; top: -4%; height: 112%; width: 56%; object-fit: contain; object-position: 50% 0; pointer-events: none; }
 /* The right column: the game's dark plates. */
-.account-card-head { position: relative; display: flex; align-items: center; gap: 18px; min-height: 104px; padding: 12px 16px 12px 14px; overflow: visible; border-radius: var(--radius-frame); background: rgba(0, 0, 0, 0.6); }
-.account-card-strip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-frame); opacity: 0.55; }
+/* The head is the theme's own panel art (its name_card_short, rounded and shadowed in the art
+   itself), with the avatar and name over it. Every theme's is 638x223 with the panel itself
+   602x187 at (18, 0): the box is the panel, the same width as the panels under it, and the
+   art's shadow overhangs it to the sides and below. */
+.account-card-head { position: relative; display: flex; align-items: center; gap: 18px; aspect-ratio: 602 / 187; padding: 3% 4%; overflow: visible; }
+.account-card-head-art { position: absolute; left: -2.99%; top: 0; width: 105.98%; height: 119.25%; max-width: none; object-fit: fill; }
 .account-card-avatar { position: relative; flex: none; width: 80px; height: 80px; }
 .account-card-avatar > img { width: 80px; height: 80px; display: block; outline: 2px solid var(--scrim-ink); outline-offset: -1px; }
 /* The level: the game's round ring (its level_bg sprite), the number over it. */
@@ -63,16 +74,18 @@
 .account-card-level b { font: 600 15px var(--font-display); letter-spacing: -0.02em; }
 .account-card-level small { font: 9px var(--font-display); }
 .account-card-name { position: relative; display: grid; justify-items: start; gap: 8px; min-width: 0; }
-.account-card-name b { font: 500 22px var(--font-display); color: var(--scrim-ink); overflow-wrap: anywhere; }
+.account-card-name b { font: 500 22px var(--font-display); color: var(--scrim-ink); overflow-wrap: anywhere; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
 .account-card-name span { padding: 4px 10px; border-radius: var(--radius); background: rgba(0, 0, 0, 0.45); font: 13px var(--font-display); color: var(--scrim-ink); }
-.account-card-bio { display: flex; align-items: center; gap: 14px; margin: 0; min-height: 56px; padding: 10px 16px; border-radius: var(--radius-frame); background: rgba(0, 0, 0, 0.6); font: 13px var(--font-display); }
-.account-card-bio img { flex: none; width: 32px; height: auto; opacity: 0.75; }
-.account-card-box { display: grid; gap: 8px; padding: 12px 16px; border-radius: var(--radius-frame); background: rgba(0, 0, 0, 0.6); }
+.account-card-bio { display: flex; align-items: center; gap: 14px; margin: 0; min-height: 56px; padding: 10px 16px; border-radius: var(--radius-frame); background: var(--card-panel); color: var(--card-panel-text); font: 13px var(--font-display); backdrop-filter: blur(6px); }
+.account-card-box { display: grid; gap: 8px; padding: 12px 16px; border-radius: var(--radius-frame); background: var(--card-panel); color: var(--card-panel-text); backdrop-filter: blur(6px); }
+/* The panels' white glyphs, in the theme's panel icon colour. */
+.account-card-icon { display: block; flex: none; background-color: var(--card-panel-icon); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; }
+.account-card-bio .account-card-icon { width: 34px; height: 24px; }
 .account-card-assist { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 16px; }
 .account-card-assist-label { display: grid; justify-items: center; gap: 2px; min-width: 84px; text-align: center; }
-.account-card-assist-label img { width: 40px; height: auto; margin-bottom: 4px; opacity: 0.75; }
-.account-card-assist-label b { font: 500 13px var(--font-display); color: var(--scrim-ink); }
-.account-card-assist-label small { font: 9px var(--font-display); letter-spacing: 0.04em; color: var(--scrim-ink-dim); text-transform: uppercase; }
+.account-card-assist-label .account-card-icon { width: 40px; height: 48px; margin-bottom: 4px; }
+.account-card-assist-label b { font: 500 13px var(--font-display); color: var(--card-panel-text); }
+.account-card-assist-label small { font: 9px var(--font-display); letter-spacing: 0.04em; color: var(--card-panel-text); opacity: 0.8; text-transform: uppercase; }
 .account-card-supports { display: flex; gap: 10px; min-width: 0; }
 .account-card-support { position: relative; flex: 0 1 92px; min-width: 0; aspect-ratio: 1; outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: -1px; background: rgba(0, 0, 0, 0.35); }
 .account-card-support-icon { width: 100%; height: 100%; display: block; }
@@ -86,8 +99,35 @@
 .account-card-medals img { position: absolute; height: auto; }
 .account-card-medals-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .account-card-medals-list img { height: 48px; width: auto; }
+/* The Module panel: the game's MODULE art behind three counts. */
+.account-card-modules { position: relative; overflow: hidden; grid-template-columns: auto minmax(0, 1fr); align-items: center; min-height: 96px; }
+.account-card-modules-bg { position: absolute; right: 0; top: 0; height: 100%; width: auto; max-width: 100%; opacity: 0.9; }
+.account-card-modules .account-card-icon { position: relative; width: 64px; height: 60px; }
+.account-card-modules dl { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; text-align: center; }
+.account-card-modules dd { order: -1; margin: 0; font: 500 30px var(--font-display); line-height: 1; color: var(--card-panel-text); }
+.account-card-modules dt { font: 11px var(--font-display); color: var(--card-panel-text); }
+.account-card-modules dl > div { display: flex; flex-direction: column; gap: 4px; }
+/* The Main Theme panel: the game's art of the two on the deck, and how far the story is. */
+.account-card-mainline { position: relative; overflow: hidden; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; min-height: 96px; }
+.account-card-mainline-art { position: absolute; right: 0; top: 0; height: 100%; width: auto; opacity: 0.85; }
+.account-card-mainline .account-card-icon { position: relative; width: 52px; height: 52px; }
+.account-card-mainline > div { position: relative; display: grid; gap: 2px; }
+.account-card-mainline small { font: 11px var(--font-display); color: var(--card-panel-text); text-transform: uppercase; }
+.account-card-mainline b { font: 500 22px var(--font-display); color: var(--card-panel-text); }
+/* With the details hidden: the avatar, level, name and ID in the bottom corner, as the game's. */
+.account-card-simple { position: relative; z-index: 2; display: flex; align-items: flex-end; justify-content: flex-end; gap: 14px; align-self: end; justify-self: end; margin-right: 24px; }
+.account-card-simple .account-card-name { justify-items: end; text-align: end; gap: 4px; }
+.account-card-simple .account-card-name span { padding: 0; background: none; font-size: 11px; }
+/* The game's arrow at the card's right edge: hides the details, or brings them back. */
+.account-card-extend { position: absolute; z-index: 3; right: 2px; top: 50%; width: 22px; padding: 6px 2px; transform: translateY(-50%) scaleX(-1); opacity: 0.8; }
+.account-card.is-collapsed .account-card-extend { transform: translateY(-50%); }
+.account-card-extend img { display: block; width: 100%; height: auto; }
+.account-card-extend:hover, .account-card-extend:focus-visible { opacity: 1; }
 @media (max-width: 720px) {
-  .account-card { grid-template-columns: 1fr; min-height: 0; }
+  .account-card { grid-template-columns: 1fr; min-height: 0; aspect-ratio: auto; }
+  /* Landscape only, as in the game: on a phone the details stay. */
+  .account-card-extend { display: none; }
+  .account-card-assistant { width: 100%; left: 0; height: auto; max-height: 60%; }
   .account-card::before { background: rgba(0, 0, 0, 0.6); }
   .account-card-nations { grid-template-columns: repeat(auto-fill, 28px); width: 100%; }
   .account-card-assist { grid-template-columns: 1fr; gap: 10px; }

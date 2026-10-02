@@ -11,12 +11,13 @@ const MAP = { version: 1 as const, chars: {
 
 test('an account gives the operators it owns by name, its outfits by skin id and the stages it cleared', () => {
   const record = accountFromGame({
-    status: { nickName: 'Doctor', nickNumber: '1234', level: 120, registerTs: 1580712160, secretary: 'char_002_amiya', resume: ' yes ', uid: 11311084, avatar: { type: 'ICON', id: 'avatar_special_41' } },
-    nameCardStyle: { skin: { selected: 'nc_moon_1' } },
+    status: { nickName: 'Doctor', nickNumber: '1234', level: 120, registerTs: 1580712160, secretary: 'char_002_amiya', secretarySkinId: 'char_002_amiya@winter#1', resume: ' yes ', uid: 11311084, avatar: { type: 'ICON', id: 'avatar_special_41' } },
+    nameCardStyle: { skin: { selected: 'nc_moon_1', tmpl: { nc_moon_1: 3 } }, componentOrder: ['module_assist', 'module_sign', 'module_unknown', 'module_equip'] },
     social: { assistCharList: [{ charInstId: 1, skillIndex: 2 }, null, { charInstId: 99 }, { charInstId: 2 }], medalBoard: { type: 'CUSTOM', custom: '1' } },
     medal: { custom: { customs: { 1: { layout: [{ id: 'medal_a', pos: [6, 12] }, { id: 'medal_b', pos: [9, 9] }] } } } },
     troop: { chars: {
-      1: { charId: 'char_300_phenxi', level: 60, evolvePhase: 2, potentialRank: 5, skin: 'char_300_phenxi@summer#1' },
+      1: { charId: 'char_300_phenxi', level: 60, evolvePhase: 2, potentialRank: 5, skin: 'char_300_phenxi@summer#1',
+        equip: { uniequip_001_phenxi: { level: 1, locked: 0 }, uniequip_002_phenxi: { level: 3, locked: 0 }, uniequip_003_phenxi: { level: 1, locked: 1 } } },
       2: { charId: 'char_002_amiya', currentTmpl: 'char_1001_amiya2', tmpl: { char_002_amiya: { skinId: 'char_002_amiya#1+' }, char_1001_amiya2: { skinId: 'char_1001_amiya2#2' } } },
       3: { charId: 'char_9999_brandnew', skin: 'char_9999_brandnew#1' },
       4: { charId: 'char_300_phenxi', skin: '../../etc' },
@@ -36,7 +37,12 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     annihilation: ['camp_r_01'],
     // The outfit each wears, Amiya's forms each their own; anything not a skin id is left out.
     outfits: { Amiya: 'char_002_amiya#1+', 'Amiya (Guard)': 'char_1001_amiya2#2', Fiammetta: 'char_300_phenxi@summer#1' },
-    profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes', uid: '11311084', avatar: 'avatar_special_41', nameCard: 'nc_moon_1', hired: 4,
+    profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes', uid: '11311084', avatar: 'avatar_special_41', nameCard: 'nc_moon_1',
+      // The card style's variant, the assistant's outfit, the panels the page knows in the
+      // player's order, and the Module panel's counts (the Original and a locked one are not).
+      nameCardVariant: 3, secretarySkin: 'char_002_amiya@winter#1', panels: ['module_assist', 'module_sign', 'module_equip'],
+      modules: { collected: 1, stage3: 1, operators: 1 },
+      hired: 4,
       // The support units by the troop's own records; a slot with no operator behind it is left out.
       supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, skin: 'char_300_phenxi@summer#1' },
         // Amiya lends the form she is in, in that form's outfit.

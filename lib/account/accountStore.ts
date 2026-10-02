@@ -56,6 +56,15 @@ export interface AccountProfile {
   /** Operators hired, as the card counts them (Amiya once). */
   hired?: number;
   supports?: SupportUnit[];
+  /** The card style's variant the player picked (nameCardStyle.skin.tmpl), for a style with
+   *  several; the assistant's outfit (status.secretarySkinId), which a style without a theme
+   *  shows; the card's removable panels in the player's order (componentOrder: module_sign,
+   *  module_assist, module_medal, module_equip, module_mainline), and the Module panel's
+   *  counts. Absent on a record from before them. */
+  nameCardVariant?: number;
+  secretarySkin?: string | null;
+  panels?: string[];
+  modules?: { collected: number; stage3: number; operators: number };
   /** The medal board: each medal at its board position, or without one on a template board. */
   medals?: { id: string; x: number | null; y: number | null }[];
 }
@@ -75,6 +84,11 @@ export interface SupportUnit {
 
 const SKIN_ID = /^[\w@#+-]{1,100}$/;
 const skinId = (value: unknown) => (typeof value === 'string' && SKIN_ID.test(value) ? value : null);
+
+/** The card's removable panels the page draws. */
+export const PANELS = new Set(['module_sign', 'module_assist', 'module_medal', 'module_equip', 'module_mainline']);
+const count = (value: unknown) => (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < 100000 ? value : 0);
+const moduleCounts = (value: Record<string, unknown>) => ({ collected: count(value.collected), stage3: count(value.stage3), operators: count(value.operators) });
 
 const strings = (value: unknown, max: number) => Array.isArray(value) && value.length <= max && value.every((item) => typeof item === 'string' && item.length <= 200);
 
@@ -105,6 +119,10 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       ...(typeof profile.hired === 'number' ? { hired: profile.hired } : {}),
       supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3)
         .map((unit) => ({ ...unit, skin: skinId(unit.skin) })) : [],
+      ...(typeof profile.nameCardVariant === 'number' && Number.isInteger(profile.nameCardVariant) && profile.nameCardVariant >= 0 && profile.nameCardVariant < 20 ? { nameCardVariant: profile.nameCardVariant } : {}),
+      ...(profile.secretarySkin !== undefined ? { secretarySkin: skinId(profile.secretarySkin) } : {}),
+      ...(strings(profile.panels, 10) ? { panels: (profile.panels as string[]).filter((panel) => PANELS.has(panel)) } : {}),
+      ...(profile.modules && typeof profile.modules === 'object' ? { modules: moduleCounts(profile.modules as Record<string, unknown>) } : {}),
       medals: Array.isArray(profile.medals) ? (profile.medals as { id: string; x: number | null; y: number | null }[]).filter((medal) => medal && typeof medal.id === 'string').slice(0, 64) : [],
     } } : {}),
   };
@@ -150,6 +168,13 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
       uid: status.uid != null ? String(status.uid) : null,
       avatar: typeof status.avatar?.id === 'string' ? status.avatar.id : null,
       nameCard: typeof user.nameCardStyle?.skin?.selected === 'string' ? user.nameCardStyle.skin.selected : null,
+      ...(() => {
+        const variant = Number(user.nameCardStyle?.skin?.tmpl?.[user.nameCardStyle?.skin?.selected]);
+        return Number.isInteger(variant) && variant >= 0 && variant < 20 ? { nameCardVariant: variant } : {};
+      })(),
+      secretarySkin: skinId(status.secretarySkinId),
+      panels: ((user.nameCardStyle?.componentOrder ?? []) as unknown[]).filter((panel): panel is string => typeof panel === 'string' && PANELS.has(panel)),
+      modules: moduleTotals(user),
       hired: Object.keys(user.troop?.chars ?? {}).length,
       supports: supportUnits(user, map),
       medals: medalBoard(user),
@@ -172,6 +197,26 @@ function supportUnits(user: Record<string, any>, map: GameAccountMap): SupportUn
       skin: skinId(skin),
     }];
   }).slice(0, 3);
+}
+
+/** The Module panel's counts, as the game's card gives them: modules unlocked (the Original
+ *  one is not a module), those at Stage 3, and operators with at least one. Amiya's forms
+ *  each have their own (tmpl); she is one operator. */
+function moduleTotals(user: Record<string, any>): { collected: number; stage3: number; operators: number } {
+  let collected = 0, stage3 = 0, operators = 0;
+  for (const char of Object.values((user.troop?.chars ?? {}) as Record<string, Record<string, any>>)) {
+    const forms = char?.tmpl && typeof char.tmpl === 'object' ? Object.values(char.tmpl as Record<string, Record<string, any>>) : [char];
+    let has = false;
+    for (const form of forms) {
+      for (const [id, equip] of Object.entries((form?.equip ?? {}) as Record<string, { locked?: number; level?: number }>)) {
+        if (id.startsWith('uniequip_001') || equip?.locked) continue;
+        collected += 1; has = true;
+        if (Number(equip?.level) >= 3) stage3 += 1;
+      }
+    }
+    if (has) operators += 1;
+  }
+  return { collected, stage3, operators };
 }
 
 /** The medal board the profile shows: the custom layout it names, with positions, or a
