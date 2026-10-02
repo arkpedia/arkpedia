@@ -10,7 +10,7 @@ import { fillFromDeployment, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL, type Backl
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 
 /*
- * The Free OP Tracker (the PRTS menu): every first-clear reward the game still owes the
+ * The OP Tracker (the Planner menu): every first-clear reward the game still owes the
  * reader -- the main story's and the playable events' Originite Prime, the resource stages',
  * and Annihilation's Orundum -- as its own page, the way the Skin Planner is the Pull
  * Planner's skin section on its own. The ticks are the ones the Pull Planner's Past events
@@ -28,8 +28,8 @@ export default function FreeOpPage({ backlogSources }: Props) {
   const pulls = (originitePrime * ORUNDUM_PER_ORIGINITE + annihilationOrundum) / ORUNDUM_PER_PULL;
   return (
     <>
-      <Head><title>Free OP Tracker — Arkpedia</title></Head>
-      <PageHeader eyebrow="Rhodes Island // Free OP Tracker" title="Free OP Tracker"
+      <Head><title>OP Tracker — Arkpedia</title></Head>
+      <PageHeader eyebrow="Rhodes Island // OP Tracker" title="OP Tracker"
         sub={<>The Originite Prime and Orundum the game still owes you for first clears. The <Link prefetch={false} href="/pulls">Pull Planner</Link> counts the same list into your forecast.</>}
         actions={<DataLink />} />
       <main>

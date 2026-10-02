@@ -33,7 +33,7 @@ export const LINKS: NavLink[] = [
   { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
   { href: '/account', label: 'Account', icon: 'roster' },
-  { href: '/free-op', label: 'Free OP Tracker', icon: 'prime' },
+  { href: '/free-op', label: 'OP Tracker', icon: 'prime' },
   { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },

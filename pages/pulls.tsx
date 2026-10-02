@@ -109,7 +109,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const skinByName = useMemo(() => new Map(skinCatalogue.map((skin) => [skin.name, skin.id])), [skinCatalogue]);
   const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name));
   const account = useAccount();
-  /* The Past events ticks, shared with the Free OP Tracker (lib/pulls/usePastRewards.ts): ticked
+  /* The Past events ticks, shared with the OP Tracker (lib/pulls/usePastRewards.ts): ticked
      once per import from its cleared stages, the reader's to change after that. */
   const past = usePastRewards(backlogSources);
   const ownedSkins = useMemo(() => (account ? new Set(account.skins) : null), [account]);

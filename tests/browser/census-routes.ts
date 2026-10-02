@@ -201,9 +201,9 @@ export const CENSUS_STATES: CensusState[] = [
     await page.locator('dialog.pulls-past-dialog .pulls-past-row button.pulls-past-name').first().click();
     await page.locator('dialog.pulls-past-dialog .pulls-past-detail').first().waitFor();
   } },
-  // The Free OP Tracker with an import: ticked from the account, one chapter opened to the
+  // The OP Tracker with an import: ticked from the account, one chapter opened to the
   // stages it has left.
-  { id: 'free op tracker from an import', route: '/free-op', act: async (page) => {
+  { id: 'op tracker from an import', route: '/free-op', act: async (page) => {
     await seedAccount(page);
     await page.locator('.pulls-past-page .pulls-past-row button.pulls-past-name').first().click();
     await page.locator('.pulls-past-page .pulls-past-detail').first().waitFor();

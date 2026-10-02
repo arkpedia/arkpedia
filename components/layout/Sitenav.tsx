@@ -120,7 +120,7 @@ export const ICONS: Record<string, JSX.Element> = {
       <path d="M13 4.5H17.5V9" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
-  // Originite Prime's cut stone: the Free OP Tracker.
+  // Originite Prime's cut stone: the OP Tracker.
   prime: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <path d="M10 2.5L16.5 8L10 17.5L3.5 8Z" strokeLinejoin="round" />

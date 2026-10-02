@@ -247,7 +247,7 @@ function eventBreakdown() {
     stageCodes: string[];
     codes: Record<string, string>;
     /** When it opened on Global (activity_table basicInfo.startTime), as a day: the order the
-     *  Free OP Tracker lists events in. */
+     *  OP Tracker lists events in. */
     start: string;
   }
   const events = new Map<string, Ev>();

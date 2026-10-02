@@ -215,7 +215,7 @@
 .pulls-report .pulls-wish-option b { font-size: 12px; white-space: nowrap; }
 @media (max-width: 640px) { .pulls-report th, .pulls-report td { padding: 6px 4px; } .pulls-report .pulls-wish-options { flex-wrap: wrap; } }
 
-/* The Free OP Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
+/* The OP Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
 .pulls-past-page { display: grid; gap: 12px; align-content: start; }
 .pulls-past-section h2 .pulls-note { margin-left: 10px; font-weight: 400; }
 .free-op-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }

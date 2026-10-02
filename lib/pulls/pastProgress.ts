@@ -1,6 +1,6 @@
 /**
  * What of the back catalogue the reader has claimed: the Past events ticks, shared by the Pull
- * Planner's popup and the Free OP Tracker page, as the skin plan is shared by the Skin Planner
+ * Planner's popup and the OP Tracker page, as the skin plan is shared by the Skin Planner
  * and the Skins page. Kept in this browser (localStorage), and in the backup
  * (lib/account/backup.ts).
  *

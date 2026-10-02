@@ -1,6 +1,6 @@
 /**
  * The back catalogue as the reader has claimed it, for the Pull Planner's Past events popup and
- * the Free OP Tracker page alike: the shared ticks (lib/pulls/pastProgress.ts), ticked once per
+ * the OP Tracker page alike: the shared ticks (lib/pulls/pastProgress.ts), ticked once per
  * account import from its cleared stages (backlogFromAccount), what each unticked item still
  * pays (unclaimedBacklog), and what all of it adds up to (remainingBacklog).
  */

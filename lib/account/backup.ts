@@ -1,7 +1,7 @@
 /**
  * Everything the site keeps for the reader, as one file: the account import, the Operator
  * Planner (its operators, depot, goals and crafting), the Pull Planner's plan and the claimed
- * first-clear rewards (the Free OP Tracker's ticks), the skin
+ * first-clear rewards (the OP Tracker's ticks), the skin
  * wishlist, the base setups and the music favourites. All of it lives only in this browser's
  * localStorage, so this file is the only way to take it to another browser or keep it past
  * clearing site data. The Import / export dialog (components/account/DataDialog) writes and

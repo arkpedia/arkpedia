@@ -60,7 +60,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
     if (file.kind === 'pull-plan') {
       /* The file's resources and ticks stand over the current account import's: marked as
          already filled from it (walletFrom, ticksFrom), and the ticks go to their own store
-         (lib/pulls/pastProgress.ts), which the Pull Planner and the Free OP Tracker read. */
+         (lib/pulls/pastProgress.ts), which the Pull Planner and the OP Tracker read. */
       const at = account?.importedAt ?? '';
       const plan: SavedPullPlan = { ...file.plan, ...(at ? { walletFrom: at, ticksFrom: at } : {}) };
       window.localStorage.setItem(PULL_PLAN_KEY, JSON.stringify(plan));

@@ -29,11 +29,15 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
   imported: { at: string } | null;
   cleared: ReadonlySet<string> | null;
   /** 'popup': the Pull Planner's dialog, one group open at a time in a scrolling body. 'page':
-   *  the Free OP Tracker, every group a section of the page. */
+   *  the OP Tracker, every group a section of the page. */
   layout: 'popup' | 'page';
 }) {
   const [open, setOpen] = useState('story');
-  const [show, setShow] = useState<Show>('all');
+  /* With an import the list opens on what is left to claim, without one on everything (there
+     is nothing ticked to hide yet). The account loads after the first paint, so the default
+     follows it until the reader picks a filter; their pick then stays. */
+  const [picked, setPicked] = useState<Show | null>(null);
+  const show: Show = picked ?? (imported ? 'unclaimed' : 'all');
   const [detail, setDetail] = useState<string | null>(null);
   const groups: { id: string; name: string; unit: string; items: Item[] }[] = [
     { id: 'story', name: 'Main story', unit: 'OP', items: backlog.chapters.map((c) => ({ id: c.id, name: `${c.label} · ${c.name}`, amount: c.op, stages: c.stages, stageCodes: c.stageCodes })) },
@@ -68,6 +72,12 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
      (the Anti-Page Jump rule). A new filter starts afresh; the reader is at the filter then. */
   const rootRef = useRef<HTMLDivElement>(null);
   const floor = useRef(0);
+  /* A new filter, the reader's or the default once the import loads, measures afresh: a floor
+     kept from All would leave Unclaimed's list a page of empty space. */
+  useLayoutEffect(() => {
+    floor.current = 0;
+    if (rootRef.current) rootRef.current.style.minHeight = '';
+  }, [show]);
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (layout !== 'page' || !root) return;
@@ -77,11 +87,6 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
     observer.observe(root);
     return () => observer.disconnect();
   }, [layout]);
-  const pick = (next: Show) => {
-    floor.current = 0;
-    if (rootRef.current) rootRef.current.style.minHeight = '';
-    setShow(next);
-  };
   const left = (group: typeof groups[number]) => `${formatNumber(group.items.reduce((n, item) => n + (complete(group.id, item.id) ? 0 : item.amount), 0))} ${group.unit} left`;
   const body = (group: typeof groups[number]) => {
     const items = group.items.filter((item) => shown(group.id, item));
@@ -109,7 +114,7 @@ export function PastRewards({ backlog, doneKeys, doneEvents, annihilationDone, o
     {imported
       ? <p className="hint">Ticked from your account, imported {formatDayMonthYear(imported.at.slice(0, 10))}. Change any tick to adjust it; <Link href="/account">import again</Link> to tick them afresh.</p>
       : <p className="hint">Tick what you have done, or <Link href="/account">import your account</Link> to tick it for you.</p>}
-    <SegmentedControl label="Show" value={show} options={SHOW} onChange={pick} />
+    <SegmentedControl label="Show" value={show} options={SHOW} onChange={setPicked} />
     {groups.map((group) => layout === 'page'
       ? <section key={group.id} className="op-section pulls-past-section" aria-labelledby={`past-${group.id}`}>
           <h2 id={`past-${group.id}`}>{group.name} <span className="hint pulls-note">{left(group)}</span></h2>
