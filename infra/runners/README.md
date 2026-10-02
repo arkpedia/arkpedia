@@ -4,9 +4,11 @@ How the two self-hosted runners (the NAS takes every job, the VPS stands by) in 
 are built. Both are registered to arkpedia/arkpedia only, run jobs as an unprivileged
 user, and keep jobs off the machine's private networks and own services.
 
-## `nas/`: container on a TrueNAS NAS (runner `truenas`)
+## `nas/`: two containers on a TrueNAS NAS (runners `truenas` and `truenas-2`)
 
-A Dockge stack. `compose.yaml` is generated, and is the file the stack runs:
+A Dockge stack with two runners from one definition (a YAML anchor), so two jobs run side by
+side: two pull requests' Checks, or a Check and a Deploy. `compose.yaml` is generated, and is
+the file the stack runs:
 
 ```sh
 python3 infra/runners/nas/gen-compose.py   # writes compose.yaml from Dockerfile + arkpedia-runner.sh
@@ -24,11 +26,13 @@ python3 infra/runners/nas/gen-compose.py   # writes compose.yaml from Dockerfile
 - **Compose:**
   - read-only root and tmpfs `/tmp`;
   - public DNS;
-  - 8 GB, 6 CPUs, low CPU shares;
-  - the runner's home is a bind-backed volume on a dataset with a quota (`RUNNER_HOME_DIR`).
-- **First start:** needs `RUNNER_TOKEN` in the stack's `.env`
-  (`gh api -X POST repos/arkpedia/arkpedia/actions/runners/registration-token -q .token`).
-  After that it can be blank.
+  - 6 GB and 4 CPUs each, low CPU shares, and two browser workers each (`PW_WORKERS=2`).
+    A full Check fits in 6 GB, measured in this container on 2026-10-02;
+  - each runner's home is a bind-backed volume on its own dataset with a quota
+    (`RUNNER_HOME_DIR`, `RUNNER2_HOME_DIR`).
+- **First start:** each runner needs a token in the stack's `.env`, `RUNNER_TOKEN` and
+  `RUNNER2_TOKEN` (`gh api -X POST repos/arkpedia/arkpedia/actions/runners/registration-token -q .token`).
+  After that they can be blank.
 
 ## `vps/`: systemd service on a Linux VPS (runner `hetzner-vps`)
 
