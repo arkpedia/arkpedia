@@ -147,6 +147,18 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
+    id: 'pulls income', route: '/pulls',
+    open: async (page) => { await page.locator('#tab-income').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  {
+    id: 'pulls skin wishlist', route: '/pulls',
+    open: async (page) => { await page.locator('#tab-skins').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  {
     id: 'pulls past events', route: '/pulls',
     open: async (page) => { await page.locator('#tab-past').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),

@@ -50,7 +50,7 @@ test.describe('pull planner integration', () => {
  * in the actual dropdown menu button not as an element in the dropdown"). It was a
  * trigger with the checkbox beside it, outside its frame, and a second copy beside the
  * panel's heading for phones, hidden at every width. The disclosure button is the frame:
- * it paints the box like Income & events and Skin wishlist, and is the hit area
+ * it paints the box like Income and Skin wishlist, and is the hit area
  * everywhere but the setting. The checkbox is its sibling laid over it, never inside it
  * (a <button> may not hold an input, and the accessibility tree flattens one that does).
  * Box edges only: nothing here reads a text width.
@@ -168,7 +168,7 @@ test.describe('the Past events frame holds its Include setting', () => {
 });
 
 /* Between the phone's one column and the full row (701-900px) the three triggers take two
- * lines, Income & events beside Past events and the wishlist under them. Squeezed into one
+ * lines, Income beside Past events and the wishlist under them. Squeezed into one
  * line their labels wrapped to two (46px triggers at 701-760px), and the Past events frame
  * holds the checkbox too. Box edges only: at these widths each trigger has 300px or more. */
 test('between a phone and the full row the triggers take two lines, each a control tall', async ({ page }, info) => {
@@ -180,9 +180,9 @@ test('between a phone and the full row the triggers take two lines, each a contr
       const r = document.getElementById(id)!.getBoundingClientRect();
       return { top: r.top, bottom: r.bottom, h: Math.round(r.height * 10) / 10 };
     }));
-    expect(Math.abs(income.top - past.top), `${width}: Income & events beside Past events`).toBeLessThanOrEqual(1);
+    expect(Math.abs(income.top - past.top), `${width}: Income beside Past events`).toBeLessThanOrEqual(1);
     expect(skins.top, `${width}: the wishlist on the line under them`).toBeGreaterThanOrEqual(income.bottom);
-    for (const [name, b] of [['Income & events', income], ['Past events', past], ['Skin wishlist', skins]] as const) {
+    for (const [name, b] of [['Income', income], ['Past events', past], ['Skin wishlist', skins]] as const) {
       expect(Math.abs(b.h - 36), `${width}: ${name} is ${b.h}px, not the control height`).toBeLessThanOrEqual(1);
     }
   }

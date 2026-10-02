@@ -85,14 +85,14 @@ function haulCountedPaying(counted: PullEventReward[], cleared: ReadonlySet<stri
   return counted.filter((b) => b.op > 0 && !eventWasCleared(b, cleared)).length;
 }
 
-/** One line of the working: what it is, the sum, and the amount. */
-function Line({ what, sum, amount, muted }: { what: string; sum: string; amount: number; muted?: boolean }) {
+/** One line of the condensed income report: the source, its working, and its pulls. */
+function ReportRow({ what, how, pulls, off }: { what: string; how: string; pulls: number; off: boolean }) {
   return (
-    <div className={`pulls-line${muted ? ' muted' : ''}`}>
-      <span className="pulls-line-what">{what}</span>
-      <span className="pulls-line-sum">{sum}</span>
-      <span className="pulls-line-amount">{formatNumber(amount)}</span>
-    </div>
+    <tr className={off ? 'muted' : undefined}>
+      <th scope="row">{what}</th>
+      <td>{off ? 'off' : how}</td>
+      <td>{off ? '—' : formatOneDecimal(pulls)}</td>
+    </tr>
   );
 }
 
@@ -100,7 +100,8 @@ type PullsProps = { skinCollections: SkinCollection[]; bannerOdds: Record<string
 
 export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatalogue, skinCollections, bannerOdds, backlogSources }: PullsProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('');
+  const [incomeOpen, setIncomeOpen] = useState(false);
+  const [skinsOpen, setSkinsOpen] = useState(false);
   const [choosingBanner, setChoosingBanner] = useState(false);
   const [editingBanner, setEditingBanner] = useState<string | null>(null);
   const [reservedOP, setReservedOP] = useState('');
@@ -332,7 +333,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     handledLink.current = name;
     const banner = banners.find(b => b.name === name);
     if (!banner) { setNotice('This banner is not in the upcoming schedule. Choose another banner below.'); return; }
-    addGoal(banner); setEditingBanner(banner.name); setBannerName(banner.name); setUntil(banner.end); setActiveTab('');
+    addGoal(banner); setEditingBanner(banner.name); setBannerName(banner.name); setUntil(banner.end);
   }, [hydrated, router.isReady, router.query.banner, now, banners, addGoal]);
 
   const monthlyEnd = new Date((now?.getTime() ?? 0) + 30 * DAY_MS);
@@ -372,7 +373,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
             <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key} className="check" title={rate}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} />{label}</label>)}<label className="check"><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label></div>
 <div className={workspace.rate}><strong>{formatOneDecimal(monthlyIncome)}</strong><span>pulls / 30 days</span></div></div>
         <div className={workspace.utilities}>
-          <button type="button" id="tab-income" aria-controls="panel-income" aria-expanded={activeTab === 'income'} onClick={() => setActiveTab(activeTab === 'income' ? '' : 'income')}><span>Income & events</span><span>{activeTab === 'income' ? '−' : '+'}</span></button>
+          <button type="button" id="tab-income" aria-haspopup="dialog" onClick={() => setIncomeOpen(true)}><span>Income</span><span aria-hidden="true">+</span></button>
           {/* One frame, "PAST EVENTS  [ ] Include  +" (the maintainer, 2026-09-27): the
               disclosure button is the frame -- it paints the box like its two siblings and
               is the hit area everywhere but the setting -- and the checkbox is its SIBLING
@@ -382,133 +383,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
             <button type="button" id="tab-past" aria-haspopup="dialog" onClick={() => setPastOpen(true)}><span>Past events</span><span aria-hidden="true">+</span></button>
             <IncludePastCheckbox checked={includeBacklog} onChange={setIncludeBacklog} />
           </div>
-          <button type="button" id="tab-skins" aria-controls="panel-skins" aria-expanded={activeTab === 'skins'} onClick={() => setActiveTab(activeTab === 'skins' ? '' : 'skins')}><span>Skin wishlist <b>{skinIds.length}</b></span><span>{reserve} OP reserved {activeTab === 'skins' ? '−' : '+'}</span></button>
+          <button type="button" id="tab-skins" aria-haspopup="dialog" onClick={() => setSkinsOpen(true)}><span>Skin wishlist <b>{skinIds.length}</b></span><span>{reserve} OP reserved +</span></button>
         </div>
-        <div className={workspace.detailArea} hidden={!activeTab}>          <section role="region" id="panel-income" aria-labelledby="tab-income" hidden={activeTab !== 'income'} className={`op-section ${workspace.detailPanel}`}>
-            <h2>Income</h2>
-            <div className="pulls-target-row"><StyledSelect<DetailOption> label="Forecast banner" menuMinWidth={320} value={bannerName} onChange={name => { setBannerName(name); const banner = banners.find(b => b.name === name); if (banner) setUntil(banner.end); }}
-              renderOption={option => <DetailOptionContent option={option} />} renderValue={option => <DetailOptionContent option={option} compact />}
-              options={[{ value: '', label: 'Choose a banner…' }, ...banners.map((b): DetailOption => {
-                const rateUp = bannerOdds[b.name]?.operators.filter(operator => operator.kind === 'featured') ?? [];
-                const dateLabel = (date: string, year: boolean) => (year ? formatDayMonthYear(date) : formatDayMonth(date));
-                return { value: b.name, label: (rateUp.length ? rateUp.map(operator => operator.name) : b.sixStars).join(' · ') || b.name,
-                  detail: b.name.replace(/^\[[^\]]*\]\s*/, ''),
-                  meta: `${dateLabel(b.start, b.start.slice(0, 4) !== b.end.slice(0, 4))} – ${dateLabel(b.end, true)}`,
-                  portraits: rateUp.filter(operator => operator.icon).map(operator => ({ name: operator.name, src: operator.icon! })) };
-              })]} />
-              <input id="forecast-date" type="date" className="pulls-date" aria-label="Forecast date" max="2099-12-31" value={until} min={now?.toISOString().slice(0, 10)} onChange={e => { if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName(''); }} />
-              <div className="pulls-day-options" role="group" aria-label="Forecast day">{(['start', 'end'] as const).map(day => <button type="button" key={day} className="filter-chip" disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
-            </div>
-            {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
-              {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
-            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Recurring income breakdown <span className="hint pulls-note">{income.days} daily resets · {income.weeks} weekly resets</span></summary>
-              <div className="pulls-lines">
-            <Line what="Yellow certificate shop" sum="pulls from full monthly sets" amount={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) : 0} />
-            <Line what="Green cert shop" sum={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} amount={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} />
-            <Line what="Daily mission" sum={`${income.days} resets × ${DAILY_ORUNDUM}`} amount={income.daily} />
-            <Line what="Weekly mission" sum={`${income.weeks} resets × ${WEEKLY_ORUNDUM}`} amount={income.weekly} />
-            <Line what="Annihilation" sum={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM}`} amount={income.annihilation} />
-            {monthlyCard && (
-              <>
-                <Line what="Monthly card" sum={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM}`} amount={card.orundum} />
-                <Line
-                  what="Cards bought"
-                  sum={`${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP × ${ORUNDUM_PER_ORIGINITE}`}
-                  amount={card.originitePrime * ORUNDUM_PER_ORIGINITE}
-                />
-              </>
-            )}
-            <div className="pulls-line total">
-              <span className="pulls-line-what">Recurring Orundum equivalent</span>
-              <span className="pulls-line-sum" />
-              <span className="pulls-line-amount">
-                {formatNumber(income.orundum + greenIncome.orundum + greenIncome.permits * ORUNDUM_PER_PULL + (now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) * ORUNDUM_PER_PULL : 0) + (monthlyCard ? card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE : 0))}
-              </span>
-            </div>
-          </div>
-</details>
-            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure pulls-event-rewards" open><summary>Event rewards <span className="hint pulls-note">{haul.op} OP · {haul.permits} permits by {until}</span></summary>
-          {haul.counted.length === 0 && haul.skipped.length === 0 ? (
-            <p className="hint pulls-empty">
-              No events end before this date.
-            </p>
-          ) : (
-            <div className="pulls-events">
-              {haul.counted.map((b) => {
-                const cleared = eventWasCleared(b, clearedReruns);
-                return (
-                  <div key={b.name} className={`pulls-event-row${cleared ? '' : ' on'}`}>
-                    <span className="pulls-event-who">
-                      <b>{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</b>
-                      <i>
-                        ends {b.end}
-                        {b.opSource === 'median' ? ' · estimated' : ''}
-                        {b.opSource === 'cn' ? ' · stage rewards' : ''}
-                        {b.opSource === 'global' ? ' · first-run rewards' : ''}
-                      </i>
-                    </span>
-                    <span className="pulls-event-mid">{b.rerun && b.op > 0 && <label className="check pulls-tick">
-                      <input type="checkbox" checked={cleared} aria-label={`Already cleared ${(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}`}
-                        onChange={() => setClearedReruns(previous => {
-                          const next = new Set(previous);
-                          if (eventWasCleared(b, next)) [b.name, ...(b.legacyNames ?? [])].forEach(name => next.delete(name));
-                          else next.add(b.name);
-                          return next;
-                        })} />
-                      Already cleared
-                    </label>}</span>
-                    <span className="pulls-event-op">
-                      <RewardAmount resource="op" amount={cleared ? 0 : b.op} />{eventShopPermits(b) > 0 && <RewardAmount resource="permits" amount={eventShopPermits(b)} />}
-                    </span>
-                  </div>
-                );
-              })}
-
-              {haul.skipped.map((b) => (
-                <div key={b.name} className="pulls-event-row muted">
-                  <span className="pulls-event-who">
-                    <b>{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</b>
-                    {/* Counting it here as well as in the back catalogue would be
-                        the easiest wrong number on the page. */}
-                    <i>Included under unclaimed content</i>
-                  </span>
-                  <span className="pulls-event-mid" />
-                  <span className="pulls-event-op">{b.op} OP{eventShopPermits(b) > 0 ? ` · ${eventShopPermits(b)} permits` : ''}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {(haul.op > 0 || haul.permits > 0) && <div className="pulls-event-total" aria-label="Event reward total">
-            <strong>Total</strong><div><RewardAmount resource="op" amount={haul.op} /><RewardAmount resource="permits" amount={haul.permits} /></div>
-          </div>}
-
-</details>
-
-            <details {...{ name: "pulls-income-sections" }} className="pulls-disclosure"><summary>Wishing Wall</summary>          <fieldset className="pulls-wishing-wall" aria-label="Wishing Wall">
-            <div className="pulls-wish-options">
-              {(['minimum', 'average', 'lucky'] as const).map(mode => <label key={mode} className={`pulls-wish-option${wishingWallMode === mode ? ' on' : ''}`}>
-                <input type="radio" name="wishing-wall" value={mode} checked={wishingWallMode === mode} onChange={() => setWishingWallMode(mode)} />
-                <span><b>{WISHING_WALL_LABELS[mode]}</b><span>{mode === 'minimum' ? '200/day · 2,800 over 14 days' : mode === 'average' ? '≈584/day · ≈8,170 over 14 days' : '800/day · 11,200 over 14 days'}</span></span>
-              </label>)}
-            </div>
-
-          </fieldset>
-          {haul.wishOrundum > 0 && <div className="pulls-event-total"><span>{haul.wishWalls.reduce((n, b) => n + b.wishDays, 0)} days · {WISHING_WALL_LABELS[wishingWallMode]}{wishingWallMode === 'average' ? ' estimate' : ''}</span><RewardAmount resource="orundum" amount={haul.wishOrundum} /></div>}
-          </details>
-
-
-
-          </section>
-          <section role="region" id="panel-skins" aria-labelledby="tab-skins" hidden={activeTab !== 'skins'} className={`op-section ${workspace.detailPanel}`}>
-            {/* The Skin Planner's own view, with this plan's OP set against it. */}
-            <div className="pulls-panel-head"><h2 id="pulls-skins-heading">Skins</h2><SkinsHelp /></div>
-            <p className="hint">The same plan as the <Link prefetch={false} href="/skin-planner">Skin Planner</Link>: a change here shows there, and the other way round.</p>
-            <SkinPlanner collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
-              budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(`${date}T23:59:59Z`)).grossOP,
-                extraField: <Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} /> }} />
-          </section>
-</div>
       </section>
       <section className={`op-section ${workspace.forecast}`} aria-label="Pull calculation">
         <div className={workspace.calculationHeading}><h2>Pull calculation</h2><div className={workspace.forecastDate}><label htmlFor="pull-calculation-date">Until</label><input id="pull-calculation-date" type="date" value={until} onChange={e => {if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName('');}} /></div></div>
@@ -530,6 +406,94 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       </div>
     </main>
     {dataOpen && <DataDialog onClose={() => setDataOpen(false)} onPullPlan={loadPlanFile} />}
+    {incomeOpen && (
+      <ImportDialog title="Income" className="pulls-income-dialog" onClose={() => setIncomeOpen(false)}>
+        <div className="pulls-income-body">
+            <div className="pulls-target-row"><StyledSelect<DetailOption> label="Forecast banner" menuMinWidth={320} value={bannerName} onChange={name => { setBannerName(name); const banner = banners.find(b => b.name === name); if (banner) setUntil(banner.end); }}
+            renderOption={option => <DetailOptionContent option={option} />} renderValue={option => <DetailOptionContent option={option} compact />}
+            options={[{ value: '', label: 'Choose a banner…' }, ...banners.map((b): DetailOption => {
+              const rateUp = bannerOdds[b.name]?.operators.filter(operator => operator.kind === 'featured') ?? [];
+              const dateLabel = (date: string, year: boolean) => (year ? formatDayMonthYear(date) : formatDayMonth(date));
+              return { value: b.name, label: (rateUp.length ? rateUp.map(operator => operator.name) : b.sixStars).join(' · ') || b.name,
+                detail: b.name.replace(/^\[[^\]]*\]\s*/, ''),
+                meta: `${dateLabel(b.start, b.start.slice(0, 4) !== b.end.slice(0, 4))} – ${dateLabel(b.end, true)}`,
+                portraits: rateUp.filter(operator => operator.icon).map(operator => ({ name: operator.name, src: operator.icon! })) };
+            })]} />
+            <input id="forecast-date" type="date" className="pulls-date" aria-label="Forecast date" max="2099-12-31" value={until} min={now?.toISOString().slice(0, 10)} onChange={e => { if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName(''); }} />
+            <div className="pulls-day-options" role="group" aria-label="Forecast day">{(['start', 'end'] as const).map(day => <button type="button" key={day} className="filter-chip" disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
+          </div>
+          {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
+            {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
+          {/* The condensed report (the maintainer, 2026-10-02): every source on one line, with
+              its working and what it is worth in pulls, then the two figures the forecast
+              adds. Off sources stay listed, muted, so the list reads the same every time. */}
+          <table className="pulls-report">
+            <thead><tr><th scope="col">Source</th><th scope="col">Working</th><th scope="col">Pulls</th></tr></thead>
+            <tbody>
+              <ReportRow what="Daily missions" how={`${income.days} resets × ${DAILY_ORUNDUM} Orundum`} pulls={income.daily / ORUNDUM_PER_PULL} off={!incomeSettings.daily} />
+              <ReportRow what="Weekly missions" how={`${income.weeks} resets × ${WEEKLY_ORUNDUM} Orundum`} pulls={income.weekly / ORUNDUM_PER_PULL} off={!incomeSettings.weekly} />
+              <ReportRow what="Annihilation" how={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM} Orundum`} pulls={income.annihilation / ORUNDUM_PER_PULL} off={!incomeSettings.annihilation} />
+              <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
+              <ReportRow what="Green cert shop" how={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} pulls={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} off={!incomeSettings.greenCertificates} />
+              <ReportRow what="Yellow cert shop" how="full monthly sets from your certs" pulls={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) : 0} off={!incomeSettings.certificates} />
+              <tr className="pulls-report-sum"><th scope="row">Income</th><td>in whole pulls, with what you hold</td><td>{recurringGained}</td></tr>
+            </tbody>
+            <tbody>
+              <tr className="pulls-report-group"><th scope="rowgroup" colSpan={3}>Event rewards <span className="hint">by {until || 'the date'}</span></th></tr>
+              {haul.counted.map((b) => {
+                const cleared = eventWasCleared(b, clearedReruns);
+                const name = (b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '');
+                return (
+                  <tr key={b.name} className={cleared ? 'muted' : undefined}>
+                    <th scope="row">{name}</th>
+                    <td>ends {b.end}{b.opSource === 'median' ? ' · estimated' : ''}{b.rerun && b.op > 0 && <label className="check pulls-tick">
+                      <input type="checkbox" checked={cleared} aria-label={`Already cleared ${name}`}
+                        onChange={() => setClearedReruns(previous => {
+                          const next = new Set(previous);
+                          if (eventWasCleared(b, next)) [b.name, ...(b.legacyNames ?? [])].forEach(n => next.delete(n));
+                          else next.add(b.name);
+                          return next;
+                        })} />
+                      Already cleared
+                    </label>}</td>
+                    <td><RewardAmount resource="op" amount={cleared ? 0 : b.op} />{eventShopPermits(b) > 0 && <RewardAmount resource="permits" amount={eventShopPermits(b)} />}</td>
+                  </tr>
+                );
+              })}
+              {haul.skipped.map((b) => (
+                <tr key={b.name} className="muted"><th scope="row">{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</th><td>counted in Past events</td><td>{b.op} OP</td></tr>
+              ))}
+              {haul.counted.length === 0 && haul.skipped.length === 0 && <tr className="muted"><td colSpan={3}>No events end before this date.</td></tr>}
+              <tr>
+                <th scope="row">Wishing Wall</th>
+                <td>
+                  <div className="pulls-wish-options" role="radiogroup" aria-label="Wishing Wall">
+                    {(['minimum', 'average', 'lucky'] as const).map(mode => <label key={mode} className={`pulls-wish-option${wishingWallMode === mode ? ' on' : ''}`} title={mode === 'minimum' ? '200/day · 2,800 over 14 days' : mode === 'average' ? '≈584/day · ≈8,170 over 14 days' : '800/day · 11,200 over 14 days'}>
+                      <input type="radio" name="wishing-wall" value={mode} checked={wishingWallMode === mode} onChange={() => setWishingWallMode(mode)} />
+                      <span><b>{WISHING_WALL_LABELS[mode]}</b></span>
+                    </label>)}
+                  </div>
+                  {haul.wishOrundum > 0 && <span className="hint"> {haul.wishWalls.reduce((n, b) => n + b.wishDays, 0)} days</span>}
+                </td>
+                <td>{formatOneDecimal(haul.wishOrundum / ORUNDUM_PER_PULL)}</td>
+              </tr>
+              <tr className="pulls-report-sum"><th scope="row">Event rewards</th><td>{haul.op} OP · {haul.permits} permits · Wishing Wall, in whole pulls</td><td>{rewardGained}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </ImportDialog>
+    )}
+    {skinsOpen && (
+      <ImportDialog title="Skin wishlist" className="pulls-skins-dialog" onClose={() => setSkinsOpen(false)}>
+        <div id="panel-skins" className="pulls-skins-body">
+            {/* The Skin Planner's own view, with this plan's OP set against it. */}
+          <div className="pulls-panel-head"><p className="hint">The same plan as the <Link prefetch={false} href="/skin-planner">Skin Planner</Link>: a change here shows there, and the other way round.</p><SkinsHelp /></div>
+          <SkinPlanner collections={skinCollections} today={now?.toISOString().slice(0, 10) ?? null} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
+            budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(`${date}T23:59:59Z`)).grossOP,
+              extraField: <Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} /> }} />
+        </div>
+      </ImportDialog>
+    )}
     {pastOpen && (
       <ImportDialog title="Past events" className="pulls-past-dialog" onClose={() => setPastOpen(false)}>
         <PastRewards backlog={past.counting} doneKeys={past.doneKeys} doneEvents={past.doneEvents} annihilationDone={past.annihilationDone} onKeys={past.onKeys} onEvents={past.onEvents} onAnnihilation={past.onAnnihilation}

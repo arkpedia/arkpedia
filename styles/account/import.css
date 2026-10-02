@@ -33,7 +33,7 @@
 /* components/account/DataDialog: Import / export, the same on every page with your data. Three
    parts -- from the game, from a file, export -- and Forget at the foot, each on a hairline. */
 .data-dialog { width: min(600px, calc(100vw - 32px)); }
-.data-dialog-body { display: grid; max-height: calc(100dvh - 110px); overflow-y: auto; overscroll-behavior: contain; }
+.data-dialog-body { display: grid; max-height: calc(100dvh - var(--dialog-top) - 110px); overflow-y: auto; overscroll-behavior: contain; }
 .data-dialog-part { display: grid; gap: 10px; padding: 16px 0; border-top: 1px solid var(--line-soft); }
 .data-dialog-part:first-child { padding-top: 0; border-top: 0; }
 .data-dialog-part h3 { margin: 0; }

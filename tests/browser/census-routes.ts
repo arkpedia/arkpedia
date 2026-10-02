@@ -177,7 +177,8 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'stronghold items', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Items') },
   { id: 'stronghold enemies', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Enemies') },
   { id: 'stage guesser custom list', route: '/games/stage-guesser', act: (page) => clickIn(page, 'main', 'Custom') },
-  { id: 'pulls disclosures open', route: '/pulls', act: async (page) => { for (const name of [/^Income & events/i, /^Past events/i]) await page.getByRole('button', { name }).first().click(); } },
+  // The Income popup: the forecast banner and the condensed report (pages/pulls.tsx).
+  { id: 'pulls income', route: '/pulls', act: async (page) => { await page.locator('#tab-income').click(); await page.locator('dialog.pulls-income-dialog .pulls-report').waitFor(); } },
   { id: 'enemies stages tab', route: '/enemies', act: (page) => tabIn(page, '.enemy-tabs', 'Stages') },
   // r10 x-buttons: dialogs whose close became the borderless × (XButton). The planner's goal
   // dialog had a 44px-wide glyph box stretched to its head's height; as a square it sat 6px

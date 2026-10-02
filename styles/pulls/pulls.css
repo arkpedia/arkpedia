@@ -188,10 +188,33 @@
 /* The Past events popup (components/pulls/PastRewards): one row per chapter, event or
    first clear -- the tick, the name (a button naming the stages left, for a chapter or an
    event), what it still pays -- and the stages under it when opened. */
-.pulls-past-dialog { width: min(720px, calc(100vw - 32px)); }
+.account-dialog.pulls-past-dialog { width: min(720px, calc(100vw - 32px)); }
 /* The list scrolls under the dialog's header. */
-.pulls-past-body { display: grid; gap: 12px; max-height: calc(100dvh - 140px); margin: -4px -6px; padding: 4px 6px; overflow-y: auto; overscroll-behavior: contain; }
+.pulls-past-body { display: grid; gap: 12px; max-height: calc(100dvh - var(--dialog-top) - 140px); margin: -4px -6px; padding: 4px 6px; overflow-y: auto; overscroll-behavior: contain; }
 .pulls-past-body .pulls-disclosure { margin-top: 0; }
+/* The Income and Skin wishlist popups (pages/pulls.tsx), in the same frame as Past events. */
+/* Two classes: account.css's .account-dialog loads after this file and sets 560px. */
+.account-dialog.pulls-income-dialog { width: min(760px, calc(100vw - 32px)); }
+.account-dialog.pulls-skins-dialog { width: min(1080px, calc(100vw - 32px)); }
+.pulls-income-body, .pulls-skins-body { display: grid; gap: 14px; max-height: calc(100dvh - var(--dialog-top) - 110px); margin: -4px -6px; padding: 4px 6px; overflow-y: auto; overscroll-behavior: contain; }
+/* The condensed income report: one line per source -- what, its working, its pulls -- and the
+   two sums the forecast adds, ruled above. */
+.pulls-report { width: 100%; border-collapse: collapse; font: 13px var(--font-body); }
+.pulls-report th, .pulls-report td { padding: 7px 8px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: middle; }
+.pulls-report thead th { color: var(--text-faint); font: 600 11px var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.pulls-report tbody th { color: var(--text); font-weight: 500; white-space: nowrap; }
+.pulls-report td { color: var(--text-dim); }
+.pulls-report td:last-child, .pulls-report th:last-child { width: 1%; white-space: nowrap; text-align: right; color: var(--text-bright); font-variant-numeric: tabular-nums; }
+.pulls-report tr.muted th, .pulls-report tr.muted td { color: var(--text-faint); }
+.pulls-report .pulls-report-group th { padding-top: 16px; text-align: left; color: var(--teal); font: 600 12px var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.pulls-report-sum th, .pulls-report-sum td { border-top: 1px solid var(--line); border-bottom: 0; font-weight: 600; }
+.pulls-report-sum td:last-child { font: 600 18px var(--font-display); }
+.pulls-report .pulls-tick { display: inline-flex; margin-left: 10px; }
+.pulls-report .pulls-wish-options { display: inline-flex; gap: 6px; }
+.pulls-report .pulls-wish-option { align-items: center; padding: 3px 8px; }
+.pulls-report .pulls-wish-option b { font-size: 12px; white-space: nowrap; }
+@media (max-width: 640px) { .pulls-report th, .pulls-report td { padding: 6px 4px; } .pulls-report .pulls-wish-options { flex-wrap: wrap; } }
+
 /* The Free OP Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
 .pulls-past-page { display: grid; gap: 12px; align-content: start; }
 .pulls-past-section h2 .pulls-note { margin-left: 10px; font-weight: 400; }
