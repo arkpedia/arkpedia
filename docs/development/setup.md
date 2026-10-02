@@ -31,6 +31,8 @@ The lint warning ceiling preserves existing warnings. Do not raise it to accommo
 
 ## Deploy
 
+Changes go to `dev` first and reach `main` through a throwaway `release/*` branch (see [How a change ships](../../README.md#how-a-change-ships)); never open a pull request from `dev` itself, which the repository would delete on merge.
+
 Deploys come from CI. `main` is www.arkpedia.net and `dev` is arkpedia-dev.vercel.app (`config/production.json`). After a green Check of a push to either branch, `.github/workflows/deploy.yml` builds that commit on the runner and uploads the prebuilt output to every live deployment following it, one after another, each with its own project's settings and the token its `tokenSecret` names. Actions → Deploy → Run workflow on a branch redeploys it without a commit. The content release gate asks only `main`'s deployments, since the release job compiles with `main`; the dev site runs whatever `dev` holds. A deployment listed with `"live": false` gets nothing automatically; a manual run with **preview** ticked uploads a preview to it, which moves none of its domains. `vercel.json` turns Vercel's own Git deployments off (`git.deploymentEnabled: false`): they build without the Check and cannot say which commit they are, so the `ignoreCommand` below no longer runs anywhere.
 
 Vercel builds with `npm run build`. Configure `DATABASE_URL` only if the submission API is needed. `vercel.json` uses `scripts/deploy/vercel-ignore-build.sh`: production builds run; branch previews need `[preview]` in the commit message, or an explicit manual deployment.

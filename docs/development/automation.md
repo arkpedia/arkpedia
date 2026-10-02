@@ -1,7 +1,7 @@
 # Automation and the free plan
 
-Only the `arkpedia` organization repositories use this setup. The original
-`kukkikaze/Arkpedia` repository is not modified.
+This covers the `arkpedia` organization repositories. The earlier `kukkikaze/Arkpedia`
+repository is retired: www.arkpedia.net deploys from this repository's `main`.
 
 ## Cost limits
 
@@ -18,7 +18,7 @@ CI can stop until the allowance resets; free does not mean unlimited private run
   update cancels its previous check. No uploaded build, screenshot or video artifacts.
   A push or PR that changes only `docs/**` or Markdown files skips Check, and so
   Deploy (`config/docs-only-paths.json`; any other file runs every step).
-- Private daily content preparation: one job, 20-minute timeout, one rolling PR in the public data repository; no website build.
+- Private daily content preparation: one job that pushes a validated release straight to the public data repository's `main` (no pull request); no website build.
 - Public assets: standard Ubuntu runners only. Image/skin/voice syncs have explicit
   timeouts, avoid artifact uploads, and run several hours after Global reset.
 - Weekly grouped Dependabot PRs limit update churn. Updates still need review;
@@ -33,11 +33,11 @@ CI can stop until the allowance resets; free does not mean unlimited private run
 Sources: [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 and [included usage](https://docs.github.com/en/billing/reference/product-usage-included).
 
-The public data workflow needs **Allow GitHub Actions to create and approve pull requests** enabled. No workflow approves or merges PRs. The private preparation job uses `CONTENT_DATA_DEPLOY_KEY`, a write deploy key scoped only to `arkpedia-data`; other jobs keep read-only default permissions.
+The private preparation job uses `CONTENT_DATA_DEPLOY_KEY`, a write deploy key scoped only to `arkpedia-data`, to push the release to its `main` as a fast-forward; other jobs keep read-only default permissions. No workflow approves or merges pull requests. (arkpedia-data's workflow still opens a reviewed pull request for a push to its `refresh/content` branch, which needs **Allow GitHub Actions to create and approve pull requests**; the nightly release does not use it.)
 
 ## Deployments and asset updates
 
-[Runtime content releases](runtime-content.md) let deployed pages adopt reviewed records and media versions without rebuilding. `data/assets/revisions.json` pins images, skins, five voice repositories and community palettes to immutable commits. The daily preparation job runs `npm run assets:update`, compiles records and proposes a public data PR. Merging publishes one validated content pointer. Pages retain their release while open and adopt updates during server revalidation.
+[Runtime content releases](runtime-content.md) let deployed pages adopt reviewed records and media versions without rebuilding. `data/assets/revisions.json` pins images, skins, five voice repositories and community palettes to immutable commits. The daily preparation job runs `npm run assets:update`, compiles records and pushes them to arkpedia-data's `main`, whose Content release workflow validates the push and moves the content pointer. Pages retain their release while open and adopt updates during server revalidation.
 
 Images and audio are delivered directly from GitHub, without proxying their bodies through Vercel. The bundled fallback retains its deployment-time asset lock. Changes to application behavior or the content schema still need a deployment.
 

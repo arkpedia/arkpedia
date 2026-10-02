@@ -52,8 +52,10 @@ the server when rendering, with the existing browser clocks continuing to tick.
 Timed stage candidates are selected in the browser, not by the export date.
 
 An asset-only refresh should change `source/data/assets/revisions.json` and
-`release/manifest.json`, without rewriting every operator page. The public PR
-summary identifies asset-only updates and reports the actual file counts.
+`release/manifest.json`, without rewriting every operator page. (A change pushed to
+arkpedia-data's `refresh/content` branch instead of `main` still opens a reviewed pull
+request there, whose summary identifies asset-only updates and reports the file counts;
+the nightly release pushes to `main`.)
 
 The deployment has asset pins of its own, `data/assets/revisions.json`: every
 root-relative `/<folder>/...` path is a redirect to the commit it names
@@ -142,9 +144,10 @@ calendar day instead of declaring availability at the reader's midnight.
 The calculator, pop-out and guesser use one reviewed Global roster in
 `data/recruitment-global.json`. Its source records include immutable English game
 table URLs and SHA-256 hashes. `node scripts/sync/sync-recruitment.mjs` prepares an
-update during the existing daily refresh; a content PR still needs review before
-publication. A mirrored game table can contain preloaded changes, so reviewers
-must confirm that any new recruitment batch is active on Global before merging.
+update during the existing daily refresh, and the release publishes it with no review,
+so the importer's own checks are the gate. A mirrored game table can contain preloaded
+changes: if a new recruitment batch is not active on Global yet, correct the roster in
+arkpedia-data's `source/` and release that correction.
 
 The importer rejects incomplete rarity groups, ambiguous names, unknown tags,
 missing local operators and disagreements with local recruitment fields. It writes
