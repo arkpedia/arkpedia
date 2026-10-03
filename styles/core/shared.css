@@ -546,9 +546,6 @@ header,
    invisible. Teal both ways: on a wiki a link you have followed is not less of a link.
    .eyebrow a below says the same thing for the breadcrumb. */
 .sub a,
-/* In a wrapping toolbar row: pushes what follows (the order, Reset) to the row's far end. */
-.toolbar-spacer { flex: 1 1 auto; }
-
 .hint a {
   color: var(--teal);
 }
@@ -564,6 +561,9 @@ header,
 :root[data-theme="light"] .hint a:hover {
   color: #0A7D6B;
 }
+
+/* In a wrapping toolbar row: pushes what follows (the order, Reset) to the row's far end. */
+.toolbar-spacer { flex: 1 1 auto; }
 
 h1 {
   font-family: var(--font-display);
