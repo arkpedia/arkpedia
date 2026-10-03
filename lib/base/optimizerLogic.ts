@@ -110,7 +110,9 @@ function allSkillsForOperator(operatorName: string, facility: 'Factory' | 'Tradi
   for (const s of relevant) {
     const raw = s.name ?? '';
     const replacesMatch = raw.match(/Replaces(.+)$/);
-    const slotKey = replacesMatch ? replacesMatch[1] : cleanSkillName(raw) ?? raw;
+    // The game's slot where the record carries it (building_data); else the scraped
+    // "Replaces" suffix, which names the slot's first skill.
+    const slotKey = typeof s.slot === 'number' ? `#${s.slot}` : replacesMatch ? replacesMatch[1] : cleanSkillName(raw) ?? raw;
     if (!groups.has(slotKey)) groups.set(slotKey, []);
     groups.get(slotKey)!.push(s);
   }

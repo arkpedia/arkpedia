@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error JavaScript importer is also used directly by the refresh job.
-import { handWrittenFields, localizeOperator, localizeReleasedMechanics, officialModules, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
+import { handWrittenFields, keepSpelling, localizeOperator, localizeReleasedMechanics, officialModules, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
 
 const operator = {
   internalName: 'char_test', review: { official: '中文简介', editor: 'Keep the editorial review.' },
@@ -140,8 +140,61 @@ test('module stages are rebuilt from battle_equip_table, keeping the record\'s o
 });
 
 test('hand-written techniques and recommendations are what the refresh guard compares', () => {
-  const op = { skills: { skillList: [{ name: 'S1', techniques: ['Stun'], recommendation: 'M3 first' }] }, talents: [{ name: 'A', technique: 'Slow' }, { name: 'B' }] };
+  const slow = [{ name: 'Slow', description: 'x' }];
+  const op = { skills: { skillList: [{ name: 'S1', techniques: ['Stun'], recommendation: 'M3 first' }] }, talents: [{ name: 'A', technique: slow }, { name: 'B' }] };
   assert.equal(handWrittenFields(op), handWrittenFields({ ...op, trait: 'changed' }));
+  // Merging the import's per-Elite talents moves a technique without losing it.
+  assert.equal(handWrittenFields(op), handWrittenFields({ ...op, talents: [{ name: 'B', technique: slow }] }));
   assert.notEqual(handWrittenFields(op), handWrittenFields({ ...op, talents: [{ name: 'A' }] }));
+  assert.notEqual(handWrittenFields(op), handWrittenFields({ ...op, review: { editor: 'gone' } }));
   assert.notEqual(handWrittenFields(op), handWrittenFields({ ...op, skills: { skillList: [{ name: 'S1', techniques: ['Stun'] }] } }));
+});
+
+test('talents are matched by name: the import\'s per-Elite split merges into the game\'s one talent, technique kept', () => {
+  const character = { name: 'Manticore', description: '', tagList: [], potentialRanks: [], skills: [], allSkillLvlup: [], talents: [{ candidates: [
+    { name: 'Hidden Killer - Medium', unlockCondition: { phase: 'PHASE_1' }, description: 'ATK +25%' },
+    { name: 'Hidden Killer - Elite', unlockCondition: { phase: 'PHASE_2' }, description: 'ATK +50%' },
+  ] }] };
+  const op = { name: 'Manticore', internalName: 'char_test', skills: { skillList: [] }, talents: [
+    { name: 'Hidden Killer - Medium', rows: [] },
+    { name: 'Hidden Killer - EliteReplacesHidden Killer - Medium', rows: [], technique: [{ name: 'Invisibility', description: 'x' }] },
+  ] };
+  const tables = { characters: { char_test: character }, skills: {}, building: { chars: {}, buffs: {} }, modules: { equipDict: {} }, battleEquip: {}, items: { items: {} }, voiceTables: [] };
+  const next = localizeReleasedMechanics(op, tables);
+  assert.equal(next.talents.length, 1);
+  assert.equal(next.talents[0].name, 'Hidden Killer - Elite');
+  assert.deepEqual(next.talents[0].technique, [{ name: 'Invisibility', description: 'x' }]);
+  assert.deepEqual(next.talents[0].rows.map((r: { stage: string }) => r.stage), ['Elite 1', 'Elite 2']);
+});
+
+test('a name the game spells with other quotes or "·" keeps the record\'s spelling; a real rename takes the game\'s', () => {
+  assert.equal(keepSpelling('"Beaten Up"', "'Beaten Up'"), '"Beaten Up"');
+  assert.equal(keepSpelling('Pharmacology α', 'Pharmacology·α'), 'Pharmacology α');
+  assert.equal(keepSpelling('SleepinessReplacesLaziness', 'Sleepiness'), 'SleepinessReplacesLaziness');
+  assert.equal(keepSpelling('Little By Little', 'Little by Little'), 'Little By Little');
+  assert.equal(keepSpelling('Symphaticus Simulation', 'Sympathicus Simulation'), 'Sympathicus Simulation');
+});
+
+test('base skills carry their building_data slot, phase and level, and keep a hand-set icon', () => {
+  const building = { chars: { char_test: { buffChar: [
+    { buffData: [{ buffId: 'a', cond: { phase: 'PHASE_0', level: 1 } }, { buffId: 'b', cond: { phase: 'PHASE_0', level: 30 } }] },
+    { buffData: [{ buffId: 'c', cond: { phase: 'PHASE_2', level: 1 } }] },
+  ] } }, buffs: {
+    a: { buffName: 'Laziness', roomType: 'DORMITORY', description: 'x' },
+    b: { buffName: 'Sleepiness', roomType: 'DORMITORY', description: 'y' },
+    c: { buffName: 'Pharmacology·α', roomType: 'WORKSHOP', description: 'z' },
+  } };
+  const character = { name: 'Durin', description: '', tagList: [], potentialRanks: [], skills: [], allSkillLvlup: [], talents: [] };
+  const op = { name: 'Durin', internalName: 'char_test', skills: { skillList: [] }, talents: [], baseSkills: [
+    { name: 'Laziness', facility: 'Dormitory', eliteLevel: 'Base', description: 'old' },
+    { name: 'SleepinessReplacesLaziness', facility: 'Dormitory', eliteLevel: 'Level 30', description: 'old' },
+    { name: 'Pharmacology α', facility: 'Workshop', eliteLevel: 'Elite 2', description: 'old', icon: '/custom.webp' },
+  ] };
+  const tables = { characters: { char_test: character }, skills: {}, building, modules: { equipDict: {} }, battleEquip: {}, items: { items: {} }, voiceTables: [] };
+  const next = localizeReleasedMechanics(op, tables);
+  assert.deepEqual(next.baseSkills.map((b: { name: string; eliteLevel: string; slot: number; phase: number; level: number; icon?: string }) => [b.name, b.eliteLevel, b.slot, b.phase, b.level, b.icon ?? null]), [
+    ['Laziness', 'Base', 0, 0, 1, null],
+    ['SleepinessReplacesLaziness', 'Level 30', 0, 0, 30, null],
+    ['Pharmacology α', 'Elite 2', 1, 2, 1, '/custom.webp'],
+  ]);
 });

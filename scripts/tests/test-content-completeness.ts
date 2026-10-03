@@ -383,3 +383,22 @@ test('a new runtime CN record can use published portrait art without a website r
   // shows the image repository's placeholder, never a path with no file behind it.
   assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,portraitPending:true}),OPERATOR_PORTRAIT_PLACEHOLDER);
 });
+
+test('a released operator whose skill or base-skill icon is not published is held back, with the file named', () => {
+  const op = Object.assign(structuredClone(operatorFixture.operator), { name: 'Icon Test', internalName: 'char_9992_icon',
+    baseSkills: [{ name: 'Pharmacology α', facility: 'Workshop', eliteLevel: 'Base', description: 'x' }] });
+  for (const skill of op.skills.skillList as { icon?: string }[]) delete skill.icon;
+  op.skills.skillList[0].name = "'Beaten Up'";
+  const held = holds(emptyCatalogue({ operators: [op] }));
+  assert.deepEqual(held.map(h => h.reason), [
+    "Icon Test: missing asset skill-icons/Icon Test - 'Beaten Up'.webp",
+    'Icon Test: missing asset skill-icons/Icon Test - Molten Giant.webp',
+    'Icon Test: missing asset skill-icons/Icon Test - Twilight.webp',
+    'Icon Test: missing asset base-skill-icons/Icon Test - Pharmacology α.webp',
+  ]);
+  const assets = new Set(["skill-icons/Icon Test - 'Beaten Up'.webp", 'skill-icons/Icon Test - Molten Giant.webp',
+    'skill-icons/Icon Test - Twilight.webp', 'base-skill-icons/Icon Test - Pharmacology α.webp']);
+  assert.deepEqual(holds(emptyCatalogue({ operators: [op], assets })), []);
+  // Not released yet: its art is the CN-operator holds' business, not this one's.
+  assert.deepEqual(holds(emptyCatalogue({ operators: [{ ...op, isFuture: true }] })), []);
+});

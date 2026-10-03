@@ -54,33 +54,100 @@ function skillRows(skill) {
   });
 }
 
+/*
+ * A name as a key, without the typography the wiki import added: straight vs curly quotes,
+ * "Pharmacology α" vs the game's "Pharmacology·α", case, full-width "？？？", and the scrape's
+ * "…Replaces <older name>" tail. Measured 2026-10-03 against every record: all 42 skill and
+ * all 174 base-skill name differences were typography, and the names are keys (icon
+ * filenames, /base's slot table and handlers, technique lookups), so a record keeps its own
+ * spelling of the game's name. A real rename (the wiki's "Symphaticus Simulation" for Doc's
+ * "Sympathicus Simulation") takes the game's.
+ */
+export const nameKey = name => String(name ?? '').split('Replaces')[0]
+  .replace(/[’‘＂"]/g, "'").replace(/？/g, '?').replace(/[·\s]+/g, ' ').trim().toLowerCase();
+export const keepSpelling = (recorded, game) => (recorded && nameKey(recorded) === nameKey(game) ? recorded : game);
+// A potential-upgraded talent's rank ("Tactical Configuration 2", "Medic Mastery II").
+const withoutRank = key => key.replace(/\s+(?:vi|iv|iii|ii|i|v|[1-6])$/, '');
+
+/*
+ * The game's talents, each carrying what was written on the record's talents of the same name.
+ * Matched by name (any of the talent's names at any Elite, rank aside), not position: the wiki
+ * import split some talents per Elite (Manticore's "Hidden Killer - Medium" and "- Elite" are one
+ * talent in the game), so positions drift, and position once dropped Manticore's technique.
+ * A talent the game renamed outright falls back to the record's talent at its position, if no
+ * other talent took that one by name.
+ */
 function officialTalents(character, current) {
   const previous = rows(current);
-  return rows(character.talents).flatMap((talent, index) => {
+  const talents = rows(character.talents);
+  const keysOf = talent => new Set(rows(talent.candidates).map(c => c.name).filter(Boolean).map(n => withoutRank(nameKey(n))));
+  const byName = talents.map(talent => previous.filter(entry => keysOf(talent).has(withoutRank(nameKey(entry.name)))));
+  const claimed = new Set(byName.flat());
+  return talents.flatMap((talent, index) => {
     let name = null;
+    const own = byName[index].length ? byName[index]
+      : previous[index] && !claimed.has(previous[index]) ? [previous[index]] : [];
     const candidates = rows(talent.candidates).map(candidate => {
       name = candidate.name || name;
       const phase = Number(String(candidate.unlockCondition?.phase ?? '').replace('PHASE_', '')) || 0;
       return {
+        name: candidate.name || name,
         stage: phase === 0 ? 'Base' : `Elite ${phase}`,
         potential: candidate.requiredPotentialRank ? `Potential ${candidate.requiredPotentialRank + 1}` : null,
         description: stripRichText(candidate.description),
       };
     });
-    return name ? [{ ...previous[index], name, rows: candidates }] : [];
+    if (!name) return [];
+    /* A talent whose name changes along the way names each row: by Elite (Manticore's "Hidden
+       Killer - Medium", then "- Elite") or by potential, where the talent itself is then the
+       name without the rank (Castle-3's "Tactical Configuration 1" to "6" are one talent,
+       "Tactical Configuration"). A talent with one name keeps rows without one. */
+    const names = [...new Set(candidates.map(row => row.name))];
+    for (const row of candidates) if (names.length < 2) delete row.name;
+    const ranked = names.length > 1 && new Set(names.map(n => withoutRank(nameKey(n)))).size === 1;
+    if (ranked) name = name.replace(/\s+(?:VI|IV|III|II|I|V|[1-6])$/, '');
+    const techniques = own.flatMap(entry => rows(entry.technique));
+    const merged = Object.assign({}, ...own);
+    delete merged.technique;
+    // Without the import's "…Replaces <older>" tail: the game's talent is the whole chain now,
+    // and no file or lookup is named after a talent (base skills keep theirs: icon filenames).
+    const recorded = own.find(entry => nameKey(entry.name) === nameKey(name))?.name?.split('Replaces')[0].trim();
+    return [{
+      ...merged,
+      name: keepSpelling(recorded, name),
+      rows: candidates,
+      ...(techniques.length ? { technique: techniques.filter((t, i) => techniques.findIndex(o => o.name === t.name) === i) } : {}),
+    }];
   });
 }
 
-function officialBaseSkills(characterId, building) {
+/*
+ * The game's base skills with their place in it: `slot` is the entry of buffChar the skill
+ * belongs to (same slot = a later skill replaces an earlier one), `phase` and `level` what
+ * unlocks it. /base reads these first (pages/base.tsx), so the record says outright what
+ * data/base-skill-slots.json, a table nothing regenerates, said only for operators it knew.
+ */
+function officialBaseSkills(characterId, building, current) {
+  const previous = rows(current);
   const slots = rows(building?.chars?.[characterId]?.buffChar);
-  return slots.flatMap(slot => (Array.isArray(slot.buffData) ? slot.buffData : [])).map(entry => {
+  return slots.flatMap((slot, slotIndex) => rows(slot.buffData).map(entry => ({ entry, slotIndex }))).map(({ entry, slotIndex }, index) => {
     const buff = building.buffs?.[entry.buffId];
     if (!buff) throw new Error(`${characterId} base skill ${entry.buffId} is missing`);
+    const facility = ROOM[buff.roomType] ?? buff.roomType;
+    const phase = Number(String(entry.cond?.phase ?? 'PHASE_0').replace('PHASE_', '')) || 0;
+    const level = entry.cond?.level ?? 1;
+    const prior = previous.find(p => p.facility === facility && nameKey(p.name) === nameKey(buff.buffName))
+      ?? (previous[index]?.facility === facility ? previous[index] : {});
     return {
-      name: buff.buffName,
-      facility: ROOM[buff.roomType] ?? buff.roomType,
-      eliteLevel: PHASE[entry.cond?.phase] ?? 'Base',
+      ...prior,
+      name: keepSpelling(prior.name, buff.buffName),
+      facility,
+      // 1★/2★ operators and Durin unlock a skill at a level, not a promotion: "Level 30".
+      eliteLevel: phase === 0 && level > 1 ? `Level ${level}` : PHASE[`PHASE_${phase}`],
       description: stripRichText(buff.description),
+      slot: slotIndex,
+      phase,
+      level,
     };
   });
 }
@@ -160,7 +227,7 @@ export function localizeReleasedMechanics(operator, tables) {
     })),
   };
   next.talents = officialTalents(character, next.talents);
-  next.baseSkills = officialBaseSkills(operator.internalName, tables.building);
+  next.baseSkills = officialBaseSkills(operator.internalName, tables.building, next.baseSkills);
   next.modules = refreshModules(next, tables).modules;
   next.characterVoices = officialVoiceActors(operator.internalName, tables.voiceTables, next.characterVoices);
   next.skills = {
@@ -173,7 +240,7 @@ export function localizeReleasedMechanics(operator, tables) {
       const masteries = rows(entry.levelUpCostCond);
       return {
         ...prior,
-        name: first.name,
+        name: keepSpelling(prior.name, first.name),
         recoveryType: RECOVERY[first.spData?.spType] ?? null,
         activationType: ACTIVATION[first.skillType] ?? null,
         duration: first.duration > 0 ? `${Math.round(first.duration)} seconds` : null,
@@ -247,8 +314,13 @@ export function shouldRefreshReleasedOperator(operator, now = Date.now(), window
    (a talent list that changed length once dropped Manticore's talent technique). */
 export function handWrittenFields(operator) {
   return JSON.stringify({
-    skills: rows(operator.skills?.skillList).map(skill => [skill.techniques ?? null, skill.recommendation ?? null]),
-    talents: rows(operator.talents).map(talent => talent.technique ?? null).filter(Boolean),
+    review: [operator.review?.editor ?? null, operator.review?.rating ?? null],
+    skills: rows(operator.skills?.skillList).map(skill => [skill.techniques ?? null, skill.recommendation ?? null, skill.pairings ?? null, skill.icon ?? null]),
+    // By technique, not by talent: merging the import's per-Elite talents moves a technique
+    // between entries without losing it.
+    talents: [...new Set(rows(operator.talents).flatMap(talent => rows(talent.technique).map(t => JSON.stringify(t))))].sort(),
+    baseSkillIcons: rows(operator.baseSkills).map(skill => skill.icon).filter(Boolean).sort(),
+    topLevel: [operator.synergies ?? null, operator.techniques ?? null, operator.guides ?? null],
   });
 }
 
@@ -285,10 +357,19 @@ export function syncOperatorEnglish(root, handbook, tables = null) {
 
 async function main() {
   const root = process.env.ARKPEDIA_OPERATOR_ROOT || process.cwd();
-  const excel = process.env.ARKPEDIA_EN || path.join(process.cwd(), '.cache/upstream/en-gamedata/en/gamedata');
-  const table = process.env.ARKPEDIA_EN_HANDBOOK
-    || path.join(excel, 'excel/handbook_info_table.json');
-  const read = name => JSON.parse(fs.readFileSync(path.join(excel, 'excel', name), 'utf8'));
+  /* The nightly runs this before the catalogue stage, so a skill whose name it changes gets its
+     icon in the same run's media plan (sync-catalogue.mjs assetPlan publishes every icon path a
+     record implies that is not published yet). That is before refresh-stage-data.sh checks out
+     the EN tables, so it reads them the way the catalogue does: the run's pinned commit of the
+     Global mirror, cached in .cache/catalogue, where the catalogue then finds them. ARKPEDIA_EN
+     points at a local checkout instead. */
+  const pinned = process.env.ARKPEDIA_EN ? null : await (await import('./sync-catalogue.mjs'))
+    .source('ArknightsAssets/ArknightsGamedata', 'en/gamedata/excel', path.join(process.cwd(), '.cache/catalogue'));
+  const excel = process.env.ARKPEDIA_EN;
+  const fileOf = { 'character_table.json': 'characters', 'skill_table.json': 'skills', 'building_data.json': 'building',
+    'uniequip_table.json': 'modules', 'battle_equip_table.json': 'battleEquip', 'item_table.json': 'items',
+    'charword_table.json': 'voices', 'handbook_info_table.json': 'handbook' };
+  const read = name => (pinned ? pinned[fileOf[name]] : JSON.parse(fs.readFileSync(path.join(excel, 'excel', name), 'utf8')));
   const supplementalPath = process.env.ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS;
   const supplementalCharwords = supplementalPath
     ? JSON.parse(fs.readFileSync(supplementalPath, 'utf8'))
@@ -297,7 +378,8 @@ async function main() {
       if (!response.ok) throw new Error(`Supplemental Global voice credits: ${response.status} ${response.statusText}`);
       return response.json();
     })();
-  const changed = syncOperatorEnglish(root, JSON.parse(fs.readFileSync(table, 'utf8')), {
+  const handbook = process.env.ARKPEDIA_EN_HANDBOOK ? JSON.parse(fs.readFileSync(process.env.ARKPEDIA_EN_HANDBOOK, 'utf8')) : read('handbook_info_table.json');
+  const changed = syncOperatorEnglish(root, handbook, {
     characters: read('character_table.json'),
     skills: read('skill_table.json'),
     building: read('building_data.json'),

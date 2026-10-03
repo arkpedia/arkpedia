@@ -96,6 +96,12 @@ export interface BaseSkill {
   facility: string | null;
   eliteLevel: string | null;
   description: string | null;
+  /* From the game's building_data (scripts/sync/sync-operator-english.mjs): the buffChar entry
+     the skill belongs to (same slot = an upgrade chain), and the promotion and level that unlock
+     it. Absent on records the refresh has not rebuilt yet. */
+  slot?: number;
+  phase?: number;
+  level?: number;
 }
 
 export interface ModuleStage {

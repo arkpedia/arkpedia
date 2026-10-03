@@ -106,7 +106,8 @@
                 "quantity": 4
               }
             ]
-          }
+          },
+          "icon": "/skill-icons/fixture.webp"
         },
         {
           "name": "Molten Giant",
@@ -153,7 +154,8 @@
                 "quantity": 5
               }
             ]
-          }
+          },
+          "icon": "/skill-icons/fixture.webp"
         },
         {
           "name": "Twilight",
@@ -200,7 +202,8 @@
                 "quantity": 6
               }
             ]
-          }
+          },
+          "icon": "/skill-icons/fixture.webp"
         }
       ],
       "skillCost": {

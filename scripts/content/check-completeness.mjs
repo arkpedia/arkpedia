@@ -107,6 +107,21 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
       hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: costs ${uncatalogued.join(', ')}, which data/material-catalogue.json does not have, so /planner cannot hold or craft ${uncatalogued.length === 1 ? 'it' : 'them'} and leaves ${op.name} out of its picker`);
     }
   }
+  // Every skill and base-skill icon a released operator's page asks for: getSkillIconPath and
+  // getBaseSkillIconPath build the path from the operator's and the skill's names and check
+  // nothing, so a missing file is a blank square. The English refresh can change a name, and
+  // the catalogue's media plan publishes the icon under the new one from the game's files;
+  // this says so when that did not happen. A record's own `icon` overrides the path.
+  for (const op of operators) {
+    const released = op.isFuture !== true && hasRecordedRelease(op) && recordedRelease(op) <= new Date(now ?? Date.now()).getTime();
+    if (!released) continue;
+    const files = [
+      ...(Array.isArray(op.skills) ? op.skills : list(op.skills?.skillList)).filter(skill => skill.name && !skill.icon)
+        .map(skill => `skill-icons/${op.name} - ${safe(skill.name)}.webp`),
+      ...list(op.baseSkills).filter(skill => skill.name && !skill.icon).map(skill => `base-skill-icons/${op.name} - ${safe(skill.name)}.webp`),
+    ];
+    for (const file of files) if (missing(file)) hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: missing asset ${file}`);
+  }
   // The palette game plays every dated operator (released, or with a Global date) whose Base
   // art, and from 4 stars its Elite 2 art, has a palette in data/color-palettes.json, and
   // leaves the rest out without a word (lib/minigames/data.ts). The palettes stage makes one

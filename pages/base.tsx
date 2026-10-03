@@ -1214,7 +1214,14 @@ export default function BasePage({ operators }: Props) {
     // α. Anything the table doesn't cover (Ukusik, and any operator added
     // after the last gamedata refresh) still falls through to the
     // heuristics.
-    const slotted = facilitySkills.map((bs) => ({ bs, meta: skillSlots[`${op.name}|${cleanSkillName(bs.name)}|${bs.eliteLevel || 'Base'}`] }));
+    // The record's own slot (from building_data, every nightly) first; the static table for
+    // records that do not carry one yet.
+    const slotted = facilitySkills.map((bs) => ({
+      bs,
+      meta: typeof bs.slot === 'number' && typeof bs.phase === 'number'
+        ? { slot: bs.slot, phase: bs.phase, level: bs.level ?? 1 }
+        : skillSlots[`${op.name}|${cleanSkillName(bs.name)}|${bs.eliteLevel || 'Base'}`],
+    }));
     if (slotted.length > 0 && slotted.every((entry) => entry.meta)) {
       const bestBySlot = new Map<number, { bs: BaseSkill; meta: BaseSkillSlot }>();
       for (const entry of slotted) {
