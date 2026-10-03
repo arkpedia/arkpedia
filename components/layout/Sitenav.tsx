@@ -8,8 +8,7 @@ import MobileNavDrawer from './MobileNavDrawer';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
-import { GROUPS, LOOSE, isActiveLink, linkLabel, type NavLink } from '@/lib/nav/navLinks';
-import { useAccount } from '@/lib/account/accountStore';
+import { GROUPS, LOOSE, isActiveLink, type NavLink } from '@/lib/nav/navLinks';
 
 /**
  * A game icon drawn in the current text colour.
@@ -166,8 +165,6 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
   /* Which menu is open, by label, or null. One at a time: opening a second closes the
      first, the way a menu bar has always worked. */
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  // The Account link says "Import Account" until there is one (linkLabel).
-  const account = useAccount();
 
   /**
    * The nav's height, published for sticky page furniture to sit below.
@@ -238,7 +235,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
       className={isActiveLink(link, router.pathname) ? `${className} active` : className}
     >
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
-      <span>{linkLabel(link, !!account)}</span>
+      <span>{link.label}</span>
     </Link>
   );
 

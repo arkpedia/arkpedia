@@ -33,7 +33,9 @@ export const LINKS: NavLink[] = [
   { href: '/story', label: 'Story', icon: 'story' },
   { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
-  { href: '/account', label: 'Account', icon: 'roster' },
+  /* Always "Import Account", import or not: a menu entry whose name changed once you had
+     imported read as a different page (2026-10-03). */
+  { href: '/account', label: 'Import Account', icon: 'roster' },
   { href: '/free-op', label: 'OP Tracker', icon: 'prime' },
   { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
@@ -87,15 +89,6 @@ export const GROUPS: NavGroup[] = [
    it alone in Planning. Schedule joined them when the Events list became a view of the
    Schedule page rather than a page of its own, which left that menu holding one thing
    too. */
-/**
- * A link's label for this reader: the Account page is "Import Account" until they have
- * imported one, then "Account" -- what to do there, then what is there. The LINKS row keeps
- * the short name, which the drawer, the bar and the page all use once an import exists.
- */
-export function linkLabel(link: NavLink, hasAccount: boolean): string {
-  return link.href === '/account' && !hasAccount ? 'Import Account' : link.label;
-}
-
 export const LOOSE: NavLink[] = [at('/schedule'), at('/support')];
 
 /**

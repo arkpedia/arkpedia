@@ -7,8 +7,6 @@ import { NAV_ORDER, ICONS, isActiveLink } from './Sitenav';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
-import { linkLabel } from '@/lib/nav/navLinks';
-import { useAccount } from '@/lib/account/accountStore';
 
 // Only relevant near the left screen edge -- an edge-swipe is the
 // standard mobile-drawer "open" gesture, and restricting it to the
@@ -28,8 +26,6 @@ const SWIPE_DISTANCE_PX = 60;
 const BAR_TAP_EXCLUDED_SELECTOR = '.site-brand, .site-nav-theme-wrap, .mobile-nav-back';
 
 export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOverride }) {
-  // The Account link says "Import Account" until there is one (linkLabel).
-  const account = useAccount();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -262,7 +258,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
                 onClick={() => setOpen(false)}
               >
                 <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
-                <span>{linkLabel(link, !!account)}</span>
+                <span>{link.label}</span>
               </Link>
             );
           })}
