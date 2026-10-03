@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error JavaScript importer is also used directly by the refresh job.
-import { handWrittenFields, keepSpelling, localizeOperator, localizeReleasedMechanics, officialModules, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
+import { characterOf, handWrittenFields, keepSpelling, localizeOperator, sameOperator, localizeReleasedMechanics, officialModules, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
 
 const operator = {
   internalName: 'char_test', review: { official: '中文简介', editor: 'Keep the editorial review.' },
@@ -79,7 +79,7 @@ test('a newly released operator adopts official Global mechanics while preservin
     }] } },
     building: { chars: { char_test: { buffChar: [{ buffData: [{ buffId: 'buff', cond: { phase: 'PHASE_0' } }] }] } },
       buffs: { buff: { buffName: 'Official Base Skill', roomType: 'HIRE', description: 'Contact speed <@cc.vup>+30%</>' } } },
-    modules: { equipDict: {}, missionList: {} }, battleEquip: {}, items: { items: { item: { name: 'Material' } } },
+    modules: { equipDict: {}, missionList: {} }, battleEquip: {}, cn: null, items: { items: { item: { name: 'Material' } } },
     voiceTables: [{ voiceLangDict: { char_test: { dict: { EN: { cvName: ['Current Actor'] } } } } }],
   };
   const next = localizeReleasedMechanics(unreleased, tables);
@@ -107,13 +107,13 @@ test('module refresh preserves independent X/Y/alpha stages and CN-only modules'
     uniEquipId: id, charId: 'char_test', type: 'ADVANCED', typeName1: prefix, typeName2: suffix,
     uniEquipName: `Current ${id}`, charEquipOrder: index,
   }]));
-  const updated = officialModules('char_test', { equipDict }, current, {}, [], { items: {} });
+  const updated = officialModules('char_test', { equipDict }, current, {}, [], { items: {} }, null);
   assert.deepEqual(updated.map((m: { stages: { effectText: string }[] }) => m.stages[0].effectText), ['X trait', 'Y trait', 'IS trait', 'CN trait']);
   assert.equal(updated[2].name, 'ISW-α: Current a');
   assert.deepEqual(updated.slice(0, 3).map((m: { moduleId?: string }) => m.moduleId), ['x', 'y', 'a']);
-  assert.deepEqual(officialModules('char_test', { equipDict }, updated, {}, [], { items: {} }), updated, 'repeat refresh is idempotent');
-  assert.throws(() => officialModules('char_test', { equipDict }, current, undefined, [], { items: {} }), /battle_equip_table/);
-  const forms = officialModules('char_test', { equipDict, charEquip: { char_test: ['x'] } }, current, {}, [], { items: {} });
+  assert.deepEqual(officialModules('char_test', { equipDict }, updated, {}, [], { items: {} }, null), updated, 'repeat refresh is idempotent');
+  assert.throws(() => officialModules('char_test', { equipDict }, current, undefined, [], { items: {} }, null), /battle_equip_table/);
+  const forms = officialModules('char_test', { equipDict, charEquip: { char_test: ['x'] } }, current, {}, [], { items: {} }, null);
   assert.deepEqual(forms.filter((m: { moduleId?: string }) => m.moduleId).map((m: { moduleId?: string }) => m.moduleId), ['x'], 'another form\'s modules under the same charId stay off');
 });
 
@@ -131,7 +131,7 @@ test('module stages are rebuilt from battle_equip_table, keeping the record\'s o
     { attributeBlackboard: [], parts: [trait('Attacks <@ba.kw>twice</>'), talent(0.1)] },
     { attributeBlackboard: [], parts: [trait('Attacks <@ba.kw>twice</>'), talent(0.15)] },
   ] } };
-  const [module] = officialModules('char_test', { equipDict }, current, battleEquip, ['Power'], { items: { mod_unlock_token: { name: 'Module Data Block' } } });
+  const [module] = officialModules('char_test', { equipDict }, current, battleEquip, ['Power'], { items: { mod_unlock_token: { name: 'Module Data Block' } } }, null);
   assert.equal(module.note, 'hand-written');
   assert.deepEqual(module.stages.map((s: { effectLabel: string; effectText: string }) => [s.effectLabel, s.effectText]), [
     ['New trait', 'Attacks twice'], ['Power improved', 'ATK +10%'], ['Power improved', 'ATK +15%'],
@@ -159,7 +159,7 @@ test('talents are matched by name: the import\'s per-Elite split merges into the
     { name: 'Hidden Killer - Medium', rows: [] },
     { name: 'Hidden Killer - EliteReplacesHidden Killer - Medium', rows: [], technique: [{ name: 'Invisibility', description: 'x' }] },
   ] };
-  const tables = { characters: { char_test: character }, skills: {}, building: { chars: {}, buffs: {} }, modules: { equipDict: {} }, battleEquip: {}, items: { items: {} }, voiceTables: [] };
+  const tables = { characters: { char_test: character }, skills: {}, building: { chars: {}, buffs: {} }, modules: { equipDict: {} }, battleEquip: {}, items: { items: {} }, voiceTables: [], cn: null };
   const next = localizeReleasedMechanics(op, tables);
   assert.equal(next.talents.length, 1);
   assert.equal(next.talents[0].name, 'Hidden Killer - Elite');
@@ -190,11 +190,38 @@ test('base skills carry their building_data slot, phase and level, and keep a ha
     { name: 'SleepinessReplacesLaziness', facility: 'Dormitory', eliteLevel: 'Level 30', description: 'old' },
     { name: 'Pharmacology α', facility: 'Workshop', eliteLevel: 'Elite 2', description: 'old', icon: '/custom.webp' },
   ] };
-  const tables = { characters: { char_test: character }, skills: {}, building, modules: { equipDict: {} }, battleEquip: {}, items: { items: {} }, voiceTables: [] };
+  const tables = { characters: { char_test: character }, skills: {}, building, modules: { equipDict: {} }, battleEquip: {}, items: { items: {} }, voiceTables: [], cn: null };
   const next = localizeReleasedMechanics(op, tables);
   assert.deepEqual(next.baseSkills.map((b: { name: string; eliteLevel: string; slot: number; phase: number; level: number; icon?: string }) => [b.name, b.eliteLevel, b.slot, b.phase, b.level, b.icon ?? null]), [
     ['Laziness', 'Base', 0, 0, 1, null],
     ['SleepinessReplacesLaziness', 'Level 30', 0, 0, 30, null],
     ['Pharmacology α', 'Elite 2', 1, 2, 1, '/custom.webp'],
   ]);
+});
+
+test('a module only CN has is built from the CN tables, and turns English the night Global has it', () => {
+  const equip = (id: string, name: string) => ({ uniEquipId: id, charId: 'char_test', type: 'ADVANCED', typeName1: 'SWO', typeName2: 'Y', uniEquipName: name, charEquipOrder: 2,
+    itemCost: { 1: [{ id: 'mod_unlock_token', count: 1 }] }, missionList: [] });
+  const battle = (text: string) => ({ phases: [{ attributeBlackboard: [], parts: [{ target: 'DISPLAY', overrideTraitDataBundle: { candidates: [{ additionalDescription: text, blackboard: [] }] }, addOrOverrideTalentDataBundle: { candidates: null } }] }] });
+  const current = [{ type: 'Upgrade', name: 'SWO-Y: New Contract', stages: [{ effectText: 'wiki words' }], note: 'kept' }];
+  const cn = { modules: { equipDict: { m: equip('m', '新契约') }, missionList: {} }, battleEquip: { m: battle('攻击力提升') }, characters: {}, items: { items: { mod_unlock_token: { name: '模组数据块' } } } };
+  const enItems = { items: { mod_unlock_token: { name: 'Module Data Block' } } };
+  const before = officialModules('char_test', { equipDict: {} }, current, {}, [], enItems, cn);
+  assert.equal(before.length, 1);
+  assert.deepEqual([before[0].name, before[0].moduleId, before[0].stages[0].effectText, before[0].note], ['SWO-Y: 新契约', 'm', '攻击力提升', 'kept']);
+  assert.deepEqual(before[0].stages[0].cost, [{ name: 'Module Data Block', quantity: 1 }], 'an item Global has keeps its English name');
+  const after = officialModules('char_test', { equipDict: { m: equip('m', 'New Contract') } }, before, { m: battle('ATK +10%') }, [], enItems, cn);
+  assert.equal(after.length, 1);
+  assert.deepEqual([after[0].name, after[0].stages[0].effectText, after[0].note], ['SWO-Y: New Contract', 'ATK +10%', 'kept']);
+  assert.throws(() => officialModules('char_test', { equipDict: {} }, current, {}, [], enItems, undefined), /CN tables/);
+});
+
+test('a record is its game entry whatever the name order or quotes, and a form is its base operator in brackets', () => {
+  for (const [record, game] of [['Yahata Umiri', 'Umiri Yahata'], ['Yūtenji Nyamu', 'Nyamu Yūtenji'], ['Justice Knight', "'Justice Knight'"], ['Amiya (Guard)', 'Amiya'], ['Amiya', 'Amiya']]) {
+    assert.ok(sameOperator(record, game), `${record} / ${game}`);
+  }
+  assert.ok(!sameOperator('Amiya', 'Ch\'en'));
+  const tables = { characters: {}, patch: { patchChars: { char_1001_amiya2: { name: 'Amiya' } } } };
+  assert.equal(characterOf({ name: 'Amiya (Guard)', internalName: 'char_1001_amiya2' }, tables)?.name, 'Amiya');
+  assert.equal(characterOf({ name: 'Someone Else', internalName: 'char_1001_amiya2' }, tables), null);
 });

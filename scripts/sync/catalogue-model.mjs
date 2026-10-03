@@ -81,7 +81,10 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     if (!id.startsWith('char_') || source.isNotObtainable !== false) continue;
     let op = byId.get(id);
     const global = en.characters[id]?.isNotObtainable === false && !chinese(en.characters[id].name);
-    const tables = { ...(global ? en : cn), items: { items: { ...cn.items?.items, ...en.items?.items } } }, character = tables.characters[id];
+    // cn: the CN tables for modules a Global operator's tables lack yet (officialModules); a
+    // CN-sourced operator's tables are the CN ones already.
+    const tables = { ...(global ? en : cn), items: { items: { ...cn.items?.items, ...en.items?.items } },
+      cn: global ? { modules: cn.modules, battleEquip: cn.battleEquip, characters: cn.characters, items: cn.items } : null }, character = tables.characters[id];
     const isNew = !op;
     // Refresh official Global text for a CN record by ID, including renamed operators.
     const promote = global && (op?.isFuture || op?.sourceRegion === 'CN');

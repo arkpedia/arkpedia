@@ -157,44 +157,60 @@ function officialBaseSkills(characterId, building, current) {
  * (module-stages.mjs). battleEquip, talentNames and items are required: stages kept from a record
  * instead of rebuilt are the wiki's words, which is what this refresh exists to replace.
  */
-export function officialModules(characterId, modules, current, battleEquip, talentNames, items) {
+export function officialModules(characterId, modules, current, battleEquip, talentNames, items, cn) {
   if (!battleEquip || typeof battleEquip !== 'object') throw new Error('officialModules needs battle_equip_table');
+  // Required, as null where there is no second table (the catalogue's CN-sourced operators).
+  if (cn === undefined) throw new Error('officialModules needs the CN tables, or null');
   const previous = rows(current);
   const matched = new Set();
   const normalizeCode = value => String(value ?? '').replace(/α/gi, 'A').replace(/β/gi, 'B').replace(/δ/gi, 'D').replace(/[^a-z0-9]/gi, '').toLowerCase();
   // charEquip is the per-character list. equipDict's charId is not: Amiya's Guard and Medic
   // modules carry char_002_amiya too, so filtering on it handed the Caster all six.
-  const own = Array.isArray(modules?.charEquip?.[characterId]) ? new Set(modules.charEquip[characterId]) : null;
-  const updated = Object.values(modules?.equipDict ?? {})
-    .filter(module => (own ? own.has(module.uniEquipId) : module.charId === characterId))
-    .sort((a, b) => a.charEquipOrder - b.charEquipOrder)
-    .map(module => {
-      const type = module.type === 'INITIAL' ? 'Original' : 'Upgrade';
-      const suffix = { A: 'α', B: 'β', D: 'Δ' }[module.typeName2] ?? module.typeName2;
-      const code = `${module.typeName1}-${suffix}`;
-      const prefix = type === 'Original' ? '' : `${code}: `;
-      // Several upgrades share type=Upgrade. Never copy one module's stages,
-      // costs or trait into another merely because they have the same type.
-      const prior = previous.find(entry => entry.moduleId === module.uniEquipId)
-        ?? previous.find(entry => entry.type === type && (type === 'Original'
-          || normalizeCode(entry.name?.split(':')[0]) === normalizeCode(code)
-          || entry.name?.split(':').slice(1).join(':').trim() === module.uniEquipName))
-        ?? { stages: [] };
-      matched.add(prior);
-      const missions = (Array.isArray(module.missionList) ? module.missionList : [])
-        .map(id => modules.missionList?.[id]?.desc).filter(Boolean);
-      const battle = type === 'Upgrade' ? battleEquip[module.uniEquipId] : null;
-      return {
-        ...prior,
-        type,
-        moduleId: module.uniEquipId,
-        name: `${prefix}${module.uniEquipName}`,
-        ...(battle ? { stages: moduleStages(module, battle, talentNames, id => items?.items?.[id]?.name ?? `item ${id}`) } : {}),
-        ...(missions.length ? { mission: { requirement1: missions[0] ?? '', requirement2: missions[1] ?? '' } } : {}),
-      };
-    });
-  // A Global refresh must not delete an independently recorded CN-only module.
-  return [...updated, ...previous.filter(entry => !matched.has(entry))];
+  const ownModules = table => {
+    const own = Array.isArray(table?.charEquip?.[characterId]) ? new Set(table.charEquip[characterId]) : null;
+    return Object.values(table?.equipDict ?? {})
+      .filter(module => (own ? own.has(module.uniEquipId) : module.charId === characterId))
+      .sort((a, b) => a.charEquipOrder - b.charEquipOrder);
+  };
+  const build = (list, table, battles, names, itemName) => list.map(module => {
+    const type = module.type === 'INITIAL' ? 'Original' : 'Upgrade';
+    const suffix = { A: 'α', B: 'β', D: 'Δ' }[module.typeName2] ?? module.typeName2;
+    const code = `${module.typeName1}-${suffix}`;
+    const prefix = type === 'Original' ? '' : `${code}: `;
+    // Several upgrades share type=Upgrade. Never copy one module's stages,
+    // costs or trait into another merely because they have the same type.
+    const prior = previous.find(entry => entry.moduleId === module.uniEquipId)
+      ?? previous.find(entry => !matched.has(entry) && entry.type === type && (type === 'Original'
+        || normalizeCode(entry.name?.split(':')[0]) === normalizeCode(code)
+        || entry.name?.split(':').slice(1).join(':').trim() === module.uniEquipName))
+      ?? { stages: [] };
+    matched.add(prior);
+    const missions = (Array.isArray(module.missionList) ? module.missionList : [])
+      .map(id => table.missionList?.[id]?.desc).filter(Boolean);
+    const battle = type === 'Upgrade' ? battles[module.uniEquipId] : null;
+    return {
+      ...prior,
+      type,
+      moduleId: module.uniEquipId,
+      name: `${prefix}${module.uniEquipName}`,
+      ...(battle ? { stages: moduleStages(module, battle, names, itemName) } : {}),
+      ...(missions.length ? { mission: { requirement1: missions[0] ?? '', requirement2: missions[1] ?? '' } } : {}),
+    };
+  });
+  const enItem = id => items?.items?.[id]?.name;
+  const global = ownModules(modules);
+  const updated = build(global, modules, battleEquip, talentNames, id => enItem(id) ?? `item ${id}`);
+  /* A module CN has and Global does not yet is built from the CN tables, in the CN client's own
+     words (2026-10-03: "CN only stuff you can keep in CN till global release"), and rebuilt
+     every night: the night the Global tables carry it, it is in `global` above, matched by its
+     id, and the English replaces the Chinese with no one touching it. Costs take the English
+     item name where Global has the item. */
+  const onGlobal = new Set(global.map(module => module.uniEquipId));
+  const cnTalents = rows(cn?.characters?.[characterId]?.talents).flatMap(talent => rows(talent.candidates).map(c => c.name)).filter(Boolean);
+  const cnOnly = cn ? build(ownModules(cn.modules).filter(module => !onGlobal.has(module.uniEquipId) && module.type !== 'INITIAL'),
+    cn.modules, cn.battleEquip ?? {}, cnTalents, id => enItem(id) ?? cn.items?.items?.[id]?.name ?? `item ${id}`) : [];
+  // A module neither table has (a record's own) is kept as recorded.
+  return [...updated, ...cnOnly, ...previous.filter(entry => !matched.has(entry))];
 }
 
 export function officialVoiceActors(characterId, tables, current = null) {
@@ -211,9 +227,26 @@ export function officialVoiceActors(characterId, tables, current = null) {
   return Object.keys(voices).length ? voices : current;
 }
 
+/*
+ * The game's entry for a record, when it is the same operator: by id, in character_table or, for
+ * an alternate form, char_patch_table (Amiya's Guard and Medic forms live only there), with a
+ * name check against an id reused for someone else. The name check ignores word order and quotes,
+ * since records keep the name order the site uses ("Yahata Umiri" for the game's "Umiri Yahata",
+ * five BanG Dream operators that otherwise were never refreshed), and a form's record names it
+ * in brackets ("Amiya (Guard)").
+ */
+const nameWords = name => String(name ?? '').normalize('NFC').replace(/[’‘'"]/g, '').toLowerCase().split(/\s+/).filter(Boolean).sort().join(' ');
+export function sameOperator(recordName, gameName) {
+  return nameWords(recordName) === nameWords(gameName) || String(recordName ?? '').startsWith(`${gameName} (`);
+}
+export function characterOf(operator, tables) {
+  const character = tables?.characters?.[operator.internalName] ?? tables?.patch?.patchChars?.[operator.internalName];
+  return character && sameOperator(operator.name, character.name) ? character : null;
+}
+
 export function localizeReleasedMechanics(operator, tables) {
-  const character = tables?.characters?.[operator.internalName];
-  if (!character || character.name !== operator.name) return operator;
+  const character = characterOf(operator, tables);
+  if (!character) return operator;
   const next = structuredClone(operator);
   const previousSkills = next.skills?.skillList ?? [];
   const previousTalents = rows(next.talents);
@@ -272,10 +305,11 @@ export function localizeReleasedMechanics(operator, tables) {
 
 /** Only the modules of a released operator, rebuilt from the game's tables. */
 export function refreshModules(operator, tables) {
-  const character = tables?.characters?.[operator.internalName];
-  if (!character || character.name !== operator.name) return operator;
+  const character = characterOf(operator, tables);
+  if (!character) return operator;
   const talentNames = rows(character.talents).flatMap(talent => rows(talent.candidates).map(candidate => candidate.name)).filter(Boolean);
-  return { ...operator, modules: officialModules(operator.internalName, tables.modules, operator.modules, tables.battleEquip, talentNames, tables.items) };
+  if (tables.cn === undefined) throw new Error('refreshModules needs tables.cn: the CN tables, or null');
+  return { ...operator, modules: officialModules(operator.internalName, tables.modules, operator.modules, tables.battleEquip, talentNames, tables.items, tables.cn) };
 }
 
 export function localizeOperator(operator, handbook) {
@@ -369,7 +403,7 @@ async function main() {
   const excel = process.env.ARKPEDIA_EN;
   const fileOf = { 'character_table.json': 'characters', 'skill_table.json': 'skills', 'building_data.json': 'building',
     'uniequip_table.json': 'modules', 'battle_equip_table.json': 'battleEquip', 'item_table.json': 'items',
-    'charword_table.json': 'voices', 'handbook_info_table.json': 'handbook' };
+    'charword_table.json': 'voices', 'handbook_info_table.json': 'handbook', 'char_patch_table.json': 'patch' };
   const read = name => (pinned ? pinned[fileOf[name]] : JSON.parse(fs.readFileSync(path.join(excel, 'excel', name), 'utf8')));
   const supplementalPath = process.env.ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS;
   const supplementalCharwords = supplementalPath
@@ -379,6 +413,25 @@ async function main() {
       if (!response.ok) throw new Error(`Supplemental Global voice credits: ${response.status} ${response.statusText}`);
       return response.json();
     })();
+  /* The CN tables, for modules Global does not have yet (officialModules). The run's pinned CN
+     mirror (cn-tables.mjs settles it before this stage), or ARKPEDIA_CN, a checkout holding
+     gamedata/excel, beside ARKPEDIA_EN. A CN mirror the catalogue would refuse (one that numbers
+     the game's enums) leaves them out for the night: those modules keep what they had. */
+  const cnRead = name => JSON.parse(fs.readFileSync(path.join(process.env.ARKPEDIA_CN, 'gamedata', 'excel', name), 'utf8'));
+  let cn;
+  if (process.env.ARKPEDIA_CN) {
+    cn = { modules: cnRead('uniequip_table.json'), battleEquip: cnRead('battle_equip_table.json'), characters: cnRead('character_table.json'), items: cnRead('item_table.json') };
+  } else if (excel) {
+    throw new Error('ARKPEDIA_EN needs ARKPEDIA_CN beside it: the CN tables build the modules Global does not have yet');
+  } else {
+    try {
+      const tables = await (await import('./sync-catalogue.mjs')).cnSource(path.join(process.cwd(), '.cache/catalogue'));
+      cn = { modules: tables.modules, battleEquip: tables.battleEquip, characters: tables.characters, items: tables.items };
+    } catch (error) {
+      console.warn(`CN tables unavailable, CN-only modules keep what they had: ${error.message}`);
+      cn = null;
+    }
+  }
   const handbook = process.env.ARKPEDIA_EN_HANDBOOK ? JSON.parse(fs.readFileSync(process.env.ARKPEDIA_EN_HANDBOOK, 'utf8')) : read('handbook_info_table.json');
   const changed = syncOperatorEnglish(root, handbook, {
     characters: read('character_table.json'),
@@ -387,6 +440,8 @@ async function main() {
     modules: read('uniequip_table.json'),
     battleEquip: read('battle_equip_table.json'),
     items: read('item_table.json'),
+    patch: read('char_patch_table.json'),
+    cn,
     voiceTables: [read('charword_table.json'), supplementalCharwords],
   });
   console.log(`${changed} operator record(s) refreshed from published Global data.`);
