@@ -47,6 +47,7 @@ export const LINKS: NavLink[] = [
   { href: '/games', label: 'Games', icon: 'grid' },
   { href: '/schedule', label: 'Schedule', icon: 'timeline' },
   { href: '/music', label: 'Music', icon: 'music' },
+  { href: '/changelog', label: "What's new", icon: 'changelog' },
   { href: '/support', label: 'Support', icon: 'support' },
 ];
 
@@ -81,7 +82,7 @@ export const GROUPS: NavGroup[] = [
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
   /* The reader's own: their account, and the planners that read it (issue #94). */
   { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
-  { id: 'community', label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
+  { id: 'community', label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog')] },
 ];
 
 /* Not in a menu: one destination each, and a menu of one is a click in front of a

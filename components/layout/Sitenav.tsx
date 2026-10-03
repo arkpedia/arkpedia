@@ -9,6 +9,7 @@ import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import { GROUPS, LOOSE, isActiveLink, type NavLink } from '@/lib/nav/navLinks';
+import { useChangelogUnseen } from '@/lib/changelog/seen';
 
 /**
  * A game icon drawn in the current text colour.
@@ -104,6 +105,12 @@ export const ICONS: Record<string, JSX.Element> = {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <path d="M3 8.5C3 5 6 3 10 3s7 2 7 5.5c0 2.2-.9 3.6-2 4.6V16l-2-1.2L10.5 16 8 14.8 6 16v-2.9C4.9 12.1 3 10.7 3 8.5Z" strokeLinejoin="round" />
       <path d="M7.5 8.5 9 9.7M12.5 8.5 11 9.7" strokeLinecap="round" />
+    </svg>
+  ),
+  // A sparkle: What's new.
+  changelog: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 2.5 11.6 8.4 17.5 10 11.6 11.6 10 17.5 8.4 11.6 2.5 10 8.4 8.4Z" strokeLinejoin="round" />
     </svg>
   ),
   // An open book: the Story page.
@@ -227,6 +234,8 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
     return () => router.events.off('routeChangeStart', close);
   }, [router.events]);
 
+  // A dot on What's new, and on the menu holding it, until the latest entry has been read.
+  const changelogUnseen = useChangelogUnseen();
   const renderLink = (link: NavLink, className: string) => (
     <Link
       prefetch={false}
@@ -236,6 +245,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
     >
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
       <span>{link.label}</span>
+      {link.href === '/changelog' && changelogUnseen && <span className="nav-new-dot" aria-label="New" />}
     </Link>
   );
 
@@ -270,6 +280,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
                     onClick={() => setOpenMenu(open ? null : group.id)}
                   >
                     {label}
+                    {changelogUnseen && group.items.some((l) => l.href === '/changelog') && <span className="nav-new-dot" aria-hidden="true" />}
                     <svg className="site-nav-chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="11" height="11" aria-hidden="true">
                       <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>

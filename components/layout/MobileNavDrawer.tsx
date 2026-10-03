@@ -7,6 +7,7 @@ import { GROUPS, LOOSE, ICONS, isActiveLink, type NavLink } from './Sitenav';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
+import { useChangelogUnseen } from '@/lib/changelog/seen';
 
 // Only relevant near the left screen edge -- an edge-swipe is the
 // standard mobile-drawer "open" gesture, and restricting it to the
@@ -41,6 +42,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
     const here = GROUPS.find((group) => group.items.some((link) => isActiveLink(link, router.pathname)));
     setUnfolded(new Set(here ? [here.id] : []));
   }, [open, router.pathname]);
+  const changelogUnseen = useChangelogUnseen();
   const toggleGroup = (id: string) => setUnfolded((previous) => {
     const next = new Set(previous);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -277,7 +279,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
                   aria-controls={`mobile-nav-group-${group.id}`}
                   onClick={() => toggleGroup(group.id)}
                 >
-                  <span>{group.label}</span>
+                  <span>{group.label}{changelogUnseen && group.items.some((link) => link.href === '/changelog') && <span className="nav-new-dot" aria-hidden="true" />}</span>
                   <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="mobile-nav-group-chev">
                     <path d={isOpen ? 'M5 12.5 10 7.5 15 12.5' : 'M5 7.5 10 12.5 15 7.5'} strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -285,7 +287,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
                 {/* Folded, not removed: the links stay in the page (hidden), for crawlers and
                     for the nav's release-pinned art, which the content runtime test reads. */}
                 <div id={`mobile-nav-group-${group.id}`} className="mobile-nav-group-links" hidden={!isOpen}>
-                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} onPick={() => setOpen(false)} />)}
+                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} isNew={link.href === '/changelog' && changelogUnseen} onPick={() => setOpen(false)} />)}
                 </div>
               </div>
             );
@@ -299,11 +301,12 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
   );
 }
 /** One destination in the drawer: its icon and its name, lit when it is the page on screen. */
-function DrawerLink({ link, active, onPick }: { link: NavLink; active: boolean; onPick: () => void }) {
+function DrawerLink({ link, active, isNew = false, onPick }: { link: NavLink; active: boolean; isNew?: boolean; onPick: () => void }) {
   return (
     <Link prefetch={false} href={link.href} className={active ? 'mobile-nav-drawer-link active' : 'mobile-nav-drawer-link'} onClick={onPick}>
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
       <span>{link.label}</span>
+      {isNew && <span className="nav-new-dot" aria-label="New" />}
     </Link>
   );
 }

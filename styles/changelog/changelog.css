@@ -1,0 +1,12 @@
+/* What's new (pages/changelog.tsx): each release, its Added / Changed / Fixed. */
+.changelog-title { margin-left: 12px; font-family: var(--font-body); text-transform: none; letter-spacing: 0; }
+.changelog-group { margin-top: 14px; }
+.changelog-group h3 { margin: 0 0 6px; }
+.changelog-group ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; color: var(--text); font-size: 13px; line-height: 1.6; }
+/* The bullet is drawn flush with the section's edge, as every first line on the site is (ui-primitives
+   rule 17), with the text hanging beside it so a wrapped line lines up with the first. */
+.changelog-group li { display: grid; grid-template-columns: 14px minmax(0, 1fr); }
+.changelog-group li::before { content: '•'; color: var(--teal); }
+.changelog-go { margin-left: 4px; color: var(--teal); white-space: nowrap; }
+/* The dot on the nav's What's new, and on the menu that holds it, until the latest entry is read. */
+.nav-new-dot { display: inline-block; flex: none; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--teal); vertical-align: middle; }
