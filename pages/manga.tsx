@@ -24,8 +24,11 @@ export default function MangaPage({ manga }: Props) {
   return (
     <>
       <Head><title>Arknights Manga — Arkpedia</title></Head>
-      <PageHeader eyebrow="Rhodes Island // Manga" title="Arknights Manga"
-        sub={<>Every official comic from the <a href="https://www.arknights.global/" target="_blank" rel="noopener noreferrer">Global site</a>, read there for free. Where each one fits in the story is on the <Link prefetch={false} href="/story">Story</Link> page.</>} />
+      {/* Reached from the Story page's card, so the way back is to it: a crumb in the eyebrow,
+          as the community pages have, and a button for it in the header. */}
+      <PageHeader eyebrow={<>{'Rhodes Island // '}<Link prefetch={false} href="/story">Story</Link>{' // Manga'}</>} title="Arknights Manga"
+        sub={<>Every official comic from the <a href="https://www.arknights.global/" target="_blank" rel="noopener noreferrer">Global site</a>, read there for free.</>}
+        actions={<Link prefetch={false} href="/story" className="btn btn-sm ghost">← Back to Story</Link>} />
       <main>
         <section className="op-section" aria-labelledby="manga-list">
           <h2 id="manga-list">Official comics <span className="hint">{manga.length}</span></h2>
