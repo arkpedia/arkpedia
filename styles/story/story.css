@@ -19,6 +19,8 @@
 /* The board breaks its own lines; the site's font is a little wider than Canva's, so a line
    that would wrap here runs on past its box instead, as it fits on the board. */
 .story-map-text { position: absolute; white-space: pre; }
+/* The page's own texts (the Manga frame's titles and notes) wrap in their width instead. */
+.story-map-text.is-wrapped { white-space: normal; overflow-wrap: anywhere; }
 .story-map-label { position: absolute; display: flex; align-items: center; justify-content: center; white-space: pre; text-align: center; }
 .story-map-picture { position: absolute; display: block; }
 .story-map-picture img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -27,7 +29,10 @@ a.story-map-picture:hover, a.story-map-picture:focus-visible { outline: 12px sol
 .story-list-sections { display: grid; gap: 18px; }
 .story-list-section h3 { margin: 0 0 8px; }
 .story-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-.story-list-card { display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-decoration: none; }
+/* Every card in a row as tall as the row's tallest, and the titles at body size, so a row
+   reads as one row however long its titles run. */
+.story-list > li { display: flex; }
+.story-list-card { flex: 1; min-width: 0; font-size: 13px; line-height: 1.35; display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-decoration: none; }
 a.story-list-card:hover { border-color: var(--teal); }
 .story-list-card img { width: 44px; height: 54px; object-fit: cover; flex: none; }
 /* A comic's cover is landscape (966x654). */

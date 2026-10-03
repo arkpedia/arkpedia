@@ -243,7 +243,7 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
                 }
                 const at = { left: element.x - bounds.x, top: element.y - bounds.y };
                 if (element.type === 'text') {
-                  return <div key={index} className="story-map-text" style={{ ...at, width: element.width, ...textStyle(element) }}>{element.text}</div>;
+                  return <div key={index} className={`story-map-text${element.wrap ? ' is-wrapped' : ''}`} style={{ ...at, width: element.width, ...textStyle(element) }}>{element.text}</div>;
                 }
                 if (element.type === 'shape') {
                   const shape = { ...element, x: at.left, y: at.top };

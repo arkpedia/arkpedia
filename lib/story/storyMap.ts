@@ -14,6 +14,9 @@ interface Box { x: number; y: number; width: number; height: number }
 export interface StoryText {
   text: string; size: number; color: string; align: 'left' | 'center' | 'right';
   bold: boolean; italic: boolean; underline: boolean;
+  /** Wraps inside its width: the page's own texts (withManga), whose words the browser
+   *  measures in the site's font. The board's texts break their own lines and never wrap. */
+  wrap?: boolean;
 }
 
 export type StoryElement =
@@ -153,17 +156,6 @@ export function storyListSections(map: StoryMap): { name: string; note?: string;
   return unplaced.length ? [...sections, { name: UNPLACED, note: UNPLACED_NOTE, stories: unplaced }] : sections;
 }
 
-/** Breaks a title into lines of about `chars` characters, at spaces, for the board's unwrapped text. */
-function wrap(text: string, chars: number): string {
-  const lines: string[] = [];
-  for (const word of text.split(/\s+/)) {
-    const last = lines[lines.length - 1];
-    if (last !== undefined && (last + ' ' + word).length <= chars) lines[lines.length - 1] = last + ' ' + word;
-    else lines.push(word);
-  }
-  return lines.join('\n');
-}
-
 /**
  * The map with the official comics drawn below the board, in the board's own vocabulary (frames,
  * labels, pictures), so it pans and zooms with it: a "Manga" frame holding one framed group per
@@ -190,31 +182,38 @@ export function withManga(map: StoryMap): StoryMap {
   const text = (x: number, y: number, w: number, value: string, size: number, extra: Partial<StoryText> = {}): StoryElement =>
     ({ type: 'text', x, y, width: w, height: size * 1.3 * value.split('\n').length, text: value, size, color: ink, align: 'left', bold: false, italic: false, underline: false, ...extra });
   added.push(text(left + 60, top + 40, width - 120, 'Manga', 106, { bold: true }));
-  added.push(text(left + 60, top + 200, width - 120, 'The official comics, added by Arkpedia: they are not on the original map. Click a cover to read it.', 53, { italic: true }));
+  added.push(text(left + 60, top + 200, width - 120, 'The official comics, added by Arkpedia: they are not on the original map. Click a cover to read it.', 53, { italic: true, wrap: true }));
 
-  let x = left + 60, y = top + 330, rowHeight = 0;
+  let x = left + 60, y = top + 330, rowHeight = 0, right = left + 60;
   for (const name of ordered) {
     const list = groups.get(name)!;
     const note = name === UNPLACED;
     const inner = Math.max(list.length * (card.width + card.gap) - card.gap, note ? 1500 : name.length * 48);
     const w = inner + 2 * pad;
-    const titles = list.map((comic) => wrap(comic.title, 24));
-    const titleLines = Math.max(...titles.map((value) => value.split('\n').length));
-    const h = pad + 110 + (note ? 80 : 0) + card.height + 24 + titleLines * title * 1.3 + pad;
+    /* The titles wrap in the browser, in the site's font, inside their cover's width; the box
+       is sized for the most lines the longest could take (about 0.62em a character, which
+       errs wide), so a title never runs past its frame. */
+    const lines = (value: string, size: number, width: number) => Math.ceil((value.length * size * 0.62) / width);
+    const titleLines = Math.max(...list.map((comic) => lines(comic.title, title, card.width)));
+    const noteLines = note ? lines(UNPLACED_NOTE, 45, inner) : 0;
+    const h = pad + 110 + noteLines * 45 * 1.3 + (note ? 20 : 0) + card.height + 24 + titleLines * title * 1.3 + pad;
     if (x + w > left + width - 60 && x > left + 60) { x = left + 60; y += rowHeight + 80; rowHeight = 0; }
     added.push({ type: 'shape', x, y, width: w, height: h, path: 'M0 0H64V64H0z', fill: null, stroke: ink, strokeWidth: 7, radius: 0 });
     added.push(text(x + pad, y + pad - 10, inner, name, 80));
     let cy = y + pad + 110;
-    if (note) { added.push(text(x + pad, cy - 20, inner, UNPLACED_NOTE, 45, { italic: true })); cy += 80; }
+    if (note) { added.push(text(x + pad, cy - 20, inner, UNPLACED_NOTE, 45, { italic: true, wrap: true })); cy += noteLines * 45 * 1.3 + 20; }
     list.forEach((comic, index) => {
       const cx = x + pad + index * (card.width + card.gap);
       added.push({ type: 'picture', id: comic.id, image: comic.image, link: { title: comic.title, url: comic.url }, manga: true, x: cx, y: cy, width: card.width, height: card.height });
-      added.push(text(cx, cy + card.height + 24, card.width, titles[index], title));
+      added.push(text(cx, cy + card.height + 24, card.width, comic.title, title, { wrap: true }));
     });
+    right = Math.max(right, x + w);
     x += w + 80;
     rowHeight = Math.max(rowHeight, h);
   }
   const bottom = y + rowHeight + 80;
-  added.unshift({ type: 'shape', x: left, y: top, width, height: bottom - top, path: 'M0 0H64V64H0z', fill: null, stroke: '#ce7835', strokeWidth: 7, radius: 0 });
+  // As wide as what it holds, not the whole board: one short row of groups in a frame the
+  // board's width left most of it empty.
+  added.unshift({ type: 'shape', x: left, y: top, width: Math.max(right + 60 - left, 2400), height: bottom - top, path: 'M0 0H64V64H0z', fill: null, stroke: '#ce7835', strokeWidth: 7, radius: 0 });
   return { ...map, bounds: { ...bounds, height: bottom + 40 - bounds.y }, elements: [...map.elements, ...added] };
 }
