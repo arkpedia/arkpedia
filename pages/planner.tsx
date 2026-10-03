@@ -422,10 +422,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     });
   };
   const [builderStates, setBuilderStates] = useState<Record<string, BuilderState>>({});
-  /* Whether crafting is counted AT ALL, which is a different question from
-     whether any given material may be crafted. Not persisted: it is a way of
-     reading the same plan, not a fact about the reader's account. */
-  const [autoCraft, setAutoCraft] = useState(true);
+  /* The plan counts raw materials only: the Workshop enters it one material at a time, through
+     that material's Craft, which adds its ingredients to the list (ShortfallList). The automatic
+     "Craft what I can" reading went on request (2026-10-03), so nothing is crafted unasked. */
+  const autoCraft = false;
 
   // Full promotion/skills/modules build data, fetched on demand per
   // operator rather than shipped upfront for the entire roster --
@@ -1149,8 +1149,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             depot={depot}
             crafting={crafting}
             onCraftingToggle={toggleCrafting}
-            autoCraft={autoCraft}
-            onAutoCraft={setAutoCraft}
+            onDepotChange={setDepotCount}
             showAll={showAllMaterials}
             onShowAll={setShowAllMaterials}
             exp={split.exp}

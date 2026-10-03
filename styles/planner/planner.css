@@ -803,7 +803,7 @@
 .recipe-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
 .recipe-row {
   display: grid;
-  grid-template-columns: 28px 1fr 168px 110px 96px;
+  grid-template-columns: 28px 1fr 168px 150px 96px;
   align-items: center;
   gap: 12px;
   padding: 7px 10px;
@@ -914,7 +914,6 @@
    the chip's own on (teal on --teal-dim): it also drew a tick of its own, in a span that
    stayed in the flex row when empty, so the label sat 6px right of its box's centre. */
 .plan-panel-acts.planner-need-acts { gap: 6px; }
-.planner-need-showall { flex: none; white-space: nowrap; }
 
 /* The slider stays under the stepper: typing is for landing on 78, dragging is
    for getting from 1 to 80 without pressing + seventy-nine times.
@@ -1344,22 +1343,6 @@
 /* The row's own actions, and the search that sits in the panel head. */
 .plan-row-acts { display: flex; align-items: center; gap: 4px; }
 
-/* The material name on a card, which opens its recipe. The theme's base button
-   rule is inline-flex with uppercase display type, and neither belongs on a
-   name inside a sentence. */
-.need-card-who b > button {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
-  text-transform: none;
-  text-align: left;
-  cursor: pointer;
-}
-.need-card-who b > button:hover { color: var(--teal); }
 
 /* The Craft checkbox (.check) shares the tags row, so it goes to the far end. */
 .need-card-craft { margin-left: auto; }
@@ -1845,3 +1828,19 @@
 /* An armed clear: the confirm keeps the danger colour, the way out does not. */
 .plan-clear-armed { display: inline-flex; align-items: center; gap: 6px; }
 
+
+/* A card's whole head opens its recipe (ShortfallList NeedCard), not only the name: a reset
+   .btn-bare laid out as the head it replaces, with the hover the name used to have. */
+.need-card-open { width: 100%; text-align: left; cursor: pointer; }
+.need-card-open:hover .need-card-who b, .need-card-open:focus-visible .need-card-who b { color: var(--teal); }
+/* What a card's count is for, where it is not simply the upgrades: how much goes to which
+   craft, and how much the upgrades ask for besides. */
+.need-card-for { display: grid; gap: 2px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-dim); }
+.need-card-for b { color: var(--text-bright); font-weight: 600; font-variant-numeric: tabular-nums; }
+.need-card-for .is-craft { color: var(--teal); }
+.need-card-for .is-craft b { color: inherit; }
+/* The open recipe's counts, steppable where they are read (HaveStepper). */
+.recipe-row .have { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.recipe-stepper { margin-left: 0; }
+.recipe-stepper input { width: 44px; }
+.recipe-row .have > span:last-child { min-width: 4.5ch; text-align: left; }
