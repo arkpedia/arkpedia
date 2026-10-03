@@ -476,6 +476,11 @@
   cursor: pointer;
 }
 .mobile-nav-menu-btn:hover { border-color: var(--teal); color: var(--teal); }
+/* Borderless on the bar (2026-10-03): the glyph alone, in the same 44px target; it lights
+   teal on hover and a soft panel shows under a press, so a tap still answers. */
+.mobile-nav-bar .mobile-nav-menu-btn { border-color: transparent; background: none; color: var(--text); }
+.mobile-nav-bar .mobile-nav-menu-btn:hover { border-color: transparent; color: var(--teal); }
+.mobile-nav-bar .mobile-nav-menu-btn:active { background: var(--panel-2); }
 
 .mobile-nav-bar-side {
   display: flex;

@@ -1096,7 +1096,13 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   height: 44px;
   margin-left: 0;
   border-radius: var(--radius-control);
+  /* Borderless on the bar, like the menu button: the portrait alone, in its 44px target. */
+  border-color: transparent;
+  background: none;
 }
+.mobile-nav-bar .theme-toggle:hover { border-color: transparent; }
+.mobile-nav-bar .theme-toggle:active { background: var(--panel-2); }
+.mobile-nav-bar .theme-toggle img { width: 34px; height: 34px; }
 @media (max-width: 640px) {
   .site-nav-link span:last-child { display: none; }
   .site-nav-link { padding: 8px; }
