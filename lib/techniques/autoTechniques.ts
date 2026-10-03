@@ -383,6 +383,8 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   },
   {
     keywords: ['slow'],
+    // "Ammo will be slowly reloaded" (every Hunter's trait) is not the Slow status.
+    excludeWords: ['slowly'],
     name: 'Slow',
     description: 'Reduce the movement speed of the enemies by 80% (does not reduce further with other slow applications, but can add to the slow time. Can stack with movement speed down applications).',
     minRarity: 1,
@@ -399,6 +401,29 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     showBranchIcon: true,
     name: 'Self-Sustain',
     description: 'Recovers HP on their own without the use of other healers.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    /* Every way the game says an operator takes an enemy's Invisibility away or hits it
+       anyway, from its own tables (2026-10-03 sweep): "Reveals Invisible enemies within
+       range" (SilverAsh's talent, the Sentry Protectors' SPT-X), "reveals Invisible enemies"
+       (Tsukinogi), "will reveal Invisible enemies" (Scene's Buggy Cams), "lose Invisibility"
+       (Ines, Mantra, Elysium), "removes their/enemies' Invisibility" (SilverAsh the
+       Reignfrost), "nullifies ... Invisibility" (Iana), "disabling enemy Invisibility" (Horn)
+       and "Can attack Invisible enemies" (Totter). An operator's OWN Invisibility ("removes
+       Invisibility" on its first attack, Manticore) is not this, so that clause is cut out. */
+    requireAllOf: [
+      ['reveal', 'reveals', 'lose', 'loses', 'removes', 'remove', 'nullifies', 'nullify', 'disabling', 'disables', 'disable', 'can attack'],
+      ['invisible', 'invisibility'],
+    ],
+    requireOrdered: true,
+    maxGap: 40,
+    excludePatterns: [/\band removes invisibility\b/g],
+    /* The same name and words as the hand-written technique on nine operators' records, so
+       what the rule finds joins that group instead of starting a second one beside it. */
+    name: 'Reveal Invisibility',
+    description: 'Reveals hidden enemies when in range',
     minRarity: 1,
     maxRarity: 6,
   },

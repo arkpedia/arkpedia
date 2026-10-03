@@ -49,6 +49,11 @@ export interface TechniqueGroup {
 // call this same function.
 let cachedGroups: TechniqueGroup[] | null = null;
 
+/* Techniques a trait's wording names without the operator having them: an Abjurer's or a
+   Bard's trait heals ALLIES ("restore the HP of allies"), not itself, and a Duelist's "Only
+   restores SP when blocking enemies" is a restriction, not a source of SP. */
+const NOT_FROM_TRAITS = new Set(['Self-Sustain', 'SP Charging']);
+
 export function buildTechniqueGroups(): TechniqueGroup[] {
   if (cachedGroups) return cachedGroups;
 
@@ -142,6 +147,28 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       }
     });
 
+    /* The trait, which the page never read (2026-10-03 sweep): a Decel Binder Slows with
+       every attack and no skill or talent says so. Branch-included rules are left to the
+       talent and skill passes, which already credit the branch. A talent's match wins. */
+    // A record keeps one trait text, or several by name (an operator whose trait changes).
+    const traitText = !op.trait ? null : typeof op.trait === 'string' ? op.trait : Object.values(op.trait).join(' ; ');
+    if (traitText) {
+      // Read as a talent is, so skills-only rules (Ammo-based Skills: a skill with a set
+      // number of uses) never take a trait's wording -- a Hunter's Ammo is its basic attack's.
+      for (const m of detectAutoTechniqueMatches(op.rarity, [traitText], op.name, op.branch, op.class, true)) {
+        if (!m.name || m.viaBranch || talentDetectedNames.has(m.name) || NOT_FROM_TRAITS.has(m.name)) continue;
+        addBadge(m.name, m.description, false, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
+          label: 'Trait',
+          skillIconPath: null,
+          talentLabel: 'Trait',
+          sourceText: traitText,
+          matchedKeyword: m.matchedKeyword,
+          matchedKeywordEnd: m.matchedKeywordEnd,
+          highlightSeparately: m.highlightSeparately,
+        }, true);
+      }
+    }
+
     for (const [skillIndex, skill] of getSkillList(op).entries()) {
       const manualTechs = (skill.techniques || []).map((t) => ({ ...t, viaBranch: false, matchedKeyword: null as string | null, matchedKeywordEnd: null as string | null, highlightSeparately: false, sourceText: t.description }));
       // Sub priority doesn't count -- only an M3 recommendation
@@ -157,7 +184,8 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       // earlier level (different wording/numbers) would get badged
       // against text that didn't contain it at all, breaking
       // highlighting or wrongly attributing the technique entirely.
-      const seenSkillNames = new Set<string>();
+      // A technique the record already names on this skill by hand is not found again.
+      const seenSkillNames = new Set<string>(manualTechs.map((t) => t.name).filter((n): n is string => !!n));
       const autoTechs: (AutoTechniqueMatch & { sourceText: string | null })[] = [];
       let referencedTalentText: string | null = null;
       for (let li = skill.levels.length - 1; li >= 0; li--) {
@@ -231,7 +259,9 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       for (const s of orderedStages) {
         if (s.stage !== 'Stage 1' && s.stage !== 'Stage 3') continue;
         if (!s.effectText) continue;
-        const matches = detectAutoTechniqueMatches(op.rarity, [s.effectText], op.name, op.branch, op.class);
+        // A module upgrades the trait or a talent, never a skill: skills-only rules skip it,
+        // as they skip talents (a Hunter's HUN-X "+1 Ammo" is its basic attack's Ammo).
+        const matches = detectAutoTechniqueMatches(op.rarity, [s.effectText], op.name, op.branch, op.class, true);
         for (const m of matches) {
           if (!m.name) continue;
           if (talentDetectedNames.has(m.name)) continue; // talent takes precedence -- already covered, don't double count
