@@ -3,7 +3,7 @@ import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import ThemeToggle from './ThemeToggle';
-import { NAV_ORDER, ICONS, isActiveLink } from './Sitenav';
+import { GROUPS, LOOSE, ICONS, isActiveLink, type NavLink } from './Sitenav';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
@@ -32,6 +32,20 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const menuBtnRef = useRef<HTMLButtonElement | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
+  /* Which of the drawer's sections are unfolded. Each time the drawer opens, the section
+     holding the current page is the one open, so the reader sees where they are and the rest
+     of the menu is five headings, not twenty-odd links. */
+  const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!open) return;
+    const here = GROUPS.find((group) => group.items.some((link) => isActiveLink(link, router.pathname)));
+    setUnfolded(new Set(here ? [here.id] : []));
+  }, [open, router.pathname]);
+  const toggleGroup = (id: string) => setUnfolded((previous) => {
+    const next = new Set(previous);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   // Dialog behavior for the drawer: Escape closes; focus moves to the first
   // link on open and back to the menu button on close; Tab wraps within the
@@ -40,9 +54,10 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
   useEffect(() => {
     if (!open) return;
     const drawer = drawerRef.current;
+    // Only what is on screen: a folded section's links are in the page but hidden.
     const focusables = () => Array.from(
       drawer?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [],
-    );
+    ).filter((el) => el.getClientRects().length > 0);
     focusables()[0]?.focus();
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -179,6 +194,19 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
           setOpen(true);
         }}
       >
+        {/* The menu button leads the bar, on the side the drawer slides in from. */}
+        <button
+          ref={menuBtnRef}
+          type="button"
+          className="mobile-nav-menu-btn"
+          aria-label="Open navigation menu"
+          aria-expanded={open}
+          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" width="18" height="18" aria-hidden="true">
+            <path d="M3 5.5 H17 M3 10 H17 M3 14.5 H17" strokeLinecap="round" />
+          </svg>
+        </button>
         {mobileNav ? (
           <Link prefetch={false} href={mobileNav.back.href} className="mobile-nav-back">
             <span className="mobile-nav-back-chev" aria-hidden="true">&lsaquo;</span>
@@ -203,18 +231,6 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
           <div className="site-nav-theme-wrap">
             <ThemeToggle />
           </div>
-          <button
-            ref={menuBtnRef}
-            type="button"
-            className="mobile-nav-menu-btn"
-            aria-label="Open navigation menu"
-            aria-expanded={open}
-            onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" width="18" height="18" aria-hidden="true">
-              <path d="M3 5.5 H17 M3 10 H17 M3 14.5 H17" strokeLinecap="round" />
-            </svg>
-          </button>
         </div>
       </div>
       {/* Holds the fixed bar's place. Its height is --nav-h, measured off the bar by
@@ -246,24 +262,48 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
           <ServerClock variant="drawer" />
         </div>
         <div className="mobile-nav-drawer-links">
-          {/* NAV_ORDER, not LINKS: the drawer lists the same destinations in the same
-              order the desktop bar does. */}
-          {NAV_ORDER.map((link) => {
-            const active = isActiveLink(link, router.pathname);
+          {/* The desktop bar's own menus, as sections that fold (GROUPS), then its loose
+              links (LOOSE): the same destinations, grouped the same way, and a short list
+              until a section is opened. */}
+          {GROUPS.map((group) => {
+            const isOpen = unfolded.has(group.id);
+            const holdsCurrent = group.items.some((link) => isActiveLink(link, router.pathname));
             return (
-              <Link prefetch={false}
-                key={link.href}
-                href={link.href}
-                className={active ? 'mobile-nav-drawer-link active' : 'mobile-nav-drawer-link'}
-                onClick={() => setOpen(false)}
-              >
-                <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
-                <span>{link.label}</span>
-              </Link>
+              <div key={group.id} className="mobile-nav-group">
+                <button
+                  type="button"
+                  className={`mobile-nav-group-head${holdsCurrent ? ' current' : ''}`}
+                  aria-expanded={isOpen}
+                  aria-controls={`mobile-nav-group-${group.id}`}
+                  onClick={() => toggleGroup(group.id)}
+                >
+                  <span>{group.label}</span>
+                  <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="mobile-nav-group-chev">
+                    <path d={isOpen ? 'M5 12.5 10 7.5 15 12.5' : 'M5 7.5 10 12.5 15 7.5'} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {/* Folded, not removed: the links stay in the page (hidden), for crawlers and
+                    for the nav's release-pinned art, which the content runtime test reads. */}
+                <div id={`mobile-nav-group-${group.id}`} className="mobile-nav-group-links" hidden={!isOpen}>
+                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} onPick={() => setOpen(false)} />)}
+                </div>
+              </div>
             );
           })}
+          <div className="mobile-nav-loose">
+            {LOOSE.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname)} onPick={() => setOpen(false)} />)}
+          </div>
         </div>
       </div>
     </>
+  );
+}
+/** One destination in the drawer: its icon and its name, lit when it is the page on screen. */
+function DrawerLink({ link, active, onPick }: { link: NavLink; active: boolean; onPick: () => void }) {
+  return (
+    <Link prefetch={false} href={link.href} className={active ? 'mobile-nav-drawer-link active' : 'mobile-nav-drawer-link'} onClick={onPick}>
+      <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
+      <span>{link.label}</span>
+    </Link>
   );
 }

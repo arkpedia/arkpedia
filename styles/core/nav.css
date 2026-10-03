@@ -536,6 +536,33 @@
   color: var(--text-dim);
   text-decoration: none;
 }
+.mobile-nav-group { display: flex; flex-direction: column; }
+/* A section of the drawer: the desktop bar's menu name as a fold, 44px tall like a link. */
+.mobile-nav-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.mobile-nav-group-head:active { background: var(--panel-2); }
+.mobile-nav-group-head.current { color: var(--teal); }
+.mobile-nav-group-chev { flex: none; color: var(--text-dim); }
+.mobile-nav-group-links { display: flex; flex-direction: column; gap: 2px; padding: 0 0 6px 10px; }
+.mobile-nav-group-links[hidden] { display: none; }
+.mobile-nav-loose { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
 .mobile-nav-drawer-link .site-nav-icon {
   width: 18px;
   height: 18px;
