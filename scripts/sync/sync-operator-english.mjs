@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { interpolateBlackboard, stripRichText } from '../lib/gametext.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
+import { moduleStages } from './module-stages.mjs';
 
 const hasChinese = text => typeof text === 'string' && /\p{Script=Han}/u.test(text);
 const isEnglish = text => typeof text === 'string' && /[A-Za-z]/.test(text) && !hasChinese(text);
@@ -84,12 +85,21 @@ function officialBaseSkills(characterId, building) {
   });
 }
 
-export function officialModules(characterId, modules, current) {
+/**
+ * The operator's modules from uniequip_table, each Upgrade's stages built from battle_equip_table
+ * (module-stages.mjs). battleEquip, talentNames and items are required: stages kept from a record
+ * instead of rebuilt are the wiki's words, which is what this refresh exists to replace.
+ */
+export function officialModules(characterId, modules, current, battleEquip, talentNames, items) {
+  if (!battleEquip || typeof battleEquip !== 'object') throw new Error('officialModules needs battle_equip_table');
   const previous = rows(current);
   const matched = new Set();
   const normalizeCode = value => String(value ?? '').replace(/α/gi, 'A').replace(/β/gi, 'B').replace(/δ/gi, 'D').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  // charEquip is the per-character list. equipDict's charId is not: Amiya's Guard and Medic
+  // modules carry char_002_amiya too, so filtering on it handed the Caster all six.
+  const own = Array.isArray(modules?.charEquip?.[characterId]) ? new Set(modules.charEquip[characterId]) : null;
   const updated = Object.values(modules?.equipDict ?? {})
-    .filter(module => module.charId === characterId)
+    .filter(module => (own ? own.has(module.uniEquipId) : module.charId === characterId))
     .sort((a, b) => a.charEquipOrder - b.charEquipOrder)
     .map(module => {
       const type = module.type === 'INITIAL' ? 'Original' : 'Upgrade';
@@ -106,11 +116,13 @@ export function officialModules(characterId, modules, current) {
       matched.add(prior);
       const missions = (Array.isArray(module.missionList) ? module.missionList : [])
         .map(id => modules.missionList?.[id]?.desc).filter(Boolean);
+      const battle = type === 'Upgrade' ? battleEquip[module.uniEquipId] : null;
       return {
         ...prior,
         type,
         moduleId: module.uniEquipId,
         name: `${prefix}${module.uniEquipName}`,
+        ...(battle ? { stages: moduleStages(module, battle, talentNames, id => items?.items?.[id]?.name ?? `item ${id}`) } : {}),
         ...(missions.length ? { mission: { requirement1: missions[0] ?? '', requirement2: missions[1] ?? '' } } : {}),
       };
     });
@@ -149,7 +161,7 @@ export function localizeReleasedMechanics(operator, tables) {
   };
   next.talents = officialTalents(character, next.talents);
   next.baseSkills = officialBaseSkills(operator.internalName, tables.building);
-  next.modules = officialModules(operator.internalName, tables.modules, next.modules);
+  next.modules = refreshModules(next, tables).modules;
   next.characterVoices = officialVoiceActors(operator.internalName, tables.voiceTables, next.characterVoices);
   next.skills = {
     ...next.skills,
@@ -191,6 +203,14 @@ export function localizeReleasedMechanics(operator, tables) {
   return next;
 }
 
+/** Only the modules of a released operator, rebuilt from the game's tables. */
+export function refreshModules(operator, tables) {
+  const character = tables?.characters?.[operator.internalName];
+  if (!character || character.name !== operator.name) return operator;
+  const talentNames = rows(character.talents).flatMap(talent => rows(talent.candidates).map(candidate => candidate.name)).filter(Boolean);
+  return { ...operator, modules: officialModules(operator.internalName, tables.modules, operator.modules, tables.battleEquip, talentNames, tables.items) };
+}
+
 export function localizeOperator(operator, handbook) {
   if (!handbook || handbook.charID !== operator.internalName) return operator;
   // Multiple stories can be alternate-form or conditional archives. Do not
@@ -223,6 +243,15 @@ export function shouldRefreshReleasedOperator(operator, now = Date.now(), window
   return age >= 0 && age <= windowDays * 24 * 60 * 60 * 1000;
 }
 
+/* What people wrote on a record, which no table holds. A refresh that loses any of it is a bug
+   (a talent list that changed length once dropped Manticore's talent technique). */
+export function handWrittenFields(operator) {
+  return JSON.stringify({
+    skills: rows(operator.skills?.skillList).map(skill => [skill.techniques ?? null, skill.recommendation ?? null]),
+    talents: rows(operator.talents).map(talent => talent.technique ?? null).filter(Boolean),
+  });
+}
+
 export function syncOperatorEnglish(root, handbook, tables = null) {
   if (!handbook?.handbookDict || typeof handbook.handbookDict !== 'object') throw new Error('Invalid English handbook table');
   let changed = 0;
@@ -234,10 +263,18 @@ export function syncOperatorEnglish(root, handbook, tables = null) {
       const shouldRefresh = process.env.ARKPEDIA_OPERATOR_REFRESH_ALL === '1'
         || forcedIds.has(operator.internalName)
         || shouldRefreshReleasedOperator(operator);
-      if (!shouldRefresh) continue;
-      const mechanics = tables ? localizeReleasedMechanics(operator, tables) : operator;
-      const next = localizeOperator(mechanics, handbook.handbookDict[operator.internalName]);
+      // Modules are rebuilt from the game's tables for every released operator on every run: a
+      // record kept as it was is the wiki's text, and the game's is the source (2026-10-03).
+      // The rest of the mechanics keep the recent-release window for now. Their names are keys:
+      // skill and base-skill icon filenames, the "Replaces" suffix pages/base.tsx reads, and
+      // talent-indexed hand-written techniques, so a full refresh needs those moved first.
+      const next = shouldRefresh
+        ? localizeOperator(tables ? localizeReleasedMechanics(operator, tables) : operator, handbook.handbookDict[operator.internalName])
+        : tables ? refreshModules(operator, tables) : operator;
       if (JSON.stringify(next) === JSON.stringify(operator)) continue;
+      if (handWrittenFields(next) !== handWrittenFields(operator)) {
+        throw new Error(`${operator.name}: the refresh would lose or move hand-written techniques or recommendations`);
+      }
       fs.writeFileSync(at, JSON.stringify(next, null, 2) + '\n');
       console.log(`Global operator data: ${operator.name}`);
       changed++;
@@ -265,6 +302,7 @@ async function main() {
     skills: read('skill_table.json'),
     building: read('building_data.json'),
     modules: read('uniequip_table.json'),
+    battleEquip: read('battle_equip_table.json'),
     items: read('item_table.json'),
     voiceTables: [read('charword_table.json'), supplementalCharwords],
   });

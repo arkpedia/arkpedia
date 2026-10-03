@@ -214,6 +214,14 @@ function findStatMinusNumber(originalText: string, statWord: string): { statMatc
   }
   const rm = reversedPattern.exec(originalText);
   if (rm) return { statMatch: rm[2], numberMatch: rm[1] };
+  // The game's own module text often carries no minus sign at all: "Attacks reduce the
+  // target's RES by 24%" (Haze CCR-X). A lowering verb, then the stat directly followed by
+  // "by" and the number, in one clause.
+  const verbPattern = new RegExp(`\\b(?:reduces?|reducing|lowers?|lowering|decreases?|decreasing)\\b([^.;]*?)\\b(${escaped})\\s+by\\s+(\\d+(?:\\.\\d+)?%?)`, flags);
+  let vm: RegExpExecArray | null;
+  while ((vm = verbPattern.exec(originalText))) {
+    if (!isInterfered(vm[1])) return { statMatch: vm[2], numberMatch: vm[3] };
+  }
   return null;
 }
 

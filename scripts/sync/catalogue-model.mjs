@@ -1,6 +1,5 @@
 /** Pure catalogue reconciliation. Display names are never used as source identities. */
 import { localizeReleasedMechanics } from './sync-operator-english.mjs';
-import { formatModuleAttributes } from './sync-module-stats.mjs';
 import { stripRichText } from '../lib/gametext.mjs';
 const list = x => Array.isArray(x) ? x : [];
 const stableOrder = (previous, next) => [...list(previous).filter(n => next.includes(n)), ...next.filter(n => !list(previous).includes(n))];
@@ -117,15 +116,7 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     if (oldName !== name) { renames.push([oldName, name]); op.aliases = [...new Set([...(op.aliases ?? []), oldName])]; }
     if (isNew || promote) {
       op.files = archives(id, tables);
-      for (const module of op.modules) {
-        const equip=tables.modules.equipDict[module.moduleId], battle=tables.battleEquip?.[module.moduleId];
-        if (module.type === 'Original' || !battle) continue;
-        module.stages=battle.phases.map((phase,i)=>({ stage: `Stage ${i+1}`, attributesIncreased: formatModuleAttributes(phase.attributeBlackboard),
-          effectLabel: 'Module effect', effectText: phase.parts.flatMap(part=>[
-            ...list(part.overrideTraitDataBundle?.candidates).map(c=>stripRichText(c.overrideDescripton || c.additionalDescription)),
-            ...list(part.addOrOverrideTalentDataBundle?.candidates).map(c=>[c.requiredPotentialRank ? `Potential ${c.requiredPotentialRank+1}` : '',stripRichText(c.upgradeDescription || c.description)].filter(Boolean).join(': ')),
-          ]).filter(Boolean).join('\n'), cost: costs(equip.itemCost?.[String(i+1)],tables) }));
-      }
+      // Module stages come from localizeReleasedMechanics above (module-stages.mjs), as for every released operator.
     }
     if (!op.files?.length) { hold(id, name, isNew, `has no archive text in the ${global ? 'Global' : 'CN'} handbook table yet`); continue; }
     if (isNew) op.promotion = character.phases.slice(1).map((phase, i) => ({ tier: `Elite ${i + 1}`, upgrades: [], prerequisite: `Level ${character.phases[i].maxLevel}`,

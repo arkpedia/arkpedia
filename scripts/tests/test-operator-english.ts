@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error JavaScript importer is also used directly by the refresh job.
-import { localizeOperator, localizeReleasedMechanics, officialModules, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
+import { handWrittenFields, localizeOperator, localizeReleasedMechanics, officialModules, officialVoiceActors, shouldRefreshReleasedOperator } from '../sync/sync-operator-english.mjs';
 
 const operator = {
   internalName: 'char_test', review: { official: '中文简介', editor: 'Keep the editorial review.' },
@@ -79,7 +79,7 @@ test('a newly released operator adopts official Global mechanics while preservin
     }] } },
     building: { chars: { char_test: { buffChar: [{ buffData: [{ buffId: 'buff', cond: { phase: 'PHASE_0' } }] }] } },
       buffs: { buff: { buffName: 'Official Base Skill', roomType: 'HIRE', description: 'Contact speed <@cc.vup>+30%</>' } } },
-    modules: { equipDict: {}, missionList: {} }, items: { items: { item: { name: 'Material' } } },
+    modules: { equipDict: {}, missionList: {} }, battleEquip: {}, items: { items: { item: { name: 'Material' } } },
     voiceTables: [{ voiceLangDict: { char_test: { dict: { EN: { cvName: ['Current Actor'] } } } } }],
   };
   const next = localizeReleasedMechanics(unreleased, tables);
@@ -107,9 +107,41 @@ test('module refresh preserves independent X/Y/alpha stages and CN-only modules'
     uniEquipId: id, charId: 'char_test', type: 'ADVANCED', typeName1: prefix, typeName2: suffix,
     uniEquipName: `Current ${id}`, charEquipOrder: index,
   }]));
-  const updated = officialModules('char_test', { equipDict }, current);
+  const updated = officialModules('char_test', { equipDict }, current, {}, [], { items: {} });
   assert.deepEqual(updated.map((m: { stages: { effectText: string }[] }) => m.stages[0].effectText), ['X trait', 'Y trait', 'IS trait', 'CN trait']);
   assert.equal(updated[2].name, 'ISW-α: Current a');
   assert.deepEqual(updated.slice(0, 3).map((m: { moduleId?: string }) => m.moduleId), ['x', 'y', 'a']);
-  assert.deepEqual(officialModules('char_test', { equipDict }, updated), updated, 'repeat refresh is idempotent');
+  assert.deepEqual(officialModules('char_test', { equipDict }, updated, {}, [], { items: {} }), updated, 'repeat refresh is idempotent');
+  assert.throws(() => officialModules('char_test', { equipDict }, current, undefined, [], { items: {} }), /battle_equip_table/);
+  const forms = officialModules('char_test', { equipDict, charEquip: { char_test: ['x'] } }, current, {}, [], { items: {} });
+  assert.deepEqual(forms.filter((m: { moduleId?: string }) => m.moduleId).map((m: { moduleId?: string }) => m.moduleId), ['x'], 'another form\'s modules under the same charId stay off');
+});
+
+test('module stages are rebuilt from battle_equip_table, keeping the record\'s own fields', () => {
+  const current = [{ type: 'Upgrade', name: 'DEC-X: Old', note: 'hand-written', stages: [{ stage: 'Stage 1', effectLabel: 'New trait', effectText: 'Wiki words' }] }];
+  const equipDict = { x: { uniEquipId: 'x', charId: 'char_test', type: 'ADVANCED', typeName1: 'DEC', typeName2: 'X', uniEquipName: 'New', charEquipOrder: 1,
+    itemCost: { 1: [{ id: 'mod_unlock_token', count: 1 }], 2: [], 3: [] } } };
+  const trait = (text: string) => ({ target: 'DISPLAY', overrideTraitDataBundle: { candidates: [{ additionalDescription: text, blackboard: [] }] }, addOrOverrideTalentDataBundle: { candidates: null } });
+  const talent = (value: number) => ({ target: 'TALENT_DATA_ONLY', overrideTraitDataBundle: { candidates: null }, addOrOverrideTalentDataBundle: { candidates: [
+    { name: 'Power', talentIndex: 0, upgradeDescription: 'ATK +{atk:0%}', blackboard: [{ key: 'atk', value }] },
+    { name: 'Power', talentIndex: 0, requiredPotentialRank: 4, upgradeDescription: 'ATK +{atk:0%}', blackboard: [{ key: 'atk', value: value + 0.03 }] },
+  ] } });
+  const battleEquip = { x: { phases: [
+    { attributeBlackboard: [], parts: [trait('Attacks <@ba.kw>twice</>')] },
+    { attributeBlackboard: [], parts: [trait('Attacks <@ba.kw>twice</>'), talent(0.1)] },
+    { attributeBlackboard: [], parts: [trait('Attacks <@ba.kw>twice</>'), talent(0.15)] },
+  ] } };
+  const [module] = officialModules('char_test', { equipDict }, current, battleEquip, ['Power'], { items: { mod_unlock_token: { name: 'Module Data Block' } } });
+  assert.equal(module.note, 'hand-written');
+  assert.deepEqual(module.stages.map((s: { effectLabel: string; effectText: string }) => [s.effectLabel, s.effectText]), [
+    ['New trait', 'Attacks twice'], ['Power improved', 'ATK +10%'], ['Power improved', 'ATK +15%'],
+  ]);
+  assert.deepEqual(module.stages[0].cost, [{ name: 'Module Data Block', quantity: 1 }]);
+});
+
+test('hand-written techniques and recommendations are what the refresh guard compares', () => {
+  const op = { skills: { skillList: [{ name: 'S1', techniques: ['Stun'], recommendation: 'M3 first' }] }, talents: [{ name: 'A', technique: 'Slow' }, { name: 'B' }] };
+  assert.equal(handWrittenFields(op), handWrittenFields({ ...op, trait: 'changed' }));
+  assert.notEqual(handWrittenFields(op), handWrittenFields({ ...op, talents: [{ name: 'A' }] }));
+  assert.notEqual(handWrittenFields(op), handWrittenFields({ ...op, skills: { skillList: [{ name: 'S1', techniques: ['Stun'] }] } }));
 });

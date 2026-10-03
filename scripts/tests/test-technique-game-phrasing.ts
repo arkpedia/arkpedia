@@ -57,3 +57,15 @@ test('the page lists module traits and operator traits, without crediting what a
   const sustainViaTrait = groups.find((g) => g.name === 'Self-Sustain')?.entries.filter((e) => e.badges.every((b) => b.label === 'Trait')) ?? [];
   assert.deepEqual(sustainViaTrait.map((e) => e.operatorName), [], 'an Abjurer\'s trait heals allies, not itself');
 });
+
+test('a lowered stat with no minus sign, "reduce the target\'s RES by 24%", is the stat debuff', () => {
+  for (const [text, name] of [
+    ["Attacks reduce the target's RES by 24% for 1 second", 'RES Down'],
+    ["Attacks have a 25% chance to reduce the target's RES by 25% for 3 seconds", 'RES Down'],
+    ["Attacks reduce the target's DEF by 7% for 10s (stacks up to 5 times)", 'DEF Down'],
+    ["20% chance for attacks to deal 165% damage and reduce the target's ATK by 15% for 3 seconds", 'ATK Down'],
+    ["When hitting an enemy with full HP, ATK increases to 130%, reduce that enemy's Movement Speed by 50% for 3.5s", 'Movement Speed Down'],
+  ]) assert.ok(rules(text).includes(name), text);
+  // Another stat sitting between the verb and the number keeps the number off this one.
+  assert.ok(!rules('Reduces DP Cost and increases ATK by 20%').includes('ATK Down'));
+});
