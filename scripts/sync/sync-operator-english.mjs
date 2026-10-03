@@ -298,9 +298,9 @@ export function localizeOperator(operator, handbook) {
 }
 
 export function shouldRefreshReleasedOperator(operator, now = Date.now(), windowDays = 90) {
-  // Global tables often settle over several post-patch updates. Recheck recent
-  // releases daily, while leaving stable older records alone unless they still
-  // contain untranslated text. A manual audit can opt into a full refresh.
+  // Now only decides voice credits (syncOperatorEnglish rebuilds everything else for every
+  // operator): a recent release, or a record still carrying untranslated text, takes the
+  // game's credits; an older one keeps what the records add to them.
   if (hasChinese(operator.review?.official)
     || (operator.files ?? []).some(file => hasChinese(file.description))) return true;
   const match = String(operator.characterInfo?.['Release Date'] ?? '').match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
@@ -335,14 +335,15 @@ export function syncOperatorEnglish(root, handbook, tables = null) {
       const shouldRefresh = process.env.ARKPEDIA_OPERATOR_REFRESH_ALL === '1'
         || forcedIds.has(operator.internalName)
         || shouldRefreshReleasedOperator(operator);
-      // Modules are rebuilt from the game's tables for every released operator on every run: a
-      // record kept as it was is the wiki's text, and the game's is the source (2026-10-03).
-      // The rest of the mechanics keep the recent-release window for now. Their names are keys:
-      // skill and base-skill icon filenames, the "Replaces" suffix pages/base.tsx reads, and
-      // talent-indexed hand-written techniques, so a full refresh needs those moved first.
-      const next = shouldRefresh
-        ? localizeOperator(tables ? localizeReleasedMechanics(operator, tables) : operator, handbook.handbookDict[operator.internalName])
-        : tables ? refreshModules(operator, tables) : operator;
+      // Every released operator is rebuilt from the game's tables on every run, mechanics and
+      // archive text alike: a record kept as it was is the wiki import's text, and the game's is
+      // the source (2026-10-03). Names stay keys (keepSpelling), talents match by name, and the
+      // guard below refuses to lose anything written by hand.
+      const rebuilt = localizeOperator(tables ? localizeReleasedMechanics(operator, tables) : operator, handbook.handbookDict[operator.internalName]);
+      // Except voice credits, outside the recent-release window: the records carry what the EN
+      // table does not (the actor's own name beside the EN credit, the dialect where the game says
+      // "Regional Chinese", languages the table lacks), so the game's list would drop it.
+      const next = shouldRefresh || !operator.characterVoices ? rebuilt : { ...rebuilt, characterVoices: operator.characterVoices };
       if (JSON.stringify(next) === JSON.stringify(operator)) continue;
       if (handWrittenFields(next) !== handWrittenFields(operator)) {
         throw new Error(`${operator.name}: the refresh would lose or move hand-written techniques or recommendations`);

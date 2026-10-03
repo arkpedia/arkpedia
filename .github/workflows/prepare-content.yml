@@ -175,8 +175,8 @@ jobs:
           bash scripts/sync/refresh-stage-data.sh
           stage pulls -- npm run pulls:refresh
           # Every mastery cost a record lacks, from the Global table or, for a CN-only operator,
-          # the CN one (scripts/sync/sync-skill-masteries.mjs): the English refresh writes costs
-          # only for recent releases, so older records kept the wiki import's gaps. Before the
+          # the CN one (scripts/sync/sync-skill-masteries.mjs): the English refresh writes the costs
+          # of every operator in the Global tables, so this fills the CN-only ones. Before the
           # material catalogue, which reads the records' costs.
           stage skill-masteries -- node scripts/sync/sync-skill-masteries.mjs
           # The planner's material catalogue, from the operator records as they now stand (after
