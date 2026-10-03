@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
+import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, planHorizon, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
 import type { Skin } from '../../lib/skins/skinTypes';
 import { ALL_BANNERS, bundledBacklogSources } from '../../lib/pulls/sources';
@@ -632,4 +632,23 @@ test('banner forecasts reuse calendar event windows without extending banners to
 test('versioned catalogue artwork retains its query after filename escaping', async () => {
   const { pullArtworkUrl } = await import('../../lib/pulls/artwork');
   assert.equal(pullArtworkUrl('/banners/Pool [175].webp?v=abc123'), '/banners/Pool%20%5B175%5D.webp?v=abc123');
+});
+
+// The banner plan's footer reports through its last banner, whatever the Pull calculation's date.
+test('the plan reaches its last spending date, never before today, and nowhere without goals', () => {
+  const goals = [{ banner: 'A', spendOn: '2026-11-04', pulls: 60 }, { banner: 'B', spendOn: '2026-12-15', pulls: 80 }, { banner: 'C', spendOn: '2026-10-20', pulls: 10 }];
+  assert.equal(planHorizon(goals, '2026-10-03'), '2026-12-15');
+  assert.equal(planHorizon([{ banner: 'A', spendOn: '2026-09-01', pulls: 1 }], '2026-10-03'), '2026-10-03', 'a plan whose dates have passed is judged as of today');
+  assert.equal(planHorizon([], '2026-10-03'), null);
+  // Through its horizon, every goal's budget is paid.
+  assert.equal(savingsAfterPlanAt(200, [{ goal: goals[0], paid: 60 }, { goal: goals[1], paid: 80 }, { goal: goals[2], paid: 10 }] as never, planHorizon(goals, '2026-10-03')!), 50);
+});
+
+// The Skin wishlist's Include is saved with the plan; a plan from before it has none, which the
+// page reads as on (the wishlist was always held back).
+test('the skin wishlist setting survives a save and is absent from older plans', () => {
+  assert.equal(parsePullPlan(JSON.stringify(saved))!.includeSkins, undefined);
+  assert.equal(parsePullPlan(JSON.stringify({ ...saved, includeSkins: false }))!.includeSkins, false);
+  assert.equal(parsePullPlan(JSON.stringify({ ...saved, includeSkins: true }))!.includeSkins, true);
+  assert.throws(() => parsePullPlan(JSON.stringify({ ...saved, includeSkins: 'no' })));
 });

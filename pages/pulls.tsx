@@ -26,14 +26,14 @@ import { getAllSkins } from '@/lib/skins/skins';
 import StyledSelect from '@/components/ui/StyledSelect';
 import PageHeader from '@/components/ui/PageHeader';
 import { DetailOptionContent, type DetailOption } from '@/components/pulls/DetailOption';
-import { IncludePastCheckbox } from '@/components/pulls/IncludePastCheckbox';
+import { IncludePastCheckbox, IncludeSkinsCheckbox } from '@/components/pulls/IncludePastCheckbox';
 import SkinPlanner from '@/components/skins/SkinPlanner';
 import { SkinsHelp } from '@/components/pulls/PlannerHelp';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import { useAccount } from '@/lib/account/accountStore';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
-import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
+import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
@@ -117,8 +117,10 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     const byId = new Map(skinCatalogue.map((skin) => [skin.id, skin]));
     return skinIds.filter((id) => byId.has(id) && !(ownedSkins && byId.get(id)!.skinId && ownedSkins.has(byId.get(id)!.skinId!)));
   }, [skinIds, skinCatalogue, ownedSkins]);
+  /* The Skin wishlist's OP is held back from every forecast and budget unless this is off. */
+  const [includeSkins, setIncludeSkins] = useState(true);
   const skinBudget = useMemo(() => skinReservation(skinsToBuy, skinCatalogue, readNumber(reservedOP)), [skinsToBuy, skinCatalogue, reservedOP]);
-  const reserve = skinBudget.reserved;
+  const reserve = includeSkins ? skinBudget.reserved : 0;
   const [goals, setGoals] = useState<BannerGoal[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [saveBlocked, setSaveBlocked] = useState(false);
@@ -154,7 +156,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setYellowCerts(plan.yellowCerts ?? ''); setIncomeSettings(plan.incomeSettings ?? DEFAULT_INCOME_SETTINGS);
     setOrundum(plan.orundum); setOriginite(plan.originite); setPermits(plan.permits); setReservedOP(plan.reservedOP);
     setUntil(plan.until); setBannerName(plan.bannerName);
-    setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setClearedReruns(new Set(plan.clearedReruns));
+    setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setIncludeSkins(plan.includeSkins ?? true); setClearedReruns(new Set(plan.clearedReruns));
     setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? '');
     setGoals(goalsAtBannerEnd(plan.goals, scheduledBanners));
     if (skins) setSkinIds(plan.skinIds ?? []);
@@ -175,11 +177,11 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   }, [applyPlan]);
 
   const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings,
-    monthlyCard, includeBacklog, annihilationDone: past.annihilationDone, doneEvents: past.progress.doneEvents, doneKeys: past.progress.doneKeys, clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
+    monthlyCard, includeBacklog, includeSkins, annihilationDone: past.annihilationDone, doneEvents: past.progress.doneEvents, doneKeys: past.progress.doneKeys, clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
     /* The ticks live in their own store now (lib/pulls/pastProgress.ts); the plan mirrors them
        for an older build reading this browser's storage. */
     ...(walletFrom ? { walletFrom } : {}), ...(past.progress.ticksFrom ? { ticksFrom: past.progress.ticksFrom } : {}),
-  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, past.progress, past.annihilationDone, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, includeSkins, past.progress, past.annihilationDone, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
 
   /* An account import fills the resources (and the Monthly Card, ticked while it runs), once
      per import: after that they are the reader's to edit, until the next import. Run after
@@ -313,7 +315,14 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     return result.pulls.pulls - result.free;
   }) : [], [goals, banners, now, totalAt]);
   const forecastSavings = total.pulls - (at?.free ?? 0);
-  const savingsAfterPlan = savingsAfterPlanAt(forecastSavings, budgetRows, until);
+  /* The banner plan is judged through its own last banner, not the Pull calculation's date: the
+     savings left once every planned banner has been paid for, at the last one's spending date. */
+  const planThrough = now ? planHorizon(goals, now.toISOString().slice(0, 10)) : null;
+  const savingsAfterPlan = useMemo(() => {
+    if (!planThrough) return today.pulls;
+    const at = totalAt(new Date(`${planThrough}T23:59:59Z`));
+    return savingsAfterPlanAt(at.pulls.pulls - at.free, budgetRows, planThrough);
+  }, [planThrough, totalAt, budgetRows, today.pulls]);
   const totalShortfall = budgetRows.reduce((max, row) => Math.max(max, row.shortfall), 0);
   const addGoal = useCallback((banner: UpcomingBanner) => {
     setGoals(previous => previous.some(g => g.banner === banner.name) || previous.length >= MAX_GOALS ? previous : [...previous, { banner: banner.name, pulls: 0, spendOn: banner.end }]);
@@ -375,7 +384,12 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
             <button type="button" id="tab-past" aria-haspopup="dialog" onClick={() => setPastOpen(true)}><span>Past events</span><span aria-hidden="true">+</span></button>
             <IncludePastCheckbox checked={includeBacklog} onChange={setIncludeBacklog} />
           </div>
-          <button type="button" id="tab-skins" aria-haspopup="dialog" onClick={() => setSkinsOpen(true)}><span>Skin wishlist <b>{skinIds.length}</b></span><span>{reserve} OP reserved +</span></button>
+          {/* The same frame as Past events: the wishlist's own Include, whether its OP is held
+              back from the pulls and the banner budgets. */}
+          <div className={workspace.pastUtility}>
+            <button type="button" id="tab-skins" aria-haspopup="dialog" onClick={() => setSkinsOpen(true)}><span>Skin wishlist <b>{skinIds.length}</b> <small>{includeSkins ? `${skinBudget.reserved} OP reserved` : 'Not counted'}</small></span><span aria-hidden="true">+</span></button>
+            <IncludeSkinsCheckbox checked={includeSkins} onChange={setIncludeSkins} />
+          </div>
         </div>
       </section>
       <section className={`op-section ${workspace.forecast}`} aria-label="Pull calculation">
@@ -393,7 +407,16 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
         <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
         {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}
         {!goals.length && <div className={workspace.empty}>Add a banner to start planning.</div>}
-        <footer className={workspace.planFooter}><span>{!goals.length ? 'No planned spending' : totalShortfall ? 'Budget needs attention' : 'Budgets covered'}<small>Through {until || 'today'}</small></span><span>Savings after your plan <strong className={savingsAfterPlan < 0 ? workspace.negative : ''}>{savingsAfterPlan}<small> pulls</small></strong></span></footer>
+        <footer className={workspace.planFooter}><span>{!goals.length ? 'No planned spending' : totalShortfall ? 'Budget needs attention' : 'Budgets covered'}<small>Through {planThrough ? formatDayMonthYear(planThrough) : 'today'}{goals.length > 1 ? ', the last banner' : ''}</small></span><span>Savings after your plan <strong className={savingsAfterPlan < 0 ? workspace.negative : ''}>{savingsAfterPlan}<small> pulls</small></strong></span></footer>
+        {/* Whether the Skin wishlist eats into these budgets, in so many words: its OP comes off
+            every forecast while its Include is on (the Skin wishlist frame above). */}
+        {skinBudget.reserved > 0 && (
+          <p className={`hint ${workspace.planNote}`}>
+            {includeSkins
+              ? <>Your skin wishlist holds back up to {formatNumber(skinBudget.reserved)} OP from these budgets (as much of it as you will have by each date). Untick Include on the Skin wishlist to spend it on banners instead.</>
+              : <>Your skin wishlist ({formatNumber(skinBudget.reserved)} OP) is not counted: these budgets can spend that OP. Tick Include on the Skin wishlist to hold it back.</>}
+          </p>
+        )}
       </section>
       </div>
     </main>
