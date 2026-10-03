@@ -1,5 +1,6 @@
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
+import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import StoryMapView from '@/components/story/StoryMapView';
 import { withContentPage } from '@/lib/content/server';
@@ -33,17 +34,17 @@ export default function StoryPage({ map }: Props) {
               <strong>Timo&apos;s Arknights Story Reader <span aria-hidden="true">↗</span></strong>
               <span className="hint">Every main story, side story, vignette and operator record, read the way the game plays it.</span>
             </a>
-            <a className="story-link-card" href={map.source} target="_blank" rel="noopener noreferrer">
-              <strong>{map.title} <span aria-hidden="true">↗</span></strong>
-              <span className="hint">Which stories lead into which, what to read first, and the community&apos;s favourites, on Canva.</span>
-            </a>
+            <Link prefetch={false} className="story-link-card" href="/manga">
+              <strong>Arknights Manga</strong>
+              <span className="hint">Every official comic from the Global site, each a link to read it there.</span>
+            </Link>
           </div>
         </section>
         <section className="op-section" aria-labelledby="story-map">
           <h2 id="story-map">Story map</h2>
           <p className="hint story-map-credit">
-            The community <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from
-            the original. Click a story to start reading it in Timo&apos;s reader.
+            <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from the original. Click
+            a story to start reading it in Timo&apos;s reader.
           </p>
           <StoryMapView map={map} />
         </section>

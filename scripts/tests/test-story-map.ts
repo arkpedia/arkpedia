@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { storySections } from '../../lib/story/storyMap';
+import { storyListSections, storySections, UNPLACED, UNPLACED_NOTE, withManga } from '../../lib/story/storyMap';
 import { bundledStoryMap } from '../../lib/story/storyMapData';
 
 /*
@@ -30,4 +30,38 @@ test('a one-story frame is a section of its own, and a story beside a frame join
   assert.equal(of('act28side'), 'Columbia', 'Come Catastrophes or Wakes of Vultures');
   assert.equal(of('act39side'), 'Iberia', 'Exodus from the Pale Sea');
   assert.equal(of('act4d0'), 'Chernobog (First Main Story)', 'Operational Intelligence, hanging off the main story');
+});
+
+/*
+ * The official comics (map.manga): placed under their board sections in the List view and in the
+ * Manga frame below the board (withManga), the unplaced ones last under UNPLACED.
+ */
+test('every placed comic names a section the board has, so none is misfiled by a typo', () => {
+  const names = new Set(sections.map((section) => section.name.toLowerCase()));
+  const wrong = (map.manga ?? []).filter((comic) => comic.section && !names.has(comic.section.toLowerCase())).map((comic) => `${comic.title}: ${comic.section}`);
+  assert.deepEqual(wrong, []);
+});
+
+test('the List view places each comic once, with the unplaced last under their note', () => {
+  const listed = storyListSections(map);
+  const comics = listed.flatMap((section) => section.stories.filter((story) => story.manga).map((story) => story.id));
+  const offBoard = (map.manga ?? []).filter((comic) => !comic.onBoard);
+  assert.equal(comics.length, offBoard.length);
+  assert.equal(new Set(comics).size, comics.length);
+  const sui = listed.find((section) => section.name === 'Sui');
+  assert.ok(sui?.stories.some((story) => story.manga && /Sui's Daily Slices/.test(story.link?.title ?? '')), 'a Sui comic in Sui');
+  const last = listed.at(-1)!;
+  assert.equal(last.name, UNPLACED);
+  assert.equal(last.note, UNPLACED_NOTE);
+  assert.ok((map.manga ?? []).filter((comic) => comic.onBoard).every((comic) => !comics.includes(comic.id)), 'a comic that is a board picture is not listed twice');
+});
+
+test('the map draws every comic off the board below it, and grows to hold them', () => {
+  const drawn = withManga(map);
+  const covers = drawn.elements.filter((element) => element.type === 'picture' && element.manga);
+  assert.equal(covers.length, (map.manga ?? []).filter((comic) => !comic.onBoard).length);
+  assert.ok(drawn.bounds.height > map.bounds.height);
+  const boardBottom = map.bounds.y + map.bounds.height;
+  assert.ok(covers.every((cover) => cover.type === 'picture' && cover.y > boardBottom), 'below the board');
+  assert.ok(drawn.elements.some((element) => element.type === 'text' && element.text === UNPLACED), 'the unplaced group is labelled');
 });

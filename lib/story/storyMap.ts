@@ -17,10 +17,19 @@ export interface StoryText {
 }
 
 export type StoryElement =
-  | ({ type: 'picture'; id: string; image: string | null; link?: StoryLink } & Box)
+  /** `manga`: an official comic the page adds below the board, not one of the board's own. */
+  | ({ type: 'picture'; id: string; image: string | null; link?: StoryLink; manga?: true } & Box)
   | ({ type: 'text' } & Box & StoryText)
   | { type: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; dash: number[] | null }
   | ({ type: 'shape'; path: string; fill: string | null; stroke: string | null; strokeWidth: number; radius: number; label?: StoryText } & Box);
+
+/** An official comic from the Global site's list (scripts/imports/import_story_map.py): `section`
+ *  is the board section it belongs to, or null for one nobody has placed yet; `onBoard` the board
+ *  picture it already is. The blurb, chapter count and update date are the site's own. */
+export interface StoryManga {
+  id: string; title: string; url: string; image: string | null; section: string | null; onBoard?: string;
+  description?: string; chapters?: number; latestUrl?: string; updated?: string;
+}
 
 export interface StoryMap {
   source: string;
@@ -28,7 +37,13 @@ export interface StoryMap {
   reader: string;
   bounds: Box;
   elements: StoryElement[];
+  /** Absent from a map imported before the manga were. */
+  manga?: StoryManga[];
 }
+
+/** The List view's and the map's name for the comics nobody has placed in the story. */
+export const UNPLACED = 'Not yet categorized';
+export const UNPLACED_NOTE = 'Not reviewed: these have not been placed in the story yet, and are listed here for completeness.';
 
 /** The shape every element the page draws must have. A map that breaks it fails the build
  *  rather than drawing a board with holes in it. */
@@ -40,6 +55,12 @@ export function assertStoryMap(value: unknown): asserts value is StoryMap {
   }
   const pictures = map.elements.filter((element) => element.type === 'picture');
   if (pictures.length < 10) throw new Error(`data/story-map.json: ${pictures.length} pictures; the board reads as nearly empty`);
+  for (const comic of map.manga ?? []) {
+    if (typeof comic.title !== 'string' || !/^https:\/\//.test(comic.url) || !(comic.section === null || typeof comic.section === 'string')
+      || !(comic.image === null || /^story-map\/[\w-]+\.webp$/.test(comic.image))) {
+      throw new Error(`data/story-map.json: manga ${comic.id} needs a title, an https address, a section or null, and a story-map/ image or null`);
+    }
+  }
   for (const element of map.elements) {
     if (element.type === 'line') {
       if (![element.x1, element.y1, element.x2, element.y2, element.width].every(finite)) throw new Error('data/story-map.json: a line without its ends');
@@ -106,4 +127,94 @@ export function storySections(map: StoryMap): { name: string; stories: StoryPict
   return [...sections.values()]
     .sort((a, b) => main(a.name) - main(b.name) || a.frame.x - b.frame.x || a.frame.y - b.frame.y)
     .map(({ name, stories }) => ({ name, stories: stories.sort((a, b) => a.x - b.x || a.y - b.y) }));
+}
+
+/** A comic as one of the List view's stories. */
+function asStory(comic: StoryManga): StoryPicture {
+  return { type: 'picture', id: comic.id, image: comic.image, link: { title: comic.title, url: comic.url }, manga: true, x: 0, y: 0, width: 0, height: 0 };
+}
+
+/** The comics to show beside the board: all but those that are a board picture already. */
+const offBoard = (map: StoryMap) => (map.manga ?? []).filter((comic) => !comic.onBoard);
+
+/**
+ * The List view's sections: the board's own (storySections), each followed by the comics placed
+ * in it, and last the comics nobody has placed, under UNPLACED. A comic naming a section the
+ * board has no frame for is listed as unplaced rather than lost.
+ */
+export function storyListSections(map: StoryMap): { name: string; note?: string; stories: StoryPicture[] }[] {
+  const sections = storySections(map).map((section) => ({ ...section, stories: [...section.stories] as StoryPicture[] }));
+  const byName = new Map(sections.map((section) => [section.name.toLowerCase(), section]));
+  const unplaced: StoryPicture[] = [];
+  for (const comic of offBoard(map)) {
+    const section = comic.section ? byName.get(comic.section.trim().toLowerCase()) : undefined;
+    (section ? section.stories : unplaced).push(asStory(comic));
+  }
+  return unplaced.length ? [...sections, { name: UNPLACED, note: UNPLACED_NOTE, stories: unplaced }] : sections;
+}
+
+/** Breaks a title into lines of about `chars` characters, at spaces, for the board's unwrapped text. */
+function wrap(text: string, chars: number): string {
+  const lines: string[] = [];
+  for (const word of text.split(/\s+/)) {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && (last + ' ' + word).length <= chars) lines[lines.length - 1] = last + ' ' + word;
+    else lines.push(word);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * The map with the official comics drawn below the board, in the board's own vocabulary (frames,
+ * labels, pictures), so it pans and zooms with it: a "Manga" frame holding one framed group per
+ * section, in the board's section order, and last the comics nobody has placed, under UNPLACED
+ * with UNPLACED_NOTE. Each cover links to its comic. A map without comics comes back as it was.
+ */
+export function withManga(map: StoryMap): StoryMap {
+  const comics = offBoard(map);
+  if (!comics.length) return map;
+  const order = storySections(map).map((section) => section.name);
+  const named = new Map(order.map((name) => [name.toLowerCase(), name]));
+  const groups = new Map<string, StoryManga[]>();
+  for (const comic of comics) {
+    const name = (comic.section && named.get(comic.section.trim().toLowerCase())) || UNPLACED;
+    groups.set(name, [...(groups.get(name) ?? []), comic]);
+  }
+  const ordered = [...order.filter((name) => groups.has(name)), ...(groups.has(UNPLACED) ? [UNPLACED] : [])];
+
+  const ink = '#000000';
+  const { bounds } = map;
+  const card = { width: 420, height: 284, gap: 40 }, pad = 50, title = 40;
+  const left = bounds.x + 40, top = bounds.y + bounds.height + 160, width = bounds.width - 80;
+  const added: StoryElement[] = [];
+  const text = (x: number, y: number, w: number, value: string, size: number, extra: Partial<StoryText> = {}): StoryElement =>
+    ({ type: 'text', x, y, width: w, height: size * 1.3 * value.split('\n').length, text: value, size, color: ink, align: 'left', bold: false, italic: false, underline: false, ...extra });
+  added.push(text(left + 60, top + 40, width - 120, 'Manga', 106, { bold: true }));
+  added.push(text(left + 60, top + 200, width - 120, 'The official comics, added by Arkpedia: they are not on the original map. Click a cover to read it.', 53, { italic: true }));
+
+  let x = left + 60, y = top + 330, rowHeight = 0;
+  for (const name of ordered) {
+    const list = groups.get(name)!;
+    const note = name === UNPLACED;
+    const inner = Math.max(list.length * (card.width + card.gap) - card.gap, note ? 1500 : name.length * 48);
+    const w = inner + 2 * pad;
+    const titles = list.map((comic) => wrap(comic.title, 24));
+    const titleLines = Math.max(...titles.map((value) => value.split('\n').length));
+    const h = pad + 110 + (note ? 80 : 0) + card.height + 24 + titleLines * title * 1.3 + pad;
+    if (x + w > left + width - 60 && x > left + 60) { x = left + 60; y += rowHeight + 80; rowHeight = 0; }
+    added.push({ type: 'shape', x, y, width: w, height: h, path: 'M0 0H64V64H0z', fill: null, stroke: ink, strokeWidth: 7, radius: 0 });
+    added.push(text(x + pad, y + pad - 10, inner, name, 80));
+    let cy = y + pad + 110;
+    if (note) { added.push(text(x + pad, cy - 20, inner, UNPLACED_NOTE, 45, { italic: true })); cy += 80; }
+    list.forEach((comic, index) => {
+      const cx = x + pad + index * (card.width + card.gap);
+      added.push({ type: 'picture', id: comic.id, image: comic.image, link: { title: comic.title, url: comic.url }, manga: true, x: cx, y: cy, width: card.width, height: card.height });
+      added.push(text(cx, cy + card.height + 24, card.width, titles[index], title));
+    });
+    x += w + 80;
+    rowHeight = Math.max(rowHeight, h);
+  }
+  const bottom = y + rowHeight + 80;
+  added.unshift({ type: 'shape', x: left, y: top, width, height: bottom - top, path: 'M0 0H64V64H0z', fill: null, stroke: '#ce7835', strokeWidth: 7, radius: 0 });
+  return { ...map, bounds: { ...bounds, height: bottom + 40 - bounds.y }, elements: [...map.elements, ...added] };
 }

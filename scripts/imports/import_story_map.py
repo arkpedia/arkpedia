@@ -27,6 +27,16 @@ next by MATCH_MARGIN) links it; anything less leaves it unlinked and reported un
 so the daily issue names it until a person links it. On the board of 2026-02-15 the rule
 linked every cover the reader has art for correctly, and no wrong match came within 0.06 of
 either threshold.
+
+THE MANGA. The board carries one manga; the official comics (COMICS, the Global site's own list)
+are kept as `manga`, for the Manga page (pages/manga.tsx) and the map, each with the board section
+it belongs to (a frame's name, "Sui", "Columbia") or none. A comic the list gains is added with none, which the page lists under
+"Not yet categorized" until a person places it in arkpedia-data; a comic already listed is kept as
+it is, placed or not, and one the site drops is kept too. What the site says of each (its blurb,
+its latest chapter, when it was last updated) is refreshed every run; the title, link and place
+are a person's to change. `onBoard` names the board picture a comic
+already is (the Rhine Lab volume), which the page then does not draw twice. Each cover is staged
+like the board's pictures, as story-map/<id>.webp.
 """
 from published_assets import published_assets
 from quarantine import report
@@ -38,6 +48,8 @@ import os
 import re
 import ssl
 import sys
+import time
+import urllib.parse
 import urllib.request
 
 import certifi
@@ -257,11 +269,84 @@ class Reader:
         return {'title': title, 'url': f'{READER}story.html#{meta["category"]}&{group}&0', 'story': group}, best, margin
 
 
+COMICS = 'https://www.arknights.global/api/resource/comic/list?index=1&size=999'
+COMIC_PAGE = 'https://www.arknights.global/comic'
+
+
+def comic_id(name):
+    return 'manga-' + re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+
+
+def comic_url(name):
+    """The comic's page on the Global site, at its first chapter (the site's own link shape)."""
+    return f'{COMIC_PAGE}?name={urllib.parse.quote(name, safe="")}&chapter=1'
+
+
+def blurb(html):
+    """The site's description as plain text: it is sometimes wrapped in <p> or <div>."""
+    text = re.sub(r'<[^>]+>', ' ', html or '')
+    for entity, char in (('&nbsp;', ' '), ('&amp;', '&'), ('&quot;', '"'), ('&#39;', "'"), ('&lt;', '<'), ('&gt;', '>')):
+        text = text.replace(entity, char)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def manga(previous, published, staging, alerts):
+    """The map's manga: every one kept as it was, then each comic the official list has that the
+    map does not, unplaced. Returns them in order, and how many covers were staged."""
+    kept = {item['id']: item for item in previous}
+    order = [item['id'] for item in previous]
+    try:
+        rows = json.loads(fetch(COMICS))['data']['rows']
+        if not isinstance(rows, list):
+            raise ValueError(f'the comic list answered {type(rows).__name__}, not a list')
+    except Exception as exc:  # noqa: BLE001 -- the comic list is enrichment, never a gate
+        print(f'  the official comic list could not be read: {exc}', file=sys.stderr)
+        alerts.append({'key': 'story-map-manga', 'action': 'published-partial', 'sourceRef': COMICS,
+                       'reason': 'The official comic list could not be read; the story map keeps the manga it already had.'})
+        rows = []
+    for row in rows:
+        name = (row.get('name') or '').strip()
+        if not name:
+            continue
+        mid = comic_id(name)
+        if mid not in kept:
+            kept[mid] = {'id': mid, 'title': name, 'url': comic_url(name), 'section': None}
+            order.append(mid)
+            print(f'  new manga, not yet categorized: {name}')
+        item = kept[mid]
+        # The flat cover the site's comic list shows (smallImage); bigImage is a mock-up of a book.
+        item['cover'] = row.get('smallImage') or row.get('bigImage') or item.get('cover')
+        item['description'] = blurb(row.get('comicDescribe'))
+        if isinstance(row.get('latestChapter'), int) and row['latestChapter'] > 0:
+            item['chapters'] = row['latestChapter']
+            item['latestUrl'] = f'{COMIC_PAGE}?name={urllib.parse.quote(name, safe="")}&chapter={row["latestChapter"]}'
+        if isinstance(row.get('updateTime'), (int, float)) and row['updateTime'] > 0:
+            item['updated'] = time.strftime('%Y-%m-%d', time.gmtime(row['updateTime'] / 1000))
+    staged = 0
+    for mid in order:
+        item = kept[mid]
+        target = f'{FOLDER}/{mid}.webp'
+        if target not in published and item.get('cover'):
+            try:
+                staging.stage(target, fetch(item['cover'], 90), source=item['cover'])
+                staged += 1
+                alerts.append({'key': f'story-map-art:{mid}', 'action': 'published-partial', 'sourceRef': item['cover'],
+                               'reason': f'The cover of {item["title"]} is staged, but no run has published it as {target} yet; '
+                                         'the story map shows its title alone until one does.'})
+            except Exception as exc:  # noqa: BLE001
+                print(f'  cover of {item["title"]}: {exc}', file=sys.stderr)
+        item['image'] = target if target in published else None
+    return [kept[mid] for mid in order], staged
+
+
 def main():
     previous = {}
+    previous_manga = []
     if os.path.exists(OUT):
         with open(OUT, encoding='utf-8') as f:
-            previous = {e['id']: e for e in json.load(f).get('elements', []) if e.get('type') == 'picture'}
+            saved = json.load(f)
+        previous = {e['id']: e for e in saved.get('elements', []) if e.get('type') == 'picture'}
+        previous_manga = saved.get('manga', [])
     html = fetch(BOARD).decode('utf-8', 'replace')
     elements, media = board_elements(bootstrap(html))
     title = re.search(r'<meta property="og:title" content="([^"]*)"', html)
@@ -312,6 +397,9 @@ def main():
                            'reason': f'A picture on the Arknights Story Map ({target}) matches no story in the reader clearly; '
                                      'it is drawn without a link until data/story-map.json in arkpedia-data gives it one.'})
 
+    comics, staged_covers = manga(previous_manga, published, staging, alerts)
+    staged += staged_covers
+
     xs = [v for e in elements for v in ((e['x1'], e['x2']) if e['type'] == 'line' else (e['x'], e['x'] + e['width']))]
     ys = [v for e in elements for v in ((e['y1'], e['y2']) if e['type'] == 'line' else (e['y'], e['y'] + e['height']))]
     margin = 40
@@ -322,6 +410,7 @@ def main():
         'bounds': {'x': round(min(xs) - margin, 1), 'y': round(min(ys) - margin, 1),
                    'width': round(max(xs) - min(xs) + 2 * margin, 1), 'height': round(max(ys) - min(ys) + 2 * margin, 1)},
         'elements': elements,
+        'manga': comics,
     }
     staging.commit()
     with open(OUT, 'w', encoding='utf-8') as f:

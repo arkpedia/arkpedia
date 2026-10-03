@@ -30,6 +30,10 @@ a.story-map-picture:hover, a.story-map-picture:focus-visible { outline: 12px sol
 .story-list-card { display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-decoration: none; }
 a.story-list-card:hover { border-color: var(--teal); }
 .story-list-card img { width: 44px; height: 54px; object-fit: cover; flex: none; }
+/* A comic's cover is landscape (966x654). */
+.story-list-card.is-manga img { width: 80px; height: 54px; }
+.story-list-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.story-list-note { margin: -4px 0 8px; }
 
 /* Full screen (StoryMapView toggleFull): the browser's own, or, where it grants none to an
    element (iOS Safari), the map filling the window over the page. The viewport takes the rest. */
@@ -39,3 +43,20 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-map-frame::backdrop { background: var(--bg); }
 .story-map-frame.is-full .story-map-toolbar { margin-bottom: 0; }
 .story-map-frame.is-full .story-map-viewport { flex: 1; min-height: 0; max-height: none; }
+
+/* The Manga page (pages/manga.tsx): each comic's cover beside what it is and where to read it. */
+.manga-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.manga-card { display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); gap: 16px; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); }
+.manga-cover { display: block; align-self: start; aspect-ratio: 966 / 654; overflow: hidden; border-radius: 4px; background: var(--panel-dim); }
+.manga-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.manga-cover:hover img { outline: 2px solid var(--teal); outline-offset: -2px; }
+.manga-cover-missing { display: flex; align-items: center; justify-content: center; height: 100%; padding: 12px; color: var(--text); text-align: center; }
+.manga-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.manga-body h3 { margin: 0; }
+.manga-meta, .manga-place, .manga-description { margin: 0; }
+.manga-description { font-size: 13px; line-height: 1.5; }
+.manga-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
+@media (max-width: 900px) { .manga-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .manga-card { grid-template-columns: 1fr; } }
+/* A story with nowhere to go (the manga the reader does not carry) is not a link. */
+.story-list-card.is-plain, .story-map-picture.is-plain { cursor: default; }

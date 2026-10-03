@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import { storySections, type StoryElement, type StoryMap, type StoryPicture, type StoryText } from '@/lib/story/storyMap';
+import { storyListSections, withManga, type StoryElement, type StoryMap, type StoryPicture, type StoryText } from '@/lib/story/storyMap';
 
 /*
  * The Arknights Story Map as its author laid it out (lib/story/storyMap.ts): the board is drawn
@@ -10,8 +10,9 @@ import { storySections, type StoryElement, type StoryMap, type StoryPicture, typ
  * so it reads on either theme; its colours (the frames, the tags, the dashed lines) are its own.
  *
  * Zoom with the buttons, or Ctrl/⌘ and the wheel (a trackpad's pinch); drag to move around.
- * The List view is every story on the board under the board's own section names, for a small
- * screen (storySections).
+ * Below the board, the official comics, each under the section it belongs to (withManga). The List
+ * view is every story and comic under the board's own section names, for a small screen
+ * (storyListSections), with the comics nobody has placed last.
  */
 
 const RECT = 'M0 0H64V64H0z';
@@ -77,13 +78,16 @@ function Picture({ element }: { element: Extract<StoryElement, { type: 'picture'
 function ListCard({ story }: { story: StoryPicture }) {
   const title = story.link?.title ?? 'A story on the map';
   const art = story.image && <ContentImg src={`/${story.image}`} alt="" />;
+  const label = <span className="story-list-title">{title}{story.manga && <span className="label-tag">Manga</span>}</span>;
+  const kind = `story-list-card${story.manga ? ' is-manga' : ''}`;
   return story.link?.url
-    ? <a className="story-list-card" href={story.link.url} target="_blank" rel="noopener noreferrer">{art}<span>{title}</span></a>
-    : <span className="story-list-card is-plain">{art}<span>{title}</span></span>;
+    ? <a className={kind} href={story.link.url} target="_blank" rel="noopener noreferrer">{art}{label}</a>
+    : <span className={`${kind} is-plain`}>{art}{label}</span>;
 }
 
 export default function StoryMapView({ map }: { map: StoryMap }) {
-  const { bounds } = map;
+  const board = useMemo(() => withManga(map), [map]);
+  const { bounds } = board;
   const [view, setView] = useState<'map' | 'list'>('map');
   const viewport = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(0.15);
@@ -204,7 +208,7 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
     return () => { cancelAnimationFrame(frameId); document.body.style.overflow = overflow; document.removeEventListener('keydown', onKey); };
   }, [full, bounds.height]);
 
-  const sections = useMemo(() => storySections(map), [map]);
+  const sections = useMemo(() => storyListSections(map), [map]);
   const count = sections.reduce((n, section) => n + section.stories.length, 0);
 
   const atFit = shown <= fit + 1e-6;
@@ -233,7 +237,7 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
           onClickCapture={(event) => { if (drag.current?.moved) { event.preventDefault(); event.stopPropagation(); } }}>
           <div className="story-map-sizer" style={{ width: bounds.width * shown, height: bounds.height * shown }}>
             <div className="story-map-board" style={{ width: bounds.width, height: bounds.height, transform: `scale(${shown})` }}>
-              {map.elements.map((element, index) => {
+              {board.elements.map((element, index) => {
                 if (element.type === 'line') {
                   return <Line key={index} element={{ ...element, x1: element.x1 - bounds.x, y1: element.y1 - bounds.y, x2: element.x2 - bounds.x, y2: element.y2 - bounds.y }} />;
                 }
@@ -257,6 +261,7 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
           {sections.map((section) => (
             <div key={section.name} className="story-list-section">
               <h3>{section.name}</h3>
+              {section.note && <p className="hint story-list-note">{section.note}</p>}
               <ul className="story-list">
                 {section.stories.map((story) => <li key={story.id}><ListCard story={story} /></li>)}
               </ul>

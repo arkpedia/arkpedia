@@ -128,10 +128,16 @@ class ImportTests(unittest.TestCase):
                 return json.dumps({'groups': {g: {'category': c, 'cover': f'{g}.png', 'title': g.upper()} for g, (c, _) in covers.items()}}).encode()
             if '/covers/' in url:
                 return covers[url.rsplit('/', 1)[1][:-4]][1]
+            if url == story.COMICS:
+                return json.dumps({'data': {'rows': self.comics}}).encode()
+            if url.startswith('https://covers.example/'):
+                return art(77)
             if url.endswith('json/catalog.en.json'):
                 return json.dumps({'review': {'act1side': {'name': 'Grani and the Knights\' Treasure'}}}).encode()
             raise AssertionError(url)
         story.fetch = fetch
+        self.comics = [{'name': "Sui's Daily Slices: Time for Reunion", 'smallImage': 'https://covers.example/sui.png', 'bigImage': 'https://covers.example/book.png', 'comicDescribe': '<p>Dishes, people, and time&nbsp;aplenty.</p>', 'latestChapter': 1, 'updateTime': 1784688256532},
+                       {'name': 'Operations Preparation Detachment A1', 'bigImage': 'https://covers.example/a1.png', 'comicDescribe': 'Columbia', 'latestChapter': 13, 'updateTime': 1758103823597}]
         self.cwd = os.getcwd()
         os.chdir(self.root)
 
@@ -161,7 +167,8 @@ class ImportTests(unittest.TestCase):
         staged = json.loads((self.root/'.cache/story-map/staged.json').read_text())['files']
         self.assertIn('story-map/M00.webp', staged)
         self.assertIn('story-map-art:M00', self.alerts())
-        self.published = {f'story-map/M{i:02d}.webp' for i in range(14)}
+        self.published = {f'story-map/M{i:02d}.webp' for i in range(14)} | {
+            f'story-map/{story.comic_id(c["name"])}.webp' for c in self.comics}
         self.reports.clear()
         story.main()
         self.assertEqual(self.pictures()['M00']['image'], 'story-map/M00.webp')
@@ -182,6 +189,37 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(pictures['M00']['link']['title'], 'Corrected by hand')
         self.assertEqual(pictures['M01']['link'], {'title': 'A manga the reader does not carry', 'url': None})
         self.assertNotIn('story-map:M01', self.alerts())
+
+    def test_a_new_comic_is_unplaced_a_placed_one_stays_and_the_sites_words_refresh(self):
+        story.main()
+        comics = {c['id']: c for c in json.loads(self.out.read_text())['manga']}
+        sui = comics['manga-sui-s-daily-slices-time-for-reunion']
+        self.assertIsNone(sui['section'])
+        self.assertEqual(sui['url'], 'https://www.arknights.global/comic?name=Sui%27s%20Daily%20Slices%3A%20Time%20for%20Reunion&chapter=1')
+        self.assertEqual((sui['description'], sui['chapters'], sui['updated']), ('Dishes, people, and time aplenty.', 1, '2026-07-22'))
+        self.assertEqual(comics['manga-operations-preparation-detachment-a1']['latestUrl'][-11:], '&chapter=13')
+        self.assertEqual(sui['cover'], 'https://covers.example/sui.png', 'the flat cover, not the book mock-up')
+        self.assertIn('story-map/manga-sui-s-daily-slices-time-for-reunion.webp', json.loads((self.root/'.cache/story-map/staged.json').read_text())['files'])
+        # A person places one; the site then adds a chapter and drops the other.
+        record = json.loads(self.out.read_text())
+        for comic in record['manga']:
+            if comic['id'] == 'manga-sui-s-daily-slices-time-for-reunion':
+                comic['section'] = 'Sui'
+        self.out.write_text(json.dumps(record))
+        self.comics = [{**self.comics[0], 'latestChapter': 2}]
+        story.main()
+        comics = {c['id']: c for c in json.loads(self.out.read_text())['manga']}
+        self.assertEqual((comics['manga-sui-s-daily-slices-time-for-reunion']['section'], comics['manga-sui-s-daily-slices-time-for-reunion']['chapters']), ('Sui', 2))
+        self.assertIn('manga-operations-preparation-detachment-a1', comics, 'a comic the site drops is kept')
+
+    def test_an_unreadable_comic_list_keeps_the_manga_and_says_so(self):
+        story.main()
+        before = json.loads(self.out.read_text())['manga']
+        self.comics = None
+        self.reports.clear()
+        story.main()
+        self.assertEqual([c['id'] for c in json.loads(self.out.read_text())['manga']], [c['id'] for c in before])
+        self.assertIn('story-map-manga', self.alerts())
 
 
 if __name__ == '__main__':

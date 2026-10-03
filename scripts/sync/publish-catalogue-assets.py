@@ -92,8 +92,9 @@ FOLDERS = {
     # As the other 293 covers: 500px RGB webp.
     'album-covers': Folder((500, 500), mode='RGB', quality=85, method=6),
     # The Arknights Story Map's pictures (scripts/imports/import_story_map.py): the board's own
-    # 384px resize of each cover, drawn at about 45-180px.
-    'story-map': Folder((384, 384), quality=85, method=6),
+    # 384px resize of each cover, drawn at about 45-180px, and the official comics' covers
+    # (336x217 at the source, a few 1664x1080), which the Manga page shows at about 210-400px.
+    'story-map': Folder((640, 640), quality=85, method=6),
 }
 SKIN_FOLDER = re.compile(r'[a-z]+-star-skins')
 
