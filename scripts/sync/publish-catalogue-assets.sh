@@ -35,6 +35,13 @@ if [ "$mode" = staged ]; then
 else
   plan=.cache/catalogue/asset-plan.json stage=catalogue-art kinds=(image skin)
 fi
+# The image repositories are production's, shared by every channel, so only main's run publishes
+# to them. The dev channel's run (scripts/content/channel.mjs) publishes no art: art that dev's
+# code would add is missing from its release, and completeness quarantines what that leaves out.
+if [ -n "${ARKPEDIA_RELEASE_BRANCH:-}" ] && [ "$ARKPEDIA_RELEASE_BRANCH" != main ]; then
+  echo "The $ARKPEDIA_RELEASE_BRANCH channel publishes no art: $([ -f "$plan" ] && node -p "require('./$plan').files.length" || echo 0) file(s) of $plan left for main's run."
+  exit 0
+fi
 : "${CATALOGUE_IMAGE_DEPLOY_KEY:?Missing image repository deploy key}"
 if [ "$mode" = catalogue ]; then : "${CATALOGUE_SKIN_DEPLOY_KEY:?Missing artwork repository deploy key}"; fi
 work=$(mktemp -d)

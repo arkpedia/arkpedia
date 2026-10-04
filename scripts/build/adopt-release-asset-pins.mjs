@@ -38,6 +38,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { contentPointer } from '../content/channel.mjs';
 
 export const REVISIONS = 'data/assets/revisions.json';
 const DEFAULT_ORIGIN = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data';
@@ -70,8 +71,8 @@ async function get(fetch, url, attempts = 3) {
 
 /** The live release's asset pins, read the way loadRelease reads the release: the pointer,
  *  then the manifest it names, checked against the pointer's digest. */
-export async function readLiveAssetPins({ origin, fetch = globalThis.fetch }) {
-  const pointer = JSON.parse((await get(fetch, `${origin}/live/current.json`)).toString());
+export async function readLiveAssetPins({ origin, pointerBranch = contentPointer(), fetch = globalThis.fetch }) {
+  const pointer = JSON.parse((await get(fetch, `${origin}/${pointerBranch}/current.json`)).toString());
   if (!HEX64.test(pointer?.release ?? '') || !GIT_SHA.test(pointer?.revision ?? '') || !HEX64.test(pointer?.manifestSha256 ?? '')) {
     throw new Error('The live pointer names no release, revision and manifest digest');
   }
@@ -140,7 +141,7 @@ export async function adoptReleaseAssetPins({ root = process.cwd(), env = proces
   const flag = message => warn(env.GITHUB_ACTIONS === 'true' ? `::warning title=Asset pins not adopted::${message}` : `[asset-pins] warning: ${message}`);
   let live;
   try {
-    live = await readLiveAssetPins({ origin: contentOrigin(env), fetch });
+    live = await readLiveAssetPins({ origin: contentOrigin(env), pointerBranch: contentPointer(env), fetch });
   } catch (error) {
     const message = `Cannot read the live content release (${error instanceof Error ? error.message : error}); building with the committed asset pins. Deploy's asset-link check goes red if they lag the release.`;
     flag(message);

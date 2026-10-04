@@ -38,6 +38,29 @@ export async function readPublishedContentPageProps<P extends object>(route: str
   return loaded ? await readPageProps(loaded, route) as P | null : null;
 }
 
+/** The pointer branch this site reads (scripts/content/channel.mjs): live, or dev-live on
+ *  arkpedia-dev, whose releases dev's code compiles. Inlined at build (next.config.js env)
+ *  from what Deploy sets for the deployment's branch. */
+export function contentChannel(): string {
+  const value = process.env.ARKPEDIA_CONTENT_CHANNEL || 'live';
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(value)) throw new Error(`Invalid content channel: ${value}`);
+  return value;
+}
+
+/** The channel's pointer. A channel whose pointer branch does not exist yet (dev-live before
+ *  dev's first run publishes it) reads live's, so a site never goes without a release; only a
+ *  missing branch, never a channel that exists and fails. */
+async function readPointer(root: string): Promise<Buffer> {
+  const channel = contentChannel();
+  try {
+    return await read(`${root}/${channel}/current.json`, 2048);
+  } catch (error) {
+    if (channel === 'live' || !(error instanceof Error) || !error.message.startsWith('Content HTTP 404')) throw error;
+    console.warn(`[content] ${channel} has no pointer yet: reading live's release until it does.`);
+    return read(`${root}/live/current.json`, 2048);
+  }
+}
+
 function origin(): string {
   const value = process.env.ARKPEDIA_CONTENT_URL || DEFAULT_ORIGIN;
   const parsed = new URL(value);
@@ -75,7 +98,7 @@ async function loadRelease(): Promise<Loaded | undefined> {
   pending = (async () => {
     try {
       const root = origin();
-      const pointer = JSON.parse((await read(`${root}/live/current.json`, 2048)).toString()) as ContentPointer;
+      const pointer = JSON.parse((await readPointer(root)).toString()) as ContentPointer;
       if (pointer.schema !== CONTENT_SCHEMA || !SHA.test(pointer.release) || !GIT_SHA.test(pointer.revision) || !SHA.test(pointer.manifestSha256)) throw new Error('Unsupported content pointer');
       if (cached?.context.release === pointer.release) return cached;
       const baseUrl = `${root}/${pointer.revision}/release`;

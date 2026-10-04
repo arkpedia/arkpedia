@@ -518,5 +518,6 @@ test('every successful run leaves one heartbeat commit on a branch of its own', 
     assert.equal(fs.existsSync(path.join(repo.root, 'runner/heartbeat-key')), false, 'the key is removed');
   });
   const settings = steps().find(step => step.name === 'Record the heartbeat')!.block.map(line => line.trim());
-  assert.ok(settings.includes('if: success()') && settings.includes('continue-on-error: true'), 'only after a good run, and it never fails one');
+  // Main's channel only: the heartbeat is production's signal (scripts/content/channel.mjs).
+  assert.ok(settings.includes("if: success() && github.ref_name == 'main'") && settings.includes('continue-on-error: true'), 'only after a good run, and it never fails one');
 });

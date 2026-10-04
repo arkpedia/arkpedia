@@ -9,9 +9,11 @@
  */
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { readDeployments } from '../deploy/deploy-targets.mjs';
+import { RELEASE_BRANCH, readDeployments } from '../deploy/deploy-targets.mjs';
 
-export async function refreshPages({ secret, deployments = readDeployments(), fetch = globalThis.fetch, log = console.log } = {}) {
+/* Only the deployments of the branch whose release went live: since the dev channel
+   (scripts/content/channel.mjs), arkpedia-dev reads its own release, not main's. */
+export async function refreshPages({ secret, branch = process.env.ARKPEDIA_RELEASE_BRANCH || RELEASE_BRANCH, deployments = readDeployments().filter(d => d.branch === branch), fetch = globalThis.fetch, log = console.log } = {}) {
   if (!secret) {
     log('::warning::ARKPEDIA_RELEASE_REFRESH_SECRET is not set: the slow pages refresh on their own interval.');
     return [];

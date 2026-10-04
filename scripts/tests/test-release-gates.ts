@@ -163,7 +163,7 @@ test('the build publishes which code it is, before anything else runs, and never
     fs.writeFileSync(path.join(repo.dir, '.gitignore'), 'public/build-info.json\n');
     repo.commit('ignore it');
     const clean = write();
-    assert.deepEqual({ ...clean.info, builtAt: 'x' }, { version: 1, commit: repo.git('rev-parse', 'HEAD'), codeFingerprint: repo.fingerprint(), contentSchema: SCHEMA, dirty: false, builtAt: 'x' });
+    assert.deepEqual({ ...clean.info, builtAt: 'x' }, { version: 1, commit: repo.git('rev-parse', 'HEAD'), codeFingerprint: repo.fingerprint(), contentSchema: SCHEMA, contentChannel: 'live', dirty: false, builtAt: 'x' });
     assert.notEqual(clean.info.commit, commit);
     // A docs edit leaves the build clean; a code edit makes it a build of no commit.
     repo.write('README.md', 'wip\n');

@@ -22,13 +22,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { CHANNELS } from '../content/channel.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 const SECRET = /^[A-Z][A-Z0-9_]*$/;
-/** The branch Prepare content release compiles with (prepare-content.yml runs on main), so
- *  the only one whose deployments the release gate asks. */
+/** The branch whose release production serves (prepare-content.yml's scheduled run): the gate's
+ *  default, and the one whose deploy re-runs a held release. The dev channel's run sets
+ *  ARKPEDIA_RELEASE_BRANCH=dev instead (scripts/content/channel.mjs). */
 export const RELEASE_BRANCH = 'main';
 
 /** The deployments config/production.json lists, each checked, or an error naming what is wrong. */
@@ -65,6 +67,8 @@ export function deployTargets({ branch, preview = false, deployments = readDeplo
     environment: preview ? 'preview' : 'production',
     alert: `deploy-failing-${deployment.name}`,
     releaseGate: !preview && branch === RELEASE_BRANCH,
+    // The content pointer the build reads (scripts/content/channel.mjs): its branch's channel.
+    contentChannel: Object.hasOwn(CHANNELS, branch) ? CHANNELS[branch].pointer : 'live',
     last: index === chosen.length - 1,
   }));
 }

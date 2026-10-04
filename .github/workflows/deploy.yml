@@ -45,7 +45,8 @@ permissions:
   contents: read
   # Only for the failed-deploy report at the end of the job.
   issues: write
-  # Only to start a content release that was held for this deploy (the last step).
+  # Only to start a content release: one held for this deploy, or the dev channel's after a dev
+  # deploy (the last two steps).
   actions: write
 
 jobs:
@@ -136,6 +137,9 @@ jobs:
           VERCEL_TOKEN: ${{ secrets[matrix.target.tokenSecret] }}
           GH_TOKEN: ${{ github.token }}
           PROD: ${{ matrix.target.production && '--prod' || '' }}
+          # The content pointer this deployment reads: live, or dev-live for dev's own releases
+          # (scripts/content/channel.mjs); inlined into the build by next.config.js.
+          ARKPEDIA_CONTENT_CHANNEL: ${{ matrix.target.contentChannel }}
         run: npx --yes "vercel@$VERCEL_CLI_VERSION" build $PROD --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
       - name: Prepare the Build Output bundle
         run: node scripts/deploy/prepare-vercel-output.mjs
@@ -224,3 +228,14 @@ jobs:
           if [ "$held" = none ]; then echo "No content release is held."; exit 0; fi
           echo "Content release held (issue #$held): production runs this deploy now, so Prepare content release starts again."
           gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref main -f refresh_upstream=true
+      # The dev channel (scripts/content/channel.mjs): once arkpedia-dev runs a new build of dev,
+      # compile data main's records with that code and publish them to dev-live, so the build's
+      # effect on the data shows on arkpedia-dev without waiting for main. A newer dev deploy's
+      # run supersedes this one (prepare-content.yml cancels dev runs in progress). Never for
+      # main: its release is the scheduled one.
+      - name: Prepare dev's own content release
+        if: ${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.production && matrix.target.branch == 'dev' && matrix.target.last }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream=true

@@ -96,6 +96,6 @@ test('prepare-content refreshes them right after the release is confirmed live, 
   assert.equal(refresh, live + 1, 'straight after the pointer is confirmed');
   const step = steps[refresh];
   assert.deepEqual([step.if, step.run, step['continue-on-error'], step.env?.ARKPEDIA_RELEASE_REFRESH_SECRET], [
-    "steps.live.outcome == 'success'", 'node scripts/content/refresh-pages.mjs', true, '${{ secrets.ARKPEDIA_RELEASE_REFRESH_SECRET }}',
+    "steps.live.outcome == 'success' || steps.publish_dev.outputs.pushed != ''", 'node scripts/content/refresh-pages.mjs', true, '${{ secrets.ARKPEDIA_RELEASE_REFRESH_SECRET }}',
   ]);
 });

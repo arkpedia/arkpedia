@@ -30,7 +30,9 @@ const nextConfig = {
   // pulled project settings carry VERCEL=1. Anywhere else /_vercel/insights/script.js is a 404,
   // which the browser suites count as a console error (request-clock.spec.ts), and a local or
   // Check build has no visitors to count anyway.
-  env: { ARKPEDIA_WEB_ANALYTICS: process.env.VERCEL === '1' ? '1' : '' },
+  // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts), set by
+  // Deploy per deployment; inlined because the prebuilt functions carry no Vercel project env.
+  env: { ARKPEDIA_WEB_ANALYTICS: process.env.VERCEL === '1' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: process.env.ARKPEDIA_CONTENT_CHANNEL || 'live' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer }) {
