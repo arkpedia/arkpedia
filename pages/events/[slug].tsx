@@ -14,7 +14,7 @@ import { Skin } from '@/lib/skins/skinTypes';
 import { parsePrices } from '@/lib/skins/skinPrice';
 import PriceDisplay from '@/components/ui/PriceDisplay';
 import { getEventCgImages } from '@/lib/events/eventCg';
-import { getEventRewards } from '@/lib/events/loadEventsData';
+import { getEventRewards, type EventRewardBlock } from '@/lib/events/loadEventsData';
 import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
@@ -492,7 +492,12 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const rewardEntry = eventRewards.events[event.name];
   // A rerun's store is its own (tokens for the operator, other stock), so it is never filled in
   // from the original run's: only the missions, first clears and furniture a rerun repeats are.
-  const rawStores = getEventRewards(event.name).map((store) => ({ ...store, items: store.items.map((item) => ({ ...item, name: storeNames[item.name] ?? item.name })) }));
+  // The store as the wiki lists it now (data/event-stores.json, refreshed by the event-stores
+  // stage; a rerun's from its /Rerun page), else the event record's one-off wiki import.
+  const wikiStores = ((await import('@/data/event-stores.json')).default as { events: Record<string, { stores: { name: string; currency: string; items: { name: string; type: string; quantity: number; price: number | null; stock: string }[] }[] }> }).events[event.name]?.stores;
+  const rawStores: EventRewardBlock[] = wikiStores?.length
+    ? wikiStores.map((store) => ({ type: 'Events Store', name: store.name, currency: store.currency, items: store.items.map((item) => ({ name: item.name, type: item.type, reward_quantity: item.quantity, price: item.price ?? undefined, stock: item.stock })) }))
+    : getEventRewards(event.name).map((store) => ({ ...store, items: store.items.map((item) => ({ ...item, name: storeNames[item.name] ?? item.name })) }));
   const fromOriginal = !!rewardEntry?.inheritsFrom && (rewardEntry.groups ?? []).some((g) => g.inherited);
   const fromCn = rewardEntry?.region === 'CN' || (rewardEntry?.groups ?? []).some((g) => g.region === 'CN');
   const rewardNote = fromOriginal
@@ -560,7 +565,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
         groups: catalogue.groups,
         operators: new Set((rewardStores.some((s) => s.items.length) ? getAllOperators() : []).map((op) => op.name)),
         outfits: new Set([...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'skin').map((i) => i.name)), ...tableRewards.flatMap((g) => g.items.filter((i) => i.kind === 'outfit').map((i) => i.name))]),
-        furniture: new Set([...extras.furniture.flatMap((set) => set.pieces.map((p) => p.name)), ...(eventRewards.storeFurniture ?? []).map((n) => storeNames[n] ?? n)]),
+        furniture: new Set([...extras.furniture.flatMap((set) => set.pieces.map((p) => p.name)), ...(eventRewards.storeFurniture ?? []).map((n) => storeNames[n] ?? n), ...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'furniture').map((i) => i.name))]),
         kinds: new Map(tableRewards.flatMap((g) => g.items.map((i) => [i.name, i.kind] as [string, string]))),
       }, materialOrder),
       materialOrder,
