@@ -990,9 +990,9 @@
        "id": "act1d0_token_gold_rep_1"
       },
       {
-       "name": "furni_dropS002_abbeyRoad_01",
+       "name": "Plaque - Sunset",
        "count": 1,
-       "kind": "other",
+       "kind": "furniture",
        "id": "furni_dropS002_abbeyRoad_01"
       }
      ]
@@ -1025,7 +1025,7 @@
      "end": "2021-01-13T10:59:59.000Z",
      "items": [
       {
-       "name": "Awakening Commemoration Permit",
+       "name": "Awakening Commemoration Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_903"
@@ -1444,7 +1444,7 @@
      "end": "2021-05-14T10:59:59.000Z",
      "items": [
       {
-       "name": "Memorial-Limited Headhunting Permit",
+       "name": "Memorial-Limited Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_1401"
@@ -1480,7 +1480,7 @@
      "items": [],
      "packs": [
       {
-       "name": "DUCK LORD&apos;S SPARE CHANGE PURSE",
+       "name": "DUCK LORD'S SPARE CHANGE PURSE",
        "start": "2021-04-30T17:00:00.000Z",
        "end": "2021-05-28T10:59:00.000Z",
        "contents": [
@@ -1753,6 +1753,16 @@
        }
       ]
      ]
+    },
+    {
+     "kind": "notice",
+     "title": "COEXISTENCE LOGIN EVENT OPEN",
+     "source": "https://www.arknights.global/news/426",
+     "items": [],
+     "lines": [
+      "DETAILS: During the event, players can login for 7 days to earn the following rewards. Players can earn all the rewards even without login consecutively.",
+      "NOTE:"
+     ]
     }
    ]
   },
@@ -1779,7 +1789,7 @@
      "end": "2021-08-13T10:59:59.000Z",
      "items": [
       {
-       "name": "Tide on Sunset Headhunting Permit",
+       "name": "Tide on Sunset Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_1601"
@@ -2468,7 +2478,7 @@
      "end": "2021-09-01T10:59:59.000Z",
      "items": [
       {
-       "name": "Expert Headhunting Permit",
+       "name": "Expert Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_1701"
@@ -2544,7 +2554,7 @@
        "id": "4002"
       },
       {
-       "name": "Expert Headhunting Permit",
+       "name": "Expert Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_1701"
@@ -2643,7 +2653,7 @@
       ],
       [
        {
-        "name": "Expert Headhunting Permit",
+        "name": "Expert Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_1701"
@@ -3395,7 +3405,7 @@
      "end": "2021-11-04T10:59:59.000Z",
      "items": [
       {
-       "name": "Song of the Sea Headhunting Permit",
+       "name": "Song of the Sea Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_1803"
@@ -4204,7 +4214,7 @@
      "end": "2022-01-28T10:59:59.000Z",
      "items": [
       {
-       "name": "Breaking Waves Headhunting Permit",
+       "name": "Breaking Waves Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_2101"
@@ -4244,7 +4254,7 @@
        "id": "furni_westCoast_bed_01"
       },
       {
-       "name": "charm_coin_1",
+       "name": "Gold Chip",
        "count": 5,
        "kind": "other",
        "id": "charm_coin_1"
@@ -4268,7 +4278,7 @@
        "id": "furni_westCoast_blind_S_01"
       },
       {
-       "name": "charm_coin_2",
+       "name": "Error Coin",
        "count": 9,
        "kind": "other",
        "id": "charm_coin_2"
@@ -4286,7 +4296,7 @@
        "id": "furni_westCoast_floor_01"
       },
       {
-       "name": "charm_coin_3",
+       "name": "Dossoles Big Lottery",
        "count": 8,
        "kind": "other",
        "id": "charm_coin_3"
@@ -4294,14 +4304,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "LIMITED-TIME DAILY FREE ROLL EVENT OPEN",
      "source": "https://www.arknights.global/news/405",
-     "items": [],
-     "lines": [
-      "DURATION: January 14, 2022, 10:00 (UTC-7) – January 28, 2022, 03:59 (UTC-7)",
-      "DETAILS: During the event, players can do one free roll in \"Holiday Stars\" every day.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -5827,7 +5840,7 @@
      "end": "2022-05-12T10:59:59.000Z",
      "items": [
       {
-       "name": "Flaming Radiance Headhunting Permit",
+       "name": "Flaming Radiance Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_2301"
@@ -6393,6 +6406,17 @@
      ]
     },
     {
+     "kind": "notice",
+     "title": "2022 LIMITED-TIME LOGIN EVENT OPEN",
+     "source": "https://www.arknights.global/news/395",
+     "items": [],
+     "lines": [
+      "DURATION: June 30, 2022, 10:00 (UTC-7) – July 14, 2022, 03:59 (UTC-7)",
+      "DETAILS: During the event, players can log in for 10 days to earn the following rewards.",
+      "NOTE:"
+     ]
+    },
+    {
      "kind": "furniture-set",
      "title": "Kjerag-Style Inn",
      "source": "building_data furni_set_stage",
@@ -6709,7 +6733,7 @@
      "end": "2022-08-12T10:59:59.000Z",
      "items": [
       {
-       "name": "Sing while Drinking Headhunting Permit",
+       "name": "Sing while Drinking Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_2501"
@@ -7183,14 +7207,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "LIMITED-TIME DAILY FREE ROLL EVENT OPEN",
      "source": "https://www.arknights.global/news/391",
-     "items": [],
-     "lines": [
-      "DURATION: July 29, 2022, 10:00 (UTC-7) – August 12, 2022, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Unstrained Liquor, Pellucid Heart] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -7495,7 +7522,7 @@
      "end": "2022-11-17T10:59:59.000Z",
      "items": [
       {
-       "name": "Lighthouse in Morning Mist Headhunting Permit",
+       "name": "Lighthouse in Morning Mist Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_2701"
@@ -7759,14 +7786,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "[GIFT OF THE DEEP ONES] DAILY FREE ROLL IN LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/383",
-     "items": [],
-     "lines": [
-      "DURATION: November 3, 2022, 10:00 (UTC-7) - November 17, 2022, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Abyss Corrosion] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -7786,7 +7816,7 @@
      "items": [],
      "lines": [
       "DURATION: November 3, 2022, 10:00 (UTC-7) - December 1, 2022, 03:59 (UTC-7)",
-      "DETAILS: 30 Outfits will be available at the Outfit Store, including: 0011 New Arrivals - Ageless Afterglow for Ch&apos;en, 0011 New Arrivals - Honor and"
+      "DETAILS: 30 Outfits will be available at the Outfit Store, including: 0011 New Arrivals - Ageless Afterglow for Ch'en, 0011 New Arrivals - Honor and"
      ]
     },
     {
@@ -8406,7 +8436,7 @@
      "end": "2023-01-27T10:59:59.000Z",
      "items": [
       {
-       "name": "Tempered into Poetry Headhunting Permit",
+       "name": "Tempered into Poetry Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_3001"
@@ -8740,7 +8770,7 @@
        "id": "30103"
       },
       {
-       "name": "durcar_soft_5_sp",
+       "name": "'Infinite Fist'",
        "count": 1,
        "kind": "other",
        "id": "durcar_soft_5_sp"
@@ -8764,7 +8794,7 @@
        "id": "mod_update_token_1"
       },
       {
-       "name": "durcar_soft_6_sp",
+       "name": "'Paradoxical Explosion'",
        "count": 1,
        "kind": "other",
        "id": "durcar_soft_6_sp"
@@ -8848,7 +8878,7 @@
        "id": "30135"
       },
       {
-       "name": "durcar_soft_7_sp",
+       "name": "'Simplification Solution'",
        "count": 1,
        "kind": "other",
        "id": "durcar_soft_7_sp"
@@ -8888,14 +8918,28 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "[3RD ANNIVERSARY CELEBRATION] DAILY FREE ROLL IN [GREAT AXE AND PEN NIB] LIMITED HEADHUNTING",
+     "source": "https://www.arknights.global/news/377",
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "[3RD ANNIVERSARY CELEBRATION] WELCOME TO THE UNDERGROUND LOGIN EVENT",
      "source": "https://www.arknights.global/news/377",
      "items": [],
      "lines": [
       "DURATION: January 13, 2023, 10:00 (UTC-7) - January 27, 2023, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Great Axe and Pen Nib] Limited Headhunting.",
-      "NOTE:"
+      "DETAILS: During the event, players can log in for 10 days to receive generous rewards, including: Event Exclusive Furnitures, Originite Prime, Emergency Sanity Concentrate, and etc.",
+      "NOTE: Please refer to the in-game info for the expiration time of the Emergency Sanity Concentrate from this event."
      ]
     },
     {
@@ -8905,7 +8949,7 @@
      "items": [],
      "packs": [
       {
-       "name": "Eunectes&apos;s Parts Bags",
+       "name": "Eunectes's Parts Bags",
        "start": "2023-01-13T17:00:00.000Z",
        "end": "2023-02-03T10:59:00.000Z",
        "contents": [
@@ -9068,7 +9112,7 @@
        ]
       },
       {
-       "name": "Duck Lord&apos;s Change Purse",
+       "name": "Duck Lord's Change Purse",
        "start": "2023-01-13T17:00:00.000Z",
        "end": "2023-02-03T10:59:00.000Z",
        "contents": [
@@ -9262,6 +9306,111 @@
        "name": "Experientorium Floor",
        "id": "furni_idealCity_floor_01",
        "obtain": "Event Reward",
+       "comfort": 240
+      }
+     ]
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Sugar Pome Fairy's Banquet Hall",
+     "source": "building_data furni_set_durin",
+     "items": [],
+     "description": "The banquet hall of the Sugar Pome Fairy, modeled after the set of Rhodes Island home-ballet production The Nutcracker. At once a dreamland, and rich with significance too.",
+     "pieces": [
+      {
+       "name": "Bronze Arc Lamp",
+       "id": "furni_durin_ceilingLamp_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 95
+      },
+      {
+       "name": "'Toys and Old Friends'",
+       "id": "furni_durin_nutcracker_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 190
+      },
+      {
+       "name": "Snack Sofa Bed",
+       "id": "furni_durin_bed_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 675
+      },
+      {
+       "name": "Modular Floor Mat",
+       "id": "furni_durin_carpet_C_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 55
+      },
+      {
+       "name": "Playing Card Stool",
+       "id": "furni_durin_stool_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 160
+      },
+      {
+       "name": "Screw Thread Floor Lamp",
+       "id": "furni_durin_floorlamp_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 290
+      },
+      {
+       "name": "Geometric-Patterned Rug",
+       "id": "furni_durin_carpet_R_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 170
+      },
+      {
+       "name": "Sugar Pome Fairy's Dining Table",
+       "id": "furni_durin_table_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 705
+      },
+      {
+       "name": "Vine Light Set",
+       "id": "furni_durin_ceilingLight_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 200
+      },
+      {
+       "name": "Hanging Bell",
+       "id": "furni_durin_ceiling_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 160
+      },
+      {
+       "name": "Banquet Hall Door",
+       "id": "furni_durin_door_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 215
+      },
+      {
+       "name": "Snack Loveseat",
+       "id": "furni_durin_sofa_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 215
+      },
+      {
+       "name": "'Rose & Needle'",
+       "id": "furni_durin_alarmClock_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 305
+      },
+      {
+       "name": "Chess Object",
+       "id": "furni_durin_chess_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 135
+      },
+      {
+       "name": "Banquet Hall Wallpaper",
+       "id": "furni_durin_wallpaper_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 240
+      },
+      {
+       "name": "Banquet Hall Floor",
+       "id": "furni_durin_floor_01",
+       "obtain": "Dropped from some stages",
        "comfort": 240
       }
      ]
@@ -9795,7 +9944,7 @@
      "end": "2023-06-06T10:59:59.000Z",
      "items": [
       {
-       "name": "Wolves Stalk Shadows Headhunting Permit",
+       "name": "Wolves Stalk Shadows Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_3301"
@@ -10736,6 +10885,117 @@
        "comfort": 240
       }
      ]
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Detective's Study",
+     "source": "building_data furni_set_bookshop",
+     "items": [],
+     "description": "A room furnished by a certain detective with the help of friends. Normally serves as a place for the detective to work, but also doubles as a bookstore.",
+     "pieces": [
+      {
+       "name": "'Data Collection Facility'",
+       "id": "furni_bookshop_bookcase_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 305
+      },
+      {
+       "name": "Glass Book Page Pendant Lamp",
+       "id": "furni_bookshop_cellingLamp_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 65
+      },
+      {
+       "name": "'Evidence Depository'",
+       "id": "furni_bookshop_table_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 210
+      },
+      {
+       "name": "'Inspiration Stashing Facility'",
+       "id": "furni_bookshop_bookcase_02",
+       "obtain": "Dropped from some stages",
+       "comfort": 280
+      },
+      {
+       "name": "'Information Inquiry Facility'",
+       "id": "furni_bookshop_counter_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 200
+      },
+      {
+       "name": "'Culprit, Means, and Motive'",
+       "id": "furni_bookshop_ladder_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 410
+      },
+      {
+       "name": "'Daily Rhodes'",
+       "id": "furni_bookshop_newspaperRack_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 180
+      },
+      {
+       "name": "Challenging Sudoku Puzzle",
+       "id": "furni_bookshop_sudoku_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 75
+      },
+      {
+       "name": "Secret Chamber Pendant Lamp",
+       "id": "furni_bookshop_cellingLamp_02",
+       "obtain": "Dropped from some stages",
+       "comfort": 55
+      },
+      {
+       "name": "Detective's Armchair",
+       "id": "furni_bookshop_chair_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 125
+      },
+      {
+       "name": "Investigation Board Collage",
+       "id": "furni_bookshop_blackboard_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 365
+      },
+      {
+       "name": "Artificial Flower Cart",
+       "id": "furni_bookshop_festoon_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 325
+      },
+      {
+       "name": "Detective's Workstation",
+       "id": "furni_bookshop_desk_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 355
+      },
+      {
+       "name": "Detective's Desk",
+       "id": "furni_bookshop_desk_02",
+       "obtain": "Dropped from some stages",
+       "comfort": 330
+      },
+      {
+       "name": "Cozy Knitted Rug",
+       "id": "furni_bookshop_carpet_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 190
+      },
+      {
+       "name": "Secret Chamber Wallpaper",
+       "id": "furni_bookshop_wallpaper_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 240
+      },
+      {
+       "name": "Secret Chamber Flooring",
+       "id": "furni_bookshop_floor_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 240
+      }
+     ]
     }
    ]
   },
@@ -10762,7 +11022,7 @@
      "end": "2023-08-11T10:59:59.000Z",
      "items": [
       {
-       "name": "Winds of Millennia Unyielding Headhunting Permit",
+       "name": "Winds of Millennia Unyielding Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_3501"
@@ -11136,22 +11396,10 @@
        "id": "furni_martialClub_drum_01"
       },
       {
-       "name": "'Symphony of Drums'",
-       "count": 0,
-       "kind": "other",
-       "id": "'Symphony of Drums'"
-      },
-      {
        "name": "'All Shallow'",
        "count": 1,
        "kind": "furniture",
        "id": "furni_martialClub_floorLamp_01"
-      },
-      {
-       "name": "'All Shallow'",
-       "count": 0,
-       "kind": "other",
-       "id": "'All Shallow'"
       },
       {
        "name": "'Meditation'",
@@ -11160,34 +11408,16 @@
        "id": "furni_martialClub_chair_01"
       },
       {
-       "name": "'Meditation'",
-       "count": 0,
-       "kind": "other",
-       "id": "'Meditation'"
-      },
-      {
        "name": "'I Go'",
        "count": 1,
        "kind": "furniture",
        "id": "furni_martialClub_wallpaper_01"
       },
       {
-       "name": "'I Go'",
-       "count": 0,
-       "kind": "other",
-       "id": "'I Go'"
-      },
-      {
        "name": "Jieyun",
        "count": 1,
        "kind": "operator",
        "id": "char_4078_bdhkgt"
-      },
-      {
-       "name": "Jieyun",
-       "count": 0,
-       "kind": "other",
-       "id": "Jieyun"
       },
       {
        "name": "Module Data Block",
@@ -11200,12 +11430,6 @@
        "count": 1,
        "kind": "furniture",
        "id": "furni_martialClub_floor_01"
-      },
-      {
-       "name": "'Remembrance'",
-       "count": 0,
-       "kind": "other",
-       "id": "'Remembrance'"
       },
       {
        "name": "'Replete With Life Anew'",
@@ -11248,14 +11472,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "DAILY FREE ROLL IN [SOLITUDE UNIVERSAL] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/354",
-     "items": [],
-     "lines": [
-      "DURATION: July 28, 2023, 10:00 (UTC-7) - August 11, 2023, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Solitude Universal] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -11466,7 +11693,7 @@
        ]
       },
       {
-       "name": "Lin&apos;s Wallet",
+       "name": "Lin's Wallet",
        "start": "2023-07-28T17:00:00.000Z",
        "end": "2023-08-18T10:59:00.000Z",
        "contents": [
@@ -11732,7 +11959,7 @@
      "end": "2023-09-21T10:59:59.000Z",
      "items": [
       {
-       "name": "Scouting the Light Headhunting Permit",
+       "name": "Scouting the Light Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_3601"
@@ -11820,7 +12047,7 @@
          "kind": "currency"
         },
         {
-         "name": "Icon &apos;Fireseeking Leaves&apos;",
+         "name": "Icon 'Fireseeking Leaves'",
          "count": 1,
          "kind": "other"
         }
@@ -11871,7 +12098,7 @@
        ]
       },
       {
-       "name": "Hunters&apos; Expedition Pack",
+       "name": "Hunters' Expedition Pack",
        "start": "2023-09-07T17:00:00.000Z",
        "end": "2023-09-28T10:59:00.000Z",
        "contents": [
@@ -11942,6 +12169,16 @@
         }
        ]
       }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "SURPRISEFUL SUPPLICATIONS LOGIN EVENT OPEN",
+     "source": "https://www.arknights.global/news/350",
+     "items": [],
+     "lines": [
+      "DURATION: September 7, 2023, 10:00 - September 21, 2023, 03:59 (UTC-7)",
+      "DETAILS: During the event, the total amount of event rewards that players can obtain by flipping the Prayer Plaque is the same, including: Event Exclusive Furniture, Module Materials, etc. Flip over all Prayer Plaques to obtain the Icon 'Soubo Impressions' and a [Collaboration Limited Ten-roll Headhunting Permit]."
      ]
     },
     {
@@ -12310,7 +12547,7 @@
      "end": "2023-11-21T10:59:59.000Z",
      "items": [
       {
-       "name": "Preludes to the Future Headhunting Permit",
+       "name": "Preludes to the Future Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_3801"
@@ -12406,14 +12643,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "[ONE GIANT LEAP] DAILY FREE ROLL IN [HERE I STAND] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/344",
-     "items": [],
-     "lines": [
-      "DURATION: November 7, 2023, 10:00 (UTC-7)- November 21, 2023, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Here I Stand] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -12612,7 +12852,7 @@
      "end": "2024-01-30T10:59:59.000Z",
      "items": [
       {
-       "name": "Footprints of the Clouds Headhunting Permit",
+       "name": "Footprints of the Clouds Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_4101"
@@ -12880,6 +13120,148 @@
      ]
     },
     {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 620,000 points",
+     "source": "activity_table act27side",
+     "count": 45,
+     "points": 620000,
+     "pointName": null,
+     "items": [
+      {
+       "name": "LMD",
+       "count": 100000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Refined Solvent",
+       "count": 2,
+       "kind": "material",
+       "id": "31044"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Oriron Cluster",
+       "count": 12,
+       "kind": "material",
+       "id": "30043"
+      },
+      {
+       "name": "Swimmable Little Stool",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_stool_01"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 100,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Orirock Concentration",
+       "count": 2,
+       "kind": "material",
+       "id": "30014"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 40,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Semi-Synthetic Solvent",
+       "count": 12,
+       "kind": "material",
+       "id": "31043"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 30,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Incandescent Alloy Block",
+       "count": 2,
+       "kind": "material",
+       "id": "31024"
+      },
+      {
+       "name": "Bipolar Nanoflake",
+       "count": 1,
+       "kind": "material",
+       "id": "30125"
+      },
+      {
+       "name": "Fashion Street Outdoor Table",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_outsidetable_01"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 2,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 20,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 12,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 1,
+       "kind": "material",
+       "id": "30145"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 8,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Big Spinnable Chair",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_armchair_01"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Riotous Surfboard Rack",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_surfboard_01"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 1,
+       "kind": "material",
+       "id": "30115"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act27side",
@@ -12968,14 +13350,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "[4TH ANNIVERSARY CELEBRATION] DAILY FREE ROLL IN [CLOUDTOP LUCID DREAMS] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/337",
-     "items": [],
-     "lines": [
-      "DURATION: January 16, 2024, 10:00 (UTC-7) – January 30, 2024, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Cloudtop Lucid Dreams] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -13143,7 +13528,7 @@
        ]
       },
       {
-       "name": "Swire&apos;s Briefcase",
+       "name": "Swire's Briefcase",
        "start": "2024-01-16T17:00:00.000Z",
        "end": "2024-02-13T10:59:00.000Z",
        "contents": [
@@ -13455,6 +13840,485 @@
     }
    ]
   },
+  "[Rerun] Dorothy's Vision Rerun": {
+   "activity": "act19sre",
+   "groups": [
+    {
+     "kind": "login",
+     "title": "Moonlight Invite Login Event",
+     "source": "activity_table act35sign",
+     "start": "2024-03-05T11:00:00.000Z",
+     "end": "2024-03-19T10:59:59.000Z",
+     "days": 10,
+     "items": [
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Orundum",
+       "count": 600,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 10,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Skill Summary - 1",
+       "count": 30,
+       "kind": "material",
+       "id": "3301"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 8,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 10,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 3,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "Chip Catalyst",
+        "count": 1,
+        "kind": "material",
+        "id": "32001"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [],
+      [
+       {
+        "name": "Data Supplement Stick",
+        "count": 10,
+        "kind": "material",
+        "id": "mod_update_token_1"
+       },
+       {
+        "name": "Skill Summary - 1",
+        "count": 30,
+        "kind": "material",
+        "id": "3301"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Furniture Part",
+        "count": 300,
+        "kind": "material",
+        "id": "3401"
+       }
+      ],
+      [
+       {
+        "name": "Skill Summary - 2",
+        "count": 20,
+        "kind": "material",
+        "id": "3302"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "Skill Summary - 3",
+        "count": 8,
+        "kind": "material",
+        "id": "3303"
+       },
+       {
+        "name": "Strategic Battle Record",
+        "count": 10,
+        "kind": "material",
+        "id": "2004"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "Data Supplement Instrument",
+        "count": 3,
+        "kind": "material",
+        "id": "mod_update_token_2"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
+       }
+      ],
+      [
+       {
+        "name": "Module Data Block",
+        "count": 1,
+        "kind": "material",
+        "id": "mod_unlock_token"
+       },
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       }
+      ]
+     ]
+    },
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act19sre",
+     "count": 24,
+     "items": [
+      {
+       "name": "Mysterious Reagent",
+       "count": 1510,
+       "kind": "event-item",
+       "id": "act19side_token_reagents_rep_1"
+      },
+      {
+       "name": "Rhine Folder (L)",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_rhineLab_folder_T_01"
+      },
+      {
+       "name": "Entrance Disinfectant Sprayer",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_rhineLab_accessControl_01"
+      },
+      {
+       "name": "Medical Stool",
+       "count": 2,
+       "kind": "furniture",
+       "id": "furni_rhineLab_stool_01"
+      },
+      {
+       "name": "Astgenne",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_135_halo"
+      },
+      {
+       "name": "Experiment Operating Table",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_rhineLab_table_01"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 2,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Rhine Folder (R)",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_rhineLab_folder_O_01"
+      },
+      {
+       "name": "Twin-Monitor Stand",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_rhineLab_stand_01"
+      },
+      {
+       "name": "Plaque - Generosity",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dropS026_greed_01"
+      }
+     ]
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "stage_table act19sre",
+     "count": 27,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 27,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ]
+    },
+    {
+     "kind": "packs",
+     "title": "ICEFIELD SURVEY PACK AND HURRICANE CHASING PACK AVAILABLE FOR A LIMITED TIME",
+     "source": "https://www.arknights.global/news/333",
+     "items": [],
+     "packs": [
+      {
+       "name": "Icefield Survey Pack",
+       "start": "2024-03-05T17:00:00.000Z",
+       "end": "2024-03-19T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 2000,
+         "kind": "currency"
+        },
+        {
+         "name": "Nucleic Crystal Sinter",
+         "count": 2,
+         "kind": "material"
+        },
+        {
+         "name": "Crystalline Electronic Unit",
+         "count": 2,
+         "kind": "material"
+        },
+        {
+         "name": "Refined Solvent",
+         "count": 2,
+         "kind": "material"
+        },
+        {
+         "name": "Integrated Device",
+         "count": 10,
+         "kind": "material"
+        }
+       ]
+      },
+      {
+       "name": "Hurricane Chasing Pack",
+       "start": "2024-03-05T17:00:00.000Z",
+       "end": "2024-03-19T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 4500,
+         "kind": "currency"
+        },
+        {
+         "name": "Senior Operator Training Invitation Letter",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Rhine Experimental Culture Pod",
+     "source": "building_data furni_set_rhineLab",
+     "items": [],
+     "description": "A Rhine laboratory recreated from descriptions by Operator Dorothy, among others. The pod nurtures dreams that nurture humanity, but things can occasionally backfire.",
+     "pieces": [
+      {
+       "name": "'The Dream Begins'",
+       "id": "furni_rhineLab_incubator_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      },
+      {
+       "name": "Entrance Disinfectant Sprayer",
+       "id": "furni_rhineLab_accessControl_01",
+       "obtain": "Event Reward",
+       "comfort": 165
+      },
+      {
+       "name": "'Tree of Life'",
+       "id": "furni_rhineLab_plant_01",
+       "obtain": "Event Reward",
+       "comfort": 190
+      },
+      {
+       "name": "Medical Trolley",
+       "id": "furni_rhineLab_trolley_01",
+       "obtain": "Event Reward",
+       "comfort": 165
+      },
+      {
+       "name": "Medical Stool",
+       "id": "furni_rhineLab_stool_01",
+       "obtain": "Event Reward",
+       "comfort": 90
+      },
+      {
+       "name": "Experiment Operating Table",
+       "id": "furni_rhineLab_table_01",
+       "obtain": "Event Reward",
+       "comfort": 520
+      },
+      {
+       "name": "Rhine Folder (L)",
+       "id": "furni_rhineLab_folder_T_01",
+       "obtain": "Event Reward",
+       "comfort": 50
+      },
+      {
+       "name": "Rhine Folder (R)",
+       "id": "furni_rhineLab_folder_O_01",
+       "obtain": "Event Reward",
+       "comfort": 35
+      },
+      {
+       "name": "Ceiling Light Filter",
+       "id": "furni_rhineLab_ceiling_01",
+       "obtain": "Event Reward",
+       "comfort": 260
+      },
+      {
+       "name": "'Promised Land'",
+       "id": "furni_rhineLab_device_01",
+       "obtain": "Event Reward",
+       "comfort": 945
+      },
+      {
+       "name": "'Contemplation'",
+       "id": "furni_rhineLab_ceilingLight_01",
+       "obtain": "Event Reward",
+       "comfort": 90
+      },
+      {
+       "name": "Twin-Monitor Stand",
+       "id": "furni_rhineLab_stand_01",
+       "obtain": "Event Reward",
+       "comfort": 165
+      },
+      {
+       "name": "Privacy Curtain (L)",
+       "id": "furni_rhineLab_curtain_L_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 290
+      },
+      {
+       "name": "Privacy Curtain (R)",
+       "id": "furni_rhineLab_curtain_S_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 290
+      },
+      {
+       "name": "Experimental Culture Pod Wallpaper",
+       "id": "furni_rhineLab_wallpaper_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 240
+      },
+      {
+       "name": "Experimental Culture Pod Floor",
+       "id": "furni_rhineLab_floor_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 240
+      }
+     ]
+    }
+   ],
+   "inheritsFrom": "[Side Story] Dorothy's Vision"
+  },
   "[Side Story – Celebration] Zwillingstürme im Herbst": {
    "activity": "act29side",
    "groups": [
@@ -13726,7 +14590,7 @@
      "end": "2024-05-14T10:59:59.000Z",
      "items": [
       {
-       "name": "Candleglow Sonata Headhunting Permit",
+       "name": "Candleglow Sonata Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_4401"
@@ -13846,14 +14710,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "2024 [THANK-YOU CELEBRATION] DAILY FREE ROLL IN [BY MY WILL] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/321",
-     "items": [],
-     "lines": [
-      "DURATION: April 30, 2024, 10:00 - May 14, 2024, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [By My Will] Limited Headhunting.",
-      "NOTE: Daily Free Roll will be refreshed at 04:00 (UTC-7) every day. Daily Free Roll can only be used once a day and will not accumulate."
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -13863,7 +14730,7 @@
      "items": [],
      "packs": [
       {
-       "name": "Duck Lord&apos;s Change Purse",
+       "name": "Duck Lord's Change Purse",
        "start": "2024-04-30T17:00:00.000Z",
        "end": "2024-05-28T10:59:00.000Z",
        "contents": [
@@ -13880,7 +14747,7 @@
        ]
       },
       {
-       "name": "Virtuosa&apos;s Briefcase",
+       "name": "Virtuosa's Briefcase",
        "start": "2024-04-30T17:00:00.000Z",
        "end": "2024-05-28T10:59:00.000Z",
        "contents": [
@@ -14100,6 +14967,15 @@
         }
        ]
       }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "2024 [THANK-YOU CELEBRATION] , MAINTITLE BACKGROUND 'CELEBRATION' LIMITED-TIME GIFT",
+     "source": "https://www.arknights.global/news/321",
+     "items": [],
+     "lines": [
+      "DETAILS: During the event, players can unlock the Maintitle Background 'Celebration' by logging in. It can be viewed and used in the scene change function on the home page."
      ]
     },
     {
@@ -14491,7 +15367,7 @@
      "end": "2024-08-14T10:59:59.000Z",
      "items": [
       {
-       "name": "Bountiful Harmony Headhunting Permit",
+       "name": "Bountiful Harmony Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_4701"
@@ -14599,13 +15475,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "SEASONS FOURFOLD, DAILY FREE ROLL IN [REAP OF MILLENIA ] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/310",
-     "items": [],
-     "lines": [
-      "DURATION: July 31, 2024,10:00 - August 14, 2024, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Reap of Millenia] Limited Headhunting. NOTE: - Daily Free Roll will be refreshed at 04:00 (UTC-7) every day. - Daily Free Roll can only be used once a day and will not accumulate."
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -14796,7 +15676,7 @@
        ]
       },
       {
-       "name": "Shu&apos;s Spare Change Pack",
+       "name": "Shu's Spare Change Pack",
        "start": "2024-07-31T17:00:00.000Z",
        "end": "2024-08-28T10:59:00.000Z",
        "contents": [
@@ -14928,6 +15808,27 @@
         }
        ]
       }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "SEASONS FOURFOLD, SPECIAL LOGIN EVENT OPEN",
+     "source": "https://www.arknights.global/news/310",
+     "items": [],
+     "lines": [
+      "DURATION: July 31, 2024, 11:00 - July 31, 2024, 12:00 (UTC-7)",
+      "DETAILS: During the event period, players can receive gift emails from different Operators at various time intervals."
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "SEASONS FOURFOLD, 2024 FESTIVAL SIGN-IN",
+     "source": "https://www.arknights.global/news/310",
+     "items": [],
+     "lines": [
+      "DURATION: July 31, 2024, 10:00 - August 14, 2024, 03:59 (UTC-7)",
+      "DETAILS: During the event period, players can log in on July 31, August 3, August 6, and August 9 to receive specific Operator blessings along with a certain amount of Orundum. The received blessings can be added to players' own collection of Blessings. Additionally, the Operator blessings can be shared or saved as wallpapers. Players can log in for a total of 10 days to receive event-exclusive Furniture, Module Materials, Emergency Sanity Concentrate, among other rewards.",
+      "NOTE:"
      ]
     },
     {
@@ -15127,7 +16028,7 @@
        "id": "2004"
       },
       {
-       "name": "Expert Headhunting Permit",
+       "name": "Expert Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_4801"
@@ -15151,7 +16052,7 @@
        "id": "3303"
       },
       {
-       "name": "avatar_activity_CR",
+       "name": "Icon 'All In A Glance'",
        "count": 1,
        "kind": "other",
        "id": "avatar_activity_CR"
@@ -15264,7 +16165,7 @@
       ],
       [
        {
-        "name": "Expert Headhunting Permit",
+        "name": "Expert Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_4801"
@@ -15292,7 +16193,7 @@
       ],
       [
        {
-        "name": "avatar_activity_CR",
+        "name": "Icon 'All In A Glance'",
         "count": 1,
         "kind": "other",
         "id": "avatar_activity_CR"
@@ -15314,7 +16215,7 @@
      "end": "2024-09-19T10:59:59.000Z",
      "items": [
       {
-       "name": "Expert Headhunting Permit",
+       "name": "Expert Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_4801"
@@ -15414,7 +16315,7 @@
          "kind": "currency"
         },
         {
-         "name": "Icon &apos;Defender&apos;",
+         "name": "Icon 'Defender'",
          "count": 1,
          "kind": "other"
         }
@@ -15436,12 +16337,12 @@
          "kind": "permit"
         },
         {
-         "name": "Background &apos;Prestige&apos;",
+         "name": "Background 'Prestige'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Home Screen UI &apos;Siege&apos;",
+         "name": "Home Screen UI 'Siege'",
          "count": 1,
          "kind": "other"
         }
@@ -15698,7 +16599,7 @@
      "days": 10,
      "items": [
       {
-       "name": "Dawn Enkindlers Headhunting Permit",
+       "name": "Dawn Enkindlers Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_5001"
@@ -15734,7 +16635,7 @@
        "id": "4001"
       },
       {
-       "name": "bg_rhodes_flower_1",
+       "name": "Main Menu Background 'Flowerbed'",
        "count": 1,
        "kind": "other",
        "id": "bg_rhodes_flower_1"
@@ -15809,7 +16710,7 @@
      "daily": [
       [
        {
-        "name": "Dawn Enkindlers Headhunting Permit",
+        "name": "Dawn Enkindlers Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LIMITED_TKT_GACHA_10_5001"
@@ -15851,7 +16752,7 @@
       ],
       [
        {
-        "name": "bg_rhodes_flower_1",
+        "name": "Main Menu Background 'Flowerbed'",
         "count": 1,
         "kind": "other",
         "id": "bg_rhodes_flower_1"
@@ -16060,14 +16961,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "DAILY FREE ROLL IN [OUR KIND] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/302",
-     "items": [],
-     "lines": [
-      "DURATION: October 31, 2024, 10:00 - November 14, 2024, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [OUR KIND] Limited Headhunting.",
-      "NOTE: - Daily Free Roll will be refreshed at 04:00 (UTC-7) every day. - Daily Free Roll can only be used once a day and will not accumulate."
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -16077,7 +16981,7 @@
      "items": [],
      "packs": [
       {
-       "name": "Duck Lord&apos;s Change Purse",
+       "name": "Duck Lord's Change Purse",
        "start": "2024-10-31T17:00:00.000Z",
        "end": "2024-11-28T10:59:00.000Z",
        "contents": [
@@ -16094,7 +16998,7 @@
        ]
       },
       {
-       "name": "Wiš&apos;adel&apos;s Briefcase",
+       "name": "Wiš'adel's Briefcase",
        "start": "2024-10-31T17:00:00.000Z",
        "end": "2024-11-28T10:59:00.000Z",
        "contents": [
@@ -16398,7 +17302,7 @@
      "end": "2025-01-30T10:59:59.000Z",
      "items": [
       {
-       "name": "Bright Glitter Headhunting Permit",
+       "name": "Bright Glitter Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_5301"
@@ -16666,6 +17570,142 @@
      ]
     },
     {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 4,500 points",
+     "source": "activity_table act35side",
+     "count": 45,
+     "points": 4500,
+     "pointName": null,
+     "items": [
+      {
+       "name": "LMD",
+       "count": 100000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "RMA70-12",
+       "count": 12,
+       "kind": "material",
+       "id": "30103"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 30,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Coagulating Gel",
+       "count": 12,
+       "kind": "material",
+       "id": "31013"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 30,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "RMA70-24",
+       "count": 1,
+       "kind": "material",
+       "id": "30104"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 30,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Aketon",
+       "count": 12,
+       "kind": "material",
+       "id": "30053"
+      },
+      {
+       "name": "Silent Stone Bench",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_bench_01"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 60,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 15,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "'Partner of Youth'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_ceilingplant_01"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Polymerized Gel",
+       "count": 1,
+       "kind": "material",
+       "id": "31014"
+      },
+      {
+       "name": "'Sentinel'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_jewelcat_01"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 1,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Jeweled Sink",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_sink_01"
+      },
+      {
+       "name": "Keton Colloid",
+       "count": 1,
+       "kind": "material",
+       "id": "30054"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 200,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 1,
+       "kind": "material",
+       "id": "30145"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act35side",
@@ -16742,14 +17782,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "[5TH ANNIVERSARY CELEBRATION] DAILY FREE ROLL IN [ ENGRAVER OF QUICKSAND ] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/291",
-     "items": [],
-     "lines": [
-      "DURATION: January 16, 2025, 10:00 – January 30, 2025, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Engraver of Quicksand] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -16891,7 +17934,7 @@
        ]
       },
       {
-       "name": "Pepe&apos;s Briefcase",
+       "name": "Pepe's Briefcase",
        "start": "2025-01-16T17:00:00.000Z",
        "end": "2025-02-13T10:59:00.000Z",
        "contents": [
@@ -17408,7 +18451,7 @@
        "id": "2002"
       },
       {
-       "name": "avatar_activity_RL4_1",
+       "name": "Icon 'Brave to the End'",
        "count": 1,
        "kind": "other",
        "id": "avatar_activity_RL4_1"
@@ -17501,7 +18544,7 @@
       ],
       [
        {
-        "name": "avatar_activity_RL4_1",
+        "name": "Icon 'Brave to the End'",
         "count": 1,
         "kind": "other",
         "id": "avatar_activity_RL4_1"
@@ -17553,6 +18596,123 @@
         "count": 300,
         "kind": "material",
         "id": "3401"
+       }
+      ]
+     ]
+    },
+    {
+     "kind": "login",
+     "title": "A Good Moony Time Login Event",
+     "source": "activity_table act43sign",
+     "start": "2025-02-18T11:00:00.000Z",
+     "end": "2025-02-25T10:59:59.000Z",
+     "days": 5,
+     "items": [
+      {
+       "name": "'Shrouded Golden Waves' Gift Box",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_MA_mooncake_T_02"
+      },
+      {
+       "name": "LMD",
+       "count": 30000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "'Smiley Face' Gift Box",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_MA_mooncake_G_01"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Orundum",
+       "count": 200,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "'Shrouded Golden Waves' Gift Box",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_MA_mooncake_T_02"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "'Smiley Face' Gift Box",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_MA_mooncake_G_01"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [],
+      [
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
        }
       ]
      ]
@@ -17681,6 +18841,47 @@
          "kind": "material"
         }
        ]
+      },
+      {
+       "name": "Charming Vista Pack",
+       "start": "2025-02-14T11:00:00.000Z",
+       "end": "2025-02-28T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Profile Theme 'Vista'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Alluring Moonlight Pack",
+       "start": "2025-02-18T11:00:00.000Z",
+       "end": "2025-03-11T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 1600,
+         "kind": "currency"
+        },
+        {
+         "name": "Profile Theme 'An Invitation to Moons'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Kernel Headhunting Pack",
+       "start": "2025-02-25T11:00:00.000Z",
+       "end": "2025-03-11T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Ten-roll Kernel Headhunting Permit",
+         "count": 1,
+         "kind": "permit"
+        }
+       ]
       }
      ]
     },
@@ -17701,7 +18902,7 @@
          "kind": "currency"
         },
         {
-         "name": "Profile Theme &apos;The Dreamer&apos;",
+         "name": "Profile Theme 'The Dreamer'",
          "count": 1,
          "kind": "other"
         }
@@ -17718,7 +18919,7 @@
          "kind": "currency"
         },
         {
-         "name": "Profile Theme &apos;The Pilgrim&apos;",
+         "name": "Profile Theme 'The Pilgrim'",
          "count": 1,
          "kind": "other"
         }
@@ -17735,7 +18936,7 @@
          "kind": "currency"
         },
         {
-         "name": "Profile Theme &apos;The Throne&apos;",
+         "name": "Profile Theme 'The Throne'",
          "count": 1,
          "kind": "other"
         }
@@ -17752,58 +18953,9 @@
          "kind": "currency"
         },
         {
-         "name": "Profile Theme &apos;☆Supernova☆&apos;",
+         "name": "Profile Theme '☆Supernova☆'",
          "count": 1,
          "kind": "other"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "kind": "packs",
-     "title": "LIMITED-TIME PACKS AVAILABLE",
-     "source": "https://www.arknights.global/news/289",
-     "items": [],
-     "packs": [
-      {
-       "name": "Charming Vista Pack",
-       "start": "2025-02-14T11:00:00.000Z",
-       "end": "2025-02-28T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Profile Theme &apos;Vista&apos;",
-         "count": 1,
-         "kind": "other"
-        }
-       ]
-      },
-      {
-       "name": "Alluring Moonlight Pack",
-       "start": "2025-02-18T11:00:00.000Z",
-       "end": "2025-03-11T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Orundum",
-         "count": 1600,
-         "kind": "currency"
-        },
-        {
-         "name": "Profile Theme &apos;An Invitation to Moons&apos;",
-         "count": 1,
-         "kind": "other"
-        }
-       ]
-      },
-      {
-       "name": "Kernel Headhunting Pack",
-       "start": "2025-02-25T11:00:00.000Z",
-       "end": "2025-03-11T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Ten-roll Kernel Headhunting Permit",
-         "count": 1,
-         "kind": "permit"
         }
        ]
       }
@@ -17934,7 +19086,7 @@
      "days": 10,
      "items": [
       {
-       "name": "Have A Good Meal Headhunting Permit",
+       "name": "Have A Good Meal Headhunting Permit (ten-roll)",
        "count": 2,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_5401"
@@ -17976,7 +19128,7 @@
        "id": "3401"
       },
       {
-       "name": "avatar_activity_DT",
+       "name": "Icon 'Fresh'",
        "count": 1,
        "kind": "other",
        "id": "avatar_activity_DT"
@@ -18039,7 +19191,7 @@
      "daily": [
       [
        {
-        "name": "Have A Good Meal Headhunting Permit",
+        "name": "Have A Good Meal Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_5401"
@@ -18095,7 +19247,7 @@
       ],
       [
        {
-        "name": "avatar_activity_DT",
+        "name": "Icon 'Fresh'",
         "count": 1,
         "kind": "other",
         "id": "avatar_activity_DT"
@@ -18137,7 +19289,7 @@
       ],
       [
        {
-        "name": "Have A Good Meal Headhunting Permit",
+        "name": "Have A Good Meal Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_5401"
@@ -18262,7 +19414,7 @@
      "items": [],
      "packs": [
       {
-       "name": "Dungeoneer&apos;s Memorial Pack",
+       "name": "Dungeoneer's Memorial Pack",
        "start": "2025-03-10T17:00:00.000Z",
        "end": "2025-03-24T10:59:00.000Z",
        "contents": [
@@ -18272,22 +19424,22 @@
          "kind": "currency"
         },
         {
-         "name": "Icon &apos;Odd Inky Thoughts&apos;",
+         "name": "Icon 'Odd Inky Thoughts'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Watering The Metal Crabs&apos;",
+         "name": "Icon 'Watering The Metal Crabs'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Get Away From Me!&apos;",
+         "name": "Icon 'Get Away From Me!'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Terrifying Sal Viento&apos;",
+         "name": "Icon 'Terrifying Sal Viento'",
          "count": 1,
          "kind": "other"
         }
@@ -18317,12 +19469,12 @@
          "kind": "currency"
         },
         {
-         "name": "Themed Background &apos;The City&apos;",
+         "name": "Themed Background 'The City'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Home Screen UI &apos;Flavors&apos;",
+         "name": "Home Screen UI 'Flavors'",
          "count": 1,
          "kind": "other"
         }
@@ -18432,7 +19584,7 @@
        ]
       },
       {
-       "name": "Ceobe&apos;s Snack Bank",
+       "name": "Ceobe's Snack Bank",
        "start": "2025-03-10T17:00:00.000Z",
        "end": "2025-04-07T10:59:00.000Z",
        "contents": [
@@ -18912,7 +20064,7 @@
        "id": "4002"
       },
       {
-       "name": "nc_5d5_1",
+       "name": "Profile Theme 'Theater Curtain'",
        "count": 1,
        "kind": "other",
        "id": "nc_5d5_1"
@@ -18963,7 +20115,7 @@
       ],
       [
        {
-        "name": "nc_5d5_1",
+        "name": "Profile Theme 'Theater Curtain'",
         "count": 1,
         "kind": "other",
         "id": "nc_5d5_1"
@@ -19565,7 +20717,7 @@
      "end": "2025-05-08T10:59:59.000Z",
      "items": [
       {
-       "name": "Tango Decadenza Headhunting Permit",
+       "name": "Tango Decadenza Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_5601"
@@ -19801,14 +20953,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "2025 [THANK-YOU CELEBRATION] DAILY FREE ROLL IN [WE MISCHIEVOUS FEW] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/283",
-     "items": [],
-     "lines": [
-      "DURATION: April 24, 2025, 10:00 - May 8, 2025, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [We Mischievous Few] Limited Headhunting.",
-      "NOTE: Daily Free Roll will be refreshed at 04:00 (UTC-7) every day. Daily Free Roll can only be used once a day and will not accumulate."
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -19839,12 +20994,12 @@
          "kind": "currency"
         },
         {
-         "name": "Icon - &apos;A Slice of Style 2025&apos;",
+         "name": "Icon - 'A Slice of Style 2025'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon - &apos;Special Guest&apos;",
+         "name": "Icon - 'Special Guest'",
          "count": 1,
          "kind": "other"
         }
@@ -19917,7 +21072,7 @@
        ]
       },
       {
-       "name": "Vulpisfoglia&apos;s Briefcase",
+       "name": "Vulpisfoglia's Briefcase",
        "start": "2025-04-24T17:00:00.000Z",
        "end": "2025-05-22T10:59:00.000Z",
        "contents": [
@@ -19934,7 +21089,7 @@
        ]
       },
       {
-       "name": "Duck Lord&apos;s Change Purse",
+       "name": "Duck Lord's Change Purse",
        "start": "2025-04-24T17:00:00.000Z",
        "end": "2025-05-22T10:59:00.000Z",
        "contents": [
@@ -20882,7 +22037,7 @@
      "end": "2025-07-31T10:59:59.000Z",
      "items": [
       {
-       "name": "A Pleasant Banquet Headhunting Permit",
+       "name": "A Pleasant Banquet Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_5801"
@@ -21002,14 +22157,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "DAILY FREE ROLL IN [AN ETERNITY AFLAME] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/1326",
-     "items": [],
-     "lines": [
-      "DURATION: July 17, 2025, 10:00 - July 31, 2025, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [An Eternity Aflame] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -21389,6 +22547,17 @@
      ]
     },
     {
+     "kind": "notice",
+     "title": "2025 FESTIVAL SIGN-IN",
+     "source": "https://www.arknights.global/news/1326",
+     "items": [],
+     "lines": [
+      "DURATION: July 17, 2025, 10:00 - July 31, 2025, 03:59 (UTC-7)",
+      "DETAILS: During the event period, players can log in on July 17, July 20, July 23, and July 26 to receive specific Operator blessings along with a certain amount of Orundum. The received blessings can be added to players' own collection of Blessings. Additionally, the Operator blessings can be shared or saved as wallpapers. Players can log in for a total of 10 days to receive event-exclusive Furniture, Module Materials, Emergency Sanity Concentrate, among other rewards.",
+      "NOTE:"
+     ]
+    },
+    {
      "kind": "furniture-set",
      "title": "Ding Feng Lou Teahouse",
      "source": "building_data furni_set_springfeast",
@@ -21507,8 +22676,8 @@
     }
    ]
   },
-  "Integrated Lookback: Back to Castle": {
-   "activity": "act49sign",
+  "[Side Story – Celebration] The Masses' Travels": {
+   "activity": "act42side",
    "groups": [
     {
      "kind": "login",
@@ -21519,7 +22688,7 @@
      "days": 10,
      "items": [
       {
-       "name": "Examplary Believer Headhunting Permit",
+       "name": "Examplary Believer Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_6101"
@@ -21630,7 +22799,7 @@
      "daily": [
       [
        {
-        "name": "Examplary Believer Headhunting Permit",
+        "name": "Examplary Believer Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LIMITED_TKT_GACHA_10_6101"
@@ -21769,12 +22938,7 @@
        }
       ]
      ]
-    }
-   ]
-  },
-  "[Side Story – Celebration] The Masses' Travels": {
-   "activity": "act42side",
-   "groups": [
+    },
     {
      "kind": "pray",
      "title": "Shrine of Nurtury Wish Board",
@@ -21894,13 +23058,26 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "DAILY FREE ROLL IN [FREEDOM OF PREACH] LIMITED HEADHUNTING",
+     "source": "https://www.arknights.global/news/1695",
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "NEW CUMULATIVE SIGN-IN UPDATE",
      "source": "https://www.arknights.global/news/1695",
      "items": [],
      "lines": [
-      "DURATION: October 14, 2025, 08:00 - October 28, 2025, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Freedom of Preach] Limited Headhunting."
+      "DETAILS: After the update on October 14, 2025, 08:00 (UTC-7), a new cumulative sign-in system will be introduced. When the Doctor's level reaches lv.80 and the corresponding number of sign-in days is completed, outfits and dynamic icons can be unlocked: signing in for 180 days and 360 days will grant the dynamic avatars 'Organization' and 'Emotion' respectively; signing in for 1000 days will unlock the dynamic outfit [Test Collection Series - Moonlit Voyage for Kroos]. This outfit comes alive with multiple dynamic illustrations, form-changing, and special actions."
      ]
     },
     {
@@ -22654,7 +23831,7 @@
      "end": "2026-01-30T10:59:59.000Z",
      "items": [
       {
-       "name": "Ballad of Vagabonds Headhunting Permit",
+       "name": "Ballad of Vagabonds Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_6401"
@@ -22671,6 +23848,142 @@
      "rules": [
       "Select Wishing Tickets as permitted. The Wishing Ticket with the most Orundum will be awarded.",
       "If less than 400 Orundum is awarded, you may select 3 Wishing Tickets tomorrow."
+     ]
+    },
+    {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 200,000 'Treasure Pouch'",
+     "source": "activity_table act44side",
+     "count": 45,
+     "points": 200000,
+     "pointName": "'Treasure Pouch'",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 120000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Orirock Concentration",
+       "count": 4,
+       "kind": "material",
+       "id": "30014"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Oriron Cluster",
+       "count": 6,
+       "kind": "material",
+       "id": "30043"
+      },
+      {
+       "name": "Dining Tall Stool",
+       "count": 3,
+       "kind": "furniture",
+       "id": "furni_odenShop_stool_02"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 100,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Incandescent Alloy Block",
+       "count": 2,
+       "kind": "material",
+       "id": "31024"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 40,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Crystalline Component",
+       "count": 6,
+       "kind": "material",
+       "id": "31033"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 20,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Oden Stall",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_bar_01"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 2,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 20,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 6,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 1,
+       "kind": "material",
+       "id": "30145"
+      },
+      {
+       "name": "Sugar Pack",
+       "count": 4,
+       "kind": "material",
+       "id": "30023"
+      },
+      {
+       "name": "Entrance Stepping Board",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_carpet_01"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Drinks Shelf",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_shelf_02"
+      },
+      {
+       "name": "Traditional Banner Hanger",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_banner_01"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 1,
+       "kind": "material",
+       "id": "30115"
+      }
      ]
     },
     {
@@ -22750,13 +24063,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "[6TH ANNIVERSARY CELEBRATION] DAILY FREE ROLL IN [ HANABI EXILED ] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/2371",
-     "items": [],
-     "lines": [
-      "DURATION: January 16, 2026, 08:00 - January 30, 2026, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Hanabi Exiled] Limited Headhunting."
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -23478,7 +24795,7 @@
      "days": 10,
      "items": [
       {
-       "name": "Ballads Tumbling Through Myriad Dreams Headhunting Permit",
+       "name": "Ballads Tumbling Through Myriad Dreams Headhunting Permit (ten-roll)",
        "count": 2,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_6501"
@@ -23520,7 +24837,7 @@
        "id": "3401"
       },
       {
-       "name": "avatar_activity_mujica",
+       "name": "Icon 'Invitation to the Ball'",
        "count": 1,
        "kind": "other",
        "id": "avatar_activity_mujica"
@@ -23583,7 +24900,7 @@
      "daily": [
       [
        {
-        "name": "Ballads Tumbling Through Myriad Dreams Headhunting Permit",
+        "name": "Ballads Tumbling Through Myriad Dreams Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_6501"
@@ -23639,7 +24956,7 @@
       ],
       [
        {
-        "name": "avatar_activity_mujica",
+        "name": "Icon 'Invitation to the Ball'",
         "count": 1,
         "kind": "other",
         "id": "avatar_activity_mujica"
@@ -23681,7 +24998,7 @@
       ],
       [
        {
-        "name": "Ballads Tumbling Through Myriad Dreams Headhunting Permit",
+        "name": "Ballads Tumbling Through Myriad Dreams Headhunting Permit (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_6501"
@@ -24066,8 +25383,8 @@
     }
    ]
   },
-  "[Crossover] Tender Moments": {
-   "activity": "act5switch",
+  "Rebuilding Mandate": {
+   "activity": "act1vhalfidle",
    "groups": [
     {
      "kind": "login",
@@ -24381,77 +25698,285 @@
      ]
     },
     {
+     "kind": "milestones",
+     "title": "Milestones: 60 steps, up to 432,000 Resource Point",
+     "source": "activity_table act1vhalfidle",
+     "count": 60,
+     "points": 432000,
+     "pointName": "Resource Point",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 90000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Integrated Device",
+       "count": 18,
+       "kind": "material",
+       "id": "30063"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 64,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Semi-Synthetic Solvent",
+       "count": 18,
+       "kind": "material",
+       "id": "31043"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 40,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Grindstone Pentahydrate",
+       "count": 6,
+       "kind": "material",
+       "id": "30094"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 18,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 32,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 20,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Nucleic Crystal Sinter",
+       "count": 2,
+       "kind": "material",
+       "id": "30155"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 800,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Cutting Fluid Solution",
+       "count": 6,
+       "kind": "material",
+       "id": "31054"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Bipolar Nanoflake",
+       "count": 4,
+       "kind": "material",
+       "id": "30125"
+      },
+      {
+       "name": "Puzzle / Cool Colored Rock 'n' roll",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_4017_puzzle@shining#3"
+      },
+      {
+       "name": "'Emergency Record' Vivarium",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act1vhalfidle_bonsai_01"
+      }
+     ]
+    },
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act1vhalfidle",
+     "count": 106,
+     "items": [
+      {
+       "name": "Packaged Core",
+       "count": 9600,
+       "kind": "event-item",
+       "id": "act1vhalfidle_gacha_normal"
+      },
+      {
+       "name": "Strategic Beacon",
+       "count": 2750,
+       "kind": "event-item",
+       "id": "act1vhalfidle_strategy_point"
+      },
+      {
+       "name": "Refined Core",
+       "count": 11,
+       "kind": "event-item",
+       "id": "act1vhalfidle_gacha_newplayer"
+      },
+      {
+       "name": "Resource Point",
+       "count": 72000,
+       "kind": "event-item",
+       "id": "act1vhalfidle_token_point"
+      },
+      {
+       "name": "Elite Advancement Token",
+       "count": 2200,
+       "kind": "material",
+       "id": "act1vhalfidle_itempack_asc"
+      },
+      {
+       "name": "Training Handbook",
+       "count": 200000,
+       "kind": "event-item",
+       "id": "act1vhalfidle_level_exp"
+      },
+      {
+       "name": "Skill Handbook",
+       "count": 1000,
+       "kind": "event-item",
+       "id": "act1vhalfidle_skill_exp"
+      },
+      {
+       "name": "Vanguard Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_pio"
+      },
+      {
+       "name": "Guard Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_grd"
+      },
+      {
+       "name": "Defender Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_tnk"
+      },
+      {
+       "name": "Sniper Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_snp"
+      },
+      {
+       "name": "Caster Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_cst"
+      },
+      {
+       "name": "Medic Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_med"
+      },
+      {
+       "name": "Supporter Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_sup"
+      },
+      {
+       "name": "Specialist Advancement Token",
+       "count": 1800,
+       "kind": "event-item",
+       "id": "act1vhalfidle_asc_spc"
+      }
+     ]
+    },
+    {
      "kind": "packs",
-     "title": "[ARKNIGHTS X SANRIO CHARACTERS] PACKS AVAILABLE FOR A LIMITED TIME",
-     "source": "https://www.arknights.global/news/2750",
+     "title": "LIMITED-TIME PACKS AVAILABLE",
+     "source": "https://www.arknights.global/news/2744",
      "items": [],
      "packs": [
       {
-       "name": "Friends All Along Pack",
+       "name": "Orienteering Headhunting Pack",
        "start": "2026-03-06T15:00:00.000Z",
        "end": "2026-03-27T10:59:00.000Z",
        "contents": [
         {
-         "name": "Orundum",
-         "count": 400,
+         "name": "Ten-roll Headhunting Permit",
+         "count": 2,
+         "kind": "permit"
+        },
+        {
+         "name": "Originite Prime",
+         "count": 9,
          "kind": "currency"
-        },
-        {
-         "name": "Icon 'Fluffy Pink'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Warm Delivery'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Hunter's Calling?'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "away!'",
-         "count": 1,
-         "kind": "other"
         }
        ]
       },
       {
-       "name": "Time Spent Together Pack",
+       "name": "Rhodes Island Funding Box",
        "start": "2026-03-06T15:00:00.000Z",
        "end": "2026-03-27T10:59:00.000Z",
        "contents": [
         {
-         "name": "Orundum",
-         "count": 400,
+         "name": "Originite Prime",
+         "count": 16,
          "kind": "currency"
         },
         {
-         "name": "Icon 'Unspoken Bonds'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Elves' Nap'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Star of Encounters'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Star of Blessing'",
-         "count": 1,
-         "kind": "other"
+         "name": "LMD",
+         "count": 700000,
+         "kind": "currency"
         }
        ]
       },
       {
-       "name": "Heart-warming Reunion Pack",
+       "name": "Rhodes Island Data Set",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Module Data Block",
+         "count": 24,
+         "kind": "material"
+        },
+        {
+         "name": "Data Supplement Instrument",
+         "count": 30,
+         "kind": "material"
+        },
+        {
+         "name": "Data Supplement Stick",
+         "count": 90,
+         "kind": "material"
+        }
+       ]
+      },
+      {
+       "name": "Rhodes Island Data Pack",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Module Data Block",
+         "count": 12,
+         "kind": "material"
+        }
+       ]
+      },
+      {
+       "name": "Alluring Moonlight Pack",
        "start": "2026-03-06T15:00:00.000Z",
        "end": "2026-03-27T10:59:00.000Z",
        "contents": [
@@ -24461,88 +25986,7 @@
          "kind": "currency"
         },
         {
-         "name": "Home Screen UI 'Gathered Together'",
-         "count": 1,
-         "kind": "other"
-        }
-       ]
-      },
-      {
-       "name": "Partners Commemorative Pack",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Orundum",
-         "count": 400,
-         "kind": "currency"
-        },
-        {
-         "name": "Icon 'Detective Team'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Eureka's Dream'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Thx'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Ribbon Exchange'",
-         "count": 1,
-         "kind": "other"
-        }
-       ]
-      },
-      {
-       "name": "Friendship Commemorative Pack",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Orundum",
-         "count": 400,
-         "kind": "currency"
-        },
-        {
-         "name": "Icon 'Wink—'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Silent Us'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'I Like Your Skull'",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Icon 'Angel on the Cloud'",
-         "count": 1,
-         "kind": "other"
-        }
-       ]
-      },
-      {
-       "name": "Honey Party Pack",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Orundum",
-         "count": 1600,
-         "kind": "currency"
-        },
-        {
-         "name": "Themed Background 'Sweetness'",
+         "name": "Profile Theme 'An Invitation to Moons'",
          "count": 1,
          "kind": "other"
         }
@@ -24588,7 +26032,7 @@
        "id": "randomMaterial_6d5"
       },
       {
-       "name": "nc_6d5_1",
+       "name": "Profile Theme 'Sacred Realm'",
        "count": 1,
        "kind": "other",
        "id": "nc_6d5_1"
@@ -24645,7 +26089,7 @@
         "id": "4002"
        },
        {
-        "name": "nc_6d5_1",
+        "name": "Profile Theme 'Sacred Realm'",
         "count": 1,
         "kind": "other",
         "id": "nc_6d5_1"
@@ -24696,6 +26140,106 @@
      ]
     },
     {
+     "kind": "milestones",
+     "title": "Milestones: 60 steps, up to 6,000 Participation Certification - S2",
+     "source": "activity_table act2multi",
+     "count": 60,
+     "points": 6000,
+     "pointName": "Participation Certification - S2",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 90000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Polyester Pack",
+       "count": 18,
+       "kind": "material",
+       "id": "30033"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 64,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Coagulating Gel",
+       "count": 18,
+       "kind": "material",
+       "id": "31013"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 40,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Orirock Concentration",
+       "count": 8,
+       "kind": "material",
+       "id": "30014"
+      },
+      {
+       "name": "Transmuted Salt",
+       "count": 18,
+       "kind": "material",
+       "id": "31063"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 32,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 20,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 2,
+       "kind": "material",
+       "id": "30145"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 800,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Polymerized Gel",
+       "count": 8,
+       "kind": "material",
+       "id": "31014"
+      },
+      {
+       "name": "Icon 'Cheerleader'",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_activity_MULTI2"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Chiave / One-man Racing Team",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_349_chiave@race#2"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act2multi",
@@ -24706,20 +26250,6 @@
        "count": 1690,
        "kind": "event-item",
        "id": "act2multi_token_cap"
-      }
-     ]
-    },
-    {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act2multi",
-     "count": 44,
-     "items": [
-      {
-       "name": "Originite Prime",
-       "count": 44,
-       "kind": "currency",
-       "id": "4002"
       }
      ]
     },
@@ -24795,7 +26325,7 @@
      "end": "2026-04-28T10:59:59.000Z",
      "items": [
       {
-       "name": "Traces of Melted Snow Headhunting Permit",
+       "name": "Traces of Melted Snow Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_6701"
@@ -25297,14 +26827,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "2026 [THANK-YOU CELEBRATION] DAILY FREE ROLL IN [ A SHARED OATH OF GUARDIANSHIP ] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/2926",
-     "items": [],
-     "lines": [
-      "DURATION: April 14, 2026, 08:00 (UTC-7) - April 28, 2026, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [A Shared Oath of Guardianship] Limited Headhunting.",
-      "NOTE:"
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -26190,15 +27723,7 @@
          "kind": "currency"
         }
        ]
-      }
-     ]
-    },
-    {
-     "kind": "packs",
-     "title": "LIMITED-TIME PACKS AVAILABLE",
-     "source": "https://www.arknights.global/news/3714",
-     "items": [],
-     "packs": [
+      },
       {
        "name": "Headhunting Pack - Kernel (Limited to 2 purchases)",
        "start": "2026-06-30T11:00:00.000Z",
@@ -26337,7 +27862,7 @@
      "end": "2026-07-30T10:59:59.000Z",
      "items": [
       {
-       "name": "Moon Night Homecoming Headhunting Permit",
+       "name": "Moon Night Homecoming Headhunting Permit (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_7001"
@@ -26457,14 +27982,17 @@
      ]
     },
     {
-     "kind": "notice",
+     "kind": "free-rolls",
      "title": "DAILY FREE ROLL IN [ASHES TO ASHES, AGES ON AGES] LIMITED HEADHUNTING",
      "source": "https://www.arknights.global/news/3898",
-     "items": [],
-     "lines": [
-      "DURATION: July 16, 2026, 08:00 - July 30, 2026, 03:59 (UTC-7)",
-      "DETAILS: A free roll can be performed every day during the event in [Ashes to Ashes, Ages on Ages] Limited Headhunting.",
-      "NOTE: - Daily Free Roll will be refreshed at 04:00 (UTC-7) every day. - Daily Free Roll can only be used once a day and will not accumulate."
+     "days": 14,
+     "items": [
+      {
+       "name": "Daily free headhunting roll",
+       "count": 14,
+       "kind": "free-roll",
+       "id": "free-roll"
+      }
      ]
     },
     {
@@ -26836,6 +28364,17 @@
      ]
     },
     {
+     "kind": "notice",
+     "title": "2026 FESTIVAL SIGN-IN",
+     "source": "https://www.arknights.global/news/3898",
+     "items": [],
+     "lines": [
+      "DURATION: July 16, 2026, 08:00 - July 30, 2026, 03:59 (UTC-7)",
+      "DETAILS: During the event period, players can log in on July 16, July 19, July 22, and July 25 to receive specific Operator blessings along with a certain amount of Orundum. The received blessings can be added to players' own collection of Blessings. Additionally, the Operator blessings can be shared or saved as wallpapers. Players can log in for a total of 10 days to receive event-exclusive Furniture, Module Materials, Emergency Sanity Concentrate, among other rewards.",
+      "NOTE:"
+     ]
+    },
+    {
      "kind": "furniture-set",
      "title": "Sky Mirror Pavilion Reception Hall",
      "source": "building_data furni_set_receptionRoom",
@@ -26982,9 +28521,9 @@
        "id": "1stact"
       },
       {
-       "name": "furni_dropS002_abbeyRoad_01",
+       "name": "Plaque - Sunset",
        "count": 1,
-       "kind": "other",
+       "kind": "furniture",
        "id": "furni_dropS002_abbeyRoad_01"
       }
      ]
@@ -26994,6 +28533,94 @@
   "[Story Collection] Operational Intelligence": {
    "activity": "act4d0",
    "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 25 steps, up to 1,600 points",
+     "source": "activity_table act4d0",
+     "count": 25,
+     "points": 1600,
+     "pointName": null,
+     "items": [
+      {
+       "name": "LMD",
+       "count": 20000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 21,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 200,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Polyester Pack",
+       "count": 5,
+       "kind": "material",
+       "id": "30033"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 40,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Flamebringer",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_131_flameb"
+      },
+      {
+       "name": "RMA70-12",
+       "count": 5,
+       "kind": "material",
+       "id": "30103"
+      },
+      {
+       "name": "Flamebringer's Token",
+       "count": 5,
+       "kind": "material",
+       "id": "p_char_131_flameb"
+      },
+      {
+       "name": "Top Emergency Sanity Potion",
+       "count": 1,
+       "kind": "sanity",
+       "id": "ap_supply_lt_100"
+      },
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "Bipolar Nanoflake",
+       "count": 1,
+       "kind": "material",
+       "id": "30125"
+      }
+     ]
+    },
     {
      "kind": "first-clear",
      "title": "Event stage first clears",
@@ -27052,6 +28679,124 @@
   "[Story Collection] Stories of Afternoon": {
    "activity": "act7d5",
    "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 26 steps, up to 1,600 points",
+     "source": "activity_table act7d5",
+     "count": 26,
+     "points": 1600,
+     "pointName": null,
+     "items": [
+      {
+       "name": "LMD",
+       "count": 20000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 21,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Kuro's New Home",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act7d5_petHouse"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 200,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Loxic Kohl",
+       "count": 5,
+       "kind": "material",
+       "id": "30073"
+      },
+      {
+       "name": "Rhine Lab Atomic Clock",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act7d5_atomicClock"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 40,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Home-Use Apron",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act7d5_apron"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 5,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Ceobe's Weapon Rack",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act7d5_weaponRack"
+      },
+      {
+       "name": "Modular Bookshelf",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act7d5_bookshelf"
+      },
+      {
+       "name": "Motivational Poster",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act7d5_wallSticker"
+      },
+      {
+       "name": "Top Emergency Sanity Potion",
+       "count": 1,
+       "kind": "sanity",
+       "id": "ap_supply_lt_100"
+      },
+      {
+       "name": "Ptilopsis / Serenity",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_128_plosis@epoque#3"
+      },
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "Bipolar Nanoflake",
+       "count": 1,
+       "kind": "material",
+       "id": "30125"
+      }
+     ]
+    },
     {
      "kind": "first-clear",
      "title": "Event stage first clears",
@@ -28747,6 +30492,105 @@
        "id": "4002"
       }
      ]
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Lena's Rest",
+     "source": "building_data furni_set_perfumer",
+     "items": [],
+     "description": "A room designed to replicate Lena the Perfumer's new dorm in the Convalescent Garden. The flowery fragrance flows year round.",
+     "pieces": [
+      {
+       "name": "Handy Tool Pegboard",
+       "id": "furni_perfumer_pegboard_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 195
+      },
+      {
+       "name": "Aromatherapy Oil Storage",
+       "id": "furni_perfumer_incenseMachine_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 165
+      },
+      {
+       "name": "Perfuming Table",
+       "id": "furni_perfumer_bar_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 780
+      },
+      {
+       "name": "Simple High Chair",
+       "id": "furni_perfumer_barStool_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 110
+      },
+      {
+       "name": "Indoor Garden",
+       "id": "furni_perfumer_flowerPot_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 240
+      },
+      {
+       "name": "Conjoined Suspension Light Tubes",
+       "id": "furni_perfumer_ceilingLight_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 280
+      },
+      {
+       "name": "Pipeline Shelvings",
+       "id": "furni_perfumer_shelf_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 365
+      },
+      {
+       "name": "Elevated Big Bed",
+       "id": "furni_perfumer_bed_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 510
+      },
+      {
+       "name": "Cozy Pet Bed",
+       "id": "furni_perfumer_petHouse_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 205
+      },
+      {
+       "name": "Simple Wall-Mounted Shelf",
+       "id": "furni_perfumer_shelf2_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 100
+      },
+      {
+       "name": "Tall Minoan Vase",
+       "id": "furni_perfumer_vase_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 155
+      },
+      {
+       "name": "Flowery Rug",
+       "id": "furni_perfumer_carpet_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 135
+      },
+      {
+       "name": "Multilayer Hanging Light",
+       "id": "furni_perfumer_ceilingLamp_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 220
+      },
+      {
+       "name": "Aromatic Wallpaper",
+       "id": "furni_perfumer_wallpaper_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 240
+      },
+      {
+       "name": "Aromatic Floor Tiles",
+       "id": "furni_perfumer_floor_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 240
+      }
+     ]
     }
    ]
   },
@@ -28954,6 +30798,266 @@
     }
    ],
    "inheritsFrom": "[Side Story] Twilight of Wolumonde"
+  },
+  "Interlocking Competition Hymnoi Wisdom": {
+   "activity": "act1lock",
+   "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 58 steps, up to 320 points",
+     "source": "activity_table act1lock",
+     "count": 58,
+     "points": 320,
+     "pointName": null,
+     "items": [
+      {
+       "name": "LMD",
+       "count": 55000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 16,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Grindstone",
+       "count": 18,
+       "kind": "material",
+       "id": "30093"
+      },
+      {
+       "name": "Polyester Pack",
+       "count": 12,
+       "kind": "material",
+       "id": "30033"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 6,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Headhunting Permit",
+       "count": 1,
+       "kind": "permit",
+       "id": "7003"
+      },
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 1,
+       "kind": "material",
+       "id": "30145"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 100,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 1,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 18,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Orirock Concentration",
+       "count": 1,
+       "kind": "material",
+       "id": "30014"
+      },
+      {
+       "name": "Grindstone Pentahydrate",
+       "count": 2,
+       "kind": "material",
+       "id": "30094"
+      },
+      {
+       "name": "Podenco / Wake Up From a Nap",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_258_podego@epoque#9"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 1,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 11,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Bipolar Nanoflake",
+       "count": 1,
+       "kind": "material",
+       "id": "30125"
+      }
+     ]
+    },
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act1lock",
+     "count": 13,
+     "items": [
+      {
+       "name": "Competition Medals",
+       "count": 74,
+       "kind": "event-item",
+       "id": "act1lock_point_reward"
+      }
+     ]
+    },
+    {
+     "kind": "furniture-set",
+     "title": "The Photography Hobbyist's Studio",
+     "source": "building_data furni_set_photoStudio",
+     "items": [],
+     "description": "A photography studio Rhodes Island set up for its hobbyists. Fully equipped and professional, ready for the finest pictures to be taken.",
+     "pieces": [
+      {
+       "name": "Simple Fitting Room",
+       "id": "furni_photoStudio_changingRoom_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 405
+      },
+      {
+       "name": "Standing Dressing Mirror",
+       "id": "furni_photoStudio_mirror_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 150
+      },
+      {
+       "name": "Large Oil Painting",
+       "id": "furni_photoStudio_abstractArt_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 190
+      },
+      {
+       "name": "Studio Vanity Table",
+       "id": "furni_photoStudio_table_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 200
+      },
+      {
+       "name": "Cubic Stool",
+       "id": "furni_photoStudio_stool_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 110
+      },
+      {
+       "name": "Translucent Curtain",
+       "id": "furni_photoStudio_curtain_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 125
+      },
+      {
+       "name": "Studio Worktable",
+       "id": "furni_photoStudio_desk_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 390
+      },
+      {
+       "name": "Spinny Office Chair",
+       "id": "furni_photoStudio_chair_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 165
+      },
+      {
+       "name": "Multipurpose Rack",
+       "id": "furni_photoStudio_rack_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 405
+      },
+      {
+       "name": "Natural Fanning Leaf",
+       "id": "furni_photoStudio_bananaLeaf_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 165
+      },
+      {
+       "name": "Photoflood Lamp",
+       "id": "furni_photoStudio_lighting_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 160
+      },
+      {
+       "name": "Still Photography Teaching Material",
+       "id": "furni_photoStudio_whiteDecor_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 165
+      },
+      {
+       "name": "Photographer's Chair",
+       "id": "furni_photoStudio_posingStool_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 110
+      },
+      {
+       "name": "Photoshoot Auxiliary Equipment",
+       "id": "furni_photoStudio_lightModifier_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 325
+      },
+      {
+       "name": "Photo Zone Rug",
+       "id": "furni_photoStudio_carpet_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 150
+      },
+      {
+       "name": "Hanging Screen",
+       "id": "furni_photoStudio_background_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 90
+      },
+      {
+       "name": "Sliding Rail Lighting",
+       "id": "furni_photoStudio_ceilingLight_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 275
+      },
+      {
+       "name": "Photo Studio Wallpaper",
+       "id": "furni_photoStudio_wallpaper_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 240
+      },
+      {
+       "name": "Photo Studio Tiles",
+       "id": "furni_photoStudio_floor_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 240
+      }
+     ]
+    }
+   ]
   },
   "[Rerun] The Great Chief Returns Rerun": {
    "activity": "act6sre",
@@ -30414,6 +32518,124 @@
    "activity": "act1bossrush",
    "groups": [
     {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 3,625 Trial EXP",
+     "source": "activity_table act1bossrush",
+     "count": 45,
+     "points": 3625,
+     "pointName": "Trial EXP",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 50000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 15,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 20,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Coagulating Gel",
+       "count": 10,
+       "kind": "material",
+       "id": "31013"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 4,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 10,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 20,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 200,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Headhunting Permit",
+       "count": 1,
+       "kind": "permit",
+       "id": "7003"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 1,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Roberta / Summer Flowers FA374",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_484_robrta@summer#10"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 10,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 10,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 1,
+       "kind": "material",
+       "id": "30145"
+      },
+      {
+       "name": "Grindstone Pentahydrate",
+       "count": 1,
+       "kind": "material",
+       "id": "30094"
+      },
+      {
+       "name": "Cutting Fluid Solution",
+       "count": 1,
+       "kind": "material",
+       "id": "31054"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act1bossrush",
@@ -30502,7 +32724,7 @@
        "id": "furni_westCoast_bed_01"
       },
       {
-       "name": "charm_coin_1",
+       "name": "Gold Chip",
        "count": 5,
        "kind": "other",
        "id": "charm_coin_1"
@@ -30526,7 +32748,7 @@
        "id": "furni_westCoast_blind_S_01"
       },
       {
-       "name": "charm_coin_2",
+       "name": "Error Coin",
        "count": 9,
        "kind": "other",
        "id": "charm_coin_2"
@@ -30544,7 +32766,7 @@
        "id": "furni_westCoast_floor_01"
       },
       {
-       "name": "charm_coin_3",
+       "name": "Dossoles Big Lottery",
        "count": 8,
        "kind": "other",
        "id": "charm_coin_3"
@@ -31745,6 +33967,130 @@
    "activity": "act2bossrush",
    "groups": [
     {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 3,625 Trial EXP",
+     "source": "activity_table act2bossrush",
+     "count": 45,
+     "points": 3625,
+     "pointName": "Trial EXP",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Refined Solvent",
+       "count": 1,
+       "kind": "material",
+       "id": "31044"
+      },
+      {
+       "name": "Loxic Kohl",
+       "count": 10,
+       "kind": "material",
+       "id": "30073"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 15,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Transmuted Salt",
+       "count": 10,
+       "kind": "material",
+       "id": "31063"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Headhunting Permit",
+       "count": 1,
+       "kind": "permit",
+       "id": "7003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 5,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 1,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Manganese Trihydrate",
+       "count": 1,
+       "kind": "material",
+       "id": "30084"
+      },
+      {
+       "name": "Blacknight / Fragrance From the Branches",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_476_blkngt@nian#8"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 10,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 15,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Nucleic Crystal Sinter",
+       "count": 1,
+       "kind": "material",
+       "id": "30155"
+      },
+      {
+       "name": "Integrated Module Data Chunk",
+       "count": 1,
+       "kind": "material",
+       "id": "itempack_mod_4"
+      },
+      {
+       "name": "Polymerized Gel",
+       "count": 1,
+       "kind": "material",
+       "id": "31014"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act2bossrush",
@@ -32523,6 +34869,17 @@
      ]
     },
     {
+     "kind": "notice",
+     "title": "MAY THE SUNSHINE STILL SIGN-IN EVENT OPEN",
+     "source": "https://www.arknights.global/news/339",
+     "items": [],
+     "lines": [
+      "DURATION: January 5, 2024, 04:00 (UTC-7) - January 15, 2024, 03:59 (UTC-7)",
+      "DETAILS: During the event, players can log in for 7 days to receive generous rewards, including: Emergency Sanity Concentrate, Orundum, Elite Materials, and more. Participating in the first 5 days of the event can also be rewarded with furniture corresponding to the flavor of choice.",
+      "NOTE:"
+     ]
+    },
+    {
      "kind": "furniture-set",
      "title": "Afterglow-Styled Music Room",
      "source": "building_data furni_set_concertHall",
@@ -32718,13 +35075,13 @@
        "id": "furni_idealCity_floor_01"
       },
       {
-       "name": "durcar_soft_5_sp",
+       "name": "'Infinite Fist'",
        "count": 1,
        "kind": "other",
        "id": "durcar_soft_5_sp"
       },
       {
-       "name": "durcar_soft_7_sp",
+       "name": "'Simplification Solution'",
        "count": 1,
        "kind": "other",
        "id": "durcar_soft_7_sp"
@@ -32742,7 +35099,7 @@
        "id": "30063"
       },
       {
-       "name": "durcar_soft_6_sp",
+       "name": "'Paradoxical Explosion'",
        "count": 1,
        "kind": "other",
        "id": "durcar_soft_6_sp"
@@ -32982,6 +35339,130 @@
    "activity": "act3bossrush",
    "groups": [
     {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 3,625 Trial EXP",
+     "source": "activity_table act3bossrush",
+     "count": 45,
+     "points": 3625,
+     "pointName": "Trial EXP",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Optimized Device",
+       "count": 1,
+       "kind": "material",
+       "id": "30064"
+      },
+      {
+       "name": "RMA70-12",
+       "count": 10,
+       "kind": "material",
+       "id": "30103"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 15,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Oriron Cluster",
+       "count": 10,
+       "kind": "material",
+       "id": "30043"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Headhunting Permit",
+       "count": 1,
+       "kind": "permit",
+       "id": "7003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 5,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "White Horse Kohl",
+       "count": 1,
+       "kind": "material",
+       "id": "30074"
+      },
+      {
+       "name": "Ceylon / Holiday HD49",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_348_ceylon@summer#13"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 10,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 15,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Nucleic Crystal Sinter",
+       "count": 1,
+       "kind": "material",
+       "id": "30155"
+      },
+      {
+       "name": "Integrated Module Data Chunk",
+       "count": 1,
+       "kind": "material",
+       "id": "itempack_mod_4"
+      },
+      {
+       "name": "Incandescent Alloy Block",
+       "count": 1,
+       "kind": "material",
+       "id": "31024"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act3bossrush",
@@ -33053,256 +35534,6 @@
      ]
     }
    ]
-  },
-  "[Rerun] Dorothy's Vision Rerun": {
-   "activity": "act19sre",
-   "groups": [
-    {
-     "kind": "missions",
-     "title": "Event missions",
-     "source": "activity_table missionData act19sre",
-     "count": 24,
-     "items": [
-      {
-       "name": "Mysterious Reagent",
-       "count": 1510,
-       "kind": "event-item",
-       "id": "act19side_token_reagents_rep_1"
-      },
-      {
-       "name": "Rhine Folder (L)",
-       "count": 1,
-       "kind": "furniture",
-       "id": "furni_rhineLab_folder_T_01"
-      },
-      {
-       "name": "Entrance Disinfectant Sprayer",
-       "count": 1,
-       "kind": "furniture",
-       "id": "furni_rhineLab_accessControl_01"
-      },
-      {
-       "name": "Medical Stool",
-       "count": 2,
-       "kind": "furniture",
-       "id": "furni_rhineLab_stool_01"
-      },
-      {
-       "name": "Astgenne",
-       "count": 1,
-       "kind": "operator",
-       "id": "char_135_halo"
-      },
-      {
-       "name": "Experiment Operating Table",
-       "count": 1,
-       "kind": "furniture",
-       "id": "furni_rhineLab_table_01"
-      },
-      {
-       "name": "Module Data Block",
-       "count": 2,
-       "kind": "material",
-       "id": "mod_unlock_token"
-      },
-      {
-       "name": "Rhine Folder (R)",
-       "count": 1,
-       "kind": "furniture",
-       "id": "furni_rhineLab_folder_O_01"
-      },
-      {
-       "name": "Twin-Monitor Stand",
-       "count": 1,
-       "kind": "furniture",
-       "id": "furni_rhineLab_stand_01"
-      },
-      {
-       "name": "Plaque - Generosity",
-       "count": 1,
-       "kind": "furniture",
-       "id": "furni_dropS026_greed_01"
-      }
-     ]
-    },
-    {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act19sre",
-     "count": 27,
-     "items": [
-      {
-       "name": "Originite Prime",
-       "count": 27,
-       "kind": "currency",
-       "id": "4002"
-      }
-     ]
-    },
-    {
-     "kind": "packs",
-     "title": "ICEFIELD SURVEY PACK AND HURRICANE CHASING PACK AVAILABLE FOR A LIMITED TIME",
-     "source": "https://www.arknights.global/news/333",
-     "items": [],
-     "packs": [
-      {
-       "name": "Icefield Survey Pack",
-       "start": "2024-03-05T17:00:00.000Z",
-       "end": "2024-03-19T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Orundum",
-         "count": 2000,
-         "kind": "currency"
-        },
-        {
-         "name": "Nucleic Crystal Sinter",
-         "count": 2,
-         "kind": "material"
-        },
-        {
-         "name": "Crystalline Electronic Unit",
-         "count": 2,
-         "kind": "material"
-        },
-        {
-         "name": "Refined Solvent",
-         "count": 2,
-         "kind": "material"
-        },
-        {
-         "name": "Integrated Device",
-         "count": 10,
-         "kind": "material"
-        }
-       ]
-      },
-      {
-       "name": "Hurricane Chasing Pack",
-       "start": "2024-03-05T17:00:00.000Z",
-       "end": "2024-03-19T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Orundum",
-         "count": 4500,
-         "kind": "currency"
-        },
-        {
-         "name": "Senior Operator Training Invitation Letter",
-         "count": 1,
-         "kind": "other"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "kind": "furniture-set",
-     "title": "Rhine Experimental Culture Pod",
-     "source": "building_data furni_set_rhineLab",
-     "items": [],
-     "description": "A Rhine laboratory recreated from descriptions by Operator Dorothy, among others. The pod nurtures dreams that nurture humanity, but things can occasionally backfire.",
-     "pieces": [
-      {
-       "name": "'The Dream Begins'",
-       "id": "furni_rhineLab_incubator_01",
-       "obtain": "Event Reward",
-       "comfort": 240
-      },
-      {
-       "name": "Entrance Disinfectant Sprayer",
-       "id": "furni_rhineLab_accessControl_01",
-       "obtain": "Event Reward",
-       "comfort": 165
-      },
-      {
-       "name": "'Tree of Life'",
-       "id": "furni_rhineLab_plant_01",
-       "obtain": "Event Reward",
-       "comfort": 190
-      },
-      {
-       "name": "Medical Trolley",
-       "id": "furni_rhineLab_trolley_01",
-       "obtain": "Event Reward",
-       "comfort": 165
-      },
-      {
-       "name": "Medical Stool",
-       "id": "furni_rhineLab_stool_01",
-       "obtain": "Event Reward",
-       "comfort": 90
-      },
-      {
-       "name": "Experiment Operating Table",
-       "id": "furni_rhineLab_table_01",
-       "obtain": "Event Reward",
-       "comfort": 520
-      },
-      {
-       "name": "Rhine Folder (L)",
-       "id": "furni_rhineLab_folder_T_01",
-       "obtain": "Event Reward",
-       "comfort": 50
-      },
-      {
-       "name": "Rhine Folder (R)",
-       "id": "furni_rhineLab_folder_O_01",
-       "obtain": "Event Reward",
-       "comfort": 35
-      },
-      {
-       "name": "Ceiling Light Filter",
-       "id": "furni_rhineLab_ceiling_01",
-       "obtain": "Event Reward",
-       "comfort": 260
-      },
-      {
-       "name": "'Promised Land'",
-       "id": "furni_rhineLab_device_01",
-       "obtain": "Event Reward",
-       "comfort": 945
-      },
-      {
-       "name": "'Contemplation'",
-       "id": "furni_rhineLab_ceilingLight_01",
-       "obtain": "Event Reward",
-       "comfort": 90
-      },
-      {
-       "name": "Twin-Monitor Stand",
-       "id": "furni_rhineLab_stand_01",
-       "obtain": "Event Reward",
-       "comfort": 165
-      },
-      {
-       "name": "Privacy Curtain (L)",
-       "id": "furni_rhineLab_curtain_L_01",
-       "obtain": "Purchased from the Limited Furniture Store",
-       "comfort": 290
-      },
-      {
-       "name": "Privacy Curtain (R)",
-       "id": "furni_rhineLab_curtain_S_01",
-       "obtain": "Purchased from the Limited Furniture Store",
-       "comfort": 290
-      },
-      {
-       "name": "Experimental Culture Pod Wallpaper",
-       "id": "furni_rhineLab_wallpaper_01",
-       "obtain": "Purchased from the Limited Furniture Store",
-       "comfort": 240
-      },
-      {
-       "name": "Experimental Culture Pod Floor",
-       "id": "furni_rhineLab_floor_01",
-       "obtain": "Purchased from the Limited Furniture Store",
-       "comfort": 240
-      }
-     ]
-    }
-   ],
-   "inheritsFrom": "[Side Story] Dorothy's Vision"
   },
   "Come Catastrophes or Wakes of Vultures": {
    "activity": "act28side",
@@ -33464,7 +35695,7 @@
          "kind": "currency"
         },
         {
-         "name": "Icon: &apos;Destination&apos;",
+         "name": "Icon: 'Destination'",
          "count": 1,
          "kind": "other"
         }
@@ -33659,6 +35890,81 @@
        "count": 1,
        "kind": "material",
        "id": "31084"
+      }
+     ]
+    }
+   ]
+  },
+  "Design of Strife": {
+   "activity": "act42d0",
+   "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 65 steps, up to 2,600 Experimental Dataset",
+     "source": "activity_table act42d0",
+     "count": 65,
+     "points": 2600,
+     "pointName": "Experimental Dataset",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 230000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Integrated Device",
+       "count": 14,
+       "kind": "material",
+       "id": "30063"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 90,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 12,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 4,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "RMA70-24",
+       "count": 3,
+       "kind": "material",
+       "id": "30104"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 90,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Crystalline Circuit",
+       "count": 3,
+       "kind": "material",
+       "id": "31034"
+      },
+      {
+       "name": "Cardigan / Sunny Day",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_209_ardign@epoque#26"
       }
      ]
     }
@@ -34323,22 +36629,10 @@
        "id": "furni_martialClub_drum_01"
       },
       {
-       "name": "'Symphony of Drums'",
-       "count": 0,
-       "kind": "other",
-       "id": "'Symphony of Drums'"
-      },
-      {
        "name": "'All Shallow'",
        "count": 1,
        "kind": "furniture",
        "id": "furni_martialClub_floorLamp_01"
-      },
-      {
-       "name": "'All Shallow'",
-       "count": 0,
-       "kind": "other",
-       "id": "'All Shallow'"
       },
       {
        "name": "'Meditation'",
@@ -34347,34 +36641,16 @@
        "id": "furni_martialClub_chair_01"
       },
       {
-       "name": "'Meditation'",
-       "count": 0,
-       "kind": "other",
-       "id": "'Meditation'"
-      },
-      {
        "name": "'I Go'",
        "count": 1,
        "kind": "furniture",
        "id": "furni_martialClub_wallpaper_01"
       },
       {
-       "name": "'I Go'",
-       "count": 0,
-       "kind": "other",
-       "id": "'I Go'"
-      },
-      {
        "name": "Jieyun",
        "count": 1,
        "kind": "operator",
        "id": "char_4078_bdhkgt"
-      },
-      {
-       "name": "Jieyun",
-       "count": 0,
-       "kind": "other",
-       "id": "Jieyun"
       },
       {
        "name": "Module Data Block",
@@ -34387,12 +36663,6 @@
        "count": 1,
        "kind": "furniture",
        "id": "furni_martialClub_floor_01"
-      },
-      {
-       "name": "'Remembrance'",
-       "count": 0,
-       "kind": "other",
-       "id": "'Remembrance'"
       },
       {
        "name": "'Replete With Life Anew'",
@@ -34557,6 +36827,130 @@
   "Trials for Navigator #4": {
    "activity": "act4bossrush",
    "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 3,625 Trial EXP",
+     "source": "activity_table act4bossrush",
+     "count": 45,
+     "points": 3625,
+     "pointName": "Trial EXP",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 1,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Sugar Pack",
+       "count": 10,
+       "kind": "material",
+       "id": "30023"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 15,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Integrated Device",
+       "count": 10,
+       "kind": "material",
+       "id": "30063"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Headhunting Permit",
+       "count": 1,
+       "kind": "permit",
+       "id": "7003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 5,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Keton Colloid",
+       "count": 1,
+       "kind": "material",
+       "id": "30054"
+      },
+      {
+       "name": "Purestream / Yearly Present",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_385_finlpp@nian#11"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 10,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 15,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Nucleic Crystal Sinter",
+       "count": 1,
+       "kind": "material",
+       "id": "30155"
+      },
+      {
+       "name": "Integrated Module Data Chunk",
+       "count": 1,
+       "kind": "material",
+       "id": "itempack_mod_4"
+      },
+      {
+       "name": "Crystalline Circuit",
+       "count": 1,
+       "kind": "material",
+       "id": "31034"
+      }
+     ]
+    },
     {
      "kind": "missions",
      "title": "Event missions",
@@ -34928,7 +37322,7 @@
          "kind": "currency"
         },
         {
-         "name": "Icon &apos;Attacker&apos;",
+         "name": "Icon 'Attacker'",
          "count": 1,
          "kind": "other"
         }
@@ -35498,20 +37892,6 @@
      ]
     },
     {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act2vmulti",
-     "count": 21,
-     "items": [
-      {
-       "name": "Originite Prime",
-       "count": 21,
-       "kind": "currency",
-       "id": "4002"
-      }
-     ]
-    },
-    {
      "kind": "packs",
      "title": "LIMITED-TIME PACKS AVAILABLE",
      "source": "https://www.arknights.global/news/300",
@@ -35975,6 +38355,17 @@
      ]
     },
     {
+     "kind": "notice",
+     "title": "FESTIVAL SIGN-IN EVENT",
+     "source": "https://www.arknights.global/news/299",
+     "items": [],
+     "lines": [
+      "DURATION: December 3, 2024, 10:00 – December 13, 2024, 03:59 (UTC-7)",
+      "DETAILS: During the event, players can log in for 7 days to receive generous rewards, including Emergency Sanity Concentrate, Orundum, Elite Materials, and more. Participants in the Support Event during the first 5 days can win furniture depending on the flavor they choose to support.",
+      "NOTE:"
+     ]
+    },
+    {
      "kind": "furniture-set",
      "title": "Abyssal Hunter Lab",
      "source": "building_data furni_set_HunterInstitute",
@@ -36331,6 +38722,88 @@
   "[Rerun] So Long, Adele Rerun": {
    "activity": "act27sre",
    "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 340,000 points",
+     "source": "activity_table act27sre",
+     "count": 45,
+     "points": 340000,
+     "pointName": null,
+     "items": [
+      {
+       "name": "LMD",
+       "count": 55000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Semi-Synthetic Solvent",
+       "count": 5,
+       "kind": "material",
+       "id": "31043"
+      },
+      {
+       "name": "Oriron Cluster",
+       "count": 5,
+       "kind": "material",
+       "id": "30043"
+      },
+      {
+       "name": "Swimmable Little Stool",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_stool_01"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 25,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 4,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 10,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 5,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Fashion Street Outdoor Table",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_outsidetable_01"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 6,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Big Spinnable Chair",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_armchair_01"
+      },
+      {
+       "name": "Riotous Surfboard Rack",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_coastCottage_surfboard_01"
+      }
+     ]
+    },
     {
      "kind": "missions",
      "title": "Event missions",
@@ -37307,6 +39780,169 @@
     }
    ]
   },
+  "Poly Vision Museum": {
+   "activity": "act1arcade",
+   "groups": [
+    {
+     "kind": "milestones",
+     "title": "Reception Desk: 45 steps, up to 1,800 Point Card",
+     "source": "activity_table act1arcade",
+     "count": 45,
+     "points": 1800,
+     "pointName": "Point Card",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "RMA70-12",
+       "count": 15,
+       "kind": "material",
+       "id": "30103"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 15,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 15,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 30,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Optimized Device",
+       "count": 4,
+       "kind": "material",
+       "id": "30064"
+      },
+      {
+       "name": "Compound Cutting Fluid",
+       "count": 15,
+       "kind": "material",
+       "id": "31053"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 30,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 2,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 15,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 400,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Incandescent Alloy Block",
+       "count": 4,
+       "kind": "material",
+       "id": "31024"
+      },
+      {
+       "name": "Home Screen UI 'Poly Vision'",
+       "count": 1,
+       "kind": "other",
+       "id": "tm_arcade_1"
+      },
+      {
+       "name": "Polymerized Gel",
+       "count": 4,
+       "kind": "material",
+       "id": "31014"
+      },
+      {
+       "name": "Icon 'Game Clear'",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_activity_ARC1"
+      }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "SPECIAL LOGIN EVENT OPEN",
+     "source": "https://www.arknights.global/news/279",
+     "items": [],
+     "lines": [
+      "DURATION: June 12, 2025, 10:00 - June 22, 2025, 03:59 (UTC-7)",
+      "DETAILS: During the event, players can claim special rewards, including: Orundum, Emergency Sanity Concentrate, LMD, etc. These rewards will be sent via in-game mail.",
+      "NOTE:"
+     ]
+    },
+    {
+     "kind": "packs",
+     "title": "LIMITED-TIME PACKS AVAILABLE",
+     "source": "https://www.arknights.global/news/279",
+     "items": [],
+     "packs": [
+      {
+       "name": "Light and Shadow Commemorative Pack",
+       "start": "2025-06-12T17:00:00.000Z",
+       "end": "2025-07-03T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 800,
+         "kind": "currency"
+        },
+        {
+         "name": "Icon 'This you?'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Chongyue Chronicles'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Cut!'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Photographic Remnant Pack",
+       "start": "2025-06-12T17:00:00.000Z",
+       "end": "2025-07-03T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Profile Theme 'Highlights'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
   "[Rerun] Here A People Sows Rerun": {
    "activity": "act31sre",
    "groups": [
@@ -37529,6 +40165,25 @@
     }
    ],
    "inheritsFrom": "[Side Story – Festival] Here A People Sows"
+  },
+  "Integrated Lookback: Another Tides": {
+   "activity": "act3collection",
+   "groups": [
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act3collection",
+     "count": 39,
+     "items": [
+      {
+       "name": "'Strategist' Point",
+       "count": 4100,
+       "kind": "event-item",
+       "id": "act3collection_point_token"
+      }
+     ]
+    }
+   ]
   },
   "[Story Collection] See You Soon": {
    "activity": "act18mini",
@@ -38024,6 +40679,106 @@
    "activity": "act1multi",
    "groups": [
     {
+     "kind": "milestones",
+     "title": "Milestones: 60 steps, up to 6,000 Participation Certification - S2",
+     "source": "activity_table act1multi",
+     "count": 60,
+     "points": 6000,
+     "pointName": "Participation Certification - S2",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 90000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 18,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 64,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Aketon",
+       "count": 18,
+       "kind": "material",
+       "id": "30053"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 40,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Polymerized Gel",
+       "count": 8,
+       "kind": "material",
+       "id": "31014"
+      },
+      {
+       "name": "Transmuted Salt",
+       "count": 18,
+       "kind": "material",
+       "id": "31063"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 32,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 20,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 2,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 800,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Refined Solvent",
+       "count": 8,
+       "kind": "material",
+       "id": "31044"
+      },
+      {
+       "name": "Emote Set: Slug Style",
+       "count": 1,
+       "kind": "other",
+       "id": "emoticon_originium_slug"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Vermeil / Playfellows",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_190_clour@epoque#43"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act1multi",
@@ -38034,20 +40789,6 @@
        "count": 1690,
        "kind": "event-item",
        "id": "act1multi_token_cap"
-      }
-     ]
-    },
-    {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act1multi",
-     "count": 44,
-     "items": [
-      {
-       "name": "Originite Prime",
-       "count": 44,
-       "kind": "currency",
-       "id": "4002"
       }
      ]
     },
@@ -38576,16 +41317,214 @@
    "activity": "act1enemyduel",
    "groups": [
     {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act1enemyduel",
-     "count": 4,
+     "kind": "milestones",
+     "title": "Grassville Program: 50 steps, up to 6,300 Grand Duel Fireworks",
+     "source": "activity_table act1enemyduel",
+     "count": 50,
+     "points": 6300,
+     "pointName": "Grand Duel Fireworks",
      "items": [
       {
-       "name": "Originite Prime",
-       "count": 4,
+       "name": "LMD",
+       "count": 60000,
        "kind": "currency",
-       "id": "4002"
+       "id": "4001"
+      },
+      {
+       "name": "Oriron Cluster",
+       "count": 10,
+       "kind": "material",
+       "id": "30043"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 90,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Keton Colloid",
+       "count": 3,
+       "kind": "material",
+       "id": "30054"
+      },
+      {
+       "name": "Grindstone",
+       "count": 10,
+       "kind": "material",
+       "id": "30093"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 60,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Cutting Fluid Solution",
+       "count": 3,
+       "kind": "material",
+       "id": "31054"
+      },
+      {
+       "name": "Semi-Synthetic Solvent",
+       "count": 10,
+       "kind": "material",
+       "id": "31043"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 4,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Cyclicene Prefab",
+       "count": 3,
+       "kind": "material",
+       "id": "31084"
+      },
+      {
+       "name": "Duel Gaming Chair",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_enemyduel_chair_01"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Icon 'Give It Back!'",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_activity_ED_1"
+      },
+      {
+       "name": "'Professional Spectator' Desk",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_enemyduel_table_01"
+      }
+     ]
+    }
+   ]
+  },
+  "Integrated Lookback: Back to Castle": {
+   "activity": "act4collection",
+   "groups": [
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act4collection",
+     "count": 49,
+     "items": [
+      {
+       "name": "Strategy Point",
+       "count": 9550,
+       "kind": "event-item",
+       "id": "act4collection_point_token"
+      }
+     ]
+    }
+   ]
+  },
+  "Vector Breakthrough Inorganic Matters": {
+   "activity": "act1break",
+   "groups": [
+    {
+     "kind": "milestones",
+     "title": "Breakthrough Milestones: 65 steps, up to 3,600 'Caution! Wet Floor!'",
+     "source": "activity_table act1break",
+     "count": 65,
+     "points": 3600,
+     "pointName": "'Caution! Wet Floor!'",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 110000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "RMA70-12",
+       "count": 20,
+       "kind": "material",
+       "id": "30103"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 60,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Compound Cutting Fluid",
+       "count": 20,
+       "kind": "material",
+       "id": "31053"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 50,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 3,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 25,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 2,
+       "kind": "material",
+       "id": "30145"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 25,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Refined Solvent",
+       "count": 3,
+       "kind": "material",
+       "id": "31044"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Solidified Fiber Board",
+       "count": 2,
+       "kind": "material",
+       "id": "31074"
+      },
+      {
+       "name": "Vulcan / Ignis",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_163_hpsts@boc#10"
+      },
+      {
+       "name": "'The Slip-n-Slide of Champs'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_vector_s1_01"
       }
      ]
     }
@@ -38885,6 +41824,130 @@
   "Trials for Navigator #05": {
    "activity": "act5bossrush",
    "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 3,625 Trial EXP",
+     "source": "activity_table act5bossrush",
+     "count": 45,
+     "points": 3625,
+     "pointName": "Trial EXP",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Grindstone Pentahydrate",
+       "count": 1,
+       "kind": "material",
+       "id": "30094"
+      },
+      {
+       "name": "Grindstone",
+       "count": 10,
+       "kind": "material",
+       "id": "30093"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 15,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Fuscous Fiber",
+       "count": 10,
+       "kind": "material",
+       "id": "31073"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Headhunting Permit",
+       "count": 1,
+       "kind": "permit",
+       "id": "7003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 5,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 1,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Keton Colloid",
+       "count": 1,
+       "kind": "material",
+       "id": "30054"
+      },
+      {
+       "name": "Morgan / Behind the Words",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_154_morgan@epoque#47"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 10,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 15,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 1,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Integrated Module Data Chunk",
+       "count": 1,
+       "kind": "material",
+       "id": "itempack_mod_4"
+      },
+      {
+       "name": "Refined Solvent",
+       "count": 1,
+       "kind": "material",
+       "id": "31044"
+      }
+     ]
+    },
     {
      "kind": "missions",
      "title": "Event missions",
@@ -39432,6 +42495,88 @@
    "activity": "act35sre",
    "groups": [
     {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 4,500 points",
+     "source": "activity_table act35sre",
+     "count": 45,
+     "points": 4500,
+     "pointName": null,
+     "items": [
+      {
+       "name": "LMD",
+       "count": 36000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "RMA70-12",
+       "count": 5,
+       "kind": "material",
+       "id": "30103"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 65,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Coagulating Gel",
+       "count": 5,
+       "kind": "material",
+       "id": "31013"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 4,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 12,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Aketon",
+       "count": 4,
+       "kind": "material",
+       "id": "30053"
+      },
+      {
+       "name": "Silent Stone Bench",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_bench_01"
+      },
+      {
+       "name": "'Partner of Youth'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_ceilingplant_01"
+      },
+      {
+       "name": "'Sentinel'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_jewelcat_01"
+      },
+      {
+       "name": "Jeweled Sink",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_citizengarden_sink_01"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 50,
+       "kind": "material",
+       "id": "3401"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act35sre",
@@ -39631,16 +42776,90 @@
    "activity": "act2enemyduel",
    "groups": [
     {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act2enemyduel",
-     "count": 2,
+     "kind": "milestones",
+     "title": "Honeydew Program: 50 steps, up to 6,300 Grand Duel Fireworks",
+     "source": "activity_table act2enemyduel",
+     "count": 50,
+     "points": 6300,
+     "pointName": "Grand Duel Fireworks",
      "items": [
       {
-       "name": "Originite Prime",
-       "count": 2,
+       "name": "LMD",
+       "count": 70000,
        "kind": "currency",
-       "id": "4002"
+       "id": "4001"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 10,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 105,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Keton Colloid",
+       "count": 2,
+       "kind": "material",
+       "id": "30054"
+      },
+      {
+       "name": "Crystalline Component",
+       "count": 10,
+       "kind": "material",
+       "id": "31033"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 70,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Coagulative Nodule",
+       "count": 10,
+       "kind": "material",
+       "id": "31093"
+      },
+      {
+       "name": "D32 Steel",
+       "count": 5,
+       "kind": "material",
+       "id": "30135"
+      },
+      {
+       "name": "Polymerized Gel",
+       "count": 2,
+       "kind": "material",
+       "id": "31014"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Crystalline Circuit",
+       "count": 2,
+       "kind": "material",
+       "id": "31034"
+      },
+      {
+       "name": "Icon 'Perfect!'",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_activity_ED2"
+      },
+      {
+       "name": "Duel Trophy",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_enemyduel_guessRight_01"
       }
      ]
     }
@@ -39856,216 +43075,6 @@
     }
    ],
    "inheritsFrom": "[Intermezzo] Ending a Grand Overture"
-  },
-  "Rebuilding Mandate": {
-   "activity": "act1vhalfidle",
-   "groups": [
-    {
-     "kind": "missions",
-     "title": "Event missions",
-     "source": "activity_table missionData act1vhalfidle",
-     "count": 106,
-     "items": [
-      {
-       "name": "Packaged Core",
-       "count": 9600,
-       "kind": "event-item",
-       "id": "act1vhalfidle_gacha_normal"
-      },
-      {
-       "name": "Strategic Beacon",
-       "count": 2750,
-       "kind": "event-item",
-       "id": "act1vhalfidle_strategy_point"
-      },
-      {
-       "name": "Refined Core",
-       "count": 11,
-       "kind": "event-item",
-       "id": "act1vhalfidle_gacha_newplayer"
-      },
-      {
-       "name": "Resource Point",
-       "count": 72000,
-       "kind": "event-item",
-       "id": "act1vhalfidle_token_point"
-      },
-      {
-       "name": "Elite Advancement Token",
-       "count": 2200,
-       "kind": "material",
-       "id": "act1vhalfidle_itempack_asc"
-      },
-      {
-       "name": "Training Handbook",
-       "count": 200000,
-       "kind": "event-item",
-       "id": "act1vhalfidle_level_exp"
-      },
-      {
-       "name": "Skill Handbook",
-       "count": 1000,
-       "kind": "event-item",
-       "id": "act1vhalfidle_skill_exp"
-      },
-      {
-       "name": "Vanguard Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_pio"
-      },
-      {
-       "name": "Guard Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_grd"
-      },
-      {
-       "name": "Defender Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_tnk"
-      },
-      {
-       "name": "Sniper Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_snp"
-      },
-      {
-       "name": "Caster Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_cst"
-      },
-      {
-       "name": "Medic Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_med"
-      },
-      {
-       "name": "Supporter Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_sup"
-      },
-      {
-       "name": "Specialist Advancement Token",
-       "count": 1800,
-       "kind": "event-item",
-       "id": "act1vhalfidle_asc_spc"
-      }
-     ]
-    },
-    {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act1vhalfidle",
-     "count": 1,
-     "items": [
-      {
-       "name": "Originite Prime",
-       "count": 1,
-       "kind": "currency",
-       "id": "4002"
-      }
-     ]
-    },
-    {
-     "kind": "packs",
-     "title": "LIMITED-TIME PACKS AVAILABLE",
-     "source": "https://www.arknights.global/news/2744",
-     "items": [],
-     "packs": [
-      {
-       "name": "Orienteering Headhunting Pack",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Ten-roll Headhunting Permit",
-         "count": 2,
-         "kind": "permit"
-        },
-        {
-         "name": "Originite Prime",
-         "count": 9,
-         "kind": "currency"
-        }
-       ]
-      },
-      {
-       "name": "Rhodes Island Funding Box",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Originite Prime",
-         "count": 16,
-         "kind": "currency"
-        },
-        {
-         "name": "LMD",
-         "count": 700000,
-         "kind": "currency"
-        }
-       ]
-      },
-      {
-       "name": "Rhodes Island Data Set",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Module Data Block",
-         "count": 24,
-         "kind": "material"
-        },
-        {
-         "name": "Data Supplement Instrument",
-         "count": 30,
-         "kind": "material"
-        },
-        {
-         "name": "Data Supplement Stick",
-         "count": 90,
-         "kind": "material"
-        }
-       ]
-      },
-      {
-       "name": "Rhodes Island Data Pack",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Module Data Block",
-         "count": 12,
-         "kind": "material"
-        }
-       ]
-      },
-      {
-       "name": "Alluring Moonlight Pack",
-       "start": "2026-03-06T15:00:00.000Z",
-       "end": "2026-03-27T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Orundum",
-         "count": 1600,
-         "kind": "currency"
-        },
-        {
-         "name": "Profile Theme 'An Invitation to Moons'",
-         "count": 1,
-         "kind": "other"
-        }
-       ]
-      }
-     ]
-    }
-   ]
   },
   "Abnormal Spectrum": {
    "activity": "act3mainss",
@@ -40296,6 +43305,106 @@
    "activity": "act1autochess",
    "groups": [
     {
+     "kind": "milestones",
+     "title": "Milestones: 60 steps, up to 12,000 Stronghold Credits",
+     "source": "activity_table act1autochess",
+     "count": 60,
+     "points": 12000,
+     "pointName": "Stronghold Credits",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 100000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 12,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 75,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Crystalline Component",
+       "count": 12,
+       "kind": "material",
+       "id": "31033"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 50,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 3,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Fuscous Fiber",
+       "count": 12,
+       "kind": "material",
+       "id": "31073"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 32,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 2,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 20,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Cutting Fluid Solution",
+       "count": 3,
+       "kind": "material",
+       "id": "31054"
+      },
+      {
+       "name": "Solidified Fiber Board",
+       "count": 3,
+       "kind": "material",
+       "id": "31074"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Humus / Blazing Street View",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_491_humus@marthe#10"
+      },
+      {
+       "name": "Icon 'Simulation Complete!'",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_activity_AC_1"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act1autochess",
@@ -40448,6 +43557,17 @@
        "kind": "currency",
        "id": "4002"
       }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "SPECIAL LOGIN EVENT OPEN",
+     "source": "https://www.arknights.global/news/3479",
+     "items": [],
+     "lines": [
+      "DURATION: May 7, 2026, 08:00 - May 17, 2026, 03:59 (UTC-7)",
+      "DETAILS: During the event, players can claim special rewards, including: Orundum, Emergency Sanity Concentrate, LMD, etc. These rewards will be sent via in-game mail.",
+      "NOTE:"
      ]
     },
     {
@@ -41161,6 +44281,130 @@
    "activity": "act6bossrush",
    "groups": [
     {
+     "kind": "milestones",
+     "title": "Milestones: 45 steps, up to 3,625 Trial EXP",
+     "source": "activity_table act6bossrush",
+     "count": 45,
+     "points": 3625,
+     "pointName": "Trial EXP",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 1,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Aketon",
+       "count": 10,
+       "kind": "material",
+       "id": "30053"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 15,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Polyester Pack",
+       "count": 10,
+       "kind": "material",
+       "id": "30033"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Headhunting Permit",
+       "count": 1,
+       "kind": "permit",
+       "id": "7003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 5,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Nucleic Crystal Sinter",
+       "count": 1,
+       "kind": "material",
+       "id": "30155"
+      },
+      {
+       "name": "Transmuted Salt Agglomerate",
+       "count": 1,
+       "kind": "material",
+       "id": "31064"
+      },
+      {
+       "name": "Bubble / The Wind Rider",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_381_bubble@marthe#11"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 10,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 15,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 1,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Integrated Module Data Chunk",
+       "count": 1,
+       "kind": "material",
+       "id": "itempack_mod_4"
+      },
+      {
+       "name": "Cutting Fluid Solution",
+       "count": 1,
+       "kind": "material",
+       "id": "31054"
+      }
+     ]
+    },
+    {
      "kind": "missions",
      "title": "Event missions",
      "source": "activity_table missionData act6bossrush",
@@ -41416,6 +44660,212 @@
     }
    ],
    "inheritsFrom": "[Side Story – Festival] Such is the Joy of Our Reunion"
+  },
+  "Vector Breakthrough #2: Trial from Misery": {
+   "activity": "act2break",
+   "groups": [
+    {
+     "kind": "milestones",
+     "title": "Breakthrough Milestones: 65 steps, up to 3,600 'Caution! Wet Floor!'",
+     "source": "activity_table act2break",
+     "count": 65,
+     "points": 3600,
+     "pointName": "'Caution! Wet Floor!'",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 100000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "RMA70-12",
+       "count": 20,
+       "kind": "material",
+       "id": "30103"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 60,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Aggregate Cyclicene",
+       "count": 20,
+       "kind": "material",
+       "id": "31083"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 50,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Orirock Concentration",
+       "count": 3,
+       "kind": "material",
+       "id": "30014"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 25,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "Polymerization Preparation",
+       "count": 2,
+       "kind": "material",
+       "id": "30115"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 25,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Solidified Fiber Board",
+       "count": 3,
+       "kind": "material",
+       "id": "31074"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Chiral Refractor",
+       "count": 2,
+       "kind": "material",
+       "id": "31094"
+      },
+      {
+       "name": "Greyy / My Fellow Newsboy",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_253_greyy@epoque#515"
+      },
+      {
+       "name": "Plaque - 'Misery'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_vector_S2_misery_01"
+      },
+      {
+       "name": "Plaque - 'Inorganic'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_vector_S2_mechanist_01"
+      }
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "SUPPLY & CHIPS EVERYDAY ACCESS",
+     "source": "https://www.arknights.global/news/4084",
+     "items": [],
+     "lines": [
+      "DURATION: July 30, 2026, 08:00 - August 20, 2026, 03:59 (UTC-7)",
+      "DETAILS: All stages in Supplies and Chips stay open during the period above."
+     ]
+    },
+    {
+     "kind": "notice",
+     "title": "HYMN TO A NEW BEGINNING SIGN-IN EVENT OPEN",
+     "source": "https://www.arknights.global/news/4084",
+     "items": [],
+     "lines": [
+      "DURATION: July 30, 2026, 08:00 - August 31, 2026, 03:59 (UTC-7)",
+      "DETAILS: During the event, players can log in to receive Headhunting Permit * 1 and Event Icon 'New Start'."
+     ]
+    },
+    {
+     "kind": "packs",
+     "title": "LIMITED-TIME PACKS AVAILABLE",
+     "source": "https://www.arknights.global/news/4084",
+     "items": [],
+     "packs": [
+      {
+       "name": "Advanced Training Resource Pack",
+       "start": "2026-07-30T15:00:00.000Z",
+       "end": "2026-08-13T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Top Operator Training Invitation Letter",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Senior Operator Training Invitation Letter",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Professional Operator Training Invitation Letter",
+         "count": 2,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Orienteering Headhunting Pack",
+       "start": "2026-07-30T15:00:00.000Z",
+       "end": "2026-08-20T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Ten-roll Headhunting Permit",
+         "count": 2,
+         "kind": "permit"
+        },
+        {
+         "name": "Originite Prime",
+         "count": 9,
+         "kind": "currency"
+        }
+       ]
+      },
+      {
+       "name": "Rhodes Island Data Set",
+       "start": "2026-07-30T15:00:00.000Z",
+       "end": "2026-08-20T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Module Data Block",
+         "count": 24,
+         "kind": "material"
+        },
+        {
+         "name": "Data Supplement Instrument",
+         "count": 30,
+         "kind": "material"
+        },
+        {
+         "name": "Data Supplement Stick",
+         "count": 90,
+         "kind": "material"
+        }
+       ]
+      },
+      {
+       "name": "Rhodes Island Data Pack",
+       "start": "2026-07-30T15:00:00.000Z",
+       "end": "2026-08-20T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Module Data Block",
+         "count": 12,
+         "kind": "material"
+        }
+       ]
+      }
+     ]
+    }
+   ]
   },
   "[Story Collection] Crossing": {
    "activity": "act20mini",
@@ -42181,16 +45631,90 @@
    "activity": "act3enemyduel",
    "groups": [
     {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "stage_table act3enemyduel",
-     "count": 2,
+     "kind": "milestones",
+     "title": "Ivy Vine Program: 50 steps, up to 6,300 Grand Duel Fireworks",
+     "source": "activity_table act3enemyduel",
+     "count": 50,
+     "points": 6300,
+     "pointName": "Grand Duel Fireworks",
      "items": [
       {
-       "name": "Originite Prime",
-       "count": 2,
+       "name": "LMD",
+       "count": 70000,
        "kind": "currency",
-       "id": "4002"
+       "id": "4001"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 10,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 105,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Keton Colloid",
+       "count": 2,
+       "kind": "material",
+       "id": "30054"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 10,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 70,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Transmuted Salt",
+       "count": 10,
+       "kind": "material",
+       "id": "31063"
+      },
+      {
+       "name": "Nucleic Crystal Sinter",
+       "count": 5,
+       "kind": "material",
+       "id": "30155"
+      },
+      {
+       "name": "Incandescent Alloy Block",
+       "count": 2,
+       "kind": "material",
+       "id": "31024"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Cutting Fluid Solution",
+       "count": 2,
+       "kind": "material",
+       "id": "31054"
+      },
+      {
+       "name": "Icon 'ALL IN!'",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_activity_ED3"
+      },
+      {
+       "name": "Duel Trophy",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_enemyduel_diceAll_01"
       }
      ]
     },
@@ -42286,7 +45810,7 @@
      "days": 10,
      "items": [
       {
-       "name": "封缄诺言寻访凭证",
+       "name": "封缄诺言寻访凭证 (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_7301"
@@ -42397,7 +45921,7 @@
      "daily": [
       [
        {
-        "name": "封缄诺言寻访凭证",
+        "name": "封缄诺言寻访凭证 (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LIMITED_TKT_GACHA_10_7301"
@@ -42596,7 +46120,7 @@
      "days": 10,
      "items": [
       {
-       "name": "弓吟空跃寻访凭证",
+       "name": "弓吟空跃寻访凭证 (ten-roll)",
        "count": 2,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_7401"
@@ -42638,7 +46162,7 @@
        "id": "3401"
       },
       {
-       "name": "avatar_special_75",
+       "name": "Icon '猎手烤肉'",
        "count": 1,
        "kind": "other",
        "id": "avatar_special_75"
@@ -42701,7 +46225,7 @@
      "daily": [
       [
        {
-        "name": "弓吟空跃寻访凭证",
+        "name": "弓吟空跃寻访凭证 (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_7401"
@@ -42757,7 +46281,7 @@
       ],
       [
        {
-        "name": "avatar_special_75",
+        "name": "Icon '猎手烤肉'",
         "count": 1,
         "kind": "other",
         "id": "avatar_special_75"
@@ -42799,7 +46323,7 @@
       ],
       [
        {
-        "name": "弓吟空跃寻访凭证",
+        "name": "弓吟空跃寻访凭证 (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_7401"
@@ -43237,7 +46761,7 @@
      "region": "CN",
      "items": [
       {
-       "name": "搭车漫游寻访凭证",
+       "name": "搭车漫游寻访凭证 (ten-roll)",
        "count": 1,
        "kind": "permit",
        "id": "LIMITED_TKT_GACHA_10_7601"
@@ -43273,7 +46797,7 @@
      "days": 10,
      "items": [
       {
-       "name": "一逢满月十连寻访凭证",
+       "name": "一逢满月十连寻访凭证 (ten-roll)",
        "count": 2,
        "kind": "permit",
        "id": "LINKAGE_TKT_GACHA_10_7701"
@@ -43315,7 +46839,7 @@
        "id": "3401"
       },
       {
-       "name": "avatar_special_94",
+       "name": "Icon '弦月'",
        "count": 1,
        "kind": "other",
        "id": "avatar_special_94"
@@ -43378,7 +46902,7 @@
      "daily": [
       [
        {
-        "name": "一逢满月十连寻访凭证",
+        "name": "一逢满月十连寻访凭证 (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_7701"
@@ -43434,7 +46958,7 @@
       ],
       [
        {
-        "name": "avatar_special_94",
+        "name": "Icon '弦月'",
         "count": 1,
         "kind": "other",
         "id": "avatar_special_94"
@@ -43476,7 +47000,7 @@
       ],
       [
        {
-        "name": "一逢满月十连寻访凭证",
+        "name": "一逢满月十连寻访凭证 (ten-roll)",
         "count": 1,
         "kind": "permit",
         "id": "LINKAGE_TKT_GACHA_10_7701"
@@ -44062,6 +47586,172 @@
        }
       ]
      ]
+    },
+    {
+     "kind": "milestones",
+     "title": "Milestones: 50 steps, up to 2,500 绒绒欢乐像",
+     "source": "CN activity_table act1dp",
+     "count": 50,
+     "points": 2500,
+     "pointName": "绒绒欢乐像",
+     "items": [
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 12,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Incandescent Alloy Block",
+       "count": 3,
+       "kind": "material",
+       "id": "31024"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 60,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Nucleic Crystal Sinter",
+       "count": 4,
+       "kind": "material",
+       "id": "30155"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 50,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Transmuted Salt",
+       "count": 12,
+       "kind": "material",
+       "id": "31063"
+      },
+      {
+       "name": "Cutting Fluid Solution",
+       "count": 3,
+       "kind": "material",
+       "id": "31054"
+      },
+      {
+       "name": "Aggregate Cyclicene",
+       "count": 12,
+       "kind": "material",
+       "id": "31083"
+      },
+      {
+       "name": "Cyclicene Prefab",
+       "count": 3,
+       "kind": "material",
+       "id": "31084"
+      },
+      {
+       "name": "Icon '云在看着你'",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_activity_dp1"
+      },
+      {
+       "name": "“乐趣洋洋”",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act1dp_frame_01"
+      }
+     ],
+     "region": "CN"
+    }
+   ]
+  },
+  "Positional Football Championship": {
+   "activity": "act1football",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "milestones",
+     "title": "Milestones: 55 steps, up to 2,750 锦标积分券",
+     "source": "CN activity_table act1football",
+     "count": 55,
+     "points": 2750,
+     "pointName": "锦标积分券",
+     "items": [
+      {
+       "name": "Tactical Battle Record",
+       "count": 90,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Orirock Cluster",
+       "count": 18,
+       "kind": "material",
+       "id": "30013"
+      },
+      {
+       "name": "LMD",
+       "count": 100000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 80,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Crystalline Electronic Unit",
+       "count": 4,
+       "kind": "material",
+       "id": "30145"
+      },
+      {
+       "name": "Incandescent Alloy",
+       "count": 14,
+       "kind": "material",
+       "id": "31023"
+      },
+      {
+       "name": "Refined Solvent",
+       "count": 3,
+       "kind": "material",
+       "id": "31044"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Oriron Block",
+       "count": 2,
+       "kind": "material",
+       "id": "30044"
+      },
+      {
+       "name": "Chiral Refractor",
+       "count": 1,
+       "kind": "material",
+       "id": "31094"
+      },
+      {
+       "name": "钼铅 / 跃动节拍",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_4171_wulfen@marthe#14"
+      }
+     ],
+     "region": "CN"
     }
    ]
   },
@@ -44104,21 +47794,6 @@
       }
      ],
      "region": "CN"
-    },
-    {
-     "kind": "first-clear",
-     "title": "Event stage first clears",
-     "source": "CN stage_table act1arkhub",
-     "count": 18,
-     "items": [
-      {
-       "name": "Originite Prime",
-       "count": 18,
-       "kind": "currency",
-       "id": "4002"
-      }
-     ],
-     "region": "CN"
     }
    ]
   },
@@ -44157,49 +47832,172 @@
     }
    ]
   },
-  "Poly Vision Museum": {
+  "[Crossover] Tender Moments": {
    "activity": null,
    "groups": [
     {
      "kind": "packs",
-     "title": "LIMITED-TIME PACKS AVAILABLE",
-     "source": "https://www.arknights.global/news/279",
+     "title": "[ARKNIGHTS X SANRIO CHARACTERS] PACKS AVAILABLE FOR A LIMITED TIME",
+     "source": "https://www.arknights.global/news/2750",
      "items": [],
      "packs": [
       {
-       "name": "Light and Shadow Commemorative Pack",
-       "start": "2025-06-12T17:00:00.000Z",
-       "end": "2025-07-03T10:59:00.000Z",
+       "name": "Friends All Along Pack",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
        "contents": [
         {
          "name": "Orundum",
-         "count": 800,
+         "count": 400,
          "kind": "currency"
         },
         {
-         "name": "Icon &apos;This you?&apos;",
+         "name": "Icon 'Fluffy Pink'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Chongyue Chronicles&apos;",
+         "name": "Icon 'Warm Delivery'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Cut!&apos;",
+         "name": "Icon 'Hunter's Calling?'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "away!'",
          "count": 1,
          "kind": "other"
         }
        ]
       },
       {
-       "name": "Photographic Remnant Pack",
-       "start": "2025-06-12T17:00:00.000Z",
-       "end": "2025-07-03T10:59:00.000Z",
+       "name": "Time Spent Together Pack",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
        "contents": [
         {
-         "name": "Profile Theme &apos;Highlights&apos;",
+         "name": "Orundum",
+         "count": 400,
+         "kind": "currency"
+        },
+        {
+         "name": "Icon 'Unspoken Bonds'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Elves' Nap'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Star of Encounters'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Star of Blessing'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Heart-warming Reunion Pack",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 1600,
+         "kind": "currency"
+        },
+        {
+         "name": "Home Screen UI 'Gathered Together'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Partners Commemorative Pack",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 400,
+         "kind": "currency"
+        },
+        {
+         "name": "Icon 'Detective Team'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Eureka's Dream'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Thx'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Ribbon Exchange'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Friendship Commemorative Pack",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 400,
+         "kind": "currency"
+        },
+        {
+         "name": "Icon 'Wink—'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Silent Us'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'I Like Your Skull'",
+         "count": 1,
+         "kind": "other"
+        },
+        {
+         "name": "Icon 'Angel on the Cloud'",
+         "count": 1,
+         "kind": "other"
+        }
+       ]
+      },
+      {
+       "name": "Honey Party Pack",
+       "start": "2026-03-06T15:00:00.000Z",
+       "end": "2026-03-27T10:59:00.000Z",
+       "contents": [
+        {
+         "name": "Orundum",
+         "count": 1600,
+         "kind": "currency"
+        },
+        {
+         "name": "Themed Background 'Sweetness'",
          "count": 1,
          "kind": "other"
         }
@@ -44244,22 +48042,22 @@
          "kind": "currency"
         },
         {
-         "name": "Icon &apos;Detective Team&apos;",
+         "name": "Icon 'Detective Team'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Eureka&apos;s Dream&apos;",
+         "name": "Icon 'Eureka's Dream'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Thx&apos;",
+         "name": "Thx'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Ribbon Exchange&apos;",
+         "name": "Icon 'Ribbon Exchange'",
          "count": 1,
          "kind": "other"
         }
@@ -44276,22 +48074,22 @@
          "kind": "currency"
         },
         {
-         "name": "Icon &apos;Wink—&apos;",
+         "name": "Icon 'Wink—'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Silent Us&apos;",
+         "name": "Icon 'Silent Us'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;I Like Your Skull&apos;",
+         "name": "Icon 'I Like Your Skull'",
          "count": 1,
          "kind": "other"
         },
         {
-         "name": "Icon &apos;Angel on the Cloud&apos;",
+         "name": "Icon 'Angel on the Cloud'",
          "count": 1,
          "kind": "other"
         }
@@ -44308,7 +48106,7 @@
          "kind": "currency"
         },
         {
-         "name": "Themed Background &apos;Sweetness&apos;",
+         "name": "Themed Background 'Sweetness'",
          "count": 1,
          "kind": "other"
         }
@@ -44363,13 +48161,19 @@
     }
    ]
   },
-  "Design of Strife": {
-   "activity": null,
-   "groups": []
-  },
   "Immemorial Bright": {
    "activity": null,
-   "groups": []
+   "groups": [
+    {
+     "kind": "notice",
+     "title": "[ARKNIGHTS X NINE-COLORED DEER]: IMMEMORIAL BRIGHT LIMITED-TIME LOGIN EVENT OPEN",
+     "source": "https://www.arknights.global/news/325",
+     "items": [],
+     "lines": [
+      "DETAILS: Players can log in to receive the event operator [★★★★★：Nine-Colored Deer] and exclusive event furniture 'Amidst Misty Clouds'."
+     ]
+    }
+   ]
   },
   "Pinch-Out Experimental Operation": {
    "activity": null,
@@ -44879,233 +48683,20 @@
     }
    ]
   },
-  "Vector Breakthrough #2: Trial from Misery": {
+  "[Celebration] 1st Anniversary Celebration": {
    "activity": null,
    "groups": [
     {
      "kind": "notice",
-     "title": "SUPPLY & CHIPS EVERYDAY ACCESS",
-     "source": "https://www.arknights.global/news/4084",
+     "title": "ANNIVERSARY SIGN-IN EVENT OPEN",
+     "source": "https://www.arknights.global/news/438",
      "items": [],
      "lines": [
-      "DURATION: July 30, 2026, 08:00 - August 20, 2026, 03:59 (UTC-7)",
-      "DETAILS: All stages in Supplies and Chips stay open during the period above."
+      "DURATION: January 2, 2021, 04:00 (UTC-7) - January 30, 2021, 03:59 (UTC-7)",
+      "DETAILS: During the event, players can sign in for 14 days to earn the following rewards.",
+      "NOTE:"
      ]
     },
-    {
-     "kind": "packs",
-     "title": "LIMITED-TIME PACKS AVAILABLE",
-     "source": "https://www.arknights.global/news/4084",
-     "items": [],
-     "packs": [
-      {
-       "name": "Advanced Training Resource Pack",
-       "start": "2026-07-30T15:00:00.000Z",
-       "end": "2026-08-13T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Top Operator Training Invitation Letter",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Senior Operator Training Invitation Letter",
-         "count": 1,
-         "kind": "other"
-        },
-        {
-         "name": "Professional Operator Training Invitation Letter",
-         "count": 2,
-         "kind": "other"
-        }
-       ]
-      },
-      {
-       "name": "Orienteering Headhunting Pack",
-       "start": "2026-07-30T15:00:00.000Z",
-       "end": "2026-08-20T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Ten-roll Headhunting Permit",
-         "count": 2,
-         "kind": "permit"
-        },
-        {
-         "name": "Originite Prime",
-         "count": 9,
-         "kind": "currency"
-        }
-       ]
-      },
-      {
-       "name": "Rhodes Island Data Set",
-       "start": "2026-07-30T15:00:00.000Z",
-       "end": "2026-08-20T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Module Data Block",
-         "count": 24,
-         "kind": "material"
-        },
-        {
-         "name": "Data Supplement Instrument",
-         "count": 30,
-         "kind": "material"
-        },
-        {
-         "name": "Data Supplement Stick",
-         "count": 90,
-         "kind": "material"
-        }
-       ]
-      },
-      {
-       "name": "Rhodes Island Data Pack",
-       "start": "2026-07-30T15:00:00.000Z",
-       "end": "2026-08-20T10:59:00.000Z",
-       "contents": [
-        {
-         "name": "Module Data Block",
-         "count": 12,
-         "kind": "material"
-        }
-       ]
-      }
-     ]
-    }
-   ]
-  },
-  "Interlocking Competition Hymnoi Wisdom": {
-   "activity": null,
-   "groups": [
-    {
-     "kind": "furniture-set",
-     "title": "The Photography Hobbyist's Studio",
-     "source": "building_data furni_set_photoStudio",
-     "items": [],
-     "description": "A photography studio Rhodes Island set up for its hobbyists. Fully equipped and professional, ready for the finest pictures to be taken.",
-     "pieces": [
-      {
-       "name": "Simple Fitting Room",
-       "id": "furni_photoStudio_changingRoom_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 405
-      },
-      {
-       "name": "Standing Dressing Mirror",
-       "id": "furni_photoStudio_mirror_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 150
-      },
-      {
-       "name": "Large Oil Painting",
-       "id": "furni_photoStudio_abstractArt_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 190
-      },
-      {
-       "name": "Studio Vanity Table",
-       "id": "furni_photoStudio_table_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 200
-      },
-      {
-       "name": "Cubic Stool",
-       "id": "furni_photoStudio_stool_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 110
-      },
-      {
-       "name": "Translucent Curtain",
-       "id": "furni_photoStudio_curtain_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 125
-      },
-      {
-       "name": "Studio Worktable",
-       "id": "furni_photoStudio_desk_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 390
-      },
-      {
-       "name": "Spinny Office Chair",
-       "id": "furni_photoStudio_chair_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 165
-      },
-      {
-       "name": "Multipurpose Rack",
-       "id": "furni_photoStudio_rack_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 405
-      },
-      {
-       "name": "Natural Fanning Leaf",
-       "id": "furni_photoStudio_bananaLeaf_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 165
-      },
-      {
-       "name": "Photoflood Lamp",
-       "id": "furni_photoStudio_lighting_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 160
-      },
-      {
-       "name": "Still Photography Teaching Material",
-       "id": "furni_photoStudio_whiteDecor_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 165
-      },
-      {
-       "name": "Photographer's Chair",
-       "id": "furni_photoStudio_posingStool_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 110
-      },
-      {
-       "name": "Photoshoot Auxiliary Equipment",
-       "id": "furni_photoStudio_lightModifier_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 325
-      },
-      {
-       "name": "Photo Zone Rug",
-       "id": "furni_photoStudio_carpet_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 150
-      },
-      {
-       "name": "Hanging Screen",
-       "id": "furni_photoStudio_background_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 90
-      },
-      {
-       "name": "Sliding Rail Lighting",
-       "id": "furni_photoStudio_ceilingLight_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 275
-      },
-      {
-       "name": "Photo Studio Wallpaper",
-       "id": "furni_photoStudio_wallpaper_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 240
-      },
-      {
-       "name": "Photo Studio Tiles",
-       "id": "furni_photoStudio_floor_01",
-       "obtain": "Dropped from some stages",
-       "comfort": 240
-      }
-     ]
-    }
-   ]
-  },
-  "[Celebration] 1st Anniversary Celebration": {
-   "activity": null,
-   "groups": [
     {
      "kind": "notice",
      "title": "FREE EXCLUSIVE HEADHUNTING EVERYDAY",

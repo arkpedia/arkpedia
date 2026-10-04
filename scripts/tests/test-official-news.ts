@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 // @ts-expect-error Node scripts are plain JavaScript.
-import { newsLines, newsSections, parseContents, parseDuration, parsePacks, postEventName, postWindow } from '../build/official-news.mjs';
+import { decodeEntities, newsLines, newsSections, parseContents, parseDuration, parsePacks, postEventName, postWindow } from '../build/official-news.mjs';
 
 /*
  * The official Global announcements (scripts/build/official-news.mjs), on posts cached by
@@ -35,4 +35,10 @@ test('lines, sections and dates as the posts write them', () => {
   assert.deepEqual(newsLines('<p>DURATION :&nbsp;July 1</p><p>A &#x2014; B</p>'), ['DURATION: July 1', 'A — B']);
   assert.equal(parseDuration('July 9, 2024, 10:00 – July 23, 2024, 03:59 (UTC-7)')!.start, '2024-07-09T17:00:00.000Z');
   assert.equal(newsSections(['01 SIDESTORY: X OPEN', 'DETAILS: y', 'not a heading 02 x', '02 LIMITED-TIME PACKS AVAILABLE']).length, 2);
+});
+
+test('an entity encoded twice is decoded all the way ("&amp;apos;" is an apostrophe)', () => {
+  assert.equal(decodeEntities("Profile Theme &amp;apos;Vista&amp;apos;"), "Profile Theme 'Vista'");
+  assert.deepEqual(newsLines('<p>CONTENTS: Profile Theme &amp;apos;Vista&amp;apos; &amp;times; 1</p>'), ["CONTENTS: Profile Theme 'Vista' × 1"]);
+  assert.equal(decodeEntities('&unknown; stays'), '&unknown; stays');
 });

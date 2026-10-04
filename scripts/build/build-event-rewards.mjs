@@ -33,10 +33,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { newsSections, parsePacks, postEventName, postWindow } from './official-news.mjs';
+import { decodeEntities, newsSections, parseDuration, parsePacks, postEventName, postWindow } from './official-news.mjs';
 
 const LOGIN_TYPES = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS']);
-const SIDE_TYPES = new Set([...LOGIN_TYPES, 'LOGIN_ONLY', 'PRAY_ONLY']);
+/* Logins the tables name and date but give no rewards for (a festival's blessing sign-in, a
+   flip-card login): never an event's own activity, and their rewards are the announcement's. */
+const SIDE_TYPES = new Set([...LOGIN_TYPES, 'LOGIN_ONLY', 'PRAY_ONLY', 'BLESS_ONLY', 'FLIP_ONLY']);
+/*
+ * The event kinds whose stages are a story campaign, and so give their first-clear rewards. A
+ * mode's "stages" are not (Duel Channel's two entries list an Originite Prime the mode never
+ * gives: its rewards are its milestones), nor are a Contingency Contract's (TYPE_ACT5D1) or
+ * anything filed as DEFAULT (Reclamation Algorithm, Pinch-Out).
+ */
+export const isStoryActivity = type => /^TYPE_ACT\d+SIDE$/.test(type) || ['TYPE_ACT9D0', 'TYPE_ACT3D0', 'TYPE_ACT4D0', 'TYPE_ACT5D0', 'MINISTORY', 'TYPE_MAINSS', 'YEAR_5_GENERAL'].includes(type);
+/** Where a mode keeps its milestone track (points needed -> reward), under one of these names. */
+const MILESTONE_LISTS = ['milestoneList', 'mileStoneList', 'mileStoneItemList', 'milestoneData'];
 // The kinds a reward is, by the table's own item type: what the page groups and icons by.
 const KIND = {
   MATERIAL: 'material', CARD_EXP: 'material', GOLD: 'currency', DIAMOND: 'currency', DIAMOND_SHD: 'currency',
@@ -65,16 +76,33 @@ export function rewardNamer(tables) {
   const furniture = tables.building?.customData?.furnitures ?? {};
   const characters = tables.characters ?? {};
   const skins = tables.skins?.charSkins ?? {};
+  // The cosmetics and mode pieces the item table does not hold, named as the official posts
+  // word them ("Icon 'Destination'", "Home Screen UI [Poly Vision]", "Profile Theme 'Vista'").
+  const meta = tables.displayMeta ?? {};
+  const quoted = text => `'${String(text).replace(/^['“]|['”]$/g, '')}'`;
+  const cosmetics = new Map([
+    ...list(meta.playerAvatarData?.avatarList).filter(a => a.avatarItemName).map(a => [a.avatarId, `Icon ${quoted(a.avatarItemName)}`]),
+    ...list(meta.homeBackgroundData?.homeBgDataList).filter(b => b.bgName).map(b => [b.bgId, `Main Menu Background ${quoted(b.bgName)}`]),
+    ...list(meta.homeBackgroundData?.themeList).filter(t => t.tmName).map(t => [t.id, `Home Screen UI ${quoted(t.tmName)}`]),
+    ...Object.values(meta.nameCardV2Data?.skinData ?? {}).filter(c => c.name).map(c => [c.id, `Profile Theme ${quoted(c.name)}`]),
+    ...list(tables.charms).map(c => [c.id, c.name]),
+  ]);
+  // Ideal City's cart parts (ACT_CART_COMPONENT), in the activity table's carData.
+  const pieces = new Map(Object.values(tables.activity?.carData?.carDict ?? {}).map(part => [part.compId, part.name]));
   return reward => {
     const { id, type } = reward;
-    let name = items[id]?.name;
-    if (type === 'FURN') name = furniture[id]?.name;
+    let name = items[id]?.name ?? cosmetics.get(id) ?? pieces.get(id);
+    // A piece of furniture is sometimes typed NONE (Grani's mission reward): named by its id.
+    if (type === 'FURN' || (!name && furniture[id])) name = furniture[id]?.name;
     if (type === 'CHAR') name = characters[id]?.name;
     if (type === 'CHAR_SKIN') {
       const skin = skins[id];
       name = skin ? `${characters[skin.charId]?.name ?? skin.charId} / ${skin.displaySkin?.skinName ?? id}` : null;
     }
-    return { name: name ?? id, count: reward.count, kind: KIND[type] ?? 'other', id };
+    // A ten-roll permit the table names like a single one ("Sing while Drinking Headhunting
+    // Permit", LIMITED_TKT_GACHA_10) says so: it is ten pulls, not one.
+    if (name && /TKT_GACHA_10$/.test(type) && !/ten-roll/i.test(name)) name = `${name} (ten-roll)`;
+    return { name: name ?? id, count: reward.count, kind: KIND[type] ?? (furniture[id] ? 'furniture' : 'other'), id };
   };
 }
 
@@ -95,6 +123,9 @@ function kindByName(tables) {
 }
 
 const NOTICE = /GIFT|MAIL|FREE|LUCKY|SUPPLY|REWARD|COMPENSATION|STRIPS/;
+const GENERIC = new Set(['login', 'event', 'events', 'sign', 'in', 'open', 'opens', 'limited', 'time', 'special', 'cumulative', 'new', 'update', 'the', 'a', 'of', 'and', 'campaign', 'now']);
+/** A login's name without its generic words and years: what tells two logins apart. */
+const distinctive = title => new Set(String(title ?? '').toLowerCase().replace(/\[[^\]]*\]/g, ' ').split(/[^a-z]+/).filter(w => w.length > 2 && !GENERIC.has(w)));
 const NOT_NOTICE = /PACK|LOGIN|SIGN-IN|SIGN IN|OUTFIT|HEADHUNTING OPEN|FURNITURE/;
 
 /** The first CN window's start, as a UTC instant of its UTC+8 day. */
@@ -118,7 +149,7 @@ function regionalNamer(primary, fallback) {
  * and its missions and first clears. `match` finds an event's own activity among those opening
  * near `startOf(event)`.
  */
-function tableGroups(events, tables, { startOf, match, name, region }) {
+function tableGroups(events, tables, { startOf, match, name, region, claims = [] }) {
   const activity = tables.activity;
   const info = activity.basicInfo ?? {};
   const day = seconds => new Date(seconds * 1000).toISOString();
@@ -135,14 +166,27 @@ function tableGroups(events, tables, { startOf, match, name, region }) {
     if (found) { own.push({ event, activity: found }); continue; }
     // An event that is a sign-in of its own ("2021 Login Event", "Lifestyle Aid"): the one
     // sign-in that opens on its start.
-    const logins = opened.filter(entry => LOGIN_TYPES.has(entry.type) && Math.abs(entry.startTime - start) <= 86400);
+    // Not one an announcement claims for another event.
+    const logins = opened.filter(entry => LOGIN_TYPES.has(entry.type) && Math.abs(entry.startTime - start) <= 86400
+      && !claims.some(c => c.event !== event.name && Math.abs(c.start - entry.startTime) <= 86400));
     if (logins.length === 1) { own.push({ event, activity: logins[0] }); ownSide.set(logins[0].id, event); }
   }
   own.sort((a, b) => a.activity.startTime - b.activity.startTime);
   const result = {};
   const groupsOf = entry => (result[entry.event.name] ??= { activity: entry.activity.id, ...tag, groups: [] }).groups;
   // The event a side activity belongs to: the latest one opened at or before it, still running.
-  const ownerOf = side => own.filter(entry => entry.activity.startTime <= side.startTime && side.startTime < entry.activity.endTime).at(-1);
+  // The event an announcement names for a login opening then (claims: { event, start }), else the
+  // latest one opened by the end of the login's first day (a login opening hours before its
+  // event's stages is still that event's), and still running.
+  const ownerOf = side => {
+    // Two announcements of the same day can both mention one login (an anniversary sign-in in
+    // the side story's post and in a mode's): the story event's claim stands.
+    const claimed = claims.filter(c => Math.abs(c.start - side.startTime) <= 86400)
+      .map(c => own.find(entry => entry.event.name === c.event)).filter(Boolean)
+      .sort((a, b) => Number(isStoryActivity(b.activity.type)) - Number(isStoryActivity(a.activity.type)))[0];
+    if (claimed) return claimed;
+    return own.filter(entry => entry.activity.startTime <= side.startTime + 86400 && side.startTime < entry.activity.endTime).at(-1);
+  };
   const titleOf = id => activity.homeActConfig?.[id]?.actTopBarText || info[id]?.name;
   for (const side of Object.values(info).filter(entry => SIDE_TYPES.has(entry.type)).sort((a, b) => a.startTime - b.startTime)) {
     const owner = ownSide.has(side.id) ? own.find(entry => entry.activity.id === side.id) : ownerOf(side);
@@ -163,6 +207,19 @@ function tableGroups(events, tables, { startOf, match, name, region }) {
   }
   for (const entry of own) {
     const id = entry.activity.id;
+    // A mode's milestone track: the points it takes, and what each milestone gives.
+    const data = activity.activity?.[entry.activity.type]?.[id];
+    const track = MILESTONE_LISTS.map(field => data?.[field]).find(value => Array.isArray(value) && value.length);
+    if (track) {
+      const rewards = track.map(step => step.reward ?? step.rewardItem ?? step.item).filter(reward => reward?.id);
+      const points = Math.max(...track.map(step => step.tokenNum ?? step.needPointCnt ?? 0));
+      // The points are an item (milestoneItemId, milestonePointId or milestoneId by mode), the
+      // track has a name of its own ("Ivy Vine Program").
+      const c = data?.constData ?? {};
+      const pointName = tables.items?.items?.[c.milestoneItemId ?? c.milestonePointId ?? c.milestoneId]?.name ?? null;
+      const trackName = c.milestonePlanName ?? c.milestoneNameEN ?? c.milestoneName ?? 'Milestones';
+      if (rewards.length) groupsOf(entry).push({ kind: 'milestones', title: `${trackName}: ${track.length} steps${points ? `, up to ${points.toLocaleString('en-US')} ${pointName ?? 'points'}` : ''}`, source: src(`activity_table ${id}`), count: track.length, points, pointName, items: total(rewards.map(name)), ...tag });
+    }
     const missions = list(activity.missionData).filter(mission => mission.missionGroup === id);
     const missionRewards = total(missions.flatMap(mission => list(mission.rewards)).map(name));
     if (missionRewards.length) groupsOf(entry).push({ kind: 'missions', title: 'Event missions', source: src(`activity_table missionData ${id}`), count: missions.length, items: missionRewards, ...tag });
@@ -172,7 +229,7 @@ function tableGroups(events, tables, { startOf, match, name, region }) {
     const stages = Object.values(tables.stages?.stages ?? {}).filter(stage => zones[stage.zoneId] === id || String(stage.stageId).startsWith(`${id}_`));
     const firstClear = stages.flatMap(stage => list(stage.stageDropInfo?.displayDetailRewards)
       .filter(reward => reward.dropType === 'COMPLETE' && reward.type !== 'ACTIVITY_ITEM').map(reward => name({ ...reward, count: reward.count ?? 1 })));
-    if (firstClear.length) {
+    if (firstClear.length && isStoryActivity(entry.activity.type)) {
       groupsOf(entry).push({ kind: 'first-clear', title: 'Event stage first clears', source: src(`stage_table ${id}`), count: stages.filter(stage => list(stage.stageDropInfo?.displayDetailRewards).some(r => r.dropType === 'COMPLETE' && r.type !== 'ACTIVITY_ITEM')).length, items: total(firstClear), ...tag });
     }
   }
@@ -189,15 +246,38 @@ const RERUN_REPEATS = new Set(['missions', 'first-clear', 'furniture-set']);
  */
 export function buildEventRewards(events, tables, posts, cn) {
   if (!Array.isArray(posts) || cn === undefined) throw new Error('buildEventRewards needs the posts ([] for none) and the CN tables (null for none)');
+  // A post cached before its entities were decoded twice keeps "&apos;" in its lines: decoded here.
+  posts = posts.map(post => ({ ...post, lines: (post.lines ?? []).map(decodeEntities) }));
   const name = rewardNamer(tables);
+  // The official announcements, each matched to the event it announces: the one opening on the
+  // post's first DURATION whose name the post's title carries. Each login section's DURATION
+  // claims the login opening then for that event.
+  const dated = events.map(event => ({ event, start: globalStart(event), title: fold(eventTitle(event.name)) })).filter(entry => entry.start != null);
+  const announced = posts.map(post => {
+    const window = postWindow(post.lines ?? []);
+    if (!window) return null;
+    const start = Date.parse(window.start) / 1000;
+    const named = fold(postEventName(post.title));
+    const entry = dated.find(candidate => Math.abs(candidate.start - start) <= 1.5 * 86400 && named && (candidate.title.includes(named) || named.includes(candidate.title)));
+    return entry ? { post, event: entry.event, sections: newsSections(post.lines ?? []) } : null;
+  }).filter(Boolean);
+  const sectionStart = section => {
+    const line = section.lines.map(l => l.match(/^DURATION:\s*(.*)$/)).find(Boolean);
+    const window = line && parseDuration(line[1]);
+    return window ? { start: Date.parse(window.start) / 1000, end: window.end ? Date.parse(window.end) / 1000 : null } : null;
+  };
+  const isLogin = title => /LOGIN|SIGN-IN|SIGN IN/.test(title);
+  const claims = announced.flatMap(({ event, sections }) => sections.filter(s => isLogin(s.title)).map(s => ({ event: event.name, start: sectionStart(s)?.start })).filter(c => c.start != null));
   // Global: its own activity has the event's name and opens on its Global start; a rerun's
   // "Retrospection" and a numbered run's "#3" are the same name.
   const result = tableGroups(events, tables, {
-    startOf: globalStart, name, region: 'Global',
+    startOf: globalStart, name, region: 'Global', claims,
     match: (event, opened) => {
       const title = key(eventTitle(event.name));
+      // Or the end of it ("Back to Castle" for "Integrated Lookback: Back to Castle").
       return opened.find(entry => !SIDE_TYPES.has(entry.type) && key(entry.name) === title)
-        ?? opened.find(entry => !SIDE_TYPES.has(entry.type) && title.length >= 6 && key(entry.name).startsWith(title));
+        ?? opened.find(entry => !SIDE_TYPES.has(entry.type) && title.length >= 6 && key(entry.name).startsWith(title))
+        ?? opened.find(entry => !SIDE_TYPES.has(entry.type) && key(entry.name).length >= 8 && title.endsWith(key(entry.name)));
     },
   });
   // CN, for an event Global has not had yet (no Global date, or one still ahead): the CN tables'
@@ -214,25 +294,53 @@ export function buildEventRewards(events, tables, posts, cn) {
     });
     Object.assign(result, cnResult);
   }
-  // The official announcements: each post's sections belong to the event it announces, the one
-  // opening on the post's first DURATION whose name the post's title carries.
+  // Each announcement's sections, as its event's.
   const kindOf = kindByName(tables);
-  const dated = events.map(event => ({ event, start: globalStart(event), title: fold(eventTitle(event.name)) })).filter(entry => entry.start != null);
   const themesNamed = new Map();
-  for (const post of posts) {
-    const window = postWindow(post.lines ?? []);
-    if (!window) continue;
-    const start = Date.parse(window.start) / 1000;
-    const named = fold(postEventName(post.title));
-    const entry = dated.find(candidate => Math.abs(candidate.start - start) <= 1.5 * 86400 && named && (candidate.title.includes(named) || named.includes(candidate.title)));
-    if (!entry) continue;
+  for (const { post, event, sections } of announced) {
+    const entry = { event };
     const groups = (result[entry.event.name] ??= { activity: null, groups: [] }).groups;
-    for (const section of newsSections(post.lines ?? [])) {
+    for (const section of sections) {
+      const when = sectionStart(section);
+      const lines = section.lines.filter(line => /^(DURATION|DETAILS|REWARDS?|NOTE|HOW TO OBTAIN):/.test(line)).slice(0, 8);
+      if (isLogin(section.title) && !/PACK/.test(section.title)) {
+        // A login the tables give no rewards for (a festival blessing, a flip-card login): as the
+        // post words it, so it is not lost. One the tables detail is already its own group.
+        // Matched by the distinctive words of its name ("COMING OF BLESSINGS LOGIN EVENT" is the
+        // "Coming of Blessings Sign-In Event"); a section with none ("SPECIAL LOGIN EVENT OPEN")
+        // is the banner gift opening that day. A date alone would hide a festival sign-in behind
+        // the banner gift that opens with it. A post may also name a login differently from the
+        // tables ("LUMINOUS DAYLIGHT" is the "May the Sunshine Still Sign-In Event"): a sign-in
+        // over the same window to the hour, the same number of days where the post states one,
+        // is the same; a banner gift is the same where the post names its permit. A window alone
+        // never matches a banner gift: the festival blessings sign-in shares its window.
+        const words = distinctive(section.title);
+        const logins = groups.filter(g => g.kind === 'login' || g.kind === 'banner-gift');
+        const text = section.lines.join(' ').toLowerCase();
+        const stated = Number(text.match(/(?:log|sign) in (?:cumulatively )?for (\d+) days/)?.[1]) || null;
+        const sameWindow = g => g.kind === 'login' && when?.end && g.start && g.end
+          && Math.abs(Date.parse(g.start) / 1000 - when.start) <= 7200 && Math.abs(Date.parse(g.end) / 1000 - when.end) <= 7200
+          && (stated === null || g.days === stated);
+        const namesGift = g => g.kind === 'banner-gift' && g.items.some(item => text.includes(item.name.replace(/\s*\(ten-roll\)$/, '').toLowerCase()));
+        const detailed = logins.some(g => sameWindow(g) || namesGift(g)) || (words.size
+          ? logins.some(g => [...distinctive(g.title)].some(w => words.has(w)))
+          : when && logins.some(g => g.kind === 'banner-gift' && Math.abs(Date.parse(g.start) / 1000 - when.start) <= 86400));
+        if (!detailed && lines.length) groups.push({ kind: 'notice', title: section.title, source: post.url, items: [], lines });
+        continue;
+      }
+      if (/FREE (?:ROLL|HEADHUNTING|PULL)|DAILY FREE/.test(section.title) && when?.end) {
+        // The limited banner's daily free roll: one a day for the window's days.
+        const days = Math.round((when.end - when.start) / 86400);
+        if (days > 0) groups.push({ kind: 'free-rolls', title: section.title, source: post.url, days, items: [{ name: 'Daily free headhunting roll', count: days, kind: 'free-roll', id: 'free-roll' }] });
+        continue;
+      }
       if (/PACK/.test(section.title)) {
         const packs = parsePacks(section).map(pack => ({ ...pack, contents: pack.contents.map(item => ({ ...item, kind: kindOf(item.name) })) }));
-        if (packs.length) groups.push({ kind: 'packs', title: section.title, source: post.url, items: [], packs });
+        // A post may open two sections under one heading ("LIMITED-TIME PACKS AVAILABLE" twice): one list.
+        const same = groups.find(g => g.kind === 'packs' && g.title === section.title);
+        if (same) same.packs.push(...packs.filter(pack => !same.packs.some(p => p.name === pack.name)));
+        else if (packs.length) groups.push({ kind: 'packs', title: section.title, source: post.url, items: [], packs });
       } else if (NOTICE.test(section.title) && !NOT_NOTICE.test(section.title)) {
-        const lines = section.lines.filter(line => /^(DURATION|DETAILS|REWARDS?|NOTE|HOW TO OBTAIN):/.test(line)).slice(0, 8);
         if (lines.length) groups.push({ kind: 'notice', title: section.title, source: post.url, items: [], lines });
       }
       const set = section.title.match(/FURNITURE SET\s*[–—:-]\s*(.+)$/);
@@ -270,6 +378,9 @@ export function buildEventRewards(events, tables, posts, cn) {
       if (RERUN_REPEATS.has(group.kind) && !have.has(group.kind)) entry.groups.push({ ...group, inherited: original.name });
     }
   }
+  // A reward of none is a label the mission list carries beside the real one ("'Symphony of
+  // Drums'" x0 next to the drum it names): not a reward.
+  for (const { groups } of Object.values(result)) for (const group of groups) if (group.items) group.items = group.items.filter(item => item.count > 0);
   return result;
 }
 
@@ -306,6 +417,26 @@ export function storeNameTranslations(events, cn, en) {
   return names;
 }
 
+/**
+ * What a reader would see as broken, failed here rather than shipped: an HTML entity left in a
+ * name ("Profile Theme &apos;Vista&apos;"), a reward shown by its id ("avatar_activity_ED3"), or
+ * one event showing two sections under one heading.
+ */
+export function assertEventRewards(rewards, text = JSON.stringify(rewards)) {
+  const entity = text.match(/.{0,40}&(?:#x[0-9a-f]+|#\d+|[a-z]+);.{0,20}/i);
+  if (entity) throw new Error(`event-rewards: an HTML entity is left in the output: ${entity[0]}`);
+  for (const [name, { groups }] of Object.entries(rewards)) {
+    const seen = new Set();
+    for (const group of groups) {
+      const raw = group.items?.find(item => item.name === item.id && /_/.test(item.id));
+      if (raw) throw new Error(`event-rewards: ${name} shows "${raw.id}", a reward no table names (${group.kind})`);
+      const key = `${group.kind}: ${group.title}`;
+      if (seen.has(key)) throw new Error(`event-rewards: ${name} has two "${key}" sections`);
+      seen.add(key);
+    }
+  }
+}
+
 async function main() {
   const root = process.cwd();
   const excel = path.join(process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata', 'en', 'gamedata', 'excel');
@@ -320,15 +451,18 @@ async function main() {
   const rewards = buildEventRewards(events, {
     activity: read('activity_table.json'), stages: read('stage_table.json'), items: read('item_table.json'),
     building: read('building_data.json'), characters: read('character_table.json'), skins: read('skin_table.json'),
+    displayMeta: read('display_meta_table.json'), charms: read('charm_table.json'),
   }, posts, {
     activity: readCn('activity_table.json'), stages: readCn('stage_table.json'), items: readCn('item_table.json'),
     building: readCn('building_data.json'), characters: readCn('character_table.json'), skins: readCn('skin_table.json'),
+    displayMeta: readCn('display_meta_table.json'), charms: readCn('charm_table.json'),
   });
   const storeNames = storeNameTranslations(events, { building: readCn('building_data.json'), items: readCn('item_table.json') }, { building: read('building_data.json'), items: read('item_table.json') });
   const storeFurniture = storeFurnitureNames(events, { building: readCn('building_data.json') }, { building: read('building_data.json') });
   const out = { storeFurniture, about: 'Rewards the game tables and official announcements list for each event beyond its store: the Global tables, the CN ones for an event Global has not had yet, and a rerun its original run\'s until its own appear (scripts/build/build-event-rewards.mjs). Generated every refresh: do not edit.', storeNames, events: rewards };
   const file = path.join(root, 'data/event-rewards.json');
   const text = `${JSON.stringify(out, null, 1)}\n`;
+  assertEventRewards(rewards, text);
   if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== text) fs.writeFileSync(file, text);
   console.log(`Event rewards: ${Object.keys(rewards).length} events, ${Object.values(rewards).reduce((n, e) => n + e.groups.length, 0)} groups.`);
 }

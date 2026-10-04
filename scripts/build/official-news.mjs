@@ -9,16 +9,23 @@
  * (`Item * N`); a section's REWARDS prose ("..., etc.") is kept as written, never counted.
  */
 
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', rsquo: "'", lsquo: "'", ldquo: '"', rdquo: '"', ndash: '–', mdash: '—', times: '×', hellip: '…' };
+/** HTML entities decoded, again until none is left: posts are sometimes encoded twice ("&amp;apos;"). */
+export function decodeEntities(text) {
+  let before;
+  do {
+    before = text;
+    text = text.replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (whole, hex, dec, name) =>
+      hex ? String.fromCodePoint(parseInt(hex, 16)) : dec ? String.fromCodePoint(Number(dec)) : ENTITIES[name.toLowerCase()] ?? whole);
+  } while (text !== before);
+  return text;
+}
+
 /** The post's HTML as trimmed lines, with "KEY :" spelled "KEY:". */
 export function newsLines(html) {
-  const text = String(html ?? '')
+  const text = decodeEntities(String(html ?? '')
     .replace(/<br\s*\/?>|<\/(?:p|li|tr|h\d|div)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;| /g, ' ')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&rsquo;|&lsquo;/g, "'")
-    .replace(/&ndash;/g, '–').replace(/&mdash;/g, '—').replace(/&times;/g, '×')
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/<[^>]+>/g, ' '))
     .replace(/\u00a0/g, ' ');
   return text.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim().replace(/^([A-Z][A-Z ]{1,20}?)\s+:/, '$1:')).filter(Boolean);
 }

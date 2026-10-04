@@ -225,7 +225,9 @@ export default function EventDetailPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name]);
   const rewardTotals = computeRewardTotals(rewardStores, materialOrder);
-  const activeStoreItems = rewardStores.filter((s) => s.type === activeRewardTab).flatMap((s) => s.items);
+  // Every block of the tab apart, each under its own name when there are several (two sign-ins,
+  // two stores, the banner's gift and its free rolls): never one grid that repeats an item.
+  const activeStores = rewardStores.filter((s) => s.type === activeRewardTab);
 
   // Skin detail modal + zoom -- same pattern as SkinsCarousel.tsx
   // (home page), pages/skins.tsx, pages/schedule.tsx, and
@@ -352,7 +354,14 @@ export default function EventDetailPage({
                 ) : activeRewardTab === EXTRA_TABS.notices ? (
                   <EventNotices notices={extras.notices} />
                 ) : (
-                  <RewardStorePanelGrid items={activeStoreItems} />
+                  activeStores.length > 1
+                    ? activeStores.map((store) => (
+                      <div key={store.name} className="event-reward-block">
+                        <h3 className="event-reward-block-title">{store.name}</h3>
+                        <RewardStorePanelGrid items={store.items} />
+                      </div>
+                    ))
+                    : <RewardStorePanelGrid items={activeStores[0]?.items ?? []} />
                 )}
               </div>
             </section>
@@ -501,10 +510,12 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const fromOriginal = !!rewardEntry?.inheritsFrom && (rewardEntry.groups ?? []).some((g) => g.inherited);
   const fromCn = rewardEntry?.region === 'CN' || (rewardEntry?.groups ?? []).some((g) => g.region === 'CN');
   const rewardNote = fromOriginal
-    ? `Missions, first clears and furniture are the original run's (${rewardEntry!.inheritsFrom!.replace(/^\[[^\]]*\]\s*/, '')}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own.`
+    ? `Missions, first clears and furniture are the original run's (${rewardEntry!.inheritsFrom!.replace(/^\[[^\]]*\]\s*/, '')}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
       ? 'From the CN release: Global has not had this event yet, and its rewards may differ there. Items Global does not have yet keep their CN names.'
-      : null;
+      : /^\[Rerun\]/.test(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
+        ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
+        : null;
   const rewardStores: ResolvedRewardStore[] = rawStores.map((store) => ({
     type: store.type,
     name: store.name,
@@ -535,6 +546,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       const op = operators.find((o) => o.name === item.name);
       return op ? getOperatorIconPath(op) : null;
     }
+    // A daily free roll is a headhunting roll: the permit's picture.
+    if (item.kind === 'free-roll') return rewardIconPath({ name: 'Headhunting Permit', type: 'material' }, () => null, publicFileExists);
     return rewardIconPath(
       { name: item.name, type: item.kind === 'outfit' ? 'skin' : 'material' },
       (skinName) => findSkinIconPath(skinName.split(' / ').pop() ?? skinName) || null,
@@ -544,7 +557,23 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
   const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
-  const extras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material' }, () => null, publicFileExists));
+  const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material' }, () => null, publicFileExists));
+  /* The furniture set as a checklist: each piece with where this event gives it (its missions,
+     its sign-in, its store and the price there), else how the game says it is obtained (the
+     furniture store). Its pieces are in the other tabs too; this says which of the set they are. */
+  const pieceSource = (piece: string): string | null => {
+    for (const store of rewardStores) {
+      const item = store.items.find((i) => i.name === piece);
+      if (!item) continue;
+      if (store.type === 'Events Store') return item.price != null ? `${store.name}: ${item.price} ${item.currency}` : store.name;
+      return store.type === 'Login event' ? 'Login event' : store.type === 'Missions' ? 'Event missions' : store.type;
+    }
+    return null;
+  };
+  const extras = {
+    ...builtExtras,
+    furniture: builtExtras.furniture.map((set) => ({ ...set, pieces: set.pieces.map((piece) => ({ ...piece, obtain: pieceSource(piece.name) ?? piece.obtain })) })),
+  };
   return {
     props: {
       name: event.name,

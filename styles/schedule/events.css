@@ -362,3 +362,6 @@
   .reward-summary-row { grid-template-columns: 1fr; gap: 6px; }
 }
 .event-reward-note { margin: 0 0 10px; }
+/* A tab with several blocks (two sign-ins, two stores): each under its name. */
+.event-reward-block + .event-reward-block { margin-top: 14px; }
+.event-reward-block-title { margin: 0 0 8px; }

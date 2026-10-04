@@ -11,7 +11,7 @@ export interface PackContents { name: string; count: number; kind: string }
 export interface EventPack { name: string; start?: string; end?: string | null; contents: PackContents[] }
 export interface FurniturePiece { name: string; id: string; obtain: string | null; comfort: number | null }
 export interface TableRewardGroup {
-  kind: 'login' | 'banner-gift' | 'missions' | 'first-clear' | 'pray' | 'packs' | 'notice' | 'furniture-set';
+  kind: 'login' | 'banner-gift' | 'free-rolls' | 'missions' | 'milestones' | 'first-clear' | 'pray' | 'packs' | 'notice' | 'furniture-set';
   title: string;
   source: string;
   start?: string;
@@ -31,8 +31,12 @@ export interface TableRewardGroup {
 /** The tab each kind of group is listed under. A draw login has no fixed payout to list. */
 export const TABLE_REWARD_LABEL: Record<TableRewardGroup['kind'], string | null> = {
   login: 'Login event',
-  'banner-gift': 'Gifts',
+  // The limited banner's gifts, its ten-roll permit and its daily free rolls, in one place: a
+  // community compilation counts them together ("10x HH + 14 dailies").
+  'banner-gift': 'Headhunting',
+  'free-rolls': 'Headhunting',
   missions: 'Missions',
+  milestones: 'Milestones',
   'first-clear': 'First clears',
   // Not a list of rewards to total: their own panels (components/events/EventExtras.tsx).
   pray: null,

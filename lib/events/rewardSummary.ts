@@ -19,7 +19,7 @@ const ROWS = [
 type Row = (typeof ROWS)[number];
 
 /** The pull currencies: Orundum, Originite Prime and every kind of Headhunting Permit. */
-export const isPullCurrency = (name: string) => /^(Orundum|Originite Prime)$|Headhunting Permit$/.test(name);
+export const isPullCurrency = (name: string) => /^(Orundum|Originite Prime|Daily free headhunting roll)$|Headhunting Permit$/.test(name);
 
 export interface SummaryContext {
   /** The material catalogue's groups ("Tier 5", "Skills & modules", ...), for the tiers. */
