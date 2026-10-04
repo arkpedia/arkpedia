@@ -37,7 +37,7 @@
     "events:sync": "node scripts/sync/sync-event-windows.mjs",
     "prebuild": "node scripts/build/write-build-info.mjs && node scripts/build/adopt-release-asset-pins.mjs && node scripts/audits/check-skin-catalogue.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts",
     "predev": "node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts",
-    "test": "tsx --test scripts/tests/test-*.ts scripts/tests/test-*.mjs scripts/palettes/test-color-palette.ts",
+    "test": "env -u ARKPEDIA_RELEASE_BRANCH -u ARKPEDIA_DATA_BRANCH -u ARKPEDIA_CONTENT_POINTER -u ARKPEDIA_CONTENT_CHANNEL tsx --test scripts/tests/test-*.ts scripts/tests/test-*.mjs scripts/palettes/test-color-palette.ts",
     "check:styles": "node scripts/audits/check-unstyled-classes.mjs --strict",
     "check:assets": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts",
     "check:assets:release": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts --quarantine",

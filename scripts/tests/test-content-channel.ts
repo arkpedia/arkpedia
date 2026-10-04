@@ -132,3 +132,10 @@ test('a Deploy build reads the channel of the project it builds for, whichever r
   assert.equal(contentPointer({ VERCEL_PROJECT_ID: 'prj_unknown' }), 'live');
   assert.equal(contentPointer({ VERCEL_PROJECT_ID: dev.projectId, ARKPEDIA_CONTENT_CHANNEL: 'live' }), 'live', 'an explicit channel wins');
 });
+
+test('npm test runs without the channel the nightly put in the environment', () => {
+  const script = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts.test as string;
+  for (const name of ['ARKPEDIA_RELEASE_BRANCH', 'ARKPEDIA_DATA_BRANCH', 'ARKPEDIA_CONTENT_POINTER', 'ARKPEDIA_CONTENT_CHANNEL']) {
+    assert.ok(script.startsWith('env ') && script.includes(`-u ${name} `), `npm test unsets ${name}`);
+  }
+});

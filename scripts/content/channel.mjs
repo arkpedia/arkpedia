@@ -15,6 +15,10 @@
  * arkpedia-data listens to either dev branch.
  *
  * Any other branch has no channel and the run fails at once: a feature branch never publishes.
+ *
+ * The run puts the channel in every later step's environment, so `npm test` unsets these
+ * variables (package.json): dev's first run failed when the publish-step and staged-art tests,
+ * which run scripts with the inherited environment, took the dev channel's path.
  */
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';

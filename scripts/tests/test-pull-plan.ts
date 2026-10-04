@@ -288,21 +288,44 @@ test('every recorded rotation resolves to scheduled outfits the planner can pric
     }
   }
   // With nothing expired yet, every rotation of a Global-scheduled event is a shop of
-  // its own: its roster, and its new outfits featured.
-  const collections=openSkinCollections(pullSkinCollections(events,skins,catalogue,new Set(),manifest.entries,[]),'2000-01-01');
-  for (const source of manifest.entries) {
-    const event=events.find(event=>event.name===source.event)!;
-    for (const window of (event.global.dateRange || '').split(';')) {
-      const opening=window.split(/[–—]/)[0].trim().replaceAll('/', '-');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(opening)) continue;
-      for (const rotation of source.rotations) {
-        const collection=collections.find(c=>c.id===`${event.name} / ${opening} / ${rotation.label}`);
-        assert.ok(collection, `${source.event} / ${rotation.label}`);
-        assert.deepEqual(collection.skinIds,[...new Set([...rotation.new,...rotation.returning])]);
-        assert.deepEqual(collection.featuredIds,rotation.new);
-        assert.equal(collection.estimated, source.sourceRegion!=='global' || rotation.dateBasis!=='shop');
+  // its own: its roster, and its new outfits featured -- less an outfit Global already sold
+  // before the shop opens (its globalReleaseAt), which is not new there. A rotation left with
+  // nothing is no shop: Global sold Lemuen's and Necrass's Critical Phase Transition outfits
+  // on 2026-09-23, ahead of the event, which turned this test red on the day's data.
+  const shopsOf=(list: Skin[])=>openSkinCollections(pullSkinCollections(events,list,catalogue,new Set(),manifest.entries,[]),'2000-01-01');
+  const expectShops=(list: Skin[])=>{
+    const collections=shopsOf(list);
+    const onGlobal=new Map(list.filter(s=>s.globalReleaseAt).map(s=>[`${s.model} / ${s.name}`, new Date(s.globalReleaseAt!*1000).toISOString().slice(0,10)]));
+    const shift=(date: string, days: number)=>new Date(Date.parse(`${date}T00:00:00Z`)+days*86_400_000).toISOString().slice(0,10);
+    for (const source of manifest.entries) {
+      const event=events.find(event=>event.name===source.event)!;
+      for (const window of (event.global.dateRange || '').split(';')) {
+        const opening=window.split(/[–—]/)[0].trim().replaceAll('/', '-');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(opening)) continue;
+        const offset=Math.round((Date.parse(`${opening}T00:00:00Z`)-Date.parse(`${source.eventStart}T00:00:00Z`))/86_400_000);
+        for (const rotation of source.rotations) {
+          const start=shift(rotation.start, offset);
+          const fresh=rotation.new.filter(id=>!(onGlobal.has(id) && onGlobal.get(id)!<start));
+          const ids=[...new Set([...fresh,...rotation.returning])];
+          const collection=collections.find(c=>c.id===`${event.name} / ${opening} / ${rotation.label}`);
+          if (!ids.length) { assert.equal(collection, undefined, `${source.event} / ${rotation.label}: nothing left to sell`); continue; }
+          assert.ok(collection, `${source.event} / ${rotation.label}`);
+          assert.deepEqual(collection.skinIds,ids);
+          assert.deepEqual(collection.featuredIds,fresh);
+          assert.equal(collection.estimated, source.sourceRegion!=='global' || rotation.dateBasis!=='shop');
+        }
       }
     }
+    return collections;
+  };
+  expectShops(skins);
+  // The day's case, whatever the bundled records say: an outfit sold early drops out of the
+  // shop's new outfits, and a rotation whose every new outfit was sold early is not listed.
+  const early=Date.parse('2026-09-23T15:00:00Z')/1000;
+  const soldEarly=new Set(['Lemuen / Requiem Vesperis', 'Necrass / As Clear As Crystal', 'Saria / Unstained Unshaken']);
+  const after=expectShops(skins.map(s=>soldEarly.has(`${s.model} / ${s.name}`) ? { ...s, globalReleaseAt: early } : s));
+  if (events.some(e=>e.name==='[Celebration] Critical Phase Transition' && /^\d{4}\/\d{2}\/\d{2}/.test(e.global.dateRange || ''))) {
+    assert.ok(!after.some(c=>c.id.startsWith('[Celebration] Critical Phase Transition / ') && c.id.endsWith(' / Early shop')));
   }
 });
 
