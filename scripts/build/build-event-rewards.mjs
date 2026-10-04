@@ -97,25 +97,42 @@ function kindByName(tables) {
 const NOTICE = /GIFT|MAIL|FREE|LUCKY|SUPPLY|REWARD|COMPENSATION|STRIPS/;
 const NOT_NOTICE = /PACK|LOGIN|SIGN-IN|SIGN IN|OUTFIT|HEADHUNTING OPEN|FURNITURE/;
 
-export function buildEventRewards(events, tables, posts = []) {
+/** The first CN window's start, as a UTC instant of its UTC+8 day. */
+export function cnStart(event) {
+  const match = String(event?.cn?.dateRange ?? '').match(/(\d{4})\/(\d{2})\/(\d{2})/);
+  return match ? Date.UTC(+match[1], +match[2] - 1, +match[3]) / 1000 - 8 * 3600 : null;
+}
+
+/** A namer that names an id the Global tables know in English, and any other by `fallback`'s. */
+function regionalNamer(primary, fallback) {
+  const english = rewardNamer(primary);
+  const local = fallback ? rewardNamer(fallback) : null;
+  return reward => {
+    const named = english(reward);
+    return named.name === reward.id && local ? local(reward) : named;
+  };
+}
+
+/*
+ * One region's tables: each event's own activity, the sign-ins, gifts and draws that belong to it,
+ * and its missions and first clears. `match` finds an event's own activity among those opening
+ * near `startOf(event)`.
+ */
+function tableGroups(events, tables, { startOf, match, name, region }) {
   const activity = tables.activity;
   const info = activity.basicInfo ?? {};
-  const name = rewardNamer(tables);
   const day = seconds => new Date(seconds * 1000).toISOString();
-  // Each dated event's own activity.
+  const tag = region === 'CN' ? { region: 'CN' } : {};
+  const src = text => (region === 'CN' ? `CN ${text}` : text);
   const own = [];
   const ownSide = new Map();
   const near = (entry, start) => Math.abs(entry.startTime - start) <= 2 * 86400;
   for (const event of events) {
-    const start = globalStart(event);
+    const start = startOf(event);
     if (start == null) continue;
-    const title = key(eventTitle(event.name));
     const opened = Object.values(info).filter(entry => near(entry, start));
-    // Its own activity: the same name, or one that begins with it ("Ideal City: Endless
-    // Carnival" for "Ideal City"), opening on its Global start.
-    const match = opened.find(entry => !SIDE_TYPES.has(entry.type) && key(entry.name) === title)
-      ?? opened.find(entry => !SIDE_TYPES.has(entry.type) && title.length >= 6 && key(entry.name).startsWith(title));
-    if (match) { own.push({ event, activity: match }); continue; }
+    const found = match(event, opened, start);
+    if (found) { own.push({ event, activity: found }); continue; }
     // An event that is a sign-in of its own ("2021 Login Event", "Lifestyle Aid"): the one
     // sign-in that opens on its start.
     const logins = opened.filter(entry => LOGIN_TYPES.has(entry.type) && Math.abs(entry.startTime - start) <= 86400);
@@ -123,14 +140,14 @@ export function buildEventRewards(events, tables, posts = []) {
   }
   own.sort((a, b) => a.activity.startTime - b.activity.startTime);
   const result = {};
-  const groupsOf = entry => (result[entry.event.name] ??= { activity: entry.activity.id, groups: [] }).groups;
+  const groupsOf = entry => (result[entry.event.name] ??= { activity: entry.activity.id, ...tag, groups: [] }).groups;
   // The event a side activity belongs to: the latest one opened at or before it, still running.
   const ownerOf = side => own.filter(entry => entry.activity.startTime <= side.startTime && side.startTime < entry.activity.endTime).at(-1);
   const titleOf = id => activity.homeActConfig?.[id]?.actTopBarText || info[id]?.name;
   for (const side of Object.values(info).filter(entry => SIDE_TYPES.has(entry.type)).sort((a, b) => a.startTime - b.startTime)) {
     const owner = ownSide.has(side.id) ? own.find(entry => entry.activity.id === side.id) : ownerOf(side);
     if (!owner) continue;
-    const base = { title: titleOf(side.id), source: `activity_table ${side.id}`, start: day(side.startTime), end: day(side.endTime) };
+    const base = { title: titleOf(side.id), source: src(`activity_table ${side.id}`), start: day(side.startTime), end: day(side.endTime), ...tag };
     if (LOGIN_TYPES.has(side.type)) {
       const data = activity.activity?.[side.type]?.[side.id];
       const daily = Object.values(data?.checkInList ?? {}).sort((a, b) => a.order - b.order).map(entry => list(entry.itemList).map(name));
@@ -148,7 +165,7 @@ export function buildEventRewards(events, tables, posts = []) {
     const id = entry.activity.id;
     const missions = list(activity.missionData).filter(mission => mission.missionGroup === id);
     const missionRewards = total(missions.flatMap(mission => list(mission.rewards)).map(name));
-    if (missionRewards.length) groupsOf(entry).push({ kind: 'missions', title: 'Event missions', source: `activity_table missionData ${id}`, count: missions.length, items: missionRewards });
+    if (missionRewards.length) groupsOf(entry).push({ kind: 'missions', title: 'Event missions', source: src(`activity_table missionData ${id}`), count: missions.length, items: missionRewards, ...tag });
     // The event's stages: by their zone's activity, or by their id for an original whose stages a
     // rerun's zones have since taken over (act15side's are in act15sre's zones).
     const zones = activity.zoneToActivity ?? {};
@@ -156,8 +173,46 @@ export function buildEventRewards(events, tables, posts = []) {
     const firstClear = stages.flatMap(stage => list(stage.stageDropInfo?.displayDetailRewards)
       .filter(reward => reward.dropType === 'COMPLETE' && reward.type !== 'ACTIVITY_ITEM').map(reward => name({ ...reward, count: reward.count ?? 1 })));
     if (firstClear.length) {
-      groupsOf(entry).push({ kind: 'first-clear', title: 'Event stage first clears', source: `stage_table ${id}`, count: stages.filter(stage => list(stage.stageDropInfo?.displayDetailRewards).some(r => r.dropType === 'COMPLETE' && r.type !== 'ACTIVITY_ITEM')).length, items: total(firstClear) });
+      groupsOf(entry).push({ kind: 'first-clear', title: 'Event stage first clears', source: src(`stage_table ${id}`), count: stages.filter(stage => list(stage.stageDropInfo?.displayDetailRewards).some(r => r.dropType === 'COMPLETE' && r.type !== 'ACTIVITY_ITEM')).length, items: total(firstClear), ...tag });
     }
+  }
+  return result;
+}
+
+/** Which kinds a rerun takes from its original run until its own appear: what a rerun repeats. */
+const RERUN_REPEATS = new Set(['missions', 'first-clear', 'furniture-set']);
+
+/**
+ * @param cn the CN tables ({ activity, stages, items, building, characters, skins }), or null: an
+ *   event Global has not had yet is built from them, in the CN client's words where Global has no
+ *   name for an item (2026-10-03: "CN only stuff you can keep in CN till global release").
+ */
+export function buildEventRewards(events, tables, posts, cn) {
+  if (!Array.isArray(posts) || cn === undefined) throw new Error('buildEventRewards needs the posts ([] for none) and the CN tables (null for none)');
+  const name = rewardNamer(tables);
+  // Global: its own activity has the event's name and opens on its Global start; a rerun's
+  // "Retrospection" and a numbered run's "#3" are the same name.
+  const result = tableGroups(events, tables, {
+    startOf: globalStart, name, region: 'Global',
+    match: (event, opened) => {
+      const title = key(eventTitle(event.name));
+      return opened.find(entry => !SIDE_TYPES.has(entry.type) && key(entry.name) === title)
+        ?? opened.find(entry => !SIDE_TYPES.has(entry.type) && title.length >= 6 && key(entry.name).startsWith(title));
+    },
+  });
+  // CN, for an event Global has not had yet (no Global date, or one still ahead): the CN tables'
+  // names are Chinese, so its own activity is the one event of its kind opening on its CN start.
+  if (cn) {
+    const now = Date.now() / 1000;
+    const pending = events.filter(event => !result[event.name] && !String(event.name).startsWith('[Rerun]') && (globalStart(event) ?? Infinity) > now);
+    const cnResult = tableGroups(pending, cn, {
+      startOf: cnStart, name: regionalNamer(tables, cn), region: 'CN',
+      match: (event, opened, start) => {
+        const candidates = opened.filter(entry => !SIDE_TYPES.has(entry.type) && Math.abs(entry.startTime - start) <= 86400);
+        return candidates.length === 1 ? candidates[0] : null;
+      },
+    });
+    Object.assign(result, cnResult);
   }
   // The official announcements: each post's sections belong to the event it announces, the one
   // opening on the post's first DURATION whose name the post's title carries.
@@ -185,8 +240,9 @@ export function buildEventRewards(events, tables, posts = []) {
     }
   }
   // Furniture sets: the themes of the furniture an event's rewards include, or that its post names.
-  const furniture = tables.building?.customData?.furnitures ?? {};
-  const themes = tables.building?.customData?.themes ?? {};
+  // The Global names first; a set Global has not had yet in the CN client's.
+  const furniture = { ...cn?.building?.customData?.furnitures, ...tables.building?.customData?.furnitures };
+  const themes = { ...cn?.building?.customData?.themes, ...tables.building?.customData?.themes };
   for (const [eventName, entry] of Object.entries(result)) {
     const ids = new Set(entry.groups.flatMap(group => group.items).filter(item => item.kind === 'furniture').map(item => furniture[item.id]?.themeId).filter(Boolean));
     for (const theme of Object.values(themes)) if (themesNamed.get(eventName)?.has(fold(theme.name))) ids.add(theme.id);
@@ -195,7 +251,23 @@ export function buildEventRewards(events, tables, posts = []) {
       if (!theme) continue;
       const pieces = Object.values(furniture).filter(piece => piece.themeId === themeId).sort((a, b) => (a.sortId ?? 0) - (b.sortId ?? 0))
         .map(piece => ({ name: piece.name, id: piece.id, obtain: piece.obtainApproach ?? null, comfort: piece.comfort ?? null }));
-      entry.groups.push({ kind: 'furniture-set', title: theme.name, source: `building_data ${themeId}`, items: [], description: theme.desc ?? null, pieces });
+      const global = Boolean(tables.building?.customData?.themes?.[themeId]);
+      entry.groups.push({ kind: 'furniture-set', title: theme.name, source: `${global ? '' : 'CN '}building_data ${themeId}`, items: [], description: theme.desc ?? null, pieces, ...(global ? {} : { region: 'CN' }) });
+    }
+  }
+  // A rerun repeats its original run's stages, missions and furniture: until the tables carry the
+  // rerun's own, it shows the original's, marked as such. Never its store: a rerun has a store of
+  // its own (tokens for the operator, other stock).
+  for (const event of events.filter(e => /^\[Rerun\]/.test(e.name) || / Rerun$/.test(e.name))) {
+    const title = key(eventTitle(event.name));
+    const original = events.filter(e => e !== event && !/^\[Rerun\]/.test(e.name) && key(eventTitle(e.name)) === title)
+      .sort((a, b) => (globalStart(a) ?? cnStart(a) ?? 0) - (globalStart(b) ?? cnStart(b) ?? 0))[0];
+    if (!original) continue;
+    const entry = (result[event.name] ??= { activity: null, groups: [] });
+    entry.inheritsFrom = original.name;
+    const have = new Set(entry.groups.map(group => group.kind));
+    for (const group of result[original.name]?.groups ?? []) {
+      if (RERUN_REPEATS.has(group.kind) && !have.has(group.kind)) entry.groups.push({ ...group, inherited: original.name });
     }
   }
   return result;
@@ -207,6 +279,19 @@ export function buildEventRewards(events, tables, posts = []) {
  * so a CN name the Global table also has becomes the Global name; one Global does not have yet
  * stays Chinese until it does (2026-10-03: CN-only content stays in CN until Global ships it).
  */
+/** The event stores' item names that are furniture pieces in either client (the summary's Furniture
+ *  row: the wiki import's store lists them as plain items). */
+export function storeFurnitureNames(events, cn, en) {
+  const pieces = new Set([...Object.values(cn.building?.customData?.furnitures ?? {}), ...Object.values(en.building?.customData?.furnitures ?? {})].map(piece => piece.name));
+  const names = new Set();
+  for (const event of events) {
+    for (const store of Array.isArray(event.rewards) ? event.rewards : event.rewards ? [event.rewards] : []) {
+      for (const item of store.items ?? []) if (pieces.has(item.name)) names.add(item.name);
+    }
+  }
+  return [...names].sort();
+}
+
 export function storeNameTranslations(events, cn, en) {
   const byCnName = new Map([
     ...Object.entries(cn.building?.customData?.furnitures ?? {}).map(([id, piece]) => [piece.name, en.building?.customData?.furnitures?.[id]?.name]),
@@ -230,14 +315,18 @@ async function main() {
   const newsDir = path.join(root, 'data/official-news/global');
   const posts = fs.existsSync(newsDir) ? fs.readdirSync(newsDir).filter(file => /^\d+\.json$/.test(file)).sort()
     .map(file => JSON.parse(fs.readFileSync(path.join(newsDir, file), 'utf8'))) : [];
+  const cnExcel = path.join(process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', 'gamedata', 'excel');
+  const readCn = file => JSON.parse(fs.readFileSync(path.join(cnExcel, file), 'utf8'));
   const rewards = buildEventRewards(events, {
     activity: read('activity_table.json'), stages: read('stage_table.json'), items: read('item_table.json'),
     building: read('building_data.json'), characters: read('character_table.json'), skins: read('skin_table.json'),
-  }, posts);
-  const cnExcel = path.join(process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', 'gamedata', 'excel');
-  const readCn = file => JSON.parse(fs.readFileSync(path.join(cnExcel, file), 'utf8'));
+  }, posts, {
+    activity: readCn('activity_table.json'), stages: readCn('stage_table.json'), items: readCn('item_table.json'),
+    building: readCn('building_data.json'), characters: readCn('character_table.json'), skins: readCn('skin_table.json'),
+  });
   const storeNames = storeNameTranslations(events, { building: readCn('building_data.json'), items: readCn('item_table.json') }, { building: read('building_data.json'), items: read('item_table.json') });
-  const out = { about: 'Rewards the Global game tables list for each event beyond its store (scripts/build/build-event-rewards.mjs). Generated every refresh: do not edit.', storeNames, events: rewards };
+  const storeFurniture = storeFurnitureNames(events, { building: readCn('building_data.json') }, { building: read('building_data.json') });
+  const out = { storeFurniture, about: 'Rewards the game tables and official announcements list for each event beyond its store: the Global tables, the CN ones for an event Global has not had yet, and a rerun its original run\'s until its own appear (scripts/build/build-event-rewards.mjs). Generated every refresh: do not edit.', storeNames, events: rewards };
   const file = path.join(root, 'data/event-rewards.json');
   const text = `${JSON.stringify(out, null, 1)}\n`;
   if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== text) fs.writeFileSync(file, text);

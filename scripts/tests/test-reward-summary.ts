@@ -12,6 +12,7 @@ const context = {
   operators: new Set(['Kroos the Keen Glint']),
   outfits: new Set(['Indigo / Serene Day']),
   furniture: new Set(['Poetry Scroll']),
+  kinds: new Map([['封缄诺言寻访凭证', 'permit'], ['GALLUS²', 'operator']]),
 };
 const store = (type: string, items: [string, number, string][]): ResolvedRewardStore => ({
   type, name: type, items: items.map(([name, quantity, stock]) => ({ name, quantity, stock, price: null, currency: '', iconPath: null })),
@@ -25,6 +26,8 @@ test('each reward lands in its row', () => {
     ['Strategic Battle Record', 'EXP'], ['LMD', 'LMD'], ['Expedited Plan', 'Recruitment'], ['Top Emergency Sanity Potion', 'Sanity'],
     ['Furniture Part', 'Furniture parts'], ['Kroos the Keen Glint', 'Operators'], ['Indigo / Serene Day', 'Outfits'],
     ['Poetry Scroll', 'Furniture'], ['Pure Gold', 'Other'],
+    // Named in the CN client's words: placed by what the tables say they are.
+    ['封缄诺言寻访凭证', 'Headhunting'], ['GALLUS²', 'Operators'],
   ];
   for (const [name, row] of rows) assert.equal(rowOf(name, context), row, name);
   assert.ok(isPullCurrency('Originite Prime') && isPullCurrency('Ten-roll Headhunting Permit') && !isPullCurrency('Recruitment Permit'));

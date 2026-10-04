@@ -1,5 +1,23 @@
 {
- "about": "Rewards the Global game tables list for each event beyond its store (scripts/build/build-event-rewards.mjs). Generated every refresh: do not edit.",
+ "storeFurniture": [
+  "“回看”高脚凳",
+  "“清新像素”",
+  "“烛火之中”",
+  "制式木盆",
+  "小型高脚凳",
+  "带框小窗",
+  "弧度墙架",
+  "影音室零食架",
+  "接收器管道灯",
+  "木制餐桌",
+  "瓶树木工作凳",
+  "瓶树木餐凳",
+  "白石炉子",
+  "胶片照明灯",
+  "集会长桌",
+  "风铃挂毯架"
+ ],
+ "about": "Rewards the game tables and official announcements list for each event beyond its store: the Global tables, the CN ones for an event Global has not had yet, and a rerun its original run's until its own appear (scripts/build/build-event-rewards.mjs). Generated every refresh: do not edit.",
  "storeNames": {
   "制式木盆": "Standard Wooden Basin",
   "小型高脚凳": "Small High Stool",
@@ -993,7 +1011,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Grani and the Knights' Treasure"
   },
   "[Intermezzo] Darknights Memoir": {
    "activity": "act9d0",
@@ -5189,7 +5208,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Maria Nearl"
   },
   "[Story Collection] Pinus Sylvestris": {
    "activity": "act9mini",
@@ -8372,7 +8392,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Intermezzo – Celebration] Under Tides"
   },
   "[Side Story – Carnival] Ideal City: Endless Carnival": {
    "activity": "act20side",
@@ -20847,7 +20868,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] The Rides to Lake Silberneherze"
   },
   "[Side Story – Festival] Such is the Joy of Our Reunion": {
    "activity": "act40side",
@@ -27439,7 +27461,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Heart of Surging Flame"
   },
   "[Side Story] The Great Chief Returns": {
    "activity": "act12d0",
@@ -27998,7 +28021,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Code of Brawl"
   },
   "[Side Story] Mansfield Break": {
    "activity": "act15d0",
@@ -28518,7 +28542,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Intermezzo] Darknights Memoir"
   },
   "[Intermezzo] A Walk in the Dust": {
    "activity": "act18d0",
@@ -28927,7 +28952,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Twilight of Wolumonde"
   },
   "[Rerun] The Great Chief Returns Rerun": {
    "activity": "act6sre",
@@ -29113,7 +29139,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] The Great Chief Returns"
   },
   "[Story Collection] Vigilo": {
    "activity": "act8mini",
@@ -29336,7 +29363,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Mansfield Break"
   },
   "[Rerun] Who is Real Rerun": {
    "activity": "act9sre",
@@ -29570,7 +29598,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Festival] Who is Real"
   },
   "[Story Collection] A Light Spark in Darkness": {
    "activity": "act10mini",
@@ -30108,7 +30137,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Intermezzo] A Walk in the Dust"
   },
   "[Side Story] Lingering Echoes": {
    "activity": "act18side",
@@ -30632,7 +30662,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Carnival] Dossoles Holiday"
   },
   "[Side Story] Dorothy's Vision": {
    "activity": "act19side",
@@ -31139,7 +31170,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Celebration] Near Light"
   },
   "[Rerun] Break the Ice Rerun": {
    "activity": "act14sre",
@@ -31337,7 +31369,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Break the Ice"
   },
   "[Rerun] Invitation to Wine Rerun": {
    "activity": "act15sre",
@@ -31553,7 +31586,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Festival] Invitation to Wine"
   },
   "[Story Collection] A Death in Chunfen": {
    "activity": "act14mini",
@@ -31946,7 +31980,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Guide Ahead"
   },
   "Tactical Support #1": {
    "activity": "act1mainbuff",
@@ -32113,7 +32148,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Intermezzo – Celebration] Stultifera Navis"
   },
   "[Side Story] Hortus de Escapismo": {
    "activity": "act26side",
@@ -32615,7 +32651,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Lingering Echoes"
   },
   "[Rerun] Ideal City Rerun": {
    "activity": "act20sre",
@@ -33264,7 +33301,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Dorothy's Vision"
   },
   "Come Catastrophes or Wakes of Vultures": {
    "activity": "act28side",
@@ -33810,7 +33848,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Celebration] IL Siracusano"
   },
   "[Side Story] The Rides to Lake Silberneherze": {
    "activity": "act30side",
@@ -34512,7 +34551,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Festival] Where Vernal Winds Will Never Blow"
   },
   "Trials for Navigator #4": {
    "activity": "act4bossrush",
@@ -34771,7 +34811,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] What the Firelight Casts"
   },
   "[Rerun] Operation Originium Dust Rerun": {
    "activity": "act1r6sre",
@@ -35088,7 +35129,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Crossover] Operation Originium Dust"
   },
   "[Intermezzo] Babel": {
    "activity": "act33side",
@@ -35732,7 +35774,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Intermezzo – Celebration] Lone Trail"
   },
   "[Side Story] Path of Life": {
    "activity": "act34side",
@@ -36282,7 +36325,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Hortus de Escapismo"
   },
   "[Rerun] So Long, Adele Rerun": {
    "activity": "act27sre",
@@ -36732,7 +36776,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "Come Catastrophes or Wakes of Vultures"
   },
   "Stronghold Protocol": {
    "activity": "act1vautochess",
@@ -36973,7 +37018,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Celebration] Zwillingstürme im Herbst"
   },
   "[Side Story] Exodus from the Pale Sea": {
    "activity": "act39side",
@@ -37481,7 +37527,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Festival] Here A People Sows"
   },
   "[Story Collection] See You Soon": {
    "activity": "act18mini",
@@ -38522,7 +38569,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Intermezzo] Babel"
   },
   "Duel Channel: Green Grassville": {
    "activity": "act1enemyduel",
@@ -39097,7 +39145,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Path of Life"
   },
   "[Story Collection] Fantasy in the Mirage": {
    "activity": "act19mini",
@@ -39575,7 +39624,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Carnival] Adventure That Cannot Wait for the Sun"
   },
   "Duel Channel: Honeydew": {
    "activity": "act2enemyduel",
@@ -39804,7 +39854,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Intermezzo] Ending a Grand Overture"
   },
   "Rebuilding Mandate": {
    "activity": "act1vhalfidle",
@@ -40569,7 +40620,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Celebration] I Portatori dei Velluti"
   },
   "[Side Story] Unrealized Realities": {
    "activity": "act47side",
@@ -41102,7 +41154,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] Exodus from the Pale Sea"
   },
   "Trials for Navigator #06": {
    "activity": "act6bossrush",
@@ -41361,7 +41414,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story – Festival] Such is the Joy of Our Reunion"
   },
   "[Story Collection] Crossing": {
    "activity": "act20mini",
@@ -41817,7 +41871,8 @@
       }
      ]
     }
-   ]
+   ],
+   "inheritsFrom": "[Side Story] When Elegies Are Ashes"
   },
   "[Side Story] People, A People": {
    "activity": "act51side",
@@ -42214,6 +42269,1856 @@
        ]
       }
      ]
+    }
+   ]
+  },
+  "[Celebration] Critical Phase Transition": {
+   "activity": "act4mainss",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "login",
+     "title": "周年庆典签到活动",
+     "source": "CN activity_table act59sign",
+     "start": "2026-04-30T23:00:00.000Z",
+     "end": "2026-05-14T19:59:59.000Z",
+     "region": "CN",
+     "days": 10,
+     "items": [
+      {
+       "name": "封缄诺言寻访凭证",
+       "count": 1,
+       "kind": "permit",
+       "id": "LIMITED_TKT_GACHA_10_7301"
+      },
+      {
+       "name": "Emergency Sanity Concentrate",
+       "count": 1,
+       "kind": "sanity",
+       "id": "ap_supply_lt_120"
+      },
+      {
+       "name": "GALLUS²",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_4227_gallus"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "LMD",
+       "count": 30000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "新型信息终端机",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furniM_act73d0_messageboard_01"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Orundum",
+       "count": 600,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      },
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "阿罗玛 / 舒心野趣",
+       "count": 1,
+       "kind": "outfit",
+       "id": "char_446_aroma@epoque#54"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 10,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 8,
+       "kind": "material",
+       "id": "3303"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 3,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "封缄诺言寻访凭证",
+        "count": 1,
+        "kind": "permit",
+        "id": "LIMITED_TKT_GACHA_10_7301"
+       },
+       {
+        "name": "Emergency Sanity Concentrate",
+        "count": 1,
+        "kind": "sanity",
+        "id": "ap_supply_lt_120"
+       }
+      ],
+      [
+       {
+        "name": "GALLUS²",
+        "count": 1,
+        "kind": "operator",
+        "id": "char_4227_gallus"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [
+       {
+        "name": "Module Data Block",
+        "count": 1,
+        "kind": "material",
+        "id": "mod_unlock_token"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "新型信息终端机",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furniM_act73d0_messageboard_01"
+       },
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
+       }
+      ],
+      [
+       {
+        "name": "Chip Catalyst",
+        "count": 1,
+        "kind": "material",
+        "id": "32001"
+       },
+       {
+        "name": "Skill Summary - 2",
+        "count": 20,
+        "kind": "material",
+        "id": "3302"
+       }
+      ],
+      [
+       {
+        "name": "阿罗玛 / 舒心野趣",
+        "count": 1,
+        "kind": "outfit",
+        "id": "char_446_aroma@epoque#54"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Data Supplement Stick",
+        "count": 10,
+        "kind": "material",
+        "id": "mod_update_token_1"
+       }
+      ],
+      [
+       {
+        "name": "Furniture Part",
+        "count": 300,
+        "kind": "material",
+        "id": "3401"
+       },
+       {
+        "name": "Skill Summary - 3",
+        "count": 8,
+        "kind": "material",
+        "id": "3303"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Data Supplement Instrument",
+        "count": 3,
+        "kind": "material",
+        "id": "mod_update_token_2"
+       }
+      ]
+     ]
+    },
+    {
+     "kind": "pray",
+     "title": "泽尔格勒告示板",
+     "source": "CN activity_table act15pray",
+     "start": "2026-04-30T23:00:00.000Z",
+     "end": "2026-05-14T19:59:59.000Z",
+     "region": "CN",
+     "items": [],
+     "rules": [
+      "用尽当日次数选取的所有许愿签中，合成玉数量最多的1张许愿签为当日最终奖励。",
+      "当日许愿签合成玉奖励不足400时，次日可选择3张许愿签。"
+     ]
+    },
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "CN activity_table missionData act4mainss",
+     "count": 10,
+     "items": [
+      {
+       "name": "“厂券”",
+       "count": 400,
+       "kind": "event-item",
+       "id": "act4mainss_token"
+      }
+     ],
+     "region": "CN"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "CN stage_table act4mainss",
+     "count": 40,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 40,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "region": "CN"
+    }
+   ]
+  },
+  "[Side Story – Crossover] Thunder in the Azure Dream": {
+   "activity": "act50side",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "login",
+     "title": "狩猎时光限时签到",
+     "source": "CN activity_table act58sign",
+     "start": "2026-05-31T23:00:00.000Z",
+     "end": "2026-06-14T19:59:59.000Z",
+     "region": "CN",
+     "days": 10,
+     "items": [
+      {
+       "name": "弓吟空跃寻访凭证",
+       "count": 2,
+       "kind": "permit",
+       "id": "LINKAGE_TKT_GACHA_10_7401"
+      },
+      {
+       "name": "Emergency Sanity Concentrate",
+       "count": 1,
+       "kind": "sanity",
+       "id": "ap_supply_lt_120"
+      },
+      {
+       "name": "Orundum",
+       "count": 600,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 10,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "avatar_special_75",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_special_75"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Open Flame BBQ Spit",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act36d0_grill_01"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 10,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "LMD",
+       "count": 30000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 3,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Tough Alloy Supply Box",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act36d0_MaterialBox_01"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 8,
+       "kind": "material",
+       "id": "3303"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "弓吟空跃寻访凭证",
+        "count": 1,
+        "kind": "permit",
+        "id": "LINKAGE_TKT_GACHA_10_7401"
+       },
+       {
+        "name": "Emergency Sanity Concentrate",
+        "count": 1,
+        "kind": "sanity",
+        "id": "ap_supply_lt_120"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Data Supplement Stick",
+        "count": 10,
+        "kind": "material",
+        "id": "mod_update_token_1"
+       }
+      ],
+      [
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Furniture Part",
+        "count": 300,
+        "kind": "material",
+        "id": "3401"
+       }
+      ],
+      [
+       {
+        "name": "avatar_special_75",
+        "count": 1,
+        "kind": "other",
+        "id": "avatar_special_75"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "Open Flame BBQ Spit",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_act36d0_grill_01"
+       },
+       {
+        "name": "Strategic Battle Record",
+        "count": 10,
+        "kind": "material",
+        "id": "2004"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "弓吟空跃寻访凭证",
+        "count": 1,
+        "kind": "permit",
+        "id": "LINKAGE_TKT_GACHA_10_7401"
+       },
+       {
+        "name": "Data Supplement Instrument",
+        "count": 3,
+        "kind": "material",
+        "id": "mod_update_token_2"
+       }
+      ],
+      [
+       {
+        "name": "Tough Alloy Supply Box",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_act36d0_MaterialBox_01"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [
+       {
+        "name": "Module Data Block",
+        "count": 1,
+        "kind": "material",
+        "id": "mod_unlock_token"
+       },
+       {
+        "name": "Skill Summary - 3",
+        "count": 8,
+        "kind": "material",
+        "id": "3303"
+       }
+      ]
+     ]
+    },
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "CN activity_table missionData act50side",
+     "count": 24,
+     "items": [
+      {
+       "name": "破碎的骨片",
+       "count": 270,
+       "kind": "event-item",
+       "id": "act50side_melding_1"
+      },
+      {
+       "name": "怪物线索2",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_2"
+      },
+      {
+       "name": "怪物线索3",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_3"
+      },
+      {
+       "name": "烈竹",
+       "count": 70,
+       "kind": "event-item",
+       "id": "act50side_melding_2"
+      },
+      {
+       "name": "罗德岛隐秘队",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_4215_buddy"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 2,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "怪物线索6",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_6"
+      },
+      {
+       "name": "萤虫",
+       "count": 180,
+       "kind": "event-item",
+       "id": "act50side_melding_3"
+      },
+      {
+       "name": "怪物线索8",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_8"
+      },
+      {
+       "name": "火竹炭",
+       "count": 40,
+       "kind": "event-item",
+       "id": "act50side_melding_4"
+      },
+      {
+       "name": "熔火冰晶",
+       "count": 5,
+       "kind": "event-item",
+       "id": "act50side_melding_5"
+      },
+      {
+       "name": "群兽入侵",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_special_level_unlock"
+      },
+      {
+       "name": "怪物线索10",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_10"
+      },
+      {
+       "name": "怪物线索5",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_5"
+      },
+      {
+       "name": "怪物线索7",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_7"
+      },
+      {
+       "name": "怪物线索9",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_9"
+      },
+      {
+       "name": "怪物线索1",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_1"
+      },
+      {
+       "name": "怪物线索4",
+       "count": 1,
+       "kind": "event-item",
+       "id": "act50side_monster_clue_4"
+      }
+     ],
+     "region": "CN"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "CN stage_table act50side",
+     "count": 29,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 29,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "region": "CN"
+    }
+   ]
+  },
+  "[Side Story – Carnival] Till the Lands Become an Orange": {
+   "activity": "act60sign",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "login",
+     "title": "透明信笺签到活动",
+     "source": "CN activity_table act60sign",
+     "start": "2026-07-31T23:00:00.000Z",
+     "end": "2026-08-14T19:59:59.000Z",
+     "region": "CN",
+     "days": 10,
+     "items": [
+      {
+       "name": "Emergency Sanity Concentrate",
+       "count": 1,
+       "kind": "sanity",
+       "id": "ap_supply_lt_120"
+      },
+      {
+       "name": "LMD",
+       "count": 60000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Orundum",
+       "count": 600,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "饰牌《清甜》",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_terracommericials_vanillaSoda_01"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 40,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      },
+      {
+       "name": "“一撮毛”的树状小窝",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_act76d0_messageTree_01"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 3,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 10,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 8,
+       "kind": "material",
+       "id": "3303"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "Emergency Sanity Concentrate",
+        "count": 1,
+        "kind": "sanity",
+        "id": "ap_supply_lt_120"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [
+       {
+        "name": "饰牌《清甜》",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_terracommericials_vanillaSoda_01"
+       },
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       }
+      ],
+      [
+       {
+        "name": "Chip Catalyst",
+        "count": 1,
+        "kind": "material",
+        "id": "32001"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
+       }
+      ],
+      [
+       {
+        "name": "“一撮毛”的树状小窝",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_act76d0_messageTree_01"
+       },
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "Data Supplement Instrument",
+        "count": 3,
+        "kind": "material",
+        "id": "mod_update_token_2"
+       },
+       {
+        "name": "Skill Summary - 2",
+        "count": 20,
+        "kind": "material",
+        "id": "3302"
+       }
+      ],
+      [
+       {
+        "name": "Data Supplement Stick",
+        "count": 10,
+        "kind": "material",
+        "id": "mod_update_token_1"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Furniture Part",
+        "count": 300,
+        "kind": "material",
+        "id": "3401"
+       }
+      ],
+      [
+       {
+        "name": "Module Data Block",
+        "count": 1,
+        "kind": "material",
+        "id": "mod_unlock_token"
+       },
+       {
+        "name": "Skill Summary - 3",
+        "count": 8,
+        "kind": "material",
+        "id": "3303"
+       }
+      ]
+     ]
+    },
+    {
+     "kind": "banner-gift",
+     "title": "搭车漫游登录活动",
+     "source": "CN activity_table act28login",
+     "start": "2026-07-31T23:00:00.000Z",
+     "end": "2026-08-14T19:59:59.000Z",
+     "region": "CN",
+     "items": [
+      {
+       "name": "搭车漫游寻访凭证",
+       "count": 1,
+       "kind": "permit",
+       "id": "LIMITED_TKT_GACHA_10_7601"
+      }
+     ]
+    },
+    {
+     "kind": "pray",
+     "title": "零号公路许愿墙",
+     "source": "CN activity_table act16pray",
+     "start": "2026-07-31T23:00:00.000Z",
+     "end": "2026-08-14T19:59:59.000Z",
+     "region": "CN",
+     "items": [],
+     "rules": [
+      "用尽当日次数选取的所有许愿签中，合成玉数量最多的1张许愿签为当日最终奖励。",
+      "当日许愿签合成玉奖励不足400时，次日可选择3张许愿签。"
+     ]
+    }
+   ]
+  },
+  "[Side Story ‐ Crossover] Sur le lac lune vivante": {
+   "activity": "act54side",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "login",
+     "title": "此夜同行签到活动",
+     "source": "CN activity_table act61sign",
+     "start": "2026-09-03T23:00:00.000Z",
+     "end": "2026-09-17T19:59:59.000Z",
+     "region": "CN",
+     "days": 10,
+     "items": [
+      {
+       "name": "一逢满月十连寻访凭证",
+       "count": 2,
+       "kind": "permit",
+       "id": "LINKAGE_TKT_GACHA_10_7701"
+      },
+      {
+       "name": "Emergency Sanity Concentrate",
+       "count": 1,
+       "kind": "sanity",
+       "id": "ap_supply_lt_120"
+      },
+      {
+       "name": "Orundum",
+       "count": 600,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Data Supplement Stick",
+       "count": 10,
+       "kind": "material",
+       "id": "mod_update_token_1"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "avatar_special_94",
+       "count": 1,
+       "kind": "other",
+       "id": "avatar_special_94"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Strategic Battle Record",
+       "count": 10,
+       "kind": "material",
+       "id": "2004"
+      },
+      {
+       "name": "LMD",
+       "count": 30000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Data Supplement Instrument",
+       "count": 3,
+       "kind": "material",
+       "id": "mod_update_token_2"
+      },
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 8,
+       "kind": "material",
+       "id": "3303"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "一逢满月十连寻访凭证",
+        "count": 1,
+        "kind": "permit",
+        "id": "LINKAGE_TKT_GACHA_10_7701"
+       },
+       {
+        "name": "Emergency Sanity Concentrate",
+        "count": 1,
+        "kind": "sanity",
+        "id": "ap_supply_lt_120"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Data Supplement Stick",
+        "count": 10,
+        "kind": "material",
+        "id": "mod_update_token_1"
+       }
+      ],
+      [
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Furniture Part",
+        "count": 300,
+        "kind": "material",
+        "id": "3401"
+       }
+      ],
+      [
+       {
+        "name": "avatar_special_94",
+        "count": 1,
+        "kind": "other",
+        "id": "avatar_special_94"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "Skill Summary - 2",
+        "count": 20,
+        "kind": "material",
+        "id": "3302"
+       },
+       {
+        "name": "Strategic Battle Record",
+        "count": 10,
+        "kind": "material",
+        "id": "2004"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "一逢满月十连寻访凭证",
+        "count": 1,
+        "kind": "permit",
+        "id": "LINKAGE_TKT_GACHA_10_7701"
+       },
+       {
+        "name": "Data Supplement Instrument",
+        "count": 3,
+        "kind": "material",
+        "id": "mod_update_token_2"
+       }
+      ],
+      [
+       {
+        "name": "Chip Catalyst",
+        "count": 1,
+        "kind": "material",
+        "id": "32001"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [
+       {
+        "name": "Module Data Block",
+        "count": 1,
+        "kind": "material",
+        "id": "mod_unlock_token"
+       },
+       {
+        "name": "Skill Summary - 3",
+        "count": 8,
+        "kind": "material",
+        "id": "3303"
+       }
+      ]
+     ]
+    },
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "CN activity_table missionData act54side",
+     "count": 23,
+     "items": [
+      {
+       "name": "旧磁带",
+       "count": 1530,
+       "kind": "event-item",
+       "id": "act54side_token_tape"
+      },
+      {
+       "name": "圣芭菲拱门",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dessertShop_arch_01"
+      },
+      {
+       "name": "承重立柱",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dessertShop_pillar_01"
+      },
+      {
+       "name": "光环吊灯",
+       "count": 2,
+       "kind": "furniture",
+       "id": "furni_dessertShop_ceilingLamp_01"
+      },
+      {
+       "name": "虎狼丸",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_4220_kormr"
+      },
+      {
+       "name": "证书置物架",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dessertShop_wallShelf_01"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 2,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "圣芭菲收银台",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dessertShop_cashier_01"
+      },
+      {
+       "name": "晴朗启示壁纸",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dessertShop_wallpaper_01"
+      },
+      {
+       "name": "蔚蓝挂布",
+       "count": 2,
+       "kind": "furniture",
+       "id": "furni_dessertShop_valance_01"
+      },
+      {
+       "name": "方糖结晶地板",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dessertShop_floor_01"
+      },
+      {
+       "name": "莓果地毯",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_dessertShop_carpet_01"
+      }
+     ],
+     "region": "CN"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "CN stage_table act54side",
+     "count": 27,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 27,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "region": "CN"
+    },
+    {
+     "kind": "furniture-set",
+     "title": "圣芭菲甜点店",
+     "source": "CN building_data furni_set_dessertShop",
+     "items": [],
+     "description": "位于伊卡莱西亚区，备受本地人与游客欢迎的甜点店。附近的人常会来这里度过一段悠闲时光。不仅周末，工作日也是如此——应该说，尤其是在工作日。",
+     "pieces": [
+      {
+       "name": "圣芭菲拱门",
+       "id": "furni_dessertShop_arch_01",
+       "obtain": "活动获得",
+       "comfort": 475
+      },
+      {
+       "name": "蛋筒地灯",
+       "id": "furni_dessertShop_lamp_01",
+       "obtain": "家具商店限时购买",
+       "comfort": 105
+      },
+      {
+       "name": "典雅餐椅（左）",
+       "id": "furni_dessertShop_leftChair_01",
+       "obtain": "活动获得",
+       "comfort": 80
+      },
+      {
+       "name": "满载甜点桌",
+       "id": "furni_dessertShop_dinningTable_01",
+       "obtain": "活动获得",
+       "comfort": 175
+      },
+      {
+       "name": "典雅餐椅（右）",
+       "id": "furni_dessertShop_rightChair_01",
+       "obtain": "活动获得",
+       "comfort": 85
+      },
+      {
+       "name": "承重立柱",
+       "id": "furni_dessertShop_pillar_01",
+       "obtain": "活动获得",
+       "comfort": 185
+      },
+      {
+       "name": "光环吊灯",
+       "id": "furni_dessertShop_ceilingLamp_01",
+       "obtain": "活动获得",
+       "comfort": 110
+      },
+      {
+       "name": "蛋糕展示柜",
+       "id": "furni_dessertShop_cakeCabinet_01",
+       "obtain": "家具商店限时购买",
+       "comfort": 175
+      },
+      {
+       "name": "证书置物架",
+       "id": "furni_dessertShop_wallShelf_01",
+       "obtain": "活动获得",
+       "comfort": 75
+      },
+      {
+       "name": "餐盘收纳台",
+       "id": "furni_dessertShop_dinnerPlateTable_01",
+       "obtain": "活动获得",
+       "comfort": 145
+      },
+      {
+       "name": "甜点陈列柜",
+       "id": "furni_dessertShop_dessertCounter_01",
+       "obtain": "家具商店限时购买",
+       "comfort": 455
+      },
+      {
+       "name": "圣芭菲收银台",
+       "id": "furni_dessertShop_cashier_01",
+       "obtain": "活动获得",
+       "comfort": 290
+      },
+      {
+       "name": "被预定的餐桌",
+       "id": "furni_dessertShop_emptyTable_01",
+       "obtain": "活动获得",
+       "comfort": 125
+      },
+      {
+       "name": "蔚蓝挂布",
+       "id": "furni_dessertShop_valance_01",
+       "obtain": "活动获得",
+       "comfort": 60
+      },
+      {
+       "name": "挞展示柜",
+       "id": "furni_dessertShop_smallCabinet_01",
+       "obtain": "家具商店限时购买",
+       "comfort": 105
+      },
+      {
+       "name": "饼干展示台",
+       "id": "furni_dessertShop_combinationCabinet_01",
+       "obtain": "家具商店限时购买",
+       "comfort": 135
+      },
+      {
+       "name": "商品陈列台",
+       "id": "furni_dessertShop_storageTable_01",
+       "obtain": "家具商店限时购买",
+       "comfort": 245
+      },
+      {
+       "name": "莓果地毯",
+       "id": "furni_dessertShop_carpet_01",
+       "obtain": "活动获得",
+       "comfort": 35
+      },
+      {
+       "name": "晴朗启示壁纸",
+       "id": "furni_dessertShop_wallpaper_01",
+       "obtain": "活动获得",
+       "comfort": 240
+      },
+      {
+       "name": "方糖结晶地板",
+       "id": "furni_dessertShop_floor_01",
+       "obtain": "活动获得",
+       "comfort": 240
+      }
+     ],
+     "region": "CN"
+    }
+   ]
+  },
+  "[Event] Dolly's Playground": {
+   "activity": "act1dp",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "login",
+     "title": "锦枫映月签到活动",
+     "source": "CN activity_table act62sign",
+     "start": "2026-09-22T20:00:00.000Z",
+     "end": "2026-09-29T19:59:59.000Z",
+     "region": "CN",
+     "days": 5,
+     "items": [
+      {
+       "name": "'Lunar Joy' Gift Box",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_MA_mooncake_J_01"
+      },
+      {
+       "name": "LMD",
+       "count": 30000,
+       "kind": "currency",
+       "id": "4001"
+      },
+      {
+       "name": "Luminous Pillowrest Pack",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_MA_mooncake_S_04"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "Orundum",
+       "count": 200,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "'Lunar Joy' Gift Box",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_MA_mooncake_J_01"
+       },
+       {
+        "name": "LMD",
+        "count": 30000,
+        "kind": "currency",
+        "id": "4001"
+       }
+      ],
+      [
+       {
+        "name": "Luminous Pillowrest Pack",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_MA_mooncake_S_04"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [],
+      [
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
+       }
+      ]
+     ]
+    },
+    {
+     "kind": "login",
+     "title": "稳态测定签到活动",
+     "source": "CN activity_table act63sign",
+     "start": "2026-09-27T20:00:00.000Z",
+     "end": "2026-10-07T19:59:59.000Z",
+     "region": "CN",
+     "days": 7,
+     "items": [
+      {
+       "name": "Professional Operator Skill Training Pack",
+       "count": 1,
+       "kind": "other",
+       "id": "voucher_skill_specialLevelMax_4"
+      },
+      {
+       "name": "Emergency Sanity Concentrate",
+       "count": 1,
+       "kind": "sanity",
+       "id": "ap_supply_lt_120"
+      },
+      {
+       "name": "Chip Catalyst",
+       "count": 1,
+       "kind": "material",
+       "id": "32001"
+      },
+      {
+       "name": "Recruitment Permit",
+       "count": 5,
+       "kind": "permit",
+       "id": "7001"
+      },
+      {
+       "name": "Orundum",
+       "count": 200,
+       "kind": "currency",
+       "id": "4003"
+      },
+      {
+       "name": "Skill Summary - 1",
+       "count": 30,
+       "kind": "material",
+       "id": "3301"
+      },
+      {
+       "name": "Skill Summary - 2",
+       "count": 20,
+       "kind": "material",
+       "id": "3302"
+      },
+      {
+       "name": "Expedited Plan",
+       "count": 5,
+       "kind": "permit",
+       "id": "7002"
+      },
+      {
+       "name": "Furniture Part",
+       "count": 300,
+       "kind": "material",
+       "id": "3401"
+      },
+      {
+       "name": "Tactical Battle Record",
+       "count": 20,
+       "kind": "material",
+       "id": "2003"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 1,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Pure Gold",
+       "count": 20,
+       "kind": "material",
+       "id": "3003"
+      },
+      {
+       "name": "“矢量限位器”",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_oct1st_barrier_01"
+      },
+      {
+       "name": "Skill Summary - 3",
+       "count": 8,
+       "kind": "material",
+       "id": "3303"
+      }
+     ],
+     "daily": [
+      [
+       {
+        "name": "Professional Operator Skill Training Pack",
+        "count": 1,
+        "kind": "other",
+        "id": "voucher_skill_specialLevelMax_4"
+       },
+       {
+        "name": "Emergency Sanity Concentrate",
+        "count": 1,
+        "kind": "sanity",
+        "id": "ap_supply_lt_120"
+       }
+      ],
+      [
+       {
+        "name": "Chip Catalyst",
+        "count": 1,
+        "kind": "material",
+        "id": "32001"
+       },
+       {
+        "name": "Recruitment Permit",
+        "count": 5,
+        "kind": "permit",
+        "id": "7001"
+       }
+      ],
+      [
+       {
+        "name": "Orundum",
+        "count": 200,
+        "kind": "currency",
+        "id": "4003"
+       },
+       {
+        "name": "Skill Summary - 1",
+        "count": 30,
+        "kind": "material",
+        "id": "3301"
+       }
+      ],
+      [
+       {
+        "name": "Skill Summary - 2",
+        "count": 20,
+        "kind": "material",
+        "id": "3302"
+       },
+       {
+        "name": "Expedited Plan",
+        "count": 5,
+        "kind": "permit",
+        "id": "7002"
+       }
+      ],
+      [
+       {
+        "name": "Furniture Part",
+        "count": 300,
+        "kind": "material",
+        "id": "3401"
+       },
+       {
+        "name": "Tactical Battle Record",
+        "count": 20,
+        "kind": "material",
+        "id": "2003"
+       }
+      ],
+      [
+       {
+        "name": "Module Data Block",
+        "count": 1,
+        "kind": "material",
+        "id": "mod_unlock_token"
+       },
+       {
+        "name": "Pure Gold",
+        "count": 20,
+        "kind": "material",
+        "id": "3003"
+       }
+      ],
+      [
+       {
+        "name": "“矢量限位器”",
+        "count": 1,
+        "kind": "furniture",
+        "id": "furni_oct1st_barrier_01"
+       },
+       {
+        "name": "Skill Summary - 3",
+        "count": 8,
+        "kind": "material",
+        "id": "3303"
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  "[Story Collection] Bolívar Diagnosed": {
+   "activity": "act21mini",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "CN stage_table act21mini",
+     "count": 18,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 18,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "region": "CN"
+    }
+   ]
+  },
+  "Interactive Exhibition": {
+   "activity": "act1arkhub",
+   "region": "CN",
+   "groups": [
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "CN activity_table missionData act1arkhub",
+     "count": 23,
+     "items": [
+      {
+       "name": "巡展纪念章",
+       "count": 7800,
+       "kind": "event-item",
+       "id": "act1arkhub_token_seal"
+      }
+     ],
+     "region": "CN"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "CN stage_table act1arkhub",
+     "count": 18,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 18,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "region": "CN"
     }
    ]
   },
@@ -43449,6 +45354,1016 @@
      ]
     }
    ]
+  },
+  "[Rerun] The Masses' Travels Rerun": {
+   "activity": null,
+   "groups": [
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act42side",
+     "count": 32,
+     "items": [
+      {
+       "name": "Enlightened Pacifier",
+       "count": 1810,
+       "kind": "event-item",
+       "id": "act42side_token_pacifier"
+      },
+      {
+       "name": "Rag Curtain",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_partition_01"
+      },
+      {
+       "name": "Wrought Ceiling Light",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_chandelier_01"
+      },
+      {
+       "name": "Sankta Miksaparato",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_4194_rmixer"
+      },
+      {
+       "name": "Worn Tufted Carpet",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_carpet_01"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 2,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Combination Display Cabinet",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_statues_01"
+      },
+      {
+       "name": "Cloth Ceiling Light",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_ceilinglight_01"
+      },
+      {
+       "name": "Antique Firearm Cabinet",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_storage_01"
+      },
+      {
+       "name": "Woven Rug",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_carpet_02"
+      },
+      {
+       "name": "Upholstered Corner Bench",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_bench_01"
+      },
+      {
+       "name": "Gospel Record Player",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_recordplayer_01"
+      },
+      {
+       "name": "Ornate Wooden Flooring",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_gunworkshop_floor_01"
+      },
+      {
+       "name": "Plaque - Sanctity",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_terratimes_Laterano_01"
+      }
+     ],
+     "inherited": "[Side Story – Celebration] The Masses' Travels"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "stage_table act42side",
+     "count": 41,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 41,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "inherited": "[Side Story – Celebration] The Masses' Travels"
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Paganini's Firearms Workshop",
+     "source": "building_data furni_set_gunworkshop",
+     "items": [],
+     "description": "A recreation of the master gunsmith Paganini's workshop. Among the top firearm makers in Laterano, but dead last for workshop cleanliness. In the words of a client: 'The mark of quality is when you find his feathers in your barrel!'",
+     "pieces": [
+      {
+       "name": "Storage Rack",
+       "id": "furni_gunworkshop_shelf_01",
+       "obtain": "Event Reward",
+       "comfort": 95
+      },
+      {
+       "name": "Large Rifle Display Rack",
+       "id": "furni_gunworkshop_gunshelf_01",
+       "obtain": "Event Reward",
+       "comfort": 225
+      },
+      {
+       "name": "Display Light",
+       "id": "furni_gunworkshop_floorlamp_01",
+       "obtain": "Event Reward",
+       "comfort": 360
+      },
+      {
+       "name": "Rag Curtain",
+       "id": "furni_gunworkshop_partition_01",
+       "obtain": "Event Reward",
+       "comfort": 80
+      },
+      {
+       "name": "Spare Parts Holder",
+       "id": "furni_gunworkshop_storagetray_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 155
+      },
+      {
+       "name": "Small Handgun Display Case",
+       "id": "furni_gunworkshop_cabinet_01",
+       "obtain": "Event Reward",
+       "comfort": 360
+      },
+      {
+       "name": "Standard Handgun Display Pedestal",
+       "id": "furni_gunworkshop_sidetable_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 130
+      },
+      {
+       "name": "Wrought Ceiling Light",
+       "id": "furni_gunworkshop_chandelier_01",
+       "obtain": "Event Reward",
+       "comfort": 290
+      },
+      {
+       "name": "Firearm Crafting Bench",
+       "id": "furni_gunworkshop_table_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 290
+      },
+      {
+       "name": "Blue Bar Stool",
+       "id": "furni_gunworkshop_stool_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 40
+      },
+      {
+       "name": "Firearm Crafting Table",
+       "id": "furni_gunworkshop_longtable_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 175
+      },
+      {
+       "name": "Worn Tufted Carpet",
+       "id": "furni_gunworkshop_carpet_01",
+       "obtain": "Event Reward",
+       "comfort": 445
+      },
+      {
+       "name": "Combination Display Cabinet",
+       "id": "furni_gunworkshop_statues_01",
+       "obtain": "Event Reward",
+       "comfort": 245
+      },
+      {
+       "name": "Cloth Ceiling Light",
+       "id": "furni_gunworkshop_ceilinglight_01",
+       "obtain": "Event Reward",
+       "comfort": 175
+      },
+      {
+       "name": "Antique Firearm Cabinet",
+       "id": "furni_gunworkshop_storage_01",
+       "obtain": "Event Reward",
+       "comfort": 340
+      },
+      {
+       "name": "Woven Rug",
+       "id": "furni_gunworkshop_carpet_02",
+       "obtain": "Event Reward",
+       "comfort": 175
+      },
+      {
+       "name": "Upholstered Corner Bench",
+       "id": "furni_gunworkshop_bench_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      },
+      {
+       "name": "Gospel Record Player",
+       "id": "furni_gunworkshop_recordplayer_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      },
+      {
+       "name": "Painted Wooden Wall",
+       "id": "furni_gunworkshop_wallpaper_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      },
+      {
+       "name": "Ornate Wooden Flooring",
+       "id": "furni_gunworkshop_floor_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      }
+     ],
+     "inherited": "[Side Story – Celebration] The Masses' Travels"
+    }
+   ],
+   "inheritsFrom": "[Side Story – Celebration] The Masses' Travels"
+  },
+  "[Rerun] A Flurry to the Flame Rerun": {
+   "activity": null,
+   "groups": [
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act24side",
+     "count": 24,
+     "items": [
+      {
+       "name": "Bone Fragments",
+       "count": 270,
+       "kind": "event-item",
+       "id": "act24side_melding_1"
+      },
+      {
+       "name": "Originium Slug Shell",
+       "count": 170,
+       "kind": "event-item",
+       "id": "act24side_melding_2"
+      },
+      {
+       "name": "Terra Research Commission",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_4077_palico"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 2,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Sharp Oxmane Fangs",
+       "count": 70,
+       "kind": "event-item",
+       "id": "act24side_melding_3"
+      },
+      {
+       "name": "Thick Direswine Hide",
+       "count": 10,
+       "kind": "event-item",
+       "id": "act24side_melding_4"
+      },
+      {
+       "name": "'Monster Tears'",
+       "count": 10,
+       "kind": "event-item",
+       "id": "act24side_melding_5"
+      }
+     ],
+     "inherited": "[Side Story – Crossover] A Flurry to the Flame"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "stage_table act24side",
+     "count": 30,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 30,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "inherited": "[Side Story – Crossover] A Flurry to the Flame"
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Momiji Hotel",
+     "source": "building_data furni_set_eastern",
+     "items": [],
+     "description": "A room of richly rustic Higashinese trappings, where guests can soak in tranquil autumn days amidst the warm timber.",
+     "pieces": [
+      {
+       "name": "Old-Fashioned Cabinet",
+       "id": "furni_eastern_cabinet_01",
+       "obtain": "Event Reward",
+       "comfort": 245
+      },
+      {
+       "name": "'Ochazuke'",
+       "id": "furni_eastern_tatami_01",
+       "obtain": "Event Reward",
+       "comfort": 705
+      },
+      {
+       "name": "Pine Tree Bonsai",
+       "id": "furni_eastern_plant_01",
+       "obtain": "Event Reward",
+       "comfort": 205
+      },
+      {
+       "name": "Higashinese Solid Wood Bed",
+       "id": "furni_eastern_bed_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 270
+      },
+      {
+       "name": "Maple Leaves Upon Autumnal Wind Screen",
+       "id": "furni_eastern_leafScreen_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 395
+      },
+      {
+       "name": "'Flow of Warmth'",
+       "id": "furni_eastern_pipeline_01",
+       "obtain": "Event Reward",
+       "comfort": 180
+      },
+      {
+       "name": "'Light Breeze'",
+       "id": "furni_eastern_airCleaner_01",
+       "obtain": "Event Reward",
+       "comfort": 190
+      },
+      {
+       "name": "'Ascent'",
+       "id": "furni_eastern_steps_01",
+       "obtain": "Event Reward",
+       "comfort": 165
+      },
+      {
+       "name": "Bamboo Forest Huntscape Screen",
+       "id": "furni_eastern_JapaneseScreen_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 455
+      },
+      {
+       "name": "Mottled Rug",
+       "id": "furni_eastern_carpet_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 50
+      },
+      {
+       "name": "Bamboo Hanger",
+       "id": "furni_eastern_sling_01",
+       "obtain": "Event Reward",
+       "comfort": 175
+      },
+      {
+       "name": "Higashinese Mirrored Dressing Table",
+       "id": "furni_eastern_dresser_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 170
+      },
+      {
+       "name": "Ornamental Crate",
+       "id": "furni_eastern_case_01",
+       "obtain": "Event Reward",
+       "comfort": 190
+      },
+      {
+       "name": "Soft Ceiling Light",
+       "id": "furni_eastern_lamp_01",
+       "obtain": "Event Reward",
+       "comfort": 45
+      },
+      {
+       "name": "Maple Forest Panoramic Display",
+       "id": "furni_eastern_wallpaper_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      },
+      {
+       "name": "Austere Straw Mat",
+       "id": "furni_eastern_floor_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      }
+     ],
+     "inherited": "[Side Story – Crossover] A Flurry to the Flame"
+    }
+   ],
+   "inheritsFrom": "[Side Story – Crossover] A Flurry to the Flame"
+  },
+  "[Rerun] Act or Die Rerun": {
+   "activity": null,
+   "groups": [
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act43side",
+     "count": 24,
+     "items": [
+      {
+       "name": "Phantom of the Studio",
+       "count": 1530,
+       "kind": "event-item",
+       "id": "act43side_token_phantom"
+      },
+      {
+       "name": "Prop Flowers",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_vase_01"
+      },
+      {
+       "name": "HMI Light & Cart",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_lighting_01"
+      },
+      {
+       "name": "Wrankwood Set Wallpaper",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_wallpaper_01"
+      },
+      {
+       "name": "Miss.Christine",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_4198_christ"
+      },
+      {
+       "name": "Red Curtain Backdrop (Front)",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_background_02"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 2,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Camera On Jib",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_jib_01"
+      },
+      {
+       "name": "Reflector Panels",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_reflectPanel_01"
+      },
+      {
+       "name": "Large Prop Rack",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_cabinet_02"
+      },
+      {
+       "name": "Wrankwood Set Flooring",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_floor_01"
+      },
+      {
+       "name": "Director's Monitors",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_videoStudio_monitor_01"
+      },
+      {
+       "name": "Plaque - Spotlight",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_terracommericials_FilmStudio_01"
+      }
+     ],
+     "inherited": "[Side Story] Act or Die"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "stage_table act43side",
+     "count": 28,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 28,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "inherited": "[Side Story] Act or Die"
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Wrankwood Studio",
+     "source": "building_data furni_set_videoStudio",
+     "items": [],
+     "description": "A Wrankwood studio as described by Tippi. Are you waiting to find smash success? Nursing dreams of a life of milk and honey? Don't delay! Doesn't matter who you are, 'cause here in Wrankwood, you're the next big star!",
+     "pieces": [
+      {
+       "name": "Small Prop Rack",
+       "id": "furni_videoStudio_cabinet_01",
+       "obtain": "Event Reward",
+       "comfort": 220
+      },
+      {
+       "name": "Prop Trolley",
+       "id": "furni_videoStudio_trolley_01",
+       "obtain": "Event Reward",
+       "comfort": 160
+      },
+      {
+       "name": "Red Curtain Backdrop (Side)",
+       "id": "furni_videoStudio_background_01",
+       "obtain": "Event Reward",
+       "comfort": 225
+      },
+      {
+       "name": "Large Ceiling Light",
+       "id": "furni_videoStudio_ceilingLight_01",
+       "obtain": "Event Reward",
+       "comfort": 215
+      },
+      {
+       "name": "Prop Flowers",
+       "id": "furni_videoStudio_vase_01",
+       "obtain": "Event Reward",
+       "comfort": 120
+      },
+      {
+       "name": "HMI Light & Cart",
+       "id": "furni_videoStudio_lighting_01",
+       "obtain": "Event Reward",
+       "comfort": 165
+      },
+      {
+       "name": "Weird Sculpture",
+       "id": "furni_videoStudio_decoration_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 145
+      },
+      {
+       "name": "Glitzy Floor Lamp",
+       "id": "furni_videoStudio_lighting_02",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 155
+      },
+      {
+       "name": "Reflector Panels",
+       "id": "furni_videoStudio_reflectPanel_01",
+       "obtain": "Event Reward",
+       "comfort": 110
+      },
+      {
+       "name": "Solid Wood Sofa (Side)",
+       "id": "furni_videoStudio_sofa_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 130
+      },
+      {
+       "name": "Solid Wood Sofa (Front)",
+       "id": "furni_videoStudio_sofa_02",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 120
+      },
+      {
+       "name": "Red Curtain Backdrop (Front)",
+       "id": "furni_videoStudio_background_02",
+       "obtain": "Event Reward",
+       "comfort": 490
+      },
+      {
+       "name": "Multicolor Rug",
+       "id": "furni_videoStudio_carpet_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 80
+      },
+      {
+       "name": "Camera On Jib",
+       "id": "furni_videoStudio_jib_01",
+       "obtain": "Event Reward",
+       "comfort": 290
+      },
+      {
+       "name": "Large Prop Rack",
+       "id": "furni_videoStudio_cabinet_02",
+       "obtain": "Event Reward",
+       "comfort": 255
+      },
+      {
+       "name": "Camera On Dolly",
+       "id": "furni_videoStudio_camera_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 275
+      },
+      {
+       "name": "Director's Monitors",
+       "id": "furni_videoStudio_monitor_01",
+       "obtain": "Event Reward",
+       "comfort": 185
+      },
+      {
+       "name": "Director's Chair",
+       "id": "furni_videoStudio_chair_01",
+       "obtain": "Event Reward",
+       "comfort": 130
+      },
+      {
+       "name": "Wrankwood Set Wallpaper",
+       "id": "furni_videoStudio_wallpaper_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      },
+      {
+       "name": "Wrankwood Set Flooring",
+       "id": "furni_videoStudio_floor_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      }
+     ],
+     "inherited": "[Side Story] Act or Die"
+    }
+   ],
+   "inheritsFrom": "[Side Story] Act or Die"
+  },
+  "[Rerun] Ato Rerun": {
+   "activity": null,
+   "groups": [
+    {
+     "kind": "missions",
+     "title": "Event missions",
+     "source": "activity_table missionData act44side",
+     "count": 28,
+     "items": [
+      {
+       "name": "Performer Meeting Chuusen-ken",
+       "count": 1640,
+       "kind": "event-item",
+       "id": "act44side_token_ticket"
+      },
+      {
+       "name": "Matsukiri",
+       "count": 1,
+       "kind": "operator",
+       "id": "char_4199_makiri"
+      },
+      {
+       "name": "Module Data Block",
+       "count": 2,
+       "kind": "material",
+       "id": "mod_unlock_token"
+      },
+      {
+       "name": "Light Under Eaves",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_ceilingLight_01"
+      },
+      {
+       "name": "Jingling Light",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_ceilingLight_02"
+      },
+      {
+       "name": "Old Shop Cart",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_cart_01"
+      },
+      {
+       "name": "Menu Stand",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_billBoard_02"
+      },
+      {
+       "name": "Twilight Tiled Floor",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_odenShop_floor_01"
+      },
+      {
+       "name": "Plaque 'Spring Day'",
+       "count": 1,
+       "kind": "furniture",
+       "id": "furni_terratimes_Higashi_01"
+      }
+     ],
+     "inherited": "[Side Story – Carnival] Ato"
+    },
+    {
+     "kind": "first-clear",
+     "title": "Event stage first clears",
+     "source": "stage_table act44side",
+     "count": 40,
+     "items": [
+      {
+       "name": "Originite Prime",
+       "count": 40,
+       "kind": "currency",
+       "id": "4002"
+      }
+     ],
+     "inherited": "[Side Story – Carnival] Ato"
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Shokujidokoro Mikage",
+     "source": "building_data furni_set_odenShop",
+     "items": [],
+     "description": "The oden stall that Moriuchi had planned to open in Kajimachi, recreated according to his descriptions. 'I don't know how Kajimachi will look once it's rebuilt, but I don't suppose there would be stalls like this anymore.'",
+     "pieces": [
+      {
+       "name": "Light Under Eaves",
+       "id": "furni_odenShop_ceilingLight_01",
+       "obtain": "Event Reward",
+       "comfort": 145
+      },
+      {
+       "name": "Red-Painted Bucket",
+       "id": "furni_odenShop_bucket_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 160
+      },
+      {
+       "name": "Water Basin Under Eaves",
+       "id": "furni_odenShop_shelf_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 335
+      },
+      {
+       "name": "Jingling Light",
+       "id": "furni_odenShop_ceilingLight_02",
+       "obtain": "Event Reward",
+       "comfort": 65
+      },
+      {
+       "name": "Wooden Lamppost",
+       "id": "furni_odenShop_billBoard_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 230
+      },
+      {
+       "name": "Finny Dining Desk",
+       "id": "furni_odenShop_table_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 185
+      },
+      {
+       "name": "Old Wooden Stool",
+       "id": "furni_odenShop_stool_01",
+       "obtain": "Purchased from the Limited Furniture Store",
+       "comfort": 110
+      },
+      {
+       "name": "Old Shop Cart",
+       "id": "furni_odenShop_cart_01",
+       "obtain": "Event Reward",
+       "comfort": 165
+      },
+      {
+       "name": "Menu Stand",
+       "id": "furni_odenShop_billBoard_02",
+       "obtain": "Event Reward",
+       "comfort": 135
+      },
+      {
+       "name": "Traditional Banner Hanger",
+       "id": "furni_odenShop_banner_01",
+       "obtain": "Event Reward",
+       "comfort": 255
+      },
+      {
+       "name": "Drinks Shelf",
+       "id": "furni_odenShop_shelf_02",
+       "obtain": "Event Reward",
+       "comfort": 410
+      },
+      {
+       "name": "Entrance Stepping Board",
+       "id": "furni_odenShop_carpet_01",
+       "obtain": "Event Reward",
+       "comfort": 160
+      },
+      {
+       "name": "Oden Stall",
+       "id": "furni_odenShop_bar_01",
+       "obtain": "Event Reward",
+       "comfort": 540
+      },
+      {
+       "name": "Dining Tall Stool",
+       "id": "furni_odenShop_stool_02",
+       "obtain": "Event Reward",
+       "comfort": 80
+      },
+      {
+       "name": "Floral Hanging Lamp",
+       "id": "furni_odenShop_ceilingLight_03",
+       "obtain": "Event Reward",
+       "comfort": 75
+      },
+      {
+       "name": "Bamboo Decor",
+       "id": "furni_odenShop_plant_01",
+       "obtain": "Event Reward",
+       "comfort": 220
+      },
+      {
+       "name": "Window Divan",
+       "id": "furni_odenShop_bench_01",
+       "obtain": "Event Reward",
+       "comfort": 150
+      },
+      {
+       "name": "Summer in Kajimachi",
+       "id": "furni_odenShop_wallpaper_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      },
+      {
+       "name": "Twilight Tiled Floor",
+       "id": "furni_odenShop_floor_01",
+       "obtain": "Event Reward",
+       "comfort": 240
+      }
+     ],
+     "inherited": "[Side Story – Carnival] Ato"
+    },
+    {
+     "kind": "furniture-set",
+     "title": "Xiang Yuan Diner",
+     "source": "building_data furni_set_teaCanteen",
+     "items": [],
+     "description": "A Lungmen diner style lobby. Just as a diner serves all sorts of food without discrimination to its guests, this lobby does not care where its visitors hail from. All it is concerned with is providing them all the same comfort.",
+     "pieces": [
+      {
+       "name": "Cloud Hanging Light",
+       "id": "furni_teaCanteen_ceilingLight_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 75
+      },
+      {
+       "name": "Diner Booth (Center)",
+       "id": "furni_teaCanteen_couch_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 190
+      },
+      {
+       "name": "Diner Booth (Left)",
+       "id": "furni_teaCanteen_couch_02",
+       "obtain": "Dropped from some stages",
+       "comfort": 190
+      },
+      {
+       "name": "Diner Booth (Right)",
+       "id": "furni_teaCanteen_couch_03",
+       "obtain": "Dropped from some stages",
+       "comfort": 190
+      },
+      {
+       "name": "Lit Bar Counter",
+       "id": "furni_teaCanteen_bar_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 290
+      },
+      {
+       "name": "One-Wheel Food Cart",
+       "id": "furni_teaCanteen_diners_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 165
+      },
+      {
+       "name": "Large Lamp Mosaic",
+       "id": "furni_teaCanteen_banner_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 195
+      },
+      {
+       "name": "Old Newspaper Rack",
+       "id": "furni_teaCanteen_newspaperRack_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 170
+      },
+      {
+       "name": "Wooden Partition Table",
+       "id": "furni_teaCanteen_shelf_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 200
+      },
+      {
+       "name": "Square Dining Table",
+       "id": "furni_teaCanteen_diningTable_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 265
+      },
+      {
+       "name": "Goldfin Dining Sideboard",
+       "id": "furni_teaCanteen_cabinet_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 270
+      },
+      {
+       "name": "Semicircular Rug",
+       "id": "furni_teaCanteen_carpet_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 35
+      },
+      {
+       "name": "Lit Partition Pillar",
+       "id": "furni_teaCanteen_column_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 260
+      },
+      {
+       "name": "Iced Tea Gift Box",
+       "id": "furni_teaCanteen_snackBox_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 120
+      },
+      {
+       "name": "Old Square Ceiling Light",
+       "id": "furni_teaCanteen_ceilingLight_02",
+       "obtain": "Dropped from some stages",
+       "comfort": 105
+      },
+      {
+       "name": "Fortune Tree",
+       "id": "furni_teaCanteen_plant_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 190
+      },
+      {
+       "name": "Food Stall Plastic Stool",
+       "id": "furni_teaCanteen_stool_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 120
+      },
+      {
+       "name": "Old Storage Rack",
+       "id": "furni_teaCanteen_shelf_02",
+       "obtain": "Dropped from some stages",
+       "comfort": 310
+      },
+      {
+       "name": "Diner Cashier Table",
+       "id": "furni_teaCanteen_cash_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 200
+      },
+      {
+       "name": "Lungmen Square Rug",
+       "id": "furni_teaCanteen_carpet_02",
+       "obtain": "Dropped from some stages",
+       "comfort": 45
+      },
+      {
+       "name": "Diner Wallpaper",
+       "id": "furni_teaCanteen_wallpaper_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 240
+      },
+      {
+       "name": "Diner Tiled Floor",
+       "id": "furni_teaCanteen_floor_01",
+       "obtain": "Dropped from some stages",
+       "comfort": 240
+      }
+     ],
+     "inherited": "[Side Story – Carnival] Ato"
+    }
+   ],
+   "inheritsFrom": "[Side Story – Carnival] Ato"
   }
  }
 }

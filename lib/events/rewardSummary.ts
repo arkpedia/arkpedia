@@ -28,12 +28,19 @@ export interface SummaryContext {
   /** Outfit and furniture names known to this event (its store types and furniture sets). */
   outfits: ReadonlySet<string>;
   furniture: ReadonlySet<string>;
+  /** What the game tables say an item is (data/event-rewards.json's item kinds), by its name:
+   *  how an item named only in the CN client's words (a CN-only operator, a limited permit) is
+   *  placed. */
+  kinds: ReadonlyMap<string, string>;
 }
+
+/** A pull currency by its name, or by the tables' word for it (a CN permit's name is Chinese). */
+const isPull = (name: string, context: SummaryContext) => isPullCurrency(name) || (context.kinds.get(name) === 'permit' && !/Recruitment Permit|Expedited Plan/.test(name)) || (context.kinds.get(name) === 'currency' && /^(源石|合成玉)$/.test(name));
 
 export function rowOf(name: string, context: SummaryContext): Row {
   const tier = context.groups.find(group => /^Tier \d$/.test(group.tag) && group.names.includes(name))?.tag;
   if (tier) return `${tier} materials` as Row;
-  if (isPullCurrency(name)) return 'Headhunting';
+  if (isPull(name, context)) return 'Headhunting';
   if (name === 'LMD') return 'LMD';
   if (name === 'Chip Catalyst') return 'Chip catalysts';
   if (/(Dualchip|Chip Pack|Chip)$/.test(name)) return 'Chips';
@@ -44,9 +51,11 @@ export function rowOf(name: string, context: SummaryContext): Row {
   if (/Sanity|Potion|Sampler/.test(name)) return 'Sanity';
   if (/Voucher|Purchase Certificate/.test(name)) return 'Vouchers';
   if (name === 'Furniture Part') return 'Furniture parts';
-  if (context.operators.has(name)) return 'Operators';
-  if (context.outfits.has(name)) return 'Outfits';
-  if (context.furniture.has(name)) return 'Furniture';
+  const kind = context.kinds.get(name);
+  if (context.operators.has(name) || kind === 'operator') return 'Operators';
+  if (context.outfits.has(name) || kind === 'outfit') return 'Outfits';
+  if (context.furniture.has(name) || kind === 'furniture') return 'Furniture';
+  if (kind === 'sanity') return 'Sanity';
   return 'Other';
 }
 
@@ -61,7 +70,7 @@ export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryCon
       if (!count) continue;
       const held = totals.get(item.name);
       if (held) held.count += count; else totals.set(item.name, { name: item.name, count, iconPath: item.iconPath });
-      if (isPullCurrency(item.name)) {
+      if (isPull(item.name, context)) {
         const source = pulls.get(store.type) ?? pulls.set(store.type, new Map()).get(store.type)!;
         const at = source.get(item.name);
         if (at) at.count += count; else source.set(item.name, { name: item.name, count, iconPath: item.iconPath });

@@ -59,6 +59,8 @@ interface Props {
   extras?: EventExtras;
   /** The free rewards as the shareable card (All). Absent from a release compiled before it. */
   summary?: RewardSummary | null;
+  /** Where the rewards come from when not this event's own Global data (a rerun's original, CN). */
+  rewardNote?: string | null;
   /** The release's material catalogue order (data/material-catalogue.json), for the reward
    *  names this event lists: what the reward totals sort by. */
   materialOrder: string[];
@@ -158,6 +160,7 @@ export default function EventDetailPage({
   materialOrder,
   extras = NO_EXTRAS,
   summary = null,
+  rewardNote = null,
 }: Props) {
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   const sections = SECTIONS.filter((section) => (
@@ -324,6 +327,7 @@ export default function EventDetailPage({
 
           {activeSection === 'rewards' && (
             <section className="op-section" {...tabPanelProps('event-section', 'rewards')}>
+              {rewardNote && <p className="hint event-reward-note">{rewardNote}</p>}
               <Tabs
                 label="Reward store"
                 id="event-store"
@@ -482,10 +486,20 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const artAspect = cgImages.length > 0 ? CG_ASPECT : POSTER_ASPECT;
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
-  const eventRewards = (await import('@/data/event-rewards.json')).default as { storeNames?: Record<string, string>; events: Record<string, { groups: TableRewardGroup[] }> };
+  const eventRewards = (await import('@/data/event-rewards.json')).default as { storeNames?: Record<string, string>; storeFurniture?: string[]; events: Record<string, { region?: string; inheritsFrom?: string; groups: (TableRewardGroup & { inherited?: string; region?: string })[] }> };
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
+  const rewardEntry = eventRewards.events[event.name];
+  // A rerun's store is its own (tokens for the operator, other stock), so it is never filled in
+  // from the original run's: only the missions, first clears and furniture a rerun repeats are.
   const rawStores = getEventRewards(event.name).map((store) => ({ ...store, items: store.items.map((item) => ({ ...item, name: storeNames[item.name] ?? item.name })) }));
+  const fromOriginal = !!rewardEntry?.inheritsFrom && (rewardEntry.groups ?? []).some((g) => g.inherited);
+  const fromCn = rewardEntry?.region === 'CN' || (rewardEntry?.groups ?? []).some((g) => g.region === 'CN');
+  const rewardNote = fromOriginal
+    ? `Missions, first clears and furniture are the original run's (${rewardEntry!.inheritsFrom!.replace(/^\[[^\]]*\]\s*/, '')}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own.`
+    : fromCn
+      ? 'From the CN release: Global has not had this event yet, and its rewards may differ there. Items Global does not have yet keep their CN names.'
+      : null;
   const rewardStores: ResolvedRewardStore[] = rawStores.map((store) => ({
     type: store.type,
     name: store.name,
@@ -509,7 +523,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   }));
   // The rewards the game tables list beyond the store: sign-in events, gifts, missions and
   // first clears (data/event-rewards.json), as blocks beside it.
-  const tableRewards = eventRewards.events[event.name]?.groups ?? [];
+  const tableRewards = rewardEntry?.groups ?? [];
   const operators = tableRewards.some((group) => group.items.some((item) => item.kind === 'operator')) ? getAllOperators() : [];
   rewardStores.push(...tableRewardStores(tableRewards, (item) => {
     if (item.kind === 'operator') {
@@ -541,11 +555,13 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       skins,
       rewardStores,
       extras,
+      rewardNote,
       summary: rewardSummary(rewardStores, {
         groups: catalogue.groups,
         operators: new Set((rewardStores.some((s) => s.items.length) ? getAllOperators() : []).map((op) => op.name)),
         outfits: new Set([...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'skin').map((i) => i.name)), ...tableRewards.flatMap((g) => g.items.filter((i) => i.kind === 'outfit').map((i) => i.name))]),
-        furniture: new Set([...extras.furniture.flatMap((set) => set.pieces.map((p) => p.name)), ...tableRewards.flatMap((g) => g.items.filter((i) => i.kind === 'furniture').map((i) => i.name))]),
+        furniture: new Set([...extras.furniture.flatMap((set) => set.pieces.map((p) => p.name)), ...(eventRewards.storeFurniture ?? []).map((n) => storeNames[n] ?? n)]),
+        kinds: new Map(tableRewards.flatMap((g) => g.items.map((i) => [i.name, i.kind] as [string, string]))),
       }, materialOrder),
       materialOrder,
     },

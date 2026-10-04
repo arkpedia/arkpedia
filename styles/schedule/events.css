@@ -361,3 +361,4 @@
 @media (max-width: 560px) {
   .reward-summary-row { grid-template-columns: 1fr; gap: 6px; }
 }
+.event-reward-note { margin: 0 0 10px; }
