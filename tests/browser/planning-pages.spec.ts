@@ -200,7 +200,8 @@ test.describe('/events/[slug]', () => {
   test('unlimited store stock never totals to ×0 (GE-15)', async ({ page }) => {
     await page.goto(PEOPLE);
     await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Rewards' }).click();
-    const totals = page.locator('.event-reward-total');
+    // Every total on the tab: the All summary's compact tiles and a store's totals alike.
+    const totals = page.locator('.reward-summary-tile, .event-reward-total');
     await expect(totals.first()).toBeVisible();
     const texts = await totals.allInnerTexts();
     expect(texts.filter((text) => /×0$/.test(text.trim())), 'a listing without a limit is not a zero').toEqual([]);

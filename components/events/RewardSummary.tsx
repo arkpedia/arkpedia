@@ -9,14 +9,29 @@ import type { RewardSummary as Summary, SummaryItem } from '@/lib/events/rewardS
  * origin, so the canvas stays exportable.
  */
 const fmt = (n: number) => n.toLocaleString('en-US');
+/** `text` in lines no wider than `width`, at most `max` of them, the last ending in … if cut. */
+function wrapText(ctx: CanvasRenderingContext2D, text: string, width: number, max: number): string[] {
+  const lines: string[] = [];
+  let current = '';
+  for (const word of text.split(/\s+/)) {
+    const next = current ? `${current} ${word}` : word;
+    if (current && ctx.measureText(next).width > width) { lines.push(current); current = word; } else current = next;
+  }
+  if (current) lines.push(current);
+  if (lines.length <= max) return lines;
+  const kept = lines.slice(0, max);
+  let last = `${kept[max - 1]}…`;
+  while (last.length > 1 && ctx.measureText(last).width > width) last = `${last.slice(0, -2)}…`;
+  kept[max - 1] = last;
+  return kept;
+}
 
 function Tile({ item, register }: { item: SummaryItem; register: (name: string, el: HTMLImageElement | null) => void }) {
   return (
-    <span className="event-reward-total reward-summary-tile" title={item.name}>
-      <span className="event-reward-total-icon">
-        {item.iconPath && <Image src={item.iconPath} alt="" width={40} height={40} ref={(el: HTMLImageElement | null) => register(item.name, el)} />}
-      </span>
-      <span className="event-reward-total-name">{item.name}</span>
+    <span className="reward-summary-tile" title={item.name}>
+      {item.iconPath
+        ? <><Image src={item.iconPath} alt="" width={40} height={40} ref={(el: HTMLImageElement | null) => register(item.name, el)} /><span className="visually-hidden">{item.name}</span></>
+        : <span className="reward-summary-tile-name">{item.name}</span>}
       <b>×{fmt(item.count)}</b>
     </span>
   );
@@ -94,10 +109,10 @@ async function drawSummary(eventName: string, summary: Summary, rendered: Map<st
   const bg = color('--bg', '#0f1419'), panel = color('--panel-2', '#1b222b'), line = color('--line-soft', '#2a333d');
   const text = color('--text', '#e6e6e6'), dim = color('--text-dim', '#9aa4ad'), amber = color('--amber', '#e8b04a'), heading = color('--heading', '#4fd1c5');
   const font = getComputedStyle(document.body).fontFamily || 'sans-serif';
-  const W = 1200, PAD = 28, LABEL = 230, CELL = 118, ICON = 44, ROW_GAP = 8;
+  const W = 1200, PAD = 28, LABEL = 210, CELL = 76, ICON = 44, ROW_GAP = 8;
   const perLine = Math.floor((W - PAD * 2 - LABEL) / CELL);
   const lines = (n: number) => Math.max(1, Math.ceil(n / perLine));
-  const rowHeight = (n: number) => lines(n) * 92 + 12;
+  const rowHeight = (n: number) => lines(n) * 74 + 12;
   const sections = [{ title: `${eventName.replace(/^\[[^\]]*\]\s*/, '')} — rewards (${summary.sources.join(' + ')})`, rows: summary.rows.map((r) => ({ label: r.label, items: r.items })) }];
   if (summary.pulls.length) sections.push({ title: 'Orundum, Originite Prime and Headhunting Permits', rows: summary.pulls.map((r) => ({ label: r.source, items: r.items })) });
   const H = PAD + sections.reduce((h, s) => h + 56 + s.rows.reduce((t, r) => t + rowHeight(r.items.length) + ROW_GAP, 0), 0) + 40;
@@ -139,16 +154,21 @@ async function drawSummary(eventName: string, summary: Summary, rendered: Map<st
       ctx.fillText(row.label.toUpperCase(), PAD + 14, y + h / 2, LABEL - 24);
       row.items.forEach((item, i) => {
         const x = PAD + LABEL + (i % perLine) * CELL;
-        const top = y + 8 + Math.floor(i / perLine) * 92;
+        const top = y + 8 + Math.floor(i / perLine) * 74;
         const img = images.get(item.name);
-        if (img) ctx.drawImage(img, x + (CELL - ICON) / 2, top, ICON, ICON);
         ctx.textAlign = 'center';
+        // An icon and its count, as on the page; an item with no icon gets its name in the icon's place.
+        if (img) ctx.drawImage(img, x + (CELL - ICON) / 2, top, ICON, ICON);
+        else {
+          // The name, wrapped to at most three lines in the icon's square, as the page shows it.
+          ctx.fillStyle = dim;
+          ctx.font = `10px ${font}`;
+          const lines = wrapText(ctx, item.name, CELL - 6, 3);
+          lines.forEach((part, n) => ctx.fillText(part, x + CELL / 2, top + ICON / 2 + (n - (lines.length - 1) / 2) * 12));
+        }
         ctx.fillStyle = amber;
         ctx.font = `700 15px ${font}`;
-        ctx.fillText(fmt(item.count), x + CELL / 2, top + ICON + 12, CELL - 8);
-        ctx.fillStyle = dim;
-        ctx.font = `11px ${font}`;
-        ctx.fillText(item.name, x + CELL / 2, top + ICON + 30, CELL - 8);
+        ctx.fillText(fmt(item.count), x + CELL / 2, top + ICON + 12, CELL - 6);
         ctx.textAlign = 'left';
       });
       y += h + ROW_GAP;

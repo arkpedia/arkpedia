@@ -268,10 +268,12 @@ export default function EventDetailPage({
       />
 
       <main className="event-detail-layout">
-        <div className="event-detail-carousel">
-          {/* The event's art, once: it used to be here AND as a poster in the header. */}
+        {/* The event's art across the top, the sections below it (2026-10-04: a column of art
+            beside the sections left most of the page's left side empty). At most 420px tall, so
+            a 16:9 CG set does not fill the screen; a poster is full width well under that. */}
+        <div className="event-detail-carousel" style={{ maxWidth: `calc(420px * ${artAspect})` }}>
           <div className="event-detail-image-wrap" style={{ aspectRatio: artAspect }}>
-            {activeImage && <Image src={activeImage} alt={name} fill sizes="600px" style={{ objectFit: 'cover' }} />}
+            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: 'cover' }} />}
           </div>
           {images.length > 1 && (
             <div className="event-detail-carousel-dots">

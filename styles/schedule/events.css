@@ -91,16 +91,13 @@
 /* --- Event detail page ---
    PageHeader, then the event's art on the left and one section at a time on the
    right, switched by a SegmentedControl. */
+/* The art on top, the sections below at the page's full width. */
 .event-detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
 }
-.event-detail-carousel {
-  position: sticky;
-  top: 20px;
-}
+.event-detail-carousel { width: 100%; }
 /* Sized from the art (the page passes the ratio: 1024/328 for a poster, 16/9 for a
    CG set); this default is the poster's, for a release exported before it did. */
 .event-detail-image-wrap {
@@ -138,9 +135,11 @@
   min-width: 0;
 }
 .event-detail-tabs { margin-bottom: 16px; }
+/* The banner's own art, in its tab: kept to a card's size now the sections span the page. */
 .event-detail-banner-art-wrap {
   position: relative;
   width: 100%;
+  max-width: 640px;
   aspect-ratio: 1024 / 328;
   border-radius: var(--radius);
   overflow: hidden;
@@ -192,14 +191,6 @@
 .event-detail-skin-item:hover { border-color: var(--teal); color: var(--teal); }
 .event-detail-skin-item img { border-radius: var(--radius); }
 
-@media (max-width: 900px) {
-  .event-detail-layout {
-    grid-template-columns: 1fr;
-  }
-  .event-detail-carousel {
-    position: static;
-  }
-}
 
 /* Rewards: the store picker is components/ui/Tabs; All is a wrapping row of totals,
    each with its name under the icon. */
@@ -346,17 +337,44 @@
 .reward-summary-table { display: flex; flex-direction: column; gap: 6px; }
 .reward-summary-row {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: 130px 1fr;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   background: var(--panel-2);
 }
 .reward-summary-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); overflow-wrap: anywhere; }
-.reward-summary-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
-.reward-summary-tile { background: var(--panel); }
+/* Compact: an icon and its count, the name on hover and for screen readers (2026-10-04). An item
+   with no icon shows its name in the icon's place, so no tile is a blank square. */
+.reward-summary-items { display: flex; flex-wrap: wrap; gap: 4px; }
+.reward-summary-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 56px;
+  padding: 5px 4px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.reward-summary-tile img { width: 40px; height: 40px; object-fit: contain; }
+.reward-summary-tile-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 40px;
+  font-size: 9px;
+  line-height: 1.15;
+  color: var(--text-dim);
+  text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.reward-summary-tile b { font-family: var(--font-mono); font-size: 11px; color: var(--amber); }
 .reward-summary-heading { margin: 8px 0 0; }
 @media (max-width: 560px) {
   .reward-summary-row { grid-template-columns: 1fr; gap: 6px; }
