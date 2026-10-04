@@ -122,3 +122,13 @@ test('a site on a channel reads that channel\'s release, and live\'s while the c
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
+
+test('a Deploy build reads the channel of the project it builds for, whichever revision of deploy.yml runs', () => {
+  // Deploy is started by the Check workflow, so GitHub runs main's deploy.yml even for a dev
+  // build: the project id it sets for every build is what names the channel.
+  const [net, dev] = readDeployments();
+  assert.equal(contentPointer({ VERCEL_PROJECT_ID: dev.projectId }), 'dev-live');
+  assert.equal(contentPointer({ VERCEL_PROJECT_ID: net.projectId }), 'live');
+  assert.equal(contentPointer({ VERCEL_PROJECT_ID: 'prj_unknown' }), 'live');
+  assert.equal(contentPointer({ VERCEL_PROJECT_ID: dev.projectId, ARKPEDIA_CONTENT_CHANNEL: 'live' }), 'live', 'an explicit channel wins');
+});

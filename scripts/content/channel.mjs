@@ -18,11 +18,10 @@
  */
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
+import channelConfig from './content-channel.cjs';
 
-export const CHANNELS = {
-  main: { dataBranch: 'main', pointer: 'live' },
-  dev: { dataBranch: 'dev', pointer: 'dev-live' },
-};
+/** config/content-channels.json: { main: { dataBranch, pointer }, dev: { ... } }. */
+export const CHANNELS = channelConfig.CHANNELS;
 
 /** The channel `branch` publishes to, or an error: no other branch has one. */
 export function channelFor(branch) {
@@ -31,14 +30,11 @@ export function channelFor(branch) {
   return channel;
 }
 
-/** The pointer branch a reader of the release uses: ARKPEDIA_CONTENT_CHANNEL, else live. The
- *  same rule as lib/content/server.ts's contentChannel(). */
-export const POINTER = /^[a-z0-9][a-z0-9-]*$/;
-export function contentPointer(env = process.env) {
-  const value = env.ARKPEDIA_CONTENT_CHANNEL || 'live';
-  if (!POINTER.test(value)) throw new Error(`ARKPEDIA_CONTENT_CHANNEL must be a branch name of lower-case letters, digits and dashes, not ${value}`);
-  return value;
-}
+/** The pointer branch a reader of the release uses (scripts/content/content-channel.cjs, which
+ *  next.config.js asks too): ARKPEDIA_CONTENT_CHANNEL, else the channel of the Vercel project a
+ *  Deploy build is for, else live. */
+export const POINTER = channelConfig.POINTER;
+export const contentPointer = channelConfig.contentPointer;
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const at = process.argv.indexOf('--branch');
