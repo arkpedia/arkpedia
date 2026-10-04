@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import SearchInput from '@/components/ui/SearchInput';
 import { useContentUrl } from '@/lib/content/context';
+import { operatorHref } from '@/lib/operators/operatorHref';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getOperatorSearchResults, loadOperatorSearch, SearchableOperatorRecord } from '@/lib/operators/operatorSearch';
 import type { Operator } from '@/lib/operators/operatorTypes';
@@ -13,8 +14,9 @@ import type { Operator } from '@/lib/operators/operatorTypes';
  * version for a narrow artwork column the header no longer has). Enter opens the
  * highlighted match, or the first one when nothing is highlighted -- the field's
  * old behaviour, kept because it is how a reader who knows the name moves on.
+ * The next operator opens at `section`, the one the reader is on (operatorHref).
  */
-export default function OperatorSearch() {
+export default function OperatorSearch({ section }: { section: string | null }) {
   const contentUrl = useContentUrl();
   const router = useRouter();
   const [operators, setOperators] = useState<SearchableOperatorRecord[]>([]);
@@ -35,7 +37,7 @@ export default function OperatorSearch() {
 
   function select(name: string) {
     setQuery('');
-    void router.push(`/operators/${encodeURIComponent(name)}`);
+    void router.push(operatorHref(name, section));
   }
 
   return (

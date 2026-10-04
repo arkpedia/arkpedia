@@ -12,6 +12,7 @@ import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import OperatorSearch from '@/components/operators/OperatorSearch';
+import { operatorHref } from '@/lib/operators/operatorHref';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
@@ -297,7 +298,7 @@ function TechniqueList({
           return (
             <div key={ti} className="op-skill-technique-block">
               <div className="op-skill-technique-icons-row">
-                <Link prefetch={false} href={`/operators/${encodeURIComponent(unitData.name)}`} title={unitData.name}>
+                <Link prefetch={false} href={operatorHref(unitData.name, 'skills')} title={unitData.name}>
                   <Image src={getOperatorIconPath(unitData as Operator)} alt={t.unit || ''} width={40} height={40} className="op-skill-technique-unit-icon" />
                 </Link>
               </div>
@@ -322,7 +323,7 @@ function TechniqueList({
                 )}
                 {branchOps &&
                   branchOps.map((op) => (
-                    <Link prefetch={false} key={op.name} href={`/operators/${encodeURIComponent(op.name)}`} title={op.name}>
+                    <Link prefetch={false} key={op.name} href={operatorHref(op.name, 'skills')} title={op.name}>
                       <Image src={getOperatorIconPath(op as Operator)} alt={op.name} width={32} height={32} className="op-skill-technique-branch-op-icon" />
                     </Link>
                   ))}
@@ -356,7 +357,7 @@ function TechniqueList({
               {groupOps && groupOps.length > 0 && (
                 <div className="op-skill-technique-branch-ops">
                   {groupOps.map((op) => (
-                    <Link prefetch={false} key={op.name} href={`/operators/${encodeURIComponent(op.name)}`} title={op.name}>
+                    <Link prefetch={false} key={op.name} href={operatorHref(op.name, 'skills')} title={op.name}>
                       <Image src={getOperatorIconPath(op as Operator)} alt={op.name} width={32} height={32} className="op-skill-technique-branch-op-icon" />
                     </Link>
                   ))}
@@ -385,7 +386,7 @@ function TechniqueList({
             {related && isExpanded && (
               <div className="op-skill-technique-related-row">
                 {related.entries.map((op) => (
-                  <Link prefetch={false} key={op.name} href={`/operators/${encodeURIComponent(op.name)}`} className="op-skill-technique-related-op" aria-label={op.name}>
+                  <Link prefetch={false} key={op.name} href={operatorHref(op.name, 'skills')} className="op-skill-technique-related-op" aria-label={op.name}>
                     <Image src={getOperatorIconPath(op as Operator)} alt={op.name} width={40} height={40} />
                   </Link>
                 ))}
@@ -911,7 +912,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
           never scrolls and the information panel scrolls inside it. */}
       <div className={pageStyles.frame} ref={frameRef}>
       <PageHeader slim eyebrow={<>Rhodes Island // <Link prefetch={false} href="/operators">Operator roster</Link></>}
-        title={operator.name} actions={<OperatorSearch />} />
+        title={operator.name} actions={<OperatorSearch section={activeSection} />} />
 
       <main className={`${pageStyles.page}${infoExpanded ? ` ${pageStyles.infoExpanded}` : ''}`} onClick={(event) => {
         const link = (event.target as HTMLElement).closest('a[href^="#"]');
@@ -984,7 +985,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       <span className={pageStyles.classLabel}><OperatorGameIcon src={getClassIconPath(operator.class)!} label={operator.class || 'Class'} size={20} /><span>{operator.class}</span></span>
                     )}
                     {getBranchIconPath(operator.branch) && (
-                      <OperatorRelationPopover label={operator.branch || 'Branch'} title={`Other ${operator.branch} operators`} operators={branchRelatedOperators}>
+                      <OperatorRelationPopover label={operator.branch || 'Branch'} title={`Other ${operator.branch} operators`} operators={branchRelatedOperators} section={activeSection}>
                         <span className={pageStyles.classLabel}><OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={20} /><span>{operator.branch}</span></span>
                       </OperatorRelationPopover>
                     )}
