@@ -254,16 +254,18 @@ jobs:
         run: |
           node scripts/content/check-completeness.mjs
           npx tsx scripts/build/build-operator-search.ts
+          # check:published-assets, except that a legacy voice clip an operator page offers
+          # but the pinned voice repository lacks (a day the voices stage failed, or a newly
+          # adopted voice revision that dropped one) holds back that clip, and a folder an asset
+          # repository publishes that this code does not map yet (its mapping still on dev) is
+          # held too, each as a quarantine entry, instead of the release. Before npm test,
+          # whose folder test accepts an unmapped folder only with that entry.
+          npm run check:published-assets:release
           npm test
           # check:assets, except that an icon a released operator's record names but the image
           # repository has not published yet (a Global launch renames art the day it lands)
           # holds back that icon, as a quarantine entry, instead of the release.
           npm run check:assets:release
-          # check:published-assets, except that a legacy voice clip an operator page offers
-          # but the pinned voice repository lacks (a day the voices stage failed, or a newly
-          # adopted voice revision that dropped one) holds back that clip, as a quarantine
-          # entry, instead of the release.
-          npm run check:published-assets:release
           mkdir -p "$RUNNER_TEMP/prepared-content"
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"

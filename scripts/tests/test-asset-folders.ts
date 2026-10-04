@@ -6,7 +6,7 @@ import bundledRevisions from '../../data/assets/revisions.json';
 import assetFolders from '../../config/asset-folders.json';
 import { contentUrl } from '../../lib/content/urls';
 // @ts-expect-error Plain Node helper.
-import { folderDrift, manifestFolders } from '../lib/asset-folders.mjs';
+import { folderDrift, folderDriftByKind, manifestFolders } from '../lib/asset-folders.mjs';
 
 /*
  * Which asset repository serves each top-level art folder is written once, in
@@ -38,12 +38,20 @@ test('the site and the deploy redirects map every folder to the repository the c
   }
 });
 
-test('the folders are exactly the pinned repositories\' published tree', () => {
+test('the folders are exactly the pinned repositories\' published tree, or an unmapped one is held', () => {
   // data/assets/external-asset-index.json is both repositories' manifests at the pins in
   // data/assets/revisions.json (update-asset-revisions.mjs), so this needs no network.
   const index = JSON.parse(fs.readFileSync('data/assets/external-asset-index.json', 'utf8')) as { files: string[] };
-  const published = manifestFolders({ files: Object.fromEntries(index.files.map(file => [file, {}])) });
-  assert.deepEqual(published, [...assetFolders['arkpedia-skin-assets'], ...assetFolders['arkpedia-image-assets']].sort());
+  const published = manifestFolders({ files: Object.fromEntries(index.files.map(file => [file, {}])) }) as string[];
+  const mapped = [...assetFolders['arkpedia-skin-assets'], ...assetFolders['arkpedia-image-assets']].sort();
+  // Every mapped folder is published: a missing one breaks the pages that link into it.
+  assert.deepEqual(mapped.filter(folder => !published.includes(folder)), []);
+  // A published folder the config does not map links nowhere, and the release job holds it in
+  // data/quarantine.json (check-published-assets.mjs --quarantine, before npm test) rather
+  // than fail the day's release; anywhere else it fails here, so a PR that adds one says so.
+  const quarantine = fs.existsSync('data/quarantine.json') ? JSON.parse(fs.readFileSync('data/quarantine.json', 'utf8')) as { entries: { key: string }[] } : { entries: [] };
+  const held = new Set(quarantine.entries.filter(entry => entry.key.startsWith('asset-folder:')).map(entry => entry.key.split('/').at(-1)));
+  assert.deepEqual(published.filter(folder => !mapped.includes(folder) && !held.has(folder)), []);
 });
 
 test('a folder a repository gains, or one the config assigns to the wrong repository, is named', () => {
@@ -55,7 +63,10 @@ test('a folder a repository gains, or one the config assigns to the wrong reposi
   assert.deepEqual(folderDrift({ ...cfg, 'arkpedia-image-assets': ['material-icons', 'six-star-skins'] }, { 'arkpedia-image-assets': manifest('material-icons/b.webp') }),
     ['config/asset-folders.json maps six-star-skins/ to arkpedia-image-assets, which publishes no such folder']);
   // The published-assets check, which runs in Check and in the release job, applies it at the pins.
-  assert.match(fs.readFileSync('scripts/audits/check-published-assets.mjs', 'utf8'), /folderDrift\(await read\('config\/asset-folders\.json'\)/);
+  assert.match(fs.readFileSync('scripts/audits/check-published-assets.mjs', 'utf8'), /folderDriftByKind\(await read\('config\/asset-folders\.json'\)/);
+  // Apart: an unmapped folder is one the release job may hold, a missing one never.
+  assert.deepEqual(folderDriftByKind(cfg, { 'arkpedia-image-assets': manifest('new-folder/c.webp') }).unmapped.map((row: { folder: string }) => row.folder), ['new-folder']);
+  assert.deepEqual(folderDriftByKind(cfg, { 'arkpedia-image-assets': manifest('new-folder/c.webp') }).missing, ['config/asset-folders.json maps material-icons/ to arkpedia-image-assets, which publishes no such folder']);
 });
 
 test('no image host is allowed that nothing renders', () => {

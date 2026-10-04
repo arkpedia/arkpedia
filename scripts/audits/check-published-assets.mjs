@@ -1,6 +1,16 @@
 import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { folderDrift } from '../lib/asset-folders.mjs';
+import { folderDriftByKind } from '../lib/asset-folders.mjs';
+import { beginStage } from '../lib/quarantine.mjs';
+
+/*
+ *   node scripts/audits/check-published-assets.mjs               Check: any folder drift fails
+ *   node scripts/audits/check-published-assets.mjs --quarantine  the release job: a folder a
+ *     repository publishes that config/asset-folders.json does not map is held as a
+ *     published-partial entry (stage published-assets) instead, since no page links to it;
+ *     test-asset-folders.ts accepts it only with that entry.
+ */
+const quarantine = process.argv.includes('--quarantine');
 
 const read = async file => JSON.parse(await fs.readFile(new URL(`../../${file}`, import.meta.url), 'utf8'));
 const revisions = await read('data/assets/revisions.json');
@@ -20,8 +30,18 @@ const manifests = await Promise.all(['arkpedia-image-assets', 'arkpedia-skin-ass
   repo, manifest: JSON.parse(await download(url(repo, 'asset-manifest.json'))),
 })));
 // Every folder each pinned repository publishes is one the site maps to it, and the reverse.
-const drift = folderDrift(await read('config/asset-folders.json'), Object.fromEntries(manifests.map(({ repo, manifest }) => [repo, manifest])));
+const { unmapped, missing: unpublished } = folderDriftByKind(await read('config/asset-folders.json'), Object.fromEntries(manifests.map(({ repo, manifest }) => [repo, manifest])));
+const drift = [...(quarantine ? [] : unmapped.map(row => row.problem)), ...unpublished];
 if (drift.length) throw new Error(`Asset folders and the pinned repositories disagree:\n  ${drift.join('\n  ')}`);
+if (quarantine) {
+  const stage = beginStage(process.cwd(), 'published-assets');
+  for (const { repository, folder, problem } of unmapped) {
+    stage.add({ key: `asset-folder:${repository}/${folder}`, action: 'published-partial',
+      reason: `${problem}: no page links to it until the app maps it (most likely a mapping that is on dev and not yet on main)` });
+  }
+  stage.commit();
+  if (unmapped.length) console.warn(`::warning::${unmapped.length} published folder(s) the app does not map, held in data/quarantine.json: ${unmapped.map(row => row.folder).join(', ')}`);
+}
 const files = new Map(manifests.flatMap(({ repo, manifest }) => Object.entries(manifest.files).map(([path, row]) => [path, { repo, ...row }])));
 const missing = index.files.filter(path => !files.has(path));
 if (missing.length) throw new Error(`Published revision is missing ${missing.length} files: ${missing.slice(0, 15).join(', ')}`);

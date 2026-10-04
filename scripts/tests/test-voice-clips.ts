@@ -74,7 +74,8 @@ test('the voice lines are checked after the voices stage rebuilds them, never in
   const scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
   // App CI stays strict; the release holds a missing clip back instead of failing.
   assert.match(scripts['check:published-assets'], /node scripts\/audits\/check-voice-clips\.mjs$/);
-  assert.match(scripts['check:published-assets:release'], /^node scripts\/audits\/check-published-assets\.mjs && node scripts\/audits\/check-voice-clips\.mjs --quarantine$/);
+  // The release also holds a folder this code does not map yet (check-published-assets.mjs).
+  assert.match(scripts['check:published-assets:release'], /^node scripts\/audits\/check-published-assets\.mjs --quarantine && node scripts\/audits\/check-voice-clips\.mjs --quarantine$/);
   assert.doesNotMatch(workflow, /\n\s*npm run check:published-assets\n/, 'the release job never runs the strict clip check');
   assert.match(fs.readFileSync('.github/workflows/check.yml', 'utf8'), /npm run check:published-assets\n/, 'app CI runs the strict one');
   assert.equal(scripts['assets:update'], 'node scripts/sync/update-asset-revisions.mjs');

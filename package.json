@@ -43,7 +43,7 @@
     "check:assets:release": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts --quarantine",
     "check:payload-budgets": "tsx scripts/audits/check-payload-budgets.ts",
     "check:published-assets": "node scripts/audits/check-published-assets.mjs && node scripts/audits/check-voice-clips.mjs",
-    "check:published-assets:release": "node scripts/audits/check-published-assets.mjs && node scripts/audits/check-voice-clips.mjs --quarantine",
+    "check:published-assets:release": "node scripts/audits/check-published-assets.mjs --quarantine && node scripts/audits/check-voice-clips.mjs --quarantine",
     "check:deployment-traces": "node scripts/audits/check-deployment-traces.mjs",
     "check:client-chunks": "node scripts/audits/check-client-chunks.mjs",
     "assets:update": "node scripts/sync/update-asset-revisions.mjs",
