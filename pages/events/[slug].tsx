@@ -27,6 +27,10 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import Rarity from '@/components/ui/Rarity';
 import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
+import { eventExtras, NO_EXTRAS, tableRewardStores, type EventExtras, type TableRewardGroup } from '@/lib/events/tableRewards';
+import { EventFurniture, EventNotices, EventPacks } from '@/components/events/EventExtras';
+import { getAllOperators } from '@/lib/operators/operators';
+import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 
 const CAROUSEL_INTERVAL_MS = 8000;
 const PAUSE_AFTER_CLICK_MS = 30000;
@@ -49,6 +53,8 @@ interface Props {
   featuredOperators: FeaturedOperatorRate[];
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
+  /** Packs, furniture sets and announced gifts. Absent from a release compiled before them. */
+  extras?: EventExtras;
   /** The release's material catalogue order (data/material-catalogue.json), for the reward
    *  names this event lists: what the reward totals sort by. */
   materialOrder: string[];
@@ -65,6 +71,16 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
 ];
+
+/* The tabs beside the reward blocks: values no store type can take. */
+const EXTRA_TABS = { packs: '__packs', furniture: '__furniture', notices: '__notices' } as const;
+/** A reward tab as a link names it: "Login event" is login-event, the packs tab packs. */
+const tabSlug = (value: string) => value.replace(/^__/, '').replace(/__/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+/** The page's address with this hash, without a scroll or a history entry. */
+function setLink(hash: string) {
+  if (typeof window === 'undefined') return;
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}#${hash}`);
+}
 
 /** The poster's shape: the game's event banner art is 1024x328. */
 const POSTER_ASPECT = '1024 / 328';
@@ -136,9 +152,11 @@ export default function EventDetailPage({
   skins,
   rewardStores,
   materialOrder,
+  extras = NO_EXTRAS,
 }: Props) {
+  const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   const sections = SECTIONS.filter((section) => (
-    section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 : skins.length > 0
+    section.key === 'banner' ? !!bannerName : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : skins.length > 0
   ));
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
@@ -163,6 +181,7 @@ export default function EventDetailPage({
   function changeSection(next: SectionKey) {
     hold.capture();
     setActiveSection(next);
+    setLink(next === 'rewards' && activeRewardTab !== 'all' ? `rewards/${tabSlug(activeRewardTab)}` : next);
   }
   const [imgIndex, setImgIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -177,7 +196,26 @@ export default function EventDetailPage({
   function changeRewardTab(next: string) {
     hold.capture();
     setActiveRewardTab(next);
+    setLink(next === 'all' ? 'rewards' : `rewards/${tabSlug(next)}`);
   }
+  /* A link names the section and reward tab it shows (#skins, #rewards/packs), so a shared link
+     opens on what the reader was looking at. Read once the page is on screen, and kept in step
+     with the tabs by replaceState, which neither scrolls nor adds history. */
+  const rewardTabValues = [...rewardTypes, ...(extras.notices.length ? [EXTRA_TABS.notices] : []), ...(extras.packs.length ? [EXTRA_TABS.packs] : []), ...(extras.furniture.length ? [EXTRA_TABS.furniture] : [])];
+  useEffect(() => {
+    const follow = () => {
+      const [section, tab] = decodeURIComponent(window.location.hash.slice(1)).split('/');
+      if (sections.some((s) => s.key === section)) setActiveSection(section as SectionKey);
+      const reward = tab ? rewardTabValues.find((value) => tabSlug(value) === tab) : undefined;
+      if (section === 'rewards' && reward) setActiveRewardTab(reward);
+    };
+    follow();
+    // A link to another tab of this page followed in place (replaceState fires no hashchange).
+    window.addEventListener('hashchange', follow);
+    return () => window.removeEventListener('hashchange', follow);
+    // Per event: the tabs keep the link in step after that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name]);
   const rewardTotals = computeRewardTotals(rewardStores, materialOrder);
   const activeStoreItems = rewardStores.filter((s) => s.type === activeRewardTab).flatMap((s) => s.items);
 
@@ -287,11 +325,23 @@ export default function EventDetailPage({
                 className="event-rewards-tabs"
                 value={activeRewardTab}
                 onChange={changeRewardTab}
-                options={[{ value: 'all', label: 'All' }, ...rewardTypes.map((t) => ({ value: t, label: t }))]}
+                options={[
+                  { value: 'all', label: 'All' },
+                  ...rewardTypes.map((t) => ({ value: t, label: t })),
+                  ...(extras.notices.length ? [{ value: EXTRA_TABS.notices, label: 'Announced' }] : []),
+                  ...(extras.packs.length ? [{ value: EXTRA_TABS.packs, label: 'Packs' }] : []),
+                  ...(extras.furniture.length ? [{ value: EXTRA_TABS.furniture, label: 'Furniture' }] : []),
+                ]}
               />
               <div {...tabPanelProps('event-store', activeRewardTab)}>
                 {activeRewardTab === 'all' ? (
                   <RewardTotalsRow totals={rewardTotals} />
+                ) : activeRewardTab === EXTRA_TABS.packs ? (
+                  <EventPacks groups={extras.packs} />
+                ) : activeRewardTab === EXTRA_TABS.furniture ? (
+                  <EventFurniture sets={extras.furniture} />
+                ) : activeRewardTab === EXTRA_TABS.notices ? (
+                  <EventNotices notices={extras.notices} />
                 ) : (
                   <RewardStorePanelGrid items={activeStoreItems} />
                 )}
@@ -427,7 +477,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const artAspect = cgImages.length > 0 ? CG_ASPECT : POSTER_ASPECT;
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
-  const rawStores = getEventRewards(event.name);
+  const eventRewards = (await import('@/data/event-rewards.json')).default as { storeNames?: Record<string, string>; events: Record<string, { groups: TableRewardGroup[] }> };
+  // The store's Chinese item names in English, where the Global tables have them.
+  const storeNames = eventRewards.storeNames ?? {};
+  const rawStores = getEventRewards(event.name).map((store) => ({ ...store, items: store.items.map((item) => ({ ...item, name: storeNames[item.name] ?? item.name })) }));
   const rewardStores: ResolvedRewardStore[] = rawStores.map((store) => ({
     type: store.type,
     name: store.name,
@@ -449,6 +502,21 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       iconPath: rewardIconPath(item, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
     })),
   }));
+  // The rewards the game tables list beyond the store: sign-in events, gifts, missions and
+  // first clears (data/event-rewards.json), as blocks beside it.
+  const tableRewards = eventRewards.events[event.name]?.groups ?? [];
+  const operators = tableRewards.some((group) => group.items.some((item) => item.kind === 'operator')) ? getAllOperators() : [];
+  rewardStores.push(...tableRewardStores(tableRewards, (item) => {
+    if (item.kind === 'operator') {
+      const op = operators.find((o) => o.name === item.name);
+      return op ? getOperatorIconPath(op) : null;
+    }
+    return rewardIconPath(
+      { name: item.name, type: item.kind === 'outfit' ? 'skin' : 'material' },
+      (skinName) => findSkinIconPath(skinName.split(' / ').pop() ?? skinName) || null,
+      publicFileExists,
+    );
+  }));
 
   return {
     props: {
@@ -464,6 +532,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       featuredOperators,
       skins,
       rewardStores,
+      extras: eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material' }, () => null, publicFileExists)),
       materialOrder: materialOrderFor(
         checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
         rewardStores.flatMap((store) => store.items.map((item) => item.name)),

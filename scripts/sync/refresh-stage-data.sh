@@ -99,6 +99,15 @@ stage supply-stages --needs stage-dataset -- node scripts/build/build-supply-sta
 # The depot screen's own item order.
 stage ingame-order -- node scripts/build/build-ingame-order.mjs
 
+# The official Global event announcements, cached post by post (data/official-news/global): a
+# quiet day reads one page of the list. GET only; a day the site is down keeps the cache.
+stage official-news -- node scripts/sync/sync-official-news.mjs
+
+# Each event's rewards beyond its store (data/event-rewards.json): from the EN tables synced
+# above, sign-in events, banner gifts, missions, stage first clears and furniture sets; from the
+# announcements, packs and announced gifts.
+stage event-rewards -- node scripts/build/build-event-rewards.mjs
+
 # Base formulas (Workshop + Factory), for the planner's crafting.
 # Reads the EN tables synced above. Not a stage step, but it is the only place the
 # EN gamedata is already on disk, and a formula table that ages silently is worse

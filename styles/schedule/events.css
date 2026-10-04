@@ -319,3 +319,21 @@
 
 /* No resting frame on skin tiles (maintainer, 2026-09-26); focus matches hover. */
 .event-detail-skin-item:focus-visible { border-color: var(--teal); }
+
+/* Packs, furniture sets and announced gifts (components/events/EventExtras.tsx). */
+.event-extras { display: flex; flex-direction: column; gap: 14px; }
+.event-extras-group { display: flex; flex-direction: column; gap: 12px; }
+.event-pack, .event-furniture-set, .event-notice {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 12px;
+}
+.event-pack h3, .event-furniture-set h3, .event-notice h3 { margin: 0 0 8px; }
+.event-pack-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.event-pack-window { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.event-notice p { margin: 0 0 6px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.event-furniture-pieces { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }
+.event-furniture-pieces li { display: flex; flex-direction: column; min-width: 0; padding: 4px 0; border-bottom: 1px solid var(--line-soft); }
+.event-furniture-piece-name { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.event-furniture-piece-meta { font-size: 11px; color: var(--text-dim); overflow-wrap: anywhere; }
