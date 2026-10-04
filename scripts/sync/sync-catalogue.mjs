@@ -9,6 +9,7 @@ import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorRelease
 import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
+import { cnAnnouncements } from '../build/cn-news.mjs';
 import { cnTables, pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
@@ -145,7 +146,10 @@ export async function syncCatalogue(root, options={}) {
   const eventFiles=fs.readdirSync(path.join(root,'data/events')).filter(f=>/^events_\d+\.json$/.test(f)).map(f=>path.join(root,'data/events',f));
   const events=eventFiles.flatMap(read);
   const initial=reconcileOperators({operators,cn,en});
-  const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows,now:now.getTime()});
+  // The official CN announcements cached by sync-cn-news.mjs: events and banners a week before the client has them.
+  const newsDir=path.join(root,'data/official-news/cn');
+  const announced=cnAnnouncements(fs.existsSync(newsDir) ? fs.readdirSync(newsDir).filter(f=>/^\d+\.json$/.test(f)).map(f=>read(path.join(newsDir,f))) : []);
+  const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows,announced,now:now.getTime()});
   const updated=reconcileOperators({operators:initial.operators,cn,en,releases:operatorReleaseDates(initial.operators,calendars.banners,cn,en)});
   // Populate CN release dates for newly imported records too; reconciliation only revisits Global releases.
   const releases=operatorReleaseDates(updated.operators,calendars.banners,cn,en);

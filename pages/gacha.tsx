@@ -1,4 +1,4 @@
-import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
+import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -1931,7 +1931,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   // Operators panel says why. See simulatorPullable.
   const pullable = !!banner && !!selectedBanner && simulatorPullable(selectedBanner, banner);
   const unpullableReason = !banner || !selectedBanner || pullable ? undefined
-    : isLineupPending(selectedBanner) ? LINEUP_PENDING_NOTE : 'No 6★ operators can be pulled on this banner.';
+    : isLineupPending(selectedBanner) ? lineupPendingNote(selectedBanner) : 'No 6★ operators can be pulled on this banner.';
 
   function pull(count: number) {
     if (!banner || !pullable) return;
@@ -2017,7 +2017,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                   This banner&apos;s type couldn&apos;t be confidently determined from the scraped data, so no
                   simulator is available for it. Showing what&apos;s known below.
                 </p>
-                {isLineupPending(selectedBanner) && <p className="hint">{LINEUP_PENDING_NOTE}</p>}
+                {isLineupPending(selectedBanner) && <p className="hint">{lineupPendingNote(selectedBanner)}</p>}
                 <div className="gacha-featured-row" style={{ marginTop: 12 }}>
                   {selectedBanner.six_stars.map((name) => {
                     const found = pools.six.find((i) => i.name === name);
@@ -2373,7 +2373,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     <h2>Featured Operators</h2>
                     {isLineupPending(selectedBanner) ? (
                       <div className="gacha-lineup-pending" style={featuredRowHeight.current ? { minHeight: featuredRowHeight.current } : undefined}>
-                        <p className="hint">{LINEUP_PENDING_NOTE}</p>
+                        <p className="hint">{lineupPendingNote(selectedBanner)}</p>
                       </div>
                     ) : <div className="gacha-featured-row" ref={featuredRowRef}>
                       {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
@@ -2686,6 +2686,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     ...(b.cn_window ? { cn_window: b.cn_window } : {}),
     banner_image: b.banner_image ?? null,
     ...(b.lineupSource ? { lineupSource: b.lineupSource } : {}),
+    ...(b.announcedLineup ? { announcedLineup: b.announcedLineup } : {}),
     six_stars: b.six_stars ?? [],
     rate_up_six_stars: b.rate_up_six_stars ?? [],
     five_stars: b.five_stars ?? [],

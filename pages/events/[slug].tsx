@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
-import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
+import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { getFeaturedOperatorRates, splitEventBannerRates, FeaturedOperatorRate } from '@/lib/gacha/eventBannerRates';
 import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
@@ -51,7 +51,7 @@ interface Props {
   bannerName: string | null;
   bannerImage: string | null;
   /** The linked banner is out before its lineup is known (lineupSource 'pending'). */
-  lineupPending: boolean;
+  lineupPending: string | null;
   featuredOperators: FeaturedOperatorRate[];
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
@@ -309,7 +309,7 @@ export default function EventDetailPage({
                 {bannerImage && <Image src={bannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
               </div>
               <p className="hint">{bannerName}</p>
-              {lineupPending && <p className="hint">{LINEUP_PENDING_NOTE}</p>}
+              {lineupPending && <p className="hint">{lineupPending}</p>}
               {!lineupPending && Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
                 <h3>{group === 'featured' ? 'Featured operators' : 'Returning limited operators'}</h3>
                 {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
@@ -584,7 +584,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       isPredicted: event.isPredicted,
       bannerName: banner?.name || null,
       bannerImage: banner?.banner_image || null,
-      lineupPending: banner ? isLineupPending(banner) : false,
+      lineupPending: banner && isLineupPending(banner) ? lineupPendingNote(banner) : null,
       featuredOperators,
       skins,
       rewardStores,

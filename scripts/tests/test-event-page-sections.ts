@@ -25,7 +25,7 @@ const render = (element: ReactElement) => renderToStaticMarkup(
 type PageProps = Parameters<typeof EventDetailPage>[0];
 const page = (over: Partial<PageProps>) => render(createElement(EventDetailPage, {
   name: 'Test Event', poster: null, images: [], artAspect: '1024 / 328', dateRange: '2026/09/25–2026/10/09', isPredicted: false,
-  bannerName: null, bannerImage: null, lineupPending: false, featuredOperators: [], skins: [], rewardStores: [], materialOrder: [], ...over,
+  bannerName: null, bannerImage: null, lineupPending: null, featuredOperators: [], skins: [], rewardStores: [], materialOrder: [], ...over,
 }));
 
 /** The right-hand column, where the tabs, the empty state and the section bodies are. */

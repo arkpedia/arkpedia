@@ -15,7 +15,7 @@ import type { GameWindowTimes } from '@/lib/schedule/gameWindow';
  *  (scripts/sync/banner-art-lineup.mjs), or nothing yet -- 'pending' ships with empty
  *  lineup arrays until the wiki has a row for the banner's window. Hand-kept records
  *  carry none. */
-export type BannerLineupSource = 'wiki' | 'client' | 'client-art' | 'pending';
+export type BannerLineupSource = 'wiki' | 'client' | 'client-art' | 'announcement' | 'pending';
 
 /** Which name the record carries: the client's Chinese one while the wiki has none,
  *  the wiki's community English one, or the official Global one. Undefined -- every
@@ -35,6 +35,9 @@ export interface HeadhuntingBanner {
   cnPoolId?: string;
   globalPoolId?: string;
   lineupSource?: BannerLineupSource;
+  /** The rate-ups an official CN announcement names, as it writes them, while an operator it names
+   *  has no record yet (lineupSource 'pending'; scripts/sync/catalogue-model.mjs applyAnnouncements). */
+  announcedLineup?: { six: string[]; five: string[]; rateUpSix: string[] };
   nameStatus?: BannerNameStatus;
   global_window?: GameWindowTimes;
   cn_window?: GameWindowTimes;
@@ -48,12 +51,14 @@ export interface HeadhuntingBanner {
   linked_event: string | null; // computed once at scrape time against the per-year event records
 }
 
+/** A name for comparing: prefix, "rerun" and punctuation aside. Letters of any script stay, so
+ *  an event under its Chinese name ("[Side Story] 昨日海") is not the empty string. */
 function normalize(s: string): string {
   return s
     .toLowerCase()
     .replace(/\[[^\]]*\]/g, '')
     .replace(/\brerun\b/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
 

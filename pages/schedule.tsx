@@ -24,7 +24,7 @@ import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentEventRows, currentPullBannerLinks, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
 import { toServerTime } from '@/lib/time/serverDay';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
-import { isLineupPending, LINEUP_PENDING_NOTE } from '@/lib/gacha/bannerLineup';
+import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/publishedArt';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
@@ -582,7 +582,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 {panelBanner && isLineupPending(panelBanner) && (
                   <div className="schedule-panel-pullable">
                     <h3 className="schedule-panel-subheading">Pullable Operators</h3>
-                    <p className="hint">{LINEUP_PENDING_NOTE}</p>
+                    <p className="hint">{lineupPendingNote(panelBanner)}</p>
                   </div>
                 )}
                 {panelBanner && !isLineupPending(panelBanner) && (panelBannerSixStars.length > 0 || panelBanner.five_stars.length > 0 || (panelBanner.four_stars || []).length > 0) && (

@@ -41,6 +41,11 @@ test('a banner created under its Chinese name is never the banner of an unrelate
   }
   // The event that has a banner still finds it.
   assert.equal(getBannerForEvent('[Side Story] People, A People', '2026/09/16–2026/09/30', [...clientCreated, own]), own);
+  // An event and banner announced on CN under their Chinese names (applyAnnouncements) find each
+  // other by linked_event; their names are not the empty string, so no other event takes it.
+  const announced = banner({ name: '[Headhunting] 海渊巡游', nameStatus: 'cn-official', linked_event: '[Side Story] 昨日海' });
+  assert.equal(getBannerForEvent('[Side Story] 昨日海', null, [...clientCreated, own, announced]), announced);
+  assert.equal(getBannerForEvent('[Side Story] 红丝绒', null, [...clientCreated, own, announced]), null);
 });
 
 test('only explicit evidence links an event to a banner: linked_event, or the one featured banner opening that Global day', async () => {

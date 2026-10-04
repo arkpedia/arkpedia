@@ -7,7 +7,8 @@ import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
 import fs from 'node:fs';
 import { artFile, publishedArt } from '../../lib/art/publishedArt';
 import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
-import { isLineupPending, LINEUP_PENDING_NOTE } from '../../lib/gacha/bannerLineup';
+import { isLineupPending, lineupPendingNote } from '../../lib/gacha/bannerLineup';
+const LINEUP_PENDING_NOTE = lineupPendingNote({});
 import type { GachaBannerWithWindow, GameEvent } from '../../lib/home/frontPageContent';
 import { publicFiles } from '../../lib/assets/publicAssets';
 import GachaBannersPanel from '../../components/home/GachaBannersPanel';
@@ -90,16 +91,20 @@ test('a banner whose lineup is pending says so instead of listing no one', () =>
     assert.ok(front.includes(LINEUP_PENDING_NOTE) && !front.includes('class="front-featured-op"'), front);
   }
   assert.match(render(createElement(FeaturedOperatorsPanel, { banner: banner({}) })), /No featured operators listed/);
+  // An official CN announcement's rate-ups, in its Chinese, while their operators have no record yet.
+  const announced = banner({ lineupSource: 'pending', announcedLineup: { six: ['克莱门莎'], five: ['德·托莱多', '火哨'], rateUpSix: [] } });
+  assert.equal(lineupPendingNote(announced), 'Announced rate-up: 克莱门莎 (6★) · 德·托莱多, 火哨 (5★). Lineup to be confirmed.');
+  assert.ok(render(createElement(FeaturedOperatorsPanel, { banner: announced })).includes('克莱门莎 (6★)'));
 
   const page = (over: Partial<Parameters<typeof EventDetailPage>[0]>) => render(createElement(EventDetailPage, {
     name: 'Test Event', poster: null, images: [], artAspect: '1024 / 328', dateRange: '2026/09/25–2026/10/09', isPredicted: false,
-    bannerName: 'Test Pool #1', bannerImage: null, lineupPending: true, skins: [], rewardStores: [], materialOrder: [],
+    bannerName: 'Test Pool #1', bannerImage: null, lineupPending: LINEUP_PENDING_NOTE, skins: [], rewardStores: [], materialOrder: [],
     featuredOperators: [{ name: 'Someone', rarity: 6, percent: 50 }], ...over,
   }));
   const held = page({});
   assert.ok(held.includes(LINEUP_PENDING_NOTE) && !held.includes('class="event-detail-featured-op"'), 'pending note, not a lineup');
   // The banner's frame stays at its size with no art in it.
   assert.match(held, /<div class="event-detail-banner-art-wrap"><\/div>/);
-  const known = page({ lineupPending: false });
+  const known = page({ lineupPending: null });
   assert.ok(!known.includes(LINEUP_PENDING_NOTE) && known.includes('class="event-detail-featured-op"'));
 });

@@ -1,6 +1,6 @@
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { getBannerLineup, isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
+import { getBannerLineup, isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
 import { GachaBannerWithWindow } from '@/lib/home/frontPageContent';
 import Rarity from '@/components/ui/Rarity';
 
@@ -40,7 +40,7 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
     return (
       <section className="front-panel front-home-panel front-featured-ops-panel">
         <h2 className="section-title">Featured Operators</h2>
-        <p className="hint">{isLineupPending(banner) ? LINEUP_PENDING_NOTE : 'No featured operators listed for this banner.'}</p>
+        <p className="hint">{isLineupPending(banner) ? lineupPendingNote(banner) : 'No featured operators listed for this banner.'}</p>
       </section>
     );
   }

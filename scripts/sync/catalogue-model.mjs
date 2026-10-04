@@ -1,6 +1,7 @@
 /** Pure catalogue reconciliation. Display names are never used as source identities. */
 import { localizeReleasedMechanics } from './sync-operator-english.mjs';
 import { stripRichText } from '../lib/gametext.mjs';
+import { cnDays } from '../build/cn-news.mjs';
 const list = x => Array.isArray(x) ? x : [];
 const stableOrder = (previous, next) => [...list(previous).filter(n => next.includes(n)), ...next.filter(n => !list(previous).includes(n))];
 const CLASSES = { WARRIOR: 'Guard', SNIPER: 'Sniper', TANK: 'Defender', MEDIC: 'Medic', SUPPORT: 'Supporter', CASTER: 'Caster', SPECIAL: 'Specialist', PIONEER: 'Vanguard' };
@@ -476,6 +477,86 @@ const andList = items => items.length > 1 ? `${items.slice(0, -1).join(', ')} an
 // A banner named after its pool (a Joint Operation from the client) is not named twice.
 const withPool = (name, poolId) => (name.includes(poolId) ? name : `${name} (${poolId})`);
 
+/* A banner the official CN announcement names before the client has its pool, by the kind the
+   post states (cn-news.mjs), in CLIENT_BANNERS' terms so the client's pool links to it. */
+const ANNOUNCED_BANNERS = {
+  featured: { pull_type: 'featured', category: 'special', label: 'Headhunting' },
+  limited: { pull_type: 'limited', category: 'limited', label: 'Limited' },
+  joint: { pull_type: 'joint', category: 'special' },
+  orienteering: { pull_type: 'orienteering', category: 'special' },
+};
+const endDay = text => /–(\d{4}\/\d{2}\/\d{2})/.exec(text ?? '')?.[1];
+const isoAt = ts => new Date(ts * 1000).toISOString();
+
+/**
+ * The official CN announcements (scripts/build/cn-news.mjs, from data/official-news/cn): an
+ * event or banner announced for a window not over yet is published on the day of the post,
+ * about a week before the CN client carries it, under its Chinese name and the post's hours
+ * (cn_window, timingSource the post). The client and the wiki then take it over rather than
+ * add a second record:
+ *   - a banner keeps the post's server days in cn_date and its kind, which is how linkPools
+ *     links the client's pool to a record, and the wiki row for that pool renames it;
+ *   - an event is linked here to the one CN activity with stages that opens on its first day,
+ *     and the wiki row for that activity renames it (reconcileCalendars).
+ * A record already holding the window (by its days and kind, or the client's activity) is left
+ * as it is, save an official window and the post's event (linked_event) it lacks. The lineup is the post's once every operator it
+ * names has a record (by name, alias or Chinese name); until then it is pending, the names kept
+ * in announcedLineup, and reported. It never replaces a lineup the wiki or the client gave.
+ */
+function applyAnnouncements({ events, banners, announced, operators, cn, nowSeconds, quarantine }) {
+  const named = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? []),
+    ...Object.entries(op.otherLanguages ?? {}).filter(([language]) => /Chinese/.test(language)).map(([, name]) => name)]
+    .filter(Boolean).map(name => [name, op])));
+  const eventFor = new Map();
+  for (const notice of announced.events) {
+    if (notice.end < nowSeconds) continue;
+    const days = cnDays(notice), start = dayPart(days), end = endDay(days);
+    const opening = Object.values(cn.activity?.basicInfo ?? {}).filter(a => a.hasStage && serverDay(a.startTime) === start);
+    const client = opening.length === 1 ? opening[0] : null;
+    // Found again by the client's activity once it has one, else by its window. An event record
+    // carries no field of its own for this: pages hand events to the browser whole, and a field
+    // the published props lack fails the release (test-previous-release-props.ts).
+    let event = events.find(e => client && e.activityId === client.id)
+      ?? events.find(e => dayPart(e.cn?.dateRange) === start && endDay(e.cn?.dateRange) === end);
+    if (!event) {
+      event = { name: `[${notice.type}] ${notice.name}`, year: Number(start.slice(0, 4)), poster: null,
+        cn: { dateRange: days, startAt: isoAt(notice.start), endAt: isoAt(notice.end), timingSource: notice.source },
+        global: { dateRange: null, note: 'Global release unannounced' }, tw: { dateRange: null, note: null } };
+      events.push(event);
+    }
+    if (client && !event.activityId && !events.some(e => e.activityId === client.id)) event.activityId = client.id;
+    eventFor.set(notice.name, event);
+  }
+  for (const notice of announced.banners) {
+    const spec = ANNOUNCED_BANNERS[notice.kind];
+    if (!spec || notice.end < nowSeconds) continue;
+    const days = cnDays(notice), kind = bannerKind({ name: '', category: spec.category, pull_type: spec.pull_type });
+    const window = { startAt: isoAt(notice.start), endAt: isoAt(notice.end), timingSource: notice.source };
+    let banner = banners.find(b => b.announcedName === notice.name && b.cn_date === days)
+      ?? banners.find(b => b.cn_date === days && bannerKind(b) === kind);
+    if (!banner) {
+      banner = { name: spec.label ? `[${spec.label}] ${notice.name}` : notice.name, category: spec.category, year: Number(days.slice(0, 4)),
+        global_date: null, banner_image: null, cn_date: days, cn_window: window, pull_type: spec.pull_type,
+        six_stars: [], five_stars: [], four_stars: [], rate_up_six_stars: [], lineupSource: 'pending', nameStatus: 'cn-official', announcedName: notice.name };
+      banners.push(banner);
+    } else if (!banner.cn_window) banner.cn_window = window;
+    // The event the post opens it with: its page shows the banner (getBannerForEvent).
+    if (notice.event && !banner.linked_event && eventFor.has(notice.event)) banner.linked_event = eventFor.get(notice.event).name;
+    if (!['pending', 'announcement'].includes(banner.lineupSource)) continue;
+    const listed = [...notice.six, ...notice.five, ...notice.rateUpSix], found = listed.map(named);
+    if (listed.length && found.every(Boolean)) {
+      const record = names => names.map(name => named(name).name);
+      Object.assign(banner, { six_stars: record(notice.six), five_stars: record(notice.five), rate_up_six_stars: record(notice.rateUpSix), lineupSource: 'announcement' });
+      delete banner.announcedLineup;
+    } else {
+      Object.assign(banner, { lineupSource: 'pending', announcedLineup: { six: notice.six, five: notice.five, rateUpSix: notice.rateUpSix } });
+      const unknown = listed.filter((_, i) => !found[i]);
+      quarantine.push({ key: `banner:announced:${notice.name}`, action: 'published-partial',
+        reason: `${banner.name} (CN ${days}) is published from the official announcement ${notice.source} with its lineup pending: ${unknown.length ? `${andList(unknown)} ${unknown.length > 1 ? 'have' : 'has'} no operator record yet, which the CN client adds` : 'the post lists no operators'}.` });
+    }
+  }
+}
+
 /**
  * Events and banners. The game tables are the identity: every banner record is keyed by
  * its pool (linkPools fills the ids), and a CN pool no record describes is created from
@@ -486,13 +567,16 @@ const withPool = (name, poolId) => (name.includes(poolId) ? name : `${name} (${p
  * the run; it is returned in `quarantine`, and the record is left out if it is new,
  * published without the missing piece, or kept at its previous lineup.
  */
-export function reconcileCalendars({ events, banners, operators, cn, en, eventRows, bannerRows, now = Date.now() }) {
+export function reconcileCalendars({ events, banners, operators, cn, en, eventRows, bannerRows, announced, now = Date.now() }) {
+  if (!Array.isArray(announced?.events) || !Array.isArray(announced?.banners)) throw new Error('reconcileCalendars needs the CN announcements ({ events: [], banners: [] } for none)');
   const nextEvents = structuredClone(events), nextBanners = structuredClone(banners), media = [], renames = [], quarantine = [];
   const operatorNamed = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? [])].map(n => [n, op])));
   const roster = new Map(operators.map(op => [op.internalName, op]));
   const cnSource = cn.source, enSource = en.source;
   const alreadyGlobalEvents = new Set(events.filter(e => e.global?.dateRange).map(e => e.name));
   const pools = list(cn.gacha?.gachaPoolClient), nowSeconds = Math.floor(now / 1000), today = serverDay(nowSeconds);
+  // First, so the client's pools link to the banners the posts announced, and wiki rows find them.
+  applyAnnouncements({ events: nextEvents, banners: nextBanners, announced, operators, cn, nowSeconds, quarantine });
   let applied = 0;
   for (const row of eventRows) {
     if (!row.name || !dayPart(row.cnstart)) continue;
@@ -501,6 +585,19 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     applied++;
     const source = candidates[0], global = en.activity.basicInfo[source.id];
     let event = nextEvents.find(e => e.activityId === source.id || (fold(e.name) === fold(row.name) && dayPart(e.cn?.dateRange) === dayPart(row.cnstart)));
+    if (event && chinese(event.name.replace(/^\s*\[[^\]]*\]\s*/, ''))) {
+      // Under its Chinese name (announced on CN, applyAnnouncements): the wiki's English name
+      // replaces it, and its poster can now be looked up.
+      const wikiName = `[${row.type || 'Event'}] ${row.name}`;
+      if (event.name !== wikiName) {
+        event.aliases = [...new Set([...(event.aliases ?? []), event.name])];
+        renames.push([event.name, wikiName]); event.name = wikiName;
+      }
+      if (!event.poster) {
+        event.poster = `/event-poster/${safeName(row.name)}.webp`;
+        media.push({ path: event.poster.slice(1), wikiFiles: [`CN ${row.name} banner.png`] });
+      }
+    }
     if (!event) {
       event = { name: `[${row.type || 'Event'}] ${row.name}`, year: Number(row.cnstart.slice(0, 4)), poster: `/event-poster/${safeName(row.name)}.webp`,
         cn: {}, global: { dateRange: null, note: 'Global release unannounced' }, tw: { dateRange: null, note: null } };
