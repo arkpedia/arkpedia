@@ -29,6 +29,8 @@ import Rarity from '@/components/ui/Rarity';
 import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
 import { eventExtras, NO_EXTRAS, tableRewardStores, type EventExtras, type TableRewardGroup } from '@/lib/events/tableRewards';
 import { EventFurniture, EventNotices, EventPacks } from '@/components/events/EventExtras';
+import { RewardSummaryCard } from '@/components/events/RewardSummary';
+import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 
@@ -55,6 +57,8 @@ interface Props {
   rewardStores: ResolvedRewardStore[];
   /** Packs, furniture sets and announced gifts. Absent from a release compiled before them. */
   extras?: EventExtras;
+  /** The free rewards as the shareable card (All). Absent from a release compiled before it. */
+  summary?: RewardSummary | null;
   /** The release's material catalogue order (data/material-catalogue.json), for the reward
    *  names this event lists: what the reward totals sort by. */
   materialOrder: string[];
@@ -153,6 +157,7 @@ export default function EventDetailPage({
   rewardStores,
   materialOrder,
   extras = NO_EXTRAS,
+  summary = null,
 }: Props) {
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   const sections = SECTIONS.filter((section) => (
@@ -335,7 +340,7 @@ export default function EventDetailPage({
               />
               <div {...tabPanelProps('event-store', activeRewardTab)}>
                 {activeRewardTab === 'all' ? (
-                  <RewardTotalsRow totals={rewardTotals} />
+                  summary && summary.rows.length ? <RewardSummaryCard eventName={name} summary={summary} /> : <RewardTotalsRow totals={rewardTotals} />
                 ) : activeRewardTab === EXTRA_TABS.packs ? (
                   <EventPacks groups={extras.packs} />
                 ) : activeRewardTab === EXTRA_TABS.furniture ? (
@@ -518,6 +523,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
     );
   }));
 
+  const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
+  const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
+  const extras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material' }, () => null, publicFileExists));
   return {
     props: {
       name: event.name,
@@ -532,11 +540,14 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       featuredOperators,
       skins,
       rewardStores,
-      extras: eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material' }, () => null, publicFileExists)),
-      materialOrder: materialOrderFor(
-        checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default),
-        rewardStores.flatMap((store) => store.items.map((item) => item.name)),
-      ),
+      extras,
+      summary: rewardSummary(rewardStores, {
+        groups: catalogue.groups,
+        operators: new Set((rewardStores.some((s) => s.items.length) ? getAllOperators() : []).map((op) => op.name)),
+        outfits: new Set([...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'skin').map((i) => i.name)), ...tableRewards.flatMap((g) => g.items.filter((i) => i.kind === 'outfit').map((i) => i.name))]),
+        furniture: new Set([...extras.furniture.flatMap((set) => set.pieces.map((p) => p.name)), ...tableRewards.flatMap((g) => g.items.filter((i) => i.kind === 'furniture').map((i) => i.name))]),
+      }, materialOrder),
+      materialOrder,
     },
   };
 }, {
