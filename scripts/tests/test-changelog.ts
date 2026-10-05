@@ -22,7 +22,13 @@ test('the changelog is newest first, each entry at a real UTC instant, and every
     const items = [...(entry.added ?? []), ...(entry.changed ?? []), ...(entry.fixed ?? [])];
     assert.ok(items.length > 0, `${entry.at}: something added, changed or fixed`);
     for (const item of items) {
-      assert.ok(item.text.trim().length > 10, `${entry.at}: "${item.text}" says too little`);
+      // Skimmable: a title that is the point in a few words, and at most one short sentence.
+      assert.ok(item.title.trim().length >= 4 && item.title.length <= 48, `${entry.at}: "${item.title}": a title of 4 to 48 characters`);
+      assert.ok(!/[.!]$/.test(item.title), `${entry.at}: "${item.title}": a title, not a sentence`);
+      if (item.detail !== undefined) {
+        assert.ok(item.detail.length <= 130, `${entry.at}: "${item.title}": its detail is ${item.detail.length} characters, past 130`);
+        assert.ok((item.detail.match(/[.!?](\s|$)/g) ?? []).length <= 1, `${entry.at}: "${item.title}": one sentence of detail`);
+      }
       if (item.href) {
         const page = item.href === '/' ? 'index' : item.href.slice(1);
         assert.ok(['tsx', 'ts'].some((ext) => fs.existsSync(path.join('pages', `${page}.${ext}`)) || fs.existsSync(path.join('pages', page, `index.${ext}`))), `${item.href}: a page the site has`);
