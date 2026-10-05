@@ -214,8 +214,9 @@ test('quarantine entries follow the shared file format and keep their first day'
 /* A data tree holding only what the enemy checks read: a listed stage fielding two
    enemies, and an unlisted stage fielding a third that nothing needs. `edit` takes away
    whatever a case is about before the release gate runs on the tree; `baseline` records
-   the counts the release job takes right after loading the data, before the edit. */
-function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: string }[]; index: string[]; icons: string[] }) => void, baseline = false, env: Record<string, string> = {}) {
+   the counts the release job takes right after loading the data, before the edit; `omit` names
+   files the loaded data does not have. */
+function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: string }[]; index: string[]; icons: string[] }) => void, baseline = false, env: Record<string, string> = {}, omit: string[] = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-completeness-'));
   try {
     const tree = {
@@ -224,6 +225,7 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
       icons: ['enemies-icons/Slug A.webp', 'enemies-icons/Slug B.webp'],
     };
     const write = (file: string, data: unknown) => {
+      if (omit.includes(file)) return;
       fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
       fs.writeFileSync(path.join(root, file), JSON.stringify(data));
     };
@@ -256,6 +258,14 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
+test('the baseline is recorded on loaded data the event stages have not written yet, and the review still needs it', () => {
+  // A dev run loads data main, which has no event-stores.json or event-rewards.json until a run of
+  // this code has published them; the baseline step (asserted inside enemyGate) must not stop it.
+  const run = enemyGate(() => {}, true, {}, ['data/event-stores.json', 'data/event-rewards.json']);
+  assert.notEqual(run.status, 0);
+  assert.match(run.output, /needs the event stores \(data\/event-stores\.json\)/);
+});
+
 test('a stage enemy with no record, grid row or icon is quarantined, and the release still goes out', () => {
   const complete = enemyGate(() => {});
   assert.equal(complete.status, 0, complete.output);

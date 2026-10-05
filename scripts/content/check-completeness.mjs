@@ -418,7 +418,9 @@ export function readCompletenessInputs(root = process.cwd()) {
     .flatMap(file => read(`data/enemies/${file}`).enemies.map(enemy => [enemy.slug, { name: enemy.name, icon: enemy.icon }])));
   const input = { inventory: read('data/content-inventory.json'), operators, skins: read('data/skins.json'),
     banners: read('data/headhunting_banners.json'), events: eventFiles.flatMap(file => read(`data/events/${file}`)),
-    eventStores: read('data/event-stores.json'), eventRewards: read('data/event-rewards.json'),
+    // Written by the event stages, later in a run: the baseline, recorded before them, can load a
+    // release that has neither yet. The review itself still requires both (reviewCompleteness).
+    eventStores: optional('data/event-stores.json', null), eventRewards: optional('data/event-rewards.json', null),
     bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
     albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
     skinWindows: read('data/skin-availability-windows.json').entries,

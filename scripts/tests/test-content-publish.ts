@@ -633,7 +633,9 @@ test("the dev channel publishes data main plus its release to data dev, and poin
     const repaired = repo.publishDev();
     assert.equal(repaired.status, 0, repaired.output);
     served(second);
-    assert.notEqual(repo.head('dev'), head);
+    // Published again, as its output says. Not told by the SHA: data dev's new commit has the
+    // parent, tree and message of the one before, so made within the same second it is that commit.
+    assert.equal(repo.outputs(), `pushed=${repo.head('dev')}\n`, 'published again');
     assert.deepEqual(repo.scripts().filter(line => line === 'data validate-release').length, 3);
   });
   // A hold pushes nothing: the dev deployment does not run the code that compiled it.
