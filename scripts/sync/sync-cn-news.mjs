@@ -22,6 +22,8 @@ import { beginStage } from '../lib/quarantine.mjs';
 
 const SITE = 'https://ak.hypergryph.com/news';
 export const CN_NEWS_DIR = 'data/official-news/cn';
+// A cached post is <cid>.json; nothing else in the directory is one.
+const POST_FILE = /^\d+\.json$/;
 // The site sends a bare client a challenge page instead of the post.
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
 
@@ -44,22 +46,33 @@ export function listedPosts(html) {
 /** A post page's article as lines: the server-rendered body, from the title to the sign-off. */
 export function postLines(html, title) {
   const page = String(html ?? '');
-  const bodyAt = page.indexOf('<body');
-  const body = bodyAt < 0 ? '' : page.slice(bodyAt, page.indexOf('<script', bodyAt) >>> 0);
+  const bodyAt = page.indexOf('<body'), scriptAt = page.indexOf('<script', bodyAt);
+  // The body up to its first script (the page's data, not its text), or to the end if it has none.
+  const body = bodyAt < 0 ? '' : page.slice(bodyAt, scriptAt < 0 ? undefined : scriptAt);
   const lines = newsLines(body);
   const start = lines.indexOf(title);
-  // The sign-off ends an announcement; a post without one (a fan contest) runs into the site's
-  // footer navigation, which starts with the game's name.
-  const end = lines.findIndex((line, i) => i > start && /^(?:【明日方舟】运营组|ARKNIGHTS)$/.test(line));
+  // The sign-off ends an announcement. A post without one (a fan contest) runs on into the page's
+  // own navigation, which opens with INFO / 返回列表 ("back to the list") under the article and
+  // reaches the footer's ARKNIGHTS after it, so whichever comes first ends the article.
+  const end = lines.findIndex((line, i) => i > start && /^(?:【明日方舟】运营组|INFO|返回列表|ARKNIGHTS)$/.test(line));
   if (start < 0 || end < 0) return null;
   // The date under the title ("2026 // 10 / 03") is the list's displayTime already.
   return lines.slice(start + 1, end).filter(line => !/^\d{4} \/\/ \d{2} \/ \d{2}$/.test(line));
 }
 
+/** The cached posts, for the catalogue (scripts/build/cn-news.mjs reads them), in cid order; none
+ *  before the first sync. */
+export function readCnNews(root) {
+  const dir = path.join(root, CN_NEWS_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter(file => POST_FILE.test(file)).sort((a, b) => Number(a.slice(0, -5)) - Number(b.slice(0, -5)))
+    .map(file => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')));
+}
+
 export async function syncCnNews(root, { fetcher = globalThis.fetch, pause = () => new Promise(resolve => setTimeout(resolve, 500)) } = {}) {
   const dir = path.join(root, CN_NEWS_DIR);
   fs.mkdirSync(dir, { recursive: true });
-  const cached = new Set(fs.readdirSync(dir).filter(file => /^\d+\.json$/.test(file)).map(file => file.slice(0, -5)));
+  const cached = new Set(fs.readdirSync(dir).filter(file => POST_FILE.test(file)).map(file => file.slice(0, -5)));
   const listed = listedPosts(await getText(SITE, fetcher));
   if (!listed.length || listed.some(post => !Number.isFinite(post.displayTime) || post.displayTime <= 0)) {
     throw new Error('the news page lists no activity posts with their dates: its layout has probably changed');

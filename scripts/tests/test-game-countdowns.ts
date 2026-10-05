@@ -126,6 +126,26 @@ test('sync retains exact hours even when calendar days are unchanged, and is ide
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
+/* The calendar days a script writes come from one helper (scripts/lib/server-day.mjs), so a
+   window sync-event-windows.mjs copies from the client and the one catalogue-model.mjs or the
+   CN announcements write are one string for one day. sync-event-windows.mjs kept a copy of its
+   own until 2026-10-05; a copy that drifts (an offset's sign, the 04:00 rollover) would date the
+   same window two ways, and each stage would rewrite the other's days. */
+test('no script keeps its own serverDay: every one imports scripts/lib/server-day.mjs', () => {
+  const copies: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const at = path.join(dir, entry.name);
+      if (entry.isDirectory()) { if (at !== path.join('scripts', 'tests')) walk(at); continue; }
+      if (!/\.(?:mjs|js|ts)$/.test(entry.name) || at === path.join('scripts', 'lib', 'server-day.mjs')) continue;
+      if (/\b(?:function\s+serverDay\b|(?:const|let|var)\s+serverDay\s*=)/.test(fs.readFileSync(at, 'utf8'))) copies.push(at);
+    }
+  };
+  walk('scripts');
+  assert.deepEqual(copies, [], `import { serverDay } from scripts/lib/server-day.mjs instead of defining one in ${copies.join(', ')}`);
+  assert.match(fs.readFileSync('scripts/sync/sync-event-windows.mjs', 'utf8'), /import \{ serverDay \} from '\.\.\/lib\/server-day\.mjs'/);
+});
+
 /*
  * An event's store outlasts its stages, and the client says until when (rewardEndTime).
  * [Side Story] People, A People's stages closed 2026-09-30 11:00Z and its store 2026-10-07

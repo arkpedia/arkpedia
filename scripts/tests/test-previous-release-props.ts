@@ -255,6 +255,9 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     // while they did, and on 2026-10-02 they answered, so the field showed here and not there.
     '.featuredVideo': "the newest video from the channels' live YouTube feeds, fetched at the request; null whenever the feeds answer nothing",
     '.featuredStream': "the live Twitch stream, fetched at the request the same way; null whenever none is live or the API answers nothing",
+    // getHomeGachaBanners spreads whole banner records, and a banner an official CN post announced
+    // keeps the post's name for good: it reaches this list once Global dates the banner.
+    '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
   },
   '/schedule': {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",

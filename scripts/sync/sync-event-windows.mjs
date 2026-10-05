@@ -42,6 +42,10 @@
 import fs from 'fs';
 import path from 'path';
 import { cnTableUrl, pinnedRef } from '../content/pin-upstream.mjs';
+// Unix seconds -> "YYYY/MM/DD" as the server's own calendar sees it, at the offset each call
+// names (-7 Global, 8 CN): the one helper the catalogue and the CN announcements date by, so a
+// window this writes and the one catalogue-model.mjs writes are one string for one day.
+import { serverDay } from '../lib/server-day.mjs';
 
 const root = process.cwd();
 const EN = `${process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata/en'}/gamedata/excel`;
@@ -67,13 +71,6 @@ const fold = (name) => (name || '')
   .replace(/\[[^\]]*\]/g, '')
   .toLowerCase()
   .replace(/[^a-z0-9一-鿿]+/g, '');
-
-/** Unix seconds -> "YYYY/MM/DD" as the server's own calendar sees it. */
-function serverDay(ts, utcOffsetHours) {
-  const d = new Date((ts + utcOffsetHours * 3600) * 1000);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getUTCFullYear()}/${p(d.getUTCMonth() + 1)}/${p(d.getUTCDate())}`;
-}
 
 const DASH = '–';
 const now = Math.floor(Date.now() / 1000);

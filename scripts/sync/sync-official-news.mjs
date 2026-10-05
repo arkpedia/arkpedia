@@ -19,6 +19,8 @@ import { beginStage } from '../lib/quarantine.mjs';
 
 const API = 'https://www.arknights.global/api/resource/news';
 export const NEWS_DIR = 'data/official-news/global';
+// A cached post is <id>.json; nothing else in the directory is one.
+const POST_FILE = /^\d+\.json$/;
 const PAGE = 30;
 
 async function getJson(url, fetcher) {
@@ -29,10 +31,17 @@ async function getJson(url, fetcher) {
   return body.data;
 }
 
+/** The cached posts, for build-event-rewards.mjs, in file-name order; none before the first sync. */
+export function readOfficialNews(root) {
+  const dir = path.join(root, NEWS_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter(file => POST_FILE.test(file)).sort().map(file => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')));
+}
+
 export async function syncOfficialNews(root, { fetcher = globalThis.fetch, pause = () => new Promise(resolve => setTimeout(resolve, 300)) } = {}) {
   const dir = path.join(root, NEWS_DIR);
   fs.mkdirSync(dir, { recursive: true });
-  const cached = new Set(fs.readdirSync(dir).filter(file => /^\d+\.json$/.test(file)).map(file => Number(file.slice(0, -5))));
+  const cached = new Set(fs.readdirSync(dir).filter(file => POST_FILE.test(file)).map(file => Number(file.slice(0, -5))));
   const fresh = [];
   for (let index = 1; index <= 50; index++) {
     const { rows } = await getJson(`${API}/list?index=${index}&size=${PAGE}&type=latest`, fetcher);

@@ -12,9 +12,11 @@ import type { GameWindowTimes } from '@/lib/schedule/gameWindow';
 /** Where a banner's featured lineup came from, as scripts/sync/catalogue-model.mjs and
  *  sync-recurring-banners.mjs record it: the wiki's row, the six-stars the game client
  *  names (five-stars still unknown), the names on a Standard banner's art in the client
- *  (scripts/sync/banner-art-lineup.mjs), or nothing yet -- 'pending' ships with empty
- *  lineup arrays until the wiki has a row for the banner's window. Hand-kept records
- *  carry none. */
+ *  (scripts/sync/banner-art-lineup.mjs), the lineup an official CN announcement names once
+ *  every operator it names has a record ('announcement'), or nothing yet. 'pending' ships
+ *  with empty lineup arrays until a wiki row for the banner's window names the lineup or,
+ *  for an announced banner, until the operators its post names have records; such a banner
+ *  carries the post's names meanwhile, in announcedLineup. Hand-kept records carry none. */
 export type BannerLineupSource = 'wiki' | 'client' | 'client-art' | 'announcement' | 'pending';
 
 /** Which name the record carries: the client's Chinese one while the wiki has none,
@@ -35,6 +37,12 @@ export interface HeadhuntingBanner {
   cnPoolId?: string;
   globalPoolId?: string;
   lineupSource?: BannerLineupSource;
+  /** The name an official CN announcement gave the banner, as it writes it ("海渊巡游", "定向甄选"):
+   *  the catalogue finds the record of an announced banner again by it, with its kind, so a later
+   *  post that moves the window moves this record rather than adding a second one
+   *  (scripts/sync/catalogue-model.mjs applyAnnouncements). Kept after the wiki renames it, and
+   *  only on banners an announcement created; nothing on the site reads it. */
+  announcedName?: string;
   /** The rate-ups an official CN announcement names, as it writes them, while an operator it names
    *  has no record yet (lineupSource 'pending'; scripts/sync/catalogue-model.mjs applyAnnouncements). */
   announcedLineup?: { six: string[]; five: string[]; rateUpSix: string[] };

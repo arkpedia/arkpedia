@@ -2,11 +2,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import React, { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { CHANGELOG, LATEST_CHANGE } from '../../lib/changelog/entries';
 
-/* The What's new page (lib/changelog/entries.ts): newest first, real dates, and every item
-   saying something, with any link pointing at a page the site has. */
-test('the changelog is newest first, dated, and every entry says something', () => {
+// tsx compiles the components' JSX to React.createElement (tsconfig keeps JSX for Next).
+(globalThis as { React?: typeof React }).React = React;
+
+/* The What's new page (lib/changelog/entries.ts): newest first, each entry at a real UTC
+   instant, and every item saying something, with any link pointing at a page the site has. */
+test('the changelog is newest first, each entry at a real UTC instant, and every entry says something', () => {
   assert.ok(CHANGELOG.length > 0);
   assert.equal(LATEST_CHANGE, CHANGELOG[0].at);
   for (const [index, entry] of CHANGELOG.entries()) {
@@ -26,7 +31,7 @@ test('the changelog is newest first, dated, and every entry says something', () 
   }
 });
 
-test('an entry\'s moment is written in UTC on the server and in the reader\'s zone once mounted', async () => {
+test('formatInstant writes an instant in the given zone, en-GB', async () => {
   const { formatInstant } = await import('../../components/ui/LocalTime');
   assert.equal(formatInstant('2026-10-05T08:26:00Z', 'UTC'), '5 Oct 2026, 08:26 UTC');
   // The zone's name is ICU's (CEST, GMT+8 ...), which differs between Node builds: the time is the point.
@@ -35,4 +40,12 @@ test('an entry\'s moment is written in UTC on the server and in the reader\'s zo
   // Across midnight the reader's day is the one shown.
   assert.match(formatInstant('2026-10-05T23:30:00Z', 'Asia/Tokyo'), /^6 Oct 2026, 08:30 \S+$/);
   assert.match(formatInstant('2026-10-05T08:26:00Z', 'America/Los_Angeles'), /^5 Oct 2026, 01:26 \S+$/);
+});
+
+test('LocalTime renders an entry\'s moment in UTC on the server, with the instant in dateTime and the UTC time as its title', async () => {
+  // The browser's first render writes the same, so hydration has nothing to correct; the reader's
+  // own zone replaces the text once mounted, which a static render never reaches.
+  const { default: LocalTime } = await import('../../components/ui/LocalTime');
+  assert.equal(renderToStaticMarkup(createElement(LocalTime, { iso: '2026-10-05T08:26:00Z' })),
+    '<time dateTime="2026-10-05T08:26:00Z" title="5 Oct 2026, 08:26 UTC">5 Oct 2026, 08:26 UTC</time>');
 });

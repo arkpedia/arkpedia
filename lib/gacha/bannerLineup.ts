@@ -21,10 +21,12 @@ export function lineupPendingNote(banner: Pick<HeadhuntingBanner, 'announcedLine
   return groups.length ? `Announced rate-up: ${groups.join(' · ')}. ${LINEUP_PENDING}` : LINEUP_PENDING;
 }
 
-/** A banner published before anyone has named its lineup: a pool the game client or
- * a recurring schedule announced, with no wiki row for its window yet. Its lineup
- * arrays are empty rather than known to be empty, so it says so instead of listing
- * no one. */
+/** A banner published before its lineup is known: a pool the game client or a recurring
+ * schedule announced, with no wiki row for its window yet, or a banner an official CN
+ * announcement named whose operators do not all have records yet (it shows the post's names
+ * meanwhile, lineupPendingNote). Pending ends with a wiki row for its window, or, for an
+ * announced banner, once those records exist. Its lineup arrays are empty rather than known
+ * to be empty, so it says so instead of listing no one. */
 export function isLineupPending(banner: Pick<HeadhuntingBanner, 'lineupSource'>): boolean {
   return banner.lineupSource === 'pending';
 }

@@ -34,6 +34,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { decodeEntities, newsSections, parseDuration, parsePacks, postEventName, postWindow } from './official-news.mjs';
+import { readOfficialNews } from '../sync/sync-official-news.mjs';
 
 const LOGIN_TYPES = new Set(['CHECKIN_ONLY', 'CHECKIN_ALL_PLAYER', 'CHECKIN_VS']);
 /* Logins the tables name and date but give no rewards for (a festival's blessing sign-in, a
@@ -443,9 +444,7 @@ async function main() {
   const read = file => JSON.parse(fs.readFileSync(path.join(excel, file), 'utf8'));
   const events = fs.readdirSync(path.join(root, 'data/events')).filter(file => /^events_\d+\.json$/.test(file))
     .flatMap(file => JSON.parse(fs.readFileSync(path.join(root, 'data/events', file), 'utf8')));
-  const newsDir = path.join(root, 'data/official-news/global');
-  const posts = fs.existsSync(newsDir) ? fs.readdirSync(newsDir).filter(file => /^\d+\.json$/.test(file)).sort()
-    .map(file => JSON.parse(fs.readFileSync(path.join(newsDir, file), 'utf8'))) : [];
+  const posts = readOfficialNews(root);
   const cnExcel = path.join(process.env.ARKPEDIA_CN || '.cache/upstream/cn-resource', 'gamedata', 'excel');
   const readCn = file => JSON.parse(fs.readFileSync(path.join(cnExcel, file), 'utf8'));
   const rewards = buildEventRewards(events, {
