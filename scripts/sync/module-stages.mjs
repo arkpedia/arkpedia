@@ -25,35 +25,35 @@
  *   the longer is the one shown.
  */
 import { formatModuleAttributes } from './sync-module-stats.mjs';
-import { stripRichText } from '../lib/gametext.mjs';
+import { interpolateBlackboard } from '../lib/gametext.mjs';
 
 const list = (x) => (Array.isArray(x) ? x : []);
-
-/** The template's {key:format} placeholders filled from the candidate's blackboard. */
-export function fillTemplate(text, blackboard) {
-  const values = new Map(list(blackboard).map((entry) => [String(entry.key).toLowerCase(), entry.value]));
-  return String(text ?? '').replace(/\{(-?)([^}:]+)(?::([^}]*))?\}/g, (all, negative, key, format) => {
-    if (!values.has(key.toLowerCase())) return all;
-    let value = values.get(key.toLowerCase());
-    if (negative) value = -value;
-    if (format && format.includes('%')) return `${Math.round(value * 1000) / 10}%`;
-    return String(Math.round(value * 100) / 100);
-  });
-}
 
 /* The game writes some keywords flush against the word before ("duration of<$ba.sluggish>Slow"),
    which reads as one word once the tag is gone. */
 const spaceBeforeKeyword = (text) => String(text ?? '').replace(/([a-z])(<[@$][^>]*>)(?=[A-Za-z])/g, '$1 $2');
 
-/** Base-potential candidates of a bundle, as [{ text, replaces, name, talentIndex }]. */
-function baseLines(bundle, kind) {
-  return list(bundle?.candidates).filter((c) => !c.requiredPotentialRank && !c.isHideTalent).map((c) => ({
-    /* A bare <Name> left after the tags go is the game naming a summon ("<Substitute> deals..."). */
-    text: stripRichText(fillTemplate(spaceBeforeKeyword(kind === 'trait' ? (c.additionalDescription || c.overrideDescripton) : (c.upgradeDescription || c.description)), c.blackboard)).replace(/<([A-Z][A-Za-z' -]*)>/g, '$1').trim(),
-    replaces: kind === 'trait' && !c.additionalDescription,
-    name: c.name ?? null,
-    talentIndex: typeof c.talentIndex === 'number' ? c.talentIndex : -1,
-  })).filter((line) => line.text);
+/**
+ * Base-potential candidates of a bundle, as [{ text, replaces, name, talentIndex }]. Placeholders
+ * are filled by gametext.mjs interpolateBlackboard, the filler skills and traits use, so a number
+ * reads the same everywhere (a {x:0%} of 0.125 is the game's "13%"), and a key the candidate does
+ * not carry is refused rather than left on the page as "{key}". `where` names the stage for that
+ * error; `kind` is what syncOperatorEnglish quarantines the record under.
+ */
+function baseLines(bundle, kind, where) {
+  return list(bundle?.candidates).filter((c) => !c.requiredPotentialRank && !c.isHideTalent).map((c) => {
+    const { text, missing } = interpolateBlackboard(spaceBeforeKeyword(kind === 'trait' ? (c.additionalDescription || c.overrideDescripton) : (c.upgradeDescription || c.description)), c.blackboard);
+    if (missing.length) {
+      throw Object.assign(new Error(`${where} ${kind} text is missing ${missing.join(', ')}`), { kind: 'has a module whose text names a value its stage does not carry' });
+    }
+    return {
+      /* A bare <Name> left after the tags go is the game naming a summon ("<Substitute> deals..."). */
+      text: text.replace(/<([A-Z][A-Za-z' -]*)>/g, '$1').trim(),
+      replaces: kind === 'trait' && !c.additionalDescription,
+      name: c.name ?? null,
+      talentIndex: typeof c.talentIndex === 'number' ? c.talentIndex : -1,
+    };
+  }).filter((line) => line.text);
 }
 
 /**
@@ -71,10 +71,11 @@ export function moduleStages(equip, battle, talentNames, itemName) {
     for (const part of list(phase.parts)) {
       /* The trait can come twice in one stage, the operator's and a clone's ("including that of
          its associated Operator", Phantom ISW-α); the same longer-wins rule as talents. */
-      for (const line of baseLines(part.overrideTraitDataBundle, 'trait')) {
+      const where = `${equip?.uniEquipId ?? 'module'} Stage ${index + 1}`;
+      for (const line of baseLines(part.overrideTraitDataBundle, 'trait', where)) {
         if ((trait?.text.length ?? -1) < line.text.length) trait = line;
       }
-      for (const line of baseLines(part.addOrOverrideTalentDataBundle, 'talent')) {
+      for (const line of baseLines(part.addOrOverrideTalentDataBundle, 'talent', where)) {
         /* By name: a summon's line can leave talentIndex out (Nightingale RIN-Y). */
         const key = line.name ?? `#${line.talentIndex}`;
         if ((talentLines.get(key)?.text.length ?? -1) < line.text.length) talentLines.set(key, line);

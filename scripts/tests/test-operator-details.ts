@@ -16,6 +16,8 @@ import type { CroppedRange } from '../../lib/operators/branchRanges';
 import OPERATOR_DEPLOY from '../../public/operator-deploy.json';
 import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
 import { getAllOperators } from '../../lib/operators/operators';
+import { traitPhases } from '../../lib/operators/operatorTrait';
+import { buildGachaOperatorPreview } from '../../lib/gacha/operatorPreviewData';
 
 const operators: Operator[] = [1, 2, 3, 4, 5, 6].flatMap(star => {
   const dir = `data/operators-${star}star`;
@@ -206,6 +208,25 @@ test('all roster records have complete, finite stats and nonempty archives', () 
       }
     }
     assert(operator.files.every(file => file.section && file.unlock && file.description), operator.name);
+  }
+});
+
+test('a trait that changes with promotion is shown per phase, labelled, wherever a trait renders', () => {
+  assert.deepEqual(traitPhases('Heals'), [{ stage: null, text: 'Heals' }]);
+  assert.deepEqual(traitPhases(null), []);
+  assert.deepEqual(traitPhases(''), []);
+  // Promotion order whatever the key order, and no phase the record does not have.
+  assert.deepEqual(traitPhases({ 'Elite 2': 'four', Base: 'three' }), [{ stage: 'Base', text: 'three' }, { stage: 'Elite 2', text: 'four' }]);
+  const pudding = op('Pudding');
+  assert.deepEqual(traitPhases(pudding.trait).map(line => line.stage), ['Base', 'Elite 2']);
+  assert.match(traitPhases(pudding.trait)[1].text, /jump between 4 enemies/);
+  assert.deepEqual(buildGachaOperatorPreview(pudding).traitPhases, traitPhases(pudding.trait), 'the /gacha preview sends every phase, not the last');
+  assert.deepEqual(traitPhases(op('Ceylon').trait).map(line => line.stage), [null]);
+  // Every record: a per-phase trait is keyed by the stages the page labels, so none renders unlabelled or empty.
+  for (const operator of operators) {
+    if (!operator.trait || typeof operator.trait === 'string') continue;
+    assert.ok(Object.keys(operator.trait).every(stage => /^(?:Base|Elite [12])$/.test(stage)), `${operator.name}: ${Object.keys(operator.trait).join(', ')}`);
+    assert.equal(traitPhases(operator.trait).length, Object.keys(operator.trait).length, operator.name);
   }
 });
 

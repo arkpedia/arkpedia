@@ -93,35 +93,36 @@ function skillTextForOne(operatorName: string, skillName: string, eliteLevel?: s
 
 const ELITE_PRIORITY: Record<string, number> = { 'Elite 2': 2, 'Elite 1': 1, Base: 0, 'Level 30': 0 };
 
-/** Every skill an operator has for a given facility, assuming Elite 2 is
- * unlocked (matching this whole codebase's "always assume max
- * investment" convention). Skills that "Replace" an earlier tier are the
- * SAME ability slot -- only the highest tier is kept. Skills that don't
- * replace anything are a genuinely SEPARATE, concurrent ability that
- * applies at the same time (e.g. Degenbrecher has both "Imposing
- * Presence", which replaces "Intimidate", AND "Champion's Bearing",
- * which replaces nothing and unlocks alongside it -- both are active
- * together once she's placed, not a "pick one" choice). */
-function allSkillsForOperator(operatorName: string, facility: 'Factory' | 'Trading Post'): BaseSkill[] {
-  const op = allOperators.find((o) => o.name === operatorName);
-  if (!op || !op.baseSkills) return [];
-  const relevant = op.baseSkills.filter((s) => s.facility === facility && s.name);
+/** The highest-tier skill of each ability slot among `skills` (one operator's, one facility's),
+ * assuming Elite 2 is unlocked (matching this whole codebase's "always assume max investment"
+ * convention). Skills that "Replace" an earlier tier are the SAME ability slot -- only the
+ * highest tier is kept. Skills that don't replace anything are a genuinely SEPARATE, concurrent
+ * ability that applies at the same time (e.g. Degenbrecher has both "Imposing Presence", which
+ * replaces "Intimidate", AND "Champion's Bearing", which replaces nothing and unlocks alongside
+ * it -- both are active together once she's placed, not a "pick one" choice).
+ *
+ * The slot is the game's where the record carries it (building_data's buffChar entry, written
+ * every night by sync-operator-english.mjs); else the scraped "Replaces" suffix, which names the
+ * slot's first skill; else the skill's own name. The /base rotation experiment kept its own copy
+ * of this without the record's slot, and counted 7 operators' two tiers of one skill (Bellone,
+ * Ju and Titi, Ripresa, Akafuyu, Ukusik, Akkord, ...) as two skills at Elite 2: one function now. */
+export function bestSkillPerSlot(skills: BaseSkill[]): BaseSkill[] {
   const groups = new Map<string, BaseSkill[]>();
-  for (const s of relevant) {
+  for (const s of skills) {
     const raw = s.name ?? '';
     const replacesMatch = raw.match(/Replaces(.+)$/);
-    // The game's slot where the record carries it (building_data); else the scraped
-    // "Replaces" suffix, which names the slot's first skill.
     const slotKey = typeof s.slot === 'number' ? `#${s.slot}` : replacesMatch ? replacesMatch[1] : cleanSkillName(raw) ?? raw;
     if (!groups.has(slotKey)) groups.set(slotKey, []);
     groups.get(slotKey)!.push(s);
   }
-  const result: BaseSkill[] = [];
-  for (const group of groups.values()) {
-    const best = group.reduce((a, b) => ((ELITE_PRIORITY[b.eliteLevel ?? ''] ?? -1) > (ELITE_PRIORITY[a.eliteLevel ?? ''] ?? -1) ? b : a));
-    result.push(best);
-  }
-  return result;
+  return [...groups.values()].map((group) => group.reduce((a, b) => ((ELITE_PRIORITY[b.eliteLevel ?? ''] ?? -1) > (ELITE_PRIORITY[a.eliteLevel ?? ''] ?? -1) ? b : a)));
+}
+
+/** Every skill an operator has for a given facility at Elite 2: the best of each slot. */
+function allSkillsForOperator(operatorName: string, facility: 'Factory' | 'Trading Post'): BaseSkill[] {
+  const op = allOperators.find((o) => o.name === operatorName);
+  if (!op || !op.baseSkills) return [];
+  return bestSkillPerSlot(op.baseSkills.filter((s) => s.facility === facility && s.name));
 }
 
 /** Auto-generates ONE candidate PER OPERATOR (not per skill) for every

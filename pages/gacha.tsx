@@ -204,7 +204,17 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                 ))}
               </div>
             </section>}
-            {details?.trait && <section className="gacha-preview-section"><h3>Trait</h3><p>{details.trait}</p></section>}
+            {/* A trait that changes is one entry per promotion, its stage where a talent's is.
+                `?.` on the list: a response cached from before it existed has none. */}
+            {!!details?.traitPhases?.length && <section className="gacha-preview-section">
+              <h3>Trait</h3>
+              {details.traitPhases.map((line) => line.stage
+                ? <div className="gacha-preview-entry" key={line.stage}>
+                  <div className="gacha-preview-entry-title"><span>{line.stage}</span></div>
+                  <p>{line.text}</p>
+                </div>
+                : <p key="trait">{line.text}</p>)}
+            </section>}
             {!!details?.talents.length && <section className="gacha-preview-section">
               <h3>Talents</h3>
               {details.talents.map((talent, index) => <div className="gacha-preview-entry" key={`${talent.name}-${index}`}>

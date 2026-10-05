@@ -13,7 +13,8 @@ import { cnAnnouncements } from '../build/cn-news.mjs';
 import { cnTables, pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
-const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json', patch:'char_patch_table.json' };
+// The tables source() fetches, by key; sync-operator-english.mjs reads its own by these keys too.
+export const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json', patch:'char_patch_table.json' };
 async function json(url) {
   const response = await fetch(url,{signal:AbortSignal.timeout(60000),headers: url.startsWith('https://api.github.com/') && process.env.GH_TOKEN ? {Authorization:`Bearer ${process.env.GH_TOKEN}`} : {}});
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);

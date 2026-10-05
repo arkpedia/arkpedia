@@ -2,6 +2,7 @@ import type { Operator, OperatorModule } from '@/lib/operators/operatorTypes';
 import type { StatValues } from '@/lib/operators/operatorStats';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { baseSkillDisplayName, getBaseSkillIconPath, getSkillIconPath, talentDisplayName } from '@/lib/operators/operatorIconPaths';
+import { traitPhases, type TraitPhase } from '@/lib/operators/operatorTrait';
 
 export interface GachaOperatorPreview {
   name: string;
@@ -10,7 +11,10 @@ export interface GachaOperatorPreview {
   branch: string | null;
   position: string | null;
   tags: string[];
-  trait: string | null;
+  /** Every promotion's trait where it changes (traitPhases), not the last one alone. Named apart
+   *  from the string `trait` it replaces, so a page loaded before a deploy reads no trait from a
+   *  newer response instead of rendering this list as text. */
+  traitPhases: TraitPhase[];
   stats: { elite: number; level: number; values: StatValues; trust: { hp: number; atk: number; def: number } } | null;
   talents: { name: string; stage: string | null; description: string }[];
   skills: { name: string; icon: string | null; rank: string; recovery: string | null; activation: string | null; initialSp: number | string | null; spCost: number | string | null; duration: number | string | null; description: string }[];
@@ -22,9 +26,6 @@ export interface GachaOperatorPreview {
  * available progression rather than full level tables or material costs. */
 export function buildGachaOperatorPreview(operator: Operator): GachaOperatorPreview {
   const phase = operator.stats?.phases.at(-1);
-  const trait = typeof operator.trait === 'string'
-    ? operator.trait
-    : operator.trait ? Object.values(operator.trait).at(-1) ?? null : null;
 
   return {
     name: operator.name,
@@ -33,7 +34,7 @@ export function buildGachaOperatorPreview(operator: Operator): GachaOperatorPrev
     branch: operator.branch,
     position: operator.position,
     tags: operator.tags ?? [],
-    trait,
+    traitPhases: traitPhases(operator.trait),
     stats: phase ? {
       elite: phase.elite,
       level: phase.maxLevel,

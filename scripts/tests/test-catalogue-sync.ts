@@ -345,6 +345,36 @@ test('an operator the tables cannot describe is held back on its own, and the re
   assert.deepEqual(reconcileOperators({operators:[],cn:nameless,en:empty}).quarantine.map((e:any)=>[e.key,e.action]),[['operator:char_4218_aigis','omitted-new']]);
 });
 
+test('an operator whose game text the rebuild refuses is held back on its own; an error that is no refusal fails the stage',()=>{
+  // A trait naming a value the game's trait data does not carry (officialTrait refuses it).
+  const refused=structuredClone(cn);refused.characters.char_4219_yukari.description='Recovers {nope} HP';refused.characters.char_4219_yukari.trait=null;
+  const first=reconcileOperators({operators:[],cn:refused,en:empty});
+  assert.deepEqual(first.operators.map((o:any)=>o.internalName).sort(),['char_4217_makoto','char_4218_aigis','char_4220_kormr']);
+  assert.deepEqual(first.quarantine.map((e:any)=>[e.key,e.action]),[['operator:char_4219_yukari','omitted-new']]);
+  assert.match(first.quarantine[0].reason,/has a trait whose text names a value the game's trait data does not carry, so it is left out/);
+  // An existing one promoted to Global keeps its previous version.
+  const previous=reconcileOperators({operators:[],cn,en:empty}).operators;
+  const en=structuredClone(refused);en.characters.char_4219_yukari.name='Official Global name';
+  const promoted=reconcileOperators({operators:previous,cn,en});
+  assert.deepEqual(promoted.operators.find((o:any)=>o.internalName==='char_4219_yukari'),previous.find((o:any)=>o.internalName==='char_4219_yukari'));
+  assert.deepEqual(promoted.quarantine.filter((e:any)=>e.key==='operator:char_4219_yukari').map((e:any)=>e.action),['kept-previous']);
+  // A bug (here a missing table officialModules requires) would hold every operator: it throws instead.
+  const broken=structuredClone(cn);delete broken.battleEquip;
+  assert.throws(()=>reconcileOperators({operators:[],cn:broken,en:empty}),/battle_equip_table/);
+});
+
+test('a gap the rebuild reports is written as the English refresh writes it (gapReason), after every hold',()=>{
+  // The Global table's talent has no name: the record's talent stays at its place, reported.
+  const previous=reconcileOperators({operators:[],cn,en:empty}).operators;
+  const en=structuredClone(cn);en.characters.char_4219_yukari.name='Official Global name';
+  for(const candidate of en.characters.char_4219_yukari.talents[0].candidates)candidate.name=null;
+  const promoted=reconcileOperators({operators:previous,cn,en});
+  const recorded=previous.find((o:any)=>o.internalName==='char_4219_yukari').talents[0];
+  assert.deepEqual(promoted.operators.find((o:any)=>o.internalName==='char_4219_yukari').talents[0],recorded);
+  assert.deepEqual(promoted.quarantine.filter((e:any)=>e.key==='operator:char_4219_yukari'),[{key:'operator:char_4219_yukari',action:'published-partial',
+    reason:`Official Global name's talent ${recorded.name} is published as the record has it: the game's talent at its place has no name.`}]);
+});
+
 test('a wiki row never moves a Global pool id: not off the record that holds the pool, not over one the record holds',()=>{
   const enDay=(day:string)=>Date.parse(`${day.replaceAll('/','-')}T04:00:00-07:00`)/1000;
   const cnTables=tables(pool('SINGLE_90_0_1','SINGLE','2026/03/10','某人'));

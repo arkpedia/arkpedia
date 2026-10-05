@@ -72,7 +72,7 @@ export interface Skill {
   recommendation?: SkillRecommendationEntry[] | null; // manually populated -- one or more per-mastery-level recommendations
   levels: SkillLevel[];
   cost?: SkillMasteryCost | null; // new schema: this skill's own mastery 1/2/3 material costs
-  pairing?: PairingEntry[] | null; // manually populated -- recommended class/branch/technique pairings for this skill
+  pairings?: PairingEntry[] | null; // manually populated -- recommended class/branch/technique pairings for this skill (the refresh guard, handWrittenFields, compares it by this name)
   techniques?: SkillTechnique[] | null; // manually populated -- named play patterns/tips for this specific skill
 }
 

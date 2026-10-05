@@ -1204,18 +1204,17 @@ export default function BasePage({ operators }: Props) {
     if (currentIndex === -1) {
       return facilitySkills.filter((bs) => bs.eliteLevel === normalizedEliteLevel).map((bs) => ({ ...bs, name: cleanSkillName(bs.name), rawName: bs.name }));
     }
-    // Where the game's own slot data covers this operator, it is
-    // authoritative and the text heuristics below are skipped entirely --
-    // see lib/base/baseSkillSlots.ts for what a "slot" is (the table itself is
-    // data/base-skill-slots.json, from this page's props). It also
-    // supersedes the scraped elite tag, which is occasionally wrong:
-    // Varkáris's Pride of a Hero β is tagged Elite 2 here but the game
-    // unlocks it at Elite 1, so an Elite 1 Varkáris was showing the weaker
-    // α. Anything the table doesn't cover (Ukusik, and any operator added
-    // after the last gamedata refresh) still falls through to the
-    // heuristics.
-    // The record's own slot (from building_data, every nightly) first; the static table for
-    // records that do not carry one yet.
+    // Where the game's own slot data covers a skill, it is authoritative
+    // and the text heuristics below are skipped entirely -- see
+    // lib/base/baseSkillSlots.ts for what a "slot" is. That data is the
+    // record's own slot, phase and level first (building_data, written on
+    // every released operator each night by sync-operator-english.mjs),
+    // then data/base-skill-slots.json (from this page's props) for a record
+    // that does not carry them yet. Only an operator with a skill neither
+    // covers (Ukusik) falls through to the heuristics. It also supersedes
+    // the scraped elite tag, which is occasionally wrong: Varkáris's Pride
+    // of a Hero β is tagged Elite 2 here but the game unlocks it at Elite 1,
+    // so an Elite 1 Varkáris was showing the weaker α.
     const slotted = facilitySkills.map((bs) => ({
       bs,
       meta: typeof bs.slot === 'number' && typeof bs.phase === 'number'

@@ -1,5 +1,5 @@
 /** Pure catalogue reconciliation. Display names are never used as source identities. */
-import { localizeReleasedMechanics } from './sync-operator-english.mjs';
+import { cnModuleTables, gapReason, localizeReleasedMechanics } from './sync-operator-english.mjs';
 import { stripRichText } from '../lib/gametext.mjs';
 import { cnDays } from '../build/cn-news.mjs';
 const list = x => Array.isArray(x) ? x : [];
@@ -83,9 +83,11 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     let op = byId.get(id);
     const global = en.characters[id]?.isNotObtainable === false && !chinese(en.characters[id].name);
     // cn: the CN tables for modules a Global operator's tables lack yet (officialModules); a
-    // CN-sourced operator's tables are the CN ones already.
+    // CN-sourced operator's tables are the CN ones already. No data/material-names.json here: a
+    // CN-only module cost in a material Global lacks keeps its stage's cost, or none, reported below,
+    // until the English refresh, which runs before this stage every night, names it.
     const tables = { ...(global ? en : cn), items: { items: { ...cn.items?.items, ...en.items?.items } },
-      cn: global ? { modules: cn.modules, battleEquip: cn.battleEquip, characters: cn.characters, items: cn.items } : null }, character = tables.characters[id];
+      cn: global ? cnModuleTables(key => cn[key], null) : null }, character = tables.characters[id];
     const isNew = !op;
     // Refresh official Global text for a CN record by ID, including renamed operators.
     const promote = global && (op?.isFuture || op?.sourceRegion === 'CN');
@@ -114,8 +116,15 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     }
     if (overview) op.review = { ...op.review, official: overview };
     const oldName = op.name;
+    // A refusal (an error with a kind: text naming a value the game does not carry) holds this one
+    // operator, as the English refresh does; any other error is a bug and fails the stage.
     // The mechanics importer checks the regional name. Restore the public name afterwards.
-    const mechanics = localizeReleasedMechanics({ ...op, name: character.name }, tables);
+    const gaps = [];
+    let mechanics;
+    try { mechanics = localizeReleasedMechanics({ ...op, name: character.name }, tables, gaps); } catch (error) {
+      if (!error.kind) throw error;
+      hold(id, name, isNew, error.kind); continue;
+    }
     Object.assign(op, mechanics, { name, sourceRegion: global ? 'Global' : 'CN', stats: stats(character) });
     if (oldName !== name) { renames.push([oldName, name]); op.aliases = [...new Set([...(op.aliases ?? []), oldName])]; }
     if (isNew || promote) {
@@ -123,6 +132,8 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
       // Module stages come from localizeReleasedMechanics above (module-stages.mjs), as for every released operator.
     }
     if (!op.files?.length) { hold(id, name, isNew, `has no archive text in the ${global ? 'Global' : 'CN'} handbook table yet`); continue; }
+    // After every hold: a record kept at its previous version kept nothing partly.
+    for (const gap of gaps) quarantine.push({ key: gap.key, action: 'published-partial', reason: gapReason(name, gap) });
     if (isNew) op.promotion = character.phases.slice(1).map((phase, i) => ({ tier: `Elite ${i + 1}`, upgrades: [], prerequisite: `Level ${character.phases[i].maxLevel}`,
       cost: [...costs(phase.evolveCost, tables), { name: 'LMD', quantity: tables.constants.evolveGoldCost[op.rarity-1][i] }] }));
     const release = releases.get(id);

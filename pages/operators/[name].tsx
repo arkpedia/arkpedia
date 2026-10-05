@@ -20,7 +20,7 @@ import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
 import { Operator, GuideEntry, SynergyEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { recommendationsTellApart } from '@/lib/operators/skillRecommendation';
-import { detectAutoTechniques, MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
+import { MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS, skillTechniques, talentTechniques } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded } from '@/lib/techniques/synergyDetection';
 import { getClassIconPath, getBranchIconPath, getFactionIconPath } from '@/lib/operators/classBranchIcons';
@@ -48,6 +48,8 @@ import OPERATOR_FORMS from '@/data/operator-forms.json';
 import OperatorStatsPanel from '@/components/operators/OperatorStatsPanel';
 import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import OperatorTalents from '@/components/operators/OperatorTalents';
+import OperatorTraitLines from '@/components/operators/OperatorTraitLines';
+import { traitPhases } from '@/lib/operators/operatorTrait';
 import LodestarTalentDemo from '@/components/operators/LodestarTalentDemo';
 import OperatorCredits from '@/components/operators/OperatorCredits';
 import OperatorAppearancePicker from '@/components/operators/OperatorAppearancePicker';
@@ -903,6 +905,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
           .map(([k]) => (k === 'Welfare' && welfareInfo ? `Welfare (${welfareInfo['Unlock Type']} \u2014 ${welfareInfo['Unlock Location']})` : k))
           .join(', ') || 'Unknown'
       : 'Unknown';
+  // Every promotion's trait where it changes (Pudding jumps to 3 enemies, 4 from Elite 2).
+  const traitLines = traitPhases(operator.trait);
 
 
   return (
@@ -1005,8 +1009,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
                 {/* Amiya's class forms. Real navigations rather than a tab, because each
                     form is its own page with its own skills, talents and modules -- so a
-                    reader can link someone straight to the Guard. The current form is
-                    rendered as a span, not a link to the page already open. */}
+                    reader can link someone straight to the Guard. Every form is a link,
+                    the current one too, marked by aria-current (below). */}
                 {forms && forms.length > 1 && (
                   <nav className="tabs op-form-switch" aria-label={`${operator.name.replace(/ \(.*\)$/, '')} class forms`}>
                     <span className="visually-hidden">Class</span>
@@ -1052,7 +1056,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                 <div>
                   {operator.review?.official && <p className={pageStyles.review}>{highlightStats(operator.review.official)}</p>}
                   {overviewRanges.length > 0 && <div className={pageStyles.range}><OperatorAttackRange key={operator.internalName ?? operator.name} ranges={overviewRanges} /></div>}
-                  <p className={pageStyles.trait}>{typeof operator.trait === 'string' ? highlightStats(operator.trait) : 'Trait changes with promotion.'}</p>
+                  {traitLines.length > 0 && <p className={pageStyles.trait}><OperatorTraitLines lines={traitLines} highlight /></p>}
                   <div className="op-sticky-meta op-sticky-tag-row">
                     {operator.position && <span className="op-tag-pill op-tag-pill-position">{operator.position}</span>}
                     {operator.tags?.map(tag => <span className="op-tag-pill" key={tag}>{tag}</span>)}
@@ -1169,8 +1173,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
 
 
                         {(() => {
-                          const autoTechs = activeSkill ? detectAutoTechniques(operator.rarity, activeSkill.levels.map((l) => l.description), operator.name, operator.branch, operator.class) : [];
-                          const allTechs = [...(activeSkill?.techniques || []), ...autoTechs];
+                          // The record's own techniques and the rules its text matches, each once.
+                          const allTechs = activeSkill ? skillTechniques(operator, activeSkill) : [];
                           return (
                             allTechs.length > 0 && (
                               <TechniqueList
@@ -1202,8 +1206,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                   elites={operator.stats?.phases.map(phase => phase.elite) ?? []}
                   renderDetails={(talent, unlocked) => {
                     if (operator.internalName === 'char_1039_thorn2' && talent.name === 'El Alcance de la Visión') return <LodestarTalentDemo unlocked={unlocked} />;
-                    const autoTechs = detectAutoTechniques(operator.rarity, talent.rows.map(row => row.description), operator.name, operator.branch, operator.class, true);
-                    const allTechs = [...(talent.technique || []), ...autoTechs];
+                    // The record's own techniques and the rules its text matches, each once.
+                    const allTechs = talentTechniques(operator, talent);
                     return allTechs.length > 0 ? <TechniqueList summary="Talent details" techniques={allTechs} techniqueUnitIcons={techniqueUnitIcons} techniqueBranchOperators={techniqueBranchOperators} techniqueGroupOperators={techniqueGroupOperators} techniqueRelatedOperators={techniqueRelatedOperators} /> : null;
                   }} />
               </section>
@@ -1527,7 +1531,11 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       ))}
                     </div>
                     <div className="op-sticky-meta">
-                      <span>Trait: {typeof operator.trait === 'string' ? operator.trait : 'varies by promotion'}</span>
+                      {/* A trait that changes starts each promotion on its own line under "Trait:". */}
+                      <span>
+                        Trait: {traitLines[0]?.stage && <br />}
+                        {traitLines.length ? <OperatorTraitLines lines={traitLines} highlight={false} /> : '—'}
+                      </span>
                       <span>
                         How to obtain: {howToObtainDisplay}
                         {releaseLabel && (
@@ -1785,8 +1793,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const techniqueBranchOperators: Record<string, SearchableOperator[]> = {};
   const techniqueGroupOperators: Record<string, SearchableOperator[]> = {};
   const allTechniqueLists: SkillTechnique[][] = [
-    ...getSkillList(operator).map((s) => [...(s.techniques || []), ...detectAutoTechniques(operator.rarity, s.levels.map((l) => l.description), operator.name, operator.branch, operator.class)]),
-    ...(operator.talents || []).map((t) => [...(t.technique || []), ...detectAutoTechniques(operator.rarity, t.rows.map((r) => r.description), operator.name, operator.branch, operator.class, true)]),
+    ...getSkillList(operator).map((s) => skillTechniques(operator, s)),
+    ...(operator.talents || []).map((t) => talentTechniques(operator, t)),
   ];
   for (const techniques of allTechniqueLists) {
     for (const tech of techniques) {

@@ -2,7 +2,7 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
-import { detectAutoTechniqueMatches, UMBRELLA_MEMBERS, MEMBER_TO_UMBRELLA, AutoTechniqueMatch } from '@/lib/techniques/autoTechniques';
+import { detectAutoTechniqueMatches, mergeTechniques, UMBRELLA_MEMBERS, MEMBER_TO_UMBRELLA, AutoTechniqueMatch } from '@/lib/techniques/autoTechniques';
 import { getBranchIconPath } from '@/lib/operators/classBranchIcons';
 import techniqueDefinitionsData from '@/data/techniques_definitions.json';
 
@@ -51,8 +51,15 @@ let cachedGroups: TechniqueGroup[] | null = null;
 
 /* Techniques a trait's wording names without the operator having them: an Abjurer's or a
    Bard's trait heals ALLIES ("restore the HP of allies"), not itself, and a Duelist's "Only
-   restores SP when blocking enemies" is a restriction, not a source of SP. */
-const NOT_FROM_TRAITS = new Set(['Self-Sustain', 'SP Charging']);
+   restores SP when blocking enemies" is a restriction, not a source of SP. Exported for
+   scripts/audits/audit-techniques-vs-gamedata.ts, which reads traits the same way. */
+export const NOT_FROM_TRAITS = new Set(['Self-Sustain', 'SP Charging']);
+
+/** The trait text the technique rules read: a record keeps one trait, or one per promotion
+ *  ({ Base, "Elite 2" }: an operator whose trait changes), read together. */
+export function traitText(op: { trait?: string | Record<string, string> | null }): string | null {
+  return !op.trait ? null : typeof op.trait === 'string' ? op.trait : Object.values(op.trait).join(' ; ');
+}
 
 export function buildTechniqueGroups(): TechniqueGroup[] {
   if (cachedGroups) return cachedGroups;
@@ -150,18 +157,17 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
     /* The trait, which the page never read (2026-10-03 sweep): a Decel Binder Slows with
        every attack and no skill or talent says so. Branch-included rules are left to the
        talent and skill passes, which already credit the branch. A talent's match wins. */
-    // A record keeps one trait text, or several by name (an operator whose trait changes).
-    const traitText = !op.trait ? null : typeof op.trait === 'string' ? op.trait : Object.values(op.trait).join(' ; ');
-    if (traitText) {
+    const trait = traitText(op);
+    if (trait) {
       // Read as a talent is, so skills-only rules (Ammo-based Skills: a skill with a set
       // number of uses) never take a trait's wording -- a Hunter's Ammo is its basic attack's.
-      for (const m of detectAutoTechniqueMatches(op.rarity, [traitText], op.name, op.branch, op.class, true)) {
+      for (const m of detectAutoTechniqueMatches(op.rarity, [trait], op.name, op.branch, op.class, true)) {
         if (!m.name || m.viaBranch || talentDetectedNames.has(m.name) || NOT_FROM_TRAITS.has(m.name)) continue;
         addBadge(m.name, m.description, false, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
           label: 'Trait',
           skillIconPath: null,
           talentLabel: 'Trait',
-          sourceText: traitText,
+          sourceText: trait,
           matchedKeyword: m.matchedKeyword,
           matchedKeywordEnd: m.matchedKeywordEnd,
           highlightSeparately: m.highlightSeparately,
@@ -184,8 +190,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
       // earlier level (different wording/numbers) would get badged
       // against text that didn't contain it at all, breaking
       // highlighting or wrongly attributing the technique entirely.
-      // A technique the record already names on this skill by hand is not found again.
-      const seenSkillNames = new Set<string>(manualTechs.map((t) => t.name).filter((n): n is string => !!n));
+      const seenSkillNames = new Set<string>();
       const autoTechs: (AutoTechniqueMatch & { sourceText: string | null })[] = [];
       let referencedTalentText: string | null = null;
       for (let li = skill.levels.length - 1; li >= 0; li--) {
@@ -204,7 +209,11 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
           referencedTalentText = levelText;
         }
       }
-      for (const tech of [...manualTechs, ...autoTechs]) {
+      // A technique the record already names on this skill by hand is not listed again: the
+      // record's entry wins, as on the operator page (mergeTechniques).
+      const skillTechs = mergeTechniques(manualTechs, autoTechs);
+      const listedSkillNames = new Set(skillTechs.map((t) => t.name));
+      for (const tech of skillTechs) {
         if (!tech.name) continue;
         addBadge(tech.name, tech.description, tech.viaBranch, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
           label: skill.name || '',
@@ -228,7 +237,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         const referencedNames = talentIdx !== null && talentIdx >= 0 ? talentTechniquesByIndex.get(talentIdx) : null;
         if (referencedNames) {
           for (const techName of referencedNames) {
-            if (seenSkillNames.has(techName)) continue; // already added directly above -- don't duplicate
+            if (listedSkillNames.has(techName)) continue; // already added directly above -- don't duplicate
             const techDescription = techniqueDefinitions[techName] || null;
             addBadge(techName, techDescription, false, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
               label: skill.name || '',

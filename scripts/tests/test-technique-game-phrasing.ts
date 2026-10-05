@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { detectAutoTechniqueMatches } from '../../lib/techniques/autoTechniques';
+import { detectAutoTechniqueMatches, detectAutoTechniques, mergeTechniques, skillTechniques, talentTechniques } from '../../lib/techniques/autoTechniques';
+import { getAllOperators } from '../../lib/operators/operators';
+import { getSkillList } from '../../lib/operators/operatorTypes';
 import { buildTechniqueGroups } from '../../lib/techniques/buildTechniqueGroups';
 
 /*
@@ -66,6 +68,25 @@ test('a lowered stat with no minus sign, "reduce the target\'s RES by 24%", is t
     ["20% chance for attacks to deal 165% damage and reduce the target's ATK by 15% for 3 seconds", 'ATK Down'],
     ["When hitting an enemy with full HP, ATK increases to 130%, reduce that enemy's Movement Speed by 50% for 3.5s", 'Movement Speed Down'],
   ]) assert.ok(rules(text).includes(name), text);
-  // Another stat sitting between the verb and the number keeps the number off this one.
+  // A sentence-opening verb counts too.
+  assert.ok(rules("Reduces the target's DEF by 20% for 5 seconds").includes('DEF Down'));
+  // Another stat sitting between the verb and the number keeps the number off this one. Lower
+  // case, mid-sentence, so the verb does match and only isInterfered keeps ATK Down out.
+  assert.ok(!rules('Attacks reduces DP Cost and increases ATK by 20%').includes('ATK Down'));
   assert.ok(!rules('Reduces DP Cost and increases ATK by 20%').includes('ATK Down'));
+});
+
+test('a technique the record names by hand is listed once, the record\'s entry', () => {
+  const manual = [{ name: 'Reveal Invisibility', description: 'Editor note' }];
+  const auto = detectAutoTechniques(6, ['Reveals Invisible enemies within range'], 'Someone', null, null);
+  assert.ok(auto.some((t) => t.name === 'Reveal Invisibility'));
+  assert.deepEqual(mergeTechniques(manual, auto).filter((t) => t.name === 'Reveal Invisibility'), manual);
+  // Every skill and talent list the operator page shows, over the whole roster.
+  for (const op of getAllOperators()) {
+    const lists = [...getSkillList(op).map((skill) => skillTechniques(op, skill)), ...(op.talents ?? []).map((talent) => talentTechniques(op, talent))];
+    for (const list of lists) {
+      const names = list.map((t) => t.name).filter(Boolean);
+      assert.equal(new Set(names).size, names.length, `${op.name} lists ${names.join(', ')}`);
+    }
+  }
 });

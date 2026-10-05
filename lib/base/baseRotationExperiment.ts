@@ -9,6 +9,7 @@ import {
   ConsolidatedGroup,
   Candidate,
   DynamicContextOverrides,
+  bestSkillPerSlot,
 } from './optimizerLogic';
 import { calcClueSpeed, calcOffice, calcDroneRate, calcControlCenterEffects, calcDeadTime } from './baseProductivity';
 import { toBaseRosters, type BaseRosters } from './baseGroupRosters';
@@ -27,14 +28,12 @@ export function initializeRotationExperimentData(operators: BaseOperator[], grou
 
 export type RosterMode = 'eliteZero' | 'eliteTwo';
 
-const ELITE_PRIORITY: Record<string, number> = { 'Elite 2': 2, 'Elite 1': 1, Base: 0, 'Level 30': 0 };
-
 /** eliteZero: only Base-tier skills, this experiment's original premise
  * (every operator owned, nobody promoted). eliteTwo: the best available
- * tier per "Replaces" slot -- same grouping/priority logic already used
- * in optimizerLogic.ts's allSkillsForOperator for Factory/Trading Post,
- * applied here to every facility type, matching this codebase's normal
- * "assume max investment" convention for the comparison experiment. */
+ * tier per slot -- optimizerLogic.ts's bestSkillPerSlot, the grouping
+ * Factory/Trading Post use, applied here to every facility type, matching
+ * this codebase's normal "assume max investment" convention for the
+ * comparison experiment. */
 function skillsFor(operatorName: string, facility: string, mode: RosterMode): BaseSkill[] {
   const op = allOperators.find((o) => o.name === operatorName);
   if (!op || !op.baseSkills) return [];
@@ -42,20 +41,7 @@ function skillsFor(operatorName: string, facility: string, mode: RosterMode): Ba
   if (mode === 'eliteZero') {
     return relevant.filter((s) => !s.eliteLevel || s.eliteLevel === 'Base' || s.eliteLevel === 'Level 30');
   }
-  const groups = new Map<string, BaseSkill[]>();
-  for (const s of relevant) {
-    const raw = s.name ?? '';
-    const replacesMatch = raw.match(/Replaces(.+)$/);
-    const slotKey = replacesMatch ? replacesMatch[1] : raw.split('Replaces')[0];
-    if (!groups.has(slotKey)) groups.set(slotKey, []);
-    groups.get(slotKey)!.push(s);
-  }
-  const result: BaseSkill[] = [];
-  for (const group of groups.values()) {
-    const best = group.reduce((a, b) => ((ELITE_PRIORITY[b.eliteLevel ?? ''] ?? -1) > (ELITE_PRIORITY[a.eliteLevel ?? ''] ?? -1) ? b : a));
-    result.push(best);
-  }
-  return result;
+  return bestSkillPerSlot(relevant);
 }
 
 /** Login cadence -- the person can only act every 12 hours, so any
