@@ -105,12 +105,32 @@ test('a refusal names the step that failed and what the server said', async () =
   await refusal(sendCode({ transport: down, server: 'en', deviceId: 'd' }, 'a@b.c'), 'send-code', /could not reach en-sdk-api\.yostarplat\.com: .*SSL connect error/);
 });
 
-test('no login is kept: the sign-in removes the one an earlier build saved, and writes none', async () => {
+test('a sign-in is kept only when the reader asks, after it worked, and never in a backup file', async () => {
   const fs = await import('node:fs');
   const source = fs.readFileSync('components/account-import/GameSignIn.tsx', 'utf8');
+  // A login a build before 2026-10-02 kept without asking is still removed.
   assert.match(source, /removeItem\(LEGACY_LOGIN_KEY\)/);
+  // Storage only through savedLogin.ts, and its one save behind the reader's box, after the import.
   assert.doesNotMatch(source, /setItem/);
-  assert.ok(!fs.existsSync('lib/account-import/savedLogin.ts'));
+  assert.equal(source.match(/saveLogin\(/g)?.length, 1);
+  assert.match(source, /await read\(yostar, flow\(\)\.deviceId, email\.trim\(\)\);\s*\/\/[^\n]*\n\s*if \(remember\) \{[\s\S]{0,200}saveLogin\(login\)/);
+  assert.match(source, /useState\(false\);\s*useEffect/, 'the box starts unticked');
+  // A backup lists what it keeps, and the sign-in is not among it, nor is any of its fields.
+  const { formatBackup } = await import('../../lib/account/backup');
+  const { SAVED_LOGIN_KEY } = await import('../../lib/account-import/savedLogin');
+  const store = new Map([[SAVED_LOGIN_KEY, JSON.stringify({ server: 'en', email: 'doctor@example.com', uid: '42', token: 'secret-token', authToken: 'secret-auth', deviceId: 'd' })]]);
+  const backup = formatBackup({ getItem: (key: string) => store.get(key) ?? null } as never);
+  assert.doesNotMatch(backup, /secret-token|secret-auth|doctor@example\.com/);
+});
+
+test('a remembered sign-in is read back only when whole, and its email is shown masked', async () => {
+  const { maskEmail, parseSavedLogin } = await import('../../lib/account-import/savedLogin');
+  const login = { server: 'en', email: 'doctor@example.com', uid: '42', token: 't', authToken: 'a', deviceId: 'd' };
+  assert.deepEqual(parseSavedLogin(JSON.stringify(login)), login);
+  assert.equal(parseSavedLogin(JSON.stringify({ ...login, authToken: '' })), null, 'without the code token, no pull history');
+  assert.equal(parseSavedLogin(JSON.stringify({ ...login, server: 'toString' })), null);
+  assert.equal(parseSavedLogin('{not json'), null);
+  assert.equal(maskEmail('doctor@example.com'), 'd•••@example.com');
 });
 
 test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async () => {

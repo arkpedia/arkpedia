@@ -44,3 +44,7 @@
 .data-dialog-paste textarea { width: 100%; margin: 10px 0; box-sizing: border-box; }
 .data-dialog-note { margin: 0 0 12px; }
 .data-dialog-forget { grid-auto-flow: column; justify-content: start; align-items: center; gap: 12px; }
+/* A remembered sign-in (lib/account-import/savedLogin.ts): whose it is, Import again and Forget,
+   above the code sign-in; the box that keeps one, under it, across the form. */
+.import-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.import-remember { grid-column: 1 / -1; }
