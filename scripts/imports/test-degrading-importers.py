@@ -29,8 +29,9 @@ UNREACHABLE = {'ARKPEDIA_WIKI_BASE': 'http://127.0.0.1:65534', 'ARKPEDIA_NOW': '
 
 
 def run(script, cwd, **env):
+    # As main's run, unless a case names the channel: a dev release run sets ARKPEDIA_RELEASE_BRANCH.
     result = subprocess.run([sys.executable, str(IMPORTS/script)], cwd=cwd, capture_output=True, text=True,
-                            env={**os.environ, **UNREACHABLE, 'PYTHONDONTWRITEBYTECODE': '1', **env})
+                            env={**os.environ, **UNREACHABLE, 'ARKPEDIA_RELEASE_BRANCH': 'main', 'PYTHONDONTWRITEBYTECODE': '1', **env})
     if result.returncode:
         raise AssertionError(f'{script} exited {result.returncode}:\n{result.stdout}\n{result.stderr}')
     return result
@@ -177,6 +178,33 @@ class WikiImportersDegrade(unittest.TestCase):
             run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), FETCH_LOG=str(log), PYTHONPATH=str(offline))
             self.assertEqual(sorted(log.read_text().split()), ['https://torappu.prts.wiki/assets/furniture/furni_duel_a.png', 'https://torappu.prts.wiki/assets/furniture/furni_duel_b.png'])
             self.assertEqual(sorted(entry['key'] for entry in entries(root)), ['reward-icon:furni_duel_a', 'reward-icon:furni_duel_b'])
+
+    def test_reward_icons_fetch_nothing_for_a_channel_that_publishes_no_art(self):
+        with tempfile.TemporaryDirectory() as root:
+            # A dev run: the icon main has not published is left for main's run. Nothing is fetched,
+            # nothing staged, and the stage's entries stay as the loaded data has them.
+            offline = Path(root)/'offline'
+            offline.mkdir()
+            (offline/'sitecustomize.py').write_text(
+                'import os, urllib.request\n'
+                'def refuse(request, *args, **kwargs):\n'
+                '    open(os.environ["FETCH_LOG"], "a").write(getattr(request, "full_url", request) + "\\n")\n'
+                '    raise OSError("offline")\n'
+                'urllib.request.urlopen = refuse\n')
+            furnitures = {'furni_duel_a': {'name': 'Duel Trophy', 'iconId': 'furni_duel_a'}}
+            for region in ('en', 'cn'):
+                write(root, f'{region}/gamedata/excel/item_table.json', {'items': {}})
+                write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': furnitures}})
+            write(root, 'data/events/events_2099.json', [])
+            write(root, 'data/event-rewards.json', {'events': {'Duel Channel: A': {'groups': [{'kind': 'milestones', 'title': 't', 'source': 's', 'items': [{'name': 'Duel Trophy', 'count': 1, 'kind': 'furniture', 'id': 'furni_duel_a'}]}]}}})
+            kept = {'key': 'reward-icon:furni_duel_a', 'stage': 'reward-icons', 'action': 'published-partial', 'reason': 'main said so', 'firstSeen': '2026-10-01'}
+            write(root, 'data/quarantine.json', {'version': 1, 'entries': [kept]})
+            log = Path(root)/'fetched.txt'
+            output = run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), FETCH_LOG=str(log), PYTHONPATH=str(offline), ARKPEDIA_RELEASE_BRANCH='dev').stdout
+            self.assertFalse(log.exists(), 'nothing fetched')
+            self.assertIn("The dev channel publishes no art: 1 reward icon(s) not published yet are left for main's run", output)
+            self.assertEqual(entries(root), [kept])
+            self.assertIsNone(staged(root, 'reward-icons'), 'nothing staged, not even an empty list')
 
     def test_reward_icons_stop_asking_a_host_that_is_down(self):
         with tempfile.TemporaryDirectory() as root:

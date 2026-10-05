@@ -383,6 +383,15 @@ if sys.argv[1:] == ['--wanted']:
 missing = {target: want for target, want in wanted.items() if target not in published_assets()}
 skipped_placeholders = sorted(placeholders)
 
+# Only main's run publishes art (publish-catalogue-assets.sh): another channel's run would fetch
+# these only to leave them in its .cache, and fetching every icon main has not published yet held
+# each dev run at this stage's 15-minute limit. So it fetches nothing and leaves this stage's
+# entries as the loaded data has them; main's run fetches, stages and publishes them.
+channel = os.environ.get('ARKPEDIA_RELEASE_BRANCH') or 'main'
+if missing and channel != 'main':
+    print(f'The {channel} channel publishes no art: {len(missing)} reward icon(s) not published yet are left for main\'s run, and none is fetched.')
+    raise SystemExit(0)
+
 # This run's staged icons; the last run's list goes now, so a day with nothing to stage stages nothing.
 staging = Staging('reward-icons', root)
 
