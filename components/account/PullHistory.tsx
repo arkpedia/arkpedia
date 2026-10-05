@@ -89,7 +89,7 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
         {view.sessions.slice(0, shown).map((session) => (
           <li key={`${session.at}|${session.pool}`} className="account-pulls-session">
             <div className="account-pulls-session-head">
-              <LocalTime iso={new Date(session.at * 1000).toISOString()} />
+              <LocalTime iso={new Date(session.at * 1000).toISOString()} precision="minute" />
               <span className="account-pulls-banner-meta">{bannerName(session.pool)}{session.rows.length > 1 ? ` · ×${session.rows.length}` : ''}</span>
             </div>
             <div className="account-pulls-ops">

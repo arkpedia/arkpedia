@@ -26,7 +26,7 @@ export default function ChangelogPage() {
         {CHANGELOG.map((entry) => (
           <section key={entry.at} className="op-section changelog-entry" aria-labelledby={`changes-${entry.at.slice(0, 16)}`}>
             {/* When it reached the site, in the reader's own time zone. */}
-            <h2 id={`changes-${entry.at.slice(0, 16)}`}><LocalTime iso={entry.at} />{entry.title && <span className="hint changelog-title">{entry.title}</span>}</h2>
+            <h2 id={`changes-${entry.at.slice(0, 16)}`}><LocalTime iso={entry.at} precision="day" />{entry.title && <span className="hint changelog-title">{entry.title}</span>}</h2>
             {KINDS.map(([kind, label]) => entry[kind]?.length ? (
               <div key={kind} className={`changelog-group is-${kind}`}>
                 <h3>{label}</h3>

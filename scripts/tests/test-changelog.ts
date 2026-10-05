@@ -31,21 +31,33 @@ test('the changelog is newest first, each entry at a real UTC instant, and every
   }
 });
 
-test('formatInstant writes an instant in the given zone, en-GB', async () => {
+test('formatInstant writes an instant in the given zone, en-GB, to the day or the minute', async () => {
   const { formatInstant } = await import('../../components/ui/LocalTime');
-  assert.equal(formatInstant('2026-10-05T08:26:00Z', 'UTC'), '5 Oct 2026, 08:26 UTC');
+  assert.equal(formatInstant('2026-10-05T08:26:00Z', 'minute', 'UTC'), '5 Oct 2026, 08:26 UTC');
   // The zone's name is ICU's (CEST, GMT+8 ...), which differs between Node builds: the time is the point.
-  assert.match(formatInstant('2026-10-05T08:26:00Z', 'Europe/Berlin'), /^5 Oct 2026, 10:26 \S+$/);
-  assert.match(formatInstant('2026-10-05T08:26:00Z', 'Asia/Shanghai'), /^5 Oct 2026, 16:26 \S+$/);
+  assert.match(formatInstant('2026-10-05T08:26:00Z', 'minute', 'Europe/Berlin'), /^5 Oct 2026, 10:26 \S+$/);
+  assert.match(formatInstant('2026-10-05T08:26:00Z', 'minute', 'Asia/Shanghai'), /^5 Oct 2026, 16:26 \S+$/);
   // Across midnight the reader's day is the one shown.
-  assert.match(formatInstant('2026-10-05T23:30:00Z', 'Asia/Tokyo'), /^6 Oct 2026, 08:30 \S+$/);
-  assert.match(formatInstant('2026-10-05T08:26:00Z', 'America/Los_Angeles'), /^5 Oct 2026, 01:26 \S+$/);
+  assert.match(formatInstant('2026-10-05T23:30:00Z', 'minute', 'Asia/Tokyo'), /^6 Oct 2026, 08:30 \S+$/);
+  assert.match(formatInstant('2026-10-05T08:26:00Z', 'minute', 'America/Los_Angeles'), /^5 Oct 2026, 01:26 \S+$/);
+  // To the day, as What's new shows an entry: no time, and still the reader's day.
+  assert.equal(formatInstant('2026-10-05T08:26:00Z', 'day', 'UTC'), '5 Oct 2026');
+  assert.equal(formatInstant('2026-10-05T23:30:00Z', 'day', 'Asia/Tokyo'), '6 Oct 2026');
+  assert.equal(formatInstant('2026-10-05T03:00:00Z', 'day', 'America/Los_Angeles'), '4 Oct 2026');
 });
 
 test('LocalTime renders an entry\'s moment in UTC on the server, with the instant in dateTime and the UTC time as its title', async () => {
   // The browser's first render writes the same, so hydration has nothing to correct; the reader's
   // own zone replaces the text once mounted, which a static render never reaches.
   const { default: LocalTime } = await import('../../components/ui/LocalTime');
-  assert.equal(renderToStaticMarkup(createElement(LocalTime, { iso: '2026-10-05T08:26:00Z' })),
+  assert.equal(renderToStaticMarkup(createElement(LocalTime, { iso: '2026-10-05T08:26:00Z', precision: 'minute' })),
     '<time dateTime="2026-10-05T08:26:00Z" title="5 Oct 2026, 08:26 UTC">5 Oct 2026, 08:26 UTC</time>');
+  // To the day: the date alone, the full moment still in the tooltip.
+  assert.equal(renderToStaticMarkup(createElement(LocalTime, { iso: '2026-10-05T08:26:00Z', precision: 'day' })),
+    '<time dateTime="2026-10-05T08:26:00Z" title="5 Oct 2026, 08:26 UTC">5 Oct 2026</time>');
+});
+
+test('What\'s new shows each entry\'s day, not its time', async () => {
+  const fs = await import('node:fs');
+  assert.match(fs.readFileSync('pages/changelog.tsx', 'utf8'), /<LocalTime iso=\{entry\.at\} precision="day" \/>/);
 });
