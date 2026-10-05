@@ -24,8 +24,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-05T08:26:00Z',
-    title: 'Event pages, CN announcements, and back buttons',
+    at: '2026-10-05T15:10:00Z',
+    title: 'Event pages, Pull History, and CN announcements',
     added: [
       { text: 'Pull History on the Import Account page: every pull from the last 90 days that Yostar keeps, by banner and as you pulled them. Each import adds what is new, so the history in your browser grows past 90 days.', href: '/account' },
       { text: 'Every reward an event gives, not only its store: login events, gifts, missions, first-clear rewards, milestone tracks for game modes like Duel Channel, the packs on sale with what is in them, and the event\'s furniture set with where each piece comes from.', href: '/schedule' },
@@ -44,6 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { text: 'On a phone, the menu button and the theme toggle sit in the bar without boxes around them.' },
     ],
     fixed: [
+      { text: 'Operators whose trait changes at Elite 2, like Pudding, show both versions instead of "varies by promotion".', href: '/operators' },
       { text: 'Event rewards: no section lists the same rewards twice, game modes no longer show first-clear Originite Prime they do not give, and every reward has its real name.', href: '/schedule' },
       { text: 'Event rewards show their art: profile icons, furniture, and items like Expedited Plan that showed only a name.', href: '/schedule' },
       { text: 'The rewards summary no longer lists Orundum, Originite Prime and permits a second time.', href: '/schedule' },
