@@ -364,10 +364,16 @@
   overflow-y: auto;
   padding: 3px 4px 3px 0;
 }
-/* At the player view's height (the page sets it once the player has been shown): the panel
-   keeps it, and its list or lists share what the heading and search leave, scrolling inside. */
-.music-queue-panel-held { min-height: 0; overflow: hidden; }
-.music-queue-panel-held > .music-queue-list { flex: 1 1 0; min-height: 0; max-height: none; }
+/* The song list over the player (pages/music/index.tsx, .music-view): both in one grid cell, which
+   the player sizes. The list's own size is contained, so it adds nothing to the cell's height and
+   stretches to fill it: exactly the player's box, still content in the page's flow (the layout
+   census reads it there), its list or lists sharing what the heading and search leave and
+   scrolling inside. */
+.music-view { display: grid; }
+.music-view > * { grid-area: 1 / 1; }
+.music-now-playing-behind { visibility: hidden; }
+.music-view > .music-queue-panel { contain: size; min-height: 0; overflow: hidden; }
+.music-view > .music-queue-panel > .music-queue-list { flex: 1 1 0; min-height: 0; max-height: none; }
 .music-queue-list:focus-visible,
 .music-queue-list :focus-visible { outline-offset: -2px; }
 /* The row handles the drag; its title is the button (tap to select, tap another

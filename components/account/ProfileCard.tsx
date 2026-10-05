@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { hiddenUnless } from '@/lib/ui/inert';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
 import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath } from '@/lib/account/portraits';
@@ -110,10 +111,6 @@ function mainEpisode(cleared: string[]): number | null {
   }
   return best;
 }
-
-/* React 18 does not know inert: it drops `inert={true}` and passes a string through, while
-   its types say boolean. */
-const hiddenUnless = (shown: boolean) => (shown ? {} : { inert: '' } as unknown as { inert: boolean });
 
 export default function ProfileCard({ account, map, outfits, outfitArt }: {
   account: AccountRecord; map: GameAccountMap; outfits: number;

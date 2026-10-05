@@ -16,6 +16,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import XButton from '@/components/ui/XButton';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { hiddenUnless } from '@/lib/ui/inert';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -297,13 +298,15 @@ export default function MusicPage({ songLookup }: Props) {
   const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (suppressAutoScrollRef.current) return;
+    // Not while the song list is shown: the player behind it is hidden, and centring its line
+    // would scroll the page instead.
+    if (suppressAutoScrollRef.current || view !== 'player') return;
     // Honors the reduced-motion preference: the active line still gets
     // centered (that's function, not decoration), just without
     // animating the travel there.
     const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     activeLineRef.current?.scrollIntoView({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
-  }, [activeLineIndex]);
+  }, [activeLineIndex, view]);
 
   useEffect(() => {
     return () => {
@@ -475,20 +478,6 @@ export default function MusicPage({ songLookup }: Props) {
   const comingUpRows = displayListWithPos.slice(currentDisplayPos, currentDisplayPos + MAX_ROWS);
   const comingUpEmptyCount = MAX_ROWS - comingUpRows.length;
 
-  /* The song list opens at the height the player view had, so the transport bar under both
-     stays where it was (the Anti-Page Jump rule's swap-in-place pattern). Measured while the
-     player is shown, its lyrics toggle and credits included; a list opened before the player
-     has been shown keeps its own height. */
-  const nowPlayingRef = useRef<HTMLDivElement>(null);
-  const [playerHeight, setPlayerHeight] = useState<number | null>(null);
-  useEffect(() => {
-    const playing = nowPlayingRef.current;
-    if (view !== 'player' || !playing || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => setPlayerHeight(playing.offsetHeight));
-    observer.observe(playing);
-    return () => observer.disconnect();
-  }, [view]);
-
   return (
     <>
       <Head><title>Music — Arkpedia</title></Head>
@@ -507,8 +496,12 @@ export default function MusicPage({ songLookup }: Props) {
           {nowPlayingAnnouncement}
         </div>
         {queueLoading && <p className="hint" role="status">Loading music catalogue…</p>}
-        {view === 'player' ? (
-          <div className="music-now-playing" ref={nowPlayingRef}>
+        {/* Both views in one place (the Anti-Page Jump rule's swap in place): the player always
+            lays out, and so sets the place's height, hidden and inert while the song list lies
+            over it. The list is the player's height on the first visit too, before anything has
+            played, and the transport bar below never moves. */}
+        <div className="music-view">
+          <div className={`music-now-playing${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
 
             <div className={`music-now-playing-cover-col${mobileShowLyrics ? ' mobile-hidden' : ''}`}>
               <div className="music-now-playing-cover">
@@ -598,8 +591,8 @@ export default function MusicPage({ songLookup }: Props) {
               )}
             </div>
           </div>
-        ) : (
-          <div className={`music-queue-panel${playerHeight ? ' music-queue-panel-held' : ''}`} style={playerHeight ? { height: playerHeight } : undefined}>
+          {view === 'queue' && (
+          <div className="music-queue-panel">
             <h2 className="section-title">Songs ({displayList.length})</h2>
             <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
             {isSearching ? (
@@ -698,7 +691,8 @@ export default function MusicPage({ songLookup }: Props) {
               </div>
             )}
           </div>
-        )}
+          )}
+        </div>
 
         <div className="music-player-bottombar">
           <div className="music-player-bottombar-seek">
