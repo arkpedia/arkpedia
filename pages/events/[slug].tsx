@@ -518,6 +518,14 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       : /^\[Rerun\]/.test(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
+  // The furniture this event names, by name: its rewards' and its set's pieces, each with its
+  // game id. A store row (the wiki's, a name only) finds its piece's icon through it; two
+  // events' "Duel Trophy" are different pieces, so the name is looked up in this event alone.
+  const furnitureIds = new Map<string, string>();
+  for (const group of rewardEntry?.groups ?? []) {
+    for (const item of group.items) if (item.kind === 'furniture' && /^furni_/.test(item.id)) furnitureIds.set(item.name, item.id);
+    for (const piece of group.pieces ?? []) furnitureIds.set(piece.name, piece.id);
+  }
   const rewardStores: ResolvedRewardStore[] = rawStores.map((store) => ({
     type: store.type,
     name: store.name,
@@ -536,7 +544,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       stock: item.stock ?? '1',
       // Null while the image repository has not published the icon: the row keeps its
       // box without a broken image, and the release quarantines it (rewardIconPath).
-      iconPath: rewardIconPath(item, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
+      iconPath: rewardIconPath({ ...item, id: item.type === 'furniture' ? furnitureIds.get(item.name) ?? null : null }, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
     })),
   }));
   // The rewards the game tables list beyond the store: sign-in events, gifts, missions and
@@ -549,9 +557,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       return op ? getOperatorIconPath(op) : null;
     }
     // A daily free roll is a headhunting roll: the permit's picture.
-    if (item.kind === 'free-roll') return rewardIconPath({ name: 'Headhunting Permit', type: 'material' }, () => null, publicFileExists);
+    if (item.kind === 'free-roll') return rewardIconPath({ name: 'Headhunting Permit', type: 'material', id: null }, () => null, publicFileExists);
     return rewardIconPath(
-      { name: item.name, type: item.kind === 'outfit' ? 'skin' : 'material' },
+      { name: item.name, type: item.kind === 'outfit' ? 'skin' : 'material', id: item.id ?? null },
       (skinName) => findSkinIconPath(skinName.split(' / ').pop() ?? skinName) || null,
       publicFileExists,
     );
@@ -559,7 +567,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
   const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
-  const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material' }, () => null, publicFileExists));
+  const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material', id: null }, () => null, publicFileExists));
   /* The furniture set as a checklist: each piece with where this event gives it (its missions,
      its sign-in, its store and the price there), else how the game says it is obtained (the
      furniture store). Its pieces are in the other tabs too; this says which of the set they are. */

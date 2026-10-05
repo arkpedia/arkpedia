@@ -41,7 +41,7 @@ again after this stage when anything else of its kind was published, staging and
 anew. A second entry here named the same file twice in the day's issue (A1 of the 2026-09
 rehearsal: art:stages-images/pa-4.webp beside stage-render:pa-4).
 """
-import argparse, hashlib, importlib.util, io, json, re, subprocess, sys, urllib.parse
+import argparse, hashlib, importlib.util, io, json, re, subprocess, sys, time, urllib.parse
 from pathlib import Path
 from PIL import Image
 
@@ -97,6 +97,9 @@ FOLDERS = {
     'story-map': Folder((640, 640), quality=85, method=6),
 }
 SKIN_FOLDER = re.compile(r'[a-z]+-star-skins')
+
+
+WIKI_PAUSE = 0.3
 
 
 def fetch(url):
@@ -213,6 +216,9 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
             except Exception as exc:
                 left_out(f'Downloading {source} from {plan["sourceRepository"]} failed', url, exc);continue
         else:
+            # A moment between the wiki's answers: a run can ask it for hundreds of files (every
+            # event reward's furniture, sync-catalogue.mjs furnitureMedia, on the first night).
+            time.sleep(WIKI_PAUSE)
             query = urllib.parse.urlencode({'action':'query','prop':'imageinfo','iiprop':'url|sha1','format':'json','titles':'|'.join(titles)})
             try:
                 response = json.loads(fetch(quarantine.WIKI_API+'?'+query))

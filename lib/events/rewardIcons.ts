@@ -1,4 +1,5 @@
 import { artFile } from '@/lib/art/publishedArt';
+import { profileArtPath } from '@/lib/account/portraits';
 import { getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { RewardItem } from './loadEventsData';
 
@@ -18,13 +19,22 @@ import type { RewardItem } from './loadEventsData';
  *
  * `outfitIcon` and `isPublished` are required: the page passes the outfit lookup and
  * the release's asset index, a test passes fixtures.
+ *
+ * `id` is the game's id where the reward has one (data/event-rewards.json), null where it
+ * has none (a wiki store row whose furniture the event does not name). It is required, so
+ * no caller can forget it: by id, a player icon is the profile art the account pages
+ * already publish (profile-avatars/<id>), and a piece of furniture is its own file
+ * (material-icons/<furniture id>, fetched by the catalogue from the wiki, sync-catalogue.mjs
+ * furnitureMedia), since two events' "Duel Trophy" are different pieces.
  */
 export function rewardIconPath(
-  item: Pick<RewardItem, 'name' | 'type' | 'iconName'>,
+  item: Pick<RewardItem, 'name' | 'type' | 'iconName'> & { id: string | null },
   outfitIcon: (name: string) => string | null,
   isPublished: (file: string) => boolean,
 ): string | null {
-  const src = item.type === 'skin' ? outfitIcon(item.name) : getMaterialIconPath(item.iconName ?? item.name);
+  const src = item.id && /^avatar_/.test(item.id) ? profileArtPath('profile-avatars', item.id)
+    : item.id && /^furni_/.test(item.id) ? getMaterialIconPath(item.id)
+    : item.type === 'skin' ? outfitIcon(item.name) : getMaterialIconPath(item.iconName ?? item.name);
   if (!src) return null;
   // A path the image repository serves is checked against its index; any other
   // address (none today) cannot be, and renders as it always has.

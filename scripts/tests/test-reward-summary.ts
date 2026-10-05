@@ -47,3 +47,13 @@ test('totals count the store at its stock limits, and the pull currencies are li
   assert.equal('pulls' in summary, false);
   assert.deepEqual(summary.sources, ['Events Store', 'Login event', 'First clears']);
 });
+
+test('a reward in two blocks keeps the icon one of them has, whichever comes first', () => {
+  const blocks = [
+    { type: 'Events Store', name: 'Store', items: [{ name: 'Duel Trophy', quantity: 1, price: 10, currency: 'Token', stock: '1', iconPath: null }] },
+    { type: 'Milestones', name: 'Track', items: [{ name: 'Duel Trophy', quantity: 1, price: null, currency: '', stock: '1', iconPath: '/material-icons/furni_enemyduel_diceAll_01.webp' }] },
+  ];
+  const summary = rewardSummary(blocks as never, context, []);
+  const tile = summary.rows.flatMap(r => r.items).find(i => i.name === 'Duel Trophy')!;
+  assert.deepEqual([tile.count, tile.iconPath], [2, '/material-icons/furni_enemyduel_diceAll_01.webp']);
+});

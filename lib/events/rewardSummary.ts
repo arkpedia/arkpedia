@@ -68,7 +68,9 @@ export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryCon
       const count = parseRewardQuantity(item.quantity) * limit;
       if (!count) continue;
       const held = totals.get(item.name);
-      if (held) held.count += count; else totals.set(item.name, { name: item.name, count, iconPath: item.iconPath });
+      // One tile per name; its icon is the first one any block has (a store's furniture row
+      // may have none where the milestone's, by id, does).
+      if (held) { held.count += count; held.iconPath ??= item.iconPath; } else totals.set(item.name, { name: item.name, count, iconPath: item.iconPath });
     }
   }
   const rank = (name: string) => { const index = order.indexOf(name); return index < 0 ? Number.MAX_SAFE_INTEGER : index; };

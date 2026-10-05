@@ -12,12 +12,13 @@ import { emptyCatalogue } from './fixtures/catalogue';
    whose icon is not published yet, and a material that is. Nothing here reads data/, so the
    day's refresh cannot move a case. */
 const published = new Set(['material-icons/Module Data Block.webp', 'material-icons/制式木盆.webp',
+  'material-icons/furni_enemyduel_diceAll_01.webp', 'profile-avatars/avatar_activity_ed3.webp',
   'five-star-icons/Kestrel - Charm of The Tiles.webp', 'five-star-icons/Kestrel - Base.webp', 'four-star-icons/Ethan - Infiltrator.webp']);
 const isPublished = (file: string) => published.has(file);
 const folders = (folder: string) => [...published].filter(file => file.startsWith(`${folder}/`)).map(file => file.slice(folder.length + 1));
 const outfits = buildSkinIconIndex(folders);
 const outfitIcon = (name: string) => outfits.get(name.trim().toLowerCase()) ?? null;
-const item = (name: string, extra: object = {}) => ({ name, type: 'material', reward_quantity: 1, stock: '1', price: 1800, ...extra });
+const item = (name: string, extra: object = {}) => ({ name, type: 'material', reward_quantity: 1, stock: '1', price: 1800, id: null as string | null, ...extra });
 const store = (items: object[]) => ({ type: 'Events Store', name: 'Crystallization Sanctuary', currency: 'Crystal Contract Bounty', items });
 
 test('a reward icon the image repository has not published is left out instead of drawn broken', () => {
@@ -43,7 +44,7 @@ test('the event page resolves every reward icon through rewardIconPath and the r
   // The call site is the guard's whole point: one path helper used directly again would
   // draw a broken image for an unpublished icon, and nothing would say so.
   const page = fs.readFileSync(new URL('../../pages/events/[slug].tsx', import.meta.url), 'utf8');
-  assert.match(page, /iconPath: rewardIconPath\(item, .+, publicFileExists\)/);
+  assert.match(page, /iconPath: rewardIconPath\(\{ \.\.\.item, id: .+ \}, .+, publicFileExists\)/);
   assert.doesNotMatch(page, /getMaterialIconPath|iconPath:\s*\n?\s*item\.type === 'skin'/);
   // And the outfit lookup reads the asset index, not public/, which holds no art.
   const lookup = fs.readFileSync(new URL('../../lib/skins/skinIconLookup.ts', import.meta.url), 'utf8');
@@ -72,4 +73,13 @@ test('a placeholder reward or an unpublished reward icon is quarantined, and the
     const heldOutfit = checkCompleteness(emptyCatalogue({ events: [event([item(name, { type: 'skin' })])], assets: published })).length > 0;
     assert.equal(heldOutfit, outfitIcon(name) === null, name);
   }
+});
+
+test('a reward with a game id finds its art by the id: a player icon in profile-avatars, a piece of furniture in its own file', () => {
+  // Duel Channel: Ivy Vine's milestones: 'ALL IN!' and its Duel Trophy, both drawn as names before.
+  assert.equal(rewardIconPath(item("Icon 'ALL IN!'", { id: 'avatar_activity_ED3' }), outfitIcon, isPublished), '/profile-avatars/avatar_activity_ed3.webp');
+  assert.equal(rewardIconPath(item('Duel Trophy', { id: 'furni_enemyduel_diceAll_01' }), outfitIcon, isPublished), '/material-icons/furni_enemyduel_diceAll_01.webp');
+  // Not by the name: another event's Duel Trophy is another piece.
+  assert.equal(rewardIconPath(item('Duel Trophy', { id: 'furni_enemyduel_diceAll_02' }), outfitIcon, isPublished), null);
+  assert.equal(rewardIconPath(item("Icon 'Perfect!'", { id: 'avatar_activity_ED2' }), outfitIcon, isPublished), null, 'held to the index like any icon');
 });
