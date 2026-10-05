@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 import type { EnemyStatusOperatorGroup } from '@/lib/enemies/statusOperators';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 export default function EnemyStatusPopover({
   status,
@@ -43,7 +44,7 @@ export default function EnemyStatusPopover({
         {group.operators.map(operator => <Link
           prefetch={false}
           key={operator.name}
-          href={`/operators/${encodeURIComponent(operator.name)}`}
+          href={operatorHref(operator.name, null)}
           className="enemy-status-operator"
           onClick={close}
         >

@@ -31,7 +31,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { text: 'An All tab on each event\'s rewards: the free rewards as one card, by kind, with Copy link and Save image to share it.', href: '/schedule' },
       { text: 'Reruns list their own store and rewards, and events Global has not had yet list what they gave on CN.', href: '/schedule' },
       { text: 'New CN events and banners appear the day they are announced on the official CN site, with the announced rate-up operators, about a week before the game\'s data has them. Clementia\'s banner and the SideStory 昨日海 are the first.', href: '/schedule' },
-      { text: 'A Back button on event, operator and stage pages. It returns to the page you came from, or to the list when you opened the page from a link.' },
+      { text: 'A Back button on event, operator and stage-list pages. It returns to the page you came from, or to the list when you opened the page from a link.' },
     ],
     changed: [
       { text: 'Event pages: the event art runs across the top and the sections use the full width below it. The All summary is compact cards of icons and counts.', href: '/schedule' },

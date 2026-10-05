@@ -265,10 +265,12 @@ export default function StageContentPage({ label, name, kind, release, groups, p
 
   return (
     <>
-      {/* The section bar rather than a back link. It does the link's whole job -- one
-          press to the scene this content was listed on -- and answers "where am I"
-          at the same time, which a lone "< Regular Tasks" only implied. Its own scene
-          is marked current, so the bar reads the same here as it does on the scene. */}
+      {/* Two different jobs, so both are here. The section bar says where the page sits:
+          its own scene is marked current, so the bar reads the same here as it does on
+          the scene. The header's Back goes where the reader came from -- the page this
+          tab showed before (components/ui/BackLink.tsx), which may be an event or a
+          search rather than the scene -- and to the scene (scene.href) only when the
+          page was opened directly. Neither stands in for the other. */}
       <TerminalNav current={scene.key} />
       <PageHeader
         slim

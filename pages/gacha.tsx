@@ -30,6 +30,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import XButton from '@/components/ui/XButton';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   pools: GachaIconPools;
@@ -182,7 +183,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
         <div className="gacha-preview-body">
           <div className="gacha-preview-portrait">
             <ContentImg className="gacha-pull-preview-art" src={art} alt={`${item.name} base artwork`} />
-            <Link className="gacha-preview-link" href={`/operators/${encodeURIComponent(item.name)}`}>View operator page ↗</Link>
+            <Link className="gacha-preview-link" href={operatorHref(item.name, null)}>View operator page ↗</Link>
           </div>
           <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
             {!details && !loadError && <p className="gacha-preview-loading" role="status">Loading operator details…</p>}
@@ -2604,8 +2605,10 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                   </div>
                   <p className="gacha-tutorial-text">{pages[guidePageIndex].text}</p>
                   <div className="gacha-tutorial-nav">
+                    {/* Previous, not Back: a page of the guide, beside Next. "‹ Back" on the
+                        site always leaves where you are (a sheet, a page). */}
                     <button type="button" className="ghost" disabled={guidePageIndex === 0} onClick={() => setGuidePageIndex((s) => s - 1)}>
-                      ‹ Back
+                      ‹ Previous
                     </button>
                     <span className="gacha-tutorial-progress">
                       {guidePhase === 'basics' ? 'Basics ' : "Banner "}

@@ -15,6 +15,7 @@ import { limitedOperatorNote } from '@/lib/gacha/limitedRerunNotes';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   operators: RosterOperator[];
@@ -62,7 +63,7 @@ const WELFARE_SUBTYPES: { label: string; matches: string[] }[] = [
 function OperatorCard({ op, note, index }: { op: RosterOperator; note?: string | null; index: number }) {
   return (
     <Link prefetch={false}
-      href={`/operators/${encodeURIComponent(op.name)}`}
+      href={operatorHref(op.name, null)}
       className="card roster-card roster-card-enter"
       style={{ animationDelay: `${Math.min(index * 25, 600)}ms` }}
     >

@@ -4,7 +4,7 @@ import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 
-import { operatorHref } from '@/lib/operators/operatorHref';
+import { operatorHref, OperatorSection } from '@/lib/operators/operatorHref';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { Operator } from '@/lib/operators/operatorTypes';
 import styles from './OperatorPage.module.css';
@@ -20,7 +20,7 @@ export default function OperatorRelationPopover({ label, title, operators, secti
   label: string;
   title: string;
   operators: RelatedOperator[];
-  section: string | null;
+  section: OperatorSection | null;
   children?: ReactNode;
 }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(360);

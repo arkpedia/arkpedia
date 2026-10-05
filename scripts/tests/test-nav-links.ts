@@ -76,6 +76,45 @@ test('no <Link> on the site points at an address a next.config.js redirect serve
   assert.deepEqual(problems, [], 'Link to the destination itself: a redirected in-app link is a full document load that restarts the app and the music player.');
 });
 
+/**
+ * Whether a root-relative path is a page under pages/: each segment a file or folder of that
+ * name, or a dynamic one ([slug], [...rest], [[...rest]]) where the folder has one. `x`
+ * stands for a `${...}` in a template, which only a dynamic segment can take.
+ */
+function routeResolves(href: string): boolean {
+  const segments = href.split(/[?#]/)[0].split('/').filter(Boolean);
+  const page = (base: string) => ['.tsx', '.ts'].some(ext => fs.existsSync(base + ext));
+  const entries = (dir: string) => (fs.existsSync(dir) ? fs.readdirSync(dir) : []);
+  function walk(dir: string, i: number): boolean {
+    if (i === segments.length) return page(path.join(dir, 'index'));
+    const segment = segments[i];
+    const last = i === segments.length - 1;
+    if (segment !== 'x') {
+      if (last && page(path.join(dir, segment))) return true;
+      if (fs.existsSync(path.join(dir, segment)) && walk(path.join(dir, segment), i + 1)) return true;
+    }
+    for (const entry of entries(dir)) {
+      const name = entry.replace(/\.tsx?$/, '');
+      if (/^\[\[?\.\.\.[^\]]+\]\]?$/.test(name)) return true;
+      if (!/^\[[^.\]][^\]]*\]$/.test(name)) continue;
+      if (entry !== name ? last : walk(path.join(dir, entry), i + 1)) return true;
+    }
+    return false;
+  }
+  return walk('pages', 0);
+}
+
+test('every <Link> on the site points at a page that exists', () => {
+  // The whole-base optimizer's link to the per-room one named /base/optimizer, a page there
+  // never was (it is /optimizer): a 404 one click from the page, and nothing checked.
+  assert.ok(!routeResolves('/base/optimizer') && routeResolves('/optimizer'), 'the old optimizer link is refused, the real one is not');
+  assert.ok(routeResolves('/') && routeResolves('/stages/content/x') && routeResolves('/events/x'), 'index and dynamic pages resolve');
+  const links = linkHrefs();
+  assert.ok(links.length > 50, `the scan found ${links.length} links`);
+  const problems = links.filter(({ href }) => !routeResolves(href)).map(({ file, href }) => `${file}: ${href}`);
+  assert.deepEqual(problems, [], 'Each <Link> href names a page under pages/.');
+});
+
 test('no nav href lands on a page that redirects from its own data function', () => {
   for (const link of NAV_ORDER) {
     const text = fs.readFileSync(pageFile(link.href)!, 'utf8');

@@ -524,9 +524,7 @@
    top made 44px). */
 .music-discover-body { display: flex; flex-direction: column; }
 .music-discover-search-row { display: flex; align-items: center; gap: 10px; width: 100%; }
-.music-discover-back-btn { flex-shrink: 0; white-space: nowrap; margin-bottom: 0; }
-/* The queue's Back, in the player's top bar. */
-.music-back-btn { margin-bottom: 0; }
+.music-discover-back-btn { flex-shrink: 0; white-space: nowrap; }
 .music-discover-results { display: flex; flex-direction: column; }
 
 .music-discover-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }

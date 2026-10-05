@@ -171,6 +171,19 @@ export const CENSUS_STATES: CensusState[] = [
     await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
     await page.locator('.gacha-pull-preview-header').waitFor();
   } },
+  // The banner guide on its last Basics page, its widest nav row: "‹ Previous", the page
+  // count and "Continue ›" (or "Done", for a banner with no pages of its own). The count
+  // sat 5px above the buttons' centre, lifted by a margin-bottom left from when it stood
+  // above the row; at 390 it holds one line with 11px either side.
+  { id: 'gacha guide', route: '/gacha', act: async (page) => {
+    await page.getByRole('button', { name: 'How does this work?' }).first().click();
+    const guide = page.locator('.gacha-guide-modal');
+    await guide.waitFor();
+    // A banner with its own pages asks first; one without opens on the Basics.
+    if (await guide.locator('.gacha-tutorial-question').count()) await guide.getByRole('button', { name: 'No', exact: true }).click();
+    for (let i = 0; i < 20 && await guide.getByRole('button', { name: /^Next/ }).count(); i += 1) await guide.getByRole('button', { name: /^Next/ }).click();
+    await guide.getByRole('button', { name: /^(Continue|Done)/ }).waitFor();
+  } },
   { id: 'schedule calendar', route: '/schedule', act: (page) => tabIn(page, '.page-header-actions', 'Calendar') },
   { id: 'recruitment with two tags', route: '/recruitment', act: async (page) => { const tags = page.locator('.recruit-tag-picker .filter-chip'); await tags.nth(1).click(); await tags.nth(6).click(); } },
   { id: 'stronghold alliances', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Alliances') },

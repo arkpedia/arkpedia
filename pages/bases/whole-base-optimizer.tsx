@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import BackLink from '@/components/ui/BackLink';
+import PageHeader from '@/components/ui/PageHeader';
 import type { WholeBaseResult } from '@/lib/base/wholeBaseOptimizer';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
 
@@ -110,19 +110,21 @@ export default function WholeBaseOptimizerPage() {
     <>
       <Head><title>Whole-Base Optimizer — Arkpedia</title></Head>
 
-      <header>
-        <BackLink href="/base" label="Base" />
-        <div className="eyebrow">Rhodes Island // Base Optimizer</div>
-        <h1>Whole-Base Optimizer</h1>
-        <p className="sub">
+      {/* PageHeader, not a bare <header>: its Back gets the page header's room under it
+          (.page-header > .back-btn), and the links and run controls its actions row. */}
+      <PageHeader
+        back={{ href: '/base', label: 'Base' }}
+        eyebrow="Rhodes Island // Base Optimizer"
+        title="Whole-Base Optimizer"
+        sub={<>
           Best full layout across both Trading Posts and all four Factories at once, sharing a single operator pool
           so nobody is ever double-booked. Support operators needed to unlock cross-room bonuses (Gnosis, Kirin R
           Yato, Rathalos S Noir Corne, Mulberry, Senshi) are placed unconditionally in Control Center/Office/Dormitory
           and removed from the production pool. Gummy is evaluated both ways -- included in a Trading Post (to unlock
           Leto&apos;s Factory bonus) and left out entirely -- and whichever produces more total value is kept.
-        </p>
-        <div className="stages-category-row" style={{ marginTop: 10 }}>
-          <Link prefetch={false} href="/base/optimizer" className="ghost">
+        </>}
+        actions={<>
+          <Link prefetch={false} href="/optimizer" className="ghost">
             Per-Room Optimizer
           </Link>
           {isLocal && (
@@ -139,8 +141,8 @@ export default function WholeBaseOptimizerPage() {
               </button>
             </>
           )}
-        </div>
-      </header>
+        </>}
+      />
 
       <main className="main-wide">
         {loading && <p>Loading cached results...</p>}

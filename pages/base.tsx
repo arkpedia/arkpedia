@@ -3761,7 +3761,7 @@ export default function BasePage({ operators }: Props) {
                   <div className="base-breakdown-panel">
                     <div className="base-breakdown-header">
                       <span className="base-breakdown-title">{breakdownFacility?.label} -- How this is calculated</span>
-                      <button type="button" className="back-btn base-breakdown-back-btn" onClick={() => setBreakdownFacilityId(null)}>
+                      <button type="button" className="back-btn" onClick={() => setBreakdownFacilityId(null)}>
                         ‹ Back to operators
                       </button>
                     </div>

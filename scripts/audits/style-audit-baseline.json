@@ -58,5 +58,6 @@
   "liveBadge": [],
   "xButton": [],
   "motionScope": [],
-  "controlHeight": []
+  "controlHeight": [],
+  "primitiveLayout": []
 }

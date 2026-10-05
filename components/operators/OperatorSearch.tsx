@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import SearchInput from '@/components/ui/SearchInput';
 import { useContentUrl } from '@/lib/content/context';
-import { operatorHref } from '@/lib/operators/operatorHref';
+import { operatorHref, OperatorSection } from '@/lib/operators/operatorHref';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getOperatorSearchResults, loadOperatorSearch, SearchableOperatorRecord } from '@/lib/operators/operatorSearch';
 import type { Operator } from '@/lib/operators/operatorTypes';
@@ -16,7 +16,7 @@ import type { Operator } from '@/lib/operators/operatorTypes';
  * old behaviour, kept because it is how a reader who knows the name moves on.
  * The next operator opens at `section`, the one the reader is on (operatorHref).
  */
-export default function OperatorSearch({ section }: { section: string | null }) {
+export default function OperatorSearch({ section }: { section: OperatorSection | null }) {
   const contentUrl = useContentUrl();
   const router = useRouter();
   const [operators, setOperators] = useState<SearchableOperatorRecord[]>([]);

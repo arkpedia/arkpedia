@@ -11,6 +11,7 @@ import SearchInput from '@/components/ui/SearchInput';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { UMBRELLA_MEMBERS, UMBRELLA_DESCRIPTIONS } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups, TechniqueGroup, TechniqueEntry } from '@/lib/techniques/buildTechniqueGroups';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 /** Wraps every case-insensitive occurrence of `keyword` within `text` in 
  * a highlight span, for the table view's "highlight the word that was
@@ -209,7 +210,7 @@ function TechniqueGroupCard({
                     </div>
                     <div className="technique-table-branch-operators">
                       {entries.map((e) => (
-                        <Link prefetch={false} key={e.operatorName} href={`/operators/${encodeURIComponent(e.operatorName)}`} className="technique-table-operator">
+                        <Link prefetch={false} key={e.operatorName} href={operatorHref(e.operatorName, null)} className="technique-table-operator">
                           <Image src={e.operatorIconPath} alt={e.operatorName} width={32} height={32} />
                           <span>{e.operatorName}</span>
                         </Link>
@@ -222,7 +223,7 @@ function TechniqueGroupCard({
                     const isLong = (b.sourceText?.length || 0) > 70;
                     return (
                       <div key={`${e.operatorName}-${bi}`} className={`technique-table-row${isLong ? ' technique-table-row-wrap' : ''}`}>
-                        <Link prefetch={false} href={`/operators/${encodeURIComponent(e.operatorName)}`} className="technique-table-operator">
+                        <Link prefetch={false} href={operatorHref(e.operatorName, null)} className="technique-table-operator">
                           <Image src={e.operatorIconPath} alt={e.operatorName} width={32} height={32} />
                           <span>{e.operatorName}</span>
                           {b.skillIconPath ? (
@@ -254,7 +255,7 @@ function TechniqueGroupCard({
             return (
               <Link prefetch={false}
                 key={`${e.operatorName}-${i}`}
-                href={`/operators/${encodeURIComponent(e.operatorName)}`}
+                href={operatorHref(e.operatorName, null)}
                 className="technique-entry"
                 aria-label={`${e.operatorName} — ${e.badges.map((b) => b.label).join(', ')}`}
               >

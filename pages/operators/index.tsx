@@ -26,6 +26,7 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   operators: RosterOperator[];
@@ -437,7 +438,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
               {filtered.slice(0, visibleCount).map((op, i) => (
                 <Link prefetch={false}
                   key={op.name}
-                  href={`/operators/${encodeURIComponent(op.name)}`}
+                  href={operatorHref(op.name, null)}
                   className="card roster-card roster-card-enter"
                   style={{ animationDelay: `${Math.min(i * 25, 600)}ms` }}
                 >

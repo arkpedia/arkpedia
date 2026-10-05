@@ -40,6 +40,7 @@ import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { Skin } from '@/lib/skins/skinTypes';
 import XButton from '@/components/ui/XButton';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   events: ScheduleEvent[];
@@ -491,7 +492,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                                     return (
                                       <Link prefetch={false}
                                         key={b.name}
-                                        href={`/operators/${encodeURIComponent(b.name)}`}
+                                        href={operatorHref(b.name, null)}
                                         className="birthday-icon"
                                         title={`${b.name}'s birthday`}
                                       >
@@ -601,7 +602,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         return (
                           <Link prefetch={false}
                             key={name}
-                            href={`/operators/${encodeURIComponent(name)}`}
+                            href={operatorHref(name, null)}
                             className="schedule-panel-pullable-op"
                             title={name}
                           >
@@ -618,7 +619,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         return (
                           <Link prefetch={false}
                             key={name}
-                            href={`/operators/${encodeURIComponent(name)}`}
+                            href={operatorHref(name, null)}
                             className="schedule-panel-pullable-op"
                             title={name}
                           >
@@ -635,7 +636,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         return (
                           <Link prefetch={false}
                             key={name}
-                            href={`/operators/${encodeURIComponent(name)}`}
+                            href={operatorHref(name, null)}
                             className="schedule-panel-pullable-op"
                             title={name}
                           >

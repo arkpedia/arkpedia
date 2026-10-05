@@ -105,11 +105,12 @@
 .base-breakdown-header {
   display: flex;
   flex-direction: column;
+  /* The title and the Back each at their own width, not stretched across the column. */
+  align-items: flex-start;
   gap: 8px;
   border-bottom: 1px solid var(--line-soft);
   padding-bottom: 10px;
 }
-.base-breakdown-back-btn { margin-bottom: 0; }
 .base-breakdown-title {
   font-family: var(--font-display);
   font-size: 15px;
@@ -344,10 +345,7 @@
   align-items: center;
   gap: 12px;
 }
-.base-room-back-btn {
-  flex-shrink: 0;
-  margin-bottom: 0; /* in the panel's header row, not above content */
-}
+.base-room-back-btn { flex-shrink: 0; }
 .base-room-panel-title {
   font-family: var(--font-display);
   font-weight: 700;

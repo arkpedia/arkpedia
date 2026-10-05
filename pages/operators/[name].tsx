@@ -12,7 +12,7 @@ import { getAllOperators, getOperatorByName } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import OperatorSearch from '@/components/operators/OperatorSearch';
-import { operatorHref } from '@/lib/operators/operatorHref';
+import { operatorHref, isOperatorSection, OperatorSection } from '@/lib/operators/operatorHref';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
@@ -172,7 +172,9 @@ const FORM_CLASS: Record<string, string> = {
   Caster: 'Caster', Guard: 'Guard', Medic: 'Medic',
 };
 
-type SectionKey = 'stats' | 'files' | 'voiceLines' | 'skills' | 'talents' | 'modules' | 'synergy' | 'potential' | 'baseSkills' | 'characterInfo' | 'guides' | 'mastery' | 'promotion' | 'appearance';
+/* The sections proper: every place the page can open at (lib/operators/operatorHref.ts)
+   except its top, which the overview and the artwork are. */
+type SectionKey = Exclude<OperatorSection, 'overview' | 'artwork'>;
 
 function sumCostGroups(groups: (CostGroup | null | undefined)[]): CostGroup {
   const totals = new Map<string, number>();
@@ -274,6 +276,7 @@ function getUmbrellaDefinitions(techName: string | null): string[] {
 
 function TechniqueList({
   summary = "Mechanics & interactions",
+  section,
   techniques,
   techniqueUnitIcons,
   techniqueBranchOperators,
@@ -281,6 +284,9 @@ function TechniqueList({
   techniqueRelatedOperators,
 }: {
   summary?: string;
+  /** The section the list is drawn in (Skills, or Talents for a talent's details): an
+   *  operator it links to opens there (operatorHref). */
+  section: OperatorSection;
   techniques: SkillTechnique[];
   techniqueUnitIcons: Record<string, SearchableOperator>;
   techniqueBranchOperators: Record<string, SearchableOperator[]>;
@@ -300,7 +306,7 @@ function TechniqueList({
           return (
             <div key={ti} className="op-skill-technique-block">
               <div className="op-skill-technique-icons-row">
-                <Link prefetch={false} href={operatorHref(unitData.name, 'skills')} title={unitData.name}>
+                <Link prefetch={false} href={operatorHref(unitData.name, section)} title={unitData.name}>
                   <Image src={getOperatorIconPath(unitData as Operator)} alt={t.unit || ''} width={40} height={40} className="op-skill-technique-unit-icon" />
                 </Link>
               </div>
@@ -325,7 +331,7 @@ function TechniqueList({
                 )}
                 {branchOps &&
                   branchOps.map((op) => (
-                    <Link prefetch={false} key={op.name} href={operatorHref(op.name, 'skills')} title={op.name}>
+                    <Link prefetch={false} key={op.name} href={operatorHref(op.name, section)} title={op.name}>
                       <Image src={getOperatorIconPath(op as Operator)} alt={op.name} width={32} height={32} className="op-skill-technique-branch-op-icon" />
                     </Link>
                   ))}
@@ -359,7 +365,7 @@ function TechniqueList({
               {groupOps && groupOps.length > 0 && (
                 <div className="op-skill-technique-branch-ops">
                   {groupOps.map((op) => (
-                    <Link prefetch={false} key={op.name} href={operatorHref(op.name, 'skills')} title={op.name}>
+                    <Link prefetch={false} key={op.name} href={operatorHref(op.name, section)} title={op.name}>
                       <Image src={getOperatorIconPath(op as Operator)} alt={op.name} width={32} height={32} className="op-skill-technique-branch-op-icon" />
                     </Link>
                   ))}
@@ -388,7 +394,7 @@ function TechniqueList({
             {related && isExpanded && (
               <div className="op-skill-technique-related-row">
                 {related.entries.map((op) => (
-                  <Link prefetch={false} key={op.name} href={operatorHref(op.name, 'skills')} className="op-skill-technique-related-op" aria-label={op.name}>
+                  <Link prefetch={false} key={op.name} href={operatorHref(op.name, section)} className="op-skill-technique-related-op" aria-label={op.name}>
                     <Image src={getOperatorIconPath(op as Operator)} alt={op.name} width={40} height={40} />
                   </Link>
                 ))}
@@ -648,8 +654,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
   if (operator.promotion?.length) availableSections.push({ key: 'promotion', label: 'Promotion' });
   const sectionOrder: SectionKey[] = ['skills', 'stats', 'talents', 'mastery', 'modules', 'promotion', 'potential', 'baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'];
   availableSections.sort((a, b) => sectionOrder.indexOf(a.key) - sectionOrder.indexOf(b.key));
-  const [activeSection, setActiveSection] = useState('overview');
-  const hasSection = (key: SectionKey) => availableSections.some(section => section.key === key);
+  const [activeSection, setActiveSection] = useState<OperatorSection>('overview');
+  const hasSection = (key: OperatorSection) => availableSections.some(section => section.key === key);
   const sectionVisible = hasSection;
   const navigationRef = useRef<HTMLDivElement>(null);
 
@@ -659,7 +665,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
     const requested = aliases[view] ?? view;
     const key = requested === 'artwork' ? 'overview'
       : requested === 'mastery' && !hasSection('mastery') ? 'skills' : requested;
-    if (key !== 'overview' && !hasSection(key as SectionKey)) return;
+    // A hash the page has no name for, or a section this operator does not have, changes nothing.
+    if (!isOperatorSection(key) || (key !== 'overview' && !hasSection(key))) return;
     requestAnimationFrame(() => {
       const panel = areaRef.current;
       const target = document.getElementById(`operator-${requested === 'artwork' ? 'artwork' : key}`);
@@ -749,7 +756,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
         const atEnd = scrollRoot.scrollHeight > viewportHeight && scrollRoot.scrollHeight - viewportHeight - scrollTop <= 2;
         const current = atEnd ? sections[sections.length - 1]
           : sections.filter(section => section.getBoundingClientRect().top <= edge).pop() ?? sections[0];
-        if (current) setActiveSection(current.dataset.operatorSection!);
+        const section = current?.dataset.operatorSection;
+        if (section && isOperatorSection(section)) setActiveSection(section);
       });
     };
     panel.addEventListener('scroll', updateSection, { passive: true });
@@ -1026,12 +1034,14 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                       /* All three stay links, with aria-current marking the one you are
                          on: the site's tab look on links (.tabs / .tab), as the Terminal
                          bar and the game switcher use it -- teal and underlined when
-                         current. A self-link in a nav is the ordinary pattern for this. */
+                         current. A self-link in a nav is the ordinary pattern for this. Each
+                         form opens at the section the reader is on, as any move from one
+                         operator to another does (operatorHref). */
                       return (
                         <Link
                           key={f.name}
                           prefetch={false}
-                          href={`/operators/${encodeURIComponent(f.name)}`}
+                          href={operatorHref(f.name, activeSection)}
                           className="tab"
                           aria-current={isCurrent ? 'page' : undefined}
                         >
@@ -1178,6 +1188,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                           return (
                             allTechs.length > 0 && (
                               <TechniqueList
+                                section="skills"
                                 techniques={allTechs}
                                 techniqueUnitIcons={techniqueUnitIcons}
                                 techniqueBranchOperators={techniqueBranchOperators}
@@ -1208,7 +1219,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                     if (operator.internalName === 'char_1039_thorn2' && talent.name === 'El Alcance de la Visión') return <LodestarTalentDemo unlocked={unlocked} />;
                     // The record's own techniques and the rules its text matches, each once.
                     const allTechs = talentTechniques(operator, talent);
-                    return allTechs.length > 0 ? <TechniqueList summary="Talent details" techniques={allTechs} techniqueUnitIcons={techniqueUnitIcons} techniqueBranchOperators={techniqueBranchOperators} techniqueGroupOperators={techniqueGroupOperators} techniqueRelatedOperators={techniqueRelatedOperators} /> : null;
+                    return allTechs.length > 0 ? <TechniqueList summary="Talent details" section="talents" techniques={allTechs} techniqueUnitIcons={techniqueUnitIcons} techniqueBranchOperators={techniqueBranchOperators} techniqueGroupOperators={techniqueGroupOperators} techniqueRelatedOperators={techniqueRelatedOperators} /> : null;
                   }} />
               </section>
             )}
@@ -1410,7 +1421,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                             {matches.map((m) => (
                               <Link prefetch={false}
                                 key={m.name}
-                                href={`/operators/${encodeURIComponent(m.name)}`}
+                                href={operatorHref(m.name, 'synergy')}
                                 className="op-synergy-operator"
                                 aria-label={m.name}
                               >
@@ -1447,7 +1458,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                           {group.entries.map((e) => (
                             <Link prefetch={false}
                               key={e.operatorName}
-                              href={`/operators/${encodeURIComponent(e.operatorName)}`}
+                              href={operatorHref(e.operatorName, 'synergy')}
                               className="op-synergy-operator"
                               aria-label={e.isContributor ? `${e.operatorName} — ${e.badges.map((b) => b.label).join(', ')}` : e.operatorName}
                             >
@@ -1477,7 +1488,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
                               .flatMap((e) =>
                                 e.badges.map((b, bi) => (
                                   <p key={`${e.operatorName}-${bi}`} className="op-synergy-source-row">
-                                    <Link prefetch={false} href={`/operators/${encodeURIComponent(e.operatorName)}`} className="op-synergy-source-name">
+                                    <Link prefetch={false} href={operatorHref(e.operatorName, 'synergy')} className="op-synergy-source-name">
                                       {e.operatorName}
                                     </Link>
                                     <span className="hint"> ({b.label})</span>: {b.sourceText}
