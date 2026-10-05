@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { hiddenUnless } from '@/lib/ui/inert';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
-import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath } from '@/lib/account/portraits';
+import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath, avatarPath } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { toServerTime } from '@/lib/time/serverDay';
@@ -112,10 +112,12 @@ function mainEpisode(cleared: string[]): number | null {
   return best;
 }
 
-export default function ProfileCard({ account, map, outfits, outfitArt }: {
+export default function ProfileCard({ account, map, outfits, outfitArt, outfitNames }: {
   account: AccountRecord; map: GameAccountMap; outfits: number;
   /** Each outfit's art by its game id, for the assistant on a theme without one of its own. */
   outfitArt: ReadonlyMap<string, string>;
+  /** Every outfit's name by its skin id: the assistant's icon when it is the avatar. */
+  outfitNames: ReadonlyMap<string, string>;
 }) {
   const profile = account.profile ?? { level: null, registeredAt: null, secretary: null, bio: null };
   // The game dates the card by its server's day (UTC-7, rolling over at 04:00), not UTC's.
@@ -142,9 +144,11 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
   const globalOperators = useMemo(() => Object.values(map.chars).filter((char) => char.global && !char.formOf).length, [map]);
   const hiredCount = profile.hired ?? account.operators.length;
 
+  // The account's avatar, or the assistant's icon where the avatar is "Assistant Operator".
+  const avatarSrc = avatarPath(profile, map.chars, outfitNames);
   const avatar = (
     <div className="account-card-avatar">
-      {profile.avatar && <ContentImg src={profileArtPath('profile-avatars', profile.avatar)} alt="" />}
+      {avatarSrc && <ContentImg src={avatarSrc} alt="" />}
       {profile.level != null && (
         <span className="account-card-level">
           <ContentImg src={UI('level_bg')} alt="" />
@@ -217,6 +221,8 @@ export default function ProfileCard({ account, map, outfits, outfitArt }: {
           art blurred behind the rest (styles/account/account.css). Hidden on a wider screen. */}
       {style && <ContentImg className="account-card-banner" src={profileArtPath('profile-namecards', `${style}-bg`)} alt="" aria-hidden="true" />}
       {assistant && <ContentImg className="account-card-assistant" src={assistant} alt="" />}
+      {/* Over the assistant and under the side's text, which would sit on the bright art. */}
+      {assistant && <span className="account-card-assistant-scrim" aria-hidden="true" />}
       <div className="account-card-side">
         {hired && <p className="account-card-tag"><span>Hired</span><b>{hired.getUTCFullYear()}-{hired.getUTCMonth() + 1}-{hired.getUTCDate()}</b></p>}
         <div className="account-card-marks" aria-hidden="true"><ContentArt className="account-card-mark-dots" src={UI('no_use_icon_circle')} /><ContentArt className="account-card-mark-x" src={UI('no_use_icon_x')} /></div>

@@ -31,6 +31,8 @@ import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import XButton from '@/components/ui/XButton';
 import { operatorHref } from '@/lib/operators/operatorHref';
+import { historyCsvFilename, pullHistoryCsv } from '@/lib/gacha/historyCsv';
+import { downloadBlob } from '@/lib/ui/downloadBlob';
 
 interface Props {
   pools: GachaIconPools;
@@ -1951,6 +1953,12 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
     setLastPulls(result.items);
   }
 
+  /** The pulls so far as CSV, for the reader's own charts (lib/gacha/historyCsv.ts). */
+  function exportHistory() {
+    if (!selectedBanner || state.history.length === 0) return;
+    downloadBlob(new Blob([pullHistoryCsv(state.history, { name: selectedBanner.name, type: getMechanicType(selectedBanner) })], { type: 'text/csv;charset=utf-8' }), historyCsvFilename(selectedBanner.name));
+  }
+
   function reset() {
     setState(createInitialState());
     setLastPulls([]);
@@ -2464,15 +2472,21 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 </section>
 
                 <section className="op-section">
-                  <button
-                    type="button"
-                    className="ghost gacha-history-toggle"
-                    aria-expanded={showHistory && state.history.length > 0}
-                    disabled={state.history.length === 0}
-                    onClick={() => setShowHistory((v) => !v)}
-                  >
-                    {showHistory && state.history.length > 0 ? '▾' : '▸'} Pull history{state.history.length > 0 ? ` (${state.history.length})` : ''}
-                  </button>
+                  <div className="gacha-history-head">
+                    <button
+                      type="button"
+                      className="ghost gacha-history-toggle"
+                      aria-expanded={showHistory && state.history.length > 0}
+                      disabled={state.history.length === 0}
+                      onClick={() => setShowHistory((v) => !v)}
+                    >
+                      {showHistory && state.history.length > 0 ? '▾' : '▸'} Pull history{state.history.length > 0 ? ` (${state.history.length})` : ''}
+                    </button>
+                    {/* For the reader's own charts: one row per pull, a spreadsheet's columns. */}
+                    <button type="button" className="ghost btn-sm" disabled={state.history.length === 0} onClick={exportHistory} title="One row per pull, for a spreadsheet or a chart">
+                      Export CSV
+                    </button>
+                  </div>
                   {showHistory && state.history.length > 0 && (
                     <PullHistory history={state.history} onSelect={setPreviewedPull} />
                   )}

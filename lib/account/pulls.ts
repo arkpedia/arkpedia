@@ -9,7 +9,7 @@
  * others only by its place in the list. A read replaces each batch it has as a whole, and keeps
  * the batches only earlier reads had: no read is trusted to list a batch in the same order.
  */
-import type { PullRow } from '@/lib/account-import/yostar';
+import { unixSeconds, type PullRow } from '@/lib/account-import/yostar';
 
 export interface PullRecord {
   /** Unix seconds; one ten-pull's are all the same. */
@@ -81,7 +81,8 @@ export function parsePullHistory(value: unknown): PullHistory | undefined {
   const rows = (history.rows as Record<string, unknown>[]).flatMap((row) => {
     if (!row || !Number.isInteger(row.at) || (row.at as number) <= 0 || typeof row.pool !== 'string' || !ID.test(row.pool) || typeof row.char !== 'string' || !ID.test(row.char)) return [];
     const star = Number.isInteger(row.star) && (row.star as number) >= 1 && (row.star as number) <= 6 ? row.star as number : null;
-    return [{ at: row.at as number, pool: row.pool, char: row.char, star }];
+    // A history the first build kept in milliseconds (unixSeconds) is read in seconds.
+    return [{ at: unixSeconds(row.at as number), pool: row.pool, char: row.char, star }];
   });
   const iso = (field: unknown) => (typeof field === 'string' && field.length <= 40 && Number.isFinite(Date.parse(field)) ? field : null);
   return { rows, pools: textMap(history.pools, 5000), names: textMap(history.names, 5000), readAt: iso(history.readAt),

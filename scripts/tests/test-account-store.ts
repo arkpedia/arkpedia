@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { accountFromGame, ownedFilter, parseAccount } from '../../lib/account/accountStore';
-import { portraitPath, profileArtPath } from '../../lib/account/portraits';
+import { portraitPath, profileArtPath, ASSISTANT_AVATAR, assistantIconPath, avatarPath } from '../../lib/account/portraits';
 
 const MAP = { version: 1 as const, chars: {
   char_300_phenxi: { name: 'Fiammetta', rarity: 6, modules: {} },
@@ -116,3 +116,19 @@ test('a support unit shown full length draws its module\'s mark and its skill\'s
   assert.equal(skillIconPath('skchr_midn_1', { skchr_midn_1: 'skcom_enchant[1]' }), '/profile-skills/skcom_enchant_1.webp');
 });
 
+test('the "Assistant Operator" avatar is drawn as the assistant in its outfit, every other avatar from profile-avatars', () => {
+  const chars = { char_1019_siege2: { name: 'Vina Victoria', rarity: 6 } };
+  // kukki's: Vina Victoria in Glorious Path, whose illustration the catalogue files by its brand
+  // (/skin-images/EPOQUE - Glorious Path.webp): the icon is by operator and outfit name.
+  const outfitNames = new Map([['char_1019_siege2@epoque#50', 'Glorious Path']]);
+  // The avatar the game names avatar_ass_01 has no file of its own: kukki's card drew an empty box.
+  assert.equal(ASSISTANT_AVATAR, 'avatar_ass_01');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2@epoque#50' }, chars, outfitNames), '/six-star-icons/Vina Victoria - Glorious Path.webp');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2#2' }, chars, outfitNames), '/six-star-icons/Vina Victoria - Elite 2.webp');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2#1' }, chars, outfitNames), '/six-star-icons/Vina Victoria - Base.webp');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2@unknown#9' }, chars, outfitNames), null, 'an outfit the catalogue does not name');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: null }, chars, outfitNames), null, 'nothing to draw rather than a missing file');
+  assert.equal(avatarPath({ avatar: 'avatar_special_41' }, chars, outfitNames), '/profile-avatars/avatar_special_41.webp');
+  assert.equal(avatarPath({ avatar: null }, chars, outfitNames), null);
+  assert.equal(assistantIconPath('char_unknown#1', chars, outfitNames), null);
+});

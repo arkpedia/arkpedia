@@ -72,3 +72,9 @@ test('a banner is named by the record that holds its Global pool, the first if t
     { name: 'Odd', globalPoolId: 'not an id!' },
   ]), { LIMITED_EN_37_0_5: '[Carnival] Hanabi Exiled' });
 });
+
+test('a history kept in milliseconds by the first build is read in seconds, so its dates are right', () => {
+  const stored = { rows: [{ at: 1_790_000_000_123, pool: 'L', char: 'char_a', star: 6 }, { at: 1_789_000_000, pool: 'S', char: 'char_b', star: 3 }], pools: {}, names: {}, readAt: null, error: null };
+  assert.deepEqual(parsePullHistory(stored)!.rows.map((row) => row.at), [1_790_000_000, 1_789_000_000]);
+  assert.equal(new Date(parsePullHistory(stored)!.rows[0].at * 1000).getUTCFullYear(), 2026);
+});
