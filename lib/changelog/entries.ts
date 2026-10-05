@@ -32,13 +32,11 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-10-05T15:10:00Z',
-    title: 'Event pages, Pull History, and CN announcements',
+    title: 'Event pages and Pull History',
     added: [
       { title: 'Pull History', detail: 'Your pulls by banner and in order, from the 90 days Yostar keeps, growing past that with each import.', href: '/account' },
-      { title: 'Every event reward, not just the store', detail: 'Logins, gifts, missions, first clears, Duel Channel milestones, packs and furniture sets.', href: '/schedule' },
+      { title: 'Expanded the shown rewards', detail: 'Logins, gifts, missions, first clears, milestones, packs and furniture sets; selector tickets and mail rewards are not shown yet.', href: '/schedule' },
       { title: 'All tab on event rewards', detail: 'Every free reward on one card, to copy as a link or save as an image.', href: '/schedule' },
-      { title: 'Reruns and CN-only events', detail: 'Reruns show their own rewards; events Global has not had yet show what CN got.', href: '/schedule' },
-      { title: 'CN announcements the same day', detail: 'New CN events and banners appear when they are announced, about a week before the game data has them.', href: '/schedule' },
       { title: 'Back button on event pages', detail: 'Returns to where you came from, or to the Schedule.' },
     ],
     changed: [
@@ -51,9 +49,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
     fixed: [
       { title: 'Traits that change at Elite 2', detail: 'Both versions show, like Pudding\'s, instead of "varies by promotion".', href: '/operators' },
-      { title: 'No repeated event rewards', detail: 'Sections no longer repeat, and game modes no longer show first-clear Originite Prime they do not give.', href: '/schedule' },
       { title: 'Reward art', detail: 'Profile icons, furniture and items like Expedited Plan show their pictures.', href: '/schedule' },
-      { title: 'Pull currencies listed once', detail: 'The rewards summary no longer repeats Orundum, Originite Prime and permits.', href: '/schedule' },
     ],
   },
   {
