@@ -33,7 +33,7 @@ test('each reward lands in its row', () => {
   assert.ok(isPullCurrency('Originite Prime') && isPullCurrency('Ten-roll Headhunting Permit') && !isPullCurrency('Recruitment Permit'));
 });
 
-test('totals count the store at its stock limits, and the pull currencies are told apart by source', () => {
+test('totals count the store at its stock limits, and the pull currencies are listed once, in Headhunting', () => {
   const summary = rewardSummary([
     store('Events Store', [['Headhunting Permit', 1, '3'], ['LMD', 100, '∞'], ['D32 Steel', 1, '2']]),
     store('Login event', [['Orundum', 600, '1'], ['Originite Prime', 3, '1']]),
@@ -43,10 +43,7 @@ test('totals count the store at its stock limits, and the pull currencies are to
   assert.deepEqual(row('Headhunting').items.map(i => [i.name, i.count]), [['Orundum', 600], ['Originite Prime', 31], ['Headhunting Permit', 3]]);
   assert.equal(summary.rows.find(r => r.label === 'LMD'), undefined, 'unlimited stock is not a total');
   assert.deepEqual(summary.rows.map(r => r.label), ['Tier 5 materials', 'Headhunting']);
-  assert.deepEqual(summary.pulls.map(p => [p.source, p.items.map(i => `${i.name} ${i.count}`)]), [
-    ['Events Store', ['Headhunting Permit 3']],
-    ['Login event', ['Originite Prime 3', 'Orundum 600']],
-    ['First clears', ['Originite Prime 28']],
-  ]);
+  // Once: a second list of the pull currencies by source repeated the Headhunting row.
+  assert.equal('pulls' in summary, false);
   assert.deepEqual(summary.sources, ['Events Store', 'Login event', 'First clears']);
 });

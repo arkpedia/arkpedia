@@ -2,14 +2,14 @@ import { parseRewardQuantity, stockLimit, type ResolvedRewardStore } from './rew
 
 /*
  * An event's free rewards at a glance, laid out the way community compilations share them: one
- * row per kind (Tier 5 materials ... furniture), and the pull currencies by where they came from.
+ * row per kind (Tier 5 materials ... furniture). The pull currencies are in the Headhunting row;
+ * a second list of them by source repeated it (removed 2026-10-05).
  * Computed on the server from the same blocks as the All totals (the store at its stock limits,
  * the sign-in, missions, first clears and gifts); packs are bought, so they are not in it.
  */
 export interface SummaryItem { name: string; count: number; iconPath: string | null }
 export interface SummaryRow { label: string; items: SummaryItem[] }
-export interface PullSourceRow { source: string; items: SummaryItem[] }
-export interface RewardSummary { rows: SummaryRow[]; pulls: PullSourceRow[]; sources: string[] }
+export interface RewardSummary { rows: SummaryRow[]; sources: string[] }
 
 const ROWS = [
   'Tier 5 materials', 'Tier 4 materials', 'Tier 3 materials', 'Tier 2 materials', 'Tier 1 materials',
@@ -61,7 +61,6 @@ export function rowOf(name: string, context: SummaryContext): Row {
 
 export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryContext, order: readonly string[]): RewardSummary {
   const totals = new Map<string, SummaryItem>();
-  const pulls = new Map<string, Map<string, SummaryItem>>();
   for (const store of stores) {
     for (const item of store.items) {
       const limit = stockLimit(item.stock);
@@ -70,11 +69,6 @@ export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryCon
       if (!count) continue;
       const held = totals.get(item.name);
       if (held) held.count += count; else totals.set(item.name, { name: item.name, count, iconPath: item.iconPath });
-      if (isPull(item.name, context)) {
-        const source = pulls.get(store.type) ?? pulls.set(store.type, new Map()).get(store.type)!;
-        const at = source.get(item.name);
-        if (at) at.count += count; else source.set(item.name, { name: item.name, count, iconPath: item.iconPath });
-      }
     }
   }
   const rank = (name: string) => { const index = order.indexOf(name); return index < 0 ? Number.MAX_SAFE_INTEGER : index; };
@@ -83,13 +77,11 @@ export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryCon
     const row = rowOf(item.name, context);
     byRow.set(row, [...(byRow.get(row) ?? []), item]);
   }
-  const pullRank = (name: string) => (name === 'Originite Prime' ? 0 : name === 'Orundum' ? 1 : 2);
   return {
     rows: ROWS.filter(row => byRow.has(row)).map(row => ({
       label: row,
       items: byRow.get(row)!.sort((a, b) => rank(a.name) - rank(b.name) || b.count - a.count || a.name.localeCompare(b.name)),
     })),
-    pulls: [...pulls.entries()].map(([source, items]) => ({ source, items: [...items.values()].sort((a, b) => pullRank(a.name) - pullRank(b.name) || a.name.localeCompare(b.name)) })),
     sources: [...new Set(stores.filter(store => store.items.some(item => stockLimit(item.stock) !== null)).map(store => store.type))],
   };
 }

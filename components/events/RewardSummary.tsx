@@ -91,19 +91,6 @@ export function RewardSummaryCard({ eventName, summary }: { eventName: string; s
           </div>
         ))}
       </div>
-      {summary.pulls.length > 0 && (
-        <>
-          <h3 className="reward-summary-heading">Orundum, Originite Prime and Headhunting Permits</h3>
-          <div className="reward-summary-table">
-            {packed(summary.pulls).map((row) => (
-              <div key={row.source} className="reward-summary-row">
-                <span className="reward-summary-label">{row.source}</span>
-                <span className="reward-summary-items">{row.items.map((item) => <Tile key={item.name} item={item} register={register} />)}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
@@ -124,7 +111,6 @@ async function drawSummary(eventName: string, summary: Summary, rendered: Map<st
   measure.font = `700 13px ${font}`;
   type Card = { label: string; items: SummaryItem[]; x: number; y: number; w: number; h: number };
   const sections = [{ title: `${eventName.replace(/^\[[^\]]*\]\s*/, '')} — rewards (${summary.sources.join(' + ')})`, rows: packed(summary.rows).map((r) => ({ label: r.label, items: r.items })) }];
-  if (summary.pulls.length) sections.push({ title: 'Orundum, Originite Prime and Headhunting Permits', rows: packed(summary.pulls).map((r) => ({ label: r.source, items: r.items })) });
   let y = PAD;
   const laid = sections.map((section) => {
     const titleY = y;
