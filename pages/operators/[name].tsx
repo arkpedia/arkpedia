@@ -923,7 +923,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
           (artwork | information) filling what is left, so on a desktop the page itself
           never scrolls and the information panel scrolls inside it. */}
       <div className={pageStyles.frame} ref={frameRef}>
-      <PageHeader slim back={{ href: '/operators', label: 'Operator roster' }} eyebrow={<>Rhodes Island // <Link prefetch={false} href="/operators">Operator roster</Link></>}
+      <PageHeader slim eyebrow={<>Rhodes Island // <Link prefetch={false} href="/operators">Operator roster</Link></>}
         title={operator.name} actions={<OperatorSearch section={activeSection} />} />
 
       <main className={`${pageStyles.page}${infoExpanded ? ` ${pageStyles.infoExpanded}` : ''}`} onClick={(event) => {

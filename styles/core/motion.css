@@ -226,6 +226,14 @@
   .account-card-support-kit { transition: opacity 0.25s var(--ease) 0.1s; }
   .account-card-hiring-art > * { transition: opacity var(--dur-2) var(--ease); }
 
+  /* --- the song list's drop line grows in where a dragged song would land -----------
+     pages/music/index.tsx places it (dropSide), music.css draws it. */
+  .music-queue-row.drop-before::before,
+  .music-queue-row.drop-after::after { animation: music-drop-line var(--dur-1) var(--ease); }
+  @keyframes music-drop-line {
+    from { opacity: 0; transform: scaleX(0.6); }
+  }
+
   /* --- LIVE: the dot blinks (option A's, exactly) --------------------------------- */
   .badge-live::before {
     animation: blink 1.2s steps(2, jump-none) infinite;

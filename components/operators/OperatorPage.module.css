@@ -19,9 +19,8 @@
    taken from the artwork. The h1 itself is PageHeader's, untouched. */
 @media (min-width: 901px) {
   .frame > header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); align-items: end; column-gap: 24px; }
-  /* Back on its own row above the eyebrow; the search beside the eyebrow and the title below it. */
-  .frame > header > :global(.back-btn), .frame > header > :global(.eyebrow), .frame > header > h1 { grid-column: 1; }
-  .frame > header > :global(.page-header-actions) { grid-column: 2; grid-row: 2 / span 2; align-self: end; margin: 0 0 4px; }
+  .frame > header > :global(.eyebrow), .frame > header > h1 { grid-column: 1; }
+  .frame > header > :global(.page-header-actions) { grid-column: 2; grid-row: 1 / span 2; align-self: end; margin: 0 0 4px; }
   .frame > header > :global(.page-header-actions) > * { flex: 1; }
 }
 .page {
