@@ -1,6 +1,7 @@
 import { contentPageClock, type PageClockField, type PageClockMoment } from './pageClock';
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { missingPageTables, pageTables } from './tables.mjs';
+import { readChannelPointer } from './pointer.mjs';
 import { createHash } from 'node:crypto';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
@@ -40,25 +41,19 @@ export async function readPublishedContentPageProps<P extends object>(route: str
 
 /** The pointer branch this site reads (scripts/content/channel.mjs): live, or dev-live on
  *  arkpedia-dev, whose releases dev's code compiles. Inlined at build (next.config.js env)
- *  from what Deploy sets for the deployment's branch. */
+ *  from what Deploy sets for the deployment's branch. The rule is content-channel.cjs's
+ *  contentPointer (the same pattern, the same live default; test-content-channel.ts holds the
+ *  two to it), written out here because importing that file would pull config/*.json into the
+ *  server bundle. */
 export function contentChannel(): string {
   const value = process.env.ARKPEDIA_CONTENT_CHANNEL || 'live';
   if (!/^[a-z0-9][a-z0-9-]*$/.test(value)) throw new Error(`Invalid content channel: ${value}`);
   return value;
 }
 
-/** The channel's pointer. A channel whose pointer branch does not exist yet (dev-live before
- *  dev's first run publishes it) reads live's, so a site never goes without a release; only a
- *  missing branch, never a channel that exists and fails. */
-async function readPointer(root: string): Promise<Buffer> {
-  const channel = contentChannel();
-  try {
-    return await read(`${root}/${channel}/current.json`, 2048);
-  } catch (error) {
-    if (channel === 'live' || !(error instanceof Error) || !error.message.startsWith('Content HTTP 404')) throw error;
-    console.warn(`[content] ${channel} has no pointer yet: reading live's release until it does.`);
-    return read(`${root}/live/current.json`, 2048);
-  }
+/** The channel's pointer, or live's while the channel has none yet (lib/content/pointer.mjs). */
+function readPointer(root: string): Promise<Buffer> {
+  return readChannelPointer({ root, channel: contentChannel(), read: url => read(url, 2048), warn: message => console.warn(`[content] ${message}`) });
 }
 
 function origin(): string {
@@ -72,7 +67,8 @@ function origin(): string {
 
 async function read(url: string, maxBytes: number): Promise<Buffer> {
   const response = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: 'no-store' });
-  if (!response.ok) throw new Error(`Content HTTP ${response.status}: ${url}`);
+  // The status rides on the error: a missing channel pointer (404) falls back to live's.
+  if (!response.ok) throw Object.assign(new Error(`Content HTTP ${response.status}: ${url}`), { status: response.status });
   if (Number(response.headers.get('content-length')) > maxBytes) throw new Error('Content response too large');
   if (!response.body) throw new Error('Empty content response');
   const chunks: Uint8Array[] = [];

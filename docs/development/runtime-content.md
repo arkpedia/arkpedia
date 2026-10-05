@@ -8,15 +8,17 @@ The website reads reviewed game records from the public [arkpedia-data repositor
 2. A deploy key scoped only to arkpedia-data pushes the validated release straight to its `main` as a fast-forward. No pull request is opened and nobody reviews the release first, so the checks in this job are the only gate.
 3. The push runs that repository's `Content release` workflow, which validates the commit again and publishes it through the `live` pointer. Existing website pages adopt it during background revalidation; newly added operator, event and stage-content URLs generate on demand. The job then polls the `live` branch for about five minutes and opens a `Content release not live` issue if the pointer did not move to what it pushed (`scripts/content/await-live.mjs`).
 
-## Production must run the release's code first
+## A channel's deployments must run the release's code first
 
-A release is compiled by the app commit the job checks out (main, normally), and that code decides what each page's props look like. Production may still run older code that reads a different shape: on 2026-09-25 main dropped `countdowns`, `pullBannerLinks` and `isOngoing` while the deployed `/farming` and `/schedule` still dereferenced them, and both said `CONTENT_SCHEMA` 2. So the job publishes a release only while production runs the same code (`scripts/content/deploy-gate.mjs`):
+Each branch the job runs on has a content channel (`scripts/content/channel.mjs`, `config/content-channels.json`). Main's release goes to data `main` and the `live` pointer, which production (www.arkpedia.net) reads. Dev's run compiles data main's records with dev's code into data `dev` and its own pointer, `dev-live`, which arkpedia-dev reads, so a pipeline change merged to dev shows there before it reaches main; data `main` and `live` are never written by it. Deploy starts dev's run after each dev deploy, and the scheduled run starts it once more every night. Any other branch has no channel, and the run fails at the step that chooses one.
 
-- Every build writes `public/build-info.json` first thing in `prebuild` (`scripts/build/write-build-info.mjs`): its commit, its *code fingerprint* and whether the tree had uncommitted changes. Production serves it at `/build-info.json`, never cached.
+A release is compiled by the app commit the job checks out (main's, or dev's for the dev channel), and that code decides what each page's props look like. The deployments of that branch may still run older code that reads a different shape: on 2026-09-25 main dropped `countdowns`, `pullBannerLinks` and `isOngoing` while the deployed `/farming` and `/schedule` still dereferenced them, and both said `CONTENT_SCHEMA` 2. So the job publishes a release only while the deployments of its branch run the same code (`scripts/content/deploy-gate.mjs`): production for main's release, arkpedia-dev for dev's.
+
+- Every build writes `public/build-info.json` first thing in `prebuild` (`scripts/build/write-build-info.mjs`): its commit, its *code fingerprint*, whether the tree had uncommitted changes, and the pointer it reads. Each deployment serves it at `/build-info.json`, never cached.
 - The code fingerprint (`scripts/content/code-fingerprint.mjs`) hashes every tracked file at a commit except the docs-only paths in `config/docs-only-paths.json`, which are exactly what Check skips (so a docs-only push, which never deploys, holds nothing). `export.mjs` writes the generator's into the release manifest.
-- The job asks each live deployment in `config/production.json` with one GET before it starts and again right before it pushes. Any answer but a clean build with the release's fingerprint and schema holds the release: another commit, a dirty build, no build-info, an unreachable site. The run fails and opens the `Content release held` issue with the reason; the next good run closes it.
+- The job asks each live deployment of its branch in `config/production.json` with one GET before it starts and again right before it pushes; a deployment of another branch reads another channel's release and is not asked. Any answer but a clean build with the release's fingerprint and schema, reading the channel's pointer, holds the release: another commit, a dirty build, another channel's pointer, no build-info, an unreachable site. The run fails and opens the `Content release held` issue with the reason (`Content release held (dev)` for the dev channel); the next good run of the same channel closes it.
 
-A held release goes out once production runs the code: let Check and Deploy finish on main (a red Check or a failed Deploy each opens its own issue), then dispatch `Prepare content release`, or wait for the next scheduled run. After this gate first merges, production serves no `build-info.json` until that commit deploys, so every run is held until then.
+A held release goes out once its branch's deployments run the code: let Check and Deploy finish on that branch (a red Check or a failed Deploy each opens its own issue). On main, then dispatch `Prepare content release`, or wait for the next scheduled run; Deploy also starts it again after main's last deployment while the issue is open. On dev, the next successful Deploy of dev starts dev's run again by itself. After this gate first merges, production serves no `build-info.json` until that commit deploys, so every run is held until then.
 
 ## Alerts
 
@@ -25,7 +27,7 @@ Each alert is one issue, found by a hidden marker (`scripts/content/alert-issue.
 | Issue | Opened by | Means |
 |---|---|---|
 | Content release failing | Prepare content release | the run failed or timed out |
-| Content release held | Prepare content release | production does not run the code the release was compiled with |
+| Content release held | Prepare content release | the deployments of the run's branch (production for main) do not run the code the release was compiled with |
 | Content release not live | Prepare content release | arkpedia-data's `Content release` did not move `live` to the pushed commit |
 | Content quarantined | Prepare content release | records held back or stages that did not run to the end |
 | Asset sync failing | Prepare content release | an asset repository's latest sync failed or is over three days old |
@@ -33,6 +35,8 @@ Each alert is one issue, found by a hidden marker (`scripts/content/alert-issue.
 | Deploy failing | Deploy | production keeps its previous build, or runs the new one with asset links that lag the release |
 | No content release for over a day | Release heartbeat, in arkpedia-data | neither `live` nor the `heartbeat` branch moved for 26 hours |
 | Data main is not live | Release heartbeat, in arkpedia-data | `live` does not serve data `main` an hour after it was committed |
+
+The dev channel's run reports under issues of its own, titled with ` (dev)` and found by their own markers, so a broken dev run never comments on or closes production's. A cancelled dev run is not reported: dev's queue cancels a run whenever a newer one starts. A run on a branch with no channel stops at the step that chooses one and reports nothing, since no later run would close its issue.
 
 The last two run on arkpedia-data's free public runners, so they report even when no private job can start (an offline runner, a disabled workflow, a refused budget). Every successful release run commits a heartbeat to arkpedia-data's `heartbeat` branch, so a day with nothing new to publish is not taken for an outage.
 

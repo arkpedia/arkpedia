@@ -37,8 +37,9 @@ export function channelFor(branch) {
 /** The pointer branch a reader of the release uses (scripts/content/content-channel.cjs, which
  *  next.config.js asks too): ARKPEDIA_CONTENT_CHANNEL, else the channel of the Vercel project a
  *  Deploy build is for, else live. */
-export const POINTER = channelConfig.POINTER;
 export const contentPointer = channelConfig.contentPointer;
+/** The pointer a deployment of a branch reads: its channel's, else live. */
+export const pointerForBranch = channelConfig.pointerForBranch;
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const at = process.argv.indexOf('--branch');

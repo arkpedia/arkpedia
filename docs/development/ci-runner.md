@@ -25,11 +25,12 @@ runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
 - **Unset**: the jobs run on GitHub's hosted runners and count against the
   organization's 2,000 private minutes a month ([automation.md](automation.md#cost-limits)).
 
-Two jobs take seconds and only call GitHub's API: Check's `seen` (does a pull request's
-green Check already vouch for this push?) and Deploy's `targets`. They run on the label
-`ARKPEDIA_LIGHT_RUNNER` names (`arkpedia-vps`), falling back to `ARKPEDIA_RUNNER` when it is
-unset. Otherwise a merge's push waited in line behind another pull request's whole Check
-on the NAS (15 minutes on 2026-10-02) before Deploy could start.
+Three jobs take seconds and only call GitHub's API: Check's `seen` (does a pull request's
+green Check already vouch for this push?), Deploy's `targets`, and Prepare content release's
+`start-dev` (one `gh workflow run` that starts the dev channel's run after the scheduled one).
+They run on the label `ARKPEDIA_LIGHT_RUNNER` names (`arkpedia-vps`), falling back to
+`ARKPEDIA_RUNNER` when it is unset. Otherwise a merge's push waited in line behind another
+pull request's whole Check on the NAS (15 minutes on 2026-10-02) before Deploy could start.
 
 Switching is a settings change, not a commit: **Settings → Secrets and variables →
 Actions → Variables**, or `gh variable set ARKPEDIA_RUNNER --body <label>` /

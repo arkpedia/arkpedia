@@ -110,6 +110,8 @@ jobs:
         with:
           # Deploy the commit Check actually verified, not whatever main is by now.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # And its parent, for what the commit changed (the dev channel's run, last step).
+          fetch-depth: 2
       - uses: actions/setup-node@v7
         with:
           # Matches the runtime the functions declare (nodejs24.x).
@@ -138,7 +140,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PROD: ${{ matrix.target.production && '--prod' || '' }}
           # The content pointer this deployment reads: live, or dev-live for dev's own releases
-          # (scripts/content/channel.mjs); inlined into the build by next.config.js.
+          # (scripts/content/channel.mjs); inlined into the build by next.config.js. Only this
+          # step sets it: the asset-link check after the deploy finds the same pointer from the
+          # job's VERCEL_PROJECT_ID (scripts/content/content-channel.cjs looks the project up).
           ARKPEDIA_CONTENT_CHANNEL: ${{ matrix.target.contentChannel }}
         run: npx --yes "vercel@$VERCEL_CLI_VERSION" build $PROD --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
       - name: Prepare the Build Output bundle
@@ -177,8 +181,9 @@ jobs:
         run: rm -rf .vercel
       # One open issue per deployment's outage, found by its marker (scripts/content/
       # alert-issue.mjs): the 09-18..09-22 outage was nine red runs that only the Actions tab
-      # showed. Production keeps its last build meanwhile, and content releases stay held while
-      # it runs other code than main (scripts/content/deploy-gate.mjs). The next successful
+      # showed. Production keeps its last build meanwhile, and its channel's content releases
+      # stay held while it runs other code than its branch's (scripts/content/deploy-gate.mjs:
+      # main's release asks main's deployments, the dev channel's dev's). The next successful
       # deploy there closes it.
       - name: Report the failed deploy
         if: matrix.target.production && (failure() || cancelled())
@@ -190,12 +195,13 @@ jobs:
           ASSET_LINKS: ${{ steps.asset-links.outcome }}
           ALERT: ${{ matrix.target.alert }}
           SITE: ${{ matrix.target.url }}
+          BRANCH: ${{ matrix.target.branch }}
         run: |
           body="$RUNNER_TEMP/failed-deploy.md"
           if [ "$ASSET_LINKS" = failure ]; then
             echo "Deployed ${DEPLOYING:0:12} to $SITE ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')), but its asset links lag the live content release: a root-relative path to art the release has redirects to an asset commit without it, and 404s. The check's log names the file: $RUN_URL. Production runs this build; redeploy once the Build step can adopt the release's pins (its warning says why it could not), or bump data/assets/revisions.json as the check's log says." > "$body"
           else
-            echo "Deploy to $SITE ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs main's code." > "$body"
+            echo "Deploy to $SITE ended with $JOB_STATUS for ${DEPLOYING:0:12} ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Production keeps its previous build, and content releases stay held until it runs $BRANCH's code." > "$body"
           fi
           node scripts/content/alert-issue.mjs open --alert "$ALERT" --title "Deploy failing: ${SITE#https://}" --body-file "$body"
       - name: Close the failed-deploy report
@@ -232,10 +238,19 @@ jobs:
       # compile data main's records with that code and publish them to dev-live, so the build's
       # effect on the data shows on arkpedia-dev without waiting for main. A newer dev deploy's
       # run supersedes this one (prepare-content.yml cancels dev runs in progress). Never for
-      # main: its release is the scheduled one.
+      # main: its release is the scheduled one. The upstream refresh only when the commit changes
+      # what the refresh runs (scripts/content/dev-refresh.mjs): a page or style change compiles
+      # data main's records with it and leaves the sources alone; dev's nightly run refreshes.
       - name: Prepare dev's own content release
         if: ${{ !cancelled() && steps.deploy.outcome == 'success' && matrix.target.production && matrix.target.branch == 'dev' && matrix.target.last }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream=true
+        run: |
+          # Anything but a plain false from a script that succeeded refreshes: one that failed,
+          # whatever it printed, or printed nothing or something else. Under the step's `bash -e`, a
+          # crash in the assignment ended the step and started no dev run at all, and anything but
+          # true or false is a value gh refuses for a boolean input.
+          refresh=$(node scripts/content/dev-refresh.mjs) || refresh=true
+          [ "$refresh" = false ] || refresh=true
+          gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream="$refresh"

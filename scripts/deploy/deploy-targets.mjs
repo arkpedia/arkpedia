@@ -22,7 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { CHANNELS } from '../content/channel.mjs';
+import { pointerForBranch } from '../content/channel.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -56,6 +56,18 @@ export function readDeployments(config = JSON.parse(fs.readFileSync(path.join(ro
   });
 }
 
+/** The live deployments of the branch whose release a content run publishes:
+ *  ARKPEDIA_RELEASE_BRANCH, which Prepare content release's channel step sets
+ *  (scripts/content/channel.mjs), else main. The release gate asks them what they run
+ *  (scripts/content/deploy-gate.mjs) and the page refresh calls them (scripts/content/
+ *  refresh-pages.mjs). One not switched on yet, or following another branch, runs other code
+ *  and reads another channel's release by design: main's release asks www.arkpedia.net, the dev
+ *  channel's arkpedia-dev.vercel.app. */
+export function releaseDeployments(env = process.env, deployments = readDeployments()) {
+  const branch = env.ARKPEDIA_RELEASE_BRANCH || RELEASE_BRANCH;
+  return deployments.filter(deployment => deployment.live && deployment.branch === branch);
+}
+
 /** The matrix Deploy runs for a push to `branch`: its live deployments, or with preview its
  *  ones not live yet. */
 export function deployTargets({ branch, preview = false, deployments = readDeployments() } = {}) {
@@ -68,7 +80,7 @@ export function deployTargets({ branch, preview = false, deployments = readDeplo
     alert: `deploy-failing-${deployment.name}`,
     releaseGate: !preview && branch === RELEASE_BRANCH,
     // The content pointer the build reads (scripts/content/channel.mjs): its branch's channel.
-    contentChannel: Object.hasOwn(CHANNELS, branch) ? CHANNELS[branch].pointer : 'live',
+    contentChannel: pointerForBranch(branch),
     last: index === chosen.length - 1,
   }));
 }

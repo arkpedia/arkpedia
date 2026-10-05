@@ -10,7 +10,7 @@ import { promisify } from 'node:util';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { DOCS_ONLY_PATHS, codeFingerprint, globToRegExp, isDocsOnly, uncommittedChanges } from '../content/code-fingerprint.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
-import { deploymentUrls, judge, main as gate, releaseFromRef } from '../content/deploy-gate.mjs';
+import { deploymentUrls, heldReport, judge, main as gate, releaseFromRef, siteFor } from '../content/deploy-gate.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { SCHEMA } from '../content/release-input.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -194,9 +194,9 @@ const site = 'https://arkpedia-dev.vercel.app';
 
 test('the gate publishes only to a clean build of the same code, and holds every other answer', () => {
   // Another commit with the same code (a docs-only push landed after the deploy) is the same build.
-  assert.deepEqual(judge({ release, deployments: [{ url: site, info: built() }] }), { publish: true, problems: [] });
-  const held = (deployments: object[]) => {
-    const verdict = judge({ release, deployments });
+  assert.deepEqual(judge({ release, deployments: [{ url: site, info: built() }], pointer: 'live' }), { publish: true, problems: [] });
+  const held = (deployments: object[], pointer = 'live') => {
+    const verdict = judge({ release, deployments, pointer });
     assert.equal(verdict.publish, false);
     return verdict.problems.join('\n');
   };
@@ -210,6 +210,36 @@ test('the gate publishes only to a clean build of the same code, and holds every
   assert.match(held([]), /No production deployment is configured/);
   // Every deployment must read it, not most of them.
   assert.match(held([{ url: site, info: built() }, { url: 'https://other.example', info: built({ codeFingerprint: 'e'.repeat(64) }) }]), /^https:\/\/other\.example runs/);
+  // A deployment built to read another channel's pointer (build-info.json's contentChannel,
+  // scripts/content/code-fingerprint.mjs) never sees the release, whatever code it runs.
+  assert.match(held([{ url: site, info: built({ contentChannel: 'live' }) }], 'dev-live'), /runs bbbbbbbbbbbb built to read the live pointer, so it never reads this release, which is published to dev-live\./);
+  assert.match(held([{ url: site, info: built({ contentChannel: 'dev-live' }) }]), /built to read the dev-live pointer/);
+  assert.deepEqual(judge({ release, deployments: [{ url: site, info: built({ contentChannel: 'dev-live' }) }], pointer: 'dev-live' }), { publish: true, problems: [] });
+  // A build from before build-info named its channel is taken at its branch.
+  assert.deepEqual(judge({ release, deployments: [{ url: site, info: built() }], pointer: 'dev-live' }).problems, []);
+  assert.throws(() => judge({ release, deployments: [] }), /judge needs the pointer/);
+});
+
+test('a held release says what lets it out on its own channel', () => {
+  const problems = ['https://arkpedia-dev.vercel.app runs bbbbbbbbbbbb, not the code of aaaaaaaaaaaa that compiles the release.'];
+  const main = heldReport({ release, problems, compiled: true, branch: 'main' });
+  assert.match(main, /^\*\*The content release was not published: production cannot be shown to read it\.\*\*/);
+  assert.match(main, /let Check and Deploy finish on main .* then dispatch \*\*Prepare content release\*\*, or wait for the next scheduled run\.$/m);
+  // The dev channel's: dev's deployment, and the next Deploy of dev starts its run again (deploy.yml).
+  const dev = heldReport({ release, problems, compiled: true, branch: 'dev' });
+  assert.match(dev, /^\*\*The content release was not published: dev's deployment cannot be shown to read it\.\*\*/);
+  assert.match(dev, /let Check and Deploy finish on dev .* and the next successful Deploy of dev starts dev's run again\.$/m);
+  assert.doesNotMatch(dev, /on main|scheduled run/);
+  assert.throws(() => heldReport({ release, problems, compiled: true }), /needs the branch/);
+  // The gate's CLI passes the channel's branch and pointer from the environment the channel step set
+  // (the CLI cases below run it on both channels).
+  const source = fs.readFileSync('scripts/content/deploy-gate.mjs', 'utf8');
+  assert.match(source, /const branch = env\.ARKPEDIA_RELEASE_BRANCH \|\| RELEASE_BRANCH;/);
+  assert.match(source, /heldReport\(\{ release, problems, compiled: Boolean\(opts\.manifest\), branch \}\)/);
+  assert.match(source, /judge\(\{ release, deployments, pointer: env\.ARKPEDIA_CONTENT_POINTER \|\| 'live' \}\)/);
+  // One wording for who has to run the code, in the report and the gate's log alike.
+  assert.deepEqual([siteFor('main'), siteFor('dev')], ['production', "dev's deployment"]);
+  assert.throws(() => siteFor(undefined), /needs the branch/);
 });
 
 /** A production stand-in: serves whatever build-info the case sets, and counts the reads. */
@@ -233,10 +263,10 @@ test('the gate CLI reads production with one uncached GET and holds with a reaso
   const here = releaseFromRef('HEAD');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-gate-cli-'));
   const held = path.join(dir, 'held.md');
-  const cli = async (production: string, args: string[]) => {
+  const cli = async (production: string, args: string[], channel: Record<string, string> = {}) => {
     fs.rmSync(held, { force: true });
     try {
-      const { stdout } = await run(process.execPath, ['scripts/content/deploy-gate.mjs', ...args, '--held-file', held], { env: { ...process.env, ARKPEDIA_DEPLOYMENTS: production, ARKPEDIA_GATE_RETRY_MS: '1' } });
+      const { stdout } = await run(process.execPath, ['scripts/content/deploy-gate.mjs', ...args, '--held-file', held], { env: { ...process.env, ARKPEDIA_DEPLOYMENTS: production, ARKPEDIA_GATE_RETRY_MS: '1', ...channel } });
       return { status: 0, stdout, held: fs.existsSync(held) ? fs.readFileSync(held, 'utf8') : '' };
     } catch (error) {
       const failed = error as { code: number; stdout: string };
@@ -258,13 +288,22 @@ test('the gate CLI reads production with one uncached GET and holds with a reaso
       production.serve(200, built({ commit: here.generator, codeFingerprint: here.codeFingerprint }));
       const same = await cli(production.url, ['--ref', 'HEAD']);
       assert.equal(same.status, 0, same.stdout);
-      assert.match(same.stdout, /Production runs the code that compiles this release/);
+      assert.match(same.stdout, /^Production runs the code that compiles this release/m);
       assert.equal(same.held, '');
+      // The dev channel's run says so of dev's deployment, in its log as in its report.
+      const dev = { ARKPEDIA_RELEASE_BRANCH: 'dev', ARKPEDIA_CONTENT_POINTER: 'dev-live' };
+      const devSame = await cli(production.url, ['--ref', 'HEAD'], dev);
+      assert.equal(devSame.status, 0, devSame.stdout);
+      assert.match(devSame.stdout, /^Dev's deployment runs the code that compiles this release/m);
+      assert.doesNotMatch(devSame.stdout, /Production/);
       // Production runs other code.
       production.serve(200, built({ codeFingerprint: 'd'.repeat(64) }));
       const other = await cli(production.url, ['--ref', 'HEAD']);
       assert.equal(other.status, 1);
       assert.match(other.held, /runs bbbbbbbbbbbb, not the code of/);
+      const devOther = await cli(production.url, ['--ref', 'HEAD'], dev);
+      assert.equal(devOther.status, 1);
+      assert.match(devOther.held, /^\*\*The content release was not published: dev's deployment cannot be shown to read it\.\*\*/);
       // A site that errors is retried, then holds.
       production.serve(503, 'busy');
       const before503 = production.reads().length;
@@ -343,23 +382,32 @@ test('the live check waits for the pointer to name the pushed commit, or a later
     };
     const first = mainCommit(1);
     git(root, 'clone', '-q', `file://${origin}`, clone);
+    // What the step hands the page refresh after it ($GITHUB_OUTPUT), read back per check.
+    const outputs = path.join(root, 'github-output');
     const check = (revision: string) => {
-      const result = spawnSync(process.execPath, ['scripts/content/await-live.mjs', '--revision', revision, '--repo', clone, '--timeout-seconds', '0'], { env, encoding: 'utf8' });
+      fs.writeFileSync(outputs, '');
+      const result = spawnSync(process.execPath, ['scripts/content/await-live.mjs', '--revision', revision, '--repo', clone, '--timeout-seconds', '0'], { env: { ...env, GITHUB_OUTPUT: outputs }, encoding: 'utf8' });
       return { status: result.status, output: (result.stdout + result.stderr).trim() };
     };
+    const named = () => fs.readFileSync(outputs, 'utf8');
     // No live branch yet (a first release): not advanced, and it says why.
     assert.deepEqual(check(first), { status: 1, output: `Live has not moved to ${first} after 0 s: fetching the live branch of arkpedia-data failed (fatal: couldn't find remote ref refs/heads/live).` });
+    assert.equal(named(), '', 'not live: nothing for the refresh to wait for');
     publish(first);
     assert.deepEqual(check(first), { status: 0, output: `Live serves ${first}.` });
+    assert.equal(named(), `revision=${first}\n`);
     // The Content release run for the push failed: live still names the previous commit.
     const second = mainCommit(2);
     const stuck = check(second);
     assert.equal(stuck.status, 1);
     assert.equal(stuck.output, `Live has not moved to ${second} after 0 s: it still serves ${first}.`);
-    // A later push superseded this one, and live names that: the pushed release is in it.
+    assert.equal(named(), '');
+    // A later push superseded this one, and live names that: the pushed release is in it. The
+    // refresh waits for the commit live names, which is the only one the pointer will show.
     const third = mainCommit(3);
     publish(third);
     assert.deepEqual(check(second), { status: 0, output: `Live serves ${third}, a later data main commit that contains ${second}.` });
+    assert.equal(named(), `revision=${third}\n`);
     // The clone's own branches are left alone: the checks fetch into refs of their own.
     assert.equal(git(clone, 'rev-parse', 'origin/main'), first);
   } finally {
