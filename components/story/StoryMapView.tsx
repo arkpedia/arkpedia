@@ -64,28 +64,49 @@ function Line({ element }: { element: Extract<StoryElement, { type: 'line' }> })
   );
 }
 
-function Picture({ element }: { element: Extract<StoryElement, { type: 'picture' }> }) {
+/** Opening a chapter's popup (pages/story.tsx), for a chapter Timo's sections are known for; any
+ *  other story links straight into the reader, as before. */
+export interface ChapterOpener {
+  has: (story: string | undefined) => boolean;
+  open: (story: string) => void;
+}
+
+/** A story's link: its chapter popup at ?chapter=<group> (a plain click opens it in place, a new
+ *  tab gets the page with it open), else the reader in a new tab. */
+function storyLinkProps(link: { url: string | null; story?: string }, chapters: ChapterOpener) {
+  if (link.story && chapters.has(link.story)) {
+    const story = link.story;
+    return { href: `/story?chapter=${encodeURIComponent(story)}`, onClick: (event: React.MouseEvent) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      chapters.open(story);
+    } };
+  }
+  return { href: link.url ?? undefined, target: '_blank', rel: 'noopener noreferrer' };
+}
+
+function Picture({ element, chapters }: { element: Extract<StoryElement, { type: 'picture' }>; chapters: ChapterOpener }) {
   const title = element.link?.title ?? 'A story on the map';
   const style = { left: element.x, top: element.y, width: element.width, height: element.height };
   const art = element.image
     ? <ContentImg src={`/${element.image}`} alt="" draggable={false} />
     : <span className="story-map-missing">{title}</span>;
-  return element.link?.url
-    ? <a className="story-map-picture" style={style} href={element.link.url} target="_blank" rel="noopener noreferrer" title={title} aria-label={`${title} (opens in a new tab)`} draggable={false}>{art}</a>
-    : <span className="story-map-picture is-plain" style={style} title={title} role="img" aria-label={title}>{art}</span>;
+  if (!element.link?.url) return <span className="story-map-picture is-plain" style={style} title={title} role="img" aria-label={title}>{art}</span>;
+  const inPopup = !!element.link.story && chapters.has(element.link.story);
+  return <a className="story-map-picture" style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`} draggable={false}>{art}</a>;
 }
 
-function ListCard({ story }: { story: StoryPicture }) {
+function ListCard({ story, chapters }: { story: StoryPicture; chapters: ChapterOpener }) {
   const title = story.link?.title ?? 'A story on the map';
   const art = story.image && <ContentImg src={`/${story.image}`} alt="" />;
   const label = <span className="story-list-title">{title}{story.manga && <span className="label-tag">Manga</span>}</span>;
   const kind = `story-list-card${story.manga ? ' is-manga' : ''}`;
   return story.link?.url
-    ? <a className={kind} href={story.link.url} target="_blank" rel="noopener noreferrer">{art}{label}</a>
+    ? <a className={kind} {...storyLinkProps(story.link, chapters)}>{art}{label}</a>
     : <span className={`${kind} is-plain`}>{art}{label}</span>;
 }
 
-export default function StoryMapView({ map }: { map: StoryMap }) {
+export default function StoryMapView({ map, chapters }: { map: StoryMap; chapters: ChapterOpener }) {
   const board = useMemo(() => withManga(map), [map]);
   const { bounds } = board;
   const [view, setView] = useState<'map' | 'list'>('map');
@@ -251,7 +272,7 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
                     ? <Fragment key={index}><Shape element={shape} /><div className="story-map-label" style={{ ...at, width: element.width, height: element.height, ...textStyle(element.label) }}>{element.label.text}</div></Fragment>
                     : <Shape key={index} element={shape} />;
                 }
-                return <Picture key={index} element={{ ...element, x: at.left, y: at.top }} />;
+                return <Picture key={index} element={{ ...element, x: at.left, y: at.top }} chapters={chapters} />;
               })}
             </div>
           </div>
@@ -263,7 +284,7 @@ export default function StoryMapView({ map }: { map: StoryMap }) {
               <h3>{section.name}</h3>
               {section.note && <p className="hint story-list-note">{section.note}</p>}
               <ul className="story-list">
-                {section.stories.map((story) => <li key={story.id}><ListCard story={story} /></li>)}
+                {section.stories.map((story) => <li key={story.id}><ListCard story={story} chapters={chapters} /></li>)}
               </ul>
             </div>
           ))}
