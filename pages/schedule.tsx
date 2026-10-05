@@ -727,7 +727,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
       {showAllSkins && (
         <div className="modal-overlay" onClick={() => setShowAllSkins(false)}>
           <div className="modal-box schedule-show-all-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="modal-back-btn" onClick={() => setShowAllSkins(false)}>
+            <button type="button" className="back-btn" onClick={() => setShowAllSkins(false)}>
               ‹ Back
             </button>
             <h2 style={{ marginBottom: 12 }}>{displayEvent?.name} — All Skins</h2>

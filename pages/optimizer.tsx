@@ -1,6 +1,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import BackLink from '@/components/ui/BackLink';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
 
 export const getStaticProps = devOnlyStaticProps;
@@ -192,6 +193,7 @@ export default function OptimizerPage() {
       <Head><title>Optimizer — Arkpedia</title></Head>
 
       <header>
+        <BackLink href="/base" label="Base" />
         <div className="eyebrow">Rhodes Island // Base Optimizer</div>
         <h1>Optimizer</h1>
         <p className="sub">
@@ -202,9 +204,6 @@ export default function OptimizerPage() {
           many separate rows.
         </p>
         <div className="stages-category-row" style={{ marginTop: 10 }}>
-          <Link prefetch={false} href="/base" className="ghost">
-            ← Back to Base
-          </Link>
           {isLocal && (
             <>
               <input

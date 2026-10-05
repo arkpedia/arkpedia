@@ -52,6 +52,8 @@ import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
 import { watchImageArrivals } from '@/lib/ui/imageArrival';
 import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { recordPage } from '@/lib/navigation/pageTrail';
 import { Analytics } from '@vercel/analytics/react';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -66,6 +68,15 @@ export default function App({ Component, pageProps }: AppProps) {
   // Images that arrive from here on fade in (lib/ui/imageArrival.ts); an effect, so only
   // once the app has hydrated: what was already loaded, or already drawing, is simply shown.
   useEffect(() => watchImageArrivals(document), []);
+  // The pages this tab has shown, for a detail page's Back (lib/navigation/pageTrail.ts).
+  const router = useRouter();
+  useEffect(() => {
+    recordPage(router.asPath);
+    router.events.on('routeChangeComplete', recordPage);
+    return () => router.events.off('routeChangeComplete', recordPage);
+  // Once: the listener records every change after the first page.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.events]);
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>

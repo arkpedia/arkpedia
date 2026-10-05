@@ -272,6 +272,7 @@ export default function StageContentPage({ label, name, kind, release, groups, p
       <TerminalNav current={scene.key} />
       <PageHeader
         slim
+        back={{ href: scene.href, label: scene.label }}
         eyebrow={<>{MODE_LABELS[kind] || kind}{release && ` // ${release.slice(0, 4)}`}</>}
         title={<StageTitle code={label} name={name} fallback={name} lead="name" />}
       />

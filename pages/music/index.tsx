@@ -473,7 +473,7 @@ export default function MusicPage({ songLookup }: Props) {
         {queueLoading && <p className="hint" role="status">Loading music catalogue…</p>}
         {view === 'queue' && (
           <div className="music-player-topbar">
-            <button type="button" className="ghost music-back-btn" onClick={() => setView('player')}>
+            <button type="button" className="back-btn music-back-btn" onClick={() => setView('player')}>
               ‹ Back
             </button>
           </div>

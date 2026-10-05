@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import BackLink from '@/components/ui/BackLink';
 import type { WholeBaseResult } from '@/lib/base/wholeBaseOptimizer';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
 
@@ -110,6 +111,7 @@ export default function WholeBaseOptimizerPage() {
       <Head><title>Whole-Base Optimizer — Arkpedia</title></Head>
 
       <header>
+        <BackLink href="/base" label="Base" />
         <div className="eyebrow">Rhodes Island // Base Optimizer</div>
         <h1>Whole-Base Optimizer</h1>
         <p className="sub">
@@ -120,9 +122,6 @@ export default function WholeBaseOptimizerPage() {
           Leto&apos;s Factory bonus) and left out entirely -- and whichever produces more total value is kept.
         </p>
         <div className="stages-category-row" style={{ marginTop: 10 }}>
-          <Link prefetch={false} href="/base" className="ghost">
-            ← Back to Base
-          </Link>
           <Link prefetch={false} href="/base/optimizer" className="ghost">
             Per-Room Optimizer
           </Link>

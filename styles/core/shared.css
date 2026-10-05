@@ -1232,17 +1232,33 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 }
 .see-more-link:hover { text-decoration: underline; }
 
-.modal-back-btn {
+/* Every back on the site, one look (2026-10-05): a sheet's, a panel's and a page's
+   (components/ui/BackLink.tsx) -- "‹ Back", or "‹ Back to <where>" where it names it. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--panel-2);
   border: 1px solid var(--control-border);
   color: var(--text);
   padding: 8px 14px;
   border-radius: var(--radius-control);
   cursor: pointer;
+  /* The control type set here, not left to the button rule, so a link (a page's Back) and a
+     button (a sheet's) read the same. */
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 13px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  text-decoration: none;
   margin-bottom: 14px;
+  /* Its own width in a flex column or a grid cell, never the container's. */
+  align-self: flex-start;
+  justify-self: start;
 }
-.modal-back-btn:hover { border-color: var(--teal); color: var(--teal); }
+.back-btn:hover { border-color: var(--teal); color: var(--teal); }
 
 /* On mobile, the skin and stage detail modals take over the full
    screen like a new page rather than sitting as an embedded popup. */

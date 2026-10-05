@@ -262,6 +262,7 @@ export default function EventDetailPage({
   return (
     <>
       <PageHeader
+        back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
         title={name}
         sub={`${isPredicted ? 'Predicted release: ' : 'Release: '}${dateRange}`}
@@ -407,7 +408,7 @@ export default function EventDetailPage({
         return (
           <div className="modal-overlay" onClick={() => setActiveSkin(null)}>
             <div className="modal-box skin-modal" onClick={(e) => e.stopPropagation()}>
-              <button type="button" className="modal-back-btn" onClick={() => setActiveSkin(null)}>
+              <button type="button" className="back-btn" onClick={() => setActiveSkin(null)}>
                 ‹ Back
               </button>
               <div className="skin-modal-image-wrap-full">

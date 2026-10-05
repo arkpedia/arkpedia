@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import BackLink from './BackLink';
 
 interface PageHeaderProps {
   /** The mono teal line above the title: "Rhodes Island // Personnel Archive".
@@ -17,6 +18,9 @@ interface PageHeaderProps {
   slim?: boolean;
   /** An id for the h1, when a landmark or a skip link names it. */
   titleId?: string;
+  /** A detail page's Back, above the eyebrow: to the page before it in this tab, else to the
+   *  list it belongs to (`href`, named by `label`). components/ui/BackLink.tsx. */
+  back?: { href: string; label: string };
 }
 
 /**
@@ -32,9 +36,10 @@ interface PageHeaderProps {
  * header nested in it starts 24px to the right of the content below
  * (tests/browser/page-bounds.spec.ts measures that edge on every route).
  */
-export default function PageHeader({ eyebrow, title, sub, actions, slim = false, titleId }: PageHeaderProps) {
+export default function PageHeader({ eyebrow, title, sub, actions, slim = false, titleId, back }: PageHeaderProps) {
   return (
     <header className={`page-header${slim ? ' page-header-slim' : ''}`}>
+      {back ? <BackLink href={back.href} label={back.label} /> : null}
       <div className="eyebrow">{eyebrow}</div>
       <h1 id={titleId}>{title}</h1>
       {sub ? <p className="sub">{sub}</p> : null}

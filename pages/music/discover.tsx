@@ -226,7 +226,7 @@ export default function DiscoverPage({ songs, characters, origins, artists, rece
         sub={<>Know these tracks by heart? <Link href={GAME_PATHS.music} prefetch={false}>Play Music Guesser</Link></>}
         actions={<div className="music-discover-search-row">
           {!isBrowsing && (
-            <button type="button" className="ghost music-discover-back-btn" onClick={backToBrowse} aria-label="Back to browse">
+            <button type="button" className="back-btn music-discover-back-btn" onClick={backToBrowse} aria-label="Back to browse">
               ‹ Back
             </button>
           )}

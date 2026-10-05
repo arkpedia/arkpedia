@@ -182,7 +182,7 @@ export default function Results({ iconMap }: Props) {
       {zoomedRow && (
         <div className="modal-overlay" onClick={() => setZoomedRow(null)}>
           <div className="modal-box boxplot-zoom-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="modal-back-btn" onClick={() => setZoomedRow(null)}>
+            <button type="button" className="back-btn" onClick={() => setZoomedRow(null)}>
               ‹ Back
             </button>
             <div className="boxplot-zoom-header">

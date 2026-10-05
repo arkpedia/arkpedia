@@ -351,7 +351,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
             onClick={(e) => e.stopPropagation()}
             onKeyDown={handleModalKeyDown}
           >
-            <button type="button" className="modal-back-btn" ref={modalBackBtnRef} onClick={closeSkin}>
+            <button type="button" className="back-btn" ref={modalBackBtnRef} onClick={closeSkin}>
               ‹ Back
             </button>
             <button

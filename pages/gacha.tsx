@@ -2481,7 +2481,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
       {showSparkStore && banner && (
         <div className="modal-overlay" onClick={() => setShowSparkStore(false)}>
           <div className="modal-box gacha-spark-store-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="modal-back-btn" onClick={() => setShowSparkStore(false)}>
+            <button type="button" className="back-btn" onClick={() => setShowSparkStore(false)}>
               ‹ Back
             </button>
             <h2>Spark Store</h2>
@@ -2542,7 +2542,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
           <div className="modal-box gacha-guide-modal" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
-              className="modal-back-btn"
+              className="back-btn"
               onClick={() => {
                 setShowGuide(false);
                 setGuidePhase('question');
