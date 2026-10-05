@@ -23,7 +23,7 @@ import { storyAI } from '@/lib/account/prts';
 
 interface Props {
   /** Every outfit by skin id, with its art (the card's assistant wears one). */
-  skins: { id: string; image: string | null }[];
+  skins: { id: string; image: string | null; name: string }[];
 }
 
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -48,6 +48,7 @@ export default function AccountPage({ skins }: Props) {
   const owns = useMemo(() => new Set(account?.skins ?? []), [account]);
   const ownedSkins = account ? skins.filter((skin) => owns.has(skin.id)).length : null;
   const outfitArt = useMemo(() => new Map(skins.flatMap((skin) => (skin.image ? [[skin.id, skin.image] as const] : []))), [skins]);
+  const outfitNames = useMemo(() => new Map(skins.map((skin) => [skin.id, skin.name] as const)), [skins]);
   const profile = account?.profile;
 
   return (
@@ -68,7 +69,7 @@ export default function AccountPage({ skins }: Props) {
             replaces the placeholder of the same height (the Anti-Page Jump rule). */}
         <section className="op-section">
           <h2>Profile</h2>
-          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} /> : (
+          {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} /> : (
             <div className="account-card account-card-empty">
               <p className="hint">No account imported yet: use Import / export above.</p>
             </div>
@@ -99,7 +100,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/ac
   return { props: {
     // As /skins counts them: an outfit only CN has is not Global's yet.
     // Each outfit by its game id, with its art: the card shows the assistant in theirs.
-    skins: getAllSkins().filter((skin) => skin.skinId).map((skin) => ({ id: skin.skinId!, image: skin.image ?? null })),
+    skins: getAllSkins().filter((skin) => skin.skinId).map((skin) => ({ id: skin.skinId!, image: skin.image ?? null, name: skin.name })),
   } };
 }, {
   bundledWhenUnpublished: true,

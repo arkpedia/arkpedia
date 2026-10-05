@@ -65,6 +65,10 @@
 /* A theme without one of its own (Default Skin and its kind): the assistant, standing over the
    style's background on the left, under the side's text. */
 .account-card-assistant { position: absolute; z-index: 1; left: 4%; top: -4%; height: 112%; width: 56%; object-fit: contain; object-position: 50% 0; pointer-events: none; }
+/* The card's own gradient lies under the assistant, so on its own the side's white text stood on
+   the bright art ("Outfits Owned" lost in it). This one lies over the art, darkest where the side
+   column is, and gone by the art's middle. Not on a phone, where the art has its own row. */
+.account-card-assistant-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.55) 18%, rgba(0, 0, 0, 0.15) 34%, rgba(0, 0, 0, 0) 46%); pointer-events: none; }
 /* The right column: the game's dark plates. */
 /* The head is the theme's own panel art (its name_card_short, rounded and shadowed in the art
    itself), with the avatar and name over it. Every theme's is 638x223 with the panel itself
@@ -185,6 +189,7 @@
    places; the decorations go. Behind it all, the art again, blurred and darkened, so the
    card's light ink reads in either site theme. */
 @media (max-width: 720px) {
+  .account-card-assistant-scrim { display: none; }
   .account-card { grid-template-columns: 1fr 1fr; grid-template-areas: "art art" "head head" "theme theme" "hired outfits" "hiring hiring"; gap: 12px; min-height: 0; padding: 0 0 14px; }
   .account-card::after, .account-card-extend, .account-card-simple { display: none; }
   .account-card::before { background: rgba(0, 0, 0, 0.35); }
