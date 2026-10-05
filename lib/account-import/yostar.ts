@@ -244,6 +244,13 @@ const PULL_PAGE = 50;
 /** 10,000 pulls: more than 90 days can hold. A list that never ends does not hold the import. */
 const MAX_PULL_PAGES = 200;
 
+/** The Account Center gives a pull's time in milliseconds (1_790_000_000_000), which read as
+ *  seconds put it in the year 58679; seconds, as the history keeps them. A value that is already
+ *  seconds (below 10^11, the year 5138) is kept. */
+export function unixSeconds(value: number): number {
+  return value >= 1e11 ? Math.floor(value / 1000) : value;
+}
+
 /** One pull as the Account Center lists it: when (Unix seconds; every pull of a ten-pull has the
  *  same), on which pool, and who. Its rarity and names are its own, and can be stale: the account
  *  page reads the rarity from the id map first. */
@@ -262,7 +269,7 @@ const text = (value: unknown) => (typeof value === 'string' && value.length <= 2
 /** A row the Account Center sent, or null for anything that is not one. */
 export function pullRow(value: unknown): PullRow | null {
   const row = object(value);
-  const at = Number(row.at);
+  const at = unixSeconds(Number(row.at));
   if (!Number.isInteger(at) || at <= 0 || typeof row.poolId !== 'string' || !ID.test(row.poolId) || typeof row.charId !== 'string' || !ID.test(row.charId)) return null;
   const star = Number(row.star);
   return { at, poolId: row.poolId, poolName: text(row.poolName), charId: row.charId, charName: text(row.charName), star: Number.isInteger(star) && star >= 1 && star <= 6 ? star : null };

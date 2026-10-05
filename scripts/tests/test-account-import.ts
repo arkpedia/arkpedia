@@ -125,7 +125,7 @@ test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async 
    page at a time. `pages` is how many full pages of 50 there are before the last short one. */
 function accountCenter({ pages = 1, cookies = ['YSSID=session-id; Path=/; HttpOnly', 'YSSID.sig=session-sig; Path=/; HttpOnly'], login = 200 } = {}) {
   const calls: { url: string; request: TransportRequest }[] = [];
-  const row = (n: number) => ({ charId: `char_${n}_test`, charName: `Test ${n}`, star: n > 0 && n % 7 === 0 ? '6' : '3', poolId: 'LIMITED_EN_41_0_1', poolName: 'A Limited Banner', typeName: 'Limited', at: String(1_790_000_000 - Math.floor(n / 10)) });
+  const row = (n: number) => ({ charId: `char_${n}_test`, charName: `Test ${n}`, star: n > 0 && n % 7 === 0 ? '6' : '3', poolId: 'LIMITED_EN_41_0_1', poolName: 'A Limited Banner', typeName: 'Limited', at: String((1_790_000_000 - Math.floor(n / 10)) * 1000) });
   const transport: Transport = async (url, request): Promise<TransportResponse> => {
     calls.push({ url, request });
     if (url === 'https://account.yo-star.com/api/user/login') return { status: login, json: { code: 0 }, headers: [['content-type', 'application/json'], ...cookies.map((value) => ['Set-Cookie', value] as [string, string])] };
@@ -140,6 +140,7 @@ test('the pull history: the Account Center signed in with the code token, then e
   const site = accountCenter({ pages: 2 });
   const rows = await readPulls(site.transport, 'doctor@example.com', { uid: '4242', token: 'yostar-token', authToken: 'code-token' });
   assert.equal(rows.length, 107);
+  // The Account Center's milliseconds, read as seconds (the first build put pulls in the year 58679).
   assert.deepEqual(rows[0], { at: 1_790_000_000, poolId: 'LIMITED_EN_41_0_1', poolName: 'A Limited Banner', charId: 'char_0_test', charName: 'Test 0', star: 3 });
   assert.equal(rows[7].star, 6, 'the star arrives as a string and is read as a number');
   const [login, ...pages] = site.calls;
