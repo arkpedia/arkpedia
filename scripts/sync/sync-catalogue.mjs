@@ -62,22 +62,11 @@ export function cnSource(cache, env = process.env) {
   const tables = cnTables(env);
   return source(tables.repository, `${tables.folder}/excel`, cache, env, tables.commit);
 }
-/** The item rewards data/event-rewards.json lists (scripts/build/build-event-rewards.mjs): the
- *  icons event pages ask for. Operators, outfits, furniture and event tokens have icons of their
- *  own or none here. */
-export function eventRewardItemNames(root) {
-  const file = path.join(root, 'data/event-rewards.json');
-  if (!fs.existsSync(file)) return [];
-  const kinds = new Set(['material', 'currency', 'permit', 'sanity', 'voucher']);
-  const groups = Object.values(read(file).events ?? {}).flatMap(event => event.groups ?? []);
-  // The rewards, and what the event's packs contain (named by the announcement).
-  const items = [...groups.flatMap(group => group.items ?? []), ...groups.flatMap(group => group.packs ?? []).flatMap(pack => pack.contents ?? [])];
-  return [...new Set(items.filter(item => kinds.has(item.kind)).map(item => item.name))].sort();
-}
-/* rewardNames: the items data/event-rewards.json lists (eventRewardItemNames), each an icon an
-   event page asks for under material-icons/. Required, as [] where there are none. */
-export function assetPlan(operators, skins, cn, en, published, extra, rewardNames) {
-  if (!Array.isArray(extra) || !Array.isArray(rewardNames)) throw new Error('assetPlan needs the extra media and the event reward names, as [] where there are none');
+/* An event reward's icon is not planned here: import-reward-icons.py (the reward-icons stage, after
+   event-rewards writes data/event-rewards.json, which this stage runs before) plans every icon an
+   event page asks for, from the same item art. */
+export function assetPlan(operators, skins, cn, en, published, extra) {
+  if (!Array.isArray(extra)) throw new Error('assetPlan needs the extra media, as [] where there are none');
   const planned = new Map(extra.filter(a => !published.has(a.path)).map(a => [a.path,a]));
   const add = (target,source) => { if (!published.has(target)) planned.set(target,{path:target,sourcePath:source}); };
   for (const op of operators) {
@@ -115,8 +104,6 @@ export function assetPlan(operators, skins, cn, en, published, extra, rewardName
       ...(op.skills?.skillList ?? []).flatMap(s=>Object.values(s.cost ?? {}).flat()),...(op.modules ?? []).flatMap(m=>(m.stages ?? []).flatMap(s=>s.cost ?? []))];
     for (const cost of costs) { const item=items.get(cost.name); if (item?.iconId) add(`material-icons/${safeName(cost.name)}.webp`,`item/${item.iconId}.png`); }
   }
-  // An event's sign-in, gift, mission and first-clear rewards (data/event-rewards.json).
-  for (const name of rewardNames) { const item=items.get(name); if (item?.iconId) add(`material-icons/${safeName(name)}.webp`,`item/${item.iconId}.png`); }
   return [...planned.values()].sort((a,b)=>a.path.localeCompare(b.path));
 }
 /** The wiki's calendar pages (wiki-pages.mjs). A row leaves an Upcoming page when Global catches up on it, and where
@@ -165,7 +152,7 @@ export async function syncCatalogue(root, options={}) {
   // announcedName, stay as they are (renameReferences).
   const replace=value=>renameReferences(value,renames);
   const published=new Set(read(path.join(root,'data/assets/external-asset-index.json')).files);
-  const plan={sourceRepository:'yuanyan3060/ArknightsGameResource',revision:sources.resourceRevision,files:assetPlan(updated.operators,outfits.skins,cn,en,published,calendars.media,eventRewardItemNames(root))};
+  const plan={sourceRepository:'yuanyan3060/ArknightsGameResource',revision:sources.resourceRevision,files:assetPlan(updated.operators,outfits.skins,cn,en,published,calendars.media)};
   const inventory=buildInventory(cn.characters,cn.skins,{repository:cn.repository,revision:cn.revision,files:Object.fromEntries(['characters','skins'].map(k=>[tableFiles[k],createHash('sha256').update(JSON.stringify(cn[k])).digest('hex')]))});
   inventory.events=calendars.events.filter(e=>e.activityId).map(e=>({id:e.activityId,name:e.name}));
   inventory.banners=calendars.banners.filter(b=>b.cnPoolId).map(b=>({id:b.cnPoolId,name:b.name}));

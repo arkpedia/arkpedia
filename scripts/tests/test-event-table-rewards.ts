@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 // @ts-expect-error Node scripts are plain JavaScript.
-import { assertEventRewards, buildEventRewards, eventTitle, globalStart, rewardNamer } from '../build/build-event-rewards.mjs';
+import { assertEventRewards, buildEventRewards, rewardNamer, storeFurnitureNames, storeNameTranslations } from '../build/build-event-rewards.mjs';
+// @ts-expect-error Node scripts are plain JavaScript.
+import { eventTitle, eventWindow } from '../lib/event-records.mjs';
 
 /*
  * The rewards the game tables list for an event beyond its store (build-event-rewards.mjs),
@@ -39,8 +44,9 @@ test('Invitation to Wine: the login event, the banner gift, the missions and the
 
 test('an event is matched to its own activity by name and Global start, not by a neighbour', () => {
   assert.equal(eventTitle('[Side Story – Festival] Invitation to Wine'), 'Invitation to Wine');
-  assert.equal(globalStart({ global: { dateRange: '2022/07/29–2022/08/12' } }), Date.UTC(2022, 6, 29, 7) / 1000);
-  assert.equal(globalStart({ global: { dateRange: '' } }), null);
+  // The start the build matches by (scripts/lib/event-records.mjs): the UTC-7 day, in milliseconds.
+  assert.equal(eventWindow({ global: { dateRange: '2022/07/29–2022/08/12' } }, 'Global').start, Date.UTC(2022, 6, 29, 7));
+  assert.equal(eventWindow({ global: { dateRange: '' } }, 'Global'), null);
   // A week off: not this event's activity, so nothing is attached.
   const late = { ...fixture.event, global: { dateRange: '2022/08/20–2022/09/01' } };
   assert.deepEqual(buildEventRewards([late], fixture.tables, [], null), {});
@@ -132,10 +138,11 @@ test('a mode\'s rewards are its milestones, never first clears its "stages" list
 });
 
 test('a login opening hours before its event is that event\'s, and an announcement settles a day two events share', () => {
-  // The sign-in opens an hour before both: the date fallback gives it to the latest one opened.
-  const plain = buildEventRewards([story, duel], world(), [], null);
+  // The sign-in opens an hour before both, which open together: by date alone it is the story
+  // event's, in whichever order the records list the two.
   const owner = (r: Record<string, { groups: Group[] }>) => Object.entries(r).find(([, v]) => v.groups.some(g => g.kind === 'login'))?.[0];
-  assert.ok(owner(plain));
+  assert.equal(owner(buildEventRewards([story, duel], world(), [], null)), story.name);
+  assert.equal(owner(buildEventRewards([duel, story], world(), [], null)), story.name);
   // The story's announcement names it: it is the story's, whatever the order.
   const announced = buildEventRewards([duel, story], world(), [post('SIDESTORY: A STORY OPEN', [['01 SIDESTORY: A STORY OPEN', 'DETAILS: x'], ['02 COMING OF BLESSINGS LOGIN EVENT OPEN', 'DURATION: January 6, 2026, 07:00 – January 20, 2026, 03:59 (UTC-7)', 'DETAILS: log in']])], null);
   assert.equal(owner(announced), story.name);
@@ -178,7 +185,20 @@ test('one post\'s two sections under one heading are one pack list', () => {
   ])], null);
   const groups = (result[story.name].groups as (Group & { packs?: { name: string }[] })[]).filter(g => g.kind === 'packs');
   assert.equal(groups.length, 1);
-  assert.ok(groups[0].packs!.length >= 1);
+  assert.deepEqual(groups[0].packs!.map(pack => pack.name), ['VISTA PACK', 'MOONLIGHT PACK']);
+});
+
+test('one post\'s two notices or free rolls under one heading are one group, its lines each once', () => {
+  const gift = (details: string) => ['ANNIVERSARY GIFTS', 'DURATION: January 6, 2026, 08:00 – January 20, 2026, 03:59 (UTC-7)', `DETAILS: ${details}`];
+  const roll = ['LIMITED-TIME DAILY FREE ROLL EVENT OPEN', 'DURATION: January 6, 2026, 08:00 – January 20, 2026, 03:59 (UTC-7)', 'DETAILS: a free roll every day'];
+  const sections = [['01 SIDESTORY: A STORY OPEN', 'DETAILS: x'], ['02 ' + gift('a gift')[0], ...gift('a gift').slice(1)], ['03 ' + gift('a second gift')[0], ...gift('a second gift').slice(1)],
+    ['04 ' + roll[0], ...roll.slice(1)], ['05 ' + roll[0], ...roll.slice(1)]];
+  const result = buildEventRewards([story], world(), [post('SIDESTORY: A STORY OPEN', sections)], null);
+  const groups = result[story.name].groups as (Group & { lines?: string[] })[];
+  assert.doesNotThrow(() => assertEventRewards(result), 'no heading twice');
+  assert.deepEqual(groups.filter(g => g.kind === 'notice').map(g => [g.title, g.lines]), [['ANNIVERSARY GIFTS', [
+    'DURATION: January 6, 2026, 08:00 – January 20, 2026, 03:59 (UTC-7)', 'DETAILS: a gift', 'DETAILS: a second gift']]]);
+  assert.deepEqual(groups.filter(g => g.kind === 'free-rolls').map(g => g.items[0].count), [14]);
 });
 
 test('cosmetics, cart parts, charms and NONE-typed furniture are named as the official posts word them', () => {
@@ -190,7 +210,8 @@ test('cosmetics, cart parts, charms and NONE-typed furniture are named as the of
       homeBackgroundData: { homeBgDataList: [{ bgId: 'bg_flower', bgName: 'Flowerbed' }], themeList: [{ id: 'tm_arcade_1', tmName: 'Poly Vision' }] },
       nameCardV2Data: { skinData: { nc_landscape_1: { id: 'nc_landscape_1', name: 'Vista' } } },
     },
-    charms: [{ id: 'charm_coin_1', name: 'Gold Chip' }],
+    // charm_table's own shape (a charmList), as the stage pipeline reads it; a bare list reads too.
+    charms: { charmList: [{ id: 'charm_coin_1', name: 'Gold Chip' }] },
     activity: { carData: { carDict: { durcar_soft_5_sp: { compId: 'durcar_soft_5_sp', name: "'Infinite Fist'" } } } },
   });
   const named = (id: string, type = 'NONE') => name({ id, type, count: 1 }).name;
@@ -200,6 +221,7 @@ test('cosmetics, cart parts, charms and NONE-typed furniture are named as the of
   assert.equal(named('tm_arcade_1', 'HOME_THEME'), "Home Screen UI 'Poly Vision'");
   assert.equal(named('nc_landscape_1', 'NAME_CARD_SKIN'), "Profile Theme 'Vista'");
   assert.equal(named('charm_coin_1', 'CHARM'), 'Gold Chip');
+  assert.equal(rewardNamer({ charms: [{ id: 'charm_coin_1', name: 'Gold Chip' }] })({ id: 'charm_coin_1', type: 'CHARM', count: 1 }).name, 'Gold Chip');
   assert.equal(named('durcar_soft_5_sp', 'ACT_CART_COMPONENT'), "'Infinite Fist'");
   assert.deepEqual([named('furni_plaque'), name({ id: 'furni_plaque', type: 'NONE', count: 1 }).kind], ['Plaque - Sunset', 'furniture']);
 });
@@ -208,6 +230,9 @@ test('the output guard stops an id shown as a name, a leftover entity and a head
   const event = (groups: object[]) => ({ e: { activity: null, groups } });
   assert.throws(() => assertEventRewards(event([{ kind: 'login', title: 'x', items: [{ name: 'avatar_activity_ED3', id: 'avatar_activity_ED3', count: 1 }] }])), /no table names/);
   assert.throws(() => assertEventRewards(event([{ kind: 'packs', title: 'x', items: [], packs: [{ name: "Profile Theme &apos;Vista&apos;" }] }])), /HTML entity/);
+  assert.throws(() => assertEventRewards(event([{ kind: 'packs', title: 'x', items: [], packs: [{ name: 'Amiya&reg; Pack' }] }])), /HTML entity/);
+  // Text that only looks like one is not: no character beyond U+10FFFF, no name HTML lacks.
+  assert.doesNotThrow(() => assertEventRewards(event([{ kind: 'notice', title: 'x', items: [], lines: ['R&D; &#x110000; &bogus;'] }])));
   assert.throws(() => assertEventRewards(event([{ kind: 'packs', title: 'A', items: [] }, { kind: 'packs', title: 'A', items: [] }])), /two "packs: A"/);
   assert.doesNotThrow(() => assertEventRewards(event([{ kind: 'login', title: 'x', items: [{ name: 'LMD', id: '4001', count: 1 }] }])));
 });
@@ -219,4 +244,63 @@ test('a mission reward of none, the label beside the furniture it names, is not 
   const result = buildEventRewards([story], tables, [], null);
   const missions = (result[story.name].groups as Group[]).find(g => g.kind === 'missions')!;
   assert.deepEqual(missions.items.map(i => [i.name, i.count]), [["'Symphony of Drums'", 1]]);
+});
+
+test('the fallback store\'s helpers: a CN name Global names becomes its English name, one it does not stays, and a piece listed as an item is furniture', () => {
+  const cn = {
+    building: { customData: { furnitures: { furni_basin: { name: '制式木盆' }, furni_new: { name: '新型信息终端机' } } } },
+    items: { items: { 4001: { name: '龙门币' }, cn_only: { name: '烛火之中' } } },
+  };
+  const en = { building: { customData: { furnitures: { furni_basin: { name: 'Standard Wooden Basin' } } } }, items: { items: { 4001: { name: 'LMD' } } } };
+  const events = [{ name: 'E', rewards: [{ items: [{ name: '制式木盆' }, { name: '龙门币' }, { name: '烛火之中' }, { name: '新型信息终端机' }, { name: 'Standard Wooden Basin' }, { name: 'Orundum' }] }] }];
+  assert.deepEqual(storeNameTranslations(events, cn, en), { '制式木盆': 'Standard Wooden Basin', '龙门币': 'LMD' });
+  // Furniture in either client, by either name, though the import lists them as plain items.
+  assert.deepEqual(storeFurnitureNames(events, cn, en), ['Standard Wooden Basin', '制式木盆', '新型信息终端机']);
+});
+
+test('on a day the CN tables number their enums, the entries built from CN stay as the last run wrote them', () => {
+  // The stage itself, on tables with nothing in them: what an entry built from CN looks like
+  // afterwards is all that depends on the day's CN tables.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-event-rewards-'));
+  try {
+    const write = (file: string, data: unknown) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), JSON.stringify(data)); };
+    const empty = { 'activity_table.json': { basicInfo: {} }, 'stage_table.json': { stages: {} }, 'item_table.json': { items: {} }, 'building_data.json': { customData: { furnitures: {}, themes: {} } },
+      'character_table.json': {}, 'skin_table.json': { charSkins: {} }, 'display_meta_table.json': {}, 'charm_table.json': { charmList: [] } };
+    for (const [file, data] of Object.entries(empty)) { write(`en/en/gamedata/excel/${file}`, data); write(`cn/gamedata/excel/${file}`, data); }
+    const upcoming = { name: '[Side Story] Somewhere New', global: { dateRange: '2099/01/01–2099/01/10' }, cn: { dateRange: '2026/09/01–2026/09/15' } };
+    write('data/events/events_2099.json', [upcoming]);
+    const built = { activity: 'act99side', region: 'CN', groups: [{ kind: 'missions', title: 'Event missions', source: 'CN activity_table missionData act99side', region: 'CN', count: 1, items: [{ name: 'LMD', count: 1000, kind: 'currency', id: '4001' }] }] };
+    write('data/event-rewards.json', { events: { [upcoming.name]: built } });
+    const stage = (serialization: string) => {
+      const run = spawnSync(process.execPath, [path.resolve('scripts/build/build-event-rewards.mjs')], { cwd: root, encoding: 'utf8', env: { ...process.env,
+        ARKPEDIA_EN: path.join(root, 'en'), ARKPEDIA_CN: path.join(root, 'cn'),
+        ARKPEDIA_CN_TABLES: JSON.stringify({ repository: 'yuanyan3060/ArknightsGameResource', commit: '3'.repeat(40), folder: 'gamedata', serialization }) } });
+      assert.equal(run.status, 0, run.stdout + run.stderr);
+      return JSON.parse(fs.readFileSync(path.join(root, 'data/event-rewards.json'), 'utf8')).events;
+    };
+    assert.deepEqual(stage('numeric')[upcoming.name], built, 'kept: numbered enums would misread every group');
+    // Read by name, the day's (empty) CN tables are the truth.
+    assert.equal(stage('named')[upcoming.name], undefined);
+    // An event an official post already names (its gifts, ahead of its Global start) has an entry
+    // before the CN groups are added: it takes them back in, beside the post's own.
+    const window = 'DURATION: January 1, 2099, 10:00 – January 10, 2099, 03:59 (UTC-7)';
+    write('data/official-news/global/1.json', { id: 1, title: 'SIDESTORY: SOMEWHERE NEW OPEN', url: 'https://example.invalid/news/1',
+      lines: [window, '01 SIDESTORY: SOMEWHERE NEW OPEN', 'DETAILS: x', '02 ANNIVERSARY GIFTS', window, 'DETAILS: a gift'] });
+    const gifts = { kind: 'notice', title: 'ANNIVERSARY GIFTS', source: 'https://example.invalid/news/1', items: [], lines: [window, 'DETAILS: a gift'] };
+    write('data/event-rewards.json', { events: { [upcoming.name]: built } });
+    assert.deepEqual(stage('numeric')[upcoming.name], { ...built, groups: [...built.groups, gifts] }, 'kept beside the post\'s');
+    assert.deepEqual(stage('numeric')[upcoming.name], { ...built, groups: [...built.groups, gifts] }, 'and the same the day after');
+    assert.deepEqual(stage('named')[upcoming.name], { activity: null, groups: [gifts] });
+    // An event Global has started is Global's on either day, whatever the last run built for it from
+    // CN: a numbered day keeps only what a named day would build (awaitsGlobal), so the two agree.
+    const launched = { name: '[Side Story] Somewhere Old', global: { dateRange: '2020/01/01–2020/01/10' }, cn: { dateRange: '2019/09/01–2019/09/15' } };
+    write('data/events/events_2099.json', [upcoming, launched]);
+    write('data/event-rewards.json', { events: { [upcoming.name]: built, [launched.name]: { ...built, activity: 'act98side' } } });
+    const numbered = stage('numeric');
+    assert.equal(numbered[launched.name], undefined, 'not kept: its Global start has passed');
+    assert.deepEqual(numbered[upcoming.name], { ...built, groups: [...built.groups, gifts] }, 'the one still ahead is');
+    assert.equal(stage('named')[launched.name], undefined);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

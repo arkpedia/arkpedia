@@ -11,14 +11,17 @@
  * agent; its list page embeds the latest posts of each tab, the activity tab ("tab":"1") holding
  * about three months of previews, so a nightly read never misses one. Each post not cached yet is
  * fetched once: an announcement does not change, and a correction is a post of its own. GET only.
- * A day the site cannot be read is reported to the quarantine list (stage cn-news) and the cached
- * posts stand.
+ * A day the list page cannot be read is reported to the quarantine list (stage cn-news) and the
+ * cached posts stand. One post that cannot be fetched, or holds no article this reader can find,
+ * is that post's problem alone (cn-news:<cid>): the posts after it are still read, and it is
+ * asked for again on every run while the list still shows it. Its entry reads the same whichever
+ * it was (unreadPost); which one goes to the log.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { newsLines } from '../build/official-news.mjs';
-import { beginStage } from '../lib/quarantine.mjs';
+import { beginStage, readQuarantine } from '../lib/quarantine.mjs';
 
 const SITE = 'https://ak.hypergryph.com/news';
 export const CN_NEWS_DIR = 'data/official-news/cn';
@@ -78,29 +81,50 @@ export async function syncCnNews(root, { fetcher = globalThis.fetch, pause = () 
     throw new Error('the news page lists no activity posts with their dates: its layout has probably changed');
   }
   const fresh = listed.filter(post => !cached.has(post.cid));
+  // Each one `fetched: false` when its page could not be had at all, true when it holds no article.
   const unreadable = [];
   for (const post of fresh) {
     const url = `${SITE}/${post.cid}`;
-    const lines = postLines(await getText(url, fetcher), post.title);
-    await pause();
-    if (!lines) { unreadable.push(post); continue; }
+    let html;
+    try {
+      html = await getText(url, fetcher);
+    } catch (error) {
+      console.warn(`CN news post ${url} could not be fetched: ${error.message}`);
+      unreadable.push({ ...post, fetched: false });
+      continue;
+    } finally {
+      await pause();
+    }
+    const lines = postLines(html, post.title);
+    if (!lines) {
+      console.warn(`CN news post ${url} holds no article this reader can find (no "${post.title}" heading, or no sign-off after it).`);
+      unreadable.push({ ...post, fetched: true });
+      continue;
+    }
     fs.writeFileSync(path.join(dir, `${post.cid}.json`), `${JSON.stringify({ ...post, url, lines }, null, 1)}\n`);
   }
   return { fresh: fresh.length - unreadable.length, unreadable };
 }
 
+/** The quarantine entry of a post this run could not read. One wording, whether its page could
+ *  not be had or held no article this reader can find: a post that failed one way one night and
+ *  the other the next changed its reason, and data/quarantine.json, a release input, with it. */
+export const unreadPost = ({ cid, title }) => ({ key: `cn-news:${cid}`, action: 'omitted-new',
+  reason: `The CN announcement "${title}" (${SITE}/${cid}) could not be read; it is left out until it can be.` });
+
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const root = process.cwd();
+  // What the last run reported for single posts: still unread on a day the list cannot be read.
+  const unread = readQuarantine(root).entries.filter(entry => entry.stage === 'cn-news' && /^cn-news:\d+$/.test(entry.key));
   const stage = beginStage(root, 'cn-news');
   syncCnNews(root).then(({ fresh, unreadable }) => {
-    for (const post of unreadable) {
-      stage.add({ key: `cn-news:${post.cid}`, action: 'omitted-new', reason: `The CN announcement "${post.title}" (${SITE}/${post.cid}) has no article this reader can find; it is left out until it can be read.` });
-    }
+    for (const post of unreadable) stage.add(unreadPost(post));
     console.log(`CN news: ${fresh} new post(s)${unreadable.length ? `, ${unreadable.length} unreadable` : ''}.`);
     stage.commit();
   }, error => {
     console.error(error);
     stage.add({ key: 'cn-news', action: 'kept-previous', reason: 'The official CN news could not be read; the cached announcements stand.' });
+    for (const { key, action, reason, sourceRef } of unread) stage.add({ key, action, reason, sourceRef });
     stage.commit();
   });
 }

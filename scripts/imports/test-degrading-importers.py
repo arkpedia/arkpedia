@@ -178,6 +178,173 @@ class WikiImportersDegrade(unittest.TestCase):
             self.assertEqual(sorted(log.read_text().split()), ['https://torappu.prts.wiki/assets/furniture/furni_duel_a.png', 'https://torappu.prts.wiki/assets/furniture/furni_duel_b.png'])
             self.assertEqual(sorted(entry['key'] for entry in entries(root)), ['reward-icon:furni_duel_a', 'reward-icon:furni_duel_b'])
 
+    def test_reward_icons_stop_asking_a_host_that_is_down(self):
+        with tempfile.TemporaryDirectory() as root:
+            # The art host refuses connections: three icons try (and retry) it, the fourth is not
+            # asked, and all four are reported as failed downloads, the reason fetching gives.
+            offline = Path(root)/'offline'
+            offline.mkdir()
+            (offline/'sitecustomize.py').write_text(
+                'import os, time, urllib.error, urllib.request\n'
+                'time.sleep = lambda seconds: None\n'
+                'def refuse(request, *args, **kwargs):\n'
+                '    open(os.environ["FETCH_LOG"], "a").write(getattr(request, "full_url", request) + "\\n")\n'
+                '    raise urllib.error.URLError(ConnectionRefusedError(61, "Connection refused"))\n'
+                'urllib.request.urlopen = refuse\n')
+            ids = ['furni_duel_a', 'furni_duel_b', 'furni_duel_c', 'furni_duel_d']
+            furnitures = {i: {'name': 'Duel Trophy', 'iconId': i} for i in ids}
+            for region in ('en', 'cn'):
+                write(root, f'{region}/gamedata/excel/item_table.json', {'items': {}})
+                write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': furnitures}})
+            write(root, 'data/events/events_2099.json', [])
+            trophy = lambda furniture_id: {'kind': 'milestones', 'title': 't', 'source': 's', 'items': [{'name': 'Duel Trophy', 'count': 1, 'kind': 'furniture', 'id': furniture_id}]}
+            write(root, 'data/event-rewards.json', {'events': {f'Duel Channel: {i}': {'groups': [trophy(i)]} for i in ids}})
+            log = Path(root)/'fetched.txt'
+            run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), FETCH_LOG=str(log), PYTHONPATH=str(offline))
+            asked = {url.rsplit('/', 1)[1] for url in log.read_text().split()}
+            self.assertEqual(asked, {'furni_duel_a.png', 'furni_duel_b.png', 'furni_duel_c.png'}, 'the fourth is not asked')
+            reasons = {entry['key']: entry['reason'] for entry in entries(root)}
+            self.assertEqual(sorted(reasons), [f'reward-icon:{i}' for i in ids])
+            self.assertTrue(all('but downloading it failed' in reason for reason in reasons.values()), reasons)
+
+    def test_reward_icons_ask_for_every_store_row_the_page_shows(self):
+        # A store's piece of furniture the event's rewards do not name is asked for under its name,
+        # as the page asks for it: found by its building_data name, else asked of the wiki (closed
+        # here, so reported). And an event with a store but no table rewards is visited at all.
+        with tempfile.TemporaryDirectory() as root:
+            offline = Path(root)/'offline'
+            offline.mkdir()
+            (offline/'sitecustomize.py').write_text(
+                'import os, urllib.request\n'
+                'def refuse(request, *args, **kwargs):\n'
+                '    open(os.environ["FETCH_LOG"], "a").write(getattr(request, "full_url", request) + "\\n")\n'
+                '    raise OSError("offline")\n'
+                'urllib.request.urlopen = refuse\n')
+            furnitures = {'furni_pizza_table_01': {'name': 'Pizzeria Long Table', 'iconId': 'furni_pizza_table_01'},
+                          'furni_duel_a': {'name': 'Duel Trophy', 'iconId': 'furni_duel_a'}}
+            for region in ('en', 'cn'):
+                write(root, f'{region}/gamedata/excel/item_table.json', {'items': {}})
+                write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': furnitures}})
+            write(root, 'data/events/events_2099.json', [{'name': 'Store Only', 'rewards': {'items': [{'name': 'Shadowed By The Wiki', 'type': 'material'}]}}])
+            row = lambda name, kind='furniture': {'name': name, 'type': kind, 'quantity': 1, 'price': 10, 'stock': '1'}
+            write(root, 'data/event-stores.json', {'events': {
+                'Store Only': {'stores': [{'name': 'Store', 'currency': 'Token', 'items': [row('Pizzeria Long Table'), row('Unlisted Lamp'), row('Pastry Table', 'upware')]}]},
+                'Duel Channel: A': {'stores': [{'name': 'Store', 'currency': 'Token', 'items': [row('Duel Trophy')]}]}}})
+            write(root, 'data/event-rewards.json', {'events': {'Duel Channel: A': {'groups': [
+                {'kind': 'milestones', 'title': 't', 'source': 's', 'items': [{'name': 'Duel Trophy', 'count': 1, 'kind': 'furniture', 'id': 'furni_duel_a'}]}]}}})
+            log = Path(root)/'fetched.txt'
+            run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), FETCH_LOG=str(log), PYTHONPATH=str(offline))
+            # The trophy by the id its event's rewards give it, the table by its name; the lamp
+            # names no piece, so the wiki is asked for it, and cannot be asked. The mode's upware
+            # is a piece no source has: asked of no one, and held by no one (check-completeness).
+            self.assertEqual(sorted(log.read_text().split()), ['http://127.0.0.1:65534/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=File%3AUnlisted+Lamp.png',
+                                                               'https://torappu.prts.wiki/assets/furniture/furni_duel_a.png',
+                                                               'https://torappu.prts.wiki/assets/furniture/furni_pizza_table_01.png'])
+            reasons = {entry['key']: entry['reason'] for entry in entries(root)}
+            self.assertEqual(sorted(reasons), ['reward-icon:Pizzeria Long Table', 'reward-icon:Unlisted Lamp', 'reward-icon:furni_duel_a'])
+            self.assertIn('the EN wiki could not be reached to ask for one', reasons['reward-icon:Unlisted Lamp'])
+            # The wiki's store stands in for the record's own import, so its row is not asked for.
+            self.assertNotIn('reward-icon:Shadowed By The Wiki', reasons)
+
+    def test_reward_icons_retry_a_connection_dropped_mid_download(self):
+        # The retry's own case: an SSL EOF while the body is read (prts.wiki's CDN, 2026-10-05). A
+        # real ssl.SSLError carries a string `reason`; the retry once read that first and gave up.
+        # Then a connection reset, and a body cut short (http.client.IncompleteRead, no OSError).
+        with tempfile.TemporaryDirectory() as root:
+            offline = Path(root)/'offline'
+            offline.mkdir()
+            (offline/'sitecustomize.py').write_text(
+                'import http.client, io, os, ssl, time, urllib.request\n'
+                'from PIL import Image\n'
+                'buffer = io.BytesIO(); Image.new("RGBA", (8, 8), (1, 2, 3, 255)).save(buffer, "PNG")\n'
+                'tried = set()\n'
+                'def eof():\n'
+                '    error = ssl.SSLError(8, "[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol")\n'
+                '    error.reason, error.library = "UNEXPECTED_EOF_WHILE_READING", "SSL"\n'
+                '    return error\n'
+                'class Body:\n'
+                '    def __init__(self, url): self.url = url\n'
+                '    def __enter__(self): return self\n'
+                '    def __exit__(self, *exc): return False\n'
+                '    def read(self):\n'
+                '        if self.url not in tried:\n'
+                '            tried.add(self.url)\n'
+                '            raise eof() if "MTL_WIDGET" in self.url else http.client.IncompleteRead(b"partial")\n'
+                '        return buffer.getvalue()\n'
+                'def answer(request, *args, **kwargs):\n'
+                '    url = getattr(request, "full_url", request)\n'
+                '    open(os.environ["FETCH_LOG"], "a").write(url + "\\n")\n'
+                '    if "reset" in url and url not in tried:\n'
+                '        tried.add(url)\n'
+                '        raise ConnectionResetError(54, "Connection reset by peer")\n'
+                '    return Body(url)\n'
+                'urllib.request.urlopen = answer\n'
+                'time.sleep = lambda seconds: None\n')
+            furnitures = {'furni_reset_01': {'name': 'Reset Chair', 'iconId': 'furni_reset_01'}, 'furni_cut_01': {'name': 'Cut Lamp', 'iconId': 'furni_cut_01'}}
+            for region in ('en', 'cn'):
+                write(root, f'{region}/gamedata/excel/item_table.json', {'items': {'w': {'name': 'Imaginary Widget', 'iconId': 'MTL_WIDGET'}}})
+                write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': furnitures}})
+            write(root, 'data/events/events_2099.json', [])
+            piece = lambda name, furniture_id: {'name': name, 'count': 1, 'kind': 'furniture', 'id': furniture_id}
+            write(root, 'data/event-rewards.json', {'events': {'Test': {'groups': [{'kind': 'missions', 'title': 't', 'source': 's', 'items': [
+                {'name': 'Imaginary Widget', 'count': 1, 'kind': 'material', 'id': 'w'}, piece('Reset Chair', 'furni_reset_01'), piece('Cut Lamp', 'furni_cut_01')]}]}}})
+            log = Path(root)/'fetched.txt'
+            run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), FETCH_LOG=str(log), PYTHONPATH=str(offline))
+            asked = log.read_text().split()
+            self.assertEqual(len(asked), 6, 'each one asked twice')
+            self.assertEqual(sorted(staged(root, 'reward-icons')), ['material-icons/Imaginary Widget.webp', 'material-icons/furni_cut_01.webp', 'material-icons/furni_reset_01.webp'])
+            self.assertTrue(all('no run has published it' in entry['reason'] for entry in entries(root)), entries(root))
+
+    def test_reward_icons_pace_the_wiki_and_wait_out_a_rate_limit(self):
+        # A pause before every wiki request, and a "not now" -- a 429 with its Retry-After, then the
+        # API's own ratelimited in a 200 -- waited out and asked again: read as the wiki being down,
+        # a rate-limited night reported "could not be reached" between two nights of "not found",
+        # and published a release. Requests and pauses go to one log, in order.
+        with tempfile.TemporaryDirectory() as root:
+            offline = Path(root)/'offline'
+            offline.mkdir()
+            (offline/'sitecustomize.py').write_text(
+                'import io, json, os, time, urllib.error, urllib.request\n'
+                'from PIL import Image\n'
+                'buffer = io.BytesIO(); Image.new("RGBA", (8, 8), (1, 2, 3, 255)).save(buffer, "PNG")\n'
+                'def log(line): open(os.environ["FETCH_LOG"], "a").write(line + "\\n")\n'
+                'asked = []\n'
+                'class Body:\n'
+                '    def __init__(self, data): self.data = data\n'
+                '    def __enter__(self): return self\n'
+                '    def __exit__(self, *exc): return False\n'
+                '    def read(self): return self.data\n'
+                'def answer(request, *args, **kwargs):\n'
+                '    url = getattr(request, "full_url", request)\n'
+                '    log(url)\n'
+                '    if url.endswith("/crown.png"): return Body(buffer.getvalue())\n'
+                '    if "Paper+Crown" not in url: return Body(json.dumps({"query": {"pages": {"-1": {"missing": ""}}}}).encode())\n'
+                '    asked.append(url)\n'
+                '    if len(asked) == 1: raise urllib.error.HTTPError(url, 429, "Too Many Requests", {"Retry-After": "7"}, None)\n'
+                '    if len(asked) == 2: return Body(json.dumps({"error": {"code": "ratelimited"}}).encode())\n'
+                '    base = url.split("/api.php")[0]\n'
+                '    return Body(json.dumps({"query": {"pages": {"1": {"imageinfo": [{"url": base + "/images/crown.png"}]}}}}).encode())\n'
+                'urllib.request.urlopen = answer\n'
+                'time.sleep = lambda seconds: log(f"sleep {seconds:g}")\n')
+            for region in ('en', 'cn'):
+                write(root, f'{region}/gamedata/excel/item_table.json', {'items': {}})
+                write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': {}}})
+            write(root, 'data/events/events_2099.json', [{'name': '[Side Story] Test', 'rewards': {'items': [
+                {'name': 'Imaginary Widget', 'type': 'material'}, {'name': 'Paper Crown', 'type': 'material'}]}}])
+            log = Path(root)/'fetched.txt'
+            run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), FETCH_LOG=str(log), PYTHONPATH=str(offline))
+            api = 'http://127.0.0.1:65534/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=File%3A'
+            self.assertEqual(log.read_text().split('\n')[:-1], [
+                'sleep 0.5', f'{api}Imaginary+Widget.png',
+                'sleep 0.5', f'{api}Paper+Crown.png', 'sleep 7',                 # the 429's Retry-After
+                'sleep 0.5', f'{api}Paper+Crown.png', 'sleep 5',                 # the API's ratelimited
+                'sleep 0.5', f'{api}Paper+Crown.png',
+                'sleep 0.5', 'http://127.0.0.1:65534/images/crown.png'])        # the upload, paced as the wiki
+            reasons = {entry['key']: entry['reason'] for entry in entries(root)}
+            self.assertIn('has no icon from the item tables, the furniture art or the EN wiki', reasons['reward-icon:Imaginary Widget'])
+            self.assertIn('no run has published it', reasons['reward-icon:Paper Crown'])
+            self.assertEqual(sorted(staged(root, 'reward-icons')), ['material-icons/Paper Crown.webp'])
+
     def test_reward_icons_reads_the_mirrors_at_the_commits_this_run_pinned(self):
         with tempfile.TemporaryDirectory() as root:
             # Every download is recorded and refused, so the icon ends up reported.
@@ -415,7 +582,7 @@ class Outage:
     or None to drop the connection unanswered. close() leaves the port refusing connections."""
 
     def __init__(self, titles=()):
-        self.titles, self.api, self.uploads = list(titles), 200, {}
+        self.titles, self.api, self.uploads, self.asked = list(titles), 200, {}, []
 
     def __enter__(self):
         outage = self
@@ -424,9 +591,10 @@ class Outage:
             def do_GET(self):
                 url = urllib.parse.urlparse(self.path)
                 if url.path == '/api.php':
+                    asked = urllib.parse.parse_qs(url.query).get('titles', [''])[0].split('|')
+                    outage.asked.extend(asked)
                     if outage.api != 200:
                         return self.answer(outage.api, b'<html>Bad gateway</html>')
-                    asked = urllib.parse.parse_qs(url.query).get('titles', [''])[0].split('|')
                     pages = {str(i): {'title': t, 'imageinfo': [{'url': f'{outage.base}/upload/{i}.png'}]}
                              for i, t in enumerate(outage.titles) if t in asked}
                     return self.answer(200, json.dumps({'query': {'pages': pages}}).encode())
@@ -462,13 +630,14 @@ class OutageReasonsStayTheSame(unittest.TestCase):
     days of one outage must leave it byte for byte the same, whatever each day's error said,
     or every day of the outage publishes a release. The error itself goes to the log."""
 
-    def two_days(self, script, root, first, second, **env):
+    def two_days(self, script, root, first, second, runner=run, **env):
         """Runs `script` on two days, `first` and `second` setting up each day's failure; the
-        file must not change between them. Returns the entries and each day's log."""
+        file must not change between them. Returns the entries and each day's log. `runner` is
+        run_node for a Node stage."""
         logs = []
         for day, setup in (('2026-09-23T20:00:00Z', first), ('2026-09-24T20:00:00Z', second)):
             day_env = setup() or {}
-            result = run(script, root, ARKPEDIA_NOW=day, **{**env, **day_env})
+            result = runner(script, root, ARKPEDIA_NOW=day, **{**env, **day_env})
             logs.append(result.stdout + result.stderr)
             if len(logs) == 1:
                 before = (Path(root)/'data/quarantine.json').read_bytes()
@@ -527,7 +696,11 @@ class OutageReasonsStayTheSame(unittest.TestCase):
                 write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': {}}})
             write(root, 'data/events/events_2099.json', [{'name': '[Side Story] Test', 'rewards': {'items': [
                 {'name': 'Imaginary Widget', 'type': 'material'}, {'name': 'Paper Crown', 'type': 'material'}]}}])
-            env = {'ARKPEDIA_EN': str(Path(root)/'en'), 'ARKPEDIA_CN': str(Path(root)/'cn'), 'ARKPEDIA_WIKI_BASE': wiki.base}
+            # The importer waits out a 5xx before it gives up; its pauses are not what is tested here.
+            instant = Path(root)/'instant'
+            instant.mkdir()
+            (instant/'sitecustomize.py').write_text('import time\ntime.sleep = lambda seconds: None\n')
+            env = {'ARKPEDIA_EN': str(Path(root)/'en'), 'ARKPEDIA_CN': str(Path(root)/'cn'), 'ARKPEDIA_WIKI_BASE': wiki.base, 'PYTHONPATH': str(instant)}
             days = [{0: (500, b'oops'), 1: (200, b'<html>maintenance</html>')}, {0: None, 1: (200, b'<html>rate limited</html>')}]
             reasons, logs = self.two_days('import-reward-icons.py', root, lambda: setattr(wiki, 'uploads', days[0]),
                                           lambda: setattr(wiki, 'uploads', days[1]), **env)
@@ -537,10 +710,36 @@ class OutageReasonsStayTheSame(unittest.TestCase):
                 'reward-icon:Paper Crown': f'The reward "Paper Crown" of [Side Story] Test has an icon at {host}, but it is not an image that decodes; it renders without one until a later run finds it.'})
             self.assertIn('HTTP Error 500', logs[0])
             self.assertIn('Remote end closed connection without response', logs[1])
+            wiki.asked.clear()
             reasons, logs = self.two_days('import-reward-icons.py', root, *self.unreachable(wiki), **env)
-            self.assertIn('the EN wiki could not be reached to ask for one', reasons['reward-icon:Paper Crown'])
+            self.assertEqual(set(reasons.values()), {f'The reward "{name}" of [Side Story] Test has no icon from the item tables or the furniture art, and the EN wiki could not be '
+                                                     'reached to ask for one; it renders without one until a later run finds it.' for name in ('Imaginary Widget', 'Paper Crown')})
             self.assertIn('HTTP Error 502', logs[0])
             self.assertIn('Connection refused', logs[1])
+            # The 502 is asked three times for the first name, and the wiki nothing more that run:
+            # the second name says the same without asking.
+            self.assertEqual(wiki.asked, ['File:Imaginary Widget.png'] * 3)
+            self.assertEqual(logs[0].count('it is not asked again this run'), 1)
+
+    def test_event_stores(self):
+        # The store sync reads the wiki's API like every wiki reader (wikiParseUrl), so the outage
+        # reaches it through ARKPEDIA_WIKI_BASE: a store parsed before stands, a store never parsed
+        # is reported as left out, and neither reason changes from a 502 to a refused connection.
+        with tempfile.TemporaryDirectory() as root, Outage() as wiki:
+            write(root, 'data/events/events_2026.json', [
+                {'name': '[Side Story] Cached Story', 'global': {'dateRange': '2026/09/20–2026/10/04'}},
+                {'name': '[Side Story] New Story', 'global': {'dateRange': '2026/09/20–2026/10/04'}}])
+            write(root, 'data/wiki-cache/event-stores/Cached Story.json', {'page': 'Cached Story', 'source': 'x', 'stores': [
+                {'name': 'Store', 'currency': 'Token', 'items': [{'name': 'LMD', 'type': 'material', 'quantity': 1000, 'price': 10, 'stock': 'unlimited'}]}]})
+            reasons, logs = self.two_days('../sync/sync-event-stores.mjs', root, *self.unreachable(wiki), runner=run_node, ARKPEDIA_WIKI_BASE=wiki.base)
+            self.assertEqual(reasons, {
+                'event-store:[Side Story] Cached Story': '[Side Story] Cached Story: its wiki store page Cached Story cannot be used: the wiki could not be reached; its last parse stands.',
+                'event-store:[Side Story] New Story': '[Side Story] New Story: its wiki store page New Story cannot be used: the wiki could not be reached; '
+                                                      'no earlier parse with a store is cached, so the event page shows no store from the wiki.'})
+            self.assertEqual({e['key']: e['action'] for e in entries(root)}, {'event-store:[Side Story] Cached Story': 'kept-previous', 'event-store:[Side Story] New Story': 'omitted-new'})
+            self.assertIn('HTTP 502', logs[0])
+            self.assertIn('ECONNREFUSED', logs[1])
+            self.assertEqual(list(json.loads((Path(root)/'data/event-stores.json').read_text())['events']), ['[Side Story] Cached Story'])
 
     def test_cc_stages(self):
         with tempfile.TemporaryDirectory() as root:

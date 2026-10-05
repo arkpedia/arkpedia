@@ -8,17 +8,46 @@
  * furniture with it. Only what the post states outright is read as data: a pack's CONTENTS
  * (`Item * N`); a section's REWARDS prose ("..., etc.") is kept as written, never counted.
  */
+import fs from 'node:fs';
 
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', rsquo: "'", lsquo: "'", ldquo: '"', rdquo: '"', ndash: '–', mdash: '—', times: '×', hellip: '…' };
-/** HTML entities decoded, again until none is left: posts are sometimes encoded twice ("&amp;apos;"). */
+/* Every named reference HTML5 defines (html-entities.json, generated from the WHATWG list). A
+   post comes out of a rich-text editor and can carry any of them: with a table of fourteen, a
+   stray "&reg;" stayed in a name, and the event-rewards stage's output guard, which refuses an
+   entity left in its output, failed the stage every night until someone added it by hand.
+   Except the curly quotes and the no-break space, which read as the plain ones the game's tables
+   write, as they always have here: a pack's "Kroos’s ..." must find the item table's "Kroos's ...".
+   By what a name decodes to, not by name: HTML5 spells each of them more than one way
+   (&CloseCurlyQuote; and &rsquor; are &rsquo;, &NonBreakingSpace; is &nbsp;), and an alias left
+   curly would not match the item table either. */
+const PLAIN = { ' ': ' ', '‘': "'", '’': "'", '“': '"', '”': '"' };
+const ENTITIES = Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(new URL('./html-entities.json', import.meta.url), 'utf8')).entities)
+  .map(([name, text]) => [name, PLAIN[text] ?? text]));
+const REFERENCE = /&(?:#x([0-9a-f]+)|#(\d+)|([a-z][a-z0-9]*));/gi;
+/** One character reference as text, or null where it is none: a name HTML does not define, or a
+ *  number that is no character -- beyond U+10FFFF or a lone surrogate, which String.fromCodePoint
+ *  refuses with a RangeError that stopped the whole stage ("&#x110000;"). */
+function reference(hex, dec, name) {
+  // Names are case-sensitive ("&Aacute;" is not "&aacute;"); a capitalised spelling HTML lacks
+  // reads as the lowercase one, as this has always read them ("&NBSP;").
+  if (name) return ENTITIES[name] ?? ENTITIES[name.toLowerCase()] ?? null;
+  const code = hex ? parseInt(hex, 16) : Number(dec);
+  return code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : null;
+}
+/** HTML entities decoded, again until none is left: posts are sometimes encoded twice ("&amp;apos;").
+ *  Text that only looks like a reference ("R&D;", "&#x110000;") is left as it is. */
 export function decodeEntities(text) {
   let before;
   do {
     before = text;
-    text = text.replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (whole, hex, dec, name) =>
-      hex ? String.fromCodePoint(parseInt(hex, 16)) : dec ? String.fromCodePoint(Number(dec)) : ENTITIES[name.toLowerCase()] ?? whole);
+    text = text.replace(REFERENCE, (whole, hex, dec, name) => reference(hex, dec, name) ?? whole);
   } while (text !== before);
   return text;
+}
+/** The first reference in `text` that decodeEntities would decode, as a match, or null: one left
+ *  in decoded output is a string that skipped the decoder (build-event-rewards.mjs's guard). */
+export function leftoverEntity(text) {
+  for (const match of String(text ?? '').matchAll(REFERENCE)) if (reference(match[1], match[2], match[3]) !== null) return match;
+  return null;
 }
 
 /** The post's HTML as trimmed lines, with "KEY :" spelled "KEY:". */

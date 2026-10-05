@@ -42,3 +42,14 @@ test('an entity encoded twice is decoded all the way ("&amp;apos;" is an apostro
   assert.deepEqual(newsLines('<p>CONTENTS: Profile Theme &amp;apos;Vista&amp;apos; &amp;times; 1</p>'), ["CONTENTS: Profile Theme 'Vista' × 1"]);
   assert.equal(decodeEntities('&unknown; stays'), '&unknown; stays');
 });
+
+test('every named reference HTML defines is decoded, and a number that is no character is left as written', () => {
+  // A post can carry any of them: "&reg;" once stayed in a name and failed the stage's guard nightly.
+  assert.equal(decodeEntities('Amiya&reg; &frac12; &Aacute;&aacute;'), 'Amiya® ½ Áá');
+  // The quotes and the space read as the plain ones the game's tables write.
+  assert.equal(decodeEntities('Kroos&rsquo;s &ldquo;Pack&rdquo;&nbsp;x'), 'Kroos\'s "Pack" x');
+  // Under every name HTML gives them, not only the four common ones; "&ldquor;" is the low quote („), no alias.
+  assert.equal(decodeEntities('Kroos&CloseCurlyQuote;s &rsquor;&OpenCurlyQuote; &OpenCurlyDoubleQuote;Pack&CloseCurlyDoubleQuote;&rdquor;&NonBreakingSpace;x &ldquor;'), 'Kroos\'s \'\' "Pack"" x \u201e');
+  // Beyond U+10FFFF, or a lone surrogate: String.fromCodePoint threw a RangeError on these.
+  assert.equal(decodeEntities('&#x110000; &#55296; &#x1F600;'), '&#x110000; &#55296; \u{1F600}');
+});

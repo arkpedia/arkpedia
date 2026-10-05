@@ -77,8 +77,13 @@ export const TABLE_CONTRACT = {
   'campaign_table.json': table => size(table.campaigns) >= 18,
   'char_patch_table.json': table => size(table.patchChars) >= 1,
   'character_table.json': table => size(table) >= 600,
+  // The event-rewards stage names charms from it, as the stage pipeline's drops do: a charmList,
+  // or a bare list in a mirror that writes it so.
+  'charm_table.json': table => size(table.charmList ?? table) >= 10,
   'charword_table.json': table => size(table.charWords) >= 9000 && size(table.voiceLangDict) >= 200,
   'crisis_v2_table.json': table => size(table.seasonInfoDataMap) >= 1,
+  // The event-rewards stage names a reward's player icon, background and theme from it.
+  'display_meta_table.json': table => size(table.playerAvatarData?.avatarList) >= 10 && size(table.homeBackgroundData?.homeBgDataList) >= 1,
   'gacha_table.json': table => Array.isArray(table.gachaPoolClient) && table.gachaPoolClient.length >= 200,
   'gamedata_const.json': table => Array.isArray(table.evolveGoldCost),
   'handbook_info_table.json': table => size(table.handbookDict) >= 200,

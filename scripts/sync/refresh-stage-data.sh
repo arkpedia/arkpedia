@@ -99,20 +99,6 @@ stage supply-stages --needs stage-dataset -- node scripts/build/build-supply-sta
 # The depot screen's own item order.
 stage ingame-order -- node scripts/build/build-ingame-order.mjs
 
-# The official Global event announcements, cached post by post (data/official-news/global): a
-# quiet day reads one page of the list. GET only; a day the site is down keeps the cache.
-stage official-news -- node scripts/sync/sync-official-news.mjs
-
-# Each event's store as arknights.wiki.gg lists it, a rerun's from its /Rerun page
-# (data/event-stores.json): no table or announcement has a store's listings. A page parsed before
-# is read again only while its event is running, ahead, or ended within 30 days.
-stage event-stores -- node scripts/sync/sync-event-stores.mjs
-
-# Each event's rewards beyond its store (data/event-rewards.json): from the EN tables synced
-# above, sign-in events, banner gifts, missions, stage first clears and furniture sets; from the
-# announcements, packs and announced gifts.
-stage event-rewards -- node scripts/build/build-event-rewards.mjs
-
 # Base formulas (Workshop + Factory), for the planner's crafting.
 # Reads the EN tables synced above. Not a stage step, but it is the only place the
 # EN gamedata is already on disk, and a formula table that ages silently is worse
@@ -199,11 +185,34 @@ stage stronghold-enemies --needs enemy-index -- node scripts/build/build-strongh
 stage recurring-banners -- node scripts/sync/sync-recurring-banners.mjs
 stage event-windows -- node scripts/sync/sync-event-windows.mjs
 
-# Reward icons for events global has not received yet.
-# CN-sourced art for the items the event stores name before the EN client ships
-# them -- the art is identical on both servers, and when global launches and the
-# data's names flip from CN to the official EN spellings, the same step fetches
-# them again under the new names. See the script's own header for the sources.
+# The event-reward stages, after event-windows: each one dates the events it reads, and an
+# estimated date the client has since corrected misplaces a login, a post or a store's 30-day
+# refetch window. None of them writes anything event-windows reads.
+#
+# The official Global event announcements, cached post by post (data/official-news/global): a
+# quiet day reads two pages of the list. GET only; a day the site is down keeps the cache.
+stage official-news -- node scripts/sync/sync-official-news.mjs
+
+# Each event's store as arknights.wiki.gg lists it, a rerun's from its /Rerun page
+# (data/event-stores.json): no table or announcement has a store's listings. A page parsed before
+# is read again only while its event is running, ahead, or ended within 30 days.
+stage event-stores -- node scripts/sync/sync-event-stores.mjs
+
+# Each event's rewards beyond its store (data/event-rewards.json): from the Global tables synced
+# above (the CN ones, upstream-cn's, for an event Global has not had yet), sign-in events, banner
+# gifts, milestones, missions, stage first clears and furniture sets; from the announcements,
+# packs, daily free rolls and announced gifts; and a rerun its original run's until its own
+# appear. Stores are event-stores' above.
+stage event-rewards -- node scripts/build/build-event-rewards.mjs
+
+# Reward icons for every reward an event page lists: the stores (event-stores.json), the rewards
+# the tables and announcements list (event-rewards.json, written just above, so a new event's
+# icons come the run it is listed) and the events' own fallback stores. Furniture by its
+# building_data id where the rewards give one, else by name; items by id where the tables give
+# one; not a row no source has an icon for (a reward or pack line of kind 'other', a mode's
+# upware), which the completeness stage does not hold either. CN-sourced art is the final art --
+# identical on both servers -- so an event Global has not had yet gets its icons too. See the
+# script's own header for the sources.
 stage reward-icons -- python3 scripts/imports/import-reward-icons.py
 
 # Banner and event key art is not a stage here: arkpedia-image-assets' sync-images.yml

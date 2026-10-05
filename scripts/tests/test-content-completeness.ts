@@ -70,7 +70,7 @@ test('a missing record or picture quarantines that one record and blocks nothing
     [(c: any) => { c.skins = []; }, 'skin:char_9990_test@test#1', 'omitted-new', /CN outfit missing: char_9990_test@test#1/],
     [(c: any) => { c.skins[0].model = 'Nobody'; }, 'skin:char_9990_test@test#1', 'published-partial', /Outfit operator missing: Nobody/],
     [(c: any) => { c.events = []; }, 'event:act99side', 'omitted-new', /Discovered event missing: Test Event/],
-    [(c: any) => { c.assets.delete('material-icons/Test Token.webp'); }, 'event:act99side', 'published-partial', /Test Event reward Test Token: missing asset material-icons\/Test Token\.webp/],
+    [(c: any) => { c.assets.delete('material-icons/Test Token.webp'); }, 'event:act99side', 'published-partial', /^Test Event: 1 reward icon not published: material-icons\/Test Token\.webp$/],
     [(c: any) => { c.banners = []; }, 'banner:LINKAGE_99_0_1', 'omitted-new', /Discovered banner missing: Test Banner/],
     [(c: any) => { c.banners[0].six_stars = ['Unknown Operator']; }, 'banner:LINKAGE_99_0_1', 'published-partial', /Banner operator missing: Test Banner \/ Unknown Operator/],
     [(c: any) => { c.assets.delete('headhunting-banner-images/Test Banner.webp'); }, 'banner:LINKAGE_99_0_1', 'published-partial', /Test Banner: missing asset headhunting-banner-images\/Test Banner\.webp/],
@@ -235,6 +235,8 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
       write('public/enemies-index.json', tree.index.map(slug => ({ slug })));
     };
     for (const file of ['data/skins.json', 'data/headhunting_banners.json', 'data/content-bundles.json', 'data/events/events_2026.json']) write(file, []);
+    write('data/event-stores.json', { events: {} });
+    write('data/event-rewards.json', { events: {} });
     write('data/content-inventory.json', { operators: [], skins: [] });
     write('data/skin-availability-windows.json', { entries: [] });
     write('data/material-catalogue.json', { version: 1, order: ['EXP'], groups: [], items: {} });
@@ -384,21 +386,10 @@ test('a new runtime CN record can use published portrait art without a website r
   assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,portraitPending:true}),OPERATOR_PORTRAIT_PLACEHOLDER);
 });
 
-test('a released operator whose skill or base-skill icon is not published is held back, with the file named', () => {
+test('a released operator\'s missing skill icon is the icon coverage audit\'s hold, not a second one here', () => {
+  // check-icon-coverage.ts holds it (stage 'icons', isOperatorReleased, the pages' path rules);
+  // a second 'operator:<id>' entry here once came with its own path rule and its own release test.
   const op = Object.assign(structuredClone(operatorFixture.operator), { name: 'Icon Test', internalName: 'char_9992_icon',
     baseSkills: [{ name: 'Pharmacology α', facility: 'Workshop', eliteLevel: 'Base', description: 'x' }] });
-  for (const skill of op.skills.skillList as { icon?: string }[]) delete skill.icon;
-  op.skills.skillList[0].name = "'Beaten Up'";
-  const held = holds(emptyCatalogue({ operators: [op] }));
-  assert.deepEqual(held.map(h => h.reason), [
-    "Icon Test: missing asset skill-icons/Icon Test - 'Beaten Up'.webp",
-    'Icon Test: missing asset skill-icons/Icon Test - Molten Giant.webp',
-    'Icon Test: missing asset skill-icons/Icon Test - Twilight.webp',
-    'Icon Test: missing asset base-skill-icons/Icon Test - Pharmacology α.webp',
-  ]);
-  const assets = new Set(["skill-icons/Icon Test - 'Beaten Up'.webp", 'skill-icons/Icon Test - Molten Giant.webp',
-    'skill-icons/Icon Test - Twilight.webp', 'base-skill-icons/Icon Test - Pharmacology α.webp']);
-  assert.deepEqual(holds(emptyCatalogue({ operators: [op], assets })), []);
-  // Not released yet: its art is the CN-operator holds' business, not this one's.
-  assert.deepEqual(holds(emptyCatalogue({ operators: [{ ...op, isFuture: true }] })), []);
+  assert.deepEqual(holds(emptyCatalogue({ operators: [op] })).filter(h => /skill-icons/.test(h.reason)), []);
 });

@@ -19,6 +19,9 @@ export function emptyCatalogue(parts: object = {}) {
     palettes: new Set<string>(),
     inventory: { operators: [], skins: [], events: [], banners: [] },
     operators: [], skins: [], banners: [], events: [], bundles: [],
+    // No event's store from the wiki, and no event's rewards from the tables (data/event-stores.json,
+    // data/event-rewards.json).
+    eventStores: { events: {} }, eventRewards: { events: {} },
     assets: new Set<string>(),
     // No confirmed outfit windows, at a fixed instant: never the real date.
     skinWindows: [] as object[], now: new Date('2026-09-23T00:00:00Z'),
