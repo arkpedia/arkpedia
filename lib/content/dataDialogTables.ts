@@ -7,6 +7,7 @@
 import { checkMaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
 import { checkImportAliases } from '@/lib/planner/foreignImport';
 import { checkGameAccountMap } from '@/lib/planner/gameAccount';
+import { bannerPoolNames } from '@/lib/gacha/bannerPools';
 
 const catalogue = async () => checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
 
@@ -18,13 +19,15 @@ export const DATA_DIALOG_TABLES = {
 
 /**
  * A release compiled by older code carries an id map without what the profile card's full-length
- * support units read (moduleTypes, skillIcons): filled from this deployment's copy, by field.
- * Pass the page's props from its withContentPage finalize.
+ * support units read (moduleTypes, skillIcons), or the pull history's banner names (pools): filled
+ * from this deployment's copy, by field, and the names from its bundled banner records. Pass the
+ * page's props from its withContentPage finalize.
  */
 export async function fillAccountMap<P extends object>(props: P): Promise<P> {
   const tables = (props as { __contentTables?: Record<string, unknown> }).__contentTables;
   const map = tables?.['game-account-map'] as Record<string, unknown> | undefined;
-  if (!tables || !map || (map.moduleTypes && map.skillIcons)) return props;
+  if (!tables || !map || (map.moduleTypes && map.skillIcons && map.pools)) return props;
   const own = await DATA_DIALOG_TABLES['game-account-map']() as unknown as Record<string, unknown>;
-  return { ...props, __contentTables: { ...tables, 'game-account-map': { ...map, moduleTypes: map.moduleTypes ?? own.moduleTypes, skillIcons: map.skillIcons ?? own.skillIcons } } };
+  const pools = map.pools ?? own.pools ?? bannerPoolNames((await import('@/data/headhunting_banners.json')).default as { name?: unknown; globalPoolId?: unknown }[]);
+  return { ...props, __contentTables: { ...tables, 'game-account-map': { ...map, moduleTypes: map.moduleTypes ?? own.moduleTypes, skillIcons: map.skillIcons ?? own.skillIcons, pools } } };
 }

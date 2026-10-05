@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-05T08:26:00Z',
     title: 'Event pages, CN announcements, and back buttons',
     added: [
+      { text: 'Pull History on the Import Account page: every pull from the last 90 days that Yostar keeps, by banner and as you pulled them. Each import adds what is new, so the history in your browser grows past 90 days.', href: '/account' },
       { text: 'Every reward an event gives, not only its store: login events, gifts, missions, first-clear rewards, milestone tracks for game modes like Duel Channel, the packs on sale with what is in them, and the event\'s furniture set with where each piece comes from.', href: '/schedule' },
       { text: 'An All tab on each event\'s rewards: the free rewards as one card, by kind, with Copy link and Save image to share it.', href: '/schedule' },
       { text: 'Reruns list their own store and rewards, and events Global has not had yet list what they gave on CN.', href: '/schedule' },

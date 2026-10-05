@@ -29,6 +29,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
+import { bannerPoolNames } from '../../lib/gacha/bannerPools';
 
 const root = process.cwd();
 const upstream = process.env.ARKPEDIA_EN || '.cache/upstream/en-gamedata';
@@ -75,6 +76,8 @@ export interface GameAccountMapFile {
    *  skill's is shared: what a support unit shown full length draws. */
   moduleTypes: Record<string, string>;
   skillIcons: Record<string, string>;
+  /** Each Global pool's banner name, by pool id, from the banner records (the pull history). */
+  pools: Record<string, string>;
 }
 
 export interface NameCardStyle { theme: string; themeText: string; panel: string; panelText: string; panelIcon: string }
@@ -97,6 +100,8 @@ export function buildGameAccountMap(
     /** data/operator-forms.json: each form's name and character id, and the default form. */
     forms?: Record<string, { forms?: { name: string; internalName?: string }[]; default?: string }>;
     medalTable?: { medalList?: { medalId?: string; medalName?: string }[] };
+    /** data/headhunting_banners.json. */
+    banners?: { name?: string; globalPoolId?: string | null }[];
   },
 ): GameAccountMapFile {
   const problems: string[] = [];
@@ -160,7 +165,8 @@ export function buildGameAccountMap(
   const skillIcons = Object.fromEntries(Object.entries(tables.skills)
     .filter(([id, skill]) => typeof skill.iconId === 'string' && skill.iconId && skill.iconId !== id)
     .map(([id, skill]) => [id, skill.iconId as string]).sort(([a], [b]) => a.localeCompare(b)));
-  return { version: 1, chars, nameCards, nameCardThemes, nameCardVariants, nameCardPlain, nameCardStyles, medals, nations, moduleTypes, skillIcons };
+  return { version: 1, chars, nameCards, nameCardThemes, nameCardVariants, nameCardPlain, nameCardStyles, medals, nations, moduleTypes, skillIcons,
+    pools: bannerPoolNames(tables.banners ?? []) };
 }
 
 function readJson<T>(file: string): T {
@@ -188,6 +194,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
     teams: readJson(path.join(excel, 'handbook_team_table.json')),
     styles: fs.existsSync(path.join(root, 'data', 'namecard-styles.json')) ? readJson<{ themes: Record<string, NameCardStyle> }>(path.join(root, 'data', 'namecard-styles.json')).themes : {},
     forms: fs.existsSync(path.join(root, 'data', 'operator-forms.json')) ? readJson(path.join(root, 'data', 'operator-forms.json')) : {},
+    banners: readJson(path.join(root, 'data', 'headhunting_banners.json')),
   });
   // Each nation's emblem must be published, or the card shows a broken image: a nation the
   // game adds, or an emblem filed under another name, fails the run (the stage keeps yesterday's).

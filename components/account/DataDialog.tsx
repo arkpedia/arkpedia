@@ -10,6 +10,7 @@ import { storePlannerTransfer } from '@/lib/planner/storeTransfer';
 import { PULL_PLAN_KEY, type SavedPullPlan } from '@/lib/pulls/plan';
 import { writePastProgress } from '@/lib/pulls/pastProgress';
 import { importGameAccount, type ImportResult } from '@/lib/account/importAccount';
+import type { PullRead } from '@/lib/account/pulls';
 import { applyBackup, backupFilename, formatBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
 import { useAccount, writeAccount } from '@/lib/account/accountStore';
@@ -19,6 +20,12 @@ function importedSummary(result: ImportResult): string {
   const n = (count: number, one: string, many: string) => `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
   return [n(result.operators, 'operator', 'operators'), n(result.record.skins.length, 'skin', 'skins'), n(result.materials, 'material', 'materials'),
     n(result.record.cleared.length, 'stage cleared', 'stages cleared')].join(', ') + (result.record.profile ? ' and your profile' : '');
+}
+
+/** What came of the pull history: how many this import read, or why none. */
+function pullsSummary(read: PullRead): string {
+  if (!read.rows) return ` Your pull history could not be read (${read.error ?? 'no reason given'}); the rest was imported.`;
+  return ` ${read.rows.length.toLocaleString('en-US')} ${read.rows.length === 1 ? 'pull' : 'pulls'} from your headhunting history.`;
 }
 
 /*
@@ -34,12 +41,12 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const aliases = useReleaseTable<ImportAliases>('import-aliases');
   const catalogue = useReleaseTable<MaterialCatalogue>('material-catalogue');
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<{ imported: ImportResult; pulls: PullRead } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [text, setText] = useState('');
 
-  function onAccount(user: Record<string, any>) {
-    setResult(importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }));
+  function onAccount(user: Record<string, any>, pulls: PullRead) {
+    setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls), pulls });
   }
 
   function applyText(input: string, source: string) {
@@ -93,7 +100,7 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
         <GameSignIn server="en" idPrefix="data" onAccount={onAccount} />
         {result && (
           <p className="hint import-note" role="status">
-            Imported: {importedSummary(result)}.{unheldSummary(result.unknown)}
+            Imported: {importedSummary(result.imported)}.{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}
           </p>
         )}
       </section>

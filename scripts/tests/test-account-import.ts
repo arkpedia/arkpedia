@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { ImportError, md5, readAccount, readNetwork, sendCode, signIn, u8Sign, yostarHeaders, type Transport, type TransportRequest } from '../../lib/account-import/yostar';
+import { ImportError, md5, pullRow, readAccount, readNetwork, readPulls, sendCode, sessionCookie, signIn, u8Sign, yostarHeaders, type Transport, type TransportRequest, type TransportResponse } from '../../lib/account-import/yostar';
 
 test('md5 matches Node for empty, block-boundary, long and non-ASCII input', () => {
   for (const text of ['', 'abc', 'x'.repeat(55), 'x'.repeat(56), 'x'.repeat(64), 'y'.repeat(1000), 'doctor@exämple.com 日本']) {
@@ -55,7 +55,8 @@ test('the import makes the five requests in order, each through the transport it
   assert.deepEqual(network, { u8: 'https://as.example/u8', gs: 'https://gs.example:8443', hv: 'https://static.example/{0}/version' });
   await sendCode(options, 'doctor@example.com');
   const account = await signIn(options, 'doctor@example.com', '123456');
-  assert.deepEqual(account, { uid: '4242', token: 'yostar-token' });
+  // The code's own token comes back too: the Account Center signs in with it (readPulls).
+  assert.deepEqual(account, { uid: '4242', token: 'yostar-token', authToken: 'code-token' });
   const steps: string[] = [];
   const user = await readAccount({ transport: relay, direct, deviceId: 'device-1', network, onStep: (step) => steps.push(step) }, account);
   assert.equal(user.status.nickName, 'Doctor');
@@ -97,7 +98,7 @@ test('a refusal names the step that failed and what the server said', async () =
   await refusal(signIn(options({ ...ANSWERS, 'https://en-sdk-api.yostarplat.com/yostar/get-auth': { Code: 100110, Msg: 'Wrong code' } }), 'a@b.c', '1'),
     'sign-in', /Wrong code/);
   const { relay, direct } = server({ ...ANSWERS, 'https://as.example/u8/user/v1/getToken': { result: 4 } });
-  await refusal(readAccount({ transport: relay, direct, deviceId: 'd', network: await readNetwork(relay, 'en') }, { uid: '1', token: 't' }), 'game-token', /result 4/);
+  await refusal(readAccount({ transport: relay, direct, deviceId: 'd', network: await readNetwork(relay, 'en') }, { uid: '1', token: 't', authToken: 'a' }), 'game-token', /result 4/);
   await refusal(readNetwork(server({ 'https://ak-conf.arknights.global/config/prod/official/network_config': { content: '{}' } }).relay, 'en'), 'network', /server list could not be read/);
   // A transport that cannot connect (the relay refusing a host, the network down).
   const down: Transport = async () => { throw new Error('Request failed with error code 35: SSL connect error'); };
@@ -118,4 +119,60 @@ test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async 
   assert.equal(RELAY_URL, config.url);
   // libcurl.js needs the trailing slash, and only an encrypted WebSocket is acceptable.
   assert.match(RELAY_URL, /^wss:\/\/[a-z0-9.-]+\/wisp\/$/);
+});
+
+/* The Account Center: a sign-in that sets the session in two cookies, then the pull history a
+   page at a time. `pages` is how many full pages of 50 there are before the last short one. */
+function accountCenter({ pages = 1, cookies = ['YSSID=session-id; Path=/; HttpOnly', 'YSSID.sig=session-sig; Path=/; HttpOnly'], login = 200 } = {}) {
+  const calls: { url: string; request: TransportRequest }[] = [];
+  const row = (n: number) => ({ charId: `char_${n}_test`, charName: `Test ${n}`, star: n > 0 && n % 7 === 0 ? '6' : '3', poolId: 'LIMITED_EN_41_0_1', poolName: 'A Limited Banner', typeName: 'Limited', at: String(1_790_000_000 - Math.floor(n / 10)) });
+  const transport: Transport = async (url, request): Promise<TransportResponse> => {
+    calls.push({ url, request });
+    if (url === 'https://account.yo-star.com/api/user/login') return { status: login, json: { code: 0 }, headers: [['content-type', 'application/json'], ...cookies.map((value) => ['Set-Cookie', value] as [string, string])] };
+    const index = Number(new URL(url).searchParams.get('index'));
+    const count = index <= pages ? 50 : 7;
+    return { status: 200, json: { code: 0, data: { rows: Array.from({ length: count }, (_, i) => row((index - 1) * 50 + i)), count: pages * 50 + 7 } } };
+  };
+  return { calls, transport };
+}
+
+test('the pull history: the Account Center signed in with the code token, then every page read with its session', async () => {
+  const site = accountCenter({ pages: 2 });
+  const rows = await readPulls(site.transport, 'doctor@example.com', { uid: '4242', token: 'yostar-token', authToken: 'code-token' });
+  assert.equal(rows.length, 107);
+  assert.deepEqual(rows[0], { at: 1_790_000_000, poolId: 'LIMITED_EN_41_0_1', poolName: 'A Limited Banner', charId: 'char_0_test', charName: 'Test 0', star: 3 });
+  assert.equal(rows[7].star, 6, 'the star arrives as a string and is read as a number');
+  const [login, ...pages] = site.calls;
+  assert.equal(login.request.method, 'POST');
+  assert.deepEqual(JSON.parse(login.request.body!), { channel: 'yostar', token: 'code-token', openId: 'doctor@example.com', account: 'doctor@example.com', checkAccount: false });
+  assert.equal(login.request.headers.Origin, 'https://account.yo-star.com');
+  // Three pages (50, 50, then 7), each with the session the sign-in set, and nothing after the short one.
+  assert.deepEqual(pages.map((call) => call.url), [1, 2, 3].map((index) => `https://account.yo-star.com/api/game/gachas?key=ark&index=${index}&size=50`));
+  assert.ok(pages.every((call) => call.request.method === 'GET' && call.request.headers.Cookie === 'YSSID=session-id; YSSID.sig=session-sig'));
+});
+
+test('a pull history the Account Center will not give is an ImportError of its own step, and a malformed row is left out', async () => {
+  const refusal = async (promise: Promise<unknown>, message: RegExp) => {
+    const error = await promise.then(() => null, (thrown) => thrown);
+    assert.ok(error instanceof ImportError && error.step === 'pulls' && message.test(error.message), String(error));
+  };
+  const account = { uid: '1', token: 't', authToken: 'a' };
+  await refusal(readPulls(accountCenter({ cookies: ['YSSID=only-half; Path=/'] }).transport, 'a@b.c', account), /did not sign in/);
+  await refusal(readPulls(accountCenter({ login: 403 }).transport, 'a@b.c', account), /HTTP 403/);
+  await refusal(readPulls(async () => { throw new Error('the relay refused the host'); }, 'a@b.c', account), /could not reach the Account Center: the relay refused the host/);
+  // Cookies: two Set-Cookie lines, any case, attributes dropped; a name merely starting with YSSID is not it.
+  assert.equal(sessionCookie([['set-cookie', 'YSSID.sig=s; Path=/'], ['SET-COOKIE', 'YSSID=i; Secure'], ['Set-Cookie', 'YSSIDX=no']]), 'YSSID=i; YSSID.sig=s');
+  assert.equal(sessionCookie(undefined), null);
+  assert.equal(pullRow({ charId: 'char_1_a', poolId: 'P', at: 0 }), null, 'no time');
+  assert.equal(pullRow({ charId: '../x', poolId: 'P', at: 5 }), null, 'not an id');
+  assert.deepEqual(pullRow({ charId: 'char_1_a', poolId: 'P', at: 5, star: 9 }), { at: 5, poolId: 'P', poolName: null, charId: 'char_1_a', charName: null, star: null });
+});
+
+test('the sign-in reads the pull history after the account, and a history it cannot read stops nothing', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync('components/account-import/GameSignIn.tsx', 'utf8');
+  const read = source.slice(source.indexOf('async function read('), source.indexOf('async function onImport'));
+  assert.ok(read.indexOf('readAccount(') < read.indexOf('readPulls('), 'the account first');
+  assert.match(read, /try \{\s*pulls = \{ rows: await readPulls\(/);
+  assert.match(read, /catch \(error\) \{\s*pulls = \{ rows: null, error: describe\(error\) \};/);
 });

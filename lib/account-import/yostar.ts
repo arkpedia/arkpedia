@@ -10,6 +10,10 @@
  *   4. account/login      the game token for a session secret, at the game server.
  *   5. account/syncData   the account: operators, items, everything the game shows.
  *
+ * Then, apart from the game, the reader's headhunting history (readPulls): Yostar's
+ * Account Center keeps it, signed in with the step 2 code token, as ArkPRTS's successors
+ * (myrtle) read it.
+ *
  * Only the first two hosts answer a page's request (they allow any origin). The game
  * token exchange and the game server send no CORS headers, so the page talks to all of
  * them through relay.arkpedia.net (account-import/relay.ts), which carries TLS it cannot
@@ -28,6 +32,8 @@ export interface TransportRequest {
 export interface TransportResponse {
   status: number;
   json: unknown;
+  /** Every header as sent, a name once per line (two Set-Cookie lines stay two). */
+  headers?: [string, string][];
 }
 export type Transport = (url: string, request: TransportRequest) => Promise<TransportResponse>;
 
@@ -44,7 +50,7 @@ export const SERVERS = {
 export type ServerId = keyof typeof SERVERS;
 
 /** The step a request belongs to, so a failure can say which one failed. */
-export type ImportStep = 'send-code' | 'sign-in' | 'network' | 'game-token' | 'game-login' | 'account';
+export type ImportStep = 'send-code' | 'sign-in' | 'network' | 'game-token' | 'game-login' | 'account' | 'pulls';
 
 export class ImportError extends Error {
   constructor(readonly step: ImportStep, message: string) {
@@ -151,6 +157,8 @@ export async function sendCode({ transport, server, deviceId, now = Date.now }: 
 export interface YostarAccount {
   uid: string;
   token: string;
+  /** The emailed code's token (yostar/get-auth), which the Account Center signs in with. */
+  authToken: string;
 }
 
 /** Step 2: the emailed code for the account's Yostar uid and access token. */
@@ -164,7 +172,7 @@ export async function signIn({ transport, server, deviceId, now = Date.now }: Fl
   }, deviceId, now);
   const user = object(login.UserInfo);
   if (user.ID == null || typeof user.Token !== 'string') throw new ImportError('sign-in', 'Yostar signed in but sent no account');
-  return { uid: String(user.ID), token: user.Token };
+  return { uid: String(user.ID), token: user.Token, authToken: auth.Token };
 }
 
 /** Where the game's token exchange, game server and version file are. */
@@ -227,4 +235,86 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
   const data = await post(transport, 'account', `${network.gs}/account/syncData`, { ...CLIENT_HEADERS, secret: login.secret, seqnum: '2', uid: String(login.uid) }, { platform: 1 });
   if (data.result !== 0 || !data.user) throw new ImportError('account', `the game server sent no account (result ${data.result ?? 'none'})`);
   return object(data.user);
+}
+
+/** Yostar's Account Center, where the reader's headhunting history is (Game Info > Headhunting
+ *  History). It sends no CORS headers, so it is reached through the relay like the game. */
+export const ACCOUNT_CENTER = 'https://account.yo-star.com';
+const PULL_PAGE = 50;
+/** 10,000 pulls: more than 90 days can hold. A list that never ends does not hold the import. */
+const MAX_PULL_PAGES = 200;
+
+/** One pull as the Account Center lists it: when (Unix seconds; every pull of a ten-pull has the
+ *  same), on which pool, and who. Its rarity and names are its own, and can be stale: the account
+ *  page reads the rarity from the id map first. */
+export interface PullRow {
+  at: number;
+  poolId: string;
+  poolName: string | null;
+  charId: string;
+  charName: string | null;
+  star: number | null;
+}
+
+const ID = /^[\w-]{1,80}$/;
+const text = (value: unknown) => (typeof value === 'string' && value.length <= 200 ? value : null);
+
+/** A row the Account Center sent, or null for anything that is not one. */
+export function pullRow(value: unknown): PullRow | null {
+  const row = object(value);
+  const at = Number(row.at);
+  if (!Number.isInteger(at) || at <= 0 || typeof row.poolId !== 'string' || !ID.test(row.poolId) || typeof row.charId !== 'string' || !ID.test(row.charId)) return null;
+  const star = Number(row.star);
+  return { at, poolId: row.poolId, poolName: text(row.poolName), charId: row.charId, charName: text(row.charName), star: Number.isInteger(star) && star >= 1 && star <= 6 ? star : null };
+}
+
+/** The session cookies a response set, as a Cookie header, or null without both. */
+export function sessionCookie(headers: [string, string][] = []): string | null {
+  const cookies = new Map<string, string>();
+  for (const [name, value] of headers) {
+    if (name.toLowerCase() !== 'set-cookie') continue;
+    const [pair] = value.split(';');
+    const at = pair.indexOf('=');
+    if (at > 0) cookies.set(pair.slice(0, at).trim(), pair.slice(at + 1).trim());
+  }
+  const id = cookies.get('YSSID'), sig = cookies.get('YSSID.sig');
+  return id && sig ? `YSSID=${id}; YSSID.sig=${sig}` : null;
+}
+
+/**
+ * The reader's pulls, newest first, as the Account Center keeps them: the last 90 days, and
+ * nothing before 2025-12-11 (Global). Signs in with the code token from signIn, then reads the
+ * list a page at a time. Throws an ImportError ('pulls') when either fails; the caller decides
+ * whether that stops anything (the account page does not).
+ */
+export async function readPulls(transport: Transport, email: string, account: YostarAccount): Promise<PullRow[]> {
+  const fail = (message: string): never => { throw new ImportError('pulls', message); };
+  const site = { Accept: 'application/json, text/plain, */*', Lang: 'en', Origin: ACCOUNT_CENTER, Referer: `${ACCOUNT_CENTER}/login` };
+  let login: TransportResponse;
+  try {
+    login = await transport(`${ACCOUNT_CENTER}/api/user/login`, { method: 'POST', headers: { ...site, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: 'yostar', token: account.authToken, openId: email, account: email, checkAccount: false }) });
+  } catch (error) {
+    return fail(`could not reach the Account Center: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (login.status < 200 || login.status >= 300) fail(`the Account Center answered HTTP ${login.status}`);
+  const cookie = sessionCookie(login.headers) ?? fail('the Account Center did not sign in (no session)');
+  const rows: PullRow[] = [];
+  for (let index = 1; index <= MAX_PULL_PAGES; index++) {
+    let page: TransportResponse;
+    try {
+      page = await transport(`${ACCOUNT_CENTER}/api/game/gachas?key=ark&index=${index}&size=${PULL_PAGE}`, { method: 'GET', headers: { ...site, Cookie: cookie } });
+    } catch (error) {
+      return fail(`the pull history could not be read: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (page.status < 200 || page.status >= 300) fail(`the Account Center answered HTTP ${page.status} for the pull history`);
+    const data = object(object(page.json).data);
+    if (!Array.isArray(data.rows)) fail('the Account Center sent no pull history');
+    for (const value of data.rows as unknown[]) {
+      const row = pullRow(value);
+      if (row) rows.push(row);
+    }
+    if (data.rows.length < PULL_PAGE) break;
+  }
+  return rows;
 }

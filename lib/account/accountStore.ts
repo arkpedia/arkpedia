@@ -14,6 +14,9 @@
  *              absent on a record from before it
  *   profile    what the account page shows: level, when it was registered, the assistant, the
  *              signature (absent on a record written before it had them)
+ *   pulls      the headhunting history (lib/account/pulls.ts): the one part an import adds to
+ *              rather than replaces, since Yostar keeps only 90 days; absent until an import
+ *              has tried to read it
  *
  * The planner's import writes it (Export / import > From the game), where the id map it
  * needs is a release table; it lives only in this browser's localStorage. Nothing
@@ -22,6 +25,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
+import { parsePullHistory, type PullHistory } from './pulls';
 
 export const ACCOUNT_STORAGE_KEY = 'arkpediaAccount';
 /** Same-tab writes: the native `storage` event fires only in the other tabs. */
@@ -41,6 +45,7 @@ export interface AccountRecord {
   outfits?: Record<string, string>;
   wallet?: AccountWallet;
   profile?: AccountProfile;
+  pulls?: PullHistory;
 }
 
 /** From the game's status: Orundum (diamondShard); Originite Prime (payDiamond plus
@@ -171,6 +176,10 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       ...(profile.modules && typeof profile.modules === 'object' ? { modules: moduleCounts(profile.modules as Record<string, unknown>) } : {}),
       medals: Array.isArray(profile.medals) ? (profile.medals as { id: string; x: number | null; y: number | null }[]).filter((medal) => medal && typeof medal.id === 'string').slice(0, 64) : [],
     } } : {}),
+    ...(() => {
+      const pulls = parsePullHistory(value.pulls);
+      return pulls ? { pulls } : {};
+    })(),
   };
 }
 
@@ -320,6 +329,9 @@ function subscribe(onChange: () => void) {
     window.removeEventListener(ACCOUNT_EVENT, onChange);
   };
 }
+
+/** The stored record now, outside React (an import adds to its pull history). */
+export const storedAccount = (): AccountRecord | null => snapshot();
 
 /** The imported account, or null: always null on the server and in the first paint, so the
  *  markup matches; the stored record arrives right after. */

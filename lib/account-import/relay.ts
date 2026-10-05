@@ -5,7 +5,7 @@
  * through the Wisp relay (config/relay.json; arkpedia/arkpedia-relay). TLS runs here, in the page,
  * against the real hosts' certificates (libcurl.js carries Mozilla's CA bundle), so the
  * relay forwards ciphertext it cannot read or alter. The relay answers only this site's
- * origins and connects only to the Yostar and game hosts the import needs.
+ * origins and connects only to the Yostar, game and Account Center hosts the import needs.
  *
  * libcurl.js (LGPL-3.0-or-later, unmodified) is about 550 KB compressed. It is loaded
  * as its own chunk the first time an import starts, never with the page.
@@ -19,7 +19,9 @@ export const RELAY_URL = relayConfig.url;
 interface Libcurl {
   load_wasm(): Promise<void>;
   set_websocket(url: string): void;
-  fetch(url: string, init: { method: string; headers: Record<string, string>; body?: string }): Promise<Response>;
+  /** raw_headers: every header line as sent. A Headers object folds two Set-Cookie lines into
+   *  one, and a page's own fetch never shows them at all; libcurl's response keeps them. */
+  fetch(url: string, init: { method: string; headers: Record<string, string>; body?: string }): Promise<Response & { raw_headers?: [string, string][] }>;
 }
 
 let loading: Promise<Libcurl> | null = null;
@@ -36,13 +38,14 @@ function libcurl(): Promise<Libcurl> {
   return loading;
 }
 
-async function read(response: Response) {
+async function read(response: Response & { raw_headers?: [string, string][] }) {
   const text = await response.text();
+  const headers = response.raw_headers ?? [...response.headers.entries()];
   try {
-    return { status: response.status, json: text ? JSON.parse(text) : null };
+    return { status: response.status, json: text ? JSON.parse(text) : null, headers };
   } catch {
     // Not JSON (an error page): the flow reports the status, or the missing fields.
-    return { status: response.status, json: null };
+    return { status: response.status, json: null, headers };
   }
 }
 

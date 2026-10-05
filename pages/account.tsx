@@ -4,6 +4,7 @@ import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
 import DataDialog from '@/components/account/DataDialog';
 import ProfileCard from '@/components/account/ProfileCard';
+import PullHistory from '@/components/account/PullHistory';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
@@ -16,8 +17,8 @@ import { storyAI } from '@/lib/account/prts';
  * The reader's Arknights account (issue #94): what it holds, and Import / export
  * (components/account/DataDialog, the same dialog the planners open). The import replaces what
  * the site keeps of it -- the account record the lists filter by (lib/account/accountStore),
- * the Operator Planner's roster and depot -- all in this browser. The profile and the counts
- * are read from that record, after hydration.
+ * the Operator Planner's roster and depot -- all in this browser. The profile, the counts and
+ * the pull history (components/account/PullHistory) are read from that record, after hydration.
  */
 
 interface Props {
@@ -79,7 +80,10 @@ export default function AccountPage({ skins }: Props) {
           )}
         </section>
 
-
+        <section className="op-section">
+          <h2>Pull History</h2>
+          <PullHistory account={account} map={map} />
+        </section>
       </main>
 
       {importing && <DataDialog onClose={() => setImporting(false)} />}

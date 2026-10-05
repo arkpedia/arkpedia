@@ -39,6 +39,9 @@ export interface GameAccountMap {
    *  account page fills them from the deployment's copy then. */
   moduleTypes?: Record<string, string>;
   skillIcons?: Record<string, string>;
+  /** Each Global headhunting pool's banner name, by the game's pool id (lib/gacha/bannerPools.ts):
+   *  the pull history's banners. Absent from a map built before it. */
+  pools?: Record<string, string>;
 }
 
 /** The table's shape, checked where it is loaded, as the other planner tables are. */
