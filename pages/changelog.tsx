@@ -6,13 +6,21 @@ import { CHANGELOG, type ChangeItem } from '@/lib/changelog/entries';
 import { markChangelogSeen } from '@/lib/changelog/seen';
 import LocalTime from '@/components/ui/LocalTime';
 
-/* What's new on the site, newest first (lib/changelog/entries.ts). Opening it clears the
-   dot on the nav's What's new. */
+/* What's new on the site, newest first (lib/changelog/entries.ts): each release's Added /
+   Changed / Fixed as short bold titles to skim, each with one quieter line, the title linking to
+   the page it is about. Opening it clears the dot on the nav's What's new. */
 
 const KINDS = [['added', 'Added'], ['changed', 'Changed'], ['fixed', 'Fixed']] as const;
 
 function Item({ item }: { item: ChangeItem }) {
-  return <li><span>{item.text}{item.href && <> <Link prefetch={false} href={item.href} className="changelog-go">Open →</Link></>}</span></li>;
+  return (
+    <li>
+      {item.href
+        ? <Link prefetch={false} href={item.href} className="changelog-item-title">{item.title}<span className="changelog-go" aria-hidden="true"> →</span></Link>
+        : <span className="changelog-item-title">{item.title}</span>}
+      {item.detail && <span className="changelog-item-detail">{item.detail}</span>}
+    </li>
+  );
 }
 
 export default function ChangelogPage() {
@@ -30,7 +38,7 @@ export default function ChangelogPage() {
             {KINDS.map(([kind, label]) => entry[kind]?.length ? (
               <div key={kind} className={`changelog-group is-${kind}`}>
                 <h3>{label}</h3>
-                <ul>{entry[kind]!.map((item) => <Item key={item.text} item={item} />)}</ul>
+                <ul>{entry[kind]!.map((item) => <Item key={item.title} item={item} />)}</ul>
               </div>
             ) : null)}
           </section>

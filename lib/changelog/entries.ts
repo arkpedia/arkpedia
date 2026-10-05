@@ -1,13 +1,20 @@
 /*
  * What's new on the site (pages/changelog.tsx), newest first, in the reader's words: what
- * they can now do, what works differently, and what was broken and is not. Written at each
+ * they can now do, what works differently, and what was broken and is not. Each item a short
+ * title and at most one short sentence (ChangeItem). Written at each
  * release to the main site, for what that release brings. Not every merge: tests, CI and
  * internals stay out (scripts/tests/test-changelog.ts holds the shape).
  */
 
+/** One change, scannable: a headline that is the point on its own, and at most one short sentence
+ *  under it. The page shows the title bold, the detail quieter; scripts/tests/test-changelog.ts
+ *  holds both to a length, so the page stays a list to skim, not a wall of text. */
 export interface ChangeItem {
-  text: string;
-  /** A page on the site the change is about, for a reader to go and see it. */
+  /** The point in a few words: "Pull History", "Every event reward, not just the store". */
+  title: string;
+  /** One short sentence of what it means for the reader, when the title needs it. */
+  detail?: string;
+  /** A page on the site the change is about: the title links to it. */
   href?: string;
 }
 
@@ -27,58 +34,57 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-05T15:10:00Z',
     title: 'Event pages, Pull History, and CN announcements',
     added: [
-      { text: 'Pull History on the Import Account page: every pull from the last 90 days that Yostar keeps, by banner and as you pulled them. Each import adds what is new, so the history in your browser grows past 90 days.', href: '/account' },
-      { text: 'Every reward an event gives, not only its store: login events, gifts, missions, first-clear rewards, milestone tracks for game modes like Duel Channel, the packs on sale with what is in them, and the event\'s furniture set with where each piece comes from.', href: '/schedule' },
-      { text: 'An All tab on each event\'s rewards: the free rewards as one card, by kind, with Copy link and Save image to share it.', href: '/schedule' },
-      { text: 'Reruns list their own store and rewards, and events Global has not had yet list what they gave on CN.', href: '/schedule' },
-      { text: 'New CN events and banners appear the day they are announced on the official CN site, with the announced rate-up operators, about a week before the game\'s data has them. Clementia\'s banner and the SideStory 昨日海 are the first.', href: '/schedule' },
-      { text: 'A Back button on event pages. It returns to the page you came from, or to the Schedule when you opened the page from a link.' },
+      { title: 'Pull History', detail: 'Your pulls by banner and in order, from the 90 days Yostar keeps, growing past that with each import.', href: '/account' },
+      { title: 'Every event reward, not just the store', detail: 'Logins, gifts, missions, first clears, Duel Channel milestones, packs and furniture sets.', href: '/schedule' },
+      { title: 'All tab on event rewards', detail: 'Every free reward on one card, to copy as a link or save as an image.', href: '/schedule' },
+      { title: 'Reruns and CN-only events', detail: 'Reruns show their own rewards; events Global has not had yet show what CN got.', href: '/schedule' },
+      { title: 'CN announcements the same day', detail: 'New CN events and banners appear when they are announced, about a week before the game data has them.', href: '/schedule' },
+      { title: 'Back button on event pages', detail: 'Returns to where you came from, or to the Schedule.' },
     ],
     changed: [
-      { text: 'Event pages: the event art runs across the top and the sections use the full width below it. The All summary is compact cards of icons and counts.', href: '/schedule' },
-      { text: 'Operator pages: searching for another operator opens it on the section you were reading, such as Base skills.', href: '/operators' },
-      { text: 'Every Back button on the site looks the same.' },
-      { text: 'Music: opening the song list no longer moves the player controls, and a line shows where a song you drag will land.', href: '/music' },
-      { text: 'Operator skills, talents and modules are rebuilt from the game\'s own data every night. Operators not out on Global yet show their modules from the CN game until Global has them.', href: '/operators' },
-      { text: 'Techniques: modules that reveal invisible enemies are listed, operator traits are read too, and Hunters are no longer listed as ammo-based.', href: '/techniques' },
-      { text: 'On a phone, the menu button and the theme toggle sit in the bar without boxes around them.' },
+      { title: 'Event page layout', detail: 'Event art across the top, full-width sections, and a compact rewards summary.', href: '/schedule' },
+      { title: 'Operator data from the game itself', detail: 'Skills, talents, traits and modules are rebuilt every night; CN modules show until Global has them.', href: '/operators' },
+      { title: 'Operator search keeps your place', detail: 'Jumping to another operator stays on the section you were reading, such as Base skills.', href: '/operators' },
+      { title: 'Techniques', detail: 'Modules that reveal invisible enemies are listed, traits count, and Hunters are no longer ammo-based.', href: '/techniques' },
+      { title: 'Music song list', detail: 'Opens without moving the player, and shows where a song you drag will land.', href: '/music' },
+      { title: 'Cleaner phone bar', detail: 'The menu and theme buttons sit in the bar without boxes.' },
     ],
     fixed: [
-      { text: 'Operators whose trait changes at Elite 2, like Pudding, show both versions instead of "varies by promotion".', href: '/operators' },
-      { text: 'Event rewards: no section lists the same rewards twice, game modes no longer show first-clear Originite Prime they do not give, and every reward has its real name.', href: '/schedule' },
-      { text: 'Event rewards show their art: profile icons, furniture, and items like Expedited Plan that showed only a name.', href: '/schedule' },
-      { text: 'The rewards summary no longer lists Orundum, Originite Prime and permits a second time.', href: '/schedule' },
+      { title: 'Traits that change at Elite 2', detail: 'Both versions show, like Pudding\'s, instead of "varies by promotion".', href: '/operators' },
+      { title: 'No repeated event rewards', detail: 'Sections no longer repeat, and game modes no longer show first-clear Originite Prime they do not give.', href: '/schedule' },
+      { title: 'Reward art', detail: 'Profile icons, furniture and items like Expedited Plan show their pictures.', href: '/schedule' },
+      { title: 'Pull currencies listed once', detail: 'The rewards summary no longer repeats Orundum, Originite Prime and permits.', href: '/schedule' },
     ],
   },
   {
     at: '2026-10-03T12:10:00Z',
     title: 'Your account, the planners, and the story',
     added: [
-      { text: 'Import your Arknights Global account: sign in with your Yostar email code and the site reads your operators, outfits, materials, cleared stages and profile. It is kept in your browser only.', href: '/account' },
-      { text: 'Your profile card, drawn the way the game draws it: your support units (tap the arrows to see them full length, with module and skill), your hiring count or percentage, and your card theme.', href: '/account' },
-      { text: 'Owned and Not owned filters, with counts, on Operators, Skins and the Skin Planner, from your import.', href: '/operators' },
-      { text: 'Skin Planner: plan the outfits you want by shop and price. Your wishlist is shared with the Skins page and the Pull Planner.', href: '/skin-planner' },
-      { text: 'OP Tracker: the Originite Prime and Orundum the game still owes you for first clears, ticked off from your import.', href: '/free-op' },
-      { text: 'Story page: Timo\'s story reader, and the community Arknights Story Map, where every story opens at its first chapter. It has full screen, and a list view for phones.', href: '/story' },
-      { text: 'Manga page: every official comic from the Global site, with links to read each one.', href: '/manga' },
-      { text: 'One Import / export on the Import Account page, including a backup of all your planner data.', href: '/account' },
-      { text: 'This What\'s new page.' },
+      { title: 'Import your Global account', detail: 'Sign in with your Yostar email code; operators, outfits, materials, stages and profile stay in your browser.', href: '/account' },
+      { title: 'Your profile card', detail: 'Drawn like the game\'s: support units, hiring progress and card theme.', href: '/account' },
+      { title: 'Owned / Not owned filters', detail: 'On Operators, Skins and the Skin Planner, with counts from your import.', href: '/operators' },
+      { title: 'Skin Planner', detail: 'Plan outfits by shop and price, with one wishlist shared with Skins and the Pull Planner.', href: '/skin-planner' },
+      { title: 'OP Tracker', detail: 'The Originite Prime and Orundum that first clears still owe you, ticked off from your import.', href: '/free-op' },
+      { title: 'Story page', detail: 'Timo\'s story reader and the Arknights Story Map, with full screen and a list for phones.', href: '/story' },
+      { title: 'Manga page', detail: 'Every official comic from the Global site, with links to read each one.', href: '/manga' },
+      { title: 'One Import / export', detail: 'On the Import Account page, with a backup of all your planner data.', href: '/account' },
+      { title: 'This What\'s new page' },
     ],
     changed: [
-      { text: 'Pull Planner: an import fills in your Orundum, Originite Prime, permits and yellow certs. Income, Past events and the Skin wishlist open as popups, and Past events can be filtered to Unclaimed or Claimed.', href: '/pulls' },
-      { text: 'Pull Planner: Your banners is budgeted through your last banner automatically, and a new Include box decides whether your skin wishlist holds OP back.', href: '/pulls' },
-      { text: 'Operator Planner (Experimental): two views, Missing and All. Craft adds what a material is made of to the list, each material says how much is for upgrades and how much for crafting, and you can adjust what you hold right in the recipe.', href: '/planner' },
-      { text: 'The Planner menu: Import Account, OP Tracker, Operator Planner, Skin Planner and Pull Planner.' },
-      { text: 'Base: the room picker offers the operators you own, at your elite.', href: '/base' },
-      { text: 'Events are listed by release date, and the permanent Annihilations are listed with their certificates.' },
-      { text: 'On a phone, the menu button is on the left and the menu folds into sections.' },
+      { title: 'Pull Planner fills itself in', detail: 'An import fills Orundum, OP, permits and yellow certs; Income, Past events and the wishlist open as popups.', href: '/pulls' },
+      { title: 'Pull Planner budgeting', detail: 'Budgets through your last banner, and you choose whether the skin wishlist holds OP back.', href: '/pulls' },
+      { title: 'Operator Planner views', detail: 'Missing and All, crafting ingredients on the list, and holdings you can edit in the recipe.', href: '/planner' },
+      { title: 'Planner menu', detail: 'Import Account, OP Tracker, Operator Planner, Skin Planner and Pull Planner in one place.' },
+      { title: 'Base uses your operators', detail: 'The room picker offers the operators you own, at your elite.', href: '/base' },
+      { title: 'Events by release date', detail: 'And the permanent Annihilations are listed with their certificates.' },
+      { title: 'Phone menu', detail: 'The menu button is on the left, and the menu folds into sections.' },
     ],
     fixed: [
-      { text: 'The Pull Planner no longer crashes when some of its data is missing.' },
-      { text: 'The Skin Planner shows every outfit\'s art again.' },
-      { text: 'Popups scroll once, with their header staying put, instead of two scroll bars.' },
-      { text: 'Links in page text stay teal after you have opened them.' },
-      { text: 'The music player is no longer cut off on desktop.' },
+      { title: 'Pull Planner crash', detail: 'It no longer crashes when some of its data is missing.', href: '/pulls' },
+      { title: 'Skin Planner art', detail: 'Every outfit shows its art again.', href: '/skin-planner' },
+      { title: 'Popups scroll once', detail: 'The header stays put, with one scroll bar instead of two.' },
+      { title: 'Link colour', detail: 'Links in page text stay teal after you have opened them.' },
+      { title: 'Music player on desktop', detail: 'It is no longer cut off.', href: '/music' },
     ],
   },
 ];
