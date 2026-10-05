@@ -154,6 +154,30 @@ class WikiImportersDegrade(unittest.TestCase):
             run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'))
             self.assertEqual(entries(root), [])
 
+    def test_reward_icons_fetch_a_table_reward_furniture_by_its_id(self):
+        with tempfile.TemporaryDirectory() as root:
+            # Two seasons' "Duel Trophy" are two pieces: each is asked for by its id, from its own
+            # building_data icon, and reported under its id. Downloads are recorded and refused.
+            offline = Path(root)/'offline'
+            offline.mkdir()
+            (offline/'sitecustomize.py').write_text(
+                'import os, urllib.request\n'
+                'def refuse(request, *args, **kwargs):\n'
+                '    open(os.environ["FETCH_LOG"], "a").write(getattr(request, "full_url", request) + "\\n")\n'
+                '    raise OSError("offline")\n'
+                'urllib.request.urlopen = refuse\n')
+            furnitures = {'furni_duel_a': {'name': 'Duel Trophy', 'iconId': 'furni_duel_a'}, 'furni_duel_b': {'name': 'Duel Trophy', 'iconId': 'furni_duel_b'}}
+            for region in ('en', 'cn'):
+                write(root, f'{region}/gamedata/excel/item_table.json', {'items': {}})
+                write(root, f'{region}/gamedata/excel/building_data.json', {'customData': {'furnitures': furnitures}})
+            write(root, 'data/events/events_2099.json', [])
+            trophy = lambda furniture_id: {'kind': 'milestones', 'title': 't', 'source': 's', 'items': [{'name': 'Duel Trophy', 'count': 1, 'kind': 'furniture', 'id': furniture_id}]}
+            write(root, 'data/event-rewards.json', {'events': {'Duel Channel: A': {'groups': [trophy('furni_duel_a')]}, 'Duel Channel: B': {'groups': [trophy('furni_duel_b')]}}})
+            log = Path(root)/'fetched.txt'
+            run('import-reward-icons.py', root, ARKPEDIA_EN=str(Path(root)/'en'), ARKPEDIA_CN=str(Path(root)/'cn'), FETCH_LOG=str(log), PYTHONPATH=str(offline))
+            self.assertEqual(sorted(log.read_text().split()), ['https://torappu.prts.wiki/assets/furniture/furni_duel_a.png', 'https://torappu.prts.wiki/assets/furniture/furni_duel_b.png'])
+            self.assertEqual(sorted(entry['key'] for entry in entries(root)), ['reward-icon:furni_duel_a', 'reward-icon:furni_duel_b'])
+
     def test_reward_icons_reads_the_mirrors_at_the_commits_this_run_pinned(self):
         with tempfile.TemporaryDirectory() as root:
             # Every download is recorded and refused, so the icon ends up reported.

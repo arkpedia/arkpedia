@@ -72,47 +72,6 @@ export function eventRewardItemNames(root) {
   const items = [...groups.flatMap(group => group.items ?? []), ...groups.flatMap(group => group.packs ?? []).flatMap(pack => pack.contents ?? [])];
   return [...new Set(items.filter(item => kinds.has(item.kind)).map(item => item.name))].sort();
 }
-/**
- * The furniture an event page shows as a reward tile, with the wiki files its picture may be
- * filed under: no game-resource mirror carries furniture art (yuanyan3060's file_dict and
- * fexli's tree have none, checked 2026-10-05), so the wiki is the gap filler. Each piece is its
- * own file, material-icons/<furniture id>.webp, because two events' "Duel Trophy" are different
- * pieces (rewardIconPath looks a furniture reward up by its id). The rewards'
- * (data/event-rewards.json) and the stores' furniture (data/event-stores.json, a name the
- * event's own furniture gives an id), not the furniture sets' other pieces, which the page lists
- * by name only. A piece only the CN client names has no wiki upload, so none is asked for.
- *
- * The wiki files a piece as "<name>.png", one whose name is taken (an operator's: Frost) as
- * "<name> (furniture).png", and a trophy each Duel Channel season has as "Duel Trophy (Ivy
- * Vine).png", without the quotes the game writes some names in. Tried in that order, narrowest
- * first; a piece named after something else on the wiki with no "(furniture)" upload would take
- * that file, which nothing here can tell.
- */
-export function furnitureMedia(root) {
-  const read = file => fs.existsSync(path.join(root, file)) ? JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')) : null;
-  const rewards = read('data/event-rewards.json')?.events ?? {}, stores = read('data/event-stores.json')?.events ?? {};
-  const wanted = new Map();
-  for (const [event, entry] of Object.entries(rewards)) {
-    const named = new Map();
-    for (const group of entry.groups ?? []) {
-      for (const item of group.items ?? []) if (item.kind === 'furniture' && /^furni_/.test(item.id ?? '')) named.set(item.name, item.id);
-      for (const piece of group.pieces ?? []) named.set(piece.name, piece.id);
-    }
-    const shown = new Set((entry.groups ?? []).flatMap(group => (group.items ?? []).filter(item => item.kind === 'furniture').map(item => item.name)));
-    for (const store of stores[event]?.stores ?? []) for (const item of store.items ?? []) if (item.type === 'furniture') shown.add(item.name);
-    const title = event.replace(/^\s*\[[^\]]*\]\s*/, '').replace(/\s+Rerun$/, '');
-    const seasons = [...new Set([title.split(': ').pop(), title])];
-    for (const name of shown) {
-      const id = named.get(name);
-      if (!id || /\p{Script=Han}/u.test(name)) continue;
-      const bare = name.replace(/^['‘"](.*)['’"]$/, '$1');
-      const files = [...seasons.map(season => `${bare} (${season}).png`), `${bare} (furniture).png`, `${bare}.png`];
-      const held = wanted.get(id);
-      wanted.set(id, held ? [...new Set([...held, ...files])] : files);
-    }
-  }
-  return [...wanted].sort(([a], [b]) => a.localeCompare(b)).map(([id, files]) => ({ path: `material-icons/${safeName(id)}.webp`, wikiFiles: files }));
-}
 /* rewardNames: the items data/event-rewards.json lists (eventRewardItemNames), each an icon an
    event page asks for under material-icons/. Required, as [] where there are none. */
 export function assetPlan(operators, skins, cn, en, published, extra, rewardNames) {
@@ -203,7 +162,7 @@ export async function syncCatalogue(root, options={}) {
   const renames=new Map([...initial.renames,...updated.renames,...outfits.renames,...calendars.renames]);
   const replace=value=>typeof value==='string' ? renames.get(value) ?? value : Array.isArray(value) ? value.map(replace) : value && typeof value==='object' ? Object.fromEntries(Object.entries(value).map(([k,v])=>[k,replace(v)])) : value;
   const published=new Set(read(path.join(root,'data/assets/external-asset-index.json')).files);
-  const plan={sourceRepository:'yuanyan3060/ArknightsGameResource',revision:sources.resourceRevision,files:assetPlan(updated.operators,outfits.skins,cn,en,published,[...calendars.media,...furnitureMedia(root)],eventRewardItemNames(root))};
+  const plan={sourceRepository:'yuanyan3060/ArknightsGameResource',revision:sources.resourceRevision,files:assetPlan(updated.operators,outfits.skins,cn,en,published,calendars.media,eventRewardItemNames(root))};
   const inventory=buildInventory(cn.characters,cn.skins,{repository:cn.repository,revision:cn.revision,files:Object.fromEntries(['characters','skins'].map(k=>[tableFiles[k],createHash('sha256').update(JSON.stringify(cn[k])).digest('hex')]))});
   inventory.events=calendars.events.filter(e=>e.activityId).map(e=>({id:e.activityId,name:e.name}));
   inventory.banners=calendars.banners.filter(b=>b.cnPoolId).map(b=>({id:b.cnPoolId,name:b.name}));

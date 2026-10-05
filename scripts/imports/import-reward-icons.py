@@ -57,6 +57,8 @@ import os
 import re
 import ssl
 import subprocess
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from io import BytesIO
@@ -110,10 +112,22 @@ NOT_REAL = {'Furniture not found'}
 ITEM_MIRROR = 'yuanyan3060/ArknightsGameResource'
 
 
-def fetch(url, timeout=90):
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=timeout) as r:
-        return r.read()
+def fetch(url, timeout=90, attempts=3):
+    # A dropped connection is retried: a run fetching hundreds of icons meets the odd one
+    # (an SSL EOF from prts.wiki's CDN on 2026-10-05).
+    for attempt in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': UA})
+            with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError:
+            raise  # an answer, not a dropped connection
+        except (ssl.SSLError, ConnectionError, TimeoutError, urllib.error.URLError) as error:
+            reason = getattr(error, 'reason', error)
+            dropped = isinstance(reason, (ssl.SSLError, ConnectionError, TimeoutError))
+            if not dropped or attempt == attempts - 1:
+                raise
+            time.sleep(2 * (attempt + 1))
 
 
 def table(local_dir, raw_base, name):
@@ -130,9 +144,24 @@ def safe(name):
     return re.sub(r'[\\/*?:"<>|]', '', name).strip()
 
 
-# --- what the event stores want ---------------------------------------------------
+# --- what the event pages want --------------------------------------------------
 
+# Each icon a page asks for, by the file it asks for: {target: (name, event, furniture id or None)}.
+# A reward is asked for under its name (material-icons/<name>.webp); a piece of furniture the game
+# names by id under its id (material-icons/<id>.webp, rewardIconPath in lib/events/rewardIcons.ts),
+# because two events' "Duel Trophy" are different pieces with different art.
 wanted = {}
+
+
+def want_name(name, event, item_id=None):
+    if name:
+        wanted.setdefault(f'material-icons/{safe(name)}.webp', (name, event, None, item_id))
+
+
+def want_furniture(furniture_id, name, event):
+    wanted.setdefault(f'material-icons/{safe(furniture_id)}.webp', (name, event, furniture_id, None))
+
+
 for path in sorted(glob.glob(os.path.join(root, 'data', 'events', 'events_*.json'))):
     with open(path, encoding='utf-8') as f:
         rows = json.load(f)
@@ -146,13 +175,59 @@ for path in sorted(glob.glob(os.path.join(root, 'data', 'events', 'events_*.json
                 name = item.get('iconName') or item.get('name')
                 # Skins resolve through the skins dataset, not this folder.
                 if name and item.get('type') != 'skin':
-                    wanted.setdefault(name, ev['name'])
+                    want_name(name, ev['name'])
+
+
+def read_data(name):
+    path = os.path.join(root, 'data', name)
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
+
+
+# The rewards the game tables list for each event (data/event-rewards.json: sign-ins, missions,
+# milestones, first clears, gifts, the packs' contents) and its store as the wiki lists it
+# (data/event-stores.json). This stage runs after the event-rewards stage writes the first, so a
+# new event's rewards get their icons in the run that lists them. Kinds the item tables name;
+# operators and outfits have art of their own, a player icon is profile art.
+ITEM_KINDS = {'material', 'currency', 'permit', 'sanity', 'voucher'}
+event_stores = read_data('event-stores.json').get('events', {})
+for event, entry in read_data('event-rewards.json').get('events', {}).items():
+    groups = entry.get('groups', [])
+    # The event's own furniture by name, for a store row that names a piece and gives no id.
+    furniture_ids = {}
+    for group in groups:
+        for item in group.get('items', []):
+            if item.get('kind') == 'furniture' and str(item.get('id', '')).startswith('furni_'):
+                furniture_ids[item['name']] = item['id']
+        for piece in group.get('pieces', []) or []:
+            furniture_ids[piece['name']] = piece['id']
+    for group in groups:
+        for item in group.get('items', []):
+            if item.get('kind') == 'furniture' and str(item.get('id', '')).startswith('furni_'):
+                want_furniture(item['id'], item['name'], event)
+            elif item.get('kind') in ITEM_KINDS:
+                # By the item's id where the tables give one: a name the site words its own way
+                # ("... Headhunting Permit (ten-roll)") is not the item table's.
+                want_name(item.get('name'), event, item.get('id'))
+        for pack in group.get('packs', []) or []:
+            for item in pack.get('contents', []):
+                if item.get('kind') in ITEM_KINDS:
+                    want_name(item.get('name'), event)
+    for store in event_stores.get(event, {}).get('stores', []):
+        for item in store.get('items', []):
+            if item.get('type') == 'furniture':
+                if item.get('name') in furniture_ids:
+                    want_furniture(furniture_ids[item['name']], item['name'], event)
+            elif item.get('type') not in ('skin', 'upware'):
+                want_name(item.get('name'), event)
 
 missing = {
-    n: ev for n, ev in wanted.items()
-    if n not in NOT_REAL and f'material-icons/{safe(n)}.webp' not in published_assets()
+    target: want for target, want in wanted.items()
+    if want[0] not in NOT_REAL and target not in published_assets()
 }
-skipped_placeholders = sorted(n for n in wanted if n in NOT_REAL)
+skipped_placeholders = sorted({want[0] for want in wanted.values() if want[0] in NOT_REAL})
 
 # This run's staged icons; the last run's list goes now, so a day with nothing to stage stages nothing.
 staging = Staging('reward-icons', root)
@@ -177,16 +252,30 @@ for src in (items_cn, items_en):  # EN written second so it wins ties
 furniture_by_name = None  # loaded lazily: building_data is heavyweight
 
 
-def furniture_icon(name):
-    global furniture_by_name
+furniture_by_id = None
+
+
+def load_furniture():
+    global furniture_by_name, furniture_by_id
     if furniture_by_name is None:
-        furniture_by_name = {}
+        furniture_by_name, furniture_by_id = {}, {}
         for local_dir, raw in ((CN, RAW_CN), (EN, RAW_EN)):  # EN wins ties
             data = table(local_dir, raw, 'building_data.json')
-            for f in data.get('customData', {}).get('furnitures', {}).values():
-                if f.get('name') and f.get('iconId'):
-                    furniture_by_name[f['name']] = f['iconId']
+            for furniture_id, f in data.get('customData', {}).get('furnitures', {}).items():
+                if f.get('iconId'):
+                    furniture_by_id[furniture_id] = f['iconId']
+                    if f.get('name'):
+                        furniture_by_name[f['name']] = f['iconId']
+
+
+def furniture_icon(name):
+    load_furniture()
     return furniture_by_name.get(name)
+
+
+def furniture_icon_by_id(furniture_id):
+    load_furniture()
+    return furniture_by_id.get(furniture_id)
 
 
 def wiki_file(name):
@@ -207,11 +296,20 @@ WIKI_DOWN = 'has no icon from the item tables or the furniture art, and the EN w
 FAILED = 'has an icon at {host}, but downloading it failed'
 UNREADABLE = 'has an icon at {host}, but it is not an image that decodes'
 
+icon_by_id = {item_id: it['iconId'] for src in (items_cn, items_en) for item_id, it in src.items() if it.get('iconId')}
+
 fetched, unresolved = [], []
-for name, event in sorted(missing.items()):
+for target, (name, event, furniture_id, item_id) in sorted(missing.items()):
     url = mirror = None
-    icon = by_name.get(name)
-    if icon:
+    icon = None if furniture_id else (icon_by_id.get(item_id) if item_id else None) or by_name.get(name)
+    if furniture_id:
+        # A piece the game names by id: its own icon, whatever other pieces share its name.
+        icon = furniture_icon_by_id(furniture_id)
+        if not icon:
+            unresolved.append((furniture_id, name, event, NOT_FOUND))
+            continue
+        url = f'{FURNI_ART}/{urllib.parse.quote(icon)}.png'
+    elif icon:
         url = f'{ITEM_ART}/{urllib.parse.quote(icon)}.png'
         # The mirror's own file at the pinned commit, which the image repository maps for its sync.
         if re.fullmatch(r'[0-9a-f]{40}', CN_REF):
@@ -225,41 +323,45 @@ for name, event in sorted(missing.items()):
                 url = wiki_file(name)
             except Exception as e:  # noqa: BLE001 -- the wiki is enrichment, never a gate
                 print(f'  the wiki could not be asked about "{name}": {e}')
-                unresolved.append((name, event, WIKI_DOWN))
+                unresolved.append((name, name, event, WIKI_DOWN))
                 continue
     if not url:
-        unresolved.append((name, event, NOT_FOUND))
+        unresolved.append((name, name, event, NOT_FOUND))
         continue
     host = url.split('/')[2]
     try:
         blob = fetch(url)
     except Exception as e:  # noqa: BLE001 -- a 404 here is data, not a crash
         print(f'  FAILED "{name}" from {url}: {e}')
-        unresolved.append((name, event, FAILED.format(host=host)))
+        unresolved.append((furniture_id or name, name, event, FAILED.format(host=host)))
         continue
     try:
         im = Image.open(BytesIO(blob))
         im.load()
     except Exception as e:  # noqa: BLE001 -- e.g. an HTML page answered 200
         print(f'  UNREADABLE "{name}" from {url}: {e}')
-        unresolved.append((name, event, UNREADABLE.format(host=host)))
+        unresolved.append((furniture_id or name, name, event, UNREADABLE.format(host=host)))
         continue
     # As the source serves it: the publisher encodes it at the size material-icons/ keeps.
-    staged = staging.stage(f'material-icons/{safe(name)}.webp', blob, source=url, mirror=mirror)
-    fetched.append((name, event, url, staged.name))
+    staged = staging.stage(target, blob, source=url, mirror=mirror)
+    fetched.append((furniture_id or name, name, event, url, staged.name, target))
+    # A moment between downloads: the first run after event-rewards.json lists the table rewards
+    # stages several hundred icons from prts.wiki's furniture CDN.
+    time.sleep(0.2)
     print(f'  + {staged.name}  ({im.size[0]}x{im.size[1]}, from {host})')
 staging.commit()
 
 print(f'{len(fetched)} fetched, {len(unresolved)} unresolved')
-for name, event, why in unresolved:
+for key, name, event, why in unresolved:
     print(f'  ? "{name}" of {event} {why}')
-report('reward-icons', [{'key': f'reward-icon:{name}', 'action': 'published-partial',
+# Keyed by the furniture id for a piece (two events' "Duel Trophy" are two reports), else the name.
+report('reward-icons', [{'key': f'reward-icon:{key}', 'action': 'published-partial',
                          'reason': f'The reward "{name}" of {event} {why}; it renders without one until a later run finds it.'}
-                        for name, event, why in unresolved]
-       + [{'key': f'reward-icon:{name}', 'action': 'published-partial', 'sourceRef': url,
+                        for key, name, event, why in unresolved]
+       + [{'key': f'reward-icon:{key}', 'action': 'published-partial', 'sourceRef': url,
            'reason': f'The reward "{name}" of {event} has an icon at {url.split("/")[2]}, staged as '
                      f'.cache/reward-icons/{file}, but no run has published it to arkpedia-image-assets as '
-                     f'material-icons/{safe(name)}.webp yet; it renders without one until one does.'}
-          for name, event, url, file in fetched])
+                     f'{target} yet; it renders without one until one does.'}
+          for key, name, event, url, file, target in fetched])
 for n in skipped_placeholders:
     print(f'  ! "{n}" is the wiki\'s missing-item placeholder scraped into the data -- fix the scrape')

@@ -24,8 +24,9 @@ import type { RewardItem } from './loadEventsData';
  * has none (a wiki store row whose furniture the event does not name). It is required, so
  * no caller can forget it: by id, a player icon is the profile art the account pages
  * already publish (profile-avatars/<id>), and a piece of furniture is its own file
- * (material-icons/<furniture id>, fetched by the catalogue from the wiki, sync-catalogue.mjs
- * furnitureMedia), since two events' "Duel Trophy" are different pieces.
+ * (material-icons/<furniture id>: its building_data icon, which
+ * scripts/imports/import-reward-icons.py stages by id), since two events' "Duel Trophy" are
+ * different pieces.
  */
 export function rewardIconPath(
   item: Pick<RewardItem, 'name' | 'type' | 'iconName'> & { id: string | null },
