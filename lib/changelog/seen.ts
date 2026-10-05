@@ -13,7 +13,9 @@ function seen(): string {
   try { return localStorage.getItem(KEY) ?? ''; } catch { return ''; }
 }
 
-/** True once mounted when the latest entry is newer than what this reader last opened. */
+/** True once mounted when the latest entry is newer than what this reader last opened. A day
+ *  stored before entries had times ("2026-10-03") sorts before any instant on or after it, so
+ *  it reads as not seen yet: the dot shows once more, for a release that is new anyway. */
 export function useChangelogUnseen(): boolean {
   const [unseen, setUnseen] = useState(false);
   useEffect(() => {

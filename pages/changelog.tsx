@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import { CHANGELOG, type ChangeItem } from '@/lib/changelog/entries';
 import { markChangelogSeen } from '@/lib/changelog/seen';
-import { formatDayMonthYear } from '@/lib/pulls/format';
+import LocalTime from '@/components/ui/LocalTime';
 
 /* What's new on the site, newest first (lib/changelog/entries.ts). Opening it clears the
    dot on the nav's What's new. */
@@ -24,8 +24,9 @@ export default function ChangelogPage() {
         sub="What was added, changed and fixed on Arkpedia, newest first." />
       <main>
         {CHANGELOG.map((entry) => (
-          <section key={entry.date} className="op-section changelog-entry" aria-labelledby={`changes-${entry.date}`}>
-            <h2 id={`changes-${entry.date}`}>{formatDayMonthYear(entry.date)}{entry.title && <span className="hint changelog-title">{entry.title}</span>}</h2>
+          <section key={entry.at} className="op-section changelog-entry" aria-labelledby={`changes-${entry.at.slice(0, 16)}`}>
+            {/* When it reached the site, in the reader's own time zone. */}
+            <h2 id={`changes-${entry.at.slice(0, 16)}`}><LocalTime iso={entry.at} />{entry.title && <span className="hint changelog-title">{entry.title}</span>}</h2>
             {KINDS.map(([kind, label]) => entry[kind]?.length ? (
               <div key={kind} className={`changelog-group is-${kind}`}>
                 <h3>{label}</h3>
