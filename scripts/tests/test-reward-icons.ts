@@ -46,6 +46,22 @@ test('the event page resolves every reward icon through rewardIconPath and the r
   const page = fs.readFileSync(new URL('../../pages/events/[slug].tsx', import.meta.url), 'utf8');
   assert.match(page, /iconPath: rewardIconPath\(\{ \.\.\.item, id: .+ \}, .+, publicFileExists\)/);
   assert.doesNotMatch(page, /getMaterialIconPath|iconPath:\s*\n?\s*item\.type === 'skin'/);
+  // Every call, not only the store's: the table rewards (their items and the daily free roll's
+  // permit) and a pack's contents resolve through it too, and each is held to the release's
+  // asset index. A call given any other check would let an unpublished icon through.
+  const calls = [...page.matchAll(/rewardIconPath\(/g)].map((match) => {
+    let depth = 0;
+    for (let at = match.index! + 'rewardIconPath'.length; at < page.length; at += 1) {
+      if (page[at] === '(') depth += 1;
+      else if (page[at] === ')' && --depth === 0) return page.slice(match.index, at + 1);
+    }
+    throw new Error('unbalanced rewardIconPath call');
+  });
+  assert.ok(calls.length >= 4, `the store's, the table items', the free roll's and the packs' calls: found ${calls.length}`);
+  for (const call of calls) assert.match(call, /,\s*publicFileExists,?\s*\)$/, call);
+  // And the blocks and extras take their icons from those calls: an operator's from the roster.
+  assert.match(page, /tableRewardStores\(tableRewards, \(item\) => \{[\s\S]*?rewardIconPath\([\s\S]*?\}\)\);/);
+  assert.match(page, /eventExtras\(tableRewards, \(itemName\) => rewardIconPath\(/);
   // And the outfit lookup reads the asset index, not public/, which holds no art.
   const lookup = fs.readFileSync(new URL('../../lib/skins/skinIconLookup.ts', import.meta.url), 'utf8');
   assert.match(lookup, /buildSkinIconIndex\(publicFiles\)/);

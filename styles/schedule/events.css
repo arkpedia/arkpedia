@@ -89,9 +89,9 @@
 }
 
 /* --- Event detail page ---
-   PageHeader, then the event's art on the left and one section at a time on the
-   right, switched by a SegmentedControl. */
-/* The art on top, the sections below at the page's full width. */
+   PageHeader, then the event's art across the top, then one section at a time below
+   it at the page's full width (.event-detail-right, named from when it was a column
+   beside the art), switched by components/ui/Tabs. */
 .event-detail-layout {
   display: flex;
   flex-direction: column;
@@ -192,8 +192,10 @@
 .event-detail-skin-item img { border-radius: var(--radius); }
 
 
-/* Rewards: the store picker is components/ui/Tabs; All is a wrapping row of totals,
-   each with its name under the icon. */
+/* Rewards: the tab picker is components/ui/Tabs. All is the reward card
+   (components/events/RewardSummary.tsx, .reward-summary). The wrapping row of tiles
+   below, each with its name under the icon (components/events/RewardTile.tsx), is All
+   for a release compiled before the card, and a pack's contents in the Packs tab. */
 .event-rewards-tabs { margin-bottom: 14px; }
 .event-reward-totals {
   display: grid;
@@ -252,9 +254,7 @@
 }
 /* The quantity over the corner of the icon it counts. Neither of these two had a
    rule, so "x3" sat as plain inline text after a 40px image -- the wrap existed to
-   position it and did not. Not seen in a browser at the time of writing: no event
-   currently in the dataset carries a reward store with quantities, so this is built
-   from the two names and the panel they sit in. */
+   position it and did not. */
 .event-reward-icon-wrap {
   position: relative;
   flex-shrink: 0;

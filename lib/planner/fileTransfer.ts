@@ -24,6 +24,7 @@
  * the browser's own download list is where the reveal-in-folder command lives.
  */
 
+import { downloadBlob } from '@/lib/ui/downloadBlob';
 import { MAX_IMPORT_BYTES } from './untrusted';
 
 interface FilePickerHandle {
@@ -111,17 +112,7 @@ export async function saveToFile(text: string, suggestedName: string): Promise<S
     }
   }
 
-  const blob = new Blob([text], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = suggestedName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  /* Freed on the next turn of the event loop: revoking it synchronously can
-     beat the navigation the click just started. */
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  downloadBlob(new Blob([text], { type: 'application/json' }), suggestedName);
   return { name: suggestedName, chosen: false };
 }
 

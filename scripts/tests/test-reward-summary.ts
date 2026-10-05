@@ -4,8 +4,8 @@ import { isPullCurrency, rewardSummary, rowOf } from '../../lib/events/rewardSum
 import type { ResolvedRewardStore } from '../../lib/events/rewardTotals';
 
 /*
- * The All card (lib/events/rewardSummary.ts): a row per kind of reward, and the pull currencies
- * by where they came from, as the community compilations lay an event out.
+ * The All card (lib/events/rewardSummary.ts): a row per kind of reward, as the community
+ * compilations lay an event out, with the pull currencies once, in Headhunting.
  */
 const context = {
   groups: [{ tag: 'Tier 5', names: ['D32 Steel'] }, { tag: 'Tier 3', names: ['Semi-Synthetic Solvent'] }],
@@ -21,7 +21,7 @@ const store = (type: string, items: [string, number, string][]): ResolvedRewardS
 test('each reward lands in its row', () => {
   const rows: [string, string][] = [
     ['D32 Steel', 'Tier 5 materials'], ['Semi-Synthetic Solvent', 'Tier 3 materials'], ['Orundum', 'Headhunting'],
-    ['Sing while Drinking Headhunting Permit', 'Headhunting'], ['Supporter Chip', 'Chips'], ['Guard Dualchip', 'Chips'],
+    ['Sing while Drinking Headhunting Permit (ten-roll)', 'Headhunting'], ['Supporter Chip', 'Chips'], ['Guard Dualchip', 'Chips'],
     ['Chip Catalyst', 'Chip catalysts'], ['Skill Summary - 3', 'Skill summaries'], ['Module Data Block', 'Module materials'],
     ['Strategic Battle Record', 'EXP'], ['LMD', 'LMD'], ['Expedited Plan', 'Recruitment'], ['Top Emergency Sanity Potion', 'Sanity'],
     ['Furniture Part', 'Furniture parts'], ['Kroos the Keen Glint', 'Operators'], ['Indigo / Serene Day', 'Outfits'],
@@ -30,7 +30,19 @@ test('each reward lands in its row', () => {
     ['封缄诺言寻访凭证', 'Headhunting'], ['GALLUS²', 'Operators'],
   ];
   for (const [name, row] of rows) assert.equal(rowOf(name, context), row, name);
-  assert.ok(isPullCurrency('Originite Prime') && isPullCurrency('Ten-roll Headhunting Permit') && !isPullCurrency('Recruitment Permit'));
+  assert.ok(isPullCurrency('Originite Prime') && isPullCurrency('Headhunting Permit') && isPullCurrency('Kernel Headhunting Permit'));
+  assert.ok(!isPullCurrency('Recruitment Permit') && !isPullCurrency('Expedited Plan'));
+});
+
+test('every limited permit is a pull currency by its name, as data/event-rewards.json spells it', () => {
+  // The suffix the tables give a banner's ten-roll permit; without it these reached Headhunting
+  // only by the tables' kind, and a store row naming one carries no kind.
+  const noKinds = { ...context, kinds: new Map<string, string>() };
+  for (const name of ['Sing while Drinking Headhunting Permit (ten-roll)', 'Expert Headhunting Permit (ten-roll)',
+    'Memorial-Limited Headhunting Permit (ten-roll)', 'Awakening Commemoration Permit (ten-roll)', '封缄诺言寻访凭证 (ten-roll)']) {
+    assert.ok(isPullCurrency(name), name);
+    assert.equal(rowOf(name, noKinds), 'Headhunting', name);
+  }
 });
 
 test('totals count the store at its stock limits, and the pull currencies are listed once, in Headhunting', () => {

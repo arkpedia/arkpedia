@@ -6,6 +6,7 @@ import events2024 from '@/data/events/events_2024.json';
 import events2025 from '@/data/events/events_2025.json';
 import events2026 from '@/data/events/events_2026.json';
 import events2027 from '@/data/events/events_2027.json';
+import { EVENTS_STORE } from './tableRewards';
 
 /**
  * Merges every per-year events file (data/events/events_2020.json
@@ -52,7 +53,11 @@ export interface RewardItem {
 }
 
 export interface EventRewardBlock {
-  type: string; // e.g. "Events Store", "Login Event", "Free Gifts" -- the exact label doesn't matter to any code, it's just used as a tab name wherever this is displayed
+  /** The block's label, and the event page's tab name for it ("Events Store", "Login Event",
+   *  "Free Gifts"). Read by code as well as shown: the furniture checklist prices a piece from
+   *  the block labelled EVENTS_STORE (lib/events/tableRewards.ts furniturePieceSource), so that
+   *  label is a constant, not a spelling to retype. */
+  type: string;
   name: string;
   currency: string;
   items: RewardItem[];
@@ -75,4 +80,26 @@ export function getEventRewards(eventName: string): EventRewardBlock[] {
   const match = all.find((e) => e.name === eventName);
   if (!match?.rewards) return [];
   return Array.isArray(match.rewards) ? match.rewards : [match.rewards];
+}
+
+/** data/event-stores.json: each event's store as the wiki lists it now (the event-stores stage,
+ *  scripts/sync/sync-event-stores.mjs; a rerun's from its /Rerun page). */
+export interface EventStoresFile {
+  events: Record<string, {
+    page?: string;
+    source?: string;
+    stores: { name: string; currency: string; items: { name: string; type: string; quantity: number; price: number | null; stock: string }[] }[];
+  }>;
+}
+
+/** An event's wiki stores (data/event-stores.json) as the reward blocks /events/[slug] lists and
+ *  totals, under EVENTS_STORE like the event record's own import. One copy for the page and
+ *  scripts/tests/test-event-rewards.ts, so the test reads the listings as the page does. */
+export function wikiStoreBlocks(stores: EventStoresFile['events'][string]['stores']): EventRewardBlock[] {
+  return stores.map((store) => ({
+    type: EVENTS_STORE,
+    name: store.name,
+    currency: store.currency,
+    items: store.items.map((item) => ({ name: item.name, type: item.type, reward_quantity: item.quantity, price: item.price ?? undefined, stock: item.stock })),
+  }));
 }

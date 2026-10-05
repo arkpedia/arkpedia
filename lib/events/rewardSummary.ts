@@ -1,4 +1,4 @@
-import { parseRewardQuantity, stockLimit, type ResolvedRewardStore } from './rewardTotals';
+import { stockLimit, totalRewards, type ResolvedRewardStore } from './rewardTotals';
 
 /*
  * An event's free rewards at a glance, laid out the way community compilations share them: one
@@ -18,8 +18,12 @@ const ROWS = [
 ] as const;
 type Row = (typeof ROWS)[number];
 
-/** The pull currencies: Orundum, Originite Prime and every kind of Headhunting Permit. */
-export const isPullCurrency = (name: string) => /^(Orundum|Originite Prime|Daily free headhunting roll)$|Headhunting Permit$/.test(name);
+/** The pull currencies: Orundum, Originite Prime, the daily free roll and every kind of Headhunting
+ *  Permit, a limited banner's ten-roll included as the tables spell it ("Sing while Drinking
+ *  Headhunting Permit (ten-roll)", "Awakening Commemoration Permit (ten-roll)", the CN
+ *  "封缄诺言寻访凭证 (ten-roll)"). Without the suffix none of the 30-odd limited permits matched, and
+ *  they reached Headhunting only by the tables' kind, which a store row does not carry. */
+export const isPullCurrency = (name: string) => /^(Orundum|Originite Prime|Daily free headhunting roll)$|(Headhunting Permit|寻访凭证)( \(ten-roll\))?$|Permit \(ten-roll\)$/.test(name);
 
 export interface SummaryContext {
   /** The material catalogue's groups ("Tier 5", "Skills & modules", ...), for the tiers. */
@@ -60,25 +64,20 @@ export function rowOf(name: string, context: SummaryContext): Row {
 }
 
 export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryContext, order: readonly string[]): RewardSummary {
-  const totals = new Map<string, SummaryItem>();
-  for (const store of stores) {
-    for (const item of store.items) {
-      const limit = stockLimit(item.stock);
-      if (limit === null) continue;
-      const count = parseRewardQuantity(item.quantity) * limit;
-      if (!count) continue;
-      const held = totals.get(item.name);
-      // One tile per name; its icon is the first one any block has (a store's furniture row
-      // may have none where the milestone's, by id, does).
-      if (held) { held.count += count; held.iconPath ??= item.iconPath; } else totals.set(item.name, { name: item.name, count, iconPath: item.iconPath });
-    }
-  }
-  const rank = (name: string) => { const index = order.indexOf(name); return index < 0 ? Number.MAX_SAFE_INTEGER : index; };
+  // The totals are the All row's (totalRewards: one tile per name, the first icon any block has --
+  // a store's furniture row may have none where the milestone's, by id, does).
   const byRow = new Map<Row, SummaryItem[]>();
-  for (const item of totals.values()) {
-    const row = rowOf(item.name, context);
-    byRow.set(row, [...(byRow.get(row) ?? []), item]);
+  for (const { name, total, iconPath } of totalRewards(stores)) {
+    const row = rowOf(name, context);
+    byRow.set(row, [...(byRow.get(row) ?? []), { name, count: total, iconPath }]);
   }
+  /* Within a row, the catalogue's order, then the largest count. Not sortByMaterialOrder, which
+     puts what the catalogue does not know FIRST, alphabetically: right for the flat All row, where
+     that is the outfits, but here a row is one kind, and in Headhunting nothing is in the
+     catalogue, so it would read Headhunting Permit, Originite Prime, Orundum where a compilation
+     leads with the Orundum. */
+  const index = new Map(order.map((name, i) => [name, i]));
+  const rank = (name: string) => index.get(name) ?? Number.MAX_SAFE_INTEGER;
   return {
     rows: ROWS.filter(row => byRow.has(row)).map(row => ({
       label: row,

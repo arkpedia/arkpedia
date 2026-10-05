@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { eventTitle } from './eventName.mjs';
 
 const CG_COLLECTION_DIR = path.join(process.cwd(), 'public', 'cg-collection');
 
@@ -25,13 +26,6 @@ function naturalCompare(a: string, b: string): number {
   return 0;
 }
 
-// Strips a leading "[Tag] " prefix, e.g. "[Story Collection] Crossing"
-// -> "Crossing" -- events are often stored with these tags in their
-// full name, but their cg-collection folder is usually just named
-// after the shorter, tag-free title.
-function stripLeadingBracketTag(name: string): string {
-  return name.replace(/^\[[^\]]*\]\s*/, '').trim();
-}
 
 function readFolderImages(folderName: string): string[] {
   const dir = path.join(CG_COLLECTION_DIR, folderName);
@@ -61,7 +55,9 @@ export function getEventCgImages(eventName: string): string[] {
   const direct = readFolderImages(eventName);
   if (direct.length > 0) return direct;
 
-  const stripped = stripLeadingBracketTag(eventName);
+  // Events are stored with a leading "[Tag] " ("[Story Collection] Crossing"), but their
+  // cg-collection folder is usually named after the shorter, tag-free title.
+  const stripped = eventTitle(eventName);
   if (stripped !== eventName) {
     return readFolderImages(stripped);
   }

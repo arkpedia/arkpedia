@@ -8,13 +8,15 @@ import fs from 'node:fs';
 import { artFile, publishedArt } from '../../lib/art/publishedArt';
 import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { isLineupPending, lineupPendingNote } from '../../lib/gacha/bannerLineup';
-const LINEUP_PENDING_NOTE = lineupPendingNote({});
 import type { GachaBannerWithWindow, GameEvent } from '../../lib/home/frontPageContent';
 import { publicFiles } from '../../lib/assets/publicAssets';
 import GachaBannersPanel from '../../components/home/GachaBannersPanel';
 import FeaturedOperatorsPanel from '../../components/home/FeaturedOperatorsPanel';
 import EventsPanel from '../../components/schedule/EventsPanel';
 import EventDetailPage from '../../pages/events/[slug]';
+
+/** What a pending banner with no announced rate-ups says in its lineup's place. */
+const PENDING_NOTE = lineupPendingNote({});
 
 // tsx compiles these components' JSX to React.createElement (tsconfig keeps JSX for Next),
 // and unlike StageLayoutMap they do not import React themselves.
@@ -88,7 +90,7 @@ test('a banner whose lineup is pending says so instead of listing no one', () =>
   // Pending wins over whatever the arrays hold: a lineup left from before is not the banner's.
   for (const held of [pending, banner({ lineupSource: 'pending', six_stars: ['Someone'] })]) {
     const front = render(createElement(FeaturedOperatorsPanel, { banner: held }));
-    assert.ok(front.includes(LINEUP_PENDING_NOTE) && !front.includes('class="front-featured-op"'), front);
+    assert.ok(front.includes(PENDING_NOTE) && !front.includes('class="front-featured-op"'), front);
   }
   assert.match(render(createElement(FeaturedOperatorsPanel, { banner: banner({}) })), /No featured operators listed/);
   // An official CN announcement's rate-ups, in its Chinese, while their operators have no record yet.
@@ -98,13 +100,18 @@ test('a banner whose lineup is pending says so instead of listing no one', () =>
 
   const page = (over: Partial<Parameters<typeof EventDetailPage>[0]>) => render(createElement(EventDetailPage, {
     name: 'Test Event', poster: null, images: [], artAspect: '1024 / 328', dateRange: '2026/09/25–2026/10/09', isPredicted: false,
-    bannerName: 'Test Pool #1', bannerImage: null, lineupPending: LINEUP_PENDING_NOTE, skins: [], rewardStores: [], materialOrder: [],
+    bannerName: 'Test Pool #1', bannerImage: null, lineupPending: PENDING_NOTE, skins: [], rewardStores: [], materialOrder: [],
     featuredOperators: [{ name: 'Someone', rarity: 6, percent: 50 }], ...over,
   }));
   const held = page({});
-  assert.ok(held.includes(LINEUP_PENDING_NOTE) && !held.includes('class="event-detail-featured-op"'), 'pending note, not a lineup');
+  assert.ok(held.includes(PENDING_NOTE) && !held.includes('class="event-detail-featured-op"'), 'pending note, not a lineup');
   // The banner's frame stays at its size with no art in it.
   assert.match(held, /<div class="event-detail-banner-art-wrap"><\/div>/);
   const known = page({ lineupPending: null });
-  assert.ok(!known.includes(LINEUP_PENDING_NOTE) && known.includes('class="event-detail-featured-op"'));
+  assert.ok(!known.includes(PENDING_NOTE) && known.includes('class="event-detail-featured-op"'));
+  // A release compiled before the note's text carries `true`: the note, not an empty hint.
+  const older = page({ lineupPending: true });
+  assert.ok(older.includes(`<p class="hint">${PENDING_NOTE}</p>`) && !older.includes('<p class="hint"></p>'), older);
+  assert.ok(!older.includes('class="event-detail-featured-op"'));
+  assert.ok(page({ lineupPending: false }).includes('class="event-detail-featured-op"'));
 });

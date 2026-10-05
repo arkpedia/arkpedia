@@ -14,7 +14,7 @@ import { Skin } from '@/lib/skins/skinTypes';
 import { parsePrices } from '@/lib/skins/skinPrice';
 import PriceDisplay from '@/components/ui/PriceDisplay';
 import { getEventCgImages } from '@/lib/events/eventCg';
-import { getEventRewards, type EventRewardBlock } from '@/lib/events/loadEventsData';
+import { getEventRewards, wikiStoreBlocks, type EventRewardBlock, type EventStoresFile } from '@/lib/events/loadEventsData';
 import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
@@ -27,9 +27,12 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import Rarity from '@/components/ui/Rarity';
 import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
-import { eventExtras, NO_EXTRAS, tableRewardStores, type EventExtras, type TableRewardGroup } from '@/lib/events/tableRewards';
+import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
+import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
+import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
 import { EventFurniture, EventNotices, EventPacks } from '@/components/events/EventExtras';
 import { RewardSummaryCard } from '@/components/events/RewardSummary';
+import { RewardTile } from '@/components/events/RewardTile';
 import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -50,8 +53,9 @@ interface Props {
   isPredicted: boolean;
   bannerName: string | null;
   bannerImage: string | null;
-  /** The linked banner is out before its lineup is known (lineupSource 'pending'). */
-  lineupPending: string | null;
+  /** The linked banner is out before its lineup is known (lineupSource 'pending'): what it says in
+   *  the lineup's place. `true` from a release compiled before it carried the note's text. */
+  lineupPending: string | boolean | null;
   featuredOperators: FeaturedOperatorRate[];
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
@@ -68,20 +72,16 @@ interface Props {
 
 type SectionKey = 'banner' | 'rewards' | 'skins';
 
-/* Packs and Miscellaneous are gone until there is something to put in them: two
-   tabs that only ever said "Coming soon" pushed the row onto a second line at 390
-   and were the tallest-to-shortest switch on the page. A section with nothing
-   linked is left out the same way. */
+/* A section with nothing linked is left out. Packs and Miscellaneous were sections
+   once, two tabs that only ever said "Coming soon", which pushed the row onto a second
+   line at 390; an event's packs are a tab inside Rewards now (rewardTabsFor), beside
+   its announced gifts and furniture. */
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'banner', label: 'Banner' },
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
 ];
 
-/* The tabs beside the reward blocks: values no store type can take. */
-const EXTRA_TABS = { packs: '__packs', furniture: '__furniture', notices: '__notices' } as const;
-/** A reward tab as a link names it: "Login event" is login-event, the packs tab packs. */
-const tabSlug = (value: string) => value.replace(/^__/, '').replace(/__/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 /** The page's address with this hash, without a scroll or a history entry. */
 function setLink(hash: string) {
   if (typeof window === 'undefined') return;
@@ -97,30 +97,21 @@ function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
   return `/${folder}/${name} - Base.webp`;
 }
 
+/** All as a row of totals: what a release compiled before the reward card (summary) shows. */
 function RewardTotalsRow({ totals }: { totals: RewardTotal[] }) {
   if (totals.length === 0) return <p className="hint">Nothing here.</p>;
   return (
     <div className="event-reward-totals">
-      {totals.map((t, i) => (
-        <span key={i} className="event-reward-total">
-          {/* No icon published yet: the frame holds its place. */}
-          <span className="event-reward-total-icon">
-            {t.iconPath && <Image src={t.iconPath} alt="" width={40} height={40} />}
-          </span>
-          {/* The name on the tile, not only in a tooltip a phone cannot reach. */}
-          <span className="event-reward-total-name">{t.name}</span>
-          <b>×{t.total.toLocaleString('en-US')}</b>
-        </span>
-      ))}
+      {totals.map((t) => <RewardTile key={t.name} name={t.name} iconPath={t.iconPath} count={t.total} />)}
     </div>
   );
 }
 
-/** A specific store's own listing -- real per-purchase price and
- * stock, laid out as a 3-row horizontally-scrolling panel grid. The
- * reward_quantity (how many of the item one purchase actually grants)
- * is shown as a small badge on the icon's bottom-right corner, rather
- * than as inline text next to the name. */
+/** Any reward block's own listing -- a store's, a sign-in's, the missions', the first clears',
+ * the banner's gifts -- laid out as a 3-row horizontally-scrolling panel grid, each with its
+ * per-purchase price, or 'Free' where it has none (every block but a store). The quantity
+ * (how many of the item one purchase or one claim grants) is shown as a small badge on the
+ * icon's bottom-right corner, rather than as inline text next to the name. */
 function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
   if (items.length === 0) return <p className="hint">Nothing here.</p>;
   return (
@@ -189,7 +180,7 @@ export default function EventDetailPage({
   function changeSection(next: SectionKey) {
     hold.capture();
     setActiveSection(next);
-    setLink(next === 'rewards' && activeRewardTab !== 'all' ? `rewards/${tabSlug(activeRewardTab)}` : next);
+    setLink(eventLink(next, activeRewardTab, rewardTabs));
   }
   const [imgIndex, setImgIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -197,25 +188,30 @@ export default function EventDetailPage({
   const activeImage = images[Math.min(imgIndex, images.length - 1)];
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
-  const [activeRewardTab, setActiveRewardTab] = useState<string>('all');
-  /* A store is a long grid and All is one row of totals: the same hold as a section
+  // One list for the Tabs and for reading a link: All only when there are blocks to total.
+  const rewardTabs = rewardTabsFor(rewardTypes, extras);
+  const [chosenRewardTab, setRewardTab] = useState<string>(ALL_TAB);
+  /* The reward tab on screen, derived like the section: an event whose rewards are only packs,
+     an announcement or furniture has no All and opens on its first tab. */
+  const activeRewardTab = shownRewardTab(chosenRewardTab, rewardTabs) ?? ALL_TAB;
+  /* A store is a long grid and the All card a short one: the same hold as a section
      change, taken in the handler, so the switch cannot shorten the page under the
      reader. */
   function changeRewardTab(next: string) {
     hold.capture();
-    setActiveRewardTab(next);
-    setLink(next === 'all' ? 'rewards' : `rewards/${tabSlug(next)}`);
+    setRewardTab(next);
+    setLink(eventLink('rewards', next, rewardTabs));
   }
   /* A link names the section and reward tab it shows (#skins, #rewards/packs), so a shared link
      opens on what the reader was looking at. Read once the page is on screen, and kept in step
-     with the tabs by replaceState, which neither scrolls nor adds history. */
-  const rewardTabValues = [...rewardTypes, ...(extras.notices.length ? [EXTRA_TABS.notices] : []), ...(extras.packs.length ? [EXTRA_TABS.packs] : []), ...(extras.furniture.length ? [EXTRA_TABS.furniture] : [])];
+     with the tabs by replaceState, which neither scrolls nor adds history. readEventLink reads
+     the hash as it stands: a '%' in it can no longer throw and take the page down. */
   useEffect(() => {
     const follow = () => {
-      const [section, tab] = decodeURIComponent(window.location.hash.slice(1)).split('/');
-      if (sections.some((s) => s.key === section)) setActiveSection(section as SectionKey);
-      const reward = tab ? rewardTabValues.find((value) => tabSlug(value) === tab) : undefined;
-      if (section === 'rewards' && reward) setActiveRewardTab(reward);
+      const link = readEventLink(window.location.hash, sections.map((s) => s.key), rewardTabs);
+      if (!link) return;
+      setActiveSection(link.section);
+      if (link.rewardTab !== undefined) setRewardTab(link.rewardTab);
     };
     follow();
     // A link to another tab of this page followed in place (replaceState fires no hashchange).
@@ -225,6 +221,9 @@ export default function EventDetailPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name]);
   const rewardTotals = computeRewardTotals(rewardStores, materialOrder);
+  /* A release compiled before the note's text carries `true`: that still hid the lineup, but drew
+     an empty hint where "Lineup to be confirmed." belongs. */
+  const pendingNote = typeof lineupPending === 'string' ? lineupPending : lineupPending ? lineupPendingNote({}) : null;
   // Every block of the tab apart, each under its own name when there are several (two sign-ins,
   // two stores, the banner's gift and its free rolls): never one grid that repeats an item.
   const activeStores = rewardStores.filter((s) => s.type === activeRewardTab);
@@ -312,8 +311,8 @@ export default function EventDetailPage({
                 {bannerImage && <Image src={bannerImage} alt={bannerName} fill sizes="600px" style={{ objectFit: 'contain' }} />}
               </div>
               <p className="hint">{bannerName}</p>
-              {lineupPending && <p className="hint">{lineupPending}</p>}
-              {!lineupPending && Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
+              {pendingNote && <p className="hint">{pendingNote}</p>}
+              {!pendingNote && Object.entries(splitEventBannerRates(featuredOperators)).map(([group, operators]) => operators.length > 0 && <div key={group}>
                 <h3>{group === 'featured' ? 'Featured operators' : 'Returning limited operators'}</h3>
                 {group === 'returning' && <p className="hint">{RETURNING_LIMITED_NOTE}</p>}
                 <div className="event-detail-featured-ops">
@@ -339,16 +338,10 @@ export default function EventDetailPage({
                 className="event-rewards-tabs"
                 value={activeRewardTab}
                 onChange={changeRewardTab}
-                options={[
-                  { value: 'all', label: 'All' },
-                  ...rewardTypes.map((t) => ({ value: t, label: t })),
-                  ...(extras.notices.length ? [{ value: EXTRA_TABS.notices, label: 'Announced' }] : []),
-                  ...(extras.packs.length ? [{ value: EXTRA_TABS.packs, label: 'Packs' }] : []),
-                  ...(extras.furniture.length ? [{ value: EXTRA_TABS.furniture, label: 'Furniture' }] : []),
-                ]}
+                options={rewardTabs}
               />
               <div {...tabPanelProps('event-store', activeRewardTab)}>
-                {activeRewardTab === 'all' ? (
+                {activeRewardTab === ALL_TAB ? (
                   summary && summary.rows.length ? <RewardSummaryCard eventName={name} summary={summary} /> : <RewardTotalsRow totals={rewardTotals} />
                 ) : activeRewardTab === EXTRA_TABS.packs ? (
                   <EventPacks groups={extras.packs} />
@@ -498,7 +491,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const artAspect = cgImages.length > 0 ? CG_ASPECT : POSTER_ASPECT;
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
-  const eventRewards = (await import('@/data/event-rewards.json')).default as { storeNames?: Record<string, string>; storeFurniture?: string[]; events: Record<string, { region?: string; inheritsFrom?: string; groups: (TableRewardGroup & { inherited?: string; region?: string })[] }> };
+  const eventRewards = (await import('@/data/event-rewards.json')).default as EventRewardsFile;
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
   const rewardEntry = eventRewards.events[event.name];
@@ -506,17 +499,17 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // from the original run's: only the missions, first clears and furniture a rerun repeats are.
   // The store as the wiki lists it now (data/event-stores.json, refreshed by the event-stores
   // stage; a rerun's from its /Rerun page), else the event record's one-off wiki import.
-  const wikiStores = ((await import('@/data/event-stores.json')).default as { events: Record<string, { stores: { name: string; currency: string; items: { name: string; type: string; quantity: number; price: number | null; stock: string }[] }[] }> }).events[event.name]?.stores;
+  const wikiStores = ((await import('@/data/event-stores.json')).default as EventStoresFile).events[event.name]?.stores;
   const rawStores: EventRewardBlock[] = wikiStores?.length
-    ? wikiStores.map((store) => ({ type: 'Events Store', name: store.name, currency: store.currency, items: store.items.map((item) => ({ name: item.name, type: item.type, reward_quantity: item.quantity, price: item.price ?? undefined, stock: item.stock })) }))
+    ? wikiStoreBlocks(wikiStores)
     : getEventRewards(event.name).map((store) => ({ ...store, items: store.items.map((item) => ({ ...item, name: storeNames[item.name] ?? item.name })) }));
   const fromOriginal = !!rewardEntry?.inheritsFrom && (rewardEntry.groups ?? []).some((g) => g.inherited);
   const fromCn = rewardEntry?.region === 'CN' || (rewardEntry?.groups ?? []).some((g) => g.region === 'CN');
   const rewardNote = fromOriginal
-    ? `Missions, first clears and furniture are the original run's (${rewardEntry!.inheritsFrom!.replace(/^\[[^\]]*\]\s*/, '')}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
+    ? `Missions, first clears and furniture are the original run's (${eventTitle(rewardEntry!.inheritsFrom!)}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
       ? 'From the CN release: Global has not had this event yet, and its rewards may differ there. Items Global does not have yet keep their CN names.'
-      : /^\[Rerun\]/.test(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
+      : isRerun(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
   // The furniture this event names, by name: its rewards' and its set's pieces, each with its
@@ -551,10 +544,12 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // The rewards the game tables list beyond the store: sign-in events, gifts, missions and
   // first clears (data/event-rewards.json), as blocks beside it.
   const tableRewards = rewardEntry?.groups ?? [];
-  const operators = tableRewards.some((group) => group.items.some((item) => item.kind === 'operator')) ? getAllOperators() : [];
+  // The roster, read once for an event with any reward: the table rewards' operator icons, and
+  // the reward card telling an operator from an item by name.
+  const roster = tableRewards.length || rawStores.some((store) => store.items.length) ? getAllOperators() : [];
   rewardStores.push(...tableRewardStores(tableRewards, (item) => {
     if (item.kind === 'operator') {
-      const op = operators.find((o) => o.name === item.name);
+      const op = roster.find((o) => o.name === item.name);
       return op ? getOperatorIconPath(op) : null;
     }
     // A daily free roll is a headhunting roll: the permit's picture.
@@ -572,18 +567,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   /* The furniture set as a checklist: each piece with where this event gives it (its missions,
      its sign-in, its store and the price there), else how the game says it is obtained (the
      furniture store). Its pieces are in the other tabs too; this says which of the set they are. */
-  const pieceSource = (piece: string): string | null => {
-    for (const store of rewardStores) {
-      const item = store.items.find((i) => i.name === piece);
-      if (!item) continue;
-      if (store.type === 'Events Store') return item.price != null ? `${store.name}: ${item.price} ${item.currency}` : store.name;
-      return store.type === 'Login event' ? 'Login event' : store.type === 'Missions' ? 'Event missions' : store.type;
-    }
-    return null;
-  };
   const extras = {
     ...builtExtras,
-    furniture: builtExtras.furniture.map((set) => ({ ...set, pieces: set.pieces.map((piece) => ({ ...piece, obtain: pieceSource(piece.name) ?? piece.obtain })) })),
+    furniture: builtExtras.furniture.map((set) => ({ ...set, pieces: set.pieces.map((piece) => ({ ...piece, obtain: furniturePieceSource(piece.name, rewardStores) ?? piece.obtain })) })),
   };
   return {
     props: {
@@ -603,7 +589,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       rewardNote,
       summary: rewardSummary(rewardStores, {
         groups: catalogue.groups,
-        operators: new Set((rewardStores.some((s) => s.items.length) ? getAllOperators() : []).map((op) => op.name)),
+        operators: new Set(roster.map((op) => op.name)),
         outfits: new Set([...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'skin').map((i) => i.name)), ...tableRewards.flatMap((g) => g.items.filter((i) => i.kind === 'outfit').map((i) => i.name))]),
         furniture: new Set([...extras.furniture.flatMap((set) => set.pieces.map((p) => p.name)), ...(eventRewards.storeFurniture ?? []).map((n) => storeNames[n] ?? n), ...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'furniture').map((i) => i.name))]),
         kinds: new Map(tableRewards.flatMap((g) => g.items.map((i) => [i.name, i.kind] as [string, string]))),

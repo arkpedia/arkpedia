@@ -26,7 +26,25 @@ export interface TableRewardGroup {
   /** furniture-set: the set's pieces and its description. */
   pieces?: FurniturePiece[];
   description?: string | null;
+  /** A rerun's group repeated from its original run (build-event-rewards.mjs RERUN_REPEATS): that
+   *  run's name, until the rerun's own are in the tables. */
+  inherited?: string;
+  /** 'CN' for a group read from the CN tables while Global has not had the event yet. */
+  region?: string;
 }
+
+/** data/event-rewards.json, as /events/[slug] reads it. */
+export interface EventRewardsFile {
+  /** The store's Chinese item names in English, where the Global tables have them. */
+  storeNames?: Record<string, string>;
+  /** Furniture names a store sells, from the game's furniture data. */
+  storeFurniture?: string[];
+  events: Record<string, { region?: string; inheritsFrom?: string; groups: TableRewardGroup[] }>;
+}
+
+/** The block type an event's own store is listed under (the wiki's store, or the event record's
+ *  import): the label the furniture checklist prices a piece from. */
+export const EVENTS_STORE = 'Events Store';
 
 /** The tab each kind of group is listed under. A draw login has no fixed payout to list. */
 export const TABLE_REWARD_LABEL: Record<TableRewardGroup['kind'], string | null> = {
@@ -38,8 +56,9 @@ export const TABLE_REWARD_LABEL: Record<TableRewardGroup['kind'], string | null>
   missions: 'Missions',
   milestones: 'Milestones',
   'first-clear': 'First clears',
-  // Not a list of rewards to total: their own panels (components/events/EventExtras.tsx).
+  // A draw login: its payout is drawn, so there is nothing fixed to list, and it is not shown.
   pray: null,
+  // Not a list of rewards to total: their own tabs (eventExtras, components/events/EventExtras.tsx).
   packs: null,
   notice: null,
   'furniture-set': null,
@@ -66,7 +85,10 @@ export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) 
 }
 
 /* Event tokens are the store's currency, already spent in its listings: counted again here
-   they would read as a reward of their own in the All totals. */
+   they would read as a reward of their own in the All totals. They are dropped from the blocks
+   themselves, so no tab lists them either: the Missions tab shows a mission's other rewards and
+   not its tokens, and a group that gives nothing but tokens is no block at all (on 2026-10-05,
+   166 token rows and 24 whole groups, all but one of each in missions). */
 const LEFT_OUT = new Set(['event-item']);
 
 export function tableRewardStores(groups: TableRewardGroup[], iconFor: (item: TableRewardItem) => string | null): ResolvedRewardStore[] {
@@ -80,4 +102,21 @@ export function tableRewardStores(groups: TableRewardGroup[], iconFor: (item: Ta
       items: items.map(item => ({ name: item.name, quantity: item.count, price: null, currency: '', stock: '1', iconPath: iconFor(item) })),
     }];
   });
+}
+
+/**
+ * Where this event gives a piece of its furniture set, for the set's checklist: its store and the
+ * price there, else the block it is in (its missions, its sign-in, a milestone). Null when no
+ * block lists it; the page then says how the game says it is obtained. The labels are the ones
+ * the blocks carry (EVENTS_STORE, TABLE_REWARD_LABEL), not copies of them, so a label renamed
+ * there cannot quietly stop matching here.
+ */
+export function furniturePieceSource(piece: string, stores: readonly ResolvedRewardStore[]): string | null {
+  for (const store of stores) {
+    const item = store.items.find((i) => i.name === piece);
+    if (!item) continue;
+    if (store.type === EVENTS_STORE) return item.price != null ? `${store.name}: ${item.price} ${item.currency}` : store.name;
+    return store.type === TABLE_REWARD_LABEL.missions ? 'Event missions' : store.type;
+  }
+  return null;
 }

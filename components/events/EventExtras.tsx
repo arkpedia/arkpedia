@@ -1,12 +1,21 @@
-import Image from '@/components/content/ContentImage';
 import type { EventExtras } from '@/lib/events/tableRewards';
+import { RewardTile } from './RewardTile';
 
 /*
  * The parts of an event's Rewards that are not a list to total: the packs sold for real money,
  * the furniture sets its rewards belong to, and the gifts its announcement words in prose.
  * Each names its source (the official post, or the game's furniture data).
  */
-const day = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : null);
+
+/** A pack window's day, as the announcement dates it: on the Global server's clock (UTC-7) and in
+ *  the site's day-month-year wording ("29 Sept 2026"), as /skins dates its windows. The post's
+ *  "September 29, 2026, 23:59 (UTC-7)" is stored as the instant 2026-09-30T06:59Z
+ *  (scripts/build/official-news.mjs parseDuration), and read in UTC it printed the 30th: a day
+ *  longer to buy than the post gives, on every pack that ends late in the evening. Text that is not
+ *  a date is shown as it is, never as "Invalid Date". */
+export function packDay(iso: string): string {
+  return Number.isNaN(Date.parse(iso)) ? iso : new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Etc/GMT+7' });
+}
 
 export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
   return (
@@ -17,16 +26,10 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
             <article key={pack.name} className="event-pack">
               <header className="event-pack-head">
                 <h3>{pack.name}</h3>
-                {pack.start && <span className="event-pack-window">{day(pack.start)}{pack.end ? ` – ${day(pack.end)}` : ''}</span>}
+                {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end)}` : ''}</span>}
               </header>
               <div className="event-reward-totals">
-                {pack.contents.map((item) => (
-                  <span key={item.name} className="event-reward-total">
-                    <span className="event-reward-total-icon">{item.iconPath && <Image src={item.iconPath} alt="" width={40} height={40} />}</span>
-                    <span className="event-reward-total-name">{item.name}</span>
-                    <b>×{item.count.toLocaleString('en-US')}</b>
-                  </span>
-                ))}
+                {pack.contents.map((item) => <RewardTile key={item.name} name={item.name} iconPath={item.iconPath} count={item.count} />)}
               </div>
             </article>
           ))}
