@@ -69,6 +69,8 @@
   font-variant-numeric: tabular-nums;
 }
 .pulls-field-box input:focus { outline: none; }
+/* Locked (the resources' lock): readable, quieter, not an input to type in. */
+.pulls-field-box input[readonly] { color: var(--text-dim); cursor: default; }
 .pulls-field-unit {
   padding: 0 11px;
   font-family: var(--font-mono);

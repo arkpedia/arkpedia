@@ -91,6 +91,7 @@ function Level({ elite, level }: { elite: number; level: number }) {
 }
 
 export function SimplePlanner({
+  levelsLocked,
   operators,
   selectedNames,
   states,
@@ -116,6 +117,8 @@ export function SimplePlanner({
   selected: string | null;
   onSelect: (name: string | null) => void;
   onEdit: (name: string, step?: "current" | "goal") => void;
+  /** The starting levels' lock (pages/planner.tsx): "Set current" reads "Locked". */
+  levelsLocked: boolean;
   onRemove: (name: string) => void;
   onRetry: (name: string) => void;
 }) {
@@ -240,7 +243,7 @@ export function SimplePlanner({
                           level={state.startingLevel}
                         />
                       </b>
-                      <span className="simple-state-action">Set current</span>
+                      <span className="simple-state-action">{levelsLocked ? 'Locked' : 'Set current'}</span>
                     </button>
                     <span aria-hidden="true">→</span>
                     <button type="button" className="btn-bare simple-state-link" onClick={() => onEdit(name, "goal")}>
