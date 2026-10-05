@@ -329,23 +329,27 @@
 .event-furniture-piece-name { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .event-furniture-piece-meta { font-size: 11px; color: var(--text-dim); overflow-wrap: anywhere; }
 
-/* All: the free rewards as one shareable card (components/events/RewardSummary.tsx). A row per
-   kind, its label in a fixed column, its tiles wrapping beside it. */
+/* All: the free rewards as one shareable card (components/events/RewardSummary.tsx). A card per
+   kind, its label over its tiles and as wide as they need; the cards wrap side by side and
+   share out what is left of a line (2026-10-05: a full-width row per kind left most of each
+   row empty). A kind with more tiles than a line holds takes the line and wraps them. */
 .reward-summary { display: flex; flex-direction: column; gap: 12px; }
 .reward-summary-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .reward-summary-buttons { display: flex; gap: 8px; }
-.reward-summary-table { display: flex; flex-direction: column; gap: 6px; }
+.reward-summary-table { display: flex; flex-wrap: wrap; gap: 6px; }
 .reward-summary-row {
-  display: grid;
-  grid-template-columns: 130px 1fr;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   background: var(--panel-2);
 }
-.reward-summary-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); overflow-wrap: anywhere; }
+.reward-summary-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Compact: an icon and its count, the name on hover and for screen readers (2026-10-04). An item
    with no icon shows its name in the icon's place, so no tile is a blank square. */
 .reward-summary-items { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -374,11 +378,10 @@
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+/* At most three lines, cut with an ellipsis, so a long name is read from its start. */
+.reward-summary-tile-name > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .reward-summary-tile b { font-family: var(--font-mono); font-size: 11px; color: var(--amber); }
 .reward-summary-heading { margin: 8px 0 0; }
-@media (max-width: 560px) {
-  .reward-summary-row { grid-template-columns: 1fr; gap: 6px; }
-}
 .event-reward-note { margin: 0 0 10px; }
 /* A tab with several blocks (two sign-ins, two stores): each under its name. */
 .event-reward-block + .event-reward-block { margin-top: 14px; }

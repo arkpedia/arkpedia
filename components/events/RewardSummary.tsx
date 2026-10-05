@@ -9,6 +9,12 @@ import type { RewardSummary as Summary, SummaryItem } from '@/lib/events/rewardS
  * origin, so the canvas stays exportable.
  */
 const fmt = (n: number) => n.toLocaleString('en-US');
+/* A kind with more tiles than fit beside others (furniture: sixteen pieces) takes a line of its
+   own; listed after the rest, so it does not push a one-tile kind onto a line alone. */
+const WIDE = 10;
+function packed<T extends { items: unknown[] }>(rows: T[]): T[] {
+  return [...rows.filter((row) => row.items.length <= WIDE), ...rows.filter((row) => row.items.length > WIDE)];
+}
 /** `text` in lines no wider than `width`, at most `max` of them, the last ending in … if cut. */
 function wrapText(ctx: CanvasRenderingContext2D, text: string, width: number, max: number): string[] {
   const lines: string[] = [];
@@ -31,7 +37,7 @@ function Tile({ item, register }: { item: SummaryItem; register: (name: string, 
     <span className="reward-summary-tile" title={item.name}>
       {item.iconPath
         ? <><Image src={item.iconPath} alt="" width={40} height={40} ref={(el: HTMLImageElement | null) => register(item.name, el)} /><span className="visually-hidden">{item.name}</span></>
-        : <span className="reward-summary-tile-name">{item.name}</span>}
+        : <span className="reward-summary-tile-name"><span>{item.name}</span></span>}
       <b>×{fmt(item.count)}</b>
     </span>
   );
@@ -78,7 +84,7 @@ export function RewardSummaryCard({ eventName, summary }: { eventName: string; s
       </div>
       {note && <p className="hint" role="status">{note}</p>}
       <div className="reward-summary-table">
-        {summary.rows.map((row) => (
+        {packed(summary.rows).map((row) => (
           <div key={row.label} className="reward-summary-row">
             <span className="reward-summary-label">{row.label}</span>
             <span className="reward-summary-items">{row.items.map((item) => <Tile key={item.name} item={item} register={register} />)}</span>
@@ -89,7 +95,7 @@ export function RewardSummaryCard({ eventName, summary }: { eventName: string; s
         <>
           <h3 className="reward-summary-heading">Orundum, Originite Prime and Headhunting Permits</h3>
           <div className="reward-summary-table">
-            {summary.pulls.map((row) => (
+            {packed(summary.pulls).map((row) => (
               <div key={row.source} className="reward-summary-row">
                 <span className="reward-summary-label">{row.source}</span>
                 <span className="reward-summary-items">{row.items.map((item) => <Tile key={item.name} item={item} register={register} />)}</span>
@@ -102,20 +108,45 @@ export function RewardSummaryCard({ eventName, summary }: { eventName: string; s
   );
 }
 
-/** The card as a PNG: the same rows, in the page's theme. */
+/** The card as a PNG: the same categories, packed as on the page, in the page's theme. */
 async function drawSummary(eventName: string, summary: Summary, rendered: Map<string, HTMLImageElement>): Promise<Blob> {
   const css = getComputedStyle(document.documentElement);
   const color = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
   const bg = color('--bg', '#0f1419'), panel = color('--panel-2', '#1b222b'), line = color('--line-soft', '#2a333d');
   const text = color('--text', '#e6e6e6'), dim = color('--text-dim', '#9aa4ad'), amber = color('--amber', '#e8b04a'), heading = color('--heading', '#4fd1c5');
   const font = getComputedStyle(document.body).fontFamily || 'sans-serif';
-  const W = 1200, PAD = 28, LABEL = 210, CELL = 76, ICON = 44, ROW_GAP = 8;
-  const perLine = Math.floor((W - PAD * 2 - LABEL) / CELL);
-  const lines = (n: number) => Math.max(1, Math.ceil(n / perLine));
-  const rowHeight = (n: number) => lines(n) * 74 + 12;
-  const sections = [{ title: `${eventName.replace(/^\[[^\]]*\]\s*/, '')} — rewards (${summary.sources.join(' + ')})`, rows: summary.rows.map((r) => ({ label: r.label, items: r.items })) }];
-  if (summary.pulls.length) sections.push({ title: 'Orundum, Originite Prime and Headhunting Permits', rows: summary.pulls.map((r) => ({ label: r.source, items: r.items })) });
-  const H = PAD + sections.reduce((h, s) => h + 56 + s.rows.reduce((t, r) => t + rowHeight(r.items.length) + ROW_GAP, 0), 0) + 40;
+  // A card per category: its label on top, its tiles below, as wide as they need; cards fill a
+  // line left to right and share out what is left of it, as the page's wrapping cards do.
+  const W = 1200, PAD = 28, CELL = 76, ICON = 44, TILE_H = 74, GAP = 8, INNER = 12, LABEL_H = 30, TITLE_H = 40, SECTION_GAP = 16;
+  const inner = W - PAD * 2;
+  const maxPer = Math.floor((inner - INNER * 2) / CELL);
+  const measure = document.createElement('canvas').getContext('2d')!;
+  measure.font = `700 13px ${font}`;
+  type Card = { label: string; items: SummaryItem[]; x: number; y: number; w: number; h: number };
+  const sections = [{ title: `${eventName.replace(/^\[[^\]]*\]\s*/, '')} — rewards (${summary.sources.join(' + ')})`, rows: packed(summary.rows).map((r) => ({ label: r.label, items: r.items })) }];
+  if (summary.pulls.length) sections.push({ title: 'Orundum, Originite Prime and Headhunting Permits', rows: packed(summary.pulls).map((r) => ({ label: r.source, items: r.items })) });
+  let y = PAD;
+  const laid = sections.map((section) => {
+    const titleY = y;
+    y += TITLE_H;
+    const cards: Card[] = section.rows.map((row) => {
+      const per = Math.max(1, Math.min(row.items.length, maxPer));
+      const w = Math.min(inner, INNER * 2 + Math.max(measure.measureText(row.label.toUpperCase()).width, per * CELL));
+      return { label: row.label, items: row.items, x: 0, y: 0, w, h: LABEL_H + Math.ceil(row.items.length / maxPer) * TILE_H + 6 };
+    });
+    for (let i = 0; i < cards.length;) {
+      const lineCards: Card[] = [];
+      let used = 0;
+      while (i < cards.length && (lineCards.length === 0 || used + GAP + cards[i].w <= inner)) { used += (lineCards.length ? GAP : 0) + cards[i].w; lineCards.push(cards[i++]); }
+      const extra = (inner - used) / lineCards.length, height = Math.max(...lineCards.map((c) => c.h));
+      let x = PAD;
+      for (const card of lineCards) { card.w += extra; card.x = x; card.y = y; card.h = height; x += card.w + GAP; }
+      y += height + GAP;
+    }
+    y += SECTION_GAP;
+    return { title: section.title, titleY, cards };
+  });
+  const H = y + 24;
 
   // Fresh, CORS-enabled copies of the icons the card has already loaded.
   const images = new Map<string, HTMLImageElement>();
@@ -135,26 +166,23 @@ async function drawSummary(eventName: string, summary: Summary, rendered: Map<st
   ctx.scale(scale, scale);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
-  let y = PAD;
-  for (const section of sections) {
+  for (const section of laid) {
     ctx.fillStyle = heading;
     ctx.font = `700 20px ${font}`;
     ctx.textBaseline = 'top';
-    ctx.fillText(section.title.toUpperCase(), PAD, y, W - PAD * 2);
-    y += 40;
-    for (const row of section.rows) {
-      const h = rowHeight(row.items.length);
+    ctx.fillText(section.title.toUpperCase(), PAD, section.titleY, inner);
+    for (const card of section.cards) {
       ctx.fillStyle = panel;
-      ctx.fillRect(PAD, y, W - PAD * 2, h);
+      ctx.fillRect(card.x, card.y, card.w, card.h);
       ctx.strokeStyle = line;
-      ctx.strokeRect(PAD + 0.5, y + 0.5, W - PAD * 2 - 1, h - 1);
+      ctx.strokeRect(card.x + 0.5, card.y + 0.5, card.w - 1, card.h - 1);
       ctx.fillStyle = text;
-      ctx.font = `700 16px ${font}`;
+      ctx.font = `700 13px ${font}`;
       ctx.textBaseline = 'middle';
-      ctx.fillText(row.label.toUpperCase(), PAD + 14, y + h / 2, LABEL - 24);
-      row.items.forEach((item, i) => {
-        const x = PAD + LABEL + (i % perLine) * CELL;
-        const top = y + 8 + Math.floor(i / perLine) * 74;
+      ctx.fillText(card.label.toUpperCase(), card.x + INNER, card.y + LABEL_H / 2 + 2, card.w - INNER * 2);
+      card.items.forEach((item, i) => {
+        const x = card.x + INNER + (i % maxPer) * CELL;
+        const top = card.y + LABEL_H + Math.floor(i / maxPer) * TILE_H;
         const img = images.get(item.name);
         ctx.textAlign = 'center';
         // An icon and its count, as on the page; an item with no icon gets its name in the icon's place.
@@ -171,9 +199,7 @@ async function drawSummary(eventName: string, summary: Summary, rendered: Map<st
         ctx.fillText(fmt(item.count), x + CELL / 2, top + ICON + 12, CELL - 6);
         ctx.textAlign = 'left';
       });
-      y += h + ROW_GAP;
     }
-    y += 16;
   }
   ctx.fillStyle = dim;
   ctx.font = `12px ${font}`;
