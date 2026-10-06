@@ -19,7 +19,7 @@
  *     file ignores what it does not know rather than refusing the file;
  *   - a newer version than this build knows is refused, not guessed at.
  */
-import { ACCOUNT_EVENT, ACCOUNT_STORAGE_KEY, parseAccount } from './accountStore';
+import { ACCOUNT_EVENT, ACCOUNT_STORAGE_KEY, OTHER_ACCOUNTS_KEY, parseAccount, parseOtherAccounts } from './accountStore';
 import { CRAFTING_EVENT, CRAFTING_STORAGE_KEY } from '@/lib/planner/crafting';
 import { DEPOT_EVENT, DEPOT_STORAGE_KEY, DEPOT_TOUCHED_KEY, parseDepotExport } from '@/lib/planner/depot';
 import { PLANNER_STATE_EVENT } from '@/lib/planner/plannerStorage';
@@ -48,6 +48,8 @@ interface Store {
 
 export const BACKUP_STORES: readonly Store[] = [
   { key: ACCOUNT_STORAGE_KEY, label: 'your account', valid: (raw) => parseAccount(raw) !== null, event: ACCOUNT_EVENT },
+  // Every key a record of its own server's (parseOtherAccounts keeps only those).
+  { key: OTHER_ACCOUNTS_KEY, label: 'your other servers\' accounts', valid: (raw, value) => !!value && typeof value === 'object' && Object.keys(parseOtherAccounts(raw)).length === Object.keys(value as object).length, event: ACCOUNT_EVENT },
   { key: ROSTER_STORAGE_KEY, label: 'planner operators', valid: (raw) => parseRosterExport(raw) !== null, event: ROSTER_EVENT },
   { key: DEPOT_STORAGE_KEY, label: 'depot', valid: (raw) => parseDepotExport(raw) !== null, event: DEPOT_EVENT },
   { key: DEPOT_TOUCHED_KEY, label: 'depot date', valid: (_, value) => typeof value === 'number' && Number.isFinite(value) },

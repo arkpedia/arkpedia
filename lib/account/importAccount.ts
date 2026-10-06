@@ -4,14 +4,16 @@
  * The planner's plans move their starts with the roster when it next reads it
  * (lib/planner/ownedSync.ts), and its goals stay. The pull history is added to, not replaced
  * (lib/account/pulls.ts), when the import is the same player's (samePlayer). The account page
- * calls it.
+ * calls it. Another server's record is never replaced: the shown one, if it is another server's,
+ * waits under its own (accountStore OTHER_ACCOUNTS_KEY), and this server's own earlier record is
+ * the one whose pull history this import joins.
  */
 import type { ImportAliases } from '@/lib/planner/foreignImport';
 import { readGameAccount, type GameAccountMap } from '@/lib/planner/gameAccount';
 import { writeDepot } from '@/lib/planner/depot';
 import { writeRoster } from '@/lib/planner/roster';
 import type { ServerId } from '@/lib/account-import/yostar';
-import { accountFromGame, storedAccount, writeAccount, type AccountRecord } from './accountStore';
+import { accountFromGame, storedAccount, storedOtherAccounts, writeAccount, writeOtherAccounts, type AccountRecord } from './accountStore';
 import { mergePulls, type PullRead } from './pulls';
 
 /**
@@ -44,9 +46,15 @@ export interface ImportResult {
  *  `server`: the one it was read from. */
 export function importGameAccount(user: Record<string, any>, tables: ImportTables, pulls: PullRead | null, server: ServerId, now = new Date()): ImportResult {
   const imported = accountFromGame(user, tables.map, server, now);
-  const stored = storedAccount();
-  const history = mergePulls(samePlayer(stored, imported) ? stored?.pulls : undefined, pulls, now);
+  const shown = storedAccount(), others = { ...storedOtherAccounts() };
+  // This server's earlier record, shown or waiting: its pull history is the one this joins.
+  const earlier = shown?.server === server ? shown : others[server] ?? null;
+  const history = mergePulls(samePlayer(earlier, imported) ? earlier?.pulls : undefined, pulls, now);
   const record: AccountRecord = { ...imported, ...(history ? { pulls: history } : {}) };
+  // The import is shown; the record it takes the place of, if another server's, waits.
+  delete others[server];
+  if (shown && shown.server !== server) others[shown.server] = shown;
+  writeOtherAccounts(others);
   const { roster, depot, unknown } = readGameAccount(user, tables.map, tables.aliases, tables.depotNames);
   writeAccount(record);
   writeRoster(roster);

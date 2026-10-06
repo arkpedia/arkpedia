@@ -17,7 +17,7 @@ import type { PullRead } from '@/lib/account/pulls';
 import { forgetLogin } from '@/lib/account-import/savedLogin';
 import { applyBackup, backupFilename, formatBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
-import { useAccount, writeAccount } from '@/lib/account/accountStore';
+import { forgetShownAccount, storedAccount, useAccount } from '@/lib/account/accountStore';
 
 /** "412 operators, 375 skins, 77 materials, 1,840 stages cleared and your profile". */
 function importedSummary(result: ImportResult): string {
@@ -54,6 +54,19 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
 
   function onAccount(user: Record<string, any>, pulls: PullRead, from: ServerId) {
     setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls, from), pulls });
+  }
+
+  /** The shown server's account and its remembered sign-in; another server's account, if one is
+   *  kept, is shown in its place. */
+  function forget() {
+    if (!account) return;
+    const server = SERVERS[account.server].label;
+    const login = readSavedLogin();
+    if (login?.server === account.server) forgetLogin();
+    forgetShownAccount();
+    const next = storedAccount();
+    setResult(null);
+    setNote(`Your ${server} account${login?.server === account.server ? ' and its remembered sign-in are' : ' is'} forgotten on this browser.${next ? ` Your ${SERVERS[next.server].label} account is shown now.` : ''} The planners keep their own data until you clear it there.`);
   }
 
   function applyText(input: string, source: string) {
@@ -156,10 +169,10 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
       {note && <p className="hint data-dialog-note" role="status">{note}</p>}
 
       <section className="data-dialog-part data-dialog-forget" aria-label="Forget this account">
-        <button type="button" className="ghost btn-sm" disabled={!account} onClick={() => { writeAccount(null); forgetLogin(); setResult(null); setNote('Your account and any remembered sign-in are forgotten on this browser. The planners keep their own data until you clear it there.'); }}>
+        <button type="button" className="ghost btn-sm" disabled={!account} onClick={forget}>
           Forget this account
         </button>
-        <span className="hint">Clears the imported account, and a remembered sign-in, from this browser.</span>
+        <span className="hint">Clears the shown server&apos;s imported account, and its remembered sign-in, from this browser. Other servers&apos; accounts stay.</span>
       </section>
       </div>
     </ImportDialog>

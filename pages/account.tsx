@@ -9,8 +9,9 @@ import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
-import { useAccount } from '@/lib/account/accountStore';
-import { SERVERS } from '@/lib/account-import/yostar';
+import { showAccount, useAccount, useOtherAccounts } from '@/lib/account/accountStore';
+import { SERVER_IDS, SERVERS } from '@/lib/account-import/yostar';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 // The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
 import { storyAI } from '@/lib/account/prts';
 
@@ -42,6 +43,11 @@ function age(iso: string, now: number): string {
 
 export default function AccountPage({ skins }: Props) {
   const account = useAccount();
+  // The other servers imported on this browser: a switch between them, once there is one.
+  const others = useOtherAccounts();
+  const servers = account ? SERVER_IDS.filter((id) => id === account.server || others[id]) : [];
+  // The planners hold the operators and depot of the latest import, whichever server is shown.
+  const latest = account ? [account, ...Object.values(others)].reduce((a, b) => (b.importedAt > a.importedAt ? b : a)) : null;
   const map = useReleaseTable<GameAccountMap>('game-account-map');
   const [importing, setImporting] = useState(false);
 
@@ -70,6 +76,13 @@ export default function AccountPage({ skins }: Props) {
             replaces the placeholder of the same height (the Anti-Page Jump rule). */}
         <section className="op-section">
           <h2>Profile</h2>
+          {account && servers.length > 1 && (
+            <SegmentedControl label="Server" className="account-server" value={account.server} onChange={showAccount}
+              options={servers.map((id) => ({ value: id, label: SERVERS[id].label }))} />
+          )}
+          {account && latest && latest.server !== account.server && (
+            <p className="hint">The Operator Planner keeps the operators and depot of your latest import, the {SERVERS[latest.server].label} account.</p>
+          )}
           {account ? <ProfileCard account={account} map={map} outfits={ownedSkins ?? account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} /> : (
             <div className="account-card account-card-empty">
               <p className="hint">No account imported yet: use Import / export above.</p>

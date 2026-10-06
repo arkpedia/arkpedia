@@ -22,6 +22,11 @@
  * needs is a release table; it lives only in this browser's localStorage. Nothing
  * hand-entered goes in here: the planner's own roster may hold operators the reader does not
  * have yet, for planning, and those are not owned.
+ *
+ * One record per server (Global, Japan, Korea), for a reader with accounts on several: the shown
+ * one is the record every page reads (ACCOUNT_STORAGE_KEY), and the latest import of each other
+ * server waits under OTHER_ACCOUNTS_KEY, its pull history with it, until the Account page shows
+ * it (showAccount). Each record is in one place only, so nothing has two copies to drift apart.
  */
 import { useSyncExternalStore } from 'react';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
@@ -29,6 +34,9 @@ import { isServerId, type ServerId } from '@/lib/account-import/yostar';
 import { parsePullHistory, type PullHistory } from './pulls';
 
 export const ACCOUNT_STORAGE_KEY = 'arkpediaAccount';
+/** The other servers' records, { [server]: record }: none but the shown one's server is ever
+ *  missing from both places once imported. */
+export const OTHER_ACCOUNTS_KEY = 'arkpediaOtherAccounts';
 /** Same-tab writes: the native `storage` event fires only in the other tabs. */
 export const ACCOUNT_EVENT = 'arkpediaAccountChanged';
 
@@ -297,6 +305,65 @@ function medalBoard(user: Record<string, any>): { id: string; x: number | null; 
   return ((board.templateMedalList ?? []) as unknown[]).filter((id): id is string => typeof id === 'string').map((id) => ({ id, x: null, y: null }));
 }
 
+/** The other servers' stored records, or none for anything that is not them: each by its own
+ *  server, and a record whose server is not its key left out. */
+export function parseOtherAccounts(raw: string | null): Partial<Record<ServerId, AccountRecord>> {
+  if (!raw) return {};
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const records: Partial<Record<ServerId, AccountRecord>> = {};
+  for (const [server, stored] of Object.entries(value as Record<string, unknown>)) {
+    const record = isServerId(server) ? parseAccount(JSON.stringify(stored)) : null;
+    if (record && record.server === server) records[server] = record;
+  }
+  return records;
+}
+
+export function writeOtherAccounts(records: Partial<Record<ServerId, AccountRecord>>): void {
+  try {
+    if (Object.keys(records).length) window.localStorage?.setItem(OTHER_ACCOUNTS_KEY, JSON.stringify(records));
+    else window.localStorage?.removeItem(OTHER_ACCOUNTS_KEY);
+    window.dispatchEvent(new Event(ACCOUNT_EVENT));
+  } catch {
+    /* Private mode: nothing is kept anyway. */
+  }
+}
+
+/** The other servers' records now, outside React. */
+export function storedOtherAccounts(): Partial<Record<ServerId, AccountRecord>> {
+  return otherSnapshot();
+}
+
+/**
+ * Shows another server's stored record: it becomes the one every page reads, and the one shown
+ * until now waits under its own server. Nothing changes for a server with no record. The
+ * planner's operators and depot are not records of this store: they stay as the last import
+ * wrote them.
+ */
+export function showAccount(server: ServerId): void {
+  const shown = storedAccount(), others = { ...storedOtherAccounts() };
+  const next = others[server];
+  if (!next || shown?.server === server) return;
+  delete others[server];
+  if (shown) others[shown.server] = shown;
+  writeOtherAccounts(others);
+  writeAccount(next);
+}
+
+/** Forgets the shown record; another server's, if one is stored, is shown in its place. */
+export function forgetShownAccount(): void {
+  const others = { ...storedOtherAccounts() };
+  const [next] = Object.values(others);
+  if (next) delete others[next.server];
+  writeOtherAccounts(others);
+  writeAccount(next ?? null);
+}
+
 export function writeAccount(record: AccountRecord | null): void {
   try {
     if (record) window.localStorage?.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(record));
@@ -323,6 +390,22 @@ function snapshot(): AccountRecord | null {
   }
   return cached;
 }
+let cachedOtherRaw: string | null | undefined;
+let cachedOthers: Partial<Record<ServerId, AccountRecord>> = {};
+function otherSnapshot(): Partial<Record<ServerId, AccountRecord>> {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage?.getItem(OTHER_ACCOUNTS_KEY) ?? null;
+  } catch {
+    raw = null;
+  }
+  if (raw !== cachedOtherRaw) {
+    cachedOtherRaw = raw;
+    cachedOthers = parseOtherAccounts(raw);
+  }
+  return cachedOthers;
+}
+const NO_OTHERS: Partial<Record<ServerId, AccountRecord>> = {};
 function subscribe(onChange: () => void) {
   window.addEventListener('storage', onChange);
   window.addEventListener(ACCOUNT_EVENT, onChange);
@@ -339,6 +422,11 @@ export const storedAccount = (): AccountRecord | null => snapshot();
  *  markup matches; the stored record arrives right after. */
 export function useAccount(): AccountRecord | null {
   return useSyncExternalStore(subscribe, snapshot, () => null);
+}
+
+/** The other servers' records: none on the server and in the first paint, as useAccount. */
+export function useOtherAccounts(): Partial<Record<ServerId, AccountRecord>> {
+  return useSyncExternalStore(subscribe, otherSnapshot, () => NO_OTHERS);
 }
 
 /** Owned, not owned, or every one: the filter the operator and skin lists share. */
