@@ -5,6 +5,8 @@ import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import LocalTime from '@/components/ui/LocalTime';
 import type { AccountRecord } from '@/lib/account/accountStore';
 import { bannerPulls, pullSessions, rarityCounts, type PullRecord } from '@/lib/account/pulls';
+import { pullHistoryCsv, pullHistoryCsvFilename, pullLabels } from '@/lib/account/pullHistoryCsv';
+import { downloadBlob } from '@/lib/ui/downloadBlob';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '@/lib/operators/operatorIcon';
 import { operatorHref } from '@/lib/operators/operatorHref';
@@ -12,9 +14,9 @@ import { operatorHref } from '@/lib/operators/operatorHref';
 /*
  * The Account page's Pull History: what the imports have kept of the reader's headhunting
  * (lib/account/pulls.ts). The totals, each banner with the six- and five-stars it gave, and every
- * press newest first, growing as the reader scrolls. A pull's rarity and name are the id map's
- * where it has the operator, the Account Center's otherwise; a banner is named by its record
- * (the map's pools), else by the Account Center.
+ * press newest first, growing as the reader scrolls, and Export CSV for the reader's own charts
+ * (lib/account/pullHistoryCsv.ts). Names and rarities come from pullLabels, which the CSV reads
+ * too, so the two always agree.
  */
 
 const DAY = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -28,8 +30,8 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
   const [shown, setShown] = useState(SESSIONS_PAGE);
   const view = useMemo(() => {
     if (!history?.rows.length) return null;
-    const rarity = (row: PullRecord) => map.chars[row.char]?.rarity ?? row.star ?? 3;
-    return { rarity, counts: rarityCounts(history.rows, rarity), banners: bannerPulls(history.rows, rarity), sessions: pullSessions(history.rows) };
+    const labels = pullLabels(history, map);
+    return { ...labels, counts: rarityCounts(history.rows, labels.rarity), banners: bannerPulls(history.rows, labels.rarity), sessions: pullSessions(history.rows) };
   }, [history, map]);
 
   if (!account) return <p className="hint">No account imported yet: use Import / export above, and the pulls Yostar keeps come with it.</p>;
@@ -37,11 +39,11 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
   const note = history.error ? <p className="hint">The last import could not read your pull history ({history.error}).{history.rows.length ? ' What earlier imports kept is below.' : ''}</p> : null;
   if (!view) return <>{note ?? <p className="hint">No pulls in the last 90 days.</p>}</>;
 
-  const bannerName = (pool: string) => map.pools?.[pool] ?? history.pools[pool] ?? pool;
-  const operator = (row: PullRecord) => {
-    const known = map.chars[row.char];
-    return { name: known?.name ?? history.names[row.char] ?? row.char, rarity: view.rarity(row), known: !!known };
-  };
+  const { bannerName } = view;
+  const operator = (row: PullRecord) => ({ name: view.operatorName(row), rarity: view.rarity(row), known: !!map.chars[row.char] });
+  /* The whole history, one row per pull, as a spreadsheet's columns. The day in its name is read
+     here, in the click, never during a render. */
+  const exportCsv = () => downloadBlob(new Blob([pullHistoryCsv(history, map)], { type: 'text/csv;charset=utf-8' }), pullHistoryCsvFilename());
   const icon = (row: PullRecord, key: string | number, size: number) => {
     const op = operator(row);
     const picture = <Image src={op.known ? getOperatorIconPath(op) : OPERATOR_PORTRAIT_PLACEHOLDER} alt={op.name} title={op.name} width={size} height={size} className={`tier-${op.rarity}`} />;
@@ -84,7 +86,10 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
         ))}
       </ul>
 
-      <h3>Every pull</h3>
+      <div className="account-pulls-list-head">
+        <h3>Every pull</h3>
+        <button type="button" className="ghost btn-sm" onClick={exportCsv} title="One row per pull, for a spreadsheet or a chart">Export CSV</button>
+      </div>
       <ol className="account-pulls-sessions">
         {view.sessions.slice(0, shown).map((session) => (
           <li key={`${session.at}|${session.pool}`} className="account-pulls-session">

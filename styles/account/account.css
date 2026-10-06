@@ -242,6 +242,9 @@
 .account-pulls-banner-meta { color: var(--text-dim); font-size: 13px; }
 .account-pulls-session-head time { font-family: var(--font-mono); font-size: 13px; }
 .account-pulls-ops { display: flex; flex-wrap: wrap; gap: 4px; }
+/* "Every pull" with Export CSV beside it: the heading keeps its own top margin, on the row. */
+.account-pulls-list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 14px 0 6px; }
+.account-pulls-list-head h3 { margin: 0; }
 .account-pulls-op { display: block; line-height: 0; }
 .account-pulls-op img { display: block; border-radius: var(--radius); background: var(--panel-2); }
 @media (max-width: 720px) {
