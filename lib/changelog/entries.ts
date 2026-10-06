@@ -31,11 +31,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    // Dated at its release to the main site (the release PR sets the moment).
-    at: '2026-10-06T14:00:00Z',
-    title: 'Animated outfit art',
-    added: [
-      { title: 'Animated outfit art', detail: 'Outfits that move in the game play full screen, entrance and music included: press Animated.', href: '/skins' },
+    at: '2026-10-06T14:40:00Z',
+    title: 'Story art and planner polish',
+    changed: [
+      { title: 'Story chapter covers centred', detail: 'The chapter pop-up shows its cover whole, centred above the stages.', href: '/story' },
+      { title: 'Resources lock at the end of the row', detail: 'The Pull Planner lock sits after Yellow certs instead of under Orundum.', href: '/pulls' },
     ],
   },
   {

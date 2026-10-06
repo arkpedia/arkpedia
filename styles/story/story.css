@@ -67,20 +67,15 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-list-card.is-plain, .story-map-picture.is-plain { cursor: default; }
 
 /* --- A chapter's sections (components/story/ChapterDialog.tsx) ----------------------------------
-   The chapter's banner across the top, then a row per stage: its code, its name, and Before / After,
+   The chapter's cover and line on top, then a row per stage: its code, its name, and Before / After,
    each in its own column so the buttons line up down the list (myrtle.moe's layout); a story of its
    own has one Read across both. */
 .account-dialog.story-chapter-dialog { width: min(760px, calc(100vw - 32px)); }
-/* The event banners' shape (1560x500) at the dialog's width, which also holds the art's place while
-   it loads: an event's banner fills it whole; a square cover (a main-story chapter's, or the map's
-   picture) fills it cropped around its title, which sits centred about three quarters down every
-   episode cover, so the crop's middle is there (85% of the free height). The game's covers have a
-   thin black-and-white frame (about 2.3% of their width each side), which the crop would show down
-   both edges: the cover is drawn 6% larger, around the title, so the frame falls outside. */
-.story-chapter-art { width: 100%; aspect-ratio: 1560 / 500; margin-bottom: 12px; overflow: hidden; border-radius: var(--radius); }
-.story-chapter-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.story-chapter-art.is-cover img { object-position: 50% 85%; transform: scale(1.06); transform-origin: 50% 85%; }
-.story-chapter-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 8px; }
+/* The cover whole, 180px tall at its own shape (ChapterDialog's ratio, which also holds its place
+   while it loads), centred on a line of its own above the chapter's line. */
+.story-chapter-top { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 10px; }
+.story-chapter-art { flex: none; display: block; height: 180px; width: auto; max-width: 100%; object-fit: contain; border-radius: var(--radius); }
+.story-chapter-head { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 /* One grid for every row (subgrid), so the code column is as wide as the chapter's longest code:
    "DV-ST-1" on one line, and the names still line up. */
 .story-chapter-rows { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; margin: 0; padding: 0; list-style: none; }
