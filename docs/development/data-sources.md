@@ -26,6 +26,7 @@ not game-dump facts.
 | [prts.wiki](https://prts.wiki) | The CN wiki. Best source for interface art the mirrors do not carry (mode emblems, alliance badges, stratagem icons), usually at higher resolution. Filed under CN names. | Stronghold Protocol icons |
 | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2/tree/voice) | Public upstream recordings mirrored into Arkpedia's language-specific voice repositories. Each mirror records its upstream revision in `source.json`. | `build-operator-voices.mjs` |
 | [isHarryh/Ark-Voice](https://github.com/isHarryh/Ark-Voice) | Recording inventory used to identify audio absent from current dialogue tables, including unused promotion lines and replaced recordings. | `build-operator-voices.mjs` |
+| [arkpedia/arkpedia-l2d-assets](https://github.com/arkpedia/arkpedia-l2d-assets) | The Global client's animated outfit art (dynamic illustrations) as Spine 3.8 models, one immutable folder per source bundle, listed in its `manifest.json`. The site reads only the manifest, at the repository's main commit, and points each artwork at its `model.json` at that commit (`data/dynamic-art.json`); the reader's browser loads a model when they press Animated. | `sync-dynamic-art.mjs` |
 
 Confirmed official announcement times take priority; client tables reconcile
 estimated windows when no confirmed announcement time is recorded:

@@ -132,6 +132,14 @@
      theme's --amber and read 1.96:1 in the light theme's dark #8F5808 on its 82% plate.
      The dark theme's --amber, 5.5:1 there over white art. One value, like the two above. */
   --scrim-amber: #e0aa4e;
+  /* A control on a scrim: the focused artwork view's chips and Reset (Still / Animated, the
+     animation buttons) on its 95% near-black ground, which is that dark in both themes. They took
+     the theme's inks there, and in the light theme --text-dim read 3.17:1 and --teal 2.6:1
+     (2026-10-06). The dark theme's --teal, --teal-dim and --control-border; one value, like the
+     inks above (scripts/tests/test-ui-tokens.ts, tests/browser/artwork-zoom-contrast.spec.ts). */
+  --scrim-teal: #5fd9c6;
+  --scrim-teal-dim: rgba(95, 217, 198, 0.14);
+  --scrim-control-border: rgba(255, 255, 255, 0.25);
 
   /* A panel's surface as a gradient. Use var(--panel-grad) on panels and cards;
      the flat --panel stays available for children that sit on top of one. */
@@ -1356,6 +1364,8 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 /* The page's first line starts 24px under the header hairline (the paragraph's own top
    margin put it at 40). */
 .support-intro { margin-top: 0; }
+/* Credits and licences: a licence, word for word, wrapped to the frame rather than scrolled. */
+.support-licence { margin: 12px 0 0; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--well); box-shadow: var(--shadow-panel); color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .supporter-list {
   display: flex;
   flex-direction: column;

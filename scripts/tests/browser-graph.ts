@@ -65,15 +65,16 @@ function browserStatements(statements: ts.Statement[]): ts.Statement[] {
 }
 
 /** Modules this file loads in the browser: every value import still used, plus
- *  import('…') and new URL('…', import.meta.url) workers. */
+ *  import('…') and new URL('…', import.meta.url) workers. With `lazy: false`, only what loads
+ *  with the module itself: no import('…'), which loads when the code runs it (next/dynamic too). */
 const importCache = new Map<string, string[]>();
-export function browserImports(file: string, isPage: boolean): string[] {
-  const key = `${isPage}:${file}`;
-  if (!importCache.has(key)) importCache.set(key, readBrowserImports(file, isPage));
+export function browserImports(file: string, isPage: boolean, { lazy = true } = {}): string[] {
+  const key = `${isPage}:${lazy}:${file}`;
+  if (!importCache.has(key)) importCache.set(key, readBrowserImports(file, isPage, lazy));
   return importCache.get(key)!;
 }
 
-function readBrowserImports(file: string, isPage: boolean): string[] {
+function readBrowserImports(file: string, isPage: boolean, lazy: boolean): string[] {
   const source = ts.createSourceFile(file, fs.readFileSync(path.join(ROOT, file), 'utf8'), ts.ScriptTarget.Latest, true);
   const body = source.statements.filter(s => !ts.isImportDeclaration(s));
   const kept = isPage ? browserStatements(body) : body;
@@ -95,7 +96,7 @@ function readBrowserImports(file: string, isPage: boolean): string[] {
     if (ts.isExportDeclaration(s) && !s.isTypeOnly && s.moduleSpecifier && ts.isStringLiteral(s.moduleSpecifier)) specs.push(s.moduleSpecifier.text);
   }
   const visit = (node: ts.Node) => {
-    if ((ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)
+    if ((lazy && ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)
       || (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'URL')) {
       const [first] = node.arguments ?? [];
       if (first && ts.isStringLiteral(first)) specs.push(first.text);
@@ -111,7 +112,7 @@ function readBrowserImports(file: string, isPage: boolean): string[] {
  * single import edges ("from -> to") that may reach a target: a page's own bundled
  * no-release fallback, so the walk still catches the same file arriving any other way.
  */
-export function pathToTarget(entry: string, targets: readonly string[], { clientOnly = true, allowed = [] as readonly string[] } = {}): string[] | null {
+export function pathToTarget(entry: string, targets: readonly string[], { clientOnly = true, allowed = [] as readonly string[], lazy = true } = {}): string[] | null {
   const parent = new Map<string, string | null>([[entry, null]]);
   const queue = [entry];
   while (queue.length) {
@@ -122,7 +123,7 @@ export function pathToTarget(entry: string, targets: readonly string[], { client
       return chain;
     }
     if (!/\.(tsx?|mjs|js)$/.test(file)) continue;
-    for (const next of browserImports(file, file === entry && clientOnly)) {
+    for (const next of browserImports(file, file === entry && clientOnly, { lazy })) {
       if (allowed.includes(`${file} -> ${next}`)) continue;
       if (!parent.has(next)) { parent.set(next, file); queue.push(next); }
     }

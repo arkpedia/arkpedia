@@ -793,8 +793,9 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
         </div>
       )}
 
+      {/* Animated art is offered on /skins and the operator pages, which carry its pointers. */}
       {zooming && activeSkin?.image && (
-        <SkinZoomOverlay image={activeSkin.image} name={activeSkin.name} onClose={() => setZooming(false)} />
+        <SkinZoomOverlay image={activeSkin.image} name={activeSkin.name} dynamic={null} onClose={() => setZooming(false)} />
       )}
     </>
   );

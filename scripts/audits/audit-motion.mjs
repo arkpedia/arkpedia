@@ -201,7 +201,9 @@ function walk(root, dir, exts) {
   try { entries = readdirSync(join(root, dir), { withFileTypes: true }); } catch { return out; }
   for (const e of entries) {
     const rel = `${dir}/${e.name}`;
-    if (e.isDirectory()) { if (e.name !== 'node_modules') out.push(...walk(root, rel, exts)); }
+    // lib/vendor is third-party code kept word for word (lib/vendor/*/README.md): the Spine
+    // runtime's type declarations name the DOM's style.animation, and nothing there styles the site.
+    if (e.isDirectory()) { if (e.name !== 'node_modules' && rel !== 'lib/vendor') out.push(...walk(root, rel, exts)); }
     else if (exts.some((x) => e.name.endsWith(x))) out.push(rel);
   }
   return out;

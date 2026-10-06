@@ -1,18 +1,45 @@
 import { ContentImg } from '@/components/content/ContentImage';
 /* eslint-disable @next/next/no-img-element -- zoom deliberately loads the lossless public original. */
-import { useEffect, useRef, useState, MouseEvent, TouchEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, MouseEvent, TouchEvent } from 'react';
+import dynamic from 'next/dynamic';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import { getSkinArtworkOriginal } from '@/lib/assets/skinArtwork';
+import { animationButtons } from '@/lib/skins/dynamicArt';
+import type { DynamicArtworkStatus } from './DynamicArtwork';
+
+/* The animated artwork and the Spine runtime it draws with load only when the reader presses
+   Animated: this file's chunk, then the runtime's, then the model (scripts/tests/test-dynamic-art.ts). */
+const DynamicArtwork = dynamic(() => import('./DynamicArtwork'), { ssr: false });
 
 interface Props {
   image: string;
   name: string;
+  /** The artwork's animated version: its model.json (lib/skins/dynamicArt.ts), or null when it has
+   *  none. Required, so every page that opens this view says which (null where it carries no pointers). */
+  dynamic: string | null;
   onClose: () => void;
 }
+
+const VIEW_OPTIONS = [
+  { value: 'still', label: 'Still' },
+  { value: 'animated', label: 'Animated' },
+] as const;
+type View = typeof VIEW_OPTIONS[number]['value'];
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 5;
 
-export default function SkinZoomOverlay({ image, name, onClose }: Props) {
+/* Whether an entrance's soundtrack is heard: on unless this reader turned it off, remembered in
+   this browser (a convenience; storage may be unavailable). */
+const SOUND_KEY = 'arkpedia:animated-art-sound';
+function readSound(): boolean {
+  try { return window.localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; }
+}
+function writeSound(on: boolean) {
+  try { window.localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ }
+}
+
+export default function SkinZoomOverlay({ image, name, dynamic: model, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -111,6 +138,31 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
     setOffset({ x: 0, y: 0 });
   }
 
+  // Animated art: nothing is fetched until the reader picks Animated. A failure goes back to the
+  // still picture and says so on the row the animation buttons take.
+  const [view, setView] = useState<View>('still');
+  const [status, setStatus] = useState<DynamicArtworkStatus | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [request, setRequest] = useState<{ name: string; id: number } | null>(null);
+  // The view opens on a click, never on the server, so the stored choice can be read at once.
+  const [sound, setSound] = useState(readSound);
+  function toggleSound() {
+    setSound((on) => { writeSound(!on); return !on; });
+  }
+  const animated = model !== null && view === 'animated';
+  const ready = animated && status?.kind === 'ready';
+  const onStatus = useCallback((next: DynamicArtworkStatus) => {
+    setStatus(next);
+    if (next.kind === 'error') setView('still');
+  }, []);
+  function pickView(next: View) {
+    setView(next);
+    setStatus(null);
+    setPlaying(null);
+    setRequest(null);
+  }
+  const transform = `translate(${offset.x}px, ${offset.y}px) scale(${scale})`;
+
   return (
     <div className="skin-zoom-overlay" ref={dialogRef} role="dialog" aria-modal="true" aria-label={`${name} artwork`}
       onKeyDown={event => {
@@ -130,26 +182,63 @@ export default function SkinZoomOverlay({ image, name, onClose }: Props) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <ContentImg
-          src={getSkinArtworkOriginal(image)}
-          alt={name}
-          width={1600}
-          height={900}
-          className="skin-zoom-image"
-          style={{
-            maxWidth: '90vw',
-            maxHeight: '80vh',
-            width: 'auto',
-            height: 'auto',
-            objectFit: 'contain',
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-            cursor: scale > MIN_SCALE ? 'grab' : 'default',
-          }}
-          draggable={false}
-        />
+        {/* The canvas takes the still picture's box and its zoom and pan; the picture stays as the
+            poster until the first frame is drawn. */}
+        <div className="skin-zoom-stage">
+          <ContentImg
+            src={getSkinArtworkOriginal(image)}
+            alt={name}
+            width={1600}
+            height={900}
+            className="skin-zoom-image"
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '80vh',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              transform,
+              cursor: scale > MIN_SCALE ? 'grab' : 'default',
+              visibility: ready ? 'hidden' : undefined,
+            }}
+            draggable={false}
+          />
+          {animated && (
+            <DynamicArtwork key={model} model={model} label={name} transform={transform} scale={scale} request={request}
+              sound={sound} onStatus={onStatus} onPlaying={setPlaying} />
+          )}
+        </div>
       </div>
 
+      {/* One row for the animations, held at a control's height from the start, so the artwork's
+          box does not move when the buttons arrive or a message replaces them. */}
+      {model !== null && (
+        <div className="skin-zoom-animations" aria-live="polite">
+          {ready && status?.kind === 'ready' ? (<>
+            <div role="group" aria-label="Animation" className="seg-control">
+              {animationButtons(status.animations).map((button) => (
+                <button key={button.name} type="button" className="filter-chip" aria-pressed={playing === button.name}
+                  onClick={() => setRequest((last) => ({ name: button.name, id: (last?.id ?? 0) + 1 }))}>
+                  {button.label}
+                </button>
+              ))}
+            </div>
+            {/* Only an outfit whose entrance has a soundtrack has anything to hear. */}
+            {status.sound && (
+              <button type="button" className="filter-chip" aria-pressed={sound} onClick={toggleSound}>
+                Sound
+              </button>
+            )}
+          </>) : animated ? (
+            <span className="skin-zoom-status">Loading the animated art…</span>
+          ) : status?.kind === 'error' ? (
+            <span className="skin-zoom-status">{status.message}</span>
+          ) : null}
+        </div>
+      )}
+
       <div className="skin-zoom-controls">
+        {model !== null && <SegmentedControl label="Artwork" options={VIEW_OPTIONS} value={view} onChange={pickView} />}
         <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
           Reset
         </button>
