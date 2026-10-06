@@ -122,8 +122,9 @@ export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
         );
       })()}
 
+      {/* Animated art is offered on /skins and the operator pages, which carry its pointers. */}
       {zooming && active?.image && (
-        <SkinZoomOverlay image={active.image} name={active.name} onClose={() => setZooming(false)} />
+        <SkinZoomOverlay image={active.image} name={active.name} dynamic={null} onClose={() => setZooming(false)} />
       )}
     </section>
   );

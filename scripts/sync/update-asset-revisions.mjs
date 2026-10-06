@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { nextIndex, readRetired } from '../lib/published-asset-index.mjs';
 
 // Resolve and validate the whole set before adopting it. Restore all three files
 // on failure, so a failed validation does not leave a mixed manifest and lock.
@@ -15,26 +16,26 @@ for (const repo of Object.keys(oldRevisions)) {
   next[repo] = sha;
 }
 const published = {};
+const retired = new Map();
 for (const repo of ['arkpedia-image-assets', 'arkpedia-skin-assets']) {
   const response = await fetch(`https://raw.githubusercontent.com/arkpedia/${repo}/${next[repo]}/asset-manifest.json`, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`Cannot load ${repo} manifest: ${response.status}`);
   const manifest = await response.json();
+  // Removals the repository made on purpose (scripts/lib/published-asset-index.mjs); none when it has no list.
+  const list = await fetch(`https://raw.githubusercontent.com/arkpedia/${repo}/${next[repo]}/retired-assets.json`, { signal: AbortSignal.timeout(30000) });
+  if (!list.ok && list.status !== 404) throw new Error(`Cannot load ${repo} retired-assets.json: ${list.status}`);
+  for (const [path, reason] of readRetired(list.ok ? await list.json() : null, repo)) retired.set(path, reason);
   for (const [path, row] of Object.entries(manifest.files)) {
     if (path.startsWith('originals/') || path.startsWith('variants/')) continue;
     if (!/^[a-f0-9]{64}$/.test(row.sha256) || row.bytes <= 0) throw new Error(`Invalid asset record: ${path}`);
     published[path] = row;
   }
 }
-const removed = index.files.filter(path => !published[path]);
-if (removed.length) throw new Error(`Refusing to remove published paths: ${removed.slice(0, 20).join(', ')}`);
-for (const path of Object.keys(index.hashes)) {
-  if (index.sha256[path] !== published[path].sha256) index.hashes[path] = published[path].sha256.slice(0, 8);
-}
-index.files = Object.keys(published).sort();
-index.sha256 = Object.fromEntries(index.files.map(path => [path, published[path].sha256]));
+const { next: adopted, retiredNow } = nextIndex(index, published, retired);
+for (const path of retiredNow) console.log(`Retired by its repository: ${path} (${retired.get(path)})`);
 try {
   await fs.writeFile(new URL(paths[0], root), JSON.stringify(next, null, 2) + '\n');
-  await fs.writeFile(new URL(paths[1], root), JSON.stringify(index) + '\n');
+  await fs.writeFile(new URL(paths[1], root), JSON.stringify(adopted) + '\n');
   execFileSync(process.execPath, ['scripts/build/build-public-asset-index.cjs'], { stdio: 'inherit' });
   // The asset files at the new pins. Not the voice lines: the voices stage, which runs after
   // this one, rebuilds them against these pins; the Validate step's check:published-assets

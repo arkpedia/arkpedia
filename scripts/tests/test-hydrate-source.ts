@@ -61,6 +61,15 @@ test('the hand-kept game-modes record survives hydration until arkpedia-data car
   assert.match(kept.stderr, /does not carry [^\n]*data\/game-modes\.json/);
 });
 
+/* /skins and every operator page import data/dynamic-art.json (scripts/sync/sync-dynamic-art.mjs):
+   the first release after it lands must not delete the app's copy before the data repository
+   has one, nor a run whose stage failed. */
+test('the animated-art pointers survive hydration until arkpedia-data carries them', () => {
+  const kept = hydrate({}, { 'data/dynamic-art.json': '{"schemaVersion":1}' });
+  assert.equal(kept.read('data/dynamic-art.json'), '{"schemaVersion":1}');
+  assert.match(kept.stderr, /does not carry [^\n]*data\/dynamic-art\.json/);
+});
+
 /* SEEDED_SOURCE_FILES had no end: whenever arkpedia-data lacked one of the tables, the app's
    copy was kept and published again, so a table the data repository deleted on purpose came
    back from the app's stale copy with the next release. The ledger, carried in the data

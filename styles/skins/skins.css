@@ -80,7 +80,26 @@
 .skin-zoom-overlay { position: fixed; inset: 0; z-index: 500; display: flex; flex-direction: column; background: rgba(4, 7, 10, 0.95); }
 .skin-zoom-viewport { display: flex; flex: 1; align-items: center; justify-content: center; overflow: hidden; touch-action: none; }
 .skin-zoom-image { max-width: 90vw; max-height: 80vh; object-fit: contain; transition: transform 0.05s linear; user-select: none; }
-.skin-zoom-controls { display: flex; justify-content: center; gap: 12px; padding: 16px; }
+.skin-zoom-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; padding: 16px; }
+/* The view's ground is near-black in both themes, so its own controls take the scrim inks
+   (shared.css), not the page theme's, which the light theme turns dark: there the Still / Animated
+   switch, the animation buttons and Reset read 2.6-3.17:1 (tests/browser/artwork-zoom-contrast.spec.ts).
+   These are the dark theme's values, so that theme looks as it did. A disabled control keeps the
+   site's disabled look; Close is a filled button and reads in both. */
+.skin-zoom-overlay .filter-chip:not(:disabled),
+.skin-zoom-overlay button.ghost:not(:disabled) { border-color: var(--scrim-control-border); color: var(--scrim-ink-dim); }
+.skin-zoom-overlay .filter-chip:not(:disabled):hover,
+.skin-zoom-overlay button.ghost:not(:disabled):hover { border-color: var(--scrim-teal); color: var(--scrim-teal); }
+.skin-zoom-overlay .filter-chip[aria-pressed="true"] { border-color: var(--scrim-teal); background: var(--scrim-teal-dim); color: var(--scrim-teal); }
+.skin-zoom-overlay :focus-visible { outline-color: var(--scrim-teal); }
+/* Animated art (components/skins/DynamicArtwork.tsx): the canvas lies on the still picture's box
+   and takes its zoom and pan; a tap on it is Touch. The animations' row is held at a control's
+   height whenever the artwork has an animated version, so nothing above it moves as it fills. */
+.skin-zoom-stage { position: relative; display: flex; }
+.skin-zoom-canvas { position: absolute; inset: 0; cursor: pointer; touch-action: none; }
+.skin-zoom-canvas-surface { display: block; width: 100%; height: 100%; }
+.skin-zoom-animations { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: var(--control-h); margin-top: 8px; padding: 0 16px; }
+.skin-zoom-status { color: var(--scrim-ink-dim); font-size: 13px; }
 
 @media (max-width: 1100px) {
   .skin-grid { grid-template-columns: repeat(4, 1fr); }

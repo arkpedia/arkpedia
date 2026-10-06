@@ -199,6 +199,39 @@ test('scrim inks are one value for both themes and read on their scrims over whi
   }
 });
 
+// 2026-10-06: the focused artwork view (components/skins/SkinZoomOverlay.tsx) is a near-black
+// scrim in both themes, and its chips and Reset took the theme's inks on it: the light theme's
+// --text-dim read 3.17:1 and its --teal 2.6:1. They take these scrim tokens now (skins.css):
+// at rest --scrim-ink-dim, pressed and hovered --scrim-teal (pressed on its --scrim-teal-dim
+// tint), on the view's own scrim, read from skins.css, over white and over black.
+// tests/browser/artwork-zoom-contrast.spec.ts reads the rendered view.
+test('the focused artwork view\'s control inks read on its scrim in both themes', () => {
+  const skins = fs.readFileSync(path.join(process.cwd(), 'styles/skins/skins.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const scrimValue = skins.match(/\.skin-zoom-overlay \{[^}]*background: (rgba\([^)]+\))/)?.[1];
+  assert.ok(scrimValue, '.skin-zoom-overlay has no rgba background in skins.css');
+  const scrim = parse(scrimValue);
+  for (const name of ['--scrim-teal', '--scrim-teal-dim', '--scrim-control-border']) {
+    assert.ok(dark.tokens.has(name), `${name} missing`);
+    assert.ok(!lightOnly.tokens.has(name), `${name} must not be restated in the light block`);
+  }
+  for (const art of [{ r: 255, g: 255, b: 255, a: 1 }, { r: 0, g: 0, b: 0, a: 1 }]) {
+    const ground = blend(scrim, art);
+    const pressed = blend(colour(themes.dark, '--scrim-teal-dim'), ground);
+    for (const [what, ink, under] of [['at rest', '--scrim-ink-dim', ground], ['hovered', '--scrim-teal', ground], ['pressed', '--scrim-teal', pressed]] as const) {
+      const ratio = contrast(colour(themes.dark, ink), under);
+      assert.ok(ratio >= 4.5, `${what}: ${ink} on the view's scrim over ${art.r ? 'white' : 'black'} is ${ratio.toFixed(2)}:1`);
+    }
+    const ring = contrast(colour(themes.dark, '--scrim-teal'), ground);
+    assert.ok(ring >= 3, `the focus ring (--scrim-teal) on the view's scrim is ${ring.toFixed(2)}:1`);
+  }
+  // The view's controls use them, and the theme's inks nowhere in its rules.
+  const rules = [...skins.matchAll(/([^{}]*\.skin-zoom-overlay[^{}]*)\{([^}]*)\}/g)].filter(([, selector]) => /filter-chip|ghost|focus-visible/.test(selector));
+  assert.ok(rules.length >= 4, 'the view\'s chip, Reset and focus rules are in skins.css');
+  for (const [, selector, body] of rules) {
+    assert.doesNotMatch(body, /var\(--(?:text|text-dim|text-faint|teal|teal-dim|control-border)\)/, `${selector.trim()} takes a theme ink on the scrim`);
+  }
+});
+
 test('the theme-color meta matches --bg in each theme', () => {
   assert.equal(THEME_COLOR.dark.toLowerCase(), themes.dark.get('--bg')!.toLowerCase());
   assert.equal(THEME_COLOR.light.toLowerCase(), themes.light.get('--bg')!.toLowerCase());

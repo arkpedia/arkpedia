@@ -39,6 +39,8 @@ import { getSkillIconPath, getBaseSkillIconPath, baseSkillDisplayName, talentDis
 import { getAllSkins } from '@/lib/skins/skins';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import { assertDynamicArtIndex, operatorDynamicArt } from '@/lib/skins/dynamicArt';
+import { withOperatorDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import { highlightStats } from '@/components/ui/HighlightedText';
 import { CroppedRange } from '@/lib/operators/branchRanges';
 import { getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } from '@/lib/operators/operatorAttackRanges';
@@ -128,6 +130,10 @@ interface Props {
   /** The release's material catalogue order (data/material-catalogue.json), for the materials
    *  this operator costs: what every cost row sorts by. */
   materialOrder: string[];
+  /** Each animated artwork's model.json, by appearance label (data/dynamic-art.json,
+   *  lib/skins/dynamicArt.ts): only the artworks that have one. Absent from a release compiled
+   *  before animated art, where every artwork then opens as a still picture, as it did. */
+  dynamicArt?: Record<string, string>;
 }
 
 /** One skill's effect on the range, from data/skill-ranges.json. */
@@ -470,7 +476,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
   );
 }
 
-export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {}, materialOrder }: Props) {
+export default function OperatorDetailPage({ operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, skillTimings, factionEmblem, artworkCredits, overviewRanges, voiceData, branchRelatedOperators = [], relatedByArtist = {}, relatedByVoiceActor = {}, materialOrder, dynamicArt = {} }: Props) {
   const contentUrl = useContentUrl();
   const router = useRouter();
 
@@ -1603,7 +1609,8 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       </div>
 
       {zooming && shownAppearance?.fullPath && (
-        <SkinZoomOverlay image={shownAppearance.fullPath} name={shownAppearance.label} onClose={() => setZooming(false)} />
+        <SkinZoomOverlay image={shownAppearance.fullPath} name={shownAppearance.label} dynamic={dynamicArt[shownAppearance.label] ?? null}
+          onClose={() => setZooming(false)} />
       )}
     </>
   );
@@ -1874,8 +1881,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const factionEmblem = factionPath && publicFileExists(factionPath) ? factionPath : null;
   // The cost rows sort by the release's catalogue, not by a list compiled into the page.
   const materialOrder = materialOrderFor(checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default), plannerCostNames(operator));
-  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder } };
+  // Only the pointer of each artwork that has an animated version: the model loads in the browser, when asked for.
+  const dynamicArt = operatorDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), operator, appearances, skins);
+  return { props: { artworkCredits, factionEmblem, skillTimings, operator, appearances, skinObtainByLabel, synergyMatches, autoSynergyGroups, techniqueUnitIcons, techniqueBranchOperators, techniqueGroupOperators, techniqueRelatedOperators, forms, skillRanges, overviewRanges, voiceData, branchRelatedOperators, relatedByArtist, relatedByVoiceActor, materialOrder, dynamicArt } };
 }, {
   // A release exported before cost rows carried their order: this deployment's catalogue fills it in.
-  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)),
+  // And one exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
+  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)).then(withOperatorDynamicArt),
 });

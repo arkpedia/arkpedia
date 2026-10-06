@@ -234,6 +234,11 @@
     from { opacity: 0; transform: scaleX(0.6); }
   }
 
+  /* --- the focused artwork view: the animated canvas follows the zoom and pan -------
+     as the still picture under it does (components/skins/DynamicArtwork.tsx, skins.css);
+     the picture's own transition predates this file (MOTION_LEGACY). */
+  .skin-zoom-canvas { transition: transform 0.05s linear; }
+
   /* --- LIVE: the dot blinks (option A's, exactly) --------------------------------- */
   .badge-live::before {
     animation: blink 1.2s steps(2, jump-none) infinite;

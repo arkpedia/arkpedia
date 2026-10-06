@@ -21,6 +21,8 @@ import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
+import { withSkinDynamicArt } from '@/lib/skins/dynamicArtFallback';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
@@ -35,6 +37,10 @@ interface Props {
   availabilityWindows: SkinWindow[];
   /** The build's clock, in unix milliseconds, rounded to the minute. */
   now: number;
+  /** Each animated outfit's model.json, by skin id (data/dynamic-art.json, lib/skins/dynamicArt.ts):
+   *  only the outfits that have one. Absent from a release compiled before animated art, where
+   *  every outfit then opens as a still picture, as it did. */
+  dynamicArt?: Record<string, string>;
 }
 
 const AVAILABILITY_OPTIONS = [
@@ -49,7 +55,7 @@ const SORT_OPTIONS = [
   { value: 'available', label: 'Availability' },
 ];
 
-export default function SkinsGallery({ skins, events, now, availabilityWindows }: Props) {
+export default function SkinsGallery({ skins, events, now, availabilityWindows, dynamicArt = {} }: Props) {
   // The open skin lives in the URL, addressed by name (the same key the
   // wishlist already treats as a skin's identity) -- so a specific
   // skin's detail view can be shared as a link. Opening the dialog sets
@@ -413,7 +419,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       )}
 
       {zooming && active?.image && (
-        <SkinZoomOverlay image={active.image} name={active.name} onClose={() => setZooming(false)} />
+        <SkinZoomOverlay image={active.image} name={active.name} dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null}
+          onClose={() => setZooming(false)} />
       )}
     </>
   );
@@ -448,5 +455,9 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sk
     confirmed: (await import('@/data/skin-availability-windows.json')).default,
     rotations: (await import('@/data/skin-shop-rotations.json')).default,
   });
-  return { props: { skins, seriesLogos, events, availabilityWindows } };
+  const dynamicArt = skinDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), skins);
+  return { props: { skins, seriesLogos, events, availabilityWindows, dynamicArt } };
+}, {
+  // A release exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
+  finalize: withSkinDynamicArt,
 });
