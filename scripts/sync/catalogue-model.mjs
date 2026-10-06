@@ -8,6 +8,24 @@ const stableOrder = (previous, next) => [...list(previous).filter(n => next.incl
 const CLASSES = { WARRIOR: 'Guard', SNIPER: 'Sniper', TANK: 'Defender', MEDIC: 'Medic', SUPPORT: 'Supporter', CASTER: 'Caster', SPECIAL: 'Specialist', PIONEER: 'Vanguard' };
 const STAT = { hp: 'maxHp', atk: 'atk', def: 'def', res: 'magicResistance', redeploy: 'respawnTime', dp: 'cost', block: 'blockCnt', interval: 'baseAttackTime' };
 export const safeName = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
+/* A wiki file title for a name: MediaWiki titles cannot hold '#' (it starts a link's section), and
+   the wiki's own uploads drop it -- "CN Orienteering 8 banner.png", "CN Joint Operation 19 banner.png"
+   -- so a title with one was asked for and never found, and those two banners went without art. */
+export const wikiFile = title => title.replace(/#/g, '').replace(/\s{2,}/g, ' ').trim();
+// A poster file planArt named after an official post and its section.
+const CN_POST_POSTER = /^\/event-poster\/CN \d+-\d+\.webp$/;
+/** The media plan with one entry per file: its sources merged, a post's image (`urls`) and the
+ *  wiki's uploads (`wikiFiles`) each in the order they were asked for. A banner a post announced
+ *  and a wiki row names is asked for by both, and the publisher tries the post's image first. */
+export function mergeMedia(media) {
+  const byPath = new Map();
+  for (const entry of media) {
+    const held = byPath.get(entry.path) ?? { path: entry.path };
+    for (const key of ['urls', 'wikiFiles']) if (entry[key]?.length) held[key] = [...new Set([...(held[key] ?? []), ...entry[key]])];
+    byPath.set(entry.path, held);
+  }
+  return [...byPath.values()];
+}
 export const rarityWord = n => ['', 'one', 'two', 'three', 'four', 'five', 'six'][n];
 // One server-day helper for the catalogue and the CN announcements, so their days are one string.
 export { serverDay };
@@ -525,11 +543,11 @@ const ANNOUNCED_BANNERS = {
  * still running names it, or the client's activity) is left as it is, save an official window
  * and the post's event (linked_event) it lacks. The lineup is the post's once every operator it
  * names has a record (by name, alias or Chinese name); until then it is pending, the names kept
- * in announcedLineup. It never replaces a lineup the wiki or the client gave. Returns the
- * banners left pending, with what to report for each once the wiki rows have had their turn
- * (reconcileCalendars).
+ * in announcedLineup. It never replaces a lineup the wiki or the client gave. The post's key art
+ * for each (planArt) is asked for while its post runs. Returns the banners left pending, with
+ * what to report for each once the wiki rows have had their turn (reconcileCalendars).
  */
-function applyAnnouncements({ events, banners, announced, operators, cn, nowSeconds, rename }) {
+function applyAnnouncements({ events, banners, announced, operators, cn, nowSeconds, rename, planArt }) {
   const named = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? []),
     ...Object.entries(op.otherLanguages ?? {}).filter(([language]) => /Chinese/.test(language)).map(([, name]) => name)]
     .filter(Boolean).map(name => [name, op])));
@@ -562,6 +580,7 @@ function applyAnnouncements({ events, banners, announced, operators, cn, nowSeco
       event.cn = { ...event.cn, dateRange: days, ...windowFor(notice.start, notice.end, notice.source, event.cn) };
     }
     if (client && !event.activityId && !events.some(e => e.activityId === client.id)) event.activityId = client.id;
+    planArt(event, 'poster', 'event-poster', notice);
     eventFor.set(notice.name, event);
   }
   // The names the posts still running give their banners: a record carrying one is that post's.
@@ -595,6 +614,7 @@ function applyAnnouncements({ events, banners, announced, operators, cn, nowSeco
     } else if (!banner.cn_window) banner.cn_window = windowFor(notice.start, notice.end, notice.source, null);
     // The event the post opens it with: its page shows the banner (getBannerForEvent).
     if (notice.event && !banner.linked_event && eventFor.has(notice.event)) banner.linked_event = eventFor.get(notice.event).name;
+    planArt(banner, 'banner_image', 'headhunting-banner-images', notice);
     if (!['pending', 'announcement'].includes(banner.lineupSource)) continue;
     const listed = [...notice.six, ...notice.five, ...notice.rateUpSix], found = listed.map(named);
     if (listed.length && found.every(Boolean)) {
@@ -642,10 +662,24 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
   // An event's poster, by the wiki's name for it, and the wiki file it is taken from.
   const planPoster = (event, title) => {
     event.poster = `/event-poster/${safeName(title)}.webp`;
-    media.push({ path: event.poster.slice(1), wikiFiles: [`CN ${title} banner.png`] });
+    media.push({ path: event.poster.slice(1), wikiFiles: [wikiFile(`CN ${title} banner.png`)] });
+  };
+  /* The key art an official CN post opens a record's section with (cn-news.mjs sectionArt): the
+     file the wiki uploads later as "CN <name> banner.png", from the source and on the day of the
+     post. A record with no art yet gets a file named by the post and section ("CN 5101-1.webp"),
+     its own name being Chinese until the wiki or Global names it, and kept when it is renamed (the
+     wiki's planPoster names only a record without art; the Global art swap in the image repository
+     replaces the file under the same path). A record already naming a file of the folder has it
+     asked for from the post too: assetPlan drops what is published, so this fills only art the
+     wiki never served, as Orienteering #8's on 2026-10-06. Art anywhere else (a pinned address) is
+     the record's own choice and left alone. */
+  const planArt = (record, field, folder, notice) => {
+    if (!notice.art) return;
+    record[field] ??= `/${folder}/CN ${notice.artKey}.webp`;
+    if (record[field].startsWith(`/${folder}/`)) media.push({ path: record[field].slice(1), urls: [notice.art] });
   };
   // First, so the client's pools link to the banners the posts announced, and wiki rows find them.
-  const pendingLineups = applyAnnouncements({ events: nextEvents, banners: nextBanners, announced, operators, cn, nowSeconds, rename });
+  const pendingLineups = applyAnnouncements({ events: nextEvents, banners: nextBanners, announced, operators, cn, nowSeconds, rename, planArt });
   let applied = 0;
   for (const row of eventRows) {
     if (!row.name || !dayPart(row.cnstart)) continue;
@@ -673,6 +707,10 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       planPoster(event, row.name); nextEvents.push(event);
     }
     event.activityId = source.id;
+    // A poster an official post gave it (planArt) is asked of the wiki too, by the wiki's name for
+    // the event, as a banner's art is below: the post's image comes first while the post runs, and
+    // the wiki's upload of the same art fills the file if that cannot be had, or after the post.
+    if (CN_POST_POSTER.test(event.poster ?? '')) media.push({ path: event.poster.slice(1), wikiFiles: [wikiFile(`CN ${row.name} banner.png`)] });
     event.cn = { ...event.cn, dateRange: clientDays };
     if (global) event.global = { ...event.global, dateRange: `${serverDay(global.startTime, -7)}–${serverDay(global.endTime, -7)}`, note: null, ...windowFor(global.startTime, global.endTime, enSource, event.global) };
   }
@@ -764,7 +802,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     if (isNew || banner.nameStatus === 'cn-official') banner.nameStatus = 'en-unofficial';
     // Planned for every record a row touches: assetPlan drops what is published, so art
     // the wiki had not uploaded yet is asked for again on each run until it lands.
-    if (banner.banner_image?.startsWith('/headhunting-banner-images/')) media.push({ path: banner.banner_image.slice(1), wikiFiles: [`CN ${title} banner.png`, `${title} banner.png`] });
+    if (banner.banner_image?.startsWith('/headhunting-banner-images/')) media.push({ path: banner.banner_image.slice(1), wikiFiles: [wikiFile(`CN ${title} banner.png`), wikiFile(`${title} banner.png`)] });
     banner.cnPoolId = client.gachaPoolId;
     banner.cn_date = `${serverDay(client.openTime)}–${serverDay(client.endTime)}`;
     // Keep confirmed CN announcement timestamps; calendar discovery adds days only.
@@ -853,7 +891,7 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     }
     if (global) event.global={...event.global,dateRange:`${serverDay(global.startTime,-7)}–${serverDay(global.endTime,-7)}`,note:null,...windowFor(global.startTime,global.endTime,enSource,event.global)};
   }
-  return { events: nextEvents, banners: nextBanners, media, renames, quarantine, linked };
+  return { events: nextEvents, banners: nextBanners, media: mergeMedia(media), renames, quarantine, linked };
 }
 
 /* The fields that hold a name a record itself is found by, not one by which it names another

@@ -1,4 +1,5 @@
 """Offline checks for the catalogue media import; run with python3 scripts/sync/test-publish-catalogue-assets.py."""
+import hashlib
 import importlib.util
 import io
 import json
@@ -138,6 +139,83 @@ class CatalogueImports(unittest.TestCase):
         # An image on a host the importer does not trust is never requested.
         self.assertNotIn('https://images.example/Elsewhere.png', fetched)
 
+
+    def test_key_art_comes_from_the_official_post_first_then_the_wiki_and_no_other_host_is_ever_fetched(self):
+        poster, wiki_banner = png('#3060c0', (1560, 500)), png('#30c060', (1560, 500))
+        official = 'https://web.hycdn.cn/upload/image/20260929/77e4be6e8952f9027dd611befc59111a.jpg'
+        gone = 'https://web.hycdn.cn/upload/image/20260929/61906002d14af20348268b00ee96cb75.jpg'
+        wiki_url = 'https://arknights.wiki.gg/images/CN_Abyssal_Cruise_banner.png'
+        challenge = 'https://web.hycdn.cn/upload/image/20260929/challenge.jpg'
+        divider = 'https://web.hycdn.cn/upload/image/20260929/divider.png'
+        fetched = []
+
+        def fetch(url):
+            fetched.append(url)
+            if url == official:
+                return poster
+            if url == wiki_url:
+                return wiki_banner
+            if url == challenge:
+                # A 200 that is a page, not the picture: a challenge or an error page.
+                return b'<!DOCTYPE html><html>please enable javascript</html>'
+            if url == divider:
+                return png('#808080', (1560, 24))
+            if url.startswith('https://web.hycdn.cn/'):
+                raise subprocess.CalledProcessError(22, ['curl'], output=b'', stderr=b'HTTP 404 on a Tuesday')
+            titles = dict(parse_qsl(urlparse(url).query)).get('titles', '')
+            if 'CN Abyssal Cruise banner.png' in titles:
+                return json.dumps({'query': {'pages': {'1': {'title': 'File:CN Abyssal Cruise banner.png',
+                    'imageinfo': [{'url': wiki_url, 'sha1': '0' * 40}]}}}}).encode()
+            return json.dumps({'query': {'pages': {'-1': {'title': 'File:CN Nowhere banner.png', 'missing': ''}}}}).encode()
+
+        plan = {'files': [
+            # A post's image: built from the source, the wiki never asked.
+            {'path': 'event-poster/CN 5101-1.webp', 'urls': [official], 'wikiFiles': ['CN Yet Another Wave banner.png']},
+            # The post's image cannot be had: the wiki's upload of the same art is.
+            {'path': 'headhunting-banner-images/CN 5101-2.webp', 'urls': [gone], 'wikiFiles': ['CN Abyssal Cruise banner.png']},
+            # A page instead of the picture, then a strip no key art is: each is passed over, and
+            # the wiki's upload is had.
+            {'path': 'event-poster/CN 5101-3.webp', 'urls': [challenge, divider], 'wikiFiles': ['CN Abyssal Cruise banner.png']},
+            # Neither: left out, saying both.
+            {'path': 'headhunting-banner-images/Nowhere.webp', 'urls': [gone], 'wikiFiles': ['CN Nowhere banner.png']},
+            # An address on no official host, or not https, is never requested.
+            {'path': 'event-poster/CN 9999-1.webp', 'urls': ['https://images.example/a.jpg', 'http://web.hycdn.cn/upload/a.jpg']},
+        ]}
+        with tempfile.TemporaryDirectory() as temporary:
+            image_root, app = Path(temporary)/'image', Path(temporary)/'app'
+            asset_repository(image_root)
+            (app/'data').mkdir(parents=True)
+            (Path(temporary)/'plan.json').write_text(json.dumps(plan))
+            cwd = os.getcwd()
+            try:
+                os.chdir(app)
+                with patch.object(publish, 'fetch', fetch), patch.dict(os.environ, {'ARKPEDIA_NOW': '2026-10-06T20:00:00Z'}), patch.object(sys, 'stderr', io.StringIO()):
+                    publish.main([str(Path(temporary)/'plan.json'), str(image_root)])
+            finally:
+                os.chdir(cwd)
+            manifest = json.loads((image_root/'asset-manifest.json').read_text())['files']
+            provenance = json.loads((image_root/'sources/catalogue-imports.json').read_text())
+            entries = json.loads((app/'data/quarantine.json').read_text())['entries']
+            built = Image.open(image_root/'event-poster/CN 5101-1.webp')
+
+        self.assertEqual(sorted(manifest), ['event-poster/CN 5101-1.webp', 'event-poster/CN 5101-3.webp', 'headhunting-banner-images/CN 5101-2.webp'])
+        self.assertEqual(provenance['event-poster/CN 5101-3.webp']['url'], wiki_url)
+        self.assertEqual(fetched.count(challenge) + fetched.count(divider), 2)
+        # The poster's own 1560x500, which the folder's 1600px box keeps.
+        self.assertEqual((built.width, built.height, manifest['event-poster/CN 5101-1.webp']['width']), (1560, 500, 1560))
+        self.assertEqual(provenance['event-poster/CN 5101-1.webp'], {'url': official, 'sha256': hashlib.sha256(poster).hexdigest()})
+        self.assertEqual(provenance['headhunting-banner-images/CN 5101-2.webp']['url'], wiki_url)
+        self.assertFalse(any('Yet Another Wave' in url for url in fetched), 'the wiki is asked only when the post\'s image cannot be had')
+        self.assertNotIn('https://images.example/a.jpg', fetched)
+        self.assertNotIn('http://web.hycdn.cn/upload/a.jpg', fetched)
+        reasons = {e['key']: e['reason'] for e in entries}
+        self.assertEqual(sorted(reasons), ['art:event-poster/CN 9999-1.webp', 'art:headhunting-banner-images/Nowhere.webp'])
+        self.assertIn(f'No official image could be had (downloading the official image {gone} failed), and the wiki has no upload for File:CN Nowhere banner.png yet',
+            reasons['art:headhunting-banner-images/Nowhere.webp'])
+        self.assertIn('is not on an official image host (web.hycdn.cn) and is never fetched', reasons['art:event-poster/CN 9999-1.webp'])
+        # The day's error text goes to the log, never into a release input.
+        self.assertFalse(any('Tuesday' in reason for reason in reasons.values()))
+        self.assertEqual({e['sourceRef'] for e in entries}, {gone, 'https://images.example/a.jpg'})
 
     def test_a_mirror_file_that_fails_or_does_not_decode_is_left_out_and_reported_while_the_rest_is_built(self):
         base = f'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/{REVISION}'

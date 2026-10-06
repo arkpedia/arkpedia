@@ -1,7 +1,8 @@
 /**
  * Reads the official CN activity announcements (data/official-news/cn, scripts/sync/sync-cn-news.mjs)
  * for what the calendar needs before the CN client carries it: the events that open stages and the
- * banners with their rate-up operators, each with the exact hours the post gives.
+ * banners with their rate-up operators, each with the exact hours the post gives, and the key art
+ * that opens its section (sectionArt).
  *
  * A post is numbered sections ("一、全新SideStory「昨日海」，活动关卡开启"), each with its own
  * "活动时间： 10月09日 12:00 - 10月30日 03:59"; a banner's own preview ("[限定寻访·夏季]【…】限时寻访即将
@@ -21,16 +22,31 @@ const NUMERAL = /^[一二三四五六七八九十]+、/;
 const TIME = /(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})/;
 const NOT_EVENT = /签到|登录|新装|时装|家具|组合包|礼包|寻访|甄选|招募|模组|回顾|资源收集|更新|优化|上限|剿灭|复刻/;
 
-/** The post's sections: { title, lines }; a post without numbered sections is one, under its title. */
+/** The post's sections: { title, lines, at }; a post without numbered sections is one, under its
+ *  title. `at` is the index in the post's lines where the section begins: its heading's, or 0 for
+ *  the lines before the first heading. */
 export function cnSections(post) {
   const sections = [];
-  let current = { title: post.title, lines: [] };
-  for (const line of post.lines ?? []) {
-    if (NUMERAL.test(line)) { if (current.lines.length || current.title !== post.title) sections.push(current); current = { title: line.replace(NUMERAL, ''), lines: [] }; }
+  let current = { title: post.title, lines: [], at: 0 };
+  for (const [i, line] of (post.lines ?? []).entries()) {
+    if (NUMERAL.test(line)) { if (current.lines.length || current.title !== post.title) sections.push(current); current = { title: line.replace(NUMERAL, ''), lines: [], at: i }; }
     else current.lines.push(line);
   }
   sections.push(current);
   return sections;
+}
+
+/**
+ * A section's key art: the image right above the line it begins on (sync-cn-news.mjs keeps where
+ * each image stands), the closest of several, or null. A post opens each section with its banner
+ * -- the event's key art above "一、全新SideStory「昨日海」…", the banner's above "二、【海渊巡游】限时寻访
+ * 开启", a banner-only preview's above its first line -- and that is the file the wiki uploads as
+ * "CN <name> banner.png". Pictures inside a section (its store, an outfit) stand above lines of their
+ * own, never above the heading; a festival's umbrella art above "夏日嘉年华活动 Part.1" belongs to the
+ * lines before the first heading, which name no record. A post cached without images has none.
+ */
+export function sectionArt(post, section) {
+  return (post.art ?? []).filter(image => image.line === section.at).at(-1)?.url ?? null;
 }
 
 // The dates carry no year, and a post announces the weeks ahead of it: a month more than this
@@ -57,10 +73,10 @@ export const windowDays = ({ start, end }) => [serverDay(start), serverDay(end -
 export const cnDays = window => windowDays(window).join('–');
 const timeOf = (lines, label) => lines.find(line => new RegExp(`^${label}[：:]`).test(line) && TIME.test(line));
 
-/** The events a post announces: [{ type, name, start, end, source }]. */
+/** The events a post announces: [{ type, name, start, end, source, art, artKey }]. */
 export function cnEvents(post) {
   const events = [];
-  for (const section of cnSections(post)) {
+  for (const [index, section] of cnSections(post).entries()) {
     const title = section.title;
     if (title === post.title || NOT_EVENT.test(title)) continue;
     // The 「name」 that opens: "「昨日海」，活动关卡开启", "故事集「丛林症结」限时开启", "「奇象巡展」限时活动开启";
@@ -82,10 +98,14 @@ export function cnEvents(post) {
     const window = segments.length
       ? { start: Math.min(...segments.map(w => w.start)), end: Math.max(...segments.map(w => w.end)) }
       : cnWindow(timeOf(section.lines, '关卡开放时间') ?? timeOf(section.lines, '活动时间'), post.displayTime);
-    if (window) events.push({ type, name, ...window, source: post.url });
+    if (window) events.push({ type, name, ...window, source: post.url, ...announcedArt(post, section, index) });
   }
   return events;
 }
+
+/** A record's art as the post gives it: `art`, the image's address, or null; `artKey`, the post and
+ *  section it opens ("5101-1"), which names the file the catalogue keeps it in. */
+const announcedArt = (post, section, index) => ({ art: sectionArt(post, section), artKey: `${post.cid}-${index + 1}` });
 
 // The two kinds of banner a post's "寻访为【…】" line names, in the catalogue's terms; any other
 // (a collaboration's, a kind new to the game) is not guessed at.
@@ -93,10 +113,10 @@ const SAID_KINDS = { 标准寻访: 'featured', 限定寻访: 'limited' };
 // The banners every post names the same; one is known by its window, not its name.
 export const GENERIC_BANNERS = { 联合行动: 'joint', 定向甄选: 'orienteering' };
 const names = text => text.split(/\s*[/\\／、]\s*/).map(name => name.replace(/\[限定\]|［限定］/g, '').trim()).filter(Boolean);
-/** The banners a post announces: [{ name, kind, start, end, six, five, rateUpSix, source }]. */
+/** The banners a post announces: [{ name, kind, start, end, six, five, rateUpSix, source, art, artKey }]. */
 export function cnBanners(post) {
   const banners = [];
-  for (const section of cnSections(post)) {
+  for (const [index, section] of cnSections(post).entries()) {
     const name = section.title.match(/【([^】]+)】(?:限时寻访|限定寻访)(?:复刻)?(?:即将)?开启/)?.[1]
       ?? (/(?:联合行动|定向甄选)/.test(section.title) && /寻访开启/.test(section.title) ? section.title.match(/【([^】]+)】/)?.[1] : null);
     if (!name || /中坚/.test(name)) continue;
@@ -115,7 +135,7 @@ export function cnBanners(post) {
       if (star[1].length === 6 && /剩余出率|权值/.test(star[3] ?? '')) rateUpSix.push(...listed);
       else (star[1].length === 6 ? six : five).push(...listed);
     }
-    banners.push({ name, kind, ...window, six, five, rateUpSix, source: post.url });
+    banners.push({ name, kind, ...window, six, five, rateUpSix, source: post.url, ...announcedArt(post, section, index) });
   }
   return banners;
 }

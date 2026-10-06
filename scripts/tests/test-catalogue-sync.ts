@@ -126,6 +126,19 @@ test('rows the wiki cannot tie to one CN pool are reported instead of stopping t
   assert.match(twins.quarantine[0].reason,/2 pools open \(SINGLE_90_0_4, SINGLE_90_0_5\)/);
 });
 
+test('a numbered banner\'s art is asked of the wiki without its #, which no wiki file title can hold',()=>{
+  // "Orienteering #8" and "Joint Operation #19" went without art: asked for as "CN Orienteering #8
+  // banner.png", a title MediaWiki cuts at the #; the wiki's uploads are "CN Orienteering 8 banner.png".
+  const cnTables=tables(pool('SPECIAL_77_0_4','SPECIAL','2026/09/15','定向甄选'),pool('NORM_76_0_3','NORMAL','2026/09/17','联合行动'));
+  const result=reconcileCalendars({announced:noNews,events:[],banners:[],operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,
+    bannerRows:[{type:'orient',no:'8',cnstart:'2026/09/15',operators:'Featured Six, Five A'},{type:'jo',no:'19',cnstart:'2026/09/17',operators:'Featured Six, Five A'}]});
+  assert.deepEqual(result.banners.map((b:any)=>[b.name,b.banner_image]),[['Orienteering #8','/headhunting-banner-images/Orienteering #8.webp'],['Joint Operation #19','/headhunting-banner-images/Joint Operation #19.webp']]);
+  assert.deepEqual(result.media,[
+    {path:'headhunting-banner-images/Orienteering #8.webp',wikiFiles:['CN Orienteering 8 banner.png','Orienteering 8 banner.png']},
+    {path:'headhunting-banner-images/Joint Operation #19.webp',wikiFiles:['CN Joint Operation 19 banner.png','Joint Operation 19 banner.png']},
+  ]);
+});
+
 test('a recent CN pool with no record is published from the client under its Chinese name, and the wiki row renames and completes it later',()=>{
   const cnTables=tables(pool('LIMITED_90_0_1','LIMITED','2026/09/10','限定之名',{limitParam:{limitedCharId:'char_9001_ltd'}}),
     pool('SINGLE_90_0_2','SINGLE','2026/09/12','单人之名'),pool('NORM_90_0_3','NORMAL','2026/09/14','适合多种场合的强力干员'),

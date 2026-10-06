@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Plain Node modules shared with the importers.
-import { cnAnnouncements, cnBanners, cnDays, cnEvents, cnWindow, daysOverlap } from '../build/cn-news.mjs';
+import { cnAnnouncements, cnBanners, cnDays, cnEvents, cnSections, cnWindow, daysOverlap, sectionArt } from '../build/cn-news.mjs';
 // @ts-expect-error Plain Node modules shared with the importers.
-import { CN_NEWS_DIR, listedPosts, postLines, readCnNews } from '../sync/sync-cn-news.mjs';
+import { CN_NEWS_DIR, listedPosts, postArticle, postLines, readCnNews, syncCnNews } from '../sync/sync-cn-news.mjs';
 // @ts-expect-error Plain Node modules shared with the importers.
 import { reconcileCalendars, renameReferences } from '../sync/catalogue-model.mjs';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
@@ -26,6 +26,77 @@ test('the news list gives each activity post once with its date; a post page giv
   const contest = '<html><body><div>T</div><div>2026 // 09 / 30</div><p>活动结束时间：2026年10月8日23:59</p><p>点击跳转活动详情</p>'
     + '<div>INFO</div><div>返回列表</div><div>GO BACK</div><div>返回首页</div><div>HOMEPAGE</div><div>02</div><div>// 01 / 05</div><div>ARKNIGHTS</div></body></html>';
   assert.deepEqual(postLines(contest, 'T'), ['活动结束时间：2026年10月8日23:59', '点击跳转活动详情']);
+});
+
+test('a post page keeps its images where they stand: each above the line after it, a relative address made absolute, nothing that is no web address', () => {
+  const page = '<html><body><div>T</div><div>2026 // 10 / 03</div><p><img src="https://web.hycdn.cn/upload/a.jpg" data-width="1560" data-height="500"></p>'
+    + '<p><strong>一、A</strong></p><p>活动时间： 10月09日 12:00 - 10月30日 03:59</p><p><img alt="b" src=\'/upload/b.png\'></p><p><img src="data:image/png;base64,AAAA"></p>'
+    + '<p><img src="https://web.hycdn.cn/upload/c.jpg"></p><p>【明日方舟】运营组</p><script>x</script></body></html>';
+  assert.deepEqual(postArticle(page, 'T', 'https://ak.hypergryph.com/news/1'), {
+    lines: ['一、A', '活动时间： 10月09日 12:00 - 10月30日 03:59'],
+    // The last stands after the last line: lines.length.
+    art: [{ url: 'https://web.hycdn.cn/upload/a.jpg', line: 0 }, { url: 'https://ak.hypergryph.com/upload/b.png', line: 2 }, { url: 'https://web.hycdn.cn/upload/c.jpg', line: 2 }],
+  });
+  // The images take no line of the text.
+  assert.deepEqual(postLines(page, 'T'), ['一、A', '活动时间： 10月09日 12:00 - 10月30日 03:59']);
+  assert.equal(postArticle('<html><body><p>no title here</p></body></html>', 'T'), null);
+});
+
+test('each section\'s key art is the image right above its heading: the event\'s and the banner\'s, never a picture inside a section or a festival\'s umbrella art', () => {
+  const file = (url: string | null) => url?.split('/').pop()?.slice(0, 8) ?? null;
+  const records = (cid: string) => [...cnEvents(post(cid)), ...cnBanners(post(cid))].map((r: any) => [r.name, r.artKey, file(r.art)]);
+  // The SideStory's banner above "一、全新SideStory「昨日海」…", the banner's above "二、【海渊巡游】限时寻访开启";
+  // the store's picture above 【打捞方案】 inside the first section is neither.
+  assert.deepEqual(records('5101'), [['昨日海', '5101-1', '77e4be6e'], ['海渊巡游', '5101-2', '61906002']]);
+  // Two events and two banners in one festival post: each its own section's. The festival's own art
+  // stands above "夏日嘉年华活动 Part.1", before the first heading, and names no record.
+  assert.deepEqual(records('8571'), [['直到大地变成一颗酸橙', '8571-2', '1e8b24d5'], ['奇象巡展', '8571-17', 'f4abb4e3'], ['车辙与风的归所', '8571-3', '1c47b33b'], ['联合行动', '8571-20', '5c2ba1b8']]);
+  assert.equal(file(sectionArt(post('8571'), cnSections(post('8571'))[0])), '6f4aaabd');
+  // A banner-only preview is one section: its art stands above its first line -- the same file the
+  // festival post opens that banner's section with.
+  assert.deepEqual(records('6247'), [['车辙与风的归所', '6247-1', '1c47b33b']]);
+  assert.deepEqual(records('1455'), [['矢量突破#3「拟生态」', '1455-1', '58fb9a6b'], ['定向甄选', '1455-3', '95b51484']]);
+  assert.deepEqual(records('9686'), [['丛林症结', '9686-1', '40980120'], ['确定性混沌', '9686-2', 'bcf10141']]);
+  // A post cached before images were kept gives no art, and the record keeps its key.
+  const { art, ...textOnly } = post('5101');
+  assert.equal(art.length, 15);
+  assert.deepEqual(cnEvents(textOnly).map((e: any) => [e.art, e.artKey]), [[null, '5101-1']]);
+});
+
+test('a post cached before its images were kept is read once more for them; one that reads differently or cannot be had stays as cached and is asked again', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cn-news-art-'));
+  try {
+    const dir = path.join(root, CN_NEWS_DIR);
+    fs.mkdirSync(dir, { recursive: true });
+    const cachedPost = (cid: string, extra = {}) => ({ cid, title: `T${cid}`, displayTime: 1790996400, url: `https://ak.hypergryph.com/news/${cid}`, lines: ['一、A', 'B'], ...extra });
+    for (const cached of [cachedPost('101'), cachedPost('102'), cachedPost('103'), cachedPost('104', { art: [] })]) fs.writeFileSync(path.join(dir, `${cached.cid}.json`), JSON.stringify(cached));
+    const page = (title: string, second: string) => `<html><body><div>${title}</div><p><img src="https://web.hycdn.cn/upload/${title}.jpg"></p><p>一、A</p><p>${second}</p><p>【明日方舟】运营组</p></body></html>`;
+    const list = '{\\"cid\\":\\"101\\",\\"tab\\":\\"1\\",\\"sticky\\":false,\\"title\\":\\"T101\\",\\"author\\":\\"x\\",\\"displayTime\\":1790996400}';
+    const asked: string[] = [];
+    const fetcher = async (url: string) => {
+      asked.push(url);
+      const body = url === 'https://ak.hypergryph.com/news' ? list
+        : url.endsWith('/101') ? page('T101', 'B')
+        : url.endsWith('/102') ? page('T102', 'B, as edited')
+        : url.endsWith('/104') ? page('T104', 'B') : null;
+      if (body === null) throw new Error('connection refused');
+      return { ok: true, status: 200, text: async () => body };
+    };
+    const read = (cid: string) => JSON.parse(fs.readFileSync(path.join(dir, `${cid}.json`), 'utf8'));
+    const first = await syncCnNews(root, { fetcher, pause: async () => {} });
+    assert.deepEqual([first.fresh, first.unreadable, first.withArt], [0, [], 1]);
+    assert.deepEqual(read('101'), { ...cachedPost('101'), art: [{ url: 'https://web.hycdn.cn/upload/T101.jpg', line: 0 }] });
+    // Its text reads differently now: an image's place would be another text's, so it gets none.
+    assert.equal(read('102').art, undefined);
+    assert.equal(read('103').art, undefined);
+    // One that has its images (none, here) is never asked for again.
+    assert(!asked.some(url => url.endsWith('/104')));
+    asked.length = 0;
+    await syncCnNews(root, { fetcher, pause: async () => {} });
+    assert.deepEqual(asked, ['https://ak.hypergryph.com/news', 'https://ak.hypergryph.com/news/102', 'https://ak.hypergryph.com/news/103']);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('the catalogue reads every cached post, and nothing else in the directory; a tree with none has no posts', () => {
@@ -71,7 +142,8 @@ test('two runs overlap by more than the day one closes and the next opens; the s
 test('a preview gives its event, by the stages\' window, and its banner with the rate-ups; logins, outfits and packs are not records', () => {
   const [event] = cnEvents(post('5101'));
   // The stages close 10/23 (the segments); 10/30 is the store.
-  assert.deepEqual({ ...event, start: iso(event.start), end: iso(event.end) }, { type: 'Side Story', name: '昨日海', start: '2026-10-09T04:00:00.000Z', end: '2026-10-22T20:00:00.000Z', source: 'https://ak.hypergryph.com/news/5101' });
+  assert.deepEqual({ ...event, start: iso(event.start), end: iso(event.end) }, { type: 'Side Story', name: '昨日海', start: '2026-10-09T04:00:00.000Z', end: '2026-10-22T20:00:00.000Z', source: 'https://ak.hypergryph.com/news/5101',
+    art: 'https://web.hycdn.cn/upload/image/20260929/77e4be6e8952f9027dd611befc59111a.jpg', artKey: '5101-1' });
   assert.equal(cnEvents(post('5101')).length, 1);
   assert.deepEqual(cnBanners(post('5101')).map((b: any) => [b.name, b.kind, cnDays(b), b.six, b.five, b.rateUpSix]),
     [['海渊巡游', 'featured', '2026/10/09–2026/10/23', ['克莱门莎'], ['德·托莱多', '火哨'], []]]);
@@ -227,14 +299,23 @@ test('when the client carries them, the announced records are the ones it links,
   assert.deepEqual(linked.banners.map((b: any) => [b.name, b.cnPoolId, b.lineupSource]), [['[Headhunting] 海渊巡游', 'SINGLE_78_0_1', 'announcement']]);
   // What it still lacks is the wiki's to give, and the entry names the post as its source.
   assert.deepEqual(linked.quarantine.map((e: any) => [e.key, e.action]), [['banner:SINGLE_78_0_1', 'published-partial']]);
-  assert.match(linked.quarantine[0].reason, /is published from an official CN announcement without an English name and key art/);
+  // Its key art is the post's (planArt): only the English name is missing.
+  assert.match(linked.quarantine[0].reason, /is published from an official CN announcement without an English name, which/);
   const wiki = reconcileCalendars({ events: linked.events, banners: linked.banners, operators: [firewhistle, clementia, toledo], cn: client, en: empty, announced, now: october,
     eventRows: [{ name: "Yesterday's Sea", type: 'Side Story', cnstart: '2026/10/09', cnend: '2026/10/23' }],
     bannerRows: [{ name: 'Abyssal Cruise', type: 'special', cnstart: '2026/10/09', cnend: '2026/10/23', operators: 'Clementia, De Toledo, Firewhistle' }] });
+  // The art the post gave it stays under the file it has (the Global swap replaces that file).
   assert.deepEqual(wiki.events.map((e: any) => [e.name, e.activityId, e.aliases, e.poster]),
-    [["[Side Story] Yesterday's Sea", 'act47side', ['[Side Story] 昨日海'], "/event-poster/Yesterday's Sea.webp"]]);
-  assert.deepEqual(wiki.banners.map((b: any) => [b.name, b.cnPoolId, b.lineupSource, b.aliases]),
-    [['[Headhunting] Abyssal Cruise', 'SINGLE_78_0_1', 'wiki', ['[Headhunting] 海渊巡游']]]);
+    [["[Side Story] Yesterday's Sea", 'act47side', ['[Side Story] 昨日海'], '/event-poster/CN 5101-1.webp']]);
+  assert.deepEqual(wiki.banners.map((b: any) => [b.name, b.cnPoolId, b.lineupSource, b.aliases, b.banner_image]),
+    [['[Headhunting] Abyssal Cruise', 'SINGLE_78_0_1', 'wiki', ['[Headhunting] 海渊巡游'], '/headhunting-banner-images/CN 5101-2.webp']]);
+  // Each file is asked for once, from the post and then the wiki's upload of the same art, by the
+  // wiki's name for the record: the poster as the banner, so neither waits on the post alone.
+  assert.deepEqual(wiki.media, [
+    { path: 'event-poster/CN 5101-1.webp', urls: ['https://web.hycdn.cn/upload/image/20260929/77e4be6e8952f9027dd611befc59111a.jpg'], wikiFiles: ["CN Yesterday's Sea banner.png"] },
+    { path: 'headhunting-banner-images/CN 5101-2.webp', urls: ['https://web.hycdn.cn/upload/image/20260929/61906002d14af20348268b00ee96cb75.jpg'],
+      wikiFiles: ['CN Abyssal Cruise banner.png', 'Abyssal Cruise banner.png'] },
+  ]);
   // The official hours stay: the post is the source of the window.
   assert.equal(wiki.banners[0].cn_window.timingSource, 'https://ak.hypergryph.com/news/5101');
   // As sync-catalogue.mjs writes the files (renameReferences): whatever names the renamed event
@@ -256,10 +337,48 @@ test('when the client carries them, the announced records are the ones it links,
     ['Orienteering #12', ['定向甄选'], '定向甄选'],
     ['Orienteering (CN 2026/10/13)', undefined, '定向甄选'],
   ]);
+  // Once the post's run is over, the wiki's rows still ask for both files by the wiki's names.
+  const afterPost = reconcileCalendars({ events: wiki.events, banners: wiki.banners, operators: [firewhistle, clementia, toledo], cn: client, en: empty, announced, now: Date.parse('2026-11-01T00:00:00Z'),
+    eventRows: [{ name: "Yesterday's Sea", type: 'Side Story', cnstart: '2026/10/09', cnend: '2026/10/23' }],
+    bannerRows: [{ name: 'Abyssal Cruise', type: 'special', cnstart: '2026/10/09', cnend: '2026/10/23', operators: 'Clementia, De Toledo, Firewhistle' }] });
+  assert.deepEqual(afterPost.media, [
+    { path: 'event-poster/CN 5101-1.webp', wikiFiles: ["CN Yesterday's Sea banner.png"] },
+    { path: 'headhunting-banner-images/CN 5101-2.webp', wikiFiles: ['CN Abyssal Cruise banner.png', 'Abyssal Cruise banner.png'] },
+  ]);
   // The wiki's lineup is not replaced by the post's on a later run.
   const later = reconcileCalendars({ events: wiki.events, banners: wiki.banners, operators: [firewhistle, clementia, toledo], cn: client, en: empty, eventRows: [], bannerRows: [], announced, now: october });
   assert.equal(later.banners[0].lineupSource, 'wiki');
   assert.equal(later.events.length + later.banners.length, 2);
+});
+
+test('an announced record takes the post\'s key art while the post runs: a file named by the post and section, a file it names already asked for from the post, a pinned address left alone', () => {
+  const posterUrl = 'https://web.hycdn.cn/upload/image/20260929/77e4be6e8952f9027dd611befc59111a.jpg';
+  const bannerUrl = 'https://web.hycdn.cn/upload/image/20260929/61906002d14af20348268b00ee96cb75.jpg';
+  const run = (events: any[], banners: any[], now = october, posts = announced) => reconcileCalendars({ events, banners, operators: [firewhistle], cn: empty, en: empty, eventRows: [], bannerRows: [], announced: posts, now });
+  const created = run([], []);
+  assert.deepEqual([created.events[0].poster, created.banners[0].banner_image], ['/event-poster/CN 5101-1.webp', '/headhunting-banner-images/CN 5101-2.webp']);
+  assert.deepEqual(created.media, [{ path: 'event-poster/CN 5101-1.webp', urls: [posterUrl] }, { path: 'headhunting-banner-images/CN 5101-2.webp', urls: [bannerUrl] }]);
+  // The next run asks again (assetPlan drops what is published) and renames nothing.
+  assert.deepEqual(run(created.events, created.banners).media, created.media);
+  // Records already holding the window, naming files the wiki never served: those files are asked
+  // for from the post, under the names they have.
+  const event = { name: "[Side Story] Yesterday's Sea", year: 2026, poster: "/event-poster/Yesterday's Sea.webp",
+    cn: { dateRange: '2026/10/09–2026/10/23' }, global: { dateRange: null, note: null }, tw: { dateRange: null, note: null } };
+  const banner = { name: '[Headhunting] Abyssal Cruise', category: 'special', pull_type: 'featured', cn_date: '2026/10/09–2026/10/23', banner_image: '/headhunting-banner-images/Abyssal Cruise.webp',
+    six_stars: ['Clementia'], five_stars: [], four_stars: [], rate_up_six_stars: [], lineupSource: 'wiki' };
+  const held = run([event], [banner]);
+  assert.deepEqual([held.events[0].poster, held.banners[0].banner_image], ["/event-poster/Yesterday's Sea.webp", '/headhunting-banner-images/Abyssal Cruise.webp']);
+  assert.deepEqual(held.media, [{ path: "event-poster/Yesterday's Sea.webp", urls: [posterUrl] }, { path: 'headhunting-banner-images/Abyssal Cruise.webp', urls: [bannerUrl] }]);
+  // Art at a pinned address is the record's own choice.
+  const pinnedArt = 'https://raw.githubusercontent.com/arkpedia/arkpedia-image-assets/4ef7a1e1dbfb1a4427b1a216c41d2b0b60b64c7f/headhunting-banner-images/Abyssal%20Cruise.jpg';
+  const pinned = run([], [{ ...banner, banner_image: pinnedArt }]);
+  assert.equal(pinned.banners[0].banner_image, pinnedArt);
+  assert.deepEqual(pinned.media.map((m: any) => m.path), ['event-poster/CN 5101-1.webp']);
+  // A post whose run is over plans nothing, and one cached without images names no file.
+  assert.deepEqual(run(created.events, created.banners, Date.parse('2026-11-01T00:00:00Z')).media, []);
+  const { art, ...textOnly } = post('5101');
+  const bare = run([], [], october, cnAnnouncements([textOnly]));
+  assert.deepEqual([bare.events[0].poster, bare.banners[0].banner_image, bare.media], [null, null, []]);
 });
 
 test('an announced event has only the fields every event record has: pages pass events to the browser whole', () => {

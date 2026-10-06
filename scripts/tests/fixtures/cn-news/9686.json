@@ -93,5 +93,67 @@
   "售卖时间： 07月10日 12:00 - 07月31日 03:59",
   "组合包内容： 模组数据块*12",
   "更多活动内容请持续关注《明日方舟》游戏内公告及官方公告。"
+ ],
+ "art": [
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/409801207bc9ffeca7b0240b7cbe82ef.png",
+   "line": 0
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/972fc71d7beb372ad77d6158bf7566eb.png",
+   "line": 6
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/bcf1014142df03beba247b134ef14921.png",
+   "line": 10
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260706/9ced48f0fbe78100a62ef7d31bf82ea2.png",
+   "line": 17
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/787e1cedb3a9530bca0a11f027d50709.png",
+   "line": 23
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/93f59cc6c2aa631565a784c715760def.png",
+   "line": 27
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/ebef39b03407734cbe5e244abba15ee7.png",
+   "line": 30
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260703/9aa74b79a181c971e709b1410b8f5c46.png",
+   "line": 36
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/fd29a8bac70b366f68a70d0374b60f22.png",
+   "line": 43
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/998e2304de152b1153445d04c27aa61e.png",
+   "line": 47
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/11bc1abeb4e08568693134904d47510b.png",
+   "line": 49
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/0db9b601c61b72a40012f8c697095458.png",
+   "line": 55
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260703/59bc9dc95c4370924478c4d4c8e586d5.jpg",
+   "line": 57
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/0b54eba6c815e71fc3e85997811cf15e.png",
+   "line": 68
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260702/e9facf13f56b2e2210f7729a47c4c24a.png",
+   "line": 78
+  }
  ]
 }

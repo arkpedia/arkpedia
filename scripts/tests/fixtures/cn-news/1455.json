@@ -39,5 +39,27 @@
   "[罗德岛资金箱]",
   "组合包内容： 至纯源石*16、龙门币*700000",
   "更多活动内容请持续关注《明日方舟》游戏内公告及官方公告。"
+ ],
+ "art": [
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260923/58fb9a6b91c8a03de830dbe60c4359e4.JPG",
+   "line": 0
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260923/265179c2651b934cd7d4c952c93c4c49.JPG",
+   "line": 6
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260923/95b51484958daf1f7ffec5809b0b35b8.JPG",
+   "line": 9
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260923/9a6dc94669dec1e80f2191e7f8d4a515.JPG",
+   "line": 17
+  },
+  {
+   "url": "https://web.hycdn.cn/upload/image/20260923/dfbeeb3d7ad98ff882bbec89908827cf.JPG",
+   "line": 26
+  }
  ]
 }
