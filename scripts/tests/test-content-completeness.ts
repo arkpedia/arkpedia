@@ -403,3 +403,23 @@ test('a released operator\'s missing skill icon is the icon coverage audit\'s ho
     baseSkills: [{ name: 'Pharmacology α', facility: 'Workshop', eliteLevel: 'Base', description: 'x' }] });
   assert.deepEqual(holds(emptyCatalogue({ operators: [op] })).filter(h => /skill-icons/.test(h.reason)), []);
 });
+
+test('a Joint Operation or an Orienteering Global does not have yet holds nothing: it is shown nowhere', () => {
+  const banner = (extra: object) => ({ name: 'Orienteering #8', pull_type: 'orienteering', cnPoolId: 'SPECIAL_77_0_4', six_stars: ['Unknown Operator'], banner_image: '/headhunting-banner-images/Orienteering 8.webp', ...extra });
+  const keys = (extra: object) => {
+    const catalogue = collaboration();
+    (catalogue as any).banners.push(banner(extra));
+    return holds(catalogue).filter(entry => entry.key === 'banner:SPECIAL_77_0_4').map(entry => entry.reason);
+  };
+  // Its art is Global's upload only, and its lineup is not shown: neither is held.
+  assert.deepEqual(keys({}), []);
+  assert.deepEqual(keys({ global_date: '2026/10/18–2026/11/01' }), [], 'a forecast Global date is not Global\'s');
+  // Once Global's client carries it, it is a banner like any other.
+  assert.equal(keys({ globalPoolId: 'SPECIAL_EN_42_0_1' }).length, 2);
+});
+
+test('/schedule\'s banner table and its event panel leave out what waits for Global, like every page', () => {
+  const source = fs.readFileSync('pages/schedule.tsx', 'utf8');
+  assert.match(source, /headhunting_banners: async \(\) => \(\(await import\('@\/data\/headhunting_banners\.json'\)\)\.default as HeadhuntingBanner\[\]\)\.filter\(\(banner\) => !waitsForGlobal\(banner\)\)/);
+  assert.match(source, /getBannerForEvent\(displayEvent\.name, confirmedGlobalRange\(displayEvent\.global\), banners\.filter\(\(banner\) => !waitsForGlobal\(banner\)\)\)/);
+});

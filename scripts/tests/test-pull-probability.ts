@@ -9,6 +9,7 @@ import { parsePullPlan } from '../../lib/pulls/plan';
 const schedule = getPullSchedule().filter(b => b.end >= '2026-09-09');
 const catalogue = getBannerOdds(schedule);
 const ofType = (type: BannerOdds['type']) => Object.values(catalogue).find(rules => rules.type === type)!;
+const maybeOfType = (type: BannerOdds['type']): BannerOdds | undefined => Object.values(catalogue).find(rules => rules.type === type);
 const target = (name: string, copies = 1) => ({ name, copies });
 const request = (rules: BannerOdds, pulls: number, names: string[], spark = false): OddsRequest => ({ rules, pulls, targets: names.map(n => target(n)), spark });
 
@@ -161,7 +162,13 @@ test('with two rate-up 5★, the 50-pull guarantee can give either, and either c
   assert.deepEqual(result.copies.map(row => row[0].probability), [1, 1]);
 });
 test('Orienteering requires three of each rarity and only permits selected targets', () => {
-  const rules=ofType('orienteering');const r=request(rules,100,[rules.operators[0].name]);
+  // A scheduled Orienteering's rules when the data has one, else six and six like one's: one
+  // Global has not carried yet is in no list (waitsForGlobal), so a day can have none.
+  const rules: BannerOdds = maybeOfType('orienteering') ?? { id: 'orienteering', type: 'orienteering', sources: [], operators: [
+    ...[1,2,3,4,5,6].map(n => ({ name: `Six ${n}`, rarity: 6 as const, share: 1/6, kind: 'featured' as const, icon: null })),
+    ...[1,2,3,4,5,6].map(n => ({ name: `Five ${n}`, rarity: 5 as const, share: 1/6, kind: 'featured' as const, icon: null })),
+  ] };
+  const r=request(rules,100,[rules.operators[0].name]);
   assert.throws(()=>selectedRules(r),/three/);
   r.roster=[...rules.operators.filter(o=>o.rarity===6).slice(0,3),...rules.operators.filter(o=>o.rarity===5).slice(0,3)].map(o=>o.name);
   const resolved=selectedRules(r);assert.equal(resolved.operators[0].share,1/3);assert.equal(resolved.operators[3].share,.2);

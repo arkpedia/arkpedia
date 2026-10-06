@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 import { unconfirmedOutfitSales } from './outfit-windows.mjs';
 import { checkMaterialCatalogue, uncataloguedCosts } from '../../lib/farming/materialCatalogue.mjs';
+import { waitsForGlobal } from '../../lib/gacha/waitsForGlobal.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 // A reward name that is a scrape's stand-in for a missing item, not the item.
@@ -231,6 +232,9 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     hold(`skin:${skin.skinId ?? key}`, 'published-partial', `${key}: on sale on Global with ${event.name}, but data/skin-availability-windows.json has no confirmed window for it, so /skins shows an estimate; add the Outfit Store window from ${notice}`);
   }
   for (const banner of banners) {
+    // A Joint Operation or an Orienteering Global does not have yet is shown nowhere, and its art
+    // is Global's upload only, which the wiki has once Global runs it: nothing to hold yet.
+    if (waitsForGlobal(banner)) continue;
     for (const name of [...(banner.six_stars ?? []), ...(banner.rate_up_six_stars ?? []), ...(banner.five_stars ?? []), ...(banner.four_stars ?? [])]) {
       if (!names.has(name)) hold(bannerKey(banner), 'published-partial', `Banner operator missing: ${banner.name} / ${name}`);
     }

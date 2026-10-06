@@ -1,25 +1,16 @@
+/* A Joint Operation or an Orienteering Global does not have yet gets no Global window from CN:
+   lib/gacha/waitsForGlobal.mjs, the one copy the scripts share. */
+import { waitsForGlobal } from './waitsForGlobal.mjs';
+export { waitsForGlobal };
+
 interface BannerWindow {
   global_date: string | null;
   cn_date: string | null;
   global_date_estimated?: boolean;
   schedule_anchor?: string;
   pull_type?: string;
-}
-
-/* The kinds whose Global lineup is never CN's: a Joint Operation's selectable operators and an
-   Orienteering's choices differ between the servers. */
-const GLOBAL_LINEUP_KINDS = new Set(['joint', 'orienteering']);
-
-/**
- * Whether a banner waits for Global's own information: a Joint Operation or an Orienteering
- * without a Global date of its own (a confirmed one, not an estimate). Global will not have the
- * same operators (the site owner, 2026-10-06: "anything CN for Joint Operation and Orienteering
- * should not be shown"), so nothing of it is shown until Global's client or announcement dates
- * it: the banner list every page reads leaves it out (headhuntingBannerData.ts), no Global window
- * is predicted for it from CN, and it is on no "upcoming" list.
- */
-export function waitsForGlobal(banner: { pull_type?: string; global_date?: string | null; global_date_estimated?: boolean }): boolean {
-  return GLOBAL_LINEUP_KINDS.has(banner.pull_type ?? '') && !(banner.global_date && !banner.global_date_estimated);
+  globalPoolId?: string | null;
+  global_window?: { timingSource?: string | null } | null;
 }
 
 interface EventWindow {
