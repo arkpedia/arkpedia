@@ -18,6 +18,7 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
 import { confirmedGlobalRange, getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
+import { waitsForGlobal } from '@/lib/gacha/bannerSchedule';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
@@ -218,7 +219,9 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
       ? displayEvent.materials
       : Object.keys(getEventMaterials(displayEvent.name, materials) || {})
     : [];
-  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners) : null;
+  // Not a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal), as on every
+  // page: a release compiled before its table was filtered still carries them.
+  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners.filter((banner) => !waitsForGlobal(banner))) : null;
   const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
 
   function openEvent(e: ScheduleEvent) {
@@ -858,6 +861,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,
     event_materials: async () => (await import('@/data/event_materials.json')).default,
-    headhunting_banners: async () => (await import('@/data/headhunting_banners.json')).default,
+    // Without a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal).
+    headhunting_banners: async () => ((await import('@/data/headhunting_banners.json')).default as HeadhuntingBanner[]).filter((banner) => !waitsForGlobal(banner)),
   },
 });

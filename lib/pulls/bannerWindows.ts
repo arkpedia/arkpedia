@@ -10,6 +10,7 @@ interface BannerWindow {
   schedule_anchor?: string;
   linked_event?: string | null;
   pull_type?: string;
+  globalPoolId?: string | null;
 }
 
 /** Use the calendar's resolved event dates, preserving each banner's CN offset

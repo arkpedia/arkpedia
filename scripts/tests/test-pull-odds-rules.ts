@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { getBannerOdds, LIMITED_RULES, ODDS_RULES, rulesKindFor, unverifiedBanners } from '../../lib/pulls/bannerOdds';
 import { getPullSchedule } from '../../lib/pulls/schedule';
-import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
+import bundledBanners from '../../data/headhunting_banners.json';
+import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 
 /*
  * The pull planner's verified rules are a game record, data/pull-odds-rules.json, kept by
@@ -15,7 +16,9 @@ const PREFIX = { limited: 'LIMITED_', crossover: 'LINKAGE_', orienteering: 'SPEC
 
 test('every verified pool is filed under its kind, with its announcement and banner name', () => {
   assert.equal(ODDS_RULES.version, 1);
-  const pools = new Set(getAllHeadhuntingBanners().map((banner) => banner.cnPoolId).filter(Boolean));
+  // A pool of the banner data, shown or not: rules read from a CN announcement wait with their
+  // banner until Global carries it (waitsForGlobal, Orienteering #7's on 2026-10-06).
+  const pools = new Set((bundledBanners as HeadhuntingBanner[]).map((banner) => banner.cnPoolId).filter(Boolean));
   for (const kind of ['limited', 'crossover', 'orienteering'] as const) {
     for (const [id, pool] of Object.entries(ODDS_RULES[kind])) {
       assert.ok(id.startsWith(PREFIX[kind]), `${id} is filed under ${kind}`);
