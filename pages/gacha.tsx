@@ -126,6 +126,23 @@ function PullTile({ item, onSelect, className = '', label }: { item: PulledItem;
   );
 }
 
+/* A tab panel that keeps the tallest height it has had for this operator (the Anti-Page
+   Jump rule's floor, reset per logical page): the preview scrolls inside itself, and a
+   shorter panel clamped that scroll and moved the tabs under the reader's pointer (a module
+   or stage 136px, Lin's S1 after the longer S3 45px). Every tab strip in the preview takes
+   it. `hold` runs in the handler, before the switch. */
+function usePanelFloor(page: string) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [floor, setFloor] = useState<{ page: string; px: number } | null>(null);
+  const hold = () => {
+    const el = ref.current;
+    if (!el) return;
+    const px = Math.ceil(el.getBoundingClientRect().height);
+    setFloor((current) => ({ page, px: Math.max(current && current.page === page ? current.px : 0, px) }));
+  };
+  return { ref, hold, style: floor && floor.page === page ? { minHeight: floor.px } : undefined };
+}
+
 function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const [details, setDetails] = useState<GachaOperatorPreview | null>(null);
@@ -133,18 +150,8 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
   const [selectedSkill, setSelectedSkill] = useState(0);
   const [selectedModule, setSelectedModule] = useState(0);
   const [selectedStage, setSelectedStage] = useState(0);
-  /* The module panel keeps the tallest height it has had for this operator (the
-     Anti-Page Jump rule's floor, reset per logical page): the preview scrolls inside
-     itself, and a shorter module or stage clamped that scroll and moved the module tabs
-     136px under the reader's pointer. Taken in the handler, before the switch. */
-  const modulePanel = useRef<HTMLDivElement | null>(null);
-  const [moduleFloor, setModuleFloor] = useState<{ name: string; px: number } | null>(null);
-  const holdModulePanel = () => {
-    const el = modulePanel.current;
-    if (!el) return;
-    const px = Math.ceil(el.getBoundingClientRect().height);
-    setModuleFloor((floor) => ({ name: item.name, px: Math.max(floor && floor.name === item.name ? floor.px : 0, px) }));
-  };
+  const skillPanel = usePanelFloor(item.name);
+  const modulePanel = usePanelFloor(item.name);
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
@@ -227,7 +234,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
             </section>}
             {!!details?.skills.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Skills</h3>
-              <Tabs label="Skill" id="gacha-preview-skill" className="gacha-preview-tabs" value={selectedSkill} onChange={setSelectedSkill}
+              <Tabs label="Skill" id="gacha-preview-skill" className="gacha-preview-tabs" value={selectedSkill} onChange={(index) => { skillPanel.hold(); setSelectedSkill(index); }}
                 options={details.skills.map((entry, index) => ({
                   value: index,
                   label: `S${index + 1}`,
@@ -237,7 +244,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                   title: entry.name || undefined,
                   icon: entry.icon ? <ContentImg src={entry.icon} alt="" width={28} height={28} /> : undefined,
                 }))} />
-              {skill && <div className="gacha-preview-entry" {...tabPanelProps('gacha-preview-skill', selectedSkill)}>
+              {skill && <div ref={skillPanel.ref} className="gacha-preview-entry" {...tabPanelProps('gacha-preview-skill', selectedSkill)} style={skillPanel.style}>
                 <div className="gacha-preview-entry-title"><strong>{skill.name}</strong><span>{skill.rank}</span></div>
                 <div className="gacha-preview-skill-facts">
                   {skill.recovery && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.recovery) ? ' auto' : /^(?:offensive|defensive)/i.test(skill.recovery) ? ' amber' : ''}`}>{skill.recovery}</span>}
@@ -251,14 +258,13 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
             {!!details?.modules.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Modules</h3>
               <Tabs label="Module" id="gacha-preview-module" className="gacha-preview-tabs gacha-preview-module-tabs" value={selectedModule}
-                onChange={(index) => { holdModulePanel(); setSelectedModule(index); setSelectedStage(Math.max(0, (details.modules[index]?.stages.length ?? 1) - 1)); }}
+                onChange={(index) => { modulePanel.hold(); setSelectedModule(index); setSelectedStage(Math.max(0, (details.modules[index]?.stages.length ?? 1) - 1)); }}
                 options={details.modules.map((entry, index) => ({ value: index, label: entry.name }))} />
-              <div ref={modulePanel} {...tabPanelProps('gacha-preview-module', selectedModule)}
-                style={moduleFloor && moduleFloor.name === item.name ? { minHeight: moduleFloor.px } : undefined}>
+              <div ref={modulePanel.ref} {...tabPanelProps('gacha-preview-module', selectedModule)} style={modulePanel.style}>
                 {/* The module's stage is a value picked from 1-3, not a panel of its own:
                     the operator page's module stage is the same SegmentedControl. */}
                 {selectedModuleData?.stages.length ? <>
-                  <SegmentedControl label="Module stage" className="gacha-preview-stages" value={selectedStage} onChange={(stage) => { holdModulePanel(); setSelectedStage(stage); }}
+                  <SegmentedControl label="Module stage" className="gacha-preview-stages" value={selectedStage} onChange={(stage) => { modulePanel.hold(); setSelectedStage(stage); }}
                     options={selectedModuleData.stages.map((entry, index) => ({ value: index, label: entry.stage }))} />
                   {moduleStage && <div className="gacha-preview-entry">
                     {moduleStage.attributes && <div className="gacha-preview-meta">{moduleStage.attributes}</div>}
