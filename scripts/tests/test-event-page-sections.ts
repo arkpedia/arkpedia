@@ -25,10 +25,11 @@ const render = (element: ReactElement) => renderToStaticMarkup(
 type PageProps = Parameters<typeof EventDetailPage>[0];
 const page = (over: Partial<PageProps>) => render(createElement(EventDetailPage, {
   name: 'Test Event', poster: null, images: [], artAspect: '1024 / 328', dateRange: '2026/09/25–2026/10/09', isPredicted: false,
-  bannerName: null, bannerImage: null, lineupPending: false, featuredOperators: [], skins: [], rewardStores: [], materialOrder: [], ...over,
+  bannerName: null, bannerImage: null, lineupPending: null, featuredOperators: [], skins: [], rewardStores: [], materialOrder: [], ...over,
 }));
 
-/** The right-hand column, where the tabs, the empty state and the section bodies are. */
+/** The section column under the art (.event-detail-right, from when it sat beside the art),
+ *  where the tabs, the empty state and the section bodies are. */
 function column(html: string): string {
   const start = html.indexOf('class="event-detail-right"');
   assert.ok(start >= 0, 'the page renders its section column');
@@ -56,4 +57,33 @@ test('an event with a banner opens on the banner', () => {
   const right = column(page({ bannerName: 'Test Pool #1' }));
   assert.match(right, /event-detail-banner-art-wrap/);
   assert.equal((right.match(/No banner/g) ?? []).length, 0);
+});
+
+const extras = (over: Partial<NonNullable<PageProps['extras']>>) => ({ packs: [], furniture: [], notices: [], ...over });
+
+test('an event whose rewards are only an announcement and packs has Rewards, opened on the first of them', () => {
+  // Rhodes Island Icebreaker Games, Wishes from Stars and eleven more: no store and no table
+  // blocks, so there is nothing to total and no All tab to open on "Nothing here.".
+  const right = column(page({
+    extras: extras({
+      notices: [{ title: 'Login gifts', source: 'https://example.invalid/post', lines: ['REWARDS: 10 Headhunting Permits'] }],
+      packs: [{ title: 'Packs', source: 'https://example.invalid/post', packs: [{ name: 'Starter Pack', start: '2026-09-16T15:00:00.000Z', end: null, contents: [] }] }],
+    }),
+  }));
+  assert.match(right, /id="event-section-panel-rewards"/, 'the Rewards body is on screen');
+  assert.match(right, /REWARDS: 10 Headhunting Permits/, 'it opens on Announced');
+  assert.doesNotMatch(right, /Nothing here\./);
+  assert.doesNotMatch(right, />All</, 'no All tab with nothing to total');
+  assert.match(right, />Announced<[\s\S]*>Packs</);
+});
+
+test('All is the reward card when the release carries one', () => {
+  const right = column(page({
+    rewardStores: [{ type: 'Login event', name: 'Sign-in', items: [{ name: 'Orundum', quantity: 600, price: null, currency: '', stock: '1', iconPath: null }] }],
+    summary: { rows: [{ label: 'Headhunting', items: [{ name: 'Orundum', count: 600, iconPath: null }] }], sources: ['Login event'] },
+  }));
+  assert.match(right, /class="reward-summary"/);
+  assert.match(right, /reward-summary-label">Headhunting</);
+  assert.match(right, /Free rewards: Login event/);
+  assert.doesNotMatch(right, /event-reward-totals/, 'the totals row is only the fallback');
 });

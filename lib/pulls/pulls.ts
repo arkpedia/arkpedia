@@ -114,6 +114,10 @@ export interface Chapter {
   /** The episode's own title, which is the half a reader recognises. */
   name: string;
   op: number;
+  /** Its Originite Prime stages, by the game's stage id: what an import's cleared counts against. */
+  stages: string[];
+  /** Each of those stages as the game names it ("TR-S-1", "0-1 CM"), in the same order. */
+  stageCodes: string[];
 }
 
 export interface PastEvent {
@@ -124,10 +128,15 @@ export interface PastEvent {
    *  clear it. An event that has been and gone is not a pool to draw on. */
   playable: boolean;
   op: number;
+  stages: string[];
+  stageCodes: string[];
+  /** When it opened on Global, as a day ("" when unknown): the order events are listed in. */
+  start: string;
 }
 
-/** One first clear the reader can tick off: a resource stage or an Annihilation map. */
-export interface FirstClear { id: string; name: string; amount: number }
+/** One first clear the reader can tick off: a resource stage or an Annihilation map. A
+ *  permanent Annihilation pays no Orundum (amount 0) but Distinction Certificates (`certs`). */
+export interface FirstClear { id: string; name: string; amount: number; certs?: number }
 
 /**
  * The back catalogue, as the page's content release has it.
@@ -140,12 +149,41 @@ export interface FirstClear { id: string; name: string; amount: number }
  * data by the content export), the same call that marks `inBacklog`.
  */
 export interface BacklogSources {
-  chapters: Chapter[];
+  chapters: WithStageIds<Chapter>[];
   originiteByStageType: Record<string, number>;
   annihilationOrundum: number;
-  playable: Pick<PastEvent, 'id' | 'name' | 'op'>[];
+  playable: (WithStageIds<Pick<PastEvent, 'id' | 'name' | 'op' | 'stages' | 'stageCodes'>> & { start?: string })[];
   resources: FirstClear[];
   annihilation: FirstClear[];
+}
+
+/** `stages` and `stageCodes` are absent from a release exported by code from before they were
+ *  kept (the nightly release is compiled by main's code, so dev met one), and fillFromDeployment can
+ *  only fill an item the deployment also knows. */
+type WithStageIds<T extends { stages: string[]; stageCodes: string[] }> = Omit<T, 'stages' | 'stageCodes'> & { stages?: string[]; stageCodes?: string[] };
+
+/**
+ * The release's back catalogue with what an older release lacks filled in from the
+ * deployment's own copy: each chapter's and event's stage ids and codes, each event's start
+ * date, and the Annihilation maps it does not list (the permanent three, which pay
+ * certificates rather than Orundum). The release's chapters and events stay the list: the
+ * deployment's lags every Global event until a redeploy.
+ */
+export function fillFromDeployment(release: BacklogSources, deployment: BacklogSources): BacklogSources {
+  const known = new Map<string, { stages?: string[]; stageCodes?: string[]; start?: string }>([...deployment.chapters, ...deployment.playable].map((item) => [item.id, item]));
+  /* The codes go with the ids they were written for: a release's own ids keep codes only from
+     a deployment entry with the very same ids. */
+  const fill = <T extends { id: string; stages?: string[]; stageCodes?: string[]; start?: string }>(item: T): T => {
+    const same = known.get(item.id);
+    const start = item.start || same?.start;
+    if (item.stages && item.stageCodes?.length === item.stages.length) return start === item.start ? item : { ...item, start };
+    const stages = item.stages ?? same?.stages;
+    const stageCodes = same?.stages && stages && same.stages.join() === stages.join() ? same.stageCodes : undefined;
+    return { ...item, stages, stageCodes, ...(start ? { start } : {}) };
+  };
+  const listed = new Set(release.annihilation.map((map) => map.id));
+  const annihilation = [...release.annihilation, ...deployment.annihilation.filter((map) => !listed.has(map.id))].sort((a, b) => a.id.localeCompare(b.id));
+  return { ...release, chapters: release.chapters.map(fill), playable: release.playable.map(fill), annihilation };
 }
 
 /** The labels a reader knows these by; the gamedata's own words are internal. */
@@ -197,6 +235,43 @@ export function remainingBacklog(
     orundum: op * ORUNDUM_PER_ORIGINITE + annihilationOrundum,
     permits,
   };
+}
+
+/**
+ * The back catalogue as an imported account leaves it (lib/account/accountStore): each
+ * chapter and event worth only its Originite stages the account has not cleared, a resource
+ * stage done when cleared, and an Annihilation map done when every kill-count reward is
+ * claimed. What it gives back is what remainingBacklog takes, so the totals and the
+ * Unclaimed rewards panel come from one count. `annihilation` is null for a record from
+ * before it was kept; the reader's own ticks say then.
+ */
+export function backlogFromAccount(backlog: BacklogSources, cleared: ReadonlySet<string>, annihilation: ReadonlySet<string> | null): {
+  sources: BacklogSources; doneEvents: Set<string>; doneKeys: Set<string>;
+} {
+  /* An item whose stage ids neither the release nor the deployment has counts in full: an
+     import cannot say what of it is cleared, and the page answers the minimum left only
+     when it knows. */
+  const left = ({ stages, op }: { stages?: string[]; op: number }) => (stages ? stages.filter((id) => !cleared.has(id)).length : op);
+  const chapters = backlog.chapters.map((chapter) => ({ ...chapter, op: left(chapter) }));
+  const playable = backlog.playable.map((event) => ({ ...event, op: left(event) }));
+  const doneKeys = new Set([
+    ...chapters.filter((chapter) => !chapter.op).map((chapter) => chapter.id),
+    ...backlog.resources.filter((stage) => cleared.has(stage.id.replace(/^resource:/, ''))).map((stage) => stage.id),
+    ...(annihilation ? backlog.annihilation.filter((map) => annihilation.has(map.id.replace(/^annihilation:/, ''))).map((map) => map.id) : []),
+  ]);
+  return { sources: { ...backlog, chapters, playable }, doneEvents: new Set(playable.filter((event) => !event.op).map((event) => event.id)), doneKeys };
+}
+
+/**
+ * What an unticked chapter or event is still worth, with an import: what the import left of
+ * it (backlogFromAccount's sources), or all of it when the import had it cleared and the
+ * reader has unticked it since -- unticking says "count this", and counting nothing would make
+ * the tick do nothing. A ticked one counts nothing either way (remainingBacklog).
+ */
+export function unclaimedBacklog(full: BacklogSources, fromAccount: BacklogSources): BacklogSources {
+  const left = new Map([...fromAccount.chapters, ...fromAccount.playable].map((item) => [item.id, item.op]));
+  const worth = <T extends { id: string; op: number }>(item: T): T => ({ ...item, op: left.get(item.id) || item.op });
+  return { ...full, chapters: full.chapters.map(worth), playable: full.playable.map(worth) };
 }
 
 /*

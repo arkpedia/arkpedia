@@ -37,3 +37,19 @@ test('Botani and Angelina keep their module trait at Stage 3 without Stage 2 tal
     }
   }
 });
+
+test('a stage that changes the trait and a talent at once keeps each under its own key', () => {
+  const module = { stages: [
+    stage('Trait improved · Resonator improved', 'Traps cost less\nDeploys 2 Resonators'),
+    stage('Resonator improved', 'Deploys 3 Resonators'),
+    stage('Resonator improved', 'Deploys 3 Resonators, 50% chance of one more'),
+  ] };
+  assert.deepEqual(getModuleStageEffects(module, 0).map(e => e.label), ['Trait improved', 'Resonator improved']);
+  assert.deepEqual(getModuleStageEffects(module, 1).map(e => e.text), ['Traps cost less', 'Deploys 3 Resonators']);
+  assert.deepEqual(getModuleStageEffects(module, 2).map(e => e.text), ['Traps cost less', 'Deploys 3 Resonators, 50% chance of one more']);
+});
+
+test('one effect whose text runs over two lines is not split', () => {
+  const module = { stages: [stage('Trait improved', 'Line one\nLine two')] };
+  assert.deepEqual(getModuleStageEffects(module, 0).map(e => e.text), ['Line one\nLine two']);
+});

@@ -9,7 +9,10 @@ Pass clean repository checkouts. This script stages files but never pushes
 before a catalogue may adopt the revisions.
 
 Two plans come here. The catalogue stage's (.cache/catalogue/asset-plan.json) names files in
-a game-resource mirror at the plan's revision (`sourcePath`) or wiki uploads (`wikiFiles`).
+a game-resource mirror at the plan's revision (`sourcePath`), or key art from an official CN
+announcement (`urls`, the images on the post; scripts/sync/sync-cn-news.mjs) and wiki uploads
+(`wikiFiles`), tried in that order: the post's image is the file the wiki uploads later, from the
+source. Only an https address on OFFICIAL_IMAGE_HOSTS is ever downloaded.
 The staged-art plan (`plan-staged` writes it) names files the refresh's importers staged
 under .cache/<kind>/ (`localPath`, with the `source` they came from; config/staged-art.json):
 only the kinds whose stage ran to the end in this run (data/stage-report.json), and only
@@ -22,8 +25,8 @@ pinned commit gets a row in the image repository's asset-source-map.json with th
 the exact bytes and the width its daily sync keeps; every file gets a provenance row in
 sources/catalogue-imports.json (its URL, and the sha256 of the bytes fetched).
 
-Key art comes from the wiki's uploads, which is enrichment and never a gate: art the
-wiki cannot serve yet (no upload, the wiki down, an unexpected image host) is left out,
+Key art comes from the official posts and the wiki's uploads, which is enrichment and never a
+gate: art neither can serve yet (no upload, the site down, an unexpected image host) is left out,
 its record is published without it, and it goes on the quarantine list under
 'catalogue-art' (or the stage --stage names). The record keeps its planned path, so the next
 run's plan asks again. So does any one file that cannot be fetched from the mirror, or does
@@ -50,6 +53,44 @@ quarantine = importlib.util.module_from_spec(_spec);_spec.loader.exec_module(qua
 
 APP = Path(__file__).resolve().parents[2]
 REGISTRY = APP/'config/staged-art.json'
+# Where the official CN website (ak.hypergryph.com/news) keeps the images of its posts. Any other
+# address a post names is never fetched; a new host is added here once someone has looked at it.
+OFFICIAL_IMAGE_HOSTS = ('web.hycdn.cn',)
+
+
+def official_image(urls):
+    """(bytes, url) of the first official image that downloads, decodes and has a section's key art
+    shape, or (None, why) for none, so that the wiki is asked instead.
+
+    A post's key art is its 1560x500 banner. A site answering with a page instead of the picture (a
+    challenge or an error page, with a 200), or a small picture above a heading (a divider, should
+    the layout ever add one), is not it. `why` names the addresses and what went wrong, never the
+    error text (see the header)."""
+    failed = []
+    for url in urls:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != 'https' or parsed.hostname not in OFFICIAL_IMAGE_HOSTS:
+            failed.append(f'{url} is not on an official image host ({", ".join(OFFICIAL_IMAGE_HOSTS)}) and is never fetched')
+            continue
+        try:
+            data = fetch(url)
+        except Exception as exc:
+            print(f'Downloading the official image {url} failed: {exc}', file=sys.stderr)
+            failed.append(f'downloading the official image {url} failed')
+            continue
+        try:
+            with Image.open(io.BytesIO(data)) as image:
+                image.load()
+                width, height = image.size
+        except Exception as exc:
+            print(f'The official image {url} does not decode: {exc}', file=sys.stderr)
+            failed.append(f'the official image {url} is not an image that decodes')
+            continue
+        if width < 1000 or not 2.5 <= width / height <= 4:
+            failed.append(f'the official image {url} is {width}x{height}, not the shape of a section\'s key art')
+            continue
+        return data, url
+    return None, '; '.join(failed)
 
 
 class Folder:
@@ -91,6 +132,10 @@ FOLDERS = {
     'nation-marks': Folder((512, 512), method=6, lossless=True),
     # As the other 293 covers: 500px RGB webp.
     'album-covers': Folder((500, 500), mode='RGB', quality=85, method=6),
+    # The Arknights Story Map's pictures (scripts/imports/import_story_map.py): the board's own
+    # 384px resize of each cover, drawn at about 45-180px, and the official comics' covers
+    # (336x217 at the source, a few 1664x1080), which the Manga page shows at about 210-400px.
+    'story-map': Folder((640, 640), quality=85, method=6),
 }
 SKIN_FOLDER = re.compile(r'[a-z]+-star-skins')
 
@@ -183,7 +228,8 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
             continue
         source, local = entry.get('sourcePath'), entry.get('localPath')
         titles = ['File:'+t for t in entry.get('wikiFiles') or []]
-        def left_out(why, ref=(source or entry.get('source') or (titles[0] if titles else None)), error=None):
+        urls = entry.get('urls') or []
+        def left_out(why, ref=(source or entry.get('source') or (urls[0] if urls else None) or (titles[0] if titles else None)), error=None):
             print(f'Left out {target}: {why}' + (f': {error}' if error is not None else ''), file=sys.stderr)
             # A staged file's importer holds it already (see the header): one entry per file.
             if local: return
@@ -209,24 +255,34 @@ def build(plan, image_root, skin_root=None, alerts=None, app_root=APP):
             except Exception as exc:
                 left_out(f'Downloading {source} from {plan["sourceRepository"]} failed', url, exc);continue
         else:
-            query = urllib.parse.urlencode({'action':'query','prop':'imageinfo','iiprop':'url|sha1','format':'json','titles':'|'.join(titles)})
-            try:
-                response = json.loads(fetch(quarantine.WIKI_API+'?'+query))
-                available = {p['title']:p['imageinfo'][0] for p in response['query']['pages'].values() if p.get('imageinfo')}
-                normalized = {p['from']:p['to'] for p in response['query'].get('normalized',[])}
-            except Exception as exc:
-                left_out(f'The wiki could not be reached to ask for {", ".join(titles)}', error=exc);continue
-            info = next((available[normalized.get(t,t)] for t in titles if normalized.get(t,t) in available),None)
-            if not info:
-                left_out(f'The wiki has no upload for {", ".join(titles)} yet');continue
-            url = info['url']
-            host = urllib.parse.urlparse(url).hostname
-            if host not in ('arknights.wiki.gg','static.wikitide.net'):
-                left_out(f'The wiki answered {titles[0]} with an image on an unexpected host ({host}), which is never fetched');continue
-            try:
-                data = fetch(url)
-            except Exception as exc:
-                left_out(f'Downloading {url} failed', error=exc);continue
+            data, official = official_image(urls) if urls else (None, '')
+            if data is not None:
+                url = official
+            elif not titles:
+                left_out(f'No official image could be had ({official})');continue
+            else:
+                # The wiki's upload of the same art, when the post's image could not be had; a file
+                # left out then says both.
+                said = lambda why: f'No official image could be had ({official}), and {why[0].lower()}{why[1:]}' if urls else why
+                if urls: print(f'{target}: no official image ({official}); asking the wiki', file=sys.stderr)
+                query = urllib.parse.urlencode({'action':'query','prop':'imageinfo','iiprop':'url|sha1','format':'json','titles':'|'.join(titles)})
+                try:
+                    response = json.loads(fetch(quarantine.WIKI_API+'?'+query))
+                    available = {p['title']:p['imageinfo'][0] for p in response['query']['pages'].values() if p.get('imageinfo')}
+                    normalized = {p['from']:p['to'] for p in response['query'].get('normalized',[])}
+                except Exception as exc:
+                    left_out(said(f'The wiki could not be reached to ask for {", ".join(titles)}'), error=exc);continue
+                info = next((available[normalized.get(t,t)] for t in titles if normalized.get(t,t) in available),None)
+                if not info:
+                    left_out(said(f'The wiki has no upload for {", ".join(titles)} yet'));continue
+                url = info['url']
+                host = urllib.parse.urlparse(url).hostname
+                if host not in ('arknights.wiki.gg','static.wikitide.net'):
+                    left_out(said(f'The wiki answered {titles[0]} with an image on an unexpected host ({host}), which is never fetched'));continue
+                try:
+                    data = fetch(url)
+                except Exception as exc:
+                    left_out(said(f'Downloading {url} failed'), error=exc);continue
         # The mirror's URL names the plan's revision; the file is named by its path instead.
         name = local or source or url
         try:

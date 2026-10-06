@@ -255,12 +255,18 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     // while they did, and on 2026-10-02 they answered, so the field showed here and not there.
     '.featuredVideo': "the newest video from the channels' live YouTube feeds, fetched at the request; null whenever the feeds answer nothing",
     '.featuredStream': "the live Twitch stream, fetched at the request the same way; null whenever none is live or the API answers nothing",
+    // getHomeGachaBanners spreads whole banner records, and a banner an official CN post announced
+    // keeps the post's name for good: it reaches this list once Global dates the banner.
+    '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
   },
   '/schedule': {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
   },
   '/skins': {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
+  },
+  '/gacha': {
+    '.banners[].announcedLineup': "the rate-ups an official CN announcement names (applyAnnouncements, new on 2026-10-04), on a banner only while an operator it names has no record yet; HeadhuntingBanner has it optional, and lineupPendingNote reads its absence as 'Lineup to be confirmed.', as the page said before",
   },
   '/operators': {
     '.operators[].availableUntil': 'the debut\'s end (getScheduledOperatorDebut), new on 2026-09-30; RosterOperator has it optional, and isDebutAvailable counts two weeks from the release without it, as the roster did before',
@@ -323,6 +329,45 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.equal(props.hasTwitchCreds, true);
     const now = props.now as number;
     assert.ok(now >= Math.floor(from / 60_000) * 60_000 && now <= to, `now (${new Date(now).toISOString()}) is the server's clock at the regeneration`);
+  },
+  // From the skins, events and shop rotations compiled into the bundle: the outfits sold for OP
+  // and the shops that sell them.
+  '/skin-planner': (props) => {
+    const catalogue = props.catalogue as { id: string; op: number }[];
+    assert.ok(catalogue.length > 100 && catalogue.every((skin) => / \/ /.test(skin.id) && skin.op > 0), 'the outfits sold for OP, by "Operator / Outfit"');
+    assert.ok((props.collections as { skinIds: string[] }[]).length > 0, 'the shops');
+  },
+  // The story map compiled into the bundle (a JSON import, nothing read from data/): the board
+  // with every picture, each linked to its story or titled.
+  '/story': (props) => {
+    const map = props.map as { elements: { type: string; image?: string | null; link?: { title: string } }[] };
+    const pictures = map.elements.filter((element) => element.type === 'picture');
+    assert.ok(pictures.length > 50, 'the board\'s pictures');
+    assert.ok(pictures.every((picture) => picture.link?.title), 'every picture titled, by its link');
+    assert.ok(map.elements.some((element) => element.type === 'line') && map.elements.some((element) => element.type === 'text'), 'the lines and the labels');
+  },
+  // The official comics compiled into the bundle, each with its link and the latest first.
+  '/manga': (props) => {
+    const manga = props.manga as { url: string; updated?: string }[];
+    assert.ok(manga.length > 10 && manga.every((comic) => comic.url.startsWith('https://www.arknights.global/comic?name=')), 'every comic, linked to its page');
+    assert.deepEqual(manga.map((comic) => comic.updated ?? ''), manga.map((comic) => comic.updated ?? '').sort().reverse(), 'the latest first');
+  },
+  // The back catalogue compiled into the bundle, filled by finalize.
+  '/free-op': (props) => {
+    const backlog = props.backlogSources as { chapters: { stages?: string[]; stageCodes?: string[] }[]; playable: { start?: string }[]; annihilation: { id: string }[] };
+    assert.ok(backlog.chapters.length > 10 && backlog.chapters.every((chapter) => chapter.stages?.length === chapter.stageCodes?.length), 'every chapter with its stages and their codes');
+    assert.ok(backlog.playable.length > 10 && backlog.playable.every((event) => event.start), 'every playable event with its start date');
+    assert.ok(backlog.annihilation.some((map) => map.id === 'annihilation:camp_03'), 'the permanent Annihilations');
+  },
+  // Built from the skins compiled into the bundle, with the id map and the planner's depot
+  // tables from their module imports: nothing read from data/.
+  '/account': (props) => {
+    const skins = props.skins as { id: string; image: string | null }[];
+    assert.ok(skins.length > 400 && skins.every((skin) => /^char_\w+[@#]/.test(skin.id)), 'every outfit, by skin id');
+    assert.ok(skins.filter((skin) => skin.image?.startsWith('/')).length > 400, 'with its art, for the card\'s assistant');
+    const tables = props.__contentTables as Record<string, { chars?: Record<string, unknown> }>;
+    assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'the id map is attached');
+    assert.ok(tables['import-aliases'] && tables['material-catalogue'], 'the depot tables are attached');
   },
 };
 

@@ -18,6 +18,8 @@ export interface SavedPullPlan {
   orundum: string; originite: string; permits: string; reservedOP: string;
   until: string; manualEventDate: string; bannerName: string;
   monthlyCard: boolean; includeBacklog: boolean; annihilationDone: boolean;
+  /** Whether the Skin wishlist's OP is held back from the pulls; absent (older plans) means yes. */
+  includeSkins?: boolean;
   doneEvents: string[]; doneKeys: string[]; clearedReruns: string[];
   future: Record<string, number>;
   goals: BannerGoal[];
@@ -25,6 +27,12 @@ export interface SavedPullPlan {
   wishingWallMode?: WishingWallMode;
   yellowCerts?: string;
   incomeSettings?: IncomeSettings;
+  /** The account import (its importedAt) the resources were last filled from: a newer import
+   *  fills them again, and until then the reader's own edits stand. */
+  walletFrom?: string;
+  /** The account import the Past events ticks were last set from, the same way: a newer
+   *  import ticks them again, and until then they are the reader's. */
+  ticksFrom?: string;
 }
 export function validPlanDate(value: unknown): value is string {
   if (typeof value !== 'string' || !/^20\d{2}-\d{2}-\d{2}$/.test(value)) return false;
@@ -102,7 +110,7 @@ export function parsePullPlan(raw: string): SavedPullPlan {
     if (value.greenCertificates !== undefined && typeof value.greenCertificates !== 'boolean') throw new Error('Invalid green certificate setting.');
     incomeSettings = { ...(value.greenCertificates === undefined ? {} : { greenCertificates: value.greenCertificates as boolean }), daily: value.daily as boolean, weekly: value.weekly as boolean, annihilation: value.annihilation as boolean, certificates: value.certificates as boolean };
   }
-  return { ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents'), doneKeys: list('doneKeys'), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }) };
+  return { ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), ...(data.walletFrom === undefined ? {} : { walletFrom: text('walletFrom', 40) }), ...(data.ticksFrom === undefined ? {} : { ticksFrom: text('ticksFrom', 40) }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents'), doneKeys: list('doneKeys'), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }), ...(data.includeSkins === undefined ? {} : { includeSkins: flag('includeSkins') }) };
 }
 
 /** Past daily freebies cannot be saved. An unused banner ticket can be kept
@@ -153,6 +161,16 @@ export function priorForecastSpending(rows: readonly BudgetRow[], banner: string
   const active = rows.find(row => row.goal.banner === banner);
   if (active) return active.spentBefore;
   return rows.filter(row => row.goal.spendOn <= until).reduce((sum, row) => sum + row.paid, 0);
+}
+
+/** How far the banner plan reaches: the last spending date among its goals, and never before
+ *  today (a plan whose dates have all passed is judged as of today), or null for no goals. The
+ *  plan's footer reports its budgets and savings through this date, whatever date the Pull
+ *  calculation is set to. */
+export function planHorizon(goals: readonly BannerGoal[], today: string): string | null {
+  if (!goals.length) return null;
+  const last = goals.reduce((latest, goal) => (goal.spendOn > latest ? goal.spendOn : latest), '');
+  return last > today ? last : today;
 }
 
 /** Ordinary savings at the forecast date, after only the budgets due by then.

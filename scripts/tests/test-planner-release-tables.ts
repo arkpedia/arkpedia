@@ -83,6 +83,27 @@ test('the resolver walks the release\'s catalogue order, so a new material craft
   assert.equal(tight.rows.find(r => r.name === 'Electrode Unit')?.short, 1);
 });
 
+test('a declared craft adds what it is made of, and each row says what its count is for', () => {
+  /* The planner's Missing view (2026-10-03): ticking Craft on a material puts its ingredients
+     in the list, and a material both the upgrades and a craft want says which part is which. */
+  const recipe = (costs: [string, number][]) => ({ type: 'F_EVOLVE', room: 'WORKSHOP', count: 1, lmd: 300, costs: costs.map(([name, count]) => ({ name, count })), byproducts: [], byproductRate: 0, alternatives: [] });
+  const formulas = { 'Concentrated Power Unit': recipe([['Integrated Device', 1], ['Liquified High-Energy Gas', 1], ['Electrode Unit', 1]]) };
+  const order = ['EXP', 'LMD', 'Concentrated Power Unit', 'Electrode Unit', 'Liquified High-Energy Gas', 'Integrated Device'];
+  const tools = createCraftTools(formulas, [], order);
+  const bill = [{ name: 'Concentrated Power Unit', quantity: 2 }, { name: 'Electrode Unit', quantity: 1 }];
+  // Raw only: nothing is crafted unasked, and nothing is listed for a craft.
+  const raw = tools.resolveNeeds(bill, {}, { autoCraft: false });
+  assert.deepEqual(raw.rows.map(r => [r.name, r.need, r.direct, r.forCrafts]), [['Concentrated Power Unit', 2, 2, undefined], ['Electrode Unit', 1, 1, undefined]]);
+  // Craft declared: its ingredients join the list, and Electrode Unit is wanted for both.
+  const res = tools.resolveNeeds(bill, { 'Electrode Unit': 1 }, { autoCraft: false, crafting: new Set(['Concentrated Power Unit']) });
+  const row = (name: string) => res.rows.find(r => r.name === name)!;
+  assert.equal(row('Concentrated Power Unit').coverage, 'crafting');
+  assert.equal(row('Concentrated Power Unit').fromCrafting, 2);
+  assert.deepEqual([row('Electrode Unit').need, row('Electrode Unit').direct, row('Electrode Unit').forCrafts], [3, 1, { 'Concentrated Power Unit': 2 }]);
+  assert.equal(row('Electrode Unit').short, 2, 'one held, of three: one for the upgrades and two for the crafts');
+  assert.deepEqual([row('Integrated Device').direct, row('Integrated Device').forCrafts, row('Integrated Device').viaCrafting], [0, { 'Concentrated Power Unit': 2 }, true]);
+});
+
 test('the planner picker is judged per request from release markers, not at export', () => {
   // The export carries no clock; every request gets its `now`, rounded to the minute.
   assert.deepEqual(contentPageClock('/planner', { operators: [] }, { exporting: true }), { operators: [] });

@@ -372,6 +372,14 @@ export function reducedMotionStops(root) {
 /* The properties motion.css may animate: paint only, never a box's size or place. */
 const PAINT_ONLY = /^(transform|translate|scale|rotate|opacity|box-shadow|filter|color|background-color|border(-(top|right|bottom|left))?-color|outline-color|fill|stroke|text-decoration-color)$/;
 
+/* The motion that does move a box, by motion.css rule and property, each with who asked and
+ * why. Nothing else may: an entry here is a decision, not a ratchet, and one that no longer
+ * matches a rule fails the audit too, so the list only ever names what is there. */
+export const LAYOUT_MOTION = new Map([
+  ['.account-card-support::before|padding-top', 'The profile card\'s support units grow downwards to full length and back, as the game\'s switch does (the maintainer, 2026-10-02). It changes the card\'s height only.'],
+  ['.account-card-support-potential, .account-card-support-elite, .account-card-support-mastery|margin-top', 'The same: the marks step down with the tile as it grows, rather than jumping ahead of it.'],
+]);
+
 /** What a motion.css block animates: the properties a transition names, or that a
  *  @keyframes block sets. */
 function animatedProps(b) {
@@ -387,6 +395,7 @@ function animatedProps(b) {
 export function motionFindings(root) {
   const found = [];
   const motionFile = [];
+  const layoutSeen = new Set();
   const css = [...walk(root, 'styles', ['.css']), ...walk(root, 'components', ['.css'])].sort();
   for (const path of css) {
     const isMotion = path === MOTION_FILE;
@@ -399,6 +408,7 @@ export function motionFindings(root) {
         // colour) and nothing that sizes or places a box, so the browser checks can sample
         // one page per kind of motion instead of loading every page twice each way.
         for (const prop of animatedProps(b)) {
+          if (LAYOUT_MOTION.has(`${where}|${prop}`)) { layoutSeen.add(`${where}|${prop}`); continue; }
           if (!PAINT_ONLY.test(prop)) motionFile.push(`${path}: ${where} animates ${prop}, which moves the layout (only transform, translate, scale, rotate, opacity, box-shadow, filter and colours)`);
         }
         continue;
@@ -426,6 +436,7 @@ export function motionFindings(root) {
       found.push(`${path}: style.${m[1]} =`);
     }
   }
+  for (const entry of LAYOUT_MOTION.keys()) if (!layoutSeen.has(entry)) motionFile.push(`${MOTION_FILE}: LAYOUT_MOTION accepts ${entry.replace('|', ' animating ')}, which motion.css no longer has: remove the entry`);
   return { found, motionFile };
 }
 

@@ -30,6 +30,7 @@ export interface StateFormModule {
 
 export function OperatorStateForm({
   mode,
+  locked,
   rarity,
   skills,
   modules,
@@ -52,6 +53,9 @@ export function OperatorStateForm({
   moduleDescription,
 }: {
   mode: 'current' | 'target';
+  /** The starting levels' lock (pages/planner.tsx, lib/ui/useLock.ts): every control shown and
+   *  none usable. Required, so each use says whether it is locked. */
+  locked: boolean;
   rarity: number;
   skills: StateFormSkill[];
   modules: StateFormModule[];
@@ -96,6 +100,9 @@ export function OperatorStateForm({
 
 
   return (
+    // A disabled fieldset disables every control inside it, whichever window opened the form.
+    <fieldset className="state-form-lock" disabled={locked}>
+    {locked && <p className="hint state-form-locked">Starting levels are locked. Unlock them in the header to edit.</p>}
     <div className="state-blocks">
       {/* 1 -- Elite and level ------------------------------------------- */}
       <div className="state-block">
@@ -302,5 +309,6 @@ export function OperatorStateForm({
 
       </div>
     </div>
+    </fieldset>
   );
 }

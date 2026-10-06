@@ -84,11 +84,48 @@ test('each repository keeps the newer of its committed and live pins, never an o
 
 test('the live pins are read the way pages read the release, digest checked', async () => {
   const good = fakeFetch(liveRelease({ 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('b') }));
-  assert.deepEqual((await readLiveAssetPins({ origin: ORIGIN, fetch: good.fetch })).assets, { 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('b') });
+  assert.deepEqual((await readLiveAssetPins({ origin: ORIGIN, pointerBranch: 'live', fetch: good.fetch })).assets, { 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('b') });
   const bad = fakeFetch(liveRelease({ 'arkpedia-image-assets': A('a') }, { corrupt: true }));
-  await assert.rejects(readLiveAssetPins({ origin: ORIGIN, fetch: bad.fetch }), /does not match its pointer/);
+  await assert.rejects(readLiveAssetPins({ origin: ORIGIN, pointerBranch: 'live', fetch: bad.fetch }), /does not match its pointer/);
   const unpinned = fakeFetch(liveRelease({ 'arkpedia-image-assets': 'main' }));
-  await assert.rejects(readLiveAssetPins({ origin: ORIGIN, fetch: unpinned.fetch }), /names no commit-pinned assets/);
+  await assert.rejects(readLiveAssetPins({ origin: ORIGIN, pointerBranch: 'live', fetch: unpinned.fetch }), /names no commit-pinned assets/);
+  // Which pointer is the caller's to say: no default can know the deployment's channel.
+  await assert.rejects(readLiveAssetPins({ origin: ORIGIN, fetch: good.fetch }), /needs the pointer branch/);
+});
+
+/* The site read live's release while its channel had no pointer yet (dev-live before the dev
+   channel's first run); the build's pin adoption and Deploy's asset-link check read the channel's
+   pointer with no fallback, so arkpedia-dev's asset check failed where its pages worked. One
+   reader now (lib/content/pointer.mjs), deciding on the error's status, not its message. */
+test('a channel with no pointer yet reads live\'s release, as the site does; any other failure is still one', async () => {
+  const warn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (line: string) => warnings.push(line);
+  try {
+    const missing = fakeFetch(liveRelease({ 'arkpedia-image-assets': A('a'), 'arkpedia-skin-assets': A('b') }));
+    assert.equal((await readLiveAssetPins({ origin: ORIGIN, pointerBranch: 'dev-live', fetch: missing.fetch })).assets['arkpedia-image-assets'], A('a'));
+    // The missing pointer is asked for once: a 404 is an answer, so the fallback is immediate.
+    assert.deepEqual(missing.calls.map(call => call.url).filter(url => url.endsWith('current.json')), [`${ORIGIN}/dev-live/current.json`, `${ORIGIN}/live/current.json`]);
+    assert.match(warnings.join('\n'), /dev-live has no pointer yet: reading live's release until it does/);
+    // A channel whose pointer exists but fails is not quietly main's release, and a failure that
+    // may pass is tried again before it is one.
+    const failing = fakeFetch({ ...liveRelease({ 'arkpedia-image-assets': A('a') }), [`${ORIGIN}/dev-live/current.json`]: { status: 500 } });
+    await assert.rejects(readLiveAssetPins({ origin: ORIGIN, pointerBranch: 'dev-live', fetch: failing.fetch }), /HTTP 500/);
+    assert.ok(!failing.calls.some(call => call.url === `${ORIGIN}/live/current.json`));
+    assert.equal(failing.calls.filter(call => call.url === `${ORIGIN}/dev-live/current.json`).length, 3);
+    // Live itself has nothing to fall back to.
+    await assert.rejects(readLiveAssetPins({ origin: ORIGIN, pointerBranch: 'live', fetch: fakeFetch({}).fetch }), /HTTP 404/);
+  } finally {
+    console.warn = warn;
+  }
+  // Every reader goes through it: none matches the message text any more.
+  for (const file of ['lib/content/server.ts', 'scripts/build/adopt-release-asset-pins.mjs']) {
+    const text = fs.readFileSync(file, 'utf8');
+    assert.match(text, /readChannelPointer\(\{/, file);
+    assert.doesNotMatch(text, /HTTP 404'/, file);
+  }
+  // Deploy's asset-link check asks for the deployment's own channel, from the env it is given.
+  assert.match(fs.readFileSync('scripts/deploy/check-asset-redirects.mjs', 'utf8'), /readLiveAssetPins\(\{ origin: contentOrigin\(env\), pointerBranch: contentPointer\(env\), fetch \}\)/);
 });
 
 function revisionsRoot(pins: Record<string, string>) {

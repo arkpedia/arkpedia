@@ -241,6 +241,8 @@
   color: var(--text-faint);
 }
 
+/* The history's toggle and its Export CSV, one row. */
+.gacha-history-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .gacha-history-toggle {
   font-size: 18px;
   font-family: var(--font-display);

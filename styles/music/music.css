@@ -14,7 +14,9 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  width: 320px;
+  /* Room for the row beside the 44px toggle: five 36px buttons, their gaps and the volume
+     slider at its 48px minimum (262px). At 320 the slider ran off the right edge. */
+  width: 344px;
   overflow: hidden;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -213,8 +215,11 @@
   /* A dialog that takes the whole screen puts its own controls in that corner (the
      planner's windows end in a Done at the right edge), so while a modal one is open the
      tab steps aside; the music plays on, and the tab is back when the dialog closes. The
-     phone menu is a modal dialog that stays in the page shut, so it counts only open. */
-  body:has([aria-modal="true"]:not(.mobile-nav-drawer:not(.open))) .music-player.collapsed { visibility: hidden; }
+     phone menu is a modal dialog that stays in the page shut, so it counts only open. A
+     native <dialog> opened modal (the popups in components/account/ImportDialog) sets no
+     aria-modal, so an open one counts too. */
+  body:has([aria-modal="true"]:not(.mobile-nav-drawer:not(.open))) .music-player.collapsed,
+  body:has(dialog[open]) .music-player.collapsed { visibility: hidden; }
 }
 
 /* --- Full player page (pages/music/index.tsx) --- */
@@ -222,12 +227,6 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-.music-player-topbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
 }
 .music-discover-btn { display: inline-flex; align-items: center; gap: 6px; }
 
@@ -363,8 +362,18 @@
   gap: 4px;
   max-height: 55vh;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 3px 4px 3px 0;
 }
+/* The song list over the player (pages/music/index.tsx, .music-view): both in one grid cell, which
+   the player sizes. The list's own size is contained, so it adds nothing to the cell's height and
+   stretches to fill it: exactly the player's box, still content in the page's flow (the layout
+   census reads it there), its list or lists sharing what the heading and search leave and
+   scrolling inside. */
+.music-view { display: grid; }
+.music-view > * { grid-area: 1 / 1; }
+.music-now-playing-behind { visibility: hidden; }
+.music-view > .music-queue-panel { contain: size; min-height: 0; overflow: hidden; }
+.music-view > .music-queue-panel > .music-queue-list { flex: 1 1 0; min-height: 0; max-height: none; }
 .music-queue-list:focus-visible,
 .music-queue-list :focus-visible { outline-offset: -2px; }
 /* The row handles the drag; its title is the button (tap to select, tap another
@@ -373,6 +382,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative; /* the drop line's box (below) */
   min-height: 40px;
   user-select: none; /* a drag that starts mid-text must move the row, not select the title */
   cursor: grab;
@@ -436,6 +446,23 @@
   padding: 0;
   font-size: 13px;
 }
+/* Where a dragged song lands: a teal line in the gap above or below the row it is over (the
+   page's dropSide). The list's 4px gap is centred on it, and the list's own padding keeps the
+   first row's line and the last's inside its scroll box. It grows in (motion.css). */
+.music-queue-row.drop-before::before,
+.music-queue-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--teal);
+  box-shadow: 0 0 6px var(--teal);
+  pointer-events: none;
+}
+.music-queue-row.drop-before::before { top: -3px; }
+.music-queue-row.drop-after::after { bottom: -3px; }
 /* On a phone the three icon buttons are the phone's 40px control height, 24px wider in all
    than the 32px squares they were, and the title paid for it: 175px to 151 at 390, so
    titles that fitted ended in an ellipsis ("Play with Burdenbeasts"). The row's spacing

@@ -105,6 +105,8 @@
 .base-breakdown-header {
   display: flex;
   flex-direction: column;
+  /* The title and the Back each at their own width, not stretched across the column. */
+  align-items: flex-start;
   gap: 8px;
   border-bottom: 1px solid var(--line-soft);
   padding-bottom: 10px;
@@ -225,6 +227,13 @@
   font-size: 9px;
   color: var(--amber);
 }
+/* An operator the imported account does not have, listed with "Not owned too" to plan ahead. */
+.base-op-unowned-tag {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+}
 .base-sidebar-empty {
   padding: 12px 4px;
   line-height: 1.5;
@@ -336,9 +345,7 @@
   align-items: center;
   gap: 12px;
 }
-.base-room-back-btn {
-  flex-shrink: 0;
-}
+.base-room-back-btn { flex-shrink: 0; }
 .base-room-panel-title {
   font-family: var(--font-display);
   font-weight: 700;

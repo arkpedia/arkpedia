@@ -65,23 +65,36 @@ export function sortByMaterialOrder<T extends { name: string }>(items: T[], orde
 }
 
 /**
- * Total obtainable of each material across every FINITE-stock listing: quantity x
- * stock, summed over every store that offers it. Unlimited listings are left out
- * entirely -- a material with a finite listing and an unlimited one shows the
- * finite total, and a material whose only listings are unlimited is not in the
- * totals at all (its own store tab still shows it). So no total is ever zero
- * because a listing had no limit.
+ * Total obtainable of each reward across every FINITE-stock listing: quantity x stock, summed
+ * over every block that offers it, one entry per name, in the order the blocks first list them.
+ * Unlimited listings are left out entirely -- a reward with a finite listing and an unlimited one
+ * shows the finite total, and one whose only listings are unlimited is not in the totals at all
+ * (its own tab still lists it). A total that comes to zero (a listing whose quantity reads as
+ * nothing) is left out too, rather than drawn as "×0"; test-event-rewards.ts reads every bundled
+ * listing's quantity itself, so a quantity the parse misreads is found there, not hidden here.
+ *
+ * The one totalling loop: computeRewardTotals sorts it for the All row, and rewardSummary
+ * (lib/events/rewardSummary.ts) sorts it into the All card's rows. The card had its own copy, and
+ * only that copy learnt to keep an icon: here a later block with no icon (a wiki store's furniture
+ * row, a name only) replaced the one an earlier block had by id. The first icon any block has is
+ * kept.
  */
-export function computeRewardTotals(stores: ResolvedRewardStore[], order: readonly string[]): RewardTotal[] {
+export function totalRewards(stores: ResolvedRewardStore[]): RewardTotal[] {
   const totals = new Map<string, RewardTotal>();
   for (const store of stores) {
     for (const item of store.items) {
       const limit = stockLimit(item.stock);
       if (limit === null) continue;
       const add = parseRewardQuantity(item.quantity) * limit;
-      const prev = totals.get(item.name)?.total ?? 0;
-      totals.set(item.name, { name: item.name, iconPath: item.iconPath, total: prev + add });
+      const held = totals.get(item.name);
+      if (held) { held.total += add; held.iconPath ??= item.iconPath; } else totals.set(item.name, { name: item.name, iconPath: item.iconPath, total: add });
     }
   }
-  return sortByMaterialOrder(Array.from(totals.values()), order);
+  return [...totals.values()].filter((total) => total.total !== 0);
+}
+
+/** The All row (the fallback when a release carries no reward card): totalRewards in
+ *  sortByMaterialOrder's order. */
+export function computeRewardTotals(stores: ResolvedRewardStore[], order: readonly string[]): RewardTotal[] {
+  return sortByMaterialOrder(totalRewards(stores), order);
 }

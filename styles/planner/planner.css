@@ -227,6 +227,11 @@
 
 .simple-wizard .state-block-rule { display:none; }
 .simple-wizard .wizard-foot { justify-content:space-between; }
+/* The starting levels' lock (OperatorStateForm `locked`): a fieldset only for the disabled state it
+   gives every control inside, so none of its own box. */
+.state-form-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
+.state-form-lock:disabled .state-blocks { opacity: 0.6; }
+.state-form-locked { margin: 0 0 10px; }
 .simple-wizard .state-blocks { gap:12px; }
 .simple-wizard .state-block { padding:12px; }
 
@@ -284,19 +289,6 @@
 .simple-editor-title { display:flex; align-items:center; gap:12px; }
 .simple-editor-title img { flex-shrink:0; object-fit:contain; }
 
-.planner-transfer-dialog { width:min(480px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); padding:0; margin:auto; border:1px solid var(--line); border-radius:var(--radius-frame); background:var(--panel); color:var(--text); box-shadow:0 20px 70px #0008; }
-.planner-transfer-dialog::backdrop { background:#0009; backdrop-filter:blur(3px); }
-.planner-transfer-dialog header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; border-bottom:1px solid var(--line); }
-.planner-transfer-dialog h2 { margin:0; }
-.planner-transfer-body { padding:18px; }
-.planner-transfer-dialog .plan-transfer-acts { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 14px; }
-.planner-transfer-dialog .plan-transfer-acts button { padding:12px 10px; }
-.planner-transfer-dialog details { margin:0; padding:12px 0; border-top:1px solid var(--line); }
-.planner-transfer-dialog summary { cursor:pointer; color:var(--text-dim); font-size:13px; }
-.planner-transfer-dialog summary:hover { color:var(--teal); }
-.planner-transfer-dialog p { font-size:13px; line-height:1.5; color:var(--text-dim); }
-.planner-transfer-dialog textarea { width:100%; margin:12px 0; box-sizing:border-box; }
-.planner-transfer-dialog .plan-transfer-clear { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; padding:0; border:0; }
 
 /* The search field and Clear share one centre line (ui-primitives rule 4). The 44px
    button sat 5px below the 38px field's centre (8px on a phone): the row was top-
@@ -816,7 +808,7 @@
 .recipe-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
 .recipe-row {
   display: grid;
-  grid-template-columns: 28px 1fr 168px 110px 96px;
+  grid-template-columns: 28px 1fr 168px 150px 96px;
   align-items: center;
   gap: 12px;
   padding: 7px 10px;
@@ -927,7 +919,6 @@
    the chip's own on (teal on --teal-dim): it also drew a tick of its own, in a span that
    stayed in the flex row when empty, so the label sat 6px right of its box's centre. */
 .plan-panel-acts.planner-need-acts { gap: 6px; }
-.planner-need-showall { flex: none; white-space: nowrap; }
 
 /* The slider stays under the stepper: typing is for landing on 78, dragging is
    for getting from 1 to 80 without pressing + seventy-nine times.
@@ -1353,28 +1344,10 @@
 .depot-chip.short b { color: var(--amber); }
 
 /* --- export / import, one box for both stores -------------------------- */
-.plan-transfer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 900px) { .plan-transfer { grid-template-columns: 1fr; } }
 
 /* The row's own actions, and the search that sits in the panel head. */
 .plan-row-acts { display: flex; align-items: center; gap: 4px; }
 
-/* The material name on a card, which opens its recipe. The theme's base button
-   rule is inline-flex with uppercase display type, and neither belongs on a
-   name inside a sentence. */
-.need-card-who b > button {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
-  text-transform: none;
-  text-align: left;
-  cursor: pointer;
-}
-.need-card-who b > button:hover { color: var(--teal); }
 
 /* The Craft checkbox (.check) shares the tags row, so it goes to the far end. */
 .need-card-craft { margin-left: auto; }
@@ -1860,34 +1833,19 @@
 /* An armed clear: the confirm keeps the danger colour, the way out does not. */
 .plan-clear-armed { display: inline-flex; align-items: center; gap: 6px; }
 
-/* --- export / import ---------------------------------------------------- */
-/* Same reason: Save is a .primary with a .ghost after it, so it was the row size
-   only by accident of that rule. Said out loud: the control height, on purpose. */
-.plan-transfer-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.plan-transfer-acts button,
-.plan-transfer-clear button,
-.plan-transfer-text .submit-row-actions button {
-  min-height: var(--control-h);
-  font-size: 12px;
-  padding: 4px 14px;
-}
-.plan-transfer-clear {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-  padding-top: 13px;
-  border-top: 1px solid var(--line-soft);
-}
-/* The raw JSON, folded away. It is the fallback for a browser with no file
-   dialog and for moving data by clipboard, not the main way in. */
-.plan-transfer-text { margin-top: 14px; }
-.plan-transfer-text > summary {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-.plan-transfer-text > summary:hover { color: var(--teal); }
-.plan-transfer-text .planner-depot-text { margin-top: 10px; }
+
+/* A card's whole head opens its recipe (ShortfallList NeedCard), not only the name: a reset
+   .btn-bare laid out as the head it replaces, with the hover the name used to have. */
+.need-card-open { width: 100%; text-align: left; cursor: pointer; }
+.need-card-open:hover .need-card-who b, .need-card-open:focus-visible .need-card-who b { color: var(--teal); }
+/* What a card's count is for, where it is not simply the upgrades: how much goes to which
+   craft, and how much the upgrades ask for besides. */
+.need-card-for { display: grid; gap: 2px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-dim); }
+.need-card-for b { color: var(--text-bright); font-weight: 600; font-variant-numeric: tabular-nums; }
+.need-card-for .is-craft { color: var(--teal); }
+.need-card-for .is-craft b { color: inherit; }
+/* The open recipe's counts, steppable where they are read (HaveStepper). */
+.recipe-row .have { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.recipe-stepper { margin-left: 0; }
+.recipe-stepper input { width: 44px; }
+.recipe-row .have > span:last-child { min-width: 4.5ch; text-align: left; }

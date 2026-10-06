@@ -21,6 +21,7 @@
     "terminal-scene: gamemodes.css, stages-terminal.css"
   ],
   "fontSizes": [
+    "account.css: 48px",
     "arkpedia-theme.css: 14px",
     "arkpedia-theme.css: 16px",
     "arkpedia-theme.css: 17px",
@@ -55,5 +56,8 @@
   "stretchedChoices": [],
   "deadPrimitives": [],
   "liveBadge": [],
-  "controlHeight": []
+  "xButton": [],
+  "motionScope": [],
+  "controlHeight": [],
+  "primitiveLayout": []
 }

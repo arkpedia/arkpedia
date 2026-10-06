@@ -29,7 +29,8 @@ function CreditValue({ value, variants, related }: { value: string | null; varia
   return <dd className={styles.creditValue}>
     {labels.map(label => <span key={label} aria-hidden={label !== selected}
       style={{ visibility: label === selected ? 'visible' : 'hidden', pointerEvents: label === selected ? undefined : 'none' }}>
-      <OperatorRelationPopover label={label} title={`Also illustrated by ${label}`} operators={related[label] ?? []} />
+      {/* Credits sit in the overview: another illustrator's operator opens at its top, on its art. */}
+      <OperatorRelationPopover label={label} title={`Also illustrated by ${label}`} operators={related[label] ?? []} section={null} />
     </span>)}
   </dd>;
 }
@@ -55,7 +56,7 @@ export default function OperatorCredits({ artwork, variants, voicePacks, related
       {voiceEntries.length > 0 && <dl>
         {voiceEntries.map(pack => <div key={pack.id}>
           <dt title={`${pack.label} voice actor`}><CreditIcon kind="Voice actor" /><span aria-label={pack.label}>{LANGUAGE_CODES[pack.label] ?? pack.label}</span></dt>
-          <dd>{pack.actors.map(actor => <div key={actor}><OperatorRelationPopover label={actor} title={`Also voiced by ${actor}`} operators={relatedByVoiceActor[actor] ?? []} /></div>)}</dd>
+          <dd>{pack.actors.map(actor => <div key={actor}><OperatorRelationPopover label={actor} title={`Also voiced by ${actor}`} operators={relatedByVoiceActor[actor] ?? []} section="voiceLines" /></div>)}</dd>
         </div>)}
       </dl>}
     </div>

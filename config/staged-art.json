@@ -36,6 +36,11 @@
       "folders": ["material-icons"],
       "adopt": ["python3", "scripts/imports/import-reward-icons.py"]
     },
+    "story-map": {
+      "stage": "story-map",
+      "folders": ["story-map"],
+      "adopt": ["python3", "scripts/imports/import_story_map.py"]
+    },
     "album-covers": {
       "stage": "albums",
       "folders": ["album-covers"],

@@ -21,6 +21,7 @@ import { buildHintPool, pickRandomOperator, NOT_AVAILABLE, GuesserSkin } from '@
 import { Hint, ALL_HINT_TYPES, HINT_GROUPS, HintType, ThemedLevel, THEMED_MODES } from '@/lib/guesser/guesserTypes';
 
 import styles from '@/styles/games/guesser.module.css';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   operators: GuesserOperator[];
@@ -427,7 +428,7 @@ export default function GuesserPage({ operators, skins }: Props) {
                 {isOver && (
                   <div className={styles.result} data-outcome={status}>
                     <p className={styles.resultHeading}>{status === 'won' ? 'Operator identified' : status === 'lost' ? 'Out of guesses' : 'Answer revealed'}</p>
-                    <Link prefetch={false} href={`/operators/${encodeURIComponent(target.name)}`} className={styles.answerCard}>
+                    <Link prefetch={false} href={operatorHref(target.name, null)} className={styles.answerCard}>
                       <Image className={target.rarity ? `tier-${rarityLevel(target.rarity)}` : undefined} src={getOperatorIconPath(target)} alt="" width={88} height={88} />
                       <span><strong>{target.name}</strong><span className={styles.answerMeta}>{target.rarity ? <><Rarity n={rarityLevel(target.rarity)} /> · </> : null}{target.class}</span><small>View operator profile</small></span>
                     </Link>

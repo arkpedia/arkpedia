@@ -1,0 +1,10 @@
+{
+  "about": "The account-import relay the site's pages tunnel through (lib/account-import/relay.ts). It is its own repository, arkpedia/arkpedia-relay, where relay.config.json lists this site's origins and the game servers it may reach. To move the relay to a new server, set it up from that repository; if its domain changes, change url here and add this site's domains to its origins there. allowedHosts is the list of hosts the import reaches through it, which relay.config.json there must allow, pattern for pattern: scripts/tests/test-account-import.ts holds every server's hosts (lib/account-import/yostar.ts SERVERS) to it.",
+  "url": "wss://relay.arkpedia.net/wisp/",
+  "allowedHosts": [
+    "^(en|jp)-sdk-api\\.yostarplat\\.com$",
+    "^(as|gs|ak-conf)\\.arknights\\.(global|jp|kr)$",
+    "^account\\.yo-star\\.com$",
+    "^account\\.yostar\\.(co\\.jp|kr)$"
+  ]
+}

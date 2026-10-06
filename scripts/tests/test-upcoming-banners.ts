@@ -65,3 +65,44 @@ test('the Upcoming split never reads the clock itself; the instant is always the
     globalThis.Date = RealDate;
   }
 });
+
+test('a Joint Operation or an Orienteering waits for Global\'s pool or announcement: no forecast from CN, in no banner list until then', async () => {
+  const { estimateBannerFromCn, waitsForGlobal } = await import('../../lib/gacha/bannerSchedule');
+  const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
+  const { resolveGachaSimulatorBanners } = await import('../../lib/gacha/gachaBannerWindows');
+  const { getPullSchedule } = await import('../../lib/pulls/schedule');
+  const { getAllHeadhuntingBanners, getBannersSortedByDate } = await import('../../lib/gacha/headhuntingBannerData');
+  // Running on CN on 2026-10-06; Global's client has neither.
+  const orienteering = banner('Orienteering #8', null, { pull_type: 'orienteering', cn_date: '2026/09/29–2026/10/13', linked_event: 'Vector Breakthrough' });
+  const joint = banner('Joint Operation #24', null, { pull_type: 'joint', cn_date: '2026/10/06–2026/10/20' });
+  const featured = banner('A CN featured banner', null, { pull_type: 'featured', cn_date: '2026/10/09–2026/10/23' });
+  assert.equal(waitsForGlobal(featured), false, 'only these two kinds wait');
+  // A Global date alone is a forecast on a record linked to its CN pool (Orienteering #7's on
+  // 2026-10-06, the wiki's, with CN's lineup): Global's pool or an official announcement has it.
+  assert.equal(waitsForGlobal({ ...orienteering, cnPoolId: 'SPECIAL_73_0_3', global_date: '2026/10/18–2026/11/01' }), true);
+  // One from before pools were linked (no CN pool either: the bundled snapshot's) keeps its date.
+  assert.equal(waitsForGlobal({ ...joint, global_date: '2021/05/28–2021/06/11' }), false);
+  assert.equal(waitsForGlobal({ ...orienteering, global_date: '2027/03/23–2027/04/06', globalPoolId: 'SPECIAL_EN_42_0_1' }), false);
+  assert.equal(waitsForGlobal({ ...joint, global_window: { startAt: '2027-04-01T08:00:00Z', endAt: '2027-04-15T03:59:00Z', timingSource: 'https://www.arknights.global/news/9999' } }), false);
+  // No Global window from CN for the two; a featured banner still gets its estimate.
+  assert.equal(estimateBannerFromCn(orienteering, 175).global_date, null);
+  assert.equal(estimateBannerFromCn(joint, 175).global_date, null);
+  assert.equal(estimateBannerFromCn(featured, 175).global_date_estimated, true);
+  // Nor from its event's predicted window, which is how the Pull Planner dates a linked banner.
+  type Events = NonNullable<Parameters<typeof resolvePullBannerWindows>[1]>;
+  type Calendar = NonNullable<Parameters<typeof resolvePullBannerWindows>[2]>;
+  const events = [{ name: 'Vector Breakthrough', cn: { dateRange: '2026/09/29–2026/10/20' }, global: { dateRange: null } }] as unknown as Events;
+  const calendar = [{ name: 'Vector Breakthrough', dateRange: '2027/03/23–2027/04/13', isPredicted: true }] as unknown as Calendar;
+  assert.deepEqual(resolvePullBannerWindows([orienteering], events, calendar).map((b) => [b.global_date, b.global_date_estimated]), [[null, false]]);
+  // Once Global's client carries it, its Global window is its own.
+  const pooled = { ...orienteering, global_date: '2027/03/23–2027/04/06', globalPoolId: 'SPECIAL_EN_42_0_1' };
+  assert.equal(resolvePullBannerWindows([pooled], events, calendar)[0].global_date, '2027/03/23–2027/04/06');
+  // The real data: the bundled records include ones still waiting, and none of them is in the
+  // banner list every page reads, the simulator's (its Upcoming tab included), or the Pull Planner's.
+  const { default: bundled } = await import('../../data/headhunting_banners.json');
+  const waiting = (bundled as HeadhuntingBanner[]).filter((b) => waitsForGlobal(b)).map((b) => b.name);
+  assert.ok(waiting.length > 0, 'the bundled banners include some still waiting for Global');
+  for (const names of [getAllHeadhuntingBanners(), resolveGachaSimulatorBanners(getBannersSortedByDate()), upcomingBanners(resolveGachaSimulatorBanners(getBannersSortedByDate()), at('2026-10-06T12:00:00Z')), getPullSchedule()].map((list) => new Set(list.map((b) => b.name)))) {
+    assert.deepEqual(waiting.filter((name) => names.has(name)), []);
+  }
+});

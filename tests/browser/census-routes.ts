@@ -44,6 +44,17 @@ export function censusRoutes(): string[] {
   return [...out, ...EXTRA];
 }
 
+/** A game import's record (lib/account/accountStore), then the page as it loads with one. */
+async function seedAccount(page: Page) {
+  await page.evaluate(() => localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null,
+    operators: ['Surtr', 'Eyjafjalla', 'Amiya'], skins: ['char_002_amiya@winter#1'], cleared: [],
+    profile: { level: 120, registeredAt: '2020-02-03T03:42:40.000Z', secretary: 'Nian', bio: 'yes',
+      // The support tiles: one in an outfit's portrait, one from before outfits were kept (its icon).
+      supports: [{ name: 'Surtr', rarity: 6, level: 90, elite: 2, potential: 1, skill: 3, skin: 'char_350_surtr@summer#9' },
+        { name: 'Eyjafjalla', rarity: 6, level: 90, elite: 2, potential: 6, skill: 3 }] } })));
+  await page.reload();
+}
+
 /** An interaction that puts new controls on screen: a dialog, a tab, a disclosure. */
 export interface CensusState { id: string; route: string; act: (page: Page) => Promise<void> }
 
@@ -160,18 +171,62 @@ export const CENSUS_STATES: CensusState[] = [
     await page.locator('.gacha-details-modal button.gacha-details-featured, .gacha-details-modal .gacha-details-name-list button').first().click();
     await page.locator('.gacha-pull-preview-header').waitFor();
   } },
+  // The banner guide on its last Basics page, its widest nav row: "‹ Previous", the page
+  // count and "Continue ›" (or "Done", for a banner with no pages of its own). The count
+  // sat 5px above the buttons' centre, lifted by a margin-bottom left from when it stood
+  // above the row; at 390 it holds one line with 11px either side.
+  { id: 'gacha guide', route: '/gacha', act: async (page) => {
+    await page.getByRole('button', { name: 'How does this work?' }).first().click();
+    const guide = page.locator('.gacha-guide-modal');
+    await guide.waitFor();
+    // A banner with its own pages asks first; one without opens on the Basics.
+    if (await guide.locator('.gacha-tutorial-question').count()) await guide.getByRole('button', { name: 'No', exact: true }).click();
+    for (let i = 0; i < 20 && await guide.getByRole('button', { name: /^Next/ }).count(); i += 1) await guide.getByRole('button', { name: /^Next/ }).click();
+    await guide.getByRole('button', { name: /^(Continue|Done)/ }).waitFor();
+  } },
   { id: 'schedule calendar', route: '/schedule', act: (page) => tabIn(page, '.page-header-actions', 'Calendar') },
   { id: 'recruitment with two tags', route: '/recruitment', act: async (page) => { const tags = page.locator('.recruit-tag-picker .filter-chip'); await tags.nth(1).click(); await tags.nth(6).click(); } },
   { id: 'stronghold alliances', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Alliances') },
   { id: 'stronghold items', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Items') },
   { id: 'stronghold enemies', route: '/gamemodes/stronghold-protocol', act: (page) => tabIn(page, '.gm-lookup', 'Enemies') },
   { id: 'stage guesser custom list', route: '/games/stage-guesser', act: (page) => clickIn(page, 'main', 'Custom') },
-  { id: 'pulls disclosures open', route: '/pulls', act: async (page) => { for (const name of [/^Income & events/i, /^Past events/i]) await page.getByRole('button', { name }).first().click(); } },
+  // The Income popup: the forecast banner and the condensed report (pages/pulls.tsx).
+  { id: 'pulls income', route: '/pulls', act: async (page) => { await page.locator('#tab-income').click(); await page.locator('dialog.pulls-income-dialog .pulls-report').waitFor(); } },
   { id: 'enemies stages tab', route: '/enemies', act: (page) => tabIn(page, '.enemy-tabs', 'Stages') },
   // r10 x-buttons: dialogs whose close became the borderless × (XButton). The planner's goal
   // dialog had a 44px-wide glyph box stretched to its head's height; as a square it sat 6px
   // above the steps beside it until placed on the head's centre line.
+  // The Owned / Not owned chips (components/account/OwnedFilter) lit, on an imported account
+  // (lib/account/accountStore): drawn for everyone, enabled only with an import.
+  // The Skin Planner (components/skins/SkinPlanner) with an outfit planned: its card lit and
+  // the summary's shop deadline filled in.
+  { id: 'skin planner with a plan', route: '/skin-planner', act: async (page) => { await page.locator('.skin-plan-card').first().click(); await page.locator('.skin-plan-deadlines').waitFor(); } },
+  { id: 'roster owned', route: '/operators', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Operators you own' }).getByRole('button', { name: /^Owned\s*\d+$/ }).click(); } },
+  { id: 'skins not owned', route: '/skins', act: async (page) => { await seedAccount(page); await page.getByRole('group', { name: 'Outfits you own' }).getByRole('button', { name: /^Not owned\s*\d+$/ }).click(); } },
   { id: 'planner goal dialog', route: '/planner', act: async (page) => { await tabIn(page, '.page-header-actions', 'Experimental'); await page.getByRole('button', { name: /Add a goal/ }).first().click(); await page.locator('.wizard-head:visible').first().waitFor(); } },
+  // The account page with an import (lib/account/accountStore): the profile and counts filled
+  // in, and Import / export open.
+  // The Pull Planner's Past events popup with an import (components/pulls/PastRewards): ticked
+  // from the account's cleared stages, one chapter opened to the stages it has left.
+  { id: 'pulls past events from an import', route: '/pulls', act: async (page) => {
+    await seedAccount(page);
+    await page.locator('#tab-past').click();
+    await page.locator('dialog.pulls-past-dialog .pulls-past-row button.pulls-past-name').first().click();
+    await page.locator('dialog.pulls-past-dialog .pulls-past-detail').first().waitFor();
+  } },
+  // The OP Tracker with an import: ticked from the account, one chapter opened to the
+  // stages it has left.
+  { id: 'op tracker from an import', route: '/free-op', act: async (page) => {
+    await seedAccount(page);
+    await page.locator('.pulls-past-page .pulls-past-row button.pulls-past-name').first().click();
+    await page.locator('.pulls-past-page .pulls-past-detail').first().waitFor();
+  } },
+  { id: 'account with an import', route: '/account', act: async (page) => {
+    await seedAccount(page);
+    // Import / export (components/account/DataDialog).
+    await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
+    await page.locator('dialog.data-dialog .import-forms').waitFor();
+  } },
   { id: 'stronghold record', route: '/gamemodes/stronghold-protocol', act: async (page) => { await tabIn(page, '.gm-lookup', 'Enemies'); await page.locator('.gm-row:visible').first().click(); await page.locator('.record-dialog').first().waitFor(); } },
   { id: 'stage enemy record', route: '/stages/browse?s=1-7', act: async (page) => { await page.locator('.stage-enemy-faces .enemy-face').first().click(); await page.locator('.record-dialog .enemy-hero').first().waitFor(); } },
   ...PLANNER_STATES,

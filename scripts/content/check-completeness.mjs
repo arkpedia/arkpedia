@@ -4,12 +4,90 @@ import { pathToFileURL } from 'node:url';
 import { parseReleaseDate } from '../../lib/music/releaseDate.mjs';
 import { unconfirmedOutfitSales } from './outfit-windows.mjs';
 import { checkMaterialCatalogue, uncataloguedCosts } from '../../lib/farming/materialCatalogue.mjs';
+import { waitsForGlobal } from '../../lib/gacha/waitsForGlobal.mjs';
 
 const safe = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
 // A reward name that is a scrape's stand-in for a missing item, not the item.
 const PLACEHOLDER = /not found|^\?+$|^(?:tbd|tba|unknown|null|undefined|placeholder|n\/a)$/i;
 const words = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 const list = x => Array.isArray(x) ? x : [];
+/** The kinds of data/event-rewards.json group an event page lists as rewards, with an icon each:
+ *  the kinds TABLE_REWARD_LABEL (lib/events/tableRewards.ts) gives a tab. A test keeps the two in
+ *  step. */
+export const LISTED_REWARD_KINDS = ['login', 'banner-gift', 'free-rolls', 'missions', 'milestones', 'first-clear'];
+/**
+ * Every icon an event page shows beside a reward that some stage can source, as rewardIconPath
+ * (lib/events/rewardIcons.ts) asks for it, row by row: { name, file } for a file in the asset
+ * index, { name, outfit } for an outfit (its icon is found by name in the rarity folders),
+ * { name, placeholder: true } for a scrape's stand-in for an item. scripts/imports/
+ * import-reward-icons.py asks for the same material-icons/ files (a test runs it with --wanted
+ * against this), so every file the release holds is one a stage fetches or reports.
+ *   - the store: data/event-stores.json's where the wiki lists one, else the event record's own
+ *     (`rewards`), its Chinese names in English where event-rewards.json's storeNames has them.
+ *     A piece of furniture the event's rewards name is its own file (material-icons/<furni id>:
+ *     two events' "Duel Trophy" are two pieces), an outfit its icon, any other row its name's
+ *     (iconName first, which only the record's rows carry) -- found in the item tables, a piece
+ *     building_data names, else the wiki's upload of it;
+ *   - data/event-rewards.json's groups the page lists as rewards (LISTED_REWARD_KINDS): a player
+ *     icon is profile art (profile-avatars/<id>, which the image repository publishes from the
+ *     client), a piece of furniture its own file, an outfit its icon, a daily free roll the
+ *     Headhunting Permit's, a row of a kind the item table sorts its name's. An operator's
+ *     portrait is the operator checks' business, and event tokens are not listed;
+ *   - the packs' contents of a kind the item table sorts, by name.
+ * Not held, because no stage sources them (import-reward-icons.py skips the same rows): a table
+ * reward of kind 'other' with no furni_ or avatar_ id (build-event-rewards found it under no item
+ * type it sorts and no piece of furniture: a charm coin, an Ideal City cart part, a profile
+ * theme; the few the item table holds under a type it does not sort, an elite or skill training
+ * voucher, go with them until it sorts that type), a pack's contents of kind 'other' (no item of
+ * that name: a pack's cosmetics, and the parser's leftovers such as "Home Screen UI [Dahuang" or
+ * "Gard Chip"), and a store's upware, a mode's own pieces. Held, they stood on the daily issue with
+ * nothing that could ever clear them. The page still draws one if a file under its name is ever
+ * published.
+ */
+export function eventRewardIcons(event, { eventStores, eventRewards }) {
+  const icons = [];
+  const named = (name, file) => icons.push({ name, file });
+  // A row drawn by its name: the scrape's stand-ins for an item ("?", "TBD", "Furniture not
+  // found") are a placeholder hold wherever they turn up, not a file anyone could fetch;
+  // import-reward-icons.py skips them the same way (want_name), so the two sets stay equal.
+  const byName = (name, stem) => {
+    const text = typeof stem === 'string' ? stem.trim() : '';
+    if (!text || PLACEHOLDER.test(text)) icons.push({ name: name ?? '', placeholder: true });
+    else named(name, `material-icons/${safe(text)}.webp`);
+  };
+  const groups = list(eventRewards.events?.[event.name]?.groups);
+  const furniture = new Map(groups.flatMap(group => [...list(group.items).filter(item => item?.kind === 'furniture' && /^furni_/.test(item.id ?? '')).map(item => [item.name, item.id]),
+    ...list(group.pieces).map(piece => [piece.name, piece.id])]));
+  const storeNames = eventRewards.storeNames ?? {};
+  const wiki = list(eventStores.events?.[event.name]?.stores);
+  const store = wiki.length ? wiki.flatMap(block => list(block?.items)).map(({ iconName: _, ...item }) => item)
+    : [event.rewards ?? []].flat().flatMap(block => list(block?.items)).map(item => (typeof item?.name === 'string' && storeNames[item.name] ? { ...item, name: storeNames[item.name] } : item));
+  for (const item of store) {
+    const name = typeof item?.name === 'string' ? item.name.trim() : '';
+    if (!name || PLACEHOLDER.test(name)) icons.push({ name: item?.name ?? '', placeholder: true });
+    else if (item.type === 'upware') continue; // a mode's own piece: unsourced (see above)
+    else if (item.type === 'furniture' && furniture.has(item.name)) named(name, `material-icons/${safe(furniture.get(item.name))}.webp`);
+    else if (item.type === 'skin') icons.push({ name, outfit: name });
+    else byName(name, item.iconName ?? name);
+  }
+  for (const group of groups) {
+    if (LISTED_REWARD_KINDS.includes(group.kind)) {
+      for (const item of list(group.items)) {
+        const id = typeof item?.id === 'string' ? item.id : '';
+        if (item?.kind === 'operator' || item?.kind === 'event-item') continue;
+        // By id first: a player icon or a piece of furniture is drawn by its id whatever its kind,
+        // so one typed 'other' (every player icon is) is still held.
+        if (item?.kind === 'free-roll') named(item.name, 'material-icons/Headhunting Permit.webp');
+        else if (/^avatar_/.test(id)) named(item.name, `profile-avatars/${id.toLowerCase()}.webp`);
+        else if (/^furni_/.test(id)) named(item.name, `material-icons/${safe(id)}.webp`);
+        else if (item?.kind === 'outfit') icons.push({ name: item.name, outfit: String(item.name).split(' / ').pop() });
+        else if (item?.kind !== 'other') byName(item?.name, item?.name);
+      }
+    }
+    if (group.kind === 'packs') for (const pack of list(group.packs)) for (const item of list(pack.contents)) if (item?.kind !== 'other') byName(item?.name, item?.name);
+  }
+  return icons;
+}
 // Every material list is a flat [{ name, quantity }] list: the site, the tests and the public
 // image sync all read it that way. Four hand-written records once nested the potential cost,
 // which crashed the image sync, so no record is published with any other shape.
@@ -67,14 +145,17 @@ export function artPath(value) {
  *
  * Everything else is one record's problem -- a new CN operator or outfit not imported yet,
  * a discovered event or banner the catalogue left out, art (key art too) or a reward icon
- * the image sync has not published, a stage enemy without its record, an album whose
+ * the image sync has not published (any row an event page lists that a stage can source: its
+ * store, its table rewards, its packs), a stage enemy without its record, an album whose
  * release date is not written YYYY/MM/DD, a dated operator's art without a palette -- so it
  * becomes an entry in data/quarantine.json (stage 'completeness') and a line in the daily
  * 'Content quarantined' issue, and the rest of the day's content still goes out. The keys name
  * records by their source ids, the same way every stage's quarantine entries do.
  */
-export function reviewCompleteness({ inventory, operators, skins, banners, events, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, materials, mappedStages, palettes, counts, baseline, allowShrink = [] }) {
+export function reviewCompleteness({ inventory, operators, skins, banners, events, eventStores, eventRewards, bundles = [], albums = [], assets, skinWindows, now, stageEnemies, enemyRecords, enemyIndex, materials, mappedStages, palettes, counts, baseline, allowShrink = [] }) {
   if (!Array.isArray(materials?.order)) throw new Error('reviewCompleteness needs the material catalogue (data/material-catalogue.json)');
+  if (!eventStores?.events || typeof eventStores.events !== 'object') throw new Error('reviewCompleteness needs the event stores (data/event-stores.json)');
+  if (!eventRewards?.events || typeof eventRewards.events !== 'object') throw new Error('reviewCompleteness needs the event rewards (data/event-rewards.json)');
   if (!Array.isArray(mappedStages)) throw new Error('reviewCompleteness needs the listed stages with a map (stageMapRows)');
   if (!(palettes instanceof Set)) throw new Error('reviewCompleteness needs the palette catalogue (the artworks of data/color-palettes.json)');
   const errors = [], quarantine = [], allowed = [];
@@ -107,6 +188,9 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
       hold(`operator:${op.internalName || op.name}`, 'published-partial', `${op.name}: costs ${uncatalogued.join(', ')}, which data/material-catalogue.json does not have, so /planner cannot hold or craft ${uncatalogued.length === 1 ? 'it' : 'them'} and leaves ${op.name} out of its picker`);
     }
   }
+  // A released operator's skill and base-skill icons are scripts/audits/check-icon-coverage.ts's
+  // (stage 'icons', the same isOperatorReleased the pages use, the same path rules), not held here
+  // a second time.
   // The palette game plays every dated operator (released, or with a Global date) whose Base
   // art, and from 4 stars its Elite 2 art, has a palette in data/color-palettes.json, and
   // leaves the rest out without a word (lib/minigames/data.ts). The palettes stage makes one
@@ -148,6 +232,9 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     hold(`skin:${skin.skinId ?? key}`, 'published-partial', `${key}: on sale on Global with ${event.name}, but data/skin-availability-windows.json has no confirmed window for it, so /skins shows an estimate; add the Outfit Store window from ${notice}`);
   }
   for (const banner of banners) {
+    // A Joint Operation or an Orienteering Global does not have yet is shown nowhere, and its art
+    // is Global's upload only, which the wiki has once Global runs it: nothing to hold yet.
+    if (waitsForGlobal(banner)) continue;
     for (const name of [...(banner.six_stars ?? []), ...(banner.rate_up_six_stars ?? []), ...(banner.five_stars ?? []), ...(banner.four_stars ?? [])]) {
       if (!names.has(name)) hold(bannerKey(banner), 'published-partial', `Banner operator missing: ${banner.name} / ${name}`);
     }
@@ -162,15 +249,32 @@ export function reviewCompleteness({ inventory, operators, skins, banners, event
     if (art && missing(art)) hold(eventKey(event), 'published-partial', `${event.name}: missing asset ${art}`);
   }
   for (const expected of inventory.events ?? []) if (!events.some(e=>e.activityId===expected.id)) hold(eventKey({ activityId: expected.id }), 'omitted-new', `Discovered event missing: ${expected.name}`);
-  // Every reward an event page lists needs a real name and a published icon: the page asks
-  // for material-icons/<iconName ?? name> (an outfit: its icon in a rarity folder) and leaves
-  // out an icon that is not published (rewardIconPath). "Furniture not found", the wiki's
-  // placeholder, sat in a store as an item drawing a broken image, and nothing reported it.
-  for (const event of events) for (const block of [event.rewards ?? []].flat()) for (const item of block?.items ?? []) {
-    const name = typeof item?.name === 'string' ? item.name.trim() : '';
-    if (!name || PLACEHOLDER.test(name)) hold(eventKey(event), 'published-partial', `${event.name} reward "${item?.name ?? ''}": a placeholder, not an item name`);
-    else if (item.type === 'skin') { if (!outfitIcons.has(name.toLowerCase())) hold(eventKey(event), 'published-partial', `${event.name} reward outfit ${name}: no published outfit icon`); }
-    else if (missing(`material-icons/${safe(item.iconName ?? name)}.webp`)) hold(eventKey(event), 'published-partial', `${event.name} reward ${name}: missing asset material-icons/${safe(item.iconName ?? name)}.webp`);
+  // Every reward an event page lists needs a real name and, where a stage can source one, a
+  // published icon (eventRewardIcons above: the files rewardIconPath asks for, row by row, less the
+  // rows nothing can source). "Furniture not found", the wiki's
+  // placeholder, sat in a store as an item drawing a broken image, and nothing reported it; 129
+  // wiki store rows of furniture once drew no icon and were neither fetched
+  // (import-reward-icons.py) nor reported, because this read the records alone.
+  //
+  // An event's unpublished files are one hold, counted, with the first few named: an event that
+  // lists fifty pieces of furniture before staged art publishes them once held fifty reasons, and
+  // data/quarantine.json, a release input, grew from 1.3KB of reasons to 230KB. Each file is
+  // import-reward-icons.py's to fetch (a test holds the two to the same files), and it reports the
+  // ones it cannot find under 'reward-icons', one entry each, with why.
+  const SHOWN = 3;
+  for (const event of events) {
+    const unpublished = new Set();
+    const held = new Set();
+    const holdReward = reason => { if (!held.has(reason)) { held.add(reason); hold(eventKey(event), 'published-partial', reason); } };
+    for (const icon of eventRewardIcons(event, { eventStores, eventRewards })) {
+      if (icon.placeholder) holdReward(`${event.name} reward "${icon.name}": a placeholder, not an item name`);
+      else if (icon.outfit != null) { if (!outfitIcons.has(icon.outfit.trim().toLowerCase())) holdReward(`${event.name} reward outfit ${icon.outfit}: no published outfit icon`); }
+      else if (missing(icon.file)) unpublished.add(icon.file);
+    }
+    if (unpublished.size) {
+      const files = [...unpublished].sort(byCodeUnit);
+      hold(eventKey(event), 'published-partial', `${event.name}: ${files.length} reward icon${files.length === 1 ? '' : 's'} not published: ${files.slice(0, SHOWN).join(', ')}${files.length > SHOWN ? ` and ${files.length - SHOWN} more` : ''}`);
+    }
   }
   for (const expected of inventory.banners ?? []) if (!banners.some(b=>b.cnPoolId===expected.id)) hold(bannerKey({ cnPoolId: expected.id }), 'omitted-new', `Discovered banner missing: ${expected.name}`);
   for (const bundle of bundles) {
@@ -318,6 +422,9 @@ export function readCompletenessInputs(root = process.cwd()) {
     .flatMap(file => read(`data/enemies/${file}`).enemies.map(enemy => [enemy.slug, { name: enemy.name, icon: enemy.icon }])));
   const input = { inventory: read('data/content-inventory.json'), operators, skins: read('data/skins.json'),
     banners: read('data/headhunting_banners.json'), events: eventFiles.flatMap(file => read(`data/events/${file}`)),
+    // Written by the event stages, later in a run: the baseline, recorded before them, can load a
+    // release that has neither yet. The review itself still requires both (reviewCompleteness).
+    eventStores: optional('data/event-stores.json', null), eventRewards: optional('data/event-rewards.json', null),
     bundles: read('data/content-bundles.json'), assets: new Set([...assetIndex, ...remote]),
     albums: fs.existsSync(path.join(root, 'data/albums.json')) ? list(read('data/albums.json')) : [],
     skinWindows: read('data/skin-availability-windows.json').entries,

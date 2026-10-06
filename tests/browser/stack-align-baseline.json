@@ -27,6 +27,11 @@
       "why": "a picture card: the text keeps --card-inset from the flush art (/skins)"
     },
     {
+      "parent": "button.btn-bare.pick-card",
+      "child": "span.skin-plan-card-text",
+      "why": "a picture card, the Skins gallery's: the text keeps --card-inset from the flush art (/skin-planner, and the Pull Planner's Outfits panel)"
+    },
+    {
       "parent": "a.stage-mode-card",
       "child": "span.stage-mode-meta",
       "why": "a picture card: the text keeps --card-inset from the flush banner (/stages/all)"

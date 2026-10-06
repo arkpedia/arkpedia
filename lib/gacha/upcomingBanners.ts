@@ -16,7 +16,9 @@ export function isBannerLive(banner: HeadhuntingBanner, now: number): boolean {
  * Live banners come first, soonest-ending first, since that is the most time-sensitive;
  * then upcoming ones, soonest-starting first -- the opposite of the newest-first order
  * every other tab uses, since this tab is about what is live or coming up soonest.
- * Banners with no parseable window are left out. */
+ * Banners with no parseable window are left out. A Joint Operation or an Orienteering Global does
+ * not have yet never reaches this list: the banner list the page is built from leaves it out
+ * (lib/gacha/headhuntingBannerData.ts, waitsForGlobal). */
 export function upcomingBanners<T extends HeadhuntingBanner>(banners: readonly T[], now: number): T[] {
   return banners
     .flatMap((banner) => {

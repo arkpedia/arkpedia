@@ -31,8 +31,15 @@ const shiftDate = (date: string, offset: number) => new Date(Date.parse(`${date}
  * CN rotations follow the scheduled Global event opening, retaining each shop's
  * own offsets. Both inventory and timing remain estimates until verified Global.
  * Shops that are already over stay in: which ones are over is decided per request
- * (lib/pulls/currentPlan.ts) and again in the browser (SkinPlan), never here. */
-export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], catalogue: PlannedSkin[], predicted: ReadonlySet<string> = new Set(), sources: SkinShopSource[] = shopRotations.entries, confirmed: ConfirmedSkinWindow[] = confirmedAvailability.entries): SkinCollection[] {
+ * (lib/pulls/currentPlan.ts) and again in the browser (SkinPlan), never here.
+ *
+ * A CN rotation's new outfits are not new on Global once Global has sold them some
+ * other way: Critical Phase Transition's three early-shop outfits came to Global with
+ * Duel Channel: Ivy Vine, weeks before its own shop. So a projected shop leaves out a
+ * new outfit a confirmed Global shop sold first, or that Global released (its
+ * globalReleaseAt) before the projected shop opens. Its returning outfits stay: selling
+ * them again is what a returning batch is. */
+export function pullSkinCollections(events: ScheduleEvent[], skins: Skin[], catalogue: PlannedSkin[], predicted: ReadonlySet<string> = new Set(), sources: SkinShopSource[] = shopRotations.entries, confirmed: ConfirmedSkinWindow[] = confirmedAvailability.entries): SkinCollection[] {
   const paid = new Set(catalogue.map(skin => skin.id));
   // Keep expired confirmations too: an old CN projection must never resurrect
   // a shop after its verified Global window has closed.
@@ -56,6 +63,13 @@ export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], cat
       source: window.source, sourceRegion: 'global',
     }] : [];
   });
+  // When Global first had each outfit: its earliest confirmed shop, or its release.
+  const onGlobal = new Map<string, string>();
+  const firstSeen = (id: string, date: string) => { if (!onGlobal.has(id) || date < onGlobal.get(id)!) onGlobal.set(id, date); };
+  for (const collection of verified) for (const id of collection.skinIds) firstSeen(id, collection.start);
+  for (const skin of skins) {
+    if (skin.globalReleaseAt) firstSeen(`${skin.model} / ${skin.name}`, new Date(skin.globalReleaseAt * 1000).toISOString().slice(0, 10));
+  }
   const projected = sources.flatMap(source => {
     if (confirmedEvents.has(normalizeEvent(source.event))) return [];
     const event = events.find(event => event.name === source.event);
@@ -70,7 +84,8 @@ export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], cat
         const start = shiftDate(rotation.start, offset);
         const end = shiftDate(rotation.end, offset);
         if (end < start) throw new Error(`Invalid shop window: ${source.event} / ${rotation.label}`);
-        const skinIds = [...new Set([...rotation.new, ...rotation.returning])];
+        const fresh = rotation.new.filter(id => !(onGlobal.has(id) && onGlobal.get(id)! < start));
+        const skinIds = [...new Set([...fresh, ...rotation.returning])];
         for (const id of skinIds) if (!paid.has(id)) throw new Error(`Shop outfit missing OP metadata: ${id}`);
         return skinIds.length ? [{
           id: `${event.name} / ${eventStart} / ${rotation.label}`,
@@ -78,7 +93,7 @@ export function pullSkinCollections(events: ScheduleEvent[], _skins: Skin[], cat
           source: source.source, sourceRegion: source.sourceRegion,
           start, end,
           estimated: source.sourceRegion !== 'global' || rotation.dateBasis !== 'shop' || predicted.has(event.name),
-          skinIds, featuredIds: rotation.new,
+          skinIds, featuredIds: fresh,
         }] : [];
       });
     });

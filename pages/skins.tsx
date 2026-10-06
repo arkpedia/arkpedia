@@ -1,7 +1,8 @@
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
-import { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
@@ -15,6 +16,9 @@ import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
+import { ownedFilter, useAccount } from '@/lib/account/accountStore';
+import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
@@ -33,7 +37,6 @@ interface Props {
   now: number;
 }
 
-const WISHLIST_STORAGE_KEY = 'skinWishlist_v1';
 const AVAILABILITY_OPTIONS = [
   { value: '', label: 'All' },
   { value: 'now', label: 'Available now' },
@@ -82,6 +85,11 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   }, [query.availability, setQuery]);
   const wishlistOnly = query.wishlist;
   const setWishlistOnly = (value: string) => setQuery('wishlist', value);
+  // Owned or not, by the imported account's skin ids (lib/account/accountStore); ignored without one.
+  const owned = ownedFilter(query.owned);
+  const setOwned = (value: string) => setQuery('owned', value === 'all' ? '' : value);
+  const account = useAccount();
+  const ownedSkins = useMemo(() => new Set(account?.skins ?? []), [account]);
   const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Etc/GMT+7' });
   const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Etc/GMT+7' }) + ' (UTC−7)';
   function availabilityText(skin: Skin): string | null {
@@ -167,35 +175,23 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const setSortByAvailableDate = (v: boolean) => setSortRaw(v ? 'available' : '');
   const SKIN_PAGE_SIZE = 30;
   const [visibleSkinCount, setVisibleSkinCount] = useState(SKIN_PAGE_SIZE);
-  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(WISHLIST_STORAGE_KEY);
-      if (saved) setWishlist(new Set(JSON.parse(saved)));
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  function toggleWishlist(skinName: string) {
-    setWishlist((current) => {
-      const next = new Set(current);
-      if (next.has(skinName)) next.delete(skinName);
-      else next.add(skinName);
-      try {
-        window.localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(Array.from(next)));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+  /* The wishlist is the skin plan the Skin Planner and the Pull Planner share
+     (lib/skins/skinPlan), by "Operator / Outfit". An entry the first read could not place
+     is still the outfit's bare name, so both forms count. */
+  const keyByName = useMemo(() => new Map(skins.filter((skin) => skin.model).map((skin) => [skin.name, skinKey(skin)])), [skins]);
+  const [planIds, setPlanIds] = useSkinPlan((name) => keyByName.get(name));
+  const planned = useMemo(() => new Set(planIds), [planIds]);
+  const isWished = useCallback((skin: Skin) => planned.has(skinKey(skin)) || planned.has(skin.name), [planned]);
+  const wishCount = useMemo(() => skins.filter(isWished).length, [skins, isWished]);
+  function toggleWishlist(skin: Skin) {
+    const key = skinKey(skin);
+    setPlanIds(isWished(skin) ? planIds.filter((id) => id !== key && id !== skin.name) : [...planIds, key]);
   }
 
   const seriesOptions = useMemo(() => skinSeriesOptions(skins), [skins]);
   const seriesFiltered = useMemo(() => {
     return skins.filter(skin => {
-      if ((wishlistOnly === '1' || selectedSeries === 'WISHLIST') && !wishlist.has(skin.name)) return false;
+      if ((wishlistOnly === '1' || selectedSeries === 'WISHLIST') && !isWished(skin)) return false;
       if (selectedSeries && selectedSeries !== 'WISHLIST' && seriesKey(skin.series) !== seriesKey(selectedSeries)) return false;
       const window = availability.get(skinKey(skin));
       if (availabilityFilter === 'now') return isAvailableNow(window);
@@ -203,12 +199,16 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       if (['shop', 'reward'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
       return true;
     });
-  }, [skins, selectedSeries, wishlist, wishlistOnly, availability, availabilityFilter]);
+  }, [skins, selectedSeries, isWished, wishlistOnly, availability, availabilityFilter]);
+  /* Every filter but Owned, so the Owned filter can count what each of its options would show
+     (components/account/OwnedFilter). */
+  const matchingSkins = useMemo(() => (!search.trim()
+    ? seriesFiltered
+    : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series} ${s.release || ''} ${(s.searchAliases || []).join(' ')}`, search))), [seriesFiltered, search]);
+  const ownedCounts = useMemo(() => countOwned(matchingSkins, (skin) => ownedSkins.has(skin.skinId ?? '')), [matchingSkins, ownedSkins]);
 
   const filteredSkins = useMemo(() => {
-    const base = !search.trim()
-      ? seriesFiltered
-      : seriesFiltered.filter((s) => matchesSearch(`${s.model || ''} ${s.name} ${s.series} ${s.release || ''} ${(s.searchAliases || []).join(' ')}`, search));
+    const base = account && owned !== 'all' ? matchingSkins.filter((skin) => ownedSkins.has(skin.skinId ?? '') === (owned === 'owned')) : matchingSkins;
 
     const searching = search.trim().length > 0;
     // What can be had now leads the gallery, in the order the Available now tab lists it,
@@ -238,7 +238,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
       return (aWindow ? Date.parse(aWindow.live ? aWindow.endAt : aWindow.startAt) : Infinity)
         - (bWindow ? Date.parse(bWindow.live ? bWindow.endAt : bWindow.startAt) : Infinity);
     });
-  }, [seriesFiltered, search, sortByAvailableDate, availability, availabilityFilter]);
+  }, [matchingSkins, account, owned, ownedSkins, search, sortByAvailableDate, availability, availabilityFilter]);
 
   useEffect(() => {
     setVisibleSkinCount(SKIN_PAGE_SIZE);
@@ -278,14 +278,14 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
   const wishlistOriginitePrimeTotal = useMemo(() => {
     let total = 0;
     for (const skin of skins) {
-      if (!wishlist.has(skin.name)) continue;
+      if (!isWished(skin)) continue;
       const prices = parsePrices(skin.howToObtain);
       for (const p of prices) {
         if (p.currency === 'Originite Prime') total += p.amount;
       }
     }
     return total;
-  }, [skins, wishlist]);
+  }, [skins, isWished]);
 
   return (
     <>
@@ -301,19 +301,25 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
               onChange={value => setSelectedSeries(value || null)} />
             <StyledSelect label="Sort skins" value={sortByAvailableDate ? 'available' : ''} options={SORT_OPTIONS}
               onChange={value => setSortByAvailableDate(value === 'available')} />
+          </div>
+          {/* The filters, then the wishlist at the far end: the roster's and the Skin Planner's
+              row, with the owned filter in the same place. */}
+          <div className="skins-filter-row">
+            <SegmentedControl label="Skin availability" value={availabilityFilter} options={AVAILABILITY_OPTIONS} onChange={setAvailabilityFilter} />
+            <OwnedFilter label="Outfits you own" value={owned} onChange={setOwned} account={account} counts={ownedCounts} />
+            <span className="toolbar-spacer" aria-hidden="true" />
             <button type="button" className="filter-chip skins-wishlist-filter"
               aria-pressed={wishlistOnly === '1' || selectedSeries === 'WISHLIST'} onClick={() => {
                 if (selectedSeries === 'WISHLIST') setSelectedSeries(null);
                 setWishlistOnly(wishlistOnly === '1' || selectedSeries === 'WISHLIST' ? '' : '1');
-              }}>☆ Wishlist <span className="filter-chip-count">{wishlist.size}</span></button>
+              }}>☆ Wishlist <span className="filter-chip-count">{wishCount}</span></button>
           </div>
-          <SegmentedControl label="Skin availability" value={availabilityFilter} options={AVAILABILITY_OPTIONS} onChange={setAvailabilityFilter} />
-          {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="skins-wishlist-total">{wishlist.size} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total</p>}
+          {(wishlistOnly === '1' || selectedSeries === 'WISHLIST') && <p className="skins-wishlist-total">{wishCount} wishlisted · {wishlistOriginitePrimeTotal} OP catalogue total · planned in the <Link prefetch={false} href="/skin-planner">Skin Planner</Link></p>}
         </div>} />
 
       <main className="skins-results" id="skin-results" tabIndex={-1} aria-label="Skin gallery">
         <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
-          <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); }}>Reset filters</button>
+          <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly && !(account && owned !== 'all')} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); setOwned('all'); }}>Reset filters</button>
         </div>
         {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}
         {filteredSkins.length === 0 ? (
@@ -345,16 +351,16 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows }
             onClick={(e) => e.stopPropagation()}
             onKeyDown={handleModalKeyDown}
           >
-            <button type="button" className="modal-back-btn" ref={modalBackBtnRef} onClick={closeSkin}>
+            <button type="button" className="back-btn" ref={modalBackBtnRef} onClick={closeSkin}>
               ‹ Back
             </button>
             <button
               type="button"
               className="filter-chip skin-wishlist-btn"
-              aria-pressed={wishlist.has(active.name)}
-              onClick={() => toggleWishlist(active.name)}
+              aria-pressed={isWished(active)}
+              onClick={() => toggleWishlist(active)}
             >
-              {wishlist.has(active.name) ? '★ Wishlisted' : '☆ Wishlist'}
+              {isWished(active) ? '★ Wishlisted' : '☆ Wishlist'}
             </button>
             <div className="skin-modal-image-wrap-full">
               {active.image && (

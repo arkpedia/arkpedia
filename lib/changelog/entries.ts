@@ -1,0 +1,99 @@
+/*
+ * What's new on the site (pages/changelog.tsx), newest first, in the reader's words: what
+ * they can now do, what works differently, and what was broken and is not. Each item a short
+ * title and at most one short sentence (ChangeItem). Written at each
+ * release to the main site, for what that release brings. Not every merge: tests, CI and
+ * internals stay out (scripts/tests/test-changelog.ts holds the shape).
+ */
+
+/** One change, scannable: a headline that is the point on its own, and at most one short sentence
+ *  under it. The page shows the title bold, the detail quieter; scripts/tests/test-changelog.ts
+ *  holds both to a length, so the page stays a list to skim, not a wall of text. */
+export interface ChangeItem {
+  /** The point in a few words: "Pull History", "Every event reward, not just the store". */
+  title: string;
+  /** One short sentence of what it means for the reader, when the title needs it. */
+  detail?: string;
+  /** A page on the site the change is about: the title links to it. */
+  href?: string;
+}
+
+export interface ChangelogEntry {
+  /** When the release reached the site, as a UTC instant ("2026-10-05T08:26:00Z"): one moment
+   *  for every reader, which the page shows in each reader's own time zone (LocalTime). */
+  at: string;
+  /** A short name for the release, when it has a theme. */
+  title?: string;
+  added?: ChangeItem[];
+  changed?: ChangeItem[];
+  fixed?: ChangeItem[];
+}
+
+export const CHANGELOG: ChangelogEntry[] = [
+  {
+    at: '2026-10-06T13:00:00Z',
+    title: 'Event pages and Pull History',
+    added: [
+      { title: 'Pull History', detail: 'Your pulls by banner and in order, from the 90 days Yostar keeps, growing past that with each import.', href: '/account' },
+      { title: 'Expanded the shown rewards', detail: 'Logins, gifts, missions, first clears, milestones, packs and furniture sets; selector tickets and mail rewards are not shown yet.', href: '/schedule' },
+      { title: 'All tab on event rewards', detail: 'Every free reward on one card, to copy as a link or save as an image.', href: '/schedule' },
+      { title: 'Art for newly announced CN events', detail: 'Events and banners announced on CN show their key art from the official post, before the wiki has it.', href: '/schedule' },
+      { title: 'Story chapters', detail: 'Click a story on the map to pick a stage, Before or After, then read it in Timo\'s reader.', href: '/story' },
+      { title: 'Export simulated pulls', detail: 'The Gacha Simulator saves its pull history as a CSV, for your own charts.', href: '/gacha' },
+      { title: 'Japan and Korea accounts', detail: 'Import from the Japanese and Korean servers too, and switch between your accounts on each.', href: '/account' },
+      { title: 'Export your Pull History', detail: 'Save your imported pulls as a CSV, one row per pull with its banner and pity.', href: '/account' },
+      { title: 'Remember your sign-in', detail: 'Optionally keep your Yostar sign-in in this browser, so the next import is one button.', href: '/account' },
+      { title: 'Back button on event pages', detail: 'Returns to where you came from, or to the Schedule.' },
+    ],
+    changed: [
+      { title: 'Event page layout', detail: 'Event art across the top, full-width sections, and a compact rewards summary.', href: '/schedule' },
+      { title: 'Joint Operation and Orienteering', detail: 'Shown only once Global announces them, with Global\'s operators: CN picks different ones.', href: '/gacha' },
+      { title: 'Locks on imported numbers', detail: 'Your Pull Planner resources and Operator Planner starting levels stay put until you unlock them.', href: '/pulls' },
+      { title: 'Operator data from the game itself', detail: 'Skills, talents, traits and modules are rebuilt every night; CN modules show until Global has them.', href: '/operators' },
+      { title: 'Operator search keeps your place', detail: 'Jumping to another operator stays on the section you were reading, such as Base skills.', href: '/operators' },
+      { title: 'Techniques', detail: 'Modules that reveal invisible enemies are listed, traits count, and Hunters are no longer ammo-based.', href: '/techniques' },
+      { title: 'Music song list', detail: 'Opens without moving the player, and shows where a song you drag will land.', href: '/music' },
+      { title: 'Cleaner phone bar', detail: 'The menu and theme buttons sit in the bar without boxes.' },
+    ],
+    fixed: [
+      { title: 'Traits that change at Elite 2', detail: 'Both versions show, like Pudding\'s, instead of "varies by promotion".', href: '/operators' },
+      { title: 'Reward art', detail: 'Profile icons, furniture and items like Expedited Plan show their pictures.', href: '/schedule' },
+      { title: 'Skill tabs in the operator preview', detail: 'Switching to a shorter skill no longer moves the tabs under your pointer.', href: '/gacha' },
+    ],
+  },
+  {
+    at: '2026-10-03T12:10:00Z',
+    title: 'Your account, the planners, and the story',
+    added: [
+      { title: 'Import your Global account', detail: 'Sign in with your Yostar email code; operators, outfits, materials, stages and profile stay in your browser.', href: '/account' },
+      { title: 'Your profile card', detail: 'Drawn like the game\'s: support units, hiring progress and card theme.', href: '/account' },
+      { title: 'Owned / Not owned filters', detail: 'On Operators, Skins and the Skin Planner, with counts from your import.', href: '/operators' },
+      { title: 'Skin Planner', detail: 'Plan outfits by shop and price, with one wishlist shared with Skins and the Pull Planner.', href: '/skin-planner' },
+      { title: 'OP Tracker', detail: 'The Originite Prime and Orundum that first clears still owe you, ticked off from your import.', href: '/free-op' },
+      { title: 'Story page', detail: 'Timo\'s story reader and the Arknights Story Map, with full screen and a list for phones.', href: '/story' },
+      { title: 'Manga page', detail: 'Every official comic from the Global site, with links to read each one.', href: '/manga' },
+      { title: 'One Import / export', detail: 'On the Import Account page, with a backup of all your planner data.', href: '/account' },
+      { title: 'This What\'s new page' },
+    ],
+    changed: [
+      { title: 'Pull Planner fills itself in', detail: 'An import fills Orundum, OP, permits and yellow certs; Income, Past events and the wishlist open as popups.', href: '/pulls' },
+      { title: 'Pull Planner budgeting', detail: 'Budgets through your last banner, and you choose whether the skin wishlist holds OP back.', href: '/pulls' },
+      { title: 'Operator Planner views', detail: 'Missing and All, crafting ingredients on the list, and holdings you can edit in the recipe.', href: '/planner' },
+      { title: 'Planner menu', detail: 'Import Account, OP Tracker, Operator Planner, Skin Planner and Pull Planner in one place.' },
+      { title: 'Base uses your operators', detail: 'The room picker offers the operators you own, at your elite.', href: '/base' },
+      { title: 'Events by release date', detail: 'And the permanent Annihilations are listed with their certificates.' },
+      { title: 'Phone menu', detail: 'The menu button is on the left, and the menu folds into sections.' },
+    ],
+    fixed: [
+      { title: 'Pull Planner crash', detail: 'It no longer crashes when some of its data is missing.', href: '/pulls' },
+      { title: 'Skin Planner art', detail: 'Every outfit shows its art again.', href: '/skin-planner' },
+      { title: 'Popups scroll once', detail: 'The header stays put, with one scroll bar instead of two.' },
+      { title: 'Link colour', detail: 'Links in page text stay teal after you have opened them.' },
+      { title: 'Music player on desktop', detail: 'It is no longer cut off.', href: '/music' },
+    ],
+  },
+];
+
+/** The newest entry's moment: what "seen" is measured against (lib/changelog/seen.ts). ISO UTC
+ *  instants compare as strings in time order. */
+export const LATEST_CHANGE = CHANGELOG[0]?.at ?? '';

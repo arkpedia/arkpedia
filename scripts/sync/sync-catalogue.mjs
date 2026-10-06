@@ -5,14 +5,17 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
+import { reconcileOperators, reconcileSkins, reconcileCalendars, operatorReleaseDates, renameReferences, serverDay, safeName, rarityWord, onYearlyPage, inGlobalClient } from './catalogue-model.mjs';
 import { buildInventory, withStableSource } from './sync-content-inventory.mjs';
 import { readWikiRows } from './wiki-pages.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
+import { cnAnnouncements } from '../build/cn-news.mjs';
+import { readCnNews } from './sync-cn-news.mjs';
 import { cnTables, pinnedCommit } from '../content/pin-upstream.mjs';
 const read = p => JSON.parse(fs.readFileSync(p,'utf8'));
 const write = (p,data) => { if (fs.existsSync(p) && JSON.stringify(read(p)) === JSON.stringify(data)) return; fs.mkdirSync(path.dirname(p),{recursive:true}); fs.writeFileSync(p,JSON.stringify(data,null,2)+'\n'); };
-const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json' };
+// The tables source() fetches, by key; sync-operator-english.mjs reads its own by these keys too.
+export const tableFiles = { characters:'character_table.json', skins:'skin_table.json', skills:'skill_table.json', items:'item_table.json', building:'building_data.json', handbook:'handbook_info_table.json', modules:'uniequip_table.json', battleEquip:'battle_equip_table.json', activity:'activity_table.json', gacha:'gacha_table.json', voices:'charword_table.json', constants:'gamedata_const.json', patch:'char_patch_table.json' };
 async function json(url) {
   const response = await fetch(url,{signal:AbortSignal.timeout(60000),headers: url.startsWith('https://api.github.com/') && process.env.GH_TOKEN ? {Authorization:`Bearer ${process.env.GH_TOKEN}`} : {}});
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
@@ -59,7 +62,11 @@ export function cnSource(cache, env = process.env) {
   const tables = cnTables(env);
   return source(tables.repository, `${tables.folder}/excel`, cache, env, tables.commit);
 }
-export function assetPlan(operators, skins, cn, en, published, extra = []) {
+/* An event reward's icon is not planned here: import-reward-icons.py (the reward-icons stage, after
+   event-rewards writes data/event-rewards.json, which this stage runs before) plans every icon an
+   event page asks for, from the same item art. */
+export function assetPlan(operators, skins, cn, en, published, extra) {
+  if (!Array.isArray(extra)) throw new Error('assetPlan needs the extra media, as [] where there are none');
   const planned = new Map(extra.filter(a => !published.has(a.path)).map(a => [a.path,a]));
   const add = (target,source) => { if (!published.has(target)) planned.set(target,{path:target,sourcePath:source}); };
   for (const op of operators) {
@@ -128,18 +135,22 @@ export async function syncCatalogue(root, options={}) {
   const eventFiles=fs.readdirSync(path.join(root,'data/events')).filter(f=>/^events_\d+\.json$/.test(f)).map(f=>path.join(root,'data/events',f));
   const events=eventFiles.flatMap(read);
   const initial=reconcileOperators({operators,cn,en});
-  const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows,now:now.getTime()});
+  // The official CN announcements cached by sync-cn-news.mjs: events and banners a week before the client has them.
+  const announced=cnAnnouncements(readCnNews(root));
+  const calendars=reconcileCalendars({events,banners,operators:initial.operators,cn,en,eventRows:sources.eventRows,bannerRows:sources.bannerRows,announced,now:now.getTime()});
   const updated=reconcileOperators({operators:initial.operators,cn,en,releases:operatorReleaseDates(initial.operators,calendars.banners,cn,en)});
   // Populate CN release dates for newly imported records too; reconciliation only revisits Global releases.
   const releases=operatorReleaseDates(updated.operators,calendars.banners,cn,en);
   for (const op of updated.operators) if (initial.changes.includes(op.internalName) && releases.get(op.internalName)?.cn && !op.characterInfo?.['CN Release Date']) {
-    op.characterInfo['CN Release Date']=new Date((releases.get(op.internalName).cn+8*3600)*1000).toISOString().slice(0,10).replaceAll('-','/');
+    op.characterInfo['CN Release Date']=serverDay(releases.get(op.internalName).cn);
   }
   const outfits=reconcileSkins({skins,operators:updated.operators,cn,en,events:calendars.events});
   const outfitNames=new Map(outfits.renames.map(([before, after])=>[before.split(' / ').slice(1).join(' / '),after.split(' / ').slice(1).join(' / ')]));
   for (const op of updated.operators) op.skins=(op.skins ?? []).map(name=>outfitNames.get(name) ?? name);
   const renames=new Map([...initial.renames,...updated.renames,...outfits.renames,...calendars.renames]);
-  const replace=value=>typeof value==='string' ? renames.get(value) ?? value : Array.isArray(value) ? value.map(replace) : value && typeof value==='object' ? Object.fromEntries(Object.entries(value).map(([k,v])=>[k,replace(v)])) : value;
+  // Every reference to a renamed record follows it; the names a record is found by, its aliases and
+  // announcedName, stay as they are (renameReferences).
+  const replace=value=>renameReferences(value,renames);
   const published=new Set(read(path.join(root,'data/assets/external-asset-index.json')).files);
   const plan={sourceRepository:'yuanyan3060/ArknightsGameResource',revision:sources.resourceRevision,files:assetPlan(updated.operators,outfits.skins,cn,en,published,calendars.media)};
   const inventory=buildInventory(cn.characters,cn.skins,{repository:cn.repository,revision:cn.revision,files:Object.fromEntries(['characters','skins'].map(k=>[tableFiles[k],createHash('sha256').update(JSON.stringify(cn[k])).digest('hex')]))});

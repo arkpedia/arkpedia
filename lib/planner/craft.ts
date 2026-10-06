@@ -39,6 +39,12 @@ export interface NeedRow {
   /** True when this row is only in the list because something above it is being
    *  crafted out of it. Worth saying: it is not a material the plan asked for. */
   viaCrafting?: boolean;
+  /** Of `need`, how many the upgrades themselves ask for. */
+  direct: number;
+  /** Of `need`, how many go into each material being crafted out of this one, by the
+   *  crafted material's name: `direct` plus these is `need`. Absent when none do. A
+   *  material can be both, and the page says which part is which. */
+  forCrafts?: Record<string, number>;
 }
 
 /**
@@ -217,12 +223,20 @@ function resolveNeeds(
   /* One map rather than a list, because a declared craft ADDS to it as we go. */
   const totals = new Map<string, number>();
   const asked = new Set<string>();
+  /* What each total is for: the upgrades' own ask, and each declared craft's draw on it. */
+  const direct = new Map<string, number>();
+  const forCrafts = new Map<string, Record<string, number>>();
   for (const item of need) {
     const qty = Math.ceil(Number(item.quantity) || 0);
     if (qty <= 0) continue;
     totals.set(item.name, (totals.get(item.name) ?? 0) + qty);
+    direct.set(item.name, (direct.get(item.name) ?? 0) + qty);
     asked.add(item.name);
   }
+  const purpose = (name: string) => {
+    const crafts = forCrafts.get(name);
+    return { direct: direct.get(name) ?? 0, ...(crafts ? { forCrafts: { ...crafts } } : {}) };
+  };
 
   const rank = (name: string) => TIER_RANK.get(name) ?? Infinity;
   const rows: NeedRow[] = [];
@@ -254,6 +268,9 @@ function resolveNeeds(
       for (const cost of recipe.costs) {
         if (cost.name === 'LMD') { ledger.lmd += cost.count * runs; continue; }
         totals.set(cost.name, (totals.get(cost.name) ?? 0) + cost.count * runs);
+        const uses = forCrafts.get(cost.name) ?? {};
+        uses[next] = (uses[next] ?? 0) + cost.count * runs;
+        forCrafts.set(cost.name, uses);
         done.delete(cost.name);
       }
       ledger.lmd += recipe.lmd * runs;
@@ -266,6 +283,7 @@ function resolveNeeds(
         short: 0,
         coverage: 'crafting',
         ...(asked.has(next) ? {} : { viaCrafting: true }),
+        ...purpose(next),
       });
       continue;
     }
@@ -284,6 +302,7 @@ function resolveNeeds(
       short,
       coverage: short === 0 ? (fromCrafting > 0 ? 'craftable' : 'have') : 'short',
       ...(asked.has(next) ? {} : { viaCrafting: true }),
+      ...purpose(next),
     });
   }
 

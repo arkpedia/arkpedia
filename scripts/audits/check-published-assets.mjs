@@ -1,6 +1,21 @@
 import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { folderDrift } from '../lib/asset-folders.mjs';
+import { folderDriftByKind, folderMode, folderVerdict } from '../lib/asset-folders.mjs';
+import { beginStage } from '../lib/quarantine.mjs';
+
+/*
+ *   node scripts/audits/check-published-assets.mjs               Check: any folder drift fails
+ *   node scripts/audits/check-published-assets.mjs --quarantine  the release job's Validate
+ *     step: a folder a repository publishes that config/asset-folders.json does not map is held
+ *     as a published-partial entry (stage published-assets) instead, since no page links to it;
+ *     test-asset-folders.ts accepts it only with that entry.
+ *   node scripts/audits/check-published-assets.mjs --adopting    update-asset-revisions.mjs,
+ *     which every stage that moves the pins runs: an unmapped folder is let through with a
+ *     warning and no entry. Which mode does what is folderVerdict's (scripts/lib/asset-folders.mjs).
+ * A missing folder -- one the config maps that a pinned repository does not publish -- fails
+ * every mode.
+ */
+const mode = folderMode(process.argv.slice(2));
 
 const read = async file => JSON.parse(await fs.readFile(new URL(`../../${file}`, import.meta.url), 'utf8'));
 const revisions = await read('data/assets/revisions.json');
@@ -20,8 +35,23 @@ const manifests = await Promise.all(['arkpedia-image-assets', 'arkpedia-skin-ass
   repo, manifest: JSON.parse(await download(url(repo, 'asset-manifest.json'))),
 })));
 // Every folder each pinned repository publishes is one the site maps to it, and the reverse.
-const drift = folderDrift(await read('config/asset-folders.json'), Object.fromEntries(manifests.map(({ repo, manifest }) => [repo, manifest])));
-if (drift.length) throw new Error(`Asset folders and the pinned repositories disagree:\n  ${drift.join('\n  ')}`);
+const drift = folderDriftByKind(await read('config/asset-folders.json'), Object.fromEntries(manifests.map(({ repo, manifest }) => [repo, manifest])));
+const { fail, hold, allow } = folderVerdict(drift, mode);
+if (fail.length) throw new Error(`Asset folders and the pinned repositories disagree:\n  ${fail.map(row => row.problem).join('\n  ')}`);
+if (mode === 'quarantine') {
+  // Committed with nothing held too, so a folder the app has mapped since drops off.
+  const stage = beginStage(process.cwd(), 'published-assets');
+  for (const { repository, folder, problem } of hold) {
+    stage.add({ key: `asset-folder:${repository}/${folder}`, action: 'published-partial',
+      reason: `${problem}: no page links to it until the app maps it (most likely a mapping that is on dev and not yet on main)` });
+  }
+  stage.commit();
+  if (hold.length) console.warn(`::warning::${hold.length} published folder(s) the app does not map, held in data/quarantine.json: ${hold.map(row => row.folder).join(', ')}`);
+}
+if (allow.length) {
+  console.warn(`${allow.length} published folder(s) config/asset-folders.json does not map yet, adopted anyway since no page links to them: ${allow.map(row => `${row.repository}/${row.folder}`).join(', ')}. `
+    + 'Check fails until they are mapped; the release job holds them in data/quarantine.json meanwhile.');
+}
 const files = new Map(manifests.flatMap(({ repo, manifest }) => Object.entries(manifest.files).map(([path, row]) => [path, { repo, ...row }])));
 const missing = index.files.filter(path => !files.has(path));
 if (missing.length) throw new Error(`Published revision is missing ${missing.length} files: ${missing.slice(0, 15).join(', ')}`);

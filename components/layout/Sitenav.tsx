@@ -9,6 +9,7 @@ import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import { GROUPS, LOOSE, isActiveLink, type NavLink } from '@/lib/nav/navLinks';
+import { useChangelogUnseen } from '@/lib/changelog/seen';
 
 /**
  * A game icon drawn in the current text colour.
@@ -106,6 +107,19 @@ export const ICONS: Record<string, JSX.Element> = {
       <path d="M7.5 8.5 9 9.7M12.5 8.5 11 9.7" strokeLinecap="round" />
     </svg>
   ),
+  // A sparkle: What's new.
+  changelog: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 2.5 11.6 8.4 17.5 10 11.6 11.6 10 17.5 8.4 11.6 2.5 10 8.4 8.4Z" strokeLinejoin="round" />
+    </svg>
+  ),
+  // An open book: the Story page.
+  story: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 5.5C8.3 4.2 5.8 3.8 2.5 4v11.5c3.3-.2 5.8.2 7.5 1.5 1.7-1.3 4.2-1.7 7.5-1.5V4c-3.3-.2-5.8.2-7.5 1.5Z" strokeLinejoin="round" />
+      <path d="M10 5.5V17" />
+    </svg>
+  ),
   base: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <rect x="2.5" y="7" width="6" height="10" />
@@ -117,6 +131,13 @@ export const ICONS: Record<string, JSX.Element> = {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <path d="M2.5 15L7.5 9L11 12L17.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M13 4.5H17.5V9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  // Originite Prime's cut stone: the OP Tracker.
+  prime: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 2.5L16.5 8L10 17.5L3.5 8Z" strokeLinejoin="round" />
+      <path d="M3.5 8H16.5M7.5 8L10 17.5L12.5 8M7.5 8L10 2.5L12.5 8" strokeLinejoin="round" />
     </svg>
   ),
   calculator: (
@@ -213,6 +234,8 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
     return () => router.events.off('routeChangeStart', close);
   }, [router.events]);
 
+  // A dot on What's new, and on the menu holding it, until the latest entry has been read.
+  const changelogUnseen = useChangelogUnseen();
   const renderLink = (link: NavLink, className: string) => (
     <Link
       prefetch={false}
@@ -222,6 +245,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
     >
       <span className="site-nav-icon" aria-hidden="true">{ICONS[link.icon]}</span>
       <span>{link.label}</span>
+      {link.href === '/changelog' && changelogUnseen && <span className="nav-new-dot" aria-label="New" />}
     </Link>
   );
 
@@ -241,20 +265,22 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
 
           <div className="site-nav-links">
             {GROUPS.map((group) => {
-              const open = openMenu === group.label;
+              const open = openMenu === group.id;
+              const label = group.label;
               /* The menu lights when the page being read is one of its own. */
               const holdsCurrent = group.items.some((l) => isActiveLink(l, router.pathname));
               return (
-                <div key={group.label} className="site-nav-menu">
+                <div key={group.id} className="site-nav-menu">
                   <button
                     type="button"
-                    data-menu={group.label}
+                    data-menu={group.id}
                     className={`site-nav-trigger${holdsCurrent ? ' active' : ''}${open ? ' open' : ''}`}
                     aria-haspopup="menu"
                     aria-expanded={open}
-                    onClick={() => setOpenMenu(open ? null : group.label)}
+                    onClick={() => setOpenMenu(open ? null : group.id)}
                   >
-                    {group.label}
+                    {label}
+                    {changelogUnseen && group.items.some((l) => l.href === '/changelog') && <span className="nav-new-dot" aria-hidden="true" />}
                     <svg className="site-nav-chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" width="11" height="11" aria-hidden="true">
                       <path d="M5 8 L10 13 L15 8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -262,7 +288,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
                   {/* Absolutely positioned, never in flow: a panel that pushed the page
                       down would be the layout shift this rework exists to remove. */}
                   {open && (
-                    <div className="site-nav-pop" role="menu" aria-label={group.label}>
+                    <div className="site-nav-pop" role="menu" aria-label={label}>
                       {group.items.map((l) => renderLink(l, 'site-nav-popitem'))}
                     </div>
                   )}

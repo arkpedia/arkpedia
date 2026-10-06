@@ -200,7 +200,8 @@ test.describe('/events/[slug]', () => {
   test('unlimited store stock never totals to ×0 (GE-15)', async ({ page }) => {
     await page.goto(PEOPLE);
     await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Rewards' }).click();
-    const totals = page.locator('.event-reward-total');
+    // Every total on the tab: the All summary's compact tiles and a store's totals alike.
+    const totals = page.locator('.reward-summary-tile, .event-reward-total');
     await expect(totals.first()).toBeVisible();
     const texts = await totals.allInnerTexts();
     expect(texts.filter((text) => /×0$/.test(text.trim())), 'a listing without a limit is not a zero').toEqual([]);
@@ -267,6 +268,29 @@ test.describe('/planner operators', () => {
     await expect(option).toContainText('CN');
     await option.click();
     await expect(page.getByRole('tab', { name: new RegExp(cn[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }), `${cn[0]} is in the plan`).toBeVisible();
+  });
+
+  test('a plan made before an import starts where the imported roster says', async ({ page }) => {
+    // Planned from E0 L1, then a game import recorded E2 L60: the plan kept saying "Current
+    // Level Lv. 1" and pricing from there until the level slider was nudged (2026-10-01).
+    await page.addInitScript(() => {
+      try {
+        if (sessionStorage.getItem('seeded')) return;
+        sessionStorage.setItem('seeded', '1');
+        localStorage.setItem('plannerState', JSON.stringify({ selectedNames: ['Surtr'], builderStates: { Surtr: { elite: 2, level: 90, skillLevel: 7, masteryTargets: {}, moduleStageTargets: {},
+          startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {} } } }));
+        localStorage.setItem('plannerRoster', JSON.stringify({ Surtr: { elite: 2, level: 60, skillLevel: 7, masteries: {} } }));
+      } catch { /* none */ }
+    });
+    await page.goto('/planner');
+    await page.getByRole('tab', { name: /Surtr/ }).first().click();
+    const current = page.locator('.simple-state-link').first();
+    await expect(current).toContainText('Lv. 60');
+    // And it stays put: what the page saved starts there too.
+    await page.reload();
+    await page.getByRole('tab', { name: /Surtr/ }).first().click();
+    await expect(page.locator('.simple-state-link').first()).toContainText('Lv. 60');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('plannerState')!).builderStates.Surtr.startingLevel)).toBe(60);
   });
 
   test("a planned operator's portrait starts at the top of its frame", async ({ page }) => {
@@ -616,4 +640,33 @@ test.describe('/planner shortfall (r10)', () => {
       expect(overlaps, `names over their steppers at ${viewport.width}px`).toEqual([]);
     }
   });
+});
+
+/* "the base so it only uses operators you actually have (you can still manually add operators
+   you don't have or adjust the level of operators you have for the base for future planning)"
+   (maintainer, 2026-10-01): with an import, a room's picker lists the account's operators,
+   placed at the elite the planner's roster has them at, and "Not owned too" adds the rest. */
+test('with an import, the base room picker offers the owned operators at their own elite', async ({ page }) => {
+  await page.goto('/base');
+  await page.evaluate(() => {
+    localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null,
+      operators: ['Texas', 'Lappland', 'Exusiai', 'Proviso'], skins: [], cleared: [] }));
+    const owned = (elite: number) => ({ elite, level: 1, skillLevel: 1, masteries: {} });
+    localStorage.setItem('plannerRoster', JSON.stringify({ Texas: owned(1), Lappland: owned(2), Exusiai: owned(0), Proviso: owned(2) }));
+  });
+  await page.reload();
+  await page.locator('.base-setup-preset-card').first().click();
+  await page.getByRole('button', { name: 'Begin Simulation' }).click();
+  await page.locator('.base-facility:not(.base-facility-unbuilt)').nth(2).click();
+  await page.locator('.base-slot').first().click();
+  await expect(page.getByRole('button', { name: 'Your elite', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const names = await page.locator('.base-room-card .base-room-card-name').allTextContents();
+  expect(names.sort()).toEqual(['Exusiai', 'Lappland', 'Proviso', 'Texas']);
+  // Texas is at Elite 1 in the roster, so that is where she lands.
+  await page.locator('.base-room-card', { hasText: 'Texas' }).click();
+  await expect(page.locator('.base-room-card', { hasText: 'Texas' }).locator('.base-room-card-number')).toHaveText(/E1$/);
+  // Planning ahead: the rest of the roster, each marked as not owned.
+  await page.getByRole('button', { name: 'Not owned too', exact: true }).click();
+  expect(await page.locator('.base-room-card').count()).toBeGreaterThan(50);
+  await expect(page.locator('.base-room-card', { hasText: 'Amiya' }).first().locator('.base-op-unowned-tag')).toHaveText('Not owned');
 });

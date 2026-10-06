@@ -1,7 +1,7 @@
 import { usePlannerContent } from '@/lib/content/planner';
 import { useContentUrl } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
-import { TransferDialog } from "@/components/planner/TransferDialog";
+import DataLink from "@/components/account/DataLink";
 import { PlannerStateLabel } from '@/components/planner/PromotionIcon';
 import { withMasteryPrerequisites, withModulePrerequisites, withSkillRankPrerequisites } from '@/lib/planner/goalPrerequisites';
 import { SimplePlanner } from '@/components/planner/SimplePlanner';
@@ -10,6 +10,7 @@ import { upgradeCostGroups } from '@/lib/planner/upgradeCostGroups';
 import { publicFiles, publicFileExists } from '@/lib/assets/publicAssets';
 import { GetStaticProps } from 'next';
 import Head from 'next/head';
+import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import fs from 'fs';
 import path from 'path';
@@ -29,13 +30,14 @@ import { OperatorBill, ShortfallList } from '@/components/planner/ShortfallList'
 import { MaterialIcon } from '@/components/planner/MaterialIcon';
 import { PlanRows, type PlanRowView } from '@/components/planner/PlanRows';
 import { OperatorStateForm } from '@/components/planner/OperatorStateForm';
+import LockToggle from '@/components/ui/LockToggle';
+import { useLock } from '@/lib/ui/useLock';
+import { useAccount } from '@/lib/account/accountStore';
 import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWizard';
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
-import { bundleFilename, describeTransfer, formatBundle, parseTransfer } from '@/lib/planner/transfer';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
-import { checkImportAliases, unheldSummary } from '@/lib/planner/foreignImport';
-import { MAX_IMPORT_BYTES } from '@/lib/planner/untrusted';
-import { hasFilePicker, hasFolderPicker, loadFromFile, saveToFile, showFolder } from '@/lib/planner/fileTransfer';
+import { clampOwned, liftToOwned, syncPlansToRoster } from '@/lib/planner/ownedSync';
+import { checkImportAliases } from '@/lib/planner/foreignImport';
 import { goalsFor, type Goal, type GoalFrom } from '@/lib/planner/goals';
 import { compactCount } from '@/lib/planner/format';
 import { applyGoal, goalBlocker, goalReady, plannerModules, priceGoal, type BuildPlan } from '@/lib/planner/build';
@@ -236,7 +238,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const readerClock = useReaderClock(now, { tickMs: 60_000 });
   /* depotCatalogue: every material the depot can hold, from the release's catalogue
      (data/material-catalogue.json), which only lists materials with a published icon. */
-  const { resolveNeeds, shortShares, planBuild, levels, importAliases, inGameOrder, depotCatalogue } = usePlannerContent();
+  const { resolveNeeds, shortShares, planBuild, levels, inGameOrder, depotCatalogue } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   /* The Anti-Page Jump hold for the mode tabs (useSwitchHold): Simple is shorter than
@@ -245,6 +247,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const modeHold = useSwitchHold('planner-mode');
   const [simpleNewOperator, setSimpleNewOperator] = useState(false);
   const [simpleStep, setSimpleStep] = useState<'current' | 'goal'>('current');
+  /* The starting levels' lock: locked by default once an import set the roster, so an imported
+     level is not changed by a stray tap; the reader's choice stays (lib/ui/useLock.ts). */
+  const account = useAccount();
+  const [levelsLocked, setLevelsLocked] = useLock('planner-starting-levels', !!account);
   const [summaryName, setSummaryName] = useState<string | null>(null);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   /**
@@ -276,7 +282,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   /* Panel-level view state. None of it is persisted: they are ways of reading
      the same plan, not facts about it. */
   const [showAllMaterials, setShowAllMaterials] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
   /**
    * Closing the depot, without the page moving underneath you.
    *
@@ -311,15 +316,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   /* When the depot was last written, so the summary line can say. Read once on
      mount and after every change, alongside the depot itself. */
   const [depotTouched, setDepotTouched] = useState<number | null>(null);
-  /* What this browser can do about files, read after mount rather than during
-     render: the server has no window, and a control that appears on the first
-     paint and vanishes on the second is a hydration mismatch. */
-  const [filePickerReady, setFilePickerReady] = useState(false);
-  const [folderPickerReady, setFolderPickerReady] = useState(false);
-  useEffect(() => {
-    setFilePickerReady(hasFilePicker());
-    setFolderPickerReady(hasFolderPicker());
-  }, []);
 
   /**
    * What you already own.
@@ -360,8 +356,6 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
 
   const [depot, setDepot] = useState<Depot>({});
   const [depotOpen, setDepotOpen] = useState(false);
-  const [transferText, setTransferText] = useState('');
-  const [transferNote, setTransferNote] = useState<string | null>(null);
   /* Which clear is primed, if any. One at a time: arming the second disarms the
      first, so there is never more than one loaded gun on screen. */
   const [armedClear, setArmedClear] = useState<'depot' | 'roster' | 'goals' | 'simple' | null>(null);
@@ -399,7 +393,14 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   }, []);
 
   useEffect(() => {
-    const sync = () => setRoster(readRoster());
+    /* A roster written anywhere -- this page, another tab, the account import -- moves the
+       plans' starts with it (lib/planner/ownedSync.ts). */
+    const rarities = new Map(operators.map((o) => [o.name, o.rarity ?? null]));
+    const sync = () => {
+      const next = readRoster();
+      setRoster(next);
+      setBuilderStates((cur) => syncPlansToRoster(cur, next, (n) => rarities.get(n) ?? null));
+    };
     sync();
     window.addEventListener('storage', sync);
     window.addEventListener(ROSTER_EVENT, sync);
@@ -428,10 +429,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     });
   };
   const [builderStates, setBuilderStates] = useState<Record<string, BuilderState>>({});
-  /* Whether crafting is counted AT ALL, which is a different question from
-     whether any given material may be crafted. Not persisted: it is a way of
-     reading the same plan, not a fact about the reader's account. */
-  const [autoCraft, setAutoCraft] = useState(true);
+  /* The plan counts raw materials only: the Workshop enters it one material at a time, through
+     that material's Craft, which adds its ingredients to the list (ShortfallList). The automatic
+     "Craft what I can" reading went on request (2026-10-03), so nothing is crafted unasked. */
+  const autoCraft = false;
 
   // Full promotion/skills/modules build data, fetched on demand per
   // operator rather than shipped upfront for the entire roster --
@@ -505,7 +506,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.builderStates && typeof parsed.builderStates === 'object') {
-          const states = clampBuilderStates(parsed.builderStates, operators);
+          /* Starting where the roster says: a plan saved before the roster last changed
+             (an import, before this ran on load) still held its old start. */
+          const rarities = new Map(operators.map((o) => [o.name, o.rarity ?? null]));
+          const states = syncPlansToRoster(clampBuilderStates(parsed.builderStates, operators), readRoster(), (n) => rarities.get(n) ?? null);
           setBuilderStates(states);
           /* Known operators, once each, with a state behind them -- the same
              gate the import uses. A stored list is the import that landed last
@@ -599,95 +603,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       : cur));
   }
 
-  /**
-   * Everything a planner file carries, applied at once or not at all.
-   *
-   * One function for every door -- the file dialog, the paste box, an older
-   * single-store export, and the three other planners' formats -- because an
-   * import that half landed would leave the reader believing the whole file had.
-   *
-   * Which sections a file carries is the file's business: each is applied only
-   * when it is there, so a Krooster CSV fills the depot and leaves the plan
-   * standing rather than emptying it on the strength of silence.
-   *
-   * The goals go through `clampBuilderStates`, the same gate localStorage's own
-   * restore uses. An imported plan is untrusted input arriving by a different
-   * door, and it can hold a state the game cannot produce just as easily as a
-   * stored one can.
-   */
-  function applyTransfer(text: string, source: string) {
-    /* Size before shape, and said in words: parseTransfer refuses it too, but
-       "not a planner file" would be the wrong explanation for a real export that
-       happens to be enormous. */
-    if (text.length > MAX_IMPORT_BYTES) {
-      setTransferNote(`That is ${(text.length / 1048576).toFixed(1)} MB -- far larger than any planner file, so it was not read. (${source})`);
-      return;
-    }
-    const parsed = parseTransfer(text, importAliases);
-    if (!parsed) {
-      setTransferNote(`That is not a planner file this can read -- nothing changed. (${source})`);
-      return;
-    }
 
-    /**
-     * Only what this page can hold. Material names not in the catalogue and
-     * operator names the page does not know are dropped and REPORTED, the way
-     * the foreign parsers already treat a key they cannot map: every real export
-     * has a few, and a renamed material should be a line in the note, not a
-     * refused file. (A malformed COUNT still fails the whole file, in the
-     * parsers.) Filtering here rather than in the parsers because this is where
-     * the catalogue and the operator list are.
-     */
-    const catalogue = new Set(depotCatalogue);
-    const skipped: string[] = [];
-    if (parsed.depot) {
-      const kept: Depot = {};
-      for (const [name, n] of Object.entries(parsed.depot)) {
-        if (catalogue.has(name)) kept[name] = n;
-        else skipped.push(name);
-      }
-      parsed.depot = kept;
-    }
-    if (parsed.roster) {
-      const kept: Roster = {};
-      for (const [name, owned] of Object.entries(parsed.roster)) {
-        if (operatorByName.has(name)) kept[name] = owned;
-        else skipped.push(name);
-      }
-      parsed.roster = kept;
-    }
-
-    if (parsed.depot) { setDepot(parsed.depot); writeDepot(parsed.depot); }
-    if (parsed.roster) { setRoster(parsed.roster); writeRoster(parsed.roster); }
-    /* Only names this planner actually has a material for, and only when the
-       file said something about crafting at all -- null means it did not, and
-       the reader's own toggles stay as they were. */
-    if (parsed.crafting) {
-      const next = new Set<string>();
-      for (const n of parsed.crafting) {
-        if (catalogue.has(n)) next.add(n);
-        else if (!skipped.includes(n)) skipped.push(n);
-      }
-      parsed.crafting = [...next];
-      setCrafting(next);
-      writeCrafting(next);
-    }
-    if (parsed.goals) {
-      const states = clampBuilderStates(parsed.goals.builderStates, operators);
-      /* Known operators, once each, and only with a state to price: a selected
-         name with no builder renders a row that can answer nothing, and an
-         unknown one fetches a file that does not exist on every load. */
-      const names = knownPlanNames(parsed.goals.selectedNames, states);
-      for (const n of parsed.goals.selectedNames) if (!names.includes(n) && !skipped.includes(n)) skipped.push(n);
-      parsed.goals = { selectedNames: names, builderStates: states };
-      setSelectedNames(names);
-      setBuilderStates(states);
-      setWizard(null);
-    }
-    /* The foreign parsers report their own skips inside describeTransfer and
-       emit only catalogue names, so `skipped` is empty for them. */
-    setTransferNote(describeTransfer(parsed) + unheldSummary(skipped));
-  }
 
   /** Forget an operator entirely: out of the plan and out of the roster. */
   function forgetOperator(name: string) {
@@ -750,66 +666,15 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     const op = operatorByName.get(name);
     if (!op) return;
     const rarity = op.rarity || 1;
-
     /* The game's own rules, applied on the way in -- the same ones readRoster
        applies to a stored roster, so a state typed here and a state loaded
        from storage cannot disagree. */
-    const elite = Math.min(Math.max(0, next.elite), maxEliteForRarity(rarity));
-    const level = Math.min(Math.max(1, next.level), maxLevelForElite(rarity, elite));
-    const skillLevel = Math.min(Math.max(1, next.skillLevel), maxSkillRankForElite(elite));
-    const unlock = moduleUnlock(rarity);
-    const masteries = elite === 2 && skillLevel === 7 ? next.masteries : {};
-    const modules = unlock && elite >= unlock.elite && level >= unlock.level ? (next.modules ?? {}) : {};
-
-    const owned: Owned = {
-      elite,
-      level,
-      skillLevel,
-      masteries,
-      ...(Object.keys(modules).length ? { modules } : {}),
-    };
+    const owned = clampOwned(next, rarity);
     setOwned(name, owned);
-
+    /* Nothing to reconcile for an operator with no target yet; otherwise its start
+       follows, and a target below it is carried up (lib/planner/ownedSync.ts). */
     const b = builderStates[name];
-    /* Nothing to reconcile for an operator with no target yet. */
-    if (!b) return;
-
-    /* A target can never sit below where the operator already is, so raising
-       the starting point carries the target up with it. */
-    let nextElite = b.elite;
-    let nextLevel = b.level;
-    if (elite > nextElite) {
-      nextElite = elite;
-      nextLevel = Math.min(level, maxLevelForElite(rarity, nextElite));
-    } else if (elite === nextElite && level > nextLevel) {
-      nextLevel = Math.min(level, maxLevelForElite(rarity, nextElite));
-    }
-    const nextSkillLevel = Math.min(Math.max(b.skillLevel, skillLevel), maxSkillRankForElite(nextElite));
-    const nextMasteryTargets = { ...b.masteryTargets };
-    for (const [idxStr, m] of Object.entries(masteries)) {
-      const idx = Number(idxStr);
-      if (m > 0 && (!nextMasteryTargets[idx] || nextMasteryTargets[idx] < m)) {
-        nextMasteryTargets[idx] = m as 1 | 2 | 3;
-      }
-    }
-    const nextModuleTargets = { ...b.moduleStageTargets };
-    for (const [idxStr, stage] of Object.entries(modules)) {
-      const idx = Number(idxStr);
-      if (nextModuleTargets[idx] === undefined || nextModuleTargets[idx] < stage) nextModuleTargets[idx] = stage;
-    }
-
-    updateBuilder(name, {
-      startingElite: elite,
-      startingLevel: level,
-      startingSkillLevel: skillLevel,
-      startingMasteryLevels: masteries,
-      startingModuleStages: modules,
-      elite: nextElite,
-      level: nextLevel,
-      skillLevel: nextSkillLevel,
-      masteryTargets: nextElite === 2 && nextSkillLevel === 7 ? nextMasteryTargets : {},
-      moduleStageTargets: nextModuleTargets,
-    });
+    if (b) setBuilderStates((cur) => (cur[name] ? { ...cur, [name]: liftToOwned(cur[name], owned, rarity) } : cur));
   }
 
   /** Where an operator is now: the roster first, the plan's stated start
@@ -1245,7 +1110,8 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             onChange={(mode) => { modeHold.capture(); setPlannerMode(mode); setWizard(null); }}
             options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
           />
-          <button type="button" className="ghost" aria-expanded={transferOpen} onClick={() => setTransferOpen(v => !v)}>Export / import</button>
+          <LockToggle what="Starting levels" locked={levelsLocked} onChange={setLevelsLocked} />
+          <DataLink />
         </div>}
       />
 
@@ -1254,84 +1120,11 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             clearing site data or moving machine loses the depot and the roster
             both -- which is why the way out lives in the page header rather
             than at the bottom of a panel nobody opens. */}
-        {transferOpen && (
-          <TransferDialog onClose={() => setTransferOpen(false)}>
-              {/* One file, all three stores. The two boxes this replaces carried
-                  the depot and the roster and left the GOALS behind -- the thing
-                  you spend the most time setting was the one thing you could not
-                  take with you. */}
-              <div className="plan-transfer-acts">
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={async () => {
-                    const text = formatBundle(depot, roster, selectedNames, builderStates, crafting);
-                    const saved = await saveToFile(text, bundleFilename());
-                    if (!saved) { setTransferNote('Nothing saved.'); return; }
-                    setTransferText(text);
-                    setTransferNote(saved.chosen
-                      ? `Saved as ${saved.name}, where you chose.`
-                      : `Downloaded as ${saved.name} — it is in your browser's downloads.`);
-                  }}
-                >
-                  Export file
-                </button>
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={async () => {
-                    const opened = await loadFromFile();
-                    if (!opened) { setTransferNote('Nothing loaded.'); return; }
-                    if (opened.tooLarge) { setTransferNote(`${opened.name} is far larger than any planner file, so it was not read.`); return; }
-                    setTransferText(opened.text);
-                    applyTransfer(opened.text, opened.name);
-                  }}
-                >
-                  Import file
-                </button>
-              </div>
-              <details>
-                <summary>Supported formats</summary>
-                <p>Arkpedia backups include your inventory, operators and goals. Krooster CSV, Penguin Stats JSON and ark-nights files import inventory only.</p>
-                <p>{filePickerReady ? 'Choose where to save your backup.' : 'Exports go to your browser’s downloads.'}</p>
-                {folderPickerReady && <button type="button" className="ghost" onClick={async () => { if (!await showFolder()) setTransferNote('Your browser would not open the folder.'); }}>Show folder</button>}
-              </details>
-
-              <details className="plan-transfer-text">
-                <summary>Paste / copy data</summary>
-                <textarea
-                  className="planner-depot-text"
-                  rows={4}
-                  aria-label="Planner data"
-                  placeholder="Paste planner data…"
-                  value={transferText}
-                  onChange={(e) => { setTransferText(e.target.value); setTransferNote(null); }}
-                />
-                <div className="submit-row-actions">
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      setTransferText(formatBundle(depot, roster, selectedNames, builderStates, crafting));
-                      setTransferNote('Export text ready to copy.');
-                    }}
-                  >
-                    Get export text
-                  </button>
-                  <button type="button" className="ghost" onClick={() => applyTransfer(transferText, 'the box')}>
-                    Import text
-                  </button>
-                </div>
-              </details>
-
-              {transferNote && <p className="hint plan-hint" role="status">{transferNote}</p>}
-          </TransferDialog>
-        )}
 
         <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
-          <SimplePlanner clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
-            onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
+          <SimplePlanner levelsLocked={levelsLocked} clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
+            onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) || levelsLocked ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
             onRemove={removeOperator} onRetry={fetchOperatorDetail} failedNames={failedNames} />
         ) : (<>
         {/* First, because it is the thing the reader came to state. Everything
@@ -1364,8 +1157,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             depot={depot}
             crafting={crafting}
             onCraftingToggle={toggleCrafting}
-            autoCraft={autoCraft}
-            onAutoCraft={setAutoCraft}
+            onDepotChange={setDepotCount}
             showAll={showAllMaterials}
             onShowAll={setShowAllMaterials}
             exp={split.exp}
@@ -1603,6 +1395,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               {wizard.flow === 'roster' || !builder || (plannerMode === 'simple' && simpleStep === 'current') ? (
                 <OperatorStateForm
                   mode="current"
+                  locked={levelsLocked}
                   rarity={activeOp.rarity || 1}
                   skills={skillList.map((sk, i) => ({
                     name: sk.name || `Skill ${i + 1}`,
@@ -1644,6 +1437,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               ) : (
                 <OperatorStateForm
                   mode="target"
+                  locked={false}
                   rarity={activeOp.rarity || 1}
                   skills={skillList.map((sk, i) => ({
                     name: sk.name || `Skill ${i + 1}`,

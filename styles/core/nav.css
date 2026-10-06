@@ -461,7 +461,13 @@
 /* 44 square. It was 34, which clears the 24px WCAG floor but sits under the
    44px every mobile platform actually asks for -- and this is the only way into
    the menu for anyone who does not know about the edge swipe or the tap-anywhere
-   bar. The glyph inside stays 18px; the growth is target, not decoration. */
+   bar. The glyph inside stays 18px; the growth is target, not decoration.
+   Borderless (2026-10-03): the glyph alone in that target. It renders only in the bar
+   (components/layout/MobileNavDrawer.tsx), so this is its one look -- there used to be a
+   boxed look here that the bar overrode in full. It lights teal on hover and a soft panel
+   shows under a press, so a tap still answers. The border stays, clear, to keep the box the
+   same size; the hover restates it because the site's button hover (arkpedia-theme.css,
+   button:hover) would otherwise draw it teal. */
 .mobile-nav-menu-btn {
   display: flex;
   align-items: center;
@@ -470,12 +476,13 @@
   height: 44px;
   padding: 0;
   border-radius: var(--radius-control);
-  border: 1px solid var(--control-border);
-  background: var(--panel-2);
-  color: var(--text-dim);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text);
   cursor: pointer;
 }
-.mobile-nav-menu-btn:hover { border-color: var(--teal); color: var(--teal); }
+.mobile-nav-menu-btn:hover { border-color: transparent; color: var(--teal); }
+.mobile-nav-menu-btn:active { background: var(--panel-2); }
 
 .mobile-nav-bar-side {
   display: flex;
@@ -536,6 +543,33 @@
   color: var(--text-dim);
   text-decoration: none;
 }
+.mobile-nav-group { display: flex; flex-direction: column; }
+/* A section of the drawer: the desktop bar's menu name as a fold, 44px tall like a link. */
+.mobile-nav-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.mobile-nav-group-head:active { background: var(--panel-2); }
+.mobile-nav-group-head.current { color: var(--teal); }
+.mobile-nav-group-chev { flex: none; color: var(--text-dim); }
+.mobile-nav-group-links { display: flex; flex-direction: column; gap: 2px; padding: 0 0 6px 10px; }
+.mobile-nav-group-links[hidden] { display: none; }
+.mobile-nav-loose { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
 .mobile-nav-drawer-link .site-nav-icon {
   width: 18px;
   height: 18px;

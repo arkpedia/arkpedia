@@ -4,6 +4,7 @@ import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 
+import { operatorHref, OperatorSection } from '@/lib/operators/operatorHref';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { Operator } from '@/lib/operators/operatorTypes';
 import styles from './OperatorPage.module.css';
@@ -14,10 +15,12 @@ export interface RelatedOperator {
   portraitPending?: boolean;
 }
 
-export default function OperatorRelationPopover({ label, title, operators, children }: {
+/** `section`: the section each operator opens at (operatorHref), null for the page's top. */
+export default function OperatorRelationPopover({ label, title, operators, section, children }: {
   label: string;
   title: string;
   operators: RelatedOperator[];
+  section: OperatorSection | null;
   children?: ReactNode;
 }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(360);
@@ -37,7 +40,7 @@ export default function OperatorRelationPopover({ label, title, operators, child
       </div>
       <div className={styles.relationGrid}>
         {operators.map(operator => <Link prefetch={false} key={operator.name}
-          href={`/operators/${encodeURIComponent(operator.name)}`} title={operator.name} onClick={close}>
+          href={operatorHref(operator.name, section)} title={operator.name} onClick={close}>
           <Image src={getOperatorIconPath(operator as Operator)} alt="" width={38} height={38} />
           <span>{operator.name}</span>
         </Link>)}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
+import { availableBannerFreePulls, goalsAtBannerEnd, parsePullPlan, planBudgets, planHorizon, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
 import type { Skin } from '../../lib/skins/skinTypes';
 import { ALL_BANNERS, bundledBacklogSources } from '../../lib/pulls/sources';
@@ -212,6 +212,28 @@ test('only explicitly listed shop outfits are offered, never inferred Fashion Re
   assert.equal(openSkinCollections(pullSkinCollections(events,skins,catalogue,new Set(['Event']),[confirmed], []),'2026-09-01')[0].estimated,true);
 });
 
+test("a projected CN shop leaves out a new outfit Global already sold some other way", async () => {
+  const { pullSkinCollections } = await import('../../lib/pulls/skinCollections');
+  const { pullSkinCatalogue } = await import('../../lib/pulls/skins');
+  const skin = (name: string, globalReleaseAt?: number) => ({ name, model: name, release:'Event', howToObtain:'Outfit Store ( 18 Originite Prime )', image:null, series:'', seriesImage:null, code:null, illustrator:null, description:null, ...(globalReleaseAt ? { globalReleaseAt } : {}) });
+  // "Early" went on sale in a confirmed Global shop, "Released" came out on Global on
+  // 2026-09-16, both before the projected shop opens on 2026-10-08; "Fresh" is new.
+  const skins = [skin('Early'), skin('Released', Date.parse('2026-09-16T11:00:00Z') / 1000), skin('Fresh'), skin('Back')];
+  const event = (name: string, dateRange: string) => ({name,year:2026,poster:null,cn:{dateRange:'2026/05/01–2026/05/15',note:null},global:{dateRange,note:null},tw:{dateRange:null,note:null}});
+  const events = [event('Celebration', '2026/10/14–2026/10/28')];
+  const source = {event:'Celebration',source:'fixture',sourceRegion:'cn',eventStart:'2026-05-01',rotations:[
+    {label:'Early shop',start:'2026-04-25',end:'2026-05-23',dateBasis:'shop',new:['Early / Early','Released / Released','Fresh / Fresh'],returning:['Back / Back']},
+  ]};
+  const confirmed = [{ event:'Duel', kind:'shop', label:'New outfits', startAt:'2026-09-23T11:00:00Z', endAt:'2026-10-21T11:00:00Z', skinIds:['Early / Early'], newRelease:true }];
+  const collections = pullSkinCollections(events, skins, pullSkinCatalogue(skins), new Set(), [source], confirmed);
+  const projectedShop = collections.find((collection) => collection.name.startsWith('Celebration'))!;
+  assert.equal(projectedShop.start, '2026-10-08');
+  assert.deepEqual(projectedShop.skinIds, ['Fresh / Fresh', 'Back / Back']);
+  assert.deepEqual(projectedShop.featuredIds, ['Fresh / Fresh']);
+  // The confirmed Global shop keeps its own.
+  assert.deepEqual(collections.find((collection) => collection.name.startsWith('Duel'))!.skinIds, ['Early / Early']);
+});
+
 /* A CN shop in the shape of People, A People's: new outfits for a month, returning
    outfits in two batches with a gap between them. Invented names, so the rules hold
    whatever the live manifest lists and whatever its outfits are called by then. */
@@ -266,21 +288,44 @@ test('every recorded rotation resolves to scheduled outfits the planner can pric
     }
   }
   // With nothing expired yet, every rotation of a Global-scheduled event is a shop of
-  // its own: its roster, and its new outfits featured.
-  const collections=openSkinCollections(pullSkinCollections(events,skins,catalogue,new Set(),manifest.entries,[]),'2000-01-01');
-  for (const source of manifest.entries) {
-    const event=events.find(event=>event.name===source.event)!;
-    for (const window of (event.global.dateRange || '').split(';')) {
-      const opening=window.split(/[–—]/)[0].trim().replaceAll('/', '-');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(opening)) continue;
-      for (const rotation of source.rotations) {
-        const collection=collections.find(c=>c.id===`${event.name} / ${opening} / ${rotation.label}`);
-        assert.ok(collection, `${source.event} / ${rotation.label}`);
-        assert.deepEqual(collection.skinIds,[...new Set([...rotation.new,...rotation.returning])]);
-        assert.deepEqual(collection.featuredIds,rotation.new);
-        assert.equal(collection.estimated, source.sourceRegion!=='global' || rotation.dateBasis!=='shop');
+  // its own: its roster, and its new outfits featured -- less an outfit Global already sold
+  // before the shop opens (its globalReleaseAt), which is not new there. A rotation left with
+  // nothing is no shop: Global sold Lemuen's and Necrass's Critical Phase Transition outfits
+  // on 2026-09-23, ahead of the event, which turned this test red on the day's data.
+  const shopsOf=(list: Skin[])=>openSkinCollections(pullSkinCollections(events,list,catalogue,new Set(),manifest.entries,[]),'2000-01-01');
+  const expectShops=(list: Skin[])=>{
+    const collections=shopsOf(list);
+    const onGlobal=new Map(list.filter(s=>s.globalReleaseAt).map(s=>[`${s.model} / ${s.name}`, new Date(s.globalReleaseAt!*1000).toISOString().slice(0,10)]));
+    const shift=(date: string, days: number)=>new Date(Date.parse(`${date}T00:00:00Z`)+days*86_400_000).toISOString().slice(0,10);
+    for (const source of manifest.entries) {
+      const event=events.find(event=>event.name===source.event)!;
+      for (const window of (event.global.dateRange || '').split(';')) {
+        const opening=window.split(/[–—]/)[0].trim().replaceAll('/', '-');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(opening)) continue;
+        const offset=Math.round((Date.parse(`${opening}T00:00:00Z`)-Date.parse(`${source.eventStart}T00:00:00Z`))/86_400_000);
+        for (const rotation of source.rotations) {
+          const start=shift(rotation.start, offset);
+          const fresh=rotation.new.filter(id=>!(onGlobal.has(id) && onGlobal.get(id)!<start));
+          const ids=[...new Set([...fresh,...rotation.returning])];
+          const collection=collections.find(c=>c.id===`${event.name} / ${opening} / ${rotation.label}`);
+          if (!ids.length) { assert.equal(collection, undefined, `${source.event} / ${rotation.label}: nothing left to sell`); continue; }
+          assert.ok(collection, `${source.event} / ${rotation.label}`);
+          assert.deepEqual(collection.skinIds,ids);
+          assert.deepEqual(collection.featuredIds,fresh);
+          assert.equal(collection.estimated, source.sourceRegion!=='global' || rotation.dateBasis!=='shop');
+        }
       }
     }
+    return collections;
+  };
+  expectShops(skins);
+  // The day's case, whatever the bundled records say: an outfit sold early drops out of the
+  // shop's new outfits, and a rotation whose every new outfit was sold early is not listed.
+  const early=Date.parse('2026-09-23T15:00:00Z')/1000;
+  const soldEarly=new Set(['Lemuen / Requiem Vesperis', 'Necrass / As Clear As Crystal', 'Saria / Unstained Unshaken']);
+  const after=expectShops(skins.map(s=>soldEarly.has(`${s.model} / ${s.name}`) ? { ...s, globalReleaseAt: early } : s));
+  if (events.some(e=>e.name==='[Celebration] Critical Phase Transition' && /^\d{4}\/\d{2}\/\d{2}/.test(e.global.dateRange || ''))) {
+    assert.ok(!after.some(c=>c.id.startsWith('[Celebration] Critical Phase Transition / ') && c.id.endsWith(' / Early shop')));
   }
 });
 
@@ -610,4 +655,23 @@ test('banner forecasts reuse calendar event windows without extending banners to
 test('versioned catalogue artwork retains its query after filename escaping', async () => {
   const { pullArtworkUrl } = await import('../../lib/pulls/artwork');
   assert.equal(pullArtworkUrl('/banners/Pool [175].webp?v=abc123'), '/banners/Pool%20%5B175%5D.webp?v=abc123');
+});
+
+// The banner plan's footer reports through its last banner, whatever the Pull calculation's date.
+test('the plan reaches its last spending date, never before today, and nowhere without goals', () => {
+  const goals = [{ banner: 'A', spendOn: '2026-11-04', pulls: 60 }, { banner: 'B', spendOn: '2026-12-15', pulls: 80 }, { banner: 'C', spendOn: '2026-10-20', pulls: 10 }];
+  assert.equal(planHorizon(goals, '2026-10-03'), '2026-12-15');
+  assert.equal(planHorizon([{ banner: 'A', spendOn: '2026-09-01', pulls: 1 }], '2026-10-03'), '2026-10-03', 'a plan whose dates have passed is judged as of today');
+  assert.equal(planHorizon([], '2026-10-03'), null);
+  // Through its horizon, every goal's budget is paid.
+  assert.equal(savingsAfterPlanAt(200, [{ goal: goals[0], paid: 60 }, { goal: goals[1], paid: 80 }, { goal: goals[2], paid: 10 }] as never, planHorizon(goals, '2026-10-03')!), 50);
+});
+
+// The Skin wishlist's Include is saved with the plan; a plan from before it has none, which the
+// page reads as on (the wishlist was always held back).
+test('the skin wishlist setting survives a save and is absent from older plans', () => {
+  assert.equal(parsePullPlan(JSON.stringify(saved))!.includeSkins, undefined);
+  assert.equal(parsePullPlan(JSON.stringify({ ...saved, includeSkins: false }))!.includeSkins, false);
+  assert.equal(parsePullPlan(JSON.stringify({ ...saved, includeSkins: true }))!.includeSkins, true);
+  assert.throws(() => parsePullPlan(JSON.stringify({ ...saved, includeSkins: 'no' })));
 });

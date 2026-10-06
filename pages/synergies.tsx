@@ -13,6 +13,7 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded, findKeywordSpan } from '@/lib/techniques/synergyDetection';
 import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 const PAGE_SIZE = 10;
 
@@ -156,7 +157,7 @@ export default function SynergiesPage({ groups }: Props) {
                         const isLong = (b.sourceText?.length || 0) > 70;
                         return (
                           <div key={`${e.operatorName}-${bi}`} className={`technique-table-row${isLong ? ' technique-table-row-wrap' : ''}`}>
-                            <Link prefetch={false} href={`/operators/${encodeURIComponent(e.operatorName)}`} className="technique-table-operator">
+                            <Link prefetch={false} href={operatorHref(e.operatorName, null)} className="technique-table-operator">
                               <Image src={e.operatorIconPath} alt={e.operatorName} width={32} height={32} />
                               <span>{e.operatorName}</span>
                               {b.skillIconPath ? (
@@ -182,7 +183,7 @@ export default function SynergiesPage({ groups }: Props) {
                         return (
                           <Link prefetch={false}
                             key={e.operatorName}
-                            href={`/operators/${encodeURIComponent(e.operatorName)}`}
+                            href={operatorHref(e.operatorName, null)}
                             className="technique-entry"
                             aria-label={e.isContributor ? `${e.operatorName} — ${e.badges.map((b) => b.label).join(', ')}` : e.operatorName}
                           >

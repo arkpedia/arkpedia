@@ -1,14 +1,36 @@
 /** Pure catalogue reconciliation. Display names are never used as source identities. */
-import { localizeReleasedMechanics } from './sync-operator-english.mjs';
-import { formatModuleAttributes } from './sync-module-stats.mjs';
+import { cnModuleTables, gapReason, localizeReleasedMechanics } from './sync-operator-english.mjs';
 import { stripRichText } from '../lib/gametext.mjs';
+import { cnDays, daysOverlap, windowDays, sameAnnouncedBanner } from '../build/cn-news.mjs';
+import { serverDay } from '../lib/server-day.mjs';
 const list = x => Array.isArray(x) ? x : [];
 const stableOrder = (previous, next) => [...list(previous).filter(n => next.includes(n)), ...next.filter(n => !list(previous).includes(n))];
 const CLASSES = { WARRIOR: 'Guard', SNIPER: 'Sniper', TANK: 'Defender', MEDIC: 'Medic', SUPPORT: 'Supporter', CASTER: 'Caster', SPECIAL: 'Specialist', PIONEER: 'Vanguard' };
 const STAT = { hp: 'maxHp', atk: 'atk', def: 'def', res: 'magicResistance', redeploy: 'respawnTime', dp: 'cost', block: 'blockCnt', interval: 'baseAttackTime' };
 export const safeName = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
+/* A wiki file title for a name: MediaWiki titles cannot hold '#' (it starts a link's section), and
+   the wiki's own uploads drop it -- "CN Orienteering 8 banner.png", "CN Joint Operation 19 banner.png"
+   -- so a title with one was asked for and never found, and those two banners went without art. */
+export const wikiFile = title => title.replace(/#/g, '').replace(/\s{2,}/g, ' ').trim();
+// The banner kinds whose art is Global's own only: their CN art shows CN's lineup.
+const GLOBAL_ART_KINDS = new Set(['joint', 'orienteering']);
+// A poster file planArt named after an official post and its section.
+const CN_POST_POSTER = /^\/event-poster\/CN \d+-\d+\.webp$/;
+/** The media plan with one entry per file: its sources merged, a post's image (`urls`) and the
+ *  wiki's uploads (`wikiFiles`) each in the order they were asked for. A banner a post announced
+ *  and a wiki row names is asked for by both, and the publisher tries the post's image first. */
+export function mergeMedia(media) {
+  const byPath = new Map();
+  for (const entry of media) {
+    const held = byPath.get(entry.path) ?? { path: entry.path };
+    for (const key of ['urls', 'wikiFiles']) if (entry[key]?.length) held[key] = [...new Set([...(held[key] ?? []), ...entry[key]])];
+    byPath.set(entry.path, held);
+  }
+  return [...byPath.values()];
+}
 export const rarityWord = n => ['', 'one', 'two', 'three', 'four', 'five', 'six'][n];
-export const serverDay = (ts, offset = 8) => new Date((ts + offset * 3600) * 1000).toISOString().slice(0, 10).replaceAll('-', '/');
+// One server-day helper for the catalogue and the CN announcements, so their days are one string.
+export { serverDay };
 /* A client window, taken over `previous` (the window on record, or null). While the times
    are the same the record keeps its timingSource: the source is the mirror at the run's pin,
    which moves whenever the mirror commits, and a record rewritten for that alone would make
@@ -82,7 +104,12 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     if (!id.startsWith('char_') || source.isNotObtainable !== false) continue;
     let op = byId.get(id);
     const global = en.characters[id]?.isNotObtainable === false && !chinese(en.characters[id].name);
-    const tables = { ...(global ? en : cn), items: { items: { ...cn.items?.items, ...en.items?.items } } }, character = tables.characters[id];
+    // cn: the CN tables for modules a Global operator's tables lack yet (officialModules); a
+    // CN-sourced operator's tables are the CN ones already. No data/material-names.json here: a
+    // CN-only module cost in a material Global lacks keeps its stage's cost, or none, reported below,
+    // until the English refresh, which runs before this stage every night, names it.
+    const tables = { ...(global ? en : cn), items: { items: { ...cn.items?.items, ...en.items?.items } },
+      cn: global ? cnModuleTables(key => cn[key], null) : null }, character = tables.characters[id];
     const isNew = !op;
     // Refresh official Global text for a CN record by ID, including renamed operators.
     const promote = global && (op?.isFuture || op?.sourceRegion === 'CN');
@@ -111,23 +138,24 @@ export function reconcileOperators({ operators, cn, en, releases = new Map(), no
     }
     if (overview) op.review = { ...op.review, official: overview };
     const oldName = op.name;
+    // A refusal (an error with a kind: text naming a value the game does not carry) holds this one
+    // operator, as the English refresh does; any other error is a bug and fails the stage.
     // The mechanics importer checks the regional name. Restore the public name afterwards.
-    const mechanics = localizeReleasedMechanics({ ...op, name: character.name }, tables);
+    const gaps = [];
+    let mechanics;
+    try { mechanics = localizeReleasedMechanics({ ...op, name: character.name }, tables, gaps); } catch (error) {
+      if (!error.kind) throw error;
+      hold(id, name, isNew, error.kind); continue;
+    }
     Object.assign(op, mechanics, { name, sourceRegion: global ? 'Global' : 'CN', stats: stats(character) });
     if (oldName !== name) { renames.push([oldName, name]); op.aliases = [...new Set([...(op.aliases ?? []), oldName])]; }
     if (isNew || promote) {
       op.files = archives(id, tables);
-      for (const module of op.modules) {
-        const equip=tables.modules.equipDict[module.moduleId], battle=tables.battleEquip?.[module.moduleId];
-        if (module.type === 'Original' || !battle) continue;
-        module.stages=battle.phases.map((phase,i)=>({ stage: `Stage ${i+1}`, attributesIncreased: formatModuleAttributes(phase.attributeBlackboard),
-          effectLabel: 'Module effect', effectText: phase.parts.flatMap(part=>[
-            ...list(part.overrideTraitDataBundle?.candidates).map(c=>stripRichText(c.overrideDescripton || c.additionalDescription)),
-            ...list(part.addOrOverrideTalentDataBundle?.candidates).map(c=>[c.requiredPotentialRank ? `Potential ${c.requiredPotentialRank+1}` : '',stripRichText(c.upgradeDescription || c.description)].filter(Boolean).join(': ')),
-          ]).filter(Boolean).join('\n'), cost: costs(equip.itemCost?.[String(i+1)],tables) }));
-      }
+      // Module stages come from localizeReleasedMechanics above (module-stages.mjs), as for every released operator.
     }
     if (!op.files?.length) { hold(id, name, isNew, `has no archive text in the ${global ? 'Global' : 'CN'} handbook table yet`); continue; }
+    // After every hold: a record kept at its previous version kept nothing partly.
+    for (const gap of gaps) quarantine.push({ key: gap.key, action: 'published-partial', reason: gapReason(name, gap) });
     if (isNew) op.promotion = character.phases.slice(1).map((phase, i) => ({ tier: `Elite ${i + 1}`, upgrades: [], prerequisite: `Level ${character.phases[i].maxLevel}`,
       cost: [...costs(phase.evolveCost, tables), { name: 'LMD', quantity: tables.constants.evolveGoldCost[op.rarity-1][i] }] }));
     const release = releases.get(id);
@@ -306,6 +334,9 @@ export function parseWikiRows(text, template) {
   });
 }
 const dayPart = text => /\d{4}\/\d{2}\/\d{2}/.exec(text ?? '')?.[0];
+// A calendar range's first and last days; a hand-kept record may space its dash ("2026/02/10 – 2026/03/03").
+const rangeDays = range => { const days = String(range ?? '').match(/\d{4}\/\d{2}\/\d{2}/g) ?? []; return [days[0], days.at(-1)]; };
+const unprefixed = name => String(name ?? '').replace(/^\s*\[[^\]]*\]\s*/, '');
 /* Where a row that left an Upcoming page went, for wiki-pages.mjs to tell a move from a loss.
    The wiki moves a banner row to the yearly page of its Global year once Global dates the
    banner, and an event row off Event/Upcoming once Global schedules the event, which the
@@ -482,38 +513,209 @@ const andList = items => items.length > 1 ? `${items.slice(0, -1).join(', ')} an
 // A banner named after its pool (a Joint Operation from the client) is not named twice.
 const withPool = (name, poolId) => (name.includes(poolId) ? name : `${name} (${poolId})`);
 
+/* A banner the official CN announcement names before the client has its pool, by the kind the
+   post states (cn-news.mjs), in CLIENT_BANNERS' terms so the client's pool links to it. Every
+   post names a Joint Operation and an Orienteering the same (联合行动, 定向甄选), so those are
+   named by their first day, as CLIENT_BANNERS names them by their pool: two records under one
+   name leave /gacha unable to pick the second, and a rename of either would rewrite both
+   (renameReferences). */
+const ANNOUNCED_BANNERS = {
+  featured: { pull_type: 'featured', category: 'special', label: 'Headhunting' },
+  limited: { pull_type: 'limited', category: 'limited', label: 'Limited' },
+  joint: { pull_type: 'joint', category: 'special', title: start => `Joint Operation (CN ${start})` },
+  orienteering: { pull_type: 'orienteering', category: 'special', title: start => `Orienteering (CN ${start})` },
+};
+
 /**
- * Events and banners. The game tables are the identity: every banner record is keyed by
- * its pool (linkPools fills the ids), and a CN pool no record describes is created from
- * the client under its Chinese name. The wiki only enriches: its rows give the community
- * English name the site shows until Global names the banner, and the lineups the client
- * does not carry (featured, Joint Operation, Standard). A row that cannot be applied --
- * an operator no record knows, no lineup, no pool or several on its day -- never stops
- * the run; it is returned in `quarantine`, and the record is left out if it is new,
- * published without the missing piece, or kept at its previous lineup.
+ * The official CN announcements (scripts/build/cn-news.mjs, from data/official-news/cn): an
+ * event or banner announced for a window not over yet is published on the day of the post,
+ * about a week before the CN client carries it, under its Chinese name and the post's hours
+ * (cn_window, timingSource the post). The client and the wiki then take it over rather than
+ * add a second record:
+ *   - a banner keeps the post's server days in cn_date and its kind, which is how linkPools
+ *     links the client's pool to a record, and the wiki row for that pool renames it;
+ *   - an event is linked here to the one CN activity with stages that opens and closes on its
+ *     days, as a wiki row's is found, and the wiki row for that activity renames it
+ *     (reconcileCalendars).
+ * A record is found again by the name the post gave it -- an event's name or alias, a banner's
+ * announcedName and kind (sameAnnouncedBanner), either while its run is not over or the post's
+ * days overlap it -- so a later post that moves the window moves the record instead of adding a
+ * second one, until the client carries it (activityId, cnPoolId), whose window is the truth from
+ * then on. Failing that, a record already holding the window (by its days and kind, if no post
+ * still running names it, or the client's activity) is left as it is, save an official window
+ * and the post's event (linked_event) it lacks. The lineup is the post's once every operator it
+ * names has a record (by name, alias or Chinese name); until then it is pending, the names kept
+ * in announcedLineup. It never replaces a lineup the wiki or the client gave. The post's key art
+ * for each (planArt) is asked for while its post runs. Returns the banners left pending, with
+ * what to report for each once the wiki rows have had their turn (reconcileCalendars).
  */
-export function reconcileCalendars({ events, banners, operators, cn, en, eventRows, bannerRows, now = Date.now() }) {
+function applyAnnouncements({ events, banners, announced, operators, cn, nowSeconds, rename, planArt }) {
+  const named = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? []),
+    ...Object.entries(op.otherLanguages ?? {}).filter(([language]) => /Chinese/.test(language)).map(([, name]) => name)]
+    .filter(Boolean).map(name => [name, op])));
+  const today = serverDay(nowSeconds), eventFor = new Map(), pendingLineups = new Map();
+  for (const notice of announced.events) {
+    if (notice.end < nowSeconds) continue;
+    const [start, end] = windowDays(notice), days = cnDays(notice);
+    const opening = Object.values(cn.activity?.basicInfo ?? {}).filter(a => a.hasStage && serverDay(a.startTime) === start && serverDay(a.endTime) === end);
+    const client = opening.length === 1 ? opening[0] : null;
+    // Found again by the client's activity once it has one, else by the name the post gave it,
+    // else by its days. An event record carries no field of its own for this: pages hand events
+    // to the browser whole, and a field the published props lack fails the release
+    // (test-previous-release-props.ts). By its name only on days not over yet or that the post's
+    // overlap, as a banner is found by its announcedName below: an earlier year's record under
+    // that name or alias (the wiki keeps the Chinese one as an alias when it renames) is history,
+    // and moving it to the post's window would take it out of its year and erase its run.
+    const eventDays = e => rangeDays(e.cn?.dateRange);
+    const announcedAs = e => [e.name, ...list(e.aliases)].some(name => unprefixed(name) === notice.name)
+      && (!(eventDays(e)[1] < today) || daysOverlap(eventDays(e), [start, end]));
+    let event = (client && events.find(e => e.activityId === client.id))
+      ?? events.find(announcedAs)
+      ?? events.find(e => rangeDays(e.cn?.dateRange).join('–') === days);
+    if (!event) {
+      event = { name: `[${notice.type}] ${notice.name}`, year: Number(start.slice(0, 4)), poster: null,
+        cn: { dateRange: days, ...windowFor(notice.start, notice.end, notice.source, null) },
+        global: { dateRange: null, note: 'Global release unannounced' }, tw: { dateRange: null, note: null } };
+      events.push(event);
+    } else if (!event.activityId && announcedAs(event)) {
+      event.year = Number(start.slice(0, 4));
+      event.cn = { ...event.cn, dateRange: days, ...windowFor(notice.start, notice.end, notice.source, event.cn) };
+    }
+    if (client && !event.activityId && !events.some(e => e.activityId === client.id)) event.activityId = client.id;
+    planArt(event, 'poster', 'event-poster', notice);
+    eventFor.set(notice.name, event);
+  }
+  // The names the posts still running give their banners: a record carrying one is that post's.
+  const postNamed = new Set(announced.banners.filter(notice => notice.end >= nowSeconds).map(notice => notice.name));
+  for (const notice of announced.banners) {
+    const spec = ANNOUNCED_BANNERS[notice.kind];
+    if (!spec || notice.end < nowSeconds) continue;
+    const [start, end] = windowDays(notice), days = cnDays(notice), kind = bannerKind({ name: '', category: spec.category, pull_type: spec.pull_type });
+    // Its record carries its 【name】 and kind, on days not over yet or that the post's overlap:
+    // a post extending or correcting a run, read after the run's old close (a nightly run
+    // missed), moves that run. A rerun reuses its 【name】 on days the record of the run before
+    // shares none of, and that record is history.
+    const recordDays = b => rangeDays(b.cn_date);
+    const announcedAs = b => b.announcedName !== undefined && (!(recordDays(b)[1] < today) || daysOverlap(recordDays(b), [start, end]))
+      && sameAnnouncedBanner({ name: b.announcedName, kind: bannerKind(b), days: recordDays(b) }, { name: notice.name, kind, days: [start, end] });
+    // Failing that, the record holding its days and kind (the wiki's, the client's) is it, unless
+    // a post still running names that record: two banners of one kind opening together (in one
+    // post or two) are two records, never one with the second's lineup. A record whose post no
+    // longer names it -- its announcedName rewritten by a rename before renameReferences kept it
+    // -- is still found by its days.
+    let banner = banners.find(announcedAs) ?? banners.find(b => b.cn_date === days && bannerKind(b) === kind && !postNamed.has(b.announcedName));
+    if (!banner) {
+      banner = { name: spec.title?.(start) ?? `[${spec.label}] ${notice.name}`, category: spec.category, year: Number(start.slice(0, 4)),
+        global_date: null, banner_image: null, cn_date: days, cn_window: windowFor(notice.start, notice.end, notice.source, null), pull_type: spec.pull_type,
+        six_stars: [], five_stars: [], four_stars: [], rate_up_six_stars: [], lineupSource: 'pending', nameStatus: 'cn-official', announcedName: notice.name };
+      banners.push(banner);
+    } else if (!banner.cnPoolId && announcedAs(banner)) {
+      // Named by its first day, it is renamed with it.
+      if (spec.title && banner.name === spec.title(rangeDays(banner.cn_date)[0])) rename(banner, spec.title(start));
+      Object.assign(banner, { year: Number(start.slice(0, 4)), cn_date: days, cn_window: windowFor(notice.start, notice.end, notice.source, banner.cn_window) });
+    } else if (!banner.cn_window) banner.cn_window = windowFor(notice.start, notice.end, notice.source, null);
+    // The event the post opens it with: its page shows the banner (getBannerForEvent).
+    if (notice.event && !banner.linked_event && eventFor.has(notice.event)) banner.linked_event = eventFor.get(notice.event).name;
+    // A Joint Operation's or an Orienteering's CN art shows CN's operators, which Global's will
+    // not have (GLOBAL_ART_KINDS).
+    if (!GLOBAL_ART_KINDS.has(kind)) planArt(banner, 'banner_image', 'headhunting-banner-images', notice);
+    if (!['pending', 'announcement'].includes(banner.lineupSource)) continue;
+    const listed = [...notice.six, ...notice.five, ...notice.rateUpSix], found = listed.map(named);
+    if (listed.length && found.every(Boolean)) {
+      const record = names => names.map(name => named(name).name);
+      Object.assign(banner, { six_stars: record(notice.six), five_stars: record(notice.five), rate_up_six_stars: record(notice.rateUpSix), lineupSource: 'announcement' });
+      delete banner.announcedLineup;
+    } else {
+      Object.assign(banner, { lineupSource: 'pending', announcedLineup: { six: notice.six, five: notice.five, rateUpSix: notice.rateUpSix } });
+      // Keyed by the window too where every such banner has the post's name.
+      pendingLineups.set(banner, { key: `banner:announced:${spec.title ? `${notice.name} (CN ${days})` : notice.name}`, notice, days, unknown: listed.filter((_, i) => !found[i]) });
+    }
+  }
+  return pendingLineups;
+}
+
+/**
+ * Events and banners. The game tables are the identity: a banner record is keyed by its pool
+ * (linkPools fills the ids), and a CN pool no record describes is created from the client
+ * under its Chinese name. Before either, what an official CN post announces is published from
+ * the post (applyAnnouncements): those records are found by the name the post gave them, then
+ * by window and kind, until linkPools gives the banner its pool and a wiki row or the post its
+ * event's activity. The wiki only enriches: its rows give the community English name the site
+ * shows until Global names the banner, and the lineups the client does not carry (featured,
+ * Joint Operation, Standard). A row that cannot be applied -- an operator no record knows, no
+ * lineup, no pool or several on its day -- never stops the run; it is returned in
+ * `quarantine`, and the record is left out if it is new, published without the missing piece,
+ * or kept at its previous lineup.
+ */
+export function reconcileCalendars({ events, banners, operators, cn, en, eventRows, bannerRows, announced, now = Date.now() }) {
+  if (!Array.isArray(announced?.events) || !Array.isArray(announced?.banners)) throw new Error('reconcileCalendars needs the CN announcements ({ events: [], banners: [] } for none)');
   const nextEvents = structuredClone(events), nextBanners = structuredClone(banners), media = [], renames = [], quarantine = [];
   const operatorNamed = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? [])].map(n => [n, op])));
   const roster = new Map(operators.map(op => [op.internalName, op]));
   const cnSource = cn.source, enSource = en.source;
   const alreadyGlobalEvents = new Set(events.filter(e => e.global?.dateRange).map(e => e.name));
   const pools = list(cn.gacha?.gachaPoolClient), nowSeconds = Math.floor(now / 1000), today = serverDay(nowSeconds);
+  // Every rename goes through here: the old name stays an alias (lib/pulls/plan.ts and schedule.ts
+  // find a saved goal's banner by it, and renameReferences leaves it as it is), and it is
+  // returned in `renames`, for sync-catalogue.mjs to rewrite whatever names the record elsewhere.
+  const rename = (record, name) => {
+    if (record.name === name) return;
+    record.aliases = [...new Set([...(record.aliases ?? []), record.name])];
+    renames.push([record.name, name]); record.name = name;
+  };
+  // An event's poster, by the wiki's name for it, and the wiki file it is taken from.
+  const planPoster = (event, title) => {
+    event.poster = `/event-poster/${safeName(title)}.webp`;
+    media.push({ path: event.poster.slice(1), wikiFiles: [wikiFile(`CN ${title} banner.png`)] });
+  };
+  /* The key art an official CN post opens a record's section with (cn-news.mjs sectionArt): the
+     file the wiki uploads later as "CN <name> banner.png", from the source and on the day of the
+     post. A record with no art yet gets a file named by the post and section ("CN 5101-1.webp"),
+     its own name being Chinese until the wiki or Global names it, and kept when it is renamed (the
+     wiki's planPoster names only a record without art; the Global art swap in the image repository
+     replaces the file under the same path). A record already naming a file of the folder has it
+     asked for from the post too: assetPlan drops what is published, so this fills only art the
+     wiki never served, as Orienteering #8's on 2026-10-06. Art anywhere else (a pinned address) is
+     the record's own choice and left alone. */
+  const planArt = (record, field, folder, notice) => {
+    if (!notice.art) return;
+    record[field] ??= `/${folder}/CN ${notice.artKey}.webp`;
+    if (record[field].startsWith(`/${folder}/`)) media.push({ path: record[field].slice(1), urls: [notice.art] });
+  };
+  // First, so the client's pools link to the banners the posts announced, and wiki rows find them.
+  const pendingLineups = applyAnnouncements({ events: nextEvents, banners: nextBanners, announced, operators, cn, nowSeconds, rename, planArt });
   let applied = 0;
   for (const row of eventRows) {
     if (!row.name || !dayPart(row.cnstart)) continue;
     const candidates = Object.values(cn.activity.basicInfo).filter(a => a.hasStage && serverDay(a.startTime) === dayPart(row.cnstart) && serverDay(a.endTime) === dayPart(row.cnend));
     if (candidates.length !== 1) continue; // Login campaigns cannot borrow a main event's identity.
     applied++;
-    const source = candidates[0], global = en.activity.basicInfo[source.id];
+    const source = candidates[0], global = en.activity.basicInfo[source.id], clientDays = `${serverDay(source.startTime)}–${serverDay(source.endTime)}`;
     let event = nextEvents.find(e => e.activityId === source.id || (fold(e.name) === fold(row.name) && dayPart(e.cn?.dateRange) === dayPart(row.cnstart)));
     if (!event) {
-      event = { name: `[${row.type || 'Event'}] ${row.name}`, year: Number(row.cnstart.slice(0, 4)), poster: `/event-poster/${safeName(row.name)}.webp`,
+      // One an official post announced under its Chinese name that no activity holds yet, on the
+      // activity's very days: applyAnnouncements did not link it (its post is over or gone from
+      // the cache, or it ran before an activity was matched by both days), and it is this one.
+      const unlinked = nextEvents.filter(e => !e.activityId && chinese(unprefixed(e.name)) && rangeDays(e.cn?.dateRange).join('–') === clientDays);
+      if (unlinked.length === 1) event = unlinked[0];
+    }
+    if (event && chinese(unprefixed(event.name))) {
+      // Under its Chinese name (announced on CN, applyAnnouncements): the wiki's English name
+      // replaces it, and its poster can now be looked up.
+      rename(event, `[${row.type || 'Event'}] ${row.name}`);
+      if (!event.poster) planPoster(event, row.name);
+    }
+    if (!event) {
+      event = { name: `[${row.type || 'Event'}] ${row.name}`, year: Number(row.cnstart.slice(0, 4)), poster: null,
         cn: {}, global: { dateRange: null, note: 'Global release unannounced' }, tw: { dateRange: null, note: null } };
-      media.push({ path: event.poster.slice(1), wikiFiles: [`CN ${row.name} banner.png`] }); nextEvents.push(event);
+      planPoster(event, row.name); nextEvents.push(event);
     }
     event.activityId = source.id;
-    event.cn = { ...event.cn, dateRange: `${serverDay(source.startTime)}–${serverDay(source.endTime)}` };
+    // A poster an official post gave it (planArt) is asked of the wiki too, by the wiki's name for
+    // the event, as a banner's art is below: the post's image comes first while the post runs, and
+    // the wiki's upload of the same art fills the file if that cannot be had, or after the post.
+    if (CN_POST_POSTER.test(event.poster ?? '')) media.push({ path: event.poster.slice(1), wikiFiles: [wikiFile(`CN ${row.name} banner.png`)] });
+    event.cn = { ...event.cn, dateRange: clientDays };
     if (global) event.global = { ...event.global, dateRange: `${serverDay(global.startTime, -7)}–${serverDay(global.endTime, -7)}`, note: null, ...windowFor(global.startTime, global.endTime, enSource, event.global) };
   }
   // A single row can rightly match no activity (Contingency Contract is not one, a crossover
@@ -544,6 +746,15 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
   }
   const holding = poolId => nextBanners.find(b => b.cnPoolId === poolId);
   const chain = standardChain(pools);
+  // A Global pool's name is its banner's official name only where the client names the pool
+  // after its banner (NAMED_KINDS) and no other pool carries the name. Every Joint Operation
+  // pool is "Joint Operation", every Orienteering pool shares one name too, and a rerun's pool
+  // reuses its first run's ("Returned From A Pyre"). Taken as the name, it renamed the distinct
+  // "Joint Operation #19" (NORM_EN_37_0_6) to the "Joint Operation" every such banner shares.
+  const enPools = list(en.gacha?.gachaPoolClient), enChain = standardChain(enPools);
+  const poolNameCount = new Map();
+  for (const p of enPools) poolNameCount.set(fold(p.gachaPoolName), (poolNameCount.get(fold(p.gachaPoolName)) ?? 0) + 1);
+  const namesItsBanner = p => poolKinds(p, enChain).some(kind => NAMED_KINDS.includes(kind)) && poolNameCount.get(fold(p.gachaPoolName)) === 1;
   for (const row of bannerRows) {
     if (['standard', 'kernel'].includes(row.type)) continue; // Dedicated regional importer.
     const start = dayPart(row.cnstart); if (!start) continue;
@@ -588,17 +799,21 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     } else if (banner.nameStatus === 'cn-official') {
       // Created from the client while the wiki had no row for it: the community English
       // name replaces the Chinese one, and its art can now be looked up.
-      if (banner.name !== wikiName) {
-        banner.aliases = [...new Set([...(banner.aliases ?? []), banner.name])];
-        renames.push([banner.name, wikiName]); banner.name = wikiName;
-      }
+      rename(banner, wikiName);
       banner.category = category;
       banner.banner_image ??= art;
     }
     if (isNew || banner.nameStatus === 'cn-official') banner.nameStatus = 'en-unofficial';
     // Planned for every record a row touches: assetPlan drops what is published, so art
     // the wiki had not uploaded yet is asked for again on each run until it lands.
-    if (banner.banner_image?.startsWith('/headhunting-banner-images/')) media.push({ path: banner.banner_image.slice(1), wikiFiles: [`CN ${title} banner.png`, `${title} banner.png`] });
+    if (banner.banner_image?.startsWith('/headhunting-banner-images/')) {
+      // A Joint Operation's or an Orienteering's art is Global's upload only: CN's shows the
+      // operators CN offered, and Global offers others. Until Global runs it the wiki has none,
+      // and its record is not shown anyway (lib/gacha/headhuntingBannerData.ts).
+      media.push({ path: banner.banner_image.slice(1), wikiFiles: ['jo', 'orient'].includes(row.type)
+        ? [wikiFile(`EN ${title} banner.png`)]
+        : [wikiFile(`CN ${title} banner.png`), wikiFile(`${title} banner.png`)] });
+    }
     banner.cnPoolId = client.gachaPoolId;
     banner.cn_date = `${serverDay(client.openTime)}–${serverDay(client.endTime)}`;
     // Keep confirmed CN announcement timestamps; calendar discovery adds days only.
@@ -621,12 +836,14 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       banner.four_stars = stableOrder(banner.four_stars, lineup.filter(op => op.rarity === 4).map(op => op.name));
       banner.rate_up_six_stars = stableOrder(banner.rate_up_six_stars, rateUpSix);
       banner.lineupSource = 'wiki';
+      // The post's names stood in while the lineup was pending; the wiki's lineup replaces them.
+      delete banner.announcedLineup;
     }
     banner.pull_type = LIMITED_ROW.test(row.type) ? 'limited'
       : row.type === 'jo' ? 'joint' : row.type === 'orient' ? 'orienteering'
       : client.gachaRuleType === 'SINGLE' ? 'featured' : (banner.pull_type || 'unknown');
     const globalStart = dayPart(row.start || row.globalstart);
-    const globalCandidates = globalStart ? list(en.gacha?.gachaPoolClient).filter(p => serverDay(p.openTime,-7) === globalStart && p.gachaRuleType === client.gachaRuleType) : [];
+    const globalCandidates = globalStart ? enPools.filter(p => serverDay(p.openTime,-7) === globalStart && p.gachaRuleType === client.gachaRuleType) : [];
     const pool = globalCandidates.find(p => fold(p.gachaPoolName) === fold(title)) || (globalCandidates.length === 1 ? globalCandidates[0] : null);
     // A recorded id is never replaced, and one pool is never two banners.
     const globalHolder = pool && nextBanners.find(b => b !== banner && b.globalPoolId === pool.gachaPoolId);
@@ -635,11 +852,9 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
         reason: `The wiki row "${title}" dates its Global run to ${globalStart}, when Global pool ${pool.gachaPoolId} opens, but ${globalHolder ? `${globalHolder.name} already records that pool` : `${banner.name} is pool ${banner.globalPoolId}`}; ${banner.name} keeps its Global dates.` });
     } else if (pool) {
       const officialName=`${banner.name.match(/^\[[^\]]*\]\s*/)?.[0] || ''}${pool.gachaPoolName}`;
-      // Existing Global titles are stable application keys, including rerun/edition suffixes.
-      if (!banner.global_date && fold(banner.name)!==fold(officialName)) {
-        banner.aliases=[...new Set([...(banner.aliases ?? []),banner.name])];
-        renames.push([banner.name,officialName]);banner.name=officialName;banner.nameStatus='en-official';
-      }
+      // Existing Global titles are stable application keys, including rerun/edition suffixes. A
+      // pool whose name is not its banner's own still gives the record its id and Global window.
+      if (namesItsBanner(pool) && !banner.global_date && fold(banner.name)!==fold(officialName)) { rename(banner,officialName); banner.nameStatus='en-official'; }
       banner.globalPoolId = pool.gachaPoolId;
       banner.global_date = `${serverDay(pool.openTime,-7)}–${serverDay(pool.endTime,-7)}`;
       banner.global_window = windowFor(pool.openTime,pool.endTime,enSource,banner.global_window);
@@ -660,12 +875,22 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
       cn_date: `${serverDay(pool.openTime)}–${serverDay(pool.endTime)}`, six_stars: six ?? [], pull_type: spec.pull_type,
       five_stars: [], four_stars: [], rate_up_six_stars: [], lineupSource: six ? 'client' : 'pending', nameStatus: 'cn-official' });
   }
+  // An announced banner the wiki rows left pending is reported with its cause, the operators the
+  // post names that have no record yet; one a row filled this run is not. The sweep below leaves
+  // the lineup out of its own entry for these, so one gap is never listed twice with two causes.
+  const announcedPending = new Set([...pendingLineups.keys()].filter(banner => banner.lineupSource === 'pending'));
+  for (const banner of announcedPending) {
+    const { key, notice, days, unknown } = pendingLineups.get(banner);
+    quarantine.push({ key, action: 'published-partial',
+      reason: `${banner.name} (CN ${days}) is published from the official announcement ${notice.source} with its lineup pending: ${unknown.length ? `${andList(unknown)} ${unknown.length > 1 ? 'have' : 'has'} no operator record yet, which the CN client adds` : 'the post lists no operators'}.` });
+  }
   // What the wiki has not supplied yet stays on the list until it does.
   for (const banner of nextBanners) {
-    if (!banner.cnPoolId || (banner.nameStatus !== 'cn-official' && banner.lineupSource !== 'pending')) continue;
-    const missing = [banner.nameStatus === 'cn-official' && 'an English name', banner.lineupSource === 'pending' && 'its rate-up lineup', !banner.banner_image && 'key art'].filter(Boolean);
+    const gaps = [banner.nameStatus === 'cn-official' && 'an English name', banner.lineupSource === 'pending' && !announcedPending.has(banner) && 'its rate-up lineup'].filter(Boolean);
+    if (!banner.cnPoolId || !gaps.length) continue;
+    const missing = [...gaps, !banner.banner_image && 'key art'].filter(Boolean);
     quarantine.push({ key: `banner:${banner.cnPoolId}`, action: 'published-partial',
-      reason: `${withPool(banner.name, banner.cnPoolId)} is published from the CN client without ${andList(missing)}, which only a wiki row for its window supplies.` });
+      reason: `${withPool(banner.name, banner.cnPoolId)} is published from ${banner.announcedName === undefined ? 'the CN client' : 'an official CN announcement'} without ${andList(missing)}, which only a wiki row for its window supplies.` });
   }
   // Global launches leave the Upcoming wiki page. Reconcile previously discovered
   // activity IDs independently, so removal from that page cannot strand a CN record.
@@ -673,14 +898,37 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     const global=en.activity.basicInfo[event.activityId];
     if (global && !chinese(global.name)) {
       const officialName=`${event.name.match(/^\[[^\]]*\]\s*/)?.[0] || ''}${global.name}`;
-      if (!alreadyGlobalEvents.has(event.name) && fold(event.name)!==fold(officialName)) {
-        event.aliases=[...new Set([...(event.aliases ?? []),event.name])];
-        renames.push([event.name,officialName]);event.name=officialName;
-      }
+      if (!alreadyGlobalEvents.has(event.name) && fold(event.name)!==fold(officialName)) rename(event,officialName);
     }
     if (global) event.global={...event.global,dateRange:`${serverDay(global.startTime,-7)}–${serverDay(global.endTime,-7)}`,note:null,...windowFor(global.startTime,global.endTime,enSource,event.global)};
   }
-  return { events: nextEvents, banners: nextBanners, media, renames, quarantine, linked };
+  return { events: nextEvents, banners: nextBanners, media: mergeMedia(media), renames, quarantine, linked };
+}
+
+/* The fields that hold a name a record itself is found by, not one by which it names another
+   record, so a rename never rewrites them:
+     - `aliases` on banners, events and operators, `searchAliases` on outfits (their old
+       "Model / Name"): the record's former names, which plan.ts and schedule.ts find a saved
+       goal's banner by and /skins searches;
+     - `announcedName` on banners: the 【name】 an official CN post gave the banner, which
+       applyAnnouncements finds the record by on every later run. Every post names a Joint
+       Operation and an Orienteering the same (联合行动, 定向甄选), so a rename from that name (a
+       record an announcement named so before 2026-10-05) would rewrite it on every such
+       record, and the next post would find none of them and add a second record. */
+const KEPT_NAMES = new Set(['aliases', 'searchAliases', 'announcedName']);
+/**
+ * `value` (records, or a whole data file) with every string that is a renamed record's old name
+ * (`renames`, old -> new) replaced by the new one: a banner's linked_event, an outfit's model or
+ * release, a lineup's operator, wherever one record names another. The names a record is found
+ * by are left as they are (KEPT_NAMES). sync-catalogue.mjs rewrote those too until 2026-10-05,
+ * so the alias each rename had just recorded became the new name, and a saved pull-plan goal
+ * under the old name lost its banner.
+ */
+export function renameReferences(value, renames) {
+  if (typeof value === 'string') return renames.get(value) ?? value;
+  if (Array.isArray(value)) return value.map(item => renameReferences(item, renames));
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, KEPT_NAMES.has(key) ? item : renameReferences(item, renames)]));
 }
 
 export function operatorReleaseDates(operators, banners, cn, en) {

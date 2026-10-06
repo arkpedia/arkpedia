@@ -46,13 +46,17 @@
   filter: brightness(1.1);
 }
 
-/* --- Progress + nav --- */
+/* --- Progress + nav ---
+   The count sits between Previous and Next, on their centre line: no margin of its own. It
+   kept a margin-bottom: 10px from when it stood above the row, which in a centred flex row
+   lifted it 5px off the buttons (the 'gacha guide' census state, tests/browser/census-routes
+   .ts, measures it at 1440 and 390). At 390 it holds one line with 11px either side of
+   "‹ Previous" and "Continue ›", the widest pair. */
 .gacha-tutorial-progress {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-faint);
   text-align: center;
-  margin-bottom: 10px;
 }
 .gacha-tutorial-nav {
   display: flex;

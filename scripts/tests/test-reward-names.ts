@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error JavaScript importer is also run directly by the refresh job.
-import { rewardNames, globalStart, localizeRewards, iconFile, syncRewardNames } from '../sync/sync-reward-names.mjs';
+import { rewardNames, localizeRewards, iconFile, syncRewardNames } from '../sync/sync-reward-names.mjs';
+// @ts-expect-error Node scripts are plain JavaScript.
+import { eventWindow } from '../lib/event-records.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { checkCompleteness } from '../content/check-completeness.mjs';
 import { emptyCatalogue } from './fixtures/catalogue';
@@ -109,9 +111,10 @@ test('the sync renames what it can and keeps a name in neither CN table, reporti
 });
 
 test('Global start is the client window when known, else the announced UTC−7 day', () => {
-  assert.equal(globalStart({ global: { startAt: '2026-09-16T15:00:00.000Z', dateRange: '2026/09/16–2026/09/30' } }), Date.parse('2026-09-16T15:00:00.000Z'));
-  assert.equal(globalStart({ global: { dateRange: '2026/10/14–2026/10/28' } }), Date.parse('2026-10-14T07:00:00.000Z'));
-  assert.equal(globalStart({ global: { dateRange: null } }), null);
+  // The window localizeRewards reads (scripts/lib/event-records.mjs).
+  assert.equal(eventWindow({ global: { startAt: '2026-09-16T15:00:00.000Z', dateRange: '2026/09/16–2026/09/30' } }, 'Global').start, Date.parse('2026-09-16T15:00:00.000Z'));
+  assert.equal(eventWindow({ global: { dateRange: '2026/10/14–2026/10/28' } }, 'Global').start, Date.parse('2026-10-14T07:00:00.000Z'));
+  assert.equal(eventWindow({ global: { dateRange: null } }, 'Global'), null);
   assert.equal(iconFile('Chimed "Tapestry"/Rack?'), 'Chimed TapestryRack.webp');
 });
 
@@ -122,7 +125,7 @@ test('publication fails when a renamed reward would render without an icon', () 
   const withRewards = (...items: object[]) => checkCompleteness(emptyCatalogue({ events: [{ name: '[Side Story] People, A People', rewards: store(items) }], assets })).join('\n');
   assert.equal(withRewards(item('Standard Wooden Basin', { cnName: '制式木盆', iconName: '制式木盆' })), '');
   assert.match(withRewards(item('Standard Wooden Basin', { cnName: '制式木盆' })),
-    /People, A People reward Standard Wooden Basin: missing asset material-icons\/Standard Wooden Basin\.webp/);
+    /\[Side Story\] People, A People: 1 reward icon not published: material-icons\/Standard Wooden Basin\.webp/);
   // Unrenamed items and outfits pass on their own published icons (test-reward-icons.ts holds
   // every reward to its icon, renamed or not).
   assert.equal(withRewards(item('Headhunting Permit'), item('Infiltrator', { type: 'skin', cnName: '潜行者' })), '');

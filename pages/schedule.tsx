@@ -18,13 +18,14 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
 import { confirmedGlobalRange, getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
+import { waitsForGlobal } from '@/lib/gacha/bannerSchedule';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentEventRows, currentPullBannerLinks, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
 import { toServerTime } from '@/lib/time/serverDay';
 import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
-import { isLineupPending, LINEUP_PENDING_NOTE } from '@/lib/gacha/bannerLineup';
+import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/publishedArt';
 import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
 import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
@@ -40,6 +41,7 @@ import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { Skin } from '@/lib/skins/skinTypes';
 import XButton from '@/components/ui/XButton';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   events: ScheduleEvent[];
@@ -217,7 +219,9 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
       ? displayEvent.materials
       : Object.keys(getEventMaterials(displayEvent.name, materials) || {})
     : [];
-  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners) : null;
+  // Not a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal), as on every
+  // page: a release compiled before its table was filtered still carries them.
+  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners.filter((banner) => !waitsForGlobal(banner))) : null;
   const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
 
   function openEvent(e: ScheduleEvent) {
@@ -491,7 +495,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                                     return (
                                       <Link prefetch={false}
                                         key={b.name}
-                                        href={`/operators/${encodeURIComponent(b.name)}`}
+                                        href={operatorHref(b.name, null)}
                                         className="birthday-icon"
                                         title={`${b.name}'s birthday`}
                                       >
@@ -582,7 +586,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 {panelBanner && isLineupPending(panelBanner) && (
                   <div className="schedule-panel-pullable">
                     <h3 className="schedule-panel-subheading">Pullable Operators</h3>
-                    <p className="hint">{LINEUP_PENDING_NOTE}</p>
+                    <p className="hint">{lineupPendingNote(panelBanner)}</p>
                   </div>
                 )}
                 {panelBanner && !isLineupPending(panelBanner) && (panelBannerSixStars.length > 0 || panelBanner.five_stars.length > 0 || (panelBanner.four_stars || []).length > 0) && (
@@ -601,7 +605,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         return (
                           <Link prefetch={false}
                             key={name}
-                            href={`/operators/${encodeURIComponent(name)}`}
+                            href={operatorHref(name, null)}
                             className="schedule-panel-pullable-op"
                             title={name}
                           >
@@ -618,7 +622,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         return (
                           <Link prefetch={false}
                             key={name}
-                            href={`/operators/${encodeURIComponent(name)}`}
+                            href={operatorHref(name, null)}
                             className="schedule-panel-pullable-op"
                             title={name}
                           >
@@ -635,7 +639,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         return (
                           <Link prefetch={false}
                             key={name}
-                            href={`/operators/${encodeURIComponent(name)}`}
+                            href={operatorHref(name, null)}
                             className="schedule-panel-pullable-op"
                             title={name}
                           >
@@ -727,7 +731,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
       {showAllSkins && (
         <div className="modal-overlay" onClick={() => setShowAllSkins(false)}>
           <div className="modal-box schedule-show-all-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="modal-back-btn" onClick={() => setShowAllSkins(false)}>
+            <button type="button" className="back-btn" onClick={() => setShowAllSkins(false)}>
               ‹ Back
             </button>
             <h2 style={{ marginBottom: 12 }}>{displayEvent?.name} — All Skins</h2>
@@ -857,6 +861,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,
     event_materials: async () => (await import('@/data/event_materials.json')).default,
-    headhunting_banners: async () => (await import('@/data/headhunting_banners.json')).default,
+    // Without a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal).
+    headhunting_banners: async () => ((await import('@/data/headhunting_banners.json')).default as HeadhuntingBanner[]).filter((banner) => !waitsForGlobal(banner)),
   },
 });

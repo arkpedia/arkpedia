@@ -24,22 +24,38 @@ permissions:
   contents: read
   # Only for the failure reports at the end of the job.
   issues: write
+# One queue per content channel (scripts/content/channel.mjs), so dev's run never waits behind
+# main's. A newer dev run supersedes one in progress; main's are never cancelled.
 concurrency:
-  group: prepare-content
-  cancel-in-progress: false
+  group: prepare-content-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name == 'dev' }}
 jobs:
   prepare:
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    # Up to 30 of these minutes may go to waiting for the asset syncs (below).
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 90 || 70 }}
+    # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 14 after
+    # a publish to the page refresh's wait for the pointer (its step's own timeout): a job timeout
+    # there would report a release that went out as failed, and skip the heartbeat.
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 105 || 85 }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
+      # The content channel this branch publishes to (scripts/content/channel.mjs): main to data
+      # main and the live pointer; dev to data dev and dev-live, compiled from data main's
+      # records with dev's code so arkpedia-dev shows what dev would do. Any other branch fails
+      # here. Sets ARKPEDIA_RELEASE_BRANCH (the deployments the gate asks), ARKPEDIA_DATA_BRANCH
+      # and ARKPEDIA_CONTENT_POINTER for every later step. Not ARKPEDIA_CONTENT_CHANNEL, the
+      # pointer a site reads: the tests' content servers serve live.
+      - name: Choose the content channel
+        id: channel
+        run: |
+          set -euo pipefail
+          node scripts/content/channel.mjs --branch "$GITHUB_REF_NAME" > "$RUNNER_TEMP/channel.env"
+          cat "$RUNNER_TEMP/channel.env" | tee -a "$GITHUB_ENV"
       # A release goes live only while production runs the code that compiles it: the publish
       # step asks production (one GET of its /build-info.json) and holds anything else
       # (scripts/content/deploy-gate.mjs). Asked here too, so a run that could not publish
@@ -122,15 +138,19 @@ jobs:
           python-version: '3.12'
       - run: npm ci
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-      - run: python -m pip install pillow certifi
+      # UnityPy and lz4 read the client's theme bundles (scripts/imports/import-namecard-styles.py).
+      - run: python -m pip install pillow certifi UnityPy==1.25.3 lz4==4.4.5
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
       - name: Refresh supported upstream records
         id: refresh
         if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
         env:
           GH_TOKEN: ${{ github.token }}
-          CATALOGUE_IMAGE_DEPLOY_KEY: ${{ secrets.CATALOGUE_IMAGE_DEPLOY_KEY }}
-          CATALOGUE_SKIN_DEPLOY_KEY: ${{ secrets.CATALOGUE_SKIN_DEPLOY_KEY }}
+          # The art repositories' write keys, for main's run only: they are production's, shared
+          # by every channel, and the dev channel publishes no art (publish-catalogue-assets.sh
+          # stops on its channel before it asks for a key).
+          CATALOGUE_IMAGE_DEPLOY_KEY: ${{ github.ref_name == 'main' && secrets.CATALOGUE_IMAGE_DEPLOY_KEY || '' }}
+          CATALOGUE_SKIN_DEPLOY_KEY: ${{ github.ref_name == 'main' && secrets.CATALOGUE_SKIN_DEPLOY_KEY || '' }}
           # refresh-stage-data.sh adds its stages to this run instead of starting its own.
           ARKPEDIA_STAGE_RUN: '1'
           ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
@@ -159,22 +179,30 @@ jobs:
           stage charwords --output "$supplemental_charwords" -- curl --fail --silent --show-error --location --retry 3 \
             "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)" \
             --output "$supplemental_charwords"
+          # Adopts each asset repository's head, even past a folder this code does not map yet
+          # (check-published-assets.mjs --adopting); Validate holds that folder below.
           stage asset-revisions -- npm run assets:update
+          # Before the catalogue: a skill or base skill the game spells differently gets its icon in
+          # this run's media plan, not the next night's (sync-operator-english.mjs main()).
+          # The supplement only adds voice credits here, so without it the English refresh
+          # still runs, reading an empty table and keeping each record's current credits.
+          supplement="$supplemental_charwords"
+          if [ ! -s "$supplement" ]; then supplement="$RUNNER_TEMP/no-supplemental-charwords.json"; echo '{}' > "$supplement"; fi
+          stage operator-english -- env ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplement" node scripts/sync/sync-operator-english.mjs
+          # The official CN announcements (data/official-news/cn), before the catalogue: an event or
+          # banner announced on CN is published that day, a week before the client carries it.
+          stage cn-news -- node scripts/sync/sync-cn-news.mjs
           stage catalogue -- node scripts/sync/sync-catalogue.mjs
           # Publishes the media plan the catalogue stage wrote in this run, never an older one.
           stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
           stage media-pins -- node scripts/sync/refresh-media-pins.mjs
           bash scripts/sync/refresh-stage-data.sh
           stage pulls -- npm run pulls:refresh
-          # The supplement only adds voice credits here, so without it the English refresh
-          # still runs, reading an empty table and keeping each record's current credits.
-          supplement="$supplemental_charwords"
-          if [ ! -s "$supplement" ]; then supplement="$RUNNER_TEMP/no-supplemental-charwords.json"; echo '{}' > "$supplement"; fi
-          stage operator-english -- env ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplement" node scripts/sync/sync-operator-english.mjs
           # Every mastery cost a record lacks, from the Global table or, for a CN-only operator,
-          # the CN one (scripts/sync/sync-skill-masteries.mjs): the English refresh writes costs
-          # only for recent releases, so older records kept the wiki import's gaps. Before the
-          # material catalogue, which reads the records' costs.
+          # the CN one (scripts/sync/sync-skill-masteries.mjs): the English refresh writes the costs
+          # of every operator in the Global tables, so this fills what that leaves -- the CN-only
+          # operators, and a mastery the Global table lacks. Before the material catalogue, which
+          # reads the records' costs.
           stage skill-masteries -- node scripts/sync/sync-skill-masteries.mjs
           # The planner's material catalogue, from the operator records as they now stand (after
           # the English refresh renames their costs), the recipes, the depot order and the item
@@ -183,6 +211,14 @@ jobs:
           # aliases cannot be rebuilt the catalogue goes back to yesterday's with them (--output).
           stage material-catalogue -- node scripts/build/build-material-catalogue.mjs
           stage import-aliases --needs material-catalogue --output data/material-catalogue.json -- npx tsx scripts/build/build-import-aliases.ts
+          # The game's character and module ids, for importing an account into the planner: from
+          # the operator records as they now stand and the EN client's tables. A record that no
+          # longer lines up with the client fails it, and yesterday's map stays.
+          # Each profile card theme's colours, from the client's own theme bundles on Yostar's
+          # CDN (no table carries them); only a changed bundle is fetched. Before the id map,
+          # which carries them to the account page.
+          stage namecard-styles -- python3 scripts/imports/import-namecard-styles.py
+          stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
           # without it they keep yesterday's lines rather than fall back to Chinese.
@@ -228,38 +264,36 @@ jobs:
         run: |
           node scripts/content/check-completeness.mjs
           npx tsx scripts/build/build-operator-search.ts
+          # check:published-assets, except that a legacy voice clip an operator page offers
+          # but the pinned voice repository lacks (a day the voices stage failed, or a newly
+          # adopted voice revision that dropped one) holds back that clip, and a folder an asset
+          # repository publishes that this code does not map yet (its mapping still on dev) is
+          # held too, each as a quarantine entry, instead of the release. Before npm test,
+          # whose folder test accepts an unmapped folder only with that entry.
+          npm run check:published-assets:release
           npm test
           # check:assets, except that an icon a released operator's record names but the image
           # repository has not published yet (a Global launch renames art the day it lands)
           # holds back that icon, as a quarantine entry, instead of the release.
           npm run check:assets:release
-          # check:published-assets, except that a legacy voice clip an operator page offers
-          # but the pinned voice repository lacks (a day the voices stage failed, or a newly
-          # adopted voice revision that dropped one) holds back that clip, as a quarantine
-          # entry, instead of the release.
-          npm run check:published-assets:release
           mkdir -p "$RUNNER_TEMP/prepared-content"
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
           node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
+      # Main's channel only, by the step's own condition: the dev channel publishes in the next
+      # step, and only this one writes data main.
       - name: Publish the validated public release
         id: publish
-        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        if: github.ref_name == 'main' && (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true')
         env:
           CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
         run: |
           set -euo pipefail
-          test -n "$CONTENT_DATA_DEPLOY_KEY"
-          key="$RUNNER_TEMP/content-data-key"
-          umask 077
-          printf '%s\n' "$CONTENT_DATA_DEPLOY_KEY" > "$key"
-          trap 'rm -f "$key"' EXIT
-          # Fetch GitHub's published SSH keys over authenticated HTTPS.
-          mkdir -p "$HOME/.ssh"
-          curl --fail --silent --show-error https://api.github.com/meta | node -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>{for(const key of JSON.parse(s).ssh_keys)console.log("github.com "+key)})' > "$HOME/.ssh/known_hosts"
-          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          # The deploy key and GitHub's host keys, for every push below (scripts/content/data-remote.sh).
+          source scripts/content/data-remote.sh
+          with_data_key
           repo="$RUNNER_TEMP/arkpedia-data"
-          git -C "$repo" remote set-url origin git@github.com:arkpedia/arkpedia-data.git
+          git -C "$repo" remote set-url origin "$DATA_REMOTE"
           prepared_base=$(git -C "$repo" rev-parse HEAD)
           git -C "$repo" fetch origin main
           current_base=$(git -C "$repo" rev-parse origin/main)
@@ -311,11 +345,68 @@ jobs:
           git -C "$repo" push origin HEAD:main
           # For the live check below: the commit arkpedia-data's Content release must point at.
           echo "pushed=$(git -C "$repo" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      # The dev channel (scripts/content/channel.mjs): data main's records compiled with dev's
+      # code. Its data branch is rebuilt from data main every run, so it is force-pushed; then its
+      # own pointer names it, the way arkpedia-data's Content release workflow moves live for main
+      # (nothing there listens to these branches). Data main and live are never written here.
+      # A release with the content dev-live serves already is not published again, as main's
+      # step skips one: pushed anyway, dev-live would name a new commit of the same release id,
+      # which a warm server keeps reading from the old commit (lib/content/server.ts keeps a
+      # release whose id has not changed), by then on no branch.
+      - name: Publish the dev channel's release
+        id: publish_dev
+        if: github.ref_name != 'main' && (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true')
+        env:
+          CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          source scripts/content/data-remote.sh
+          with_data_key
+          repo="$RUNNER_TEMP/arkpedia-data"
+          git -C "$repo" remote set-url origin "$DATA_REMOTE"
+          # What dev-live serves: the commit its pointer names, if that is still data dev's head,
+          # and that commit's content id (scripts/content/release-input.mjs; a manifest from
+          # before the content id falls back to its release id). Either branch may not exist yet.
+          content_id='(m => m.content ?? m.release)(JSON.parse(require("fs").readFileSync(0, "utf8")))'
+          prepared_release=$(node -p "$content_id" < "$RUNNER_TEMP/prepared-content/release/manifest.json")
+          served=''
+          if git -C "$repo" fetch --quiet --depth 1 origin "$ARKPEDIA_CONTENT_POINTER" 2>/dev/null; then
+            served=$(git -C "$repo" show FETCH_HEAD:current.json | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).revision' 2>/dev/null || true)
+          fi
+          if [ -n "$served" ] && git -C "$repo" fetch --quiet --depth 1 origin "$ARKPEDIA_DATA_BRANCH" 2>/dev/null \
+            && [ "$(git -C "$repo" rev-parse FETCH_HEAD)" = "$served" ] \
+            && [ "$(git -C "$repo" show FETCH_HEAD:release/manifest.json | node -p "$content_id" 2>/dev/null || true)" = "$prepared_release" ]; then
+            echo "$ARKPEDIA_CONTENT_POINTER already serves this content ($served); nothing to publish."
+            exit 0
+          fi
+          # The dev deployment must run the code that compiled this (scripts/content/deploy-gate.mjs).
+          node scripts/content/deploy-gate.mjs --manifest "$RUNNER_TEMP/prepared-content/release/manifest.json" --held-file "$RUNNER_TEMP/release-held.md"
+          git -C "$repo" checkout -B "$ARKPEDIA_DATA_BRANCH" HEAD
+          rm -rf "$repo/source" "$repo/release"
+          cp -R "$RUNNER_TEMP/prepared-content/source" "$RUNNER_TEMP/prepared-content/release" "$repo/"
+          git -C "$repo" add source release
+          git -C "$repo" config user.name 'github-actions[bot]'
+          git -C "$repo" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$repo" commit --quiet --allow-empty -m "Dev channel: data main compiled with arkpedia $GITHUB_SHA"
+          (cd "$repo" && node scripts/validate-release.mjs)
+          revision=$(git -C "$repo" rev-parse HEAD)
+          git -C "$repo" push --force origin "HEAD:refs/heads/$ARKPEDIA_DATA_BRANCH"
+          node --input-type=module - "$repo/release/manifest.json" "$revision" > "$RUNNER_TEMP/current.json" <<'JS'
+          import fs from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const bytes = fs.readFileSync(process.argv[2]);
+          const manifest = JSON.parse(bytes);
+          console.log(JSON.stringify({ schema: manifest.schema, release: manifest.release, revision: process.argv[3], manifestSha256: createHash('sha256').update(bytes).digest('hex') }, null, 2));
+          JS
+          push_file_to_branch "$ARKPEDIA_CONTENT_POINTER" "$RUNNER_TEMP/current.json" "Publish dev content from $revision"
+          echo "pushed=$revision" >> "$GITHUB_OUTPUT"
       # arkpedia-data's Content release workflow validates what was pushed and only then moves
       # the live pointer (live/current.json). When it fails, readers keep the previous release
       # and nothing here would say so. Polls the live branch through git: raw.githubusercontent
       # keeps current.json in its cache for five minutes. Never fails the run: the data is on
-      # data main either way, and the issue says what is missing.
+      # data main either way, and the issue says what is missing. Once live has moved, await-live
+      # names the commit it serves as this step's `revision` output, for the page refresh below:
+      # the pushed one, or a later data main commit that superseded it.
       - name: Confirm the release went live
         id: live
         if: steps.publish.outputs.pushed != ''
@@ -347,21 +438,31 @@ jobs:
           fi
       # The pages that regenerate slowest (lib/content/releaseRefresh.ts: the home page every
       # 25 minutes, for its live feeds) showed the previous release until their interval ran
-      # out. Ask each live deployment for them now (pages/api/release-refresh.ts). Only once the
-      # pointer moved, and never failing the run: they refresh on their own interval anyway.
+      # out. Ask each live deployment of the channel's branch for them (pages/api/release-refresh.ts)
+      # once the pointer moved -- main's confirmed above, the dev channel's written by its own
+      # step -- and once a server can read it: up to five minutes of raw.githubusercontent's cache
+      # and a server's minute later (scripts/content/refresh-pages.mjs waits them out). Asked
+      # sooner, the pages regenerated with the previous release. Never failing the run: they
+      # refresh on their own interval anyway.
       - name: Refresh the pages that wait longest for a release
-        if: steps.live.outcome == 'success'
+        if: steps.live.outcome == 'success' || steps.publish_dev.outputs.pushed != ''
         continue-on-error: true
-        timeout-minutes: 3
+        timeout-minutes: 14
         env:
           ARKPEDIA_RELEASE_REFRESH_SECRET: ${{ secrets.ARKPEDIA_RELEASE_REFRESH_SECRET }}
-        run: node scripts/content/refresh-pages.mjs
+          # The commit the pointer names once a server can read the release: on main what the live
+          # check found live serving, which is a later commit than the push when another push
+          # superseded it (waiting for the pushed one held the runner nine minutes, then warned);
+          # on dev the commit its own step pointed dev-live at.
+          REVISION: ${{ steps.live.outputs.revision || steps.publish_dev.outputs.pushed }}
+        run: node scripts/content/refresh-pages.mjs --revision "$REVISION" --pointer "$ARKPEDIA_CONTENT_POINTER"
       # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
       # here on its own. Report it, but never hold back the day's content over it: this
       # runs after the publish step, and a slow or failing GitHub API call only fails
       # this step, within its own timeout.
+      # Production's signals, the dev channel's run reports none of them.
       - name: Report failing asset syncs
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.ref_name == 'main' }}
         continue-on-error: true
         timeout-minutes: 3
         env:
@@ -403,7 +504,7 @@ jobs:
       # after a published run whose stages all ran, with nothing to list. Never holds back
       # or fails the release.
       - name: Report quarantined content
-        if: ${{ !cancelled() && steps.prepared.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.prepared.outputs.cache-hit != 'true' && github.ref_name == 'main' }}
         continue-on-error: true
         timeout-minutes: 3
         env:
@@ -435,35 +536,66 @@ jobs:
         if: github.event_name == 'schedule' && steps.prepared.outputs.cache-hit != 'true'
         run: mkdir -p .cache/prepared-inputs && touch .cache/prepared-inputs/complete
       # One open issue per outage: later failures comment on it, at most once a day, and
-      # the next good run closes it. A timeout counts as a cancellation, so it is reported
-      # too. Found by a hidden marker, not the title (scripts/content/alert-issue.mjs).
+      # the next good run closes it. On main a timeout counts as a cancellation, so it is
+      # reported too. Found by a hidden marker, not the title (scripts/content/alert-issue.mjs).
+      # The dev channel's under issues of its own ("(dev)"), so a broken dev run is visible and
+      # never opens or closes production's. A cancelled dev run is not reported: dev's queue
+      # cancels a run whenever a newer one starts (concurrency, above), so a dev cancellation is
+      # almost always that, and a timeout there goes unreported with it. Main always reports,
+      # whichever step failed. On another branch only a failed channel step keeps it quiet: that
+      # is a branch with no channel, and nothing would ever close its issue. A channel step that
+      # never ran (the checkout or setup-node failed first) still reports, for dev as for main --
+      # and so would a dispatch from a branch with no channel that failed that early, the one
+      # case this lets through. A run that failed that early has no checkout or no Node, and
+      # reports with gh alone (below); arkpedia-data's heartbeat watchdog covers a runner that
+      # never starts the job.
       - name: Report the failed release
-        if: failure() || cancelled()
+        if: (failure() || (cancelled() && github.ref_name == 'main')) && (github.ref_name == 'main' || steps.channel.outcome != 'failure')
         env:
+          ALERT_SUFFIX: ${{ github.ref_name != 'main' && format('-{0}', github.ref_name) || '' }}
+          TITLE_SUFFIX: ${{ github.ref_name != 'main' && format(' ({0})', github.ref_name) || '' }}
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
+          # Failed before the checkout or setup-node: no alert-issue.mjs, or no node to run it (the
+          # NAS runners' image keeps its Node off PATH, infra/runners/nas/Dockerfile; setup-node
+          # puts one there). Said with gh alone, under the marker that script finds the issue by
+          # (marker(), scripts/content/alert-issue.mjs), so the next good run's close step closes
+          # it; an issue already open for the alert gets nothing more.
+          if [ ! -f scripts/content/alert-issue.mjs ] || ! command -v node > /dev/null; then
+            alert="<!-- arkpedia-alert:content-release-failing$ALERT_SUFFIX -->"
+            open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number,body \
+              --jq "[.[] | select((.body // \"\") | startswith(\"$alert\"))][0].number // empty")
+            if [ -z "$open" ]; then
+              printf '%s\nPrepare content release ended with %s before it could run its own scripts (%s, %s): %s\n' \
+                "$alert" "$JOB_STATUS" "$GITHUB_EVENT_NAME" "$(date -u '+%Y-%m-%d %H:%M UTC')" "$RUN_URL" > "$RUNNER_TEMP/failed-release.md"
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "Content release failing$TITLE_SUFFIX" --body-file "$RUNNER_TEMP/failed-release.md"
+            fi
+            exit 0
+          fi
           # Held by the release gate (deploy-gate.mjs wrote why): its own issue, since the fix is
           # a deploy, not this workflow. Nothing else fails a run after a hold.
           if [ -s "$RUNNER_TEMP/release-held.md" ]; then
             body="$RUNNER_TEMP/held-release.md"
             { cat "$RUNNER_TEMP/release-held.md"; echo; echo "Held by $RUN_URL ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC'))."; } > "$body"
-            node scripts/content/alert-issue.mjs open --alert content-release-held --title 'Content release held' --body-file "$body"
+            node scripts/content/alert-issue.mjs open --alert "content-release-held$ALERT_SUFFIX" --title "Content release held$TITLE_SUFFIX" --body-file "$body"
             exit 0
           fi
           body="$RUNNER_TEMP/failed-release.md"
           echo "Prepare content release ended with $JOB_STATUS ($GITHUB_EVENT_NAME, $(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL" > "$body"
-          node scripts/content/alert-issue.mjs open --alert content-release-failing --title 'Content release failing' --body-file "$body"
+          node scripts/content/alert-issue.mjs open --alert "content-release-failing$ALERT_SUFFIX" --title "Content release failing$TITLE_SUFFIX" --body-file "$body"
       - name: Close the failed-release report
         if: success()
         continue-on-error: true
         env:
+          ALERT_SUFFIX: ${{ github.ref_name != 'main' && format('-{0}', github.ref_name) || '' }}
+          TITLE_SUFFIX: ${{ github.ref_name != 'main' && format(' ({0})', github.ref_name) || '' }}
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          node scripts/content/alert-issue.mjs close --alert content-release-failing --title 'Content release failing' --comment "Recovered: $RUN_URL"
-          node scripts/content/alert-issue.mjs close --alert content-release-held --title 'Content release held' --comment "Production runs the code this run compiled with, and the run succeeded: $RUN_URL"
+          node scripts/content/alert-issue.mjs close --alert "content-release-failing$ALERT_SUFFIX" --title "Content release failing$TITLE_SUFFIX" --comment "Recovered: $RUN_URL"
+          node scripts/content/alert-issue.mjs close --alert "content-release-held$ALERT_SUFFIX" --title "Content release held$TITLE_SUFFIX" --comment "The deployments of its branch run the code this run compiled with, and the run succeeded: $RUN_URL"
       # The public watchdog in arkpedia-data (.github/workflows/release-heartbeat.yml) opens an
       # issue there when neither a release nor a heartbeat is newer than 26 hours: the one
       # alarm that needs no job here to start, so it also covers a runner that is offline or
@@ -471,7 +603,7 @@ jobs:
       # so it is not taken for an outage. One small commit on the heartbeat branch, which
       # arkpedia-data's Content release ignores (it runs for main). Never fails the run.
       - name: Record the heartbeat
-        if: success()
+        if: success() && github.ref_name == 'main'
         continue-on-error: true
         timeout-minutes: 3
         env:
@@ -480,26 +612,30 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          test -n "$CONTENT_DATA_DEPLOY_KEY"
-          key="$RUNNER_TEMP/heartbeat-key"
-          umask 077
-          printf '%s\n' "$CONTENT_DATA_DEPLOY_KEY" > "$key"
-          trap 'rm -f "$key"' EXIT
-          mkdir -p "$HOME/.ssh"
-          curl --fail --silent --show-error https://api.github.com/meta | node -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>{for(const key of JSON.parse(s).ssh_keys)console.log("github.com "+key)})' > "$HOME/.ssh/known_hosts"
-          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
-          beat="$RUNNER_TEMP/heartbeat"
-          rm -rf "$beat"
-          git init --quiet "$beat"
-          git -C "$beat" remote add origin git@github.com:arkpedia/arkpedia-data.git
+          source scripts/content/data-remote.sh
+          with_data_key
+          beat="$RUNNER_TEMP/heartbeat.json"
+          node -e 'console.log(JSON.stringify({ version: 1, at: new Date().toISOString(), event: process.env.GITHUB_EVENT_NAME, run: process.env.RUN_URL, published: process.env.PUSHED || null }, null, 2))' > "$beat"
           # On top of the last heartbeat; the first one starts the branch.
-          if git -C "$beat" fetch --quiet --depth 1 origin heartbeat; then
-            git -C "$beat" checkout --quiet -B heartbeat FETCH_HEAD
-          else
-            git -C "$beat" checkout --quiet --orphan heartbeat
-          fi
-          node -e 'console.log(JSON.stringify({ version: 1, at: new Date().toISOString(), event: process.env.GITHUB_EVENT_NAME, run: process.env.RUN_URL, published: process.env.PUSHED || null }, null, 2))' > "$beat/heartbeat.json"
-          git -C "$beat" add heartbeat.json
-          git -C "$beat" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit --quiet -m "Prepare content release succeeded ($GITHUB_EVENT_NAME)"
-          git -C "$beat" push --quiet origin HEAD:heartbeat
+          push_file_to_branch heartbeat "$beat" "Prepare content release succeeded ($GITHUB_EVENT_NAME)"
+  # The dev channel follows the day's upstream too: after the scheduled run, dev's own run
+  # compiles that data with dev's code (scripts/content/channel.mjs). Whatever the release job's
+  # outcome (a status function in `if:` drops the implicit success()): dev's release does not
+  # depend on main's. A job of its own, so only this one command holds a token that can start
+  # workflows; the release job, which runs the day's scrapers, does not. One gh call and no
+  # checkout, so it takes the light runner (ARKPEDIA_LIGHT_RUNNER, docs/development/ci-runner.md)
+  # like Check's `seen` and Deploy's `targets`, and does not wait behind a Check on the NAS.
+  start-dev:
+    needs: prepare
+    if: ${{ !cancelled() && github.event_name == 'schedule' }}
+    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Start the dev channel's run
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run prepare-content.yml --repo "$GITHUB_REPOSITORY" --ref dev -f refresh_upstream=true

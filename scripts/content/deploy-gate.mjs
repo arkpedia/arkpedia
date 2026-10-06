@@ -1,27 +1,30 @@
 #!/usr/bin/env node
 /**
- * The release gate: a content release goes live only while every production deployment runs
- * the code that compiled it.
+ * The release gate: a content release goes live only while every deployment that reads it --
+ * the live deployments of the branch whose channel compiled it -- runs the code that compiled it.
  *
  *   node scripts/content/deploy-gate.mjs --manifest <release/manifest.json> --held-file <file>
  *   node scripts/content/deploy-gate.mjs --ref HEAD --held-file <file>
  *
- * Why: the release job compiles with main's code, and main can change what a page's props
- * look like before production runs it. On 2026-09-25 main dropped `countdowns`,
+ * Why: a channel's release job compiles with its branch's code (main's, or dev's for the dev
+ * channel, scripts/content/channel.mjs), and a merge can change what a page's props look like
+ * before that branch's deployments run it. On 2026-09-25 main dropped `countdowns`,
  * `pullBannerLinks` and `isOngoing` from the release while the deployed pages still
  * dereferenced them, and both said CONTENT_SCHEMA 2, so the first release after the merge
  * would have crashed /farming and the /schedule calendar until Deploy caught up. A schema
- * number only helps when someone remembers to bump it; this asks production what it runs.
+ * number only helps when someone remembers to bump it; this asks the deployments what they run.
  *
- * Each deployment in config/production.json (or ARKPEDIA_DEPLOYMENTS, space-separated) is
- * read with one GET of /build-info.json (scripts/build/write-build-info.mjs). The release may
- * go out only if every one of them is a clean build whose code fingerprint
- * (scripts/content/code-fingerprint.mjs) is the release's and whose content schema is the
- * release's. Anything else holds it -- a different commit, uncommitted changes, no
- * build-info (a deploy from before this gate), an unreachable site, a manifest whose
- * fingerprint is not its generator's. Holding fails closed: exit 1, a `::error::` line, and
- * the reason as Markdown in --held-file, which the workflow's report step posts as the
- * 'Content release held' issue.
+ * Each live deployment of the channel's branch in config/production.json (ARKPEDIA_RELEASE_BRANCH,
+ * main when unset; or ARKPEDIA_DEPLOYMENTS, space-separated) is read with one GET of
+ * /build-info.json (scripts/build/write-build-info.mjs). The release may go out only if every one
+ * of them is a clean build whose code fingerprint (scripts/content/code-fingerprint.mjs) is the
+ * release's, whose content schema is the release's, and which reads the channel's pointer
+ * (ARKPEDIA_CONTENT_POINTER, live when unset) where it says which. Anything else holds it -- a
+ * different commit, uncommitted changes, another channel's pointer, no build-info (a deploy from
+ * before this gate), an unreachable site, a manifest whose fingerprint is not its generator's.
+ * Holding fails closed: exit 1, a `::error::` line, and the reason as Markdown in --held-file,
+ * which the workflow's report step posts as the 'Content release held' issue (with the
+ * channel's suffix, "(dev)", on dev).
  *
  * --manifest checks a compiled release (the publish step). --ref checks the commit a run is
  * about to compile (the first step), so a held run stops before the compile.
@@ -32,21 +35,20 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { codeFingerprint } from './code-fingerprint.mjs';
 import { SCHEMA } from './release-input.mjs';
-import { RELEASE_BRANCH, readDeployments } from '../deploy/deploy-targets.mjs';
+import { RELEASE_BRANCH, releaseDeployments } from '../deploy/deploy-targets.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HEX64 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const short = value => String(value).slice(0, 12);
 
-/** Where production is: https only, but for a local test server. The live deployments of
- *  main only, the branch this job compiles with: one not switched on yet, or following
- *  another branch (arkpedia-dev.vercel.app follows dev), serves other code by design, and
- *  would hold every release. */
+/** Where production is: https only, but for a local test server. The live deployments of the
+ *  branch this job compiles with (releaseDeployments, scripts/deploy/deploy-targets.mjs): one
+ *  following another branch serves other code by design, and would hold every release. */
 export function deploymentUrls(env = process.env) {
   const listed = env.ARKPEDIA_DEPLOYMENTS?.trim()
     ? env.ARKPEDIA_DEPLOYMENTS.trim().split(/[\s,]+/)
-    : readDeployments().filter(deployment => deployment.live && deployment.branch === RELEASE_BRANCH).map(deployment => deployment.url);
+    : releaseDeployments(env).map(deployment => deployment.url);
   return listed.map(url => {
     const parsed = new URL(url);
     const local = parsed.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(parsed.hostname);
@@ -62,8 +64,11 @@ export const isBuildInfo = info => Boolean(info) && typeof info === 'object' && 
  * Whether every deployment can read the release.
  *   release      { generator, codeFingerprint, schema }
  *   deployments  [{ url, info }] or [{ url, error }], as readBuildInfo returns them
+ *   pointer      the pointer branch the release is published to (live, dev-live): a deployment
+ *                whose build-info says it reads another one never sees this release
  */
-export function judge({ release, deployments }) {
+export function judge({ release, deployments, pointer }) {
+  if (typeof pointer !== 'string' || !pointer) throw new Error('judge needs the pointer the release is published to');
   const problems = [];
   if (!deployments.length) problems.push('No production deployment is configured (config/production.json), so none can be shown to read the release.');
   for (const { url, info, error } of deployments) {
@@ -74,6 +79,10 @@ export function judge({ release, deployments }) {
     else if (info.contentSchema !== release.schema) problems.push(`${runs}, which reads content schema ${info.contentSchema}; the release is schema ${release.schema}.`);
     else if (info.codeFingerprint !== release.codeFingerprint) {
       problems.push(`${runs}, not the code of ${short(release.generator)} that compiles the release (code ${short(info.codeFingerprint)} there, ${short(release.codeFingerprint)} here).`);
+    }
+    // A build from before build-info named its channel says nothing, and is taken at its branch.
+    if (info.contentChannel !== undefined && info.contentChannel !== pointer) {
+      problems.push(`${runs} built to read the ${info.contentChannel} pointer, so it never reads this release, which is published to ${pointer}.`);
     }
   }
   return { publish: problems.length === 0, problems };
@@ -119,18 +128,33 @@ export function releaseFromRef(ref, { cwd = process.cwd() } = {}) {
   return { generator, codeFingerprint: codeFingerprint(generator, { cwd }), schema: SCHEMA };
 }
 
-export function heldReport({ release, problems, compiled }) {
+/** Who has to run a channel's code, as the gate names it in its log and its report: production
+ *  for main's channel, `<branch>'s deployment` for another (dev's, arkpedia-dev). Main was once
+ *  the only channel, and the dev channel's log still said "Production runs the code". */
+export function siteFor(branch) {
+  if (typeof branch !== 'string' || !branch) throw new Error('siteFor needs the branch whose channel compiles the release');
+  return branch === RELEASE_BRANCH ? 'production' : `${branch}'s deployment`;
+}
+
+/** The 'Content release held' issue's body. `branch` is the channel's (ARKPEDIA_RELEASE_BRANCH):
+ *  what lets the release out again differs, since a held dev release starts again by itself. */
+export function heldReport({ release, problems, compiled, branch }) {
+  if (typeof branch !== 'string' || !branch) throw new Error('heldReport needs the branch whose channel compiled the release');
   const from = release
     ? `${compiled ? 'was compiled' : 'would be compiled'} by arkpedia/arkpedia \`${release.generator}\` (code fingerprint \`${short(release.codeFingerprint)}\`)`
     : 'could not be identified';
+  const site = siteFor(branch);
+  const again = branch === RELEASE_BRANCH
+    ? 'then dispatch **Prepare content release**, or wait for the next scheduled run.'
+    : `and the next successful Deploy of ${branch} starts ${branch}'s run again.`;
   return [
-    '**The content release was not published: production cannot be shown to read it.**',
+    `**The content release was not published: ${site} cannot be shown to read it.**`,
     '',
-    `A release goes live only while production runs the code that compiled it (\`scripts/content/deploy-gate.mjs\`). This one ${from}:`,
+    `A release goes live only while the deployments of its branch run the code that compiled it (\`scripts/content/deploy-gate.mjs\`). This one ${from}:`,
     '',
     ...problems.map(problem => `- ${problem}`),
     '',
-    'Published anyway, it could break every page whose deployed code still expects the previous release\'s props. It goes out once production runs this code: let Check and Deploy finish on main (a red Check or a failed Deploy keeps it held; each has its own issue), then dispatch **Prepare content release**, or wait for the next scheduled run.',
+    `Published anyway, it could break every page whose deployed code still expects the previous release's props. It goes out once ${site} runs this code: let Check and Deploy finish on ${branch} (a red Check or a failed Deploy keeps it held; each has its own issue), ${again}`,
     '',
   ].join('\n');
 }
@@ -149,15 +173,18 @@ export async function main(argv, { env = process.env, fetch = globalThis.fetch }
   try {
     release = opts.manifest ? releaseFromManifest(opts.manifest) : releaseFromRef(opts.ref);
     const deployments = await Promise.all(deploymentUrls(env).map(url => readBuildInfo(url, { fetch })));
-    ({ problems } = judge({ release, deployments }));
+    // The channel step sets the pointer for every later step; a run without one publishes to live.
+    ({ problems } = judge({ release, deployments, pointer: env.ARKPEDIA_CONTENT_POINTER || 'live' }));
   } catch (error) {
     problems = [`${error instanceof Error ? error.message : error}.`];
   }
+  const branch = env.ARKPEDIA_RELEASE_BRANCH || RELEASE_BRANCH;
   if (!problems.length) {
-    console.log(`Production runs the code that ${opts.manifest ? 'compiled this release' : 'compiles this release'} (${short(release.generator)}, code ${short(release.codeFingerprint)}).`);
+    const site = siteFor(branch);
+    console.log(`${site[0].toUpperCase()}${site.slice(1)} runs the code that ${opts.manifest ? 'compiled this release' : 'compiles this release'} (${short(release.generator)}, code ${short(release.codeFingerprint)}).`);
     return 0;
   }
-  const report = heldReport({ release, problems, compiled: Boolean(opts.manifest) });
+  const report = heldReport({ release, problems, compiled: Boolean(opts.manifest), branch });
   if (opts['held-file']) fs.writeFileSync(opts['held-file'], report);
   console.log(`::error title=Content release held::${command(problems[0])}`);
   console.log(report);

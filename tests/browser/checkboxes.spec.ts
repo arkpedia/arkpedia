@@ -60,13 +60,21 @@ test('the pull planner settings are checkboxes', async ({ page }) => {
 
   // In the Past events frame at every width (it was beside the trigger on a desktop only).
   await expectCheckPrimitive(page.getByRole('checkbox', { name: 'Include past rewards in forecast' }));
-  // The unclaimed-rewards list is ticked off item by item.
+  // The Past events popup's lists are ticked off item by item: each row's tick is a real
+  // checkbox (its name beside it is the button that names the stages left).
   await page.getByRole('button', { name: /Past events/ }).click();
-  const story = page.getByRole('group', { name: /: completed$/ }).first();
+  const dialog = page.getByRole('dialog', { name: 'Past events' });
+  const story = dialog.getByRole('list', { name: /: claimed$/ }).first();
   await expect.poll(() => story.getByRole('checkbox').count()).toBeGreaterThan(3);
-  await expect(story.getByRole('button')).toHaveCount(0);
-  await expectCheckPrimitive(story.getByRole('checkbox').first());
-  await expectLabelToggles(page, story.getByRole('checkbox').first());
+  const first = story.getByRole('checkbox').first();
+  await expectCheckPrimitive(first);
+  const before = await first.isChecked();
+  await first.click();
+  await expect(first).toBeChecked({ checked: !before });
+  await first.click();
+  await expect(first).toBeChecked({ checked: before });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 
   // Include sparking: shown for a limited banner's goals.
   const limited = await page.evaluate(() => {
@@ -149,13 +157,13 @@ test('the planner\'s Craft and Owned are checkboxes', async ({ page }) => {
   const craft = page.getByRole('checkbox', { name: /^Craft / });
   await expect.poll(() => craft.count(), 'a Craft checkbox on each craftable card').toBeGreaterThan(3);
   await expectCheckPrimitive(craft.first());
-  // Ticking it declares the craft: the card says "crafting" and stays ticked (with Show
-  // all on: a declared craft is no longer short, so the short-only list lets it go).
-  await page.getByRole('button', { name: /^Show all \d+$/ }).click();
+  // Ticking it declares the craft (2026-10-03): the card stays in Missing, ticked, and says
+  // how many it will make; what it is made of joins the list, each saying what it is for.
   const name = (await craft.first().getAttribute('aria-label'))!.replace(/^Craft /, '');
   await craft.first().check();
   await expect(page.getByRole('checkbox', { name: `Craft ${name}`, exact: true })).toBeChecked();
-  await expect(page.locator('.need-card').filter({ has: page.getByRole('checkbox', { name: `Craft ${name}`, exact: true }) })).toContainText('crafting');
+  await expect(page.locator('.need-card').filter({ has: page.getByRole('checkbox', { name: `Craft ${name}`, exact: true }) })).toContainText('to craft');
+  await expect(page.locator('.need-card-for').filter({ hasText: `for crafting ${name}` }).first()).toBeVisible();
   await page.getByRole('checkbox', { name: `Craft ${name}`, exact: true }).uncheck();
 
   await page.getByRole('button', { name: 'Your roster', exact: true }).click();

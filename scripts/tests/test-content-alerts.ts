@@ -10,7 +10,7 @@ import { cell, renderQuarantineReport } from '../content/quarantine-report.mjs';
 import { failureLine } from '../content/run-stage.mjs';
 
 /* A stand-in for gh: the issue commands the alert script uses, over a JSON store, plus
-   `gh api` answered from canned JSON through the real jq, as gh --jq does. Every call is
+   `gh api` and `gh issue list --jq` answered through the real jq, as gh --jq does. Every call is
    logged, so a case can see what was created, edited, commented on or closed. */
 const fakeGh = `#!/usr/bin/env node
 const fs = require('fs');
@@ -26,7 +26,10 @@ if (args[0] === 'api') {
   const answer = state.api[args[1].split('?')[0]];
   if (answer === undefined) { fs.writeFileSync(file, JSON.stringify(state)); process.exit(1); }
   out(execFileSync('jq', ['-r', opt('--jq')], { input: JSON.stringify(answer), encoding: 'utf8' }));
-} else if (args[1] === 'list') out(state.issues.filter(entry => entry.state === 'open').map(({ number, title, body }) => ({ number, title, body })));
+} else if (args[1] === 'list') {
+  const open = state.issues.filter(entry => entry.state === 'open').map(({ number, title, body }) => ({ number, title, body }));
+  out(args.includes('--jq') ? execFileSync('jq', ['-r', opt('--jq')], { input: JSON.stringify(open), encoding: 'utf8' }) : open);
+}
 else if (args[1] === 'view') out({ comments: issue().comments });
 else if (args[1] === 'create') state.issues.push({ number: state.issues.length + 1, title: opt('--title'), body: fs.readFileSync(opt('--body-file'), 'utf8'), state: 'open', comments: [] });
 else if (args[1] === 'edit') issue().body = fs.readFileSync(opt('--body-file'), 'utf8');
@@ -431,6 +434,34 @@ test('a failed release reports on the one open issue, and the next good run clos
   });
 });
 
+// A run that failed at the checkout or setup-node has no alert-issue.mjs or no node: the report
+// step says so with gh alone, under the marker the script finds, so a good run closes the issue.
+test('a run that failed before its checkout or Node still opens the failed-release issue, once', { skip: !hasJq && 'needs jq, as gh --jq does' }, () => {
+  withGitHub(github => {
+    const report = stepScript('Report the failed release'), close = stepScript('Close the failed-release report');
+    const bare = path.join(github.root, 'no-checkout');
+    fs.mkdirSync(bare);
+    const early = (extra: Record<string, string> = {}) => github.step(`cd ${JSON.stringify(bare)} && ${report}`,
+      { FAKE_NOW: '2026-10-05T20:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'schedule', ...extra });
+    github.seed([{ title: 'Content release failing (dev)', body: '<!-- arkpedia-alert:content-release-failing-dev -->\ndev is broken' }]);
+    const first = early();
+    assert.equal(first.status, 0, first.output);
+    const [, failing] = github.issues();
+    assert.equal(failing.title, 'Content release failing');
+    assert.match(failing.body, /^<!-- arkpedia-alert:content-release-failing -->\nPrepare content release ended with failure before it could run its own scripts \(schedule, .*\): https:\/\/example\.invalid\/run\/1$/m);
+    // Another early failure: the open issue is enough, and dev's never counted as production's.
+    assert.equal(early().status, 0);
+    assert.equal(github.issues().length, 2);
+    assert.deepEqual(github.issues().map(issue => issue.comments.length), [0, 0]);
+    // The dev channel's own early failure finds its own issue, and opens nothing more.
+    assert.equal(early({ ALERT_SUFFIX: '-dev', TITLE_SUFFIX: ' (dev)' }).status, 0);
+    assert.equal(github.issues().length, 2);
+    // The alert script finds it by that marker, so the next good run closes it.
+    assert.equal(github.step(close).status, 0);
+    assert.deepEqual(github.issues().map(issue => issue.state), ['open', 'closed']);
+  });
+});
+
 // A run the release gate held (scripts/content/deploy-gate.mjs wrote why) is not a broken
 // workflow: the fix is a deploy, so it gets an issue of its own, which a good run closes.
 test('a held release reports on its own issue, and a good run closes it with the failure report', () => {
@@ -453,8 +484,55 @@ test('a held release reports on its own issue, and a good run closes it with the
     const closed = github.step(close);
     assert.equal(closed.status, 0, closed.output);
     assert.deepEqual(github.issues().map(entry => entry.state), ['closed', 'closed']);
-    assert.match(github.issues()[0].comments.at(-1)!.body, /^Production runs the code this run compiled with, and the run succeeded: https:\/\/example\.invalid\/run\/1$/);
+    // Said of the branch's deployments, not "production": the dev channel's "(dev)" issue closes with it too.
+    assert.match(github.issues()[0].comments.at(-1)!.body, /^The deployments of its branch run the code this run compiled with, and the run succeeded: https:\/\/example\.invalid\/run\/1$/);
   });
+});
+
+// The dev channel's run (scripts/content/channel.mjs) reports under issues of its own: the
+// workflow passes these suffixes on any branch but main. Production's issues are another alert,
+// so a dev failure never comments on them and a dev success never closes them.
+test('a dev run reports and recovers on its own "(dev)" issues, and leaves production\'s alone', () => {
+  withGitHub(github => {
+    const report = stepScript('Report the failed release'), close = stepScript('Close the failed-release report');
+    const dev = { ALERT_SUFFIX: '-dev', TITLE_SUFFIX: ' (dev)' };
+    github.seed([
+      { title: 'Content release failing', body: '<!-- arkpedia-alert:content-release-failing -->\nPrepare content release ended with failure (schedule): https://example.invalid/run/0' },
+      { title: 'Content release held', body: '<!-- arkpedia-alert:content-release-held -->\nproduction runs other code' },
+    ]);
+    const production = () => github.issues().slice(0, 2).map(issue => [issue.title, issue.state, issue.comments.length]);
+    const before = production();
+    assert.deepEqual(before, [['Content release failing', 'open', 0], ['Content release held', 'open', 0]]);
+    // A failed dev run, then one the gate held.
+    const failed = github.step(report, { ...dev, FAKE_NOW: '2026-10-05T20:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_dispatch' });
+    assert.equal(failed.status, 0, failed.output);
+    fs.writeFileSync(path.join(github.root, 'release-held.md'), '**The content release was not published: production cannot be shown to read it.**\n');
+    const held = github.step(report, { ...dev, FAKE_NOW: '2026-10-05T20:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_dispatch' });
+    assert.equal(held.status, 0, held.output);
+    assert.deepEqual(production(), before, 'production\'s issues are not commented on');
+    const [failing, holding] = github.issues().slice(2);
+    assert.equal(failing.title, 'Content release failing (dev)');
+    assert.match(failing.body, /^<!-- arkpedia-alert:content-release-failing-dev -->\nPrepare content release ended with failure \(workflow_dispatch, /);
+    assert.equal(holding.title, 'Content release held (dev)');
+    assert.match(holding.body, /^<!-- arkpedia-alert:content-release-held-dev -->\n\*\*The content release was not published/);
+    // A good dev run closes dev's issues only.
+    const recovered = github.step(close, dev);
+    assert.equal(recovered.status, 0, recovered.output);
+    assert.deepEqual(github.issues().slice(2).map(issue => issue.state), ['closed', 'closed']);
+    assert.deepEqual(production(), before, 'production\'s issues stay open: only a good run of main closes them');
+    // And main's good run closes production's, without touching dev's.
+    github.step(close);
+    assert.deepEqual(github.issues().map(issue => issue.state), ['closed', 'closed', 'closed', 'closed']);
+    assert.deepEqual(github.issues().slice(2).map(issue => issue.comments.length), [1, 1], 'dev\'s issues got only their own recovery comment');
+  });
+  // The workflow sets the suffixes from the branch: none on main.
+  const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
+  for (const name of ['Report the failed release', 'Close the failed-release report']) {
+    const at = workflow.indexOf(`- name: ${name}`);
+    const block = workflow.slice(at, workflow.indexOf('run: |', at));
+    assert.ok(block.includes("ALERT_SUFFIX: ${{ github.ref_name != 'main' && format('-{0}', github.ref_name) || '' }}"), name);
+    assert.ok(block.includes("TITLE_SUFFIX: ${{ github.ref_name != 'main' && format(' ({0})', github.ref_name) || '' }}"), name);
+  }
 });
 
 test('a successful deploy starts a held release again, and does nothing when none is held', () => {
@@ -505,7 +583,11 @@ test('a release that does not go live opens an issue, and one that does closes i
     git(seed, 'checkout', '-q', 'main');
     const pushed = commit('main', 'a.json', '2');
     git(github.root, 'clone', '-q', `file://${origin}`, clone);
-    const run = () => github.step(script, { PUSHED: pushed, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1', ARKPEDIA_LIVE_TIMEOUT_SECONDS: '0' });
+    const outputs = path.join(github.root, 'github-output');
+    const run = () => {
+      fs.writeFileSync(outputs, '');
+      return github.step(script, { PUSHED: pushed, GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1', ARKPEDIA_LIVE_TIMEOUT_SECONDS: '0', GITHUB_OUTPUT: outputs });
+    };
     // The data repository's publish failed: live still names the previous commit.
     const stuck = run();
     assert.equal(stuck.status, 1, 'the step shows red; continue-on-error keeps the run going');
@@ -515,6 +597,7 @@ test('a release that does not go live opens an issue, and one that does closes i
     assert.match(issue.body, new RegExp(`Live has not moved to ${pushed} after 0 s: it still serves ${first}\\.`));
     assert.match(issue.body, /Readers keep the previous release until it does\. .*actions\/workflows\/content\.yml$/m);
     assert.match(stuck.output, /::warning::The live pointer did not move/);
+    assert.equal(fs.readFileSync(outputs, 'utf8'), '', 'no revision for the page refresh, which does not run');
     // It moved: the issue closes.
     git(seed, 'checkout', '-q', 'live');
     commit('live', 'current.json', JSON.stringify({ schema: 2, release: 'r'.repeat(64), revision: pushed, manifestSha256: 'm'.repeat(64) }));
@@ -522,6 +605,8 @@ test('a release that does not go live opens an issue, and one that does closes i
     assert.equal(live.status, 0, live.output);
     assert.match(live.output, new RegExp(`Live serves ${pushed}\\.`));
     assert.equal(github.issues()[0].state, 'closed');
+    // The step's `revision` output, which the page refresh waits for (steps.live.outputs.revision).
+    assert.equal(fs.readFileSync(outputs, 'utf8'), `revision=${pushed}\n`);
   });
   const settings = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').split('\n');
   const start = settings.findIndex(line => line.trim() === '- name: Confirm the release went live');
@@ -564,16 +649,17 @@ test('a red Check on main opens one issue, a superseded run does not, and the ne
 
 test('a failed deploy opens one issue per deployment that its next deploy closes, even when the token is missing', () => {
   // What the matrix gives each step (scripts/deploy/deploy-targets.mjs).
-  const SITE = { ALERT: 'deploy-failing-arkpedia-dev', SITE: 'https://arkpedia-dev.vercel.app' };
+  const SITE = { ALERT: 'deploy-failing-arkpedia-dev', SITE: 'https://arkpedia-dev.vercel.app', BRANCH: 'dev' };
   withGitHub(github => {
     const report = stepScript('Report the failed deploy', 'deploy'), close = stepScript('Close the failed-deploy report', 'deploy');
     const failed = github.step(report, { ...SITE, FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
     assert.equal(failed.status, 0, failed.output);
     assert.equal(github.issues()[0].title, 'Deploy failing: arkpedia-dev.vercel.app');
-    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing-arkpedia-dev -->\nDeploy to https:\/\/arkpedia-dev\.vercel\.app ended with failure for dddddddddddd \(workflow_run, .*\): https:\/\/example\.invalid\/run\/1\. Production keeps its previous build/);
+    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing-arkpedia-dev -->\nDeploy to https:\/\/arkpedia-dev\.vercel\.app ended with failure for dddddddddddd \(workflow_run, .*\): https:\/\/example\.invalid\/run\/1\. Production keeps its previous build, and content releases stay held until it runs dev's code\.\n$/);
     // Another deployment's outage is its own issue, which this one's success leaves open.
-    github.step(report, { ALERT: 'deploy-failing-arkpedia-net', SITE: 'https://www.arkpedia.net', FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
+    github.step(report, { ALERT: 'deploy-failing-arkpedia-net', SITE: 'https://www.arkpedia.net', BRANCH: 'main', FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
     assert.equal(github.issues()[1].title, 'Deploy failing: www.arkpedia.net');
+    assert.match(github.issues()[1].body, /content releases stay held until it runs main's code\.\n$/);
     assert.equal(github.step(close, { ...SITE, DEPLOYING: 'e'.repeat(40) }).status, 0);
     assert.equal(github.issues()[1].state, 'open');
     assert.equal(github.issues()[0].state, 'closed');
@@ -591,6 +677,7 @@ test('a failed deploy opens one issue per deployment that its next deploy closes
   // The report needs the checkout; the token check used to run first and fail without one.
   const names = [...fs.readFileSync('.github/workflows/deploy.yml', 'utf8').matchAll(/^ {6}- (?:name: (.*)|uses: (actions\/checkout)@)/gm)].map(match => match[1] ?? match[2]);
   assert.ok(names.indexOf('actions/checkout') < names.indexOf('Refuse to run without the deploy token'), names.join(' | '));
-  // The reports follow every deploy step; restarting a held release comes last, after a success.
-  assert.deepEqual(names.slice(-3), ['Report the failed deploy', 'Close the failed-deploy report', 'Release again if one was held for this deploy']);
+  // The reports follow every deploy step; starting a release comes last, after a success: a held
+  // one of main, or the dev channel's (scripts/content/channel.mjs).
+  assert.deepEqual(names.slice(-4), ['Report the failed deploy', 'Close the failed-deploy report', 'Release again if one was held for this deploy', "Prepare dev's own content release"]);
 });

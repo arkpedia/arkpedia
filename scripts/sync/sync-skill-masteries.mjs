@@ -5,12 +5,13 @@
  *
  *   node scripts/sync/sync-skill-masteries.mjs
  *
- * An operator's mastery costs are written by the English refresh (sync-operator-english.mjs)
- * only for an operator released in the last 90 days or still carrying Chinese text, so a
- * record from the older wiki import kept whatever that import had: Pepe's first skill had
- * its M1 and no M2 or M3, and 36 operators had 53 skills with a mastery missing
- * (2026-09-29). An operator the CN client has and the Global one does not (Thumpy, Aphrissa)
- * is in no English table at all, so nothing wrote its costs. The operator page then said
+ * The English refresh (sync-operator-english.mjs) writes every Global operator's mastery costs
+ * from the Global character table on every run. This stage fills what it cannot: an operator
+ * the CN client has and the Global one does not (Thumpy, Aphrissa), which is in no English
+ * table at all, and a mastery the Global table lacks. Before the English refresh rebuilt every
+ * operator it wrote costs only for a recent release, so a record from the older wiki import
+ * kept whatever that import had: Pepe's first skill had its M1 and no M2 or M3, and 36
+ * operators had 53 skills with a mastery missing (2026-09-29). The operator page then said
  * "No cost data", and the planner's goals for that skill cost nothing.
  *
  * What it writes: a mastery the record has no materials for, from the Global character table

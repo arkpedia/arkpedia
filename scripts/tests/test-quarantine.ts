@@ -251,7 +251,7 @@ test('the same inputs on two different days, with the mirrors a commit on, write
   temporary(root => {
     let records = { events: [] as object[], banners: catalogueBanners as object[], recurring: [] as object[] };
     const files = days.map(({ now, recurring }) => {
-      const calendars = reconcileCalendars({ events: records.events, banners: records.banners, operators, cn, en, eventRows, bannerRows: [], now: now.getTime() });
+      const calendars = reconcileCalendars({ announced: { events: [], banners: [] }, events: records.events, banners: records.banners, operators, cn, en, eventRows, bannerRows: [], now: now.getTime() });
       const banners = recurring.reconcileRecurringBanners({ banners: records.recurring, gachaTable, characters, wikiRows, roster, now: now.getTime() });
       for (const [stage, entries] of [['catalogue', calendars.quarantine], ['recurring-banners', banners.quarantine]] as [string, object[]][]) {
         const writer = beginStage(root, stage, now);

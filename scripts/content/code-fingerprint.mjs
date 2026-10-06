@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SCHEMA } from './release-input.mjs';
+import { contentPointer } from './channel.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const DOCS_ONLY_PATHS = JSON.parse(fs.readFileSync(path.join(root, 'config/docs-only-paths.json'), 'utf8')).paths;
@@ -88,6 +89,8 @@ export function buildInfo({ cwd = process.cwd(), now = new Date() } = {}) {
     commit: git(['rev-parse', 'HEAD'], cwd).trim(),
     codeFingerprint: codeFingerprint('HEAD', { cwd }),
     contentSchema: SCHEMA,
+    // The content pointer the build reads (scripts/content/channel.mjs): live, or dev-live.
+    contentChannel: contentPointer(),
     dirty: uncommittedChanges({ cwd }).length > 0,
     builtAt: now.toISOString(),
   };

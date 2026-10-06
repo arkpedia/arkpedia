@@ -94,3 +94,11 @@ export function togglePlannerOperator(name: string, rarity: number | null): bool
   writePlannerState(state);
   return !isAdded;
 }
+/**
+ * A planner file's goals, written from another page (the Import / export dialog off /planner).
+ * Stored as they came: /planner clamps every goal to its operator's rules when it reads them
+ * (clampBuilderStates), the same gate a hand-edited localStorage goes through.
+ */
+export function replacePlannerGoals(selectedNames: string[], builderStates: Record<string, unknown>): void {
+  writePlannerState({ selectedNames, builderStates: builderStates as Record<string, StoredBuilderState> });
+}

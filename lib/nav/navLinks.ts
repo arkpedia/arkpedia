@@ -30,10 +30,16 @@ export const LINKS: NavLink[] = [
      player's iframe mid-song. scripts/tests/test-nav-links.ts holds every href to a real
      page that no redirect matches. */
   { href: '/enemies', label: 'Enemies', icon: 'enemies' },
+  { href: '/story', label: 'Story', icon: 'story' },
   { href: '/gamemodes', label: 'Game Modes', icon: 'grid' },
   { href: '/base', label: 'Base', icon: 'base' },
-  { href: '/planner', label: 'Planner', icon: 'planner' },
+  /* Always "Import Account", import or not: a menu entry whose name changed once you had
+     imported read as a different page (2026-10-03). */
+  { href: '/account', label: 'Import Account', icon: 'roster' },
+  { href: '/free-op', label: 'OP Tracker', icon: 'prime' },
+  { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
+  { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
   { href: '/community', label: 'Community', icon: 'community' },
   { href: '/gacha', label: 'Gacha', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
@@ -41,6 +47,7 @@ export const LINKS: NavLink[] = [
   { href: '/games', label: 'Games', icon: 'grid' },
   { href: '/schedule', label: 'Schedule', icon: 'timeline' },
   { href: '/music', label: 'Music', icon: 'music' },
+  { href: '/changelog', label: "What's new", icon: 'changelog' },
   { href: '/support', label: 'Support', icon: 'support' },
 ];
 
@@ -58,6 +65,8 @@ export const LINKS: NavLink[] = [
  * single item is a click in front of a link.
  */
 export interface NavGroup {
+  /** Stable: the menu's key and its data-menu, whatever its label reads. */
+  id: string;
   label: string;
   items: NavLink[];
 }
@@ -69,9 +78,11 @@ const at = (href: string): NavLink => {
 };
 
 export const GROUPS: NavGroup[] = [
-  { label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages')] },
-  { label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha'), at('/pulls')] },
-  { label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music')] },
+  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages'), at('/story')] },
+  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
+  /* The reader's own: their account, and the planners that read it (issue #94). */
+  { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
+  { id: 'community', label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog')] },
 ];
 
 /* Not in a menu: one destination each, and a menu of one is a click in front of a
@@ -79,7 +90,7 @@ export const GROUPS: NavGroup[] = [
    it alone in Planning. Schedule joined them when the Events list became a view of the
    Schedule page rather than a page of its own, which left that menu holding one thing
    too. */
-export const LOOSE: NavLink[] = [at('/planner'), at('/schedule'), at('/support')];
+export const LOOSE: NavLink[] = [at('/schedule'), at('/support')];
 
 /**
  * Every destination the bar shows, in the order it shows them: each menu's contents in

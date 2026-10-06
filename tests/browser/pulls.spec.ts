@@ -50,7 +50,7 @@ test.describe('pull planner integration', () => {
  * in the actual dropdown menu button not as an element in the dropdown"). It was a
  * trigger with the checkbox beside it, outside its frame, and a second copy beside the
  * panel's heading for phones, hidden at every width. The disclosure button is the frame:
- * it paints the box like Income & events and Skin wishlist, and is the hit area
+ * it paints the box like Income and Skin wishlist, and is the hit area
  * everywhere but the setting. The checkbox is its sibling laid over it, never inside it
  * (a <button> may not hold an input, and the accessibility tree flattens one that does).
  * Box edges only: nothing here reads a text width.
@@ -104,16 +104,20 @@ test.describe('the Past events frame holds its Include setting', () => {
     expect(Math.abs((box!.top + box!.bottom) / 2 - (button!.top + button!.bottom) / 2), 'the checkbox is on the frame\'s centre line').toBeLessThanOrEqual(1);
   });
 
-  test('a press on the setting ticks it, and anywhere else in the frame opens the panel', async ({ page }) => {
-    const button = page.locator('#tab-past');
+  test('a press on the setting ticks it, and anywhere else in the frame opens the popup', async ({ page }) => {
     const box = page.getByRole('checkbox', { name: 'Include past rewards in forecast' });
-    const panel = page.locator('#panel-past');
+    const dialog = page.getByRole('dialog', { name: 'Past events' });
     const p = await parts(page);
     const cy = (p.button!.top + p.button!.bottom) / 2;
-    const check = async (expanded: boolean, ticked: boolean) => {
-      await expect(button).toHaveAttribute('aria-expanded', String(expanded));
-      await expect(panel).toBeVisible({ visible: expanded });
+    const check = async (open: boolean, ticked: boolean) => {
+      await expect(dialog).toHaveCount(open ? 1 : 0);
       await expect(box).toBeChecked({ checked: ticked });
+    };
+    const opens = async (x: number, y: number) => {
+      await page.mouse.click(x, y);
+      await check(true, false);
+      await page.keyboard.press('Escape');
+      await check(false, false);
     };
     await check(false, false);
     // The label's text (just past the box and its 8px gap), then the box itself.
@@ -122,37 +126,36 @@ test.describe('the Past events frame holds its Include setting', () => {
     await page.mouse.click((p.box!.left + p.box!.right) / 2, (p.box!.top + p.box!.bottom) / 2);
     await check(false, false);
     // The frame's start, the + at its end, the gap between the label and the +, and the
-    // frame's edge above the label: each is the button.
-    await page.mouse.click(p.button!.left + 6, cy);
-    await check(true, false);
-    await page.mouse.click((p.sign!.left + p.sign!.right) / 2, cy);
-    await check(false, false);
-    await page.mouse.click((p.label!.right + p.sign!.left) / 2, cy);
-    await check(true, false);
+    // frame's edge above the label: each is the button, and opens the popup.
+    await opens(p.button!.left + 6, cy);
+    await opens((p.sign!.left + p.sign!.right) / 2, cy);
+    await opens((p.label!.right + p.sign!.left) / 2, cy);
     // Halfway between the frame's top and the label's, on a whole pixel (a hit test on a
     // half pixel can round into the label).
-    await page.mouse.click((p.label!.left + p.label!.right) / 2, Math.floor((p.button!.top + p.label!.top) / 2));
-    await check(false, false);
+    await opens((p.label!.left + p.label!.right) / 2, Math.floor((p.button!.top + p.label!.top) / 2));
   });
 
   test('the keyboard reaches the button, then the setting, each with a focus ring', async ({ page }) => {
     const button = page.locator('#tab-past');
     const box = page.getByRole('checkbox', { name: 'Include past rewards in forecast' });
+    const dialog = page.getByRole('dialog', { name: 'Past events' });
     await page.locator('#tab-income').focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const ring = (el: Element) => { const s = getComputedStyle(el); return s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) >= 2; };
     expect(await button.evaluate(ring), 'the button shows the focus ring').toBe(true);
     await page.keyboard.press('Enter');
-    await expect(button).toHaveAttribute('aria-expanded', 'true');
-    await page.keyboard.press('Space');
-    await expect(button).toHaveAttribute('aria-expanded', 'false');
+    await expect(dialog).toBeVisible();
+    // Escape closes it, and focus goes back to the button that opened it.
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(button).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(box).toBeFocused();
     expect(await box.evaluate(ring), 'the checkbox shows the focus ring').toBe(true);
     await page.keyboard.press('Space');
     await expect(box).toBeChecked();
-    await expect(button).toHaveAttribute('aria-expanded', 'false');
+    await expect(dialog).toHaveCount(0);
   });
 
   test('the setting is saved', async ({ page }) => {
@@ -165,7 +168,7 @@ test.describe('the Past events frame holds its Include setting', () => {
 });
 
 /* Between the phone's one column and the full row (701-900px) the three triggers take two
- * lines, Income & events beside Past events and the wishlist under them. Squeezed into one
+ * lines, Income beside Past events and the wishlist under them. Squeezed into one
  * line their labels wrapped to two (46px triggers at 701-760px), and the Past events frame
  * holds the checkbox too. Box edges only: at these widths each trigger has 300px or more. */
 test('between a phone and the full row the triggers take two lines, each a control tall', async ({ page }, info) => {
@@ -177,9 +180,9 @@ test('between a phone and the full row the triggers take two lines, each a contr
       const r = document.getElementById(id)!.getBoundingClientRect();
       return { top: r.top, bottom: r.bottom, h: Math.round(r.height * 10) / 10 };
     }));
-    expect(Math.abs(income.top - past.top), `${width}: Income & events beside Past events`).toBeLessThanOrEqual(1);
+    expect(Math.abs(income.top - past.top), `${width}: Income beside Past events`).toBeLessThanOrEqual(1);
     expect(skins.top, `${width}: the wishlist on the line under them`).toBeGreaterThanOrEqual(income.bottom);
-    for (const [name, b] of [['Income & events', income], ['Past events', past], ['Skin wishlist', skins]] as const) {
+    for (const [name, b] of [['Income', income], ['Past events', past], ['Skin wishlist', skins]] as const) {
       expect(Math.abs(b.h - 36), `${width}: ${name} is ${b.h}px, not the control height`).toBeLessThanOrEqual(1);
     }
   }
@@ -226,19 +229,22 @@ test('the goal editor\'s outcome is one stacked block with one rule', async ({ p
   expect(picked, 'with a goal picked').toMatchObject({ side: false, top: true, below: true, detailsRule: false });
 });
 
-/* The skin wishlist's two field captions are one voice: "Event shop" was 16px regular
- * over "Search this shop" at 16px 600. Computed styles, not glyph widths. */
-test('the skin wishlist\'s field captions share one voice', async ({ page }) => {
+/* The Pull Planner's skin section and the Skin Planner are one plan (lib/skins/skinPlan): an
+ * outfit planned in one is planned in the other (the maintainer's request, 2026-10-01). */
+test('an outfit planned in the Pull Planner is planned on the Skin Planner', async ({ page }) => {
   await page.goto('/pulls');
   await page.getByRole('button', { name: /Skin wishlist/ }).click();
-  const captions = await page.locator('#panel-skins').evaluate((panel) => ['.pulls-shop-field > span', '.pulls-skin-search > span'].map((sel) => {
-    const el = panel.querySelector(sel);
-    if (!el) return null;
-    const s = getComputedStyle(el);
-    return `${s.fontFamily} ${s.fontSize} ${s.fontWeight} ${s.color} ${s.textTransform}`;
-  }));
-  if (captions[0] === null) test.skip(await page.getByText('No upcoming shop rotations are listed.').count() > 0, 'no skin shop rotation is listed in this build');
-  expect(captions[0], 'the Event shop caption').not.toBeNull();
-  expect(captions[1], 'the Search this shop caption').toBe(captions[0]);
-  expect(captions[0]).toMatch(/ 13px 400 /);
+  const card = page.locator('#panel-skins .skin-plan-card').first();
+  test.skip(await page.getByText('No shop that sells outfits for Originite Prime is open or listed ahead.').count() > 0, 'no skin shop rotation is listed in this build');
+  await expect(card).toHaveAttribute('aria-pressed', 'false');
+  const label = await card.getAttribute('aria-label');
+  await card.click();
+  await expect(card).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('/skin-planner');
+  await expect(page.locator(`.skin-plan-card[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'true');
+  // And back: unplanned there, it is unplanned here.
+  await page.locator(`.skin-plan-card[aria-label=${JSON.stringify(label)}]`).first().click();
+  await page.goto('/pulls');
+  await page.getByRole('button', { name: /Skin wishlist/ }).click();
+  await expect(page.locator(`#panel-skins .skin-plan-card[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'false');
 });

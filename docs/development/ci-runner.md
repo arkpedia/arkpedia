@@ -9,8 +9,10 @@ runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
 
 - **Set**: the jobs run on the self-hosted runners that carry that label. Two are
   registered, to this repository only:
-  - `truenas` (labels `arkpedia-nas`, `arkpedia-self`): a container on a maintainer's NAS,
-    6 of 8 cores, 8 GB. A full Check takes about 7 minutes.
+  - `truenas` and `truenas-2` (labels `arkpedia-nas`, `arkpedia-self`): two containers on a
+    maintainer's NAS, 6 GB and up to 6 of its 8 cores each, so two jobs run at once instead of
+    queueing (since 2026-10-02; one runner had every job wait behind every other). One Check
+    alone takes about 15 minutes; two at once share the cores.
   - `hetzner-vps` (labels `arkpedia-vps`, `arkpedia-self`): a maintainer's VPS, 2 vCPUs,
     about 3 GB. A full Check takes about 19 minutes.
 
@@ -22,6 +24,13 @@ runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
   The public repositories keep GitHub's hosted runners, which are free for them.
 - **Unset**: the jobs run on GitHub's hosted runners and count against the
   organization's 2,000 private minutes a month ([automation.md](automation.md#cost-limits)).
+
+Three jobs take seconds and only call GitHub's API: Check's `seen` (does a pull request's
+green Check already vouch for this push?), Deploy's `targets`, and Prepare content release's
+`start-dev` (one `gh workflow run` that starts the dev channel's run after the scheduled one).
+They run on the label `ARKPEDIA_LIGHT_RUNNER` names (`arkpedia-vps`), falling back to
+`ARKPEDIA_RUNNER` when it is unset. Otherwise a merge's push waited in line behind another
+pull request's whole Check on the NAS (15 minutes on 2026-10-02) before Deploy could start.
 
 Switching is a settings change, not a commit: **Settings → Secrets and variables →
 Actions → Variables**, or `gh variable set ARKPEDIA_RUNNER --body <label>` /

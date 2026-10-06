@@ -1,6 +1,6 @@
 import { useEffect, useState, ReactNode } from 'react';
 import Head from 'next/head';
-import Link from 'next/link';
+import PageHeader from '@/components/ui/PageHeader';
 import { devOnlyStaticProps } from '@/lib/dev/devOnly';
 
 export const getStaticProps = devOnlyStaticProps;
@@ -191,36 +191,34 @@ export default function OptimizerPage() {
     <>
       <Head><title>Optimizer — Arkpedia</title></Head>
 
-      <header>
-        <div className="eyebrow">Rhodes Island // Base Optimizer</div>
-        <h1>Optimizer</h1>
-        <p className="sub">
+      {/* PageHeader, not a bare <header>: its Back gets the page header's room under it
+          (.page-header > .back-btn), and the run controls its actions row. */}
+      <PageHeader
+        back={{ href: '/base', label: 'Base' }}
+        eyebrow="Rhodes Island // Base Optimizer"
+        title="Optimizer"
+        sub={<>
           Best 3-operator setups for maximizing LMD (Trading Post), EXP (Factory, Battle Records), and Precious
           Metals (Factory). All cross-room conditional skills are assumed satisfied -- support operators elsewhere
           never cost a slot in these results. Results are grouped by their most-recurring shared core setup, with
           every viable filler for the remaining slot ranked underneath it, instead of repeating the same core across
           many separate rows.
-        </p>
-        <div className="stages-category-row" style={{ marginTop: 10 }}>
-          <Link prefetch={false} href="/base" className="ghost">
-            ← Back to Base
-          </Link>
-          {isLocal && (
-            <>
-              <input
-                type="password"
-                placeholder="Dev passcode"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                style={{ marginLeft: 'auto' }}
-              />
-              <button type="button" className="primary" onClick={runOptimizer} disabled={running}>
-                {running ? 'Running...' : 'Run Optimizer'}
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+        </>}
+        actions={isLocal ? (
+          <>
+            <input
+              type="password"
+              placeholder="Dev passcode"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              style={{ marginLeft: 'auto' }}
+            />
+            <button type="button" className="primary" onClick={runOptimizer} disabled={running}>
+              {running ? 'Running...' : 'Run Optimizer'}
+            </button>
+          </>
+        ) : undefined}
+      />
 
       <main className="main-wide">
         {loading && <p>Loading cached results...</p>}

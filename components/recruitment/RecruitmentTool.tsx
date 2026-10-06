@@ -13,6 +13,7 @@ import { computeTagCombos, getRecruitmentTagCategories, type GuaranteedCombo, ty
 import type { RecruitmentProps } from '@/lib/gacha/recruitmentPageData';
 import { DEFAULT_RECRUITMENT_VIEW, MAX_RECRUITMENT_TAGS, readRecruitmentView, recruitmentViewHash, type RecruitmentViewState } from '@/lib/gacha/recruitmentViewState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 const POPOUT_SIZE = { width: 480, height: 760 };
 
@@ -398,7 +399,7 @@ function ComboRow({ combo, hideTwoStars, external }: { combo: TagCombo; hideTwoS
       </div>
       <div className="recruit-combo-operators">
         {sorted.map((operator) => (
-          <Link prefetch={false} key={operator.name} href={`/operators/${encodeURIComponent(operator.name)}`} className="recruit-combo-op" target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>
+          <Link prefetch={false} key={operator.name} href={operatorHref(operator.name, null)} className="recruit-combo-op" target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>
             <Image src={getOperatorIconPath(operator)} alt="" width={28} height={28} />
             <span>{operator.name}</span>
             {operator.rarity ? <Rarity n={rarityLevel(operator.rarity)} className="recruit-combo-op-rarity" /> : null}

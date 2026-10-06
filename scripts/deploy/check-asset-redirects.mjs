@@ -41,6 +41,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deploymentUrls } from '../content/deploy-gate.mjs';
 import { REVISIONS, contentOrigin, githubCompare, readLiveAssetPins } from '../build/adopt-release-asset-pins.mjs';
+import { contentPointer } from '../content/channel.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const FOLDERS = JSON.parse(fs.readFileSync(path.join(root, 'config/asset-folders.json'), 'utf8'));
@@ -115,8 +116,9 @@ export async function checkAssetRedirects({
   baked = JSON.parse(fs.readFileSync(path.join(root, REVISIONS), 'utf8')), compare = githubCompare({ fetch, token: env.GITHUB_TOKEN || env.GH_TOKEN }),
   deployments = deploymentUrls(env), attempts = 4, retryMs = Number(env.ARKPEDIA_ASSET_CHECK_RETRY_MS ?? 15_000), log = console.log,
 } = {}) {
-  // Read now, after the deploy, not when the build read it.
-  const live = await readLiveAssetPins({ origin: contentOrigin(env), fetch });
+  // Read now, after the deploy, not when the build read it, from the deployment's own channel
+  // (Deploy's job env names its project, which contentPointer looks up).
+  const live = await readLiveAssetPins({ origin: contentOrigin(env), pointerBranch: contentPointer(env), fetch });
   const problems = [], warnings = [];
   for (const repository of REPOSITORIES) {
     const revision = live.assets[repository];

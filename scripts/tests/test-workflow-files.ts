@@ -179,7 +179,10 @@ test("main runs the full Check unless a green pull request Check already ran its
   const seen = workflow.jobs.seen;
   const check = workflow.jobs.check;
   assert.equal(String(seen.if), "github.event_name == 'push'", 'the lookup runs on pushes only');
-  assert.equal(String(seen['runs-on']), String(check['runs-on']), 'the lookup runs where Check does (never a hosted runner for our pushes)');
+  // Self-hosted like Check, never a hosted runner for our pushes: the light runner first (a few
+  // seconds of API calls, so a merge does not queue behind a whole Check), then Check's own.
+  assert.equal(String(seen['runs-on']), String(check['runs-on']).replace('vars.ARKPEDIA_RUNNER ||', 'vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER ||'),
+    'the lookup runs on the light runner, else where Check does');
   assert.equal(seen.permissions?.actions, 'read', 'it lists artifacts');
   assert.equal(seen.outputs?.checked, '${{ steps.seen.outputs.checked }}');
   assert.ok(seen.steps!.some(step => step.run === 'node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"'));

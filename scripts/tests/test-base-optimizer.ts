@@ -4,6 +4,7 @@ import { getAllOperators } from '../../lib/operators/operators';
 import {
   FACTORY_CANDIDATES,
   TP_CANDIDATES,
+  bestSkillPerSlot,
   initializeOptimizerData,
   runTradingPostSearch,
 } from '../../lib/base/optimizerLogic';
@@ -121,3 +122,14 @@ test('rotation experiment respects each facility level and never double-books', 
   assigned.forEach((operator) => assert(releasedNames.has(operator), `rotation uses unreleased ${operator}`));
   assert(result.chosenScenario.length > 0, 'rotation did not report its Control Center scenario');
 });
+
+test('one slot is one skill at Elite 2: the record\'s building_data slot first, then the "Replaces" tail, then the name', () => {
+  const skill = (name: string, eliteLevel: string, slot?: number) => ({ name, eliteLevel, slot, facility: 'Reception Room', icon: null, description: name });
+  // Two tiers of one skill the game keeps in one slot under unrelated names (Bellone's, Akkord's):
+  // only the record's slot says they are one.
+  assert.deepEqual(bestSkillPerSlot([skill('First Tier', 'Base', 0), skill('Second Tier', 'Elite 2', 0), skill('Other', 'Elite 2', 1)]).map((s) => s.name),
+    ['Second Tier', 'Other']);
+  assert.deepEqual(bestSkillPerSlot([skill('Alpha', 'Base'), skill('BetaReplacesAlpha', 'Elite 2'), skill('Gamma', 'Elite 1')]).map((s) => s.name),
+    ['BetaReplacesAlpha', 'Gamma']);
+});
+

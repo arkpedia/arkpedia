@@ -23,7 +23,10 @@ import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
+import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
+import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   operators: RosterOperator[];
@@ -45,6 +48,11 @@ export default function OperatorsIndex({ operators, now }: Props) {
   const [classFilter, setClassFilter] = useQueryState('class', 'all');
   const [branchFilter, setBranchFilter] = useQueryState('branch', 'all');
   const [factionFilter, setFactionFilter] = useQueryState('faction', 'all');
+  // Owned or not, by the imported account (lib/account/accountStore); ignored without one.
+  const [ownedRaw, setOwned] = useQueryState('owned', 'all');
+  const owned = ownedFilter(ownedRaw);
+  const account = useAccount();
+  const ownedNames = useMemo(() => new Set(account?.operators ?? []), [account]);
   // A shared URL can carry anything ("?dir=banana") -- narrow the raw
   // strings back to the two values each of these actually has, so the
   // sort logic below never sees garbage.
@@ -129,7 +137,9 @@ export default function OperatorsIndex({ operators, now }: Props) {
     return 3; // shouldn't happen post-filter, but a safe fallback either way
   }
 
-  const filtered = useMemo(() => {
+  /* Every filter but Owned, so the Owned filter can count what each of its options would
+     show (components/account/OwnedFilter). */
+  const matching = useMemo(() => {
     let list = operators;
     if (showUnreleased) {
       // Show CN: ONLY unreleased operators, not the already-released
@@ -155,7 +165,12 @@ export default function OperatorsIndex({ operators, now }: Props) {
     if (search.trim()) {
       list = list.filter((op) => matchesSearch(op.name, search));
     }
+    return list;
+  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, search, clock]);
+  const ownedCounts = useMemo(() => countOwned(matching, (op) => ownedNames.has(op.name)), [matching, ownedNames]);
 
+  const filtered = useMemo(() => {
+    const list = account && owned !== 'all' ? matching.filter((op) => ownedNames.has(op.name) === (owned === 'owned')) : matching;
     return [...list].sort((a, b) => {
       if (search.trim()) {
         const relDiff = searchRelevance(a.name, search) - searchRelevance(b.name, search);
@@ -224,7 +239,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
       if (ra !== rb) return sortDir === 'desc' ? rb - ra : ra - rb;
       return a.name.localeCompare(b.name);
     });
-  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, search, sortDir, sortField, clock]);
+  }, [matching, showUnreleased, factionFilter, search, sortDir, sortField, clock, account, owned, ownedNames]);
 
   function resetFilters() {
     setSearch('');
@@ -307,6 +322,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
       <Head><title>Operator Roster — Arkpedia</title></Head>
 
       <PageHeader eyebrow="Rhodes Island // Personnel Archive" title="Operator roster"
+        sub={<span className="roster-reference">See also <Link prefetch={false} href="/techniques">Techniques</Link> · <Link prefetch={false} href="/synergies">Synergies</Link> · <Link prefetch={false} href="/obtain-method">Obtain method</Link></span>}
         actions={<div className="roster-controls">
           <SearchInput className="roster-search" label="Search operators" name="operator-search" placeholder="Search by name…" value={search} onChange={setSearch} />
 
@@ -370,32 +386,9 @@ export default function OperatorsIndex({ operators, now }: Props) {
             </div>
           )}
 
-          <nav className="roster-techniques-link-row" aria-label="Operator reference tools">
-            <Link prefetch={false} href="/techniques" className="btn btn-sm roster-techniques-btn">
-              <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
-                <path d="M10 2 L17 6 L17 14 L10 18 L3 14 L3 6 Z" strokeLinejoin="round" />
-                <path d="M10 2 V18 M3 6 L17 14 M17 6 L3 14" strokeLinecap="round" />
-              </svg>
-              <span>Techniques</span>
-            </Link>
-            <Link prefetch={false} href="/synergies" className="btn btn-sm roster-techniques-btn">
-              <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
-                <circle cx="6" cy="6" r="2.5" />
-                <circle cx="14" cy="6" r="2.5" />
-                <circle cx="10" cy="15" r="2.5" />
-                <path d="M8 7.5 L11.5 13 M12 7.5 L8.5 13 M8.5 6 L11.5 6" strokeLinecap="round" />
-              </svg>
-              <span>Synergies</span>
-            </Link>
-            <Link prefetch={false} href="/obtain-method" className="btn btn-sm roster-techniques-btn">
-              <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" width="16" height="16">
-                <rect x="3" y="4" width="14" height="12" rx="1.5" />
-                <path d="M3 8 H17 M7 4 V16" strokeLinecap="round" />
-              </svg>
-              <span>Obtain method</span>
-            </Link>
-          </nav>
-
+          {/* Filters on the left, the order on the right: the same row on the skins gallery
+              and the Skin Planner, with the owned filter in the same place. */}
+          <div className="roster-filter-row">
           <StyledSelect className="roster-faction" label="Filter by faction" value={factionFilter} onChange={setFactionFilter}
             options={[{ value: 'all', label: 'All factions' }, ...factions.map((f) => ({ value: f, label: f }))]} />
 
@@ -408,6 +401,9 @@ export default function OperatorsIndex({ operators, now }: Props) {
             Show CN
           </button>
 
+          <OwnedFilter label="Operators you own" value={owned} onChange={setOwned} account={account} counts={ownedCounts} />
+
+          <span className="toolbar-spacer" aria-hidden="true" />
           <SegmentedControl label="Sort by" value={sortField === 'releaseDate' ? 'releaseDate' : 'rarity'}
             options={[{ value: 'rarity', label: 'Rarity' }, { value: 'releaseDate', label: 'Release date' }]}
             onChange={setSortField} />
@@ -427,6 +423,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
           <button type="button" className="ghost" onClick={resetFilters}>
             Reset
           </button>
+          </div>
         </div>} />
 
       <main>
@@ -441,7 +438,7 @@ export default function OperatorsIndex({ operators, now }: Props) {
               {filtered.slice(0, visibleCount).map((op, i) => (
                 <Link prefetch={false}
                   key={op.name}
-                  href={`/operators/${encodeURIComponent(op.name)}`}
+                  href={operatorHref(op.name, null)}
                   className="card roster-card roster-card-enter"
                   style={{ animationDelay: `${Math.min(i * 25, 600)}ms` }}
                 >

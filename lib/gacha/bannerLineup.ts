@@ -5,12 +5,28 @@ export interface BannerOperator {
   rarity: 6 | 5 | 4;
 }
 export const RETURNING_LIMITED_NOTE = 'Increased chance within the off-banner 6★ pool.';
-export const LINEUP_PENDING_NOTE = 'Lineup to be confirmed.';
+const LINEUP_PENDING = 'Lineup to be confirmed.';
 
-/** A banner published before anyone has named its lineup: a pool the game client or
- * a recurring schedule announced, with no wiki row for its window yet. Its lineup
- * arrays are empty rather than known to be empty, so it says so instead of listing
- * no one. */
+/** What a banner whose lineup is pending says in its place: the rate-ups the official CN
+ *  announcement names, in its Chinese (an operator not out yet has no record, so no English
+ *  name), else that the lineup is to be confirmed. Takes the banner so no display forgets them. */
+export function lineupPendingNote(banner: Pick<HeadhuntingBanner, 'announcedLineup'>): string {
+  const announced = banner.announcedLineup;
+  if (!announced) return LINEUP_PENDING;
+  const groups = [
+    announced.six.length ? `${announced.six.join(', ')} (6★)` : '',
+    announced.rateUpSix.length ? `${announced.rateUpSix.join(', ')} (6★, increased chance)` : '',
+    announced.five.length ? `${announced.five.join(', ')} (5★)` : '',
+  ].filter(Boolean);
+  return groups.length ? `Announced rate-up: ${groups.join(' · ')}. ${LINEUP_PENDING}` : LINEUP_PENDING;
+}
+
+/** A banner published before its lineup is known: a pool the game client or a recurring
+ * schedule announced, with no wiki row for its window yet, or a banner an official CN
+ * announcement named whose operators do not all have records yet (it shows the post's names
+ * meanwhile, lineupPendingNote). Pending ends with a wiki row for its window, or, for an
+ * announced banner, once those records exist. Its lineup arrays are empty rather than known
+ * to be empty, so it says so instead of listing no one. */
 export function isLineupPending(banner: Pick<HeadhuntingBanner, 'lineupSource'>): boolean {
   return banner.lineupSource === 'pending';
 }

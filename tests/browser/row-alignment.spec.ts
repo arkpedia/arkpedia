@@ -87,9 +87,11 @@ test('the pull planner panels are on one line', async ({ page }) => {
   const banner = await plannedBanner(page);
   await page.goto(`/pulls?banner=${encodeURIComponent(banner)}`);
   await expect(page.locator('article [class*="bannerRow"]').first()).toBeVisible();
-  for (const name of [/Income & events/, /Past events/, /Skin wishlist/]) {
+  for (const name of [/^Income/, /Past events/, /Skin wishlist/]) {
     await page.getByRole('button', { name }).click();
     expectOnlyAllowed(expect, '', await census(page), `/pulls?banner ${name.source}`, width);
+    // Each is a popup now: closed before the next trigger.
+    if (await page.getByRole('dialog').count()) await page.keyboard.press('Escape');
   }
   await page.getByRole('button', { name: '+ Add banner' }).click();
   expectOnlyAllowed(expect, '', await census(page), '/pulls?banner + Add banner', width);

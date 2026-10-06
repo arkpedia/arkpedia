@@ -15,7 +15,13 @@
  * contains it (the next push superseded this one). Prints one line saying what live serves;
  * exits 0 once advanced, 1 when the time runs out. ARKPEDIA_LIVE_TIMEOUT_SECONDS and
  * ARKPEDIA_LIVE_INTERVAL_SECONDS override the defaults.
+ *
+ * Once advanced it also writes `revision=<what live names>` to $GITHUB_OUTPUT when that is set:
+ * the commit the page refresh after it waits for readers to see (scripts/content/refresh-pages.mjs).
+ * Not the pushed one: when a later push superseded it, the pointer never names the pushed commit,
+ * and the refresh waited out its nine minutes for it and ended on a warning that misled.
  */
+import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
@@ -63,7 +69,7 @@ export async function awaitLive({ repo, revision, timeoutSeconds, intervalSecond
   for (;;) {
     const live = readLive(repo);
     if (advanced(repo, revision, live)) {
-      return { ok: true, line: live.revision === revision ? `Live serves ${revision}.` : `Live serves ${live.revision}, a later data main commit that contains ${revision}.` };
+      return { ok: true, served: live.revision, line: live.revision === revision ? `Live serves ${revision}.` : `Live serves ${live.revision}, a later data main commit that contains ${revision}.` };
     }
     const waited = Math.round((Date.now() - started) / 1000);
     if (waited + intervalSeconds > timeoutSeconds) {
@@ -88,5 +94,9 @@ function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2)).then(({ ok, line }) => { console.log(line); process.exitCode = ok ? 0 : 1; }, error => { console.error(error.message); process.exitCode = 2; });
+  main(process.argv.slice(2)).then(({ ok, served, line }) => {
+    console.log(line);
+    if (ok && process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `revision=${served}\n`);
+    process.exitCode = ok ? 0 : 1;
+  }, error => { console.error(error.message); process.exitCode = 2; });
 }

@@ -75,7 +75,9 @@ export const HOME_CARDS = ['.front-events-main', '.front-gacha-poster-wrap', '.f
 export const PICTURE_ROUTES: Record<string, number> = {
   '/': 1, '/skins': 1, '/gacha': 1, '/enemies': 1, '/community': 1, '/community/videos': 1, '/results': 1,
   '/music/discover': 1, '/games': 0, '/stages': 1, '/stages/content/act51side': 1, '/stages/regular': 1, '/stages/supplies': 0,
-  [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}`]: 1,
+  // Its Skins section by link: since the event pages list sign-ins, missions and first clears,
+  // this event opens on Rewards, whose totals are tiles, not picture cards.
+  [`/events/${encodeURIComponent('[Rerun] Under Tides Rerun')}#skins`]: 1,
   '/operators': 1, '/operators/Amiya': 1, '/operators/Exusiai': 1, '/stages/all': 1, '/stages/score': 1, '/stages/exploration': 1, '/synergies': 1,
 };
 /* Content cards whose art is under half the card, so the census above does not count
@@ -109,8 +111,8 @@ export const PICTURE_DRIVES: Record<string, (page: Page) => Promise<void>> = {
     await page.getByRole('button', { name: /Skin wishlist/ }).click();
     // The shops on offer are the data's, dropped once they close (lib/pulls/currentPlan.ts),
     // as pulls.spec.ts's caption test has it: with none listed there are no tiles to measure.
-    test.skip(await page.getByText('No upcoming shop rotations are listed.').count() > 0, 'no skin shop rotation is listed in this build');
-    await page.locator('.pulls-skin-option').first().waitFor();
+    test.skip(await page.getByText('No shop that sells outfits for Originite Prime is open or listed ahead.').count() > 0, 'no skin shop rotation is listed in this build');
+    await page.locator('#panel-skins .skin-plan-card').first().waitFor();
   },
 };
 

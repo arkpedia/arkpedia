@@ -1,0 +1,94 @@
+/* The Story page (pages/story.tsx): the places to read the story, as two link cards. */
+.story-link-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.story-link-card { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-decoration: none; }
+.story-link-card:hover { border-color: var(--teal); }
+.story-link-card strong { color: var(--text-bright); font: 600 18px var(--font-display); }
+@media (max-width: 640px) { .story-link-grid { grid-template-columns: 1fr; } }
+
+/* The story map (components/story/StoryMapView.tsx): the board in its own units, scaled as one. */
+.story-map-credit { margin: 0 0 12px; }
+.story-map-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
+.story-map-zoom { display: flex; gap: 6px; }
+.story-map-zoom-button { min-width: 36px; }
+.story-map-viewport { position: relative; width: 100%; min-height: 320px; max-height: min(78vh, 900px); overflow: auto; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel-dim); cursor: grab; overscroll-behavior: contain; }
+.story-map-viewport.is-dragging { cursor: grabbing; user-select: none; }
+.story-map-sizer { position: relative; overflow: hidden; }
+.story-map-board { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-family: var(--font-body); line-height: 1.25; }
+/* Decoration only: a frame or connector drawn after a picture must not take its clicks. */
+.story-map-shape { position: absolute; overflow: visible; pointer-events: none; }
+/* The board breaks its own lines; the site's font is a little wider than Canva's, so a line
+   that would wrap here runs on past its box instead, as it fits on the board. */
+.story-map-text { position: absolute; white-space: pre; }
+/* The page's own texts (the Manga frame's titles and notes) wrap in their width instead. */
+.story-map-text.is-wrapped { white-space: normal; overflow-wrap: anywhere; }
+.story-map-label { position: absolute; display: flex; align-items: center; justify-content: center; white-space: pre; text-align: center; }
+.story-map-picture { position: absolute; display: block; }
+.story-map-picture img { display: block; width: 100%; height: 100%; object-fit: cover; }
+a.story-map-picture:hover, a.story-map-picture:focus-visible { outline: 12px solid var(--teal); outline-offset: 6px; }
+.story-map-missing { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 16px; border: 6px dashed var(--line-soft); color: var(--text); font-size: 4em; text-align: center; }
+.story-list-sections { display: grid; gap: 18px; }
+.story-list-section h3 { margin: 0 0 8px; }
+.story-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+/* Every card in a row as tall as the row's tallest, and the titles at body size, so a row
+   reads as one row however long its titles run. */
+.story-list > li { display: flex; }
+.story-list-card { flex: 1; min-width: 0; font-size: 13px; line-height: 1.35; display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); text-decoration: none; }
+a.story-list-card:hover { border-color: var(--teal); }
+.story-list-card img { width: 44px; height: 54px; object-fit: cover; flex: none; }
+/* A comic's cover is landscape (966x654). */
+.story-list-card.is-manga img { width: 80px; height: 54px; }
+.story-list-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.story-list-note { margin: -4px 0 8px; }
+
+/* Full screen (StoryMapView toggleFull): the browser's own, or, where it grants none to an
+   element (iOS Safari), the map filling the window over the page. The viewport takes the rest. */
+.story-map-full { margin-left: auto; }
+.story-map-frame.is-full { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 16px; background: var(--bg); }
+.story-map-frame.is-window { position: fixed; inset: 0; z-index: 1000; }
+.story-map-frame::backdrop { background: var(--bg); }
+.story-map-frame.is-full .story-map-toolbar { margin-bottom: 0; }
+.story-map-frame.is-full .story-map-viewport { flex: 1; min-height: 0; max-height: none; }
+
+/* The Manga page (pages/manga.tsx): each comic's cover beside what it is and where to read it. */
+.manga-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.manga-card { display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); gap: 16px; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); }
+.manga-cover { display: block; align-self: start; aspect-ratio: 966 / 654; overflow: hidden; border-radius: 4px; background: var(--panel-dim); }
+.manga-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.manga-cover:hover img { outline: 2px solid var(--teal); outline-offset: -2px; }
+.manga-cover-missing { display: flex; align-items: center; justify-content: center; height: 100%; padding: 12px; color: var(--text); text-align: center; }
+.manga-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.manga-body h3 { margin: 0; }
+.manga-meta, .manga-place, .manga-description { margin: 0; }
+.manga-description { font-size: 13px; line-height: 1.5; }
+.manga-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
+@media (max-width: 900px) { .manga-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .manga-card { grid-template-columns: 1fr; } }
+/* A story with nowhere to go (the manga the reader does not carry) is not a link. */
+.story-list-card.is-plain, .story-map-picture.is-plain { cursor: default; }
+
+/* --- A chapter's sections (components/story/ChapterDialog.tsx) ----------------------------------
+   The chapter's cover and line on top, then a row per stage: its code, its name, and Before / After,
+   each in its own column so the buttons line up down the list (myrtle.moe's layout); a story of its
+   own has one Read across both. */
+.account-dialog.story-chapter-dialog { width: min(760px, calc(100vw - 32px)); }
+/* The cover whole, 180px tall at its own shape (ChapterDialog's ratio, which also holds its place
+   while it loads), with the chapter's line beside it, or under it where both do not fit. */
+.story-chapter-top { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin-bottom: 10px; }
+.story-chapter-art { flex: none; display: block; height: 180px; width: auto; max-width: 100%; object-fit: contain; border-radius: var(--radius); }
+.story-chapter-head { flex: 1 1 260px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+/* One grid for every row (subgrid), so the code column is as wide as the chapter's longest code:
+   "DV-ST-1" on one line, and the names still line up. */
+.story-chapter-rows { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; margin: 0; padding: 0; list-style: none; }
+.story-chapter-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.story-chapter-code { justify-self: start; padding: 2px 8px; border: 1px solid var(--control-border); border-radius: var(--radius); color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+.story-chapter-code.is-empty { border: 0; }
+.story-chapter-name { min-width: 0; color: var(--text); font-weight: 600; }
+.story-chapter-buttons { display: grid; grid-template-columns: repeat(2, 84px); gap: 6px; }
+.story-chapter-before { grid-column: 1; }
+.story-chapter-after { grid-column: 2; }
+.story-chapter-read { grid-column: 1 / -1; }
+.story-chapter-buttons > a { justify-content: center; text-align: center; }
+@media (max-width: 560px) {
+  .story-chapter-rows { grid-template-columns: max-content minmax(0, 1fr); }
+  .story-chapter-buttons { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

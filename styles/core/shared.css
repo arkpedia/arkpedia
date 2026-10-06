@@ -562,6 +562,9 @@ header,
   color: #0A7D6B;
 }
 
+/* In a wrapping toolbar row: pushes what follows (the order, Reset) to the row's far end. */
+.toolbar-spacer { flex: 1 1 auto; }
+
 h1 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -1093,7 +1096,13 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   height: 44px;
   margin-left: 0;
   border-radius: var(--radius-control);
+  /* Borderless on the bar, like the menu button: the portrait alone, in its 44px target. */
+  border-color: transparent;
+  background: none;
 }
+.mobile-nav-bar .theme-toggle:hover { border-color: transparent; }
+.mobile-nav-bar .theme-toggle:active { background: var(--panel-2); }
+.mobile-nav-bar .theme-toggle img { width: 34px; height: 34px; }
 @media (max-width: 640px) {
   .site-nav-link span:last-child { display: none; }
   .site-nav-link { padding: 8px; }
@@ -1223,17 +1232,48 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 }
 .see-more-link:hover { text-decoration: underline; }
 
-.modal-back-btn {
+/* Every back on the site, one look (2026-10-05): a sheet's, a panel's and a page's
+   (components/ui/BackLink.tsx) -- "‹ Back", or "‹ Back to <where>" where it names it.
+   A control like the rest: var(--control-h) tall, so in a row (a base room's header, the
+   Discover search row, the music queue's top bar) it shares the row's height and centre
+   line. The look only -- no margin and no self-alignment, which would fight a row's
+   centring; where it sits above content, the placement says so (below). audit:styles
+   (primitiveLayout) holds both. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-h);
   background: var(--panel-2);
   border: 1px solid var(--control-border);
   color: var(--text);
   padding: 8px 14px;
   border-radius: var(--radius-control);
   cursor: pointer;
+  /* The control type set here, not left to the button rule, so a link (a page's Back) and a
+     button (a sheet's) read the same. */
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 13px;
-  margin-bottom: 14px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  text-decoration: none;
 }
-.modal-back-btn:hover { border-color: var(--teal); color: var(--teal); }
+.back-btn:hover { border-color: var(--teal); color: var(--teal); }
+/* Above what it leaves: a sheet's content, or a page header's eyebrow. Room under it, and
+   its own width in a grid cell or a flex column -- the operator page's header is a grid on
+   a desktop -- never the container's. The page header by its class, not the element:
+   <header> is also a dialog's title bar (ImportDialog), an event pack's head and the
+   recruitment pop-out's, where a Back would be a control in a row with no room under it.
+   A page's Back reaches a header only through PageHeader's `back`, which always carries the
+   class (scripts/tests/test-page-trail.ts holds BackLink to that one importer). */
+.modal-box > .back-btn,
+.page-header > .back-btn {
+  margin-bottom: 14px;
+  align-self: flex-start;
+  justify-self: start;
+}
 
 /* On mobile, the skin and stage detail modals take over the full
    screen like a new page rather than sitting as an embedded popup. */

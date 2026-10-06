@@ -1,6 +1,7 @@
 import { contentPageClock, type PageClockField, type PageClockMoment } from './pageClock';
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { missingPageTables, pageTables } from './tables.mjs';
+import { readChannelPointer } from './pointer.mjs';
 import { createHash } from 'node:crypto';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { CONTENT_SCHEMA, contentRoute, type ContentFile, type ContentManifest, type ContentPointer, type ContentRelease } from './types';
@@ -38,6 +39,23 @@ export async function readPublishedContentPageProps<P extends object>(route: str
   return loaded ? await readPageProps(loaded, route) as P | null : null;
 }
 
+/** The pointer branch this site reads (scripts/content/channel.mjs): live, or dev-live on
+ *  arkpedia-dev, whose releases dev's code compiles. Inlined at build (next.config.js env)
+ *  from what Deploy sets for the deployment's branch. The rule is content-channel.cjs's
+ *  contentPointer (the same pattern, the same live default; test-content-channel.ts holds the
+ *  two to it), written out here because importing that file would pull config/*.json into the
+ *  server bundle. */
+export function contentChannel(): string {
+  const value = process.env.ARKPEDIA_CONTENT_CHANNEL || 'live';
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(value)) throw new Error(`Invalid content channel: ${value}`);
+  return value;
+}
+
+/** The channel's pointer, or live's while the channel has none yet (lib/content/pointer.mjs). */
+function readPointer(root: string): Promise<Buffer> {
+  return readChannelPointer({ root, channel: contentChannel(), read: url => read(url, 2048), warn: message => console.warn(`[content] ${message}`) });
+}
+
 function origin(): string {
   const value = process.env.ARKPEDIA_CONTENT_URL || DEFAULT_ORIGIN;
   const parsed = new URL(value);
@@ -49,7 +67,8 @@ function origin(): string {
 
 async function read(url: string, maxBytes: number): Promise<Buffer> {
   const response = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: 'no-store' });
-  if (!response.ok) throw new Error(`Content HTTP ${response.status}: ${url}`);
+  // The status rides on the error: a missing channel pointer (404) falls back to live's.
+  if (!response.ok) throw Object.assign(new Error(`Content HTTP ${response.status}: ${url}`), { status: response.status });
   if (Number(response.headers.get('content-length')) > maxBytes) throw new Error('Content response too large');
   if (!response.body) throw new Error('Empty content response');
   const chunks: Uint8Array[] = [];
@@ -75,7 +94,7 @@ async function loadRelease(): Promise<Loaded | undefined> {
   pending = (async () => {
     try {
       const root = origin();
-      const pointer = JSON.parse((await read(`${root}/live/current.json`, 2048)).toString()) as ContentPointer;
+      const pointer = JSON.parse((await readPointer(root)).toString()) as ContentPointer;
       if (pointer.schema !== CONTENT_SCHEMA || !SHA.test(pointer.release) || !GIT_SHA.test(pointer.revision) || !SHA.test(pointer.manifestSha256)) throw new Error('Unsupported content pointer');
       if (cached?.context.release === pointer.release) return cached;
       const baseUrl = `${root}/${pointer.revision}/release`;

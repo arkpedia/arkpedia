@@ -1,4 +1,4 @@
-import { isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
+import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
@@ -30,6 +30,9 @@ import PageHeader from '@/components/ui/PageHeader';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import XButton from '@/components/ui/XButton';
+import { operatorHref } from '@/lib/operators/operatorHref';
+import { historyCsvFilename, pullHistoryCsv } from '@/lib/gacha/historyCsv';
+import { downloadBlob } from '@/lib/ui/downloadBlob';
 
 interface Props {
   pools: GachaIconPools;
@@ -123,6 +126,23 @@ function PullTile({ item, onSelect, className = '', label }: { item: PulledItem;
   );
 }
 
+/* A tab panel that keeps the tallest height it has had for this operator (the Anti-Page
+   Jump rule's floor, reset per logical page): the preview scrolls inside itself, and a
+   shorter panel clamped that scroll and moved the tabs under the reader's pointer (a module
+   or stage 136px, Lin's S1 after the longer S3 45px). Every tab strip in the preview takes
+   it. `hold` runs in the handler, before the switch. */
+function usePanelFloor(page: string) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [floor, setFloor] = useState<{ page: string; px: number } | null>(null);
+  const hold = () => {
+    const el = ref.current;
+    if (!el) return;
+    const px = Math.ceil(el.getBoundingClientRect().height);
+    setFloor((current) => ({ page, px: Math.max(current && current.page === page ? current.px : 0, px) }));
+  };
+  return { ref, hold, style: floor && floor.page === page ? { minHeight: floor.px } : undefined };
+}
+
 function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const [details, setDetails] = useState<GachaOperatorPreview | null>(null);
@@ -130,18 +150,8 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
   const [selectedSkill, setSelectedSkill] = useState(0);
   const [selectedModule, setSelectedModule] = useState(0);
   const [selectedStage, setSelectedStage] = useState(0);
-  /* The module panel keeps the tallest height it has had for this operator (the
-     Anti-Page Jump rule's floor, reset per logical page): the preview scrolls inside
-     itself, and a shorter module or stage clamped that scroll and moved the module tabs
-     136px under the reader's pointer. Taken in the handler, before the switch. */
-  const modulePanel = useRef<HTMLDivElement | null>(null);
-  const [moduleFloor, setModuleFloor] = useState<{ name: string; px: number } | null>(null);
-  const holdModulePanel = () => {
-    const el = modulePanel.current;
-    if (!el) return;
-    const px = Math.ceil(el.getBoundingClientRect().height);
-    setModuleFloor((floor) => ({ name: item.name, px: Math.max(floor && floor.name === item.name ? floor.px : 0, px) }));
-  };
+  const skillPanel = usePanelFloor(item.name);
+  const modulePanel = usePanelFloor(item.name);
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
@@ -182,7 +192,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
         <div className="gacha-preview-body">
           <div className="gacha-preview-portrait">
             <ContentImg className="gacha-pull-preview-art" src={art} alt={`${item.name} base artwork`} />
-            <Link className="gacha-preview-link" href={`/operators/${encodeURIComponent(item.name)}`}>View operator page ↗</Link>
+            <Link className="gacha-preview-link" href={operatorHref(item.name, null)}>View operator page ↗</Link>
           </div>
           <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
             {!details && !loadError && <p className="gacha-preview-loading" role="status">Loading operator details…</p>}
@@ -204,7 +214,17 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                 ))}
               </div>
             </section>}
-            {details?.trait && <section className="gacha-preview-section"><h3>Trait</h3><p>{details.trait}</p></section>}
+            {/* A trait that changes is one entry per promotion, its stage where a talent's is.
+                `?.` on the list: a response cached from before it existed has none. */}
+            {!!details?.traitPhases?.length && <section className="gacha-preview-section">
+              <h3>Trait</h3>
+              {details.traitPhases.map((line) => line.stage
+                ? <div className="gacha-preview-entry" key={line.stage}>
+                  <div className="gacha-preview-entry-title"><span>{line.stage}</span></div>
+                  <p>{line.text}</p>
+                </div>
+                : <p key="trait">{line.text}</p>)}
+            </section>}
             {!!details?.talents.length && <section className="gacha-preview-section">
               <h3>Talents</h3>
               {details.talents.map((talent, index) => <div className="gacha-preview-entry" key={`${talent.name}-${index}`}>
@@ -214,7 +234,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
             </section>}
             {!!details?.skills.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Skills</h3>
-              <Tabs label="Skill" id="gacha-preview-skill" className="gacha-preview-tabs" value={selectedSkill} onChange={setSelectedSkill}
+              <Tabs label="Skill" id="gacha-preview-skill" className="gacha-preview-tabs" value={selectedSkill} onChange={(index) => { skillPanel.hold(); setSelectedSkill(index); }}
                 options={details.skills.map((entry, index) => ({
                   value: index,
                   label: `S${index + 1}`,
@@ -224,7 +244,7 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
                   title: entry.name || undefined,
                   icon: entry.icon ? <ContentImg src={entry.icon} alt="" width={28} height={28} /> : undefined,
                 }))} />
-              {skill && <div className="gacha-preview-entry" {...tabPanelProps('gacha-preview-skill', selectedSkill)}>
+              {skill && <div ref={skillPanel.ref} className="gacha-preview-entry" {...tabPanelProps('gacha-preview-skill', selectedSkill)} style={skillPanel.style}>
                 <div className="gacha-preview-entry-title"><strong>{skill.name}</strong><span>{skill.rank}</span></div>
                 <div className="gacha-preview-skill-facts">
                   {skill.recovery && <span className={`gacha-preview-skill-fact${/^auto/i.test(skill.recovery) ? ' auto' : /^(?:offensive|defensive)/i.test(skill.recovery) ? ' amber' : ''}`}>{skill.recovery}</span>}
@@ -238,14 +258,13 @@ function PullPreview({ item, onClose }: { item: PreviewItem; onClose: () => void
             {!!details?.modules.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Modules</h3>
               <Tabs label="Module" id="gacha-preview-module" className="gacha-preview-tabs gacha-preview-module-tabs" value={selectedModule}
-                onChange={(index) => { holdModulePanel(); setSelectedModule(index); setSelectedStage(Math.max(0, (details.modules[index]?.stages.length ?? 1) - 1)); }}
+                onChange={(index) => { modulePanel.hold(); setSelectedModule(index); setSelectedStage(Math.max(0, (details.modules[index]?.stages.length ?? 1) - 1)); }}
                 options={details.modules.map((entry, index) => ({ value: index, label: entry.name }))} />
-              <div ref={modulePanel} {...tabPanelProps('gacha-preview-module', selectedModule)}
-                style={moduleFloor && moduleFloor.name === item.name ? { minHeight: moduleFloor.px } : undefined}>
+              <div ref={modulePanel.ref} {...tabPanelProps('gacha-preview-module', selectedModule)} style={modulePanel.style}>
                 {/* The module's stage is a value picked from 1-3, not a panel of its own:
                     the operator page's module stage is the same SegmentedControl. */}
                 {selectedModuleData?.stages.length ? <>
-                  <SegmentedControl label="Module stage" className="gacha-preview-stages" value={selectedStage} onChange={(stage) => { holdModulePanel(); setSelectedStage(stage); }}
+                  <SegmentedControl label="Module stage" className="gacha-preview-stages" value={selectedStage} onChange={(stage) => { modulePanel.hold(); setSelectedStage(stage); }}
                     options={selectedModuleData.stages.map((entry, index) => ({ value: index, label: entry.stage }))} />
                   {moduleStage && <div className="gacha-preview-entry">
                     {moduleStage.attributes && <div className="gacha-preview-meta">{moduleStage.attributes}</div>}
@@ -1931,13 +1950,19 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
   // Operators panel says why. See simulatorPullable.
   const pullable = !!banner && !!selectedBanner && simulatorPullable(selectedBanner, banner);
   const unpullableReason = !banner || !selectedBanner || pullable ? undefined
-    : isLineupPending(selectedBanner) ? LINEUP_PENDING_NOTE : 'No 6★ operators can be pulled on this banner.';
+    : isLineupPending(selectedBanner) ? lineupPendingNote(selectedBanner) : 'No 6★ operators can be pulled on this banner.';
 
   function pull(count: number) {
     if (!banner || !pullable) return;
     const result = doPulls(banner, state, count);
     setState(result.state);
     setLastPulls(result.items);
+  }
+
+  /** The pulls so far as CSV, for the reader's own charts (lib/gacha/historyCsv.ts). */
+  function exportHistory() {
+    if (!selectedBanner || state.history.length === 0) return;
+    downloadBlob(new Blob([pullHistoryCsv(state.history, { name: selectedBanner.name, type: getMechanicType(selectedBanner) })], { type: 'text/csv;charset=utf-8' }), historyCsvFilename(selectedBanner.name));
   }
 
   function reset() {
@@ -2017,7 +2042,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                   This banner&apos;s type couldn&apos;t be confidently determined from the scraped data, so no
                   simulator is available for it. Showing what&apos;s known below.
                 </p>
-                {isLineupPending(selectedBanner) && <p className="hint">{LINEUP_PENDING_NOTE}</p>}
+                {isLineupPending(selectedBanner) && <p className="hint">{lineupPendingNote(selectedBanner)}</p>}
                 <div className="gacha-featured-row" style={{ marginTop: 12 }}>
                   {selectedBanner.six_stars.map((name) => {
                     const found = pools.six.find((i) => i.name === name);
@@ -2373,7 +2398,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                     <h2>Featured Operators</h2>
                     {isLineupPending(selectedBanner) ? (
                       <div className="gacha-lineup-pending" style={featuredRowHeight.current ? { minHeight: featuredRowHeight.current } : undefined}>
-                        <p className="hint">{LINEUP_PENDING_NOTE}</p>
+                        <p className="hint">{lineupPendingNote(selectedBanner)}</p>
                       </div>
                     ) : <div className="gacha-featured-row" ref={featuredRowRef}>
                       {(isOrienteering && orienteeringConfirmed ? orienteeringSelected : banner.sixStarFeatured).map((item) => {
@@ -2453,15 +2478,21 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 </section>
 
                 <section className="op-section">
-                  <button
-                    type="button"
-                    className="ghost gacha-history-toggle"
-                    aria-expanded={showHistory && state.history.length > 0}
-                    disabled={state.history.length === 0}
-                    onClick={() => setShowHistory((v) => !v)}
-                  >
-                    {showHistory && state.history.length > 0 ? '▾' : '▸'} Pull history{state.history.length > 0 ? ` (${state.history.length})` : ''}
-                  </button>
+                  <div className="gacha-history-head">
+                    <button
+                      type="button"
+                      className="ghost gacha-history-toggle"
+                      aria-expanded={showHistory && state.history.length > 0}
+                      disabled={state.history.length === 0}
+                      onClick={() => setShowHistory((v) => !v)}
+                    >
+                      {showHistory && state.history.length > 0 ? '▾' : '▸'} Pull history{state.history.length > 0 ? ` (${state.history.length})` : ''}
+                    </button>
+                    {/* For the reader's own charts: one row per pull, a spreadsheet's columns. */}
+                    <button type="button" className="ghost btn-sm" disabled={state.history.length === 0} onClick={exportHistory} title="One row per pull, for a spreadsheet or a chart">
+                      Export CSV
+                    </button>
+                  </div>
                   {showHistory && state.history.length > 0 && (
                     <PullHistory history={state.history} onSelect={setPreviewedPull} />
                   )}
@@ -2481,7 +2512,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
       {showSparkStore && banner && (
         <div className="modal-overlay" onClick={() => setShowSparkStore(false)}>
           <div className="modal-box gacha-spark-store-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="modal-back-btn" onClick={() => setShowSparkStore(false)}>
+            <button type="button" className="back-btn" onClick={() => setShowSparkStore(false)}>
               ‹ Back
             </button>
             <h2>Spark Store</h2>
@@ -2542,7 +2573,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
           <div className="modal-box gacha-guide-modal" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
-              className="modal-back-btn"
+              className="back-btn"
               onClick={() => {
                 setShowGuide(false);
                 setGuidePhase('question');
@@ -2594,8 +2625,10 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                   </div>
                   <p className="gacha-tutorial-text">{pages[guidePageIndex].text}</p>
                   <div className="gacha-tutorial-nav">
+                    {/* Previous, not Back: a page of the guide, beside Next. "‹ Back" on the
+                        site always leaves where you are (a sheet, a page). */}
                     <button type="button" className="ghost" disabled={guidePageIndex === 0} onClick={() => setGuidePageIndex((s) => s - 1)}>
-                      ‹ Back
+                      ‹ Previous
                     </button>
                     <span className="gacha-tutorial-progress">
                       {guidePhase === 'basics' ? 'Basics ' : "Banner "}
@@ -2686,6 +2719,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     ...(b.cn_window ? { cn_window: b.cn_window } : {}),
     banner_image: b.banner_image ?? null,
     ...(b.lineupSource ? { lineupSource: b.lineupSource } : {}),
+    ...(b.announcedLineup ? { announcedLineup: b.announcedLineup } : {}),
     six_stars: b.six_stars ?? [],
     rate_up_six_stars: b.rate_up_six_stars ?? [],
     five_stars: b.five_stars ?? [],

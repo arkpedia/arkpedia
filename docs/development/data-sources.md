@@ -7,10 +7,11 @@ records. `arkpedia-data/source/` is the reviewed canonical dataset; generated
 sources. Import jobs may read external game dumps; operator pages must not fetch
 those dumps directly. See [runtime content](runtime-content.md).
 
-Game mechanics should come from extracted regional client tables. Some historical
-module descriptions and editorial records still originate from earlier imports;
-they are not all refreshed by the stat synchronizer. Do not claim they have been
-verified merely because the release passes schema validation. Preserve regional
+Game mechanics should come from extracted regional client tables. Released
+operators' mechanics, modules included, are rebuilt from them on every refresh (see
+below); editorial records and anything no table holds still originate from earlier
+imports. Do not claim those have been verified merely because the release passes
+schema validation. Preserve regional
 provenance, use stable game IDs, and compare disputed values with the extracted
 tables before publishing a correction. Reviews and recommendations are editorial,
 not game-dump facts.
@@ -36,11 +37,22 @@ one, which is also what the skins page's availability countdowns are computed fr
 
 - `uniequip_table.json` provides stable module IDs, names, types, missions and costs.
 - `battle_equip_table.json` provides stage attributes and trait/talent candidates.
-- `sync-module-stats.mjs` reconciles attribute bonuses. It does **not** refresh all
-  stored effect descriptions; those require a separately validated import.
-- `sync-operator-english.mjs` matches existing modules by ID or their exact module
-  code/name. A shared `Upgrade` type is not an identity. CN-only records survive
-  an English refresh instead of being replaced by another Global module.
+- Every module stage -- its effect text, its labels, its attribute bonuses and its
+  costs -- is rebuilt on every run from those two tables by `module-stages.mjs`, which
+  the English refresh (`sync-operator-english.mjs`, `officialModules`) runs for every
+  released operator and the catalogue runs for a new one. A module the Global client
+  does not have yet is built the same way from the CN tables, in the CN client's words,
+  and replaced by the English the night the Global tables carry it. Only a module
+  neither table has is kept as recorded.
+- So a hand edit to a module's stage text is overwritten by the next refresh: a
+  correction belongs upstream, in the game tables' reading (`module-stages.mjs`) or,
+  for a module neither table has, in `arkpedia-data/source`.
+- `officialModules` matches existing modules by ID or their exact module code/name. A
+  shared `Upgrade` type is not an identity: one module's stages, costs or trait are
+  never copied into another because they share a type.
+- `sync-module-stats.mjs` is a fallback for attribute bonuses only: it reconciles them
+  with the Global client's `battle_equip_table` on records the English refresh does
+  not match to a game character.
 - `getModuleStageEffects` derives the selected level's active descriptions from
   the stored stage changes. Traits carry forward; later versions of the same
   named effect replace earlier versions. This is display composition, not stat

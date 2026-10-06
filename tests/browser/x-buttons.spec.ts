@@ -134,8 +134,28 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },
   {
-    id: 'planner import dialog', route: '/planner',
-    open: async (page) => { await experimental(page); await page.getByRole('button', { name: 'Export / import' }).click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    // Import / export lives on the Account page only (the planners link there).
+    id: 'account import dialog', route: '/account',
+    open: async (page) => { await page.locator('.page-header').getByRole('button', { name: 'Import / export' }).click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  // The Pull Planner's popups.
+  {
+    id: 'pulls income', route: '/pulls',
+    open: async (page) => { await page.locator('#tab-income').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  {
+    id: 'pulls skin wishlist', route: '/pulls',
+    open: async (page) => { await page.locator('#tab-skins').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
+    x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
+    gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
+  },
+  {
+    id: 'pulls past events', route: '/pulls',
+    open: async (page) => { await page.locator('#tab-past').click(); await expect(page.getByRole('dialog')).toBeVisible(); },
     x: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }),
     gone: async (page) => { await expect(page.getByRole('dialog')).toHaveCount(0); },
   },

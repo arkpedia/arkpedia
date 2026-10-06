@@ -10,3 +10,13 @@ export function IncludePastCheckbox({ checked, onChange }: { checked: boolean; o
     Include
   </label>;
 }
+
+/** Whether the Skin wishlist's OP is held back from the forecast and the banner budgets: the same
+ *  "Include" setting, drawn the same way inside the Skin wishlist frame (pages/pulls.tsx). */
+export function IncludeSkinsCheckbox({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
+  return <label className="check pulls-include-past"
+    title={checked ? 'Skin wishlist OP held back from your pulls' : 'Include the skin wishlist (hold its OP back from your pulls)'}>
+    <input type="checkbox" aria-label="Include skin wishlist" checked={checked} onChange={event => onChange(event.target.checked)} />
+    Include
+  </label>;
+}

@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { accountFromGame, ownedFilter, parseAccount } from '../../lib/account/accountStore';
+import { portraitPath, profileArtPath, ASSISTANT_AVATAR, assistantIconPath, avatarPath } from '../../lib/account/portraits';
+
+const MAP = { version: 1 as const, chars: {
+  char_300_phenxi: { name: 'Fiammetta', rarity: 6, modules: {} },
+  char_002_amiya: { name: 'Amiya', modules: {} },
+  char_1001_amiya2: { name: 'Amiya (Guard)', modules: {} },
+} };
+
+test('an account gives the operators it owns by name, its outfits by skin id and the stages it cleared', () => {
+  const record = accountFromGame({
+    status: { nickName: 'Doctor', nickNumber: '1234', level: 120, registerTs: 1580712160, secretary: 'char_002_amiya', secretarySkinId: 'char_002_amiya@winter#1', resume: ' yes ', uid: 11311084, avatar: { type: 'ICON', id: 'avatar_special_41' } },
+    nameCardStyle: { skin: { selected: 'nc_moon_1', tmpl: { nc_moon_1: 3 } }, componentOrder: ['module_assist', 'module_sign', 'module_unknown', 'module_equip'] },
+    social: { assistCharList: [{ charInstId: 1, skillIndex: 2 }, null, { charInstId: 99 }, { charInstId: 2 }], medalBoard: { type: 'CUSTOM', custom: '1' } },
+    medal: { custom: { customs: { 1: { layout: [{ id: 'medal_a', pos: [6, 12] }, { id: 'medal_b', pos: [9, 9] }] } } } },
+    troop: { chars: {
+      1: { charId: 'char_300_phenxi', level: 60, evolvePhase: 2, potentialRank: 5, skin: 'char_300_phenxi@summer#1',
+        skills: [{ skillId: 'skchr_phenxi_1', specializeLevel: 0 }, { skillId: 'skchr_phenxi_2', specializeLevel: 2 }, { skillId: 'skchr_phenxi_3', specializeLevel: 3 }],
+        currentEquip: 'uniequip_002_phenxi',
+        equip: { uniequip_001_phenxi: { level: 1, locked: 0 }, uniequip_002_phenxi: { level: 3, locked: 0 }, uniequip_003_phenxi: { level: 1, locked: 1 } } },
+      2: { charId: 'char_002_amiya', currentTmpl: 'char_1001_amiya2', tmpl: { char_002_amiya: { skinId: 'char_002_amiya#1+' }, char_1001_amiya2: { skinId: 'char_1001_amiya2#2' } } },
+      3: { charId: 'char_9999_brandnew', skin: 'char_9999_brandnew#1' },
+      4: { charId: 'char_300_phenxi', skin: '../../etc' },
+    } },
+    skin: { characterSkins: { 'char_300_phenxi@summer#1': 1, 'char_002_amiya@winter#1': 1 } },
+    // The game's stage states: 0 opened, 1 played, 2 cleared, 3 cleared with every star.
+    dungeon: { stages: { main_00: { state: 0 }, main_01: { state: 1 }, main_02: { state: 2 }, main_03: { state: 3 } } },
+    // Annihilation: a map counts once every kill-count reward is claimed.
+    campaignsV2: { instances: { camp_r_01: { maxKills: 400, rewardStatus: [1, 1, 1] }, camp_r_02: { maxKills: 250, rewardStatus: [1, 0, 0] }, camp_r_03: { rewardStatus: [] } } },
+  }, MAP, 'en', new Date('2026-10-01T12:00:00Z'));
+  assert.deepEqual(record, {
+    version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: 'Doctor#1234',
+    // Amiya's forms each by their own name; one with no record yet is left out.
+    operators: ['Amiya', 'Amiya (Guard)', 'Fiammetta'],
+    skins: ['char_002_amiya@winter#1', 'char_300_phenxi@summer#1'],
+    cleared: ['main_02', 'main_03'],
+    annihilation: ['camp_r_01'],
+    // The outfit each wears, Amiya's forms each their own; anything not a skin id is left out.
+    outfits: { Amiya: 'char_002_amiya#1+', 'Amiya (Guard)': 'char_1001_amiya2#2', Fiammetta: 'char_300_phenxi@summer#1' },
+    wallet: { orundum: 0, originitePrime: 0, permits: 0, yellowCerts: 0, monthlyCardUntil: null },
+    profile: { level: 120, registeredAt: '2020-02-03T06:42:40.000Z', secretary: 'Amiya', bio: 'yes', uid: '11311084', avatar: 'avatar_special_41', nameCard: 'nc_moon_1',
+      // The card style's variant, the assistant's outfit, the panels the page knows in the
+      // player's order, and the Module panel's counts (the Original and a locked one are not).
+      nameCardVariant: 3, secretarySkin: 'char_002_amiya@winter#1', panels: ['module_assist', 'module_sign', 'module_equip'],
+      modules: { collected: 1, stage3: 1, operators: 1 },
+      hired: 4,
+      // The support units by the troop's own records; a slot with no operator behind it is left out.
+      // Whether every skill is at M3 (the game's badge): Fiammetta's second is at M2, so not.
+      supports: [{ name: 'Fiammetta', rarity: 6, level: 60, elite: 2, potential: 6, skill: 3, allMastered: false, module: 'uniequip_002_phenxi', skillId: 'skchr_phenxi_3', skin: 'char_300_phenxi@summer#1' },
+        // Amiya lends the form she is in, in that form's outfit.
+        { name: 'Amiya (Guard)', rarity: null, level: 1, elite: 0, potential: 1, skill: null, allMastered: false, module: null, skillId: null, skin: 'char_1001_amiya2#2' }],
+      medals: [{ id: 'medal_a', x: 6, y: 12 }, { id: 'medal_b', x: 9, y: 9 }] },
+  });
+  assert.deepEqual(parseAccount(JSON.stringify(record)), record);
+});
+
+test("an outfit's portrait is named as arkpedia-image-assets publishes it (sync_profile_art.py's portrait_name)", () => {
+  assert.equal(portraitPath('char_1013_chen2@boc#6'), '/profile-portraits/char_1013_chen2_boc_6.webp');
+  assert.equal(portraitPath('char_1013_chen2#2'), '/profile-portraits/char_1013_chen2_2.webp');
+  assert.equal(portraitPath('char_002_amiya#1+'), '/profile-portraits/char_002_amiya_1p.webp');
+  // The files are lower case where the ids are not, on a case-sensitive host.
+  assert.equal(portraitPath('char_4193_lemuen@ambienceSynesthesia#7'), '/profile-portraits/char_4193_lemuen_ambiencesynesthesia_7.webp');
+  assert.equal(profileArtPath('profile-namecards', 'nc_as2026_TheAphasic-bg'), '/profile-namecards/nc_as2026_theaphasic-bg.webp');
+});
+
+test('a stored record is read back only when it is a whole one', () => {
+  const good = { version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null, operators: [], skins: [], cleared: [] };
+  assert.deepEqual(parseAccount(JSON.stringify(good)), good);
+  for (const broken of [null, '', '{', '[]', JSON.stringify({ ...good, version: 2 }), JSON.stringify({ ...good, operators: 'Amiya' }), JSON.stringify({ ...good, skins: [1] })]) {
+    assert.equal(parseAccount(broken), null, String(broken));
+  }
+  assert.deepEqual(['owned', 'missing', 'banana', ''].map(ownedFilter), ['owned', 'missing', 'all', 'all']);
+});
+
+test("the import keeps what the account holds to pull with, for the Pull Planner's resources", () => {
+  const now = new Date('2026-10-02T12:00:00Z');
+  const status = { diamondShard: 12345, androidDiamond: 87, iosDiamond: 87, gachaTicket: 3, tenGachaTicket: 2, hggShard: 412, lggShard: 9000, monthlySubscriptionEndTime: 1793491200 };
+  assert.deepEqual(accountFromGame({ status }, MAP, 'en', now).wallet,
+    { orundum: 12345, originitePrime: 87, permits: 23, yellowCerts: 412, monthlyCardUntil: '2026-11-01T00:00:00.000Z' });
+  // A server that splits Originite Prime into paid and free says so; no card is null.
+  assert.deepEqual(accountFromGame({ status: { payDiamond: 10, freeDiamond: 5, androidDiamond: 99, monthlySubscriptionEndTime: 0 } }, MAP, 'en', now).wallet,
+    { orundum: 0, originitePrime: 15, permits: 0, yellowCerts: 0, monthlyCardUntil: null });
+  // Stored and read back; a bad amount reads as none, never as a number it is not.
+  const record = accountFromGame({ status }, MAP, 'en', now);
+  assert.deepEqual(parseAccount(JSON.stringify(record))!.wallet, record.wallet);
+  const bad = { ...record, wallet: { orundum: -5, originitePrime: 'lots', permits: 1.5, yellowCerts: 1e12, monthlyCardUntil: 'soon' } };
+  assert.deepEqual(parseAccount(JSON.stringify(bad))!.wallet, { orundum: 0, originitePrime: 0, permits: 0, yellowCerts: 0, monthlyCardUntil: null });
+});
+
+test('a support unit wears the M3 badge only when every one of its skills is at Mastery 3', () => {
+  const user = (levels: number[]) => ({
+    social: { assistCharList: [{ charInstId: 1, skillIndex: 0 }] },
+    troop: { chars: { 1: { charId: 'char_300_phenxi', level: 90, evolvePhase: 2, potentialRank: 0, skills: levels.map((specializeLevel) => ({ specializeLevel })) } } },
+  });
+  const badge = (levels: number[]) => accountFromGame(user(levels), MAP, 'en').profile!.supports![0].allMastered;
+  assert.equal(badge([3, 3, 3]), true);
+  assert.equal(badge([3, 3]), true, 'a two-skill operator with both at M3');
+  assert.equal(badge([3, 3, 2]), false, 'the lent skill at M3 is not enough');
+  assert.equal(badge([]), false, 'no skills, no badge');
+  // A record from the first build kept the lent skill's mastery: no badge until a new import.
+  const old = { version: 1, server: 'en', importedAt: '2026-10-02T12:00:00.000Z', doctor: null, operators: [], skins: [], cleared: [],
+    profile: { level: 1, registeredAt: null, secretary: null, bio: null, supports: [{ name: 'Ascalon', rarity: 6, level: 60, elite: 2, potential: 1, skill: 2, mastery: 3, skin: null }] } };
+  const unit = parseAccount(JSON.stringify(old))!.profile!.supports![0] as unknown as Record<string, unknown>;
+  assert.equal(unit.mastery, undefined);
+  assert.equal(unit.allMastered, undefined);
+});
+
+test('a support unit shown full length draws its module\'s mark and its skill\'s icon, as the image repository names them', async () => {
+  const { moduleMarkPath, skillIconPath } = await import('../../lib/account/portraits');
+  assert.equal(moduleMarkPath('uniequip_002_ascln', { uniequip_002_ascln: 'amb-x' }), '/profile-modules/amb-x.webp');
+  assert.equal(moduleMarkPath('uniequip_009_none', { uniequip_002_ascln: 'amb-x' }), null);
+  assert.equal(skillIconPath('skchr_ascln_2', {}), '/profile-skills/skchr_ascln_2.webp');
+  // A skill that shares another's icon: its bracketed index is a suffix in the file's name.
+  assert.equal(skillIconPath('skchr_midn_1', { skchr_midn_1: 'skcom_enchant[1]' }), '/profile-skills/skcom_enchant_1.webp');
+});
+
+test('the "Assistant Operator" avatar is drawn as the assistant in its outfit, every other avatar from profile-avatars', () => {
+  const chars = { char_1019_siege2: { name: 'Vina Victoria', rarity: 6 } };
+  // kukki's: Vina Victoria in Glorious Path, whose illustration the catalogue files by its brand
+  // (/skin-images/EPOQUE - Glorious Path.webp): the icon is by operator and outfit name.
+  const outfitNames = new Map([['char_1019_siege2@epoque#50', 'Glorious Path']]);
+  // The avatar the game names avatar_ass_01 has no file of its own: kukki's card drew an empty box.
+  assert.equal(ASSISTANT_AVATAR, 'avatar_ass_01');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2@epoque#50' }, chars, outfitNames), '/six-star-icons/Vina Victoria - Glorious Path.webp');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2#2' }, chars, outfitNames), '/six-star-icons/Vina Victoria - Elite 2.webp');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2#1' }, chars, outfitNames), '/six-star-icons/Vina Victoria - Base.webp');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: 'char_1019_siege2@unknown#9' }, chars, outfitNames), null, 'an outfit the catalogue does not name');
+  assert.equal(avatarPath({ avatar: 'avatar_ass_01', secretarySkin: null }, chars, outfitNames), null, 'nothing to draw rather than a missing file');
+  assert.equal(avatarPath({ avatar: 'avatar_special_41' }, chars, outfitNames), '/profile-avatars/avatar_special_41.webp');
+  assert.equal(avatarPath({ avatar: null }, chars, outfitNames), null);
+  assert.equal(assistantIconPath('char_unknown#1', chars, outfitNames), null);
+});

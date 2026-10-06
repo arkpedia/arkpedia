@@ -15,6 +15,8 @@ import { stripRichText } from '../lib/gametext.mjs';
 import { withStableSource } from '../sync/sync-content-inventory.mjs';
 const cn=JSON.parse(fs.readFileSync('scripts/tests/fixtures/persona-source.json','utf8'));
 const empty={characters:{},skins:{charSkins:{},brandList:{}},activity:{basicInfo:{},missionData:{}},gacha:{gachaPoolClient:[]}};
+// No official CN announcements (test-cn-news.ts has the runs with them).
+const noNews={events:[],banners:[]};
 const rows={eventRows:[{name:'Sur le lac lune vivante',type:'side story, crossover',cnstart:'2026/09/04',cnend:'2026/09/18'}],bannerRows:[{name:'Some Evening of White and Mystic Blue',type:'crossover',cnstart:'2026/09/04',cnend:'2026/09/18',operators:'Makoto Yuki, Yukari Takeba, Aegis'}]};
 test('a missing collaboration imports all four operators, four outfits, event, banner and real mechanics',()=>{
   const imported=reconcileOperators({operators:[],cn,en:empty});
@@ -26,7 +28,7 @@ test('a missing collaboration imports all four operators, four outfits, event, b
   assert.equal(makoto.modules.filter((m:any)=>m.type==='Upgrade')[0].stages.length,3);
   assert.equal(makoto.stats.phases[2].max.hp,cn.characters.char_4217_makoto.phases[2].attributesKeyFrames.at(-1).data.maxHp);
   assert(makoto.files.every((f:any)=>f.section&&f.description&&f.unlock));
-  const calendar=reconcileCalendars({events:[],banners:[],operators:imported.operators,cn,en:empty,...rows});
+  const calendar=reconcileCalendars({announced:noNews,events:[],banners:[],operators:imported.operators,cn,en:empty,...rows});
   assert.equal(calendar.events.length,1);assert.equal(calendar.banners.length,1);
   assert.equal(calendar.events[0].global.dateRange,null);
   const outfits=reconcileSkins({skins:[],operators:imported.operators,cn,en:empty,events:calendar.events});
@@ -59,11 +61,11 @@ test('Global release uses the immutable ID to replace a provisional name and ski
 test('secondary limited rate-ups never become featured during automatic imports',()=>{
   const ops=[{name:'New limited',internalName:'new',rarity:6},{name:'Returning limited',internalName:'old',rarity:6},{name:'Five star',internalName:'five',rarity:5}];
   const row={name:'Limited test',type:'celebration',cnstart:'2026/09/04',operators:'New limited, Returning limited, Five star',limited:'1,2,0'};
-  const calendar=reconcileCalendars({events:[],banners:[],operators:ops,cn,en:empty,eventRows:[],bannerRows:[row]});
+  const calendar=reconcileCalendars({announced:noNews,events:[],banners:[],operators:ops,cn,en:empty,eventRows:[],bannerRows:[row]});
   assert.deepEqual(calendar.banners[0].six_stars,['New limited']);assert.deepEqual(calendar.banners[0].rate_up_six_stars,['Returning limited']);
   assert.equal(calendar.banners[0].pull_type,'limited');
   assert.equal(getFeaturedOperatorRates(calendar.banners[0])[0].percent,35);
-  const joint=reconcileCalendars({events:[],banners:[],operators:ops,cn,en:empty,eventRows:[],bannerRows:[{...row,type:'jo',limited:''}]});
+  const joint=reconcileCalendars({announced:noNews,events:[],banners:[],operators:ops,cn,en:empty,eventRows:[],bannerRows:[{...row,type:'jo',limited:''}]});
   assert.equal(joint.banners[0].pull_type,'joint');
   assert.equal(getFeaturedOperatorRates(joint.banners[0])[0].percent,50);
 });
@@ -71,22 +73,22 @@ test('structured discovery tolerates spacing, and a wiki lineup naming an unknow
   assert.equal(parseWikiRows('{{Banners cell\n| name = Test\n| operators = New\n}}','Banners cell')[0].name,'Test');
   const operators=reconcileOperators({operators:[],cn,en:empty}).operators, now=Date.parse('2026-09-23T00:00:00Z');
   const typo={...rows.bannerRows[0],operators:'Makoto Yuki, Yukari Takebaa, Aegis'};
-  const first=reconcileCalendars({events:[],banners:[],operators,cn,en:empty,eventRows:[],bannerRows:[typo],now});
+  const first=reconcileCalendars({announced:noNews,events:[],banners:[],operators,cn,en:empty,eventRows:[],bannerRows:[typo],now});
   const [banner]=first.banners;
   // The crossover pool itself names Makoto (linkageParam.guaranteeTarget6Char).
   assert.deepEqual([banner.name,banner.cnPoolId,banner.six_stars,banner.five_stars,banner.lineupSource],['[Crossover] Some Evening of White and Mystic Blue','LINKAGE_77_0_1',['Makoto Yuki'],[],'client']);
   assert.deepEqual(first.quarantine.map((e:any)=>[e.key,e.action]),[['banner:LINKAGE_77_0_1','published-partial']]);
   assert.match(first.quarantine[0].reason,/names Yukari Takebaa, which no operator record matches/);
   // Still partial on the next run, and complete once the row is fixed.
-  assert.equal(reconcileCalendars({events:[],banners:first.banners,operators,cn,en:empty,eventRows:[],bannerRows:[typo],now}).quarantine[0].action,'published-partial');
-  const fixed=reconcileCalendars({events:[],banners:first.banners,operators,cn,en:empty,eventRows:[],bannerRows:rows.bannerRows,now});
+  assert.equal(reconcileCalendars({announced:noNews,events:[],banners:first.banners,operators,cn,en:empty,eventRows:[],bannerRows:[typo],now}).quarantine[0].action,'published-partial');
+  const fixed=reconcileCalendars({announced:noNews,events:[],banners:first.banners,operators,cn,en:empty,eventRows:[],bannerRows:rows.bannerRows,now});
   assert.deepEqual([fixed.banners[0].six_stars,fixed.banners[0].five_stars,fixed.banners[0].lineupSource],[['Makoto Yuki'],['Yukari Takeba','Aegis'],'wiki']);
   assert.deepEqual(fixed.quarantine,[]);
   // A record that already has its wiki lineup keeps it, and says so.
-  const kept=reconcileCalendars({events:[],banners:fixed.banners,operators,cn,en:empty,eventRows:[],bannerRows:[typo],now});
+  const kept=reconcileCalendars({announced:noNews,events:[],banners:fixed.banners,operators,cn,en:empty,eventRows:[],bannerRows:[typo],now});
   assert.deepEqual([kept.banners[0].five_stars,kept.quarantine[0].action],[['Yukari Takeba','Aegis'],'kept-previous']);
   // No lineup at all is the same case.
-  const bare=reconcileCalendars({events:[],banners:[],operators,cn,en:empty,eventRows:[],bannerRows:[{...typo,operators:''}],now});
+  const bare=reconcileCalendars({announced:noNews,events:[],banners:[],operators,cn,en:empty,eventRows:[],bannerRows:[{...typo,operators:''}],now});
   assert.deepEqual([bare.banners[0].six_stars,bare.quarantine[0].action],[['Makoto Yuki'],'published-partial']);
   assert.match(bare.quarantine[0].reason,/lists no operators/);
 });
@@ -102,7 +104,7 @@ test('rows the wiki cannot tie to one CN pool are reported instead of stopping t
   const cnTables=tables(pool('SINGLE_90_0_1','SINGLE','2026/09/15','甲'),pool('RETURN_90_0_1','BACKFLOW','2026/09/15','回归'),
     pool('SINGLE_90_0_2','SINGLE','2026/09/18','乙'),pool('LIMITED_90_0_3','LIMITED','2026/09/18','丙',{limitParam:{limitedCharId:'char_9001_ltd'}}));
   const row=(name:string,cnstart:string,type='special')=>({name,type,cnstart,operators:'Featured Six, Five A'});
-  const result=reconcileCalendars({events:[],banners:[],operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,bannerRows:[
+  const result=reconcileCalendars({announced:noNews,events:[],banners:[],operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,bannerRows:[
     row('Picked By Type','2026/09/15'),           // a featured and a returning-player pool: the row's type decides
     {...row('Two Of A Kind','2026/09/18'),type:'rerun',operators:'Featured Six'}, // featured wins over the limited pool
     {type:'special',cnstart:'2026/09/18'},        // no name to be a banner
@@ -118,10 +120,24 @@ test('rows the wiki cannot tie to one CN pool are reported instead of stopping t
     ['banner:LIMITED_90_0_3','published-partial']]);
   assert.match(result.quarantine[1].reason,/no CN pool opens that day/);
   // Two pools of the same kind on one day, and nothing to choose between them.
-  const twins=reconcileCalendars({events:[],banners:[],operators:sixStar,now:september,en:empty,eventRows:[],
+  const twins=reconcileCalendars({announced:noNews,events:[],banners:[],operators:sixStar,now:september,en:empty,eventRows:[],
     cn:tables(pool('SINGLE_90_0_4','SINGLE','2026/09/15','丁'),pool('SINGLE_90_0_5','SINGLE','2026/09/15','戊')),bannerRows:[row('Which One','2026/09/15')]});
   assert.equal(twins.quarantine[0].key,'banner:Which One (CN 2026/09/15)');
   assert.match(twins.quarantine[0].reason,/2 pools open \(SINGLE_90_0_4, SINGLE_90_0_5\)/);
+});
+
+test('a numbered banner\'s art is asked of the wiki without its #, and a Joint Operation\'s or an Orienteering\'s only as Global\'s upload',()=>{
+  // "Orienteering #8" and "Joint Operation #19" went without art: asked for as "CN Orienteering #8
+  // banner.png", a title MediaWiki cuts at the #; the wiki's uploads are "CN Orienteering 8 banner.png".
+  const cnTables=tables(pool('SPECIAL_77_0_4','SPECIAL','2026/09/15','定向甄选'),pool('NORM_76_0_3','NORMAL','2026/09/17','联合行动'));
+  const result=reconcileCalendars({announced:noNews,events:[],banners:[],operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,
+    bannerRows:[{type:'orient',no:'8',cnstart:'2026/09/15',operators:'Featured Six, Five A'},{type:'jo',no:'19',cnstart:'2026/09/17',operators:'Featured Six, Five A'}]});
+  assert.deepEqual(result.banners.map((b:any)=>[b.name,b.banner_image]),[['Orienteering #8','/headhunting-banner-images/Orienteering #8.webp'],['Joint Operation #19','/headhunting-banner-images/Joint Operation #19.webp']]);
+  // Their CN art shows CN's operators, which Global's will not have: only the EN upload is asked for.
+  assert.deepEqual(result.media,[
+    {path:'headhunting-banner-images/Orienteering #8.webp',wikiFiles:['EN Orienteering 8 banner.png']},
+    {path:'headhunting-banner-images/Joint Operation #19.webp',wikiFiles:['EN Joint Operation 19 banner.png']},
+  ]);
 });
 
 test('a recent CN pool with no record is published from the client under its Chinese name, and the wiki row renames and completes it later',()=>{
@@ -129,7 +145,7 @@ test('a recent CN pool with no record is published from the client under its Chi
     pool('SINGLE_90_0_2','SINGLE','2026/09/12','单人之名'),pool('NORM_90_0_3','NORMAL','2026/09/14','适合多种场合的强力干员'),
     pool('LIMITED_80_0_1','LIMITED','2026/06/01','往年之名',{limitParam:{limitedCharId:'char_9001_ltd'}}),
     pool('DOUBLE_90_0_4','DOUBLE','2026/09/15','适合多种场合的强力干员'));
-  const first=reconcileCalendars({events:[],banners:[],operators:sixStar,cn:cnTables,en:empty,eventRows:[],bannerRows:[],now:september});
+  const first=reconcileCalendars({announced:noNews,events:[],banners:[],operators:sixStar,cn:cnTables,en:empty,eventRows:[],bannerRows:[],now:september});
   // Months-old pools are history the bulk import owns, and Standard pools belong to the recurring importer.
   assert.deepEqual(first.banners.map((b:any)=>[b.name,b.cnPoolId,b.pull_type,b.six_stars,b.lineupSource,b.nameStatus,b.banner_image,b.cn_date]),[
     ['[Limited] 限定之名','LIMITED_90_0_1','limited',['Limited Six'],'client','cn-official',null,'2026/09/10–2026/09/24'],
@@ -141,9 +157,9 @@ test('a recent CN pool with no record is published from the client under its Chi
   assert.match(first.quarantine[0].reason,/without an English name and key art/);
   assert.match(first.quarantine[1].reason,/without an English name, its rate-up lineup and key art/);
   // Nothing new is minted on the next run.
-  assert.equal(reconcileCalendars({events:[],banners:first.banners,operators:sixStar,cn:cnTables,en:empty,eventRows:[],bannerRows:[],now:september}).banners.length,3);
+  assert.equal(reconcileCalendars({announced:noNews,events:[],banners:first.banners,operators:sixStar,cn:cnTables,en:empty,eventRows:[],bannerRows:[],now:september}).banners.length,3);
   // The wiki's row for the featured pool arrives.
-  const later=reconcileCalendars({events:[],banners:first.banners,operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,
+  const later=reconcileCalendars({announced:noNews,events:[],banners:first.banners,operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,
     bannerRows:[{name:'Community Name',type:'special',cnstart:'2026/09/12',operators:'Featured Six, Five A'}]});
   const featured=later.banners.find((b:any)=>b.cnPoolId==='SINGLE_90_0_2');
   assert.deepEqual([featured.name,featured.aliases,featured.nameStatus,featured.lineupSource,featured.six_stars,featured.five_stars,featured.banner_image],
@@ -152,9 +168,47 @@ test('a recent CN pool with no record is published from the client under its Chi
   assert.deepEqual(later.media,[{path:'headhunting-banner-images/Community Name.webp',wikiFiles:['CN Community Name banner.png','Community Name banner.png']}]);
   assert.deepEqual(later.quarantine.map((e:any)=>e.key),['banner:LIMITED_90_0_1','banner:NORM_90_0_3']);
   // The client's limited operator stays featured when the wiki row leaves it out.
-  const limited=reconcileCalendars({events:[],banners:later.banners,operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,
+  const limited=reconcileCalendars({announced:noNews,events:[],banners:later.banners,operators:sixStar,cn:cnTables,en:empty,eventRows:[],now:september,
     bannerRows:[{name:'Limited Name',type:'festival',cnstart:'2026/09/10',operators:'Featured Six, Five A'}]}).banners.find((b:any)=>b.cnPoolId==='LIMITED_90_0_1');
   assert.deepEqual([limited.name,limited.six_stars,limited.five_stars,limited.lineupSource],['[Festival] Limited Name',['Limited Six','Featured Six'],['Five A'],'wiki']);
+});
+
+/* A wiki row's Global pool gives its record the official name only where the client names that
+   pool after the banner, alone: "Joint Operation #19" became the "Joint Operation" every Joint
+   Operation pool is called (NORM_64_0_3 / NORM_EN_37_0_6, 2026-10). */
+test('a Global pool renames its banner only under a name the client gives that banner alone: never a Joint Operation\'s, an Orienteering\'s or a rerun\'s first-run name',()=>{
+  const enDay=(day:string)=>Date.parse(`${day.replaceAll('/','-')}T04:00:00-07:00`)/1000;
+  const enPool=(gachaPoolId:string,gachaRuleType:string,day:string,gachaPoolName:string)=>({gachaPoolId,gachaRuleType,gachaPoolName,openTime:enDay(day),endTime:enDay(day)+14*86400-1});
+  const cnTables=tables(pool('NORM_64_0_3','NORMAL','2025/09/09','适合多种场合的强力干员'),pool('SINGLE_64_0_1','SINGLE','2025/09/16','单人'),
+    pool('SINGLE_64_0_2','SINGLE','2025/09/23','复刻'),pool('SPECIAL_64_0_4','SPECIAL','2025/09/30','定向甄选'));
+  const en={...empty,source:'en-mirror',gacha:{gachaPoolClient:[
+    enPool('NORM_EN_36_0_6','NORMAL','2026/02/04','Joint Operation'),enPool('NORM_EN_37_0_6','NORMAL','2026/03/04','Joint Operation'),
+    enPool('SINGLE_EN_37_0_1','SINGLE','2026/03/18','Official Name'),
+    // A rerun's pool carries its first run's name.
+    enPool('SINGLE_EN_20_0_1','SINGLE','2025/04/01','First Run'),enPool('SINGLE_EN_37_0_2','SINGLE','2026/04/01','First Run'),
+    // The only Orienteering pool in this table: its kind alone keeps its name off the record.
+    enPool('SPECIAL_EN_37_0_4','SPECIAL','2026/04/15','Orienteering Headhunting')]}};
+  const lineup={six_stars:['Featured Six'],five_stars:['Five A'],four_stars:[],rate_up_six_stars:[],lineupSource:'wiki',global_date:null};
+  const banners=[
+    {...lineup,name:'Joint Operation #19',pull_type:'joint',category:'standard',cn_date:'2025/09/09–2025/09/23',cnPoolId:'NORM_64_0_3',banner_image:'/headhunting-banner-images/Joint Operation #19.webp'},
+    {...lineup,name:'[Headhunting] Community Name',pull_type:'featured',category:'special',cn_date:'2025/09/16–2025/09/30',cnPoolId:'SINGLE_64_0_1'},
+    {...lineup,name:'[Headhunting] First Run Rerun',pull_type:'featured',category:'special',cn_date:'2025/09/23–2025/10/07',cnPoolId:'SINGLE_64_0_2'},
+    {...lineup,name:'Orienteering #9',pull_type:'orienteering',category:'special',cn_date:'2025/09/30–2025/10/14',cnPoolId:'SPECIAL_64_0_4'},
+  ];
+  const row=(extra:object)=>({operators:'Featured Six, Five A',...extra});
+  const result=reconcileCalendars({announced:noNews,events:[],banners,operators:sixStar,cn:cnTables,en,eventRows:[],now:Date.parse('2026-05-01T00:00:00Z'),bannerRows:[
+    row({type:'jo',no:'19',cnstart:'2025/09/09',start:'2026/03/04'}),
+    row({name:'Community Name',type:'special',cnstart:'2025/09/16',start:'2026/03/18'}),
+    row({name:'First Run Rerun',type:'rerun',cnstart:'2025/09/23',start:'2026/04/01'}),
+    row({type:'orient',no:'9',cnstart:'2025/09/30',start:'2026/04/15'})]});
+  // Each takes its Global pool and window; only the banner its pool is named after takes the name.
+  assert.deepEqual(result.banners.map((b:any)=>[b.name,b.globalPoolId,b.global_date,b.nameStatus,b.aliases]),[
+    ['Joint Operation #19','NORM_EN_37_0_6','2026/03/04–2026/03/18',undefined,undefined],
+    ['[Headhunting] Official Name','SINGLE_EN_37_0_1','2026/03/18–2026/04/01','en-official',['[Headhunting] Community Name']],
+    ['[Headhunting] First Run Rerun','SINGLE_EN_37_0_2','2026/04/01–2026/04/15',undefined,undefined],
+    ['Orienteering #9','SPECIAL_EN_37_0_4','2026/04/15–2026/04/29',undefined,undefined]]);
+  assert.deepEqual(result.renames,[['[Headhunting] Community Name','[Headhunting] Official Name']]);
+  assert.equal(result.banners[0].banner_image,'/headhunting-banner-images/Joint Operation #19.webp');
 });
 
 test('pool ids are filled by window and kind, never overwritten, and only one-to-one matches are links',()=>{
@@ -185,14 +239,14 @@ test('pool ids are filled by window and kind, never overwritten, and only one-to
   assert.deepEqual(enLinks.links.map((l:any)=>[global[l.index].name,l.poolId]),[['Joint Operation #9','NORM_EN_1'],['Standard Pool #99 (Global)','NORM_EN_2'],
     ['[Limited-Time] Behold the Sword of Tide','NORM_EN_3'],['[Limited-Time] Quicksand Vortex','NORM_EN_4']]);
   // The catalogue sync keeps them filled, and a pool no one can decide between is not minted.
-  const synced=reconcileCalendars({events:[],banners,operators:[],cn:tables(...cnPools),en:empty,eventRows:[],bannerRows:[],now:Date.parse('2026-04-12T00:00:00Z')});
+  const synced=reconcileCalendars({announced:noNews,events:[],banners,operators:[],cn:tables(...cnPools),en:empty,eventRows:[],bannerRows:[],now:Date.parse('2026-04-12T00:00:00Z')});
   assert.deepEqual(synced.linked,{cn:3,global:0});
   assert.deepEqual(synced.banners.map((b:any)=>b.cnPoolId),['NORM_90_0_1','FESCLASSIC_90_0_1','SINGLE_90_0_2','SINGLE_89_0_9',undefined]);
   assert.deepEqual(synced.quarantine.map((e:any)=>[e.key,e.action]),[['banner:NORM_90_0_4','omitted-new']]);
   assert.match(synced.quarantine[0].reason,/CN pools NORM_90_0_4, NORM_90_0_5 all fit Joint Operation #31/);
   // A disagreement is reported, not dropped, and its pool is not published as a second,
   // Chinese-named record of the banner that already records another pool.
-  const during=reconcileCalendars({events:[],banners,operators:[],cn:tables(...cnPools),en:empty,eventRows:[],bannerRows:[],now:Date.parse('2026-03-20T00:00:00Z')});
+  const during=reconcileCalendars({announced:noNews,events:[],banners,operators:[],cn:tables(...cnPools),en:empty,eventRows:[],bannerRows:[],now:Date.parse('2026-03-20T00:00:00Z')});
   assert.ok(!during.banners.some((b:any)=>b.cnPoolId==='SINGLE_90_0_3'));
   assert.deepEqual(during.quarantine.map((e:any)=>[e.key,e.action]),[['banner:NORM_90_0_4','omitted-new'],['banner:SINGLE_90_0_3','kept-previous']]);
   assert.match(during.quarantine[1].reason,/fits \[Limited-Time\] Already Linked \(2026\/03\/10–2026\/03\/24\) by window and kind, but that record is pool SINGLE_89_0_9/);
@@ -227,12 +281,12 @@ test('a Global pool the client names after its banner is linked only under that 
   assert.deepEqual(result.conflicts.map((c:any)=>[c.pool,c.poolName,c.candidates]),[['SINGLE_EN_50_0_1','Dithyramb Unending',['Deterministic Chaos']]]);
   // The daily sync reports it while it is recent, and shows no estimate as confirmed.
   const en={...empty,source:'en-mirror',gacha:{gachaPoolClient:swapped}};
-  const synced=reconcileCalendars({events:[],banners:records(),operators:[],cn:tables(),en,eventRows:[],bannerRows:[],now:Date.parse('2026-12-14T00:00:00Z')});
+  const synced=reconcileCalendars({announced:noNews,events:[],banners:records(),operators:[],cn:tables(),en,eventRows:[],bannerRows:[],now:Date.parse('2026-12-14T00:00:00Z')});
   assert.equal(synced.banners[0].globalPoolId,undefined);
   assert.deepEqual(synced.quarantine.map((e:any)=>[e.key,e.action]),[['banner:SINGLE_EN_50_0_1','kept-previous']]);
   assert.match(synced.quarantine[0].reason,/Global pool SINGLE_EN_50_0_1 "Dithyramb Unending" opens in the window of Deterministic Chaos \(2026\/12\/13–2026\/12\/27\), which is named otherwise/);
   // The same history, years later, is the backfill's to list, not the daily issue's.
-  assert.deepEqual(reconcileCalendars({events:[],banners:records(),operators:[],cn:tables(),en,eventRows:[],bannerRows:[],now:Date.parse('2027-06-01T00:00:00Z')}).quarantine,[]);
+  assert.deepEqual(reconcileCalendars({announced:noNews,events:[],banners:records(),operators:[],cn:tables(),en,eventRows:[],bannerRows:[],now:Date.parse('2027-06-01T00:00:00Z')}).quarantine,[]);
   // When Deterministic Chaos's own pool ships in that window, it is linked by its name.
   const real=linkPools(records(),[...swapped,enPool('SINGLE_EN_50_0_3','SINGLE','2026/12/13','Deterministic Chaos')],'global');
   assert.deepEqual(real.links.map((l:any)=>l.poolId).sort(),['NORM_EN_50_0_2','NORM_EN_8_0_1','SINGLE_EN_50_0_3']);
@@ -254,7 +308,7 @@ test('a discovered event still localizes after leaving the upcoming calendar',()
   const en=structuredClone(cn);en.activity.basicInfo.act54side.name='Official Global event';
   en.activity.basicInfo.act54side.startTime=2000000000;en.activity.basicInfo.act54side.endTime=2001000000;
   const event={name:'[Crossover] Provisional event',activityId:'act54side',global:{dateRange:null},cn:{dateRange:'2026/09/04–2026/09/18'}};
-  const result=reconcileCalendars({events:[event],banners:[],operators:[],cn,en,eventRows:[],bannerRows:[]});
+  const result=reconcileCalendars({announced:noNews,events:[event],banners:[],operators:[],cn,en,eventRows:[],bannerRows:[]});
   assert.equal(result.events[0].name,'[Crossover] Official Global event');
   assert.equal(result.events[0].global.startAt,new Date(2000000000*1000).toISOString());
   assert.equal(result.events[0].global.note,null);
@@ -269,7 +323,7 @@ test('a window the client confirms again at a newer mirror commit keeps the sour
   const pool=structuredClone(cn).gacha.gachaPoolClient[0], globalStart=new Date((pool.openTime-7*3600)*1000).toISOString().slice(0,10).replaceAll('-','/');
   const banner={name:rows.bannerRows[0].name,cn_date:'2026/09/04–2026/09/18',global_date:null,cnPoolId:pool.gachaPoolId};
   const operators=reconcileOperators({operators:[],cn,en:empty}).operators;
-  const run=(en:any,records:{events:object[],banners:object[]})=>reconcileCalendars({...records,operators,cn,en:{...en,gacha:{gachaPoolClient:[{...pool,gachaPoolName:rows.bannerRows[0].name}]}},eventRows:[],bannerRows:[{...rows.bannerRows[0],start:globalStart}]});
+  const run=(en:any,records:{events:object[],banners:object[]})=>reconcileCalendars({announced:noNews,...records,operators,cn,en:{...en,gacha:{gachaPoolClient:[{...pool,gachaPoolName:rows.bannerRows[0].name}]}},eventRows:[],bannerRows:[{...rows.bannerRows[0],start:globalStart}]});
   const first=run(at('https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/aaaa/en/gamedata/excel'),{events:[event],banners:[banner]});
   const sources=(result:any)=>[result.events[0].global.timingSource,result.banners[0].global_window.timingSource];
   assert.deepEqual(sources(first),Array(2).fill('https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/aaaa/en/gamedata/excel'));
@@ -298,7 +352,7 @@ test('existing Global banner identities retain rerun and edition qualifiers',()=
   pool.gachaPoolName=rows.bannerRows[0].name;
   const banner={name:rows.bannerRows[0].name+' Rerun',cn_date:'2026/09/04–2026/09/18',global_date:'2026/09/04–2026/09/18',cnPoolId:pool.gachaPoolId};
   const date=new Date((pool.openTime-7*3600)*1000).toISOString().slice(0,10).replaceAll('-','/');
-  const result=reconcileCalendars({events:[],banners:[banner],operators,cn,en,eventRows:[],bannerRows:[{...rows.bannerRows[0],start:date}]});
+  const result=reconcileCalendars({announced:noNews,events:[],banners:[banner],operators,cn,en,eventRows:[],bannerRows:[{...rows.bannerRows[0],start:date}]});
   assert.equal(result.banners[0].name,banner.name);
   assert.deepEqual(result.renames,[]);
 });
@@ -345,6 +399,36 @@ test('an operator the tables cannot describe is held back on its own, and the re
   assert.deepEqual(reconcileOperators({operators:[],cn:nameless,en:empty}).quarantine.map((e:any)=>[e.key,e.action]),[['operator:char_4218_aigis','omitted-new']]);
 });
 
+test('an operator whose game text the rebuild refuses is held back on its own; an error that is no refusal fails the stage',()=>{
+  // A trait naming a value the game's trait data does not carry (officialTrait refuses it).
+  const refused=structuredClone(cn);refused.characters.char_4219_yukari.description='Recovers {nope} HP';refused.characters.char_4219_yukari.trait=null;
+  const first=reconcileOperators({operators:[],cn:refused,en:empty});
+  assert.deepEqual(first.operators.map((o:any)=>o.internalName).sort(),['char_4217_makoto','char_4218_aigis','char_4220_kormr']);
+  assert.deepEqual(first.quarantine.map((e:any)=>[e.key,e.action]),[['operator:char_4219_yukari','omitted-new']]);
+  assert.match(first.quarantine[0].reason,/has a trait whose text names a value the game's trait data does not carry, so it is left out/);
+  // An existing one promoted to Global keeps its previous version.
+  const previous=reconcileOperators({operators:[],cn,en:empty}).operators;
+  const en=structuredClone(refused);en.characters.char_4219_yukari.name='Official Global name';
+  const promoted=reconcileOperators({operators:previous,cn,en});
+  assert.deepEqual(promoted.operators.find((o:any)=>o.internalName==='char_4219_yukari'),previous.find((o:any)=>o.internalName==='char_4219_yukari'));
+  assert.deepEqual(promoted.quarantine.filter((e:any)=>e.key==='operator:char_4219_yukari').map((e:any)=>e.action),['kept-previous']);
+  // A bug (here a missing table officialModules requires) would hold every operator: it throws instead.
+  const broken=structuredClone(cn);delete broken.battleEquip;
+  assert.throws(()=>reconcileOperators({operators:[],cn:broken,en:empty}),/battle_equip_table/);
+});
+
+test('a gap the rebuild reports is written as the English refresh writes it (gapReason), after every hold',()=>{
+  // The Global table's talent has no name: the record's talent stays at its place, reported.
+  const previous=reconcileOperators({operators:[],cn,en:empty}).operators;
+  const en=structuredClone(cn);en.characters.char_4219_yukari.name='Official Global name';
+  for(const candidate of en.characters.char_4219_yukari.talents[0].candidates)candidate.name=null;
+  const promoted=reconcileOperators({operators:previous,cn,en});
+  const recorded=previous.find((o:any)=>o.internalName==='char_4219_yukari').talents[0];
+  assert.deepEqual(promoted.operators.find((o:any)=>o.internalName==='char_4219_yukari').talents[0],recorded);
+  assert.deepEqual(promoted.quarantine.filter((e:any)=>e.key==='operator:char_4219_yukari'),[{key:'operator:char_4219_yukari',action:'published-partial',
+    reason:`Official Global name's talent ${recorded.name} is published as the record has it: the game's talent at its place has no name.`}]);
+});
+
 test('a wiki row never moves a Global pool id: not off the record that holds the pool, not over one the record holds',()=>{
   const enDay=(day:string)=>Date.parse(`${day.replaceAll('/','-')}T04:00:00-07:00`)/1000;
   const cnTables=tables(pool('SINGLE_90_0_1','SINGLE','2026/03/10','某人'));
@@ -352,7 +436,7 @@ test('a wiki row never moves a Global pool id: not off the record that holds the
   const row={name:'Some Banner',type:'special',cnstart:'2026/03/10',start:'2026/08/13',operators:'Featured Six'};
   const banners=[{name:'[Headhunting] Some Banner',category:'special',cn_date:'2026/03/10–2026/03/24',cnPoolId:'SINGLE_90_0_1',pull_type:'featured',six_stars:['Featured Six']},
     {name:'Someone Else',category:'special',global_date:'2026/08/13–2026/08/27',globalPoolId:'SINGLE_EN_90_0_1',pull_type:'featured',six_stars:[]}];
-  const result=reconcileCalendars({events:[],banners,operators:sixStar,cn:cnTables,en,eventRows:[],bannerRows:[row],now:Date.parse('2026-08-14T00:00:00Z')});
+  const result=reconcileCalendars({announced:noNews,events:[],banners,operators:sixStar,cn:cnTables,en,eventRows:[],bannerRows:[row],now:Date.parse('2026-08-14T00:00:00Z')});
   assert.deepEqual(result.banners.map((b:any)=>[b.name,b.globalPoolId]),[['[Headhunting] Some Banner',undefined],['Someone Else','SINGLE_EN_90_0_1']]);
   assert.deepEqual(result.quarantine.map((e:any)=>[e.key,e.action]),[['banner:SINGLE_EN_90_0_1','kept-previous']]);
   assert.match(result.quarantine[0].reason,/Someone Else already records that pool/);
@@ -364,15 +448,15 @@ test('event rows the wiki dates in a form the parser cannot read are reported to
   const end=(day:string)=>new Date((cnDay(day)+14*86400+8*3600)*1000).toISOString().slice(0,10).replaceAll('-','/');
   const rows=['2026/06/01','2026/06/15','2026/07/01','2026/07/15'].map((day,i)=>({name:`Event ${i}`,type:'side story',cnstart:day,cnend:end(day)}));
   // A normal page: every row applies, one loosely dated row ("Late September") included.
-  const fine=reconcileCalendars({events:[],banners:[],operators:[],cn:cnTables,en:empty,bannerRows:[],now:september,eventRows:[...rows,{name:'Vague',cnstart:'Late September 2026',cnend:''}]});
+  const fine=reconcileCalendars({announced:noNews,events:[],banners:[],operators:[],cn:cnTables,en:empty,bannerRows:[],now:september,eventRows:[...rows,{name:'Vague',cnstart:'Late September 2026',cnend:''}]});
   assert.equal(fine.events.length,4);assert.deepEqual(fine.quarantine,[]);
   // The page switches its date format: nothing parses.
-  const reformatted=reconcileCalendars({events:[],banners:[],operators:[],cn:cnTables,en:empty,bannerRows:[],now:september,
+  const reformatted=reconcileCalendars({announced:noNews,events:[],banners:[],operators:[],cn:cnTables,en:empty,bannerRows:[],now:september,
     eventRows:rows.map(row=>({...row,cnstart:row.cnstart.replaceAll('/','-'),cnend:row.cnend.replaceAll('/','-')}))});
   assert.deepEqual(reformatted.quarantine.map((e:any)=>[e.key,e.action]),[['events:wiki-rows','kept-previous']]);
   assert.match(reformatted.quarantine[0].reason,/Most event rows the wiki lists have no name or no YYYY\/MM\/DD CN start \(e\.g\. "2026-06-01"\)/);
   // Dates that parse but no longer name the days the activities run.
-  const shifted=reconcileCalendars({events:[],banners:[],operators:[],cn:cnTables,en:empty,bannerRows:[],now:september,eventRows:rows.map(row=>({...row,cnend:'2026/12/31'}))});
+  const shifted=reconcileCalendars({announced:noNews,events:[],banners:[],operators:[],cn:cnTables,en:empty,bannerRows:[],now:september,eventRows:rows.map(row=>({...row,cnend:'2026/12/31'}))});
   assert.deepEqual(shifted.quarantine.map((e:any)=>e.key),['events:wiki-rows']);
   // No day and no count in the words: the rows already past grow by themselves, and the reason is a release input.
   assert.equal(shifted.quarantine[0].reason,"Most event rows the wiki dates to CN days already past match no single CN activity by its opening and closing days, so no CN event is discovered from them; the page's dates have probably changed form. Events keep their previous records.");
@@ -586,7 +670,7 @@ test('a wiki lineup matches its operator records whatever order and separator it
   const record={name:'[The Dream Ball of Marionettes] Cantilena Puppae',category:'limited',year:2025,cn_date:'2025/09/04–2025/09/18',global_date:'2026/02/10–2026/02/24',
     cnPoolId:'LINKAGE_65_0_1',banner_image:'/headhunting-banner-images/Cantilena Puppae.webp',six_stars:['Togawa Sakiko'],five_stars:['Misumi Uika','Wakaba Mutsumi'],pull_type:'limited',linked_event:null};
   const row=(operators:string)=>({type:'crossover',name:'Cantilena Puppae',cnstart:'2025/09/04 16:00:00',cnend:'2025/09/18 03:59:59',globalstart:'2026/02/10 08:00:00',globalend:'2026/02/24 03:59:59',operators});
-  const run=(operators:string)=>reconcileCalendars({events:[],banners:[record],operators:ops,cn:tables(pool('LINKAGE_65_0_1','LINKAGE','2025/09/04','白日梦下的木偶舞会')),en:empty,eventRows:[],bannerRows:[row(operators)],now:september});
+  const run=(operators:string)=>reconcileCalendars({announced:noNews,events:[],banners:[record],operators:ops,cn:tables(pool('LINKAGE_65_0_1','LINKAGE','2025/09/04','白日梦下的木偶舞会')),en:empty,eventRows:[],bannerRows:[row(operators)],now:september});
   for(const operators of ['Uika Misumi, Sakiko Togawa, Mutsumi Wakaba','Misumi Uika, Togawa Sakiko, Wakaba Mutsumi','Uika-Misumi, Sakiko·Togawa, Mutsumi  Wakaba']){
     const result=run(operators);
     assert.deepEqual(result.quarantine,[],operators);

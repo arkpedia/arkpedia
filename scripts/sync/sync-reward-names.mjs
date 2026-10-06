@@ -30,6 +30,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { assetFileNames } from '../lib/public-assets.mjs';
 import { beginStage } from '../lib/quarantine.mjs';
+import { eventWindow } from '../lib/event-records.mjs';
 
 const chinese = value => /\p{Script=Han}/u.test(value ?? '');
 // The filter getMaterialIconPath applies, so a name maps to the file the page asks for.
@@ -51,18 +52,12 @@ export function rewardNames(cn, en) {
   return names;
 }
 
-/** When the event opens on Global: the client's window when known, else the announced day (UTC−7). */
-export function globalStart(event) {
-  if (event.global?.startAt) return Date.parse(event.global.startAt);
-  const day = /(\d{4})\/(\d{2})\/(\d{2})/.exec(event.global?.dateRange ?? '');
-  return day ? Date.UTC(Number(day[1]), Number(day[2]) - 1, Number(day[3]), 7) : null;
-}
-
 /** `published` holds material-icons/ file names; see the header for `iconName`. */
 export function localizeRewards(events, names, published, now = Date.now()) {
   const next = structuredClone(events), renamed = [], unknown = [];
   for (const event of next) {
-    const start = globalStart(event);
+    // When it opens on Global: the client's window when known, else the announced UTC−7 day.
+    const start = eventWindow(event, 'Global')?.start;
     if (start == null || start > now) continue;
     for (const block of rewardBlocks(event)) {
       for (const item of block?.items ?? []) {

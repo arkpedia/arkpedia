@@ -38,8 +38,12 @@ try {
   execFileSync(process.execPath, ['scripts/build/build-public-asset-index.cjs'], { stdio: 'inherit' });
   // The asset files at the new pins. Not the voice lines: the voices stage, which runs after
   // this one, rebuilds them against these pins; the Validate step's check:published-assets
-  // checks the result.
-  execFileSync(process.execPath, ['scripts/audits/check-published-assets.mjs'], { stdio: 'inherit' });
+  // checks the result. --adopting, always: a folder a repository publishes that this code does
+  // not map yet only warns here (scripts/lib/asset-folders.mjs, folderVerdict), since adopting a
+  // pin needs no mapping. The strict check threw the day's pins away over one, in each of the
+  // three stages that move them. Check's check:published-assets still fails on it, and the
+  // Validate step holds it in data/quarantine.json.
+  execFileSync(process.execPath, ['scripts/audits/check-published-assets.mjs', '--adopting'], { stdio: 'inherit' });
 } catch (error) {
   await Promise.all(paths.map((path, i) => fs.writeFile(new URL(path, root), previous[i])));
   throw error;

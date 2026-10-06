@@ -45,6 +45,12 @@ const SEEDED_SOURCE_FILES = new Set([
   // every run) and the English names of CN-only materials it reads (kept by hand).
   'data/material-catalogue.json',
   'data/material-names.json',
+  // The game's character and module ids, for importing an account into the planner
+  // (scripts/build/build-game-account-map.ts, regenerated every run).
+  'data/game-account-map.json',
+  // Each profile card theme's colours, from the client's theme bundles, and their md5s, so
+  // only a changed bundle is fetched (scripts/imports/import-namecard-styles.py, every run).
+  'data/namecard-styles.json',
   // The announcement ticker's SSS cycle (lib/schedule/sssCycle.ts), kept by hand.
   'data/sss-cycle.json',
   // How the game's activity types map onto the Terminal: the excluded modes, the seasonal
@@ -57,6 +63,10 @@ const SEEDED_SOURCE_FILES = new Set([
   // repository, and out with the next release. The odds-rules stage lists a banner still
   // waiting for them (scripts/content/check-pull-odds.ts).
   'data/pull-odds-rules.json',
+  // The Arknights Story Map the Story page draws (scripts/imports/import_story_map.py, every
+  // run): the board's layout, and each picture's link, which a person corrects in the data
+  // repository and the importer then keeps.
+  'data/story-map.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

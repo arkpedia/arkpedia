@@ -18,8 +18,9 @@ import path from 'node:path';
 import { wikiBase, wikiParseUrl, wikiText, parseWikiRows } from './catalogue-model.mjs';
 
 export const WIKI_CACHE = 'data/wiki-cache';
-// wiki.gg refuses requests that do not say who is asking.
-const USER_AGENT = 'Arkpedia-refresh/1.0 (+https://arkpedia.net)';
+// wiki.gg refuses requests that do not say who is asking. Every reader of the wiki's API says
+// it the same way (sync-event-stores.mjs too).
+export const USER_AGENT = 'Arkpedia-refresh/1.0 (+https://arkpedia.net)';
 
 export const wikiCacheFile = (root, page) => path.join(root, WIKI_CACHE, `${page.replaceAll('/', '-')}.json`);
 /*

@@ -1,0 +1,42 @@
+/* components/skins/SkinPlanner: the skin plan by event shop, on /skin-planner and in the Pull
+   Planner. The cards are the site's picture pick-cards (.pick-card-picture). */
+
+.skin-plan { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.skin-plan-main { display: grid; gap: 22px; min-width: 0; }
+.skin-plan-toolbar { display: grid; gap: 8px; }
+.skin-plan-search { width: 100%; }
+.skin-plan-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.skin-plan-shop { display: grid; gap: 10px; }
+.skin-plan-shop-head { display: grid; gap: 2px; }
+.skin-plan-shop-head .section-title { margin: 0; }
+.skin-plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+/* The Skins gallery's card (.skin-card): the art on its own panel, then the operator, the
+   outfit's name and, at the foot, its price and whether it is planned. */
+.skin-plan-card { display: flex; flex-direction: column; overflow: hidden; padding: 0; text-align: left; min-width: 0; }
+.skin-plan-art { display: block; aspect-ratio: 4 / 5; background: var(--panel-2); }
+.skin-plan-art img, .skin-plan-noart { display: block; width: 100%; height: 100%; object-fit: contain; }
+.skin-plan-noart { display: grid; place-items: center; font: 11px var(--font-mono); color: var(--text-faint); }
+.skin-plan-card-text { display: grid; gap: 4px; padding: var(--card-inset); border-top: 1px solid var(--line-soft); overflow-wrap: anywhere; }
+.skin-plan-card-operator { color: var(--text-dim); font-size: 11px; }
+.skin-plan-card-text b { min-height: 2.4em; font: 700 15px/1.2 var(--font-display); color: var(--text); }
+.skin-plan-card-foot { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--text); }
+.skin-plan-card-foot strong { font: 600 11px var(--font-mono); color: var(--text-dim); }
+.skin-plan-card[aria-pressed="true"] .skin-plan-card-foot strong { color: var(--teal); }
+.skin-plan-owned { opacity: 0.55; }
+.skin-plan-summary { position: sticky; top: calc(var(--nav-h, 60px) + 12px); display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); }
+.skin-plan-summary .section-title { margin: 0; }
+.skin-plan-totals { display: grid; gap: 6px; }
+.skin-plan-totals > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.skin-plan-totals strong { color: var(--text); font-family: var(--font-mono); }
+.skin-plan-deadlines { display: grid; gap: 8px; }
+.skin-plan-deadlines h4 { margin: 0; font: 600 11px var(--font-mono); color: var(--text-faint); text-transform: uppercase; }
+.skin-plan-deadlines > div { display: grid; gap: 1px; font-size: 12px; color: var(--text-dim); }
+.skin-plan-deadlines b { color: var(--text); font-weight: 600; }
+@media (max-width: 900px) {
+  .skin-plan { grid-template-columns: 1fr; }
+  /* On one column the summary leads, rather than waiting under every shop. */
+  .skin-plan-summary { position: static; order: -1; }
+}
+@media (max-width: 650px) {
+  .skin-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

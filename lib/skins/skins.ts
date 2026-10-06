@@ -48,6 +48,23 @@ function resolveImage(word: string, model: string, name: string): string | null 
   return null;
 }
 
+/**
+ * An outfit's art: its operator's rarity folder first, else whichever of the six holds a file of
+ * that name (the file is named after the operator, so at most one does). Not knowing the rarity
+ * is the normal case on Vercel for a page the content release does not publish yet: the
+ * operator records are read from data/, which its functions do not carry, and every outfit
+ * there came out "Artwork unavailable" (the Skin Planner, 2026-10-02). The file index is
+ * compiled in (lib/assets/publicAssets.ts), so this needs nothing on disk.
+ */
+export function skinImagePath(model: string, name: string, rarity: number | null): string | null {
+  const first = rarity != null ? RARITY_WORDS[rarity] : undefined;
+  for (const word of [...(first ? [first] : []), ...Object.values(RARITY_WORDS).filter((w) => w !== first)]) {
+    const image = resolveImage(word, model, name);
+    if (image) return image;
+  }
+  return null;
+}
+
 export function getAllSkins(): Skin[] {
   const raw = skinsData as Skin[];
 
@@ -70,19 +87,8 @@ export function getAllSkins(): Skin[] {
        real operator records now (scripts/build/build-amiya-forms.mjs), so their rarity comes
        from the same place as everyone else's and the warning below is free to mean what
        it says: a model with no operator behind it. */
-    const rarity = rarityByOperatorName.get(skin.model);
-    const word = rarity != null ? RARITY_WORDS[rarity] : undefined;
-    if (!word) {
-      console.warn(`[skins] no known rarity for model "${skin.model}" (skin: "${skin.name}")`);
-      return { ...skin, image: null };
-    }
-
-    const image = resolveImage(word, skin.model, skin.name);
-
-    if (!image) {
-      console.warn(`[skins] no image file found for "${skin.model} - ${skin.name}.webp" (or a quote/slash-stripped variant) in ${word}-star-skins/`);
-    }
-
+    const image = skinImagePath(skin.model, skin.name, rarityByOperatorName.get(skin.model) ?? null);
+    if (!image) console.warn(`[skins] no image file found for "${skin.model} - ${skin.name}.webp" (or a quote/slash-stripped variant) in any rarity's skins folder`);
     return { ...skin, image };
   });
 }

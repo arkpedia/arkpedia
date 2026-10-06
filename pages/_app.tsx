@@ -14,6 +14,7 @@ import '@/styles/schedule/events.css';
 import '@/styles/gacha/gacha.css';
 import '@/styles/gacha/gacha-tutorial.css';
 import '@/styles/skins/skins.css';
+import '@/styles/skins/skin-planner.css';
 import '@/styles/operators/roster.css';
 import '@/styles/operators/operator-detail.css';
 import '@/styles/planner/planner.css';
@@ -36,6 +37,10 @@ import '@/styles/survey/fragility.css';
 import '@/styles/maps/terra.css';
 import '@/styles/ui/price-display.css';
 import '@/styles/gamemodes/gamemodes.css';
+import '@/styles/account/import.css';
+import '@/styles/story/story.css';
+import '@/styles/changelog/changelog.css';
+import '@/styles/account/account.css';
 /* Last: every transition and animation the site adds (r11 quiet polish), all under
    prefers-reduced-motion: no-preference. At equal specificity it beats the transitions
    the primitives and cards above already declare, which it restates with its own. */
@@ -47,6 +52,8 @@ import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
 import { watchImageArrivals } from '@/lib/ui/imageArrival';
 import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { recordPage } from '@/lib/nav/pageTrail';
 import { Analytics } from '@vercel/analytics/react';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -61,6 +68,15 @@ export default function App({ Component, pageProps }: AppProps) {
   // Images that arrive from here on fade in (lib/ui/imageArrival.ts); an effect, so only
   // once the app has hydrated: what was already loaded, or already drawing, is simply shown.
   useEffect(() => watchImageArrivals(document), []);
+  // The pages this tab has shown, for a detail page's Back (lib/nav/pageTrail.ts).
+  const router = useRouter();
+  useEffect(() => {
+    recordPage(router.asPath);
+    router.events.on('routeChangeComplete', recordPage);
+    return () => router.events.off('routeChangeComplete', recordPage);
+  // Once: the listener records every change after the first page.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.events]);
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>

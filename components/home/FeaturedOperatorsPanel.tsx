@@ -1,8 +1,9 @@
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { getBannerLineup, isLineupPending, LINEUP_PENDING_NOTE, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
+import { getBannerLineup, isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE, type BannerOperator } from '@/lib/gacha/bannerLineup';
 import { GachaBannerWithWindow } from '@/lib/home/frontPageContent';
 import Rarity from '@/components/ui/Rarity';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 // Icon paths follow the same "<Name> - Base.webp" naming convention as
 // lib/gacha/gachaIconPools.ts's own folder scan -- banner six_stars/
@@ -15,7 +16,7 @@ function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
 
 function OperatorRow({ operators }: { operators: BannerOperator[] }) {
   return <div className="front-featured-ops-row">
-    {operators.map(op => <Link prefetch={false} key={`${op.rarity}-${op.name}`} href={`/operators/${encodeURIComponent(op.name)}`} className="front-featured-op" title={op.name}>
+    {operators.map(op => <Link prefetch={false} key={`${op.rarity}-${op.name}`} href={operatorHref(op.name, null)} className="front-featured-op" title={op.name}>
       <Image src={iconPathFor(op.name, op.rarity)} alt="" width={52} height={52} className={`tier-${op.rarity}`} />
       <span className="front-featured-op-name">{op.name}</span>
       <Rarity n={op.rarity} className="front-featured-op-rarity" />
@@ -40,7 +41,7 @@ export default function FeaturedOperatorsPanel({ banner }: { banner: GachaBanner
     return (
       <section className="front-panel front-home-panel front-featured-ops-panel">
         <h2 className="section-title">Featured Operators</h2>
-        <p className="hint">{isLineupPending(banner) ? LINEUP_PENDING_NOTE : 'No featured operators listed for this banner.'}</p>
+        <p className="hint">{isLineupPending(banner) ? lineupPendingNote(banner) : 'No featured operators listed for this banner.'}</p>
       </section>
     );
   }

@@ -72,12 +72,21 @@ const NO_ORIGINITE_TYPES = new Set([
 ]);
 
 interface StageRecord {
+  id?: string;
+  /** The stage's code as the game shows it ("TR-S-1"): what the planner names a stage left by. */
+  code?: string;
+  variant?: { kind?: string } | null;
   stage_type?: string;
   chapter?: number;
   zone?: { id?: string; name?: string; group?: string };
   event?: { id?: string };
   drops?: { item?: { id?: string } }[];
 }
+
+/* A stage's name in the planner's "not cleared" lists. A Challenge Mode or six-star clear
+   pays its own Originite Prime under the same code as the stage, so it says which it is. */
+const VARIANT_SUFFIX: Record<string, string> = { challenge_mode: ' CM', six_star: ' 6★' };
+const stageLabel = (rec: StageRecord) => `${rec.code || rec.id}${VARIANT_SUFFIX[rec.variant?.kind ?? ''] ?? ''}`;
 
 function originiteFromStages(countableEventIds: ReadonlySet<string>) {
   const byType: Record<string, number> = {};
@@ -89,7 +98,9 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
      for them would expect them. Episodes 15 and 16 ship as activities rather
      than mainline zones, so they have no group name either, and fall back to
      their own chapter number. */
-  const zones: Record<string, { id: string; label: string; name: string; op: number; chapter: number }> = {};
+  /* Each chapter's stages too, by the game's stage id, so an imported account's cleared
+     stages (lib/account/accountStore) say exactly what is left of it. */
+  const zones: Record<string, { id: string; label: string; name: string; op: number; chapter: number; stages: string[]; codes: Record<string, string> }> = {};
   let total = 0;
   for (const file of fs.readdirSync(STAGES)) {
     if (!file.endsWith('.json')) continue;
@@ -119,8 +130,11 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
         name: rec.zone?.name ?? '',
         op: 0,
         chapter: Number.POSITIVE_INFINITY,
+        stages: [],
+        codes: {},
       });
       z.op += 1;
+      if (rec.id) { z.stages.push(rec.id); z.codes[rec.id] = stageLabel(rec); }
       if (typeof rec.chapter === 'number' && rec.chapter >= 0) z.chapter = Math.min(z.chapter, rec.chapter);
     }
   }
@@ -132,6 +146,8 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
       label: z.label || (Number.isFinite(z.chapter) ? `Episode ${z.chapter}` : z.name),
       name: z.name,
       op: z.op,
+      stages: z.stages.sort(),
+      stageCodes: z.stages.map((id) => z.codes[id]),
     }));
 
   /* The chapters ARE the mainline, so they must add up to it exactly. If a zone
@@ -139,6 +155,8 @@ function originiteFromStages(countableEventIds: ReadonlySet<string>) {
      episode's worth of Originite out of the back catalogue. */
   const mainline = (byType.main ?? 0) + (byType.sub ?? 0);
   const chaptered = chapters.reduce((n, c) => n + c.op, 0);
+  const unnamed = chapters.filter((c) => c.stages.length !== c.op).map((c) => c.id);
+  if (unnamed.length) throw new Error(`build-pull-sources: a stage with no id in ${unnamed.join(', ')}; every Originite stage must name its stage id.`);
   if (chaptered !== mainline) {
     throw new Error(
       `build-pull-sources: the chapters add up to ${chaptered} but the mainline is ${mainline}.`
@@ -223,6 +241,14 @@ function eventBreakdown() {
     /** Does this event have a token shop at all. Derivable; what the shop
      *  STOCKS is not -- see EVENT_SHOP_PERMITS in the model. */
     hasShop: boolean;
+    /** Its Originite Prime stages, by the game's stage id (an imported account's cleared). */
+    stages: string[];
+    /** Each of those stages' code as the game shows it, in the same order. */
+    stageCodes: string[];
+    codes: Record<string, string>;
+    /** When it opened on Global (activity_table basicInfo.startTime), as a day: the order the
+     *  OP Tracker lists events in. */
+    start: string;
   }
   const events = new Map<string, Ev>();
   for (const file of fs.readdirSync(STAGES)) {
@@ -256,12 +282,24 @@ function eventBreakdown() {
         playable: restored.has(ev.id)
           || ((basicInfo[ev.id]?.startTime ?? 0) <= nowSec && (basicInfo[ev.id]?.endTime ?? 0) > nowSec),
         op: 0,
+        stages: [],
+        stageCodes: [],
+        codes: {},
+        start: basicInfo[ev.id]?.startTime ? new Date(basicInfo[ev.id]!.startTime! * 1000).toISOString().slice(0, 10) : '',
       });
     }
-    if ((rec.drops ?? []).some((d) => d.item?.id === ORIGINITE_PRIME)) events.get(ev.id)!.op += 1;
+    if ((rec.drops ?? []).some((d) => d.item?.id === ORIGINITE_PRIME)) {
+      events.get(ev.id)!.op += 1;
+      if (rec.id) { events.get(ev.id)!.stages.push(rec.id); events.get(ev.id)!.codes[rec.id] = stageLabel(rec); }
+    }
   }
 
-  const all = [...events.values()].filter((e) => e.op > 0);
+  const all = [...events.values()].filter((e) => e.op > 0).map(({ codes, ...e }) => {
+    const stages = e.stages.sort();
+    return { ...e, stages, stageCodes: stages.map((id) => codes[id]) };
+  });
+  const unnamed = all.filter((e) => e.stages.length !== e.op).map((e) => e.id);
+  if (unnamed.length) throw new Error(`build-pull-sources: a stage with no id in ${unnamed.join(', ')}; every Originite stage must name its stage id.`);
   const excluded = all
     .filter((e) => NO_ORIGINITE_TYPES.has(e.kind))
     .map((e) => ({ id: e.id, name: e.name, kind: e.kind, claimed: e.op }))
@@ -661,6 +699,9 @@ function upcomingBanners(
   return out.sort((a, b) => a.start.localeCompare(b.start));
 }
 
+/** Distinction Certificate, the yellow one. */
+const DISTINCTION = '4004';
+
 function orundumFromAnnihilation() {
   if (!fs.existsSync(CAMPAIGN)) {
     throw new Error(
@@ -674,16 +715,20 @@ function orundumFromAnnihilation() {
     campaigns: Record<string, { breakLadders?: { rewards?: { id: string; count: number }[] }[] }>;
   };
   const maps: { id: string; orundum: number }[] = [];
+  /* The three permanent maps (Chernobog, Lungmen Outskirts and Downtown) pay no Orundum: their
+     kill-count rewards are LMD, battle records and certificates. Listed by their Distinction
+     Certificates, so the tracker shows every Annihilation the game has. */
+  const certMaps: { id: string; certs: number }[] = [];
   let total = 0;
   for (const [id, camp] of Object.entries(table.campaigns || {})) {
-    const orundum = (camp.breakLadders ?? [])
-      .flatMap((l) => l.rewards ?? [])
-      .filter((r) => r.id === ORUNDUM)
-      .reduce((n, r) => n + r.count, 0);
-    if (orundum > 0) { maps.push({ id, orundum }); total += orundum; }
+    const rewards = (camp.breakLadders ?? []).flatMap((l) => l.rewards ?? []);
+    const orundum = rewards.filter((r) => r.id === ORUNDUM).reduce((n, r) => n + r.count, 0);
+    const certs = rewards.filter((r) => r.id === DISTINCTION).reduce((n, r) => n + r.count, 0);
+    if (orundum > 0) { maps.push({ id, orundum }); total += orundum; } else if (certs > 0) certMaps.push({ id, certs });
   }
   maps.sort((a, b) => a.id.localeCompare(b.id));
-  return { total, maps };
+  certMaps.sort((a, b) => a.id.localeCompare(b.id));
+  return { total, maps, certMaps };
 }
 
 const events = eventBreakdown();

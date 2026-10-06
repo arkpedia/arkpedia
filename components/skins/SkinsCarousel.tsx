@@ -67,7 +67,7 @@ export default function SkinsCarousel({ skins }: { skins: Skin[] }) {
         return (
         <div className="modal-overlay" onClick={() => setActive(null)}>
           <div className="modal-box skin-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="modal-back-btn" onClick={() => setActive(null)}>
+            <button type="button" className="back-btn" onClick={() => setActive(null)}>
               ‹ Back
             </button>
             <div className="skin-modal-image-wrap-full">

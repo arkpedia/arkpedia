@@ -75,12 +75,26 @@ function whereChips(name: string, short: number, lookup: (name: string) => Sourc
  * on moves the requirement into the answer proper, where the resolver settles
  * that contention highest-tier-first.
  */
+/** How many of a material you hold, with a step either side: the depot grid's stepper
+ *  (DepotGrid), so a count can be corrected where it is read rather than in the depot below. */
+function HaveStepper({ name, have, onChange }: { name: string; have: number; onChange: (name: string, next: number) => void }) {
+  return (
+    <span className="depot-stepper recipe-stepper">
+      <button type="button" aria-label={`One fewer ${name}`} disabled={have <= 0} onClick={() => onChange(name, have - 1)}>&minus;</button>
+      <input type="number" min={0} inputMode="numeric" value={have || ''} placeholder="0" aria-label={`${name} you have`}
+        onChange={(event) => onChange(name, Math.max(0, Math.floor(Number(event.target.value) || 0)))} />
+      <button type="button" aria-label={`One more ${name}`} onClick={() => onChange(name, have + 1)}>+</button>
+    </span>
+  );
+}
+
 function RecipeTree({
   name,
   want,
   depot,
   crafting,
   onCraftingToggle,
+  onDepotChange,
   onClose,
   depth = 0,
 }: {
@@ -90,6 +104,8 @@ function RecipeTree({
   depot: Depot;
   crafting: ReadonlySet<string>;
   onCraftingToggle: (name: string) => void;
+  /** Sets how many of a material the depot holds. */
+  onDepotChange: (name: string, next: number) => void;
   onClose?: () => void;
   depth?: number;
 }) {
@@ -165,7 +181,7 @@ function RecipeTree({
                 <span className="where">
                   {whereChips(r.name, r.short, sourceFor).map((t) => <em key={t.text}>{t.text}</em>)}
                 </span>
-                <span className="have">{r.have} <span>/ {r.need}</span></span>
+                <span className="have"><HaveStepper name={r.name} have={r.have} onChange={onDepotChange} /> <span>/ {r.need}</span></span>
                 {r.short > 0
                   ? <span className="gap">{r.short} short</span>
                   : <span className="status-ok"><i>&#10003;</i>Covered</span>}
@@ -177,6 +193,7 @@ function RecipeTree({
                   depot={depot}
                   crafting={crafting}
                   onCraftingToggle={onCraftingToggle}
+                  onDepotChange={onDepotChange}
                   onClose={() => setOpenIngredient(null)}
                   depth={depth + 1}
                 />
@@ -237,27 +254,38 @@ function NeedCard({
   const { formulaFor, isCraftable, sourceFor } = usePlannerContent();
   const recipe = formulaFor(row.name);
   const declared = crafting.has(row.name);
-  const covered = row.need - row.short;
+  /* Being crafted, the material is no longer something to get: the count is how many the
+     bench will make, and its ingredients are in the list as rows of their own. Its tally is
+     what you hold of it, not what the craft will cover. */
+  const crafted = declared && row.coverage === 'crafting';
+  const covered = crafted ? row.fromDepot : row.need - row.short;
   const pct = row.need > 0 ? Math.round((covered / row.need) * 100) : 100;
   const source = sourceFor(row.name);
+  const head = (
+    <>
+      <MaterialIcon name={row.name} size={34} />
+      <span className="need-card-who">
+        <b>{row.name}</b>
+        <i>{SOURCE_LABELS[source.kind].tag}</i>
+      </span>
+      <span className="need-card-count">
+        <b>{(row.short > 0 ? row.short : crafted ? row.fromCrafting : covered).toLocaleString()}</b>
+        {/* The word, not just the colour: a bare number in amber is one
+            carrier doing the whole job. */}
+        <i>{row.short > 0 ? 'short' : crafted ? 'to craft' : 'have'}</i>
+      </span>
+    </>
+  );
+  /* What the count is FOR, wherever that is not simply "the upgrades": a material a craft
+     draws on says how much goes to which craft, and how much the upgrades ask for besides. */
+  const crafts = Object.entries(row.forCrafts ?? {});
 
   return (
     <div className={`need-card${open ? ' open' : ''}${row.short === 0 ? ' met' : ''}`}>
-      <div className="need-card-top">
-        <MaterialIcon name={row.name} size={34} />
-        <span className="need-card-who">
-          {recipe ? (
-            <b><button type="button" aria-expanded={open} onClick={onOpen}>{row.name}</button></b>
-          ) : <b>{row.name}</b>}
-          <i>{SOURCE_LABELS[source.kind].tag}</i>
-        </span>
-        <span className="need-card-count">
-          <b>{row.short > 0 ? row.short.toLocaleString() : covered.toLocaleString()}</b>
-          {/* The word, not just the colour: a bare number in amber is one
-              carrier doing the whole job. */}
-          <i>{row.short > 0 ? 'short' : declared ? 'crafting' : 'have'}</i>
-        </span>
-      </div>
+      {/* The whole head opens the recipe, not just the name. */}
+      {recipe
+        ? <button type="button" className="btn-bare need-card-top need-card-open" aria-expanded={open} aria-label={`${row.name}: ${open ? 'hide' : 'show'} its recipe`} onClick={onOpen}>{head}</button>
+        : <div className="need-card-top">{head}</div>}
 
       <div className="need-card-bar">
         <span className="meter">
@@ -266,9 +294,16 @@ function NeedCard({
         <span className="need-card-tally">{covered.toLocaleString()}/{row.need.toLocaleString()}</span>
       </div>
 
+      {(crafts.length > 0 || crafted) && (
+        <ul className="need-card-for">
+          {crafted && <li className="is-craft">Crafting {row.fromCrafting.toLocaleString()}: its ingredients are listed as their own cards</li>}
+          {crafts.length > 0 && row.direct > 0 && <li><b>{row.direct.toLocaleString()}</b> for upgrades</li>}
+          {crafts.map(([product, count]) => <li key={product} className="is-craft"><b>{count.toLocaleString()}</b> for crafting {product}</li>)}
+        </ul>
+      )}
+
       <div className="need-card-tags">
         {sourceTags(row.name, row.short, sourceFor).map((t) => <em key={t.text}>{t.text}</em>)}
-        {row.viaCrafting && <em>for a craft above</em>}
         {recipe && isCraftable(row.name) ? (
           /* Whether to craft this one is on or off, so it is a checkbox (ui-primitives
              rule 3): it was a button drawing its own tick box, in a --line border
@@ -276,8 +311,8 @@ function NeedCard({
           <label
             className="check need-card-craft"
             title={declared
-              ? `Stop crafting ${row.name} — the answer will ask for it directly again`
-              : `Craft ${row.name} instead of farming it: ${recipe.costs.filter((c) => c.name !== 'LMD').map((c) => `${c.count}x ${c.name}`).join(' + ')}`}
+              ? `Stop crafting ${row.name}: its ingredients leave the list, and it is asked for directly again`
+              : `Craft ${row.name}: add what it is made of (${recipe.costs.filter((c) => c.name !== 'LMD').map((c) => `${c.count}x ${c.name}`).join(' + ')}) to the list, to see whether you have it`}
           >
             <input type="checkbox" checked={declared} aria-label={`Craft ${row.name}`} onChange={() => onCraftingToggle(row.name)} />
             Craft
@@ -347,8 +382,7 @@ export function ShortfallList({
   depot,
   crafting,
   onCraftingToggle,
-  autoCraft,
-  onAutoCraft,
+  onDepotChange,
   showAll,
   onShowAll,
   exp,
@@ -360,8 +394,8 @@ export function ShortfallList({
   depot: Depot;
   crafting: ReadonlySet<string>;
   onCraftingToggle: (name: string) => void;
-  autoCraft: boolean;
-  onAutoCraft: (next: boolean) => void;
+  /** Sets how many of a material the depot holds (the open recipe's steppers). */
+  onDepotChange: (name: string, next: number) => void;
   /** Whether the covered materials are shown alongside the short ones. */
   showAll: boolean;
   onShowAll: (next: boolean) => void;
@@ -380,7 +414,11 @@ export function ShortfallList({
 
   const rows = resolution.rows;
   const shortRows = useMemo(() => rows.filter((r) => r.short > 0), [rows]);
-  const shown = showAll ? rows : shortRows;
+  /* Missing shows what is short and what the reader set to craft: a crafted material is no
+     longer short (its ingredients carry the shortfall), and dropping its card would take its
+     Craft box away from the one view the reader ticked it in. */
+  const missingRows = useMemo(() => rows.filter((r) => r.short > 0 || r.coverage === 'crafting'), [rows]);
+  const shown = showAll ? rows : missingRows;
 
   /* EXP is not held, records are: priced at the values in item_table.expItems,
      which is the same table the greedy split spends. */
@@ -419,51 +457,17 @@ export function ShortfallList({
           </span>
         </span>
         <span className="plan-panel-acts planner-need-acts">
-          {/**
-           * TWO controls, not three options.
-           *
-           * All three used to share one `.tabs` strip, because the reference
-           * screen drew them that way -- and a segmented strip says "these are
-           * the choices, pick one". They are not: the first two are one
-           * exclusive question (does the workbench count, which CHANGES THE
-           * NUMBERS) and the third is an independent view switch (how much of
-           * the answer to show, which changes nothing). With the third pressed,
-           * two of the three read as selected at once, and switching the first
-           * two stopped changing the LENGTH of the list -- so the only feedback
-           * left was one digit in the heading. Reported as "the other 2 don't do
-           * anything ... feels like it is broken", and they do work: with all
-           * fourteen showing, Raw only moves the heading from 13 short to 14 and
-           * turns another card amber. It was the control that lied, not the code.
-           *
-           * So the exclusive pair keeps the segmented strip, and the view switch
-           * is a `.filter-chip` -- the site's own idiom for a toggle that stands
-           * on its own -- beside it. Its own control, not a third segment, but in
-           * the same row at the row's one gap and the chip's own size: set 18px
-           * apart, taller, in a smaller label, it read as a control from somewhere
-           * else (2026-09-27).
-           */}
-          <SegmentedControl<'craft' | 'raw'>
-            label="Whether the Workshop counts"
-            className="planner-need-mode"
-            value={autoCraft ? 'craft' : 'raw'}
-            onChange={(mode) => onAutoCraft(mode === 'craft')}
-            options={[{ value: 'craft', label: 'Craft what I can' }, { value: 'raw', label: 'Raw only' }]}
-          />
-          {/* Nothing planned means nothing to show all OF -- "Show all 0" is a
-              control that cannot do anything, which is the thing this strip was
-              just fixed for. */}
+          {/* Two views of one answer (2026-10-03): what is still missing, and everything the plan
+              asks for. The list counts raw materials only; the Workshop enters it one material
+              at a time, through that material's Craft, which adds what it is made of. */}
           {rows.length > 0 && (
-          <button
-            type="button"
-            className={`filter-chip planner-need-showall${showAll ? ' active' : ''}`}
-            aria-pressed={showAll}
-            title={showAll
-              ? `Showing all ${rows.length} materials the plan asks for`
-              : `Show all ${rows.length} materials, not only the ${shortRows.length} you are short of`}
-            onClick={() => onShowAll(!showAll)}
-          >
-            Show all {rows.length}
-          </button>
+            <SegmentedControl<'missing' | 'all'>
+              label="Which materials to show"
+              className="planner-need-mode"
+              value={showAll ? 'all' : 'missing'}
+              onChange={(view) => onShowAll(view === 'all')}
+              options={[{ value: 'missing', label: 'Missing', count: missingRows.length }, { value: 'all', label: 'All', count: rows.length }]}
+            />
           )}
         </span>
       </div>
@@ -512,6 +516,7 @@ export function ShortfallList({
             depot={depot}
             crafting={crafting}
             onCraftingToggle={onCraftingToggle}
+            onDepotChange={onDepotChange}
             onClose={() => setOpenName(null)}
           />
         )}

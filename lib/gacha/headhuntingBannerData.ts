@@ -1,5 +1,6 @@
 import bannersData from '@/data/headhunting_banners.json';
 import { publishedArt } from '@/lib/art/publishedArt';
+import { waitsForGlobal } from './bannerSchedule';
 import { sortBannersByDate, type HeadhuntingBanner } from './headhuntingBanners';
 
 /*
@@ -16,7 +17,12 @@ import { sortBannersByDate, type HeadhuntingBanner } from './headhuntingBanners'
 // banners from: null while the image repository has not published the art (a
 // banner can go out before it) -- see lib/art/publishedArt.ts. Safe at this
 // layer: every banner_image consumer feeds it to <Image>, none resolves it on disk.
-const ALL_BANNERS = (bannersData as HeadhuntingBanner[]).map((b) => ({
+//
+// A Joint Operation or an Orienteering Global has not dated is left out here, for every page
+// at once (waitsForGlobal): its lineup, dates and art are CN's, and Global offers other
+// operators. The record stays in the data, and appears once Global dates it -- with Global's
+// lineup, as every Global-dated one so far has had (checked against Global's announcements).
+const ALL_BANNERS = (bannersData as HeadhuntingBanner[]).filter((b) => !waitsForGlobal(b)).map((b) => ({
   ...b,
   banner_image: publishedArt(b.banner_image),
 }));

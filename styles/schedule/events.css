@@ -89,18 +89,15 @@
 }
 
 /* --- Event detail page ---
-   PageHeader, then the event's art on the left and one section at a time on the
-   right, switched by a SegmentedControl. */
+   PageHeader, then the event's art across the top, then one section at a time below
+   it at the page's full width (.event-detail-right, named from when it was a column
+   beside the art), switched by components/ui/Tabs. */
 .event-detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
 }
-.event-detail-carousel {
-  position: sticky;
-  top: 20px;
-}
+.event-detail-carousel { width: 100%; }
 /* Sized from the art (the page passes the ratio: 1024/328 for a poster, 16/9 for a
    CG set); this default is the poster's, for a release exported before it did. */
 .event-detail-image-wrap {
@@ -138,9 +135,11 @@
   min-width: 0;
 }
 .event-detail-tabs { margin-bottom: 16px; }
+/* The banner's own art, in its tab: kept to a card's size now the sections span the page. */
 .event-detail-banner-art-wrap {
   position: relative;
   width: 100%;
+  max-width: 640px;
   aspect-ratio: 1024 / 328;
   border-radius: var(--radius);
   overflow: hidden;
@@ -192,17 +191,11 @@
 .event-detail-skin-item:hover { border-color: var(--teal); color: var(--teal); }
 .event-detail-skin-item img { border-radius: var(--radius); }
 
-@media (max-width: 900px) {
-  .event-detail-layout {
-    grid-template-columns: 1fr;
-  }
-  .event-detail-carousel {
-    position: static;
-  }
-}
 
-/* Rewards: the store picker is components/ui/Tabs; All is a wrapping row of totals,
-   each with its name under the icon. */
+/* Rewards: the tab picker is components/ui/Tabs. All is the reward card
+   (components/events/RewardSummary.tsx, .reward-summary). The wrapping row of tiles
+   below, each with its name under the icon (components/events/RewardTile.tsx), is All
+   for a release compiled before the card, and a pack's contents in the Packs tab. */
 .event-rewards-tabs { margin-bottom: 14px; }
 .event-reward-totals {
   display: grid;
@@ -261,9 +254,7 @@
 }
 /* The quantity over the corner of the icon it counts. Neither of these two had a
    rule, so "x3" sat as plain inline text after a 40px image -- the wrap existed to
-   position it and did not. Not seen in a browser at the time of writing: no event
-   currently in the dataset carries a reward store with quantities, so this is built
-   from the two names and the panel they sit in. */
+   position it and did not. */
 .event-reward-icon-wrap {
   position: relative;
   flex-shrink: 0;
@@ -319,3 +310,78 @@
 
 /* No resting frame on skin tiles (maintainer, 2026-09-26); focus matches hover. */
 .event-detail-skin-item:focus-visible { border-color: var(--teal); }
+
+/* Packs, furniture sets and announced gifts (components/events/EventExtras.tsx). */
+.event-extras { display: flex; flex-direction: column; gap: 14px; }
+.event-extras-group { display: flex; flex-direction: column; gap: 12px; }
+.event-pack, .event-furniture-set, .event-notice {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 12px;
+}
+.event-pack h3, .event-furniture-set h3, .event-notice h3 { margin: 0 0 8px; }
+.event-pack-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.event-pack-window { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.event-notice p { margin: 0 0 6px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.event-furniture-pieces { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }
+.event-furniture-pieces li { display: flex; flex-direction: column; min-width: 0; padding: 4px 0; border-bottom: 1px solid var(--line-soft); }
+.event-furniture-piece-name { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.event-furniture-piece-meta { font-size: 11px; color: var(--text-dim); overflow-wrap: anywhere; }
+
+/* All: the free rewards as one shareable card (components/events/RewardSummary.tsx). A card per
+   kind, its label over its tiles and as wide as they need; the cards wrap side by side and
+   share out what is left of a line (2026-10-05: a full-width row per kind left most of each
+   row empty). A kind with more tiles than a line holds takes the line and wraps them. */
+.reward-summary { display: flex; flex-direction: column; gap: 12px; }
+.reward-summary-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.reward-summary-buttons { display: flex; gap: 8px; }
+.reward-summary-table { display: flex; flex-wrap: wrap; gap: 6px; }
+.reward-summary-row {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+.reward-summary-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Compact: an icon and its count, the name on hover and for screen readers (2026-10-04). An item
+   with no icon shows its name in the icon's place, so no tile is a blank square. */
+.reward-summary-items { display: flex; flex-wrap: wrap; gap: 4px; }
+.reward-summary-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 56px;
+  padding: 5px 4px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.reward-summary-tile img { width: 40px; height: 40px; object-fit: contain; }
+.reward-summary-tile-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 40px;
+  font-size: 9px;
+  line-height: 1.15;
+  color: var(--text-dim);
+  text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+/* At most three lines, cut with an ellipsis, so a long name is read from its start. */
+.reward-summary-tile-name > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.reward-summary-tile b { font-family: var(--font-mono); font-size: 11px; color: var(--amber); }
+.event-reward-note { margin: 0 0 10px; }
+/* A tab with several blocks (two sign-ins, two stores): each under its name. */
+.event-reward-block + .event-reward-block { margin-top: 14px; }
+.event-reward-block-title { margin: 0 0 8px; }

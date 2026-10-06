@@ -1,4 +1,4 @@
-import { SkillTechnique } from '../operators/operatorTypes';
+import type { Operator, Skill, SkillTechnique, Talent } from '../operators/operatorTypes';
 
 /** Each rule scans skill/talent description text for any of its
  * keywords, and if found (within the given rarity range), generates a
@@ -214,6 +214,15 @@ function findStatMinusNumber(originalText: string, statWord: string): { statMatc
   }
   const rm = reversedPattern.exec(originalText);
   if (rm) return { statMatch: rm[2], numberMatch: rm[1] };
+  // The game's own module text often carries no minus sign at all: "Attacks reduce the
+  // target's RES by 24%" (Haze CCR-X). A lowering verb, then the stat directly followed by
+  // "by" and the number, in one clause. The verb in either case ("Reduces ..." opens a
+  // sentence); the stat word keeps the rigid case `flags` gives it.
+  const verbPattern = new RegExp(`\\b(?:[Rr]educes?|[Rr]educing|[Ll]owers?|[Ll]owering|[Dd]ecreases?|[Dd]ecreasing)\\b([^.;]*?)\\b(${escaped})\\s+by\\s+(\\d+(?:\\.\\d+)?%?)`, flags);
+  let vm: RegExpExecArray | null;
+  while ((vm = verbPattern.exec(originalText))) {
+    if (!isInterfered(vm[1])) return { statMatch: vm[2], numberMatch: vm[3] };
+  }
   return null;
 }
 
@@ -383,6 +392,8 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   },
   {
     keywords: ['slow'],
+    // "Ammo will be slowly reloaded" (every Hunter's trait) is not the Slow status.
+    excludeWords: ['slowly'],
     name: 'Slow',
     description: 'Reduce the movement speed of the enemies by 80% (does not reduce further with other slow applications, but can add to the slow time. Can stack with movement speed down applications).',
     minRarity: 1,
@@ -399,6 +410,29 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     showBranchIcon: true,
     name: 'Self-Sustain',
     description: 'Recovers HP on their own without the use of other healers.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    /* Every way the game says an operator takes an enemy's Invisibility away or hits it
+       anyway, from its own tables (2026-10-03 sweep): "Reveals Invisible enemies within
+       range" (SilverAsh's talent, the Sentry Protectors' SPT-X), "reveals Invisible enemies"
+       (Tsukinogi), "will reveal Invisible enemies" (Scene's Buggy Cams), "lose Invisibility"
+       (Ines, Mantra, Elysium), "removes their/enemies' Invisibility" (SilverAsh the
+       Reignfrost), "nullifies ... Invisibility" (Iana), "disabling enemy Invisibility" (Horn)
+       and "Can attack Invisible enemies" (Totter). An operator's OWN Invisibility ("removes
+       Invisibility" on its first attack, Manticore) is not this, so that clause is cut out. */
+    requireAllOf: [
+      ['reveal', 'reveals', 'lose', 'loses', 'removes', 'remove', 'nullifies', 'nullify', 'disabling', 'disables', 'disable', 'can attack'],
+      ['invisible', 'invisibility'],
+    ],
+    requireOrdered: true,
+    maxGap: 40,
+    excludePatterns: [/\band removes invisibility\b/g],
+    /* The same name and words as the hand-written technique on nine operators' records, so
+       what the rule finds joins that group instead of starting a second one beside it. */
+    name: 'Reveal Invisibility',
+    description: 'Reveals hidden enemies when in range',
     minRarity: 1,
     maxRarity: 6,
   },
@@ -670,7 +704,9 @@ export function detectAutoTechniqueMatches(
   operatorName: string | null,
   branch?: string | null,
   operatorClass?: string | null,
-  isTalent?: boolean
+  /* True for any text that is not a skill's -- talents, traits, module stages: rules marked
+     skillsOnly (Ammo-based Skills: a skill with a set number of uses) then never match. */
+  skipSkillsOnlyRules?: boolean
 ): AutoTechniqueMatch[] {
   if (rarity === null) return [];
   const rawTexts = texts.filter((t): t is string => !!t);
@@ -689,7 +725,7 @@ export function detectAutoTechniqueMatches(
   const matches: AutoTechniqueMatch[] = [];
   for (const rule of AUTO_TECHNIQUE_RULES) {
     if (rarity < rule.minRarity || rarity > rule.maxRarity) continue;
-    if (isTalent && rule.skillsOnly) continue;
+    if (skipSkillsOnlyRules && rule.skillsOnly) continue;
     if (operatorName && rule.excludeOperators?.includes(operatorName)) continue;
     if (branch && rule.excludeBranches?.includes(branch)) continue;
     if (operatorClass && rule.excludeClasses?.includes(operatorClass)) continue;
@@ -793,7 +829,30 @@ export function detectAutoTechniques(
   operatorName: string | null,
   branch?: string | null,
   operatorClass?: string | null,
-  isTalent?: boolean
+  skipSkillsOnlyRules?: boolean
 ): SkillTechnique[] {
-  return detectAutoTechniqueMatches(rarity, texts, operatorName, branch, operatorClass, isTalent).map(({ name, description }) => ({ name, description }));
+  return detectAutoTechniqueMatches(rarity, texts, operatorName, branch, operatorClass, skipSkillsOnlyRules).map(({ name, description }) => ({ name, description }));
+}
+
+/** A record's hand-written techniques, then each auto-detected one it does not already name.
+ * The record's entry wins: it carries the editor's own description (and unit, branch or group),
+ * and listing a rule's match beside it put "Reveal Invisibility" twice on 15 operator pages
+ * (Elysium, Iana, both SilverAshes, ...) after #169 removed the doubles from the Techniques page
+ * only. Every list of a skill's or talent's techniques goes through this. */
+export function mergeTechniques<M extends SkillTechnique, A extends SkillTechnique>(manual: M[] | null | undefined, auto: A[]): (M | A)[] {
+  const listed = manual ?? [];
+  const named = new Set(listed.map((technique) => technique.name).filter((name): name is string => !!name));
+  return [...listed, ...auto.filter((technique) => !(technique.name && named.has(technique.name)))];
+}
+
+type TechniqueOwner = Pick<Operator, 'rarity' | 'name' | 'branch' | 'class'>;
+
+/** What the operator page lists under a skill: its own techniques and every rule its levels match. */
+export function skillTechniques(operator: TechniqueOwner, skill: Pick<Skill, 'techniques' | 'levels'>): SkillTechnique[] {
+  return mergeTechniques(skill.techniques, detectAutoTechniques(operator.rarity, skill.levels.map((level) => level.description), operator.name, operator.branch, operator.class));
+}
+
+/** What the operator page lists under a talent, read as talent text (no skills-only rules). */
+export function talentTechniques(operator: TechniqueOwner, talent: Pick<Talent, 'technique' | 'rows'>): SkillTechnique[] {
+  return mergeTechniques(talent.technique, detectAutoTechniques(operator.rarity, talent.rows.map((row) => row.description), operator.name, operator.branch, operator.class, true));
 }

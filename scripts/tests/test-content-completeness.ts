@@ -70,7 +70,7 @@ test('a missing record or picture quarantines that one record and blocks nothing
     [(c: any) => { c.skins = []; }, 'skin:char_9990_test@test#1', 'omitted-new', /CN outfit missing: char_9990_test@test#1/],
     [(c: any) => { c.skins[0].model = 'Nobody'; }, 'skin:char_9990_test@test#1', 'published-partial', /Outfit operator missing: Nobody/],
     [(c: any) => { c.events = []; }, 'event:act99side', 'omitted-new', /Discovered event missing: Test Event/],
-    [(c: any) => { c.assets.delete('material-icons/Test Token.webp'); }, 'event:act99side', 'published-partial', /Test Event reward Test Token: missing asset material-icons\/Test Token\.webp/],
+    [(c: any) => { c.assets.delete('material-icons/Test Token.webp'); }, 'event:act99side', 'published-partial', /^Test Event: 1 reward icon not published: material-icons\/Test Token\.webp$/],
     [(c: any) => { c.banners = []; }, 'banner:LINKAGE_99_0_1', 'omitted-new', /Discovered banner missing: Test Banner/],
     [(c: any) => { c.banners[0].six_stars = ['Unknown Operator']; }, 'banner:LINKAGE_99_0_1', 'published-partial', /Banner operator missing: Test Banner \/ Unknown Operator/],
     [(c: any) => { c.assets.delete('headhunting-banner-images/Test Banner.webp'); }, 'banner:LINKAGE_99_0_1', 'published-partial', /Test Banner: missing asset headhunting-banner-images\/Test Banner\.webp/],
@@ -214,8 +214,9 @@ test('quarantine entries follow the shared file format and keep their first day'
 /* A data tree holding only what the enemy checks read: a listed stage fielding two
    enemies, and an unlisted stage fielding a third that nothing needs. `edit` takes away
    whatever a case is about before the release gate runs on the tree; `baseline` records
-   the counts the release job takes right after loading the data, before the edit. */
-function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: string }[]; index: string[]; icons: string[] }) => void, baseline = false, env: Record<string, string> = {}) {
+   the counts the release job takes right after loading the data, before the edit; `omit` names
+   files the loaded data does not have. */
+function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: string }[]; index: string[]; icons: string[] }) => void, baseline = false, env: Record<string, string> = {}, omit: string[] = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-completeness-'));
   try {
     const tree = {
@@ -224,6 +225,7 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
       icons: ['enemies-icons/Slug A.webp', 'enemies-icons/Slug B.webp'],
     };
     const write = (file: string, data: unknown) => {
+      if (omit.includes(file)) return;
       fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
       fs.writeFileSync(path.join(root, file), JSON.stringify(data));
     };
@@ -235,6 +237,8 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
       write('public/enemies-index.json', tree.index.map(slug => ({ slug })));
     };
     for (const file of ['data/skins.json', 'data/headhunting_banners.json', 'data/content-bundles.json', 'data/events/events_2026.json']) write(file, []);
+    write('data/event-stores.json', { events: {} });
+    write('data/event-rewards.json', { events: {} });
     write('data/content-inventory.json', { operators: [], skins: [] });
     write('data/skin-availability-windows.json', { entries: [] });
     write('data/material-catalogue.json', { version: 1, order: ['EXP'], groups: [], items: {} });
@@ -254,6 +258,14 @@ function enemyGate(edit: (tree: { records: { slug: string; name: string; icon: s
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
+test('the baseline is recorded on loaded data the event stages have not written yet, and the review still needs it', () => {
+  // A dev run loads data main, which has no event-stores.json or event-rewards.json until a run of
+  // this code has published them; the baseline step (asserted inside enemyGate) must not stop it.
+  const run = enemyGate(() => {}, true, {}, ['data/event-stores.json', 'data/event-rewards.json']);
+  assert.notEqual(run.status, 0);
+  assert.match(run.output, /needs the event stores \(data\/event-stores\.json\)/);
+});
+
 test('a stage enemy with no record, grid row or icon is quarantined, and the release still goes out', () => {
   const complete = enemyGate(() => {});
   assert.equal(complete.status, 0, complete.output);
@@ -382,4 +394,32 @@ test('a new runtime CN record can use published portrait art without a website r
   // The server marks a record whose portrait the release's asset index lacks; the browser
   // shows the image repository's placeholder, never a path with no file behind it.
   assert.equal(getOperatorIconPath({name:'Unverified placeholder',rarity:6,portraitPending:true}),OPERATOR_PORTRAIT_PLACEHOLDER);
+});
+
+test('a released operator\'s missing skill icon is the icon coverage audit\'s hold, not a second one here', () => {
+  // check-icon-coverage.ts holds it (stage 'icons', isOperatorReleased, the pages' path rules);
+  // a second 'operator:<id>' entry here once came with its own path rule and its own release test.
+  const op = Object.assign(structuredClone(operatorFixture.operator), { name: 'Icon Test', internalName: 'char_9992_icon',
+    baseSkills: [{ name: 'Pharmacology α', facility: 'Workshop', eliteLevel: 'Base', description: 'x' }] });
+  assert.deepEqual(holds(emptyCatalogue({ operators: [op] })).filter(h => /skill-icons/.test(h.reason)), []);
+});
+
+test('a Joint Operation or an Orienteering Global does not have yet holds nothing: it is shown nowhere', () => {
+  const banner = (extra: object) => ({ name: 'Orienteering #8', pull_type: 'orienteering', cnPoolId: 'SPECIAL_77_0_4', six_stars: ['Unknown Operator'], banner_image: '/headhunting-banner-images/Orienteering 8.webp', ...extra });
+  const keys = (extra: object) => {
+    const catalogue = collaboration();
+    (catalogue as any).banners.push(banner(extra));
+    return holds(catalogue).filter(entry => entry.key === 'banner:SPECIAL_77_0_4').map(entry => entry.reason);
+  };
+  // Its art is Global's upload only, and its lineup is not shown: neither is held.
+  assert.deepEqual(keys({}), []);
+  assert.deepEqual(keys({ global_date: '2026/10/18–2026/11/01' }), [], 'a forecast Global date is not Global\'s');
+  // Once Global's client carries it, it is a banner like any other.
+  assert.equal(keys({ globalPoolId: 'SPECIAL_EN_42_0_1' }).length, 2);
+});
+
+test('/schedule\'s banner table and its event panel leave out what waits for Global, like every page', () => {
+  const source = fs.readFileSync('pages/schedule.tsx', 'utf8');
+  assert.match(source, /headhunting_banners: async \(\) => \(\(await import\('@\/data\/headhunting_banners\.json'\)\)\.default as HeadhuntingBanner\[\]\)\.filter\(\(banner\) => !waitsForGlobal\(banner\)\)/);
+  assert.match(source, /getBannerForEvent\(displayEvent\.name, confirmedGlobalRange\(displayEvent\.global\), banners\.filter\(\(banner\) => !waitsForGlobal\(banner\)\)\)/);
 });

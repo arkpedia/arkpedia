@@ -14,6 +14,7 @@ import RoundFeedback from '@/components/minigames/RoundFeedback';
 import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteCatalogue } from '@/lib/minigames/data';
 import { newProgress, PaletteMode, PaletteOperator, pickNext, playablePalettes, submitAnswer } from '@/lib/minigames/logic';
 import styles from '@/styles/games/minigames.module.css';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 /** `now` is the request's clock (contentPageClock); who is released follows from it. */
 interface Props { operators: PaletteOperator[]; now: number }
@@ -102,7 +103,7 @@ export default function PaletteGame({ operators: catalogue, now }: Props) {
         </> : <>
           <div className={styles.reveal}>
             <Image className={styles.artwork} src={encodeURI(artwork.image)} alt={`${target.name} — ${modeLabel}`} width={500} height={500} sizes="(max-width: 600px) 90vw, 440px" />
-            <div className={styles.revealText}><h2>{target.name}</h2><p className={styles.muted}>{progress.status === 'won' ? `Found in ${progress.wrong.length + 1} ${progress.wrong.length ? 'guesses' : 'guess'}.` : progress.status === 'lost' ? 'No guesses left. Try another palette.' : 'Compare the colors with the original artwork.'} {hintsUsed ? `${hintsUsed} ${hintsUsed === 1 ? 'hint' : 'hints'} used.` : 'No hints used.'}</p><Link href={`/operators/${encodeURIComponent(target.name)}`} prefetch={false} className="btn">View operator</Link></div>
+            <div className={styles.revealText}><h2>{target.name}</h2><p className={styles.muted}>{progress.status === 'won' ? `Found in ${progress.wrong.length + 1} ${progress.wrong.length ? 'guesses' : 'guess'}.` : progress.status === 'lost' ? 'No guesses left. Try another palette.' : 'Compare the colors with the original artwork.'} {hintsUsed ? `${hintsUsed} ${hintsUsed === 1 ? 'hint' : 'hints'} used.` : 'No hints used.'}</p><Link href={operatorHref(target.name, null)} prefetch={false} className="btn">View operator</Link></div>
           </div>
           <div className={styles.actions}><button type="button" className="primary" onClick={startRound}>Next palette</button><button type="button" className="ghost" onClick={changeMode}>Change mode</button></div>
         </>}

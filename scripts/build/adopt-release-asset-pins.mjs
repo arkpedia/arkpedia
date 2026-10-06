@@ -38,6 +38,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { contentPointer } from '../content/channel.mjs';
+import { readChannelPointer } from '../../lib/content/pointer.mjs';
 
 export const REVISIONS = 'data/assets/revisions.json';
 const DEFAULT_ORIGIN = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data';
@@ -54,28 +56,40 @@ export function contentOrigin(env = process.env) {
   return value.replace(/\/+$/, '');
 }
 
+/** One URL's bytes. A failed answer throws with its HTTP `status` on the error: a missing channel
+ *  pointer (404) falls back to live's (lib/content/pointer.mjs). A 404 is an answer, not a fault,
+ *  so it is thrown at once, as the release gate takes one (readBuildInfo, deploy-gate.mjs): retried,
+ *  every build of a channel with no pointer yet asked twice more for a branch that is not there
+ *  before it fell back. Anything else -- another status, a timeout, a reset -- is tried again. */
 async function get(fetch, url, attempts = 3) {
   let last;
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    let response;
     try {
-      const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(20_000) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
-      return Buffer.from(await response.arrayBuffer());
+      response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(20_000) });
+      if (response.ok) return Buffer.from(await response.arrayBuffer());
     } catch (error) {
       last = error;
+      continue;
     }
+    last = Object.assign(new Error(`HTTP ${response.status}: ${url}`), { status: response.status });
+    if (response.status === 404) throw last;
   }
   throw last;
 }
 
-/** The live release's asset pins, read the way loadRelease reads the release: the pointer,
- *  then the manifest it names, checked against the pointer's digest. */
-export async function readLiveAssetPins({ origin, fetch = globalThis.fetch }) {
-  const pointer = JSON.parse((await get(fetch, `${origin}/live/current.json`)).toString());
+/** The live release's asset pins, read the way loadRelease reads the release: the channel's
+ *  pointer (live's while the channel has none, lib/content/pointer.mjs), then the manifest it
+ *  names, checked against the pointer's digest. `pointerBranch` is required: the deployment's
+ *  channel, contentPointer(env), which no default here can know. */
+export async function readLiveAssetPins({ origin, pointerBranch, fetch = globalThis.fetch }) {
+  if (typeof pointerBranch !== 'string' || !pointerBranch) throw new Error('readLiveAssetPins needs the pointer branch the deployment reads (contentPointer(env))');
+  const read = url => get(fetch, url);
+  const pointer = JSON.parse((await readChannelPointer({ root: origin, channel: pointerBranch, read, warn: message => console.warn(`[asset-pins] ${message}`) })).toString());
   if (!HEX64.test(pointer?.release ?? '') || !GIT_SHA.test(pointer?.revision ?? '') || !HEX64.test(pointer?.manifestSha256 ?? '')) {
     throw new Error('The live pointer names no release, revision and manifest digest');
   }
-  const bytes = await get(fetch, `${origin}/${pointer.revision}/release/manifest.json`);
+  const bytes = await read(`${origin}/${pointer.revision}/release/manifest.json`);
   if (createHash('sha256').update(bytes).digest('hex') !== pointer.manifestSha256) throw new Error('The live manifest does not match its pointer');
   const assets = JSON.parse(bytes.toString()).assets;
   if (!assets || typeof assets !== 'object' || !Object.values(assets).every(pin => GIT_SHA.test(String(pin)))) {
@@ -140,7 +154,7 @@ export async function adoptReleaseAssetPins({ root = process.cwd(), env = proces
   const flag = message => warn(env.GITHUB_ACTIONS === 'true' ? `::warning title=Asset pins not adopted::${message}` : `[asset-pins] warning: ${message}`);
   let live;
   try {
-    live = await readLiveAssetPins({ origin: contentOrigin(env), fetch });
+    live = await readLiveAssetPins({ origin: contentOrigin(env), pointerBranch: contentPointer(env), fetch });
   } catch (error) {
     const message = `Cannot read the live content release (${error instanceof Error ? error.message : error}); building with the committed asset pins. Deploy's asset-link check goes red if they lag the release.`;
     flag(message);

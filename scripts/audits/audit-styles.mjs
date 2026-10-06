@@ -74,6 +74,11 @@
  *                  element, or a class TSX puts on a <textarea>) is held to it only at a
  *                  row control's height (20-56px): a multi-line field is taller than any
  *                  row, the way a boxed card is
+ *   primitiveLayout  a row-control primitive (.filter-chip, .tgl, .ghost, .back-btn...)
+ *                  that no styles/core rule gives var(--control-h), or whose own rule
+ *                  (the class alone, no context) carries a margin, align-self or
+ *                  justify-self: the primitive draws the control, its placements place it.
+ *                  .back-btn shipped with both, off-height and off-centre in control rows
  *   xButton        (r10 x-buttons) a close or remove × drawn as its own button: a
  *                  <button>, or any element with an onClick, whose whole content is a ×
  *                  glyph (×, ✕, ✖, x, &times;, &#10005;, a quoted one, one chosen by a
@@ -257,7 +262,7 @@ const h1Subject = (selector) => /^h1(?=$|[.:#[])/.test(selector.trim().split(/\s
    StyledSelect trigger, number inputs), and no page states a height of its own on a
    control. A page that needs a control taller or shorter than its row is the finding. */
 /** The primitive classes that are controls wherever they appear. */
-const CONTROL_PRIMITIVES = new Set(['filter-chip', 'tgl', 'ghost', 'primary', 'danger', 'btn', 'btn-sm', 'btn-icon', 'search-input', /* r10 x-buttons */ 'btn-x', 'btn-x-dense']);
+const CONTROL_PRIMITIVES = new Set(['filter-chip', 'tgl', 'ghost', 'primary', 'danger', 'btn', 'btn-sm', 'btn-icon', 'search-input', /* r10 x-buttons */ 'btn-x', 'btn-x-dense', /* every Back (2026-10-05) */ 'back-btn']);
 /** Elements that are controls. An input is one unless it is a box, a slider or hidden.
  *  A <summary> is left out: it is a disclosure row heading a section, not a boxed row
  *  control (the row census in tests/browser measures one that sits beside controls). */
@@ -451,6 +456,43 @@ function controlHeights(cssFiles, controls, boxedBare, textareas) {
     ...found.filter((f) => !CONTROL_HEIGHT_EXEMPT.some(([match]) => match.test(f))),
     ...stale.map(([match, why]) => `stale CONTROL_HEIGHT_EXEMPT entry ${match} (${why}): it matches nothing, delete it`),
   ];
+}
+/* ---- primitiveLayout (2026-10-05) -----------------------------------------------
+   A row control's primitive is its look and the one control height, and nothing about
+   where it sits. .back-btn replaced .ghost in control rows with neither: no min-height
+   (34px beside 36px controls) and an align-self: flex-start that lifted it off the centre
+   line of every row it sat in, plus a margin-bottom four placements cancelled with
+   one-off classes. A placement that needs room or alignment says so with a selector of its
+   own (.modal-box > .back-btn), which this leaves alone. */
+/** The primitives that are row controls: all of them but a base or .primary button, which
+ *  stays 44px as a standalone call to action and takes .btn-sm in a row. */
+const ROW_PRIMITIVES = [...CONTROL_PRIMITIVES].filter((c) => c !== 'primary' && c !== 'btn');
+/** Outer layout: what places a box among its siblings rather than drawing it. */
+const OUTER_LAYOUT = /^(?:margin(?:-[a-z-]+)?|align-self|justify-self|place-self)$/;
+function primitiveLayouts(cssFiles) {
+  const core = cssFiles.filter((path) => path.startsWith(join('styles', 'core') + '/'));
+  const sized = new Set();
+  const found = [];
+  for (const path of core) {
+    for (const { selector, body } of rules(stripComments(readFileSync(join(root, path), 'utf8')))) {
+      const decls = declarations(body);
+      for (const part of selector.split(/,(?![^(]*\))/)) {
+        const compounds = part.trim().split(/\s*[\s>+~]\s*(?![^(]*\))/);
+        const subject = compounds[compounds.length - 1];
+        if (subject.includes('::')) continue;
+        const classes = classesOf(subject.replace(/:(?:not|is|where|has)\([^)]*\)/g, ''));
+        for (const name of ROW_PRIMITIVES.filter((c) => classes.includes(c))) {
+          if (decls.some((d) => /^(?:min-)?(?:height|block-size)$/.test(d.prop) && /var\(\s*--control-h\b/.test(d.value))) sized.add(name);
+          // The primitive's own rule: the selector is the primitive alone (a state on it
+          // included), with no ancestor or sibling to say which placement it means.
+          if (compounds.length > 1) continue;
+          for (const d of decls) if (OUTER_LAYOUT.test(d.prop)) found.push(`${path}: ${part.trim()} { ${d.prop}: ${d.value} }`);
+        }
+      }
+    }
+  }
+  for (const name of ROW_PRIMITIVES) if (!sized.has(name)) found.push(`.${name}: no rule in styles/core gives it var(--control-h)`);
+  return found;
 }
 /* ---- end controlHeight and round radii ------------------------------------------- */
 /* --- end r9 headingRules constants ---------------------------------------------------- */
@@ -694,6 +736,7 @@ function collect() {
   Object.assign(out, collectMotion(root)); // r11 quiet polish: motionScope
   // controlHeight (r9 controls)
   out.controlHeight = controlHeights(cssFiles, controlClasses(tsxFiles), boxedClasses(cssFiles, bareButtonClasses(tsxFiles)), textareaClasses(tsxFiles));
+  out.primitiveLayout = primitiveLayouts(cssFiles);
 
   out.collisions = [...owners.entries()]
     .filter(([, fs]) => fs.size > 1)
@@ -726,6 +769,8 @@ const STRICT = ['rawHex', 'rarityLiteral', 'oldTeal', 'pills', 'h1Rules', 'fontW
 // controlHeight (r9 controls)
 LABELS.controlHeight = 'a literal height or min-height on a control outside styles/core, or on a primitive inside it -- controls take var(--control-h) from the primitives (.btn-sm for a base or primary button in a row, .btn-icon for a square icon button); a control that is not a row control goes in CONTROL_HEIGHT_EXEMPT with its reason';
 STRICT.push('controlHeight');
+LABELS.primitiveLayout = 'a row-control primitive (CONTROL_PRIMITIVES but .primary and .btn) with no var(--control-h) height in styles/core, or with a margin, align-self or justify-self on its own rule -- the primitive is the look and the height; a placement that needs room or alignment says so with a contextual selector (.modal-box > .back-btn)';
+STRICT.push('primitiveLayout');
 // r10 x-buttons
 LABELS.xButton = 'a close or remove × drawn as its own button -- render components/ui/XButton (.btn-x: no border, a square hit area, a required label; docs/development/ui-primitives.md rule 21). An icon button that is not a × (a chevron, a trash can) is read as one when its aria-label starts Close/Remove/Drop/Clear/Dismiss/Exit/Collapse: name it for what it does ("Hide the list", "Fold the section", "Delete") or give it a text label';
 STRICT.push('xButton');

@@ -35,6 +35,13 @@ if [ "$mode" = staged ]; then
 else
   plan=.cache/catalogue/asset-plan.json stage=catalogue-art kinds=(image skin)
 fi
+# The image repositories are production's, shared by every channel, so only main's run publishes
+# to them. The dev channel's run (scripts/content/channel.mjs) publishes no art: art that dev's
+# code would add is missing from its release, and completeness quarantines what that leaves out.
+if [ -n "${ARKPEDIA_RELEASE_BRANCH:-}" ] && [ "$ARKPEDIA_RELEASE_BRANCH" != main ]; then
+  echo "The $ARKPEDIA_RELEASE_BRANCH channel publishes no art: $([ -f "$plan" ] && node -p "require('./$plan').files.length" || echo 0) file(s) of $plan left for main's run."
+  exit 0
+fi
 : "${CATALOGUE_IMAGE_DEPLOY_KEY:?Missing image repository deploy key}"
 if [ "$mode" = catalogue ]; then : "${CATALOGUE_SKIN_DEPLOY_KEY:?Missing artwork repository deploy key}"; fi
 work=$(mktemp -d)
@@ -42,7 +49,9 @@ trap 'rm -rf "$work"' EXIT
 umask 077
 printf '%s\n' "$CATALOGUE_IMAGE_DEPLOY_KEY" > "$work/image-key"
 if [ "$mode" = catalogue ]; then printf '%s\n' "$CATALOGUE_SKIN_DEPLOY_KEY" > "$work/skin-key"; fi
-curl --fail --silent --show-error https://api.github.com/meta | node -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>{for(const key of JSON.parse(s).ssh_keys)console.log("github.com "+key)})' > "$work/known_hosts"
+# GitHub's host keys, as the steps that push to arkpedia-data take them.
+source "$(dirname "${BASH_SOURCE[0]}")/../content/data-remote.sh"
+github_known_hosts "$work/known_hosts"
 ssh_for() { echo "ssh -i $work/$1-key -o IdentitiesOnly=yes -o UserKnownHostsFile=$work/known_hosts -o StrictHostKeyChecking=yes"; }
 # Every day, with or without anything to publish: a key that stopped working shows up the day
 # it does, not the day a new event's art waits on it.

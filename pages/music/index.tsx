@@ -16,6 +16,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import XButton from '@/components/ui/XButton';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { hiddenUnless } from '@/lib/ui/inert';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -80,9 +81,11 @@ interface QueueRowProps {
   isActive: boolean;
   isDragging: boolean;
   isSelected: boolean;
+  /** Where the dragged song would land if dropped now: the line above or below this row. */
+  dropSide: 'before' | 'after' | null;
   onTap: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragOverRow: () => void;
   onDragEnd: () => void;
   onPlayNow: () => void;
   onPushToTop: () => void;
@@ -95,9 +98,10 @@ function QueueRow({
   isActive,
   isDragging,
   isSelected,
+  dropSide,
   onTap,
   onDragStart,
-  onDrop,
+  onDragOverRow,
   onDragEnd,
   onPlayNow,
   onPushToTop,
@@ -106,7 +110,7 @@ function QueueRow({
   const { displayName, fading } = useCrossFadeTitle(song.title, song.altTitle);
   return (
     <div
-      className={`music-queue-row${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${isSelected ? ' selected' : ''}`}
+      className={`music-queue-row${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${isSelected ? ' selected' : ''}${dropSide ? ` drop-${dropSide}` : ''}`}
       draggable
       // Both drag AND tap-select are always wired up, on every device
       // -- feature-detecting "is this a touch device" turned out
@@ -127,8 +131,7 @@ function QueueRow({
       // keyboard equivalent anyway; keyboard reordering goes through
       // the title button's two-tap gesture instead.
       onDragStart={onDragStart}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={onDrop}
+      onDragOver={onDragOverRow}
       onDragEnd={onDragEnd}
     >
       <span className="music-queue-drag-handle" aria-hidden="true">
@@ -295,13 +298,15 @@ export default function MusicPage({ songLookup }: Props) {
   const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (suppressAutoScrollRef.current) return;
+    // Not while the song list is shown: the player behind it is hidden, and centring its line
+    // would scroll the page instead.
+    if (suppressAutoScrollRef.current || view !== 'player') return;
     // Honors the reduced-motion preference: the active line still gets
     // centered (that's function, not decoration), just without
     // animating the travel there.
     const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     activeLineRef.current?.scrollIntoView({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
-  }, [activeLineIndex]);
+  }, [activeLineIndex, view]);
 
   useEffect(() => {
     return () => {
@@ -357,19 +362,39 @@ export default function MusicPage({ songLookup }: Props) {
   // not shuffled, display position and queue index are the same thing
   // anyway, so this still works correctly either way.
   const [dragPos, setDragPos] = useState<number | null>(null);
-  function handleDrop(targetDisplayPos: number, targetQueueIdx: number) {
-    if (dragPos !== null && dragPos !== targetDisplayPos) {
+  // The row the dragged song is over, which places the drop line (dropSide).
+  const [overPos, setOverPos] = useState<number | null>(null);
+  function handleDrop(targetDisplayPos: number) {
+    const target = displayList[targetDisplayPos];
+    if (dragPos !== null && target && dragPos !== targetDisplayPos) {
       if (shuffle) {
         // Once something's shuffled, rearranging a row rearranges the
         // shuffled PLAY SEQUENCE itself (which song plays 3rd vs 7th),
         // not the underlying catalog order those songs came from.
         reorderShuffleOrder(dragPos, targetDisplayPos);
       } else {
-        reorderQueue(dragPos, targetQueueIdx);
+        reorderQueue(dragPos, target.queueIdx);
       }
     }
     setDragPos(null);
+    setOverPos(null);
   }
+  /* Both reorders take the song out and put it back at the target's index, so one dragged down
+     lands after the row it is dropped on and one dragged up before it: the line says which. */
+  const dropSide = (displayPos: number): 'before' | 'after' | null =>
+    dragPos === null || overPos !== displayPos || dragPos === displayPos ? null : dragPos < displayPos ? 'after' : 'before';
+  /* Each list takes the drop, not each row, so the 4px between rows is part of the row the line
+     is at: the line does not flicker off between them, and a drop there lands where it shows. */
+  const dropZone = {
+    onDragOver: (e: React.DragEvent<HTMLDivElement>) => { if (dragPos !== null) e.preventDefault(); },
+    onDrop: (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (overPos !== null) handleDrop(overPos);
+    },
+    onDragLeave: (e: React.DragEvent<HTMLDivElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOverPos(null);
+    },
+  };
 
   // Tap-to-select, tap-again-to-swap -- reordering via a plain click,
   // available on every device (see QueueRow's own comment on why this
@@ -471,16 +496,12 @@ export default function MusicPage({ songLookup }: Props) {
           {nowPlayingAnnouncement}
         </div>
         {queueLoading && <p className="hint" role="status">Loading music catalogue…</p>}
-        {view === 'queue' && (
-          <div className="music-player-topbar">
-            <button type="button" className="ghost music-back-btn" onClick={() => setView('player')}>
-              ‹ Back
-            </button>
-          </div>
-        )}
-
-        {view === 'player' ? (
-          <div className="music-now-playing">
+        {/* Both views in one place (the Anti-Page Jump rule's swap in place): the player always
+            lays out, and so sets the place's height, hidden and inert while the song list lies
+            over it. The list is the player's height on the first visit too, before anything has
+            played, and the transport bar below never moves. */}
+        <div className="music-view">
+          <div className={`music-now-playing${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
 
             <div className={`music-now-playing-cover-col${mobileShowLyrics ? ' mobile-hidden' : ''}`}>
               <div className="music-now-playing-cover">
@@ -570,13 +591,13 @@ export default function MusicPage({ songLookup }: Props) {
               )}
             </div>
           </div>
-        ) : (
+          {view === 'queue' && (
           <div className="music-queue-panel">
             <h2 className="section-title">Songs ({displayList.length})</h2>
             <SearchInput label="Search songs" name="queue-search" placeholder="Search songs…" value={queueSearch} onChange={setQueueSearch} />
             {isSearching ? (
               <>
-                <div className="music-queue-list">
+                <div className="music-queue-list" {...dropZone}>
                   {searchResultRows.map(({ song, queueIdx, displayPos }) => (
                     <QueueRow
                       key={song.id + queueIdx}
@@ -585,6 +606,7 @@ export default function MusicPage({ songLookup }: Props) {
                       isActive={queueIdx === queueIndex && videoId === song.id}
                       isDragging={dragPos === displayPos}
                       isSelected={selected?.pos === displayPos}
+                      dropSide={dropSide(displayPos)}
                       onTap={() => handleRowTap(displayPos, queueIdx, song.title)}
                       onDragStart={(e) => {
                         setDragPos(displayPos);
@@ -595,11 +617,8 @@ export default function MusicPage({ songLookup }: Props) {
                         e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', String(displayPos));
                       }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleDrop(displayPos, queueIdx);
-                      }}
-                      onDragEnd={() => setDragPos(null)}
+                      onDragOverRow={() => setOverPos(displayPos)}
+                      onDragEnd={() => { setDragPos(null); setOverPos(null); }}
                       onPlayNow={() => playTrackByVideoId(song.id)}
                       onPushToTop={() => moveQueueItemToTop(queueIdx)}
                       onRemove={() => removeFromQueue(queueIdx)}
@@ -609,7 +628,7 @@ export default function MusicPage({ songLookup }: Props) {
                     <div key={`search-empty-${i}`} className="music-queue-row music-queue-row-placeholder" aria-hidden="true" />
                   ))}
                 </div>
-                <div className="music-queue-list">
+                <div className="music-queue-list" {...dropZone}>
                   {comingUpRows.map(({ song, queueIdx, displayPos }) => (
                     <QueueRow
                       key={song.id + queueIdx}
@@ -618,17 +637,15 @@ export default function MusicPage({ songLookup }: Props) {
                       isActive={queueIdx === queueIndex && videoId === song.id}
                       isDragging={dragPos === displayPos}
                       isSelected={selected?.pos === displayPos}
+                      dropSide={dropSide(displayPos)}
                       onTap={() => handleRowTap(displayPos, queueIdx, song.title)}
                       onDragStart={(e) => {
                         setDragPos(displayPos);
                         e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', String(displayPos));
                       }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleDrop(displayPos, queueIdx);
-                      }}
-                      onDragEnd={() => setDragPos(null)}
+                      onDragOverRow={() => setOverPos(displayPos)}
+                      onDragEnd={() => { setDragPos(null); setOverPos(null); }}
                       onPlayNow={() => playTrackByVideoId(song.id)}
                       onPushToTop={() => moveQueueItemToTop(queueIdx)}
                       onRemove={() => removeFromQueue(queueIdx)}
@@ -640,7 +657,7 @@ export default function MusicPage({ songLookup }: Props) {
                 </div>
               </>
             ) : (
-              <div className="music-queue-list">
+              <div className="music-queue-list" {...dropZone}>
                 {/* Same quiet .hint treatment as the discover page's
                     no-results message -- without it, "Songs (0)" sits
                     above a silent void and reads like the list simply
@@ -656,17 +673,15 @@ export default function MusicPage({ songLookup }: Props) {
                     isActive={queueIdx === queueIndex && videoId === song.id}
                     isDragging={dragPos === displayPos}
                     isSelected={selected?.pos === displayPos}
+                    dropSide={dropSide(displayPos)}
                     onTap={() => handleRowTap(displayPos, queueIdx, song.title)}
                     onDragStart={(e) => {
                       setDragPos(displayPos);
                       e.dataTransfer.effectAllowed = 'move';
                       e.dataTransfer.setData('text/plain', String(displayPos));
                     }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      handleDrop(displayPos, queueIdx);
-                    }}
-                    onDragEnd={() => setDragPos(null)}
+                    onDragOverRow={() => setOverPos(displayPos)}
+                    onDragEnd={() => { setDragPos(null); setOverPos(null); }}
                     onPlayNow={() => playTrackByVideoId(song.id)}
                     onPushToTop={() => moveQueueItemToTop(queueIdx)}
                     onRemove={() => removeFromQueue(queueIdx)}
@@ -676,7 +691,8 @@ export default function MusicPage({ songLookup }: Props) {
               </div>
             )}
           </div>
-        )}
+          )}
+        </div>
 
         <div className="music-player-bottombar">
           <div className="music-player-bottombar-seek">
