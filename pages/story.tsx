@@ -4,6 +4,7 @@ import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import { useMemo } from 'react';
 import ChapterDialog from '@/components/story/ChapterDialog';
+import type { ChapterArt } from '@/lib/story/chapterArt';
 import StoryMapView, { type ChapterOpener } from '@/components/story/StoryMapView';
 import { withContentPage } from '@/lib/content/server';
 import { useQueryState } from '@/lib/hooks/useQueryState';
@@ -26,15 +27,17 @@ interface Props {
   /** Each chapter's sections (data/story-chapters.json). Absent from a release compiled before the
    *  popup: every story then links straight into the reader, as it did. */
   chapters?: StoryChapters;
+  /** Each chapter's art as the Stages section shows it (lib/story/chapterArt.ts). Absent from a
+   *  release compiled before it: the pop-ups then use the map's own pictures. */
+  art?: Record<string, ChapterArt>;
 }
 
-export default function StoryPage({ map, chapters = {} }: Props) {
+export default function StoryPage({ map, chapters = {}, art = {} }: Props) {
   const [chapter, setChapter] = useQueryState('chapter', '');
   // The map's picture for a chapter: its link (title, the reader's address) and its art.
   const pictures = useMemo(() => new Map(map.elements.flatMap((element) =>
     element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string },
-      // Its box on the board has the picture's own shape: the dialog shows the cover whole at it.
-      image: element.image && element.width > 0 && element.height > 0 ? { src: element.image, ratio: element.width / element.height } : null }] as const] : [])), [map]);
+      image: element.image }] as const] : [])), [map]);
   const opener = useMemo<ChapterOpener>(() => ({ has: (story) => !!story && !!chapters[story]?.length && pictures.has(story), open: setChapter }), [chapters, pictures, setChapter]);
   const shown = opener.has(chapter) ? pictures.get(chapter)! : null;
   return (
@@ -65,7 +68,9 @@ export default function StoryPage({ map, chapters = {} }: Props) {
           <StoryMapView map={map} chapters={opener} />
         </section>
       </main>
-      {shown && <ChapterDialog link={shown.link} image={shown.image} sections={chapters[chapter]} onClose={() => setChapter('')} />}
+      {shown && <ChapterDialog link={shown.link} sections={chapters[chapter]} onClose={() => setChapter('')}
+        // The chapter's banner or cover as the Stages section shows it, else the map's picture as a cover.
+        art={art[chapter] ?? (shown.image ? { src: `/${shown.image}`, kind: 'cover' } : null)} />}
     </>
   );
 }
@@ -76,5 +81,16 @@ export default function StoryPage({ map, chapters = {} }: Props) {
    reaches readers without a deployment. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/story', async () => {
   const { bundledStoryChapters, bundledStoryMap } = await import('@/lib/story/storyMapData');
-  return { props: { map: bundledStoryMap(), chapters: bundledStoryChapters() } };
+  const map = bundledStoryMap(), chapters = bundledStoryChapters();
+  // Each chapter's art as the Stages section shows it (lib/story/chapterArt.ts). The bundled
+  // fallback on Vercel cannot read the records it matches by: the pop-ups then use the map's own
+  // pictures, as they did.
+  let art: Record<string, ChapterArt> = {};
+  try {
+    const { chapterArt } = await import('@/lib/story/chapterArt');
+    art = chapterArt(map, Object.keys(chapters));
+  } catch (error) {
+    console.warn(`Story chapter art could not be read: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return { props: { map, chapters, art } };
 }, { bundledWhenUnpublished: true });
