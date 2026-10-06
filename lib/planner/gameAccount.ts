@@ -1,5 +1,5 @@
 /**
- * A Global account, as the game server sends it (lib/account-import's readAccount), read
+ * A Yostar account (Global, Japan or Korea), as the game server sends it (lib/account-import's readAccount), read
  * into the planner's two stores: the roster (what each operator is at) and the depot.
  *
  * The game is the authority on what you own, so an import REPLACES both: every operator

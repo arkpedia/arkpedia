@@ -37,17 +37,44 @@ export interface TransportResponse {
 }
 export type Transport = (url: string, request: TransportRequest) => Promise<TransportResponse>;
 
-/** The servers this reads. Global only for now; JP and KR differ only in these values. */
+/**
+ * The servers this reads: Yostar's three, which differ only in these values. JP's and KR's are
+ * what ArkPRTS sends for them (auth.py, network.py), checked against the servers on 2026-10-06:
+ * each network config answers with its game server, every version file allows any origin, and
+ * KR signs in at JP's host (kr-sdk-api.yostarplat.com has no address). Each has its own Account
+ * Center for the pull history (account.yostar.co.jp and account.yostar.kr run the same site as
+ * account.yo-star.com, with the same user/login and game/gachas calls).
+ */
 export const SERVERS = {
   en: {
-    label: 'Global (EN)',
+    label: 'Global',
     yostar: 'https://en-sdk-api.yostarplat.com',
     pid: 'US-ARKNIGHTS',
     lang: 'en',
     networkConfig: 'https://ak-conf.arknights.global/config/prod/official/network_config',
+    accountCenter: 'https://account.yo-star.com',
+  },
+  jp: {
+    label: 'Japan',
+    yostar: 'https://jp-sdk-api.yostarplat.com',
+    pid: 'JP-AK',
+    lang: 'jp',
+    networkConfig: 'https://ak-conf.arknights.jp/config/prod/official/network_config',
+    accountCenter: 'https://account.yostar.co.jp',
+  },
+  kr: {
+    label: 'Korea',
+    yostar: 'https://jp-sdk-api.yostarplat.com',
+    pid: 'KR-ARKNIGHTS',
+    lang: 'ko',
+    networkConfig: 'https://ak-conf.arknights.kr/config/prod/official/network_config',
+    accountCenter: 'https://account.yostar.kr',
   },
 } as const;
 export type ServerId = keyof typeof SERVERS;
+export const SERVER_IDS = Object.keys(SERVERS) as ServerId[];
+/** Whether a stored value names one of SERVERS. */
+export const isServerId = (value: unknown): value is ServerId => typeof value === 'string' && Object.hasOwn(SERVERS, value);
 
 /** The step a request belongs to, so a failure can say which one failed. */
 export type ImportStep = 'send-code' | 'sign-in' | 'network' | 'game-token' | 'game-login' | 'account' | 'pulls';
@@ -237,9 +264,9 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
   return object(data.user);
 }
 
-/** Yostar's Account Center, where the reader's headhunting history is (Game Info > Headhunting
- *  History). It sends no CORS headers, so it is reached through the relay like the game. */
-export const ACCOUNT_CENTER = 'https://account.yo-star.com';
+/* Yostar's Account Center, where the reader's headhunting history is (Game Info > Headhunting
+   History): each server's own (SERVERS accountCenter). It sends no CORS headers, so it is reached
+   through the relay like the game. */
 const PULL_PAGE = 50;
 /** 10,000 pulls: more than 90 days can hold. A list that never ends does not hold the import. */
 const MAX_PULL_PAGES = 200;
@@ -289,17 +316,19 @@ export function sessionCookie(headers: [string, string][] = []): string | null {
 }
 
 /**
- * The reader's pulls, newest first, as the Account Center keeps them: the last 90 days, and
- * nothing before 2025-12-11 (Global). Signs in with the code token from signIn, then reads the
- * list a page at a time. Throws an ImportError ('pulls') when either fails; the caller decides
- * whether that stops anything (the account page does not).
+ * The reader's pulls, newest first, as the server's Account Center keeps them: the last 90 days,
+ * and on Global nothing before 2025-12-11. Signs in with the code token from signIn, then reads
+ * the list a page at a time. Throws an ImportError ('pulls') when either fails; the caller decides
+ * whether that stops anything (the account page does not). The game's key there is "ark" on
+ * Global; JP's and KR's are taken to be the same until an import from each says otherwise.
  */
-export async function readPulls(transport: Transport, email: string, account: YostarAccount): Promise<PullRow[]> {
+export async function readPulls(transport: Transport, server: ServerId, email: string, account: YostarAccount): Promise<PullRow[]> {
   const fail = (message: string): never => { throw new ImportError('pulls', message); };
-  const site = { Accept: 'application/json, text/plain, */*', Lang: 'en', Origin: ACCOUNT_CENTER, Referer: `${ACCOUNT_CENTER}/login` };
+  const center = SERVERS[server].accountCenter;
+  const site = { Accept: 'application/json, text/plain, */*', Lang: 'en', Origin: center, Referer: `${center}/login` };
   let login: TransportResponse;
   try {
-    login = await transport(`${ACCOUNT_CENTER}/api/user/login`, { method: 'POST', headers: { ...site, 'Content-Type': 'application/json' },
+    login = await transport(`${center}/api/user/login`, { method: 'POST', headers: { ...site, 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel: 'yostar', token: account.authToken, openId: email, account: email, checkAccount: false }) });
   } catch (error) {
     return fail(`could not reach the Account Center: ${error instanceof Error ? error.message : String(error)}`);
@@ -310,7 +339,7 @@ export async function readPulls(transport: Transport, email: string, account: Yo
   for (let index = 1; index <= MAX_PULL_PAGES; index++) {
     let page: TransportResponse;
     try {
-      page = await transport(`${ACCOUNT_CENTER}/api/game/gachas?key=ark&index=${index}&size=${PULL_PAGE}`, { method: 'GET', headers: { ...site, Cookie: cookie } });
+      page = await transport(`${center}/api/game/gachas?key=ark&index=${index}&size=${PULL_PAGE}`, { method: 'GET', headers: { ...site, Cookie: cookie } });
     } catch (error) {
       return fail(`the pull history could not be read: ${error instanceof Error ? error.message : String(error)}`);
     }

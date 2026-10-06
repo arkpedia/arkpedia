@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ImportError, readAccount, readNetwork, readPulls, sendCode, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
+import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, relayTransport } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
@@ -7,9 +7,10 @@ import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } fr
 /*
  * The sign-in with a Yostar email code, and the account it reads (lib/account-import):
  * an email field, a code field and the steps as they run. Used by the Account page's Import /
- * export dialog. `onAccount` gets the account as the game server sent it, and what the Account
- * Center gave of the pull history: a history it could not read is said in the last step and
- * stops nothing. Nothing of the sign-in is kept unless the reader ticks "Remember this sign-in on
+ * export dialog, for the server it is given. `onAccount` gets the account as the game server sent
+ * it, what the Account Center gave of the pull history (a history it could not read is said in the
+ * last step and stops nothing), and the server both came from: a remembered sign-in is its own
+ * server's, whichever the dialog shows. Nothing of the sign-in is kept unless the reader ticks "Remember this sign-in on
  * this browser" (lib/account-import/savedLogin.ts): then the next import is one button, until they
  * forget it or the game stops accepting it.
  */
@@ -32,8 +33,9 @@ const describe = (error: unknown) => (error instanceof Error ? error.message : S
 
 export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   server: ServerId;
-  /** The account and the pull history, once read. A throw is shown as the last step's failure. */
-  onAccount: (user: Record<string, any>, pulls: PullRead) => void;
+  /** The account, the pull history and their server, once read. A throw is shown as the last
+   *  step's failure. */
+  onAccount: (user: Record<string, any>, pulls: PullRead, server: ServerId) => void;
   /** Field ids, distinct per use on one page. */
   idPrefix?: string;
 }) {
@@ -62,20 +64,23 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   // Opened when the reader first focuses the email field: libcurl.js loads and the game's
   // server list comes back through the relay while they type, and a relay that cannot be
   // reached says so before they have asked Yostar for a code.
-  const network = useRef<Promise<Network> | null>(null);
+  // One per server: a remembered sign-in may be another server's than the one shown.
+  const networks = useRef<Partial<Record<ServerId, Promise<Network>>>>({});
   const [connection, setConnection] = useState<'idle' | 'opening' | 'open' | 'failed'>('idle');
-  function connect(): Promise<Network> {
-    if (!network.current) {
+  function connect(from: ServerId = server): Promise<Network> {
+    let network = networks.current[from];
+    if (!network) {
       setConnection('opening');
       setFailed((current) => (current?.step === 'network' ? null : current));
-      network.current = readNetwork(relayTransport, server);
-      network.current.then(() => setConnection('open'), (error) => {
-        network.current = null;
+      network = readNetwork(relayTransport, from);
+      networks.current[from] = network;
+      network.then(() => setConnection('open'), (error) => {
+        delete networks.current[from];
         setConnection('failed');
         setFailed({ step: 'network', message: describe(error) });
       });
     }
-    return network.current;
+    return network;
   }
 
   async function onSendCode(event: FormEvent) {
@@ -93,18 +98,18 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     }
   }
 
-  /** Steps 3 to 6 with a Yostar login, then the account and the pulls to the caller. */
-  async function read(yostar: YostarAccount, device: string, signedInAs: string) {
-    const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(), onStep: setStep }, yostar);
+  /** Steps 3 to 6 with a Yostar login on `from`, then the account and the pulls to the caller. */
+  async function read(yostar: YostarAccount, device: string, signedInAs: string, from: ServerId) {
+    const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep }, yostar);
     setStep('pulls');
     let pulls: PullRead;
     try {
-      pulls = { rows: await readPulls(relayTransport, signedInAs, yostar), error: null };
+      pulls = { rows: await readPulls(relayTransport, from, signedInAs, yostar), error: null };
     } catch (error) {
       pulls = { rows: null, error: describe(error) };
     }
     setPullsFailed(pulls.error);
-    onAccount(user, pulls);
+    onAccount(user, pulls, from);
     setDone(true);
     setStep(null);
   }
@@ -117,7 +122,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setStep('sign-in');
     try {
       const yostar = await signIn(flow(), email.trim(), code.trim());
-      await read(yostar, flow().deviceId, email.trim());
+      await read(yostar, flow().deviceId, email.trim(), server);
       // Kept only when the reader asked, and only once the sign-in has worked.
       if (remember) {
         const login: SavedLogin = { server, email: email.trim(), ...yostar, deviceId: flow().deviceId };
@@ -144,7 +149,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setStep('game-token');
     deviceId.current = saved.deviceId;
     try {
-      await read(saved, saved.deviceId, saved.email);
+      await read(saved, saved.deviceId, saved.email, saved.server);
     } catch (error) {
       const at = error instanceof ImportError ? error.step : 'account';
       // The game refused it: expired or revoked, so it is forgotten rather than tried again.
@@ -174,7 +179,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     <>
       {saved && (
         <div className="import-saved">
-          <span className="hint">Remembered on this browser: <b>{maskEmail(saved.email)}</b></span>
+          <span className="hint">Remembered on this browser: <b>{maskEmail(saved.email)}</b> ({SERVERS[saved.server].label})</span>
           <button type="button" className="primary btn-sm" onClick={onImportAgain} disabled={busy}>Import again</button>
           <button type="button" className="ghost btn-sm" onClick={() => { forgetLogin(); setSaved(null); }} disabled={busy}>Forget sign-in</button>
         </div>

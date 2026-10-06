@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import GameSignIn from '@/components/account-import/GameSignIn';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import { SERVER_IDS, SERVERS, type ServerId } from '@/lib/account-import/yostar';
+import { readSavedLogin } from '@/lib/account-import/savedLogin';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
@@ -14,7 +17,7 @@ import type { PullRead } from '@/lib/account/pulls';
 import { forgetLogin } from '@/lib/account-import/savedLogin';
 import { applyBackup, backupFilename, formatBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
-import { useAccount, writeAccount } from '@/lib/account/accountStore';
+import { forgetShownAccount, storedAccount, useAccount } from '@/lib/account/accountStore';
 
 /** "412 operators, 375 skins, 77 materials, 1,840 stages cleared and your profile". */
 function importedSummary(result: ImportResult): string {
@@ -45,9 +48,25 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   const [result, setResult] = useState<{ imported: ImportResult; pulls: PullRead } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [text, setText] = useState('');
+  // The dialog opens on a click, after hydration, so storage can be read for its first render:
+  // the remembered sign-in's server, else the imported account's, else Global.
+  const [server, setServer] = useState<ServerId>(() => readSavedLogin()?.server ?? account?.server ?? 'en');
 
-  function onAccount(user: Record<string, any>, pulls: PullRead) {
-    setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls), pulls });
+  function onAccount(user: Record<string, any>, pulls: PullRead, from: ServerId) {
+    setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls, from), pulls });
+  }
+
+  /** The shown server's account and its remembered sign-in; another server's account, if one is
+   *  kept, is shown in its place. */
+  function forget() {
+    if (!account) return;
+    const server = SERVERS[account.server].label;
+    const login = readSavedLogin();
+    if (login?.server === account.server) forgetLogin();
+    forgetShownAccount();
+    const next = storedAccount();
+    setResult(null);
+    setNote(`Your ${server} account${login?.server === account.server ? ' and its remembered sign-in are' : ' is'} forgotten on this browser.${next ? ` Your ${SERVERS[next.server].label} account is shown now.` : ''} The planners keep their own data until you clear it there.`);
   }
 
   function applyText(input: string, source: string) {
@@ -91,14 +110,18 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
       <section className="data-dialog-part" aria-labelledby="data-game">
         <h3 id="data-game">From the game</h3>
         <p className="import-copy">
-          Import data directly from your Arknights (Global) account. Your login is sent encrypted and is never
+          Import data directly from your Arknights account (Global, Japan or Korea). Your login is sent encrypted and is never
           read by Arkpedia itself; Arkpedia only receives your raw account data. No login related information is
           kept on our servers. Everything that is persistent on your browser is saved to your browser locally.
         </p>
         <p className="hint import-note">
           Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.
         </p>
-        <GameSignIn server="en" idPrefix="data" onAccount={onAccount} />
+        {/* A sign-in is one server's: a code Yostar sent for one is no use on another, so each
+            server's sign-in is its own (key). */}
+        <SegmentedControl label="Server" className="import-server" value={server} onChange={setServer}
+          options={SERVER_IDS.map((id) => ({ value: id, label: SERVERS[id].label }))} />
+        <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} />
         {result && (
           <p className="hint import-note" role="status">
             Imported: {importedSummary(result.imported)}.{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}
@@ -146,10 +169,10 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
       {note && <p className="hint data-dialog-note" role="status">{note}</p>}
 
       <section className="data-dialog-part data-dialog-forget" aria-label="Forget this account">
-        <button type="button" className="ghost btn-sm" disabled={!account} onClick={() => { writeAccount(null); forgetLogin(); setResult(null); setNote('Your account and any remembered sign-in are forgotten on this browser. The planners keep their own data until you clear it there.'); }}>
+        <button type="button" className="ghost btn-sm" disabled={!account} onClick={forget}>
           Forget this account
         </button>
-        <span className="hint">Clears the imported account, and a remembered sign-in, from this browser.</span>
+        <span className="hint">Clears the shown server&apos;s imported account, and its remembered sign-in, from this browser. Other servers&apos; accounts stay.</span>
       </section>
       </div>
     </ImportDialog>

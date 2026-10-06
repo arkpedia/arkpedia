@@ -78,3 +78,20 @@ test('a history kept in milliseconds by the first build is read in seconds, so i
   assert.deepEqual(parsePullHistory(stored)!.rows.map((row) => row.at), [1_790_000_000, 1_789_000_000]);
   assert.equal(new Date(parsePullHistory(stored)!.rows[0].at * 1000).getUTCFullYear(), 2026);
 });
+
+test('a stored account is any of the three servers\', and its pull history joins only the same player\'s', async () => {
+  const { samePlayer } = await import('../../lib/account/importAccount');
+  const record = (server: string, uid?: string | null) => ({ version: 1, server, importedAt: NOW.toISOString(), doctor: null, operators: [], skins: [], cleared: [],
+    ...(uid === undefined ? {} : { profile: { level: null, registeredAt: null, secretary: null, bio: null, uid, avatar: null, nameCard: null, supports: [] } }) });
+  for (const server of ['en', 'jp', 'kr']) assert.equal(parseAccount(JSON.stringify(record(server)))?.server, server);
+  assert.equal(parseAccount(JSON.stringify(record('cn'))), null, 'no server the import reads');
+  const stored = (server: string, uid?: string | null) => parseAccount(JSON.stringify(record(server, uid)))!;
+  assert.equal(samePlayer(null, stored('en', '1')), false, 'nothing stored');
+  assert.equal(samePlayer(stored('en', '1'), stored('en', '1')), true);
+  // Global's pulls never join a Japanese account's, nor one account's another's on one server.
+  assert.equal(samePlayer(stored('en', '1'), stored('jp', '1')), false);
+  assert.equal(samePlayer(stored('en', '1'), stored('en', '2')), false);
+  // A record from before the profile kept no uid: the same server is enough, as it always was.
+  assert.equal(samePlayer(stored('en'), stored('en', '2')), true);
+  assert.equal(samePlayer(stored('kr', null), stored('kr', '2')), true);
+});

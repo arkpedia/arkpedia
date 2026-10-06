@@ -11,7 +11,7 @@
  * and "Forget this account" remove it, and a sign-in the game no longer accepts is removed the
  * first time it fails.
  */
-import { SERVERS, type ServerId, type YostarAccount } from './yostar';
+import { isServerId, type ServerId, type YostarAccount } from './yostar';
 
 export const SAVED_LOGIN_KEY = 'arkpediaYostarLogin';
 
@@ -32,7 +32,7 @@ export function parseSavedLogin(raw: string | null): SavedLogin | null {
   } catch {
     return null;
   }
-  if (!value || typeof value !== 'object' || !Object.hasOwn(SERVERS, String(value.server))) return null;
+  if (!value || typeof value !== 'object' || !isServerId(value.server)) return null;
   if (!text(value.uid, 64) || !text(value.token, 4096) || !text(value.authToken, 4096) || !text(value.deviceId, 128) || !text(value.email, 320) || !/^\S+@\S+\.\S+$/.test(value.email as string)) return null;
   return { server: value.server as ServerId, email: value.email as string, uid: value.uid as string, token: value.token as string, authToken: value.authToken as string, deviceId: value.deviceId as string };
 }

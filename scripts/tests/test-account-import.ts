@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { ImportError, md5, pullRow, readAccount, readNetwork, readPulls, sendCode, sessionCookie, signIn, u8Sign, yostarHeaders, type Transport, type TransportRequest, type TransportResponse } from '../../lib/account-import/yostar';
+import { ImportError, isServerId, md5, pullRow, readAccount, readNetwork, readPulls, sendCode, SERVER_IDS, SERVERS, sessionCookie, signIn, u8Sign, yostarHeaders, type Transport, type TransportRequest, type TransportResponse } from '../../lib/account-import/yostar';
 
 test('md5 matches Node for empty, block-boundary, long and non-ASCII input', () => {
   for (const text of ['', 'abc', 'x'.repeat(55), 'x'.repeat(56), 'x'.repeat(64), 'y'.repeat(1000), 'doctor@exämple.com 日本']) {
@@ -113,7 +113,9 @@ test('a sign-in is kept only when the reader asks, after it worked, and never in
   // Storage only through savedLogin.ts, and its one save behind the reader's box, after the import.
   assert.doesNotMatch(source, /setItem/);
   assert.equal(source.match(/saveLogin\(/g)?.length, 1);
-  assert.match(source, /await read\(yostar, flow\(\)\.deviceId, email\.trim\(\)\);\s*\/\/[^\n]*\n\s*if \(remember\) \{[\s\S]{0,200}saveLogin\(login\)/);
+  assert.match(source, /await read\(yostar, flow\(\)\.deviceId, email\.trim\(\), server\);\s*\/\/[^\n]*\n\s*if \(remember\) \{[\s\S]{0,200}saveLogin\(login\)/);
+  // A remembered sign-in is read on its own server, whichever the dialog shows.
+  assert.match(source, /await read\(saved, saved\.deviceId, saved\.email, saved\.server\);/);
   assert.match(source, /useState\(false\);\s*useEffect/, 'the box starts unticked');
   // A backup lists what it keeps, and the sign-in is not among it, nor is any of its fields.
   const { formatBackup } = await import('../../lib/account/backup');
@@ -143,12 +145,12 @@ test('the relay address is config/relay.json\'s, a wss:// Wisp endpoint', async 
 
 /* The Account Center: a sign-in that sets the session in two cookies, then the pull history a
    page at a time. `pages` is how many full pages of 50 there are before the last short one. */
-function accountCenter({ pages = 1, cookies = ['YSSID=session-id; Path=/; HttpOnly', 'YSSID.sig=session-sig; Path=/; HttpOnly'], login = 200 } = {}) {
+function accountCenter({ pages = 1, cookies = ['YSSID=session-id; Path=/; HttpOnly', 'YSSID.sig=session-sig; Path=/; HttpOnly'], login = 200, center = 'https://account.yo-star.com' } = {}) {
   const calls: { url: string; request: TransportRequest }[] = [];
   const row = (n: number) => ({ charId: `char_${n}_test`, charName: `Test ${n}`, star: n > 0 && n % 7 === 0 ? '6' : '3', poolId: 'LIMITED_EN_41_0_1', poolName: 'A Limited Banner', typeName: 'Limited', at: String((1_790_000_000 - Math.floor(n / 10)) * 1000) });
   const transport: Transport = async (url, request): Promise<TransportResponse> => {
     calls.push({ url, request });
-    if (url === 'https://account.yo-star.com/api/user/login') return { status: login, json: { code: 0 }, headers: [['content-type', 'application/json'], ...cookies.map((value) => ['Set-Cookie', value] as [string, string])] };
+    if (url === `${center}/api/user/login`) return { status: login, json: { code: 0 }, headers: [['content-type', 'application/json'], ...cookies.map((value) => ['Set-Cookie', value] as [string, string])] };
     const index = Number(new URL(url).searchParams.get('index'));
     const count = index <= pages ? 50 : 7;
     return { status: 200, json: { code: 0, data: { rows: Array.from({ length: count }, (_, i) => row((index - 1) * 50 + i)), count: pages * 50 + 7 } } };
@@ -158,7 +160,7 @@ function accountCenter({ pages = 1, cookies = ['YSSID=session-id; Path=/; HttpOn
 
 test('the pull history: the Account Center signed in with the code token, then every page read with its session', async () => {
   const site = accountCenter({ pages: 2 });
-  const rows = await readPulls(site.transport, 'doctor@example.com', { uid: '4242', token: 'yostar-token', authToken: 'code-token' });
+  const rows = await readPulls(site.transport, 'en', 'doctor@example.com', { uid: '4242', token: 'yostar-token', authToken: 'code-token' });
   assert.equal(rows.length, 107);
   // The Account Center's milliseconds, read as seconds (the first build put pulls in the year 58679).
   assert.deepEqual(rows[0], { at: 1_790_000_000, poolId: 'LIMITED_EN_41_0_1', poolName: 'A Limited Banner', charId: 'char_0_test', charName: 'Test 0', star: 3 });
@@ -172,15 +174,57 @@ test('the pull history: the Account Center signed in with the code token, then e
   assert.ok(pages.every((call) => call.request.method === 'GET' && call.request.headers.Cookie === 'YSSID=session-id; YSSID.sig=session-sig'));
 });
 
+test('Japan and Korea sign in as Global does: their own product and language, hosts and Account Center', async () => {
+  assert.deepEqual(SERVER_IDS, ['en', 'jp', 'kr']);
+  assert.deepEqual([isServerId('jp'), isServerId('kr'), isServerId('cn'), isServerId('toString'), isServerId(undefined)], [true, true, false, false, false]);
+  // The head names the server's game and language; the signature is the one every server takes.
+  for (const [server, pid, lang] of [['jp', 'JP-AK', 'jp'], ['kr', 'KR-ARKNIGHTS', 'ko']] as const) {
+    const body = '{"Account":"a@b.c"}';
+    const { Head, Sign } = JSON.parse(yostarHeaders(body, server, 'device-1', 1_790_000_000_500).Authorization);
+    assert.deepEqual([Head.PID, Head.Lang], [pid, lang]);
+    assert.equal(Sign, createHash('md5').update(JSON.stringify(Head) + body + '886c085e4a8d30a703367b120dd8353948405ec2').digest('hex').toUpperCase());
+  }
+  // Each server's code is asked of its own host: KR's is JP's, which has no host of its own.
+  const asked: string[] = [];
+  const yostar: Transport = async (url) => { asked.push(url); return { status: 200, json: { Code: 200, Data: {} } }; };
+  for (const server of SERVER_IDS) await sendCode({ transport: yostar, server, deviceId: 'device-1' }, 'a@b.c');
+  assert.deepEqual(asked, ['https://en-sdk-api.yostarplat.com/yostar/send-code', 'https://jp-sdk-api.yostarplat.com/yostar/send-code', 'https://jp-sdk-api.yostarplat.com/yostar/send-code']);
+  // The game's server list is the server's own: KR's game server answers on 443.
+  const config = (network: Record<string, string>) => JSON.stringify({ funcVer: 'V1', configs: { V1: { network } } });
+  const lists: Record<string, Record<string, string>> = {
+    'https://ak-conf.arknights.jp/config/prod/official/network_config': { gs: 'https://gs.arknights.jp:8443', u8: 'https://as.arknights.jp/u8', hv: 'https://ark-jp-static-online.yo-star.com/assetbundle/official/{0}/version' },
+    'https://ak-conf.arknights.kr/config/prod/official/network_config': { gs: 'https://gs.arknights.kr:443', u8: 'https://as.arknights.kr:443/u8', hv: 'https://ark-kr-static-online-1300509597.yo-star.com/assetbundle/official/{0}/version' },
+  };
+  const conf: Transport = async (url) => ({ status: 200, json: { content: config(lists[url]) } });
+  assert.equal((await readNetwork(conf, 'jp')).gs, 'https://gs.arknights.jp:8443');
+  assert.equal((await readNetwork(conf, 'kr')).gs, 'https://gs.arknights.kr:443');
+  // The pull history is the server's own Account Center's.
+  for (const [server, center] of [['jp', 'https://account.yostar.co.jp'], ['kr', 'https://account.yostar.kr']] as const) {
+    const site = accountCenter({ center });
+    assert.equal((await readPulls(site.transport, server, 'a@b.c', { uid: '1', token: 't', authToken: 'a' })).length, 57);
+    assert.deepEqual(site.calls.map((call) => new URL(call.url).origin), [center, center, center]);
+    assert.equal(site.calls[0].request.headers.Origin, center);
+  }
+  // Every host the import names is one the relay is told to allow (config/relay.json's list,
+  // which the relay repository's config must match).
+  const allowed = (JSON.parse((await import('node:fs')).readFileSync('config/relay.json', 'utf8')).allowedHosts as string[]).map((pattern) => new RegExp(pattern));
+  for (const server of SERVER_IDS) {
+    for (const address of [SERVERS[server].yostar, SERVERS[server].networkConfig, SERVERS[server].accountCenter]) {
+      const host = new URL(address).hostname;
+      assert.ok(allowed.some((pattern) => pattern.test(host)), `${host} (${server}) is on the relay's list`);
+    }
+  }
+});
+
 test('a pull history the Account Center will not give is an ImportError of its own step, and a malformed row is left out', async () => {
   const refusal = async (promise: Promise<unknown>, message: RegExp) => {
     const error = await promise.then(() => null, (thrown) => thrown);
     assert.ok(error instanceof ImportError && error.step === 'pulls' && message.test(error.message), String(error));
   };
   const account = { uid: '1', token: 't', authToken: 'a' };
-  await refusal(readPulls(accountCenter({ cookies: ['YSSID=only-half; Path=/'] }).transport, 'a@b.c', account), /did not sign in/);
-  await refusal(readPulls(accountCenter({ login: 403 }).transport, 'a@b.c', account), /HTTP 403/);
-  await refusal(readPulls(async () => { throw new Error('the relay refused the host'); }, 'a@b.c', account), /could not reach the Account Center: the relay refused the host/);
+  await refusal(readPulls(accountCenter({ cookies: ['YSSID=only-half; Path=/'] }).transport, 'en', 'a@b.c', account), /did not sign in/);
+  await refusal(readPulls(accountCenter({ login: 403 }).transport, 'en', 'a@b.c', account), /HTTP 403/);
+  await refusal(readPulls(async () => { throw new Error('the relay refused the host'); }, 'en', 'a@b.c', account), /could not reach the Account Center: the relay refused the host/);
   // Cookies: two Set-Cookie lines, any case, attributes dropped; a name merely starting with YSSID is not it.
   assert.equal(sessionCookie([['set-cookie', 'YSSID.sig=s; Path=/'], ['SET-COOKIE', 'YSSID=i; Secure'], ['Set-Cookie', 'YSSIDX=no']]), 'YSSID=i; YSSID.sig=s');
   assert.equal(sessionCookie(undefined), null);

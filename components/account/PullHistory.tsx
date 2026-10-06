@@ -105,7 +105,7 @@ export default function PullHistory({ account, map }: { account: AccountRecord |
       </ol>
       <LoadOnScroll shown={shown} total={view.sessions.length} onMore={() => setShown((count) => count + SESSIONS_PAGE)} />
       <p className="hint">
-        Yostar keeps 90 days of pulls, none before 11 Dec 2025. Each import adds what is new to what this browser has kept,
+        Yostar keeps 90 days of pulls{account.server === 'en' ? ', none before 11 Dec 2025' : ''}. Each import adds what is new to what this browser has kept,
         {history.readAt ? ` last on ${DAY.format(new Date(history.readAt))}` : ''}, so the history here grows past that.
       </p>
     </>
