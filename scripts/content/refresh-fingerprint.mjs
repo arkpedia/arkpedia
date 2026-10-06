@@ -14,6 +14,8 @@ export function watchedRepositories(root = process.cwd()) {
     'Kengxxiao/ArknightsGameData',
     'PseudoMon/tlvr-source',
     'isHarryh/Ark-Voice',
+    // A new animated outfit model (scripts/sync/sync-dynamic-art.mjs).
+    'arkpedia/arkpedia-l2d-assets',
     ...Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'data/assets/revisions.json'), 'utf8'))).map(repo => `arkpedia/${repo}`),
   ];
 }

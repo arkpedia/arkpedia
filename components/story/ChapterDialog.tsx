@@ -9,7 +9,7 @@ import type { StoryLink } from '@/lib/story/storyMap';
  * and a story with neither on a row of its own. Every button opens that section in the reader,
  * in a new tab. The page opens it at /story?chapter=<group>, so a chapter can be linked.
  *
- * The chapter's cover is shown whole beside the chapter's line, at the board's own shape: `ratio` is
+ * The chapter's cover is shown whole and centred above the chapter's line, at the board's own shape: `ratio` is
  * its box's width over height on the map, which is the picture's (the board's covers are 384px tall
  * at most, mostly portrait). Cropping them to a strip across the top cut off most of each one and
  * blew it up twice over; the ratio also holds the cover's place before it loads.

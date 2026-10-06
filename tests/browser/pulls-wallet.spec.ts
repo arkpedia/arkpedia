@@ -24,3 +24,19 @@ test("the wallet's fields keep their boxes on one line when a label wraps", asyn
     }
   }
 });
+
+/*
+ * On a wide screen the resources lock sits at the end of the wallet's row, after Yellow
+ * certs, level with the boxes; it was a second row under Orundum (2026-10-06).
+ */
+test('the resources lock sits after Yellow certs, level with the boxes', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the one-row desktop layout');
+  await page.goto('/pulls');
+  const certs = page.locator('[class*="wallet"] .pulls-field').filter({ hasText: 'Yellow certs' }).locator('.pulls-field-box');
+  const lock = page.locator('[class*="wallet"] .lock-toggle');
+  await expect(lock).toBeVisible();
+  const [box, button] = await Promise.all([certs.boundingBox(), lock.boundingBox()]);
+  expect(box && button, 'both on screen').toBeTruthy();
+  expect(button!.x, 'the lock is right of Yellow certs').toBeGreaterThan(box!.x + box!.width);
+  expect(Math.abs((button!.y + button!.height) - (box!.y + box!.height)), 'the lock is level with the boxes').toBeLessThanOrEqual(2);
+});

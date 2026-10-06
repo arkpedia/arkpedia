@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
 import PageHeader from '@/components/ui/PageHeader';
+import { SPINE_RUNTIMES_LICENSE } from '@/lib/credits/spineLicense';
 
 export default function SupportPage() {
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -135,6 +136,23 @@ export default function SupportPage() {
               </ul>
             </div>
           </div>
+        </section>
+
+        <section className="op-section" id="credits" aria-labelledby="credits-title">
+          <h2 id="credits-title">Credits and licences</h2>
+          <p className="support-copy">
+            Arknights and its art, the animated outfit art included, belong to Hypergryph and Yostar.
+            Arkpedia shows them for reference.
+          </p>
+          <h3>Spine Runtimes</h3>
+          <p className="support-copy">
+            The animated outfit art is drawn with the Spine Runtimes (spine-ts 3.8), copyright Esoteric
+            Software LLC, used under the Spine Runtimes License below.{' '}
+            <a href="https://esotericsoftware.com/spine-runtimes-license" target="_blank" rel="noopener noreferrer">Spine Runtimes License</a>
+            {' · '}
+            <a href="https://github.com/EsotericSoftware/spine-runtimes/tree/3.8" target="_blank" rel="noopener noreferrer">Source</a>
+          </p>
+          <pre className="support-licence">{SPINE_RUNTIMES_LICENSE}</pre>
         </section>
       </main>
 

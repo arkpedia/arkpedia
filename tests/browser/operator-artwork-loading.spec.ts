@@ -20,6 +20,8 @@ import { readOnly } from './census-routes';
 const FULL_ART = /\/variants\/(?:avif|webp)\/w(?:768|1280)\/|\/[0-9a-f]{40}\/[a-z]+-star-skins\/|\/originals\//;
 const THUMB = /\/variants\/(?:avif|webp)\/w320\//;
 const SKIN_ART = /-star-skins\//;
+/** The Spine runtime's chunk, the animated artwork's, and any model file. */
+const ANIMATED_ART = /spine|DynamicArtwork|arkpedia-l2d-assets|\/model\.json/i;
 
 const shown = (page: Page) => page.locator('.op-carousel-img-enter img').evaluate((img: HTMLImageElement) => decodeURIComponent(img.currentSrc));
 const frame = (page: Page) => page.evaluate(() => {
@@ -33,6 +35,10 @@ test('the operator artwork fetches the outfit on screen, and another only when t
   await readOnly(page);
   const images: string[] = [];
   page.on('request', (request) => { if (request.resourceType() === 'image') images.push(decodeURIComponent(request.url())); });
+  // Animated art (components/skins/DynamicArtwork.tsx) loads its runtime and model only when the
+  // reader presses Animated in the focused view: never with the page, never on an outfit switch.
+  const animated: string[] = [];
+  page.on('request', (request) => { if (ANIMATED_ART.test(request.url())) animated.push(request.url()); });
   const errors: string[] = [];
   page.on('console', (msg) => { if (msg.type() === 'error' && /hydrat|did not match|Minified React error #(418|423|425)/i.test(msg.text())) errors.push(msg.text()); });
   const fullArt = () => [...new Set(images.filter((url) => FULL_ART.test(url)))];
@@ -89,5 +95,6 @@ test('the operator artwork fetches the outfit on screen, and another only when t
   await page.waitForTimeout(600);
   expect(fullArt(), 'going back fetches nothing').toEqual([first, second]);
   expect(await frame(page)).toEqual(before);
+  expect(animated, 'nothing of the animated art loads with the page or an outfit switch').toEqual([]);
   expect(errors, 'no hydration error').toEqual([]);
 });

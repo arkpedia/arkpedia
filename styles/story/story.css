@@ -72,10 +72,10 @@ a.story-list-card:hover { border-color: var(--teal); }
    own has one Read across both. */
 .account-dialog.story-chapter-dialog { width: min(760px, calc(100vw - 32px)); }
 /* The cover whole, 180px tall at its own shape (ChapterDialog's ratio, which also holds its place
-   while it loads), with the chapter's line beside it, or under it where both do not fit. */
-.story-chapter-top { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin-bottom: 10px; }
+   while it loads), centred on a line of its own above the chapter's line. */
+.story-chapter-top { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 10px; }
 .story-chapter-art { flex: none; display: block; height: 180px; width: auto; max-width: 100%; object-fit: contain; border-radius: var(--radius); }
-.story-chapter-head { flex: 1 1 260px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.story-chapter-head { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 /* One grid for every row (subgrid), so the code column is as wide as the chapter's longest code:
    "DV-ST-1" on one line, and the names still line up. */
 .story-chapter-rows { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; margin: 0; padding: 0; list-style: none; }

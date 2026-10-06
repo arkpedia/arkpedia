@@ -67,6 +67,10 @@ const SEEDED_SOURCE_FILES = new Set([
   // run): the board's layout, and each picture's link, which a person corrects in the data
   // repository and the importer then keeps.
   'data/story-map.json',
+  // Which artwork has an animated version, as model.json URLs pinned to arkpedia-l2d-assets'
+  // commit (scripts/sync/sync-dynamic-art.mjs, every run). /skins and every operator page import
+  // it, so a release before the data repository carries it must not lose the app's copy.
+  'data/dynamic-art.json',
 ]);
 const SEEDED_LEDGER = 'data/seeded-source-files.json';
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

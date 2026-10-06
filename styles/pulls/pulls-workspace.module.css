@@ -227,6 +227,12 @@
 .wallet :global(.pulls-field-label) { flex: none; align-items: center; gap: 6px; font: 13px/1.3 var(--font-body); }
 .wallet :global(.pulls-field-label img) { object-fit: contain; flex-shrink: 0; }
 .page .wallet :global(.pulls-field-box) { background: var(--panel-2); }
+/* The lock sits at the end of the row, after Yellow certs, level with the boxes; under
+   1001px it keeps its own line, at the right (tests/browser/pulls-wallet.spec.ts). */
+@media (min-width: 1001px) {
+  .wallet { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
+  .walletLock { align-self: end; }
+}
 .incomeRow { gap: 16px; padding: 10px 16px; }
 .incomeRow :global(.pulls-recurring-grid) { gap: 2px 12px; }
 .rate { padding-left: 16px; }
