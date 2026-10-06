@@ -32,7 +32,9 @@ export default function StoryPage({ map, chapters = {} }: Props) {
   const [chapter, setChapter] = useQueryState('chapter', '');
   // The map's picture for a chapter: its link (title, the reader's address) and its art.
   const pictures = useMemo(() => new Map(map.elements.flatMap((element) =>
-    element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string }, image: element.image }] as const] : [])), [map]);
+    element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string },
+      // Its box on the board has the picture's own shape: the dialog shows the cover whole at it.
+      image: element.image && element.width > 0 && element.height > 0 ? { src: element.image, ratio: element.width / element.height } : null }] as const] : [])), [map]);
   const opener = useMemo<ChapterOpener>(() => ({ has: (story) => !!story && !!chapters[story]?.length && pictures.has(story), open: setChapter }), [chapters, pictures, setChapter]);
   const shown = opener.has(chapter) ? pictures.get(chapter)! : null;
   return (
