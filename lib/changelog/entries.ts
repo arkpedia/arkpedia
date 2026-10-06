@@ -31,7 +31,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-05T15:10:00Z',
+    at: '2026-10-06T13:00:00Z',
     title: 'Event pages and Pull History',
     added: [
       { title: 'Pull History', detail: 'Your pulls by banner and in order, from the 90 days Yostar keeps, growing past that with each import.', href: '/account' },
@@ -58,6 +58,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     fixed: [
       { title: 'Traits that change at Elite 2', detail: 'Both versions show, like Pudding\'s, instead of "varies by promotion".', href: '/operators' },
       { title: 'Reward art', detail: 'Profile icons, furniture and items like Expedited Plan show their pictures.', href: '/schedule' },
+      { title: 'Skill tabs in the operator preview', detail: 'Switching to a shorter skill no longer moves the tabs under your pointer.', href: '/gacha' },
     ],
   },
   {
