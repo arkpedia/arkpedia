@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import GameSignIn from '@/components/account-import/GameSignIn';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import { SERVER_IDS, SERVERS, type ServerId } from '@/lib/account-import/yostar';
+import { readSavedLogin } from '@/lib/account-import/savedLogin';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
@@ -45,9 +48,12 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
   const [result, setResult] = useState<{ imported: ImportResult; pulls: PullRead } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [text, setText] = useState('');
+  // The dialog opens on a click, after hydration, so storage can be read for its first render:
+  // the remembered sign-in's server, else the imported account's, else Global.
+  const [server, setServer] = useState<ServerId>(() => readSavedLogin()?.server ?? account?.server ?? 'en');
 
-  function onAccount(user: Record<string, any>, pulls: PullRead) {
-    setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls), pulls });
+  function onAccount(user: Record<string, any>, pulls: PullRead, from: ServerId) {
+    setResult({ imported: importGameAccount(user, { map, aliases, depotNames: depotNames(catalogue) }, pulls, from), pulls });
   }
 
   function applyText(input: string, source: string) {
@@ -91,14 +97,18 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
       <section className="data-dialog-part" aria-labelledby="data-game">
         <h3 id="data-game">From the game</h3>
         <p className="import-copy">
-          Import data directly from your Arknights (Global) account. Your login is sent encrypted and is never
+          Import data directly from your Arknights account (Global, Japan or Korea). Your login is sent encrypted and is never
           read by Arkpedia itself; Arkpedia only receives your raw account data. No login related information is
           kept on our servers. Everything that is persistent on your browser is saved to your browser locally.
         </p>
         <p className="hint import-note">
           Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.
         </p>
-        <GameSignIn server="en" idPrefix="data" onAccount={onAccount} />
+        {/* A sign-in is one server's: a code Yostar sent for one is no use on another, so each
+            server's sign-in is its own (key). */}
+        <SegmentedControl label="Server" className="import-server" value={server} onChange={setServer}
+          options={SERVER_IDS.map((id) => ({ value: id, label: SERVERS[id].label }))} />
+        <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} />
         {result && (
           <p className="hint import-note" role="status">
             Imported: {importedSummary(result.imported)}.{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}

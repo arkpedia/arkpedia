@@ -10,6 +10,8 @@
 @media (max-width: 720px) { .owned-filter { padding-left: 0; border-left: 0; } }
 
 .import-copy { max-width: 70ch; font-size: 13px; line-height: 1.6; color: var(--text-dim); margin: 0 0 12px; }
+/* Global / Japan / Korea, above the sign-in it picks. */
+.import-server { margin: 12px 0; }
 .import-note { max-width: 70ch; }
 /* Both forms on one grid, so the two fields end at one edge whatever their buttons say. */
 .import-forms { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 8px; max-width: 520px; }

@@ -10,6 +10,7 @@ import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { useAccount } from '@/lib/account/accountStore';
+import { SERVERS } from '@/lib/account-import/yostar';
 // The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
 import { storyAI } from '@/lib/account/prts';
 
@@ -59,7 +60,7 @@ export default function AccountPage({ skins }: Props) {
       </Head>
 
       <PageHeader eyebrow={`${storyAI(account)} // Account`} title="Account"
-        sub="Your Arknights (Global) account: what you own, for the planners and the lists."
+        sub="Your Arknights account (Global, Japan or Korea): what you own, for the planners and the lists."
         actions={<button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={() => setImporting(true)}>Import / export</button>} />
 
       <main>
@@ -76,7 +77,7 @@ export default function AccountPage({ skins }: Props) {
           )}
           {account && (
             <p className="hint">
-              {`${profile?.registeredAt ? `Registered ${day(profile.registeredAt)}, ${age(profile.registeredAt, Date.now())} ago. ` : ''}Imported ${day(account.importedAt)}.${profile?.secretary ? ` Assistant: ${profile.secretary}.` : ''}`}
+              {`${profile?.registeredAt ? `Registered ${day(profile.registeredAt)}, ${age(profile.registeredAt, Date.now())} ago. ` : ''}Imported ${day(account.importedAt)} from the ${SERVERS[account.server].label} server.${profile?.secretary ? ` Assistant: ${profile.secretary}.` : ''}`}
             </p>
           )}
         </section>

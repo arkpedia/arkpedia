@@ -25,6 +25,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
+import { isServerId, type ServerId } from '@/lib/account-import/yostar';
 import { parsePullHistory, type PullHistory } from './pulls';
 
 export const ACCOUNT_STORAGE_KEY = 'arkpediaAccount';
@@ -33,7 +34,8 @@ export const ACCOUNT_EVENT = 'arkpediaAccountChanged';
 
 export interface AccountRecord {
   version: 1;
-  server: 'en';
+  /** The server it was imported from (lib/account-import/yostar SERVERS). */
+  server: ServerId;
   /** When the import read it, ISO. */
   importedAt: string;
   /** The Doctor's name and number, to say whose it is. */
@@ -145,12 +147,12 @@ export function parseAccount(raw: string | null): AccountRecord | null {
   } catch {
     return null;
   }
-  if (!value || typeof value !== 'object' || value.version !== 1 || value.server !== 'en' || typeof value.importedAt !== 'string') return null;
+  if (!value || typeof value !== 'object' || value.version !== 1 || !isServerId(value.server) || typeof value.importedAt !== 'string') return null;
   if (!strings(value.operators, 5000) || !strings(value.skins, 20000) || !strings(value.cleared, 50000)) return null;
   const profile = value.profile && typeof value.profile === 'object' ? value.profile as Record<string, unknown> : null;
   const text = (field: unknown) => (typeof field === 'string' && field.length <= 500 ? field : null);
   return {
-    version: 1, server: 'en', importedAt: value.importedAt,
+    version: 1, server: value.server, importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
@@ -189,7 +191,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
  * by the game's ids. A stage counts as cleared at state 2 or 3 (cleared, or with every
  * star); 0 and 1 are opened and not cleared.
  */
-export function accountFromGame(user: Record<string, any>, map: GameAccountMap, now = new Date()): AccountRecord {
+export function accountFromGame(user: Record<string, any>, map: GameAccountMap, server: ServerId, now = new Date()): AccountRecord {
   const operators = new Set<string>();
   const outfits: Record<string, string> = {};
   for (const char of Object.values((user.troop?.chars ?? {}) as Record<string, { charId?: string; skin?: unknown; tmpl?: Record<string, { skinId?: unknown }> }>)) {
@@ -205,7 +207,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
   const status = user.status ?? {};
   return {
     version: 1,
-    server: 'en',
+    server,
     importedAt: now.toISOString(),
     doctor: status.nickName ? `${status.nickName}#${status.nickNumber ?? ''}` : null,
     operators: [...operators].sort(),

@@ -29,7 +29,7 @@ test('an account gives the operators it owns by name, its outfits by skin id and
     dungeon: { stages: { main_00: { state: 0 }, main_01: { state: 1 }, main_02: { state: 2 }, main_03: { state: 3 } } },
     // Annihilation: a map counts once every kill-count reward is claimed.
     campaignsV2: { instances: { camp_r_01: { maxKills: 400, rewardStatus: [1, 1, 1] }, camp_r_02: { maxKills: 250, rewardStatus: [1, 0, 0] }, camp_r_03: { rewardStatus: [] } } },
-  }, MAP, new Date('2026-10-01T12:00:00Z'));
+  }, MAP, 'en', new Date('2026-10-01T12:00:00Z'));
   assert.deepEqual(record, {
     version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: 'Doctor#1234',
     // Amiya's forms each by their own name; one with no record yet is left out.
@@ -77,13 +77,13 @@ test('a stored record is read back only when it is a whole one', () => {
 test("the import keeps what the account holds to pull with, for the Pull Planner's resources", () => {
   const now = new Date('2026-10-02T12:00:00Z');
   const status = { diamondShard: 12345, androidDiamond: 87, iosDiamond: 87, gachaTicket: 3, tenGachaTicket: 2, hggShard: 412, lggShard: 9000, monthlySubscriptionEndTime: 1793491200 };
-  assert.deepEqual(accountFromGame({ status }, MAP, now).wallet,
+  assert.deepEqual(accountFromGame({ status }, MAP, 'en', now).wallet,
     { orundum: 12345, originitePrime: 87, permits: 23, yellowCerts: 412, monthlyCardUntil: '2026-11-01T00:00:00.000Z' });
   // A server that splits Originite Prime into paid and free says so; no card is null.
-  assert.deepEqual(accountFromGame({ status: { payDiamond: 10, freeDiamond: 5, androidDiamond: 99, monthlySubscriptionEndTime: 0 } }, MAP, now).wallet,
+  assert.deepEqual(accountFromGame({ status: { payDiamond: 10, freeDiamond: 5, androidDiamond: 99, monthlySubscriptionEndTime: 0 } }, MAP, 'en', now).wallet,
     { orundum: 0, originitePrime: 15, permits: 0, yellowCerts: 0, monthlyCardUntil: null });
   // Stored and read back; a bad amount reads as none, never as a number it is not.
-  const record = accountFromGame({ status }, MAP, now);
+  const record = accountFromGame({ status }, MAP, 'en', now);
   assert.deepEqual(parseAccount(JSON.stringify(record))!.wallet, record.wallet);
   const bad = { ...record, wallet: { orundum: -5, originitePrime: 'lots', permits: 1.5, yellowCerts: 1e12, monthlyCardUntil: 'soon' } };
   assert.deepEqual(parseAccount(JSON.stringify(bad))!.wallet, { orundum: 0, originitePrime: 0, permits: 0, yellowCerts: 0, monthlyCardUntil: null });
@@ -94,7 +94,7 @@ test('a support unit wears the M3 badge only when every one of its skills is at 
     social: { assistCharList: [{ charInstId: 1, skillIndex: 0 }] },
     troop: { chars: { 1: { charId: 'char_300_phenxi', level: 90, evolvePhase: 2, potentialRank: 0, skills: levels.map((specializeLevel) => ({ specializeLevel })) } } },
   });
-  const badge = (levels: number[]) => accountFromGame(user(levels), MAP).profile!.supports![0].allMastered;
+  const badge = (levels: number[]) => accountFromGame(user(levels), MAP, 'en').profile!.supports![0].allMastered;
   assert.equal(badge([3, 3, 3]), true);
   assert.equal(badge([3, 3]), true, 'a two-skill operator with both at M3');
   assert.equal(badge([3, 3, 2]), false, 'the lent skill at M3 is not enough');
