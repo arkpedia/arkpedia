@@ -1,5 +1,6 @@
 import { HeadhuntingBanner } from './headhuntingBanners';
 import { parseBannerWindow } from './realGachaBanners';
+import { waitsForGlobal } from './bannerSchedule';
 
 /** Live at `now`: started, and not yet at its (exclusive) end. `now` is required on
  * purpose -- a render that read the clock itself would use the server's clock in the
@@ -16,10 +17,13 @@ export function isBannerLive(banner: HeadhuntingBanner, now: number): boolean {
  * Live banners come first, soonest-ending first, since that is the most time-sensitive;
  * then upcoming ones, soonest-starting first -- the opposite of the newest-first order
  * every other tab uses, since this tab is about what is live or coming up soonest.
- * Banners with no parseable window are left out. */
+ * Banners with no parseable window are left out, and so is a Joint Operation or an
+ * Orienteering Global has not dated yet (waitsForGlobal): its CN window and operators are
+ * not Global's. */
 export function upcomingBanners<T extends HeadhuntingBanner>(banners: readonly T[], now: number): T[] {
   return banners
     .flatMap((banner) => {
+      if (waitsForGlobal(banner)) return [];
       const window = parseBannerWindow(banner);
       if (!window || window.end.getTime() <= now) return [];
       const start = window.start.getTime();

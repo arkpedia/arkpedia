@@ -12,6 +12,8 @@ export const safeName = name => name.replace(/[\\/*?:"<>|]/g, '').trim();
    the wiki's own uploads drop it -- "CN Orienteering 8 banner.png", "CN Joint Operation 19 banner.png"
    -- so a title with one was asked for and never found, and those two banners went without art. */
 export const wikiFile = title => title.replace(/#/g, '').replace(/\s{2,}/g, ' ').trim();
+// The banner kinds whose art is Global's own only: their CN art shows CN's lineup.
+const GLOBAL_ART_KINDS = new Set(['joint', 'orienteering']);
 // A poster file planArt named after an official post and its section.
 const CN_POST_POSTER = /^\/event-poster\/CN \d+-\d+\.webp$/;
 /** The media plan with one entry per file: its sources merged, a post's image (`urls`) and the
@@ -614,7 +616,9 @@ function applyAnnouncements({ events, banners, announced, operators, cn, nowSeco
     } else if (!banner.cn_window) banner.cn_window = windowFor(notice.start, notice.end, notice.source, null);
     // The event the post opens it with: its page shows the banner (getBannerForEvent).
     if (notice.event && !banner.linked_event && eventFor.has(notice.event)) banner.linked_event = eventFor.get(notice.event).name;
-    planArt(banner, 'banner_image', 'headhunting-banner-images', notice);
+    // A Joint Operation's or an Orienteering's CN art shows CN's operators, which Global's will
+    // not have (GLOBAL_ART_KINDS).
+    if (!GLOBAL_ART_KINDS.has(kind)) planArt(banner, 'banner_image', 'headhunting-banner-images', notice);
     if (!['pending', 'announcement'].includes(banner.lineupSource)) continue;
     const listed = [...notice.six, ...notice.five, ...notice.rateUpSix], found = listed.map(named);
     if (listed.length && found.every(Boolean)) {
@@ -802,7 +806,14 @@ export function reconcileCalendars({ events, banners, operators, cn, en, eventRo
     if (isNew || banner.nameStatus === 'cn-official') banner.nameStatus = 'en-unofficial';
     // Planned for every record a row touches: assetPlan drops what is published, so art
     // the wiki had not uploaded yet is asked for again on each run until it lands.
-    if (banner.banner_image?.startsWith('/headhunting-banner-images/')) media.push({ path: banner.banner_image.slice(1), wikiFiles: [wikiFile(`CN ${title} banner.png`), wikiFile(`${title} banner.png`)] });
+    if (banner.banner_image?.startsWith('/headhunting-banner-images/')) {
+      // A Joint Operation's or an Orienteering's art is Global's upload only: CN's shows the
+      // operators CN offered, and Global offers others. Until Global runs it the wiki has none,
+      // and its record is not shown anyway (lib/gacha/headhuntingBannerData.ts).
+      media.push({ path: banner.banner_image.slice(1), wikiFiles: ['jo', 'orient'].includes(row.type)
+        ? [wikiFile(`EN ${title} banner.png`)]
+        : [wikiFile(`CN ${title} banner.png`), wikiFile(`${title} banner.png`)] });
+    }
     banner.cnPoolId = client.gachaPoolId;
     banner.cn_date = `${serverDay(client.openTime)}–${serverDay(client.endTime)}`;
     // Keep confirmed CN announcement timestamps; calendar discovery adds days only.
