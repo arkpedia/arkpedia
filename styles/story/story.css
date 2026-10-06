@@ -67,15 +67,20 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-list-card.is-plain, .story-map-picture.is-plain { cursor: default; }
 
 /* --- A chapter's sections (components/story/ChapterDialog.tsx) ----------------------------------
-   The chapter's art across the top, then a row per stage: its code, its name, and Before / After,
+   The chapter's cover and line on top, then a row per stage: its code, its name, and Before / After,
    each in its own column so the buttons line up down the list (myrtle.moe's layout); a story of its
    own has one Read across both. */
 .account-dialog.story-chapter-dialog { width: min(760px, calc(100vw - 32px)); }
-.story-chapter-art { display: block; width: 100%; max-height: 180px; margin-bottom: 14px; border-radius: var(--radius); object-fit: cover; object-position: 50% 18%; }
-.story-chapter-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 8px; }
-.story-chapter-rows { margin: 0; padding: 0; list-style: none; }
-.story-chapter-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
-.story-chapter-code { justify-self: start; padding: 2px 8px; border: 1px solid var(--control-border); border-radius: var(--radius); color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; }
+/* The cover whole, 180px tall at its own shape (ChapterDialog's ratio, which also holds its place
+   while it loads), with the chapter's line beside it, or under it where both do not fit. */
+.story-chapter-top { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin-bottom: 10px; }
+.story-chapter-art { flex: none; display: block; height: 180px; width: auto; max-width: 100%; object-fit: contain; border-radius: var(--radius); }
+.story-chapter-head { flex: 1 1 260px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+/* One grid for every row (subgrid), so the code column is as wide as the chapter's longest code:
+   "DV-ST-1" on one line, and the names still line up. */
+.story-chapter-rows { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; margin: 0; padding: 0; list-style: none; }
+.story-chapter-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.story-chapter-code { justify-self: start; padding: 2px 8px; border: 1px solid var(--control-border); border-radius: var(--radius); color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
 .story-chapter-code.is-empty { border: 0; }
 .story-chapter-name { min-width: 0; color: var(--text); font-weight: 600; }
 .story-chapter-buttons { display: grid; grid-template-columns: repeat(2, 84px); gap: 6px; }
@@ -84,6 +89,6 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-chapter-read { grid-column: 1 / -1; }
 .story-chapter-buttons > a { justify-content: center; text-align: center; }
 @media (max-width: 560px) {
-  .story-chapter-row { grid-template-columns: 48px minmax(0, 1fr); }
+  .story-chapter-rows { grid-template-columns: max-content minmax(0, 1fr); }
   .story-chapter-buttons { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
