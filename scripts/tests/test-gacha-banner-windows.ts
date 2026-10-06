@@ -4,6 +4,14 @@ import path from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
 import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
+import bundledBanners from '../../data/headhunting_banners.json';
+import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
+
+// A CN-only banner with no event is dated by the localization gap. Every such banner in the data is
+// a Joint Operation, which waits for Global instead and is in no list (waitsForGlobal), so another
+// kind on Joint Operation 23's CN window stands in for one.
+const jointRecord = (bundledBanners as HeadhuntingBanner[]).find(b => b.name === '[jo] Joint Operation 23')!;
+const cnOnly: HeadhuntingBanner = { ...jointRecord, name: 'A CN-only featured banner', pull_type: 'featured' };
 import { resolveGachaSimulatorBanners } from '../../lib/gacha/gachaBannerWindows';
 import { getAllEvents } from '../../lib/schedule/schedule';
 import { getEventCalendar } from '../../lib/home/frontPageContent';
@@ -12,16 +20,19 @@ test('simulator follows calendar forecasts and keeps confirmed Global dates', ()
   const calendar = getEventCalendar();
   const source = getAllHeadhuntingBanners();
   const persona = source.find(b => b.name.includes('Persona 3 Reload'))!;
-  const joint = source.find(b => b.name === '[jo] Joint Operation 23')!;
   const confirmed = source.find(b => b.name === 'Kernel #62 (Global)')!;
   const event = calendar.find(row => row.name === persona.linked_event)!;
-  const resolved = resolveGachaSimulatorBanners([persona, confirmed, joint], getAllEvents(), calendar);
+  const resolved = resolveGachaSimulatorBanners([persona, confirmed, cnOnly, jointRecord], getAllEvents(), calendar);
 
-  assert.deepEqual(resolved.map(b => b.name), [persona.name, joint.name, confirmed.name]);
+  assert.deepEqual(resolved.map(b => b.name).filter(name => name !== jointRecord.name), [persona.name, cnOnly.name, confirmed.name]);
   assert.equal(resolved.find(b => b.name === persona.name)?.global_date?.split('–')[0], event.dateRange.split('–')[0]);
   assert.equal(resolved.find(b => b.name === persona.name)?.global_date_estimated, true);
-  assert.equal(resolved.find(b => b.name === joint.name)?.global_date, '2027/02/09–2027/02/23');
-  assert.equal(resolved.find(b => b.name === joint.name)?.global_date_estimated, true);
+  assert.equal(resolved.find(b => b.name === cnOnly.name)?.global_date, '2027/02/09–2027/02/23');
+  assert.equal(resolved.find(b => b.name === cnOnly.name)?.global_date_estimated, true);
+  // The Joint Operation gets no Global window from CN, and is in no banner list a page reads.
+  assert.equal(resolved.find(b => b.name === jointRecord.name)?.global_date, null);
+  assert.equal(resolved.find(b => b.name === jointRecord.name)?.global_date_estimated ?? false, false);
+  assert.equal(source.some(b => b.name === jointRecord.name), false);
   assert.equal(resolved.find(b => b.name === confirmed.name)?.global_date, confirmed.global_date);
   assert.equal(resolved.find(b => b.name === confirmed.name)?.global_date_estimated, false);
   assert.equal(source.find(b => b.name === persona.name)?.global_date, null);
@@ -31,11 +42,10 @@ test('a moved calendar forecast changes the simulator order', () => {
   const calendar = getEventCalendar();
   const source = getAllHeadhuntingBanners();
   const persona = source.find(b => b.name.includes('Persona 3 Reload'))!;
-  const joint = source.find(b => b.name === '[jo] Joint Operation 23')!;
   const moved = calendar.map(row => row.name === persona.linked_event
     ? { ...row, dateRange: '2027/01/01–2027/01/30' } : row);
-  const resolved = resolveGachaSimulatorBanners([persona, joint], getAllEvents(), moved);
-  assert.deepEqual(resolved.map(b => b.name), [joint.name, persona.name]);
+  const resolved = resolveGachaSimulatorBanners([persona, cnOnly], getAllEvents(), moved);
+  assert.deepEqual(resolved.map(b => b.name), [cnOnly.name, persona.name]);
   assert.equal(resolved.find(b => b.name === persona.name)?.global_date, '2027/01/01–2027/01/15');
 });
 

@@ -476,3 +476,12 @@ test('an announced banner has only the fields HeadhuntingBanner declares: the ho
     assert.deepEqual(Object.keys(banners[0]).filter(key => !known.has(key as keyof HeadhuntingBanner)), []);
   }
 });
+
+test('a post plans no art for a Joint Operation or an Orienteering: its CN banner shows CN\'s operators', () => {
+  const september = post('1455');
+  const run = reconcileCalendars({ events: [], banners: [], operators: [], cn: empty, en: empty, eventRows: [], bannerRows: [], announced: cnAnnouncements([september]), now: Date.parse('2026-09-28T00:00:00Z') });
+  // The mode's poster from the post; the Orienteering announced with it, none.
+  assert.deepEqual(run.events.map((e: any) => e.poster), ['/event-poster/CN 1455-1.webp']);
+  assert.deepEqual(run.banners.map((b: any) => [b.pull_type, b.banner_image]), [['orienteering', null]]);
+  assert.deepEqual(run.media.map((m: any) => m.path), ['event-poster/CN 1455-1.webp']);
+});

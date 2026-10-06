@@ -65,3 +65,41 @@ test('the Upcoming split never reads the clock itself; the instant is always the
     globalThis.Date = RealDate;
   }
 });
+
+test('a Joint Operation or an Orienteering waits for Global: no forecast from CN, on no upcoming list, until Global dates it', async () => {
+  const { estimateBannerFromCn, waitsForGlobal } = await import('../../lib/gacha/bannerSchedule');
+  const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
+  const { getPullSchedule } = await import('../../lib/pulls/schedule');
+  const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBannerData');
+  // Running on CN on 2026-10-06; Global has not dated either.
+  const orienteering = banner('Orienteering #8', null, { pull_type: 'orienteering', cn_date: '2026/09/29–2026/10/13', linked_event: 'Vector Breakthrough' });
+  const joint = banner('Joint Operation #24', null, { pull_type: 'joint', cn_date: '2026/10/06–2026/10/20' });
+  const featured = banner('A CN featured banner', null, { pull_type: 'featured', cn_date: '2026/10/09–2026/10/23' });
+  // No Global window from CN for the two; a featured banner still gets its estimate.
+  assert.equal(estimateBannerFromCn(orienteering, 175).global_date, null);
+  assert.equal(estimateBannerFromCn(joint, 175).global_date, null);
+  assert.equal(estimateBannerFromCn(featured, 175).global_date_estimated, true);
+  // Nor from its event's predicted window, which is how the Pull Planner dates a linked banner.
+  type Events = NonNullable<Parameters<typeof resolvePullBannerWindows>[1]>;
+  type Calendar = NonNullable<Parameters<typeof resolvePullBannerWindows>[2]>;
+  const events = [{ name: 'Vector Breakthrough', cn: { dateRange: '2026/09/29–2026/10/20' }, global: { dateRange: null } }] as unknown as Events;
+  const calendar = [{ name: 'Vector Breakthrough', dateRange: '2027/03/23–2027/04/13', isPredicted: true }] as unknown as Calendar;
+  assert.deepEqual(resolvePullBannerWindows([orienteering], events, calendar).map((b) => [b.global_date, b.global_date_estimated]), [[null, false]]);
+  // Off the Upcoming tab, even while its CN window is open, and whatever estimate it was given.
+  const now = at('2026-10-06T12:00:00Z');
+  assert.deepEqual(upcomingBanners([orienteering, joint, { ...joint, name: 'Estimated JO', global_date: '2027/04/01–2027/04/15', global_date_estimated: true }, featured], now).map((b) => b.name), ['A CN featured banner']);
+  // Once Global dates it, it is a Global banner like any other.
+  const dated = { ...orienteering, global_date: '2027/03/23–2027/04/06' };
+  assert.equal(waitsForGlobal(dated), false);
+  assert.deepEqual(upcomingBanners([dated], now).map((b) => b.name), ['Orienteering #8']);
+  assert.equal(resolvePullBannerWindows([dated], events, calendar)[0].global_date, '2027/03/23–2027/04/06');
+  // The real data: the bundled records include ones still waiting, and none of them is in the
+  // banner list every page reads, nor in the Pull Planner's schedule.
+  const { default: bundled } = await import('../../data/headhunting_banners.json');
+  const waiting = (bundled as HeadhuntingBanner[]).filter((b) => waitsForGlobal(b)).map((b) => b.name);
+  assert.ok(waiting.length > 0, 'the bundled banners include some still waiting for Global');
+  const listed = new Set(getAllHeadhuntingBanners().map((b) => b.name));
+  assert.deepEqual(waiting.filter((name) => listed.has(name)), []);
+  const planned = new Set(getPullSchedule().map((b) => b.name));
+  assert.deepEqual(waiting.filter((name) => planned.has(name)), []);
+});

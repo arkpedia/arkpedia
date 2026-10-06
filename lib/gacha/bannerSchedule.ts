@@ -3,6 +3,23 @@ interface BannerWindow {
   cn_date: string | null;
   global_date_estimated?: boolean;
   schedule_anchor?: string;
+  pull_type?: string;
+}
+
+/* The kinds whose Global lineup is never CN's: a Joint Operation's selectable operators and an
+   Orienteering's choices differ between the servers. */
+const GLOBAL_LINEUP_KINDS = new Set(['joint', 'orienteering']);
+
+/**
+ * Whether a banner waits for Global's own information: a Joint Operation or an Orienteering
+ * without a Global date of its own (a confirmed one, not an estimate). Global will not have the
+ * same operators (the site owner, 2026-10-06: "anything CN for Joint Operation and Orienteering
+ * should not be shown"), so nothing of it is shown until Global's client or announcement dates
+ * it: the banner list every page reads leaves it out (headhuntingBannerData.ts), no Global window
+ * is predicted for it from CN, and it is on no "upcoming" list.
+ */
+export function waitsForGlobal(banner: { pull_type?: string; global_date?: string | null; global_date_estimated?: boolean }): boolean {
+  return GLOBAL_LINEUP_KINDS.has(banner.pull_type ?? '') && !(banner.global_date && !banner.global_date_estimated);
 }
 
 interface EventWindow {
@@ -42,7 +59,7 @@ export function resolveBannerEventWindow<T extends BannerWindow>(banner: T, even
 
 /** Calendar-style fallback for CN-only banners without a linked event window. */
 export function estimateBannerFromCn<T extends BannerWindow>(banner: T, gapDays: number): T {
-  if (banner.global_date) return banner;
+  if (banner.global_date || waitsForGlobal(banner)) return banner;
   const cn = range(banner.cn_date);
   if (!cn) return banner;
   const offset = gapDays * 86400000;
