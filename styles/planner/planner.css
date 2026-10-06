@@ -227,6 +227,11 @@
 
 .simple-wizard .state-block-rule { display:none; }
 .simple-wizard .wizard-foot { justify-content:space-between; }
+/* The starting levels' lock (OperatorStateForm `locked`): a fieldset only for the disabled state it
+   gives every control inside, so none of its own box. */
+.state-form-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
+.state-form-lock:disabled .state-blocks { opacity: 0.6; }
+.state-form-locked { margin: 0 0 10px; }
 .simple-wizard .state-blocks { gap:12px; }
 .simple-wizard .state-block { padding:12px; }
 

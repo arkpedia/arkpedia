@@ -2,18 +2,21 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImportError, readAccount, readNetwork, readPulls, sendCode, signIn, type ImportStep, type Network, type ServerId, type YostarAccount } from '@/lib/account-import/yostar';
 import type { PullRead } from '@/lib/account/pulls';
 import { directTransport, relayTransport } from '@/lib/account-import/relay';
+import { forgetLogin, maskEmail, readSavedLogin, saveLogin, type SavedLogin } from '@/lib/account-import/savedLogin';
 
 /*
  * The sign-in with a Yostar email code, and the account it reads (lib/account-import):
  * an email field, a code field and the steps as they run. Used by the Account page's Import /
  * export dialog. `onAccount` gets the account as the game server sent it, and what the Account
  * Center gave of the pull history: a history it could not read is said in the last step and
- * stops nothing. Nothing of the sign-in is kept: every import asks Yostar for a new code.
+ * stops nothing. Nothing of the sign-in is kept unless the reader ticks "Remember this sign-in on
+ * this browser" (lib/account-import/savedLogin.ts): then the next import is one button, until they
+ * forget it or the game stops accepting it.
  */
 
-/* Where an earlier build kept the Yostar login (a uid and an access token) for one-button
-   re-imports. That is gone (the maintainer, 2026-10-02); a login one left behind is
-   removed the first time the sign-in is shown. */
+/* Where a build before 2026-10-02 kept the Yostar login without asking. A login one left behind
+   is removed the first time the sign-in is shown; a remembered sign-in now lives under its own
+   key, and only when the reader asks (savedLogin.ts). */
 export const LEGACY_LOGIN_KEY = 'arkpediaGameLogin';
 
 const STEPS: { id: ImportStep; label: string }[] = [
@@ -43,8 +46,12 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const [done, setDone] = useState(false);
   // Why the pull history was not read, when the rest was: its step shows a cross, nothing else does.
   const [pullsFailed, setPullsFailed] = useState<string | null>(null);
+  // The remembered sign-in, if the reader asked for one; read after mount, as storage is.
+  const [saved, setSaved] = useState<SavedLogin | null>(null);
+  const [remember, setRemember] = useState(false);
   useEffect(() => {
     try { window.localStorage?.removeItem(LEGACY_LOGIN_KEY); } catch { /* Nothing was kept. */ }
+    setSaved(readSavedLogin());
   }, []);
   // One device id per visit, as one phone signing in.
   const deviceId = useRef<string | null>(null);
@@ -87,12 +94,12 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   }
 
   /** Steps 3 to 6 with a Yostar login, then the account and the pulls to the caller. */
-  async function read(yostar: YostarAccount, device: string) {
+  async function read(yostar: YostarAccount, device: string, signedInAs: string) {
     const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(), onStep: setStep }, yostar);
     setStep('pulls');
     let pulls: PullRead;
     try {
-      pulls = { rows: await readPulls(relayTransport, email.trim(), yostar), error: null };
+      pulls = { rows: await readPulls(relayTransport, signedInAs, yostar), error: null };
     } catch (error) {
       pulls = { rows: null, error: describe(error) };
     }
@@ -110,12 +117,44 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setStep('sign-in');
     try {
       const yostar = await signIn(flow(), email.trim(), code.trim());
-      await read(yostar, flow().deviceId);
+      await read(yostar, flow().deviceId, email.trim());
+      // Kept only when the reader asked, and only once the sign-in has worked.
+      if (remember) {
+        const login: SavedLogin = { server, email: email.trim(), ...yostar, deviceId: flow().deviceId };
+        saveLogin(login);
+        setSaved(login);
+      }
       // The code is spent; the email stays for the next import's code.
       setCode('');
       setCodeSent(false);
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'account', message: describe(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The remembered sign-in, straight to the game: no code, the device id it was issued to. */
+  async function onImportAgain() {
+    if (!saved) return;
+    setBusy(true);
+    setFailed(null);
+    setPullsFailed(null);
+    setDone(false);
+    setStep('game-token');
+    deviceId.current = saved.deviceId;
+    try {
+      await read(saved, saved.deviceId, saved.email);
+    } catch (error) {
+      const at = error instanceof ImportError ? error.step : 'account';
+      // The game refused it: expired or revoked, so it is forgotten rather than tried again.
+      if (at === 'game-token' || at === 'game-login') {
+        forgetLogin();
+        setSaved(null);
+        setFailed({ step: at, message: 'Your remembered sign-in no longer works, so it was forgotten. Sign in with a code again.' });
+      } else {
+        setFailed({ step: at, message: describe(error) });
+      }
     } finally {
       setBusy(false);
     }
@@ -133,6 +172,13 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
 
   return (
     <>
+      {saved && (
+        <div className="import-saved">
+          <span className="hint">Remembered on this browser: <b>{maskEmail(saved.email)}</b></span>
+          <button type="button" className="primary btn-sm" onClick={onImportAgain} disabled={busy}>Import again</button>
+          <button type="button" className="ghost btn-sm" onClick={() => { forgetLogin(); setSaved(null); }} disabled={busy}>Forget sign-in</button>
+        </div>
+      )}
       <div className="import-forms">
         <form className="import-row" onSubmit={onSendCode}>
           <label className="visually-hidden" htmlFor={`${idPrefix}-email`}>Yostar email</label>
@@ -168,6 +214,10 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
           />
           <button type="submit" className="primary btn-sm" disabled={busy || !codeSent || !code.trim()}>Import</button>
         </form>
+        <label className="check import-remember" title="Kept in this browser only. Anyone using this browser could import with it, so leave it off on a shared computer.">
+          <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} disabled={busy} />
+          Remember this sign-in on this browser
+        </label>
       </div>
 
       <ol className="import-steps" aria-live="polite">

@@ -122,6 +122,9 @@ stage nation-marks --needs stage-dataset -- python3 scripts/imports/import-natio
 # with each story a link into Timo's story reader. Reads no game data, so it needs no stage.
 # A new picture is staged in .cache/story-map/ for the staged-art stage.
 stage story-map -- python3 scripts/imports/import_story_map.py
+# Each of the map's chapters, section by section, as Timo's story reader numbers them, for the Story
+# page's chapter popup (data/story-chapters.json): read from the reader's catalogue as data.
+stage story-chapters --needs story-map -- node scripts/imports/import-story-chapters.mjs
 
 # Run windows, for the Current group and the default chapter.
 stage content-windows --needs stage-dataset -- node scripts/build/build-content-windows.mjs

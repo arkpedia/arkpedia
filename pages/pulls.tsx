@@ -35,6 +35,8 @@ import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LockToggle from '@/components/ui/LockToggle';
+import { useLock } from '@/lib/ui/useLock';
 import {
   ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
   MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
@@ -53,9 +55,11 @@ function readNumber(raw: string): number {
 }
 
 function Field({
-  label, unit, value, onChange, icon,
+  label, unit, value, onChange, icon, readOnly = false,
 }: {
   label: string; unit: string; value: string; onChange: (v: string) => void; icon?: string;
+  /** Locked (the resources' lock): shown, selectable, not editable. */
+  readOnly?: boolean;
 }) {
   return (
     <label className="pulls-field" title={icon ? label : undefined}>
@@ -68,6 +72,7 @@ function Field({
           onFocus={event => event.currentTarget.select()}
           onClick={event => event.currentTarget.select()}
           value={value}
+          readOnly={readOnly}
           onChange={(e) => /^\d{0,8}$/.test(e.target.value) && Number(e.target.value) <= 10_000_000 && onChange(e.target.value)}
           placeholder="0"
           aria-label={label}
@@ -146,6 +151,8 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const [bannerName, setBannerName] = useState('');
   const [clearedReruns, setClearedReruns] = useState<Set<string>>(new Set());
   const [walletFrom, setWalletFrom] = useState('');
+  // Locked by default while the resources are the import's (useLock); the reader's choice stays.
+  const [walletLocked, setWalletLocked] = useLock('pulls-resources', !!account?.wallet && walletFrom === account.importedAt);
   const [pastOpen, setPastOpen] = useState(false);
 
   const [now, setNow] = useState<Date | null>(null);
@@ -359,10 +366,11 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       <section className={`op-section ${workspace.overview}`} aria-labelledby="pull-resources-heading">
         <h2 id="pull-resources-heading" className={workspace.resourceHeading}>Resources &amp; income</h2>
         <div className={workspace.wallet}>
-          <Field label="Orundum" unit="" icon="/material-icons/Orundum.webp" value={orundum} onChange={setOrundum} />
-          <Field label="Originite Prime" unit="" icon="/material-icons/Originite%20Prime.webp" value={originite} onChange={setOriginite} />
-          <Field label="Permits" unit="" icon="/material-icons/Headhunting%20Permit.webp" value={permits} onChange={setPermits} />
-          <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} />
+          <Field label="Orundum" unit="" icon="/material-icons/Orundum.webp" value={orundum} onChange={setOrundum} readOnly={walletLocked} />
+          <Field label="Originite Prime" unit="" icon="/material-icons/Originite%20Prime.webp" value={originite} onChange={setOriginite} readOnly={walletLocked} />
+          <Field label="Permits" unit="" icon="/material-icons/Headhunting%20Permit.webp" value={permits} onChange={setPermits} readOnly={walletLocked} />
+          <Field label="Yellow certs" unit="" icon="/material-icons/Distinction%20Certificate.webp" value={yellowCerts} onChange={setYellowCerts} readOnly={walletLocked} />
+          <div className={workspace.walletLock}><LockToggle what="Resources" locked={walletLocked} onChange={setWalletLocked} /></div>
           {account?.wallet && walletFrom === account.importedAt
             ? <p className={`hint ${workspace.walletNote}`}>Filled from your account, imported {formatDayMonthYear(account.importedAt.slice(0, 10))}. Edit them as you spend; <Link href="/account">import again</Link> to refresh them.</p>
             : account && !account.wallet && <p className={`hint ${workspace.walletNote}`}><Link href="/account">Import your account again</Link> to fill these in from it.</p>}

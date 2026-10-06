@@ -2,15 +2,20 @@ import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
-import StoryMapView from '@/components/story/StoryMapView';
+import { useMemo } from 'react';
+import ChapterDialog from '@/components/story/ChapterDialog';
+import StoryMapView, { type ChapterOpener } from '@/components/story/StoryMapView';
 import { withContentPage } from '@/lib/content/server';
-import type { StoryMap } from '@/lib/story/storyMap';
+import { useQueryState } from '@/lib/hooks/useQueryState';
+import type { StoryLink, StoryMap } from '@/lib/story/storyMap';
+import type { StoryChapters } from '@/lib/story/storyChapters';
 
 /*
  * Where to read Arknights' story, and in what order: Timo's story reader, which has every
  * chapter of every server's script, and the Arknights Story Map, a community whiteboard of
- * which stories lead into which, drawn here with each story a link into the reader
- * (components/story/StoryMapView.tsx).
+ * which stories lead into which, drawn here with each story a link to its chapters: a popup of its
+ * sections, a stage's Before and After side by side, each opening that part in the reader
+ * (components/story/ChapterDialog.tsx), at /story?chapter=<group> so a chapter can be linked.
  */
 
 const READER = 'https://arknights.timo.beer/index.html';
@@ -18,9 +23,18 @@ const READER = 'https://arknights.timo.beer/index.html';
 interface Props {
   /** The board, as scripts/imports/import_story_map.py reads it (lib/story/storyMap.ts). */
   map: StoryMap;
+  /** Each chapter's sections (data/story-chapters.json). Absent from a release compiled before the
+   *  popup: every story then links straight into the reader, as it did. */
+  chapters?: StoryChapters;
 }
 
-export default function StoryPage({ map }: Props) {
+export default function StoryPage({ map, chapters = {} }: Props) {
+  const [chapter, setChapter] = useQueryState('chapter', '');
+  // The map's picture for a chapter: its link (title, the reader's address) and its art.
+  const pictures = useMemo(() => new Map(map.elements.flatMap((element) =>
+    element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string }, image: element.image }] as const] : [])), [map]);
+  const opener = useMemo<ChapterOpener>(() => ({ has: (story) => !!story && !!chapters[story]?.length && pictures.has(story), open: setChapter }), [chapters, pictures, setChapter]);
+  const shown = opener.has(chapter) ? pictures.get(chapter)! : null;
   return (
     <>
       <Head><title>Story — Arkpedia</title></Head>
@@ -44,11 +58,12 @@ export default function StoryPage({ map }: Props) {
           <h2 id="story-map">Story map</h2>
           <p className="hint story-map-credit">
             <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from the original. Click
-            a story to start reading it in Timo&apos;s reader.
+            a story to choose where to start reading it in Timo&apos;s reader.
           </p>
-          <StoryMapView map={map} />
+          <StoryMapView map={map} chapters={opener} />
         </section>
       </main>
+      {shown && <ChapterDialog link={shown.link} image={shown.image} sections={chapters[chapter]} onClose={() => setChapter('')} />}
     </>
   );
 }
@@ -58,6 +73,6 @@ export default function StoryPage({ map }: Props) {
    once a release carries the page, the map comes from the release, so a change to the board
    reaches readers without a deployment. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/story', async () => {
-  const { bundledStoryMap } = await import('@/lib/story/storyMapData');
-  return { props: { map: bundledStoryMap() } };
+  const { bundledStoryChapters, bundledStoryMap } = await import('@/lib/story/storyMapData');
+  return { props: { map: bundledStoryMap(), chapters: bundledStoryChapters() } };
 }, { bundledWhenUnpublished: true });

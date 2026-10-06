@@ -30,6 +30,9 @@ import { OperatorBill, ShortfallList } from '@/components/planner/ShortfallList'
 import { MaterialIcon } from '@/components/planner/MaterialIcon';
 import { PlanRows, type PlanRowView } from '@/components/planner/PlanRows';
 import { OperatorStateForm } from '@/components/planner/OperatorStateForm';
+import LockToggle from '@/components/ui/LockToggle';
+import { useLock } from '@/lib/ui/useLock';
+import { useAccount } from '@/lib/account/accountStore';
 import { OperatorWizard, type WizardFlow } from '@/components/planner/OperatorWizard';
 import { BuildDialog, type BuildStep } from '@/components/planner/BuildDialog';
 import { clampBuilderStates, defaultStartingState, knownPlanNames, type BuilderState } from '@/lib/planner/builderStates';
@@ -244,6 +247,10 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const modeHold = useSwitchHold('planner-mode');
   const [simpleNewOperator, setSimpleNewOperator] = useState(false);
   const [simpleStep, setSimpleStep] = useState<'current' | 'goal'>('current');
+  /* The starting levels' lock: locked by default once an import set the roster, so an imported
+     level is not changed by a stray tap; the reader's choice stays (lib/ui/useLock.ts). */
+  const account = useAccount();
+  const [levelsLocked, setLevelsLocked] = useLock('planner-starting-levels', !!account);
   const [summaryName, setSummaryName] = useState<string | null>(null);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   /**
@@ -1103,6 +1110,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             onChange={(mode) => { modeHold.capture(); setPlannerMode(mode); setWizard(null); }}
             options={[{ value: 'simple', label: 'Simple' }, { value: 'experimental', label: 'Experimental' }]}
           />
+          <LockToggle what="Starting levels" locked={levelsLocked} onChange={setLevelsLocked} />
           <DataLink />
         </div>}
       />
@@ -1115,8 +1123,8 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
 
         <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
-          <SimplePlanner clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
-            onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
+          <SimplePlanner levelsLocked={levelsLocked} clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
+            onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) || levelsLocked ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
             onRemove={removeOperator} onRetry={fetchOperatorDetail} failedNames={failedNames} />
         ) : (<>
         {/* First, because it is the thing the reader came to state. Everything
@@ -1387,6 +1395,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               {wizard.flow === 'roster' || !builder || (plannerMode === 'simple' && simpleStep === 'current') ? (
                 <OperatorStateForm
                   mode="current"
+                  locked={levelsLocked}
                   rarity={activeOp.rarity || 1}
                   skills={skillList.map((sk, i) => ({
                     name: sk.name || `Skill ${i + 1}`,
@@ -1428,6 +1437,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
               ) : (
                 <OperatorStateForm
                   mode="target"
+                  locked={false}
                   rarity={activeOp.rarity || 1}
                   skills={skillList.map((sk, i) => ({
                     name: sk.name || `Skill ${i + 1}`,

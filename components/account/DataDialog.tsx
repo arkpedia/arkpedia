@@ -11,6 +11,7 @@ import { PULL_PLAN_KEY, type SavedPullPlan } from '@/lib/pulls/plan';
 import { writePastProgress } from '@/lib/pulls/pastProgress';
 import { importGameAccount, type ImportResult } from '@/lib/account/importAccount';
 import type { PullRead } from '@/lib/account/pulls';
+import { forgetLogin } from '@/lib/account-import/savedLogin';
 import { applyBackup, backupFilename, formatBackup } from '@/lib/account/backup';
 import { readImportFile } from '@/lib/account/importFile';
 import { useAccount, writeAccount } from '@/lib/account/accountStore';
@@ -91,8 +92,8 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
         <h3 id="data-game">From the game</h3>
         <p className="import-copy">
           Import data directly from your Arknights (Global) account. Your login is sent encrypted and is never
-          read by Arkpedia itself; Arkpedia only receives your account data. Nothing of the login is kept: each
-          import asks for a new code.
+          read by Arkpedia itself; Arkpedia only receives your raw account data. No login related information is
+          kept on our servers. Everything that is persistent on your browser is saved to your browser locally.
         </p>
         <p className="hint import-note">
           Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.
@@ -145,10 +146,10 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
       {note && <p className="hint data-dialog-note" role="status">{note}</p>}
 
       <section className="data-dialog-part data-dialog-forget" aria-label="Forget this account">
-        <button type="button" className="ghost btn-sm" disabled={!account} onClick={() => { writeAccount(null); setResult(null); setNote('Your account is forgotten on this browser. The planners keep their own data until you clear it there.'); }}>
+        <button type="button" className="ghost btn-sm" disabled={!account} onClick={() => { writeAccount(null); forgetLogin(); setResult(null); setNote('Your account and any remembered sign-in are forgotten on this browser. The planners keep their own data until you clear it there.'); }}>
           Forget this account
         </button>
-        <span className="hint">Clears the imported account from this browser.</span>
+        <span className="hint">Clears the imported account, and a remembered sign-in, from this browser.</span>
       </section>
       </div>
     </ImportDialog>
