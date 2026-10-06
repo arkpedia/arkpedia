@@ -221,8 +221,10 @@ jobs:
           stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
           stage reward-names -- node scripts/sync/sync-reward-names.mjs
           # The voice lines take newly released operators' English text from the supplement:
-          # without it they keep yesterday's lines rather than fall back to Chinese.
+          # without it they keep yesterday's lines rather than fall back to Chinese. The skin
+          # table says which outfits bring a voice set of their own (CN's is fetched by URL).
           stage voices --needs charwords -- env ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
+            ARKPEDIA_EN_SKINS=.cache/upstream/en-gamedata/en/gamedata/excel/skin_table.json \
             ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" npm run voices:refresh
           # Monster Siren's new albums and songs, before the lyrics that key on them.
           stage albums -- npm run albums:refresh
@@ -261,6 +263,8 @@ jobs:
           ARKPEDIA_CONTENT_DISABLED: '1'
           NODE_ENV: production
           ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
+          # check:published-assets:release lists every outfit voice folder with the contents API.
+          GH_TOKEN: ${{ github.token }}
         run: |
           node scripts/content/check-completeness.mjs
           npx tsx scripts/build/build-operator-search.ts

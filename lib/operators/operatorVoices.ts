@@ -23,10 +23,29 @@ export interface OperatorVoicePack {
   audioTemplate: string | null;
 }
 
-export interface OperatorVoiceData {
+/** One set of lines and the recordings of them: an operator's own, or an outfit's. */
+export interface OperatorVoiceSet {
   textLocale: 'en' | 'zh-CN';
   lines: OperatorVoiceLine[];
   packs: OperatorVoicePack[];
+}
+
+/**
+ * An outfit's own voice set (scripts/build/build-operator-voices.mjs): the game plays it
+ * instead of the operator's while the outfit is worn. Its own text, or the same text
+ * recorded again (Mudrock's outfits, Luo Xiaohei's Elite 2 art); its packs read the
+ * folder named after `id`, the set's word key in the game's tables.
+ */
+export interface OperatorSkinVoiceSet extends OperatorVoiceSet {
+  id: string;
+  /** The outfits that use it, by name: "Red Countess", or every one sharing it. */
+  label: string;
+  skinIds: string[];
+}
+
+export interface OperatorVoiceData extends OperatorVoiceSet {
+  /** Present only when an outfit has a voice set of its own; in the skin table's order. */
+  skinVoices?: OperatorSkinVoiceSet[];
 }
 
 // Keep templates independent of asset revisions. Playback resolves them against
