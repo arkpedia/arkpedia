@@ -319,7 +319,7 @@ export function officialModules(characterId, modules, current, battleEquip, tale
       .map(id => table.missionList?.[id]?.desc).filter(Boolean);
     const battle = type === 'Upgrade' ? battles[module.uniEquipId] : null;
     /* A cost in a material itemName cannot name (null) keeps the stage's previous cost, reported,
-       as sync-skill-masteries does for a mastery: a Chinese name is a material the planner's
+       as sync-operator-costs does for every other cost: a Chinese name is a material the planner's
        catalogue never has, so check-completeness held the operator and /planner dropped it. A
        stage the record has no cost for (a module CN has just announced, costing a material line
        data/material-names.json does not name yet: the usual case) gets an empty list, never no

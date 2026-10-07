@@ -198,12 +198,13 @@ jobs:
           stage media-pins -- node scripts/sync/refresh-media-pins.mjs
           bash scripts/sync/refresh-stage-data.sh
           stage pulls -- npm run pulls:refresh
-          # Every mastery cost a record lacks, from the Global table or, for a CN-only operator,
-          # the CN one (scripts/sync/sync-skill-masteries.mjs): the English refresh writes the costs
-          # of every operator in the Global tables, so this fills what that leaves -- the CN-only
-          # operators, and a mastery the Global table lacks. Before the material catalogue, which
-          # reads the records' costs.
-          stage skill-masteries -- node scripts/sync/sync-skill-masteries.mjs
+          # Every operator's costs -- promotions, skill levels, masteries, module stages -- written
+          # over whatever the record had, from the Global tables or, for a CN-only operator, the CN
+          # ones (scripts/sync/sync-operator-costs.mjs). Then it reads every record back and fails
+          # on a cost that still disagrees with the tables. After the English refresh and the
+          # catalogue, which write some of them, and the stage refresh, which checks out the EN
+          # tables; before the material catalogue, which reads the records' costs.
+          stage operator-costs -- node scripts/sync/sync-operator-costs.mjs
           # The planner's material catalogue, from the operator records as they now stand (after
           # the English refresh renames their costs), the recipes, the depot order and the item
           # tables the stage refresh synced. Then the other planners' item ids for it: a

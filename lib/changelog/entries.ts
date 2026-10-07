@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // Dated at its release to the main site (the release PR sets the moment).
+    at: '2026-10-08T00:00:00Z',
+    fixed: [
+      { title: 'Operator material costs', detail: 'Promotion, skill, mastery and module costs now come from the game itself; 118 were wrong or missing, like Closure\'s S3M3.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-07T22:04:00Z',
     title: 'Animated outfit art, credits and fixes',
     added: [
