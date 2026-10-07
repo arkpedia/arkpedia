@@ -31,6 +31,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-07T14:00:00Z',
+    title: 'Effects in animated art',
+    added: [
+      { title: 'Effects in animated outfit art', detail: 'Flowing skies, water, flames and dissolving smoke now play in the animated art, as in the game.', href: '/skins' },
+      { title: 'Animated art for CN outfits', detail: 'Outfits CN already has, like One More Story, play their animated art before Global releases them.', href: '/skins' },
+    ],
+  },
+  {
     at: '2026-10-07T12:15:00Z',
     title: 'Credits',
     added: [
