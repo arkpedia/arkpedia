@@ -98,6 +98,7 @@
 .skin-zoom-stage { position: relative; display: flex; }
 .skin-zoom-canvas { position: absolute; inset: 0; cursor: pointer; touch-action: none; }
 .skin-zoom-canvas-surface { display: block; width: 100%; height: 100%; }
+.skin-zoom-canvas-veil { position: absolute; inset: 0; pointer-events: none; }
 .skin-zoom-animations { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: var(--control-h); margin-top: 8px; padding: 0 16px; }
 .skin-zoom-status { color: var(--scrim-ink-dim); font-size: 13px; }
 

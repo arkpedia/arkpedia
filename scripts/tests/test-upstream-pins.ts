@@ -168,11 +168,16 @@ test('the voice lines name the mirrors by branch, so a mirror moving does not re
     const pins = Object.fromEntries(MIRRORS.map((mirror: any, i: number) => [pinVariable(mirror.repository), commit(String(i + 1))]));
     const run = spawnSync(process.execPath, ['scripts/build/build-operator-voices.mjs'], { encoding: 'utf8', env: { ...process.env, ...pins,
       ARKPEDIA_EN_CHARWORDS: empty, ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS: empty, ARKPEDIA_CN_CHARWORDS: empty, ARKPEDIA_VOICE_INDEX: empty,
+      ARKPEDIA_EN_SKINS: empty, ARKPEDIA_CN_SKINS: empty,
       ARKPEDIA_TLVR_DIR: path.join(root, 'tlvr'), ARKPEDIA_VOICE_ASSET_INDEX: path.join(root, 'assets.json'), ARKPEDIA_VOICE_OUTPUT: output } });
     assert.equal(run.status, 0, run.stderr);
-    const published = JSON.parse(fs.readFileSync('data/operator-voice-lines.json', 'utf8')).meta.transcripts;
-    assert.deepEqual(JSON.parse(fs.readFileSync(output, 'utf8')).meta.transcripts, published);
-    assert.ok(published.every((url: string) => /\/(?:main|master)\//.test(url)));
+    const published = JSON.parse(fs.readFileSync('data/operator-voice-lines.json', 'utf8')).meta;
+    const written = JSON.parse(fs.readFileSync(output, 'utf8')).meta;
+    // The transcripts and the skin tables the outfit voice sets come from.
+    for (const key of ['transcripts', 'outfits']) {
+      assert.deepEqual(written[key], published[key], key);
+      assert.ok(published[key].length && published[key].every((url: string) => /\/(?:main|master)\//.test(url)), key);
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

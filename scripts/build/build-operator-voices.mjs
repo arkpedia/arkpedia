@@ -2,7 +2,7 @@
 
 import { englishVoiceTitles, englishVoiceTitle } from '../lib/voice-line-titles.mjs';
 import { actorAliases, normalizeVoicePack } from '../lib/voice-pack-metadata.mjs';
-import { listLegacyClips, restrictToRecordedClips } from '../lib/voice-clip-availability.mjs';
+import { listFolderClips, listLegacyClips, restrictToRecordedClips, unlistedRecordings } from '../lib/voice-clip-availability.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -27,8 +27,8 @@ const AUDIO_DIRECTORY_APIS = Object.fromEntries(Object.entries(VOICE_REPOSITORIE
   directory,
   `https://api.github.com/repos/arkpedia/${repository}/contents/current`,
 ]));
-// The legacy folders' file lists, from the contents API unless a local index stands in
-// ({ "<repository>/<folder>": [names] }; see scripts/lib/voice-clip-availability.mjs).
+// The legacy folders' and outfit voice sets' file lists, from the contents API unless a local
+// index stands in ({ "<repository>/<folder>": [names] }; see scripts/lib/voice-clip-availability.mjs).
 const LEGACY_CLIP_INDEX = process.env.ARKPEDIA_VOICE_LEGACY_INDEX ? JSON.parse(readFileSync(process.env.ARKPEDIA_VOICE_LEGACY_INDEX, 'utf8')) : null;
 const LEGACY_AUDIO_ROOTS = {
   voice: 'https://raw.githubusercontent.com/arkpedia/arkpedia-voice-japanese/main/legacy',
@@ -44,11 +44,13 @@ const LEGACY_AUDIO_ROOTS = {
 const MIRROR_FILES = {
   en: ['ArknightsAssets/ArknightsGamedata', 'en/gamedata/excel/charword_table.json'],
   enSupplemental: ['PuppiizSunniiz/ArknightsGameData_YoStar', 'en_US/gamedata/excel/charword_table.json'],
+  enSkins: ['ArknightsAssets/ArknightsGamedata', 'en/gamedata/excel/skin_table.json'],
 };
 const mirrorUrls = env => ({
   ...Object.fromEntries(Object.entries(MIRROR_FILES).map(([key, [repository, file]]) =>
     [key, `https://raw.githubusercontent.com/${repository}/${pinnedRef(repository, env)}/${file}`])),
   cn: cnTableUrl('excel/charword_table.json', env),
+  cnSkins: cnTableUrl('excel/skin_table.json', env),
 });
 const TRANSCRIPTS = mirrorUrls({});
 const URLS = {
@@ -145,7 +147,9 @@ function audioTemplate(charId, type, voicePath, directoryIndex) {
   const location = audioLocations(charId, type, voicePath)
     .find(candidate => directoryIndex[candidate.directory]?.has(candidate.folder));
   if (!location) return null;
-  return `${AUDIO_ROOTS[location.directory]}/${location.folder}/{voiceIdLower}.mp3`;
+  // An outfit's folder is its word key, which has a '#' in it (char_311_mudrok#1): written
+  // raw, everything after it would be a URL fragment and the clip would 404.
+  return `${AUDIO_ROOTS[location.directory]}/${encodeURIComponent(location.folder)}/{voiceIdLower}.mp3`;
 }
 
 function lineCategory(voiceId) {
@@ -171,8 +175,10 @@ function wordsFor(table, charId) {
   return [...byVoice.values()].sort((a, b) => (a.voiceIndex ?? 1000) - (b.voiceIndex ?? 1000) || a.voiceId.localeCompare(b.voiceId));
 }
 
-function currentPacks(table, charId, directoryIndex) {
-  const config = table.voiceLangDict?.[charId];
+/** The recording packs of one voice set: an operator's own (wordKey = its charId) or an
+ * outfit's (wordKey = the skin's voiceId), each read from the folder named after it. */
+function currentPacks(table, wordKey, directoryIndex) {
+  const config = table.voiceLangDict?.[wordKey];
   if (!config) return [];
   const order = ['EN', 'JP', 'CN_MANDARIN', 'KR', '11', 'ITA', 'GER', 'RUS', 'FRE', 'CN_TOPOLECT', 'LINKAGE'];
   const rank = new Map(order.map((type, index) => [packId(type), index]));
@@ -181,7 +187,7 @@ function currentPacks(table, charId, directoryIndex) {
     label: PACK_LABELS[type] || table.voiceLangTypeDict?.[type]?.name || type,
     actors: value.cvName || [],
     status: 'current',
-    audioTemplate: audioTemplate(charId, type, value.voicePath, directoryIndex),
+    audioTemplate: audioTemplate(wordKey, type, value.voicePath, directoryIndex),
   })).sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999));
 }
 
@@ -255,10 +261,74 @@ function unusedLines(audioIndex, charId, currentIds) {
   });
 }
 
-const [en, enSupplemental, cn, audioIndex, directory, audioDirectories] = await Promise.all([
+/** The site's own names for outfits, by skin id (data/skins.json), which the catalogue
+ * writes in English for CN-only outfits too. */
+function siteSkinNames() {
+  try {
+    const skins = JSON.parse(readFileSync(join(ROOT, 'data/skins.json'), 'utf8'));
+    return new Map(skins.filter(skin => skin.skinId && skin.name).map(skin => [skin.skinId, skin.name]));
+  } catch (error) {
+    if (error.code === 'ENOENT') return new Map();
+    throw error;
+  }
+}
+
+/** An outfit's name: the site's, else "Elite 2" for the promotion art (char_311_mudrok#2,
+ * which the game files as a "Default Outfit" with no name), else the game's. */
+function outfitLabel(skinId, skin, names) {
+  if (names.has(skinId)) return names.get(skinId);
+  if (!skinId.includes('@') && skinId.endsWith('#2') && !skin.displaySkin?.skinName) return 'Elite 2';
+  return skin.displaySkin?.skinName || skinId;
+}
+
+/**
+ * The voice sets an operator's outfits bring with them, from the skin tables: a skin whose
+ * voiceId names a set of lines filed under the operator's own charId (charWords), other than
+ * the operator's own. Outfits that share a set (Mudrock's Elite 2 art, Silent Night DN06,
+ * Rubble and Obsidian all use char_311_mudrok#1) are one set naming every one of them. A skin
+ * of another record that borrows a set -- the retired Shalem's (char_512_aprot#1), which plays
+ * the current Shalem's own lines -- is not this operator's outfit and is left out.
+ * Global's table first, then CN's, which adds the outfits Global has not released yet.
+ */
+function outfitVoiceSets(charId, skins, setOwners, names) {
+  const sets = new Map();
+  for (const [skinId, skin] of Object.entries(skins)) {
+    const wordKey = skin.voiceId;
+    if (skin.charId !== charId || !wordKey || wordKey === charId || setOwners.get(wordKey) !== charId) continue;
+    const set = sets.get(wordKey) ?? { id: wordKey, labels: [], skinIds: [] };
+    set.skinIds.push(skinId);
+    const label = outfitLabel(skinId, skin, names);
+    if (!set.labels.includes(label)) set.labels.push(label);
+    sets.set(wordKey, set);
+  }
+  return [...sets.values()].map(({ labels, ...set }) => ({ ...set, label: labels.join(', ') }));
+}
+
+/** One voice set's own lines, in the game's order. */
+function setWords(table, wordKey) {
+  return Object.values(table.charWords || {})
+    .filter(word => word.wordKey === wordKey)
+    .sort((a, b) => (a.voiceIndex ?? 1000) - (b.voiceIndex ?? 1000) || a.voiceId.localeCompare(b.voiceId));
+}
+
+function lineRows(words) {
+  return words.map((word, index) => ({
+    id: word.voiceId,
+    title: word.voiceTitle || 'Additional voice line',
+    text: word.voiceText || null,
+    category: lineCategory(word.voiceId),
+    status: 'current',
+    unlock: word.lockDescription || null,
+    order: word.voiceIndex ?? index,
+  }));
+}
+
+const [en, enSupplemental, cn, enSkins, cnSkins, audioIndex, directory, audioDirectories] = await Promise.all([
   jsonInput('ARKPEDIA_EN_CHARWORDS', URLS.en),
   jsonInput('ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS', URLS.enSupplemental),
   jsonInput('ARKPEDIA_CN_CHARWORDS', URLS.cn),
+  jsonInput('ARKPEDIA_EN_SKINS', URLS.enSkins),
+  jsonInput('ARKPEDIA_CN_SKINS', URLS.cnSkins),
   jsonInput('ARKPEDIA_VOICE_INDEX', URLS.audioIndex),
   tlvrDirectory(),
   audioDirectoryIndex(),
@@ -266,7 +336,66 @@ const [en, enSupplemental, cn, audioIndex, directory, audioDirectories] = await 
 const aliases = actorAliases(cn, [en, enSupplemental]);
 const titles = englishVoiceTitles([en, enSupplemental]);
 const tlvr = readTlvr(directory);
+// Global's record of an outfit wins over CN's; CN's adds the ones Global lacks.
+const skins = { ...cnSkins.charSkins, ...enSkins.charSkins };
+// Which operator each voice set's lines are filed under.
+const setOwners = new Map();
+for (const table of [cn, enSupplemental, en]) for (const word of Object.values(table.charWords || {})) setOwners.set(word.wordKey, word.charId);
+const skinNames = siteSkinNames();
 const operators = {};
+let outfitSetCount = 0;
+
+/** A set's current packs: Global's table first, the supplement and CN filling what it lacks. */
+function mergedCurrentPacks(wordKey) {
+  const packsById = new Map();
+  for (const pack of currentPacks(en, wordKey, audioDirectories)) packsById.set(pack.id, pack);
+  for (const pack of currentPacks(enSupplemental, wordKey, audioDirectories)) {
+    const existing = packsById.get(pack.id);
+    if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
+      packsById.set(pack.id, { ...pack, actors: existing?.actors?.length ? existing.actors : pack.actors });
+    }
+  }
+  for (const pack of currentPacks(cn, wordKey, audioDirectories)) {
+    const existing = packsById.get(pack.id);
+    if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
+      packsById.set(pack.id, { ...pack, actors: existing?.actors?.length ? existing.actors : pack.actors });
+    }
+  }
+  return [...packsById.values()].filter(pack => pack.audioTemplate);
+}
+
+/**
+ * An outfit's voice set, shaped like the operator's own: its lines (English text first, with
+ * the base set's fallbacks), its packs from the folders named after it, and each line offered
+ * only in the packs whose folder holds its clip. Those folders are listed file by file (a set
+ * is a handful of folders), which also finds the recordings its table has no line for: those
+ * are its Unused rows (unlistedRecordings).
+ */
+async function outfitVoiceSet({ id, label, skinIds }, operatorLines) {
+  const enWords = setWords(en, id);
+  const supplementalEnWords = setWords(enSupplemental, id);
+  const source = enWords.length ? enWords : supplementalEnWords.length ? supplementalEnWords : setWords(cn, id);
+  const lines = lineRows(source);
+  const packs = mergedCurrentPacks(id);
+  if (!lines.length || !packs.length) {
+    console.warn(`Outfit voice set ${id} (${label}) has ${lines.length} lines and ${packs.length} recorded packs: left out.`);
+    return null;
+  }
+  const listings = await listFolderClips(packs, { revisions: ASSET_REVISIONS, localIndex: LEGACY_CLIP_INDEX });
+  const recorded = restrictToRecordedClips(lines, packs, listings)
+    // Titled as the operator's own line of that id is, so the two lists agree, else as the
+    // operator's own unused rows are (the recording index).
+    .concat(unlistedRecordings(lines, packs, listings, voiceId => operatorLines.find(line => line.id === voiceId)?.title
+      || audioIndex.localizations?.['en-US']?.[/^CN_(\d+)/.exec(voiceId)?.[1]]));
+  return {
+    id,
+    label,
+    skinIds,
+    textLocale: enWords.length || supplementalEnWords.length ? 'en' : 'zh-CN',
+    lines: recorded.map(line => ({ ...line, title: englishVoiceTitle(line.id, line.title, titles) })),
+    packs: packs.map(pack => normalizeVoicePack(pack, aliases)),
+  };
+}
 
 for (const charId of [...operatorIds()].sort()) {
   const enWords = wordsFor(en, charId);
@@ -275,33 +404,11 @@ for (const charId of [...operatorIds()].sort()) {
   const archive = tlvr.get(charId);
   const source = enWords.length ? enWords : supplementalEnWords.length ? supplementalEnWords : cnWords;
   const fallback = source.length ? [] : tlvrFallback(archive);
-  const lines = source.map((word, index) => ({
-    id: word.voiceId,
-    title: word.voiceTitle || 'Additional voice line',
-    text: word.voiceText || null,
-    category: lineCategory(word.voiceId),
-    status: 'current',
-    unlock: word.lockDescription || null,
-    order: word.voiceIndex ?? index,
-  })).concat(fallback);
+  const lines = lineRows(source).concat(fallback);
   const currentIds = new Set(lines.map(line => line.id));
   lines.push(...unusedLines(audioIndex, charId, currentIds));
 
-  const packsById = new Map();
-  for (const pack of currentPacks(en, charId, audioDirectories)) packsById.set(pack.id, pack);
-  for (const pack of currentPacks(enSupplemental, charId, audioDirectories)) {
-    const existing = packsById.get(pack.id);
-    if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
-      packsById.set(pack.id, { ...pack, actors: existing?.actors?.length ? existing.actors : pack.actors });
-    }
-  }
-  for (const pack of currentPacks(cn, charId, audioDirectories)) {
-    const existing = packsById.get(pack.id);
-    if (!existing || (!existing.audioTemplate && pack.audioTemplate)) {
-      packsById.set(pack.id, { ...pack, actors: existing?.actors?.length ? existing.actors : pack.actors });
-    }
-  }
-  const packs = [...packsById.values()].filter(pack => pack.audioTemplate).concat(legacyPacks(archive));
+  const packs = mergedCurrentPacks(charId).concat(legacyPacks(archive));
   if (!packs.length && archive) {
     const audioCharId = archive.voices?.[0]?.asset?.split('/')?.[0] || charId;
     for (const id of archive.availability || []) {
@@ -314,16 +421,27 @@ for (const charId of [...operatorIds()].sort()) {
   // A legacy pack recorded before the actor changed may lack some lines: offer only the
   // clips its folder holds, so the page says "No recording" rather than playing a 404.
   const recorded = restrictToRecordedClips(lines, packs, await listLegacyClips(packs, { revisions: ASSET_REVISIONS, localIndex: LEGACY_CLIP_INDEX }));
-  if (lines.length) operators[charId] = {
+  if (!lines.length) continue;
+  const ownLines = recorded.map(line => ({ ...line, title: englishVoiceTitle(line.id, line.title, titles) }));
+  const skinVoices = [];
+  for (const set of outfitVoiceSets(charId, skins, setOwners, skinNames)) {
+    const voiceSet = await outfitVoiceSet(set, ownLines);
+    if (voiceSet) skinVoices.push(voiceSet);
+  }
+  outfitSetCount += skinVoices.length;
+  operators[charId] = {
     textLocale: enWords.length || supplementalEnWords.length || fallback.length ? 'en' : 'zh-CN',
-    lines: recorded.map(line => ({ ...line, title: englishVoiceTitle(line.id, line.title, titles) })),
+    lines: ownLines,
     packs: packs.map(pack => normalizeVoicePack(pack, aliases)),
+    // Only where an outfit has a voice of its own, so every other operator reads as before.
+    ...(skinVoices.length ? { skinVoices } : {}),
   };
 }
 
 writeFileSync(OUTPUT, `${JSON.stringify({
   meta: {
     transcripts: [TRANSCRIPTS.en, TRANSCRIPTS.enSupplemental, TRANSCRIPTS.cn],
+    outfits: [TRANSCRIPTS.enSkins, TRANSCRIPTS.cnSkins],
     audio: AUDIO_ROOTS,
     legacyAudio: LEGACY_AUDIO_ROOTS,
     archive: 'https://github.com/PseudoMon/tlvr-source',
@@ -333,4 +451,4 @@ writeFileSync(OUTPUT, `${JSON.stringify({
 }, null, 2)}\n`);
 
 if (!process.env.ARKPEDIA_TLVR_DIR) rmSync(directory.replace(/\/tlvr-source-master\/datascript\/chardata$/, ''), { recursive: true, force: true });
-console.log(`Wrote ${Object.keys(operators).length} operators to ${basename(OUTPUT)}`);
+console.log(`Wrote ${Object.keys(operators).length} operators and ${outfitSetCount} outfit voice sets to ${basename(OUTPUT)}`);

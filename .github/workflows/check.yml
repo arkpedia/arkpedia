@@ -119,7 +119,11 @@ jobs:
       - name: Wiki importer degradation tests
         run: python3 scripts/imports/test-degrading-importers.py
 
+      # The voice clip check lists every outfit voice folder (66) with the contents API, past
+      # its 60 unauthenticated requests an hour.
       - name: External asset coverage
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: npm run check:assets && npm run check:published-assets
 
       # Size ceilings on what the guessers send to readers, measured on the bundled data.

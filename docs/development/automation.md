@@ -45,8 +45,13 @@ Images and audio are delivered directly from GitHub, without proxying their bodi
 manifests, downloads a sample from every image category plus responsive variants,
 checks their SHA-256 and sizes, and verifies pinned palette/voice metadata. It then
 runs `scripts/audits/check-voice-clips.mjs`, which asks for every clip a legacy voice
-pack offers on an operator page and fails on any the pinned repository lacks (a clip
-the host does not answer for is asked three times first). That half checks
+pack offers on an operator page, and looks up every clip an outfit's voice set
+(`skinVoices`, current packs only) offers in its folder's listing, one contents-API
+request per folder at the pinned revision (66 folders, so it reads `GH_TOKEN`: the
+unauthenticated limit is 60 an hour). It fails on any clip the pinned repository lacks
+(a clip or folder the host does not answer for is asked three times first). An
+operator's own current packs are not checked clip by clip: they are whole-game dumps,
+covered by their revision records. That half checks
 `data/operator-voice-lines.json`, which the voices stage rebuilds, so the release job's
 asset-revisions stage (which runs before it) checks only the files at its new pins. The
 release job's Validate step runs `npm run check:published-assets:release` instead, whose
