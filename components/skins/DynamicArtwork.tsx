@@ -1,6 +1,11 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
-import { ANIMATION_MIX, INTRO_ANIMATION, TOUCH_ANIMATION, openingPlan, parseDynamicModel, pressPlan, type DynamicModel } from '@/lib/skins/dynamicArt';
+import {
+  ANIMATION_MIX, HANDOVER_SECONDS, INTRO_ANIMATION, TOUCH_ANIMATION, cameraAt, fadesAt, handoverIn, handoverOut, openingPlan,
+  parseDynamicModel, pressPlan, restingView, viewBetween, type DynamicModel, type View,
+} from '@/lib/skins/dynamicArt';
+import { layerClock, parseDynamicLayers, partRanges, type DynamicLayers, type LayerClock } from '@/lib/skins/dynamicLayers';
+import { createLayerRenderer, type LayerRenderer } from './dynamicLayerRenderer';
 
 /*
  * One animated artwork (a dynamic illustration), drawn with the official Spine 3.8 runtime into
@@ -16,7 +21,17 @@ import { ANIMATION_MIX, INTRO_ANIMATION, TOUCH_ANIMATION, openingPlan, parseDyna
  * An outfit with an entrance (model.json `entrance`) also loads that sequence: a second skeleton,
  * drawn in the illustration's coordinates with the same camera, and its soundtrack. Intro plays
  * it, then the illustration's Start, then Idle, as the game does; while the soundtrack plays, the
- * entrance follows the soundtrack's clock, so the two stay together.
+ * entrance follows the soundtrack's clock, so the two stay together. It is seen through the game's
+ * own camera (model.json entrance.camera: its pans, zooms, roll and the full-screen fades that hide
+ * its cuts, drawn as a veil over the canvas), and the view then settles onto the illustration's
+ * framing as the hand-over colour clears.
+ *
+ * The illustration prefab's own mesh layers (model.json `layers`: the skies, windows, frames and
+ * glows the game draws with the skeleton, lib/skins/dynamicLayers.ts) load with the rest and draw in
+ * the game's order around the skeleton's parts (SkeletonPartsRenderer slot ranges), each with its
+ * blend, on its own timeline, on the bone it follows, and the Interact/Special/Start groups only while
+ * their animation plays. Under reduced motion they stand at their first frame. The view frames the
+ * skeleton and its layers together. A layers file that fails to load only leaves them out.
  *
  * Closing the view unmounts this: the loop stops, the textures, buffers and shaders are freed, the
  * soundtrack stops and the WebGL context is let go (WEBGL_lose_context), so a reader who opens
@@ -99,17 +114,32 @@ function loadAudio(url: string, signal: AbortSignal): Promise<HTMLAudioElement |
   });
 }
 
+/** The mesh layers and their textures; null (the artwork plays without them) when they fail to load. */
+async function loadLayers(file: string, url: (name: string) => string, signal: AbortSignal): Promise<{ layers: DynamicLayers; images: HTMLImageElement[] } | null> {
+  try {
+    const layers = parseDynamicLayers(await (await fetchOk(url(file), signal)).json());
+    if (layers.skipped) console.warn('[dynamic art] layers this reader does not understand were left out:', layers.skipped);
+    const images = await Promise.all(layers.textures.map((texture) => loadImage(url(texture.file), signal)));
+    return { layers, images };
+  } catch (error) {
+    if (signal.aborted) throw error;
+    console.warn('[dynamic art] the layers could not be loaded; the artwork plays without them', error);
+    return null;
+  }
+}
+
 /** The model's files, fetched side by side from the folder its model.json is in: the
- *  illustration, and its entrance and soundtrack when it has one. */
+ *  illustration, its mesh layers, and its entrance and soundtrack when it has one. */
 async function loadModel(url: string, signal: AbortSignal) {
   const model = parseDynamicModel(await (await fetchOk(url, signal)).json());
   const file = (name: string) => new URL(name, url).href;
-  const [illustration, entrance, audio] = await Promise.all([
+  const [illustration, entrance, audio, layers] = await Promise.all([
     loadSkeleton(model, file, signal),
     model.entrance ? loadSkeleton(model.entrance, file, signal) : null,
     model.entrance?.audio ? loadAudio(file(model.entrance.audio.file), signal) : null,
+    model.layers ? loadLayers(model.layers.file, file, signal) : null,
   ]);
-  return { model, ...illustration, entrance, audio };
+  return { model, ...illustration, entrance, audio, layers };
 }
 
 type SpineContext = InstanceType<SpineRuntime['webgl']['ManagedWebGLRenderingContext']>;
@@ -149,10 +179,17 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   const gl = context.gl;
   const atlases: Spine.TextureAtlas[] = [];
   let renderer: Spine.webgl.SceneRenderer | null = null;
+  let layerRenderer: LayerRenderer | null = null;
   const audio = files.audio;
+  // The entrance camera's full-screen fades and hand-over colour, over the canvas.
+  const veil = document.createElement('div');
+  veil.className = 'skin-zoom-canvas-veil';
+  host.appendChild(veil);
   const release = () => {
     audio?.pause();
+    veil.remove();
     for (const atlas of atlases) atlas.dispose();
+    layerRenderer?.dispose();
     renderer?.dispose();
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
     canvas.remove();
@@ -163,6 +200,23 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     // The entrance: its own skeleton and state, drawn instead of the illustration while it plays.
     const entrance = files.entrance ? readSkeleton(spine, context, files.entrance, atlases) : null;
     renderer = new spine.webgl.SceneRenderer(canvas, context, true);
+    let layers = files.layers?.layers ?? null;
+    if (files.layers) {
+      // A layer program that fails to build (or a lost context) leaves the layers out; the skeleton still plays.
+      try {
+        layerRenderer = createLayerRenderer(context, files.layers.layers, files.layers.images, skeleton);
+      } catch (error) {
+        console.warn('[dynamic art] layers left out', error);
+        layerRenderer = null;
+        layers = null;
+      }
+    }
+    // The illustration is framed with its layers (their bounds include the skeleton's).
+    const restBounds = layers?.bounds ?? model.bounds;
+    // How many skeleton parts the ranges are worked out for (the parts are numbered from 0).
+    const parts = layers ? layers.draw.reduce((most, entry) => (entry.kind === 'part' ? Math.max(most, entry.index + 1) : most), 0) : 0;
+    // How long the illustration has run since it took over (the layers' clock).
+    let illustrationTime = 0;
     const names = data.animations.map((animation) => animation.name);
     const scene = renderer;
     const reduced = options.reducedMotion;
@@ -170,6 +224,12 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     let inEntrance = false;
     let then: { play: string; rest: string | null } | null = null;
     if (audio) audio.muted = !options.sound;
+    const camera = model.entrance?.camera ?? null;
+    const entranceLength = entrance?.data.findAnimation(INTRO_ANIMATION)?.duration ?? 0;
+    let aspect = 1;
+    let lastView: View | null = null;
+    // After the entrance: from its last view onto the illustration's, the hand-over colour clearing.
+    let handover: { from: View; colour: [number, number, number, number] | null; start: number } | null = null;
 
     state.addListener({
       start: (entry) => options.onPlaying(entry.animation.name),
@@ -183,6 +243,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       complete: () => {
         if (!inEntrance || !then) return;
         inEntrance = false;
+        if (camera) handover = { from: lastView ?? restingView(restBounds, aspect), colour: handoverOut(camera, entranceLength), start: performance.now() };
+        illustrationTime = 0;
         const next = then;
         then = null;
         state.setAnimation(0, next.play, false);
@@ -194,6 +256,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     const startEntrance = (play: string, rest: string | null) => {
       if (!entrance) return;
       inEntrance = true;
+      handover = null;
       then = { play, rest };
       entrance.skeleton.setToSetupPose();
       entrance.state.setAnimation(0, INTRO_ANIMATION, false);
@@ -207,20 +270,82 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     const stopEntrance = () => {
       inEntrance = false;
       then = null;
+      handover = null;
       audio?.pause();
+    };
+
+    /** What the camera shows now, and the veil's layers (bottom to top, [r, g, b, alpha]). */
+    const framing = (now: number): { view: View; layers: [number, number, number, number][] } => {
+      const rest = restingView(restBounds, aspect);
+      if (inEntrance && camera) {
+        const t = entrance?.state.getCurrent(0)?.trackTime ?? 0;
+        const view = cameraAt(camera, t);
+        lastView = view;
+        const layers = fadesAt(camera, t);
+        const rising = handoverIn(camera, t, entranceLength);
+        return { view, layers: rising ? [...layers, rising] : layers };
+      }
+      if (handover) {
+        const k = (now - handover.start) / 1000 / HANDOVER_SECONDS;
+        if (k >= 1) {
+          handover = null;
+          return { view: rest, layers: [] };
+        }
+        const colour = handover.colour;
+        return { view: viewBetween(handover.from, rest, k), layers: colour ? [[colour[0], colour[1], colour[2], colour[3] * (1 - k)]] : [] };
+      }
+      return { view: rest, layers: [] };
+    };
+    let veilCss = '';
+    const show = ({ view, layers }: ReturnType<typeof framing>) => {
+      scene.camera.position.x = view.x;
+      scene.camera.position.y = view.y;
+      scene.camera.viewportHeight = view.height;
+      scene.camera.viewportWidth = view.height * aspect;
+      const roll = (view.roll * Math.PI) / 180;
+      scene.camera.up.set(-Math.sin(roll), Math.cos(roll), 0);
+      const css = layers.slice().reverse().map(([r, g, b, a]) => {
+        const c = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a.toFixed(3)})`;
+        return `linear-gradient(${c}, ${c})`;
+      }).join(', ');
+      if (css !== veilCss) {
+        veilCss = css;
+        veil.style.background = css;
+      }
     };
 
     const draw = () => {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       scene.begin();
-      scene.drawSkeleton(inEntrance && entrance ? entrance.skeleton : skeleton, model.premultipliedAlpha);
+      if (inEntrance && entrance) {
+        scene.drawSkeleton(entrance.skeleton, model.premultipliedAlpha);
+      } else if (!layers || !layerRenderer) {
+        scene.drawSkeleton(skeleton, model.premultipliedAlpha);
+      } else {
+        // The game's order: each skeleton part's slot range, and the layers around them.
+        const ranges = partRanges(skeleton.drawOrder.map((slot) => ({ name: slot.data.name, index: slot.data.index, active: slot.bone.active })), layers.separators, parts);
+        const current = state.getCurrent(0);
+        const clock: LayerClock = layerClock(reduced, current ? { name: current.animation.name, trackTime: current.trackTime,
+          animationEnd: current.animationEnd, timeScale: current.timeScale } : null, illustrationTime);
+        for (const entry of layers.draw) {
+          if (entry.kind === 'part') {
+            const range = ranges[entry.index];
+            if (range && parts === 1 && !layers.separators.length) scene.drawSkeleton(skeleton, model.premultipliedAlpha);
+            else if (range) scene.drawSkeleton(skeleton, model.premultipliedAlpha, range[0], range[1]);
+          } else {
+            scene.end();
+            layerRenderer.draw(entry.layer, clock, scene.camera.projectionView.values);
+            scene.begin();
+          }
+        }
+      }
       scene.end();
     };
 
     // Under reduced motion the loop runs only while something the reader asked for plays.
     const moving = () => {
-      if (!reduced || inEntrance) return true;
+      if (!reduced || inEntrance || handover) return true;
       const current = state.getCurrent(0);
       return !!current && (!!current.mixingFrom || (current.timeScale !== 0 && (current.loop || !current.isComplete())));
     };
@@ -244,7 +369,9 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         state.update(delta);
         state.apply(skeleton);
         skeleton.updateWorldTransform();
+        illustrationTime += delta;
       }
+      show(framing(now));
       draw();
       if (firstFrame) { firstFrame = false; options.onFirstFrame(names, !!audio); }
       if (moving()) frameId = requestAnimationFrame(frame);
@@ -252,8 +379,9 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     };
     const run = () => { if (!frameId) frameId = requestAnimationFrame(frame); };
 
-    // Framed by the model's bounds (setup pose and Idle at its first frame, from model.json),
-    // contained in the canvas, which has the still picture's box.
+    // The canvas has the still picture's box; the illustration is framed by its bounds (setup pose
+    // and Idle at its first frame with the layers drawn then, from layers.json, else model.json)
+    // contained in it (restingView), the entrance by its camera at the canvas's aspect.
     let size = '';
     const resize = () => {
       const width = host.clientWidth, height = host.clientHeight;
@@ -267,14 +395,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       canvas.width = w;
       canvas.height = h;
       gl.viewport(0, 0, w, h);
-      const { x, y, width: bw, height: bh } = model.bounds;
-      let viewWidth = bw * 1.02, viewHeight = bh * 1.02;
-      if (viewWidth / viewHeight < w / h) viewWidth = viewHeight * (w / h);
-      else viewHeight = viewWidth / (w / h);
-      scene.camera.position.x = x + bw / 2;
-      scene.camera.position.y = y + bh / 2;
-      scene.camera.viewportWidth = viewWidth;
-      scene.camera.viewportHeight = viewHeight;
+      aspect = w / h;
       if (!frameId) frame(performance.now());
     };
 

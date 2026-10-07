@@ -185,9 +185,21 @@ interface SkeletonFiles {
   animations: Record<string, number>;
 }
 
+/** The camera the game plays an entrance through (decoded from its Unity camera rig by
+ *  arkpedia-l2d-assets' scripts/entrance_camera.py): keyframes of the view's centre, visible
+ *  height (skeleton units) and roll (degrees), to interpolate linearly; the full-screen fades
+ *  that hide its cuts and flash at the end; and the colour it hands over to the illustration. */
+export interface EntranceCamera {
+  frames: [t: number, x: number, y: number, height: number, roll: number][];
+  fades: { color: [number, number, number]; keys: [t: number, alpha: number][] }[];
+  handover: [number, number, number] | null;
+}
+
 /** The entrance sequence an outfit with a dynEntranceId plays before its illustration: its own
- *  skeleton (one animation, Start) drawn in the illustration's coordinates, and its soundtrack. */
+ *  skeleton (one animation, Start) drawn in the illustration's coordinates, its camera (null when
+ *  the game names none: the illustration's framing is used) and its soundtrack. */
 export interface DynamicEntrance extends SkeletonFiles {
+  camera: EntranceCamera | null;
   audio: { file: string; duration: number } | null;
 }
 
@@ -197,11 +209,106 @@ export interface DynamicModel extends SkeletonFiles {
   premultipliedAlpha: boolean;
   bounds: { x: number; y: number; width: number; height: number };
   entrance: DynamicEntrance | null;
+  /** The illustration prefab's own mesh layers (lib/skins/dynamicLayers.ts), drawn with the skeleton;
+   *  null for a model without them. */
+  layers: { file: string } | null;
 }
 
 /** A file name inside the model's folder: never a path. */
 const FILE = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+
+const unit = (value: unknown) => finite(value) && value >= 0 && value <= 1;
+const colour = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every(unit);
+
+/** An entrance's camera, checked: null when absent (an older model) or named none. */
+function parseEntranceCamera(value: unknown, fail: (why: string) => never): EntranceCamera | null {
+  if (value == null) return null;
+  const camera = value as Partial<EntranceCamera>;
+  const frames = camera.frames;
+  if (!Array.isArray(frames) || !frames.length
+    || !frames.every((frame, i) => Array.isArray(frame) && frame.length === 5 && frame.every(finite) && frame[3] > 0
+      && (i === 0 ? frame[0] === 0 : frame[0] > frames[i - 1][0]))) fail('entrance camera frames');
+  const fades = camera.fades;
+  if (!Array.isArray(fades) || !fades.every((fade) => fade && colour(fade.color) && Array.isArray(fade.keys) && fade.keys.length > 0
+    && fade.keys.every((key, i) => Array.isArray(key) && key.length === 2 && finite(key[0]) && unit(key[1]) && (i === 0 || key[0] > fade.keys[i - 1][0])))) {
+    fail('entrance camera fades');
+  }
+  if (camera.handover != null && !colour(camera.handover)) fail('entrance camera handover');
+  return {
+    frames: frames!.map((frame) => [...frame] as EntranceCamera['frames'][number]),
+    fades: fades!.map((fade) => ({ color: [...fade.color] as [number, number, number], keys: fade.keys.map((key) => [...key] as [number, number]) })),
+    handover: camera.handover ? [...camera.handover] as [number, number, number] : null,
+  };
+}
+
+/* --- the entrance's camera --------------------------------------------------------------- */
+
+export interface View { x: number; y: number; height: number; roll: number }
+
+/** Linear interpolation in a time-ordered key list ([t, ...values]); held before the first key and
+ *  after the last. */
+function interpolate<K extends number[]>(keys: readonly K[], t: number): number[] {
+  if (t <= keys[0][0]) return keys[0].slice(1);
+  const last = keys[keys.length - 1];
+  if (t >= last[0]) return last.slice(1);
+  let i = 0;
+  while (keys[i + 1][0] <= t) i++;
+  const a = keys[i], b = keys[i + 1];
+  const k = (t - a[0]) / (b[0] - a[0]);
+  return a.slice(1).map((value, j) => value + (b[j + 1] - value) * k);
+}
+
+/** Where the entrance's camera looks at time t (seconds into the entrance). */
+export function cameraAt(camera: EntranceCamera, t: number): View {
+  const [x, y, height, roll] = interpolate(camera.frames, t);
+  return { x, y, height, roll };
+}
+
+/** The full-screen fades at time t, bottom to top: [r, g, b, alpha] each, colours 0-1. */
+export function fadesAt(camera: EntranceCamera, t: number): [number, number, number, number][] {
+  return camera.fades.map((fade) => [...fade.color, interpolate(fade.keys, t)[0]] as [number, number, number, number])
+    .filter((layer) => layer[3] > 0.001);
+}
+
+/** Seconds the view takes to settle from the entrance's last framing onto the illustration's,
+ *  and for the hand-over colour to clear from it. */
+export const HANDOVER_SECONDS = 0.8;
+/** The last seconds of an entrance in which, when no fade already covers the screen, the
+ *  hand-over colour rises over it, as the game's controller fades into the illustration. */
+export const HANDOVER_IN_SECONDS = 0.4;
+
+/** The hand-over colour over the end of the entrance (t: seconds into it, duration: its length):
+ *  rising over its last HANDOVER_IN_SECONDS unless its own fades already cover the screen there. */
+export function handoverIn(camera: EntranceCamera, t: number, duration: number): [number, number, number, number] | null {
+  if (!camera.handover) return null;
+  const end = fadesAt(camera, duration).reduce((covered, layer) => covered + (1 - covered) * layer[3], 0);
+  if (end >= 0.9) return null;
+  const alpha = Math.min(1, Math.max(0, (t - (duration - HANDOVER_IN_SECONDS)) / HANDOVER_IN_SECONDS));
+  return alpha > 0 ? [...camera.handover, alpha] : null;
+}
+
+/** The colour the screen holds at the end of the entrance (its fades, else the hand-over colour),
+ *  which clears over the illustration's first HANDOVER_SECONDS. */
+export function handoverOut(camera: EntranceCamera, duration: number): [number, number, number, number] | null {
+  const layers = fadesAt(camera, duration);
+  const top = layers[layers.length - 1];
+  if (top && top[3] >= 0.05) return top;
+  return camera.handover ? [...camera.handover, 1] : null;
+}
+
+/** Smoothly from one view to another (k: 0-1, eased in and out). */
+export function viewBetween(from: View, to: View, k: number): View {
+  const e = k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k);
+  return { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, height: from.height + (to.height - from.height) * e, roll: from.roll + (to.roll - from.roll) * e };
+}
+
+/** The illustration's framing: its bounds (from model.json), contained in a canvas of this aspect
+ *  (width / height) with a 2% margin, upright. */
+export function restingView(bounds: DynamicModel['bounds'], aspect: number): View {
+  const height = Math.max(bounds.height * 1.02, (bounds.width * 1.02) / aspect);
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, height, roll: 0 };
+}
 
 /** The skeleton, atlas, pages and animations of the illustration or its entrance, checked. */
 function parseSkeletonFiles(part: Partial<SkeletonFiles> | null | undefined, fail: (why: string) => never, what: string): SkeletonFiles {
@@ -240,13 +347,18 @@ export function parseDynamicModel(value: unknown): DynamicModel {
     if (!Object.hasOwn(parts.animations, INTRO_ANIMATION)) fail('entrance has no Start');
     const audio = model.entrance.audio;
     if (audio != null && !(FILE.test(String(audio.file)) && finite(audio.duration) && audio.duration > 0)) fail('entrance audio');
-    entrance = { ...parts, audio: audio ? { file: audio.file, duration: audio.duration } : null };
+    entrance = { ...parts, camera: parseEntranceCamera(model.entrance.camera, fail), audio: audio ? { file: audio.file, duration: audio.duration } : null };
   }
+  // The assets repository always writes `layers` (null only for a bundle without an illustration
+  // prefab); a model from before layers has none either.
+  const layers = model.layers;
+  if (layers != null && !(typeof layers === 'object' && FILE.test(String(layers.file)))) fail('layers');
   return {
     skinId: model.skinId!,
     ...files,
     premultipliedAlpha: model.premultipliedAlpha!,
     bounds: { x: bounds!.x, y: bounds!.y, width: bounds!.width, height: bounds!.height },
     entrance,
+    layers: layers ? { file: layers.file } : null,
   };
 }
