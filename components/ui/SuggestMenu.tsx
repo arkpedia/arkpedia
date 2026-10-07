@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import styles from './StyledSelect.module.css';
 
 export interface SuggestMenuProps<T> {
@@ -34,9 +34,17 @@ export interface SuggestMenuProps<T> {
  * scrolls with the field and sits above the page without adding to its height.
  * Normally rendered by SearchInput; export it only for a field SearchInput cannot be.
  */
+/** How far a finger may move between press and lift and still count as a tap, not a scroll. */
+const TAP_SLOP = 8;
+
 export default function SuggestMenu<T>({
   id, label, items, getKey, renderItem, activeIndex, optionId, onPick, onHover, setItemRef, empty, upward = false,
 }: SuggestMenuProps<T>) {
+  /* A touch picks on lift. The press is held back (preventDefault) so the field keeps focus, and
+     Safari then sends no click at all for that tap: the list closed with nothing picked (iPhone,
+     2026-10-07). Chrome still sends the click, which the timestamp skips so nothing picks twice. */
+  const press = useRef<{ row: number; pointer: number; x: number; y: number } | null>(null);
+  const touchPick = useRef(-Infinity);
   return (
     <div id={id} role="listbox" aria-label={label}
       className={`${styles.menu} ${styles.suggest}${upward ? ` ${styles.suggestUp}` : ''}`}>
@@ -48,8 +56,20 @@ export default function SuggestMenu<T>({
           onPointerMove={() => onHover(index)}
           /* Keep focus in the input: a press on a row must not blur the field first,
              or the list closes before the click lands. */
-          onPointerDown={(event) => event.preventDefault()}
-          onClick={() => onPick(item)}>
+          onPointerDown={(event) => {
+            event.preventDefault();
+            press.current = event.pointerType === 'mouse' ? null : { row: index, pointer: event.pointerId, x: event.clientX, y: event.clientY };
+          }}
+          onPointerUp={(event) => {
+            const start = press.current;
+            press.current = null;
+            if (!start || start.row !== index || start.pointer !== event.pointerId
+              || Math.hypot(event.clientX - start.x, event.clientY - start.y) > TAP_SLOP) return;
+            touchPick.current = event.timeStamp;
+            onPick(item);
+          }}
+          onPointerCancel={() => { press.current = null; }}
+          onClick={(event) => { if (event.timeStamp - touchPick.current > 800) onPick(item); }}>
           <span className={styles.optionBody}>{renderItem(item, { active: index === activeIndex })}</span>
         </div>
       ))}
