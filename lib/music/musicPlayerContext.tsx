@@ -1,8 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { useRouter } from 'next/router';
 import { MUSIC_CHANNEL_ID, getUploadsPlaylistId } from './musicConfig';
 import { fetchVideoOEmbedInfo } from './youtube';
 import { useContentUrl } from '@/lib/content/context';
+import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } from './musicCatalogue';
+import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
+import { restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
 
 export interface YTPlayer {
   playVideo(): void;
@@ -15,19 +19,26 @@ export interface YTPlayer {
   getDuration(): number;
   getPlaylist(): string[] | undefined;
   getVideoData(): { title?: string; video_id?: string };
-  loadVideoById(videoId: string): void;
-  cueVideoById(videoId: string): void;
+  loadVideoById(video: string | { videoId: string; startSeconds?: number }): void;
+  cueVideoById(video: string | { videoId: string; startSeconds?: number }): void;
 }
 
 declare global {
   interface Window {
     YT: {
       Player: new (el: HTMLElement | string, opts: Record<string, unknown>) => YTPlayer;
-      PlayerState: { PLAYING: number; PAUSED: number; ENDED: number };
+      PlayerState: { UNSTARTED: number; ENDED: number; PLAYING: number; PAUSED: number; BUFFERING: number; CUED: number };
     };
     onYouTubeIframeAPIReady: () => void;
   }
 }
+
+/** How long a resumed song may take to start before the player takes it that the browser
+ *  refused to start sound by itself (autoplay), when YouTube does not say so (onAutoplayBlocked):
+ *  from the cue to its "cued", from Play to "playing", and while it is still buffering. */
+const RESUME_CUE_MS = 8000;
+const RESUME_PLAY_MS = 3000;
+const RESUME_BUFFER_MS = 20000;
 
 let apiLoadPromise: Promise<void> | null = null;
 
@@ -132,6 +143,17 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const pendingPlayRef = useRef(false); // true if play was requested before the player was ready
   const pendingVideoIdRef = useRef<string | null>(null); // set when the pending play request is for a SPECIFIC track (via playTrackByVideoId), not just "resume/play whatever's cued"
+  // Carrying the music over from the last document (lib/music/musicResume.ts). The record waits
+  // here for the catalogue (its queue) and for YouTube (its song and moment); then the resumed
+  // song waits for "playing", or for the browser's refusal to start it by itself.
+  const resumeRef = useRef<MusicResumeState | null>(null);
+  const resumeWatchRef = useRef<{ videoId: string; seconds: number; phase: 'cue' | 'play'; since: number } | null>(null);
+  const resumeTimerRef = useRef<number | undefined>(undefined);
+  // A song cued at a moment and not yet played: YouTube's own clock reads 0 until it plays.
+  const cuedAtRef = useRef<{ videoId: string; seconds: number } | null>(null);
+  const playerStateRef = useRef(-1);
+  const playerReadyRef = useRef(false);
+  const router = useRouter();
 
   const [ready, setReady] = useState(false);
   // True specifically during the gap between "play was requested" and
@@ -201,6 +223,31 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     excludeCopyrightedRef.current = excludeCopyrighted;
   }, [excludeCopyrighted]);
+  // And what a record of the moment needs (saveResume, below).
+  const isPlayingRef = useRef(false);
+  const videoIdRef = useRef('');
+  const titleRef = useRef('');
+  const durationRef = useRef(0);
+  const currentTimeRef = useRef(0);
+  const volumeRef = useRef(50);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+  useEffect(() => {
+    videoIdRef.current = videoId;
+  }, [videoId]);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
 
   // Loaded once on mount, same pattern as musicVolume.
   useEffect(() => {
@@ -215,19 +262,32 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Same pattern -- loaded once on mount from a plain JSON array of
-  // videoIds, kept as a Set at runtime for O(1) membership checks.
+  // Loaded on mount from a plain JSON array of videoIds, kept as a Set at
+  // runtime for O(1) membership checks -- and read again whenever they are
+  // written under the player: a backup restored in this tab
+  // (MUSIC_FAVORITES_EVENT, lib/music/musicFavorites.ts) or a ♥ in another
+  // tab (the storage event). Otherwise the next ♥ here would write the set
+  // this tab read back over theirs.
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('musicFavorites');
-      if (saved) {
-        const set = new Set<string>(JSON.parse(saved));
+    const read = () => {
+      try {
+        const set = readMusicFavorites(window.localStorage);
         setFavorites(set);
         favoritesRef.current = set;
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === MUSIC_FAVORITES_KEY || event.key === null) read();
+    };
+    read();
+    window.addEventListener(MUSIC_FAVORITES_EVENT, read);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(MUSIC_FAVORITES_EVENT, read);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   function toggleFavorite(videoId: string) {
@@ -237,7 +297,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       else next.add(videoId);
       favoritesRef.current = next;
       try {
-        window.localStorage.setItem('musicFavorites', JSON.stringify(Array.from(next)));
+        window.localStorage.setItem(MUSIC_FAVORITES_KEY, JSON.stringify(Array.from(next)));
       } catch {
         /* ignore */
       }
@@ -345,13 +405,24 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // A song resumed from the last document stops waiting to start: it plays, the reader
+  // chose another, or the browser refused to start it.
+  const endResumeWatch = useCallback(() => {
+    if (!resumeWatchRef.current) return;
+    resumeWatchRef.current = null;
+    window.clearInterval(resumeTimerRef.current);
+    setStarting(false);
+  }, []);
+
   const loadTrackAt = useCallback((index: number) => {
     const q = queueRef.current;
     if (q.length === 0) return;
     const clamped = ((index % q.length) + q.length) % q.length;
     setQueueIndex(clamped);
+    endResumeWatch();
+    cuedAtRef.current = null;
     playerRef.current?.loadVideoById(q[clamped].id);
-  }, []);
+  }, [endResumeWatch]);
 
   // Download the catalogue on demand and construct the queue once.
   const loadFullQueue = useCallback(async (): Promise<QueueTrack[]> => {
@@ -359,19 +430,34 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (queueRef.current.length > 0) return queueRef.current;
     setQueueLoading(true);
     try {
-      const built = await buildQueueFromCatalog();
+      let built = await buildQueueFromCatalog();
       // Concurrent requests share the catalogue download. Only the first
       // completion should create the queue and choose its shuffle order.
       if (queueRef.current.length > 0) {
         setQueueLoading(false);
         return queueRef.current;
       }
+      // The queue the last document had, in its order, and its place in it
+      // (lib/music/musicResume.ts).
+      const restored = resumeRef.current ? restoreQueue(built, resumeRef.current) : null;
+      if (restored) {
+        built = restored.queue;
+        if (restored.shuffleOrder) {
+          shuffleOrderRef.current = restored.shuffleOrder;
+          setShuffleOrder(restored.shuffleOrder);
+          shufflePositionRef.current = restored.shufflePosition;
+          setShufflePosition(restored.shufflePosition);
+        }
+      }
       if (built.length > 0) {
         queueRef.current = built;
         setQueue(built);
         const currentId = player?.getVideoData()?.video_id;
-        const idx = currentId ? built.findIndex((t) => t.id === currentId) : -1;
-        if (idx !== -1) setQueueIndex(idx);
+        const idx = restored ? restored.queueIndex : currentId ? built.findIndex((t) => t.id === currentId) : -1;
+        if (idx !== -1) {
+          queueIndexRef.current = idx;
+          setQueueIndex(idx);
+        }
         if (shuffleRef.current && shuffleOrderRef.current === null) {
           const order = generateShuffleOrder(built.length, idx !== -1 ? idx : Math.floor(Math.random() * built.length));
           shuffleOrderRef.current = order;
@@ -501,7 +587,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         },
         events: {
           onReady: (e: { target: YTPlayer }) => {
-            let savedVolume = 50;
+            playerReadyRef.current = true;
+            // The song the last document was playing (lib/music/musicResume.ts), if any.
+            const record = resumeRef.current;
+            resumeRef.current = null;
+            // The reader's volume is their preference (musicVolume); the record's only stands
+            // in where this browser kept none.
+            let savedVolume = record?.volume ?? 50;
             try {
               const v = window.localStorage.getItem('musicVolume');
               if (v) savedVolume = parseFloat(v);
@@ -514,6 +606,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             // A specific track was requested (via playTrackByVideoId)
             // before the player finished initializing -- load THAT
             // one directly instead of the default start-of-queue cue.
+            // It wins over the resumed song: the reader just chose it.
             if (pendingVideoIdRef.current) {
               const vid = pendingVideoIdRef.current;
               pendingVideoIdRef.current = null;
@@ -534,6 +627,35 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
               return;
             }
 
+            // The song carried over from the last document: cued at its moment, so a
+            // refused start still leaves it there, one press of Play away; when it was
+            // playing, Play follows once YouTube says it is cued (onStateChange). Not a
+            // copyrighted song while stream-safe is on, which another tab may have
+            // turned on since.
+            const excluded = record && excludeCopyrightedRef.current
+              && catalogRef.current?.some((song) => song.videoId === record.videoId && song.copyright);
+            if (record && excluded) {
+              // The queue as it would start, stopped; not the record's song on show.
+              pendingPlayRef.current = false;
+              setVideoId('');
+              setTitle('');
+              setCurrentTime(0);
+              setDuration(0);
+            } else if (record) {
+              const play = pendingPlayRef.current;
+              pendingPlayRef.current = false;
+              cuedAtRef.current = { videoId: record.videoId, seconds: record.seconds };
+              e.target.cueVideoById({ videoId: record.videoId, startSeconds: record.seconds });
+              setReady(true);
+              if (play) {
+                resumeWatchRef.current = { videoId: record.videoId, seconds: record.seconds, phase: 'cue', since: Date.now() };
+                watchResume();
+              } else {
+                setStarting(false);
+              }
+              return;
+            }
+
             // The queue (and its shuffle order, if shuffle's on) has
             // finished loading -- cue whatever sits at
             // its own starting position, so queueIndex/shufflePosition
@@ -546,6 +668,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             if (q.length > 0) {
               e.target.cueVideoById(q[startIdx].id);
               setQueueIndex(startIdx);
+              if (order && order.length > 0) {
+                shufflePositionRef.current = 0;
+                setShufflePosition(0);
+              }
             }
             setReady(true);
             // The user already pressed play before initialization
@@ -565,9 +691,23 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             setIsPlaying(false);
             nextTrack();
           },
+          // The browser would not let this document start sound by itself (autoplay):
+          // a resumed song waits at its moment for the reader's Play.
+          onAutoplayBlocked: () => {
+            if (resumeWatchRef.current) refuseResume();
+          },
           onStateChange: (e: { data: number; target: YTPlayer }) => {
             const state = window.YT.PlayerState;
+            playerStateRef.current = e.data;
+            const watch = resumeWatchRef.current;
+            if (e.data === state.CUED && watch?.phase === 'cue') {
+              watch.phase = 'play';
+              watch.since = Date.now();
+              e.target.playVideo();
+            }
             if (e.data === state.PLAYING) {
+              cuedAtRef.current = null;
+              endResumeWatch();
               setIsPlaying(true);
               const data = e.target.getVideoData();
               setTitle(data?.title || '');
@@ -607,7 +747,46 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [initialized, loadFullQueue, nextTrack]);
+  // watchResume and refuseResume read only refs and stable setters.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialized, loadFullQueue, nextTrack, endResumeWatch]);
+
+  // A resumed song that does not start: the browser refused it (YouTube does not always
+  // say so) or it never came. It waits, cued at its moment, for the reader's Play.
+  function refuseResume() {
+    const watch = resumeWatchRef.current;
+    const player = playerRef.current;
+    endResumeWatch();
+    setIsPlaying(false);
+    if (!watch || !player) return;
+    // Paused somewhere: it stays there. Otherwise cued again, as a refused start may have left
+    // YouTube unstarted, without the moment.
+    if (playerStateRef.current === window.YT.PlayerState.PAUSED) {
+      setCurrentTime(player.getCurrentTime());
+      return;
+    }
+    player.cueVideoById({ videoId: watch.videoId, startSeconds: watch.seconds });
+    cuedAtRef.current = { videoId: watch.videoId, seconds: watch.seconds };
+    setCurrentTime(watch.seconds);
+  }
+
+  function watchResume() {
+    window.clearInterval(resumeTimerRef.current);
+    resumeTimerRef.current = window.setInterval(() => {
+      const watch = resumeWatchRef.current;
+      if (!watch) {
+        window.clearInterval(resumeTimerRef.current);
+        return;
+      }
+      const waited = Date.now() - watch.since;
+      if (playerStateRef.current === window.YT.PlayerState.BUFFERING && waited < RESUME_BUFFER_MS) return;
+      if (waited < (watch.phase === 'cue' ? RESUME_CUE_MS : RESUME_PLAY_MS)) return;
+      refuseResume();
+    }, 500);
+  }
+
+  // Unmounting ends the watch with the provider.
+  useEffect(() => () => window.clearInterval(resumeTimerRef.current), []);
 
   // Poll playback position while playing, for the seek bar. Skipped while
   // the person is actively dragging the seek bar themselves.
@@ -628,9 +807,122 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const pausePlayback = useCallback(() => {
     pendingPlayRef.current = false;
     pendingVideoIdRef.current = null;
+    // A song resumed from the last document stays where it is, paused.
+    if (resumeRef.current) resumeRef.current = { ...resumeRef.current, playing: false };
+    if (resumeWatchRef.current) {
+      const { videoId, seconds } = resumeWatchRef.current;
+      cuedAtRef.current = { videoId, seconds };
+      endResumeWatch();
+    }
     playerRef.current?.pauseVideo?.();
     setStarting(false);
     setIsPlaying(false);
+  }, [endResumeWatch]);
+
+  /*
+   * Where the music is, for the next document of this tab (lib/music/musicResume.ts): as this
+   * one goes (pagehide), when the tab is hidden (a phone may drop it there without a pagehide),
+   * and at each new track, play and pause. Nothing until a song has been played or resumed.
+   */
+  const leftRef = useRef(false);
+  const saveResume = useCallback((left: boolean) => {
+    // Once the document is going, nothing writes over the record it left: the browser fires
+    // visibilitychange after pagehide as it unloads, and YouTube may still report a pause.
+    if (leftRef.current && !left) return;
+    if (left) leftRef.current = true;
+    const storage = sessionStore();
+    if (!storage) return;
+    const pending = resumeRef.current;
+    const player = playerRef.current;
+    if (!playerReadyRef.current || !player) {
+      // YouTube is still loading: the record this document took, unchanged but for Play.
+      if (pending) writeMusicResume(storage, { ...pending, savedAt: Date.now(), left, playing: pendingPlayRef.current });
+      return;
+    }
+    // A player opened but never played has nothing to carry: YouTube stays unloaded until used.
+    if (!videoIdRef.current) return;
+    let videoId = videoIdRef.current;
+    let seconds = currentTimeRef.current;
+    try {
+      videoId = player.getVideoData()?.video_id || videoId;
+      seconds = player.getCurrentTime();
+    } catch {
+      /* The figures the page last had. */
+    }
+    const cued = cuedAtRef.current;
+    if (cued?.videoId === videoId) seconds = cued.seconds;
+    const queue = queueRef.current;
+    const order = shuffleRef.current ? shuffleOrderRef.current : null;
+    writeMusicResume(storage, {
+      version: 1,
+      savedAt: Date.now(),
+      left,
+      videoId,
+      title: titleRef.current.slice(0, 500),
+      seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 0,
+      duration: Number.isFinite(durationRef.current) && durationRef.current > 0 ? durationRef.current : 0,
+      playing: isPlayingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
+      queue: queue.map((track) => track.id),
+      queueIndex: queueIndexRef.current,
+      shuffle: shuffleRef.current,
+      shuffleOrder: order ? order.flatMap((index) => (queue[index] ? [queue[index].id] : [])) : null,
+      shufflePosition: shufflePositionRef.current,
+      repeat: repeatModeRef.current,
+      volume: Math.min(100, Math.max(0, Number.isFinite(volumeRef.current) ? volumeRef.current : 50)),
+    });
+  }, []);
+
+  useEffect(() => {
+    const onPageHide = () => saveResume(true);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') saveResume(false);
+    };
+    // Back from the back/forward cache: this document lives on, so its record is no longer
+    // one of a document that went.
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      leftRef.current = false;
+      saveResume(false);
+    };
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [saveResume]);
+
+  useEffect(() => {
+    if (videoId) saveResume(false);
+  }, [videoId, isPlaying, saveResume]);
+
+  // ... and this document picks it up, once, on its first render.
+  useEffect(() => {
+    // Only where the player is drawn: the recruitment pop-out has none (hideSiteChrome),
+    // and a window opened from this tab starts with a copy of its sessionStorage.
+    if (!containerRef.current) return;
+    const record = takeMusicResume(sessionStore(), Date.now(), { discarded: (document as Document & { wasDiscarded?: boolean }).wasDiscarded === true });
+    if (!record) return;
+    // The music guesser pauses the player as it opens (its effect runs before this one): a
+    // song resumed there would play over its clips.
+    const play = record.playing && router.pathname !== GAME_PATHS.music;
+    resumeRef.current = { ...record, playing: play };
+    pendingPlayRef.current = play;
+    shuffleRef.current = record.shuffle;
+    setShuffle(record.shuffle);
+    repeatModeRef.current = record.repeat;
+    setRepeatMode(record.repeat);
+    // What the player shows until YouTube is back: the song and where in it.
+    setVideoId(record.videoId);
+    setTitle(record.title);
+    setCurrentTime(record.seconds);
+    setDuration(record.duration);
+    if (play) setStarting(true);
+    setInitialized(true);
+  // Once: a record is for the document's first page.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function togglePlay() {
@@ -646,6 +938,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       if (!player) initializePlayer();
       return;
     }
+    endResumeWatch();
     if (isPlaying) player.pauseVideo();
     else player.playVideo();
   }
@@ -682,6 +975,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       }
     } else {
       // A discovery link may point to a song outside the current queue.
+      endResumeWatch();
+      cuedAtRef.current = null;
       player.loadVideoById(videoId);
     }
     player.playVideo();
@@ -729,6 +1024,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   function handleSeekCommit(v: number) {
     playerRef.current?.seekTo(v, true);
+    // A cued song not yet played starts from here now.
+    if (cuedAtRef.current) cuedAtRef.current = { ...cuedAtRef.current, seconds: v };
     setSeeking(false);
   }
 

@@ -59,6 +59,29 @@ one, which is also what the skins page's availability countdowns are computed fr
   named effect replace earlier versions. This is display composition, not stat
   addition or a source of new game numbers.
 
+## Operator costs
+
+- Every material an operator's upgrades cost -- each promotion (with its LMD from
+  `gamedata_const`), skill level 2 to 7, mastery and module stage -- is written from the
+  game's tables on every refresh by `sync-operator-costs.mjs` (stage `operator-costs`),
+  over whatever the record had: `character_table` (or `char_patch_table`) and
+  `uniequip_table` of the Global client for an operator Global has, else of the CN
+  client. Material names come from `scripts/lib/material-items.mjs`: the EN client's,
+  else `data/material-names.json`. A wiki value stays only for an operator neither
+  table has.
+- A cost it cannot write keeps the record's value and is reported in
+  `data/quarantine.json`: a material no English name is known for yet (never written
+  in Chinese), a skill whose place cannot say which skill it is (the Global table names
+  it otherwise, or the CN table lists another number of skills), a promotion or module
+  stage the record numbers otherwise.
+- Then the stage reads every record back and fails on any cost that still disagrees
+  with the tables, so a hand edit to a cost is overwritten the next night, and a cost
+  that cannot be made to agree is named in the daily issue. A correction belongs in the
+  game tables' reading or in `data/material-names.json`, not in the record.
+- `node scripts/sync/sync-operator-costs.mjs --check` (with `ARKPEDIA_EN` and
+  `ARKPEDIA_CN` pointing at the tables) writes nothing and lists every cost that
+  disagrees: the sweep.
+
 Keep one editable canonical record. Generated page payloads, search indexes and
 bundled fallback snapshots are intentional derived copies; regenerate them from
 that record, never correct them independently. This rule matters more than whether
