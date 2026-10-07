@@ -1,6 +1,6 @@
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
 import {
-  animatedShader, combine, dissolveK, followMatrix, layerPose, mapOffset, unityUvMap,
+  animatedShader, combine, dissolveK, followMatrix, layerPose, mapOffset, unityUvMap, wrapUnit,
   type DynamicLayer, type DynamicLayers, type LayerClock, type LayerShader, type LayerTexture, type NoiseShader, type ParticleShader, type ShaderMap,
 } from '@/lib/skins/dynamicLayers';
 
@@ -18,6 +18,9 @@ import {
  * does not build (or a vertex effect on a GPU that cannot read textures in its vertex shader) leaves
  * the layers that need it out, never the others or the artwork. The shader's clock is the layer's own
  * (layerPose), so under reduced motion an effect stands still unless the reader pressed its animation.
+ * A tilted layer (a mesh that turns in depth while it moves) has 3D vertices and its own variant of
+ * each program, which projects them with the frame's 2x4 matrix (the game's camera is orthographic);
+ * the faces it turns away are culled by their winding on screen, as Unity culls them.
  *
  * Every layer's mesh goes to the GPU once; a frame only sets each layer's matrix, colour, UV map and
  * its shader's offsets. Only DynamicArtwork imports this, after the reader pressed Animated.
@@ -65,15 +68,16 @@ precision mediump float;
 const SAMPLE = 'vec4 sampleUnity(sampler2D s, vec2 uv) { return texture2D(s, vec2(uv.x, 1.0 - uv.y)); }';
 
 /** The vertex shader of the effect programs: the mesh's own UVs pass through; a vertex effect moves the
- *  vertex by its noise first (Ram/VertexDisturb: (rgb - 0.5) x weight.r x intensity, in mesh units). */
-function effectVertex(vertexEffect: boolean): string {
+ *  vertex by its noise first (Ram/VertexDisturb: (rgb - 0.5) x weight.r x intensity, in mesh units).
+ *  `solid`: 3D vertices projected by the frame's 2x4 matrix (rows u_row0, u_row1), the noise added in 3D. */
+export function effectVertex(vertexEffect: boolean, solid = false): string {
   return `
-attribute vec2 a_position;
+attribute ${solid ? 'vec3' : 'vec2'} a_position;
 attribute vec2 a_uv;
 attribute vec4 a_color;
 uniform mat4 u_projection;
-uniform vec3 u_row0;
-uniform vec3 u_row1;
+uniform ${solid ? 'vec4' : 'vec3'} u_row0;
+uniform ${solid ? 'vec4' : 'vec3'} u_row1;
 varying vec2 v_uv;
 varying vec4 v_color;
 ${vertexEffect ? `uniform sampler2D u_v;
@@ -87,14 +91,14 @@ uniform vec3 u_vRow0;
 uniform vec3 u_vRow1;
 vec4 sampleLod(sampler2D s, vec2 uv) { return texture2DLod(s, vec2(uv.x, 1.0 - uv.y), 0.0); }` : ''}
 void main() {
-  vec2 p = a_position;
+  ${solid ? 'vec3' : 'vec2'} p = a_position;
 ${vertexEffect ? `  vec3 n = sampleLod(u_v, a_uv * u_vST.xy + u_vST.zw + u_vOff).rgb - 0.5;
   float w = sampleLod(u_vw, a_uv * u_vwST.xy + u_vwST.zw + u_vwOff).r;
   vec3 d = n * (w * u_vI);
-  p += vec2(dot(u_vRow0, d), dot(u_vRow1, d));` : ''}
+  ${solid ? 'p += d;' : 'p += vec2(dot(u_vRow0, d), dot(u_vRow1, d));'}` : ''}
   v_uv = a_uv;
   v_color = a_color;
-  vec3 q = vec3(p, 1.0);
+  ${solid ? 'vec4 q = vec4(p, 1.0);' : 'vec3 q = vec3(p, 1.0);'}
   gl_Position = u_projection * vec4(dot(u_row0, q), dot(u_row1, q), 0.0, 1.0);
 }`;
 }
@@ -195,7 +199,7 @@ export interface LayerRenderer {
 }
 
 type Context = InstanceType<typeof Spine['webgl']['ManagedWebGLRenderingContext']>;
-interface Uploaded { vertices: WebGLBuffer; indices: WebGLBuffer; count: number }
+interface Uploaded { vertices: WebGLBuffer; indices: WebGLBuffer; count: number; stride: number; size: number }
 interface Program {
   program: WebGLProgram;
   position: number; uv: number; color: number;
@@ -204,9 +208,16 @@ interface Program {
 
 const powerOfTwo = (n: number) => (n & (n - 1)) === 0;
 
-/** The key of the program a shader layer needs. */
-export function programKey(shader: LayerShader): string {
-  return shader.family === 'noise' ? `n${shader.mode}` : featureKey(particleFeatures(shader));
+/** The key of the program a shader layer needs (a tilted layer's own variant ends in 3). */
+export function programKey(shader: LayerShader, solid = false): string {
+  return (shader.family === 'noise' ? `n${shader.mode}` : featureKey(particleFeatures(shader))) + (solid ? '3' : '');
+}
+
+/** A tilted layer's 2x4 projection [a, b, e, tx, c, d, f, ty] under a bone follower's 2x3 [a, b, c, d, tx, ty]. */
+export function followProjection(outer: readonly number[], matrix: readonly number[], depth: readonly number[]): number[] {
+  const [a, b, c, d, tx, ty] = outer;
+  return [a * matrix[0] + b * matrix[2], a * matrix[1] + b * matrix[3], a * depth[0] + b * depth[1], a * matrix[4] + b * matrix[5] + tx,
+    c * matrix[0] + d * matrix[2], c * matrix[1] + d * matrix[3], c * depth[0] + d * depth[1], c * matrix[4] + d * matrix[5] + ty];
 }
 
 /** Uploads the layers' textures and meshes and returns their drawer. Recreates everything when the
@@ -270,14 +281,14 @@ export function createLayerRenderer(context: Context, layers: DynamicLayers, ima
   };
 
   /** The program a shader layer needs, built on first use; null when it cannot be built here. */
-  const effectProgram = (shader: LayerShader): Program | null => {
-    const key = programKey(shader);
+  const effectProgram = (shader: LayerShader, solid: boolean): Program | null => {
+    const key = programKey(shader, solid);
     if (programs.has(key)) return programs.get(key)!;
     let built: Program | null = null;
     try {
       const vertexEffect = shader.family === 'particle' && !!shader.vertex;
       if (vertexEffect && (gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS) as number) < 2) throw new Error('no textures in the vertex shader');
-      built = link(effectVertex(vertexEffect), shader.family === 'noise' ? noiseFragment(shader.mode) : particleFragment(particleFeatures(shader)));
+      built = link(effectVertex(vertexEffect, solid), shader.family === 'noise' ? noiseFragment(shader.mode) : particleFragment(particleFeatures(shader)));
     } catch (error) {
       if (!warned.has(key)) {
         warned.add(key);
@@ -335,19 +346,23 @@ export function createLayerRenderer(context: Context, layers: DynamicLayers, ima
     for (const entry of layers.draw) {
       if (entry.kind !== 'layer') continue;
       const { layer } = entry;
-      const count = layer.vertices.length / 2;
-      const interleaved = new Float32Array(count * 8);
+      // [x, y (, z), u, v, r, g, b, a] per vertex.
+      const size = layer.solid ? 3 : 2;
+      const floats = size + 6;
+      const count = layer.vertices.length / size;
+      const interleaved = new Float32Array(count * floats);
       for (let i = 0; i < count; i++) {
-        interleaved.set([layer.vertices[i * 2], layer.vertices[i * 2 + 1], layer.uvs[i * 2], layer.uvs[i * 2 + 1]], i * 8);
-        if (layer.colors) interleaved.set(layer.colors.subarray(i * 4, i * 4 + 4), i * 8 + 4);
-        else interleaved.set([1, 1, 1, 1], i * 8 + 4);
+        interleaved.set(layer.vertices.subarray(i * size, i * size + size), i * floats);
+        interleaved.set([layer.uvs[i * 2], layer.uvs[i * 2 + 1]], i * floats + size);
+        if (layer.colors) interleaved.set(layer.colors.subarray(i * 4, i * 4 + 4), i * floats + size + 2);
+        else interleaved.set([1, 1, 1, 1], i * floats + size + 2);
       }
       const vertices = gl.createBuffer()!, indices = gl.createBuffer()!;
       gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
       gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indices);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, layer.triangles, gl.STATIC_DRAW);
-      meshes.set(layer, { vertices, indices, count: layer.triangles.length });
+      meshes.set(layer, { vertices, indices, count: layer.triangles.length, stride: floats * 4, size });
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
@@ -383,9 +398,10 @@ export function createLayerRenderer(context: Context, layers: DynamicLayers, ima
       map('n', shader.noise);
       gl.uniform4f(program.uniform('u_n1'), shader.noise1[0], shader.noise1[1], shader.noise1[2], shader.noise1[3]);
       gl.uniform4f(program.uniform('u_n2'), shader.noise2[0], shader.noise2[1], shader.noise2[2], shader.noise2[3]);
-      // Disturb2 scrolls its noise with _Time.x: seconds / 20.
-      gl.uniform2f(program.uniform('u_nOff'), mapOffset({ speed: [shader.noise1[1] / 20, 0], scroll: [0, 0] }, t)[0],
-        mapOffset({ speed: [shader.noise2[1] / 20, 0], scroll: [0, 0] }, t)[0]);
+      // Disturb2 scrolls its noise with _Time.x: seconds / 20 (or by the integrated offset of an animated speed).
+      const integrated = shader.noise.offset;
+      gl.uniform2f(program.uniform('u_nOff'), integrated ? wrapUnit(integrated[0]) : mapOffset({ speed: [shader.noise1[1] / 20, 0], scroll: [0, 0] }, t)[0],
+        integrated ? wrapUnit(integrated[1]) : mapOffset({ speed: [shader.noise2[1] / 20, 0], scroll: [0, 0] }, t)[0]);
       const glow = shader.glow ?? [0, 0, 0, 0];
       gl.uniform4f(program.uniform('u_glow'), glow[0], glow[1], glow[2], glow[3]);
       return;
@@ -435,18 +451,29 @@ export function createLayerRenderer(context: Context, layers: DynamicLayers, ima
       const pose = layerPose(layer, clock);
       const mesh = meshes.get(layer);
       if (!pose || !mesh || !plain || pose.color[3] <= 0) return;
-      const program = layer.shader ? effectProgram(layer.shader) : plain;
+      const program = layer.shader ? effectProgram(layer.shader, layer.solid) : plain;
       if (!program) return;
       let matrix = pose.matrix;
+      let rows = [pose.matrix[0], pose.matrix[1], pose.depth[0], pose.matrix[4], pose.matrix[2], pose.matrix[3], pose.depth[1], pose.matrix[5]];
+      // Unity culls the other faces of a mirrored object; a bone that mirrors its follower mirrors the layer.
+      let cull = layer.cull;
       if (layer.follow) {
         const bone = skeleton.findBone(layer.follow.bone);
         if (!bone || !bone.active) return;
-        matrix = combine(followMatrix(layer.follow, bone), matrix);
+        const follow = followMatrix(layer.follow, bone);
+        matrix = combine(follow, matrix);
+        rows = followProjection(follow, pose.matrix, pose.depth);
+        if (cull && follow[0] * follow[3] - follow[1] * follow[2] < 0) cull = cull === 1 ? 2 : 1;
       }
       gl.useProgram(program.program);
       gl.uniformMatrix4fv(program.uniform('u_projection'), false, projection);
-      gl.uniform3f(program.uniform('u_row0'), matrix[0], matrix[1], matrix[4]);
-      gl.uniform3f(program.uniform('u_row1'), matrix[2], matrix[3], matrix[5]);
+      if (layer.solid) {
+        gl.uniform4f(program.uniform('u_row0'), rows[0], rows[1], rows[2], rows[3]);
+        gl.uniform4f(program.uniform('u_row1'), rows[4], rows[5], rows[6], rows[7]);
+      } else {
+        gl.uniform3f(program.uniform('u_row0'), matrix[0], matrix[1], matrix[4]);
+        gl.uniform3f(program.uniform('u_row1'), matrix[2], matrix[3], matrix[5]);
+      }
       gl.uniform4f(program.uniform('u_tint'), pose.color[0], pose.color[1], pose.color[2], pose.color[3]);
       gl.uniform1f(program.uniform('u_add'), layer.blend === 'add' ? 1 : 0);
       if (layer.shader) {
@@ -466,25 +493,25 @@ export function createLayerRenderer(context: Context, layers: DynamicLayers, ima
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertices);
       gl.enableVertexAttribArray(program.position);
-      gl.vertexAttribPointer(program.position, 2, gl.FLOAT, false, 32, 0);
+      gl.vertexAttribPointer(program.position, mesh.size, gl.FLOAT, false, mesh.stride, 0);
       gl.enableVertexAttribArray(program.uv);
-      gl.vertexAttribPointer(program.uv, 2, gl.FLOAT, false, 32, 8);
+      gl.vertexAttribPointer(program.uv, 2, gl.FLOAT, false, mesh.stride, mesh.size * 4);
       if (program.color >= 0) {
         gl.enableVertexAttribArray(program.color);
-        gl.vertexAttribPointer(program.color, 4, gl.FLOAT, false, 32, 16);
+        gl.vertexAttribPointer(program.color, 4, gl.FLOAT, false, mesh.stride, mesh.size * 4 + 8);
       }
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
       gl.enable(gl.BLEND);
       if (layer.blend === 'add') gl.blendFunc(gl.ONE, gl.ONE);
       else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      if (layer.cull) {
+      if (cull) {
         // Unity's front faces wind clockwise on screen; the canvas keeps y up, so its winding is the same.
         gl.enable(gl.CULL_FACE);
         gl.frontFace(gl.CW);
-        gl.cullFace(layer.cull === 2 ? gl.BACK : gl.FRONT);
+        gl.cullFace(cull === 2 ? gl.BACK : gl.FRONT);
       }
       gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
-      if (layer.cull) {
+      if (cull) {
         gl.disable(gl.CULL_FACE);
         gl.frontFace(gl.CCW);
       }
