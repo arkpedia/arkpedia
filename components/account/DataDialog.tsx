@@ -79,9 +79,11 @@ export default function DataDialog({ onClose }: { onClose: () => void }) {
         setNote('This browser would not store the backup, so nothing was changed.');
         return;
       }
+      // In place, with no reload: a new document would end the music. applyBackup tells
+      // everything open here, the app shell's player included, through each store's event,
+      // and every other page reads its stores when it opens (lib/account/backup.ts).
       const what = file.backup.stores.map((store) => store.label);
-      setNote(`Restored ${what.length ? what.join(', ') : 'nothing (the backup is empty)'}${file.backup.savedAt ? `, from a backup of ${file.backup.savedAt.slice(0, 10)}` : ''}. Reloading so every part of this page reads it…`);
-      window.setTimeout(() => window.location.reload(), 1200);
+      setNote(`Restored ${what.length ? what.join(', ') : 'nothing (the backup is empty)'}${file.backup.savedAt ? `, from a backup of ${file.backup.savedAt.slice(0, 10)}` : ''}.`);
       return;
     }
     if (file.kind === 'pull-plan') {

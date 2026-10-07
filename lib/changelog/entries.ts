@@ -37,6 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     // Dated at its release to the main site (the release PR sets the moment).
     at: '2026-10-08T00:00:00Z',
     fixed: [
+      { title: 'Music keeps playing after updates', detail: 'After a site update or a reload the song carries on where it was, or waits there for one tap where the browser asks for one.', href: '/music' },
       { title: 'Operator material costs', detail: 'Promotion, skill, mastery and module costs now come from the game itself; 118 were wrong or missing, like Closure\'s S3M3.', href: '/operators' },
     ],
   },
