@@ -95,6 +95,179 @@ test('voice playback requests the pinned source and can pause', async ({ page })
   await withinBounds(page);
 });
 
+/* Voice-set switches, driven by keyboard: Playwright's click scrolls its target into view
+   first, which a reader's click does not, and that would move the list before the page did.
+   The detail panel scrolls on a desktop, the document on a phone. */
+const voiceScroller = `(() => {
+  for (let el = document.querySelector('#operator-voiceLines'); el && el !== document.body; el = el.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 1) return el;
+  }
+  return document.scrollingElement;
+})()`;
+/** Picks a voice option by keyboard, and returns where the reader was just before the pick. */
+async function pickVoice(page: Page, group: string, code: string) {
+  const trigger = page.locator('#operator-voiceLines').getByRole('combobox', { name: 'Voice language' });
+  await trigger.evaluate((el: HTMLElement) => el.focus({ preventScroll: true }));
+  await page.keyboard.press('Enter');
+  const menu = page.getByRole('listbox', { name: 'Voice language' });
+  await expect(menu.getByRole('group', { name: group, exact: true }).getByRole('option', { name: code, exact: true })).toBeVisible();
+  const index = await menu.getByRole('option').evaluateAll((options, [g, c]) => options.findIndex(option =>
+    option.textContent === c && option.closest('[role="group"]')?.querySelector('[role="presentation"]')?.textContent === g), [group, code]);
+  expect(index).toBeGreaterThanOrEqual(0);
+  await page.keyboard.press('Home');
+  for (let i = 0; i < index; i++) await page.keyboard.press('ArrowDown');
+  const before = await voicePlace(page);
+  await page.keyboard.press('Enter');
+  return before;
+}
+/** The first line the reader sees under the sticky player, the space reserved under the
+ *  list, and the scroller. */
+async function voicePlace(page: Page) {
+  return page.evaluate(`(() => {
+    const s = ${voiceScroller};
+    const player = document.querySelector('#operator-voiceLines [aria-label="Voice line player"]').getBoundingClientRect().bottom;
+    const row = [...document.querySelectorAll('#operator-voiceLines li[data-line-id]')].find(li => li.getBoundingClientRect().bottom > player + 1);
+    const list = document.querySelector('#operator-voiceLines ol');
+    return { row: row ? { id: row.dataset.lineId, top: row.getBoundingClientRect().top } : null, rows: list.children.length,
+      reserve: list.parentElement.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom,
+      top: s.scrollTop, height: s.scrollHeight, client: s.clientHeight };
+  })()`) as Promise<{ row: { id: string; top: number } | null; rows: number; reserve: number; top: number; height: number; client: number }>;
+}
+/** Puts the given fraction of the line list at the top of the scroller, once the page's art
+ *  has loaded and cannot move it any more. */
+async function scrollVoiceList(page: Page, fraction: number) {
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(`(() => {
+    const s = ${voiceScroller};
+    const list = document.querySelector('#operator-voiceLines ol').getBoundingClientRect();
+    const top = s === document.scrollingElement ? 0 : s.getBoundingClientRect().top;
+    s.scrollTop += list.top - top + list.height * ${fraction};
+  })()`);
+  await page.waitForTimeout(300);
+}
+
+/* An outfit with a voice of its own (Luo Xiaohei's Elite 2 art: 27 lines of its own and the 11
+   in-battle and tap lines recorded again, which the game never plays) is a group of its own in
+   the voice language menu. Picking it switches the lines and the folder the clips come from,
+   and a reader at the end of the list keeps the line they were reading where it was. */
+test('an outfit voice set switches the lines and the clip folder, keeping the reader\'s line in place', async ({ page }) => {
+  const requested: string[] = [];
+  await page.route(pinnedGlob('arkpedia-voice-*'), async route => {
+    requested.push(route.request().url());
+    await route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.alloc(0) });
+  });
+  await page.goto('/operators/Luo%20Xiaohei#voiceLines');
+  const voice = page.locator('#operator-voiceLines');
+  await expect(voice.getByRole('searchbox', { name: 'Search voice lines' })).toBeVisible();
+  await expect(voice.locator('ol > li')).toHaveCount(38);
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(`(() => { const s = ${voiceScroller}; s.scrollTop = s.scrollHeight; })()`);
+  await page.waitForTimeout(300);
+
+  const trigger = voice.getByRole('combobox', { name: 'Voice language' });
+  const before = await pickVoice(page, 'Elite 2', 'JP');
+  expect(before.row, 'not vacuous: a line under the player').not.toBeNull();
+  await expect(voice.getByText('Japanese · Elite 2')).toBeVisible();
+  await expect(trigger).toContainText('Elite 2 outfit voice');
+  await expect(voice.getByRole('group', { name: 'Voice line category' }).getByRole('button', { name: 'Unused', exact: true })).toBeVisible();
+  await expect(voice.locator('ol > li')).toHaveCount(38);
+  await expect(voice.locator('ol > li').filter({ hasText: 'Unused' })).toHaveCount(11);
+  await page.waitForTimeout(300);
+  const after = await voicePlace(page);
+  expect(after.row?.id).toBe(before.row!.id);
+  expect(Math.abs(after.row!.top - before.row!.top), 'the line the reader was reading stays where it was').toBeLessThanOrEqual(2);
+  expect(after.reserve, 'only what that position lacks is reserved').toBeLessThan(after.client);
+
+  await voice.locator('ol button:not([disabled])').first().evaluate((el: HTMLElement) => el.click());
+  await expect.poll(() => requested.length).toBeGreaterThan(0);
+  expect(requested[0]).toMatch(pinned('arkpedia-voice-japanese'));
+  expect(requested[0]).toContain('/current/char_4067_lolxh%231/cn_001.mp3');
+
+  // Back to the operator's own voice.
+  await pickVoice(page, 'Current recordings', 'JP');
+  await expect(voice.locator('ol > li').filter({ hasText: 'Unused' })).toHaveCount(0);
+  await expect(trigger).not.toContainText('outfit voice');
+  await withinBounds(page);
+});
+
+/* A set's text differs from the operator's (One More Story is CN-only, its text Chinese and far
+   shorter): partway down the list, the line under the player stays where it was through the
+   switch and back, and nothing is reserved -- the list's length below the reader is enough. */
+test('a voice-set switch partway down the list keeps the line on screen in place', async ({ page }) => {
+  await page.goto('/operators/Eyjafjalla%20the%20Hv%C3%ADt%20Aska#voiceLines');
+  const voice = page.locator('#operator-voiceLines');
+  await expect(voice.getByRole('searchbox', { name: 'Search voice lines' })).toBeVisible();
+  await scrollVoiceList(page, 0.45);
+  for (const [group, code, status] of [['One More Story', 'CN', 'Mandarin · One More Story'], ['A Picnic Before A Long Trip', 'EN', 'English · A Picnic Before A Long Trip'], ['Current recordings', 'EN', 'English']]) {
+    const before = await pickVoice(page, group, code);
+    expect(before.row, 'not vacuous: a line under the player').not.toBeNull();
+    await expect(voice.getByText(status, { exact: true })).toBeVisible();
+    await page.waitForTimeout(300);
+    const now = await voicePlace(page);
+    expect(now.row?.id, `${group}: the same line under the player`).toBe(before.row!.id);
+    expect(Math.abs(now.row!.top - before.row!.top), `${group}: it stays where it was`).toBeLessThanOrEqual(2);
+    expect(now.reserve, `${group}: nothing reserved partway down`).toBeLessThanOrEqual(1);
+  }
+});
+
+/* Civilight Eterna's own voice has 81 rows (43 of them additional lines), Condolence 38. At the
+   top of the list nothing is held: the page simply gets shorter below the reader. Among the
+   rows Condolence does not have, the new list starts under the player, not 4000px of nothing. */
+test('a much shorter voice set leaves no empty space under the reader', async ({ page }) => {
+  await page.goto('/operators/Civilight%20Eterna#voiceLines');
+  const voice = page.locator('#operator-voiceLines');
+  await expect(voice.getByRole('searchbox', { name: 'Search voice lines' })).toBeVisible();
+  await expect(voice.locator('ol > li')).toHaveCount(81);
+  await scrollVoiceList(page, 0);
+  const top = await pickVoice(page, 'Condolence', 'EN');
+  await expect(voice.locator('ol > li')).toHaveCount(38);
+  await page.waitForTimeout(300);
+  const switched = await voicePlace(page);
+  expect(switched.reserve, 'nothing reserved at the top of the list').toBeLessThanOrEqual(1);
+  expect(switched.row?.id).toBe(top.row?.id);
+  expect(Math.abs(switched.row!.top - top.row!.top)).toBeLessThanOrEqual(2);
+
+  await pickVoice(page, 'Current recordings', 'EN');
+  await expect(voice.locator('ol > li')).toHaveCount(81);
+  await scrollVoiceList(page, 0.7);
+  const deep = await pickVoice(page, 'Condolence', 'EN');
+  expect(deep.row!.id, 'not vacuous: a row Condolence does not have').toMatch(/^EX_/);
+  await expect(voice.locator('ol > li')).toHaveCount(38);
+  await page.waitForTimeout(300);
+  const start = await voicePlace(page);
+  expect(start.reserve, 'no empty space under the shorter list').toBeLessThanOrEqual(1);
+  expect(start.row?.id, 'the shorter list starts under the player').toBe('CN_001');
+  expect(start.top + start.client).toBeLessThanOrEqual(start.height + 1);
+  await withinBounds(page);
+});
+
+/* A clip still loading when the reader picks another voice set (or language): the switch pauses
+   and reloads the player, which rejects the old play() with an AbortError. That request is
+   over, and nothing failed in the new set: no "could not be loaded" message. */
+test('switching voice set while a clip loads does not report a failed clip', async ({ page }) => {
+  const wav = Buffer.alloc(44 + 8000 * 2);
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(wav.length - 44, 40);
+  await page.route(pinnedGlob('arkpedia-voice-*'), async route => {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    await route.fulfill({ status: 200, contentType: 'audio/wav', body: wav }).catch(() => {});
+  });
+  await page.goto('/operators/Skadi%20the%20Corrupting%20Heart#voiceLines');
+  const voice = page.locator('#operator-voiceLines');
+  await expect(voice.getByRole('searchbox', { name: 'Search voice lines' })).toBeVisible();
+  const status = voice.locator('[aria-label="Voice line player"] [aria-live="polite"]');
+  for (const [group, code, label] of [['Red Countess', 'EN', 'English · Red Countess'], ['Current recordings', 'JP', 'Japanese']]) {
+    await voice.locator('ol > li').nth(2).getByRole('button').evaluate((el: HTMLElement) => el.click());
+    await page.waitForTimeout(200);
+    await pickVoice(page, group, code);
+    await page.waitForTimeout(2200);
+    await expect(status).toHaveText(label);
+    await expect(status).not.toHaveAttribute('data-error', /.*/);
+  }
+});
+
 test('operator search and planner entry are usable', async ({ page }) => {
   await page.goto('/operators');
   await page.getByRole('searchbox', { name: 'Search operators' }).fill('Penance');

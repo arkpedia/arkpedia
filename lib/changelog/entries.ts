@@ -31,6 +31,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-07T10:30:00Z',
+    title: 'Animated outfit art',
+    added: [
+      { title: 'Animated outfit art', detail: 'Outfits that move in the game play full screen, entrance and music included: press Animated.', href: '/skins' },
+      { title: 'Outfit voice lines', detail: 'Outfits with a voice of their own, like Red Countess, have their lines in the voice language menu on the operator page.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-06T14:40:00Z',
     title: 'Story art and planner polish',
     changed: [
