@@ -31,6 +31,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // Dated at its release to the main site (the release PR sets the moment).
+    at: '2026-10-08T00:00:00Z',
+    title: 'Effects in animated art',
+    added: [
+      { title: 'Effects in animated outfit art', detail: 'Flowing skies, water, flames and dissolving smoke now play in the animated art, as in the game.', href: '/skins' },
+    ],
+  },
+  {
     at: '2026-10-07T12:15:00Z',
     title: 'Credits',
     added: [
