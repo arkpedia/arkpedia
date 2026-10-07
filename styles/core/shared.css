@@ -1364,8 +1364,6 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 /* The page's first line starts 24px under the header hairline (the paragraph's own top
    margin put it at 40). */
 .support-intro { margin-top: 0; }
-/* Credits and licences: a licence, word for word, wrapped to the frame rather than scrolled. */
-.support-licence { margin: 12px 0 0; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--well); box-shadow: var(--shadow-panel); color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .supporter-list {
   display: flex;
   flex-direction: column;

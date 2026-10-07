@@ -9,6 +9,9 @@ import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import { useChangelogUnseen } from '@/lib/changelog/seen';
 
+// The drawer renders on the server with every page: there a layout effect only warns.
+const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 // Only relevant near the left screen edge -- an edge-swipe is the
 // standard mobile-drawer "open" gesture, and restricting it to the
 // edge (rather than anywhere on screen) avoids hijacking ordinary
@@ -51,7 +54,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
     keepInPlace.current = { element: heading, top: heading.getBoundingClientRect().top };
     setUnfolded((previous) => (previous === id ? null : id));
   };
-  useLayoutEffect(() => {
+  useClientLayoutEffect(() => {
     const held = keepInPlace.current;
     keepInPlace.current = null;
     const drawer = drawerRef.current;

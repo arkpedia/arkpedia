@@ -40,6 +40,7 @@ import '@/styles/gamemodes/gamemodes.css';
 import '@/styles/account/import.css';
 import '@/styles/story/story.css';
 import '@/styles/changelog/changelog.css';
+import '@/styles/credits/credits.css';
 import '@/styles/account/account.css';
 /* Last: every transition and animation the site adds (r11 quiet polish), all under
    prefers-reduced-motion: no-preference. At equal specificity it beats the transitions

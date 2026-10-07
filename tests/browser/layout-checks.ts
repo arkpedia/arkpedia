@@ -36,7 +36,7 @@ import { tabAlign } from './tab-align';
  * The look runs in both themes, the gaps once (dark), and the light theme on the desktop
  * project only (colour does not change with the width). */
 export const HEADING_ROUTES: Record<string, number> = {
-  '/': 2, '/base': 0, '/community': 1, '/community/twitch': 0, '/community/videos': 0,
+  '/': 2, '/base': 0, '/community': 1, '/community/twitch': 0, '/credits': 5, '/community/videos': 0,
   '/community/youtube-live': 0, '/enemies': 0, '/events/Duel%20Channel%3A%20Ivy%20Vine': 0, '/farming': 3,
   '/gacha': 1, '/gamemodes': 0, '/gamemodes/stronghold-protocol': 1, '/games': 0, '/games/color-palette': 1,
   '/games/music-guesser': 0, '/games/operator-guesser': 1, '/games/recruitment-guesser': 1,
@@ -44,7 +44,7 @@ export const HEADING_ROUTES: Record<string, number> = {
   '/operators/Amiya': 10, '/planner': 1, '/pulls': 3, '/recruitment': 2, '/results': 0, '/schedule': 0,
   '/skins': 0, '/stages': 1, '/stages/all': 0, '/stages/browse?s=ta-1': 2, '/stages/content/act49side': 1,
   '/stages/exploration': 2, '/stages/regular': 2, '/stages/score': 2, '/stages/seasonal': 2,
-  '/stages/supplies': 0, '/support': 1, '/synergies': 10, '/techniques': 10,
+  '/stages/supplies': 0, '/support': 0, '/synergies': 10, '/techniques': 10,
 };
 export const HEADING_GAP = 14;
 export const SECTION_GAP = 36;
