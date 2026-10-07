@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { hiddenUnless } from '@/lib/ui/inert';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
-import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath, avatarPath } from '@/lib/account/portraits';
+import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath, avatarSources } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { toServerTime } from '@/lib/time/serverDay';
@@ -144,11 +144,13 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
   const globalOperators = useMemo(() => Object.values(map.chars).filter((char) => char.global && !char.formOf).length, [map]);
   const hiredCount = profile.hired ?? account.operators.length;
 
-  // The account's avatar, or the assistant's icon where the avatar is "Assistant Operator".
-  const avatarSrc = avatarPath(profile, map.chars, outfitNames);
+  // The account's avatar, or the assistant's icon where the avatar is "Assistant Operator": the
+  // first of its pictures that loads, the next when one fails, and none rather than a broken one.
+  const [brokenAvatars, setBrokenAvatars] = useState<ReadonlySet<string>>(() => new Set());
+  const avatarSrc = avatarSources(profile, map.chars, outfitNames).find((src) => !brokenAvatars.has(src)) ?? null;
   const avatar = (
     <div className="account-card-avatar">
-      {avatarSrc && <ContentImg src={avatarSrc} alt="" />}
+      {avatarSrc && <ContentImg key={avatarSrc} src={avatarSrc} alt="" onError={() => setBrokenAvatars((broken) => new Set(broken).add(avatarSrc))} />}
       {profile.level != null && (
         <span className="account-card-level">
           <ContentImg src={UI('level_bg')} alt="" />

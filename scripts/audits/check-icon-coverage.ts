@@ -1,5 +1,7 @@
 /**
- * Every icon path an operator record implies must resolve to a published file.
+ * Every icon path an operator record implies must resolve to a published file, and so must
+ * every icon the account card can draw for an assistant avatar: each outfit in the catalogue
+ * and each default art (assistantIcons below).
  *
  * Run with tsx (see package.json check:assets) so it can share the site's own release
  * logic: an operator that is not yet out on Global may legitimately lack art -- the
@@ -37,6 +39,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isOperatorReleased } from '../../lib/operators/operatorAvailability';
 import { getEssentialIconPath } from '../../lib/operators/operatorIconPaths';
 import { OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/operators/operatorIcon';
+import { assistantCatalogue, assistantIconPath, cardOutfits } from '../../lib/account/portraits';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { beginStage, defaultNow } from '../lib/quarantine.mjs';
 
@@ -81,6 +84,32 @@ function* expected(operator: any): Generator<[string, string]> {
   }
 }
 
+/**
+ * Every icon the account card can draw for an "Assistant Operator" avatar (lib/account/portraits.ts
+ * avatarSources): each outfit in the catalogue and each operator's default art (Base, Amiya's
+ * Elite 1, Elite 2 from 4 stars), through the card's own helper with the inputs pages/account.tsx
+ * gives it: the account map's operators and the catalogue's outfit names, read from the page's
+ * outfits by the page's own cardOutfits and assistantCatalogue, so a change to either is checked
+ * here too. The card falls back to the Base icon when an outfit's is missing, so a gap shows the
+ * wrong picture, not a broken one; nothing else on the site names an outfit's icon by its skin
+ * id, so this is where a new outfit without one is caught. Each with the operator's name and
+ * the quarantine key it is held under.
+ */
+function* assistantIcons(root: string): Generator<{ file: string; skinId: string; operator: string; key: string }> {
+  const map: { chars?: Record<string, { name: string; rarity?: number }> } = JSON.parse(fs.readFileSync(path.join(root, 'data/game-account-map.json'), 'utf8'));
+  if (!Object.keys(map.chars ?? {}).length) throw new Error('data/game-account-map.json has no operators; the scan is not reading it.');
+  const skins: { skinId?: string; image?: string | null; name: string }[] = JSON.parse(fs.readFileSync(path.join(root, 'data/skins.json'), 'utf8'));
+  const { chars, outfitNames } = assistantCatalogue({ chars: map.chars ?? {} }, cardOutfits(skins));
+  const defaultArts = Object.entries(chars).flatMap(([id, char]) => [`${id}#1`, ...(id === 'char_002_amiya' ? [`${id}#1+`] : []), ...((char.rarity ?? 0) >= 4 ? [`${id}#2`] : [])]);
+  for (const skinId of [...outfitNames.keys(), ...defaultArts]) {
+    const charId = skinId.split(/[@#]/)[0];
+    const icon = assistantIconPath(skinId, chars, outfitNames);
+    // An operator the account map lacks can be no account's assistant until it has it.
+    if (!icon || !chars[charId]) continue;
+    yield { file: icon.slice(1), skinId, operator: chars[charId].name, key: skinId.includes('@') ? `skin:${skinId}` : `operator:${charId}` };
+  }
+}
+
 /** Runs the check on the data under `root`; returns what it prints and how it exits. */
 export function checkIconCoverage({ root, now = defaultNow(), quarantine = false, minOperators = 400 }: { root: string; now?: Date; quarantine?: boolean; minOperators?: number }) {
   const index = JSON.parse(fs.readFileSync(path.join(root, 'data/assets/external-asset-index.json'), 'utf8'));
@@ -102,21 +131,27 @@ export function checkIconCoverage({ root, now = defaultNow(), quarantine = false
   const deferred = new Map<string, string>();
   const unreleased = new Set<string>();
   let checked = 0;
+  const check = (file: string, where: string, released: boolean, key: string, name: string) => {
+    checked++;
+    if (published.has(file)) return;
+    if (!released) { if (!deferred.has(file)) deferred.set(file, where); return; }
+    if (!missing.has(file)) missing.set(file, where);
+    if (KNOWN_GAPS.has(file)) return;
+    const gaps: { name: string; paths: string[] } = gapsOf.get(key) ?? { name, paths: [] };
+    if (!gaps.paths.includes(file)) gaps.paths.push(file);
+    gapsOf.set(key, gaps);
+  };
+  const releasedNames = new Set<string>();
   for (const operator of operators) {
     const released = isOperatorReleased(operator, now.getTime());
-    if (!released) unreleased.add(operator.name);
-    for (const [file, kind] of expected(operator)) {
-      checked++;
-      if (published.has(file)) continue;
-      const where = `${kind} for ${operator.name}`;
-      if (!released) { if (!deferred.has(file)) deferred.set(file, where); continue; }
-      if (!missing.has(file)) missing.set(file, where);
-      if (KNOWN_GAPS.has(file)) continue;
-      const key = `operator:${operator.internalName || operator.name}`;
-      const gaps: { name: string; paths: string[] } = gapsOf.get(key) ?? { name: operator.name, paths: [] };
-      if (!gaps.paths.includes(file)) gaps.paths.push(file);
-      gapsOf.set(key, gaps);
-    }
+    if (released) releasedNames.add(operator.name);
+    else unreleased.add(operator.name);
+    for (const [file, kind] of expected(operator)) check(file, `${kind} for ${operator.name}`, released, `operator:${operator.internalName || operator.name}`, operator.name);
+  }
+  // An outfit is held to its operator's release: CN's outfits of an operator Global has are
+  // in the catalogue, and the catalogue's media stage publishes their icons with the rest.
+  for (const { file, skinId, operator, key } of assistantIcons(root)) {
+    check(file, `assistant avatar icon for ${skinId} (account card)`, releasedNames.has(operator), key, operator);
   }
 
   // Every operator whose portrait is not published yet shows this one file instead, so
@@ -130,7 +165,10 @@ export function checkIconCoverage({ root, now = defaultNow(), quarantine = false
   if (quarantine) {
     const holds = beginStage(root, 'icons', now);
     for (const [key, { name, paths }] of gapsOf) {
-      holds.add({ key, action: 'published-partial', reason: `${name}: icon(s) not published yet, shown blank: ${paths.sort().join(', ')}` });
+      // An outfit's icon is only the account card's assistant avatar, which shows the Base icon instead.
+      holds.add({ key, action: 'published-partial', reason: key.startsWith('skin:')
+        ? `${name}: outfit icon not published yet, the account card's assistant avatar shows the Base icon: ${paths.sort().join(', ')}`
+        : `${name}: icon(s) not published yet, shown blank: ${paths.sort().join(', ')}` });
     }
     const written = holds.commit();
     if (unexpected.length) {

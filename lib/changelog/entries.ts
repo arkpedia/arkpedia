@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // Dated at its release to the main site (the release PR sets the moment).
+    at: '2026-10-08T00:00:00Z',
+    fixed: [
+      { title: 'Assistant profile picture', detail: 'An imported account whose avatar is its assistant shows the assistant in their outfit, no re-import needed.', href: '/account' },
+    ],
+  },
+  {
     at: '2026-10-07T14:00:00Z',
     title: 'Animated outfit art, credits and phone fixes',
     added: [
