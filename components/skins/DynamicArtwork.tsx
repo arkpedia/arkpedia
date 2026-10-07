@@ -30,8 +30,11 @@ import { createLayerRenderer, type LayerRenderer } from './dynamicLayerRenderer'
  * glows the game draws with the skeleton, lib/skins/dynamicLayers.ts) load with the rest and draw in
  * the game's order around the skeleton's parts (SkeletonPartsRenderer slot ranges), each with its
  * blend, on its own timeline, on the bone it follows, and the Interact/Special/Start groups only while
- * their animation plays. Under reduced motion they stand at their first frame. The view frames the
- * skeleton and its layers together. A layers file that fails to load only leaves them out.
+ * their animation plays. Layers drawn with one of the game's effect shaders (flow distortion,
+ * dissolve, ramps, vertex noise) go through programs ported from that shader's GLSL, one that does
+ * not build here leaving only its own layers out. Under reduced motion they stand at their first
+ * frame. The view frames the skeleton and its layers together. A layers file that fails to load
+ * only leaves them out.
  *
  * Closing the view unmounts this: the loop stops, the textures, buffers and shaders are freed, the
  * soundtrack stops and the WebGL context is let go (WEBGL_lose_context), so a reader who opens
