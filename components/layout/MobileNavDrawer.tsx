@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ThemeToggle from './ThemeToggle';
 import { GROUPS, LOOSE, ICONS, isActiveLink, type NavLink } from './Sitenav';
 import ServerClock from './ServerClock';
@@ -33,21 +33,32 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const menuBtnRef = useRef<HTMLButtonElement | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
-  /* Which of the drawer's sections are unfolded. Each time the drawer opens, the section
-     holding the current page is the one open, so the reader sees where they are and the rest
-     of the menu is five headings, not twenty-odd links. */
-  const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
+  /* Which of the drawer's sections is unfolded: one at a time. Each time the drawer opens, the section
+     holding the current page is the one open, so the reader sees where they are and the rest of the
+     menu is five headings, not twenty-odd links; opening another folds the open one away. */
+  const [unfolded, setUnfolded] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
     const here = GROUPS.find((group) => group.items.some((link) => isActiveLink(link, router.pathname)));
-    setUnfolded(new Set(here ? [here.id] : []));
+    setUnfolded(here ? here.id : null);
   }, [open, router.pathname]);
   const changelogUnseen = useChangelogUnseen();
-  const toggleGroup = (id: string) => setUnfolded((previous) => {
-    const next = new Set(previous);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+  /* Folding the open section away moves the heading the reader just pressed up the drawer, under
+     their finger (the Anti-Page Jump rule): the heading's place on screen is taken in the handler and
+     the drawer scrolled back to it before the browser paints. */
+  const keepInPlace = useRef<{ element: HTMLElement; top: number } | null>(null);
+  const toggleGroup = (id: string, heading: HTMLElement) => {
+    keepInPlace.current = { element: heading, top: heading.getBoundingClientRect().top };
+    setUnfolded((previous) => (previous === id ? null : id));
+  };
+  useLayoutEffect(() => {
+    const held = keepInPlace.current;
+    keepInPlace.current = null;
+    const drawer = drawerRef.current;
+    if (!held || !drawer) return;
+    const moved = held.element.getBoundingClientRect().top - held.top;
+    if (moved) drawer.scrollTop += moved;
+  }, [unfolded]);
 
   // Dialog behavior for the drawer: Escape closes; focus moves to the first
   // link on open and back to the menu button on close; Tab wraps within the
@@ -268,7 +279,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
               links (LOOSE): the same destinations, grouped the same way, and a short list
               until a section is opened. */}
           {GROUPS.map((group) => {
-            const isOpen = unfolded.has(group.id);
+            const isOpen = unfolded === group.id;
             const holdsCurrent = group.items.some((link) => isActiveLink(link, router.pathname));
             return (
               <div key={group.id} className="mobile-nav-group">
@@ -277,7 +288,7 @@ export default function MobileNavDrawer({ mobileNav }: { mobileNav?: MobileNavOv
                   className={`mobile-nav-group-head${holdsCurrent ? ' current' : ''}`}
                   aria-expanded={isOpen}
                   aria-controls={`mobile-nav-group-${group.id}`}
-                  onClick={() => toggleGroup(group.id)}
+                  onClick={(event) => toggleGroup(group.id, event.currentTarget)}
                 >
                   <span>{group.label}{changelogUnseen && group.items.some((link) => link.href === '/changelog') && <span className="nav-new-dot" aria-hidden="true" />}</span>
                   <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className="mobile-nav-group-chev">
