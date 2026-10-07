@@ -37,6 +37,16 @@ test('the changelog is newest first, each entry at a real UTC instant, and every
   }
 });
 
+/* One entry per day. On 2026-10-07 four releases each added their own entry, and What's new
+   showed "7 Oct" four times for what was one update and its patches. A later release on the same
+   day adds its items to the day's entry and moves its `at` to the newest release. */
+test('What\'s new has one entry per day (UTC): a same-day release adds to that day\'s entry', () => {
+  const days = new Map<string, string[]>();
+  for (const entry of CHANGELOG) days.set(entry.at.slice(0, 10), [...(days.get(entry.at.slice(0, 10)) ?? []), entry.at]);
+  const repeated = [...days].filter(([, ats]) => ats.length > 1).map(([day, ats]) => `${day}: ${ats.join(', ')}`);
+  assert.deepEqual(repeated, [], 'merge these into one entry per day, at the newest time');
+});
+
 test('formatInstant writes an instant in the given zone, en-GB, to the day or the minute', async () => {
   const { formatInstant } = await import('../../components/ui/LocalTime');
   assert.equal(formatInstant('2026-10-05T08:26:00Z', 'minute', 'UTC'), '5 Oct 2026, 08:26 UTC');

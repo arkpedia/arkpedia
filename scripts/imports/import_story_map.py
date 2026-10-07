@@ -131,8 +131,44 @@ def box(element):
     return {'x': number(element['B']), 'y': number(element['A']), 'width': number(element['D']), 'height': number(element['C'])}
 
 
-def element(raw, media):
-    """One board element in this file's shape, or None for a kind the page does not draw."""
+# A line end's decoration, Canva's one-letter code in the end's "A" ("b" the start, "c" the end;
+# absent, a plain end) -> the page's name for it (lib/story/storyMap.ts LINE_HEADS). "C" is the
+# filled triangle every arrow on the board ends in; the page sizes it from the line's width, as
+# Canva does. A code not listed here fails the stage: drawn as a plain end it would turn an arrow
+# back into a bare line, the very thing this map once did, and nobody would be told.
+LINE_HEADS = {'C': 'triangle'}
+
+
+def line_head(raw, end):
+    code = raw[end].get('A')
+    if code is None:
+        return None
+    if code not in LINE_HEADS:
+        raise ValueError(f'line {raw.get("_")} has a {"start" if end == "b" else "end"} decoration {code!r} the importer does not know; '
+                         'add it to LINE_HEADS (and to the page\'s LINE_HEADS) to draw it')
+    return LINE_HEADS[code]
+
+
+def line_end(end, siblings):
+    """Where Canva draws a line's end, as (x, y). An end attached to a picture ("B": {"A": the
+    picture's "Z", "B": a fraction of its height, "C" of its width, "D": "A"}) is drawn at that
+    point of the picture, wherever the end's stored point ("C") says: the board keeps the stored
+    point only as of the line's last edit, and on ten of its connectors it is 4 to 17 units off
+    the cover they are drawn to. A rotated picture, an attachment of another kind or one naming
+    nothing beside the line falls back to the stored point."""
+    stored = end['C']
+    attached = end.get('B')
+    if isinstance(attached, dict) and attached.get('D') == 'A':
+        target = siblings.get(attached.get('A'))
+        if target and abs(target.get('E') or 0) < 1e-6 and all(isinstance(target.get(k), (int, float)) for k in 'ABCD'):
+            return (target['B'] + (attached.get('C') or 0) * target['D'], target['A'] + (attached.get('B') or 0) * target['C'])
+    return (stored['B'], stored['A'])
+
+
+def element(raw, media, siblings=None):
+    """One board element in this file's shape, or None for a kind the page does not draw.
+    `siblings`: the elements beside it by their "Z", which a line's ends may be attached to."""
+    siblings = siblings or {}
     kind = raw.get('A?')
     if kind == 'I':
         image = raw['a']['B']['A']
@@ -144,9 +180,10 @@ def element(raw, media):
     if kind == 'K':
         return {'type': 'text', **box(raw), **text_of(raw['a']['C'])}
     if kind == 'U':
-        start, end = raw['b']['C'], raw['c']['C']
-        return {'type': 'line', 'x1': number(start['B']), 'y1': number(start['A']), 'x2': number(end['B']), 'y2': number(end['A']),
-                'color': raw.get('d') or '#000000', 'width': number(raw.get('a') or 1), 'dash': raw.get('e') or None}
+        (x1, y1), (x2, y2) = line_end(raw['b'], siblings), line_end(raw['c'], siblings)
+        return {'type': 'line', 'x1': number(x1), 'y1': number(y1), 'x2': number(x2), 'y2': number(y2),
+                'color': raw.get('d') or '#000000', 'width': number(raw.get('a') or 1), 'dash': raw.get('e') or None,
+                'start': line_head(raw, 'b'), 'end': line_head(raw, 'c')}
     if kind == 'J':
         paint = raw['b'][0]
         # The outline's width and the corner radius are in board units, as the box is.
@@ -179,19 +216,22 @@ def board_elements(boot):
         raise ValueError('the board page carries no page')
     out = []
 
-    def walk(value):
+    def walk(value, siblings):
         if isinstance(value, dict):
-            if value.get('A?') in ('I', 'K', 'U', 'J'):
-                drawn = element(value, media)
+            # A bare kind with no place at all is not on the board: the page's interface settings
+            # carry one ({"A?": "K"}) when Canva serves the page in another language.
+            if value.get('A?') in ('I', 'K', 'U', 'J') and any(key in value for key in 'ABCD'):
+                drawn = element(value, media, siblings)
                 if drawn:
                     out.append(drawn)
                 return
             for item in value.values():
-                walk(item)
+                walk(item, {})
         elif isinstance(value, list):
+            beside = {item['Z']: item for item in value if isinstance(item, dict) and isinstance(item.get('Z'), str)}
             for item in value:
-                walk(item)
-    walk(page)
+                walk(item, beside)
+    walk(page, {})
     if sum(1 for e in out if e['type'] == 'picture') < 10:
         raise ValueError(f'the board reads as {len(out)} elements with almost no pictures; its format has changed')
     return out, media

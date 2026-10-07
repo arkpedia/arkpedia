@@ -12,10 +12,17 @@
  * layer's `exact`: flow distortion, dissolve, ramp, vertex disturbance, Disturb2's noise) carries
  * the shader's parameters as data (LayerShader, the assets repository's scripts/effects.py). Its UVs
  * are then the mesh's own, in Unity's space (v up): the renderer applies each texture's tiling and
- * flips v only when it samples.
+ * flips v only when it samples. A scroll speed an Animator drives comes as an `offset` parameter:
+ * the speed's integral over the layer's own time, carried on past its timeline (continueOffsets).
+ *
+ * A `tilted` entry (layersVersion 3) is an effect layer whose mesh turns in depth while it moves (a
+ * tumbling star, a sword swung through the screen): its vertices are 3D and each frame carries the
+ * depth column of the 2x4 orthographic projection of its transform (the game's illustration camera is
+ * orthographic), so the renderer projects it frame by frame and culls the faces that turn away.
  */
 
-/** A time-ordered timeline: frames [t, a, b, c, d, tx, ty, r, g, b, alpha, active, su, ou, sv, ov]. */
+/** A time-ordered timeline: frames [t, a, b, c, d, tx, ty, r, g, b, alpha, active, su, ou, sv, ov], a
+ *  tilted layer's with [e, f] (its projection's depth column) after them, then any shader parameters. */
 export interface LayerTimeline {
   length: number;
   loop: boolean;
@@ -45,10 +52,11 @@ export type LayerAnimation = 'Idle' | 'Interact' | 'Special' | 'Start';
 /** A texture an effect samples besides the main one: its index (null: an unbound noise map, which
  *  reads 0), its tiling [sx, sy, ox, oy], the shader's own scroll (speed: wrapped, fract(t x speed))
  *  and a UV scroll script's (scroll: not wrapped), Unity UV units per second. */
-export interface ShaderMap { texture: number | null; st: Vec4; speed: Vec2; scroll: Vec2 }
+export interface ShaderMap { texture: number | null; st: Vec4; speed: Vec2; scroll: Vec2; offset?: Vec2 }
 export interface DistortMap extends ShaderMap { anchor: Vec2; intensity: Vec2 }
 export interface DissolveMap extends ShaderMap { fract: boolean; amount: number; border: number }
-export interface MainMap { st: Vec4; speed: Vec2; scroll: Vec2; fract: boolean }
+/** `offset` (set from a frame by animatedShader): the integrated speed an Animator drives, in place of t x speed. */
+export interface MainMap { st: Vec4; speed: Vec2; scroll: Vec2; fract: boolean; offset?: Vec2 }
 type Vec2 = [number, number];
 type Vec3 = [number, number, number];
 type Vec4 = [number, number, number, number];
@@ -65,13 +73,14 @@ export interface ParticleShader {
   ramp: ShaderMap | null;
   /** Mesh units moved by (texture.rgb - 0.5) x weight x intensity, mapped by matrix [a, b, c, d, e, f] into the vertices' units. */
   vertex: (ShaderMap & { intensity: Vec3; weight: ShaderMap | null; matrix: [number, number, number, number, number, number] }) | null;
-  /** Parameters an Animator drives (dissolve.0.amount, distort.maps.0.st...): their values follow the
-   *  layer's frames, past the 16 numbers every frame has, in this order (animatedShader). */
+  /** Parameters an Animator drives (dissolve.0.amount, distort.maps.0.st, main.offset...): their values
+   *  follow the layer's frames, past the 16 (18) numbers every frame has, in this order (animatedShader). */
   animated: string[];
 }
 
-/** Disturb2: two noise channels move the main UV; its colour has no x2 (layers.json gives the material colour). */
-export interface NoiseShader { family: 'noise'; mode: 'default' | 'add' | 'glow'; main: MainMap; noise: ShaderMap; noise1: Vec4; noise2: Vec4; glow: Vec4 | null; animated: [] }
+/** Disturb2: two noise channels move the main UV; its colour has no x2 (layers.json gives the material colour).
+ *  Animated: noise1, noise2, glow and noise.offset (the two channels' integrated scroll, in `noise.offset`). */
+export interface NoiseShader { family: 'noise'; mode: 'default' | 'add' | 'glow'; main: MainMap; noise: ShaderMap; noise1: Vec4; noise2: Vec4; glow: Vec4 | null; animated: string[] }
 
 export type LayerShader = ParticleShader | NoiseShader;
 
@@ -96,8 +105,13 @@ export interface DynamicLayer {
    *  (Unity space) and `scroll` is null (the shader's `main` scrolls). */
   shader: LayerShader | null;
   /** Faces culled as it is drawn (an effect entry that moves): 0 none, 1 front, 2 back. Unity's front
-   *  faces wind clockwise on screen. */
+   *  faces wind clockwise on screen (anticlockwise under a mirroring transform: the file has folded
+   *  in what it knows, the renderer what a bone follower adds). */
   cull: 0 | 1 | 2;
+  /** A tilted entry: `vertices` are x, y, z triples and the frames carry the depth column [e, f]. */
+  solid: boolean;
+  /** Where each animated offset parameter starts in the pose's `extra` (its [u, v, speed u, speed v]). */
+  offsets: number[];
 }
 
 export interface LayerTexture { file: string; width: number; height: number; wrap: ['repeat' | 'clamp' | 'mirror', 'repeat' | 'clamp' | 'mirror'] }
@@ -122,10 +136,10 @@ const exactKeys = (value: Record<string, unknown>, keys: readonly string[]) => {
   return own.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 };
 const MAP_KEYS = ['texture', 'st', 'speed', 'scroll'] as const;
-/** How many numbers an animated parameter adds to each frame. */
+/** How many numbers an animated parameter adds to each frame (an offset: [u, v, speed u, speed v]). */
 function parameterWidth(path: string): number {
   if (path === 'vertex.intensity') return 3;
-  return ({ amount: 1, border: 1, st: 4, intensity: 2, color: 4 } as Record<string, number>)[path.split('.').at(-1)!] ?? 0;
+  return ({ amount: 1, border: 1, st: 4, intensity: 2, color: 4, offset: 4, main: 1, dissolve: 1, noise1: 4, noise2: 4, glow: 4 } as Record<string, number>)[path.split('.').at(-1)!] ?? 0;
 }
 
 /** The numbers a particle shader's animated parameters add to each frame, or -1 when one names a
@@ -136,10 +150,12 @@ export function animatedWidth(shader: ParticleShader): number {
   for (const path of shader.animated) {
     const p = path.split('.');
     const at = Number(p[p.length === 3 ? 1 : 2]);
-    const ok = (p[0] === 'dissolve' && p.length === 3 && Number.isInteger(at) && at < shader.dissolve.length && ['amount', 'border', 'st'].includes(p[2]))
+    const ok = (p[0] === 'dissolve' && p.length === 3 && Number.isInteger(at) && at < shader.dissolve.length && ['amount', 'border', 'st', 'offset'].includes(p[2]))
       || (p[0] === 'distort' && !!d && p[1] === 'maps' && p.length === 4 && Number.isInteger(at) && at < d.maps.length
-        && (p[3] === 'intensity' || (p[3] === 'st' && d.maps[at].texture !== null)))
-      || (path === 'distort.weight.st' && !!d?.weight) || (path === 'ramp.st' && !!shader.ramp) || ((path === 'vertex.st' || path === 'vertex.intensity') && !!shader.vertex)
+        && (p[3] === 'intensity' || ((p[3] === 'st' || p[3] === 'offset') && d.maps[at].texture !== null)))
+      || ((path === 'distort.main' || path === 'distort.dissolve') && !!d) || path === 'main.offset'
+      || (path === 'distort.weight.st' && !!d?.weight) || (path === 'ramp.st' && !!shader.ramp)
+      || ((path === 'vertex.st' || path === 'vertex.intensity' || path === 'vertex.offset') && !!shader.vertex)
       || (path === 'vertex.weight.st' && !!shader.vertex?.weight) || (path === 'edge.color' && !!shader.edge);
     if (!ok) return -1;
     width += parameterWidth(path);
@@ -147,10 +163,33 @@ export function animatedWidth(shader: ParticleShader): number {
   return width;
 }
 
-/** The shader with its animated parameters at a frame's values (`extra`: the frame past its 16 numbers). */
+/** The numbers a Disturb2 shader's animated parameters add to each frame, or -1 for one it does not have. */
+export function noiseAnimatedWidth(shader: NoiseShader): number {
+  let width = 0;
+  for (const path of shader.animated) {
+    if (!['noise1', 'noise2', 'noise.offset'].includes(path) && !(path === 'glow' && shader.glow !== null)) return -1;
+    width += parameterWidth(path);
+  }
+  return width;
+}
+
+/** Where each animated offset parameter starts among a frame's parameters. */
+export function offsetColumns(shader: LayerShader): number[] {
+  const out: number[] = [];
+  let at = 0;
+  for (const path of shader.animated) {
+    if (path.endsWith('.offset')) out.push(at);
+    at += parameterWidth(path);
+  }
+  return out;
+}
+
+/** The shader with its animated parameters at a frame's values (`extra`: the frame past its 16 (18)
+ *  numbers). An offset sets its map's `offset` (its first two numbers; the speed after them only carries
+ *  the offset on, continueOffsets). */
 export function animatedShader(shader: LayerShader, extra: readonly number[]): LayerShader {
-  if (shader.family !== 'particle' || !shader.animated.length) return shader;
-  const copy: ParticleShader = structuredClone(shader);
+  if (!shader.animated.length) return shader;
+  const copy: LayerShader = structuredClone(shader);
   let at = 0;
   for (const path of shader.animated) {
     const n = parameterWidth(path);
@@ -160,7 +199,9 @@ export function animatedShader(shader: LayerShader, extra: readonly number[]): L
     const parts = path.split('.');
     let node: Record<string, unknown> = copy as unknown as Record<string, unknown>;
     for (const part of parts.slice(0, -1)) node = (Array.isArray(node) ? node[Number(part)] : node[part]) as Record<string, unknown>;
-    node[parts[parts.length - 1]] = n === 1 ? values[0] : values;
+    const key = parts[parts.length - 1];
+    if (key === 'offset') node.offset = [values[0], values[1]];
+    else node[key] = n === 1 ? values[0] : values;
   }
   return copy;
 }
@@ -195,14 +236,16 @@ export function parseShader(value: unknown, textures: number): LayerShader | nul
   if (!main) return null;
   if (value.family === 'noise') {
     if (!exactKeys(value, ['family', 'mode', 'main', 'noise', 'noise1', 'noise2', 'glow', 'animated'])) return null;
-    if (!Array.isArray(value.animated) || value.animated.length) return null;
+    const animated = value.animated;
+    if (!Array.isArray(animated) || !animated.every((p) => typeof p === 'string') || new Set(animated).size !== animated.length) return null;
     if (value.mode !== 'default' && value.mode !== 'add' && value.mode !== 'glow') return null;
     const noise = shaderMap(value.noise, textures);
     if (!noise || !vec(value.noise1, 4) || !vec(value.noise2, 4)) return null;
     if (value.glow !== null && !vec(value.glow, 4)) return null;
     if ((value.mode === 'glow') !== (value.glow !== null)) return null;
-    return { family: 'noise', mode: value.mode, main, noise, noise1: value.noise1.slice() as Vec4, noise2: value.noise2.slice() as Vec4,
-      glow: value.glow ? (value.glow as number[]).slice() as Vec4 : null, animated: [] };
+    const shader: NoiseShader = { family: 'noise', mode: value.mode, main, noise, noise1: value.noise1.slice() as Vec4, noise2: value.noise2.slice() as Vec4,
+      glow: value.glow ? (value.glow as number[]).slice() as Vec4 : null, animated: (animated as string[]).slice() };
+    return noiseAnimatedWidth(shader) < 0 ? null : shader;
   }
   if (value.family !== 'particle' || !exactKeys(value, ['family', 'main', 'distort', 'dissolve', 'edge', 'ramp', 'vertex', 'animated'])) return null;
   const animated = value.animated;
@@ -264,11 +307,13 @@ export function dissolveK(amount: number): number {
   return 1 - roundEven(amount + 0.5);
 }
 
-/** A map's UV offset at time t (Unity space): the shader's own scroll wrapped as fract(t x speed), plus a
- *  scroll script's, which only wraps where the texture repeats (it grows without end in the game). */
-export function mapOffset(map: Pick<ShaderMap, 'speed' | 'scroll'>, t: number, wrap: readonly ['repeat' | 'clamp' | 'mirror', 'repeat' | 'clamp' | 'mirror'] = ['repeat', 'repeat']): Vec2 {
+/** A map's UV offset at time t (Unity space): the shader's own scroll wrapped as fract(t x speed) (or, for a
+ *  speed an Animator drives, its integrated `offset`, wrapped the same way), plus a scroll script's, which
+ *  only wraps where the texture repeats (it grows without end in the game). */
+export function mapOffset(map: Pick<ShaderMap, 'speed' | 'scroll' | 'offset'>, t: number, wrap: readonly ['repeat' | 'clamp' | 'mirror', 'repeat' | 'clamp' | 'mirror'] = ['repeat', 'repeat']): Vec2 {
   const scrolled = (x: number, mode: string) => (mode === 'repeat' ? wrapUnit(x) : mode === 'mirror' ? x - Math.floor(x / 2) * 2 : x);
-  return [wrapUnit(map.speed[0] * t) + scrolled(map.scroll[0] * t, wrap[0]), wrapUnit(map.speed[1] * t) + scrolled(map.scroll[1] * t, wrap[1])];
+  const own = map.offset ?? [map.speed[0] * t, map.speed[1] * t];
+  return [wrapUnit(own[0]) + scrolled(map.scroll[0] * t, wrap[0]), wrapUnit(own[1]) + scrolled(map.scroll[1] * t, wrap[1])];
 }
 
 /** A frame's UV map ([su, ou, sv, ov] on image-space coordinates, v down) as the same map on Unity-space
@@ -282,6 +327,8 @@ const isObject = (value: unknown): value is Record<string, unknown> => value !==
 const ANIMATIONS = new Set<LayerAnimation>(['Idle', 'Interact', 'Special', 'Start']);
 const WRAPS = new Set(['repeat', 'clamp', 'mirror']);
 const FRAME = 16;
+/** A tilted layer's frames: the 16, then its projection's depth column [e, f]. */
+const SOLID_FRAME = 18;
 
 function timeline(value: unknown, width = FRAME): LayerTimeline | null {
   if (!isObject(value) || !finite(value.length) || value.length < 0 || typeof value.loop !== 'boolean' || !finite(value.loopFrom) || value.loopFrom < 0) return null;
@@ -295,25 +342,29 @@ function timeline(value: unknown, width = FRAME): LayerTimeline | null {
 }
 
 /** One layer, checked against the file's textures; null when anything about it is not understood. A
- *  shader layer (an `effect` entry, or a plain layer's `exact` laid over it) has no `scroll` of its own. */
-function parseLayer(value: unknown, textures: number, shaderValue?: unknown): DynamicLayer | null {
+ *  shader layer (an `effect` entry, or a plain layer's `exact` laid over it) has no `scroll` of its own;
+ *  a `solid` one (a tilted entry) has x, y, z vertices and a timeline whose frames carry its depth column. */
+function parseLayer(value: unknown, textures: number, shaderValue?: unknown, solid = false): DynamicLayer | null {
   if (!isObject(value) || typeof value.name !== 'string' || (value.blend !== 'alpha' && value.blend !== 'add')) return null;
   let shader: LayerShader | null = null;
   if (shaderValue !== undefined) {
     shader = parseShader(shaderValue, textures);
     if (!shader) return null;
   }
+  if (solid && !shader) return null;
   if (!(shader && value.texture === null) && !(Number.isSafeInteger(value.texture) && (value.texture as number) >= 0 && (value.texture as number) < textures)) return null;
   const { vertices, uvs, colors, triangles } = value;
-  if (!Array.isArray(vertices) || vertices.length < 6 || vertices.length % 2 || !vertices.every(finite)) return null;
-  const count = vertices.length / 2;
-  if (count > 65535 || !Array.isArray(uvs) || uvs.length !== vertices.length || !uvs.every(finite)) return null;
+  const stride = solid ? 3 : 2;
+  if (!Array.isArray(vertices) || vertices.length < 3 * stride || vertices.length % stride || !vertices.every(finite)) return null;
+  const count = vertices.length / stride;
+  if (count > 65535 || !Array.isArray(uvs) || uvs.length !== count * 2 || !uvs.every(finite)) return null;
   if (colors !== null && !(Array.isArray(colors) && colors.length === count * 4 && colors.every(finite))) return null;
   if (!Array.isArray(triangles) || !triangles.length || triangles.length % 3 || !triangles.every((t) => Number.isSafeInteger(t) && t >= 0 && t < count)) return null;
   let animation: DynamicLayer['animation'] = null;
   let color: DynamicLayer['color'] = null;
-  // An effect's animated parameters ride on its frames, past the 16 numbers every frame has.
-  const width = FRAME + (shader?.family === 'particle' ? animatedWidth(shader) : 0);
+  // An effect's animated parameters ride on its frames, past the 16 (a tilted layer's 18) numbers every frame has.
+  const width = (solid ? SOLID_FRAME : FRAME) + (shader ? (shader.family === 'particle' ? animatedWidth(shader) : noiseAnimatedWidth(shader)) : 0);
+  if (solid && value.animation === null) return null;
   if (value.animation === null) {
     if (!Array.isArray(value.color) || value.color.length !== 4 || !value.color.every(finite) || width !== FRAME) return null;
     color = [value.color[0], value.color[1], value.color[2], value.color[3]];
@@ -354,7 +405,7 @@ function parseLayer(value: unknown, textures: number, shaderValue?: unknown): Dy
     vertices: new Float32Array(vertices), uvs: new Float32Array(uvs), colors: colors ? new Float32Array(colors as number[]) : null,
     triangles: new Uint16Array(triangles), follow, animation,
     scroll: !shader && value.scroll ? [(value.scroll as number[])[0], (value.scroll as number[])[1]] : null,
-    only: (value.only as LayerAnimation | null) ?? null, delay: value.delay, shader, cull,
+    only: (value.only as LayerAnimation | null) ?? null, delay: value.delay, shader, cull, solid, offsets: shader ? offsetColumns(shader) : [],
   };
 }
 
@@ -416,6 +467,7 @@ export function parseDynamicLayers(value: unknown): DynamicLayers {
     }
     let layer: DynamicLayer | null = null;
     if (isObject(entry) && isObject(entry.effect)) layer = parseLayer(entry.effect, parsedTextures.length, entry.effect.shader);
+    else if (isObject(entry) && isObject(entry.tilted)) layer = parseLayer(entry.tilted, parsedTextures.length, entry.tilted.shader, true);
     else if (isObject(entry) && isObject(entry.layer)) {
       // A plain layer culls nothing as it is drawn (layers.json puts a culled moving one in an effect entry).
       const plain = { ...entry.layer, cull: 0 };
@@ -512,16 +564,41 @@ export function layerClock(reduced: boolean, track: TrackState | null, illustrat
 export interface LayerPose {
   /** Mesh units to skeleton units (or to the follower's units under a bone follower): [a, b, c, d, tx, ty]. */
   matrix: [number, number, number, number, number, number];
+  /** A tilted layer's depth column [e, f]: x' = a x + b y + e z + tx, y' = c x + d y + f z + ty. */
+  depth: [number, number];
   color: [number, number, number, number];
   /** On the exported UVs: u' = u su + ou, v' = v sv + ov (scroll included). */
   uv: [number, number, number, number];
   /** The layer's own time (after its delay), which its shader scrolls with. */
   t: number;
-  /** Its shader's animated parameters now (the frame past its 16 numbers; empty without). */
+  /** Its shader's animated parameters now (the frame past its 16 (18) numbers; empty without), offsets
+   *  carried on past the timeline (continueOffsets). */
   extra: number[];
 }
 
+/**
+ * Integrated offsets past a timeline's end: a looping one adds what one loop moved (the offset at its end
+ * less the offset where it loops from) once per loop, so the texture runs on instead of jumping back;
+ * one that holds its last frame runs on at its last speed. `extra` is frameAt's parameters at the wrapped
+ * time; `at` where the parameters start in a frame (after its first number); `offsets` where each offset's
+ * [u, v, speed u, speed v] starts among them.
+ */
+export function continueOffsets(line: LayerTimeline, t: number, extra: number[], offsets: readonly number[], at: number): number[] {
+  if (!offsets.length) return extra;
+  const out = extra.slice();
+  const last = line.frames[line.frames.length - 1];
+  if (line.loop && line.length > line.loopFrom && t > line.length) {
+    const loops = Math.floor((t - line.loopFrom) / (line.length - line.loopFrom));
+    const from = frameAt(line, line.loopFrom), end = frameAt(line, line.length);
+    for (const o of offsets) for (const k of [0, 1]) out[o + k] += loops * (end[at + o + k] - from[at + o + k]);
+  } else if (t > last[0]) {
+    for (const o of offsets) for (const k of [0, 1]) out[o + k] += out[o + 2 + k] * (t - last[0]);
+  }
+  return out;
+}
+
 const IDENTITY: LayerPose['matrix'] = [1, 0, 0, 1, 0, 0];
+const FLAT: LayerPose['depth'] = [0, 0];
 
 /**
  * A layer now, or null when it is not drawn: a controller group's layer only while its animation plays
@@ -550,11 +627,15 @@ export function layerPose(layer: DynamicLayer, clock: LayerClock): LayerPose | n
   const scrollV = layer.scroll ? wrapUnit(layer.scroll[1] * t) : 0;
   if (!line) {
     const color = layer.color!;
-    return { matrix: IDENTITY, color, uv: [1, scrollU, 1, scrollV], t, extra: [] };
+    return { matrix: IDENTITY, depth: FLAT, color, uv: [1, scrollU, 1, scrollV], t, extra: [] };
   }
   const f = frameAt(line, t);
   if (f[10] < 0.5) return null;
-  return { matrix: [f[0], f[1], f[2], f[3], f[4], f[5]], color: [f[6], f[7], f[8], f[9]], uv: [f[11], f[12] + scrollU, f[13], f[14] + scrollV], t, extra: f.slice(15) };
+  const at = layer.solid ? SOLID_FRAME - 1 : FRAME - 1;
+  return {
+    matrix: [f[0], f[1], f[2], f[3], f[4], f[5]], depth: layer.solid ? [f[15], f[16]] : FLAT, color: [f[6], f[7], f[8], f[9]],
+    uv: [f[11], f[12] + scrollU, f[13], f[14] + scrollV], t, extra: continueOffsets(line, t, f.slice(at), layer.offsets, at),
+  };
 }
 
 /** The bone a follower reads, as spine-ts gives it. */

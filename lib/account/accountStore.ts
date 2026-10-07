@@ -82,7 +82,14 @@ export interface AccountProfile {
   /** What the game's profile card shows, by the game's ids where the art is named by them
    *  (arkpedia-image-assets' profile-* folders). Absent on a record from before them. */
   uid?: string | null;
+  /** status.avatar's id: a profile-avatars icon ("avatar_special_41"), or for the "Assistant
+   *  Operator" avatar the assistant's skin id ("char_1019_siege2@epoque#50"). */
   avatar?: string | null;
+  /** status.avatar's type, which says which of the two the id is: ASSISTANT, ICON, DEFAULT or
+   *  NONE (the game's PlayerAvatarType), null when the game sent none (a new account sends
+   *  "avatar": {} or nothing). Absent on a record from before it (lib/account/portraits.ts
+   *  avatarSources tells those apart by the id). */
+  avatarType?: AvatarType | null;
   nameCard?: string | null;
   /** Operators hired, as the card counts them (Amiya once). */
   hired?: number;
@@ -119,6 +126,11 @@ export interface SupportUnit {
    *  Absent on a record from before it. */
   skin?: string | null;
 }
+
+/** The game's PlayerAvatarType: what status.avatar's id names. */
+export type AvatarType = 'ASSISTANT' | 'ICON' | 'DEFAULT' | 'NONE';
+const AVATAR_TYPES = new Set<unknown>(['ASSISTANT', 'ICON', 'DEFAULT', 'NONE']);
+const avatarType = (value: unknown) => (AVATAR_TYPES.has(value) ? value as AvatarType : null);
 
 const SKIN_ID = /^[\w@#+-]{1,100}$/;
 const gameId = (value: unknown) => (typeof value === 'string' && /^[\w-]{1,100}$/.test(value) ? value : null);
@@ -174,6 +186,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
       level: typeof profile.level === 'number' && Number.isFinite(profile.level) ? profile.level : null,
       registeredAt: text(profile.registeredAt), secretary: text(profile.secretary), bio: text(profile.bio),
       uid: text(profile.uid), avatar: text(profile.avatar), nameCard: text(profile.nameCard),
+      ...(profile.avatarType !== undefined ? { avatarType: avatarType(profile.avatarType) } : {}),
       ...(typeof profile.hired === 'number' ? { hired: profile.hired } : {}),
       supports: Array.isArray(profile.supports) ? (profile.supports as SupportUnit[]).filter((unit) => unit && typeof unit.name === 'string').slice(0, 3)
         // A record from the first build of the badge kept the lent skill's mastery instead
@@ -232,7 +245,10 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
       secretary: map.chars[status.secretary]?.name ?? null,
       bio: typeof status.resume === 'string' && status.resume.trim() ? status.resume.trim().slice(0, 500) : null,
       uid: status.uid != null ? String(status.uid) : null,
-      avatar: typeof status.avatar?.id === 'string' ? status.avatar.id : null,
+      // The id alone does not say what it names: for the "Assistant Operator" avatar the game
+      // sends the assistant's skin id, which no profile-avatars file is named by.
+      avatar: skinId(status.avatar?.id),
+      avatarType: avatarType(status.avatar?.type),
       nameCard: typeof user.nameCardStyle?.skin?.selected === 'string' ? user.nameCardStyle.skin.selected : null,
       ...(() => {
         const variant = Number(user.nameCardStyle?.skin?.tmpl?.[user.nameCardStyle?.skin?.selected]);

@@ -4,6 +4,9 @@
  * title and at most one short sentence (ChangeItem). Written at each
  * release to the main site, for what that release brings. Not every merge: tests, CI and
  * internals stay out (scripts/tests/test-changelog.ts holds the shape).
+ *
+ * One entry per day (UTC): a later release on the same day is a patch to that day's update, so
+ * its items go into the day's entry and the entry's `at` moves to the newest release.
  */
 
 /** One change, scannable: a headline that is the point on its own, and at most one short sentence
@@ -31,48 +34,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-07T14:00:00Z',
-    title: 'Effects in animated art',
+    at: '2026-10-07T22:04:00Z',
+    title: 'Animated outfit art, credits and fixes',
     added: [
+      { title: 'Animated outfit art', detail: 'Outfits that move in the game play full screen, entrance and music included: press Animated.', href: '/skins' },
       { title: 'Effects in animated outfit art', detail: 'Flowing skies, water, flames and dissolving smoke now play in the animated art, as in the game.', href: '/skins' },
       { title: 'Animated art for CN outfits', detail: 'Outfits CN already has, like One More Story, play their animated art before Global releases them.', href: '/skins' },
-    ],
-  },
-  {
-    at: '2026-10-07T12:15:00Z',
-    title: 'Credits',
-    added: [
+      { title: 'Outfit voice lines', detail: 'Outfits with a voice of their own, like Red Countess, have their lines in the voice language menu on the operator page.', href: '/operators' },
       { title: 'Credits page', detail: 'The community projects and sites Arkpedia gets its data and art from, linked in the Community menu.', href: '/credits' },
-    ],
-  },
-  {
-    at: '2026-10-07T11:20:00Z',
-    title: 'Phone fixes',
-    fixed: [
-      { title: 'Operator search on iPhone', detail: 'Tapping an operator in the search list on an operator page opens it, instead of closing the list.', href: '/operators' },
+      { title: 'Angled and turning pieces in animated art', detail: 'Pieces set at an angle or tumbling in depth now show, like the cassette Thorns sits on in Boundless Sail.', href: '/skins' },
     ],
     changed: [
       { title: 'One menu section at a time', detail: 'In the phone menu, opening a section folds the one that was open.' },
     ],
-  },
-  {
-    at: '2026-10-07T10:30:00Z',
-    title: 'Animated outfit art',
-    added: [
-      { title: 'Animated outfit art', detail: 'Outfits that move in the game play full screen, entrance and music included: press Animated.', href: '/skins' },
-      { title: 'Outfit voice lines', detail: 'Outfits with a voice of their own, like Red Countess, have their lines in the voice language menu on the operator page.', href: '/operators' },
+    fixed: [
+      { title: 'Operator search on iPhone', detail: 'Tapping an operator in the search list on an operator page opens it, instead of closing the list.', href: '/operators' },
+      { title: 'Assistant profile picture', detail: 'An imported account whose avatar is its assistant shows the assistant in their outfit, no re-import needed.', href: '/account' },
+      { title: 'Story map arrows', detail: 'The lines between stories end in arrowheads, as on the original map, and reach the cover they point to.', href: '/story' },
+      { title: 'Fades, dissolves and slides in animated art', detail: 'Effects that fade, dissolve or slide over time now move as in the game instead of standing still.', href: '/skins' },
     ],
   },
   {
     at: '2026-10-06T14:40:00Z',
-    title: 'Story art and planner polish',
-    changed: [
-      { title: 'Story chapter covers centred', detail: 'The chapter pop-up shows its cover whole, centred above the stages.', href: '/story' },
-      { title: 'Resources lock at the end of the row', detail: 'The Pull Planner lock sits after Yellow certs instead of under Orundum.', href: '/pulls' },
-    ],
-  },
-  {
-    at: '2026-10-06T13:00:00Z',
     title: 'Event pages and Pull History',
     added: [
       { title: 'Pull History', detail: 'Your pulls by banner and in order, from the 90 days Yostar keeps, growing past that with each import.', href: '/account' },
@@ -95,6 +78,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Techniques', detail: 'Modules that reveal invisible enemies are listed, traits count, and Hunters are no longer ammo-based.', href: '/techniques' },
       { title: 'Music song list', detail: 'Opens without moving the player, and shows where a song you drag will land.', href: '/music' },
       { title: 'Cleaner phone bar', detail: 'The menu and theme buttons sit in the bar without boxes.' },
+      { title: 'Story chapter covers centred', detail: 'The chapter pop-up shows its cover whole, centred above the stages.', href: '/story' },
+      { title: 'Resources lock at the end of the row', detail: 'The Pull Planner lock sits after Yellow certs instead of under Orundum.', href: '/pulls' },
     ],
     fixed: [
       { title: 'Traits that change at Elite 2', detail: 'Both versions show, like Pudding\'s, instead of "varies by promotion".', href: '/operators' },

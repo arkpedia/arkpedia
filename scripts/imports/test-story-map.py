@@ -83,7 +83,8 @@ class ParseTests(unittest.TestCase):
         self.assertEqual((elements[1]['x'], elements[1]['y']), (0.0, 500.0))
         self.assertEqual(elements[12]['text'], 'Chernobog (First Main Story)')
         self.assertEqual((elements[12]['size'], elements[12]['align'], elements[12]['color']), (80.0, 'center', '#000000'))
-        self.assertEqual(elements[13], {'type': 'line', 'x1': 400.0, 'y1': 100.0, 'x2': 900.0, 'y2': 100.0, 'color': '#5170ff', 'width': 10.0, 'dash': [3, 1]})
+        self.assertEqual(elements[13], {'type': 'line', 'x1': 400.0, 'y1': 100.0, 'x2': 900.0, 'y2': 100.0, 'color': '#5170ff', 'width': 10.0, 'dash': [3, 1],
+                                        'start': None, 'end': None})
         shape = elements[14]
         self.assertEqual((shape['fill'], shape['stroke'], shape['radius'], shape['width'], shape['height']), ('#ff3131', None, 30.0, 642.0, 177.0))
         self.assertEqual((shape['label']['text'], shape['label']['bold'], shape['label']['color']), ('OPTIONAL', True, '#ffffff'))
@@ -99,6 +100,64 @@ class ParseTests(unittest.TestCase):
         data = boot(extra=[picture('MISSING', 0.0, 900.0)])
         with self.assertRaises(ValueError):
             story.board_elements(story.bootstrap(page(data)))
+
+
+ARROWS = json.loads((Path(__file__).parent/'fixtures/story-map-arrows.json').read_text())
+
+
+def arrows_board():
+    """The fixture's covers and connectors in a group, as the board nests them, beside boot()'s
+    pictures, with the fixture's media."""
+    data = boot(extra=[{'A?': 'i', 'E': ARROWS['elements']}])
+    data['media'] += [raster(e['a']['B']['A']['A']) for e in ARROWS['elements'] if e['A?'] == 'I']
+    return data
+
+
+class LineTests(unittest.TestCase):
+    """The board's connectors as Canva's own view page draws them (fixtures/story-map-arrows.json:
+    seven real ones and the covers they hang off, with the decoration and length Canva drew)."""
+
+    def lines(self):
+        elements, _ = story.board_elements(story.bootstrap(page(arrows_board())))
+        lines = [e for e in elements if e['type'] == 'line'][1:]  # boot()'s own line first
+        return dict(zip([e['_'] for e in ARROWS['elements'] if e['A?'] == 'U'], lines))
+
+    def test_every_arrow_keeps_its_head_and_a_plain_line_has_none(self):
+        lines = self.lines()
+        self.assertEqual(len(lines), 7)
+        for line_id, line in lines.items():
+            canva = ARROWS['canva'][line_id]
+            self.assertEqual((line['start'], line['end']), (None, canva['end']), canva['title'])
+            self.assertEqual(line['dash'], canva['dash'], canva['title'])
+        self.assertEqual(sum(line['end'] == 'triangle' for line in lines.values()), 6)
+
+    def test_an_attached_end_is_where_canva_draws_it_not_its_stale_stored_point(self):
+        for line_id, line in self.lines().items():
+            canva = ARROWS['canva'][line_id]
+            drawn = ((line['x2'] - line['x1']) ** 2 + (line['y2'] - line['y1']) ** 2) ** 0.5
+            self.assertAlmostEqual(drawn, canva['drawnLength'], delta=0.2, msg=canva['title'])
+        walk = self.lines()['LBkzXFPFVVb65qGK']
+        stormwatch = next(e for e in ARROWS['elements'] if e.get('Z') == '10')
+        # A Walk in the Dust -> Stormwatch: stored 14 units short; drawn to Stormwatch's left edge.
+        self.assertEqual(walk['x2'], round(stormwatch['B'], 1))
+        self.assertEqual(walk['y2'], round(stormwatch['A'] + 0.6373702821988207 * stormwatch['C'], 1))
+
+    def test_an_end_attached_to_nothing_beside_it_keeps_its_stored_point(self):
+        raw = next(e for e in ARROWS['elements'] if e.get('_') == 'LBkzXFPFVVb65qGK')
+        line = story.element(raw, {}, {})
+        self.assertEqual((line['x2'], line['y2']), (round(raw['c']['C']['B'], 1), round(raw['c']['C']['A'], 1)))
+
+    def test_a_decoration_the_importer_does_not_know_fails_the_board(self):
+        raw = json.loads(json.dumps(next(e for e in ARROWS['elements'] if e.get('_') == 'LBkpGnVtkFTqjbxl')))
+        raw['b']['A'] = 'Q'
+        with self.assertRaisesRegex(ValueError, "start decoration 'Q'"):
+            story.element(raw, {}, {})
+
+    def test_a_placeless_kind_in_the_pages_settings_is_not_an_element(self):
+        data = boot()
+        data['page']['I'] = {'Bm': [{'A?': 'A', 'A': ['U', 'Z']}, {'A?': 'K'}]}
+        elements, _ = story.board_elements(story.bootstrap(page(data)))
+        self.assertEqual(len(elements), 15)
 
 
 class ImportTests(unittest.TestCase):
