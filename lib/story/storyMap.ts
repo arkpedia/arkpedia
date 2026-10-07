@@ -23,8 +23,56 @@ export type StoryElement =
   /** `manga`: an official comic the page adds below the board, not one of the board's own. */
   | ({ type: 'picture'; id: string; image: string | null; link?: StoryLink; manga?: true } & Box)
   | ({ type: 'text' } & Box & StoryText)
-  | { type: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; dash: number[] | null }
+  /** `start`/`end`: the head drawn at that end, null for a plain end; absent on a map imported
+   *  before the heads were, which draws as plain lines. */
+  | { type: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; dash: number[] | null; start?: LineHead | null; end?: LineHead | null }
   | ({ type: 'shape'; path: string; fill: string | null; stroke: string | null; strokeWidth: number; radius: number; label?: StoryText } & Box);
+
+/** A line end's head: the board's arrows are Canva's filled triangle (its end code "C", which
+ *  scripts/imports/import_story_map.py LINE_HEADS names). */
+export const LINE_HEADS = ['triangle'] as const;
+export type LineHead = typeof LINE_HEADS[number];
+type StoryLine = Extract<StoryElement, { type: 'line' }>;
+
+/**
+ * Canva's triangle head, in units of the line's width w, as its view page draws the board's
+ * (w 10, every arrowed line): a triangle from 2.5w behind the end, 1.5w each side, to a tip 0.5w
+ * short of it, filled and outlined at w with round joins in the line's colour, so the outline
+ * brings the tip to the end itself; the shaft stops 2.75w short, under the head.
+ */
+export const TRIANGLE = { tip: 0.5, base: 2.5, half: 1.5, shaft: 2.75 } as const;
+
+type Point = readonly [number, number];
+export interface LineDrawing {
+  /** The shaft, or null when the heads take the whole length. */
+  shaft: { x1: number; y1: number; x2: number; y2: number } | null;
+  /** Each head as [tip, base corner, base corner], in board units. */
+  heads: [Point, Point, Point][];
+  /** Everything drawn, padded by the width (a butt end, a round corner): the box to draw it in. */
+  box: { x: number; y: number; width: number; height: number };
+}
+
+/** Where a line's shaft and heads go, in board units. A line without heads is its two ends. */
+export function lineDrawing(line: StoryLine): LineDrawing {
+  const { x1, y1, x2, y2, width: w } = line;
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  const ux = length ? (x2 - x1) / length : 1, uy = length ? (y2 - y1) / length : 0;
+  const head = (at: Point, dir: 1 | -1): [Point, Point, Point] => {
+    const [ax, ay] = at, dx = ux * dir, dy = uy * dir, nx = -dy, ny = dx;
+    const back = (k: number, side: number): Point => [ax - dx * k * w + nx * side * w, ay - dy * k * w + ny * side * w];
+    return [back(TRIANGLE.tip, 0), back(TRIANGLE.base, TRIANGLE.half), back(TRIANGLE.base, -TRIANGLE.half)];
+  };
+  const known = (value: unknown) => (LINE_HEADS as readonly unknown[]).includes(value);
+  const heads: [Point, Point, Point][] = [];
+  let from = 0, to = length;
+  if (known(line.start) && length) { heads.push(head([x1, y1], -1)); from = TRIANGLE.shaft * w; }
+  if (known(line.end) && length) { heads.push(head([x2, y2], 1)); to = length - TRIANGLE.shaft * w; }
+  const shaft = to > from ? { x1: x1 + ux * from, y1: y1 + uy * from, x2: x1 + ux * to, y2: y1 + uy * to } : null;
+  const points: Point[] = [[x1, y1], [x2, y2], ...heads.flat()];
+  const xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
+  const left = Math.min(...xs) - w, top = Math.min(...ys) - w;
+  return { shaft, heads, box: { x: left, y: top, width: Math.max(...xs) + w - left, height: Math.max(...ys) + w - top } };
+}
 
 /** An official comic from the Global site's list (scripts/imports/import_story_map.py): `section`
  *  is the board section it belongs to, or null for one nobody has placed yet; `onBoard` the board
@@ -67,6 +115,9 @@ export function assertStoryMap(value: unknown): asserts value is StoryMap {
   for (const element of map.elements) {
     if (element.type === 'line') {
       if (![element.x1, element.y1, element.x2, element.y2, element.width].every(finite)) throw new Error('data/story-map.json: a line without its ends');
+      for (const end of [element.start, element.end]) {
+        if (end !== undefined && end !== null && !(LINE_HEADS as readonly unknown[]).includes(end)) throw new Error(`data/story-map.json: a line head ${JSON.stringify(end)}, not one of ${LINE_HEADS.join(', ')}`);
+      }
       continue;
     }
     if (![element.x, element.y, element.width, element.height].every(finite)) throw new Error(`data/story-map.json: a ${element.type} without its box`);

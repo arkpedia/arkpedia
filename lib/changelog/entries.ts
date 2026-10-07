@@ -38,6 +38,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-10-08T00:00:00Z',
     fixed: [
       { title: 'Assistant profile picture', detail: 'An imported account whose avatar is its assistant shows the assistant in their outfit, no re-import needed.', href: '/account' },
+      { title: 'Story map arrows', detail: 'The lines between stories end in arrowheads, as on the original map, and reach the cover they point to.', href: '/story' },
     ],
   },
   {
