@@ -23,4 +23,4 @@ npm are 4.x and refuse them.
 Nothing else. Do not modify these files unless a Spine licence is in force: the Spine Runtimes
 License (`LICENSE`, beside them) permits integrating and changing the runtimes only for holders
 of a Spine Editor licence, and any redistribution must carry that licence and copyright notice.
-The site shows the licence on `/support` (Credits and licences).
+The site shows the licence on `/credits` (Licences), linked from the nav's Community menu.

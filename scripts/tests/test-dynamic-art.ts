@@ -12,6 +12,7 @@ import {
 import { LIMITS, combine, followMatrix, frameAt, layerClock, layerPose, parseDynamicLayers, partRanges, wrapUnit, type DynamicLayer } from '../../lib/skins/dynamicLayers';
 import { contentUrl } from '../../lib/content/urls';
 import { SPINE_RUNTIMES_LICENSE } from '../../lib/credits/spineLicense';
+import { LINKS } from '../../lib/nav/navLinks';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { REPOSITORY, dynamicArtFromManifest, emptyDynamicArt, readDynamicArt, writeDynamicArt } from '../sync/sync-dynamic-art.mjs';
 
@@ -528,13 +529,15 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
 
 /* --- the licence ----------------------------------------------------------------------- */
 
-test('the Spine Runtimes License ships beside the runtime and on /support, word for word', () => {
+test('the Spine Runtimes License ships beside the runtime and on /credits, word for word', () => {
   assert.equal(SPINE_RUNTIMES_LICENSE, fs.readFileSync('lib/vendor/spine-3.8/LICENSE', 'utf8'));
   assert.match(SPINE_RUNTIMES_LICENSE, /^Spine Runtimes License Agreement\n/);
   assert.match(SPINE_RUNTIMES_LICENSE, /Copyright \(c\) 2013-2019, Esoteric Software LLC/);
-  const support = fs.readFileSync('pages/support.tsx', 'utf8');
-  assert.match(support, />Credits and licences</);
-  assert.match(support, /<pre className="support-licence">\{SPINE_RUNTIMES_LICENSE\}<\/pre>/);
+  const credits = fs.readFileSync('pages/credits.tsx', 'utf8');
+  assert.match(credits, /<summary>Spine Runtimes License<\/summary>/);
+  assert.match(credits, /<pre className="credits-licence">\{SPINE_RUNTIMES_LICENSE\}<\/pre>/);
+  // Reachable from every page: the nav links it.
+  assert.ok(LINKS.some((link) => link.href === '/credits'), 'the nav links /credits');
   // The vendored runtime says where it came from and that it is not to be changed without a licence.
   const readme = fs.readFileSync('lib/vendor/spine-3.8/README.md', 'utf8');
   assert.match(readme, /8b4844bd4b193ba9e54487ed397a777993cbad56/);
