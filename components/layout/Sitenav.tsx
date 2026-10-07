@@ -113,6 +113,13 @@ export const ICONS: Record<string, JSX.Element> = {
       <path d="M10 2.5 11.6 8.4 17.5 10 11.6 11.6 10 17.5 8.4 11.6 2.5 10 8.4 8.4Z" strokeLinejoin="round" />
     </svg>
   ),
+  // A rosette: Credits, the projects the site is built on.
+  credits: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="10" cy="7.5" r="4.5" />
+      <path d="M7.2 11 5.5 17.5 10 15.5 14.5 17.5 12.8 11" strokeLinejoin="round" />
+    </svg>
+  ),
   // An open book: the Story page.
   story: (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">

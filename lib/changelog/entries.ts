@@ -31,6 +31,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-07T12:15:00Z',
+    title: 'Credits',
+    added: [
+      { title: 'Credits page', detail: 'The community projects and sites Arkpedia gets its data and art from, linked in the Community menu.', href: '/credits' },
+    ],
+  },
+  {
     at: '2026-10-07T11:20:00Z',
     title: 'Phone fixes',
     fixed: [
