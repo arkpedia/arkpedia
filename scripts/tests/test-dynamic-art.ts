@@ -488,7 +488,9 @@ test('the view settles from the entrance onto the illustration\'s framing, which
 const RUNTIME = 'lib/vendor/spine-3.8/spine-webgl.js';
 const ARTWORK = 'components/skins/DynamicArtwork.tsx';
 const LAYER_RENDERER = 'components/skins/dynamicLayerRenderer.ts';
-const LAYER_FILES = ['lib/skins/dynamicLayers.ts', LAYER_RENDERER];
+const PARTICLE_DATA = 'lib/skins/particleData.ts';
+const PARTICLE_SIM = 'lib/skins/particleSim.ts';
+const LAYER_FILES = ['lib/skins/dynamicLayers.ts', LAYER_RENDERER, PARTICLE_DATA, PARTICLE_SIM];
 
 test('no page loads the Spine runtime or the animated artwork with itself: only when the reader asks', () => {
   // Not vacuous: both pages that offer animated art do reach both, lazily.
@@ -519,8 +521,10 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   const naming = ['pages', 'components', 'lib'].flatMap(walk)
     .filter((file) => /vendor\/spine-3\.8/.test(fs.readFileSync(file, 'utf8').replace(/^import type [^\n]*$/gm, '')));
   assert.deepEqual(naming.sort(), [ARTWORK, 'lib/credits/spineLicense.ts']);
-  // The layers come in with the artwork, never on their own.
-  for (const [file, allowed] of [[LAYER_FILES[0], [ARTWORK, LAYER_RENDERER]], [LAYER_RENDERER, [ARTWORK]]] as const) {
+  // The layers and the particle systems come in with the artwork, never on their own (the particle reader
+  // borrows the layers' shader reader; nothing imports the simulator until the renderer does).
+  for (const [file, allowed] of [[LAYER_FILES[0], [ARTWORK, LAYER_RENDERER, PARTICLE_DATA]], [LAYER_RENDERER, [ARTWORK]], [PARTICLE_DATA, [PARTICLE_SIM]],
+    [PARTICLE_SIM, []]] as const) {
     const importers = ['pages', 'components', 'lib'].flatMap(walk).filter((other) => other !== file
       && new RegExp(`from '[^']*/${path.basename(file).replace(/\.tsx?$/, '')}'`).test(fs.readFileSync(other, 'utf8')));
     assert.deepEqual(importers.sort(), [...allowed].sort(), `${file} is imported only with the artwork`);
