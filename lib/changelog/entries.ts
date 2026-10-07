@@ -31,6 +31,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-07T11:20:00Z',
+    title: 'Phone fixes',
+    fixed: [
+      { title: 'Operator search on iPhone', detail: 'Tapping an operator in the search list on an operator page opens it, instead of closing the list.', href: '/operators' },
+    ],
+    changed: [
+      { title: 'One menu section at a time', detail: 'In the phone menu, opening a section folds the one that was open.' },
+    ],
+  },
+  {
     at: '2026-10-07T10:30:00Z',
     title: 'Animated outfit art',
     added: [
