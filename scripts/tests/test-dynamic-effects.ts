@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  LIMITS, animatedShader, dissolveK, layerPose, mapOffset, parseDynamicLayers, parseShader, roundEven, unityUvMap, type DynamicLayer, type ParticleShader,
+  LIMITS, animatedShader, continueOffsets, dissolveK, layerPose, mapOffset, parseDynamicLayers, parseShader, roundEven, unityUvMap, type DynamicLayer,
+  type NoiseShader, type ParticleShader,
 } from '../../lib/skins/dynamicLayers';
-import { noiseFragment, particleFeatures, particleFragment, programKey } from '../../components/skins/dynamicLayerRenderer';
+import { effectVertex, followProjection, noiseFragment, particleFeatures, particleFragment, programKey } from '../../components/skins/dynamicLayerRenderer';
 
 /*
  * The illustration layers drawn with the game's effect shaders (layers.json layersVersion 2: `effect`
@@ -177,4 +178,69 @@ test('a moving effect layer culls the faces the game culls; a plain one never do
   assert.equal(named(read(undefined), 'flame').cull, 0);
   assert.equal(read(3).skipped, 1);
   assert.equal(named(read(2, 'layer'), 'sky').cull, 0);
+});
+
+/* --- layersVersion 3: tilted entries and integrated scroll speeds -------------------------------- */
+
+// A frame of a tilted layer: the 16 numbers, its depth column [e, f], then [u, v, speed u, speed v] of main.offset.
+const solidFrame = (t: number, e: number, u: number) => [t, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, e, 0, u, 0, 0.5, 0];
+const STAR = { ...EFFECTS.draw[2].effect, name: 'star', color: null, vertices: [0, 0, 0, 10, 0, 5, 0, 10, -5], uvs: [0, 0, 1, 0, 0, 1], triangles: [0, 1, 2],
+  animation: { length: 2, loop: true, loopFrom: 0, frames: [solidFrame(0, 0, 0), solidFrame(2, 1, 1)] }, cull: 2, shader: particle({ animated: ['main.offset'] }) };
+
+test('a tilted entry is read with its 3D vertices and the depth column of its frames', () => {
+  const read = parseDynamicLayers({ ...EFFECTS, draw: [{ part: 0 }, { tilted: STAR }] });
+  assert.equal(read.skipped, 0);
+  const star = named(read, 'star');
+  assert.equal(star.solid, true);
+  assert.deepEqual([...star.vertices], STAR.vertices);
+  assert.deepEqual(star.offsets, [0]);
+  const pose = layerPose(star, { playing: 'Idle', animationTime: 1, time: 1 })!;
+  assert.deepEqual(pose.depth, [0.5, 0]);
+  assert.deepEqual(pose.extra, [0.5, 0, 0.5, 0], 'the offset at 1 s, past the depth column');
+  // Pairs instead of triples, frames without the depth column, or no shader: not understood.
+  for (const odd of [{ ...STAR, vertices: STAR.vertices.slice(0, 6) }, { ...STAR, animation: { ...STAR.animation, frames: STAR.animation.frames.map((f) => f.slice(0, 16)) } },
+    { ...STAR, shader: undefined }, { ...STAR, animation: null, color: [1, 1, 1, 1], shader: particle() }]) {
+    assert.equal(parseDynamicLayers({ ...EFFECTS, draw: [{ part: 0 }, { tilted: odd }] }).skipped, 1);
+  }
+  // The renderer projects it with a 2x4 matrix of its own program variant.
+  assert.equal(programKey(star.shader!, true), `${programKey(star.shader!)}3`);
+  assert.match(effectVertex(false, true), /attribute vec3 a_position;[\s\S]*uniform vec4 u_row0;[\s\S]*vec4 q = vec4\(p, 1\.0\);/);
+  assert.match(effectVertex(true, true), /p \+= d;/, 'a vertex effect moves it in 3D');
+  // Under a bone follower turned a quarter: x' = -y, y' = x, the depth column turns with it.
+  assert.deepEqual(followProjection([0, -1, 1, 0, 5, 6], [1, 0, 0, 1, 2, 3], [0.5, 0]), [0, -1, 0, 2, 1, 0, 0.5, 8]);
+});
+
+test('an integrated offset runs on past its timeline: once more per loop, or at its last speed', () => {
+  const line = { length: 2, loop: true, loopFrom: 0, frames: [solidFrame(0, 0, 0), solidFrame(2, 0, 1)] };
+  const at = 17; // after the 16 numbers (less t) and the depth column
+  const extra = (t: number) => continueOffsets(line, t, line.frames[0].slice(1).slice(at).map((_, i) => {
+    const wrapped = t > 2 ? t % 2 : t;
+    return [wrapped / 2, 0, 0.5, 0][i];
+  }), [0], at);
+  assert.equal(extra(1)[0], 0.5);
+  assert.equal(extra(3)[0], 1.5, 'one loop moved it 1');
+  assert.equal(extra(5)[0], 2.5);
+  const held = { ...line, loop: false };
+  assert.equal(continueOffsets(held, 4, [1, 0, 0.5, 0], [0], at)[0], 2, 'held at the end: 1 + 0.5 x 2 s');
+  assert.deepEqual(continueOffsets(held, 4, [1, 0, 0.5, 0], [], at), [1, 0, 0.5, 0], 'nothing to carry on');
+});
+
+test('an offset an Animator drives replaces t x speed, wrapped the same way', () => {
+  assert.deepEqual(mapOffset({ speed: [0.5, 0], scroll: [0, 0], offset: [1.25, -0.25] }, 10), [0.25, 0.75]);
+  const flowing = parseShader({ ...flow, animated: ['main.offset', 'distort.maps.0.offset', 'distort.main'] }, 2) as ParticleShader;
+  assert.ok(flowing);
+  const now = animatedShader(flowing, [0.3, 0.1, 1, 0, 2.5, 0, 1, 0, 0.5]) as ParticleShader;
+  assert.deepEqual(now.main.offset, [0.3, 0.1]);
+  assert.deepEqual(now.distort!.maps[0].offset, [2.5, 0]);
+  assert.equal(now.distort!.main, 0.5);
+  assert.equal(flowing.main.offset, undefined, 'the parsed shader stays as read');
+  // An offset of a map the shader does not have is not understood.
+  assert.equal(parseShader({ ...flow, animated: ['dissolve.0.offset'] }, 2), null);
+  // Disturb2's animated noise params, glow and integrated noise scroll.
+  const noise = { family: 'noise', mode: 'glow', main: flow.main, noise: map(), noise1: [1, 2, 0.1, 0], noise2: [1, 1, 0, 0.1], glow: [1, 1, 1, 1] };
+  const animatedNoise = parseShader({ ...noise, animated: ['noise.offset', 'noise1', 'glow'] }, 2) as NoiseShader;
+  assert.ok(animatedNoise);
+  const lit = animatedShader(animatedNoise, [0.1, -0.05, 0.1, -0.05, 1, 2, 0.5, 0, 0, 0, 0, 1]) as NoiseShader;
+  assert.deepEqual([lit.noise.offset, lit.noise1, lit.glow], [[0.1, -0.05], [1, 2, 0.5, 0], [0, 0, 0, 1]]);
+  assert.equal(parseShader({ ...noise, glow: null, mode: 'default', animated: ['glow'] }, 2), null, 'no glow to animate');
 });

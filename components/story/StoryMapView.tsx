@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import { storyListSections, withManga, type StoryElement, type StoryMap, type StoryPicture, type StoryText } from '@/lib/story/storyMap';
+import { lineDrawing, storyListSections, withManga, type StoryElement, type StoryMap, type StoryPicture, type StoryText } from '@/lib/story/storyMap';
 
 /*
  * The Arknights Story Map as its author laid it out (lib/story/storyMap.ts): the board is drawn
@@ -51,15 +51,20 @@ function Shape({ element }: { element: Extract<StoryElement, { type: 'shape' }> 
   );
 }
 
-/** A connector, in a box around its two ends padded by its width so the stroke is not cut. */
-function Line({ element }: { element: Extract<StoryElement, { type: 'line' }> }) {
-  const pad = element.width;
-  const left = Math.min(element.x1, element.x2) - pad, top = Math.min(element.y1, element.y2) - pad;
-  const width = Math.abs(element.x2 - element.x1) + 2 * pad, height = Math.abs(element.y2 - element.y1) + 2 * pad;
+/** A connector, in a box around everything it draws padded by its width so nothing is cut: its
+ *  shaft, and at an end with a head (lineDrawing) the board's triangle, in the line's colour. */
+export function Line({ element }: { element: Extract<StoryElement, { type: 'line' }> }) {
+  const { shaft, heads, box } = lineDrawing(element);
+  const { x: left, y: top, width, height } = box;
+  const color = ink(element.color);
   return (
-    <svg className="story-map-shape" style={{ left, top, width, height }} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
-      <line x1={element.x1 - left} y1={element.y1 - top} x2={element.x2 - left} y2={element.y2 - top} stroke={ink(element.color)}
-        strokeWidth={element.width} strokeDasharray={element.dash ? element.dash.map((n) => n * element.width).join(' ') : undefined} />
+    <svg className="story-map-shape story-map-line" style={{ left, top, width, height }} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      {shaft && <line x1={shaft.x1 - left} y1={shaft.y1 - top} x2={shaft.x2 - left} y2={shaft.y2 - top} stroke={color}
+        strokeWidth={element.width} strokeDasharray={element.dash ? element.dash.map((n) => n * element.width).join(' ') : undefined} />}
+      {heads.map((points, index) => (
+        <path key={index} className="story-map-head" d={`M${points.map(([x, y]) => `${x - left},${y - top}`).join('L')}Z`}
+          fill={color} stroke={color} strokeWidth={element.width} />
+      ))}
     </svg>
   );
 }

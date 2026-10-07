@@ -10,6 +10,7 @@ import { useReleaseTable } from '@/lib/content/context';
 import { DATA_DIALOG_TABLES, fillAccountMap } from '@/lib/content/dataDialogTables';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { showAccount, useAccount, useOtherAccounts } from '@/lib/account/accountStore';
+import { assistantCatalogue, cardOutfits, type CardOutfit } from '@/lib/account/portraits';
 import { SERVER_IDS, SERVERS } from '@/lib/account-import/yostar';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 // The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
@@ -25,7 +26,7 @@ import { storyAI } from '@/lib/account/prts';
 
 interface Props {
   /** Every outfit by skin id, with its art (the card's assistant wears one). */
-  skins: { id: string; image: string | null; name: string }[];
+  skins: CardOutfit[];
 }
 
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -54,8 +55,8 @@ export default function AccountPage({ skins }: Props) {
   // The outfits the account owns that the catalogue has (the card's Outfits Owned).
   const owns = useMemo(() => new Set(account?.skins ?? []), [account]);
   const ownedSkins = account ? skins.filter((skin) => owns.has(skin.id)).length : null;
-  const outfitArt = useMemo(() => new Map(skins.flatMap((skin) => (skin.image ? [[skin.id, skin.image] as const] : []))), [skins]);
-  const outfitNames = useMemo(() => new Map(skins.map((skin) => [skin.id, skin.name] as const)), [skins]);
+  // The assistant's art and icon names, as scripts/audits/check-icon-coverage.ts checks them.
+  const { outfitArt, outfitNames } = useMemo(() => assistantCatalogue(map, skins), [map, skins]);
   const profile = account?.profile;
 
   return (
@@ -114,7 +115,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/ac
   return { props: {
     // As /skins counts them: an outfit only CN has is not Global's yet.
     // Each outfit by its game id, with its art: the card shows the assistant in theirs.
-    skins: getAllSkins().filter((skin) => skin.skinId).map((skin) => ({ id: skin.skinId!, image: skin.image ?? null, name: skin.name })),
+    skins: cardOutfits(getAllSkins()),
   } };
 }, {
   bundledWhenUnpublished: true,
