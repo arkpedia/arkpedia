@@ -414,12 +414,12 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
 
       <div ref={playerAnchorRef} className={styles.playerAnchor} aria-hidden="true" />
       <div ref={playerRef} className={styles.player} data-stuck={playerStuck || undefined} aria-label="Voice line player">
-        {skinVoices.length > 0 && <StyledSelect label="Voice outfit" value={setId ?? ''} options={[{ value: '', label: 'Default outfit' }, ...skinVoices.map(set => ({ value: set.id, label: set.label }))]} onChange={id => {
-          const next = skinVoices.find(set => set.id === id);
-          const nextPack = (next ?? data).packs.find(item => item.id === packId) ?? preferredPackOf(next ?? data);
-          if (nextPack) chooseVoice(next ? `${next.id}${SET_SEPARATOR}${nextPack.id}` : nextPack.id);
-        }} />}
-        <div className={styles.packRow}>
+        <div className={`${styles.packRow} ${skinVoices.length ? styles.withOutfit : ''}`}>
+          {skinVoices.length > 0 && <StyledSelect label="Voice outfit" className={styles.outfitSelect} value={setId ?? ''} options={[{ value: '', label: 'Default outfit' }, ...skinVoices.map(set => ({ value: set.id, label: set.label }))]} onChange={id => {
+            const next = skinVoices.find(set => set.id === id);
+            const nextPack = (next ?? data).packs.find(item => item.id === packId) ?? preferredPackOf(next ?? data);
+            if (nextPack) chooseVoice(next ? `${next.id}${SET_SEPARATOR}${nextPack.id}` : nextPack.id);
+          }} />}
           <StyledSelect label="Voice language" align="end" value={packValue} className={styles.packSelect}
             options={packOptions}
             renderValue={option => activeSet

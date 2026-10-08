@@ -981,7 +981,10 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             </div>
 
             <OperatorChibi key={operator.name} onOpen={() => setRotating(false)} models={chibis[shownAppearance?.label ?? ''] ?? null} label={`${operator.name} — ${shownAppearance?.label ?? ''}`} />
-            <OperatorArtworkCaption appearances={appearances} activeIndex={shownIndex} prices={skinObtainByLabel} />
+            <div className={pageStyles.artworkCaptionRow}>
+              <OperatorArtworkCaption appearances={appearances} activeIndex={shownIndex} prices={skinObtainByLabel} />
+              {epTrack && <button type="button" className="ghost btn-sm" title={epTrack.title} disabled={music.excludeCopyrighted && epTrack.copyright} onClick={() => music.playFirst(epTrack.id)}>Play EP</button>}
+            </div>
             <OperatorAppearancePicker key={operator.name} appearances={appearances} activeIndex={activeIndex}
               onSelect={selectAppearance} onWarm={setWarmIndex} rotating={rotating} onRotationChange={setRotating} />
 
@@ -1016,7 +1019,6 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                         <span className={pageStyles.classLabel}><OperatorGameIcon src={getBranchIconPath(operator.branch)!} label={operator.branch || 'Branch'} size={20} /><span>{operator.branch}</span></span>
                       </OperatorRelationPopover>
                     )}
-                    {epTrack && <button type="button" className="ghost btn-sm" title={epTrack.title} disabled={music.excludeCopyrighted && epTrack.copyright} onClick={() => music.playFirst(epTrack.id)}>Play EP</button>}
                   </div>
                   <nav className={pageStyles.sectionMenu} aria-label="Operator sections">
                     <StyledSelect label="Jump to section" align="end" value={activeSection}

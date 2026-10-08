@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
+import XButton from '@/components/ui/XButton';
 import type { ChibiFacings } from '@/lib/operators/chibi';
 const ChibiCanvas = dynamic(() => import('./ChibiCanvas'), { ssr: false });
 const PET_WIDTH = 160, PET_HEIGHT = 180;
@@ -111,7 +112,7 @@ export default function OperatorChibi({ models, label, onOpen }: { onOpen?: () =
             event.preventDefault(); setPaused(true);
             place({ x: position.current.x + (event.key === 'ArrowLeft' ? -20 : event.key === 'ArrowRight' ? 20 : 0), y: position.current.y + (event.key === 'ArrowUp' ? -20 : event.key === 'ArrowDown' ? 20 : 0) });
           }
-        }}>{canvas}<button className="chibi-return" type="button" aria-label="Return chibi to viewer" onClick={returnToViewer}>×</button></div>, document.body)}
+        }}>{canvas}<XButton className="chibi-return" dense label="Return chibi to viewer" onClick={returnToViewer} /></div>, document.body)}
       </> : canvas}
     </> : <p className="hint">Chibi artwork for this outfit is not in the current asset catalogue.</p>)}
     {open && canvas && <>
