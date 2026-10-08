@@ -131,6 +131,7 @@ export class VertexArray {
   readonly stride: number;
   f32: Float32Array;
   u8: Uint8Array;
+  u32: Uint32Array;
   /** Vertices written. */
   count = 0;
   /** Mesh particles' indices, relative to the first vertex of the expandSystem call that wrote them (32-bit here:
@@ -144,6 +145,7 @@ export class VertexArray {
     this.stride = custom ? CUSTOM_FLOATS : LEAN_FLOATS;
     this.f32 = new Float32Array(vertices * this.stride);
     this.u8 = new Uint8Array(this.f32.buffer);
+    this.u32 = new Uint32Array(this.f32.buffer);
     this.indices = new Uint32Array(indices);
   }
   /** Room for `vertices` more vertices and `indices` more indices. */
@@ -154,6 +156,7 @@ export class VertexArray {
       next.set(this.f32.subarray(0, this.count * this.stride));
       this.f32 = next;
       this.u8 = new Uint8Array(next.buffer);
+      this.u32 = new Uint32Array(next.buffer);
     }
     if (this.indexCount + indices > this.indices.length) {
       const next = new Uint32Array(Math.max(this.indexCount + indices, this.indices.length * 2));
@@ -295,7 +298,14 @@ const axes = new Float64Array(9);
 const turn = new Float64Array(9);
 const frame3 = new Float64Array(9);
 const look = new Float64Array(9);
-const inputs = new Float64Array(8);
+const inputs = new Float32Array(8);
+// Encode custom stream sources once per system expansion, then copy the particle's common
+// values to each vertex. Only UV sources need per-vertex substitution.
+const uvInputs = new Int8Array(8);
+const LITTLE_ENDIAN = new Uint8Array(Uint32Array.of(1).buffer)[0] === 1;
+function packedColor(r: number, g: number, b: number, a: number): number {
+  return LITTLE_ENDIAN ? (r | (g << 8) | (b << 16) | (a << 24)) : ((r << 24) | (g << 16) | (b << 8) | a);
+}
 const order: number[] = [];
 let positions = new Float64Array(0);
 
@@ -346,6 +356,11 @@ export function expandSystem(system: SystemFrame, ctx: ExpandContext, out: Verte
   const stride = out.stride;
   const fade = ctx.fade;
   const inv = 1 / unit;
+  if (custom) for (let j = 0; j < 8; j++) {
+    const source = system.inputs![j];
+    uvInputs[j] = source !== 0 && source[0] === 'u' ? (source[2] === '2' ? 2 : 0) + (source[source.length - 1] === 'x' ? 0 : 1) : -1;
+  }
+  if (!mesh) out.reserve(n * 4);
   for (let k = 0; k < drawn.length; k++) {
     const i = drawn[k];
     sim.attributes(i, attributes, custom);
@@ -360,6 +375,7 @@ export function expandSystem(system: SystemFrame, ctx: ExpandContext, out: Verte
     }
     const r = byte(attributes[3]), g = byte(attributes[4]), b = byte(attributes[5]);
     const a = attributes[6] * fade;
+    const color = packedColor(r, g, b, byte(a));
     // The frame's UV rect, and the next frame's (UV2).
     rects[0] = attributes[8]; rects[1] = attributes[9]; rects[2] = attributes[10]; rects[3] = attributes[11];
     if (sheet && attributes[7] >= 0) frameRect(sheet, nextFrame(sheet, attributes[7]), rects, 4);
@@ -396,14 +412,13 @@ export function expandSystem(system: SystemFrame, ctx: ExpandContext, out: Verte
         const y = cy + frame3[3] * lx + frame3[4] * ly + frame3[5] * lz;
         const mu = verts ? verts.uvs[v * 2] : CORNER_UV[v][0], mv = verts ? verts.uvs[v * 2 + 1] : CORNER_UV[v][1];
         const colors = verts?.colors;
-        writeVertex(out, stride, x * inv, y * inv, mu, mv, colors ? byte(attributes[3] * colors[v * 4]) : r, colors ? byte(attributes[4] * colors[v * 4 + 1]) : g,
-          colors ? byte(attributes[5] * colors[v * 4 + 2]) : b, byte(a * (colors ? colors[v * 4 + 3] : 1)), custom);
+        writeVertex(out, stride, x * inv, y * inv, mu, mv, colors ? packedColor(byte(attributes[3] * colors[v * 4]), byte(attributes[4] * colors[v * 4 + 1]),
+          byte(attributes[5] * colors[v * 4 + 2]), byte(a * colors[v * 4 + 3])) : color, custom);
       }
       for (let t = 0; t < tris.length; t++) out.indices[out.indexCount++] = base + tris[t];
       out.ends.push(out.count, out.indexCount);
       continue;
     }
-    out.reserve(4);
     if (render.mode === 'stretched') {
       // Along the screen-space velocity; the speed is the root's, in Unity units.
       let vx = sim.vx[i] + sim.ax[i], vy = sim.vy[i] + sim.ay[i], vz = sim.vz[i] + sim.az[i];
@@ -429,7 +444,7 @@ export function expandSystem(system: SystemFrame, ctx: ExpandContext, out: Verte
         } else {
           along = (ky + pivotSign * pivotAlong) * length; across = (kx + pivotSign * pivotAcross) * width; nx = ey; ny = -ex;
         }
-        writeQuadCorner(out, stride, (cx + ex * along + dx * head + nx * across) * inv, (cy + ey * along + dy * head + ny * across) * inv, c, r, g, b, byte(a), custom);
+        writeQuadCorner(out, stride, (cx + ex * along + dx * head + nx * across) * inv, (cy + ey * along + dy * head + ny * across) * inv, c, color, custom);
       }
       continue;
     }
@@ -454,37 +469,29 @@ export function expandSystem(system: SystemFrame, ctx: ExpandContext, out: Verte
         const tx = lx * cos - ly * sin, ty = lx * sin + ly * cos;
         if (frame) { x = cx + frame[0] * tx + frame[1] * ty; y = cy + frame[3] * tx + frame[4] * ty; } else { x = cx + tx; y = cy + ty; }
       }
-      writeQuadCorner(out, stride, x * inv, y * inv, c, r, g, b, byte(a), custom);
+      writeQuadCorner(out, stride, x * inv, y * inv, c, color, custom);
     }
   }
   return out.count - first;
 
   /** One vertex: position, UV, colour, the custom inputs (a uv source reads this vertex's own UV or UV2). */
-  function writeVertex(o: VertexArray, s: number, x: number, y: number, u0: number, v0: number, cr: number, cg: number, cb: number, ca: number, withCustom: boolean): void {
+  function writeVertex(o: VertexArray, s: number, x: number, y: number, u0: number, v0: number, color: number, withCustom: boolean): void {
     // The UV within the frame: a mesh's own UV remapped into the sheet's rect.
     const u = rects[0] + u0 * (rects[2] - rects[0]), v = rects[1] + v0 * (rects[3] - rects[1]);
     const at = o.count * s;
     o.f32[at] = x; o.f32[at + 1] = y; o.f32[at + 2] = u; o.f32[at + 3] = v;
-    const c = at * 4 + 16;
-    o.u8[c] = cr; o.u8[c + 1] = cg; o.u8[c + 2] = cb; o.u8[c + 3] = ca;
+    o.u32[at + 4] = color;
     if (withCustom) {
-      const src = system.inputs!;
       for (let j = 0; j < 8; j++) {
-        const sname = src[j];
-        let value = inputs[j];
-        if (sname !== 0 && sname[0] === 'u') {
-          const second = sname[2] === '2';
-          const ax = sname[sname.length - 1] === 'x';
-          value = second ? (ax ? rects[4] + u0 * (rects[6] - rects[4]) : rects[5] + v0 * (rects[7] - rects[5])) : (ax ? u : v);
-        }
-        o.f32[at + 5 + j] = value;
+        const source = uvInputs[j];
+        o.f32[at + 5 + j] = source < 0 ? inputs[j] : source === 0 ? u : source === 1 ? v : source === 2 ? rects[4] + u0 * (rects[6] - rects[4]) : rects[5] + v0 * (rects[7] - rects[5]);
       }
     }
     o.count++;
   }
 
-  function writeQuadCorner(o: VertexArray, s: number, x: number, y: number, c: number, cr: number, cg: number, cb: number, ca: number, withCustom: boolean): void {
-    writeVertex(o, s, x, y, CORNER_UV[c][0], CORNER_UV[c][1], cr, cg, cb, ca, withCustom);
+  function writeQuadCorner(o: VertexArray, s: number, x: number, y: number, c: number, color: number, withCustom: boolean): void {
+    writeVertex(o, s, x, y, CORNER_UV[c][0], CORNER_UV[c][1], color, withCustom);
   }
 }
 
