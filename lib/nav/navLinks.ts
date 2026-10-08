@@ -18,7 +18,7 @@ export interface NavLink {
 export const LINKS: NavLink[] = [
   { href: '/operators', label: 'Operators', icon: 'roster' },
   { href: '/artists', label: 'Artists', icon: 'palette' },
-  { href: '/voice-actors', label: 'Voice actors', icon: 'microphone' },
+  { href: '/voice-actors', label: 'Voice Actors', icon: 'microphone' },
   { href: '/skins', label: 'Skins', icon: 'skins' },
   /* Not in the bar any more: the Events list is a view of the Schedule page. Kept in
      LINKS because the event detail pages still live under /events/, and isActiveLink
