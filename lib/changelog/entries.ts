@@ -5,8 +5,8 @@
  * release to the main site, for what that release brings. Not every merge: tests, CI and
  * internals stay out (scripts/tests/test-changelog.ts holds the shape).
  *
- * One entry per day (UTC): a later release on the same day is a patch to that day's update, so
- * its items go into the day's entry and the entry's `at` moves to the newest release.
+ * Small patches normally join the day's entry; separately announced releases keep their
+ * own timestamp, even when more than one release falls on the same UTC day.
  */
 
 /** One change, scannable: a headline that is the point on its own, and at most one short sentence
@@ -33,6 +33,13 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    at: '2026-10-08T22:50:18Z',
+    title: 'Smoother animated artwork',
+    changed: [
+      { title: 'Fewer pauses in animated art', detail: 'Particle effects use less processing and prepare animation restarts ahead of time to reduce stutters.', href: '/skins' },
+    ],
+  },
   {
     at: '2026-10-08T17:29:37Z',
     title: 'Skin planning, animated art and operator updates',
