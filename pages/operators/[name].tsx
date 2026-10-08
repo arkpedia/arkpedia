@@ -264,7 +264,7 @@ function RecommendationBadge({ entries }: { entries: SkillRecommendationEntry[] 
     <span className="op-skill-recommend-stack">
       {visible.map((e, i) => (
         <span key={i} className="op-skill-recommend-row">
-          {e.mastery && <><OperatorGameIcon label={e.mastery.toUpperCase()} color size={26} /><span>{e.mastery.toUpperCase()}</span></>}
+          {e.mastery && <><span aria-hidden="true"><OperatorGameIcon label={e.mastery.toUpperCase()} color size={26} /></span><span>{e.mastery.toUpperCase()}</span></>}
           {e.mastery && e.order && <span className="op-skill-recommend-dot">·</span>}
           {e.order && <span className="op-skill-recommend-mastery">{e.order}</span>}
         </span>
