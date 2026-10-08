@@ -161,6 +161,17 @@ try {
     const catalogueRequests = [];
     const noteCatalogue = request => { if (request.url().includes('/public/music-catalogue.json')) catalogueRequests.push(request.url()); };
     page.on('request', noteCatalogue);
+    // The first stale /music request starts ISR and can still return the build's
+    // page. Opening its player would save that old queue; restoreQueue correctly
+    // keeps its chosen songs on later reloads instead of adding every new song.
+    // Warm the page to B before its first browser visit, so this tests B's fresh
+    // catalogue rather than depending on whether ISR beats the queue download.
+    await waitFor(async () => {
+      const response = await fetch(`http://localhost:3193/_next/data/${buildId}/music.json`);
+      if (!response.ok) return false;
+      const data = await response.json();
+      return data.pageProps?.__contentRelease?.release === states.b.manifest.release;
+    }, `${name} music page from release B`, 75_000);
     await waitFor(async () => {
       await page.goto('http://localhost:3193/music?view=queue');
       await page.locator('.music-queue-panel h2', { hasText: `Songs (${songs + 1})` }).waitFor({ timeout: 10_000 });

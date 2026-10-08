@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import type { BaseSkill } from '../../lib/operators/operatorTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
-import { trainingResult, trainingSkillContribution } from '../../lib/base/trainingRoomSkills';
+import { trainingResult, trainingSkillContribution, resolveTrainingTarget } from '../../lib/base/trainingRoomSkills';
 import { workshopResult } from '../../lib/base/workshopSkills';
 import { crossFacilityMoraleRelief } from '../../lib/base/crossFacilityMorale';
 import { jayeContribution } from '../../lib/base/jaye';
@@ -72,6 +72,19 @@ test('training class, branch, mastery, morale and replacement gates', () => {
   near(training('Viy', 'Guard').speed, 1.5); near(training('Viy', 'Medic').speed, 1.05);
   near(training('Warfarin', 'Medic', 2).hours, 16 / 1.55);
 });
+test('named trainee traits override stale preset metadata, while manual and legacy targets remain usable', () => {
+  const saved = { operatorName: 'Warfarin', class: 'Guard', branch: 'Fighter', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
+  const roster = [...ops.values()];
+  const medic = resolveTrainingTarget(saved, roster);
+  assert.equal(medic.class, 'Medic');
+  const result = trainingResult('Warfarin', activeBaseSkills(ops.get('Warfarin')!, 'Training Room', 'Elite 2'), { target: medic, allPlacedNames: ['Warfarin'], rosters, worldlyPlight: 0 }, 0);
+  near(result.speed, 1.55);
+  assert.equal(resolveTrainingTarget({ ...saved, operatorName: 'Qiubai' }, roster).branch, 'Lord');
+  assert.deepEqual(resolveTrainingTarget({ ...saved, operatorName: '' }, roster), { ...saved, operatorName: '' });
+  assert.deepEqual(resolveTrainingTarget(saved, [{ name: 'Warfarin' }]), saved);
+  const doc = resolveTrainingTarget({ ...saved, operatorName: 'Doc', class: 'Medic' }, roster);
+  assert.equal(doc.class, 'Guard'); assert.equal(doc.branch, 'Instructor');
+});
 test('actual TP/RR levels and exact Taraxacum quoted name', () => {
   const ctx = { rosters, tradingPostLevel: 1, receptionRoomLevel: 1, totalDormitoryLevels: 4, allPlacedNames: [], sameRoomOperatorNames: [], facilitiesWithSuiOperator: 3 } as unknown as TradingPostContext;
   for (let level = 1; level <= 3; level++) near(tp['Rose Salt|Time Is Money']({ ...ctx, tradingPostLevel: level }).orderLimit, level);
@@ -87,6 +100,32 @@ test('recruitment slots scale with Office level', () => {
     const pools = computeResourcePools(state, new Set(['Whisperain|Itinerant', 'Mulberry|Rescue Team - Post-Catastrophe Census', 'Czerny|Adagio', 'Iris|Bedtime Story']));
     near(pools.measure, 2); near(pools.dreamland, 3); near(pools.memoryFragments, 10 * (level - 1)); near(pools.worldlyPlight, 10 * (level - 1));
   }
+});
+test('spreadsheet regressions use actual room levels and distinguish base-wide from same-room effects', () => {
+  const fc = { selectedProduct: 'Precious Metals', totalDormitoryLevels: 5, totalFacilityLevels: 44 } as FactorySkillContext;
+  near(factory['Narantuya|Union of Desert Bandits'](fc).productivity, 0.05);
+  near(factory['Narantuya|Union of Desert Bandits']({ ...fc, selectedProduct: 'Battle Records' }).productivity, 0);
+  near(factory['Minimalist|Machine Assistance α'](fc).productivity, 0.1);
+  near(factory['Minimalist|Machine Assistance β'](fc).productivity, 0.25);
+  near(factory['Minimalist|Machine Assistance β']({ ...fc, totalFacilityLevels: 80 }).productivity, 0.4);
+  const oc = { officeLevel: 1, totalDormitoryLevels: 4 } as OfficeContext;
+  near(office['Tin Man|Maylander Detective β'](oc).hrSpeed, 0.13);
+  for (let level = 1; level <= 3; level++) for (const key of ['Mr. Nothing|Nosy', "Tsukinogi|Empath's Insight", 'Ukusik|Law of the Streets']) {
+    near(office[key]({ ...oc, officeLevel: level }).receptionRoomClueSpeed, 0.05 * (level - 1));
+  }
+  const tc = { receptionRoomLevel: 0, allPlacedNames: [], sameRoomOperatorNames: ['Bellone'] } as unknown as TradingPostContext;
+  for (let level = 0; level <= 3; level++) {
+    near(tp['Vigil|New City Trade']({ ...tc, receptionRoomLevel: level }).orderEfficiency, 0.25 + 0.05 * level);
+    near(tp['Mitm|Gifted Adviser']({ ...tc, receptionRoomLevel: level }).orderEfficiency, 0.15 + 0.05 * level);
+  }
+  near(tp['Bellone|Famiglia Business β'](tc).orderEfficiency, 0.3);
+  // Game text says Vigil anywhere in the base; the spreadsheet's separate-room 30% omits this.
+  const separate = { ...tc, allPlacedNames: ['Bellone', 'Vigil'] };
+  near(tp['Bellone|Famiglia Business β'](separate).orderEfficiency, 0.4);
+  assert.equal(tp['Bellone|Outstanding Debt'](separate).orderLimit, undefined);
+  const together = { ...separate, sameRoomOperatorNames: ['Bellone', 'Vigil'] };
+  near(tp['Bellone|Outstanding Debt'](together).orderLimit, 2);
+  near(tp['Bellone|Outstanding Debt'](together).selfMorale, -0.1);
 });
 test('cross-facility morale keeps strongest matching scope, never stacks banners', () => {
   near(crossFacilityMoraleRelief('factory', 0.2, 0.15, true, ['Capable Assistance', 'Chief Engineer']), 0.2);
@@ -116,6 +155,11 @@ test('workshop recipe category/family, costs, dorm thresholds and guarantee coun
   near(craft('Aosta', 'Orirock Concentration').chance, 0.1); near(craft('Aosta', 'Polyester Lump').chance, 0.19);
   near(craft('Arene', 'Orirock Concentration', { qualifyingDormOperators: 20 }).chance, 0.2);
   near(craft('Stainless', 'Orirock Concentration', { qualifyingDormOperators: 20 }).morale, 2);
+  near(craft('Stainless', 'Orirock Cluster', { qualifyingDormOperators: 20 }).morale, 2);
+  near(craft('Stainless', recipes.find(r => r.category === 'Elite materials' && r.morale === 8)!.name, { qualifyingDormOperators: 20 }).morale, 8);
+  near(craft('Vetochki', 'Oriron Cluster').morale, 1);
+  near(craft('Vetochki', 'Oriron').morale, 1);
+  near(craft('Vetochki', 'Oriron Block').morale, 4);
   near(craft('Nine-Colored Deer', 'Orirock Concentration', { causality: 40 }).chance, 1);
   near(craft('Blemishine', 'Orirock Concentration').lmd, 0);
   for (const op of ops.values()) for (const recipe of recipes) {

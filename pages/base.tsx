@@ -59,7 +59,7 @@ import { jayeContribution } from '@/lib/base/jaye';
 import { workshopResult, type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
 import { dormitoryRecoveryRates } from '@/lib/base/dormitoryRecovery';
 import { crossFacilityMoraleRelief } from '@/lib/base/crossFacilityMorale';
-import { trainingResult, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
+import { trainingResult, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
 
 
 // The manual-value input mechanism (see needsManualValue / setManualValue
@@ -203,6 +203,7 @@ export default function BasePage({ operators }: Props) {
   const [loginInterval, setLoginInterval] = useState(24);
   const [modelSettingsLoaded, setModelSettingsLoaded] = useState(false);
   const [trainingTarget, setTrainingTarget] = useState<TrainingTarget>({ class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false });
+  const resolvedTrainingTarget = useMemo(() => resolveTrainingTarget(trainingTarget, operators), [trainingTarget, operators]);
   const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>({ recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 });
   // Caper/Cairn's "if in Clue Exchange" skills -- a game mode this
   // simulator has no way to detect on its own, so it's a manual
@@ -897,8 +898,8 @@ export default function BasePage({ operators }: Props) {
   useEffect(() => { setModelSettingsLoaded(true); }, []);
   useEffect(() => {
     if (!modelSettingsLoaded) return;
-    try { window.localStorage.setItem(MODEL_SETTINGS_KEY, JSON.stringify({ trainingTarget, workshopSettings })); } catch { /* Session remains usable. */ }
-  }, [modelSettingsLoaded, trainingTarget, workshopSettings]);
+    try { window.localStorage.setItem(MODEL_SETTINGS_KEY, JSON.stringify({ trainingTarget: resolvedTrainingTarget, workshopSettings })); } catch { /* Session remains usable. */ }
+  }, [modelSettingsLoaded, resolvedTrainingTarget, workshopSettings]);
 
   // Debug-only: exposes the full operator dataset to the dev console for
   // manual inspection/extraction (e.g. window.__operators.filter(...)).
@@ -1035,7 +1036,7 @@ export default function BasePage({ operators }: Props) {
     const existing = savedPresets.find(p => p.id === selectedPreset);
     const name = (overwrite ? existing?.name : presetName)?.trim().slice(0, 80);
     if (!name) { setPresetStatus('Enter a name for this preset.'); return; }
-    const snapshot: SavedBasePreset = JSON.parse(JSON.stringify({ version: 1, id: overwrite && existing ? existing.id : crypto.randomUUID(), name, savedAt: new Date().toISOString(), productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, trainingTarget, workshopSettings }));
+    const snapshot: SavedBasePreset = JSON.parse(JSON.stringify({ version: 1, id: overwrite && existing ? existing.id : crypto.randomUUID(), name, savedAt: new Date().toISOString(), productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, trainingTarget: resolvedTrainingTarget, workshopSettings }));
     if (storePresets([...savedPresets.filter(p => p.id !== snapshot.id), snapshot])) { setSelectedPreset(snapshot.id); setPresetName(''); setPresetStatus(`Saved ${name}.`); }
   }
   function loadNamedPreset() {
@@ -1058,7 +1059,7 @@ export default function BasePage({ operators }: Props) {
         if (stats.capacity) lines.push(`Capacity ${stats.capacity.base + stats.capacity.adjustment}`);
         if (stats.orderLimit) lines.push(`Order limit ${stats.orderLimit.base + stats.orderLimit.adjustment}`);
         if (factoryProducts[f.id]) lines.push(`Product: ${factoryProducts[f.id]}`);
-        if (stats.trainingSpeed !== null) lines.push(`Training ${(stats.trainingSpeed * 100).toFixed(1)}% · ${stats.trainingHours?.toFixed(2)}h · ${trainingTarget.operatorName || trainingTarget.class} M${Math.min(trainingTarget.mastery, f.level)}`);
+        if (stats.trainingSpeed !== null) lines.push(`Training ${(stats.trainingSpeed * 100).toFixed(1)}% · ${stats.trainingHours?.toFixed(2)}h · ${trainingTarget.operatorName || resolvedTrainingTarget.class} M${Math.min(trainingTarget.mastery, f.level)}`);
         if (stats.workshop) lines.push(`Byproduct ${(stats.workshop.chance * 100).toFixed(1)}% · ${stats.workshop.morale} Morale/craft`);
         if (stats.office) lines.push(`HR ${(stats.office.speed * 100).toFixed(1)}% · refresh ${stats.office.refreshHours.toFixed(2)}h`);
         if (stats.droneRate !== null) lines.push(`Drone recovery +${(stats.droneRate * 100).toFixed(1)}%`);
@@ -2292,7 +2293,7 @@ export default function BasePage({ operators }: Props) {
     if (f.kind === 'trainingRoom' && filled[0]) {
       const trainer = filled[0];
       const result = trainingResult(trainer.operatorName, skillsFor(trainer, f.label), {
-        target: { ...trainingTarget, mastery: Math.min(trainingTarget.mastery, f.level) }, allPlacedNames, rosters, worldlyPlight: resourcePools.worldlyPlight,
+        target: { ...resolvedTrainingTarget, mastery: Math.min(trainingTarget.mastery, f.level) }, allPlacedNames, rosters, worldlyPlight: resourcePools.worldlyPlight,
       }, trainingSpeedBonusFromCC);
       trainingSpeed = result.speed;
       trainingHours = result.hours;
@@ -4013,7 +4014,7 @@ export default function BasePage({ operators }: Props) {
                       return (
                         <>
                           {facility.kind === 'workshop' && <div className="base-room-team">
-                            <label>Recipe <StyledSelect label="Workshop recipe" value={workshopSettings.recipeId} onChange={recipeId => setWorkshopSettings({ ...workshopSettings, recipeId })} options={workshopRecipes.filter(r => r.level <= facility.level).map(r => ({ value: r.id, label: r.name }))} /></label>
+                            <label>Recipe <StyledSelect label="Workshop recipe" value={workshopSettings.recipeId} onChange={recipeId => setWorkshopSettings({ ...workshopSettings, recipeId })} options={workshopRecipes.filter(r => r.level <= facility.level).map(r => ({ value: r.id, label: workshopRecipes.filter(other => other.name === r.name).length > 1 ? `${r.name} · ${r.morale} Morale · ${r.lmd} LMD (base)` : r.name }))} /></label>
                             <label className="check"><input type="checkbox" checked={!!workshopSettings.overrideDormCount} onChange={e => setWorkshopSettings({ ...workshopSettings, overrideDormCount: e.target.checked })} />Override qualifying dorm count</label>
                             {workshopSettings.overrideDormCount && <label>Dorm operators meeting skill’s Morale threshold <input aria-label="Qualifying dorm operators" type="number" min={0} max={dormitoryOperatorNames.size} value={workshopSettings.qualifyingDormOperators} onChange={e => setWorkshopSettings({ ...workshopSettings, qualifyingDormOperators: Math.min(dormitoryOperatorNames.size, Math.max(0, Number(e.target.value))) })} /></label>}
                             {slots.some(s => s?.operatorName === 'Nine-Colored Deer') && <>{(['causality', 'karma'] as const).map(key => <label key={key}>{key} <input type="number" min={0} max={key === 'karma' ? 80 : 40} value={workshopSettings[key]} onChange={e => setWorkshopSettings({ ...workshopSettings, [key]: Math.max(0, Number(e.target.value)) })} /></label>)}</>}
@@ -4032,8 +4033,8 @@ export default function BasePage({ operators }: Props) {
                                 const next = Object.fromEntries(Object.entries(assignments).map(([id, slots]) => [id, slots.map(slot => slot?.operatorName === name ? null : slot)]));
                                 persist(next); setTrainingTarget(t => ({ ...t, operatorName: name, timeReductionActive: false, class: op?.class ?? t.class, branch: op?.branch ?? '' }));
                               }} options={[{ value: '', label: 'Class / branch only' }, ...operators.filter(op => !slots.some(s => s?.operatorName === op.name)).map(op => ({ value: op.name, label: op.name }))]} /></label>
-                              <label>Class <StyledSelect label="Trainee class" disabled={!!trainingTarget.operatorName} value={trainingTarget.class} onChange={value => setTrainingTarget(t => ({ ...t, class: value, branch: '' }))} options={TRAINING_CLASSES.map(value => ({ value, label: value }))} /></label>
-                              <label>Branch <StyledSelect label="Trainee branch" disabled={!!trainingTarget.operatorName} value={trainingTarget.branch} onChange={branch => setTrainingTarget(t => ({ ...t, branch }))} options={[{ value: '', label: 'Any branch' }, ...[...new Set(operators.filter(op => op.class === trainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(value => ({ value, label: value }))]} /></label>
+                              <label>Class <StyledSelect label="Trainee class" disabled={!!trainingTarget.operatorName} value={resolvedTrainingTarget.class} onChange={value => setTrainingTarget(t => ({ ...t, class: value, branch: '' }))} options={TRAINING_CLASSES.map(value => ({ value, label: value }))} /></label>
+                              <label>Branch <StyledSelect label="Trainee branch" disabled={!!trainingTarget.operatorName} value={resolvedTrainingTarget.branch} onChange={branch => setTrainingTarget(t => ({ ...t, branch }))} options={[{ value: '', label: 'Any branch' }, ...[...new Set(operators.filter(op => op.class === resolvedTrainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(value => ({ value, label: value }))]} /></label>
                               <label>Mastery <StyledSelect label="Target mastery" value={String(Math.min(trainingTarget.mastery, facility.level))} onChange={value => setTrainingTarget(t => ({ ...t, mastery: Number(value) }))} options={[1, 2, 3].filter(level => level <= facility.level).map(level => ({ value: String(level), label: `M${level}` }))} /></label>
                               <label className="check"><input type="checkbox" checked={trainingTarget.timeReductionActive} onChange={e => setTrainingTarget(t => ({ ...t, timeReductionActive: e.target.checked }))} />Started with Irene / Logos time reduction</label>
                               {slots.some(slot => slot?.operatorName === 'Zuo Le') && <label className="check"><input type="checkbox" checked={trainingTarget.instantTrainingReady} onChange={e => setTrainingTarget(t => ({ ...t, instantTrainingReady: e.target.checked }))} />Martial Arts ready</label>}

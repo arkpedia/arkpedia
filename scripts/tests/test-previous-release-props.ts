@@ -263,6 +263,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
   },
   '/skins': {
+    '.availabilityWindows[].inventoryComplete': 'source metadata spread by confirmedWindow from the refreshed acquisition-window records; SkinWindow does not require it, and no skin component reads it, so the previous release can omit it',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },
   '/gacha': {
