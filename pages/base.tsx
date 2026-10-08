@@ -866,7 +866,12 @@ export default function BasePage({ operators }: Props) {
         return out;
       }
       const savedAssignments = window.localStorage.getItem(STORAGE_KEY);
-      if (savedAssignments) setAssignments({ ...createEmptyAssignments(FACILITIES), ...remapIds(JSON.parse(savedAssignments)) });
+      if (savedAssignments) {
+        const staffNames = new Set(operators.map(op => op.name));
+        const restored = remapIds<(SlotAssignment | null)[]>(JSON.parse(savedAssignments));
+        const valid = Object.fromEntries(Object.entries(restored).map(([id, slots]) => [id, Array.isArray(slots) ? slots.map(slot => slot && staffNames.has(slot.operatorName) ? slot : null) : []]));
+        setAssignments({ ...createEmptyAssignments(FACILITIES), ...valid });
+      }
       const savedProducts = window.localStorage.getItem(PRODUCT_STORAGE_KEY);
       if (savedProducts) setFactoryProducts(remapIds(JSON.parse(savedProducts)));
       const savedAmbience = window.localStorage.getItem(AMBIENCE_STORAGE_KEY);
