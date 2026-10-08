@@ -42,7 +42,13 @@ export function RewardDetailsProvider({ tickets, children }: { tickets: Record<s
   const close = () => setStack([]);
   return <Details.Provider value={{ tickets, open }}>
     {children}
-    <dialog ref={dialog} className="event-details-dialog" aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); close(); }} onClick={e => {
+    <dialog ref={dialog} className="event-details-dialog" aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); close(); }} onKeyDown={e => {
+      if (e.key !== 'Tab') return;
+      const focusable = [...e.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')];
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === heading.current)) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }} onClick={e => {
       if (e.target !== dialog.current) return;
       const rect = dialog.current.getBoundingClientRect();
       if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) close();
