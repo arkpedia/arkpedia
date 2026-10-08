@@ -117,9 +117,13 @@ class KeyedStream {
 export interface ParticleOptions {
   /** Physics.gravity (the game may change it; unverified). */
   gravity: [number, number, number];
-  /** 0: the first rate particle after 1/rate s; 1: one at once. */
+  /** Where every rate-over-time accumulator starts (a system's at each play, a sub-emitter link's per parent
+   *  particle), 0..1: the fraction of the way to the first birth. 0: the first rate particle after 1/rate s; 1: one
+   *  at once, on the first step. */
   emitAccumulatorStart: number;
-  /** 0: limit velocity's dampen applies once a step; R > 0: (1 - dampen)^(dt R) (calibrated in P6). */
+  /** R > 0: limit velocity keeps (1 - dampen)^(dt R) of a speed's excess over a step of dt; 0: dampen once a step
+   *  whatever its length. 60 (the oracle's): once a frame at the game's 60 fps, and the same decay at 1/30 s steps
+   *  or a newborn particle's part-step (the recordings cannot tell R apart: X6's sparks look alike at 30, 60, 120). */
   dampenReferenceFps: number;
   /** true: |v| -> L + (|v| - L)(1 - d); false: max(L, |v|(1 - d)). */
   dampenExcessOnly: boolean;
@@ -138,7 +142,7 @@ export interface ParticleOptions {
 }
 
 export const DEFAULT_OPTIONS: Readonly<ParticleOptions> = Object.freeze({
-  gravity: [0, -9.81, 0] as [number, number, number], emitAccumulatorStart: 0, dampenReferenceFps: 0, dampenExcessOnly: true, prewarmStep: 1 / 60,
+  gravity: [0, -9.81, 0] as [number, number, number], emitAccumulatorStart: 0, dampenReferenceFps: 60, dampenExcessOnly: true, prewarmStep: 1 / 60,
   prewarm: 'window' as const, subframeEmission: true, noiseEnabled: true, textureFrameMode: 'evaluate-cycled' as const, noiseAxes: 'x' as const,
 });
 
@@ -212,6 +216,26 @@ function normalize(x: number, y: number, z: number, fx: number, fy: number, fz: 
   const n = Math.sqrt(x * x + y * y + z * z);
   if (n < 1e-12) { out[at] = fx; out[at + 1] = fy; out[at + 2] = fz; return; }
   out[at] = x / n; out[at + 1] = y / n; out[at + 2] = z / n;
+}
+
+/**
+ * Orbital velocity (rad/s about each axis; rel the particle's offset from the orbit's centre) as the velocity that
+ * turns rel about omega by exactly |omega| h over a step of h seconds (Rodrigues): (R rel - rel) / h, so the radius
+ * holds (the oracle's orbit_velocity). Adding cross(omega, rel) and integrating it explicitly instead grows the
+ * radius by sqrt(1 + (|omega| h)^2) every step: Hoshiguma's fire rings went from 3.3 to 19 Unity units in 3 s, where
+ * both recordings keep them on the shield. A step of 0 takes the limit, cross(omega, rel).
+ */
+export function orbitVelocity(ox: number, oy: number, oz: number, rx: number, ry: number, rz: number, h: number, out: Float64Array): void {
+  const w = Math.sqrt(ox * ox + oy * oy + oz * oz);
+  if (h === 0 || w === 0) { out[0] = oy * rz - oz * ry; out[1] = oz * rx - ox * rz; out[2] = ox * ry - oy * rx; return; }
+  const kx = ox / w, ky = oy / w, kz = oz / w;
+  const angle = w * h;
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const kd = kx * rx + ky * ry + kz * rz;
+  const tx = rx * c + (ky * rz - kz * ry) * s + kx * kd * (1 - c);
+  const ty = ry * c + (kz * rx - kx * rz) * s + ky * kd * (1 - c);
+  const tz = rz * c + (kx * ry - ky * rx) * s + kz * kd * (1 - c);
+  out[0] = (tx - rx) / h; out[1] = (ty - ry) / h; out[2] = (tz - rz) / h;
 }
 
 /** Where along an arc, an edge or a mesh a particle starts, 0..1 (_arc_fraction). */
@@ -1024,10 +1048,9 @@ export class ParticleSim {
     if (rate > 0) {
       const acc0 = acc[at];
       const acc1 = acc0 + rate * (end - a0);
-      const from = Math.floor(acc0);
-      const births = Math.floor(acc1) - from;
+      const births = Math.floor(acc1); // see emissionEvents
       for (let k = 1; k <= births; k++) {
-        const age = a0 + (from + k - acc0) / rate;
+        const age = a0 + Math.max(k - acc0, 0) / rate;
         ages[n] = age; s01[n] = childT01(age, d, loop); burst[n] = -1; size[n] = 0; n++;
       }
       acc[at] = acc1 - Math.floor(acc1);
@@ -1128,14 +1151,15 @@ export class ParticleSim {
       if (!c.loop && t1 - this.delay >= d) this.emitting = false;
       return 0;
     }
-    // rate over time: every integer the accumulator crosses is one particle, born when it crosses
+    // rate over time: every integer k >= 1 the accumulator reaches is one particle, born when it reaches k. The
+    // accumulator holds a fraction in [0, 1) after every step and starts at emitAccumulatorStart, so a start of 1 has
+    // reached 1 already: one particle at the window's start.
     const rate = evaluateCurve(a.rate, this.systemT01(te0), a.rate.random ? this.rng.value() : 1);
     if (rate > 0) {
       const acc0 = this.accTime;
       const acc1 = acc0 + rate * (te1 - te0);
-      const from = Math.floor(acc0);
-      const births = Math.floor(acc1) - from;
-      for (let k = 1; k <= births; k++) { evT.push(te0 + (from + k - acc0) / rate + this.delay); evI.push(-1); evN.push(0); }
+      const births = Math.floor(acc1);
+      for (let k = 1; k <= births; k++) { evT.push(te0 + Math.max(k - acc0, 0) / rate + this.delay); evI.push(-1); evN.push(0); }
       this.accTime = acc1 - Math.floor(acc1);
     }
     // rate over distance: how far the emitter moved this step
@@ -1265,7 +1289,7 @@ export class ParticleSim {
       this.subOn[slot] = on ? 1 : 0;
       if (on) {
         this.linkRng.reseed(particleWord(seed, SUB_SEED_KEYS[k])).save(this.subState, slot * 4);
-        this.subAcc[slot * 2] = 0;
+        this.subAcc[slot * 2] = this.options.emitAccumulatorStart;
         this.subAcc[slot * 2 + 1] = 0;
       }
     }
@@ -1335,6 +1359,7 @@ export class ParticleSim {
           this.toSim(ev(lin[0], t, seed, K.velX), ev(lin[1], t, seed, K.velY), ev(lin[2], t, seed, K.velZ), vel.world);
           mx = 0 + v3[0]; my = 0 + v3[1]; mz = 0 + v3[2];
         }
+        speedMod = ev(a.speedModifier!, t, seed, K.speedMod);
         if (plan.orbit) {
           const orb = vel.orbital, off = vel.offset;
           const ox = ev(orb[0], t, seed, K.orbX), oy = ev(orb[1], t, seed, K.orbY), oz = ev(orb[2], t, seed, K.orbZ);
@@ -1342,10 +1367,10 @@ export class ParticleSim {
           const radial = ev(vel.radial, t, seed, K.radial);
           if (world) { linear(pose, cx, cy, cz, v3); cx = v3[0] + pose[0]; cy = v3[1] + pose[1]; cz = v3[2] + pose[2]; }
           const relX = px[i] - cx, relY = py[i] - cy, relZ = pz[i] - cz;
-          if (ox || oy || oz) { mx += oy * relZ - oz * relY; my += oz * relX - ox * relZ; mz += ox * relY - oy * relX; }
+          // rad/s about the system centre, turned exactly over the step the position advances by
+          if (ox || oy || oz) { orbitVelocity(ox, oy, oz, relX, relY, relZ, dt * speedMod, v3); mx += v3[0]; my += v3[1]; mz += v3[2]; }
           if (radial) { normalize(relX, relY, relZ, 0, 0, 0, v3); mx += v3[0] * radial; my += v3[1] * radial; mz += v3[2] * radial; }
         }
-        speedMod = ev(a.speedModifier!, t, seed, K.speedMod);
       }
       if (inherit) {
         const k = ev(inherit.curve, t, seed, K.inherit);

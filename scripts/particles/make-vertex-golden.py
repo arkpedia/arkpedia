@@ -11,11 +11,12 @@ r, g, b, a (the particle colour, a mesh's vertex colour times it, before the ren
 for a material with custom vertex streams, its 8 custom inputs; a mesh system's indices too.
 
 The conventions Unity does not publish are the expansion's named switches (particleGeometry.ts
-ParticleConventions); the fixture records the ones each case was made with. The defaults follow the oracle's own
-rendering helpers (billboard_corners: a positive rotation turns clockwise, the quad is (corner - pivot) x size),
-except where a recording settled otherwise: a stretched billboard has its texture's U along the stretch (rec3's
-fish swim lengthwise), where stretched_corners puts V. One case is expanded both ways and its `v` variant is
-checked against stretched_corners itself, and every View billboard without 3D rotation against billboard_corners.
+ParticleConventions); the fixture records the ones each case was made with. The defaults are the ones P6 settled
+against the recordings, which the oracle's own rendering helpers follow: billboard_corners (a positive rotation
+turns clockwise, the quad is (corner + pivot) x size) and stretched_corners (the texture's U along the stretch,
++U and the pivot's y against the motion, centred). Every View billboard without 3D rotation is checked against
+billboard_corners and every stretched case with the defaults against stretched_corners; two variant cases keep the
+other branches of each switch covered.
 
 The selection covers every render mode, alignment and sort mode and each custom layout (lean vertices; Disturb's
 and Dissolve(CustomData)'s inputs; the UV2 stream, the next sheet frame). Where no exported system has a mode
@@ -37,7 +38,8 @@ from pathlib import Path
 
 MODEL_SEED = 0x5EED
 STEP = 1 / 60
-CONVENTIONS = {'billboardRotation': -1, 'meshRotation': 1, 'pivot': -1, 'stretchAxis': 'u', 'stretchAnchor': 'centre', 'sizeCapBasis': 'camera'}
+CONVENTIONS = {'billboardRotation': -1, 'meshRotation': 1, 'pivot': 1, 'stretchAxis': 'u', 'stretchSense': -1, 'stretchAnchor': 'centre',
+               'stretchPivotAlong': 'y', 'sizeCapBasis': 'camera'}
 CORNERS = ((-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5))
 CORNER_UV = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0))
 QUAD_TRIANGLES = (0, 3, 1, 3, 0, 2)
@@ -45,11 +47,13 @@ QUAD_TRIANGLES = (0, 3, 1, 3, 0, 2)
 # (model, system name or index, changed members, conventions changed, what it covers). Steps sampled: SAMPLES.
 CASES = [
     ('char_1044_hsgma2_2', 'dust_01', {}, {}, 'billboard view, sort none, sheet, lean; checked against billboard_corners'),
-    ('char_1044_hsgma2_2', 'spark_add_top_01', {}, {}, 'stretched view, negative lengthScale, pivot (Hoshiguma\'s chest-flash sparks)'),
-    ('char_1044_hsgma2_2', 'spark_add_top_01', {}, {'stretchAxis': 'v'}, 'the same with V along the stretch: checked against stretched_corners'),
+    ('char_1044_hsgma2_2', 'spark_add_top_01', {}, {}, 'stretched view, negative lengthScale, pivot (Hoshiguma\'s chest-flash sparks); checked against stretched_corners'),
+    ('char_1044_hsgma2_2', 'spark_add_top_01', {}, {'stretchAxis': 'v', 'stretchSense': 1, 'stretchAnchor': 'head', 'stretchPivotAlong': 'x', 'pivot': -1},
+     'the same with every other stretched switch'),
     ('char_1013_chen2_summer_20', 'bubble_local', {}, {}, 'billboard view, sort distance, tilted emitter, sheet'),
     ('char_1013_chen2_summer_20', 'bubble_duck', {}, {}, 'billboard view, sort oldestInFront, 3D rotation'),
     ('char_003_kalts_sale_14', 'spark04', {}, {}, 'billboard view, sort youngestInFront, world space, pivot'),
+    ('char_003_kalts_sale_14', 'spark04', {}, {'billboardRotation': 1, 'pivot': -1}, 'the same with the other rotation and pivot signs'),
     ('char_1023_ghost2_boc_6', 101, {}, {}, 'billboard local (tilted emitter), Dissolve(CustomData) layout'),
     ('char_1023_ghost2_boc_6', 'moon01', {}, {}, 'billboard world alignment'),
     ('char_1016_agoat2_epoque_34', 'glow_01', {}, {}, 'billboard velocity alignment, 3D rotation'),
@@ -64,6 +68,7 @@ CASES = [
     ('char_249_mlyss_ambienceSynesthesia_6', 'h', {}, {}, 'mesh world alignment, sheet remap, mesh vertex colours, 3D size'),
     ('char_172_svrash_ambienceSynesthesia_4', 'light_02', {}, {}, 'mesh velocity alignment, 3D rotation'),
     ('char_003_kalts_boc_6', 'c', {}, {}, 'mesh local alignment, 3D size'),
+    ('char_172_svrash_ambienceSynesthesia_4', 'light_02', {}, {'meshRotation': -1}, 'the mesh case with 3D rotation, the other z sign'),
     ('char_003_kalts_sale_14', 'bird_line_02', {}, {}, 'mesh view alignment, Disturb(CustomData)'),
 ]
 SAMPLES = (24, 60, 105)
@@ -229,8 +234,9 @@ def expand(oracle, sim, system: dict, doc: dict, conv: dict):
             continue
         if mode == 'stretched':
             speed = math.sqrt(sum(c * c for c in velocity))
-            if conv['stretchAxis'] == 'v' and conv['stretchAnchor'] == 'centre' and ps_sign == -1:
-                # The oracle's own helper (its length: size.y x lengthScale + the screen speed x velocityScale).
+            settled = (conv['stretchAxis'], conv['stretchSense'], conv['stretchAnchor'], conv['stretchPivotAlong'], ps_sign) == ('u', -1, 'centre', 'y', 1)
+            if settled:
+                # The oracle's own helper.
                 for k, corner in enumerate(oracle.stretched_corners((cx, cy, cz), (sx, sy, sz), velocity, length_scale, velocity_scale, pivot)):
                     vertex(corner[0], corner[1], *CORNER_UV[k], color)
                 continue
@@ -238,13 +244,15 @@ def expand(oracle, sim, system: dict, doc: dict, conv: dict):
             dx, dy = (velocity[0] / flat, velocity[1] / flat) if flat > 1e-6 else (0.0, 1.0)
             length = sy * length_scale + speed * velocity_scale
             width = sx
-            head = -0.5 if conv['stretchAnchor'] == 'head' else 0.0
+            head = -0.5 * length if conv['stretchAnchor'] == 'head' else 0.0
+            p_along, p_across = (pivot[0], pivot[1]) if conv['stretchPivotAlong'] == 'x' else (pivot[1], pivot[0])
+            ex, ey = dx * conv['stretchSense'], dy * conv['stretchSense']
             for k, (kx, ky) in enumerate(CORNERS):
                 if conv['stretchAxis'] == 'u':
-                    along, across, nx, ny = (kx + head + ps_sign * pivot[0]) * length, (ky + ps_sign * pivot[1]) * width, -dy, dx
+                    along, across, nx, ny = (kx + ps_sign * p_along) * length, (ky + ps_sign * p_across) * width, -ey, ex
                 else:
-                    along, across, nx, ny = (ky + head + ps_sign * pivot[1]) * length, (kx + ps_sign * pivot[0]) * width, dy, -dx
-                vertex(cx + dx * along + nx * across, cy + dy * along + ny * across, *CORNER_UV[k], color)
+                    along, across, nx, ny = (ky + ps_sign * p_along) * length, (kx + ps_sign * p_across) * width, ey, -ex
+                vertex(cx + ex * along + dx * head + nx * across, cy + ey * along + dy * head + ny * across, *CORNER_UV[k], color)
             continue
         # Billboards.
         z_turn = conv['billboardRotation'] * rz
@@ -254,7 +262,7 @@ def expand(oracle, sim, system: dict, doc: dict, conv: dict):
             frame3 = axes
         elif align == 'velocity':
             frame3 = look_rotation(velocity)
-        if not rotation3d and frame3 is None and conv['billboardRotation'] == -1 and ps_sign == -1:
+        if not rotation3d and frame3 is None and conv['billboardRotation'] == -1 and ps_sign == 1:
             # The oracle's own helper for a View billboard.
             for k, corner in enumerate(oracle.billboard_corners((cx, cy, cz), (sx, sy), rz, pivot)):
                 vertex(corner[0], corner[1], *CORNER_UV[k], color)

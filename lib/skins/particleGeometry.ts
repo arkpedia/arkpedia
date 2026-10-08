@@ -13,7 +13,7 @@
  *   turned by the particle's rotation (3D rotation: Euler, Z then X then Y), capped at maxSize x the camera's
  *   height (the game's camera, never the site's zoom);
  * - stretched: a screen-facing quad along the screen-space velocity, length = size x lengthScale + speed x
- *   velocityScale (negative flips it), width = size;
+ *   velocityScale (negative flips it), width = size, the texture's U along it from the front;
  * - mesh: the mesh's vertices x size (3D), turned by the particle's rotation, then by the alignment (`local`:
  *   the emitter's rotation; `view`, `facing`, `world`: none; `velocity`: LookRotation), its UVs remapped into the
  *   texture sheet's frame, its vertex colours times the particle's.
@@ -68,23 +68,41 @@ export function customFeature(material: Pick<ParticleMaterial, 'custom' | 'shade
 
 /** Unity's conventions where they are inferred (UNITY-PARTICLES section 8): each a switch P6 settles. */
 export interface ParticleConventions {
-  /** A billboard's on-screen turn per radian of rotation: -1 clockwise (the oracle's billboard_corners), 1 anticlockwise. */
+  /** A billboard's on-screen turn per radian of rotation: -1 clockwise, 1 anticlockwise. */
   billboardRotation: -1 | 1;
   /** A mesh particle's z rotation: 1 as a Transform's (anticlockwise on screen), -1 clockwise. */
   meshRotation: -1 | 1;
-  /** The quad offset by pivot x size: -1 corner - pivot (the oracle's), 1 corner + pivot. */
+  /** The quad offset by pivot x size: 1 corner + pivot (the quad moves towards its pivot), -1 corner - pivot. */
   pivot: -1 | 1;
-  /** Stretched: the texture's U along the stretch ('u': rec3's fish swim lengthwise) or its V ('v': the oracle's stretched_corners). */
+  /** Stretched: the texture's U along the stretch ('u') or its V ('v'). */
   stretchAxis: 'u' | 'v';
-  /** Stretched: the particle at the quad's centre ('centre', then shifted by the pivot) or at its head ('head': the quad trails behind). */
+  /** Stretched: the texture's stretched axis (+U under 'u') and the pivot's along component point along the motion (1)
+   *  or against it (-1: the texture's U = 0 edge leads). */
+  stretchSense: -1 | 1;
+  /** Stretched: the particle at the quad's centre ('centre', then shifted by the pivot) or at its front ('head': the quad trails behind). */
   stretchAnchor: 'centre' | 'head';
+  /** Stretched: which pivot component moves the quad along the stretch ('x' or 'y'); the other moves it across. */
+  stretchPivotAlong: 'x' | 'y';
   /** maxSize and minSize are fractions of the game camera's height ('camera') or of the view the site shows ('view'). */
   sizeCapBasis: 'camera' | 'view';
 }
 
-/** The conventions the site draws with (the golden fixture records the ones it was made with; the test compares). */
+/**
+ * The conventions the site draws with (the golden fixture records the ones it was made with; the test compares),
+ * settled in P6 against the user's recordings of the game (Hoshiguma rec1 and rec2, Lin rec3):
+ * - billboardRotation -1: Hoshiguma's X8 crossed flares (Local, a -122 degree emitter, a positive spin) show their
+ *   arms at 48 and 138 degrees in rec2, turned clockwise from 58 / 148; anticlockwise would put them at 62 / 152;
+ * - pivot 1: X3's flare (pivot x -0.02 of 25 units) is centred 0.5 units left of its emitter in rec1 and rec2,
+ *   within 15 px of the render where corner - pivot is 90 px off;
+ * - stretchAxis 'u', stretchSense -1: Lin's fish (drawn head left, U = 0) swim lengthwise and head first (rec3);
+ * - stretchPivotAlong 'y': X6's sparks (pivot y -0.7, lengthScale -2) trail their particles out of the chest flash
+ *   in rec1; with the pivot's y across, they run as lines beside the flash;
+ * - stretchAnchor 'centre': inferred (Unity documents the pivot about the quad's centre), not contradicted;
+ * - meshRotation 1: inferred, unverified (no recorded mesh particle turns visibly: flow_01 is a ring under the cut-in);
+ * - sizeCapBasis 'camera': inferred, unverified (no recorded billboard reaches its cap); kept configurable.
+ */
 export const PARTICLE_CONVENTIONS: Readonly<ParticleConventions> = Object.freeze({
-  billboardRotation: -1, meshRotation: 1, pivot: -1, stretchAxis: 'u', stretchAnchor: 'centre', sizeCapBasis: 'camera',
+  billboardRotation: -1, meshRotation: 1, pivot: 1, stretchAxis: 'u', stretchSense: -1, stretchAnchor: 'centre', stretchPivotAlong: 'y', sizeCapBasis: 'camera',
 });
 
 /** A built-in quad's corners in draw order and their UVs (Unity's v up). */
@@ -396,17 +414,22 @@ export function expandSystem(system: SystemFrame, ctx: ExpandContext, out: Verte
       const speed = Math.hypot(vx, vy, vz), flat = Math.hypot(vx, vy);
       const dx = flat > 1e-6 ? vx / flat : 0, dy = flat > 1e-6 ? vy / flat : 1;
       const length = sy * render.lengthScale + speed * render.velocityScale, width = sx;
-      const head = conv.stretchAnchor === 'head' ? -0.5 : 0;
+      // 'head': the quad shifted half a length back along the motion, the particle at its front.
+      const head = conv.stretchAnchor === 'head' ? -0.5 * length : 0;
+      // Which pivot component moves the quad along the stretch (the other moves it across).
+      const pivotAlong = conv.stretchPivotAlong === 'x' ? pivotX : pivotY, pivotAcross = conv.stretchPivotAlong === 'x' ? pivotY : pivotX;
+      // e: where the texture's stretched axis and the pivot's along component point (the motion, or against it);
+      // the other axis is a quarter turn from it (the quad turned, never mirrored).
+      const ex = dx * conv.stretchSense, ey = dy * conv.stretchSense;
       for (let c = 0; c < 4; c++) {
         const [kx, ky] = CORNERS[c];
         let along: number, across: number, nx: number, ny: number;
         if (conv.stretchAxis === 'u') {
-          // U along the motion, V across it (its left: a proper turn of the quad).
-          along = (kx + head + pivotSign * pivotX) * length; across = (ky + pivotSign * pivotY) * width; nx = -dy; ny = dx;
+          along = (kx + pivotSign * pivotAlong) * length; across = (ky + pivotSign * pivotAcross) * width; nx = -ey; ny = ex;
         } else {
-          along = (ky + head + pivotSign * pivotY) * length; across = (kx + pivotSign * pivotX) * width; nx = dy; ny = -dx;
+          along = (ky + pivotSign * pivotAlong) * length; across = (kx + pivotSign * pivotAcross) * width; nx = ey; ny = -ex;
         }
-        writeQuadCorner(out, stride, (cx + dx * along + nx * across) * inv, (cy + dy * along + ny * across) * inv, c, r, g, b, byte(a), custom);
+        writeQuadCorner(out, stride, (cx + ex * along + dx * head + nx * across) * inv, (cy + ey * along + dy * head + ny * across) * inv, c, r, g, b, byte(a), custom);
       }
       continue;
     }

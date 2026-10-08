@@ -125,6 +125,19 @@ test('emission: rate over the duration, frame-rate independent', () => {
   assert.ok(Math.abs(run(looping, 3, 1 / 30).emittedTotal - run(looping, 3, 1 / 144).emittedTotal) <= 1);
 });
 
+test('emission: the accumulator start is the way to the first birth (0 after 1/rate, 0.5 half way, 1 on the first step)', () => {
+  const first = (start: number) => {
+    const sim = simOf(record({ emission: { rate: 2 } }), { emitAccumulatorStart: start });
+    sim.play(1);
+    for (let n = 1; n < 120; n++) { sim.step(1 / 64); if (sim.emittedTotal) return [n, sim.emittedTotal]; } // 1/64: exact in binary
+    return null;
+  };
+  assert.deepEqual(first(0), [32, 1]);
+  assert.deepEqual(first(0.5), [16, 1]);
+  assert.deepEqual(first(1), [1, 1], 'a start of 1 is one at once, not the same as 0');
+  assert.equal(run(record({ emission: { rate: 10 } }), 6, 1 / 60, 1, { emitAccumulatorStart: 1 }).emittedTotal, 51);
+});
+
 test('emission: bursts at 0 and their cycles, probability, every loop, infinite cycles', () => {
   assert.equal(run(record({ emission: { bursts: [burst(0, 7)] } }), 1 / 60).count, 7);
   assert.equal(run(record({ emission: { bursts: [burst(0, 2, 3, 0.1)] } }), 0.5).emittedTotal, 6);
@@ -178,6 +191,28 @@ test('motion: constant speed, gravity, velocity over lifetime not accumulated', 
   const drift = run(record({ emission: { bursts: [burst()] }, velocity: { linear: [1, 0, 0] } }), 2);
   assert.ok(near(drift.px[0], 2, 6));
   assert.deepEqual([drift.vx[0], drift.vy[0], drift.vz[0]], [0, 0, 0]);
+});
+
+test('motion: orbital velocity turns a particle exactly each step, so its radius holds (Hoshiguma\'s fire rings)', () => {
+  // 3 units from the centre, orbiting about Z at up to 10 rad/s over a 3 s life (fire_ring_ctrl): at any step and speed
+  // modifier the radius holds, and the particle turns by the integral of the speed (10 a^2 / 6 rad x the modifier).
+  for (const [dt, speedModifier] of [[1 / 60, 1], [1 / 30, 1], [1 / 60, 2]]) {
+    const sim = simOf(record({
+      emission: { bursts: [burst()] }, start: { lifetime: 3 }, shape: { type: 'circleEdge', radius: 3, arc: 0.0001 },
+      velocity: { orbital: [0, 0, ['c', 10, [0, 0, 1, 1, 1, 1, 1, 1]]], speedModifier },
+    }));
+    sim.play(1);
+    let turned = 0, last: number | null = null;
+    for (let i = 0; i < Math.round(2.9 / dt); i++) {
+      sim.step(dt);
+      assert.ok(near(Math.hypot(sim.px[0], sim.py[0]), 3, 9), `radius ${Math.hypot(sim.px[0], sim.py[0])} at step ${i}`);
+      const angle = Math.atan2(sim.py[0], sim.px[0]);
+      if (last !== null) turned += ((angle - last + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+      last = angle;
+    }
+    const age = sim.age[0], expected = (speedModifier * 10 * age * age) / 6;
+    assert.ok(Math.abs(turned - expected) <= 0.05 * expected, `turned ${turned}, expected ${expected}`);
+  }
 });
 
 test('motion: limit velocity dampens towards the limit; rotation over lifetime', () => {
