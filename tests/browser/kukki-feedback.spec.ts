@@ -17,13 +17,15 @@ test('recruitment translations keep selections and font size through reload', as
   await page.getByRole('button', { name: 'CN', exact: true }).click();
   await expect(page.getByRole('button', { name: '近卫干员', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
-test('skin events mount a bounded set and art opens a separate detail viewer', async ({ page }) => {
+test('skin events stay open with lazy artwork and a separate detail viewer', async ({ page }) => {
   await page.goto('/skin-planner');
   const cards = page.locator('.skin-plan-card');
   await expect.poll(() => cards.count()).toBeGreaterThan(0);
-  expect(await cards.count()).toBeLessThanOrEqual(12);
+  await expect(page.locator('button.skin-plan-event')).toHaveCount(0);
+  const grids = page.locator('.skin-plan-grid');
+  for (const grid of await grids.all()) expect(await grid.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
   await page.getByRole('button', { name: 'Fashion Review', exact: true }).click();
-  expect(await cards.count()).toBeLessThanOrEqual(12);
+  for (const grid of await grids.all()) expect(await grid.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
   await cards.first().getByRole('button', {name:/View/}).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByText('Outfit details', {exact:true})).toBeVisible();

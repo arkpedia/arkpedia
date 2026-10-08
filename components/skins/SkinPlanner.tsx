@@ -39,6 +39,14 @@ function shopCountdown(shop: { start: string; end: string }, today: string): str
   return n <= 0 ? 'closes today' : n === 1 ? 'closes tomorrow' : `closes in ${n} days`;
 }
 
+/** Reserve the card's artwork space, but give the image a URL only near the reader. */
+function SkinPlannerArt({ image }: { image: string | null }) {
+  const [ready, setReady] = useState(false);
+  return <span className="skin-plan-art">
+    {!image ? <span className="skin-plan-noart">Artwork unavailable</span> : ready ? <ContentImg src={image} alt="" /> : <LoadOnScroll inline shown={0} total={1} onMore={() => setReady(true)} />}
+  </span>;
+}
+
 export default function SkinPlanner({ catalogue, collections, today, ids, onChange, owned, budget }: {
   catalogue: PlannedSkin[];
   collections: SkinCollection[];
@@ -61,7 +69,6 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   // Shops a few at a time, more as the reader scrolls, as every long list on the site grows.
   const SHOPS_PER_STEP = 6;
   const [shopLimit, setShopLimit] = useState(SHOPS_PER_STEP);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [cardLimits, setCardLimits] = useState<Record<string, number>>({});
   const CARDS_PER_STEP = 12;
 
@@ -104,7 +111,6 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
     groups.set(id, group);
   }
   const eventGroups = [...groups.values()];
-  const filtered = !!query.trim() || plannedOnly || ownedFilter !== 'all';
   const toggle = (id: string) => onChange(planned.has(id) ? ids.filter((value) => value !== id) : [...ids, id]);
 
   const card = (skin: PlannedSkin) => {
@@ -113,7 +119,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
       <article key={skin.id} className={`pick-card pick-card-picture skin-plan-card${has ? ' skin-plan-owned' : ''}`}>
         <button type="button" className="btn-bare skin-plan-view" aria-label={`View ${skin.operator} — ${skin.name} artwork`}
           disabled={!skin.image} onClick={() => setViewing(skin)}>
-          <span className="skin-plan-art">{skin.image ? <ContentImg src={skin.image} alt="" /> : <span className="skin-plan-noart">Artwork unavailable</span>}</span>
+          <SkinPlannerArt image={skin.image} />
           <span className="skin-plan-card-text">
             <span className="skin-plan-card-operator">{skin.operator}</span>
             <b>{skin.name}</b>
@@ -146,16 +152,12 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
           </div>
         </div>
         {shops.length === 0 && <p className="hint">No shop that sells outfits for Originite Prime is open or listed ahead.</p>}
-        {eventGroups.slice(0, shopLimit).map((group, index) => {
-          const open = expanded[group.id] ?? (index === 0 || filtered);
+        {eventGroups.slice(0, shopLimit).map((group) => {
           const ownedSkins = [...new Map(group.shops.flatMap(row => row.skins).filter(isOwned).map(skin => [skin.id, skin])).values()];
           const ownedLimit = cardLimits[`${group.id}:owned`] ?? CARDS_PER_STEP;
           return <section key={group.id} className="skin-plan-shop" aria-label={group.name}>
-            <button type="button" className="btn-bare skin-plan-event" aria-expanded={open}
-              aria-controls={`skin-event-${index}`} onClick={() => setExpanded(value => ({ ...value, [group.id]: !open }))}>
-              <h3 className="section-title">{group.name}</h3><span aria-hidden="true">{open ? '−' : '+'}</span>
-            </button>
-            {open && <div id={`skin-event-${index}`} className="skin-plan-shop">
+            <h3 className="section-title skin-plan-event">{group.name}</h3>
+            <div className="skin-plan-shop">
               {group.shops.map(({ shop, skins }) => {
                 const inPlan = shop.skinIds.filter((id) => planned.has(id) && byId.has(id) && !isOwned(byId.get(id)!));
                 const limit = cardLimits[shop.id] ?? CARDS_PER_STEP;
@@ -171,7 +173,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
                 </section>;
               })}
               {ownedSkins.length > 0 && <section className="skin-plan-shop" aria-label="Owned outfits"><h4>Owned outfits</h4><div className="skin-plan-grid">{ownedSkins.slice(0, ownedLimit).map(card)}</div><LoadOnScroll shown={Math.min(ownedLimit, ownedSkins.length)} total={ownedSkins.length} onMore={() => setCardLimits(value => ({ ...value, [`${group.id}:owned`]: ownedLimit + CARDS_PER_STEP }))} /></section>}
-            </div>}
+            </div>
           </section>;
         })}
         <LoadOnScroll shown={Math.min(shopLimit, eventGroups.length)} total={eventGroups.length} onMore={() => setShopLimit(value => value + SHOPS_PER_STEP)} />

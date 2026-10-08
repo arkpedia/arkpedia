@@ -276,8 +276,8 @@ test('Fashion Review has its own planner inventory', async ({ page }) => {
   const fashion = page.getByRole('region', { name: /Fashion Review/ });
   await expect(fashion.first()).toBeVisible();
   expect(await fashion.locator('.skin-plan-card').count()).toBeGreaterThan(0);
-  expect(await fashion.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
-  // The event headings stay collapsed while their Fashion Review inventories load in batches.
+  for (const section of await fashion.all()) expect(await section.locator('.skin-plan-card').count()).toBeLessThanOrEqual(12);
+  // Every event stays open while its Fashion Review inventory loads in batches.
   const cards = page.locator('.skin-plan-card');
   expect(await cards.evaluateAll(nodes => nodes.every(node => node.closest('section[aria-label]')?.getAttribute('aria-label')?.includes('Fashion Review')))).toBe(true);
 });
