@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import SkinZoomOverlay from './SkinZoomOverlay';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
@@ -49,8 +50,10 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   owned: Set<string> | null;
   budget?: SkinBudget;
 }) {
+  const [viewing, setViewing] = useState<PlannedSkin | null>(null);
   const [query, setQuery] = useState('');
   const [order, setOrder] = useState<ShopOrder>('closing');
+  const [fashionOnly, setFashionOnly] = useState(false);
   const [plannedOnly, setPlannedOnly] = useState(false);
   const [ownedFilter, setOwnedFilter] = useState<Owned>('all');
   // Only to know whether there is an import to filter by; what is owned is the `owned` prop.
@@ -86,28 +89,35 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   const ownedCounts = countOwned([...new Map(shops.flatMap((shop) => shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])))
     .filter(matches).map((skin) => [skin.id, skin])).values()], isOwned);
   // The shops with something to show under the search and the chips.
-  const visibleShops = shops.map((shop) => ({ shop, skins: shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(shows) }))
+  const visibleShops = shops.filter(shop => !!shop.fashionReview === fashionOnly).map((shop) => ({ shop, skins: shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(shows) }))
     .filter(({ skins }) => skins.length > 0);
   const toggle = (id: string) => onChange(planned.has(id) ? ids.filter((value) => value !== id) : [...ids, id]);
 
   const card = (skin: PlannedSkin) => {
     const isPlanned = planned.has(skin.id), has = isOwned(skin);
     return (
-      <button key={skin.id} type="button" className={`btn-bare pick-card pick-card-picture skin-plan-card${has ? ' skin-plan-owned' : ''}`}
-        aria-pressed={isPlanned} aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP${has ? ', owned' : ''}`} onClick={() => toggle(skin.id)}>
-        <span className="skin-plan-art">{skin.image ? <ContentImg src={skin.image} alt="" /> : <span className="skin-plan-noart">Artwork unavailable</span>}</span>
-        <span className="skin-plan-card-text">
-          <span className="skin-plan-card-operator">{skin.operator}</span>
-          <b>{skin.name}</b>
-          <span className="skin-plan-card-foot"><span>{skin.op} OP</span><strong>{has ? 'Owned' : isPlanned ? '✓ Planned' : '+ Plan'}</strong></span>
-        </span>
-      </button>
+      <article key={skin.id} className={`pick-card pick-card-picture skin-plan-card${has ? ' skin-plan-owned' : ''}`}>
+        <button type="button" className="btn-bare skin-plan-view" aria-label={`View ${skin.operator} — ${skin.name} artwork`}
+          disabled={!skin.image} onClick={() => setViewing(skin)}>
+          <span className="skin-plan-art">{skin.image ? <ContentImg src={skin.image} alt="" /> : <span className="skin-plan-noart">Artwork unavailable</span>}</span>
+          <span className="skin-plan-card-text">
+            <span className="skin-plan-card-operator">{skin.operator}</span>
+            <b>{skin.name}</b>
+          </span>
+        </button>
+        <button type="button" className="btn-bare skin-plan-card-foot" aria-pressed={isPlanned}
+          aria-label={`${skin.operator} — ${skin.name}, ${skin.op} OP${has ? ', owned' : ''}`}
+          onClick={() => toggle(skin.id)}>
+          <span>{skin.op} OP</span><strong>{has ? 'Owned' : isPlanned ? '✓ Planned' : '+ Plan'}</strong>
+        </button>
+      </article>
     );
   };
 
   const unscheduledPlanned = purchases.unscheduled.filter(shows);
   return (
     <div className="skin-plan">
+      {viewing?.image && <SkinZoomOverlay image={viewing.image} name={`${viewing.operator} — ${viewing.name}`} dynamic={viewing.dynamic ?? null} alternate={viewing.alternate ?? null} onClose={() => setViewing(null)} />}
       <div className="skin-plan-main">
         {/* The search, then the filters on the left and the order on the right: the roster's and
             the skins gallery's row, with the owned filter in the same place. */}
@@ -115,6 +125,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
           <SearchInput className="skin-plan-search" label="Search outfits" value={query} onChange={setQuery} placeholder="Operator or outfit" />
           <div className="skin-plan-filter-row">
             <button type="button" className="filter-chip" aria-pressed={plannedOnly} onClick={() => setPlannedOnly(!plannedOnly)}>Planned only</button>
+            <button type="button" className="filter-chip" aria-pressed={fashionOnly} onClick={() => { setFashionOnly(!fashionOnly); setShopLimit(SHOPS_PER_STEP); }}>Fashion Review</button>
             <OwnedFilter label="Outfits you own" value={ownedFilter} onChange={setOwnedFilter} account={account} counts={ownedCounts} />
             <span className="toolbar-spacer" aria-hidden="true" />
             <SegmentedControl label="Order shops by" value={order} options={ORDER_OPTIONS} onChange={setOrder} />
