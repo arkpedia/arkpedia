@@ -19,6 +19,12 @@
  * tumbling star, a sword swung through the screen): its vertices are 3D and each frame carries the
  * depth column of the 2x4 orthographic projection of its transform (the game's illustration camera is
  * orthographic), so the renderer projects it frame by frame and culls the faces that turn away.
+ *
+ * A file exported with the prefab's particle systems points at layerParticles.json (`particles`, read by
+ * lib/skins/particleData.ts) and puts `{particles: [k, ...]}` entries in `draw`: runs of systems drawn where
+ * they stand among the parts and layers (components/skins/particleRenderer.ts). A reader that does not read
+ * the particle file (or a pointer it does not accept) skips each run as an unknown entry, as the readers
+ * before this one do.
  */
 
 /** A time-ordered timeline: frames [t, a, b, c, d, tx, ty, r, g, b, alpha, active, su, ou, sv, ov], a
@@ -84,6 +90,17 @@ export interface NoiseShader { family: 'noise'; mode: 'default' | 'add' | 'glow'
 
 export type LayerShader = ParticleShader | NoiseShader;
 
+/**
+ * The per-particle inputs a shader's _HGCUSTOMVERTEXSTREAM_ON variant reads (8 floats a particle's vertices
+ * carry: TEXCOORD0.zw, TEXCOORD1.xyzw, TEXCOORD2.xy), and what each adds to, from the GLSL: `disturb`
+ * (Disturb(CustomData), Ram/Disturb(CustomData)): the main UV (0, 1), the first dissolve's UV (2, 3), its amount
+ * (4), the distortion intensities (5) and the noise UV (6, 7); `dissolve` (Dissolve(CustomData)): the same but 5
+ * adds to the border width, clamped to 0..1, and 6, 7 add to nothing. `none`: a mesh layer, or a particle whose
+ * material has no custom streams. A program takes it as a required feature, so a layer says `none` itself and a
+ * program never reads inputs its vertices do not carry.
+ */
+export type CustomFeature = 'none' | 'disturb' | 'dissolve';
+
 export interface DynamicLayer {
   name: string;
   blend: 'alpha' | 'add';
@@ -116,7 +133,9 @@ export interface DynamicLayer {
 
 export interface LayerTexture { file: string; width: number; height: number; wrap: ['repeat' | 'clamp' | 'mirror', 'repeat' | 'clamp' | 'mirror'] }
 
-export type LayerEntry = { kind: 'part'; index: number } | { kind: 'layer'; layer: DynamicLayer };
+/** A part of the skeleton, a mesh layer, or a run of particle systems (indices into layerParticles.json's
+ *  `systems`, drawn in that order where the entry stands). */
+export type LayerEntry = { kind: 'part'; index: number } | { kind: 'layer'; layer: DynamicLayer } | { kind: 'particles'; systems: number[] };
 
 export interface DynamicLayers {
   textures: LayerTexture[];
@@ -126,6 +145,10 @@ export interface DynamicLayers {
   draw: LayerEntry[];
   /** Layers dropped because this reader did not understand them (a newer file); the rest still draw. */
   skipped: number;
+  /** The particle systems' file (layerParticles.json, beside this one; lib/skins/particleData.ts reads it), or
+   *  null: none, or one this reader cannot read (its runs are then skipped). Its textures are its own, numbered
+   *  on after `textures` and capped on their own (particleData's PARTICLE_LIMITS.textures), never counted here. */
+  particles: { file: string } | null;
 }
 
 /* --- effect shaders ------------------------------------------------------------------------ */
@@ -421,20 +444,25 @@ function parseExact(value: Record<string, unknown>, textures: number): DynamicLa
 const LAYER_FILE = /^layer\d+\.webp$/;
 
 /** Bounds on what one layers.json may ask of the browser (each texture is a fetch and a GPU upload).
- *  The 88 Global models stay far inside them: at most 21 textures, 60 draw entries, a few hundred frames. */
-export const LIMITS = { textures: 128, draw: 1024, frames: 20000 };
+ *  The 88 Global models stay far inside them: at most 21 textures, 60 draw entries, a few hundred frames.
+ *  `particleSystems`: the highest system index a particle run may name (layerParticles.json's own cap). */
+export const LIMITS = { textures: 128, draw: 1024, frames: 20000, particleSystems: 2048 };
 
-/**
- * A layers.json read from the network, checked before any texture is fetched on its word: textures
- * are layer<N>.webp files in the model's own folder, in order. The file as a whole must be one this
- * reader knows (else it throws, and the artwork plays without its layers); a single layer it does not
- * understand is dropped and counted, the others still draw.
- */
+/** The only particle file a layers.json may point at: never a path. */
+export const PARTICLE_FILE = 'layerParticles.json';
+
 /** x wrapped into [0, 1), as GLSL fract(); -0 comes out 0. */
 export function wrapUnit(x: number): number {
   return x - Math.floor(x) + 0;
 }
 
+/**
+ * A layers.json read from the network, checked before any texture is fetched on its word: textures
+ * are layer<N>.webp files in the model's own folder, in order. The file as a whole must be one this
+ * reader knows (else it throws, and the artwork plays without its layers); a single layer it does not
+ * understand is dropped and counted, the others still draw. A run of particle systems (`{particles}`)
+ * stays where it stands, as long as the file points at a particle file this reader reads.
+ */
 export function parseDynamicLayers(value: unknown): DynamicLayers {
   const fail = (why: string): never => { throw new Error(`Unsupported layers.json: ${why}`); };
   if (!isObject(value) || value.schemaVersion !== 1) return fail(`schemaVersion ${String(isObject(value) ? value.schemaVersion : value)}`);
@@ -454,15 +482,28 @@ export function parseDynamicLayers(value: unknown): DynamicLayers {
   const separators = value.separators;
   if (!Array.isArray(separators) || !separators.every((s) => typeof s === 'string' && s)) return fail('separators');
   if (!Array.isArray(value.draw) || value.draw.length > LIMITS.draw) return fail('draw');
+  // The particle file: exactly layerParticles.json at version 1, else none (its runs are then skipped as unknown).
+  const pointer = value.particles;
+  const particles = isObject(pointer) && pointer.file === PARTICLE_FILE && pointer.version === 1 ? { file: PARTICLE_FILE } : null;
   const draw: LayerEntry[] = [];
   let skipped = 0;
   const parts = new Set<number>();
+  // Every system is in at most one run, and the runs list them in index order.
+  let lastSystem = -1;
   for (const entry of value.draw) {
     if (isObject(entry) && Object.hasOwn(entry, 'part')) {
       const index = entry.part;
       if (!Number.isSafeInteger(index) || (index as number) < 0 || (index as number) > separators.length || parts.has(index as number)) return fail('part');
       parts.add(index as number);
       draw.push({ kind: 'part', index: index as number });
+      continue;
+    }
+    if (isObject(entry) && Object.hasOwn(entry, 'particles')) {
+      const systems = particleRun(entry.particles, lastSystem);
+      if (particles && systems) {
+        draw.push({ kind: 'particles', systems });
+        lastSystem = systems[systems.length - 1];
+      } else skipped++;
       continue;
     }
     let layer: DynamicLayer | null = null;
@@ -484,7 +525,20 @@ export function parseDynamicLayers(value: unknown): DynamicLayers {
     separators: separators.slice() as string[],
     draw,
     skipped,
+    particles,
   };
+}
+
+/** A particle run's system indices: whole numbers in range, rising, all past `after` (the last system an earlier
+ *  run named); null when it is not one. Whether each names a system is checked once the particle file is read. */
+function particleRun(value: unknown, after: number): number[] | null {
+  if (!Array.isArray(value) || !value.length) return null;
+  let last = after;
+  for (const index of value) {
+    if (!Number.isSafeInteger(index) || (index as number) <= last || (index as number) >= LIMITS.particleSystems) return null;
+    last = index as number;
+  }
+  return (value as number[]).slice();
 }
 
 /* --- the skeleton's parts ---------------------------------------------------------------- */
@@ -641,9 +695,9 @@ export function layerPose(layer: DynamicLayer, clock: LayerClock): LayerPose | n
 /** The bone a follower reads, as spine-ts gives it. */
 export interface FollowedBone { worldX: number; worldY: number; scaleX: number; scaleY: number; getWorldRotationX(): number }
 
-/** The matrix a bone follower puts its layer under: parent x R(rotation) x scale, then the bone's
- *  position, as spine-unity's BoneFollower places its GameObject. */
-export function followMatrix(follow: LayerFollow, bone: FollowedBone): LayerPose['matrix'] {
+/** A bone follower's own turn (degrees), scale and position now, as spine-unity's BoneFollower sets them on
+ *  its GameObject (before its parent): followMatrix's parts, which the particle systems compose apart. */
+export function followParts(follow: LayerFollow, bone: FollowedBone): { rotation: number; sx: number; sy: number; x: number; y: number } {
   let rotation = follow.angle;
   let sx = 1, sy = 1;
   if (follow.rotation) {
@@ -652,11 +706,17 @@ export function followMatrix(follow: LayerFollow, bone: FollowedBone): LayerPose
     if (follow.localScale && bone.scaleX < 0) rotation += 180;
   }
   if (follow.localScale) { sx = bone.scaleX; sy = bone.scaleY; }
+  return { rotation, sx, sy, x: follow.xy ? bone.worldX : follow.position[0], y: follow.xy ? bone.worldY : follow.position[1] };
+}
+
+/** The matrix a bone follower puts its layer under: parent x R(rotation) x scale, then the bone's
+ *  position, as spine-unity's BoneFollower places its GameObject. */
+export function followMatrix(follow: LayerFollow, bone: FollowedBone): LayerPose['matrix'] {
+  const { rotation, sx, sy, x, y } = followParts(follow, bone);
   const r = (rotation * Math.PI) / 180, cos = Math.cos(r), sin = Math.sin(r);
   const [pa, pb, pc, pd] = follow.parent;
   const ra = cos * sx, rb = -sin * sy, rc = sin * sx, rd = cos * sy;
-  return [pa * ra + pb * rc, pa * rb + pb * rd, pc * ra + pd * rc, pc * rb + pd * rd,
-    follow.xy ? bone.worldX : follow.position[0], follow.xy ? bone.worldY : follow.position[1]];
+  return [pa * ra + pb * rc, pa * rb + pb * rd, pc * ra + pd * rc, pc * rb + pd * rd, x, y];
 }
 
 /** outer x inner, for 2x3 affine matrices. */

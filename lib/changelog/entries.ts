@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-08T07:19:00Z',
+    title: 'Particles in animated art',
+    added: [
+      { title: 'Particles in animated outfit art', detail: 'Sparks, fire, petals and lightning now play in the animated art, as in the game; trails and a few effects come later.', href: '/skins' },
+    ],
+  },
+  {
     at: '2026-10-07T23:26:00Z',
     title: 'Animated outfit art, credits and fixes',
     added: [

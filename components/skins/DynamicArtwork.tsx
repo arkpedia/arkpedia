@@ -5,7 +5,11 @@ import {
   parseDynamicModel, pressPlan, restingView, viewBetween, type DynamicModel, type View,
 } from '@/lib/skins/dynamicArt';
 import { layerClock, parseDynamicLayers, partRanges, type DynamicLayers, type LayerClock } from '@/lib/skins/dynamicLayers';
+import { parseParticleText, type ParticleDocument, type ParticleSystemData } from '@/lib/skins/particleData';
+import { followPlacement } from '@/lib/skins/particleGeometry';
+import { ACTION_END, MODEL_SEED, ParticleDirector } from '@/lib/skins/particleSim';
 import { createLayerRenderer, type LayerRenderer } from './dynamicLayerRenderer';
+import { createParticleRenderer, type ParticleRenderer } from './particleRenderer';
 
 /*
  * One animated artwork (a dynamic illustration), drawn with the official Spine 3.8 runtime into
@@ -35,6 +39,17 @@ import { createLayerRenderer, type LayerRenderer } from './dynamicLayerRenderer'
  * not build here leaving only its own layers out. Under reduced motion they stand at their first
  * frame. The view frames the skeleton and its layers together. A layers file that fails to load
  * only leaves them out.
+ *
+ * Its particle systems (layers.json's pointer to layerParticles.json, lib/skins/particleData.ts) are
+ * simulated on the CPU (lib/skins/particleSim.ts's director, on the layers' clock: a group's systems
+ * while its animation plays, a fixed 1/60 s step, ACTION_END when an action ends) and drawn where
+ * layers.json's particle runs stand (components/skins/particleRenderer.ts). The file and the idle
+ * textures load beside the layers; the first frame waits for them at most PARTICLE_GRACE_MS after
+ * everything else is ready, and if they come later they fade in over PARTICLE_FADE_MS, already
+ * prewarmed. An action's textures load in the background (its systems draw once they are in). Under
+ * reduced motion the looping idle systems stand still at 3 s (the director's REDUCED_STILL) and a
+ * pressed animation's play out and stop. A particle file or texture that fails to load, or a program
+ * that does not build, only leaves particles out.
  *
  * Closing the view unmounts this: the loop stops, the textures, buffers and shaders are freed, the
  * soundtrack stops and the WebGL context is let go (WEBGL_lose_context), so a reader who opens
@@ -117,13 +132,48 @@ function loadAudio(url: string, signal: AbortSignal): Promise<HTMLAudioElement |
   });
 }
 
-/** The mesh layers and their textures; null (the artwork plays without them) when they fail to load. */
-async function loadLayers(file: string, url: (name: string) => string, signal: AbortSignal): Promise<{ layers: DynamicLayers; images: HTMLImageElement[] } | null> {
+/** How long the first frame waits for the particles after everything else is ready, and how long they fade in
+ *  when they come after it (plan section 4). */
+const PARTICLE_GRACE_MS = 1500;
+const PARTICLE_FADE_MS = 400;
+
+/** The particle file and its textures: the idle ones loaded, an action's (Start, Interact, Special) still
+ *  loading, each image or null when it fails. */
+interface ParticleFiles {
+  doc: ParticleDocument;
+  idle: Map<number, HTMLImageElement>;
+  later: { index: number; image: Promise<HTMLImageElement | null> }[];
+}
+
+/** The particles: the file and the idle textures (null, and particles left out, when either fails to load). */
+async function loadParticles(file: string, layerTextures: number, url: (name: string) => string, signal: AbortSignal): Promise<ParticleFiles | null> {
+  try {
+    const doc = parseParticleText(await (await fetchOk(url(file), signal)).text(), layerTextures);
+    if (doc.skipped.length) console.warn('[particles] systems this reader does not draw were left out:', doc.skipped.length);
+    const at = (i: number) => layerTextures + i;
+    const later = doc.textures.flatMap((texture, i) => (texture.phase === 'idle' ? [] : [{
+      index: at(i), image: loadImage(url(texture.file), signal).catch((error: unknown) => {
+        if (!signal.aborted) console.warn('[particles] a texture could not be loaded; its systems are left out', texture.file, error);
+        return null;
+      }),
+    }]));
+    const idle = new Map(await Promise.all(doc.textures.flatMap((texture, i) => (texture.phase === 'idle' ? [loadImage(url(texture.file), signal).then((image) => [at(i), image] as const)] : []))));
+    return { doc, idle, later };
+  } catch (error) {
+    if (!signal.aborted) console.warn('[particles] the particles could not be loaded; the artwork plays without them', error);
+    return null;
+  }
+}
+
+/** The mesh layers and their textures, and their particles (loading beside the textures, never waited on here);
+ *  null (the artwork plays without them) when the layers fail to load. */
+async function loadLayers(file: string, url: (name: string) => string, signal: AbortSignal): Promise<{ layers: DynamicLayers; images: HTMLImageElement[]; particles: Promise<ParticleFiles | null> | null } | null> {
   try {
     const layers = parseDynamicLayers(await (await fetchOk(url(file), signal)).json());
     if (layers.skipped) console.warn('[dynamic art] layers this reader does not understand were left out:', layers.skipped);
+    const particles = layers.particles ? loadParticles(layers.particles.file, layers.textures.length, url, signal) : null;
     const images = await Promise.all(layers.textures.map((texture) => loadImage(url(texture.file), signal)));
-    return { layers, images };
+    return { layers, images, particles };
   } catch (error) {
     if (signal.aborted) throw error;
     console.warn('[dynamic art] the layers could not be loaded; the artwork plays without them', error);
@@ -173,6 +223,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   scale: () => number;
   onFirstFrame: (animations: string[], sound: boolean) => void;
   onPlaying: (name: string | null) => void;
+  /** The particles, when they came within the grace; else the load still running (they fade in), or null. */
+  particles: { ready: ParticleFiles | null; later: Promise<ParticleFiles | null> | null };
 }): Player {
   const { model } = files;
   const canvas = document.createElement('canvas');
@@ -183,6 +235,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   const atlases: Spine.TextureAtlas[] = [];
   let renderer: Spine.webgl.SceneRenderer | null = null;
   let layerRenderer: LayerRenderer | null = null;
+  let particleRenderer: ParticleRenderer | null = null;
+  let disposed = false;
   const audio = files.audio;
   // The entrance camera's full-screen fades and hand-over colour, over the canvas.
   const veil = document.createElement('div');
@@ -192,6 +246,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     audio?.pause();
     veil.remove();
     for (const atlas of atlases) atlas.dispose();
+    particleRenderer?.dispose();
+    particleRenderer = null;
     layerRenderer?.dispose();
     renderer?.dispose();
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
@@ -218,6 +274,43 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     const restBounds = layers?.bounds ?? model.bounds;
     // How many skeleton parts the ranges are worked out for (the parts are numbered from 0).
     const parts = layers ? layers.draw.reduce((most, entry) => (entry.kind === 'part' ? Math.max(most, entry.index + 1) : most), 0) : 0;
+    // The particle systems: their simulation on the layers' clock and their renderer, once the file is in.
+    let director: ParticleDirector | null = null;
+    let particleDoc: ParticleDocument | null = null;
+    // When late particles began to fade in (performance.now()), or null: shown in full.
+    let fadeFrom: number | null = null;
+    const placed = (data: ParticleSystemData) => {
+      const bone = data.follow ? skeleton.findBone(data.follow.bone) : null;
+      return !data.follow || (!!bone && bone.active);
+    };
+    const placements = (data: ParticleSystemData) => {
+      const bone = data.follow ? skeleton.findBone(data.follow.bone) : null;
+      return data.follow && bone && bone.active && particleDoc ? followPlacement(data.follow, bone, particleDoc.unit, data.clock.scaling) : null;
+    };
+    const attachParticles = (loaded: ParticleFiles, late: boolean) => {
+      if (disposed || !layers || !layerRenderer || particleRenderer) return;
+      const layerTextures = layerRenderer;
+      try {
+        const runs = layers.draw.flatMap((entry) => (entry.kind === 'particles' ? [entry.systems] : []));
+        particleRenderer = createParticleRenderer(context, loaded.doc, runs, layers.textures, (index) => layerTextures.texture(index));
+        for (const [index, image] of loaded.idle) particleRenderer.addTexture(index, image);
+        director = new ParticleDirector(loaded.doc, { reduced: options.reducedMotion, actionEnd: ACTION_END, modelSeed: MODEL_SEED, precision: 32 });
+        particleDoc = loaded.doc;
+      } catch (error) {
+        console.warn('[particles] left out', error);
+        particleRenderer?.dispose();
+        particleRenderer = null;
+        director = null;
+        return;
+      }
+      // An action's textures, as they arrive (its systems simulate meanwhile, and draw once they are in).
+      for (const { index, image } of loaded.later) {
+        image.then((img) => { if (img && particleRenderer && !disposed) particleRenderer.addTexture(index, img); }, () => {});
+      }
+      // Late (after the first frame): fade in; under reduced motion they simply appear, drawn once.
+      fadeFrom = late && !options.reducedMotion ? performance.now() : null;
+      if (late) run();
+    };
     // How long the illustration has run since it took over (the layers' clock).
     let illustrationTime = 0;
     const names = data.animations.map((animation) => animation.name);
@@ -317,33 +410,48 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       }
     };
 
-    const draw = () => {
+    /** The layers' clock now (the particles run on it too). */
+    const clockNow = (): LayerClock => {
+      const current = state.getCurrent(0);
+      return layerClock(reduced, current ? { name: current.animation.name, trackTime: current.trackTime,
+        animationEnd: current.animationEnd, timeScale: current.timeScale } : null, illustrationTime);
+    };
+
+    const draw = (clock: LayerClock) => {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      scene.begin();
       if (inEntrance && entrance) {
+        scene.begin();
         scene.drawSkeleton(entrance.skeleton, model.premultipliedAlpha);
-      } else if (!layers || !layerRenderer) {
-        scene.drawSkeleton(skeleton, model.premultipliedAlpha);
-      } else {
-        // The game's order: each skeleton part's slot range, and the layers around them.
-        const ranges = partRanges(skeleton.drawOrder.map((slot) => ({ name: slot.data.name, index: slot.data.index, active: slot.bone.active })), layers.separators, parts);
-        const current = state.getCurrent(0);
-        const clock: LayerClock = layerClock(reduced, current ? { name: current.animation.name, trackTime: current.trackTime,
-          animationEnd: current.animationEnd, timeScale: current.timeScale } : null, illustrationTime);
-        for (const entry of layers.draw) {
-          if (entry.kind === 'part') {
-            const range = ranges[entry.index];
-            if (range && parts === 1 && !layers.separators.length) scene.drawSkeleton(skeleton, model.premultipliedAlpha);
-            else if (range) scene.drawSkeleton(skeleton, model.premultipliedAlpha, range[0], range[1]);
-          } else {
-            scene.end();
-            layerRenderer.draw(entry.layer, clock, scene.camera.projectionView.values);
-            scene.begin();
-          }
-        }
+        scene.end();
+        return;
       }
-      scene.end();
+      if (!layers || !layerRenderer) {
+        scene.begin();
+        scene.drawSkeleton(skeleton, model.premultipliedAlpha);
+        scene.end();
+        return;
+      }
+      // The game's order: each skeleton part's slot range, and the layers and particle runs around them. The
+      // skeleton's batcher is ended once before a stretch of layers and runs, and begun again for the next part.
+      const ranges = partRanges(skeleton.drawOrder.map((slot) => ({ name: slot.data.name, index: slot.data.index, active: slot.bone.active })), layers.separators, parts);
+      // The batcher updates the camera when it begins; a layer or run before the first part needs this frame's too.
+      scene.camera.update();
+      const projection = scene.camera.projectionView.values;
+      let open = false;
+      for (const entry of layers.draw) {
+        if (entry.kind === 'part') {
+          if (!open) { scene.begin(); open = true; }
+          const range = ranges[entry.index];
+          if (range && parts === 1 && !layers.separators.length) scene.drawSkeleton(skeleton, model.premultipliedAlpha);
+          else if (range) scene.drawSkeleton(skeleton, model.premultipliedAlpha, range[0], range[1]);
+          continue;
+        }
+        if (open) { scene.end(); open = false; }
+        if (entry.kind === 'layer') layerRenderer.draw(entry.layer, clock, projection);
+        else particleRenderer?.drawRun(entry.systems, projection);
+      }
+      if (open) scene.end();
     };
 
     // Under reduced motion the loop runs only while something the reader asked for plays.
@@ -351,6 +459,27 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       if (!reduced || inEntrance || handover) return true;
       const current = state.getCurrent(0);
       return !!current && (!!current.mixingFrom || (current.timeScale !== 0 && (current.loop || !current.isComplete())));
+    };
+    /** The particles one frame: stepped on the layers' clock, then expanded and uploaded for draw(). */
+    const stepParticles = (clock: LayerClock, delta: number, now: number) => {
+      if (!director || !particleRenderer || inEntrance) return;
+      try {
+        director.frame(clock, delta, placements);
+        let fade = 1;
+        if (fadeFrom !== null) {
+          fade = Math.min(1, (now - fadeFrom) / PARTICLE_FADE_MS);
+          if (fade >= 1) fadeFrom = null;
+        }
+        particleRenderer.prepare(director, { viewHeight: scene.camera.viewportHeight, fade, placed });
+      } catch (error) {
+        // Never the artwork: the particles alone are left out (and a fade in progress with them, so the loop
+        // stops again under reduced motion).
+        console.warn('[particles] left out', error);
+        particleRenderer.dispose();
+        particleRenderer = null;
+        director = null;
+        fadeFrom = null;
+      }
     };
     let frameId = 0;
     let last = 0;
@@ -375,9 +504,11 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         illustrationTime += delta;
       }
       show(framing(now));
-      draw();
+      const clock = clockNow();
+      stepParticles(clock, delta, now);
+      draw(clock);
       if (firstFrame) { firstFrame = false; options.onFirstFrame(names, !!audio); }
-      if (moving()) frameId = requestAnimationFrame(frame);
+      if (moving() || fadeFrom !== null) frameId = requestAnimationFrame(frame);
       else last = 0;
     };
     const run = () => { if (!frameId) frameId = requestAnimationFrame(frame); };
@@ -431,6 +562,9 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       state.setAnimation(0, plan.pose, false).timeScale = 0;
       options.onPlaying(null);
     }
+    // The particles: drawn from the first frame when they came in time, else faded in when they come.
+    if (options.particles.ready) attachParticles(options.particles.ready, false);
+    else options.particles.later?.then((loaded) => { if (loaded) attachParticles(loaded, true); }, () => {});
     const observer = new ResizeObserver(() => resize());
     observer.observe(host);
     resize();
@@ -440,6 +574,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       resize,
       setSound: (on: boolean) => { if (audio) audio.muted = !on; },
       dispose: () => {
+        disposed = true;
         if (frameId) cancelAnimationFrame(frameId);
         frameId = 0;
         observer.disconnect();
@@ -473,7 +608,19 @@ export default function DynamicArtwork({ model, label, transform, scale, request
     (async () => {
       const [{ spine }, files] = await Promise.all([import('@/lib/vendor/spine-3.8/spine-webgl'), loadModel(model, controller.signal)]);
       if (controller.signal.aborted) return;
+      // Everything else is ready: the particles get PARTICLE_GRACE_MS more, then come in (faded) when they are.
+      const pending = files.layers?.particles ?? null;
+      let ready: ParticleFiles | null = null;
+      if (pending) {
+        let timer = 0;
+        const late = new Promise<'late'>((resolve) => { timer = window.setTimeout(() => resolve('late'), PARTICLE_GRACE_MS); });
+        const first = await Promise.race([pending, late]);
+        window.clearTimeout(timer);
+        if (controller.signal.aborted) return;
+        ready = first === 'late' ? null : first;
+      }
       player = createPlayer(spine, host, files, {
+        particles: { ready, later: pending && !ready ? pending : null },
         reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
         sound: soundRef.current,
         scale: () => scaleRef.current,
