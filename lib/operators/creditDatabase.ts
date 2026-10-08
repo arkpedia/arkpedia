@@ -29,5 +29,7 @@ export function creditDatabase(kind: 'artists' | 'voice-actors'): CreditPerson[]
       }
     }
   }
+  // Missing source files must fail the build/export rather than publish an empty database.
+  if (!people.size) throw new Error(`Cannot build ${kind}: no operator credits in the source data`);
   return [...people].map(([name, rows]) => ({ name, operators: [...rows.values()].sort((a, b) => a.name.localeCompare(b.name)) })).sort((a, b) => a.name.localeCompare(b.name));
 }
