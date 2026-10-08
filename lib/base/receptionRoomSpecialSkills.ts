@@ -1,9 +1,11 @@
 import type { BaseRosters } from './baseGroupRosters';
-import { EXTRA_RECRUIT_SLOTS } from './baseResources';
+import { nonDefaultRecruitSlots } from './baseResources';
 
 export interface ReceptionRoomContext {
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
   rosters: BaseRosters;
+  officeLevel: number;
+  violetOrchidInControlCenter: boolean;
   manualValue?: number;
   sameRoomOperatorNames: string[]; // includes self
   filledCountThisRoom: number;
@@ -51,6 +53,11 @@ function averageRampValue(base: number, ratePerHour: number, cap: number, window
 }
 
 export const RECEPTION_ROOM_SPECIAL_SKILLS: Record<string, Handler> = {
+  'Rhodes Island Recon|Stealth Expert': (ctx) => ({ clueSpeed: ctx.violetOrchidInControlCenter ? 0.1 : 0, note: 'Also favours missing clues.' }),
+  'Angelina the Mellow Wish|Veteran Messenger': () => ({ note: 'Favours clues missing from the board.' }),
+  'Angelina the Mellow Wish|My Own Wish': (ctx) => ctx.filledCountThisRoom === 1 ? { clueSpeed: 0.5, selfMorale: 2 } : {},
+  "Koromaru|Koromaru's Gratitude": (ctx) => ({ clueSpeed: ctx.clueExchangeActive ? 0.3 : 0 }),
+  'Aegis|Cross-Disciplinary Communication': () => ({ clueSpeed: 0.1, note: 'With Koromaru, increases the likelihood of missing clues; the game does not publish a probability.' }),
   // "If in Clue Exchange" -- a game mode this simulator has no way to
   // detect on its own, so it's a manual setting instead (see
   // clueExchangeActive on the context). Defaults to on.
@@ -109,7 +116,7 @@ export const RECEPTION_ROOM_SPECIAL_SKILLS: Record<string, Handler> = {
 
   // Windscoot's per-Recruit-slot bonus -- needs a base stat this
   // simulator doesn't track (unlocked recruitment slots).
-  'Windscoot|Making Friends': () => ({ clueSpeed: 0.05 * EXTRA_RECRUIT_SLOTS }),
+  'Windscoot|Making Friends': (ctx) => ({ clueSpeed: 0.05 * nonDefaultRecruitSlots(ctx.officeLevel) }),
 
   // Genuinely untracked resource dependencies.
   'Iana|Intel Expert': (ctx) => ({ clueSpeed: 0.05 + (ctx.resourceBonuses['Iana|Intel Expert|clue_search_pct'] ?? 0) / 100 }),

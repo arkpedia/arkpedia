@@ -687,13 +687,21 @@
       "name": "Explorer's Backpack",
       "facility": "Factory",
       "eliteLevel": "Base",
-      "description": "When this Operator is assigned to a Factory , gain +5 Storage Capacity for each Rhine Tech-type skill in that Factory"
+      "description": "When this Operator is assigned to a Factory, gain +5 Storage Capacity for each Rhine Tech-type skill in that Factory",
+      "buffId": "manu_skill_limit[000]",
+      "slot": 0,
+      "phase": 0,
+      "level": 1
     },
     {
       "name": "Rhine Tech β",
       "facility": "Factory",
       "eliteLevel": "Elite 2",
-      "description": "When this Operator is assigned to a Factory , productivity +25%"
+      "description": "When this Operator is assigned to a Factory, productivity +25%",
+      "buffId": "manu_prod_spd[011]",
+      "slot": 1,
+      "phase": 2,
+      "level": 1
     }
   ],
   "modules": [

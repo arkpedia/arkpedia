@@ -90,6 +90,7 @@ export interface Talent {
 }
 
 export interface BaseSkill {
+  buffId?: string;
   name: string | null;
   rawName?: string | null; // original un-cleaned name (before stripping any "ReplacesX" suffix) -- icon filenames match this, not the cleaned display name
   icon: string | null;
@@ -349,6 +350,8 @@ export interface TimelineOperator {
 // promotion/talents/modules and every other biographical field can
 // still be dropped.
 export interface BaseOperator {
+  class?: string | null;
+  branch?: string | null;
   name: string;
   rarity: number | null;
   faction: string | null;

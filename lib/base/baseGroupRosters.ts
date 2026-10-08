@@ -9,22 +9,18 @@
  * member needs a data edit in arkpedia-data, not a redeploy. They used to be Sets in
  * this module, compiled into the /base chunk.
  *
- * What the members are, kept here because JSON cannot carry the notes:
- *   ELITE_OPERATOR is confirmed as this exact 7-name list, not "any 6-star operator".
- *   SOUBO_ADVENTURERS is confirmed (user confirmed the inference; see baseResources.ts
- *     / resources.py notes).
- *   A1_DETACHMENT is confirmed by the user. Deliberately does NOT include "Fang the
- *     Fire-Sharpened" herself -- a different operator from the plain "Fang" who IS a
- *     member, despite the similar name.
- *   RHINE_LAB is confirmed by the user. Deliberately does NOT include "Silence the
- *     Paradigmatic" (her alter form) -- confirmed excluded, unlike every other alter
- *     form in this list, which IS included alongside their base operator.
+ * Explicit game glossary groups come from gamedata_const.termDescriptionDict,
+ * joined through character IDs. Wandering Medics use the actual job branch.
+ * Faction labels and rarity are not substitutes for these skill-specific groups.
+ * See scripts/imports/import-base-rosters.mjs for the source term IDs.
+
  */
 export const BASE_ROSTER_NAMES = [
   'OPERATION_PLATFORM', 'LATERANO', 'URSUS_STUDENT_SELF_GOVERNING_GROUP', 'GLASGOW', 'KNIGHTS',
   'TEAM_RAINBOW', 'LUNGMEN_GUARD_DEPARTMENT', 'ABYSSAL_HUNTERS', 'KARLAN_TRADE', 'MINOS', 'SARGON',
-  'DURIN', 'SUI', 'WANDERING_MEDIC', 'SAMI', 'ALTERNATE_OPERATOR', 'ELITE_OPERATOR',
+  'DURIN', 'SUI', 'WANDERING_MEDIC', 'SAMI', 'SIRACUSA', 'ALTERNATE_OPERATOR', 'ELITE_OPERATOR',
   'SOUBO_ADVENTURERS', 'A1_DETACHMENT', 'BLACKSTEEL_WORLDWIDE', 'PINUS_SYLVESTRIS', 'RHINE_LAB',
+  'R6_DEFENDING', 'R6_ATTACKING', 'LAIOS_PARTY', 'BUBBLE_KINGDOM_HUNTERS', 'SEES',
 ] as const;
 
 export type BaseRosterName = typeof BASE_ROSTER_NAMES[number];

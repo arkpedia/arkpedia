@@ -21,8 +21,7 @@
  *
  * Known, accepted gaps live in the baseline file next to this script, so a
  * clean run means "nothing new", not "nothing at all". Add to the baseline
- * only for a deliberate decision (Training Room and Workshop are unmodelled on
- * purpose); anything else appearing here is a bug or an operator to wire up.
+ * only for a deliberate decision (qualitative clue likelihoods have no published numeric probability); anything else appearing here is a bug or an operator to wire up.
  *
  *   npm run audit:base                 check against the baseline
  *   npm run audit:base -- --update     accept current state as the baseline
@@ -58,6 +57,8 @@ const SPECIAL_FILES = {
 // with the *_PATTERN constants in lib/base/baseProductivity.ts -- a facility
 // absent here has no generic parser, so its skills only count when handled.
 const GENERIC = {
+  'Training Room': [/training speed/i, /morale consumed per hour/i, /next training time/i],
+  Workshop: [/byproduct/i, /Morale/i, /LMD/i],
   Factory: [/productivity[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i, /capacity[^.]{0,30}?([+-]\d+)/i,
     /morale consumed per hour[^%\d]{0,10}?([+-]?\d+(?:\.\d+)?)/i,
     /morale (consumed per hour|loss)[^.]{0,20}?(of operators in the|of all operators)/i],
@@ -104,7 +105,7 @@ function readOperators() {
     const full = path.join(REPO, 'data', dir);
     for (const file of fs.readdirSync(full).filter((f) => f.endsWith('.json'))) {
       const op = JSON.parse(fs.readFileSync(path.join(full, file), 'utf8'));
-      out.push({ name: file.slice(0, -5), skills: op.baseSkills ?? [] });
+      out.push({ internalName: op.internalName, name: op.name, skills: op.baseSkills ?? [] });
     }
   }
   return out;
@@ -137,8 +138,7 @@ function slotTable() {
 
 /** Mirrors the slot-table branch of combinedSkillsForElite() in pages/base.tsx. */
 function activeSkills(opName, skills, facility, tierIndex, slots) {
-  const forFacility = skills.filter((s) => s.facility === facility);
-  const slotted = forFacility.map((s) => ({ s, meta: slots.get(`${opName}|${cleanName(s.name)}|${s.eliteLevel || 'Base'}`) }));
+  const slotted = skills.map((s) => ({ s, meta: typeof s.slot === 'number' && typeof s.phase === 'number' ? { slot: s.slot, phase: s.phase, level: s.level ?? 1 } : slots.get(`${opName}|${cleanName(s.name)}|${s.eliteLevel || 'Base'}`) }));
   if (!slotted.length || slotted.some((e) => !e.meta)) return null; // falls back to heuristics
   const best = new Map();
   for (const { s, meta } of slotted) {
@@ -148,7 +148,7 @@ function activeSkills(opName, skills, facility, tierIndex, slots) {
       best.set(meta.slot, { s, meta });
     }
   }
-  return [...best.values()].map(({ s }) => cleanName(s.name));
+  return [...best.values()].filter(({ s }) => s.facility === facility).map(({ s }) => s.buffId ?? cleanName(s.name));
 }
 
 function main() {
@@ -160,7 +160,7 @@ function main() {
   }
   const bd = JSON.parse(fs.readFileSync(path.join(GAMEDATA, 'building_data.json'), 'utf8'));
   const ct = JSON.parse(fs.readFileSync(path.join(GAMEDATA, 'character_table.json'), 'utf8'));
-  const buffs = bd.buffs;
+  const cn = process.env.ARKPEDIA_CN_BASE_BUILDING ? JSON.parse(fs.readFileSync(process.env.ARKPEDIA_CN_BASE_BUILDING, 'utf8')) : null;
   const byGameName = new Map();
   for (const [cid, c] of Object.entries(ct)) {
     if (!byGameName.has(c.name)) byGameName.set(c.name, []);
@@ -214,11 +214,13 @@ function main() {
       if (handledElsewhere(op.name, cleanName(s.name))) continue;
       found.coverage.push(`${fac}: ${key}`);
     }
-    const cids = (byGameName.get(ALIASES[op.name] ?? op.name) ?? []).filter((c) => bd.chars[c]);
+    const table = bd.chars[op.internalName] ? bd : cn;
+    const buffs = table?.buffs ?? {};
+    const cids = table?.chars[op.internalName] ? [op.internalName] : (byGameName.get(ALIASES[op.name] ?? op.name) ?? []).filter(c => table?.chars[c]);
     if (!cids.length) { found.unmatched.push(op.name); continue; }
     // An empty slot is stored as `buffData: {}`, not `[]`, so this cannot
     // assume an array -- 102 slots in the current dump look like that.
-    const chains = bd.chars[cids[0]].buffChar
+    const chains = table.chars[cids[0]].buffChar
       .map((sl) => (Array.isArray(sl.buffData) ? sl.buffData : []))
       .filter((chain) => chain.length > 0);
     for (const [tier, rank] of TIERS) {
@@ -231,13 +233,13 @@ function main() {
         const buff = buffs[bestStep.buffId];
         const f = ROOM_TO_FACILITY[buff.roomType];
         if (!truth.has(f)) truth.set(f, new Set());
-        truth.get(f).add(norm(buff.buffName));
+        truth.get(f).add(bestStep.buffId);
       }
       const facilities = new Set([...truth.keys(), ...op.skills.map((s) => s.facility)]);
       for (const fac of facilities) {
         const app = activeSkills(op.name, op.skills, fac, TIERS.findIndex(([t]) => t === tier), slots);
         if (app === null) continue; // not covered by the slot table; heuristics apply
-        const appSet = new Set(app.map(norm));
+        const appSet = new Set(app);
         const truthSet = truth.get(fac) ?? new Set();
         const extra = [...appSet].filter((x) => !truthSet.has(x));
         const missing = [...truthSet].filter((x) => !appSet.has(x));

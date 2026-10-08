@@ -713,13 +713,21 @@
       "name": "Personnel Management β",
       "facility": "Office",
       "eliteLevel": "Base",
-      "description": "When this Operator is assigned to the HR Office, HR contacting speed +35%"
+      "description": "When this Operator is assigned to the HR Office, HR contacting speed +35%",
+      "buffId": "hire_spd[001]",
+      "slot": 0,
+      "phase": 0,
+      "level": 1
     },
     {
       "name": "Shadow Gathering",
       "facility": "Reception Room",
       "eliteLevel": "Elite 2",
-      "description": "When this Operator is assigned to the Reception Room, Clue search speed increases by 20% , then by another 2% per hour, up to a maximum of 30%"
+      "description": "When this Operator is assigned to the Reception Room, Clue search speed increases by 20%, then by another 2% per hour, up to a maximum of 30%",
+      "buffId": "meet_spd_hast[000]",
+      "slot": 1,
+      "phase": 2,
+      "level": 1
     }
   ],
   "modules": [

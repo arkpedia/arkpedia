@@ -707,13 +707,21 @@
       "name": "Automation β",
       "facility": "Factory",
       "eliteLevel": "Base",
-      "description": "When this Operator is assigned to a Factory, the productivity contributed by all other Operators in that Factory becomes 0 (excluding productivity granted based on facility count), but each Power Plant increases that Factory's productivity by +10%"
+      "description": "When this Operator is assigned to a Factory, the productivity contributed by all other Operators in that Factory becomes 0 (excluding productivity granted based on facility count), but each Power Plant increases that Factory's productivity by +10%",
+      "buffId": "manu_prod_spd&power[010]",
+      "slot": 0,
+      "phase": 0,
+      "level": 1
     },
     {
       "name": "Bionic SeadragonReplacesAutomation β",
       "facility": "Factory",
       "eliteLevel": "Elite 2",
-      "description": "When this Operator is assigned to a Factory, the productivity contributed by all other Operators in that Factory becomes 0 (excluding productivity granted based on facility count), but each Power Plant increases that Factory's productivity by +15%"
+      "description": "When this Operator is assigned to a Factory, the productivity contributed by all other Operators in that Factory becomes 0 (excluding productivity granted based on facility count), but each Power Plant increases that Factory's productivity by +15%",
+      "buffId": "manu_prod_spd&power[020]",
+      "slot": 0,
+      "phase": 2,
+      "level": 1
     }
   ],
   "modules": [
