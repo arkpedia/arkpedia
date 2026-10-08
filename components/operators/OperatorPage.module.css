@@ -56,6 +56,9 @@
 }
 .gallery :global(.op-carousel-main) { flex: 1; min-height: 0; height: auto; }
 .artworkEmblem { position: absolute; top: 8%; left: 2.5%; width: 95%; height: 70%; color: var(--text); background-color: currentColor; mask-repeat: no-repeat; mask-position: center; mask-size: contain; mask-mode: luminance; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; -webkit-mask-size: contain; -webkit-mask-source-type: luminance; opacity: 0.055; pointer-events: none; }
+.artworkCaptionRow { display: flex; align-items: center; gap: 8px; padding-right: 12px; }
+.artworkCaptionRow > :first-child { flex: 1; min-width: 0; }
+.artworkCaptionRow > button { flex-shrink: 0; }
 .artworkCaption { display: grid; flex-shrink: 0; padding: 8px 12px 0; }
 .artworkCaptionVariant { display: grid; grid-area: 1 / 1; grid-template-columns: minmax(0, 1fr) fit-content(40%); align-items: baseline; gap: 4px 12px; min-width: 0; }
 .artworkName { min-width: 0; color: var(--text); font: 600 13px/1.5 var(--font-body); overflow-wrap: anywhere; }

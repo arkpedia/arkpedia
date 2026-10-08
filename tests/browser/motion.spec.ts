@@ -331,38 +331,26 @@ test.describe('reduced motion: nothing moves', () => {
   }
 });
 
-test('reduced motion: the /community carousel changes page at once, and never blanks its cards', async ({ browser }, info) => {
-  // components/ui/FadeCarousel fades out, swaps and fades back in every 6s. Under reduced
-  // motion shared.css stops the fade, so going to opacity 0 for its 400ms would only blank
-  // the cards: the page changes at once instead. The page's clock is paused once it has
-  // loaded (it runs in real time after install()), then stepped 100ms at a time, so every
-  // moment around the change is looked at.
+test('reduced motion: the World video gallery stays drawn and keeps its cards', async ({ browser }, info) => {
   const context = await contextFor(browser, info, 'reduce');
   const page = await context.newPage();
   await page.clock.install();
   await readOnly(page);
   await page.goto('/community');
-  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  const carousel = page.locator('.community-feeds [style*="touch-action"]').last();
-  await expect(carousel, 'the videos carousel is on the page').toBeVisible();
+  await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
+  const gallery = page.locator('.world-gallery');
+  await expect(gallery.locator('a[href]').first()).toBeVisible();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
-  const look = () => carousel.evaluate((el) => ({
-    cards: Array.from(el.querySelectorAll('a[href]')).map((a) => a.getAttribute('href')).join(' '),
+  const look = () => gallery.evaluate(el => ({
+    cards: Array.from(el.querySelectorAll('a[href]')).map(a => a.getAttribute('href')).join(' '),
     opacity: getComputedStyle(el).opacity,
   }));
-  const before = (await look()).cards;
-  const blank: string[] = [];
-  let changedAt = -1;
-  for (let t = 100; t <= 7000 && changedAt < 0; t += 100) {
-    await page.clock.runFor(100);
-    // React commits on a MessageChannel task, which the clock does not hold.
-    await page.evaluate(() => new Promise((resolve) => { const channel = new MessageChannel(); channel.port1.onmessage = () => resolve(null); channel.port2.postMessage(0); }));
-    const now = await look();
-    if (now.opacity !== '1') blank.push(`${t}ms: opacity ${now.opacity}`);
-    if (now.cards !== before) changedAt = t;
+  const before = await look();
+  expect(before.opacity, 'the gallery is visible after opening the tab').toBe('1');
+  for (let t = 0; t < 7; t++) {
+    await page.clock.runFor(1000);
+    expect(await look(), 'no timed fade or automatic card replacement').toEqual(before);
   }
-  expect(blank, 'the cards stay drawn around the change').toEqual([]);
-  expect(changedAt, 'and the page changes within its 6s interval').toBeGreaterThan(0);
   await context.close();
 });
 
@@ -463,6 +451,7 @@ test.describe('cards lift, and only by paint', () => {
     test(`${route}: every picture card rises on hover and keyboard focus, moves no layout box, and does not shrink when pressed`, async ({ page }) => {
       await readOnly(page);
       await page.goto(route);
+      if (route === '/community') await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
       await settle(page);
       const cards = await pictureCards(page);
       const kinds = [...new Map(cards.filter((c) => !NO_LIFT[c.kind]).map((c) => [c.kind, c])).values()];

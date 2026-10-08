@@ -1849,3 +1849,6 @@
 .recipe-stepper { margin-left: 0; }
 .recipe-stepper input { width: 44px; }
 .recipe-row .have > span:last-child { min-width: 4.5ch; text-align: left; }
+
+/* The goal filter is the first content below the page header, whose own gap supplies the air. */
+.planner-goal-filter:first-child { margin-top: 0; }

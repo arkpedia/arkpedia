@@ -2,7 +2,9 @@
 .heading { display: flex; align-items: center; gap: 9px; margin-bottom: var(--heading-gap); }
 .heading h2 { min-width: 0; }
 .heading > span { color: var(--text-dim); font: 600 12px/1 var(--font-mono); }
+.outfitSelect { min-width: 0; width: 100%; }
 .packRow { grid-column: 1 / -1; display: grid; grid-template-columns: 74px minmax(90px, 1fr); align-items: center; gap: 16px; min-width: 0; margin-bottom: 8px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent); }
+.withOutfit { grid-template-columns: minmax(0, 1fr) 74px minmax(90px, 1fr); }
 .packSelect { width: 74px; }
 .actor { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .actor span { color: var(--text-dim); font-size: 10px; line-height: 1.2; }
@@ -66,4 +68,9 @@
 
 @media (max-width: 420px) {
   .localeBadge { margin-left: auto; }
+}
+
+@container operatorDetails (max-width: 320px) {
+  .withOutfit { grid-template-columns: minmax(0, 1fr) 74px; }
+  .withOutfit .actor { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 6px; }
 }

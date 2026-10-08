@@ -1127,7 +1127,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
                would be the page reporting the network as an empty plan. */
             loading={selectedNames.some((n) => !detailCache[n])}
           />;
-  const goalFilter = selectedNames.length > 0 && <details className="pulls-disclosure">
+  const goalFilter = selectedNames.length > 0 && <details className="pulls-disclosure planner-goal-filter">
     <summary>View materials for selected goals</summary>
     <div className="skin-plan-filter-row"><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set())}>All</button><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set(selectedNames))}>None</button>
       {selectedNames.map(name => <label key={name} className="check"><input type="checkbox" checked={!excludedGoals.has(name)} onChange={e => setExcludedGoals(values => { const next = new Set(values); if (e.target.checked) next.delete(name); else next.add(name); return next; })} />{name}</label>)}

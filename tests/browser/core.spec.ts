@@ -105,19 +105,24 @@ const voiceScroller = `(() => {
   return document.scrollingElement;
 })()`;
 /** Picks a voice option by keyboard, and returns where the reader was just before the pick. */
-async function pickVoice(page: Page, group: string, code: string) {
-  const trigger = page.locator('#operator-voiceLines').getByRole('combobox', { name: 'Voice language' });
+async function pickVoiceOption(page: Page, label: string, value: string) {
+  const trigger = page.locator('#operator-voiceLines').getByRole('combobox', { name: label });
   await trigger.evaluate((el: HTMLElement) => el.focus({ preventScroll: true }));
   await page.keyboard.press('Enter');
-  const menu = page.getByRole('listbox', { name: 'Voice language' });
-  await expect(menu.getByRole('group', { name: group, exact: true }).getByRole('option', { name: code, exact: true })).toBeVisible();
-  const index = await menu.getByRole('option').evaluateAll((options, [g, c]) => options.findIndex(option =>
-    option.textContent === c && option.closest('[role="group"]')?.querySelector('[role="presentation"]')?.textContent === g), [group, code]);
+  const menu = page.getByRole('listbox', { name: label });
+  await expect(menu.getByRole('option', { name: value, exact: true })).toBeVisible();
+  const index = await menu.getByRole('option').evaluateAll((options, text) => options.findIndex(option => option.textContent?.trim() === text), value);
   expect(index).toBeGreaterThanOrEqual(0);
   await page.keyboard.press('Home');
   for (let i = 0; i < index; i++) await page.keyboard.press('ArrowDown');
   const before = await voicePlace(page);
   await page.keyboard.press('Enter');
+  return before;
+}
+async function pickVoice(page: Page, outfit: string, code: string) {
+  // Outfits now have their own picker; retain the same scrolling and clip-folder assertions.
+  const before = await pickVoiceOption(page, 'Voice outfit', outfit === 'Current recordings' ? 'Default outfit' : outfit);
+  await pickVoiceOption(page, 'Voice language', code);
   return before;
 }
 /** The first line the reader sees under the sticky player, the space reserved under the
@@ -147,8 +152,8 @@ async function scrollVoiceList(page: Page, fraction: number) {
 }
 
 /* An outfit with a voice of its own (Luo Xiaohei's Elite 2 art: 27 lines of its own and the 11
-   in-battle and tap lines recorded again, which the game never plays) is a group of its own in
-   the voice language menu. Picking it switches the lines and the folder the clips come from,
+   in-battle and tap lines recorded again, which the game never plays) has its own entry in
+   the voice outfit menu. Picking it switches the lines and the folder the clips come from,
    and a reader at the end of the list keeps the line they were reading where it was. */
 test('an outfit voice set switches the lines and the clip folder, keeping the reader\'s line in place', async ({ page }) => {
   const requested: string[] = [];

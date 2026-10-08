@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-08T16:57:00Z',
+    at: '2026-10-08T17:29:37Z',
     title: 'Skin planning, animated art and operator updates',
     added: [
       { title: 'Particles in animated outfit art', detail: 'Sparks, fire, petals and lightning now play in the animated art, as in the game; trails and a few effects come later.', href: '/skins' },
@@ -63,6 +63,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Shared effects in animated art', detail: 'Kal’tsit - Esperanta’s warning screens and other effects now play with their animations.', href: '/operators' },
       { title: 'Stable still and animated artwork framing', detail: 'Switching to animated art keeps the same zoom and position, including Haruka’s Stranded In Utopia.', href: '/skins' },
       { title: 'Dialogue and extra layers in animated art', detail: 'Exusiai and Kal’tsit play their authored dialogue poses, and Haruka’s extra layer plays with her artwork.', href: '/skins' },
+      { title: 'Phone layouts and outfit voice controls', detail: 'Operator and credit pages stay within the screen, and outfit voice selection keeps the line you are reading in place.', href: '/operators' },
       { title: 'Operator acquisition labels', detail: 'Adnachiel, Purestream and Estelle are marked recruitment-only; Steward is not.', href: '/operators' },
     ],
   },

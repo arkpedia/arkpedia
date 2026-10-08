@@ -1648,7 +1648,7 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 }
 
 .roster-reference { display: flex; gap: 8px; align-items: stretch; }
-.roster-reference > a { flex: 1; text-align: center; font-size: clamp(11px, 2.4vw, 14px); }
+.roster-reference > a { flex: 1; min-width: 0; padding-inline: 8px; white-space: normal; text-align: center; font-size: clamp(11px, 2.4vw, 14px); }
 
 .material-tier-1 { background: color-mix(in srgb, #a8a8a8 28%, var(--panel)); }
 .material-tier-2 { background: color-mix(in srgb, #7bb94c 28%, var(--panel)); }
@@ -1660,9 +1660,10 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .pulls-cert-months label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pulls-cert-months input { width: 80px; }
 
-.credit-database { display: grid; gap: 8px; margin-top: 16px; }
+.credit-database { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }
 .credit-database .op-section { margin: 0; }
-.credit-person { display: flex; justify-content: space-between; width: 100%; text-align: left; }
+.credit-person > span:first-child { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.credit-person { display: flex; gap: 8px; justify-content: space-between; width: 100%; text-align: left; }
 .credit-operators { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 12px 0; }
 .credit-operators a { display: flex; align-items: center; gap: 12px; }
 .credit-operators span { display: grid; }
