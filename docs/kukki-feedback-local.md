@@ -37,11 +37,11 @@ Data provenance:
 - Chibi index rebuild: `node scripts/build/build-chibi-index.mjs <SD manifest> <Spine subtree inventory> <skin_table.json> <SD commit> <Spine commit>`. Both inventories must match their commits.
 - Summon stats rebuild automatically in the stage refresh, with `scripts/build/build-operator-summons.mjs`; `ARKPEDIA_EN` and optional `ARKPEDIA_CN_CHARACTERS` select alternate game-table inputs.
 
-Validation logs are kept under `/tmp/feedback-*.log`; visual evidence is under `.cache/feedback/screenshots/` in this checkout. Validation:
+Validation logs are kept under `/tmp/feedback-*.log`; visual evidence is under `.cache/feedback/screenshots/` in this checkout. Validation after updating the branch onto main release `dbd446cc`:
 
-- `npm test`: 1,240 passed, three existing skips, zero failures.
+- `npm test`: 1,245 passed, three existing skips, zero failures.
 - `npm run typecheck`, `npm run lint`, `npm run check:styles` and `npm run check:payload-budgets`: passed. Lint retains existing warnings.
 - `ARKPEDIA_CONTENT_DISABLED=1 ARKPEDIA_YOUTUBE_FEED_FIXTURE=tests/fixtures/youtube-feeds.xml npm run build`: passed, including clean deployment traces and no game data compiled into browser chunks.
-- Production-built Playwright feedback/planner/pulls/music suites: 86 passed, 44 conditional platform skips, zero failures. The earlier dev-server timing failures did not reproduce in production.
+- Production-built Playwright feedback/planner/pulls/music suites: 88 passed, 44 conditional platform skips, zero failures. The earlier dev-server timing failures did not reproduce in production.
 - Final queue refinement: an EP removed from a shortened queue is restored first without changing the order of the other songs. The production build and typecheck passed again; feedback and music-resume browser suites passed 29 checks, with seven conditional mobile skips.
 - Production fixture feeds are deterministic examples for local browser testing; external creator feeds still run normally outside the fixture environment.
