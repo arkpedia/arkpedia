@@ -30,7 +30,9 @@ import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore,
 import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
 import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
 import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
-import { EventFurniture, EventNotices, EventPacks } from '@/components/events/EventExtras';
+import { announcedRewards } from '@/lib/events/announcements';
+import { RewardClick, RewardDetailsProvider, type ResolvedTicket } from '@/components/events/RewardDetails';
+import { EventFurniture, EventLoginDays, EventNotices, EventPacks, type LoginDetails } from '@/components/events/EventExtras';
 import { RewardSummaryCard } from '@/components/events/RewardSummary';
 import { RewardTile } from '@/components/events/RewardTile';
 import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
@@ -61,6 +63,8 @@ interface Props {
   rewardStores: ResolvedRewardStore[];
   /** Packs, furniture sets and announced gifts. Absent from a release compiled before them. */
   extras?: EventExtras;
+  tickets?: Record<string, ResolvedTicket>;
+  loginDetails?: Record<string, LoginDetails>;
   /** The free rewards as the shareable card (All). Absent from a release compiled before it. */
   summary?: RewardSummary | null;
   /** Where the rewards come from when not this event's own Global data (a rerun's original, CN). */
@@ -117,7 +121,7 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
   return (
     <div className="sidescroll event-rewards-grid">
       {items.map((item, i) => (
-        <div key={`${item.name}-${i}`} className="event-reward-panel" title={item.name}>
+        <RewardClick key={`${item.name}-${i}`} name={item.name} className="event-reward-panel">
           <div className="event-reward-icon-wrap">
             {item.iconPath && (
               <Image src={item.iconPath} alt={item.name} width={40} height={40} style={{ objectFit: 'contain' }} />
@@ -130,7 +134,7 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
               {item.price !== null ? `${item.price} ${item.currency}` : 'Free'}
             </span>
           </div>
-        </div>
+        </RewardClick>
       ))}
     </div>
   );
@@ -150,6 +154,7 @@ export default function EventDetailPage({
   rewardStores,
   materialOrder,
   extras = NO_EXTRAS,
+  tickets = {}, loginDetails = {},
   summary = null,
   rewardNote = null,
 }: Props) {
@@ -259,7 +264,7 @@ export default function EventDetailPage({
   }
 
   return (
-    <>
+    <RewardDetailsProvider tickets={tickets}>
       <PageHeader
         back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
@@ -354,7 +359,9 @@ export default function EventDetailPage({
                     ? activeStores.map((store) => (
                       <div key={store.name} className="event-reward-block">
                         <h3 className="event-reward-block-title">{store.name}</h3>
-                        <RewardStorePanelGrid items={store.items} />
+                        {loginDetails[store.name]?.days.length
+                          ? <EventLoginDays details={loginDetails[store.name]} />
+                          : <>{loginDetails[store.name]?.description && <p className="hint">{loginDetails[store.name].description}</p>}<RewardStorePanelGrid items={store.items} /></>}
                       </div>
                     ))
                     : <RewardStorePanelGrid items={activeStores[0]?.items ?? []} />
@@ -459,7 +466,7 @@ export default function EventDetailPage({
       {zooming && activeSkin?.image && (
         <SkinZoomOverlay image={activeSkin.image} name={activeSkin.name} dynamic={null} onClose={() => setZooming(false)} />
       )}
-    </>
+    </RewardDetailsProvider>
   );
 }
 
@@ -495,7 +502,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const eventRewards = (await import('@/data/event-rewards.json')).default as EventRewardsFile;
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
-  const rewardEntry = eventRewards.events[event.name];
+  const originalEntry = eventRewards.events[event.name];
+  const announced = announcedRewards(event.name, originalEntry?.groups ?? []);
+  const rewardEntry = originalEntry ? { ...originalEntry, groups: announced.groups } : { groups: announced.groups };
+
   // A rerun's store is its own (tokens for the operator, other stock), so it is never filled in
   // from the original run's: only the missions, first clears and furniture a rerun repeats are.
   // The store as the wiki lists it now (data/event-stores.json, refreshed by the event-stores
@@ -509,7 +519,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const rewardNote = fromOriginal
     ? `Missions, first clears and furniture are the original run's (${eventTitle(rewardEntry!.inheritsFrom!)}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
-      ? 'From the CN release: Global has not had this event yet, and its rewards may differ there. Items Global does not have yet keep their CN names.'
+      ? event.name === '[Celebration] Critical Phase Transition' ? 'The monthly card and Terra login gifts are confirmed by Global. Event rewards and paid packs include CN data and the JP livestream preview until the full Global notice; prices and sale windows may differ.' : 'From the CN release: Global has not had this event yet, and its rewards may differ there. Items Global does not have yet keep their CN names.'
       : isRerun(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
@@ -548,7 +558,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // The roster, read once for an event with any reward: the table rewards' operator icons, and
   // the reward card telling an operator from an item by name.
   const roster = tableRewards.length || rawStores.some((store) => store.items.length) ? getAllOperators() : [];
-  rewardStores.push(...tableRewardStores(tableRewards, (item) => {
+  const tableIcon = (item: import('@/lib/events/tableRewards').TableRewardItem) => {
     if (item.kind === 'operator') {
       const op = roster.find((o) => o.name === item.name);
       return op ? getOperatorIconPath(op) : null;
@@ -560,7 +570,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       (skinName) => findSkinIconPath(skinName.split(' / ').pop() ?? skinName) || null,
       publicFileExists,
     );
-  }));
+  };
+  rewardStores.push(...tableRewardStores(tableRewards, tableIcon));
 
   const catalogue = checkMaterialCatalogue((await import('@/data/material-catalogue.json')).default);
   const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
@@ -587,6 +598,15 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       skins,
       rewardStores,
       extras,
+      loginDetails: Object.fromEntries(tableRewards.filter(g => g.kind === 'login' && (g.daily?.length || g.description)).map(g => [g.title, { description: g.description ?? null, days: (g.daily ?? []).map(day => day.map(item => ({ name: item.name, count: item.count, iconPath: tableIcon(item) }))) }])),
+      tickets: Object.fromEntries(Object.entries(announced.tickets).map(([ticketName, ticket]) => [ticketName, {
+        ...ticket,
+        operators: ticket.operators.map(operatorName => {
+          const op = roster.find(o => o.name === operatorName);
+          if (!op) throw new Error(`Unknown selector operator: ${operatorName}`);
+          return { name: op.name, iconPath: getOperatorIconPath(op), href: `/operators/${encodeURIComponent(op.name)}` };
+        }),
+      }])),
       rewardNote,
       summary: rewardSummary(rewardStores, {
         groups: catalogue.groups,
