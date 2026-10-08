@@ -77,7 +77,8 @@ const source = createServer((request, response) => {
   response.end(fs.readFileSync(path.join(root, file)));
 });
 await new Promise(resolve => source.listen(3204, '127.0.0.1', resolve));
-const buildId = fs.readFileSync('.next/BUILD_ID', 'utf8');
+const buildFile = path.join(process.env.NEXT_DIST_DIR || '.next', 'BUILD_ID');
+const buildId = fs.readFileSync(buildFile, 'utf8');
 const log = fs.openSync('/tmp/arkpedia-content-runtime-server.log', 'w');
 const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', '3193'], {
   env: { ...process.env, ARKPEDIA_CONTENT_URL: 'http://127.0.0.1:3204', ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0' }, stdio: ['ignore', log, log],
@@ -181,7 +182,7 @@ try {
     console.log(`${name}: existing operator updated, new operator, stage and song appeared, banners updated, rollback and corruption fallback passed`);
     await context.close();
   }
-  assert.equal(fs.readFileSync('.next/BUILD_ID', 'utf8'), buildId);
+  assert.equal(fs.readFileSync(buildFile, 'utf8'), buildId);
   console.log(`All runtime checks passed against unchanged production build ${buildId}`);
 } finally {
   await browser?.close();
