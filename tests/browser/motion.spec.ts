@@ -342,14 +342,17 @@ test('reduced motion: the World video gallery stays drawn and keeps its cards', 
   await expect(gallery.locator('a[href]').first()).toBeVisible();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
   const look = () => gallery.evaluate(el => ({
-    cards: Array.from(el.querySelectorAll('a[href]')).map(a => a.getAttribute('href')).join(' '),
+    cards: Array.from(el.querySelectorAll('a[href]')).map(a => a.getAttribute('href')),
     opacity: getComputedStyle(el).opacity,
   }));
   const before = await look();
   expect(before.opacity, 'the gallery is visible after opening the tab').toBe('1');
   for (let t = 0; t < 7; t++) {
     await page.clock.runFor(1000);
-    expect(await look(), 'no timed fade or automatic card replacement').toEqual(before);
+    const now = await look();
+    expect(now.opacity, 'no timed fade hides the gallery').toBe('1');
+    // Lazy loading may append a batch; the cards already drawn must stay in place.
+    expect(now.cards.slice(0, before.cards.length), 'no automatic replacement of existing cards').toEqual(before.cards);
   }
   await context.close();
 });
