@@ -69,6 +69,7 @@
 
   --amber: #e0aa4e;
   --danger: #d4685c;
+  --status-positive: #62c48c;
   --danger-dim: rgba(212, 104, 92, 0.14);
   /* --danger is tuned as TEXT on a dark panel, which makes it far too light to
      sit UNDER white text: a white LIVE badge on it measured 3.11:1. This is the
@@ -294,6 +295,7 @@
 
   --amber: #8F5808;
   --danger: #C33D30;
+  --status-positive: #247744;
   --danger-dim: #FBE2DF;
   --danger-solid: #C33D30;
 
@@ -1320,6 +1322,10 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   font-size: 13px;
   color: var(--amber);
 }
+
+.countdown-timer-ends { color: var(--amber); }
+.countdown-timer-starts { color: var(--status-positive); }
+.countdown-timer-closed { color: var(--danger); }
 
 .support-social-row {
   display: flex;

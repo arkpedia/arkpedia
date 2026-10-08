@@ -127,14 +127,8 @@ body.front-page-no-scroll {
   justify-content: center;
   cursor: pointer;
 }
-/* Every state is 14px on the nose -- border-box, so the upcoming ring's stroke
-   is drawn inside the pip instead of growing it.
-   The inactive pip used to be --panel-2 inside a --line-soft ring, sitting on
-   --panel: 1.07:1 in dark and 1.13:1 in light. That is not subtle, it is
-   invisible, and in both themes rather than only the dark one. --text-dim is
-   the site's own de-emphasised colour, clears the 3:1 WCAG asks of a non-text
-   control (6.7:1 dark, 5.9:1 light), and still reads as plainly subordinate to
-   the teal. */
+/* A hollow pip marks upcoming stages; filled green marks open stages and red closed.
+   Selection changes the size, independently of stage availability. */
 .front-events-dot::before {
   content: '';
   box-sizing: border-box;
@@ -142,18 +136,14 @@ body.front-page-no-scroll {
   height: 14px;
   border-radius: 50%;
   border: 2px solid transparent;
-  background: var(--text-dim);
+  background: var(--status-positive);
   transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
 }
-.front-events-dot:hover::before { transform: scale(1.15); }
-.front-events-dot.active::before { background: var(--teal); transform: scale(1.15); }
-/* Amber says this slide's event has not started yet -- the panel mixes running
-   and upcoming events, and this is the only thing that tells them apart before
-   you open one. It was a DASHED ring, which read as an error rather than a
-   status; the colour carries it on its own. Hollow while unselected so it is
-   still distinguishable from the grey pips by shape and not by hue alone. */
-.front-events-dot.upcoming::before { border-color: var(--amber); background: var(--panel); }
-.front-events-dot.upcoming.active::before { background: var(--amber); border-color: var(--amber); }
+.front-events-dot:hover::before,
+.front-events-dot.active::before { transform: scale(1.15); }
+.front-events-dot.upcoming::before { border-color: var(--status-positive); background: var(--panel); }
+.front-events-dot.upcoming.active::before { background: var(--status-positive); }
+.front-events-dot.closed::before { background: var(--danger); }
 .front-events-dot:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; border-radius: 50%; }
 @media (prefers-reduced-motion: reduce) {
   .front-events-dot::before { transition: none; }
