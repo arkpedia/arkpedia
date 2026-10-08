@@ -12,7 +12,11 @@
  * the particles, a cone shape and steady births (lifetime 1-2 s). Then the real thing: a model's exported systems
  * (by default Hoshiguma's P1 export) on the illustration's clock.
  *
- *   npx tsx scripts/particles/bench.ts [path/to/layerParticles.json layerTextures]
+ *   npx tsx scripts/particles/bench.ts [path/to/layerParticles.json layerTextures [ACTION FROM TO]]
+ *
+ * With ACTION FROM TO (seconds into it), the model's frames from FROM to TO into that action, pressed after 4 s of
+ * Idle, are timed as well (Hoshiguma's Interact from 8.5 to 11.5 s: its fire rings, about 1,400 sub-emitter
+ * children); the median of 7 runs.
  */
 import fs from 'node:fs';
 import { performance } from 'node:perf_hooks';
@@ -92,6 +96,30 @@ function measure(doc: ParticleDocument, warmup: number): { live: number; median:
   return { live: Math.round(live / (FRAMES * BATCHES)), median: batches[batches.length >> 1], best: batches[0] };
 }
 interface Split { step: number; expand: number; total: number }
+
+/** The frames from `from` to `to` seconds into `action` (pressed after 4 s of Idle), per run; the median of 7 runs. */
+function measureAction(doc: ParticleDocument, action: string, from: number, to: number): { live: number; median: Split } {
+  const runs: (Split & { live: number })[] = [];
+  const buffer = new ArrayBuffer(16384 * 4 * 13 * 4);
+  for (let k = 0; k < 7; k++) {
+    const director = new ParticleDirector(doc, { precision: 32, degrade: false });
+    let stepMs = 0, expandMs = 0, frames = 0, live = 0;
+    for (let n = 0; n <= Math.round((4 + to) * 60); n++) {
+      const t = n * STEP, rel = t - 4;
+      const clock = rel < 0 ? { playing: 'Idle', animationTime: t, time: t } : { playing: action, animationTime: rel, time: t };
+      const t0 = performance.now();
+      director.frame(clock, n ? STEP : 0);
+      const t1 = performance.now();
+      expand(director.runs, doc, buffer);
+      const t2 = performance.now();
+      if (rel >= from) { stepMs += t1 - t0; expandMs += t2 - t1; frames++; live += director.live; }
+    }
+    runs.push({ step: stepMs / frames, expand: expandMs / frames, total: (stepMs + expandMs) / frames, live: live / frames });
+  }
+  runs.sort((a, b) => a.total - b.total);
+  const m = runs[runs.length >> 1];
+  return { live: Math.round(m.live), median: m };
+}
 const show = (r: Split) => `step ${r.step.toFixed(3)} + expand ${r.expand.toFixed(3)} = ${r.total.toFixed(3)} ms`;
 
 const MATERIAL = (custom: boolean) => ({
@@ -129,9 +157,13 @@ for (const count of [1000, 3000, 6000]) {
   const r = measure(mixFor(count), 240);
   console.log(`mix ${String(count).padStart(5)} (live ${r.live}): ${show(r.median)} (${show(r.best)})`);
 }
-const [file, first] = process.argv.slice(2);
+const [file, first, action, from, to] = process.argv.slice(2);
 if (file) {
   const doc = parseParticleDocument(JSON.parse(fs.readFileSync(file, 'utf8')), Number(first ?? 0));
   const r = measure(doc, 240);
   console.log(`${file.split('/').slice(-3, -1).join('/')}: ${doc.systems.filter(Boolean).length} systems, live ${r.live}: ${show(r.median)} (${show(r.best)})`);
+  if (action) {
+    const a = measureAction(doc, action, Number(from), Number(to));
+    console.log(`  ${action} +${from} to +${to} s: live ${a.live}: ${show(a.median)} (median of 7 runs)`);
+  }
 }

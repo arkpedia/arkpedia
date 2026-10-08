@@ -240,6 +240,36 @@ test('a bone follower places its systems: the origin through its whole placement
   assert.deepEqual(round(h.scale), [2, 2, 1]);
 });
 
+test('sub-emitter children draw: a child run expands where its parent\'s particles went, through its own emitter', () => {
+  // A spawner at x = 2 (draws nothing) sends one particle along +X at 6 Unity units a second; a local child at x = 5
+  // emits from it at 60 a second. The child's particles live in its emitter's space (x - 5), drawn through its matrix.
+  const material = { blend: 'add', texture: null, color: [1, 1, 1, 1], custom: null, cull: 0,
+    shader: { family: 'particle', main: { st: [1, 1, 0, 0], speed: [0, 0], scroll: [0, 0], fract: false }, distort: null, dissolve: [], edge: null, ramp: null, vertex: null, animated: [] } };
+  const system = (name: string, x: number, rest: Json) => ({ name, requires: ['sub'], only: null, delay: 0, active: true, follow: null, child: false,
+    emitter: { matrix: [1, 0, 0, x, 0, 1, 0, 0, 0, 0, 1, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, clock: { loop: false, maxAlive: 100 }, ...rest });
+  const doc = parseParticleDocument({
+    version: 1, unit: 0.01, camera: { size: 10, height: 2000 }, controller: { fixFxDelay: 1, animTimeFixed: 0 }, textures: [], meshes: [{ builtin: 'quad' }], materials: [material],
+    systems: [
+      system('spawner', 2, { sub: [[1, 'birth', 1]], emission: { rate: 0, bursts: [[0, 1, 1, 0.01, 1]] }, start: { lifetime: 10, speed: 0 }, velocity: { linear: [6, 0, 0] },
+        render: null, material: null }),
+      system('child', 5, { child: true, clock: { loop: true, maxAlive: 100 }, emission: { rate: 60 }, start: { lifetime: 100, speed: 0, size: 0.1 }, render: { mode: 'billboard' }, material: 0 }),
+    ],
+  }, 0);
+  assert.deepEqual(doc.skipped, []);
+  const director = new ParticleDirector(doc, { precision: 64, degrade: false, warn: () => {} });
+  for (let n = 0; n <= 30; n++) director.frame({ playing: 'Idle', animationTime: n / 60, time: n / 60 }, n ? 1 / 60 : 0);
+  const child = director.runs.find((run) => run.parent)!;
+  assert.deepEqual([director.runs.map((run) => run.data.index), child.on, child.sim.count > 20], [[0, 1], true, true], 'the child is a run of its own, on, with particles');
+  const out = new VertexArray(false);
+  const ctx = { unit: 0.01, cameraHeight: 2000, viewHeight: 0, conventions: PARTICLE_CONVENTIONS, fade: 1 };
+  const written = expandSystem({ data: child.data, sim: child.sim, matrix: child.matrix, scale: child.scale, alpha: 1, meshes: ['quad'], inputs: null }, ctx, out);
+  assert.equal(written, child.sim.count * 4);
+  for (let q = 0; q < child.sim.count; q++) {
+    const x = (out.f32[q * 4 * LEAN_FLOATS] + out.f32[(q * 4 + 3) * LEAN_FLOATS]) / 2, y = (out.f32[q * 4 * LEAN_FLOATS + 1] + out.f32[(q * 4 + 3) * LEAN_FLOATS + 1]) / 2;
+    assert.ok(x >= 200 - 1e-6 && x <= 200 + 300 + 1e-6 && Math.abs(y) < 1e-6, `a child particle drawn at (${x}, ${y}), on the parent's path from x = 200 to 500`);
+  }
+});
+
 /* --- every export (PARTICLE_EXPORTS) -------------------------------------------------------------- */
 
 const EXPORTS = process.env.PARTICLE_EXPORTS;

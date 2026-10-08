@@ -3,13 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
-  EXPORT_DEFAULTS, PARTICLE_LIMITS, RANDOM_KEYS, color32, curveBounds, evaluateColor, evaluateCurve, keysBounds, parseColor, parseCurve, parseParticleDocument,
-  parseParticleText, type ParticleDocument, type ParticleSystemData,
+  EXPORT_DEFAULTS, PARTICLE_LIMITS, RANDOM_KEYS, SUPPORTED_REQUIRES, color32, curveBounds, evaluateColor, evaluateCurve, keysBounds, parseColor, parseCurve,
+  parseParticleDocument, parseParticleText, sampleLine, type ParticleDocument, type ParticleSystemData,
 } from '../../lib/skins/particleData';
 import {
-  ACTION_END, LIVE_CAP, MODEL_SEED, ParticleDirector, ParticleSim, REDUCED_STILL, STEP, mix32, particleRandom, playSeed, poseFrom, poseInverseVector, posePoint,
-  poseVector, shapeStart, type ParticleClock, type ParticleOptions,
+  ACTION_END, LIVE_CAP, MODEL_SEED, ParticleDirector, ParticleSim, REDUCED_STILL, STEP, SWITCH_SLACK, identityPose, mix32, particleRandom, particleWord, playSeed, poseFrom,
+  poseInverseVector, posePoint, poseVector, shapeStart, type ParticleClock, type ParticleOptions, type Pose,
 } from '../../lib/skins/particleSim';
+import { followPlacement } from '../../lib/skins/particleGeometry';
 import { readGolden } from '../particles/golden';
 
 /*
@@ -26,6 +27,7 @@ import { readGolden } from '../particles/golden';
  */
 
 const GOLDEN = 'scripts/tests/fixtures/particles/golden.json.gz';
+const FAMILIES = 'scripts/tests/fixtures/particles/families.json.gz';
 const TOLERANCE = 1e-6;
 
 /* --- a layerParticles.json built in the test (the oracle tests' make_ps, in the export's terms) --- */
@@ -71,7 +73,7 @@ function records(sim: ParticleSim): number[][] {
   return out;
 }
 const near = (a: number, b: number, places = 7) => Math.abs(a - b) < 0.5 * 10 ** -places;
-const burst = (time = 0, count = 1, cycles = 1, interval = 0.01, probability = 1) => [time, count, cycles, interval, probability];
+const burst = (time = 0, count: number | unknown[] = 1, cycles = 1, interval = 0.01, probability = 1) => [time, count, cycles, interval, probability];
 
 /* --- curves and gradients (test_particle_oracle Curves) ---------------------------------------- */
 
@@ -422,18 +424,21 @@ test('golden: the committed cases match the oracle particle for particle (Float6
   }
   assert.ok(g.cases.length >= 30 && tags.size >= 100, `${g.cases.length} cases cover ${tags.size} feature tags`);
   assert.ok(g.cases.some((c) => c.steps === 600), 'with 10 s cases');
+  assert.ok(tags.has('shape.mesh'), 'with a mesh shape (sampled as the oracle samples one)');
   t.diagnostic(`${g.cases.length} cases, ${tags.size} feature tags, ${worst.values} values: max abs ${worst.abs.toExponential(2)}, max rel ${worst.rel.toExponential(2)} (${worst.where})`);
 });
 
 const FULL = process.env.PARTICLE_GOLDEN_DIR;
+/** What a full export's reader leaves out: only what carries trails (v2), and what is tied to it. */
+const notTrails = (doc: ParticleDocument) => doc.skipped.filter((s) => !/^(requires trail|trail \(not drawn yet\)|tied to .* \((requires trail|trail \(not drawn yet\)))/.test(s.why));
 test('golden: the full selection, every particle at every step (PARTICLE_GOLDEN_DIR)', { skip: !FULL && 'PARTICLE_GOLDEN_DIR names no make-golden.py --full folder' }, (t) => {
   const precision = process.env.PARTICLE_GOLDEN_PRECISION === '32' ? 32 : 64;
   const worst: Worst = { abs: 0, rel: 0, values: 0, where: '' };
   let cases = 0, systems = 0, steps = 0, models = 0;
-  for (const file of fs.readdirSync(FULL!).filter((name) => name.endsWith('.json.gz')).sort()) {
+  for (const file of fs.readdirSync(FULL!).filter((name) => name.endsWith('.json.gz') && !name.endsWith('.families.json.gz')).sort()) {
     const model = readGolden<{ first: number; doc: Json; cases: GoldenCase[] }>(path.join(FULL!, file));
     const doc = parseParticleDocument(model.doc, model.first);
-    assert.deepEqual(doc.skipped, [], `${file}: the reader understands every system`);
+    assert.deepEqual(notTrails(doc), [], `${file}: the reader understands every system but those with trails`);
     models++;
     systems += doc.systems.length;
     for (const c of model.cases) {
@@ -444,6 +449,305 @@ test('golden: the full selection, every particle at every step (PARTICLE_GOLDEN_
   }
   t.diagnostic(`${models} models (${systems} systems read), ${cases} cases, ${steps} steps, ${worst.values} values (Float${precision}): max abs ${worst.abs.toExponential(2)}, `
     + `max rel ${worst.rel.toExponential(2)} (${worst.where})`);
+});
+
+/* --- sub-emitter families: a parent and its children against the oracle's ---------------------- */
+
+interface FamilyCase {
+  model: string; parent: number; members: number[]; names: string[]; seeds: number[]; poses: number[][]; tags: string[]; counts: number[][];
+  first?: number; doc?: Json; at?: number[]; sums?: number[][][]; samples?: Record<string, { at: number[]; records: number[][] }>[]; frames?: number[][][][];
+}
+
+/** Plays one family (its parent's links in the export's order, the fixture's poses and seeds) and checks every
+ *  member after play() and every step: `frames` (the full fixture), or the compact sums and samples. */
+function checkFamily(c: FamilyCase, doc: ParticleDocument, at: readonly number[], steps: number, worst: Worst, precision: 32 | 64 = 64): void {
+  const datas = at.map((k) => doc.systems[k]!);
+  const sims = datas.map((data) => new ParticleSim(data, doc, {}, precision));
+  const parent = sims[0];
+  assert.equal(datas[0].sub.length, sims.length - 1);
+  datas[0].sub.forEach(([index, kind, probability], j) => {
+    assert.equal(index, at[j + 1]);
+    parent.link(sims[j + 1], kind, probability);
+  });
+  const poses = c.poses.map((p) => Float64Array.from(p));
+  const childPoses = poses.slice(1);
+  parent.play(c.seeds[0], poses[0], childPoses);
+  const r = new Float64Array(30);
+  for (let step = 0; step <= steps; step++) {
+    if (step) parent.step(STEP, poses[0], datas[0].clock.speed, childPoses);
+    sims.forEach((sim, j) => {
+      const label = () => `${c.model} ${c.names[j]} (family of ${c.names[0]}) step ${step}`;
+      assert.equal(sim.count, c.counts[step][j], `${label()}: particles`);
+      if (c.frames) {
+        const frame = c.frames[step][j];
+        for (let i = 0; i < sim.count; i++) {
+          sim.record(i, r);
+          for (let k = 0; k < 30; k++) compare(r[k], frame[i][k], worst, () => `${label()} particle ${i} value ${k}`);
+        }
+        return;
+      }
+      const sums = new Float64Array(GROUPS.length), magnitude = new Float64Array(GROUPS.length);
+      for (let i = 0; i < sim.count; i++) {
+        sim.record(i, r);
+        GROUPS.forEach(([a, b], g) => { for (let k = a; k < b; k++) { sums[g] += r[k]; magnitude[g] += Math.abs(r[k]); } });
+      }
+      GROUPS.forEach((_, g) => compare(sums[g], c.sums![step][j][g], worst, () => `${label()} sum ${g}`, Math.max(1, magnitude[g])));
+      const sample = c.samples?.[j]?.[String(step)];
+      if (sample) {
+        sample.at.forEach((i, k) => {
+          sim.record(i, r);
+          sample.records[k].forEach((value, v) => compare(r[v], value, worst, () => `${label()} particle ${i} value ${v}`));
+        });
+      }
+    });
+  }
+}
+
+test('golden families: committed sub-emitter families match the oracle particle for particle, parents and children (Float64, 1e-6)', (t) => {
+  const g = readGolden<{ steps: number; families: FamilyCase[] }>(FAMILIES);
+  const worst: Worst = { abs: 0, rel: 0, values: 0, where: '' };
+  const tags = new Set<string>();
+  let children = 0;
+  for (const c of g.families) {
+    const doc = parseParticleDocument(c.doc, c.first!);
+    assert.deepEqual(doc.skipped, [], `${c.model} ${c.names[0]}: every member read`);
+    checkFamily(c, doc, c.at!, g.steps, worst);
+    for (const tag of c.tags) tags.add(tag);
+    children += c.members.length - 1;
+  }
+  for (const tag of ['link.birth', 'link.death', 'child.space=world', 'child.space=local', 'child.bursts', 'child.distance', 'parent.spawner', 'parent.prewarm', 'parent.follow']) {
+    assert.ok(tags.has(tag), `the committed families cover ${tag}`);
+  }
+  assert.ok(g.families.some((c) => c.model === 'char_1044_hsgma2_2'), 'Hoshiguma\'s among them');
+  assert.ok(g.families.every((c) => c.counts.some((step) => step.slice(1).some((n) => n > 0))), 'every family\'s children emit');
+  t.diagnostic(`${g.families.length} families (${children} children), ${tags.size} tags, ${worst.values} values: max abs ${worst.abs.toExponential(2)}, `
+    + `max rel ${worst.rel.toExponential(2)} (${worst.where})`);
+});
+
+test('golden families: through the director (its gate, its grid, its child poses) a family plays exactly as the oracle\'s', (t) => {
+  const g = readGolden<{ steps: number; families: FamilyCase[] }>(FAMILIES);
+  const worst: Worst = { abs: 0, rel: 0, values: 0, where: '' };
+  let played = 0;
+  for (const c of g.families) {
+    const doc = parseParticleDocument(c.doc, c.first!);
+    const members = c.at!.map((k) => doc.systems[k]!);
+    if (members.some((m) => m.follow || m.timeline)) continue; // the fixture's poses are the still emitters' only there
+    const d = new ParticleDirector(doc, { precision: 64, degrade: false, warn: () => {} });
+    const runs = c.at!.map((k) => d.runs.find((run) => run.data.index === k)!);
+    // The fixture's seeds are playSeed(0x5EED, the full export's index, 1): give each system its index there.
+    members.forEach((m, j) => { m.index = c.members[j]; });
+    assert.deepEqual(runs.slice(1).map((run) => run.parent), runs.slice(1).map(() => runs[0]));
+    const parent = members[0];
+    const r = new Float64Array(30);
+    for (let step = 0; step <= g.steps; step++) {
+      const time = parent.delay + step / 60;
+      d.frame(parent.only ? { playing: parent.only, animationTime: time, time } : { playing: 'Idle', animationTime: time, time }, step ? 1 / 60 : 0);
+      runs.forEach((run, j) => {
+        const label = () => `${c.model} ${c.names[j]} (director) step ${step}`;
+        assert.equal(run.sim.count, c.counts[step][j], `${label()}: particles`);
+        const sums = new Float64Array(GROUPS.length), magnitude = new Float64Array(GROUPS.length);
+        for (let i = 0; i < run.sim.count; i++) {
+          run.sim.record(i, r);
+          GROUPS.forEach(([a, b], k) => { for (let v = a; v < b; v++) { sums[k] += r[v]; magnitude[k] += Math.abs(r[v]); } });
+        }
+        GROUPS.forEach((_, k) => compare(sums[k], c.sums![step][j][k], worst, () => `${label()} sum ${k}`, Math.max(1, magnitude[k])));
+      });
+    }
+    played++;
+  }
+  assert.ok(played >= 5, `${played} families through the director`);
+  t.diagnostic(`${played} families, ${worst.values} values: max abs ${worst.abs.toExponential(2)}, max rel ${worst.rel.toExponential(2)}`);
+});
+
+test('golden families: every selected family, every particle at every step (PARTICLE_GOLDEN_DIR)', { skip: !FULL && 'PARTICLE_GOLDEN_DIR names no make-golden.py --full folder' }, (t) => {
+  const precision = process.env.PARTICLE_GOLDEN_PRECISION === '32' ? 32 : 64;
+  const worst: Worst = { abs: 0, rel: 0, values: 0, where: '' };
+  let families = 0, members = 0, models = 0;
+  const hoshiguma: string[] = [];
+  for (const file of fs.readdirSync(FULL!).filter((name) => name.endsWith('.families.json.gz')).sort()) {
+    const model = readGolden<{ first: number; doc: Json; steps: number; families: FamilyCase[] }>(path.join(FULL!, file));
+    const doc = parseParticleDocument(model.doc, model.first);
+    models++;
+    for (const c of model.families) {
+      checkFamily(c, doc, c.members, model.steps, worst, precision);
+      families++;
+      members += c.members.length;
+      if (c.model === 'char_1044_hsgma2_2') hoshiguma.push(c.names[0]);
+    }
+  }
+  t.diagnostic(`${models} models, ${families} families (${members} systems; Hoshiguma's ${hoshiguma.length}), ${worst.values} values (Float${precision}): `
+    + `max abs ${worst.abs.toExponential(2)}, max rel ${worst.rel.toExponential(2)} (${worst.where})`);
+});
+
+/* --- sub-emitters on records (the oracle's semantics, README "Sub-emitters") ---------------------- */
+
+/** A parent (system 0) and its children (1...), linked in order with `kinds`; Float64 simulations of them. */
+function familyOf(parent: Json, children: Json[], kinds: ('birth' | 'death')[], probability = 1) {
+  const doc = parseParticleDocument(documentOf({ ...parent, requires: ['sub'], sub: children.map((_, j) => [j + 1, kinds[j], probability]) },
+    ...children.map((c) => ({ ...c, requires: ['sub'], child: true }))), 0);
+  assert.deepEqual(doc.skipped, []);
+  const sims = doc.systems.map((data) => new ParticleSim(data!, doc, {}, 64));
+  sims.slice(1).forEach((child, j) => sims[0].link(child, kinds[j], probability));
+  return { parent: sims[0], children: sims.slice(1) };
+}
+const at = (x: number, y: number, z: number): Pose => poseFrom([1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z], [0, 0, 0, 1]);
+function runFamily(f: ReturnType<typeof familyOf>, seconds: number, pose: Pose = identityPose(), childPoses: Pose[] = f.children.map(() => identityPose())): void {
+  f.parent.play(7, pose, childPoses);
+  for (let i = 0; i < Math.round(seconds * 60); i++) f.parent.step(1 / 60, pose, undefined, childPoses);
+}
+const positions = (sim: ParticleSim) => Array.from({ length: sim.count }, (_, i) => [sim.px[i], sim.py[i], sim.pz[i]]);
+
+test('sub-emitters: a birth link emits from each parent particle on that particle\'s clock; a child never plays alone', () => {
+  // Three still parents on a sphere's surface, alive 2 s; a child at 10/s from each, as long as each lives.
+  const f = familyOf(record({ emission: { bursts: [burst(0, 3)] }, start: { lifetime: 2, speed: 0 }, shape: { type: 'sphere', thickness: 0 } }),
+    [record({ clock: { loop: true }, emission: { rate: 10 }, start: { lifetime: 100, speed: 0 } })], ['birth']);
+  runFamily(f, 1);
+  const [child] = f.children;
+  assert.ok(child.count >= 28 && child.count <= 30, `${child.count} from 3 parents at 10/s over 1 s`);
+  const parents = positions(f.parent);
+  for (const p of positions(child)) assert.ok(parents.some((q) => q.every((v, k) => Math.abs(v - p[k]) < 1e-9)), 'each born where its parent is');
+  runFamily(f, 3);
+  assert.equal(child.emittedTotal, 57, 'none after the parents die at 2 s: 19 each (0.1 ... 1.9 s)');
+  assert.throws(() => child.play(1), /plays only through its parent/);
+  assert.throws(() => child.step(1 / 60), /steps only through its parent/);
+  assert.throws(() => f.parent.step(1 / 60), /sub-emitters' poses are needed/);
+  assert.throws(() => f.parent.link(child, 'birth', 1), /one parent/);
+});
+
+test('sub-emitters: a death link fires each of its bursts once where a parent particle dies, placed in the root', () => {
+  // Two parents moving +Z at 2 u/s for 0.5 s from an emitter at x = 10; a world child bursts 4 and 1 x 3 cycles.
+  const f = familyOf(record({ emission: { bursts: [burst(0, 2)] }, start: { lifetime: 0.5, speed: 2 } }),
+    [record({ clock: { space: 'world' }, emission: { bursts: [burst(0, 4), burst(0.1, 1, 3, 0.01)] }, start: { lifetime: 10, speed: 0 } })], ['death']);
+  runFamily(f, 1, at(10, 0, 0));
+  const [child] = f.children;
+  assert.equal(child.count, 10, 'each burst once a death (cycles are a loop\'s, not a death\'s): 5 for each of 2');
+  for (const [x, y, z] of positions(child)) assert.ok(Math.abs(x - 10) < 1e-9 && Math.abs(y) < 1e-9 && z > 0.9 && z <= 1.0 + 1e-9, `${x} ${y} ${z}`);
+});
+
+test('sub-emitters: a link fires with its probability per parent particle; a non-looping child stops after its duration; maxParticles drops', () => {
+  const parent = record({ emission: { bursts: [burst(0, 3)] }, start: { lifetime: 2, speed: 0 } });
+  const never = familyOf(parent, [record({ clock: { loop: true }, emission: { rate: 10 } })], ['birth'], 0);
+  runFamily(never, 1);
+  assert.equal(never.children[0].emittedTotal, 0);
+  const short = familyOf(parent, [record({ clock: { loop: false, duration: 0.3 }, emission: { rate: 10 }, start: { lifetime: 100 } })], ['birth']);
+  runFamily(short, 1.5);
+  assert.equal(short.children[0].emittedTotal, 9, '3 a parent: its 0.3 s at 10/s, though the parents live on');
+  const capped = familyOf(parent, [record({ clock: { loop: true, maxParticles: 5 }, emission: { rate: 10 }, start: { lifetime: 100 } })], ['birth']);
+  runFamily(capped, 1);
+  assert.equal(capped.children[0].count, 5);
+});
+
+test('sub-emitters: rate over distance counts the parent particle\'s own path; a child prewarms with its parent', () => {
+  const mover = familyOf(record({ emission: { bursts: [burst(0, 1)] }, start: { lifetime: 10, speed: 4 } }),
+    [record({ clock: { loop: true }, emission: { rate: 0, distance: 5 }, start: { lifetime: 100 } })], ['birth']);
+  runFamily(mover, 1);
+  assert.ok(Math.abs(mover.children[0].count - 20) <= 1, `${mover.children[0].count}: 4 u at 5 a unit`);
+  const warm = familyOf(record({ clock: { loop: true, prewarm: true, prewarmWindow: 2, duration: 2 }, emission: { rate: 5 }, start: { lifetime: 1, speed: 0 } }),
+    [record({ clock: { loop: true }, emission: { rate: 10 }, start: { lifetime: 0.5 } })], ['birth']);
+  warm.parent.play(1, identityPose(), [identityPose()]);
+  assert.ok(warm.parent.count >= 4 && warm.children[0].count >= 15, `${warm.parent.count} parents and ${warm.children[0].count} children, prewarmed`);
+});
+
+test('sub-emitters: a local child sees its parent particle from its own emitter; a world child takes the root position', () => {
+  const f = familyOf(record({ emission: { bursts: [burst(0, 1)] }, start: { lifetime: 10, speed: 0 } }),
+    [record({ emission: { bursts: [burst(0, 1)] }, start: { lifetime: 10 } }), record({ clock: { space: 'world' }, emission: { bursts: [burst(0, 1)] }, start: { lifetime: 10 } })],
+    ['birth', 'birth']);
+  runFamily(f, 0.1, at(1, 2, 0), [at(5, 0, 0), at(5, 0, 0)]);
+  assert.deepEqual(positions(f.children[0]).map((p) => p.map((v) => Math.round(v * 1e9) / 1e9)), [[-4, 2, 0]]);
+  assert.deepEqual(positions(f.children[1]).map((p) => p.map((v) => Math.round(v * 1e9) / 1e9)), [[1, 2, 0]]);
+});
+
+test('sub-emitters: a child\'s particles never depend on other parent particles (each draws from its own link generator)', () => {
+  const child = record({ clock: { loop: true }, emission: { rate: ['r', 5, 15], bursts: [burst(0, ['r', 1, 4])] }, start: { lifetime: 100, speed: ['r', 1, 2] }, shape: { type: 'sphere' } });
+  const three = familyOf(record({ emission: { bursts: [burst(0, 3)] }, start: { lifetime: 10, speed: 0 } }), [child], ['birth']);
+  const four = familyOf(record({ emission: { bursts: [burst(0, 4)] }, start: { lifetime: 10, speed: 0 } }), [child], ['birth']);
+  runFamily(three, 1);
+  runFamily(four, 1);
+  const key = (r: number[]) => r.map((v) => v.toFixed(9)).join(',');
+  const more = new Set(records(four.children[0]).map(key));
+  assert.ok(records(three.children[0]).every((r) => more.has(key(r))), 'the first three parents\' children, unchanged by a fourth');
+  assert.ok(four.children[0].count > three.children[0].count);
+  assert.equal(particleWord(12345, 0) >>> 9, Math.round(particleRandom(12345, 0) * 8388607));
+});
+
+test('sub-emitter families: the reader keeps a family whole or leaves all of it out', () => {
+  const child = record({ requires: ['sub'], child: true });
+  const parent = (links: number[][]) => record({ requires: ['sub'], sub: links.map(([c]) => [c, 'birth', 1]) });
+  const why = (...systems: Json[]) => parseParticleDocument(documentOf(...systems), 0).skipped.map((s) => s.why);
+  assert.deepEqual(why(parent([[1]]), child), []);
+  assert.match(why(parent([[2]]), parent([[2]]), child).join(), /a sub-emitter with 2 parents/);
+  assert.match(why(parent([[1]]), record({ requires: ['sub'] })).join(), /not marked child/);
+  assert.match(why(parent([[1]]), { ...child, sub: [[2, 'birth', 1]] }, child).join(), /sub-emitters of its own/);
+  assert.match(why(parent(Array.from({ length: 9 }, (_, i) => [i + 1])), ...Array.from({ length: 9 }, () => child)).join(), /more than 8/);
+  assert.equal(parseParticleDocument(documentOf(parent([[2]]), parent([[2]]), child), 0).systems.filter(Boolean).length, 0, 'every system tied to it goes');
+});
+
+test('director: children sit in runs with their parent, play and clear with it, and fail alone', () => {
+  const parent = record({ only: 'Interact', delay: 0.5, requires: ['sub'], sub: [[1, 'birth', 1]], render: null, material: null,
+    emission: { bursts: [burst(0, 2)] }, start: { lifetime: 3, speed: 0 } });
+  const child = record({ only: 'Interact', delay: 0.5, requires: ['sub'], child: true, clock: { loop: true }, emission: { rate: 30 }, start: { lifetime: 100, speed: 0 } });
+  const warnings: string[] = [];
+  const d = director([parent, child], { warn: (m) => warnings.push(m) });
+  assert.deepEqual([d.runs.length, d.runs[1].parent, d.runs[0].children[0], d.runs[0].sim.links.length], [2, d.runs[0], d.runs[1], 1]);
+  playFrames(d, 60, 0, 1);
+  assert.deepEqual([d.runs[0].on, d.runs[1].on, d.live], [false, false, 0]);
+  playFrames(d, 60, 0, 1.5, (t) => clockAt(1 + t, 'Interact', t));
+  assert.deepEqual([d.runs[0].on, d.runs[1].on, d.runs[1].plays], [true, true, 1]);
+  assert.ok(Math.abs(d.runs[1].sim.count - 60) <= 2, `${d.runs[1].sim.count}: 2 parents at 30/s for 1 s`);
+  assert.equal(d.live, d.runs[0].sim.count + d.runs[1].sim.count);
+  playFrames(d, 60, 0, 0.1, (t) => clockAt(2.6 + t, 'Idle', t));
+  assert.deepEqual([d.runs[0].on, d.runs[1].on, d.live], [false, false, 0], 'the action ended: the family vanishes (ACTION_END)');
+  // A child that goes non-finite is switched off alone; its parent plays on.
+  const e = director([parent, child], { warn: (m) => warnings.push(m) });
+  e.runs[1].data.start.speed.scalar = NaN;
+  playFrames(e, 60, 0, 1.5, (t) => clockAt(t, 'Interact', t));
+  assert.deepEqual([e.runs[1].failed, e.runs[1].on, e.runs[1].sim.count, e.runs[0].failed, e.runs[0].on], [true, false, 0, false, true]);
+  assert.match(warnings.at(-1)!, /switched off: a value went non-finite/);
+});
+
+test('director: with ACTION_END finish, a family whose action ended lives out its particles, its children still driven', () => {
+  const parent = record({ only: 'Interact', requires: ['sub'], sub: [[1, 'birth', 1]], clock: { loop: true }, emission: { rate: 10 }, start: { lifetime: 1, speed: 0 } });
+  const child = record({ only: 'Interact', requires: ['sub'], child: true, clock: { loop: true }, emission: { rate: 20 }, start: { lifetime: 0.5, speed: 0 } });
+  const d = director([parent, child], { actionEnd: 'finish' });
+  playFrames(d, 60, 0, 2, (t) => clockAt(t, 'Interact', t));
+  playFrames(d, 60, 0, 0.5, (t) => clockAt(2 + t, 'Idle', t));
+  assert.deepEqual([d.runs[0].finishing, d.runs[1].finishing, d.runs[1].on], [true, true, true]);
+  const born = d.runs[1].sim.emittedTotal;
+  playFrames(d, 60, 0.5, 0.8, (t) => clockAt(2 + t, 'Idle', t));
+  assert.ok(d.runs[1].sim.emittedTotal > born, 'the parents still alive still emit children');
+  playFrames(d, 60, 0.8, 3, (t) => clockAt(2 + t, 'Idle', t));
+  assert.deepEqual([d.runs[0].sim.familyCount, d.runs[0].on, d.runs[1].on, d.live], [0, false, false, 0], 'until the family is empty');
+});
+
+test('director: a child whose own GameObject a clip switches off is cleared and its births dropped', () => {
+  const parent = record({ requires: ['sub'], sub: [[1, 'birth', 1]], clock: { loop: true }, emission: { rate: 5 }, start: { lifetime: 10, speed: 0 } });
+  const child = record({ requires: ['sub'], child: true, clock: { loop: true }, emission: { rate: 10 }, start: { lifetime: 100, speed: 0 },
+    emitter: { timeline: timeline([[0, 1], [1, 0], [2, 1], [3, 1]]) } });
+  const d = director([parent, child]);
+  playFrames(d, 60, 0, 0.9);
+  assert.ok(d.runs[1].sim.count > 0 && d.runs[1].on);
+  playFrames(d, 60, 0.9, 1.5);
+  const dropped = d.runs[1].sim.emittedTotal;
+  playFrames(d, 60, 1.5, 1.95);
+  assert.deepEqual([d.runs[1].sim.count, d.runs[1].on, d.runs[1].sim.emittedTotal], [0, false, dropped], 'cleared, and nothing born while off');
+  playFrames(d, 60, 1.95, 2.5);
+  assert.ok(d.runs[1].sim.count > 0 && d.runs[1].on && d.runs[0].plays === 1, 'on again, its parent never restarted');
+});
+
+test('director: a follower places a Local-scaling emitter turned by its rotation alone, a Hierarchy one through all of it', () => {
+  // The bone at (300, 400), turned 90 degrees and scaled 2 (localScale); 100 skeleton units a follower unit.
+  const follow = { bone: 'hand', xy: true, rotation: true, localScale: true, mirrored: false, parent: [100, 0, 0, 100] as [number, number, number, number],
+    position: [0, 0] as [number, number], angle: 0 };
+  const bone = { worldX: 300, worldY: 400, scaleX: 2, scaleY: 2, getWorldRotationX: () => 90 };
+  const emitter = { matrix: [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] };
+  const placed = (scaling: 'local' | 'hierarchy') => {
+    const d = director([record({ follow, emitter, clock: { loop: true, scaling }, emission: { rate: 10 } })]);
+    for (let n = 0; n <= 12; n++) d.frame(clockAt(n / 60), n ? 1 / 60 : 0, (data) => followPlacement(data.follow!, bone, 0.01, data.clock.scaling));
+    return { matrix: Array.from(d.runs[0].matrix).map((v) => Math.round(v * 1e9) / 1e9), scale: Array.from(d.runs[0].scale) };
+  };
+  // The origin (1, 0, 0) through the whole placement either way: (3 + 0, 4 + 2, 0); sizes take the bone's scale under Hierarchy.
+  assert.deepEqual(placed('local'), { matrix: [0, -1, 0, 3, 1, 0, 0, 6, 0, 0, 1, 0], scale: [1, 1, 1] });
+  assert.deepEqual(placed('hierarchy'), { matrix: [0, -2, 0, 3, 2, 0, 0, 6, 0, 0, 1, 0], scale: [2, 2, 1] });
 });
 
 /* --- the reader: strict per system, never the whole file for one system ------------------------- */
@@ -486,16 +790,19 @@ test('the reader refuses a file it does not know as a whole, and leaves out only
 });
 
 test('requires: a system needing a capability this reader lacks is left out with every system tied to it', () => {
-  // A sub-emitter parent (1) and its child (2), and an unrelated system (0) that still plays. Sub-emitters arrive with P4.
+  // A sub-emitter parent (1) and its child (2) whose child carries trails (v2), and an unrelated system (0) that still plays.
   const parent = record({ requires: ['sub'], sub: [[2, 'death', 1]], emission: { rate: 5 } });
-  const child = record({ requires: ['sub'], child: true });
+  const child = record({ requires: ['sub', 'trail'], child: true });
   const doc = parseParticleDocument(documentOf(record({ emission: { rate: 5 } }), parent, child), 0);
   assert.ok(doc.systems[0]);
   assert.deepEqual([doc.systems[1], doc.systems[2]], [null, null]);
-  assert.deepEqual(doc.skipped.map((s) => s.why), ['requires sub (not simulated yet)', 'requires sub (not simulated yet)']);
-  // One understood system tied to one that is not goes too.
+  assert.deepEqual(doc.skipped.map((s) => s.why), ['tied to test (requires trail (not simulated yet))', 'requires trail (not simulated yet)']);
+  // One understood system tied to one that is not goes too; `sub` itself is understood (P4).
   const tied = parseParticleDocument(documentOf(record({ sub: [[1, 'birth', 1]], requires: ['sub'] }), record({ requires: ['sub', 'wind'], child: true })), 0);
   assert.deepEqual(tied.systems, [null, null]);
+  assert.ok(SUPPORTED_REQUIRES.has('sub') && !SUPPORTED_REQUIRES.has('trail'));
+  const family = parseParticleDocument(documentOf(record({ sub: [[1, 'birth', 1]], requires: ['sub'] }), record({ requires: ['sub'], child: true })), 0);
+  assert.deepEqual(family.skipped, []);
 });
 
 /* --- site additions the oracle does not have yet (mesh shapes, separate noise axes, a world-space limit) --- */
@@ -684,18 +991,45 @@ test('director: an active column plays on its rising edge and clears on its fall
   assert.equal(e.runs[0].sim.count, e.runs[0].sim.emittedTotal, 'nobody died: the particles live on');
 });
 
-test('director: a state timeline replaces the default while its action plays (Idle restarting the default)', () => {
-  const sys = record({ clock: { loop: true }, emission: { rate: 60 }, emitter: { timeline: timeline([[0, 1], [10, 1]], [], { states: { Interact: { length: 2, loop: false, loopFrom: 0,
-    frames: [[0, ...IDENTITY, 0], [1, ...IDENTITY, 1]] } } }) } });
+test('director: a state timeline replaces the default while its action plays; moving between them never restarts a system', () => {
+  const sys = record({ clock: { loop: true }, emission: { rate: 60 }, start: { lifetime: 100 }, emitter: { timeline: timeline([[0, 1], [10, 1]], [],
+    { states: { Interact: { length: 2, loop: false, loopFrom: 0, frames: [[0, ...IDENTITY, 0], [1, ...IDENTITY, 1]] } } }) } });
   const d = director([sys]);
   playFrames(d, 60, 0, 1);
   assert.equal(d.runs[0].plays, 1);
   playFrames(d, 60, 0, 0.5, (t) => clockAt(1 + t, 'Interact', t));
-  assert.equal(d.runs[0].on, false, 'the Interact state starts with it off');
+  assert.deepEqual([d.runs[0].on, d.runs[0].sim.count], [false, 0], 'the Interact state switches its GameObject off from its start');
   playFrames(d, 60, 0.5, 1.5, (t) => clockAt(1 + t, 'Interact', t));
-  assert.deepEqual([d.runs[0].on, d.runs[0].plays, d.runs[0].key], [true, 2, 'state:Interact']);
-  playFrames(d, 60, 0, 0.2, (t) => clockAt(2.5 + t, 'Idle', t));
-  assert.deepEqual([d.runs[0].on, d.runs[0].plays, d.runs[0].key], [true, 3, 'Idle']);
+  assert.deepEqual([d.runs[0].on, d.runs[0].plays, d.runs[0].key], [true, 2, 'state:Interact'], 'and on again: a new play');
+  const born = d.runs[0].sim.emittedTotal;
+  // Back to Idle (its track time from 0): the Animator changed state, the GameObject stayed on: it plays on.
+  playFrames(d, 60, 0, 0.5, (t) => clockAt(2.5 + t, 'Idle', t));
+  assert.deepEqual([d.runs[0].on, d.runs[0].plays, d.runs[0].key], [true, 2, 'Idle']);
+  assert.ok(d.runs[0].sim.emittedTotal >= born + 28 && d.runs[0].sim.count === d.runs[0].sim.emittedTotal, 'nothing cleared');
+  // And into a state that keeps it on: the same.
+  const lit = record({ clock: { loop: true }, emission: { rate: 60 }, start: { lifetime: 100 }, emitter: { timeline: timeline([[0, 1], [10, 1]], [],
+    { states: { Interact: { length: 2, loop: false, loopFrom: 0, frames: [[0, ...IDENTITY, 1], [2, ...IDENTITY, 1]] } } }) } });
+  const e = director([lit]);
+  playFrames(e, 60, 0, 1);
+  const before = e.runs[0].sim.count;
+  playFrames(e, 60, 0, 1, (t) => clockAt(1 + t, 'Interact', t));
+  assert.deepEqual([e.runs[0].plays, e.runs[0].key], [1, 'state:Interact']);
+  assert.ok(e.runs[0].sim.count >= before + 58, `${before} -> ${e.runs[0].sim.count}`);
+  // A clip's switch is written to 1e-4 s (61/60 s as 1.0167): the grid point on it takes it.
+  const switched = record({ clock: { loop: true }, emission: { rate: 60 }, active: false, emitter: { timeline: timeline([[0, 0], [1.0167, 1], [3, 1]]) } });
+  const f = director([switched]);
+  playFrames(f, 60, 0, 61 / 60);
+  assert.deepEqual([f.runs[0].on, SWITCH_SLACK], [true, 1e-4]);
+});
+
+test('timelines: `emission.enabled` is stepped like `active` (a value holds until its next frame)', () => {
+  const sys = record({ clock: { loop: true }, emission: { rate: 60 }, emitter: { timeline: timeline([[0, 1, 1], [1, 1, 0], [2, 1, 0]], ['emission.enabled']) } });
+  const data = parsed(sys).data;
+  const out = new Float64Array(data.timeline!.width);
+  sampleLine(data.timeline!, data.timeline!.width, 0.9, out);
+  assert.equal(out[data.timeline!.at['emission.enabled']], 1);
+  sampleLine(data.timeline!, data.timeline!.width, 1, out);
+  assert.equal(out[data.timeline!.at['emission.enabled']], 0);
 });
 
 test('director: reduced motion stands the looping idle systems still at 3 s, and plays a pressed animation live', () => {

@@ -72,12 +72,17 @@ const START_KEYS = ['startSpeed', 'startLifetime', 'startSizeX', 'startSizeY', '
   'startColor'] as const;
 /** Keyed values one particle's shape sampling may draw, shape0 ... shape15 (particle_oracle.SHAPE_DRAWS). */
 export const SHAPE_DRAWS = 16;
-/** Every per-particle random value, by key: its index here is the key of particleRandom (particle_oracle.RANDOM_KEYS). */
-export const RANDOM_KEYS: readonly string[] = [...RAND_KEYS, ...START_KEYS, ...Array.from({ length: SHAPE_DRAWS }, (_, i) => `shape${i}`)];
+/** Sub-emitter links a parent may have (particle_oracle.MAX_SUB_LINKS; the export leaves out a parent with more). */
+export const MAX_SUB_LINKS = 8;
+/** Every per-particle random value, by key: its index here is the key of particleRandom (particle_oracle.RANDOM_KEYS):
+ *  the over-lifetime factors, the start values, the shape's draws, then for each sub-emitter link i of a parent
+ *  `sub<i>` (the roll against the link's probability) and `subSeed<i>` (the word its link generator is seeded with). */
+export const RANDOM_KEYS: readonly string[] = [...RAND_KEYS, ...START_KEYS, ...Array.from({ length: SHAPE_DRAWS }, (_, i) => `shape${i}`),
+  ...Array.from({ length: MAX_SUB_LINKS }, (_, i) => `sub${i}`), ...Array.from({ length: MAX_SUB_LINKS }, (_, i) => `subSeed${i}`)];
 export type RandomKey = (typeof RAND_KEYS)[number] | (typeof START_KEYS)[number];
 const KEY_INDEX = new Map(RANDOM_KEYS.map((name, i) => [name, i]));
 /** A random key's index (the `key` of particleRandom). */
-export function randomKey(name: RandomKey | `shape${number}`): number {
+export function randomKey(name: RandomKey | `shape${number}` | `sub${number}` | `subSeed${number}`): number {
   const index = KEY_INDEX.get(name);
   if (index === undefined) throw new Error(`no random key ${name}`);
   return index;
@@ -361,8 +366,9 @@ export interface EmitterStill {
   scale: Float64Array;
 }
 
-/** An emitter timeline (from the second export): named columns, frames at 30 fps, linear, `active` stepped. */
-export interface EmitterLine { length: number; loop: boolean; loopFrom: number; frames: Float64Array; count: number }
+/** An emitter timeline (from the second export): named columns, frames at 30 fps, linear, `active` and
+ *  `emission.enabled` stepped (`stepped`: where those columns sit in a frame; a value holds until the next frame). */
+export interface EmitterLine { length: number; loop: boolean; loopFrom: number; frames: Float64Array; count: number; stepped: readonly number[] }
 export interface EmitterTimeline extends EmitterLine {
   columns: string[];
   /** Where each named column starts in a frame (t at 0, matrix at 1, rotation 13, scale 17, active 20). */
@@ -505,8 +511,8 @@ export const PARTICLE_LIMITS = {
   bytes: 1024 * 1024, textures: 128, systems: 2048, meshes: 512, materials: 2048, keys: 64, bursts: 64, burstFires: 10000, rate: 100000,
   burstCount: 100000, duration: 3600, prewarmWindow: 300, frames: 20000, vertices: 65535,
 };
-/** Capability tags (`requires`) this reader simulates. Sub-emitters ('sub') arrive with P4, trails ('trail') in v2. */
-export const SUPPORTED_REQUIRES: ReadonlySet<string> = new Set<string>();
+/** Capability tags (`requires`) this reader simulates: sub-emitters ('sub'). Trails ('trail') arrive in v2. */
+export const SUPPORTED_REQUIRES: ReadonlySet<string> = new Set<string>(['sub']);
 const KNOWN_REQUIRES = new Set(['sub', 'trail']);
 const ONLY = new Set(['Idle', 'Interact', 'Special', 'Start']);
 const PHASES = new Set(['idle', 'Start', 'Interact', 'Special']);
@@ -693,7 +699,7 @@ function parseShape(value: unknown, meshes: readonly (ParticleMesh | null)[]): S
   };
 }
 
-function line(value: unknown, width: number, label: string): EmitterLine {
+function line(value: unknown, width: number, label: string, stepped: readonly number[]): EmitterLine {
   const l = only(value, label, ['length', 'loop', 'loopFrom', 'frames', 'columns', 'states'], ['length', 'loop', 'loopFrom', 'frames']);
   if (!finite(l.length) || l.length < 0 || typeof l.loop !== 'boolean' || !finite(l.loopFrom) || l.loopFrom < 0) return refuse(`${label} is not { length, loop, loopFrom, frames }`);
   const frames = l.frames;
@@ -705,7 +711,7 @@ function line(value: unknown, width: number, label: string): EmitterLine {
     if (frame[ACTIVE_COLUMN] !== 0 && frame[ACTIVE_COLUMN] !== 1) refuse(`${label}: active is 0 or 1`);
     for (let j = 0; j < width; j++) out[i * width + j] = f32(frame[j]);
   });
-  return { length: l.length, loop: l.loop, loopFrom: l.loopFrom, frames: out, count: frames.length };
+  return { length: l.length, loop: l.loop, loopFrom: l.loopFrom, frames: out, count: frames.length, stepped };
 }
 
 function parseTimeline(value: unknown): EmitterTimeline {
@@ -723,7 +729,9 @@ function parseTimeline(value: unknown): EmitterTimeline {
     at[name] = width;
     width += shader ? SHADER_WIDTH[name.split('.').at(-1)!] : TIMELINE_COLUMNS[name];
   }
-  const main = line({ ...tl, columns: undefined, states: undefined }, width, 'timeline');
+  // Stepped columns (particle_oracle.STEPPED_COLUMNS): `active` and `emission.enabled` hold their frame's value.
+  const stepped = [at.active, ...(Object.hasOwn(at, 'emission.enabled') ? [at['emission.enabled']] : [])];
+  const main = line({ ...tl, columns: undefined, states: undefined }, width, 'timeline', stepped);
   let states: EmitterTimeline['states'] = null;
   if (Object.hasOwn(tl, 'states')) {
     if (!isObject(tl.states) || !Object.keys(tl.states).length) return refuse('timeline states');
@@ -731,7 +739,7 @@ function parseTimeline(value: unknown): EmitterTimeline {
     for (const [name, state] of Object.entries(tl.states)) {
       if (name !== 'Interact' && name !== 'Special' && name !== 'Start') return refuse(`timeline states.${name}`);
       only(state, `states.${name}`, ['length', 'loop', 'loopFrom', 'frames'], ['length', 'loop', 'loopFrom', 'frames']);
-      states[name] = line(state, width, `states.${name}`);
+      states[name] = line(state, width, `states.${name}`, stepped);
     }
   }
   return { ...main, columns: columns as string[], at, width, states };
@@ -1088,6 +1096,23 @@ export function parseParticleDocument(value: unknown, layerTextures: number): Pa
       why.push(error.message);
     }
   }
+  // Sub-emitter families as the reference simulator links them (Simulation.link): a link names a child, a child
+  // has exactly one parent and no links of its own, a parent at most MAX_SUB_LINKS. A family that breaks one is
+  // left out whole (below).
+  const parents = systems.map(() => 0);
+  systems.forEach((s) => {
+    if (isObject(s) && Array.isArray(s.sub)) for (const link of s.sub) if (Array.isArray(link) && isIndex(link[0], systems.length)) parents[link[0] as number]++;
+  });
+  for (let i = 0; i < systems.length; i++) {
+    const d = parsed[i];
+    if (!d) continue;
+    let bad: string | null = null;
+    if (d.sub.length > MAX_SUB_LINKS) bad = `more than ${MAX_SUB_LINKS} sub-emitter links`;
+    else if (d.child && d.sub.length) bad = 'a sub-emitter with sub-emitters of its own';
+    else if (d.child && parents[i] !== 1) bad = `a sub-emitter with ${parents[i]} parents`;
+    else if (!d.child && parents[i]) bad = 'linked as a sub-emitter, not marked child';
+    if (bad) { parsed[i] = null; why[i] = bad; }
+  }
   // A system left out takes every system tied to it by sub-emitter links with it.
   const adjacent: number[][] = systems.map(() => []);
   systems.forEach((s, i) => {
@@ -1118,9 +1143,9 @@ export function parseParticleText(text: string, layerTextures: number): Particle
 
 /* --- emitter timelines --------------------------------------------------------------------- */
 
-/** A timeline's frame at time t into `out` (its width; out[0] the time): linear between frames, `active`
- *  stepped (the earlier frame's); after its length a looping one wraps to loopFrom, else holds its last frame
- *  (dynamicLayers.frameAt's rules). */
+/** A timeline's frame at time t into `out` (its width; out[0] the time): linear between frames, `active` and
+ *  `emission.enabled` stepped (the earlier frame's); after its length a looping one wraps to loopFrom, else
+ *  holds its last frame (dynamicLayers.frameAt's rules). */
 export function sampleLine(line: EmitterLine, width: number, t: number, out: Float64Array): void {
   const frames = line.frames, count = line.count;
   let time = Math.max(t, 0);
@@ -1135,5 +1160,6 @@ export function sampleLine(line: EmitterLine, width: number, t: number, out: Flo
   }
   const a = lo * width, b = hi * width;
   const k = (time - frames[a]) / (frames[b] - frames[a]);
-  for (let j = 0; j < width; j++) out[j] = j === ACTIVE_COLUMN ? frames[a + j] : frames[a + j] + (frames[b + j] - frames[a + j]) * k;
+  for (let j = 0; j < width; j++) out[j] = frames[a + j] + (frames[b + j] - frames[a + j]) * k;
+  for (const j of line.stepped) out[j] = frames[a + j];
 }

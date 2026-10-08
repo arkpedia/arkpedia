@@ -6,22 +6,25 @@
  * exports, matched particle for particle).
  *
  * Two layers:
- * - ParticleSim: one system, a port of the oracle's Simulation (play, stop, clear, step). Its state is
+ * - ParticleSim: one system, a port of the oracle's Simulation (play, stop, clear, step, link). Its state is
  *   structure-of-arrays, Float32Array in production and Float64Array under test, from one code path. Every
  *   per-particle random value is hashed from one seed the system draws at the birth (particleRandom), so a
- *   value never depends on which other draws happened, and modules a system lacks cost nothing.
+ *   value never depends on which other draws happened, and modules a system lacks cost nothing. A parent's
+ *   sub-emitter children (Birth and Death links) are driven by its step: each parent particle keeps its own
+ *   link generator and accumulators, so a child's particles never depend on the other parent particles.
  * - ParticleDirector: a model's systems on the layers' clock (dynamicLayers.LayerClock): which play when
  *   (their animation group, delay and `active`, rising and falling edges), a fixed 1/60 s step on a grid
  *   anchored at each system's start, emitter timelines and the values clips drive, the reduced-motion still,
- *   and the budgets (pools, the live cap, a failing system switched off alone).
+ *   sub-emitter families (children in `runs`, driven by their parents), and the budgets (pools, the live cap,
+ *   a failing system switched off alone).
  *
  * Coordinates are Unity's: left-handed, Y up; an orthographic camera looking down +Z sees X right, Y up.
  * A local-space system's particles live in its emitter's space (drawn through the emitter's matrix at draw
  * time); a world-space one's in the prefab root's, the "world" of an illustration.
  */
 import {
-  ACTIVE_COLUMN, CURVE_CONSTANT, CURVE_CURVE, CURVE_TWO_CONSTANTS, MULTI_BURST_SPREAD, MULTI_LOOP, MULTI_PINGPONG, MULTI_RANDOM, RANDOM_KEYS, color32, constantCurve, evaluateColor, evaluateCurve, evaluateKeys,
-  pingPong, pyMod, randomKey, sampleLine, type Curve, type EmitterLine, type Multi, type ParticleDocument, type ParticleMesh, type ParticleSystemData, type Shape,
+  ACTIVE_COLUMN, CURVE_CONSTANT, CURVE_CURVE, CURVE_TWO_CONSTANTS, MAX_SUB_LINKS, MULTI_BURST_SPREAD, MULTI_LOOP, MULTI_PINGPONG, MULTI_RANDOM, RANDOM_KEYS, color32, constantCurve, evaluateColor,
+  evaluateCurve, evaluateKeys, pingPong, pyMod, randomKey, sampleLine, type Curve, type EmitterLine, type Multi, type ParticleDocument, type ParticleMesh, type ParticleSystemData, type Shape,
 } from './particleData';
 
 /* --- random numbers (particle_oracle section "Random numbers") ------------------------------ */
@@ -49,6 +52,12 @@ export function particleRandom(seed: number, key: number): number {
   return (mix32((seed ^ KEY_HASH[key]) >>> 0) >>> 9) / 8388607;
 }
 
+/** A particle's 32-bit word for one key, mix32(seed ^ mix32(key + 1)) (particle_oracle.particle_word): what a
+ *  sub-emitter link's generator is seeded with (the parent particle's `subSeed<i>`). */
+export function particleWord(seed: number, key: number): number {
+  return mix32((seed ^ KEY_HASH[key]) >>> 0);
+}
+
 /** Marsaglia xorshift128 seeded as UnityEngine.Random.InitState is commonly reconstructed (particle_oracle.XorShift128). */
 export class XorShift128 {
   private x: number;
@@ -56,10 +65,16 @@ export class XorShift128 {
   private z: number;
   private w: number;
   constructor(seed: number) {
+    this.x = 0; this.y = 0; this.z = 0; this.w = 0;
+    this.reseed(seed);
+  }
+  /** Starts again from `seed` (as a new generator would). */
+  reseed(seed: number): this {
     this.x = seed >>> 0;
     this.y = (Math.imul(this.x, 1812433253) + 1) >>> 0;
     this.z = (Math.imul(this.y, 1812433253) + 1) >>> 0;
     this.w = (Math.imul(this.z, 1812433253) + 1) >>> 0;
+    return this;
   }
   nextU32(): number {
     const t = (this.x ^ (this.x << 11)) >>> 0;
@@ -72,6 +87,15 @@ export class XorShift128 {
   /** In [0, 1], both ends included (Random.value): the low 23 bits. */
   value(): number {
     return (this.nextU32() & 0x7fffff) / 8388607;
+  }
+  /** Takes the four words at state[at..at+3] (a parent particle's link generator, kept between steps). */
+  load(state: Uint32Array, at: number): this {
+    this.x = state[at]; this.y = state[at + 1]; this.z = state[at + 2]; this.w = state[at + 3];
+    return this;
+  }
+  /** Writes its four words to state[at..at+3]. */
+  save(state: Uint32Array, at: number): void {
+    state[at] = this.x; state[at + 1] = this.y; state[at + 2] = this.z; state[at + 3] = this.w;
   }
 }
 
@@ -205,6 +229,7 @@ function arcFraction(rng: KeyedStream, multi: Multi, phase: number, burstIndex: 
 interface ShapeFrame { q: [number, number, number, number]; mesh: Extract<ParticleMesh, { builtin: null }> | null }
 
 const shapeOut = new Float64Array(10); // position, direction, rgba (a mesh's vertex colour)
+const rootOut = new Float64Array(6); // a position and a velocity in the root (ParticleSim.toRoot)
 const unit = new Float64Array(3);
 
 function unitVector(rng: KeyedStream, out: Float64Array): void {
@@ -214,22 +239,13 @@ function unitVector(rng: KeyedStream, out: Float64Array): void {
   out[0] = r * Math.cos(a); out[1] = r * Math.sin(a); out[2] = z;
 }
 
-/** The triangle a share u of a mesh's area falls in (areaCdf, binary search). */
-function triangleAt(cdf: Float64Array, u: number): number {
-  let lo = 0, hi = cdf.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (cdf[mid] > u) hi = mid; else lo = mid + 1;
-  }
-  return lo;
-}
-
 /**
- * A mesh shape's start (a site addition: the oracle emits mesh shapes at the origin until P2 gives it this):
- * vertex: vertex floor(f V) with f from the spawn mode; triangle: the triangle holding share f of the area
- * (areaCdf), then a point by barycentric coordinates (r1 = sqrt(draw), r2 = draw: (1 - r1, r1 (1 - r2), r1 r2));
- * edge: that triangle, then edge floor(3 draw) and a point along it at a draw. Position, the normal there
- * (normalized; the direction) and the mesh colour there go to shapeOut.
+ * A mesh shape's start (particle_oracle._mesh_point): `vertex` picks a vertex, uniformly with the random spawn
+ * mode (a draw, no spread), else floor(f V) with f the spawn mode's fraction; `triangle` and `edge` pick a
+ * triangle, by area with the random mode (the first whose areaCdf reaches a draw, binary search), else by index
+ * floor(f T); then `triangle` a point by barycentric coordinates (r1 = sqrt(draw), r2 = draw: (1 - r1, r1 (1 - r2),
+ * r1 r2)) and `edge` an edge floor(3 draw) and a point along it at a draw. Position, the normal there (normalized,
+ * +Z if degenerate; the direction) and the mesh colour there (white without colours) go to shapeOut.
  */
 function sampleMesh(mesh: Extract<ParticleMesh, { builtin: null }>, shape: Shape, rng: KeyedStream, phase: number, burstIndex: number, burstSize: number): void {
   const vs = mesh.vertices, ns = mesh.normals!, cs = mesh.colors, tris = mesh.triangles;
@@ -245,20 +261,31 @@ function sampleMesh(mesh: Extract<ParticleMesh, { builtin: null }>, shape: Shape
     normalize(nx, ny, nz, 0, 0, 1, shapeOut, 3);
     if (cs) { shapeOut[6] = r; shapeOut[7] = g; shapeOut[8] = b; shapeOut[9] = a; } else { shapeOut[6] = 1; shapeOut[7] = 1; shapeOut[8] = 1; shapeOut[9] = 1; }
   };
-  const f = arcFraction(rng, shape.spawn, phase, burstIndex, burstSize);
+  const randomSpawn = shape.spawn.mode === MULTI_RANDOM;
   if (shape.placement === 'vertex') {
     const count = vs.length / 3;
-    pick([1], [Math.min(Math.floor(f * count), count - 1)]);
+    const f = randomSpawn ? rng.value() : arcFraction(rng, shape.spawn, phase, burstIndex, burstSize);
+    pick([1], [Math.min(Math.trunc(f * count), count - 1)]);
     return;
   }
-  const t = Math.min(triangleAt(mesh.areaCdf!, f), tris.length / 3 - 1);
+  const triangles = tris.length / 3;
+  let t: number;
+  if (randomSpawn) {
+    const u = rng.value(), cdf = mesh.areaCdf!;
+    let lo = 0, hi = triangles - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cdf[mid] < u) lo = mid + 1; else hi = mid;
+    }
+    t = lo;
+  } else t = Math.min(Math.trunc(arcFraction(rng, shape.spawn, phase, burstIndex, burstSize) * triangles), triangles - 1);
   const ia = tris[t * 3], ib = tris[t * 3 + 1], ic = tris[t * 3 + 2];
   if (shape.placement === 'triangle') {
     const r1 = Math.sqrt(rng.value()), r2 = rng.value();
     pick([1 - r1, r1 * (1 - r2), r1 * r2], [ia, ib, ic]);
     return;
   }
-  const edge = Math.min(Math.floor(rng.value() * 3), 2);
+  const edge = Math.min(Math.trunc(rng.value() * 3), 2);
   const along = rng.value();
   const ends = [[ia, ib], [ib, ic], [ic, ia]][edge];
   pick([1 - along, along], ends);
@@ -484,9 +511,54 @@ export interface BirthBudget {
 
 // Keys of the per-particle values, by index (particleRandom).
 const K = Object.fromEntries(RANDOM_KEYS.map((name, i) => [name, i])) as Record<string, number>;
+const SUB_KEYS = Array.from({ length: MAX_SUB_LINKS }, (_, i) => K[`sub${i}`]);
+const SUB_SEED_KEYS = Array.from({ length: MAX_SUB_LINKS }, (_, i) => K[`subSeed${i}`]);
 const COLUMNS = ['px', 'py', 'pz', 'vx', 'vy', 'vz', 'ax', 'ay', 'az', 'qx', 'qy', 'qz', 'age', 'life', 'sx', 'sy', 'sz', 'rx', 'ry', 'rz', 'flip', 'cr', 'cg', 'cb', 'ca',
-  'ex', 'ey', 'ez', 'row'] as const;
+  'ex', 'ey', 'ez', 'row', 'serial'] as const;
 type Column = (typeof COLUMNS)[number];
+/** Columns kept in Float64 at either precision: ages and lifetimes (see allocate) and birth numbers. */
+const EXACT: ReadonlySet<Column> = new Set<Column>(['age', 'life', 'serial']);
+
+/** A sub-emitter link of a parent system (ParticleSim.link): its child, 'birth' or 'death', and the probability
+ *  of a parent particle's link firing. */
+export interface SubLink { sim: ParticleSim; kind: 'birth' | 'death'; probability: number }
+
+/**
+ * The births one step of a parent gives one link's child (particle_oracle._sub_events), unsorted as they are
+ * found: per birth its moment (a fraction of the step), its parent particle's birth number and its order among
+ * that particle's births, where it starts and the parent particle's velocity (both in the root, Unity units), the
+ * child's normalized system time, its 32-bit seed, and its burst index and size (-1 and 0 outside a burst).
+ * `sort()` puts `order` in the oracle's order: by moment, then parent, then order of birth from it.
+ */
+class SubEvents {
+  n = 0;
+  readonly frac: number[] = [];
+  readonly serial: number[] = [];
+  readonly nth: number[] = [];
+  readonly origin: number[] = [];
+  readonly velocity: number[] = [];
+  readonly s01: number[] = [];
+  readonly seed: number[] = [];
+  readonly burstIndex: number[] = [];
+  readonly burstSize: number[] = [];
+  readonly order: number[] = [];
+
+  push(frac: number, serial: number, nth: number, ox: number, oy: number, oz: number, vx: number, vy: number, vz: number, s01: number, seed: number,
+    burstIndex: number, burstSize: number): void {
+    const k = this.n++;
+    this.frac[k] = frac; this.serial[k] = serial; this.nth[k] = nth;
+    this.origin[k * 3] = ox; this.origin[k * 3 + 1] = oy; this.origin[k * 3 + 2] = oz;
+    this.velocity[k * 3] = vx; this.velocity[k * 3 + 1] = vy; this.velocity[k * 3 + 2] = vz;
+    this.s01[k] = s01; this.seed[k] = seed; this.burstIndex[k] = burstIndex; this.burstSize[k] = burstSize;
+  }
+
+  sort(): void {
+    const order = this.order, f = this.frac, s = this.serial, m = this.nth;
+    order.length = this.n;
+    for (let i = 0; i < this.n; i++) order[i] = i;
+    if (this.n > 1) order.sort((a, b) => f[a] - f[b] || s[a] - s[b] || m[a] - m[b]);
+  }
+}
 
 const lerpOf = (c: Curve, seed: number, key: number) => (c.random ? particleRandom(seed, key) : 1);
 /** A speed over the limit, dampened (_dampen): its excess kept by `keep`, or the speed times keep but not below the limit. */
@@ -564,6 +636,39 @@ export class ParticleSim {
   private evI: number[] = [];
   private evN: number[] = [];
   private order: number[] = [];
+  /** Sub-emitter links (link()): the children this system's particles drive, in link order. */
+  readonly links: SubLink[] = [];
+  /** A sub-emitter child (a parent's link() made it one): it never emits on its own, only what its parent's
+   *  particles give it; its start delay is not applied. */
+  isChild = false;
+  /** A child's simulation speed: its parent's step of h illustration seconds advances it h x this (a clip may drive it). */
+  childSpeed: number;
+  /** A child whose GameObject is on (the director clears it and sets this false while a clip switches it off):
+   *  births its parent gives it while off are dropped. */
+  childActive = true;
+  /** A child whose values went non-finite: its parent cleared it and gives it nothing more. */
+  failed = false;
+  /** Each particle's birth number in the system (emittedTotal at its birth; sub-emitter births sort by it). */
+  serial!: Float64Array;
+  // Per particle and link (links.length a particle): the link generator's 4 words, its rate and distance
+  // accumulators, and whether the link fires from it (a birth link whose probability passed at its birth).
+  private subState = new Uint32Array(0);
+  private subAcc = new Float64Array(0);
+  private subOn = new Uint8Array(0);
+  /** Where in the step each of this step's births was (a fraction), read by its sub-emitter clock. */
+  private bornFrac = new Float64Array(0);
+  /** This step's deaths, with a death link: 9 numbers each (fraction of the step, serial, seed, position and
+   *  velocity in the simulation's space). */
+  private readonly dead: number[] = [];
+  private deadCount = 0;
+  private readonly subEvents: SubEvents[] = [];
+  private readonly linkRng = new XorShift128(0);
+  // One parent particle's births of this child (schedule()): age, system time, burst index and size; by age.
+  private readonly schedAge: number[] = [];
+  private readonly schedS01: number[] = [];
+  private readonly schedBurst: number[] = [];
+  private readonly schedSize: number[] = [];
+  private readonly schedOrder: number[] = [];
 
   constructor(data: ParticleSystemData, doc: Pick<ParticleDocument, 'meshes'>, options: Partial<ParticleOptions> = {}, precision: 32 | 64 = 32, budget: BirthBudget | null = null) {
     this.data = data;
@@ -571,6 +676,7 @@ export class ParticleSim {
     this.make = precision === 64 ? (n) => new Float64Array(n) : (n) => new Float32Array(n);
     this.maxCount = Math.min(data.clock.maxParticles, POOL_CAP);
     this.budget = budget;
+    this.childSpeed = data.clock.speed;
     const shape = data.shape;
     if (shape) {
       const mesh = shape.mesh === null ? null : doc.meshes[shape.mesh];
@@ -588,19 +694,54 @@ export class ParticleSim {
   }
 
   private allocate(capacity: number): void {
-    const old = this.capacity;
+    const old = this.capacity, n = this.count;
     for (const name of COLUMNS) {
       // Ages and lifetimes stay Float64 at either precision: a float32 age drifts by a few 1e-5 s over a minute,
       // enough to end a particle a step early (then a birth fills its slot); in Float64 lives end where the oracle's do.
-      const next = name === 'age' || name === 'life' ? new Float64Array(capacity) : this.make(capacity);
-      if (old) next.set((this[name] as Floats).subarray(0, this.count));
+      const next = EXACT.has(name) ? new Float64Array(capacity) : this.make(capacity);
+      if (old) next.set((this[name] as Floats).subarray(0, n));
       (this as unknown as Record<Column, Floats>)[name] = next;
     }
     const seeds = new Uint32Array(capacity);
-    if (old) seeds.set(this.seeds.subarray(0, this.count));
+    if (old) seeds.set(this.seeds.subarray(0, n));
     this.seeds = seeds;
+    const L = this.links.length;
+    if (L) {
+      // Grown mid-step too (births past the pool), so this step's births keep their fractions.
+      const state = new Uint32Array(capacity * L * 4), acc = new Float64Array(capacity * L * 2), on = new Uint8Array(capacity * L), born = new Float64Array(capacity);
+      state.set(this.subState.subarray(0, Math.min(this.subState.length, n * L * 4)));
+      acc.set(this.subAcc.subarray(0, Math.min(this.subAcc.length, n * L * 2)));
+      on.set(this.subOn.subarray(0, Math.min(this.subOn.length, n * L)));
+      born.set(this.bornFrac.subarray(0, Math.min(this.bornFrac.length, n)));
+      this.subState = state; this.subAcc = acc; this.subOn = on; this.bornFrac = born;
+    }
     this.capacity = capacity;
     this.cols = COLUMNS.map((name) => this[name] as Floats);
+  }
+
+  /**
+   * Makes `child` a sub-emitter of this system (a layerParticles.json `sub` link; particle_oracle.Simulation.link):
+   * 'birth', the child emits from each of this system's particles while it lives, with its own rate and bursts
+   * timed by the particle's age; 'death', each of the child's bursts fires once where a particle dies.
+   * `probability`: of each particle's link firing. Before either plays; a child has one parent and no links.
+   */
+  link(child: ParticleSim, kind: 'birth' | 'death', probability: number): void {
+    if (kind !== 'birth' && kind !== 'death') throw new Error(`a ${String(kind)} sub-emitter`);
+    if (this.isChild || child.isChild || child.links.length || child === this) throw new Error('a sub-emitter has one parent and no sub-emitters of its own');
+    if (this.links.length >= MAX_SUB_LINKS) throw new Error(`more than ${MAX_SUB_LINKS} sub-emitter links`);
+    if (this.count || child.count) throw new Error('sub-emitters are linked before either plays');
+    child.isChild = true;
+    child.delay = 0;
+    this.links.push({ sim: child, kind, probability: Math.fround(probability) });
+    this.subEvents.push(new SubEvents());
+    this.allocate(this.capacity);
+  }
+
+  /** Live particles of this system and its sub-emitter children. */
+  get familyCount(): number {
+    let n = this.count;
+    for (const link of this.links) n += link.sim.count;
+    return n;
   }
 
   /** The seed this play uses: the system's fixed one, else `seed` (playSeed). */
@@ -620,22 +761,39 @@ export class ParticleSim {
     this.emitterVelocity.fill(0);
     this.emittedTotal = 0;
     this.deadTotal = 0;
-    this.delay = c.prewarm && c.loop ? 0 : evaluateCurve(c.startDelay, 0, this.rng.value());
+    this.delay = this.isChild || (c.prewarm && c.loop) ? 0 : evaluateCurve(c.startDelay, 0, this.rng.value());
+  }
+
+  /** A system with sub-emitters plays and steps with its children's poses (one each, null keeping its last). */
+  private childPosesOf(childPoses: readonly (Pose | null)[] | null): readonly (Pose | null)[] {
+    if (!this.links.length) return [];
+    if (!childPoses || childPoses.length !== this.links.length) throw new Error(`${this.data.name}: its ${this.links.length} sub-emitters' poses are needed`);
+    return childPoses;
   }
 
   /** Starts a play (the GameObject became active) with the emitter at `pose`: a prewarmed loop first simulates
    *  the last prewarmWindow of its first loop (all of it with the 'full' option), in equal steps of at most
-   *  prewarmStep, then its clock restarts. `seed`: this play's (playSeed), unless the system has a fixed one. */
-  play(seed: number, pose: Pose | null = null): void {
+   *  prewarmStep, then its clock restarts. `seed`: this play's (playSeed), unless the system has a fixed one.
+   *  Its sub-emitter children start with it (`childPoses`: theirs, in link order) and are prewarmed with it. */
+  play(seed: number, pose: Pose | null = null, childPoses: readonly (Pose | null)[] | null = null): void {
+    if (this.isChild) throw new Error(`${this.data.name}: a sub-emitter plays only through its parent`);
+    const poses = this.childPosesOf(childPoses);
     this.reset(seed);
     if (pose) { this.pose.set(pose); this.prevPose.set(pose); }
+    this.links.forEach(({ sim }, k) => {
+      sim.reset(0);
+      const p = poses[k];
+      if (p) { sim.pose.set(p); sim.prevPose.set(p); }
+    });
     const c = this.data.clock;
     if (c.prewarm && c.loop) {
       const duration = Math.max(c.duration, 0);
       const window = this.options.prewarm === 'full' || c.prewarmWindow === null ? duration : Math.min(c.prewarmWindow, duration);
       this.time = duration - window;
       const n = Math.max(1, Math.ceil(window / this.options.prewarmStep - 1e-9));
-      for (let i = 0; i < n; i++) this.advance(window / n);
+      // Its children run at their own speed: a prewarm step of the parent's time is that over its speed in theirs.
+      const game = c.speed > 0 ? window / n / c.speed : 0;
+      for (let i = 0; i < n; i++) this.advance(window / n, game);
       this.time = 0;
     }
   }
@@ -645,24 +803,30 @@ export class ParticleSim {
     this.emitting = false;
   }
 
-  /** Drops every particle (a deactivated GameObject draws nothing). */
+  /** Drops every particle, its sub-emitter children's too (a deactivated GameObject draws nothing). */
   clear(): void {
     if (this.budget) this.budget.live -= this.count;
     this.count = 0;
+    for (const link of this.links) link.sim.clear();
   }
 
   /** Advances dt seconds of illustration time (times the simulation speed, or `speed` when a clip drives it),
-   *  the emitter at `pose` at the step's end. Returns false when a value went non-finite (the system failed). */
-  step(dt: number, pose: Pose | null = null, speed = this.data.clock.speed): boolean {
+   *  the emitter at `pose` at the step's end; its sub-emitter children at `childPoses` (in link order, null keeping
+   *  one), each at its own speed. Returns false when a value of its own went non-finite (the system failed); a
+   *  child that fails is cleared and marked `failed` alone. */
+  step(dt: number, pose: Pose | null = null, speed = this.data.clock.speed, childPoses: readonly (Pose | null)[] | null = null): boolean {
+    if (this.isChild) throw new Error(`${this.data.name}: a sub-emitter steps only through its parent`);
+    const poses = this.childPosesOf(childPoses);
     this.prevPose.set(this.pose);
     if (pose) this.pose.set(pose);
-    if (dt > 0) {
-      const p = this.pose, q = this.prevPose;
-      this.emitterVelocity[0] = (p[0] - q[0]) * (1 / dt);
-      this.emitterVelocity[1] = (p[1] - q[1]) * (1 / dt);
-      this.emitterVelocity[2] = (p[2] - q[2]) * (1 / dt);
-    }
-    return this.advance(dt * speed);
+    if (dt > 0) moved(this, dt);
+    this.links.forEach(({ sim }, k) => {
+      sim.prevPose.set(sim.pose);
+      const p = poses[k];
+      if (p) sim.pose.set(p);
+      if (dt > 0) moved(sim, dt);
+    });
+    return this.advance(dt * speed, dt);
   }
 
   /** Normalized loop time at emission time te (system_t01). */
@@ -672,35 +836,23 @@ export class ParticleSim {
     return (this.data.clock.loop ? pyMod(te, d) : Math.min(te, d)) / d;
   }
 
-  private advance(dt: number): boolean {
-    if (dt <= 0) return true;
+  /** One step of dt seconds of this system's time; `game`: the illustration seconds it is (its sub-emitter
+   *  children run at their own speed: h x theirs). particle_oracle.Simulation._advance, section 7.1. */
+  private advance(dt: number, game: number): boolean {
+    if (dt <= 0) {
+      for (const link of this.links) this.drive(link.sim, game * link.sim.childSpeed, null);
+      return true;
+    }
     const t0 = this.time, t1 = this.time + dt;
     this.time = t1;
-    // 1. age, and kill (deaths free their slots before this step's births); the survivors keep their order
-    const age = this.age, life = this.life;
-    const n = this.count;
-    // Survivors keep their order: whole runs of them move down at once (deaths cluster among the oldest).
-    let w = 0, i = 0;
-    while (i < n) {
-      while (i < n && !(age[i] + dt < life[i])) i++;
-      const start = i;
-      while (i < n && age[i] + dt < life[i]) { age[i] += dt; i++; }
-      if (i > start) {
-        if (start !== w) {
-          for (const column of this.cols) column.copyWithin(w, start, i);
-          this.seeds.copyWithin(w, start, i);
-        }
-        w += i - start;
-      }
-    }
-    this.deadTotal += n - w;
-    if (this.budget) this.budget.live -= n - w;
-    this.count = w;
+    // 1. age, and kill (deaths free their slots before this step's births; a death sub-emitter fires where one died)
+    const w = this.kill(dt, this.links.some((link) => link.kind === 'death'));
     // 2. the survivors over the whole step (their position now is where they were)
     this.qx.set(this.px.subarray(0, w)); this.qy.set(this.py.subarray(0, w)); this.qz.set(this.pz.subarray(0, w));
     let sum = this.integrate(0, w, dt);
     // 3. births, each at its own time inside the step, aged to the step's end
     const events = this.emissionEvents(t0, t1, dt);
+    const linked = this.links.length > 0;
     for (let e = 0; e < events; e++) {
       const k = this.order[e];
       if (this.count >= this.maxCount) continue; // dropped, not queued
@@ -708,13 +860,15 @@ export class ParticleSim {
       if (this.budget && !this.budget.allow()) continue;
       const at = this.evT[k];
       const i = this.count;
-      this.spawn(i, at, this.evI[k], this.evN[k], dt ? (at - t0) / dt : 1);
+      const fraction = dt ? (at - t0) / dt : 1;
+      this.spawn(i, at, this.evI[k], this.evN[k], fraction);
       const remaining = this.options.subframeEmission ? t1 - at : 0;
       if (remaining > 0) {
         this.age[i] += remaining;
         sum += this.integrate(i, i + 1, remaining);
       }
       if (this.age[i] < this.life[i]) {
+        if (linked) this.bornFrac[i] = (at - t0) / dt;
         this.count++;
         if (this.budget) this.budget.live++;
       }
@@ -731,6 +885,231 @@ export class ParticleSim {
       advanceMulti(shape.radius, 1);
       advanceMulti(shape.spawn, 2);
     }
+    // 5. sub-emitters: each child ages and moves its particles, then takes this step's births
+    for (let k = 0; k < this.links.length; k++) {
+      const link = this.links[k], events = this.subEvents[k];
+      events.n = 0;
+      if (link.kind === 'birth') this.birthEvents(k, link.sim, dt, w, events); else this.deathEvents(k, link, events);
+      events.sort();
+      this.drive(link.sim, game * link.sim.childSpeed, events);
+    }
+    return Number.isFinite(sum);
+  }
+
+  /** Ages every particle by dt and drops the ones whose life ends (deaths free their slots); the survivors keep
+   *  their order, whole runs of them moved down at once (deaths cluster among the oldest). With `deaths`, each
+   *  death is noted first (for a death sub-emitter: its moment in the step, birth number, seed, position and
+   *  velocity, before its slot is reused). Returns how many live. */
+  private kill(dt: number, deaths: boolean): number {
+    const age = this.age, life = this.life, n = this.count, L = this.links.length;
+    this.deadCount = 0;
+    let w = 0, i = 0;
+    while (i < n) {
+      while (i < n && !(age[i] + dt < life[i])) {
+        if (deaths) this.noteDeath(i, dt);
+        i++;
+      }
+      const start = i;
+      while (i < n && age[i] + dt < life[i]) { age[i] += dt; i++; }
+      if (i > start) {
+        if (start !== w) {
+          for (const column of this.cols) column.copyWithin(w, start, i);
+          this.seeds.copyWithin(w, start, i);
+          if (L) {
+            this.subState.copyWithin(w * L * 4, start * L * 4, i * L * 4);
+            this.subAcc.copyWithin(w * L * 2, start * L * 2, i * L * 2);
+            this.subOn.copyWithin(w * L, start * L, i * L);
+          }
+        }
+        w += i - start;
+      }
+    }
+    this.deadTotal += n - w;
+    if (this.budget) this.budget.live -= n - w;
+    this.count = w;
+    return w;
+  }
+
+  /** Particle i dies this step: when (its life's end as a fraction of the step), who, where and how fast. */
+  private noteDeath(i: number, dt: number): void {
+    const d = this.dead, o = this.deadCount++ * 9;
+    d[o] = Math.min(Math.max((this.life[i] - this.age[i]) / dt, 0), 1);
+    d[o + 1] = this.serial[i];
+    d[o + 2] = this.seeds[i];
+    d[o + 3] = this.px[i]; d[o + 4] = this.py[i]; d[o + 5] = this.pz[i];
+    d[o + 6] = this.vx[i] + this.ax[i]; d[o + 7] = this.vy[i] + this.ay[i]; d[o + 8] = this.vz[i] + this.az[i];
+  }
+
+  /** A position and velocity of this system's simulation space in the root (_root), into rootOut[0..5]. */
+  private toRoot(x: number, y: number, z: number, vx: number, vy: number, vz: number): void {
+    if (this.data.clock.space === 'world') {
+      rootOut[0] = x; rootOut[1] = y; rootOut[2] = z; rootOut[3] = vx; rootOut[4] = vy; rootOut[5] = vz;
+      return;
+    }
+    const p = this.pose;
+    linear(p, x, y, z, rootOut);
+    rootOut[0] += p[0]; rootOut[1] += p[1]; rootOut[2] += p[2];
+    linear(p, vx, vy, vz, rootOut, 3);
+  }
+
+  /** Link k's births this step (a birth link, _sub_events): from every live particle the link fires from, over
+   *  the age it lived this step (from its birth for one born in it), the child's schedule; each birth placed along
+   *  the particle's path through the step, its seed drawn after the schedule's draws, in age order. */
+  private birthEvents(k: number, child: ParticleSim, dt: number, firstNew: number, events: SubEvents): void {
+    const L = this.links.length, n = this.count, rng = this.linkRng;
+    const px = this.px, py = this.py, pz = this.pz, qx = this.qx, qy = this.qy, qz = this.qz;
+    for (let i = 0; i < n; i++) {
+      const slot = i * L + k;
+      if (!this.subOn[slot]) continue;
+      const born = i >= firstNew;
+      const a1 = this.age[i];
+      const a0 = born ? 0 : a1 - dt;
+      const f0 = born ? this.bornFrac[i] : 0;
+      const mx = px[i] - qx[i], my = py[i] - qy[i], mz = pz[i] - qz[i];
+      rng.load(this.subState, slot * 4);
+      const count = child.schedule(a0, a1, rng, this.subAcc, slot * 2, Math.sqrt(mx * mx + my * my + mz * mz));
+      const vx = this.vx[i] + this.ax[i], vy = this.vy[i] + this.ay[i], vz = this.vz[i] + this.az[i];
+      for (let m = 0; m < count; m++) {
+        const e = child.schedOrder[m];
+        const age = child.schedAge[e];
+        const f = a1 > a0 ? (age - a0) / (a1 - a0) : 1;
+        this.toRoot(qx[i] + (px[i] - qx[i]) * f, qy[i] + (py[i] - qy[i]) * f, qz[i] + (pz[i] - qz[i]) * f, vx, vy, vz);
+        events.push(f0 + (age - a0) / dt, this.serial[i], m, rootOut[0], rootOut[1], rootOut[2], rootOut[3], rootOut[4], rootOut[5], child.schedS01[e], rng.nextU32(),
+          child.schedBurst[e], child.schedSize[e]);
+      }
+      rng.save(this.subState, slot * 4);
+    }
+  }
+
+  /** Link k's births this step (a death link): where a particle died, if its link fires, each of the child's
+   *  bursts once, from a generator seeded by that particle's subSeed<k>: its roll, its count, a seed a particle. */
+  private deathEvents(k: number, link: SubLink, events: SubEvents): void {
+    const d = this.dead, rng = this.linkRng, child = link.sim;
+    const bursts = child.data.emission.bursts, duration = child.data.clock.duration;
+    for (let j = 0; j < this.deadCount; j++) {
+      const o = j * 9, seed = d[o + 2];
+      if (!(link.probability >= 1 || particleRandom(seed, SUB_KEYS[k]) < link.probability)) continue;
+      rng.reseed(particleWord(seed, SUB_SEED_KEYS[k]));
+      this.toRoot(d[o + 3], d[o + 4], d[o + 5], d[o + 6], d[o + 7], d[o + 8]);
+      let m = 0;
+      for (const b of bursts) {
+        if (!(b.probability >= 1 || rng.value() < b.probability)) continue;
+        const value = evaluateCurve(b.count, duration > 0 ? b.time / duration : 0, b.count.random ? rng.value() : 1);
+        const count = Math.max(0, Math.floor(value + 0.5));
+        for (let i = 0; i < count; i++) {
+          events.push(d[o], d[o + 1], m++, rootOut[0], rootOut[1], rootOut[2], rootOut[3], rootOut[4], rootOut[5], 0, rng.nextU32(), i, count);
+        }
+      }
+    }
+  }
+
+  /**
+   * The births one parent particle gives this child while its age runs over [a0, a1) (_child_schedule): the
+   * child's emission with that age for its clock (no start delay; a child that does not loop stops after its
+   * duration, one that loops repeats its bursts each duration), rate over time with the particle's own
+   * accumulator (acc[at]), rate over distance by how far the particle moved (acc[at + 1]), and its bursts; random
+   * values from the particle's link generator `rng`. Into schedAge, schedS01, schedBurst, schedSize, with
+   * schedOrder by age (stable); returns how many.
+   */
+  private schedule(a0: number, a1: number, rng: XorShift128, acc: Float64Array, at: number, moved: number): number {
+    const c = this.data.clock, a = this.animated;
+    const ages = this.schedAge, s01 = this.schedS01, burst = this.schedBurst, size = this.schedSize;
+    let n = 0;
+    const d = c.duration;
+    if (!a.enabled || d <= 0 || a1 <= a0) return 0;
+    const end = c.loop ? a1 : Math.min(a1, d);
+    if (end <= a0) return 0;
+    const loop = c.loop;
+    const rate = evaluateCurve(a.rate, childT01(a0, d, loop), a.rate.random ? rng.value() : 1);
+    if (rate > 0) {
+      const acc0 = acc[at];
+      const acc1 = acc0 + rate * (end - a0);
+      const from = Math.floor(acc0);
+      const births = Math.floor(acc1) - from;
+      for (let k = 1; k <= births; k++) {
+        const age = a0 + (from + k - acc0) / rate;
+        ages[n] = age; s01[n] = childT01(age, d, loop); burst[n] = -1; size[n] = 0; n++;
+      }
+      acc[at] = acc1 - Math.floor(acc1);
+    }
+    const rod = evaluateCurve(a.distance, childT01(a0, d, loop), 1);
+    if (rod > 0 && moved > 0) {
+      const total = acc[at + 1] + moved * rod;
+      const count = Math.floor(total);
+      for (let k = 0; k < count; k++) {
+        const age = a0 + ((end - a0) * (k + 1)) / (count + 1);
+        ages[n] = age; s01[n] = childT01(age, d, loop); burst[n] = -1; size[n] = 0; n++;
+      }
+      acc[at + 1] = total - count;
+    }
+    const first = loop ? Math.floor(a0 / d) : 0;
+    const last = loop ? Math.floor(end / d) : 0;
+    for (let cycle = first; cycle <= last; cycle++) {
+      const base = cycle * d;
+      for (const b of this.data.emission.bursts) {
+        // The cycles before this window draw nothing: start just before it (the same k as stepping from 0).
+        let k = b.interval > 0 ? Math.max(0, Math.floor((a0 - base - b.time) / b.interval) - 1) : 0;
+        if (b.cycles && k > b.cycles) k = b.cycles;
+        while (!(b.cycles && k >= b.cycles)) {
+          const bt = b.time + k * b.interval;
+          if (bt >= d || base + bt >= end) break;
+          if (base + bt >= a0 && (b.probability >= 1 || rng.value() < b.probability)) {
+            const value = evaluateCurve(b.count, bt / d, b.count.random ? rng.value() : 1);
+            const count = Math.max(0, Math.floor(value + 0.5));
+            for (let i = 0; i < count; i++) { ages[n] = base + bt; s01[n] = bt / d; burst[n] = i; size[n] = count; n++; }
+          }
+          if (b.interval <= 0) break;
+          k++;
+        }
+      }
+    }
+    const order = this.schedOrder;
+    order.length = n;
+    for (let i = 0; i < n; i++) order[i] = i;
+    if (n > 1) order.sort((x, y) => ages[x] - ages[y]);
+    return n;
+  }
+
+  /** Steps a child by dt of its own time with its parent's births (none: null); a child that fails is
+   *  cleared and given nothing more. */
+  private drive(child: ParticleSim, dt: number, events: SubEvents | null): void {
+    if (child.failed) return;
+    if (!child.advanceDriven(dt, events)) {
+      child.failed = true;
+      child.clear();
+    }
+  }
+
+  /** A sub-emitter child's step (_advance_driven): its particles age, die and move over dt (its own time; its
+   *  clock reads the step's start meanwhile), then its parent's births of the step, in the oracle's order, each
+   *  aged to the step's end; past maxParticles they are dropped. */
+  private advanceDriven(dt: number, events: SubEvents | null): boolean {
+    const t0 = this.time;
+    const w = this.kill(dt, false);
+    this.qx.set(this.px.subarray(0, w)); this.qy.set(this.py.subarray(0, w)); this.qz.set(this.pz.subarray(0, w));
+    let sum = this.integrate(0, w, dt);
+    if (events && this.childActive) {
+      for (let m = 0; m < events.n; m++) {
+        const e = events.order[m];
+        if (this.count >= this.maxCount) continue;
+        if (this.count >= this.capacity) this.allocate(Math.min(this.maxCount, this.capacity * 2));
+        if (this.budget && !this.budget.allow()) continue;
+        const i = this.count;
+        const fraction = events.frac[e];
+        this.birth(i, events.seed[e], events.s01[e], events.burstIndex[e], events.burstSize[e], fraction, events, e);
+        const remaining = this.options.subframeEmission ? (1 - fraction) * dt : 0;
+        if (remaining > 0) {
+          this.age[i] += remaining;
+          sum += this.integrate(i, i + 1, remaining);
+        }
+        if (this.age[i] < this.life[i]) {
+          this.count++;
+          if (this.budget) this.budget.live++;
+        }
+        this.emittedTotal++;
+      }
+    }
+    this.time = t0 + dt;
     return Number.isFinite(sum);
   }
 
@@ -804,12 +1183,19 @@ export class ParticleSim {
     return evT.length;
   }
 
-  /** A new particle in slot i (_spawn). */
+  /** A new particle in slot i at time `at` (_spawn): its seed is the one draw a birth makes from the system's generator. */
   private spawn(i: number, at: number, burstIndex: number, burstSize: number, frameFraction: number): void {
+    this.birth(i, this.rng.nextU32(), this.systemT01(at - this.delay), burstIndex, burstSize, frameFraction, null, 0);
+  }
+
+  /** A new particle in slot i from its seed, its start values at normalized system time s01 (_spawn). `from`: a
+   *  sub-emitter's births, this one event e of them: it starts at its parent particle's position (the child's
+   *  shape turned and scaled by the child's emitter; a local child's that position seen from its emitter) and
+   *  inherits its parent particle's velocity. */
+  private birth(i: number, seed: number, s01: number, burstIndex: number, burstSize: number, frameFraction: number, from: SubEvents | null, e: number): void {
     const data = this.data, st = data.start, a = this.animated;
-    const s01 = this.systemT01(at - this.delay);
-    const seed = this.rng.nextU32(); // the one draw a birth makes from the system's generator
     this.seeds[i] = seed;
+    this.serial[i] = this.emittedTotal;
     this.stream.reset(seed);
     sampleShape(data.shape, this.shapeFrame, this.stream, this.phases, burstIndex < 0 ? 0 : burstIndex, burstSize);
     let px = shapeOut[0], py = shapeOut[1], pz = shapeOut[2];
@@ -833,7 +1219,20 @@ export class ParticleSim {
     }
     // A mesh shape's vertex colours tint the start colour (shapeOut[6..9] is white otherwise).
     if (data.shape?.useColors) for (let j = 0; j < 4; j++) scratch4[j] *= shapeOut[6 + j];
-    if (data.clock.space === 'world') {
+    let ex = this.emitterVelocity[0], ey = this.emitterVelocity[1], ez = this.emitterVelocity[2];
+    if (from) {
+      const p = this.pose, o = from.origin, at = e * 3;
+      if (data.clock.space === 'world') {
+        linear(p, px, py, pz, v3);
+        px = o[at] + v3[0]; py = o[at + 1] + v3[1]; pz = o[at + 2] + v3[2];
+        linear(p, vx, vy, vz, v3);
+        vx = v3[0]; vy = v3[1]; vz = v3[2];
+      } else {
+        solve(p, o[at] - p[0], o[at + 1] - p[1], o[at + 2] - p[2], v3);
+        px = v3[0] + px; py = v3[1] + py; pz = v3[2] + pz;
+      }
+      ex = from.velocity[at]; ey = from.velocity[at + 1]; ez = from.velocity[at + 2];
+    } else if (data.clock.space === 'world') {
       // Into the root at the birth instant: the emitter's position interpolated across the step.
       const p = this.pose, q = this.prevPose;
       const f = this.options.subframeEmission ? frameFraction : 1;
@@ -855,9 +1254,21 @@ export class ParticleSim {
     this.rx[i] = rx * flip; this.ry[i] = ry * flip; this.rz[i] = rz * flip;
     this.flip[i] = flip;
     this.cr[i] = color32(scratch4[0]); this.cg[i] = color32(scratch4[1]); this.cb[i] = color32(scratch4[2]); this.ca[i] = color32(scratch4[3]);
-    this.ex[i] = this.emitterVelocity[0]; this.ey[i] = this.emitterVelocity[1]; this.ez[i] = this.emitterVelocity[2];
+    this.ex[i] = ex; this.ey[i] = ey; this.ez[i] = ez;
     const sheet = data.sheet;
     this.row[i] = sheet && sheet.singleRow ? (sheet.row === 'random' ? Math.trunc(particleRandom(seed, K.row) * Math.max(1, sheet.tiles[1]) * 0.99999) : sheet.row) : 0;
+    // Which of its sub-emitter links fire from it, each with its own generator (seeded by its subSeed<k>).
+    const L = this.links.length;
+    for (let k = 0; k < L; k++) {
+      const link = this.links[k], slot = i * L + k;
+      const on = link.kind === 'birth' && (link.probability >= 1 || particleRandom(seed, SUB_KEYS[k]) < link.probability);
+      this.subOn[slot] = on ? 1 : 0;
+      if (on) {
+        this.linkRng.reseed(particleWord(seed, SUB_SEED_KEYS[k])).save(this.subState, slot * 4);
+        this.subAcc[slot * 2] = 0;
+        this.subAcc[slot * 2 + 1] = 0;
+      }
+    }
   }
 
   /** A module vector given in the root's space (inWorld) or the emitter's, expressed in the simulation's
@@ -1116,6 +1527,19 @@ export class ParticleSim {
   }
 }
 
+/** A sub-emitter child's normalized system time at age x of its parent particle (its duration d; looping or not). */
+function childT01(x: number, d: number, loop: boolean): number {
+  return loop ? pyMod(x, d) / d : Math.min(x, d) / d;
+}
+
+/** The emitter's velocity over the last step (its pose now less before, over dt), into sim.emitterVelocity. */
+function moved(sim: ParticleSim, dt: number): void {
+  const p = sim.pose, q = sim.prevPose, v = sim.emitterVelocity;
+  v[0] = (p[0] - q[0]) * (1 / dt);
+  v[1] = (p[1] - q[1]) * (1 / dt);
+  v[2] = (p[2] - q[2]) * (1 / dt);
+}
+
 /* --- a model's systems on the layers' clock (section 3.2, 3.6-3.8) ----------------------------- */
 
 /** The fixed step (illustration seconds) and the degraded one (when the 2-second median frame time stays above 24 ms). */
@@ -1133,6 +1557,9 @@ export const REDUCED_STILL = 3;
  *  go) or 'finish' (emission stops, the particles live out their lives). The one unknown of section 3.6,
  *  settled in P6 from the recording (frames 43.5-44.5 s). */
 export const ACTION_END: 'vanish' | 'finish' = 'vanish';
+/** How far past a grid point a timeline is read for the values clips switch there: the export writes a stepped
+ *  column's switch to 1e-4 s (a switch at 13.0666... s is written 13.0667), so a grid point on the switch takes it. */
+export const SWITCH_SLACK = 1e-4;
 const DEGRADE_ABOVE = 0.024;
 const RECOVER_BELOW = 0.018;
 
@@ -1150,7 +1577,7 @@ export interface Placement { matrix: ArrayLike<number>; rotation: ArrayLike<numb
 export interface SystemRun {
   data: ParticleSystemData;
   sim: ParticleSim;
-  /** Playing (its GameObject is active). */
+  /** Playing (its GameObject is active). A sub-emitter child: while its parent plays and its own GameObject is on. */
   on: boolean;
   /** Plays so far (playSeed's count: a replay draws new particles). */
   plays: number;
@@ -1172,6 +1599,13 @@ export interface SystemRun {
   /** Governing time minus delay at the last frame, and the follower placement then (stepped between). */
   lastTau: number;
   lastPlacement: Float64Array | null;
+  /** A sub-emitter child's parent: the child is in `runs` (it draws where it sorts) but only its parent's steps
+   *  move it, and its clock fields (on, key, steps, alpha, plays...) mirror its parent's. Null for any other. */
+  parent: SystemRun | null;
+  /** Its sub-emitter children, in link order. */
+  children: SystemRun[];
+  /** The emitter's pose (Pose) at the last step: what the simulation placed particles by. */
+  pose: Pose;
 }
 
 export interface DirectorOptions {
@@ -1194,15 +1628,20 @@ const STATES = new Set(['Interact', 'Special', 'Start']);
  * A model's particle systems on the layers' clock. Each frame, `frame(clock, delta)`:
  * - finds each system's governing clock, as a layer's: a controller group's system only while its animation
  *   plays (from that animation's start), a system with a state timeline on that state while its action plays
- *   (Idle restarting the default), any other on the illustration's time; less its delay;
+ *   (Idle's clock for the default again after), any other on the illustration's time; less its delay;
  * - steps it on a fixed grid from that clock's origin (k x STEP), at most MAX_STEPS a frame, so its births
  *   and onsets never depend on the display rate; between steps the renderer draws at `alpha`;
  * - plays it on a rising edge (its gate holds, its delay has passed and its `active` column is 1: cleared,
  *   playSeed with the next play count, prewarmed), clears it when `active` falls (a clip switched its
  *   GameObject off), ends it by ACTION_END when its action ends, and restarts it when its clock jumps back
- *   (a replayed press, the entrance handing over);
+ *   (a replayed press, the entrance handing over). A system outside the groups that moves from one of its
+ *   timelines to another (a state's while its action plays, the default's after) plays on: the Animator
+ *   changed state, its GameObjects stayed on, so only its `active` edges start or clear it;
  * - samples its emitter timeline at each step's end (the pose), and the values clips drive at its start
- *   (`active`, the simulation speed integrated over the step, emission, start values, modifiers).
+ *   (`active`, the simulation speed integrated over the step, emission, start values, modifiers);
+ * - drives its sub-emitter children with it (`sub`): a child never plays on its own; its parent's step moves it,
+ *   at the child's speed, with the child's emitter (its own timeline and follower) at that step, and its own
+ *   `active` column switching it off (cleared, its births dropped) and on.
  */
 export class ParticleDirector {
   readonly runs: SystemRun[];
@@ -1213,8 +1652,14 @@ export class ParticleDirector {
   private readonly frameTimes: number[] = [];
   private readonly sample: Float64Array;
   private readonly sample2: Float64Array;
+  private readonly childSample: Float64Array;
+  private readonly childSample2: Float64Array;
   private readonly pose = new Float64Array(POSE_SIZE);
   private readonly composed = new Float64Array(12);
+  private readonly quat = new Float64Array(4);
+  /** The frame's span for followers (between()): the last frame's governing time and this one's. */
+  private spanFrom = 0;
+  private spanTo = 0;
 
   constructor(doc: ParticleDocument, options: Partial<DirectorOptions> = {}) {
     this.options = {
@@ -1238,12 +1683,27 @@ export class ParticleDirector {
     for (const data of doc.systems) if (data?.timeline) width = Math.max(width, data.timeline.width);
     this.sample = new Float64Array(width);
     this.sample2 = new Float64Array(width);
-    // Sub-emitter children play only through their parents (P4); every other system the reader kept runs.
-    this.runs = doc.systems.flatMap((data) => (data && !data.child ? [{
+    this.childSample = new Float64Array(width);
+    this.childSample2 = new Float64Array(width);
+    // Every system the reader kept, sub-emitter children included (they draw where they sort), in draw order.
+    this.runs = doc.systems.flatMap((data) => (data ? [{
       data, sim: new ParticleSim(data, doc, this.options.options, this.options.precision, this.budget), on: false, plays: 0, failed: false, finishing: false,
       key: null, steps: 0, alpha: 0, matrix: Float64Array.from(data.emitter?.matrix ?? IDENTITY_3X4), prevMatrix: Float64Array.from(data.emitter?.matrix ?? IDENTITY_3X4),
       scale: Float64Array.from(data.emitter?.scale ?? [1, 1, 1]), row: data.timeline ? new Float64Array(data.timeline.width) : null, lastTau: 0, lastPlacement: null,
-    }] : []));
+      parent: null, children: [], pose: identityPose(),
+    } satisfies SystemRun] : []));
+    // Each parent's links, in its order (the reader keeps a family whole, or leaves all of it out).
+    const byIndex = new Map(this.runs.map((run) => [run.data.index, run]));
+    for (const run of this.runs) {
+      if (run.data.child) continue;
+      for (const [index, kind, probability] of run.data.sub) {
+        const child = byIndex.get(index);
+        if (!child || !child.data.child || child.parent) continue;
+        run.sim.link(child.sim, kind, probability);
+        child.parent = run;
+        run.children.push(child);
+      }
+    }
   }
 
   private dropped(): boolean {
@@ -1275,31 +1735,39 @@ export class ParticleDirector {
     return { key: 'time', tau: still(clock.time) - data.delay, line: tl };
   }
 
-  /** A system's emitter at governing time tau into this.pose / this.composed, and its timeline frame into `into`. */
-  private emitterAt(run: SystemRun, line: EmitterLine | null, tau: number, into: Float64Array | null, placement: Float64Array | null): void {
+  /** A system's emitter at governing time tau into `pose` and `composed` (and run.scale), its timeline frame into
+   *  `into` (particle_oracle.emitter_pose). On a follower: the emitter through the placement's matrix, its origin
+   *  through `origin` when the placement has one (a Local-scaling system: the caller turns its linear part by the
+   *  follower's rotation alone, Unity's Local ignoring every parent's scale; particleGeometry.followPlacement).
+   *  A timeline's interpolated quaternion is normalized. */
+  private emitterAt(run: SystemRun, line: EmitterLine | null, tau: number, into: Float64Array | null, placement: Float64Array | null, pose: Pose, composed: Float64Array): void {
     const data = run.data, tl = data.timeline;
     let matrix: ArrayLike<number>, rotation: ArrayLike<number>, scale: ArrayLike<number>;
     if (tl && line && into) {
       sampleLine(line, tl.width, tau, into);
       matrix = into.subarray(tl.at.matrix, tl.at.matrix + 12);
-      rotation = into.subarray(tl.at.rotation, tl.at.rotation + 4);
+      const r = tl.at.rotation, q = this.quat;
+      const norm = Math.sqrt(into[r] * into[r] + into[r + 1] * into[r + 1] + into[r + 2] * into[r + 2] + into[r + 3] * into[r + 3]) || 1;
+      for (let j = 0; j < 4; j++) q[j] = into[r + j] / norm;
+      rotation = q;
       scale = into.subarray(tl.at.scale, tl.at.scale + 3);
     } else {
       matrix = data.emitter!.matrix; rotation = data.emitter!.rotation; scale = data.emitter!.scale;
     }
     if (placement) {
-      compose(placement, matrix, this.composed);
+      compose(placement, matrix, composed);
       if (placement.length >= 31) {
-        // The origin through the follower's whole placement (Placement.origin).
+        // The origin through the follower's whole placement (Placement.origin: a Local-scaling system, whose
+        // linear part `matrix` turns by the follower's rotation alone; particleGeometry.followPlacement).
         const o = placement;
-        for (let r = 0; r < 3; r++) this.composed[r * 4 + 3] = o[19 + r * 4] * matrix[3] + o[20 + r * 4] * matrix[7] + o[21 + r * 4] * matrix[11] + o[22 + r * 4];
+        for (let r = 0; r < 3; r++) composed[r * 4 + 3] = o[19 + r * 4] * matrix[3] + o[20 + r * 4] * matrix[7] + o[21 + r * 4] * matrix[11] + o[22 + r * 4];
       }
       const q = quatMul(placement.subarray(12, 16), rotation);
-      poseFrom(this.composed, q, this.pose);
+      poseFrom(composed, q, pose);
       run.scale[0] = placement[16] * scale[0]; run.scale[1] = placement[17] * scale[1]; run.scale[2] = placement[18] * scale[2];
     } else {
-      this.composed.set(matrix);
-      poseFrom(matrix, rotation, this.pose);
+      composed.set(matrix);
+      poseFrom(matrix, rotation, pose);
       run.scale[0] = scale[0]; run.scale[1] = scale[1]; run.scale[2] = scale[2];
     }
   }
@@ -1307,38 +1775,107 @@ export class ParticleDirector {
   /** The values a clip drives at a frame, onto the system's simulation (the column's binding replaces the scalar). */
   private applyColumns(run: SystemRun, frame: Float64Array): void {
     const at = run.data.timeline!.at, a = run.sim.animated;
-    const set = (name: string, apply: (value: number) => void) => { if (Object.hasOwn(at, name)) apply(frame[at[name]]); };
-    set('emission.rate', (v) => { a.rate.scalar = v; });
-    set('emission.enabled', (v) => { a.enabled = v >= 0.5; });
-    set('emission.distance', (v) => { a.distance.scalar = v; });
-    set('main.startSize', (v) => { a.startSize.scalar = v; });
-    set('main.gravity', (v) => { a.gravity.scalar = v; });
-    set('noise.strength', (v) => { a.noise.scalar = v; });
-    set('velocity.speedModifier', (v) => { if (a.speedModifier) a.speedModifier.scalar = v; });
-    set('size.multiplier', (v) => { if (a.size) a.size.scalar = v; });
+    // (Plain lookups, no closures: this runs every step of every system on a timeline.)
+    if (hasColumn(at, 'emission.rate')) a.rate.scalar = frame[at['emission.rate']];
+    if (hasColumn(at, 'emission.enabled')) a.enabled = frame[at['emission.enabled']] >= 0.5;
+    if (hasColumn(at, 'emission.distance')) a.distance.scalar = frame[at['emission.distance']];
+    if (hasColumn(at, 'main.startSize')) a.startSize.scalar = frame[at['main.startSize']];
+    if (hasColumn(at, 'main.gravity')) a.gravity.scalar = frame[at['main.gravity']];
+    if (hasColumn(at, 'noise.strength')) a.noise.scalar = frame[at['noise.strength']];
+    if (hasColumn(at, 'velocity.speedModifier') && a.speedModifier) a.speedModifier.scalar = frame[at['velocity.speedModifier']];
+    if (hasColumn(at, 'size.multiplier') && a.size) a.size.scalar = frame[at['size.multiplier']];
     // The shape is read where particles are born; its radius is the system's own (no other system shares it).
-    set('shape.radius', (v) => { if (run.data.shape) run.data.shape.radius.value = v; });
-    if (Object.hasOwn(at, 'main.startColor')) for (let j = 0; j < 4; j++) a.startColor[j] = frame[at['main.startColor'] + j];
+    if (hasColumn(at, 'shape.radius') && run.data.shape) run.data.shape.radius.value = frame[at['shape.radius']];
+    if (hasColumn(at, 'main.startColor')) for (let j = 0; j < 4; j++) a.startColor[j] = frame[at['main.startColor'] + j];
   }
 
   private fail(run: SystemRun, why: string): void {
     run.failed = true;
     run.on = false;
     run.sim.clear();
-    this.options.warn(`${run.data.name} switched off: ${why}`);
+    for (const child of run.children) { child.failed = true; child.on = false; }
+    this.options.warn(`${run.data.name}${run.children.length ? ' and its sub-emitters' : ''} switched off: ${why}`);
   }
 
-  /** Clears and starts a play at governing time tau. */
-  private rise(run: SystemRun, line: EmitterLine | null, tau: number, placement: Float64Array | null): void {
+  /** A child its parent's step found failing (a value went non-finite) is switched off alone. */
+  private childFailures(run: SystemRun): void {
+    for (const child of run.children) {
+      if (child.sim.failed && !child.failed) {
+        child.failed = true;
+        child.on = false;
+        this.options.warn(`${child.data.name} switched off: a value went non-finite`);
+      }
+    }
+  }
+
+  /** A follower's placement at grid time t, linear between the last frame's (`from`, at spanFrom) and this frame's (`to`, at spanTo). */
+  private between(from: Float64Array | null, to: Float64Array | null, t: number): Float64Array | null {
+    const a = this.spanFrom, b = this.spanTo;
+    return to && from && b > a ? lerpPlacement(from, to, (t - a) / (b - a)) : to;
+  }
+
+  /** A follower's placement now as one array (Placement: matrix 12, rotation 4, scale 3, then origin 12 when it
+   *  has one), or null. */
+  private placementOf(data: ParticleSystemData, placements: ((data: ParticleSystemData) => Placement | null) | null): Float64Array | null {
+    if (!data.follow || !placements) return null;
+    const p = placements(data);
+    return p ? Float64Array.from([...Array.from(p.matrix), ...Array.from(p.rotation), ...Array.from(p.scale), ...(p.origin ? Array.from(p.origin) : [])]) : null;
+  }
+
+  /**
+   * The children of a parent at its step from t0 to t1 (or at its rise, t0 = t1): each child's `active` at t0
+   * (switched off: cleared, its births dropped), the values its clips drive then (its speed among them), and its
+   * emitter at t1 (its own timeline and follower), into its run's pose and matrices. Returns their poses.
+   */
+  private childrenAt(run: SystemRun, lines: readonly (EmitterLine | null)[], t0: number, t1: number, placements: readonly (Float64Array | null)[], rising: boolean): Pose[] {
+    return run.children.map((child, k) => {
+      const data = child.data, tl = data.timeline, line = lines[k];
+      let active = data.active;
+      if (tl && line) {
+        sampleLine(line, tl.width, t0 + SWITCH_SLACK, this.childSample);
+        active = this.childSample[ACTIVE_COLUMN] >= 0.5;
+        this.applyColumns(child, this.childSample);
+        if (Object.hasOwn(tl.at, 'speed')) child.sim.childSpeed = this.childSample[tl.at.speed];
+      }
+      if (!active && child.sim.childActive) child.sim.clear();
+      child.sim.childActive = active;
+      this.emitterAt(child, line, t1, tl ? this.childSample2 : null, this.between(child.lastPlacement ?? placements[k], placements[k], t1), child.pose, this.composed);
+      if (!rising) child.prevMatrix.set(child.matrix);
+      child.matrix.set(this.composed);
+      if (rising) child.prevMatrix.set(this.composed);
+      return child.pose;
+    });
+  }
+
+  /** Clears and starts a play at governing time tau (its children with it). */
+  private rise(run: SystemRun, line: EmitterLine | null, tau: number, placement: Float64Array | null, childLines: readonly (EmitterLine | null)[],
+    childPlacements: readonly (Float64Array | null)[]): void {
     run.sim.clear();
     run.plays++;
-    this.emitterAt(run, line, tau, run.data.timeline ? this.sample : null, placement);
+    this.emitterAt(run, line, tau, run.data.timeline ? this.sample : null, placement, this.pose, this.composed);
     if (run.data.timeline) this.applyColumns(run, this.sample);
     run.matrix.set(this.composed);
     run.prevMatrix.set(this.composed);
-    run.sim.play(playSeed(this.options.modelSeed, run.data.index, run.plays), this.pose);
+    run.pose.set(this.pose);
+    const childPoses = this.childrenAt(run, childLines, tau, tau, childPlacements, true);
+    run.sim.play(playSeed(this.options.modelSeed, run.data.index, run.plays), run.pose, childPoses);
     run.on = true;
     run.finishing = false;
+  }
+
+  /** A parent's children mirror its clock; their timeline frames (tint) at the display time. */
+  private syncChildren(run: SystemRun, lines: readonly (EmitterLine | null)[], tau: number): void {
+    run.children.forEach((child, k) => {
+      child.on = run.on && child.sim.childActive && !child.failed;
+      child.finishing = run.finishing;
+      child.plays = run.plays;
+      child.key = run.key;
+      child.steps = run.steps;
+      child.alpha = run.alpha;
+      child.lastTau = run.lastTau;
+      const tl = child.data.timeline, line = lines[k];
+      if (child.row && line && tl) sampleLine(line, tl.width, Math.max(tau, 0), child.row);
+    });
   }
 
   /**
@@ -1353,15 +1890,15 @@ export class ParticleDirector {
     budget.ratio = budget.demand ? Math.min(1, Math.max(0, (this.options.liveCap - budget.live) / budget.demand)) : 1;
     budget.demand = 0;
     for (const run of this.runs) {
-      if (run.failed) continue;
+      if (run.failed || run.data.child) continue;
       const data = run.data;
+      let childLines: readonly (EmitterLine | null)[] = NO_LINES;
       try {
-        let placement: Float64Array | null = null;
-        if (data.follow && placements) {
-          const p = placements(data);
-          if (p) placement = Float64Array.from([...Array.from(p.matrix), ...Array.from(p.rotation), ...Array.from(p.scale), ...(p.origin ? Array.from(p.origin) : [])]);
-        }
+        const placement = this.placementOf(data, placements);
+        const family = run.children.length > 0;
+        const childPlacements = family ? run.children.map((child) => this.placementOf(child.data, placements)) : NO_PLACEMENTS;
         const { key, tau, line } = this.governing(data, clock);
+        if (family) childLines = run.children.map((child) => this.governing(child.data, clock).line);
         if (key === null) {
           // Its gate shut: the controller's action ended (or never began).
           if (run.on && !run.finishing) {
@@ -1369,22 +1906,33 @@ export class ParticleDirector {
           }
           if (run.finishing) this.finish(run, delta);
           run.key = null;
+          this.syncChildren(run, childLines, tau);
           continue;
         }
         const reducedStill = this.options.reduced && (key === 'time' || key === 'Idle');
         if (key !== run.key || tau < run.lastTau - 1e-9) {
-          // A new clock, or this one jumped back: start over on its grid (from its origin; a clock first met far
-          // past it, the still under reduced motion aside, joins its last few steps).
-          if (run.on) { run.sim.clear(); run.on = false; }
-          run.finishing = false;
-          run.key = key;
-          run.steps = reducedStill ? 0 : Math.max(0, Math.floor(tau / h) - MAX_STEPS);
+          if (run.on && key !== run.key && run.key !== null && data.only === null && !this.options.reduced && tau >= 0) {
+            // The same GameObjects on another of its timelines (an action's state, the default's after it): it plays
+            // on, on the new clock's grid; its `active` there may clear or restart it.
+            run.key = key;
+            run.steps = Math.floor(tau / h + 1e-9);
+          } else {
+            // A new clock, or this one jumped back: start over on its grid (from its origin; a clock first met far
+            // past it, the still under reduced motion aside, joins its last few steps).
+            if (run.on) { run.sim.clear(); run.on = false; }
+            run.finishing = false;
+            run.key = key;
+            run.steps = reducedStill ? 0 : Math.max(0, Math.floor(tau / h) - MAX_STEPS);
+          }
           run.lastTau = tau;
           run.lastPlacement = placement;
+          run.children.forEach((child, k) => { child.lastPlacement = childPlacements[k]; });
         }
         const most = reducedStill ? Math.ceil(REDUCED_STILL / h) + 1 : MAX_STEPS;
-        const fromTau = run.lastTau, fromPlacement = run.lastPlacement ?? placement;
-        const at = (t: number) => (placement && fromPlacement && tau > fromTau ? lerpPlacement(fromPlacement, placement, (t - fromTau) / (tau - fromTau)) : placement);
+        // Followers are stepped linearly from the last frame's placement (at its time) to this one's.
+        this.spanFrom = run.lastTau;
+        this.spanTo = tau;
+        const fromPlacement = run.lastPlacement ?? placement;
         let done = 0;
         // Each grid point the clock has reached: its edges (is it on: its delay passed, `active`), then the step
         // after it if the clock has passed that too. A rising edge plays at once, so a prewarmed loop shows on the
@@ -1394,11 +1942,11 @@ export class ParticleDirector {
           if (t0 > tau + 1e-9) break;
           let active = data.active;
           if (data.timeline && line) {
-            sampleLine(line, data.timeline.width, t0, this.sample2);
+            sampleLine(line, data.timeline.width, t0 + SWITCH_SLACK, this.sample2);
             active = this.sample2[ACTIVE_COLUMN] >= 0.5;
           }
           const on = active && !(reducedStill && !data.clock.loop);
-          if (on && !run.on) this.rise(run, line, t0, at(t0));
+          if (on && !run.on) this.rise(run, line, t0, this.between(fromPlacement, placement, t0), childLines, childPlacements);
           else if (!on && run.on) { run.sim.clear(); run.on = false; }
           if (t1 > tau + 1e-9 || done >= most) break;
           if (run.on) {
@@ -1408,34 +1956,45 @@ export class ParticleDirector {
               this.applyColumns(run, this.sample2);
               if (Object.hasOwn(data.timeline.at, 'speed')) speed = this.sample2[data.timeline.at.speed];
             }
-            this.emitterAt(run, line, t1, data.timeline ? this.sample : null, at(t1));
+            this.emitterAt(run, line, t1, data.timeline ? this.sample : null, this.between(fromPlacement, placement, t1), this.pose, this.composed);
             if (data.timeline && Object.hasOwn(data.timeline.at, 'speed')) speed = (speed + this.sample[data.timeline.at.speed]) / 2;
             run.prevMatrix.set(run.matrix);
             run.matrix.set(this.composed);
-            if (!run.sim.step(h, this.pose, speed)) { this.fail(run, 'a value went non-finite'); break; }
+            run.pose.set(this.pose);
+            const childPoses = this.childrenAt(run, childLines, t0, t1, childPlacements, false);
+            if (!run.sim.step(h, run.pose, speed, childPoses)) { this.fail(run, 'a value went non-finite'); break; }
+            this.childFailures(run);
           }
           run.steps++;
           done++;
         }
-        if (run.failed) continue;
+        if (run.failed) { this.syncChildren(run, childLines, tau); continue; }
         // Behind by more than a frame may take (a clock that jumped ahead): skip to it.
         if ((run.steps + 1) * h <= tau) run.steps = Math.floor(tau / h);
         run.alpha = Math.min(Math.max((tau - run.steps * h) / h, 0), 1);
         run.lastTau = tau;
         run.lastPlacement = placement;
+        run.children.forEach((child, k) => { child.lastPlacement = childPlacements[k]; });
         if (run.row && line && data.timeline) sampleLine(line, data.timeline.width, Math.max(tau, 0), run.row);
+        this.syncChildren(run, childLines, tau);
       } catch (error) {
         this.fail(run, error instanceof Error ? error.message : String(error));
+        this.syncChildren(run, childLines, 0);
       }
     }
   }
 
-  /** A system finishing after its action ended: stepped on the frame's delta until its particles are gone. */
+  /** A system finishing after its action ended: stepped on the frame's delta until its particles (and its
+   *  children's) are gone. */
   private finish(run: SystemRun, delta: number): void {
     run.alpha = 0;
     let steps = Math.min(MAX_STEPS, Math.round(delta / this.step));
-    while (steps-- > 0 && run.sim.count) if (!run.sim.step(this.step, null)) { this.fail(run, 'a value went non-finite'); return; }
-    if (!run.sim.count) { run.on = false; run.finishing = false; }
+    const keep = run.children.map(() => null);
+    while (steps-- > 0 && run.sim.familyCount) {
+      if (!run.sim.step(this.step, null, run.data.clock.speed, keep)) { this.fail(run, 'a value went non-finite'); return; }
+      this.childFailures(run);
+    }
+    if (!run.sim.familyCount) { run.on = false; run.finishing = false; }
   }
 
   /** The degraded step while the 2-second median frame time stays above 24 ms (and back below 18 ms). */
@@ -1456,6 +2015,9 @@ export class ParticleDirector {
 }
 
 const IDENTITY_3X4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+const hasColumn = (at: Record<string, number>, name: string) => at[name] !== undefined;
+const NO_LINES: readonly (EmitterLine | null)[] = [];
+const NO_PLACEMENTS: readonly (Float64Array | null)[] = [];
 
 /** outer (3x4) x inner (3x4), both row-major, into out. */
 function compose(outer: ArrayLike<number>, inner: ArrayLike<number>, out: Float64Array): void {
