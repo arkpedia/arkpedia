@@ -1,3 +1,5 @@
+import { withPullPlannerDynamicArt } from '@/lib/skins/dynamicArtFallback';
+import { assertDynamicArtIndex, skinDynamicArt } from '@/lib/skins/dynamicArt';
 import BannerPicker from '@/components/pulls/BannerPicker';
 import PullBannerRow from '@/components/pulls/PullBannerRow';
 import workspace from '@/styles/pulls/pulls-workspace.module.css';
@@ -535,12 +537,12 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const backlogSources = bundledBacklogSources();
   const skins = getAllSkins();
   const events = getAllEvents();
-  const skinCatalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins));
+  const skinCatalogue = pullSkinCatalogue(skins, skinReleaseDates(events, skins), skinDynamicArt(assertDynamicArtIndex((await import('@/data/dynamic-art.json')).default), skins));
   const predicted = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => event.name));
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
 }, { finalize: async props => {
-  const current = currentPullPlan(props, Date.now());
+  const current = await withPullPlannerDynamicArt(currentPullPlan(props, Date.now()));
   if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };
   // A release exported before backlogSources joined the props. The first content
   // run after this deploy re-exports /pulls (the generator commit changes the

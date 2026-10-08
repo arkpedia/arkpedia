@@ -7,7 +7,7 @@ import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
-import { acquisitionLabel, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, isAvailableNow, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { acquisitionLabel, compareUpcomingSkins, isUpcomingSkin, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, isAvailableNow, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
 import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { ALL_SERIES, seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
@@ -49,6 +49,7 @@ const AVAILABILITY_OPTIONS = [
   { value: 'shop', label: 'Shop' },
   { value: 'reward', label: 'Rewards' },
   { value: 'upcoming', label: 'Upcoming' },
+  { value: 'fashion', label: 'Fashion Review' },
 ];
 const SORT_OPTIONS = [
   { value: '', label: 'Catalogue order' },
@@ -201,11 +202,12 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
       if (selectedSeries && selectedSeries !== 'WISHLIST' && seriesKey(skin.series) !== seriesKey(selectedSeries)) return false;
       const window = availability.get(skinKey(skin));
       if (availabilityFilter === 'now') return isAvailableNow(window);
-      if (availabilityFilter === 'upcoming') return (!!window && !window.live) || skin.sourceRegion === 'CN' || /^\[CN\]/.test(skin.release || '');
+      if (availabilityFilter === 'fashion') return !!skin.fashionReviewDate || windows.some(window => /Fashion Review/i.test(window.label) && window.skinIds.includes(skinKey(skin)));
+      if (availabilityFilter === 'upcoming') return isUpcomingSkin(skin, window, clock) && !skin.fashionReviewDate;
       if (['shop', 'reward'].includes(availabilityFilter)) return !!window?.live && window.kind === availabilityFilter;
       return true;
     });
-  }, [skins, selectedSeries, isWished, wishlistOnly, availability, availabilityFilter]);
+  }, [skins, selectedSeries, isWished, wishlistOnly, availability, availabilityFilter, clock, windows]);
   /* Every filter but Owned, so the Owned filter can count what each of its options would show
      (components/account/OwnedFilter). */
   const matchingSkins = useMemo(() => (!search.trim()
@@ -216,6 +218,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
   const filteredSkins = useMemo(() => {
     const base = account && owned !== 'all' ? matchingSkins.filter((skin) => ownedSkins.has(skin.skinId ?? '') === (owned === 'owned')) : matchingSkins;
 
+    if (availabilityFilter === 'upcoming') return [...base].sort((a, b) => compareUpcomingSkins(a, b, availability));
     const searching = search.trim().length > 0;
     // What can be had now leads the gallery, in the order the Available now tab lists it,
     // and the rest follows in its own order. It had a shelf of its own above the gallery,
@@ -305,7 +308,8 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
               value={selectedSeries === 'WISHLIST' ? '' : seriesOptions.find(series => seriesKey(series) === seriesKey(selectedSeries)) ?? selectedSeries ?? ''}
               options={[{ value: '', label: 'All series' }, ...seriesOptions.map(series => ({ value: series, label: series }))]}
               onChange={value => setSelectedSeries(value || null)} />
-            <StyledSelect label="Sort skins" value={sortByAvailableDate ? 'available' : ''} options={SORT_OPTIONS}
+            <StyledSelect label="Sort skins" value={availabilityFilter === 'upcoming' ? 'upcoming' : sortByAvailableDate ? 'available' : ''}
+              options={availabilityFilter === 'upcoming' ? [{value: 'upcoming', label: 'Availability date'}] : SORT_OPTIONS} disabled={availabilityFilter === 'upcoming'}
               onChange={value => setSortByAvailableDate(value === 'available')} />
           </div>
           {/* The filters, then the wishlist at the far end: the roster's and the Skin Planner's
@@ -327,6 +331,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
         <div className="skins-result-summary"><span className="hint" role="status">{filteredSkins.length} of {skins.length} outfits</span>
           <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly && !(account && owned !== 'all')} onClick={() => { setSearch(''); setSelectedSeries(null); setAvailabilityFilter(''); setWishlistOnly(''); setOwned('all'); }}>Reset filters</button>
         </div>
+        {availabilityFilter === 'fashion' && <p className="skins-acquisition-note">Outfits included in Fashion Review. Availability depends on the announced shop or draw pool.</p>}
         {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}
         {filteredSkins.length === 0 ? (
           // A silent empty grid reads as a broken page, not as "nothing
@@ -419,7 +424,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
       )}
 
       {zooming && active?.image && (
-        <SkinZoomOverlay image={active.image} name={active.name} dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null}
+        <SkinZoomOverlay image={active.image} name={active.name} dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null} alternate={active.skinId ? dynamicArt[`${active.skinId}^sp_dyn`] ?? null : null}
           onClose={() => setZooming(false)} />
       )}
     </>

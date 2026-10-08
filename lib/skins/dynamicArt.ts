@@ -64,6 +64,8 @@ export function skinDynamicArt(index: DynamicArtIndex, skins: readonly Pick<Skin
   for (const skin of skins) {
     const url = dynamicArtFor(index, skin.skinId);
     if (url && skin.skinId) pointers[skin.skinId] = url;
+    const alternate = dynamicArtFor(index, skin.skinId ? `${skin.skinId}^sp_dyn` : null);
+    if (alternate && skin.skinId) pointers[`${skin.skinId}^sp_dyn`] = alternate;
   }
   return pointers;
 }
@@ -95,8 +97,11 @@ export function operatorDynamicArt(index: DynamicArtIndex, operator: OperatorIde
   skins: readonly SkinRecord[]): Record<string, string> {
   const pointers: Record<string, string> = {};
   for (const appearance of appearances) {
-    const url = dynamicArtFor(index, appearanceSkinId(operator, appearance, skins));
+    const id = appearanceSkinId(operator, appearance, skins);
+    const url = dynamicArtFor(index, id);
     if (url) pointers[appearance.label] = url;
+    const alternate = dynamicArtFor(index, id ? `${id}^sp_dyn` : null);
+    if (alternate) pointers[`${appearance.label}^sp_dyn`] = alternate;
   }
   return pointers;
 }
