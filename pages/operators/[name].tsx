@@ -1100,8 +1100,14 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             )}
             {sectionVisible('skills') && (
               <section id="operator-skills" data-operator-section="skills" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
-                <h2>Skills</h2>
-                {priorityGuideGroups.length > 0 && <a className="ghost btn-sm" href="#mastery">Mastery priority guide ↓</a>}
+                <div className={pageStyles.skillHeading}>
+                  <h2>Skills</h2>
+                  {priorityGuideGroups.length > 0 && (
+                    <a className="ghost btn-sm" href="#mastery" aria-label="Mastery priority guide">
+                      <span><span className={pageStyles.masteryGuidePrefix}>Mastery </span>priority guide ↓</span>
+                    </a>
+                  )}
+                </div>
                 {/* The site's tabs, each with the skill's icon: they were 56x62 icon
                     tiles in a column beside the title, a fourth tab look. */}
                 <Tabs
