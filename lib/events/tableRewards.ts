@@ -8,7 +8,7 @@ import type { ResolvedRewardStore } from './rewardTotals';
  */
 export interface TableRewardItem { name: string; count: number; kind: string; id: string }
 export interface PackContents { name: string; count: number; kind: string }
-export interface EventPack { name: string; start?: string; end?: string | null; contents: PackContents[] }
+export interface EventPack { name: string; start?: string; end?: string | null; contents: PackContents[]; limit?: number; notes?: string[] }
 export interface FurniturePiece { name: string; id: string; obtain: string | null; comfort: number | null }
 export interface TableRewardGroup {
   kind: 'login' | 'banner-gift' | 'free-rolls' | 'missions' | 'milestones' | 'first-clear' | 'pray' | 'packs' | 'notice' | 'furniture-set';
@@ -17,6 +17,8 @@ export interface TableRewardGroup {
   start?: string;
   end?: string;
   days?: number;
+  /** Ordered sign-in day rewards; totals remain in items. */
+  daily?: TableRewardItem[][];
   count?: number;
   items: TableRewardItem[];
   /** packs: the packs a post's section offers. */

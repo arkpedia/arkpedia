@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { RewardClick } from './RewardDetails';
 import Image from '@/components/content/ContentImage';
 import { eventTitle } from '@/lib/events/eventName.mjs';
 import type { RewardSummary as Summary, SummaryItem } from '@/lib/events/rewardSummary';
@@ -40,12 +41,12 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, width: number, ma
 
 function Tile({ item, register }: { item: SummaryItem; register: (name: string, el: HTMLImageElement | null) => void }) {
   return (
-    <span className="reward-summary-tile" title={item.name}>
+    <RewardClick name={item.name} className="reward-summary-tile">
       {item.iconPath
         ? <><Image src={item.iconPath} alt="" width={40} height={40} ref={(el: HTMLImageElement | null) => register(item.name, el)} /><span className="visually-hidden">{item.name}</span></>
         : <span className="reward-summary-tile-name"><span>{item.name}</span></span>}
       <b>×{fmt(item.count)}</b>
-    </span>
+    </RewardClick>
   );
 }
 
