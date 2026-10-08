@@ -21,7 +21,7 @@ Implemented:
 
 Content and asset limits:
 
-- The 18 declared special outfit voice sets are present, with clip URL templates. No missing set was found; the new outfit selector makes these discoverable. Every remote audio clip was not individually replayed.
+- The 18 declared special outfit voice sets are present, with clip URL templates. No missing set was found; the new outfit selector makes these discoverable. One pinned Japanese recording from every outfit set was checked: all 18 returned HTTP 200. Every remote audio clip was not individually replayed.
 - Battle chibi pointers cover 519 of 520 catalogue outfits. Sora's Summer Flowers FA361 battle model is absent from the reviewed inventory. The viewer explicitly says unavailable for that outfit. Native renders checked include Thorns default and Blade-cleaved Tides (front/back), and Skadi the Corrupting Heart's Red Countess (single facing).
 - Chibis use the existing licensed Spine 3.8 runtime and native game exports. Dormitory `build_` models are excluded. The idle camera ignores invisible effect slots, and closing/switching the viewer releases its WebGL resources.
 - Summons show base stats before operator talents, skills and modules; inherited bonuses are not simulated.
@@ -37,4 +37,12 @@ Data provenance:
 - Chibi index rebuild: `node scripts/build/build-chibi-index.mjs <SD manifest> <Spine subtree inventory> <skin_table.json> <SD commit> <Spine commit>`. Both inventories must match their commits.
 - Summon stats rebuild automatically in the stage refresh, with `scripts/build/build-operator-summons.mjs`; `ARKPEDIA_EN` and optional `ARKPEDIA_CN_CHARACTERS` select alternate game-table inputs.
 
-Validation logs are kept under `/tmp/feedback-*.log`; visual evidence is under `.cache/feedback/screenshots/` in this checkout. The final validation results will be recorded after the production build.
+Validation logs are kept under `/tmp/feedback-*.log`; visual evidence is under `.cache/feedback/screenshots/` in this checkout. Validation completed before the final queue edge-case refinement:
+
+- `npm test`: 1,240 passed, three existing skips, zero failures.
+- `npm run typecheck`, `npm run lint`, `npm run check:styles` and `npm run check:payload-budgets`: passed. Lint retains existing warnings.
+- `ARKPEDIA_CONTENT_DISABLED=1 ARKPEDIA_YOUTUBE_FEED_FIXTURE=tests/fixtures/youtube-feeds.xml npm run build`: passed, including clean deployment traces and no game data compiled into browser chunks.
+- Production-built Playwright feedback/planner/pulls/music suites: 86 passed, 44 conditional platform skips, zero failures. The earlier dev-server timing failures did not reproduce in production.
+- Additional final regression: an EP removed from a shortened queue is restored first without changing the order of the other songs. Validation is rerun after this refinement.
+- Production fixture feeds are deterministic examples for local browser testing; external creator feeds still run normally outside the fixture environment.
+

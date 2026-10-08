@@ -980,7 +980,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
               )}
             </div>
 
-            <OperatorChibi onOpen={() => setRotating(false)} models={chibis[shownAppearance?.label ?? ''] ?? null} label={`${operator.name} — ${shownAppearance?.label ?? ''}`} />
+            <OperatorChibi key={operator.name} onOpen={() => setRotating(false)} models={chibis[shownAppearance?.label ?? ''] ?? null} label={`${operator.name} — ${shownAppearance?.label ?? ''}`} />
             <OperatorArtworkCaption appearances={appearances} activeIndex={shownIndex} prices={skinObtainByLabel} />
             <OperatorAppearancePicker key={operator.name} appearances={appearances} activeIndex={activeIndex}
               onSelect={selectAppearance} onWarm={setWarmIndex} rotating={rotating} onRotationChange={setRotating} />

@@ -955,8 +955,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   function putFirst(videoId: string) {
     const previous = queueRef.current;
     const index = previous.findIndex(track => track.id === videoId);
-    if (index < 0) return;
-    const next = [previous[index], ...previous.filter(track => track.id !== videoId)];
+    const song = catalogRef.current?.find(song => song.videoId === videoId);
+    const track = previous[index] ?? (song && !(excludeCopyrightedRef.current && song.copyright) ? toQueueTrack(song) : null);
+    if (!track) return;
+    const next = [track, ...previous.filter(track => track.id !== videoId)];
     queueRef.current = next; setQueue(next); queueIndexRef.current = 0; setQueueIndex(0);
     if (shuffleRef.current) {
       const existing = shuffleOrderRef.current ?? previous.map((_, i) => i);

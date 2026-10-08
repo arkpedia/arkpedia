@@ -123,3 +123,15 @@ test('summon stats follow promotion and level without mixing operator bonuses',a
   await expect(panel.getByText('4,292',{exact:true})).toBeVisible();
   await expect(panel.getByText(/Base summon stats before/)).toBeVisible();
 });
+
+test('EP re-enters a shortened queue first while preserving the other songs',async({page})=>{
+  await stubYouTube(page); await page.goto('/operators/Thorns');
+  const id = await page.evaluate(() => JSON.parse(document.getElementById('__NEXT_DATA__')!.textContent!).props.pageProps.epTrack.id);
+  const catalogue = await (await page.request.get('/music-catalogue.json')).json();
+  const other = catalogue.songs.filter((song:{videoId:string})=>song.videoId!==id).slice(0,2).map((song:{videoId:string})=>song.videoId);
+  await page.evaluate(queue=>sessionStorage.setItem('arkpediaMusicResume',JSON.stringify({version:1,savedAt:Date.now(),left:true,videoId:queue[0],title:'Local test',seconds:10,duration:240,playing:false,queue,queueIndex:0,shuffle:false,shuffleOrder:null,shufflePosition:0,repeat:'off',volume:50})),other);
+  await page.reload(); await expect.poll(async()=>(await youtube(page))?.videoId).toBe(other[0]);
+  await page.getByRole('button',{name:'Play EP',exact:true}).click();
+  await expect.poll(async()=>page.evaluate(()=>JSON.parse(sessionStorage.getItem('arkpediaMusicResume')??'{}').queue)).toEqual([id,...other]);
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+});
