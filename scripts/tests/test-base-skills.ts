@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import type { BaseSkill } from '../../lib/operators/operatorTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
-import { trainingResult, trainingSkillContribution } from '../../lib/base/trainingRoomSkills';
+import { trainingResult, trainingSkillContribution, resolveTrainingTarget } from '../../lib/base/trainingRoomSkills';
 import { workshopResult } from '../../lib/base/workshopSkills';
 import { crossFacilityMoraleRelief } from '../../lib/base/crossFacilityMorale';
 import { jayeContribution } from '../../lib/base/jaye';
@@ -71,6 +71,19 @@ test('training class, branch, mastery, morale and replacement gates', () => {
   near(training('Skadi the Corrupting Heart', 'Supporter', 2).morale, 0);
   near(training('Viy', 'Guard').speed, 1.5); near(training('Viy', 'Medic').speed, 1.05);
   near(training('Warfarin', 'Medic', 2).hours, 16 / 1.55);
+});
+test('named trainee traits override stale preset metadata, while manual and legacy targets remain usable', () => {
+  const saved = { operatorName: 'Warfarin', class: 'Guard', branch: 'Fighter', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
+  const roster = [...ops.values()];
+  const medic = resolveTrainingTarget(saved, roster);
+  assert.equal(medic.class, 'Medic');
+  const result = trainingResult('Warfarin', activeBaseSkills(ops.get('Warfarin')!, 'Training Room', 'Elite 2'), { target: medic, allPlacedNames: ['Warfarin'], rosters, worldlyPlight: 0 }, 0);
+  near(result.speed, 1.55);
+  assert.equal(resolveTrainingTarget({ ...saved, operatorName: 'Qiubai' }, roster).branch, 'Lord');
+  assert.deepEqual(resolveTrainingTarget({ ...saved, operatorName: '' }, roster), { ...saved, operatorName: '' });
+  assert.deepEqual(resolveTrainingTarget(saved, [{ name: 'Warfarin' }]), saved);
+  const doc = resolveTrainingTarget({ ...saved, operatorName: 'Doc', class: 'Medic' }, roster);
+  assert.equal(doc.class, 'Guard'); assert.equal(doc.branch, 'Instructor');
 });
 test('actual TP/RR levels and exact Taraxacum quoted name', () => {
   const ctx = { rosters, tradingPostLevel: 1, receptionRoomLevel: 1, totalDormitoryLevels: 4, allPlacedNames: [], sameRoomOperatorNames: [], facilitiesWithSuiOperator: 3 } as unknown as TradingPostContext;

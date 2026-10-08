@@ -19,6 +19,15 @@ export interface TrainingContext {
 }
 export interface TrainingSkillResult { speed: number; morale: number; timeMultiplier: number; note?: string }
 
+/** Named trainees use current roster traits, even when a preset cached older ones. */
+export function resolveTrainingTarget(target: TrainingTarget, operators: readonly { name: string; class?: string | null; branch?: string | null }[]): TrainingTarget {
+  const trainee = operators.find(op => op.name === target.operatorName);
+  if (!trainee) return target;
+  const className = trainee.class ?? target.class;
+  const branch = trainee.branch ?? target.branch;
+  return className === target.class && branch === target.branch ? target : { ...target, class: className, branch };
+}
+
 /** Active skills only: the slot-chain resolver must run before this function. */
 export function trainingSkillContribution(operatorName: string, skill: BaseSkill, ctx: TrainingContext): TrainingSkillResult {
   const text = skill.description ?? '';
