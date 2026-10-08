@@ -316,6 +316,9 @@ body.front-page-no-scroll {
 /* An operator preview button, framed like any control; the portrait's bottom edge is its
    rarity (.tier-N). */
 .front-featured-op {
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;

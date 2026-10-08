@@ -32,3 +32,5 @@ export const getRecruitmentPageProps: ContentPageBuilder<RecruitmentProps> = asy
   }));
   return { props: { operators: pool, guaranteedCombos4, guaranteedCombos5 } };
 };
+
+export const recruitmentTables = { 'recruitment-tag-labels': async () => (await import('@/data/recruitment-tag-labels.json')).default };

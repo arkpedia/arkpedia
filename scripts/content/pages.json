@@ -41,5 +41,7 @@
   "/music/discover",
   "/games/music-guesser",
   "/results",
-  "/community"
+  "/community",
+  "/artists",
+  "/voice-actors"
 ]

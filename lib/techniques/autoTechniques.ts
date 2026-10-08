@@ -848,8 +848,10 @@ export function mergeTechniques<M extends SkillTechnique, A extends SkillTechniq
 type TechniqueOwner = Pick<Operator, 'rarity' | 'name' | 'branch' | 'class'>;
 
 /** What the operator page lists under a skill: its own techniques and every rule its levels match. */
-export function skillTechniques(operator: TechniqueOwner, skill: Pick<Skill, 'techniques' | 'levels'>): SkillTechnique[] {
-  return mergeTechniques(skill.techniques, detectAutoTechniques(operator.rarity, skill.levels.map((level) => level.description), operator.name, operator.branch, operator.class));
+export function skillTechniques(operator: TechniqueOwner, skill: Pick<Skill, 'techniques' | 'levels'> & Partial<Pick<Skill, 'recoveryType'>>): SkillTechnique[] {
+  const auto = detectAutoTechniques(operator.rarity, skill.levels.map((level) => level.description), operator.name, operator.branch, operator.class);
+  if (skill.recoveryType === 'Offensive Recovery' || skill.recoveryType === 'Defensive Recovery') auto.push({ name: skill.recoveryType, description: skill.recoveryType === 'Offensive Recovery' ? 'Gains SP when attacking.' : 'Gains SP when taking a hit.' });
+  return mergeTechniques(skill.techniques, auto);
 }
 
 /** What the operator page lists under a talent, read as talent text (no skills-only rules). */

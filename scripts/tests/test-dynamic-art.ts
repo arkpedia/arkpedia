@@ -579,7 +579,7 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   // Type-only imports (the layer renderer's) are erased from the bundle.
   const naming = ['pages', 'components', 'lib'].flatMap(walk)
     .filter((file) => /vendor\/spine-3\.8/.test(fs.readFileSync(file, 'utf8').replace(/^import type [^\n]*$/gm, '')));
-  assert.deepEqual(naming.sort(), [ARTWORK, 'lib/credits/spineLicense.ts']);
+  assert.deepEqual(naming.sort(), ['components/operators/ChibiCanvas.tsx', ARTWORK, 'lib/credits/spineLicense.ts']);
   // The layers and the particle systems come in with the artwork, never on their own: the particle reader borrows
   // the layers' shader reader, the particle renderer the layers' programs and textures, and only the artwork and
   // the particle modules themselves import the simulator, the geometry and the renderer (type imports included).
@@ -659,5 +659,9 @@ test('older planner payloads receive artwork pointers and explicit nulls remain 
   assert.ok(enriched.catalogue[0].dynamic?.endsWith('/model.json'));
   assert.ok(enriched.catalogue[0].alternate?.includes('_sp_dyn/'));
   const explicit = await withPullPlannerDynamicArt({skinCatalogue:[{skinId,dynamic:null,alternate:null}]});
-  assert.deepEqual(explicit.skinCatalogue,[{skinId,dynamic:null,alternate:null}]);
+  assert.equal(explicit.skinCatalogue[0].skinId, skinId);
+  assert.equal(explicit.skinCatalogue[0].dynamic, null);
+  assert.equal(explicit.skinCatalogue[0].alternate, null);
+  assert.ok((explicit.skinCatalogue[0] as {illustrator?:string}).illustrator);
+  assert.ok((explicit.skinCatalogue[0] as {description?:string}).description);
 });

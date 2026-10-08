@@ -540,8 +540,9 @@ test('archived OP never suppresses scheduled shops or invents expired shop stock
 });
 
 test('workspace settings preserve old saves and round trip new income choices and first clears', () => {
-  const plan = { ...saved, yellowCerts:'516', incomeSettings:{daily:false,weekly:true,annihilation:false,certificates:true}, doneKeys:[...saved.doneKeys,'resource:wk_melee_1','annihilation:camp_r_01'], skinIds:['existing skin id'], reservedOP:'18' };
+  const plan = { ...saved, yellowCerts:'516', certificateSpending:{'2026-10':258,'2026-11':0,'2026-12':68}, incomeSettings:{daily:false,weekly:true,annihilation:false,certificates:true}, doneKeys:[...saved.doneKeys,'resource:wk_melee_1','annihilation:camp_r_01'], skinIds:['existing skin id'], reservedOP:'18' };
   assert.deepEqual(parsePullPlan(JSON.stringify(plan)), plan);
+  for (const certificateSpending of [{ '2026-13': 1 }, { '2026-10': 259 }, { '2026-10': -1 }, { '2026-10': 1.5 }, { '2026-10': '258' }]) assert.throws(() => parsePullPlan(JSON.stringify({...saved, certificateSpending})));
   assert.equal(parsePullPlan(JSON.stringify(saved)).incomeSettings, undefined);
   assert.equal(parsePullPlan(JSON.stringify(saved)).yellowCerts, undefined);
   assert.throws(() => parsePullPlan(JSON.stringify({...saved,yellowCerts:'-258'})));

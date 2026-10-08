@@ -1,11 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import SkinZoomOverlay from './SkinZoomOverlay';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { useAccount, type OwnedFilter as Owned } from '@/lib/account/accountStore';
 import { ContentImg } from '@/components/content/ContentImage';
-import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { skinPurchasePlan, type PlannedSkin } from '@/lib/pulls/skins';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
 import { openSkinCollections } from '@/lib/pulls/currentPlan';
@@ -39,6 +39,14 @@ function shopCountdown(shop: { start: string; end: string }, today: string): str
   return n <= 0 ? 'closes today' : n === 1 ? 'closes tomorrow' : `closes in ${n} days`;
 }
 
+/** Reserve the card's artwork space, but give the image a URL only near the reader. */
+function SkinPlannerArt({ image }: { image: string | null }) {
+  const [ready, setReady] = useState(false);
+  return <span className="skin-plan-art">
+    {!image ? <span className="skin-plan-noart">Artwork unavailable</span> : ready ? <ContentImg src={image} alt="" /> : <LoadOnScroll inline shown={0} total={1} onMore={() => setReady(true)} />}
+  </span>;
+}
+
 export default function SkinPlanner({ catalogue, collections, today, ids, onChange, owned, budget }: {
   catalogue: PlannedSkin[];
   collections: SkinCollection[];
@@ -61,6 +69,8 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   // Shops a few at a time, more as the reader scrolls, as every long list on the site grows.
   const SHOPS_PER_STEP = 6;
   const [shopLimit, setShopLimit] = useState(SHOPS_PER_STEP);
+  const [cardLimits, setCardLimits] = useState<Record<string, number>>({});
+  const CARDS_PER_STEP = 12;
 
   const byId = useMemo(() => new Map(catalogue.map((skin) => [skin.id, skin])), [catalogue]);
   const isOwned = (skin: PlannedSkin) => !!owned && !!skin.skinId && owned.has(skin.skinId);
@@ -91,6 +101,16 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   // The shops with something to show under the search and the chips.
   const visibleShops = shops.filter(shop => !!shop.fashionReview === fashionOnly).map((shop) => ({ shop, skins: shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(shows) }))
     .filter(({ skins }) => skins.length > 0);
+  // One event can have several returning batches and a separate Fashion Review shop.
+  const groups = new Map<string, { id: string; name: string; shops: typeof visibleShops }>();
+  for (const row of visibleShops) {
+    const name = shopName(row.shop.name).split(' · ')[0];
+    const id = `${name} / ${row.shop.start.slice(0, 4)}`;
+    const group = groups.get(id) ?? { id, name, shops: [] };
+    group.shops.push(row);
+    groups.set(id, group);
+  }
+  const eventGroups = [...groups.values()];
   const toggle = (id: string) => onChange(planned.has(id) ? ids.filter((value) => value !== id) : [...ids, id]);
 
   const card = (skin: PlannedSkin) => {
@@ -99,7 +119,7 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
       <article key={skin.id} className={`pick-card pick-card-picture skin-plan-card${has ? ' skin-plan-owned' : ''}`}>
         <button type="button" className="btn-bare skin-plan-view" aria-label={`View ${skin.operator} — ${skin.name} artwork`}
           disabled={!skin.image} onClick={() => setViewing(skin)}>
-          <span className="skin-plan-art">{skin.image ? <ContentImg src={skin.image} alt="" /> : <span className="skin-plan-noart">Artwork unavailable</span>}</span>
+          <SkinPlannerArt image={skin.image} />
           <span className="skin-plan-card-text">
             <span className="skin-plan-card-operator">{skin.operator}</span>
             <b>{skin.name}</b>
@@ -117,7 +137,8 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   const unscheduledPlanned = purchases.unscheduled.filter(shows);
   return (
     <div className="skin-plan">
-      {viewing?.image && <SkinZoomOverlay voiceOperator={viewing.operator} image={viewing.image} name={`${viewing.operator} — ${viewing.name}`} dynamic={viewing.dynamic ?? null} alternate={viewing.alternate ?? null} onClose={() => setViewing(null)} />}
+      {viewing?.image && <SkinZoomOverlay voiceOperator={viewing.operator} image={viewing.image} name={`${viewing.operator} — ${viewing.name}`} dynamic={viewing.dynamic ?? null} alternate={viewing.alternate ?? null} details={<div><h2>{viewing.name}</h2><p>{viewing.operator} · {viewing.series} · {viewing.op} OP</p>{viewing.illustrator && <p>Illustrator: {viewing.illustrator}</p>}{viewing.description && <p>{viewing.description}</p>}{viewing.howToObtain && <p>{viewing.howToObtain}</p>}</div>} onClose={() => setViewing(null)} />}
+
       <div className="skin-plan-main">
         {/* The search, then the filters on the left and the order on the right: the roster's and
             the skins gallery's row, with the owned filter in the same place. */}
@@ -132,22 +153,32 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
           </div>
         </div>
         {shops.length === 0 && <p className="hint">No shop that sells outfits for Originite Prime is open or listed ahead.</p>}
-        {visibleShops.slice(0, shopLimit).map(({ shop, skins }) => {
-          const inPlan = shop.skinIds.filter((id) => planned.has(id) && byId.has(id) && !isOwned(byId.get(id)!));
-          return (
-            <section key={shop.id} className="skin-plan-shop" aria-label={shopName(shop.name)}>
-              <div className="skin-plan-shop-head">
-                <h3 className="section-title">{shopName(shop.name)}</h3>
-                <span className="hint">
-                  {shop.start} – {shop.end}{today ? ` · ${shopCountdown(shop, today)}` : ''}{shop.estimated ? (shop.sourceRegion === 'cn' ? ' · CN-based estimate' : ' · Estimated') : ''}
-                  {inPlan.length ? ` · ${inPlan.length} planned, ${inPlan.reduce((sum, id) => sum + byId.get(id)!.op, 0)} OP` : ''}
-                </span>
-              </div>
-              <div className="skin-plan-grid">{skins.map(card)}</div>
-            </section>
-          );
+        {eventGroups.slice(0, shopLimit).map((group) => {
+          const ownedSkins = [...new Map(group.shops.flatMap(row => row.skins).filter(isOwned).map(skin => [skin.id, skin])).values()];
+          const ownedLimit = cardLimits[`${group.id}:owned`] ?? CARDS_PER_STEP;
+          return <section key={group.id} className="skin-plan-shop" aria-label={group.name}>
+            <h3 className="section-title skin-plan-event">{group.name}</h3>
+            <div className="skin-plan-shop">
+              {group.shops.map(({ shop, skins }) => {
+                const inPlan = shop.skinIds.filter((id) => planned.has(id) && byId.has(id) && !isOwned(byId.get(id)!));
+                const limit = cardLimits[shop.id] ?? CARDS_PER_STEP;
+                const sorted = skins.filter(skin => !isOwned(skin));
+                return <section key={shop.id} className="skin-plan-shop" aria-label={shopName(shop.name)}>
+                  <div className="skin-plan-shop-head">
+                    <h4>{shopName(shop.name).split(' · ').slice(1).join(' · ') || 'Outfits'}</h4>
+                    <span className="hint">{shop.start} – {shop.end}{today ? ` · ${shopCountdown(shop, today)}` : ''}{shop.estimated ? (shop.sourceRegion === 'cn' ? ' · CN-based estimate' : ' · Estimated') : ''}
+                      {inPlan.length ? ` · ${inPlan.length} planned, ${inPlan.reduce((sum, id) => sum + byId.get(id)!.op, 0)} OP` : ''}</span>
+                  </div>
+                  <div className="skin-plan-grid">{sorted.slice(0, limit).map(card)}</div>
+                  <LoadOnScroll shown={Math.min(limit, sorted.length)} total={sorted.length} onMore={() => setCardLimits(value => ({ ...value, [shop.id]: limit + CARDS_PER_STEP }))} />
+                </section>;
+              })}
+              {ownedSkins.length > 0 && <section className="skin-plan-shop" aria-label="Owned outfits"><h4>Owned outfits</h4><div className="skin-plan-grid">{ownedSkins.slice(0, ownedLimit).map(card)}</div><LoadOnScroll shown={Math.min(ownedLimit, ownedSkins.length)} total={ownedSkins.length} onMore={() => setCardLimits(value => ({ ...value, [`${group.id}:owned`]: ownedLimit + CARDS_PER_STEP }))} /></section>}
+            </div>
+          </section>;
         })}
-        <LoadOnScroll shown={Math.min(shopLimit, visibleShops.length)} total={visibleShops.length} onMore={() => setShopLimit((value) => value + SHOPS_PER_STEP)} />
+        <LoadOnScroll shown={Math.min(shopLimit, eventGroups.length)} total={eventGroups.length} onMore={() => setShopLimit(value => value + SHOPS_PER_STEP)} />
+        {shops.length > 0 && eventGroups.length === 0 && <p className="hint">No outfits match these filters.</p>}
         {unscheduledPlanned.length > 0 && (
           <section className="skin-plan-shop" aria-label="Planned, in no listed shop">
             <div className="skin-plan-shop-head">
