@@ -1627,7 +1627,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
       </div>
 
       {zooming && shownAppearance?.fullPath && (
-        <SkinZoomOverlay image={shownAppearance.fullPath} name={shownAppearance.label} dynamic={dynamicArt[shownAppearance.label] ?? null} alternate={dynamicArt[`${shownAppearance.label}^sp_dyn`] ?? null}
+        <SkinZoomOverlay voiceOperator={operator.name} image={shownAppearance.fullPath} name={shownAppearance.label} dynamic={dynamicArt[shownAppearance.label] ?? null} alternate={dynamicArt[`${shownAppearance.label}^sp_dyn`] ?? null}
           onClose={() => setZooming(false)} />
       )}
     </>

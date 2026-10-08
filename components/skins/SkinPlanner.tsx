@@ -137,7 +137,8 @@ export default function SkinPlanner({ catalogue, collections, today, ids, onChan
   const unscheduledPlanned = purchases.unscheduled.filter(shows);
   return (
     <div className="skin-plan">
-      {viewing?.image && <SkinZoomOverlay image={viewing.image} name={`${viewing.operator} — ${viewing.name}`} dynamic={viewing.dynamic ?? null} alternate={viewing.alternate ?? null} details={<div><h2>{viewing.name}</h2><p>{viewing.operator} · {viewing.series} · {viewing.op} OP</p>{viewing.illustrator && <p>Illustrator: {viewing.illustrator}</p>}{viewing.description && <p>{viewing.description}</p>}{viewing.howToObtain && <p>{viewing.howToObtain}</p>}</div>} onClose={() => setViewing(null)} />}
+      {viewing?.image && <SkinZoomOverlay voiceOperator={viewing.operator} image={viewing.image} name={`${viewing.operator} — ${viewing.name}`} dynamic={viewing.dynamic ?? null} alternate={viewing.alternate ?? null} details={<div><h2>{viewing.name}</h2><p>{viewing.operator} · {viewing.series} · {viewing.op} OP</p>{viewing.illustrator && <p>Illustrator: {viewing.illustrator}</p>}{viewing.description && <p>{viewing.description}</p>}{viewing.howToObtain && <p>{viewing.howToObtain}</p>}</div>} onClose={() => setViewing(null)} />}
+
       <div className="skin-plan-main">
         {/* The search, then the filters on the left and the order on the right: the roster's and
             the skins gallery's row, with the owned filter in the same place. */}

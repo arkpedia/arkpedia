@@ -4,7 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const pagesDir = path.join(root, '.next/server/pages');
 const templates = JSON.parse(fs.readFileSync(path.join(root, 'scripts/content/pages.json'), 'utf8'));
-const guarded = new Set(templates.map(route => route === '/' ? '/index' : route));
+const guarded = new Set([...templates.map(route => route === '/' ? '/index' : route), '/api/artwork-voices']);
 
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type MouseEvent } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode, type MouseEvent } from 'react';
 import Image from '@/components/content/ContentImage';
+import { OperatorPreview, type OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import XButton from '@/components/ui/XButton';
 import type { TicketDetails } from '@/lib/events/announcements';
 import type { EventExtras } from '@/lib/events/tableRewards';
@@ -17,6 +18,8 @@ const Details = createContext<{ tickets: Record<string, ResolvedTicket>; open: (
  * scroll locking and restoring the original card keep both desktop and phone usable. */
 export function RewardDetailsProvider({ tickets, children }: { tickets: Record<string, ResolvedTicket>; children: ReactNode }) {
   const [stack, setStack] = useState<Detail[]>([]);
+  const [operatorPreview, setOperatorPreview] = useState<OperatorPreviewItem | null>(null);
+  const closeOperatorPreview = useCallback(() => setOperatorPreview(null), []);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -65,10 +68,11 @@ export function RewardDetailsProvider({ tickets, children }: { tickets: Record<s
           <p>{active.ticket.description}</p>
           {active.ticket.note && <p className="hint">{active.ticket.note}</p>}
           <div className="event-selector-operators">
-            {active.ticket.operators.map(op => <a key={op.name} href={op.href} className="event-selector-operator">
+            {active.ticket.operators.map(op => <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" aria-label={`${op.name}: operator preview`}
+              onClick={() => setOperatorPreview({ name: op.name, icon: op.iconPath, rarity: 6 })}>
               <Image src={op.iconPath} alt="" width={56} height={56} />
               <span>{op.name}</span>
-            </a>)}
+            </button>)}
           </div>
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </> : <>
@@ -81,6 +85,7 @@ export function RewardDetailsProvider({ tickets, children }: { tickets: Record<s
         </>}
       </>}
     </dialog>
+    {operatorPreview && <OperatorPreview item={operatorPreview} onClose={closeOperatorPreview} nativeModal />}
   </Details.Provider>;
 }
 

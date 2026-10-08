@@ -54,6 +54,8 @@ const nextConfig = {
       // These endpoints are hard-blocked outside `next dev`; their local editor
       // files must never be packaged into a deployed function.
       '/api/dev/**': ['data/**/*', 'public/**/*', '.env*'],
+      // Artwork voices read the published operator page; local catalogue readers are dev-only.
+      '/api/artwork-voices': ['data/**/*', 'public/**/*', '.env*'],
     },
   },
   async redirects() {

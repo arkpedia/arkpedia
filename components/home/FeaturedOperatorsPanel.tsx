@@ -19,7 +19,8 @@ function iconPathFor(name: string, rarity: 6 | 5 | 4): string {
 
 function OperatorRow({ operators, onSelect }: { operators: BannerOperator[]; onSelect: (operator: BannerOperator) => void }) {
   return <div className="front-featured-ops-row">
-    {operators.map(op => <button type="button" key={`${op.rarity}-${op.name}`} onClick={() => onSelect(op)} className="front-featured-op" title={op.name} aria-label={`View ${op.name} details`} aria-haspopup="dialog">
+    {operators.map(op => <button type="button" key={`${op.rarity}-${op.name}`} onClick={() => onSelect(op)} className="front-featured-op btn-bare" title={op.name} aria-label={`View ${op.name} details`} aria-haspopup="dialog">
+
       <Image src={iconPathFor(op.name, op.rarity)} alt="" width={52} height={52} className={`tier-${op.rarity}`} />
       <span className="front-featured-op-name">{op.name}</span>
       <Rarity n={op.rarity} className="front-featured-op-rarity" />
