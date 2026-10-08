@@ -19,10 +19,16 @@ export interface TrainingContext {
 }
 export interface TrainingSkillResult { speed: number; morale: number; timeMultiplier: number; note?: string }
 
+export function canTrainMastery(operator: { rarity?: number | null }): boolean {
+  return typeof operator.rarity === 'number' && operator.rarity >= 4;
+}
+
 /** Named trainees use current roster traits, even when a preset cached older ones. */
-export function resolveTrainingTarget(target: TrainingTarget, operators: readonly { name: string; class?: string | null; branch?: string | null }[]): TrainingTarget {
+export function resolveTrainingTarget(target: TrainingTarget, operators: readonly { name: string; rarity?: number | null; class?: string | null; branch?: string | null }[]): TrainingTarget {
   const trainee = operators.find(op => op.name === target.operatorName);
   if (!trainee) return target;
+  // Old presets must not place operators without mastery into the trainee slot.
+  if (trainee.rarity !== undefined && !canTrainMastery(trainee)) return { ...target, operatorName: '', timeReductionActive: false, instantTrainingReady: false };
   const className = trainee.class ?? target.class;
   const branch = trainee.branch ?? target.branch;
   return className === target.class && branch === target.branch ? target : { ...target, class: className, branch };
