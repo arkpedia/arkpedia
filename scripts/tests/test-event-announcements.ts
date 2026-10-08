@@ -20,7 +20,7 @@ test('preview replaces CN sign-in, keeps early Global gifts, and counts free pul
 });
 
 test('early Global login gifts alone do not hide the event sign-in preview', () => {
-  const existing = group('login', 'To Look Back on Terra', 'Global');
+  const existing = group('login', 'TO LOOK BACK ON TERRA LIMITED LOGIN EVENT', 'Global');
   const { groups } = announcedRewards(event, [existing]);
   assert.equal(groups.filter(g => g.title === existing.title && g.kind === 'login').length, 1);
   assert.equal(groups.some(g => g.title === 'Celebration sign-in · 10 days'), true);

@@ -23,7 +23,7 @@
               "id": "ap_supply_lt_120"
             },
             {
-              "name": "GALLUS²",
+              "name": "Gallus²",
               "count": 1,
               "kind": "operator",
               "id": "char_4227_gallus"
@@ -136,7 +136,7 @@
             ],
             [
               {
-                "name": "GALLUS²",
+                "name": "Gallus²",
                 "count": 1,
                 "kind": "operator",
                 "id": "char_4227_gallus"

@@ -16,10 +16,12 @@ const supplements = announcements.events as unknown as Record<string, Supplement
 export function announcedRewards(name: string, groups: TableRewardGroup[]) {
   const supplement = supplements[name];
   if (!supplement) return { groups, tickets: {} as Record<string, TicketDetails> };
-  const earlyTitles = new Set(supplement.groups.filter(g => g.region === 'Global').map(g => g.title));
-  const hasGlobal = (kind: string) => groups.some(g => g.kind === kind && g.region !== 'CN' && !g.region?.includes('preview') && !earlyTitles.has(g.title));
+  const titleKey = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const sameTitle = (a: string, b: string) => a === b || (!!titleKey(a) && !!titleKey(b) && (titleKey(a).includes(titleKey(b)) || titleKey(b).includes(titleKey(a))));
+  const earlyTitles = supplement.groups.filter(g => g.region === 'Global').map(g => g.title);
+  const hasGlobal = (kind: string) => groups.some(g => g.kind === kind && g.region !== 'CN' && !g.region?.includes('preview') && !earlyTitles.some(title => sameTitle(title, g.title)));
   const additions = supplement.groups.filter(g => {
-    if (groups.some(existing => existing.kind === g.kind && existing.title === g.title)) return false;
+    if (groups.some(existing => existing.kind === g.kind && sameTitle(existing.title, g.title))) return false;
     if (g.region?.includes('preview') && g.kind !== 'notice' && g.title !== 'A letter from Kal’tsit - Esperanta' && hasGlobal(g.kind)) return false;
     return true;
   });

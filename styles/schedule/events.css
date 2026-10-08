@@ -398,16 +398,18 @@
 .event-ticket-open { position: absolute; top: 3px; right: 5px; font-size: 12px; color: var(--heading); }
 .event-details-dialog { width: min(760px, calc(100vw - 24px)); max-height: min(85dvh, 850px); box-sizing: border-box; margin: auto; padding: 20px; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--text); overflow: auto; overscroll-behavior: contain; }
 .event-details-dialog::backdrop { background: rgb(0 0 0 / .72); }
-.event-details-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.event-details-head > :last-child { margin-left: auto; }
-.event-details-dialog h2 { margin: 10px 0 14px; padding-right: 12px; }
+.event-details-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; position: sticky; top: -20px; padding: 10px 0; background: var(--panel); z-index: 1; }
+.event-details-head > div { min-width: 0; }
+.event-details-head > :last-child { margin-left: auto; flex-shrink: 0; }
+.event-details-dialog h2 { margin: 0; }
+.event-details-head .btn + h2 { margin-top: 10px; }
 .event-details-dialog h2:focus { outline: none; }
 .event-selector-operators { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 18px 0; }
 .event-selector-operator { display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center; padding: 9px 5px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font-size: 12px; text-decoration: none; }
 .event-selector-operator img { border: 1px solid var(--rarity-6); border-radius: var(--radius); object-fit: cover; }
 .event-selector-operator:hover { border-color: var(--heading); }
 .event-pack-card:focus-visible, .event-ticket-trigger:focus-visible, .event-selector-operator:focus-visible { outline: 2px solid var(--heading); outline-offset: 2px; }
-@media (max-width: 480px) { .event-details-dialog { padding: 14px; } .event-selector-operators { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
+@media (max-width: 480px) { .event-details-dialog { padding: 14px; } .event-details-head { top: -14px; } .event-selector-operators { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
 
 .event-login-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; }
 .event-login-day { padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); }

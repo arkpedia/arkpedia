@@ -48,11 +48,13 @@ export function RewardDetailsProvider({ tickets, children }: { tickets: Record<s
       if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) close();
     }}>
       {active && <>
-        <header className="event-details-head">
-          {stack.length > 1 && <button type="button" className="btn" onClick={() => setStack(current => current.slice(0, -1))}>← Pack contents</button>}
+        <div className="event-details-head">
+          <div>
+            {stack.length > 1 && <button type="button" className="btn" onClick={() => setStack(current => current.slice(0, -1))}>← Pack contents</button>}
+            <h2 id="event-details-title" ref={heading} className="entity-title" tabIndex={-1}>{active.name}</h2>
+          </div>
           <XButton onClick={close} label={`Close ${active.name}`} />
-        </header>
-        <h2 id="event-details-title" ref={heading} className="entity-title" tabIndex={-1}>{active.name}</h2>
+        </div>
         {'ticket' in active ? <>
           <p>{active.ticket.description}</p>
           {active.ticket.note && <p className="hint">{active.ticket.note}</p>}
