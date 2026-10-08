@@ -31,3 +31,18 @@ export async function withOperatorDynamicArt<P extends {
   const skins = (await import('@/data/skins.json')).default as Pick<Skin, 'model' | 'name' | 'image' | 'skinId'>[];
   return { ...props, dynamicArt: operatorDynamicArt(await bundledIndex(), props.operator, props.appearances, skins) };
 }
+
+/** A planner payload from before artwork pointers were added still opens animated art. */
+export async function withPlannerDynamicArt<P extends { catalogue: { skinId?: string; dynamic?: string | null; alternate?: string | null }[] }>(props: P): Promise<P> {
+  const pointers = skinDynamicArt(await bundledIndex(), props.catalogue);
+  const skins = (await import('@/data/skins.json')).default as Skin[];
+  const metadata = new Map(skins.map(skin => [skin.skinId, skin]));
+  return { ...props, catalogue: props.catalogue.map(skin => ({ series: metadata.get(skin.skinId)?.series ?? '', illustrator: metadata.get(skin.skinId)?.illustrator ?? null, description: metadata.get(skin.skinId)?.description ?? null, howToObtain: metadata.get(skin.skinId)?.howToObtain ?? null, ...skin,
+    dynamic: skin.dynamic === undefined ? (skin.skinId ? pointers[skin.skinId] ?? null : null) : skin.dynamic,
+    alternate: skin.alternate === undefined ? (skin.skinId ? pointers[`${skin.skinId}^sp_dyn`] ?? null : null) : skin.alternate,
+  })) };
+}
+export async function withPullPlannerDynamicArt<P extends { skinCatalogue: { skinId?: string; dynamic?: string | null; alternate?: string | null }[] }>(props: P): Promise<P> {
+  const enriched = await withPlannerDynamicArt({ catalogue: props.skinCatalogue });
+  return { ...props, skinCatalogue: enriched.catalogue };
+}

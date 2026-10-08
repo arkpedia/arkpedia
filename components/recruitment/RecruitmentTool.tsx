@@ -1,7 +1,9 @@
+import { useReleaseTable } from '@/lib/content/context';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import PipWindow, { isOperaBrowser, pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import PageHeader from '@/components/ui/PageHeader';
@@ -48,6 +50,8 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
     if (pip.error) setSupportsPinnedWindow(false);
   }, [pip.error]);
   const { selectedTags, showAllPossibilities, activeSection, cheatSheetSearch } = view;
+  const TAG_LABELS = useReleaseTable<{ tags: Record<string, Record<string, string>> }>('recruitment-tag-labels');
+  const tagLabel = useCallback((tag: string) => (TAG_LABELS.tags as Record<string, Record<string, string>>)[tag]?.[view.language ?? 'en'] ?? tag, [view.language, TAG_LABELS]);
   const categories = useMemo(() => getRecruitmentTagCategories(operators), [operators]);
   const allowedTags = useMemo(() => Object.values(categories).flat(), [categories]);
 
@@ -102,7 +106,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
     const groups = new Map<string, GuaranteedCombo[]>();
     const query = cheatSheetSearch.trim().toLowerCase();
     for (const combo of unique.values()) {
-      if (query && !combo.tags.some((tag) => tag.toLowerCase().includes(query))) continue;
+      if (query && !combo.tags.some((tag) => `${tag} ${tagLabel(tag)}`.toLowerCase().includes(query))) continue;
       const primary = combo.tags[0];
       if (!groups.has(primary)) groups.set(primary, []);
       groups.get(primary)!.push(combo);
@@ -111,7 +115,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
       tag,
       entries: entries.sort((a, b) => cheatSheetTier(a) - cheatSheetTier(b) || a.operatorCount - b.operatorCount),
     }));
-  }, [guaranteedCombos4, guaranteedCombos5, cheatSheetSearch]);
+  }, [guaranteedCombos4, guaranteedCombos5, cheatSheetSearch, tagLabel]);
 
   function updateView(update: Partial<RecruitmentViewState>) {
     setView((current) => ({ ...current, ...update }));
@@ -156,7 +160,7 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
   function renderTool(isCompact: boolean, inPip = false) {
     const otherPage = `${isCompact ? '/recruitment' : '/recruitment/popout'}${recruitmentViewHash(view)}`;
     return (
-      <div className={`recruit-page${isCompact ? ' recruit-page-compact' : ''}`}>
+      <div className={`recruit-page${isCompact ? ' recruit-page-compact' : ''}`} style={{ '--recruit-text-size': `${view.textSize ?? 14}px` } as CSSProperties}>
         {isCompact ? (
           /* The pop-out and the always-on-top window are full-bleed by design: a
              narrow window beside the game, so they keep a compact header of their own. */
@@ -215,6 +219,10 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
             ? <p className="recruit-window-notice" role="status">{OPERA_POPOUT_NOTICE}</p>
             : <p className="recruit-compact-note">Keep this window beside your game. This view does not stay on top.</p>)}
 
+          <div className="recruit-preferences">
+            <SegmentedControl label="Tag language" value={view.language ?? 'en'} options={['en', 'jp', 'kr', 'cn'].map(value => ({ value: value as 'en' | 'jp' | 'kr' | 'cn', label: value.toUpperCase() }))} onChange={language => updateView({ language })} />
+            <label>Text size <input type="range" aria-label="Recruitment text size" min="12" max="22" step="1" value={view.textSize ?? 14} onChange={e => updateView({ textSize: Number(e.target.value) })} />{view.textSize ?? 14}px</label>
+          </div>
           <div className="recruit-toolbar">
             <Tabs
               label="Recruitment view"
@@ -240,15 +248,15 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                 {!isCompact && <div className="recruit-selection" role="group" aria-label={`${selectedTags.length} of ${MAX_RECRUITMENT_TAGS} tags selected`}>
                   {Array.from({ length: MAX_RECRUITMENT_TAGS }, (_, index) => selectedTags[index] ? (
                     <button type="button" key={index} onClick={() => toggleTag(selectedTags[index])} aria-label={`Remove ${selectedTags[index]}`}>
-                      <span>{selectedTags[index]}</span><span aria-hidden="true">×</span>
+                      <span>{tagLabel(selectedTags[index])}</span><span aria-hidden="true">×</span>
                     </button>
                   ) : <span key={index} className="recruit-empty-slot" aria-hidden="true">+</span>)}
                 </div>}
                 <div className="recruit-tag-groups" aria-describedby="recruit-selection-help">
-                  <TagRow label="Qualification" options={categories.qualifications} selectedTags={selectedTags} onToggle={toggleTag} />
-                  <TagRow label="Position" options={categories.positions} selectedTags={selectedTags} onToggle={toggleTag} />
-                  <TagRow label="Class" options={categories.classes} selectedTags={selectedTags} onToggle={toggleTag} />
-                  <TagRow label="Traits" options={categories.tags} selectedTags={selectedTags} onToggle={toggleTag} />
+                  <TagRow label="Qualification" options={categories.qualifications} selectedTags={selectedTags} onToggle={toggleTag} tagLabel={tagLabel} />
+                  <TagRow label="Position" options={categories.positions} selectedTags={selectedTags} onToggle={toggleTag} tagLabel={tagLabel} />
+                  <TagRow label="Class" options={categories.classes} selectedTags={selectedTags} onToggle={toggleTag} tagLabel={tagLabel} />
+                  <TagRow label="Traits" options={categories.tags} selectedTags={selectedTags} onToggle={toggleTag} tagLabel={tagLabel} />
                 </div>
                 <p className="recruit-picker-footnote">Explore five available tags. Each result uses up to three.</p>
               </section>
@@ -277,8 +285,8 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                   </div>
                 ) : (
                   <>
-                    {multiTagCombos.length > 0 && <ComboGroup title="Combined tags" combos={multiTagCombos} hideTwoStars={!showAllPossibilities} external={isCompact} />}
-                    {singleTagCombos.length > 0 && <ComboGroup title="Single tags" combos={singleTagCombos} hideTwoStars={!showAllPossibilities} external={isCompact} />}
+                    {multiTagCombos.length > 0 && <ComboGroup title="Combined tags" combos={multiTagCombos} hideTwoStars={!showAllPossibilities} external={isCompact} tagLabel={tagLabel} />}
+                    {singleTagCombos.length > 0 && <ComboGroup title="Single tags" combos={singleTagCombos} hideTwoStars={!showAllPossibilities} external={isCompact} tagLabel={tagLabel} />}
                   </>
                 )}
               </section>
@@ -294,11 +302,11 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
               <p className="recruit-sheet-count" role="status">{cheatSheetGroups.reduce((count, group) => count + group.entries.length, 0)} combinations</p>
               {cheatSheetGroups.length ? cheatSheetGroups.map(({ tag, entries }) => (
                 <div key={tag} className="recruit-sheet-row">
-                  <h3>{tag}</h3>
+                  <h3>{tagLabel(tag)}</h3>
                   <div className="recruit-sheet-pairings">
                     {entries.map((entry) => (
                       <button key={entry.tags.join('|')} type="button" className={`btn-bare recruit-sheet-pairing ${entry.minRarity >= 5 ? 'recruit-rarity-5' : 'recruit-rarity-4'}`} aria-label={`Show ${entry.tags.join(' + ')} operators, ${entry.minRarity >= 5 ? '5 star' : '4 star or higher'}`} onClick={() => updateView({ selectedTags: entry.tags, activeSection: 'calculator', showAllPossibilities: false })}>
-                        <span>{entry.tags.length === 1 ? 'This tag alone' : `+ ${entry.tags.slice(1).join(' + ')}`}</span>
+                        <span>{entry.tags.length === 1 ? 'This tag alone' : `+ ${entry.tags.slice(1).map(tagLabel).join(' + ')}`}</span>
                         <span>{entry.minRarity >= 5 ? '5★' : '4★+'}</span>
                       </button>
                     ))}
@@ -359,14 +367,14 @@ function sortByRarityPriority(combos: TagCombo[]): TagCombo[] {
   return [...combos].sort((a, b) => getComboRarityInfo(a.operators).priority - getComboRarityInfo(b.operators).priority);
 }
 
-function TagRow({ label, options, selectedTags, onToggle }: { label: string; options: string[]; selectedTags: string[]; onToggle: (tag: string) => void }) {
+function TagRow({ label, options, selectedTags, onToggle, tagLabel }: { tagLabel: (tag: string) => string; label: string; options: string[]; selectedTags: string[]; onToggle: (tag: string) => void }) {
   return (
     <fieldset className="recruit-tag-row">
       <legend>{label}</legend>
       <div className="recruit-tag-picker">
         {options.map((tag) => (
           <button key={tag} type="button" className="filter-chip" aria-pressed={selectedTags.includes(tag)} disabled={!selectedTags.includes(tag) && selectedTags.length >= MAX_RECRUITMENT_TAGS} onClick={() => onToggle(tag)}>
-            {tag}
+            {tagLabel(tag)}
           </button>
         ))}
       </div>
@@ -374,16 +382,16 @@ function TagRow({ label, options, selectedTags, onToggle }: { label: string; opt
   );
 }
 
-function ComboGroup({ title, combos, hideTwoStars, external }: { title: string; combos: TagCombo[]; hideTwoStars: boolean; external: boolean }) {
+function ComboGroup({ title, combos, hideTwoStars, external, tagLabel }: { tagLabel: (tag: string) => string; title: string; combos: TagCombo[]; hideTwoStars: boolean; external: boolean }) {
   return (
     <div className="recruit-combo-block">
       <h3 className="recruit-combo-heading">{title}</h3>
-      {combos.map((combo) => <ComboRow key={combo.tags.join('|')} combo={combo} hideTwoStars={hideTwoStars} external={external} />)}
+      {combos.map((combo) => <ComboRow key={combo.tags.join('|')} combo={combo} hideTwoStars={hideTwoStars} external={external} tagLabel={tagLabel} />)}
     </div>
   );
 }
 
-function ComboRow({ combo, hideTwoStars, external }: { combo: TagCombo; hideTwoStars: boolean; external: boolean }) {
+function ComboRow({ combo, hideTwoStars, external, tagLabel }: { tagLabel: (tag: string) => string; combo: TagCombo; hideTwoStars: boolean; external: boolean }) {
   const { colorClass } = getComboRarityInfo(combo.operators);
   const sorted = combo.operators.filter((operator) => !hideTwoStars || operator.rarity !== 2).sort((a, b) => (a.rarity || 0) - (b.rarity || 0));
   const rarities = sorted.map((operator) => operator.rarity).filter((rarity): rarity is number => rarity != null);
@@ -393,7 +401,7 @@ function ComboRow({ combo, hideTwoStars, external }: { combo: TagCombo; hideTwoS
     <div className={`recruit-combo-row ${colorClass}`}>
       <div className="recruit-combo-summary">
         <div className="recruit-combo-tags">
-          {combo.tags.map((tag, index) => <span key={tag}>{index > 0 && <span className="recruit-combo-plus">+</span>}{tag}</span>)}
+          {combo.tags.map((tag, index) => <span key={tag}>{index > 0 && <span className="recruit-combo-plus">+</span>}{tagLabel(tag)}</span>)}
         </div>
         <span className="recruit-combo-range">{min === max ? `${min}★` : `${min}–${max}★`}</span>
       </div>

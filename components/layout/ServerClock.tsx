@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { formatCountdown, formatServerClock, getNextDailyReset } from '@/lib/schedule/opsSchedules';
+import { formatCountdown } from '@/lib/schedule/opsSchedules';
+import { useAccount } from '@/lib/account/accountStore';
+import { serverClockAt } from '@/lib/time/serverReset';
 
 /**
  * The server's wall clock and the time left until the daily reset.
  *
- * Both are derived from one fixed offset rather than from the reader's own timezone:
- * the global server runs on 04:00 UTC-7, which is 19:00 SGT, and neither of those
- * observes daylight saving. See lib/schedule/opsSchedules.ts, which owns the reset
- * hour -- this component must not carry a second copy of it.
+ * Both follow the selected account's server through lib/time/serverReset.ts.
+ * Regional resets use fixed offsets rather than the reader's device timezone.
  *
  * Nothing renders a real time on the server. A clock is by definition different on
  * every render, so prerendering one guarantees a hydration mismatch; the placeholders
@@ -43,9 +43,7 @@ import { formatCountdown, formatServerClock, getNextDailyReset } from '@/lib/sch
  */
 export type ServerClockVariant = 'bar' | 'drawer' | 'mobile';
 
-/* Server time, not SGT: it is the clock beside it that the reader is comparing this
-   to. The two are the same instant and fifteen hours apart as clocks. */
-const RESET_TITLE = 'Daily reset at 04:00 server time (UTC-7)';
+
 
 const CLOCK_PLACEHOLDER = '--:--';
 const RESET_PLACEHOLDER = '--h --m';
@@ -56,6 +54,8 @@ interface Display {
 }
 
 export default function ServerClock({ variant }: { variant: ServerClockVariant }) {
+  const account = useAccount();
+  const server = account?.server ?? 'en';
   const [display, setDisplay] = useState<Display | null>(null);
 
   useEffect(() => {
@@ -66,9 +66,10 @@ export default function ServerClock({ variant }: { variant: ServerClockVariant }
       /* Both values are recomputed from the current instant, never decremented from the
          last ones: a decremented countdown accumulates drift, and it is wrong by however
          long the tab spent asleep in a background window. */
+      const regional = serverClockAt(d, server);
       const next: Display = {
-        clock: formatServerClock(d),
-        reset: formatCountdown(getNextDailyReset(d).getTime() - t),
+        clock: regional.clock,
+        reset: formatCountdown(regional.reset - t),
       };
       /* Returning the previous object unchanged makes React skip the render. Neither
          field shows seconds, so both change once a minute, and this component sits in
@@ -82,7 +83,7 @@ export default function ServerClock({ variant }: { variant: ServerClockVariant }
     };
     tick();
     return () => clearTimeout(timer);
-  }, []);
+  }, [server]);
 
   const clock = display ? display.clock : CLOCK_PLACEHOLDER;
   const reset = display ? display.reset : RESET_PLACEHOLDER;
@@ -94,12 +95,12 @@ export default function ServerClock({ variant }: { variant: ServerClockVariant }
        countdown is counting to. */
     <div
       className={`site-nav-clock site-nav-clock-${variant}`}
-      title={RESET_TITLE}
+      title={`${server.toUpperCase()} daily reset at 04:00 server time (UTC${server === 'en' ? '−7' : '+9'})`}
     >
       <span className="site-nav-clock-label">{variant === 'mobile' ? 'SVR' : 'Server Time'}</span>
       <span className="site-nav-clock-time">{clock}</span>
       <span className="site-nav-clock-sep" aria-hidden="true" />
-      <span className="site-nav-clock-label">{variant === 'mobile' ? 'RST' : 'Reset'}</span>
+      <span className="site-nav-clock-label">{server.toUpperCase()} {variant === 'mobile' ? 'RST' : 'Reset'}</span>
       <span className="site-nav-clock-reset">{reset}</span>
     </div>
   );

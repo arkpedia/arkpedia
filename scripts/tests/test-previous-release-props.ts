@@ -322,6 +322,16 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/artists': props => {
+    const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
+    assert.ok(people.length > 50 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
+    assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
+  },
+  '/voice-actors': props => {
+    const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
+    assert.ok(people.length > 100 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
+    assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
+  },
   '/community': (props, { from, to }) => {
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');
@@ -416,6 +426,20 @@ for (const route of Object.keys(PREVIOUS.pages)) {
 }
 
 for (const template of UNPUBLISHED) {
+  if (template === '/artists' || template === '/voice-actors') {
+    test(`${template} retains its populated build snapshot until a release publishes it`, async () => {
+      const page = await pageModule(template);
+      await withRelease(Object.keys(PREVIOUS.pages), async () => {
+        const props = await propsOf(page.getStaticProps);
+        REGENERATED[template](props, { from: Date.now(), to: Date.now() });
+        // Refuse the disk-reading builder even if another test warmed its operator cache.
+        // Throwing during ISR tells Next to retain the last populated prerender.
+        await assert.rejects(() => propsOf(page.getStaticProps, undefined, 'stale'),
+          new RegExp(`Published content is missing ${template}`));
+      }, { VERCEL: '1' });
+    });
+    continue;
+  }
   test(`${template}, which the previous release does not publish, regenerates on Vercel from its own builder`, async () => {
     const page = await pageModule(template);
     // Vercel's function for a content route has no data/ or public/ (next.config.js), and

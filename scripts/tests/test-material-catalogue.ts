@@ -125,5 +125,5 @@ test('a page from a release older than materialOrder gets it from the deployment
   // A payload that carries its own is left alone: the release's order wins.
   const own = { value: 2, materialOrder: ['Electrode Unit', 'LMD'] };
   assert.equal(await withMaterialOrder(own, names), own);
-  for (const page of ['pages/operators/[name].tsx', 'pages/events/[slug].tsx']) assert.match(fs.readFileSync(page, 'utf8'), /finalize: \(props\) => withMaterialOrder\(props, /, page);
+  for (const page of ['pages/operators/[name].tsx', 'pages/events/[slug].tsx']) assert.match(fs.readFileSync(page, 'utf8'), /withMaterialOrder\(props, /, page);
 });

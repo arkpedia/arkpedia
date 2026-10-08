@@ -1,3 +1,6 @@
+import { useContext } from 'react';
+import { ContentTablesContext } from '@/lib/content/context';
+import type { MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
 import Image from '@/components/content/ContentImage';
 import { getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
 
@@ -12,7 +15,9 @@ import { getMaterialIconPath } from '@/lib/operators/operatorIconPaths';
  * should reach it that has not been through that gate.
  */
 export function MaterialIcon({ name, size = 30 }: { name: string; size?: number }) {
+  const tables = useContext(ContentTablesContext);
+  const tier = (tables['material-catalogue'] as MaterialCatalogue | undefined)?.items[name]?.tier;
   const src = getMaterialIconPath(name);
   if (!src) return null;
-  return <Image src={src} alt="" width={size} height={size} className="planner-mat-icon" />;
+  return <Image src={src} alt="" width={size} height={size} className={`planner-mat-icon${tier ? ` material-tier-${tier}` : ''}`} />;
 }

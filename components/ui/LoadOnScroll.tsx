@@ -20,8 +20,8 @@ function scrollBox(el: HTMLElement): HTMLElement | null {
  * the batch still comes before the reader reaches it. A tab or keyboard focus that moves to
  * the last item scrolls it into view, so keyboard readers load the next batch the same way.
  */
-export default function LoadOnScroll({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
+export default function LoadOnScroll({ shown, total, onMore, inline = false }: { shown: number; total: number; onMore: () => void; inline?: boolean }) {
+  const ref = useRef<HTMLElement | null>(null);
   const more = useRef(onMore);
   more.current = onMore;
 
@@ -37,8 +37,9 @@ export default function LoadOnScroll({ shown, total, onMore }: { shown: number; 
     }, { root: scrollBox(el), rootMargin: `${AHEAD} 0px` });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shown, total]);
+  }, [shown, total, inline]);
 
   if (shown >= total) return null;
-  return <div ref={ref} className="load-on-scroll" aria-hidden="true" />;
+  const attach = (element: HTMLElement | null) => { ref.current = element; };
+  return inline ? <span ref={attach} className="load-on-scroll" aria-hidden="true" /> : <div ref={attach} className="load-on-scroll" aria-hidden="true" />;
 }

@@ -1,5 +1,9 @@
 import type { EventExtras } from '@/lib/events/tableRewards';
+import Image from '@/components/content/ContentImage';
+import { PackButton } from './RewardDetails';
 import { RewardTile } from './RewardTile';
+import { packDay } from '@/lib/events/packDay';
+export { packDay } from '@/lib/events/packDay';
 
 /*
  * The parts of an event's Rewards that are not a list to total: the packs sold for real money,
@@ -13,27 +17,26 @@ import { RewardTile } from './RewardTile';
  *  (scripts/build/official-news.mjs parseDuration), and read in UTC it printed the 30th: a day
  *  longer to buy than the post gives, on every pack that ends late in the evening. Text that is not
  *  a date is shown as it is, never as "Invalid Date". */
-export function packDay(iso: string): string {
-  return Number.isNaN(Date.parse(iso)) ? iso : new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Etc/GMT+7' });
-}
 
 export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
   return (
     <div className="event-extras">
       {groups.map((group) => (
         <div key={group.title + group.source} className="event-extras-group">
+          <div className="event-pack-cards">
           {group.packs.map((pack) => (
-            <article key={pack.name} className="event-pack">
-              <header className="event-pack-head">
-                <h3>{pack.name}</h3>
-                {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end)}` : ''}</span>}
-              </header>
-              <div className="event-reward-totals">
-                {pack.contents.map((item) => <RewardTile key={item.name} name={item.name} iconPath={item.iconPath} count={item.count} />)}
-              </div>
-            </article>
+            <PackButton key={pack.name} pack={pack} source={group.source}>
+              {pack.imagePath && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
+              <span className="event-pack-card-copy">
+              <span className="event-pack-card-name">{pack.name}</span>
+              {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end)}` : ''}</span>}
+              <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
+              <span className="event-pack-more">View contents ↗</span>
+              </span>
+            </PackButton>
           ))}
-          <p className="hint">Contents as the <a href={group.source} target="_blank" rel="noopener noreferrer">official announcement</a> lists them. Prices differ by region and are not listed.</p>
+          </div>
+          <p className="hint">Pack information: <a href={group.source} target="_blank" rel="noopener noreferrer">source announcement</a>. Prices differ by region.</p>
         </div>
       ))}
     </div>
@@ -73,4 +76,21 @@ export function EventNotices({ notices }: { notices: EventExtras['notices'] }) {
       ))}
     </div>
   );
+}
+
+export interface LoginDetails {
+  description: string | null;
+  days: { name: string; count: number; iconPath: string | null }[][];
+}
+
+export function EventLoginDays({ details }: { details: LoginDetails }) {
+  return <>
+    {details.description && <p className="hint">{details.description}</p>}
+    <div className="event-login-days">
+      {details.days.map((items, index) => <div key={index} className="event-login-day">
+        <h4>Day {index + 1}</h4>
+        <div className="event-reward-totals">{items.map(item => <RewardTile key={item.name} {...item} />)}</div>
+      </div>)}
+    </div>
+  </>;
 }

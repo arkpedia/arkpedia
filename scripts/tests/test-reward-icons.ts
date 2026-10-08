@@ -64,7 +64,8 @@ test('the event page resolves every reward icon through rewardIconPath and the r
   assert.ok(calls.length >= 4, `the store's, the table items', the free roll's and the packs' calls: found ${calls.length}`);
   for (const call of calls) assert.match(call, /,\s*publicFileExists,?\s*\)$/, call);
   // And the blocks and extras take their icons from those calls: an operator's from the roster.
-  assert.match(page, /tableRewardStores\(tableRewards, \(item\) => \{[\s\S]*?rewardIconPath\([\s\S]*?\}\)\);/);
+  assert.match(page, /const tableIcon = [\s\S]*?return rewardIconPath\([\s\S]*?tableRewardStores\(tableRewards, tableIcon\)/);
+  assert.match(page, /iconPath: tableIcon\(item\)/, 'sign-in days use the same publication guard as their totals');
   assert.match(page, /eventExtras\(tableRewards, \(itemName\) => rewardIconPath\(/);
   // And the outfit lookup reads the asset index, not public/, which holds no art.
   const lookup = fs.readFileSync(new URL('../../lib/skins/skinIconLookup.ts', import.meta.url), 'utf8');

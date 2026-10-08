@@ -1,3 +1,4 @@
+import { RewardClick } from './RewardDetails';
 import Image from '@/components/content/ContentImage';
 
 /**
@@ -7,12 +8,12 @@ import Image from '@/components/content/ContentImage';
  */
 export function RewardTile({ name, iconPath, count }: { name: string; iconPath: string | null; count: number }) {
   return (
-    <span className="event-reward-total">
+    <RewardClick name={name} className="event-reward-total">
       {/* No icon published yet: the frame holds its place. */}
       <span className="event-reward-total-icon">{iconPath && <Image src={iconPath} alt="" width={40} height={40} />}</span>
       {/* The name on the tile, not only in a tooltip a phone cannot reach. */}
       <span className="event-reward-total-name">{name}</span>
       <b>×{count.toLocaleString('en-US')}</b>
-    </span>
+    </RewardClick>
   );
 }

@@ -26,14 +26,14 @@ export interface SkinCountdown extends SkinWindow {
 }
 /** data/skin-availability-windows.json: verified Global acquisition windows. */
 export interface ConfirmedSkinWindows {
-  entries: (Omit<SkinWindow, 'kind' | 'newRelease'> & { kind: string; newRelease?: boolean })[];
+  entries: (Omit<SkinWindow, 'kind' | 'newRelease'> & { kind: string; newRelease?: boolean; inventoryComplete?: boolean })[];
 }
 /** data/skin-shop-rotations.json: CN shop batches, projected onto Global event dates. */
 export interface SkinShopRotations {
   entries: { event: string; eventStart: string; source?: string; rotations: { label: string; start: string; end: string; new: string[]; returning: string[] }[] }[];
 }
 /** A verified entry as a window, with newRelease stated. */
-export const confirmedWindow = (entry: ConfirmedSkinWindows['entries'][number]): SkinWindow =>
+export const confirmedWindow = ({ inventoryComplete: _inventoryComplete, ...entry }: ConfirmedSkinWindows['entries'][number]): SkinWindow =>
   ({ ...entry, kind: entry.kind as AcquisitionKind, newRelease: entry.newRelease === true });
 export const skinKey = (skin: Pick<Skin, 'model' | 'name'>) => `${skin.model} / ${skin.name}`;
 const normalizeEvent = (name: string) => name.replace(/\[[^\]]*\]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -48,7 +48,9 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
   const windows: SkinWindow[] = confirmed.entries.map(confirmedWindow);
   const eventNames = events.map(event => event.name);
   const byId = new Map(skins.map(skin => [skinKey(skin), skin]));
+  const completeEvents = new Set(confirmed.entries.filter(window => window.inventoryComplete).map(window => normalizeEvent(window.event)));
   for (const source of rotations.entries) {
+    if (completeEvents.has(normalizeEvent(source.event))) continue;
     const event = events.find(event => normalizeEvent(event.name) === normalizeEvent(source.event));
     if (!event?.global.dateRange) continue;
     for (const range of event.global.dateRange.split(';')) {
@@ -56,13 +58,18 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
       if (!parsed) continue;
       const offset = Date.parse(parsed.start.toISOString().slice(0, 10)) - Date.parse(source.eventStart);
       for (const rotation of source.rotations) {
-        const skinIds = [...rotation.new, ...rotation.returning].filter(id => byId.has(id));
+        const verifiedIds = new Set(windows.filter(window => !window.estimated && window.kind === 'shop'
+          && normalizeEvent(window.event) === normalizeEvent(event.name)).flatMap(window => window.skinIds));
+        const startAt = new Date(Date.parse(rotation.start) + offset + 15 * 3600000).toISOString();
+        const skinIds = [...rotation.new.filter(id => {
+          const released = byId.get(id)?.globalReleaseAt;
+          return !released || released * 1000 >= Date.parse(startAt);
+        }), ...rotation.returning].filter(id => byId.has(id) && !verifiedIds.has(id));
         if (!skinIds.length) continue;
-        // Official windows for this event replace its projected CN batches.
-        if (windows.some(window => !window.estimated && normalizeEvent(window.event) === normalizeEvent(event.name))) continue;
+
         windows.push({
           event: event.name, kind: 'shop', label: rotation.label, skinIds,
-          startAt: new Date(Date.parse(rotation.start) + offset + 15 * 3600000).toISOString(),
+          startAt,
           endAt: new Date(Date.parse(rotation.end) + offset + 11 * 3600000).toISOString(),
           source: source.source, estimated: true, newRelease: false,
         });
@@ -78,6 +85,8 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
     for (const skin of matched) {
       const id = skinKey(skin);
       if (windows.some(window => window.skinIds.includes(id) && normalizeEvent(window.event) === normalizeEvent(event.name))) continue;
+      // A Global debut elsewhere supersedes a CN release association. Reruns need an inventory.
+      if (skin.globalReleaseAt && skin.globalReleaseAt * 1000 < +range.start) continue;
       windows.push({ event: event.name, kind: /Outfit Store/i.test(skin.howToObtain || '') ? 'shop' : 'reward',
         label: 'Expected release', skinIds: [id], startAt: range.start.toISOString(), endAt: range.end.toISOString(), estimated: true, newRelease: false });
     }
@@ -127,4 +136,21 @@ export function compareCurrentSkins(a: Skin, b: Skin, availability: Map<string, 
   const isNew = (window: SkinCountdown | undefined) => window?.newRelease === true;
   return Number(isNew(second)) - Number(isNew(first))
     || Date.parse(second?.startAt ?? '1970-01-01') - Date.parse(first?.startAt ?? '1970-01-01');
+}
+
+/** Upcoming acquisitions exclude random draws and already-live windows. Undated CN debuts
+ * follow dated windows, and stop being upcoming once the Global client has released them. */
+export function isUpcomingSkin(skin: Skin, window: SkinCountdown | undefined, now: number): boolean {
+  if (window?.live) return false;
+  if (window && window.kind !== 'draw') return true;
+  return skin.globalReleaseAt ? skin.globalReleaseAt * 1000 > now
+    : skin.sourceRegion === 'CN' || /^\[CN\]/.test(skin.release || '');
+}
+export function compareUpcomingSkins(a: Skin, b: Skin, availability: Map<string, SkinCountdown>): number {
+  return (Date.parse(availability.get(skinKey(a))?.startAt ?? '') || Infinity)
+    - (Date.parse(availability.get(skinKey(b))?.startAt ?? '') || Infinity)
+    || Number(!!a.globalReleaseAt && a.globalReleaseAt * 1000 < Date.parse(availability.get(skinKey(a))?.startAt ?? ''))
+      - Number(!!b.globalReleaseAt && b.globalReleaseAt * 1000 < Date.parse(availability.get(skinKey(b))?.startAt ?? ''))
+    || (a.cnReleaseAt ?? Infinity) - (b.cnReleaseAt ?? Infinity)
+    || (a.model ?? '').localeCompare(b.model ?? '') || a.name.localeCompare(b.name);
 }

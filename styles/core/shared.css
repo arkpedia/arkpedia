@@ -69,6 +69,7 @@
 
   --amber: #e0aa4e;
   --danger: #d4685c;
+  --status-positive: #62c48c;
   --danger-dim: rgba(212, 104, 92, 0.14);
   /* --danger is tuned as TEXT on a dark panel, which makes it far too light to
      sit UNDER white text: a white LIVE badge on it measured 3.11:1. This is the
@@ -294,6 +295,7 @@
 
   --amber: #8F5808;
   --danger: #C33D30;
+  --status-positive: #247744;
   --danger-dim: #FBE2DF;
   --danger-solid: #C33D30;
 
@@ -1321,6 +1323,10 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   color: var(--amber);
 }
 
+.countdown-timer-ends { color: var(--amber); }
+.countdown-timer-starts { color: var(--status-positive); }
+.countdown-timer-closed { color: var(--danger); }
+
 .support-social-row {
   display: flex;
   gap: 14px;
@@ -1640,3 +1646,52 @@ a.primary:where(:has(~ :is(button, a).ghost)),
     scrollbar-color: var(--text-faint) var(--panel-2);
   }
 }
+
+.roster-reference { display: flex; gap: 8px; align-items: stretch; }
+.roster-reference > a { flex: 1; min-width: 0; padding-inline: 8px; white-space: normal; text-align: center; font-size: clamp(11px, 2.4vw, 14px); }
+
+.material-tier-1 { background: color-mix(in srgb, #a8a8a8 28%, var(--panel)); }
+.material-tier-2 { background: color-mix(in srgb, #7bb94c 28%, var(--panel)); }
+.material-tier-3 { background: color-mix(in srgb, #5ba8dc 28%, var(--panel)); }
+.material-tier-4 { background: color-mix(in srgb, #ac7fe0 28%, var(--panel)); }
+.material-tier-5 { background: color-mix(in srgb, #ecb845 28%, var(--panel)); }
+
+.pulls-cert-months { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.pulls-cert-months label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pulls-cert-months input { width: 80px; }
+
+.credit-database { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }
+.credit-database .op-section { margin: 0; }
+.credit-person > span:first-child { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.credit-person { display: flex; gap: 8px; justify-content: space-between; width: 100%; text-align: left; }
+.credit-operators { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 12px 0; }
+.credit-operators a { display: flex; align-items: center; gap: 12px; }
+.credit-operators span { display: grid; }
+.credit-operators small { color: var(--text-dim); }
+
+.chibi-viewer { position: relative; width: min(100%, 420px); }
+.chibi-viewer > p { position: absolute; bottom: 8px; left: 0; right: 0; margin: 0; background: var(--panel); }
+.chibi-viewer canvas { width: 100%; height: 260px; display: block; }
+.operator-chibi { position: absolute; z-index: 5; top: 8px; right: 8px; padding: 8px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius-frame); }
+.operator-chibi:has(.chibi-controls) { width: min(360px, calc(100% - 16px)); max-height: calc(100% - 150px); overflow: auto; }
+@media (max-width: 650px) { .chibi-viewer canvas { height: 180px; } }
+.operator-summons { display: grid; gap: 12px; }
+
+.operator-chibi-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.operator-chibi-header > button { padding-inline: 8px; white-space: nowrap; }
+.operator-chibi-header > [role="group"] { margin-left: auto; flex-wrap: nowrap; gap: 4px; }
+.operator-chibi-header > [role="group"] > button { padding-inline: 8px; }
+.chibi-controls { display: flex; align-items: center; gap: 8px; }
+.chibi-controls .chibi-animation { flex: 1; min-width: 0; }
+.chibi-controls > button { flex-shrink: 0; }
+.chibi-viewer canvas { cursor: grab; touch-action: none; user-select: none; }
+.chibi-viewer canvas:active { cursor: grabbing; }
+.chibi-page-controls { margin-top: 8px; }
+.chibi-away { height: 260px; display: flex; align-items: center; justify-content: center; }
+.chibi-roaming { position: fixed; width: 160px; height: 180px; z-index: 90; }
+.chibi-roaming .chibi-viewer canvas { height: 180px; }
+.chibi-roaming .chibi-viewer p { bottom: 0; font-size: 12px; }
+.chibi-roaming.is-dragging canvas { cursor: grabbing; }
+.chibi-return { position: absolute; right: 0; top: 0; }
+
+@media (max-width: 650px) { .chibi-away { height: 180px; } }

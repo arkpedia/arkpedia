@@ -579,7 +579,7 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   // Type-only imports (the layer renderer's) are erased from the bundle.
   const naming = ['pages', 'components', 'lib'].flatMap(walk)
     .filter((file) => /vendor\/spine-3\.8/.test(fs.readFileSync(file, 'utf8').replace(/^import type [^\n]*$/gm, '')));
-  assert.deepEqual(naming.sort(), [ARTWORK, 'lib/credits/spineLicense.ts']);
+  assert.deepEqual(naming.sort(), ['components/operators/ChibiCanvas.tsx', ARTWORK, 'lib/credits/spineLicense.ts']);
   // The layers and the particle systems come in with the artwork, never on their own: the particle reader borrows
   // the layers' shader reader, the particle renderer the layers' programs and textures, and only the artwork and
   // the particle modules themselves import the simulator, the geometry and the renderer (type imports included).
@@ -639,4 +639,29 @@ test('under reduced motion a pressed animation drives its own layers, held at it
   assert.deepEqual(layerClock(true, track('Interact', 0.6), 7), { playing: 'Interact', animationTime: 0.6, time: 0 });
   assert.deepEqual(layerClock(true, track('Interact', 5), 7), { playing: 'Interact', animationTime: 1.2, time: 0 });
   assert.deepEqual(layerClock(true, null, 7), { playing: null, animationTime: 0, time: 0 });
+});
+
+test('special illustration tags survive the manifest and are attached to the outfit and operator viewer', () => {
+  const skinId = 'char_1041_angel2@iteration#6';
+  const path = 'models/char_1041_angel2_iteration_6_sp_dyn/773ec69ee2c6/model.json';
+  const { data, skipped } = dynamicArtFromManifest({schemaVersion:1,models:{[skinId]:FUGUE,[`${skinId}^sp_dyn`]:path}},COMMIT);
+  assert.deepEqual(skipped,[]);
+  const skins = [{skinId,model:'Exusiai the New Covenant',name:'The Legend Seeker',image:'/6-star-skins/Exusiai the New Covenant - The Legend Seeker.webp'}];
+  assert.equal(skinDynamicArt(data,skins)[`${skinId}^sp_dyn`],raw(path));
+  const appearance = {label:'The Legend Seeker',fullPath:skins[0].image};
+  assert.equal(operatorDynamicArt(data,{name:skins[0].model,internalName:'char_1041_angel2'},[appearance],skins)['The Legend Seeker^sp_dyn'],raw(path));
+});
+
+test('older planner payloads receive artwork pointers and explicit nulls remain authoritative', async () => {
+  const { withPlannerDynamicArt, withPullPlannerDynamicArt } = await import('../../lib/skins/dynamicArtFallback');
+  const skinId = 'char_1041_angel2@iteration#6';
+  const enriched = await withPlannerDynamicArt({catalogue:[{skinId} as {skinId:string;dynamic?:string|null;alternate?:string|null}]});
+  assert.ok(enriched.catalogue[0].dynamic?.endsWith('/model.json'));
+  assert.ok(enriched.catalogue[0].alternate?.includes('_sp_dyn/'));
+  const explicit = await withPullPlannerDynamicArt({skinCatalogue:[{skinId,dynamic:null,alternate:null}]});
+  assert.equal(explicit.skinCatalogue[0].skinId, skinId);
+  assert.equal(explicit.skinCatalogue[0].dynamic, null);
+  assert.equal(explicit.skinCatalogue[0].alternate, null);
+  assert.ok((explicit.skinCatalogue[0] as {illustrator?:string}).illustrator);
+  assert.ok((explicit.skinCatalogue[0] as {description?:string}).description);
 });
