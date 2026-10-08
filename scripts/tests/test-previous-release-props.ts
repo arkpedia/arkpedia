@@ -333,6 +333,7 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
   },
   '/community': (props, { from, to }) => {
+    assert.deepEqual((props.directory as { webEvents: unknown[] }).webEvents, require('../../config/community-web-events.json'), 'curated campaigns survive an older published Community directory');
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');
     assert.deepEqual((props.twitchStreams as { userLogin: string }[]).map((stream) => stream.userLogin), ['stub_streamer'], 'the Twitch streams are the ones finalize fetched');
