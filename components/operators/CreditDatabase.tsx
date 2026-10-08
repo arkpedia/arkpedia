@@ -10,9 +10,9 @@ import type { CreditPerson } from '@/lib/operators/creditDatabase';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 export default function CreditDatabase({ people, kind }: { people: CreditPerson[]; kind: 'artists' | 'voice-actors' }) {
   const [query, setQuery] = useState(''), [limit, setLimit] = useState(30), [open, setOpen] = useState<string | null>(null);
-  const title = kind === 'artists' ? 'Artists' : 'Voice actors';
+  const title = kind === 'artists' ? 'Artists' : 'Voice Actors';
   const filtered = people.filter(person => matchesSearch(person.name, query) || person.operators.some(op => matchesSearch(op.name, query)));
-  return <><Head><title>{title} — Arkpedia</title></Head><PageHeader title={title} eyebrow="Rhodes Island // Personnel credits" actions={<Link prefetch={false} className="ghost" href={kind === 'artists' ? '/voice-actors' : '/artists'}>{kind === 'artists' ? 'Voice actors' : 'Artists'}</Link>} />
+  return <><Head><title>{title} — Arkpedia</title></Head><PageHeader title={title} eyebrow="Rhodes Island // Personnel credits" actions={<Link prefetch={false} className="ghost" href={kind === 'artists' ? '/voice-actors' : '/artists'}>{kind === 'artists' ? 'Voice Actors' : 'Artists'}</Link>} />
     <main><SearchInput label={`Search ${title.toLowerCase()}`} placeholder="Name or operator" value={query} onChange={value => { setQuery(value); setLimit(30); }} />
       <div className="credit-database">{filtered.slice(0, limit).map(person => <section key={person.name} className="op-section">
         <button type="button" className="ghost credit-person" aria-expanded={open === person.name} onClick={() => setOpen(open === person.name ? null : person.name)}><span>{person.name}</span><span aria-hidden="true">{open === person.name ? '−' : '+'}</span></button>
