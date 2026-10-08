@@ -38,6 +38,7 @@ import { RewardTile } from '@/components/events/RewardTile';
 import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
+import { operatorHref } from '@/lib/operators/operatorHref';
 
 const CAROUSEL_INTERVAL_MS = 8000;
 const PAUSE_AFTER_CLICK_MS = 30000;
@@ -604,7 +605,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
         operators: ticket.operators.map(operatorName => {
           const op = roster.find(o => o.name === operatorName);
           if (!op) throw new Error(`Unknown selector operator: ${operatorName}`);
-          return { name: op.name, iconPath: getOperatorIconPath(op), href: `/operators/${encodeURIComponent(op.name)}` };
+          return { name: op.name, iconPath: getOperatorIconPath(op), href: operatorHref(op.name, null) };
         }),
       }])),
       rewardNote,
