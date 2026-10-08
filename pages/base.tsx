@@ -24,7 +24,7 @@ import {
   PRODUCTION_SPOT_IDS,
   PRODUCTION_KINDS,
   MAX_LEVEL_BY_KIND,
-  MAX_PER_PRODUCTION_KIND,
+  MAX_PRODUCTION_BY_KIND,
   FACILITY_KIND_LABELS,
   BASE_PRESETS,
   BASE_PRESET_IDS,
@@ -35,9 +35,9 @@ import {
   layoutProblems,
 } from '@/lib/base/baseConfig';
 import { BaseAssignments, FactoryProduct, FactoryProducts, DormitoryAmbience, SlotAssignment, BaseLayout, FacilityLevels, ProductionKind, ProductionSpots } from '@/lib/base/baseTypes';
-import { calcProductivity, calcCapacity, calcCapacityPerOperator, calcOrderLimit, calcMorale, calcClueSpeed, calcReceptionRoomBaseSpeed, receptionRoomBaseContribution, calcDroneRate, calcFullTime, calcDeadTime, calcDailyProduction, calcControlCenterEffects, clueCollectionBonusFrom, calcControlCenterMoraleRelief, calcOffice, calcTradingPostFullTime, calcTradingPostGoldPerHourStandardized, calcTradingPostGoldAndLmdPerHour, formatHours, ControlCenterEffects, calcGreyProductivity, factoryYellowContribution, tradingPostYellowContribution, calcDormitoryRecovery, defaultDormitoryAmbience, dormitoryAmbienceCap } from '@/lib/base/baseProductivity';
+import { calcProductivity, calcCapacity, calcCapacityPerOperator, calcOrderLimit, calcMorale, calcClueSpeed, calcReceptionRoomBaseSpeed, receptionRoomBaseContribution, calcDroneRate, calcFullTime, calcDeadTime, calcDailyProduction, calcControlCenterEffects, clueCollectionBonusFrom, calcControlCenterMoraleRelief, calcOffice, calcTradingPostFullTime, calcTradingPostGoldPerHourStandardized, goldOrderTier, tradingPostExpectedMinutes, calcTradingPostGoldAndLmdPerHour, formatHours, ControlCenterEffects, calcGreyProductivity, factoryYellowContribution, tradingPostYellowContribution, calcDormitoryRecovery, defaultDormitoryAmbience, dormitoryAmbienceCap } from '@/lib/base/baseProductivity';
 import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from '@/lib/base/factorySpecialSkills';
-import { checkBaseRosters, toBaseRosters, type BaseRosterData } from '@/lib/base/baseGroupRosters';
+import { checkBaseRosters, BASE_ROSTER_NAMES, toBaseRosters, type BaseRosterData } from '@/lib/base/baseGroupRosters';
 import { useAccount } from '@/lib/account/accountStore';
 import { readRoster, ROSTER_EVENT } from '@/lib/planner/roster';
 import { DORMITORY_SPECIAL_SKILLS, DORMITORY_PREFERRED_TARGET } from '@/lib/base/dormitorySpecialSkills';
@@ -51,6 +51,14 @@ import { RotationExperimentResult, runRotationExperiment, RotationFacilityLevels
 import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
 import PageHeader from '@/components/ui/PageHeader';
 import XButton from '@/components/ui/XButton';
+import { activeBaseSkills } from '@/lib/base/activeBaseSkills';
+import { downloadBaseSnapshotImage } from '@/lib/base/baseSnapshotImage';
+import { readSavedBasePresets, SAVED_BASE_PRESETS_KEY, type SavedBasePreset } from '@/lib/base/baseSavedPresets';
+import { jayeContribution } from '@/lib/base/jaye';
+import { workshopResult, type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
+import { dormitoryRecoveryRates } from '@/lib/base/dormitoryRecovery';
+import { crossFacilityMoraleRelief } from '@/lib/base/crossFacilityMorale';
+import { trainingResult, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
 
 
 // The manual-value input mechanism (see needsManualValue / setManualValue
@@ -88,12 +96,14 @@ export type SwapPolicy = 'onMoraleZero' | 'onLogin';
 
 interface Props {
   operators: BaseOperator[];
+  __contentTables?: Record<string, unknown>;
 }
 
 const STORAGE_KEY = 'baseAssignments_v2';
 const PRODUCT_STORAGE_KEY = 'baseFactoryProducts_v1';
 const AMBIENCE_STORAGE_KEY = 'baseDormitoryAmbience_v1';
 const SETTINGS_STORAGE_KEY = 'baseResourceSettings_v1';
+const MODEL_SETTINGS_KEY = 'baseModelSettings_v1';
 // Hides the Rotation Experiment button/panel entirely -- set to true to
 // bring it back. Deliberately not tied to process.env.NODE_ENV: this is
 // meant to be under direct, explicit control regardless of build mode,
@@ -110,6 +120,7 @@ export default function BasePage({ operators }: Props) {
   // (lib/content/tables.mjs), so they follow the content release. Every calculation
   // below reads the rosters from here, and the special-skill handlers get them in
   // their context.
+  const workshopRecipes = useReleaseTable<WorkshopRecipe[]>('base-workshop-recipes');
   const skillSlots = useReleaseTable<BaseSkillSlots>('base-skill-slots');
   const rosterData = useReleaseTable<BaseRosterData>('base-group-rosters');
   const rosters = useMemo(() => toBaseRosters(rosterData), [rosterData]);
@@ -182,8 +193,16 @@ export default function BasePage({ operators }: Props) {
   const [breakdownFacilityId, setBreakdownFacilityId] = useState<string | null>(null);
   const [roomPanelFacilityId, setRoomPanelFacilityId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [savedPresets, setSavedPresets] = useState<SavedBasePreset[]>([]);
+  const [showSavedPresets, setShowSavedPresets] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState('');
+  const [presetStatus, setPresetStatus] = useState('');
   const [viewMode, setViewMode] = useState<'cumulated' | 'separated'>('cumulated');
   const [loginInterval, setLoginInterval] = useState(24);
+  const [modelSettingsLoaded, setModelSettingsLoaded] = useState(false);
+  const [trainingTarget, setTrainingTarget] = useState<TrainingTarget>({ class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false });
+  const [workshopSettings, setWorkshopSettings] = useState<WorkshopSettings>({ recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 });
   // Caper/Cairn's "if in Clue Exchange" skills -- a game mode this
   // simulator has no way to detect on its own, so it's a manual
   // setting instead. Defaults to on (confirmed by the user).
@@ -803,6 +822,8 @@ export default function BasePage({ operators }: Props) {
 
   useEffect(() => {
     try {
+      const savedPresets = JSON.parse(window.localStorage.getItem(SAVED_BASE_PRESETS_KEY) ?? '[]');
+      setSavedPresets(readSavedBasePresets(savedPresets, new Set(operators.map(op => op.name))));
       const savedSetup = window.localStorage.getItem(SETUP_STORAGE_KEY);
       // Ids for the nine production spots became positional (prod1..prod9),
       // so a base saved under the old kind-based ids (factory3, powerPlant3,
@@ -849,6 +870,12 @@ export default function BasePage({ operators }: Props) {
       if (savedProducts) setFactoryProducts(remapIds(JSON.parse(savedProducts)));
       const savedAmbience = window.localStorage.getItem(AMBIENCE_STORAGE_KEY);
       if (savedAmbience) setDormitoryAmbience(remapIds(JSON.parse(savedAmbience)));
+      const savedModel = window.localStorage.getItem(MODEL_SETTINGS_KEY);
+      if (savedModel) {
+        const raw = JSON.parse(savedModel);
+        const normalized = readSavedBasePresets([{ ...raw, version: 1, id: 'current', name: 'Current', productionSpots: defaultProductionSpots(), assignments: {} }], new Set(operators.map(op => op.name)))[0];
+        if (normalized) { setTrainingTarget(normalized.trainingTarget); setWorkshopSettings(normalized.workshopSettings); }
+      }
       const savedSettings = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
@@ -860,6 +887,12 @@ export default function BasePage({ operators }: Props) {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => { setModelSettingsLoaded(true); }, []);
+  useEffect(() => {
+    if (!modelSettingsLoaded) return;
+    try { window.localStorage.setItem(MODEL_SETTINGS_KEY, JSON.stringify({ trainingTarget, workshopSettings })); } catch { /* Session remains usable. */ }
+  }, [modelSettingsLoaded, trainingTarget, workshopSettings]);
 
   // Debug-only: exposes the full operator dataset to the dev console for
   // manual inspection/extraction (e.g. window.__operators.filter(...)).
@@ -943,6 +976,7 @@ export default function BasePage({ operators }: Props) {
   // other facility's own slots are just nulled out, not gap-closed --
   // only the facility currently being edited re-orders itself.
   function toggleRoomOperator(facilityId: string, operatorName: string, eliteLevel: string | null) {
+    if (trainingTarget.operatorName === operatorName) setTrainingTarget(t => ({ ...t, operatorName: '' }));
     const currentSlots = assignments[facilityId] || [];
     const existingIdx = currentSlots.findIndex((s) => s?.operatorName === operatorName);
     if (existingIdx !== -1) {
@@ -987,6 +1021,56 @@ export default function BasePage({ operators }: Props) {
     return eliteLevel === 'Elite 2' ? 'E2' : eliteLevel === 'Elite 1' ? 'E1' : 'E0';
   }
 
+  function storePresets(next: SavedBasePreset[]) {
+    try { window.localStorage.setItem(SAVED_BASE_PRESETS_KEY, JSON.stringify(next)); setSavedPresets(next); return true; }
+    catch { setPresetStatus('Could not save: browser storage is unavailable or full.'); return false; }
+  }
+  function saveNamedPreset(overwrite: boolean) {
+    const existing = savedPresets.find(p => p.id === selectedPreset);
+    const name = (overwrite ? existing?.name : presetName)?.trim().slice(0, 80);
+    if (!name) { setPresetStatus('Enter a name for this preset.'); return; }
+    const snapshot: SavedBasePreset = JSON.parse(JSON.stringify({ version: 1, id: overwrite && existing ? existing.id : crypto.randomUUID(), name, savedAt: new Date().toISOString(), productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, trainingTarget, workshopSettings }));
+    if (storePresets([...savedPresets.filter(p => p.id !== snapshot.id), snapshot])) { setSelectedPreset(snapshot.id); setPresetName(''); setPresetStatus(`Saved ${name}.`); }
+  }
+  function loadNamedPreset() {
+    const preset = readSavedBasePresets(savedPresets, new Set(operators.map(op => op.name))).find(p => p.id === selectedPreset);
+    if (!preset) return;
+    persistSetup(preset.productionSpots, preset.facilityLevels, true);
+    persist(preset.assignments);
+    setFactoryProducts(preset.factoryProducts); setDormitoryAmbience(preset.dormitoryAmbience);
+    setLoginInterval(preset.loginInterval); setTrainingTarget(preset.trainingTarget); setWorkshopSettings(preset.workshopSettings);
+    persistSettings(preset);
+    try { window.localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(preset.factoryProducts)); window.localStorage.setItem(AMBIENCE_STORAGE_KEY, JSON.stringify(preset.dormitoryAmbience)); } catch { /* Session still restored. */ }
+    setActiveFacility(null); setPresetStatus(`Loaded ${preset.name}.`);
+  }
+  async function exportSnapshot() {
+    try {
+      const rooms = FACILITIES.filter(f => f.kind !== 'elevator' && f.level > 0).map(f => {
+        const stats = productivityFor(f, ccEffects, ccMoraleRelief);
+        const lines = (assignments[f.id] ?? []).filter((s): s is SlotAssignment => s !== null).map(s => `${s.operatorName} · ${eliteShort(s.eliteLevel)}${stats.perOperatorMorale ? ` · ${stats.perOperatorMorale[s.operatorName].toFixed(2)} Morale/h` : ''}`);
+        if (stats.productivity) lines.push(`Efficiency ${((stats.productivity.grey + stats.productivity.yellow) * 100).toFixed(1)}%`);
+        if (stats.capacity) lines.push(`Capacity ${stats.capacity.base + stats.capacity.adjustment}`);
+        if (stats.orderLimit) lines.push(`Order limit ${stats.orderLimit.base + stats.orderLimit.adjustment}`);
+        if (factoryProducts[f.id]) lines.push(`Product: ${factoryProducts[f.id]}`);
+        if (stats.trainingSpeed !== null) lines.push(`Training ${(stats.trainingSpeed * 100).toFixed(1)}% · ${stats.trainingHours?.toFixed(2)}h · ${trainingTarget.operatorName || trainingTarget.class} M${Math.min(trainingTarget.mastery, f.level)}`);
+        if (stats.workshop) lines.push(`Byproduct ${(stats.workshop.chance * 100).toFixed(1)}% · ${stats.workshop.morale} Morale/craft`);
+        if (stats.office) lines.push(`HR ${(stats.office.speed * 100).toFixed(1)}% · refresh ${stats.office.refreshHours.toFixed(2)}h`);
+        if (stats.droneRate !== null) lines.push(`Drone recovery +${(stats.droneRate * 100).toFixed(1)}%`);
+        if (stats.clueSpeed !== null) lines.push(`Clue speed ${(((stats.clueSpeedBase ?? 1) + stats.clueSpeed) * 100).toFixed(1)}%`);
+        if (f.kind === 'dormitory') {
+          lines.push(`Ambience ${dormitoryAmbience[f.id] ?? defaultDormitoryAmbience(f.level)}`);
+          dormitoryRecoveryByFacility[f.id]?.forEach(r => lines.push(`${r.name}: ${((assignments[f.id] ?? []).find(s => s?.operatorName === r.name)?.morale ?? 0).toFixed(0)}/24 Morale · ${(r.base + r.bonus).toFixed(2)}/h`));
+        }
+        if (stats.fullTime !== null) lines.push(`Storage full in ${stats.fullTime.toFixed(2)}h`);
+        const spot = PRODUCTION_SPOTS.find(spot => spot.id === f.id);
+        const roomLabel = spot ? `B${spot.row}0${spot.column} · ${f.label}` : f.kind === 'dormitory' ? `${f.label} ${f.id.replace(/\D/g, '')}` : f.label;
+        return { title: `${roomLabel} · Lv${f.level}`, lines: lines.length ? lines : ['Empty'] };
+      });
+      await downloadBaseSnapshotImage(rooms, [`${new Date().toLocaleString()} · Login interval ${loginInterval}h · Power ${basePower.drawn}/${basePower.supplied}`, `Daily EXP ${Math.round(dailyExpGreen)} · Gold made ${dailyGoldMadeGreen.toFixed(1)} · LMD ${Math.round(dailyGoldWorthGreen)} · Morale ${moraleAbove12 ? 'above' : 'at/below'} 12`]);
+      setPresetStatus('Snapshot downloaded.');
+    } catch (error) { setPresetStatus(error instanceof Error ? error.message : 'Could not export snapshot.'); }
+  }
+
   function persistSetup(nextSpots: ProductionSpots, nextFacilityLevels: FacilityLevels, nextComplete: boolean) {
     setProductionSpots(nextSpots);
     setFacilityLevels(nextFacilityLevels);
@@ -1000,6 +1084,8 @@ export default function BasePage({ operators }: Props) {
 
   function resetBase() {
     persist(createEmptyAssignments(FACILITIES));
+    setTrainingTarget({ operatorName: '', class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false });
+    setWorkshopSettings({ recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 });
     setFactoryProducts({});
     setDormitoryAmbience({});
     try {
@@ -1022,6 +1108,8 @@ export default function BasePage({ operators }: Props) {
     setSpotsDraft(defaultProductionSpots());
     setSetupFacilityLevelsDraft({});
     setAssignments({});
+    setTrainingTarget({ operatorName: '', class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false });
+    setWorkshopSettings({ recipeId: '1', qualifyingDormOperators: 0, causality: 0, karma: 0, thornsFailures: 0 });
     setFactoryProducts({});
     setDormitoryAmbience({});
     try {
@@ -1192,81 +1280,8 @@ export default function BasePage({ operators }: Props) {
     return idx === -1 ? null : rawName.slice(idx + 'Replaces'.length).trim();
   }
 
-  const ELITE_ORDER = ['Base', 'Elite 1', 'Elite 2'];
   function combinedSkillsForElite(op: BaseOperator, facilityLabel: string, eliteLevel: string | null): BaseSkill[] {
-    // Level 30 is functionally the same tier as Base -- 1-star operators
-    // have no Elite promotion path at all, so a slot tagged 'Level 30'
-    // should resolve exactly like a Base-tier slot would.
-    const normalizedEliteLevel = eliteLevel === 'Level 30' ? 'Base' : eliteLevel;
-    const currentIndex = ELITE_ORDER.indexOf(normalizedEliteLevel || '');
-    const facilitySkills = (op.baseSkills || []).filter((bs) => bs.facility === facilityLabel);
-    const isBaseTierSkill = (bs: BaseSkill) => !bs.eliteLevel || bs.eliteLevel === 'Base' || bs.eliteLevel === 'Level 30';
-    if (currentIndex === -1) {
-      return facilitySkills.filter((bs) => bs.eliteLevel === normalizedEliteLevel).map((bs) => ({ ...bs, name: cleanSkillName(bs.name), rawName: bs.name }));
-    }
-    // Where the game's own slot data covers a skill, it is authoritative
-    // and the text heuristics below are skipped entirely -- see
-    // lib/base/baseSkillSlots.ts for what a "slot" is. That data is the
-    // record's own slot, phase and level first (building_data, written on
-    // every released operator each night by sync-operator-english.mjs),
-    // then data/base-skill-slots.json (from this page's props) for a record
-    // that does not carry them yet. Only an operator with a skill neither
-    // covers (Ukusik) falls through to the heuristics. It also supersedes
-    // the scraped elite tag, which is occasionally wrong: Varkáris's Pride
-    // of a Hero β is tagged Elite 2 here but the game unlocks it at Elite 1,
-    // so an Elite 1 Varkáris was showing the weaker α.
-    const slotted = facilitySkills.map((bs) => ({
-      bs,
-      meta: typeof bs.slot === 'number' && typeof bs.phase === 'number'
-        ? { slot: bs.slot, phase: bs.phase, level: bs.level ?? 1 }
-        : skillSlots[`${op.name}|${cleanSkillName(bs.name)}|${bs.eliteLevel || 'Base'}`],
-    }));
-    if (slotted.length > 0 && slotted.every((entry) => entry.meta)) {
-      const bestBySlot = new Map<number, { bs: BaseSkill; meta: BaseSkillSlot }>();
-      for (const entry of slotted) {
-        const meta = entry.meta as BaseSkillSlot;
-        if (meta.phase > currentIndex) continue; // not promoted far enough for this step yet
-        const held = bestBySlot.get(meta.slot);
-        // Within one slot the highest unlocked step wins, and only that one
-        // applies. Operator level isn't modelled anywhere on this page, so a
-        // level-gated step counts as reached -- the same "levelled far enough
-        // for its tier" assumption the rest of the page already makes. That
-        // is what promotes Durin's Sleepiness (+0.25) over Laziness (+0.2);
-        // the two descriptions are identical once numbers are stripped, so
-        // the old dedupe kept whichever came first, which was the weaker one.
-        if (!held || meta.phase > held.meta.phase || (meta.phase === held.meta.phase && meta.level > held.meta.level)) {
-          bestBySlot.set(meta.slot, { bs: entry.bs, meta });
-        }
-      }
-      return [...bestBySlot.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([, entry]) => ({ ...entry.bs, name: cleanSkillName(entry.bs.name), rawName: entry.bs.name }));
-    }
-
-    const result: BaseSkill[] = [];
-    const explicitlyReplacedNames = new Set<string>();
-    for (let i = currentIndex; i >= 0; i--) {
-      // The Base tier (i === 0) additionally picks up any Level 30
-      // skills alongside actual Base-tagged ones, so both apply together
-      // -- same treatment as an operator with two genuinely concurrent
-      // skills at the same tier.
-      const tierSkills = i === 0 ? facilitySkills.filter(isBaseTierSkill) : facilitySkills.filter((bs) => bs.eliteLevel === ELITE_ORDER[i]);
-      for (const sk of tierSkills) {
-        const replaced = extractReplacedName(sk.name);
-        if (replaced) explicitlyReplacedNames.add(replaced);
-        const cleanedName = cleanSkillName(sk.name);
-        if (cleanedName && explicitlyReplacedNames.has(cleanedName)) continue; // a higher-Elite skill already processed explicitly replaces this one
-        // A lower-Elite skill sharing the exact same name as one already
-        // kept (from a higher tier, since we iterate highest-to-lowest)
-        // is the same ability just upgraded, even without an explicit
-        // "Replaces" suffix or identical description text -- a repeated
-        // skill name IS the signal that it's the same slot.
-        if (cleanedName && result.some((r) => r.name === cleanedName)) continue;
-        const normalized = normalizeForComparison(sk.description);
-        if (!result.some((r) => normalizeForComparison(r.description) === normalized)) result.push({ ...sk, name: cleanedName, rawName: sk.name });
-      }
-    }
-    return result;
+    return activeBaseSkills(op, facilityLabel, eliteLevel, skillSlots);
   }
 
   // Returns EVERY skill for this operator+facility, accounting for
@@ -1334,7 +1349,7 @@ export default function BasePage({ operators }: Props) {
           reason: raw === 0 ? 'No numeric drone recovery effect.' : 'Counted normally.',
         };
       });
-    if (specialEntries.length === 0) return { rate: calcDroneRate(genericDescriptions), lines: linesFor() };
+    if (specialEntries.length === 0) return { rate: 0.05 * filled.length + calcDroneRate(genericDescriptions), lines: linesFor() };
 
     const kaltsitInControlCenter = ccOperatorNames.includes("Kal'tsit");
     const lateranoInAnyOtherPowerPlant = [...powerPlantsWithLaterano].some((id) => id !== f.id);
@@ -1346,21 +1361,24 @@ export default function BasePage({ operators }: Props) {
       filled.length,
       filled.flatMap((s) => skillsFor(s, f.label).map((sk) => ({ operatorName: s.operatorName, description: sk.description })))
     );
-    const ownRate = (opName: string) => Math.max(0, powerPlantMorale.grey + powerPlantMorale.allOperatorsYellow + (powerPlantMorale.selfYellow[opName] || 0));
+    const ppRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief('powerPlant', bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
+    const ownRate = (opName: string) => Math.max(0, powerPlantMorale.grey + powerPlantMorale.allOperatorsYellow - ppRelief + (powerPlantMorale.selfYellow[opName] || 0));
     const worstRate = filled.length > 0 ? Math.max(...filled.map((s) => ownRate(s.operatorName))) : 0;
     const rampWindowHours = rampWindow(worstRate > 0 ? 24 / worstRate : Infinity);
 
-    let total = calcDroneRate(genericDescriptions);
+    let total = 0.05 * filled.length + calcDroneRate(genericDescriptions);
     const lines = linesFor();
     for (const { slot, skillName, handler } of specialEntries) {
       const result = handler({
+        otherRobotInPowerPlant: FACILITIES.some(room => room.kind === 'powerPlant' && assignments[room.id]?.some(s => s && s.operatorName !== slot.operatorName && rosters.OPERATION_PLATFORM.has(s.operatorName))),
+        makotoInFactory: FACILITIES.some(room => room.kind === 'factory' && assignments[room.id]?.some(s => s?.operatorName === 'Makoto Yuki')),
         sameFacilityOperatorNames: filled.map((s) => s.operatorName),
         lateranoInAnyOtherPowerPlant,
         kaltsitInControlCenter,
         // Training Room has exactly 1 slot in this simulator, so this
         // directly reflects whether Logos is that slot's occupant.
         logosIsTrainerInTrainingRoom: logosInTrainingRoom,
-        maxDroneCapacity: 235, // confirmed by the user: fixed 2-4-3 base layout
+        maxDroneCapacity: 235, // sum of building_data.layouts.v0.slots[].provideLabor, assuming all rooms excavated
         // Whole-base Rhine Lab count, minus this specific operator if
         // they're themselves a Rhine Lab member -- Muelsyse's skill says
         // "every OTHER Rhine Lab Operator", not including herself.
@@ -1436,6 +1454,10 @@ export default function BasePage({ operators }: Props) {
 
       const baseCtx: Omit<FactorySkillContext, 'manualValue' | 'othersProductivitySum' | 'otherOperatorsCapacity' | 'totalFactoryCapacityIncrease' | 'eliteLevel'> = {
         rosters,
+        totalDormitoryLevels,
+        trainingRoomLevel: FACILITIES.find(room => room.kind === 'trainingRoom')?.level ?? 0,
+        totalFacilityLevels: FACILITIES.reduce((sum, room) => sum + room.level, 0),
+        allPlacedNames,
         selectedProduct: factoryProducts[f.id] || null,
         sameFactoryOperatorNames,
         sameFactorySkillNames,
@@ -1475,6 +1497,7 @@ export default function BasePage({ operators }: Props) {
         'Totter|Blurry Vision',
         'Totter|Blizzard Outside',
         'Aroma|Routine Cleaning',
+        'Mechanist|I Slept Already',
       ]);
       let othersSum = 0;
       const pending: { slot: SlotAssignment; skillName: string; handler: (typeof FACTORY_SPECIAL_SKILLS)[string] }[] = [];
@@ -1719,6 +1742,10 @@ export default function BasePage({ operators }: Props) {
 
       const baseTPCtx: Omit<TradingPostContext, 'manualValue' | 'othersOrderEfficiencySum' | 'othersOrderLimitSum'> = {
         rosters,
+        tradingPostLevel: f.level,
+        bubbleKingdomHuntersInTradingPosts: allPlacedNames.filter(n => rosters.BUBBLE_KINGDOM_HUNTERS.has(n) && operatorInAnyTradingPost(n)).length,
+        receptionRoomLevel: FACILITIES.find(room => room.kind === 'receptionRoom')?.level ?? 0,
+        totalDormitoryLevels,
         sameRoomOperatorNames,
         filledCountThisRoom: filled.length,
         dormitoryOperatorCount: dormitoryOperatorNames.size,
@@ -1739,6 +1766,7 @@ export default function BasePage({ operators }: Props) {
       // order limit contribution. Both need everything else resolved first.
       const SELF_REFERENTIAL = new Set([
         'Jaye|Basic Needs',
+        'Jaye|Street Economics',
         'Snowsant|Heavenly Reward α',
         'Snowsant|Heavenly Reward β',
         "Degenbrecher|Champion's Bearing",
@@ -1759,7 +1787,7 @@ export default function BasePage({ operators }: Props) {
 
       const prelimProd = calcProductivity('tradingPost', genericDescriptions, filled.length, null);
       const prelimOrderLimit = calcOrderLimit(genericDescriptions, f.level);
-      let othersEff = prelimProd.yellow;
+      let othersEff = prelimProd.yellow + (perTradingPostBonus.get(f.id) || 0);
       // Raw (including negatives) order limit total -- used by
       // Degenbrecher's "Champion's Bearing", Swire the Elegant Wit's
       // "Investment Solicitations" (both confirmed to scale off the
@@ -1776,27 +1804,22 @@ export default function BasePage({ operators }: Props) {
         if (result.orderEfficiency) othersEff += result.orderEfficiency;
         if (result.orderLimit) othersLimitRaw += result.orderLimit;
       }
-      for (const { slot, handler } of orderLimitAffectingDeferred) {
-        const result = handler({
-          ...baseTPCtx,
-          manualValue: slot.manualValue,
-          othersOrderEfficiencySum: othersEff,
-          othersOrderLimitRawSum: othersLimitRaw,
-          genericOrderLimitAdjustment: prelimOrderLimit.base + prelimOrderLimit.adjustment,
-        });
-        resultsTP.push({ result, operator: slot.operatorName });
-        // Feed Jaye's real orderLimit output back in before the
-        // remaining deferred skills (Swire, Degenbrecher) run, so they
-        // see the actual net total, not a stale pre-Jaye snapshot.
-        if (result.orderLimit) othersLimitRaw += result.orderLimit;
+      const jayeEntry = specialEntries.find(e => e.slot.operatorName === 'Jaye');
+      const snowEntry = specialEntries.find(e => e.slot.operatorName === 'Snowsant');
+      if (jayeEntry) {
+        const modeled = jayeContribution(prelimOrderLimit.base + othersLimitRaw, othersEff, snowEntry ? (snowEntry.skillName.endsWith('β') ? 0.35 : 0.25) : 0, orderLimitAffectingDeferred.length > 0, prelimProd.grey + ccEffects.tradingPostBonus, loginInterval, f.level, tradingPostExpectedMinutes(goldOrderTier(filled.flatMap(slot => skillsFor(slot, f.label).map(sk => ({ operatorName: slot.operatorName, skillName: cleanSkillName(sk.name) ?? '' })))), f.level));
+        resultsTP.push({ operator: 'Jaye', result: { orderEfficiency: modeled.jaye, orderLimit: modeled.limitReduction, note: orderLimitAffectingDeferred.length ? 'Street Economics + Basic Needs cancel queue dependence. Snowsant copies other operators first, then Basic Needs uses that combined bonus (game glossary: Special Interaction Rules).' : `Expected average from an empty queue over ${loginInterval}h between collections; speed is recalculated after every expected order.` } });
+        if (snowEntry) resultsTP.push({ operator: 'Snowsant', result: { orderEfficiency: modeled.snowsant } });
+        othersLimitRaw += modeled.limitReduction;
       }
       for (const { slot, handler } of remainingDeferred) {
+        if (slot.operatorName === 'Jaye' || (slot.operatorName === 'Snowsant' && jayeEntry)) continue;
         const result = handler({
           ...baseTPCtx,
           manualValue: slot.manualValue,
           othersOrderEfficiencySum: othersEff,
           othersOrderLimitRawSum: othersLimitRaw,
-          genericOrderLimitAdjustment: prelimOrderLimit.base + prelimOrderLimit.adjustment,
+          genericOrderLimitAdjustment: prelimOrderLimit.base,
         });
         resultsTP.push({ result, operator: slot.operatorName });
       }
@@ -1827,6 +1850,10 @@ export default function BasePage({ operators }: Props) {
       // computed above, not re-derived separately.
       const tpGreyProductivity = calcGreyProductivity(filled.length);
       const tpBreakdownLines: FacilityBreakdownLine[] = [];
+      const quality = goldOrderTier(filled.flatMap(slot => skillsFor(slot, f.label).map(sk => ({ operatorName: slot.operatorName, skillName: cleanSkillName(sk.name) ?? '' }))));
+      if (quality !== 'base') tpBreakdownLines.push({ operatorName: '(Order quality)', skillName: null, rawValue: 0, included: false, reason: 'Quality-weighted output estimate.', note: 'Uses mature Lv3 observed order probabilities. Warm-up and lower-level quality distributions are not verified; their output is an approximation.' });
+      if (jayeEntry && remainingDeferred.some(e => e.slot.operatorName === 'Degenbrecher' || e.slot.operatorName === 'Swire the Elegant Wit')) tpBreakdownLines.push({ operatorName: 'Jaye', skillName: null, rawValue: 0, included: false, reason: 'Capacity/efficiency feedback estimate.', note: 'Basic Needs is evaluated before the capacity-dependent Degenbrecher/Swire bonus. This combination’s game evaluation order has not been verified.' });
+      if (filled.some(s => s.operatorName === 'Closure') && filled.some(s => s.operatorName === 'Pepe') && skillsFor(filled.find(s => s.operatorName === 'Pepe')!, f.label).some(s => s.name === 'Insightful')) tpBreakdownLines.push({ operatorName: '(Special orders)', skillName: null, rawValue: 0, included: false, reason: 'Conflicting special order types.', note: 'Pepe’s fixed order is used; the priority against Closure’s Special Orders has not been verified.' });
 
       for (const g of genericSkillsForMorale) {
         const raw = tradingPostYellowContribution(g.description);
@@ -1887,6 +1914,14 @@ export default function BasePage({ operators }: Props) {
       );
     }
 
+    // Specialized room handlers own their self-morale, avoiding duplicate or unconditional parsing.
+    if (f.kind === 'trainingRoom' || f.kind === 'workshop') genericSkillsForMorale = [];
+    if (f.kind === 'controlCenter') genericSkillsForMorale = genericSkillsForMorale.filter(value => !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => `${value.operatorName}|${sk.name}` in CONTROL_CENTER_SPECIAL_SKILLS && sk.description === value.description));
+    if (f.kind === 'office' || f.kind === 'receptionRoom') genericSkillsForMorale = genericSkillsForMorale.filter(value => {
+      const map = f.kind === 'office' ? OFFICE_SPECIAL_SKILLS : RECEPTION_ROOM_SPECIAL_SKILLS;
+      return !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => `${value.operatorName}|${sk.name}` in map && sk.description === value.description);
+    });
+    ccMoraleRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief(f.kind, bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
     const morale = calcMorale(filled.length, genericSkillsForMorale);
     const productivity = PRODUCTIVITY_KINDS.has(f.kind)
       ? calcProductivity(f.kind as 'factory' | 'tradingPost', descriptions, filled.length, factoryProducts[f.id] || null)
@@ -2035,6 +2070,8 @@ export default function BasePage({ operators }: Props) {
           rampWindowHours: 24, // unused by any non-Ines handler
           resourceBonuses,
           clueExchangeActive,
+          violetOrchidInControlCenter: ccOperatorNames.includes('Violet Mizutsune Orchid'),
+          officeLevel,
         });
         if (result.clueSpeed) specialClueSum += result.clueSpeed;
         if (result.selfMorale) {
@@ -2069,6 +2106,8 @@ export default function BasePage({ operators }: Props) {
           rampWindowHours,
           resourceBonuses,
           clueExchangeActive,
+          violetOrchidInControlCenter: ccOperatorNames.includes('Violet Mizutsune Orchid'),
+          officeLevel,
         });
         if (result.clueSpeed) specialClueSum += result.clueSpeed;
         if (result.note) inesNote = result.note;
@@ -2142,6 +2181,8 @@ export default function BasePage({ operators }: Props) {
           rampWindowHours: 24,
           resourceBonuses,
           clueExchangeActive,
+          violetOrchidInControlCenter: ccOperatorNames.includes('Violet Mizutsune Orchid'),
+          officeLevel,
         });
         const raw = result.clueSpeed ?? 0;
         receptionBreakdownLines.push({ operatorName: slot.operatorName, skillName: sk.name, rawValue: raw, included: raw !== 0, reason: raw === 0 ? 'No numeric Clue search speed effect.' : 'Counted normally.', note: result.note });
@@ -2191,21 +2232,23 @@ export default function BasePage({ operators }: Props) {
     const powerPlant = f.kind === 'powerPlant' ? computePowerPlantDroneRate(f, filled) : null;
     const droneRate = powerPlant ? powerPlant.rate : null;
     if (powerPlant && filled.length > 0) {
-      // Drone recovery has no headcount baseline the way productivity does --
-      // it is purely the sum of skill bonuses, so the grey figure is 0.
+      // building_data.powerData.basicSpeedBuff: +5% per staffed plant.
       facilityBreakdown = {
         filledCount: filled.length,
-        greyProductivity: 0,
-        greyFormula: 'no baseline -- drone recovery is only the sum of the skills below',
+        greyProductivity: 0.05 * filled.length,
+        greyFormula: '5% innate charging bonus from the plant operator, plus skill bonuses',
         overrideActive: false,
         lines: powerPlant.lines,
-        finalYellow: powerPlant.rate,
+        finalYellow: powerPlant.rate - 0.05 * filled.length,
         effectiveProductivity: powerPlant.rate,
       };
     }
 
     let office: { speed: number; ownSpeed: number; ccBonus: number; refreshHours: number } | null = null;
     let trainingSpeed: number | null = null;
+    let trainingHours: number | null = null;
+    const recipe = workshopRecipes.find(r => r.id === workshopSettings.recipeId && r.level <= f.level) ?? workshopRecipes.find(r => r.level <= f.level)!;
+    const workshop = f.kind === 'workshop' && filled[0] && recipe ? workshopResult(filled[0].operatorName, skillsFor(filled[0], f.label), { ...workshopSettings, dormMorale: workshopSettings.overrideDormCount ? undefined : FACILITIES.filter(room => room.kind === 'dormitory' && room.level > 0).flatMap(room => (assignments[room.id] || []).flatMap(slot => slot ? [slot.morale ?? 0] : [])), recipe, dormitoryOperatorCount: dormitoryOperatorNames.size, stainlessInDorm: dormitoryHasOperator('Stainless'), intelligenceReserve: resourcePools.intelligenceReserve, ursusBeverages: totalUrsusBeverage }) : null;
     const officeSpecialMorale: Record<string, number> = {};
     if (f.kind === 'office') {
       const genericOfficeDescriptions: (string | null)[] = [];
@@ -2218,6 +2261,9 @@ export default function BasePage({ operators }: Props) {
             const result = handler({
               manualValue: slot.manualValue,
               dormitoryCount: FACILITIES.filter((f2) => f2.kind === 'dormitory').length,
+              totalDormitoryLevels,
+              officeLevel,
+              facilitiesWithEliteOperator,
               silverAshReignfrostInControlCenter,
               resourceBonuses,
               ursusSpecialtyBeverageTotal: totalUrsusBeverage,
@@ -2228,22 +2274,26 @@ export default function BasePage({ operators }: Props) {
             }
           } else {
             genericOfficeDescriptions.push(sk.description);
-            genericSkillsForMorale.push({ operatorName: slot.operatorName, description: sk.description });
           }
         }
       }
       const generic = calcOffice(genericOfficeDescriptions);
-      const ownSpeed = generic.speed + specialHrSum;
+      const ownSpeed = 0.05 * filled.length + generic.speed + specialHrSum;
       const combinedSpeed = ownSpeed + officeHrSpeedBonusFromCC;
       office = { speed: combinedSpeed, ownSpeed, ccBonus: officeHrSpeedBonusFromCC, refreshHours: 12 / (1 + combinedSpeed) };
     }
 
-    if (f.kind === 'trainingRoom') {
-      // 100% base Specialization training speed (confirmed flat
-      // percentage by the user, since actual training TIME varies by
-      // who's training -- this simulator doesn't model absolute time
-      // for this facility, only the relative speed multiplier).
-      trainingSpeed = filled.length > 0 ? 1.0 + trainingSpeedBonusFromCC : null;
+    if (f.kind === 'trainingRoom' && filled[0]) {
+      const trainer = filled[0];
+      const result = trainingResult(trainer.operatorName, skillsFor(trainer, f.label), {
+        target: { ...trainingTarget, mastery: Math.min(trainingTarget.mastery, f.level) }, allPlacedNames, rosters, worldlyPlight: resourcePools.worldlyPlight,
+      }, trainingSpeedBonusFromCC);
+      trainingSpeed = result.speed;
+      trainingHours = result.hours;
+      facilityBreakdown = { filledCount: 1, greyProductivity: 1.05, greyFormula: '100% baseline + 5% from the trainer', overrideActive: false, lines: result.contributions.map(value => ({ operatorName: trainer.operatorName, skillName: value.skill.name, rawValue: value.speed, included: value.speed !== 0, reason: value.speed ? 'Applies to the selected trainee, mastery and placed group members.' : 'No speed bonus for this target; the skill may change time or Morale instead.', note: value.note })), finalYellow: result.speed - 1.05, effectiveProductivity: result.speed };
+      if (trainingSpeedBonusFromCC) facilityBreakdown.lines.push({ operatorName: '(Control Center)', skillName: null, rawValue: trainingSpeedBonusFromCC, included: true, reason: 'Strongest Control Center training bonus.' });
+      perOperatorSpecialMorale[trainer.operatorName] = result.morale;
+      for (const value of result.contributions) if (value.note) specialNotes.push({ operator: trainer.operatorName, note: value.note });
     }
 
     // Every facility gets morale relief from however many operators
@@ -2284,12 +2334,13 @@ export default function BasePage({ operators }: Props) {
       perOperatorMorale = {};
       for (const slot of filled) {
         const opName = slot.operatorName;
-        const selfOnly =
+        let selfOnly =
           (morale.selfYellow[opName] || 0) +
           (perOperatorSpecialMorale[opName] || 0) +
           (officeSpecialMorale[opName] || 0) +
           (receptionRoomSelfMorale[opName] || 0) +
           (ccSelfMorale[opName] || 0);
+        if (f.kind === 'controlCenter' && opName !== 'Ling' && rosters.SUI.has(opName) && activeSkillKeys.has('Ling|Keep the Wine Flowing')) selfOnly = Math.max(0, selfOnly);
         const isWaaiFuImmune = opName === 'Waai Fu';
         const rateBeforeSelf = isWaaiFuImmune
           ? Math.max(0, morale.grey + facilityMoraleYellowShared - morale.allOperatorsYellow)
@@ -2310,7 +2361,8 @@ export default function BasePage({ operators }: Props) {
     if (f.kind === 'factory' && productivity && capacity) {
       fullTime = calcFullTime(capacity.base + capacity.adjustment, productivity.grey + productivity.yellow, factoryProducts[f.id] || null);
     } else if (f.kind === 'tradingPost' && productivity && orderLimit) {
-      fullTime = calcTradingPostFullTime(Math.max(1, orderLimit.base + orderLimit.adjustment), productivity.grey + productivity.yellow);
+      fullTime = calcTradingPostFullTime(Math.max(1, orderLimit.base + orderLimit.adjustment), productivity.grey + productivity.yellow, f.level, goldOrderTier(filled.flatMap(slot => skillsFor(slot, f.label).map(sk => ({ operatorName: slot.operatorName, skillName: cleanSkillName(sk.name) ?? '' })))), filled.some(slot => slot.operatorName === 'Closure' && skillsFor(slot, f.label).some(sk => sk.name === 'Special Orders')) ? 144 : undefined);
+      if (filled.some(slot => slot.operatorName === 'Pepe' && skillsFor(slot, f.label).some(sk => sk.name === 'Insightful'))) fullTime = Math.max(1, orderLimit.base + orderLimit.adjustment) * 4.5;
     }
 
     return {
@@ -2323,6 +2375,8 @@ export default function BasePage({ operators }: Props) {
       droneRate,
       office,
       trainingSpeed,
+      trainingHours,
+      workshop,
       combinedMoraleRate,
       perOperatorMorale,
       deadTime,
@@ -2382,6 +2436,7 @@ export default function BasePage({ operators }: Props) {
     }
     allPlacedNames.push(...slots.map((s) => s.operatorName));
   }
+  if (trainingTarget.operatorName && FACILITIES.some(f => f.kind === 'trainingRoom' && f.level > 0) && !allPlacedNames.includes(trainingTarget.operatorName)) allPlacedNames.push(trainingTarget.operatorName);
   function factionCountInBase(factionName: string): number {
     return allPlacedNames.filter((n) => operatorByName.get(n)?.faction === factionName).length;
   }
@@ -2476,6 +2531,7 @@ export default function BasePage({ operators }: Props) {
   let earlySuiFacilityCount = 0;
   let earlySuiHeadcountNonDorm = 0;
   let abyssalHuntersRestingInDormitories = 0;
+  let abyssalHuntersRestingAtFullMorale = 0;
   let abyssalHuntersInNonDormFacilities = 0;
   let totalMonsterMeal = 0;
   // Base-wide headcounts for Eyjafjalla's and Yu's Dormitory skills.
@@ -2494,10 +2550,14 @@ export default function BasePage({ operators }: Props) {
       if (WANDERING_MEDIC.has(slot.operatorName)) wanderingMedicCountBaseWide++;
       if (SUI.has(slot.operatorName)) suiCountBaseWide++;
     }
-    const abyssalHere = slots.filter((s) => ABYSSAL_HUNTERS.has(s.operatorName)).length;
+    const trainee = f.kind === 'trainingRoom' && f.level > 0 && trainingTarget.operatorName && !slots.some(s => s.operatorName === trainingTarget.operatorName) ? trainingTarget.operatorName : '';
+    if (trainee && WANDERING_MEDIC.has(trainee)) wanderingMedicCountBaseWide++;
+    if (trainee && SUI.has(trainee)) suiCountBaseWide++;
+    const abyssalHere = slots.filter((s) => ABYSSAL_HUNTERS.has(s.operatorName)).length + (trainee && ABYSSAL_HUNTERS.has(trainee) ? 1 : 0);
     if (f.kind === 'dormitory') {
       earlyDormitoryOperatorCount += slots.length;
       abyssalHuntersRestingInDormitories += abyssalHere;
+      abyssalHuntersRestingAtFullMorale += slots.filter(s => rosters.ABYSSAL_HUNTERS.has(s.operatorName) && (s.morale ?? 0) >= 24).length;
       // Senshi's Diner: "provide 1 Monster Meal for every level of the
       // current Dormitory" -- Dormitories are confirmed Level 5, so
       // each Senshi placement generates 5.
@@ -2520,7 +2580,7 @@ export default function BasePage({ operators }: Props) {
       continue;
     }
     abyssalHuntersInNonDormFacilities += abyssalHere;
-    const suiHere = slots.filter((s) => operatorByName.get(s.operatorName)?.faction === 'Sui').length;
+    const suiHere = slots.filter((s) => SUI.has(s.operatorName)).length + (trainee && SUI.has(trainee) ? 1 : 0);
     if (suiHere > 0) earlySuiFacilityCount += 1;
     earlySuiHeadcountNonDorm += suiHere;
   }
@@ -2601,6 +2661,7 @@ export default function BasePage({ operators }: Props) {
         activeSkillKeys,
         abyssalHuntersInNonDormFacilities,
         abyssalHuntersRestingInDormitories,
+        abyssalHuntersRestingAtFullMorale,
         eliteLevel: slot.eliteLevel,
         allPlacedNames,
       });
@@ -2627,7 +2688,12 @@ export default function BasePage({ operators }: Props) {
   const lingFractionAbove12 = moraleAbove12 ? 1 : 0;
   const duskFractionAbove12 = moraleAbove12 ? 1 : 0;
 
+  const officeLevel = FACILITIES.find(room => room.kind === 'office')?.level ?? 0;
+  const dormLevelFor = (name: string) => FACILITIES.find(room => room.kind === 'dormitory' && assignments[room.id]?.some(slot => slot?.operatorName === name))?.level ?? 0;
   const resourceState: BaseResourceState = {
+    officeLevel,
+    czernyDormitoryLevel: dormLevelFor('Czerny'),
+    irisDormitoryLevel: dormLevelFor('Iris'),
     // Wang's Expedience weighs Factories against Power Plants + Trading
     // Posts, so it needs the layout the player actually built.
     ...layoutCounts,
@@ -2648,6 +2714,14 @@ export default function BasePage({ operators }: Props) {
   const resourcePools = computeResourcePools(resourceState, activeSkillKeys);
   const resourceBonuses = consumerBonuses(resourceState, resourcePools);
 
+  let facilitiesWithSuiOperator = 0;
+  let facilitiesWithEliteOperator = 0;
+  for (const f of FACILITIES) {
+    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
+    if (f.kind !== 'dormitory' && (slots.some((s) => rosters.SUI.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && trainingTarget.operatorName && rosters.SUI.has(trainingTarget.operatorName))) facilitiesWithSuiOperator += 1;
+    if (slots.some((s) => ELITE_OPERATOR.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && trainingTarget.operatorName && ELITE_OPERATOR.has(trainingTarget.operatorName)) facilitiesWithEliteOperator += 1;
+  }
+
   const officeSlotsForPrelim = (assignments['office'] || []).filter((s): s is SlotAssignment => s !== null);
   let prelimOfficeSpecialHr = 0;
   let officeReceptionRoomBonus = 0;
@@ -2659,6 +2733,9 @@ export default function BasePage({ operators }: Props) {
         const result = handler({
           manualValue: slot.manualValue,
           dormitoryCount: dormitoryCountForCC,
+          totalDormitoryLevels,
+          officeLevel,
+          facilitiesWithEliteOperator,
           silverAshReignfrostInControlCenter,
           resourceBonuses,
           ursusSpecialtyBeverageTotal: 0, // Control Center processing (where this is actually generated) hasn't run yet at this point -- only feeds Saileach's threshold check, not Blitz's own final HR speed
@@ -2714,7 +2791,9 @@ export default function BasePage({ operators }: Props) {
   // they're computed), not meant to apply back to Control Center's own
   // display.
   const ccBaseMoraleRelief = calcControlCenterMoraleRelief(ccSlots.length);
-  const ccMoraleRelief = ccBaseMoraleRelief + bannerOfBabelBonus + chongyueSolitaryLightBonus;
+  const ccActiveSkillNames = ccSlots.flatMap(s => skillsFor(s, 'Control Center').map(sk => (sk.name ?? '').split('Replaces')[0].trim()));
+  const mlynarActive = ccActiveSkillNames.includes('Business Is Business');
+  const ccMoraleRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief('factory', bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
 
   let ccDormitoryAllOperatorsRelief = 0; // highest-only among "all Operators in Dormitories" effects (Kestrel, Nymph, Reed the Flame Shadow)
   let ccDormitoryEliteOperatorsRelief = 0; // highest-only among "all Elite Operators in Dormitories" effects (Raidian) -- a separate type, doesn't compete with the above
@@ -2784,6 +2863,7 @@ export default function BasePage({ operators }: Props) {
         activeSkillKeys,
         abyssalHuntersInNonDormFacilities,
         abyssalHuntersRestingInDormitories,
+        abyssalHuntersRestingAtFullMorale,
         eliteLevel: slot.eliteLevel,
         allPlacedNames,
       });
@@ -2888,6 +2968,7 @@ export default function BasePage({ operators }: Props) {
     if (f.kind !== 'dormitory') continue;
     const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
     const roomNames = slots.map((s2) => s2.operatorName);
+    const moraleByOperator = Object.fromEntries(slots.map(s => [s.operatorName, s.morale ?? 0]));
     // This specific Dormitory's own base recovery rate -- depends on ITS
     // level and ITS ambience (player-set, or defaulted to fully-furnished
     // for that level if never touched), not a single base-wide constant.
@@ -2901,6 +2982,9 @@ export default function BasePage({ operators }: Props) {
       let allOperatorsBonus = 0;
       let allOthersBonus = 0;
       let singleTargetBonus = 0;
+      let exclusiveRecovery: number | undefined;
+      let conditionalGroupBonus: { below: number; amount: number } | undefined;
+      let distributedBonus: { recipients: string[]; amount: number } | undefined;
       // Leftmost OTHER operator in the room (confirmed tie-break, since
       // every operator is assumed to start at full Morale when placed --
       // everyone's tied for lowest, so the leftmost one wins) -- UNLESS
@@ -2909,69 +2993,45 @@ export default function BasePage({ operators }: Props) {
       // entirely (e.g. Schwarz always targets Ceylon if she's there).
       const preferredTarget = DORMITORY_PREFERRED_TARGET[s.operatorName];
       const targetIfSelected =
-        (preferredTarget && roomNames.includes(preferredTarget) ? preferredTarget : null) ??
-        roomNames.find((n) => n !== s.operatorName) ??
+        (preferredTarget && roomNames.includes(preferredTarget) && moraleByOperator[preferredTarget] < 24 ? preferredTarget : null) ??
+        roomNames.filter(n => n !== s.operatorName && moraleByOperator[n] < 24).sort((a, b) => moraleByOperator[a] - moraleByOperator[b])[0] ??
         null;
       for (const sk of skillsFor(s, 'Dormitory')) {
         const handler = DORMITORY_SPECIAL_SKILLS[`${s.operatorName}|${sk.name}`];
-        if (!handler) continue;
+        if (!handler) {
+          const text = sk.description ?? '';
+          const value = Number(text.match(/(?:restores?|recover(?:s|y))[^+]*[+]?(\d+(?:\.\d+)?)/i)?.[1] ?? 0);
+          if (/all (?:other )?operators/i.test(text)) allOperatorsBonus += value; else selfBonus += value;
+          continue;
+        }
         const result = handler({
           rosters,
           manualValue: s.manualValue,
           sameRoomOperatorNames: roomNames,
+          moraleByOperator,
           filledCountThisRoom: slots.length,
           // The player sets each Dormitory's own level now, so read this
           // room's rather than assuming every Dormitory is maxed.
           dormitoryLevel: f.level,
+          officeLevel,
           targetIfSelected,
           wanderingMedicCountBaseWide,
           suiCountBaseWide,
           soundlessResonanceTotal: resourcePools.soundlessResonance,
           powerPlantCount: layoutCounts.powerPlantCount, // Lumen's Glimmering Glow scales off it
         });
+        if (result.exclusiveRecovery !== undefined) exclusiveRecovery = result.exclusiveRecovery;
+        if (result.conditionalGroupBonus) conditionalGroupBonus = result.conditionalGroupBonus;
+        if (result.distributedBonus) distributedBonus = result.distributedBonus;
         selfBonus += result.selfMoraleRecovery || 0;
         allOperatorsBonus += result.allOperatorsBonus || 0;
         allOthersBonus += result.allOthersBonus || 0;
         singleTargetBonus += result.singleTargetBonus || 0;
       }
-      return { name: s.operatorName, selfBonus, allOperatorsBonus, allOthersBonus, singleTargetBonus, targetIfSelected };
+      return { name: s.operatorName, selfBonus, allOperatorsBonus, allOthersBonus, singleTargetBonus, targetIfSelected, exclusiveRecovery, conditionalGroupBonus, distributedBonus };
     });
 
-    // The single-target group is highest-only across the WHOLE room --
-    // only the strongest singleTargetBonus actually applies, and only to
-    // its own associated target (not necessarily the same target every
-    // other skill-holder in the room would have picked).
-    const winningSingleTarget = perSlotResults
-      .filter((r) => r.targetIfSelected !== null)
-      .reduce<{ target: string; value: number } | null>((best, r) => {
-        if (r.singleTargetBonus <= 0) return best;
-        if (!best || r.singleTargetBonus > best.value) return { target: r.targetIfSelected!, value: r.singleTargetBonus };
-        return best;
-      }, null);
-
-    // Second pass: each operator's actual final bonus is their own
-    // self-bonus, plus every "all operators" contribution in the room
-    // (their own included), plus every "all others" contribution from
-    // OTHER operators specifically (not their own, since "others"
-    // excludes the skill-holder by definition), plus the single-target
-    // bonus if they're the one operator it actually landed on.
-    dormitoryRecoveryByFacility[f.id] = perSlotResults.map((r) => {
-      // "Restores Morale to all Operators" skills are explicitly
-      // highest-only per their own text ("Only the strongest effect of
-      // this type takes place") -- only the SINGLE best one in the room
-      // applies, not a sum of every such skill present.
-      const fromAllOperators = Math.max(0, ...perSlotResults.map((other) => other.allOperatorsBonus));
-      // "Restores Morale to all OTHER Operators" skills are ALSO
-      // confirmed highest-only ("Only the strongest effect of this type
-      // takes place" appears on Bagpipe's own entry) -- same fix as
-      // allOperatorsBonus above, just excluding the recipient's own
-      // contribution (a skill-holder never gets their own "others" bonus).
-      const fromOthers = Math.max(0, ...perSlotResults.filter((other) => other.name !== r.name).map((other) => other.allOthersBonus));
-      const fromSingleTarget = winningSingleTarget && winningSingleTarget.target === r.name ? winningSingleTarget.value : 0;
-      const fromCCAllOperators = ccDormitoryAllOperatorsRelief;
-      const fromCCEliteOperators = ELITE_OPERATOR.has(r.name) ? ccDormitoryEliteOperatorsRelief : 0;
-      return { name: r.name, base: thisRoomBaseRecovery, bonus: r.selfBonus + fromAllOperators + fromOthers + fromSingleTarget + fromCCAllOperators + fromCCEliteOperators };
-    });
+    dormitoryRecoveryByFacility[f.id] = dormitoryRecoveryRates(perSlotResults, thisRoomBaseRecovery, rosters, moraleByOperator, slots.some(s => s.operatorName === 'Morgan' && skillsFor(s, 'Dormitory').some(sk => sk.name === 'No.1 Practice Partner')), ccDormitoryAllOperatorsRelief, ccDormitoryEliteOperatorsRelief);
   }
 
   const distinctFactoryProductCount = new Set(Object.values(factoryProducts).filter(Boolean)).size;
@@ -2986,13 +3046,7 @@ export default function BasePage({ operators }: Props) {
     : 0;
   const effectiveGoldLineCount = baseGoldLineCount + kiraraGoldLineBonus + pozemkaGoldLineBonus;
   const ulpianusInBase = allPlacedNames.includes('Ulpianus');
-  let facilitiesWithSuiOperator = 0;
-  let facilitiesWithEliteOperator = 0;
-  for (const f of FACILITIES) {
-    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    if (f.kind !== 'dormitory' && slots.some((s) => operatorByName.get(s.operatorName)?.faction === 'Sui')) facilitiesWithSuiOperator += 1;
-    if (slots.some((s) => ELITE_OPERATOR.has(s.operatorName))) facilitiesWithEliteOperator += 1;
-  }
+
 
   // Base-wide aggregates, computed across every facility, not just the
   // currently-open one. Tracked as Green/Red pairs: Green is the
@@ -3012,8 +3066,8 @@ export default function BasePage({ operators }: Props) {
   let dailyGoldFromProvisoGreen = 0; // Proviso's own slice of the gold above -- isolated for display, not a separate pool
   let dailyGoldFromProvisoRed = 0;
   let dailyGoldSoldRed = 0;
-  let dailyExtraLmdFromTequilaGreen = 0;
-  let dailyExtraLmdFromTequilaRed = 0;
+  let dailyExtraLmdFromOrdersGreen = 0;
+  let dailyExtraLmdFromOrdersRed = 0;
   let dailyLmdFromPepeGreen = 0; // Pepe's Special Exclusive Orders -- a completely separate mechanic, no gold bar at all, fixed 270min/order regardless of any efficiency modifier
   let dailyLmdFromPepeRed = 0;
 
@@ -3066,37 +3120,21 @@ export default function BasePage({ operators }: Props) {
         : roomSlots.some((s) => s && s.operatorName === 'Tequila' && skillsFor(s, 'Trading Post').some((sk) => sk.name === 'Investment α'))
         ? 250
         : 0;
-      const GOLD_TIER_HIGHER = new Set(['Bibeak|Tailoring β', "Diamante|Appraiser's Means", 'Kafka|Handicrafts β', 'Paprika|Tailoring β']);
-      const GOLD_TIER_LOWER = new Set([
-        'Bena|Tailoring α',
-        'Bibeak|Tailoring α',
-        "Diamante|Appraiser's Eyes",
-        'Kafka|Handicrafts α',
-        'Paprika|Tailoring α',
-        'Shamare|Tailoring α',
-        'Mitm|Know the Ropes',
-      ]);
-      const hasHigherTier = roomSlots.some((s) => s && skillsFor(s, 'Trading Post').some((sk) => GOLD_TIER_HIGHER.has(`${s.operatorName}|${sk.name}`)));
-      // Counting DISTINCT operators, not just presence -- confirmed by
-      // the user: two different lower-tier ("Tailoring alpha" family)
-      // operators stacked together shift the distribution further than
-      // either alone (its own distinct 13/22/65 split), not just a
-      // boolean "is anyone lower-tier present".
-      const lowerTierCount = roomSlots.filter((s) => s && skillsFor(s, 'Trading Post').some((sk) => GOLD_TIER_LOWER.has(`${s.operatorName}|${sk.name}`))).length;
-      const goldTier: 'base' | 'lower' | 'doubleLower' | 'higher' = hasHigherTier
-        ? 'higher'
-        : lowerTierCount >= 2
-        ? 'doubleLower'
-        : lowerTierCount === 1
-        ? 'lower'
-        : 'base';
+      const goldTier = goldOrderTier(roomSlots.flatMap(s => s ? skillsFor(s, 'Trading Post').map(sk => ({ operatorName: s.operatorName, skillName: sk.name ?? '' })) : []));
       const realisticHours = realisticFraction * 24;
       const idealHours = idealFraction * 24;
       if (pepeInsightfulActive) {
         dailyLmdFromPepeGreen += (realisticHours * 60 / 270) * 1000;
         dailyLmdFromPepeRed += (idealHours * 60 / 270) * 1000;
+      } else if (roomSlots.some(s => s?.operatorName === 'Closure' && skillsFor(s, 'Trading Post').some(sk => sk.name === 'Special Orders'))) {
+        // Fixed 2-gold/1200-LMD, 144-minute orders; not Defaulted.
+        const tradesPerHour = effectiveProductivity / 2.4;
+        dailyGoldSoldGreen += 2 * tradesPerHour * realisticHours;
+        dailyGoldSoldRed += 2 * tradesPerHour * idealHours;
+        dailyExtraLmdFromOrdersGreen += 200 * tradesPerHour * realisticHours;
+        dailyExtraLmdFromOrdersRed += 200 * tradesPerHour * idealHours;
       } else if (uOfficialHere) {
-        const perHour = calcTradingPostGoldPerHourStandardized(effectiveProductivity, 2);
+        const perHour = calcTradingPostGoldPerHourStandardized(effectiveProductivity, 2, f.level);
         dailyGoldSoldGreen += perHour * realisticHours;
         dailyGoldSoldRed += perHour * idealHours;
       } else {
@@ -3105,17 +3143,17 @@ export default function BasePage({ operators }: Props) {
         // together regardless of which subset is actually present
         // (0/0/'base' for any that aren't), instead of a branching chain
         // that could silently drop one dimension when another is active.
-        const { goldPerHour, extraLmdPerHour } = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, provisoBonus, tequilaLmdBonus, goldTier);
+        const { goldPerHour, extraLmdPerHour } = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, provisoBonus, tequilaLmdBonus, goldTier, f.level);
         dailyGoldSoldGreen += goldPerHour * realisticHours;
         dailyGoldSoldRed += goldPerHour * idealHours;
-        dailyExtraLmdFromTequilaGreen += extraLmdPerHour * realisticHours;
-        dailyExtraLmdFromTequilaRed += extraLmdPerHour * idealHours;
+        dailyExtraLmdFromOrdersGreen += extraLmdPerHour * realisticHours;
+        dailyExtraLmdFromOrdersRed += extraLmdPerHour * idealHours;
         // Isolate Proviso's own slice for display -- same real call, her
         // bonus zeroed out, difference is exactly her own contribution.
         // Doesn't change any actual totals above, purely for the display
         // breakdown.
         if (provisoBonus > 0) {
-          const withoutProviso = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, 0, tequilaLmdBonus, goldTier);
+          const withoutProviso = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, 0, tequilaLmdBonus, goldTier, f.level);
           const provisoGoldPerHour = goldPerHour - withoutProviso.goldPerHour;
           dailyGoldFromProvisoGreen += provisoGoldPerHour * realisticHours;
           dailyGoldFromProvisoRed += provisoGoldPerHour * idealHours;
@@ -3125,8 +3163,8 @@ export default function BasePage({ operators }: Props) {
   }
   // LMD only comes from gold actually SOLD (Trading Post), not gold merely
   // produced (Factory) -- Factory output isn't automatically sold.
-  const dailyGoldWorthGreen = dailyGoldSoldGreen * 500 + dailyExtraLmdFromTequilaGreen + dailyLmdFromPepeGreen;
-  const dailyGoldWorthRed = dailyGoldSoldRed * 500 + dailyExtraLmdFromTequilaRed + dailyLmdFromPepeRed;
+  const dailyGoldWorthGreen = dailyGoldSoldGreen * 500 + dailyExtraLmdFromOrdersGreen + dailyLmdFromPepeGreen;
+  const dailyGoldWorthRed = dailyGoldSoldRed * 500 + dailyExtraLmdFromOrdersRed + dailyLmdFromPepeRed;
 
   // One row per (operator, elite level) GROUP, not per individual skill --
   // an operator with two skills both at Elite 2 shows as one row
@@ -3190,6 +3228,7 @@ export default function BasePage({ operators }: Props) {
   // hence the special case below for known exceptions where the naive
   // sum doesn't reflect an actually-achievable value.
   function combinedPeakPercent(skills: BaseSkill[], operatorName?: string): number | null {
+    if (skills.some(s => s.name === 'Tactic Guidance: Defense' || s.name === 'Tactic Guidance: Offense')) return 40;
     if (operatorName === 'Totter') {
       // Blurry Vision: +30%, -5% per 4 points of own Morale difference.
       // Blizzard Outside: +10% once Morale difference exceeds 12 -- but
@@ -3373,7 +3412,7 @@ export default function BasePage({ operators }: Props) {
             <section className="op-section base-setup-screen">
               <p className="hint base-setup-intro">
                 The nine spots on floors 1-3 each hold a Trading Post, a Factory or a Power Plant --
-                at most {MAX_PER_PRODUCTION_KIND} of any one kind. Every other room&apos;s type is
+                at most 5 Trading Posts, 5 Factories and 3 Power Plants. Every other room&apos;s type is
                 fixed by the base itself, so only its level can change. Any facility can be left
                 unbuilt. Dormitories and the Control Center reach Level 5, everything else Level 3.
                 Capacity follows level for Trading Posts, Factories, the Reception Room and the
@@ -3425,9 +3464,9 @@ export default function BasePage({ operators }: Props) {
                     return (
                       <span
                         key={kind}
-                        className={`base-setup-kind-tally${used >= MAX_PER_PRODUCTION_KIND ? ' full' : ''}`}
+                        className={`base-setup-kind-tally${used >= MAX_PRODUCTION_BY_KIND[kind] ? ' full' : ''}`}
                       >
-                        {FACILITY_KIND_LABELS[kind]} {used}/{MAX_PER_PRODUCTION_KIND}
+                        {FACILITY_KIND_LABELS[kind]} {used}/{MAX_PRODUCTION_BY_KIND[kind]}
                       </span>
                     );
                   })}
@@ -3456,7 +3495,7 @@ export default function BasePage({ operators }: Props) {
                             title={
                               allowed
                                 ? FACILITY_KIND_LABELS[kind]
-                                : `Already ${MAX_PER_PRODUCTION_KIND} ${FACILITY_KIND_LABELS[kind]}s -- change another spot first`
+                                : `Already ${MAX_PRODUCTION_BY_KIND[kind]} ${FACILITY_KIND_LABELS[kind]}s -- change another spot first`
                             }
                             onClick={() => updateDraftSpotKind(spot.id, kind)}
                           >
@@ -3596,6 +3635,8 @@ export default function BasePage({ operators }: Props) {
               Separated
             </button>
           </div>
+          <button type="button" className="ghost" aria-expanded={showSavedPresets} onClick={() => setShowSavedPresets(!showSavedPresets)}>Presets</button>
+          <button type="button" className="ghost" onClick={exportSnapshot}>Save image</button>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside
               the per-building gears for changing many rooms at once. */}
@@ -3618,6 +3659,16 @@ export default function BasePage({ operators }: Props) {
       />
 
       <main>
+        {showSavedPresets && <section className="op-section base-saved-presets" aria-label="Saved base presets">
+          <label>Saved preset <select value={selectedPreset} onChange={e => setSelectedPreset(e.target.value)}><option value="">Choose a preset</option>{savedPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+          <button type="button" className="ghost" disabled={!selectedPreset} onClick={loadNamedPreset}>Load</button>
+          <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
+          <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
+          <label>New preset <input maxLength={80} value={presetName} placeholder="e.g. Gold team" onChange={e => setPresetName(e.target.value)} /></label>
+          <button type="button" className="primary" disabled={!presetName.trim()} onClick={() => saveNamedPreset(false)}>Save new</button>
+          <p className="hint">Saved on this browser: layout, workers, Elite levels, products, ambience, training, crafting and calculation settings.</p>
+        </section>}
+        <p className="hint base-preset-status" role="status" aria-live="polite">{presetStatus}</p>
         {ROTATION_EXPERIMENT_ENABLED && showRotationPanel && (
           <section className="op-section" style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -3928,6 +3979,11 @@ export default function BasePage({ operators }: Props) {
                                 No {pickElite(op.name) === 'Base' ? 'Elite 0' : pickElite(op.name)} skill here
                               </span>
                             )}
+                            {selected && FACILITIES.find(room => room.id === facilityId)?.kind === 'dormitory' && <label className="base-slot-morale" onClick={e => e.stopPropagation()}>Morale <input aria-label={`${op.name} current Morale`} type="number" min={0} max={24} value={assignments[facilityId]?.[slotIndex]?.morale ?? 0} onChange={e => {
+                              const next = [...(assignments[facilityId] || [])];
+                              next[slotIndex] = { ...next[slotIndex]!, morale: Math.min(24, Math.max(0, Number(e.target.value) || 0)) };
+                              persist({ ...assignments, [facilityId]: next });
+                            }} /></label>}
                             {needsManualValue && (
                               <input
                                 type="number"
@@ -3949,11 +4005,40 @@ export default function BasePage({ operators }: Props) {
                       const slots = assignments[facility.id] || [];
                       return (
                         <>
+                          {facility.kind === 'workshop' && <div className="base-room-team">
+                            <label>Recipe <select value={workshopSettings.recipeId} onChange={e => setWorkshopSettings({ ...workshopSettings, recipeId: e.target.value })}>{workshopRecipes.filter(r => r.level <= facility.level).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+                            <label><input type="checkbox" checked={!!workshopSettings.overrideDormCount} onChange={e => setWorkshopSettings({ ...workshopSettings, overrideDormCount: e.target.checked })} />Override qualifying dorm count</label>
+                            {workshopSettings.overrideDormCount && <label>Dorm operators meeting skill’s Morale threshold <input aria-label="Qualifying dorm operators" type="number" min={0} max={dormitoryOperatorNames.size} value={workshopSettings.qualifyingDormOperators} onChange={e => setWorkshopSettings({ ...workshopSettings, qualifyingDormOperators: Math.min(dormitoryOperatorNames.size, Math.max(0, Number(e.target.value))) })} /></label>}
+                            {slots.some(s => s?.operatorName === 'Nine-Colored Deer') && <>{(['causality', 'karma'] as const).map(key => <label key={key}>{key} <input type="number" min={0} max={key === 'karma' ? 80 : 40} value={workshopSettings[key]} onChange={e => setWorkshopSettings({ ...workshopSettings, [key]: Math.max(0, Number(e.target.value)) })} /></label>)}</>}
+                            {slots.some(s => s?.operatorName === 'Thorns') && <label>Failed crafts <input type="number" min={0} value={workshopSettings.thornsFailures} onChange={e => setWorkshopSettings({ ...workshopSettings, thornsFailures: Math.max(0, Number(e.target.value)) })} /></label>}
+                            {productivityFor(facility, ccEffects, ccMoraleRelief).workshop?.notes.map(note => <p className="hint" key={note}>{note}</p>)}
+                          </div>}
                           {/* The room as it stands: every slot in order, each wearing the
                               Elite it is placed at -- readable and editable here no matter
                               which tab is lit above. This is the answer to the picker's
                               old blind spot: switching tabs changed what the placed cards
                               LOOKED like while saying nothing about what they WERE. */}
+                          {facility.kind === 'trainingRoom' && (
+                            <div className="base-training-target">
+                              <label>Trainee <select aria-label="Trainee operator" value={trainingTarget.operatorName ?? ''} onChange={e => {
+                                const name = e.target.value, op = operatorByName.get(name);
+                                const next = Object.fromEntries(Object.entries(assignments).map(([id, slots]) => [id, slots.map(slot => slot?.operatorName === name ? null : slot)]));
+                                persist(next); setTrainingTarget(t => ({ ...t, operatorName: name, timeReductionActive: false, class: op?.class ?? t.class, branch: op?.branch ?? '' }));
+                              }}><option value="">Class / branch only</option>{operators.filter(op => !slots.some(s => s?.operatorName === op.name)).map(op => <option key={op.name}>{op.name}</option>)}</select></label>
+                              <label>Class <select aria-label="Trainee class" disabled={!!trainingTarget.operatorName} value={trainingTarget.class} onChange={e => setTrainingTarget(t => ({ ...t, class: e.target.value, branch: '' }))}>
+                                {TRAINING_CLASSES.map(value => <option key={value}>{value}</option>)}
+                              </select></label>
+                              <label>Branch <select aria-label="Trainee branch" disabled={!!trainingTarget.operatorName} value={trainingTarget.branch} onChange={e => setTrainingTarget(t => ({ ...t, branch: e.target.value }))}>
+                                <option value="">Any branch</option>
+                                {[...new Set(operators.filter(op => op.class === trainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(branch => <option key={branch}>{branch}</option>)}
+                              </select></label>
+                              <label>Mastery <select aria-label="Target mastery" value={Math.min(trainingTarget.mastery, facility.level)} onChange={e => setTrainingTarget(t => ({ ...t, mastery: Number(e.target.value) }))}>
+                                {[1, 2, 3].filter(level => level <= facility.level).map(level => <option key={level} value={level}>M{level}</option>)}
+                              </select></label>
+                              <label><input type="checkbox" checked={trainingTarget.timeReductionActive} onChange={e => setTrainingTarget(t => ({ ...t, timeReductionActive: e.target.checked }))} />Started with Irene / Logos time reduction</label>
+                              {slots.some(slot => slot?.operatorName === 'Zuo Le') && <label><input type="checkbox" checked={trainingTarget.instantTrainingReady} onChange={e => setTrainingTarget(t => ({ ...t, instantTrainingReady: e.target.checked }))} />Martial Arts ready</label>}
+                            </div>
+                          )}
                           <div className="base-room-team">
                             {slots.map((slot, i) => {
                               const op = slot ? operators.find((o) => o.name === slot.operatorName) : null;
@@ -4065,7 +4150,7 @@ export default function BasePage({ operators }: Props) {
                   {FACILITIES.map((f) => {
                     const filled = f.capacity > 0 ? assignments[f.id]?.filter(Boolean).length || 0 : 0;
                     const isActive = activeFacility === f.id;
-                    const { productivity, capacity, orderLimit, morale, clueSpeed, clueSpeedBase, droneRate, office, trainingSpeed, combinedMoraleRate, perOperatorMorale, deadTime, fullTime, facilityBreakdown, specialNotes } = productivityFor(f, ccEffects, ccMoraleRelief);
+                    const { productivity, capacity, orderLimit, morale, clueSpeed, clueSpeedBase, droneRate, office, trainingSpeed, trainingHours, workshop, combinedMoraleRate, perOperatorMorale, deadTime, fullTime, facilityBreakdown, specialNotes } = productivityFor(f, ccEffects, ccMoraleRelief);
                     return (
                       <div
                         key={f.id}
@@ -4173,7 +4258,7 @@ export default function BasePage({ operators }: Props) {
                             inspected, which is exactly what made three reported
                             "innate/promotion/rarity missing" cases impossible
                             to confirm either way. */}
-                        {(f.kind === 'factory' || f.kind === 'tradingPost' || f.kind === 'receptionRoom' || f.kind === 'powerPlant' || f.kind === 'controlCenter') && facilityBreakdown && (
+                        {(f.kind === 'factory' || f.kind === 'tradingPost' || f.kind === 'receptionRoom' || f.kind === 'powerPlant' || f.kind === 'controlCenter' || f.kind === 'trainingRoom') && facilityBreakdown && (
                           <button
                             type="button"
                             className="base-facility-explain-btn"
@@ -4269,10 +4354,11 @@ export default function BasePage({ operators }: Props) {
                           </>
                         )}
 
+                        {workshop && <span className="base-facility-capacity"><span className="prod-grey">Byproduct {(workshop.chance * 100).toFixed(1)}% · {workshop.morale} Morale · {workshop.lmd} LMD / craft</span></span>}
                         {trainingSpeed !== null && (
                           <span className="base-facility-productivity">
                             <span className="prod-grey">Training Speed:</span>
-                            <span className="prod-yellow">{(trainingSpeed * 100).toFixed(0)}%</span>
+                            <span className="prod-yellow">{(trainingSpeed * 100).toFixed(0)}% · {trainingHours?.toFixed(2)}h</span>
                           </span>
                         )}
 
@@ -4333,7 +4419,7 @@ export default function BasePage({ operators }: Props) {
                                         )}
                                       </>
                                     )}
-                                    <span className="prod-grey">Time: {(24 / rate).toFixed(1)}hrs</span>
+                                    <span className="prod-grey">Time: {((24 - ((assignments[f.id] || []).find(s => s?.operatorName === r.name)?.morale ?? 0)) / rate).toFixed(1)}hrs</span>
                                   </span>
                                 );
                               })
@@ -4439,7 +4525,7 @@ export default function BasePage({ operators }: Props) {
                                         title={
                                           allowed
                                             ? FACILITY_KIND_LABELS[kind]
-                                            : `Already ${MAX_PER_PRODUCTION_KIND} ${FACILITY_KIND_LABELS[kind]}s -- change another spot first`
+                                            : `Already ${MAX_PRODUCTION_BY_KIND[kind]} ${FACILITY_KIND_LABELS[kind]}s -- change another spot first`
                                         }
                                         onClick={() => setFacilityKind(f.id, kind)}
                                       >
@@ -4531,6 +4617,8 @@ export default function BasePage({ operators }: Props) {
                               <div
                                 key={i}
                                 className={`base-slot${slot ? ' filled' : ''}`}
+                                role="button" tabIndex={0} aria-label={`Assign operators to ${f.label}`}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveFacility(null); openRoomPanel(f.id); } }}
                                 onClick={() => {
                                   setActiveFacility(null);
                                   openRoomPanel(f.id);
@@ -4773,13 +4861,13 @@ export default function BasePage({ operators }: Props) {
                           ) : (
                             <>
                               {renderDualStat(
-                                (dailyGoldWorthGreen - dailyExtraLmdFromTequilaGreen - dailyGoldFromProvisoGreen * 500) * mult,
-                                (dailyGoldWorthRed - dailyExtraLmdFromTequilaRed - dailyGoldFromProvisoRed * 500) * mult,
+                                (dailyGoldWorthGreen - dailyExtraLmdFromOrdersGreen - dailyGoldFromProvisoGreen * 500) * mult,
+                                (dailyGoldWorthRed - dailyExtraLmdFromOrdersRed - dailyGoldFromProvisoRed * 500) * mult,
                                 (n) => `${Math.round(n).toLocaleString()} LMD/${unit}`
                               )}
-                              {dailyExtraLmdFromTequilaGreen > 0 && (
+                              {dailyExtraLmdFromOrdersGreen > 0 && (
                                 <span className="base-summary-extra">
-                                  +{Math.round(dailyExtraLmdFromTequilaGreen * mult).toLocaleString()} from Tequila
+                                  +{Math.round(dailyExtraLmdFromOrdersGreen * mult).toLocaleString()} from order bonuses
                                 </span>
                               )}
                               {dailyGoldFromProvisoGreen > 0 && (
@@ -4830,12 +4918,23 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ba
     name: op.name,
     rarity: op.rarity,
     faction: op.faction,
+    class: op.class,
+    branch: op.branch,
     baseSkills: op.baseSkills,
   }));
 
   return { props: { operators } };
 }, {
+  // A deployment may briefly read the previous release while its new content is
+  // compiling. Complete pre-schema rosters here, rather than counting new groups
+  // as empty. Once all named groups exist, the published table remains authoritative.
+  finalize: async props => {
+    const table = props.__contentTables?.['base-group-rosters'] as Partial<BaseRosterData> | undefined;
+    if (table && BASE_ROSTER_NAMES.every(name => Array.isArray(table[name]))) return props;
+    return { ...props, __contentTables: { ...props.__contentTables, 'base-group-rosters': checkBaseRosters((await import('@/data/base-group-rosters.json')).default) } };
+  },
   tables: {
+    'base-workshop-recipes': async () => (await import('@/data/base-workshop-recipes.json')).default,
     'base-skill-slots': async () => (await import('@/data/base-skill-slots.json')).default,
     // Checked against the rosters the calculations name wherever it is read from data/.
     'base-group-rosters': async () => checkBaseRosters((await import('@/data/base-group-rosters.json')).default),

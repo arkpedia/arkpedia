@@ -1,6 +1,10 @@
 import type { BaseRosters } from './baseGroupRosters';
 
 export interface TradingPostContext {
+  tradingPostLevel: number;
+  bubbleKingdomHuntersInTradingPosts?: number;
+  receptionRoomLevel: number;
+  totalDormitoryLevels: number;
   /** The group rosters (lib/base/baseGroupRosters.ts), from the page's props. */
   rosters: BaseRosters;
   manualValue?: number;
@@ -39,6 +43,8 @@ type Handler = (ctx: TradingPostContext) => TradingPostSkillResult;
  * correctly already by the generic order-acquisition-efficiency and
  * order-limit regex parsers. */
 export const TRADING_POST_SPECIAL_SKILLS: Record<string, Handler> = {
+  "Violet Mizutsune Orchid|A Captain's Resolve": (ctx) => ({ orderLimit: 3, orderEfficiency: 0.2 * (ctx.bubbleKingdomHuntersInTradingPosts ?? 0) }),
+  "Jacinta|An Heiress's Eye": () => ({ selfMorale: -0.25 }),
   // Felvine comes from the shared resource pool, the same way this operator's
   // own Factory skill already reads it. It used to require the player to type
   // the count in by hand, which meant the default was 0 and the skill silently
@@ -71,27 +77,10 @@ export const TRADING_POST_SPECIAL_SKILLS: Record<string, Handler> = {
   'Shamare|Tailoring α': () => ({ selfMorale: -0.25 }),
   'Mitm|Know the Ropes': () => ({ selfMorale: -0.25 }),
 
-  // Current-orders-dependent -- genuinely untracked runtime state.
-  'Jaye|Street Economics': (ctx) => {
-    // Time-average of "+4% per order below max" as orders accumulate
-    // linearly from 0 to the effective max before resetting (confirmed
-    // usage assumption): the average gap over a full 0-to-max cycle is
-    // exactly max/2, so the average bonus is 0.04 * (effectiveMax / 2).
-    const effectiveOrderLimit = Math.max(1, (ctx.genericOrderLimitAdjustment ?? 10) + (ctx.othersOrderLimitRawSum ?? 0));
-    return { orderEfficiency: 0.02 * effectiveOrderLimit };
-  },
-  'Jaye|Basic Needs': (ctx) => {
-    const ownReduction = -Math.floor((ctx.othersOrderEfficiencySum ?? 0) / 0.1);
-    const effectiveOrderLimit = Math.max(1, (ctx.genericOrderLimitAdjustment ?? 10) + (ctx.othersOrderLimitRawSum ?? 0) + ownReduction);
-    // "+4% per order" (not "per order below max" like Street Economics)
-    // still averages to the same effectiveMax/2 over a full 0-to-max
-    // cycle, since it's the mirror image of the same linear ramp.
-    return {
-      orderEfficiency: 0.02 * effectiveOrderLimit,
-      orderLimit: ownReduction,
-      note: 'Non-numeric Special Interaction Rules with certain skills mentioned in her own text -- not modeled.',
-    };
-  },
+  // Jaye's pair and Snowsant feedback are resolved together by jayeContribution.
+  // These entries classify the skills; evaluating one in isolation would double-count.
+  'Jaye|Street Economics': () => ({}),
+  'Jaye|Basic Needs': () => ({}),
 
   // Cross-facility: distinct Factory product types currently running.
   'Quartz|Precise Scheduling': (ctx) => ({
@@ -159,13 +148,15 @@ export const TRADING_POST_SPECIAL_SKILLS: Record<string, Handler> = {
   'Ebenholz|Lingering Melody': (ctx) => ({ orderEfficiency: (ctx.resourceBonuses['Ebenholz|Lingering Melody|order_efficiency_pct_base'] ?? 0) / 100 }),
   'Ebenholz|Harmony Astray': (ctx) => ({ orderEfficiency: (ctx.resourceBonuses['Ebenholz|Harmony Astray|order_efficiency_pct_e2'] ?? 0) / 100 }),
 
-  // Facility-level dependent -- "assume Level 3" makes these fixed values.
-  'Rose Salt|Time Is Money': () => ({ orderLimit: 3 }),
-  'Pepe|All-Rounder': () => ({ orderLimit: 3 }),
-  'Archetto|Pious Fundraising α': () => ({ orderEfficiency: 0.01 * 5 * 4, note: 'Assumes every Dormitory is Level 5 (4 Dormitories on the base).' }),
-  'Archetto|Pious Fundraising β': () => ({ orderEfficiency: 0.02 * 5 * 4, note: 'Assumes every Dormitory is Level 5 (4 Dormitories on the base).' }),
-  'Mitm|Gifted Adviser': () => ({ orderEfficiency: Math.min(0.3, 0.15 + 0.05 * 3), note: 'Assumes Reception Room is Level 3.' }),
-  'Vigil|New City Trade': () => ({ orderEfficiency: Math.min(0.4, 0.25 + 0.05 * 3), note: 'Assumes Reception Room is Level 3.' }),
+  'Rose Salt|Time Is Money': (ctx) => ({ orderLimit: ctx.tradingPostLevel }),
+  'Pepe|All-Rounder': (ctx) => ({ orderLimit: ctx.tradingPostLevel }),
+  'Archetto|Pious Fundraising α': (ctx) => ({ orderEfficiency: 0.01 * ctx.totalDormitoryLevels }),
+  'Archetto|Pious Fundraising β': (ctx) => ({ orderEfficiency: 0.02 * ctx.totalDormitoryLevels }),
+  'Mitm|Gifted Adviser': (ctx) => ({ orderEfficiency: Math.min(0.3, 0.15 + 0.05 * ctx.receptionRoomLevel) }),
+  'Vigil|New City Trade': (ctx) => ({ orderEfficiency: Math.min(0.4, 0.25 + 0.05 * ctx.receptionRoomLevel) }),
+  'Bellone|Famiglia Business α': (ctx) => ({ orderEfficiency: 0.25 + (ctx.allPlacedNames.includes('Vigil') ? 0.05 : 0) }),
+  'Bellone|Famiglia Business β': (ctx) => ({ orderEfficiency: 0.3 + (ctx.allPlacedNames.includes('Vigil') ? 0.1 : 0) }),
+  'Bellone|Outstanding Debt': (ctx) => ctx.sameRoomOperatorNames.includes('Vigil') ? { orderLimit: 2, selfMorale: -0.1 } : {},
 
   // Override mechanic (same family as Shamare's Factory equivalent, Snegurochka, etc.)
   'Shamare|Whispers': (ctx) => ({
@@ -192,7 +183,7 @@ export const TRADING_POST_SPECIAL_SKILLS: Record<string, Handler> = {
   }),
 
   // Base-wide faction/presence/facility counting.
-  'Taraxacum|"The Best of Students!"': (ctx) => ({ orderEfficiency: 0.04 * Math.min(5, ctx.facilitiesWithSuiOperator) }),
+  "Taraxacum|'The Best of Students!'": (ctx) => ({ orderEfficiency: 0.04 * Math.min(5, ctx.facilitiesWithSuiOperator) }),
   'Underflow|Envoy To Land α': (ctx) => ({ orderEfficiency: 0.25 + (ctx.ulpianusInBase ? 0.05 : 0) }),
   'Underflow|Envoy To Land β': (ctx) => ({ orderEfficiency: 0.3 + (ctx.ulpianusInBase ? 0.1 : 0) }),
   'Mantra|Elite Squad': (ctx) => ({

@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { reconcileBaseSkills } from '../imports/import-base-skills.mjs';
+import { reconcileBaseRosters } from '../imports/import-base-rosters.mjs';
+import { baseWorkshopRecipes } from '../imports/import-base-workshop.mjs';
 /** Discover content before derived pages are compiled. --dry-run never writes source records. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -85,7 +88,7 @@ export function assetPlan(operators, skins, cn, en, published, extra) {
     }
     const buffs=(tables.building.chars[id]?.buffChar ?? []).flatMap(slot => slot.buffData);
     for (const [i,base] of (op.baseSkills ?? []).entries()) {
-      const buff=tables.building.buffs[buffs[i]?.buffId]; if (!buff) continue;
+      const buff=tables.building.buffs[base.buffId ?? buffs[i]?.buffId]; if (!buff) continue;
       add(`base-skill-icons/${safeName(op.rawName || name)} - ${safeName(base.rawName || base.name)}.webp`,`building_skill/${buff.skillIcon}.png`);
     }
   }
@@ -144,6 +147,15 @@ export async function syncCatalogue(root, options={}) {
   for (const op of updated.operators) if (initial.changes.includes(op.internalName) && releases.get(op.internalName)?.cn && !op.characterInfo?.['CN Release Date']) {
     op.characterInfo['CN Release Date']=serverDay(releases.get(op.internalName).cn);
   }
+  // Base skill completeness is checked before writing records or making the icon plan.
+  // Refuse a CN addition requiring an unreviewed translation rather than publishing empty skills.
+  const translations = read(path.join(root, 'data/base-skill-translations.json'));
+  for (const op of updated.operators) if (!/^Amiya \(/.test(op.name)) {
+    const region = en.building.chars[op.internalName] ? 'Global' : 'CN';
+    op.baseSkills = reconcileBaseSkills(op, region === 'Global' ? en.building : cn.building, region, translations);
+  }
+  const baseRosters = reconcileBaseRosters({ operators: updated.operators, constants: cn.constants, characters: cn.characters, previous: read(path.join(root, 'data/base-group-rosters.json')) });
+  const workshopRecipes = baseWorkshopRecipes(en.building, en.items.items);
   const outfits=reconcileSkins({skins,operators:updated.operators,cn,en,events:calendars.events});
   const outfitNames=new Map(outfits.renames.map(([before, after])=>[before.split(' / ').slice(1).join(' / '),after.split(' / ').slice(1).join(' / ')]));
   for (const op of updated.operators) op.skins=(op.skins ?? []).map(name=>outfitNames.get(name) ?? name);
@@ -163,6 +175,8 @@ export async function syncCatalogue(root, options={}) {
   const report={operatorsAdded:updated.operators.length-operators.length,outfitsAdded:outfits.skins.length-skins.length,eventsAdded:calendars.events.length-events.length,bannersAdded:calendars.banners.length-banners.length,poolIdsLinked:calendars.linked,renames:[...renames],assetsRequired:plan.files.length,quarantined:catalogueStage.entries.map(e=>e.key),sources:{cn:cn.revision,global:en.revision,resource:sources.resourceRevision}};
   write(path.join(cache,'asset-plan.json'),plan); write(path.join(cache,'report.json'),report);
   if (!options.dryRun) {
+    write(path.join(root, 'data/base-group-rosters.json'), baseRosters);
+    write(path.join(root, 'data/base-workshop-recipes.json'), workshopRecipes);
     for (const op of updated.operators) {
       const prior=operatorFiles.find((_,i)=>operators[i].internalName===op.internalName);
       write(prior || path.join(root,`data/operators-${op.rarity}star/${safeName(op.name)}.json`),op);

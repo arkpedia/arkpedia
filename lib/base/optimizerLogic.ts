@@ -1,7 +1,11 @@
+import { jayeContribution } from './jaye';
+import { activeBaseSkills } from './activeBaseSkills';
 import { BaseOperator, BaseSkill } from '../operators/operatorTypes';
 import { TRADING_POST_SPECIAL_SKILLS, TradingPostContext } from './tradingPostSpecialSkills';
 import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from './factorySpecialSkills';
 import {
+  goldOrderTier,
+  tradingPostExpectedMinutes,
   calcProductivity,
   calcOrderLimit,
   calcDailyProduction,
@@ -122,7 +126,7 @@ export function bestSkillPerSlot(skills: BaseSkill[]): BaseSkill[] {
 function allSkillsForOperator(operatorName: string, facility: 'Factory' | 'Trading Post'): BaseSkill[] {
   const op = allOperators.find((o) => o.name === operatorName);
   if (!op || !op.baseSkills) return [];
-  return bestSkillPerSlot(op.baseSkills.filter((s) => s.facility === facility && s.name));
+  return activeBaseSkills(op, facility, 'Elite 2');
 }
 
 /** Auto-generates ONE candidate PER OPERATOR (not per skill) for every
@@ -223,7 +227,7 @@ export let TP_CANDIDATES_ELITE_ZERO: Record<string, Candidate> = {};
 
 // Real "operatorName|skillName" keys, not candidate ID strings -- robust
 // to however a candidate happens to be identified.
-const TP_SELF_REFERENTIAL = new Set(['Snowsant|Heavenly Reward β', "Degenbrecher|Champion's Bearing", 'Swire the Elegant Wit|Investment Solicitations']);
+const TP_SELF_REFERENTIAL = new Set(['Jaye|Basic Needs', 'Jaye|Street Economics', 'Snowsant|Heavenly Reward α', 'Snowsant|Heavenly Reward β', "Degenbrecher|Champion's Bearing", 'Swire the Elegant Wit|Investment Solicitations']);
 const PROVISO_GOLD_BONUS: Record<string, number> = { 'Damages for Breach α': 1, 'Damages for Breach β': 2 };
 const TEQUILA_LMD_BONUS: Record<string, number> = { 'Investment α': 250, 'Investment β': 500 };
 const GOLD_TIER_HIGHER: Record<string, string> = { Bibeak: 'Tailoring β', Kafka: 'Handicrafts β', Paprika: 'Tailoring β', "Diamante": "Appraiser's Means" };
@@ -255,6 +259,9 @@ export interface DynamicContextOverrides {
   controlCenterTradingPostBonus?: number; // same, for order efficiency in every Trading Post
   gnosisInControlCenter?: boolean; // gates the Karlan Trade Trading Post bonus below -- same "assumed true, never verified" bug class as ulpianusInBase/gummyInTradingPost had
   gladiiaGroupHuntingActiveInCC?: boolean; // suppresses Waai Fu's Cooperative Will when true -- the numeric Group Hunting bonus itself is applied through the Control Center/Factory perFactoryProductivity pipeline, not through this context
+  loginInterval?: number;
+  receptionRoomLevel?: number;
+  totalDormitoryLevels?: number;
   tradingPostLevel?: number; // this specific Trading Post's own level (1-3) -- feeds calcOrderLimit's level-dependent base value. Defaults to 3 (max) when unspecified, same "assume fully built" convention this whole module already uses for everything else.
 }
 
@@ -267,6 +274,9 @@ function baseTpContext(overrides?: DynamicContextOverrides): Omit<TradingPostCon
   const felvineTotal = overrides?.felvineTotal ?? FELVINE;
   return {
     rosters,
+    tradingPostLevel: overrides?.tradingPostLevel ?? 3,
+    receptionRoomLevel: overrides?.receptionRoomLevel ?? 3,
+    totalDormitoryLevels: overrides?.totalDormitoryLevels ?? 20,
     dormitoryOperatorCount,
     felvineTotal,
     distinctFactoryProductCount: 2,
@@ -317,10 +327,15 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   const orderLimitAffectingDeferred = deferred.filter((e) => e.skillName === 'Basic Needs');
   const remainingDeferred = deferred.filter((e) => e.skillName !== 'Basic Needs');
 
+  const karlanHere = realNames.filter((n) => rosters.KARLAN_TRADE.has(n)).length;
+  const gnosisPresent = overrides?.gnosisInControlCenter ?? true; // defaults true for backward compatibility with callers (wholeBaseOptimizer.ts) that genuinely do place Gnosis unconditionally
+  const gnosisEff = gnosisPresent ? -0.15 * karlanHere : 0;
+  const gnosisLimit = gnosisPresent ? 6 * karlanHere : 0;
+
   const prelimProd = calcProductivity('tradingPost', genericDescriptions, candidates.length, null);
   const prelimOrderLimit = calcOrderLimit(genericDescriptions, overrides?.tradingPostLevel ?? 3);
-  let othersEff = prelimProd.yellow;
-  let othersLimitRaw = prelimOrderLimit.adjustment;
+  let othersEff = prelimProd.yellow + gnosisEff;
+  let othersLimitRaw = prelimOrderLimit.adjustment + gnosisLimit;
 
   const base = baseTpContext(overrides);
   const results: ReturnType<(typeof TRADING_POST_SPECIAL_SKILLS)[string]>[] = [];
@@ -330,34 +345,29 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
     if (result.orderEfficiency) othersEff += result.orderEfficiency;
     if (result.orderLimit) othersLimitRaw += result.orderLimit;
   }
-  for (const { key } of orderLimitAffectingDeferred) {
-    const result = TRADING_POST_SPECIAL_SKILLS[key]({
-      ...base,
-      sameRoomOperatorNames,
-      filledCountThisRoom: candidates.length,
-      othersOrderEfficiencySum: othersEff,
-      othersOrderLimitRawSum: othersLimitRaw,
-      genericOrderLimitAdjustment: prelimOrderLimit.base + prelimOrderLimit.adjustment,
-    });
-    results.push(result);
-    if (result.orderLimit) othersLimitRaw += result.orderLimit;
+  const jayeEntry = specialEntries.find(e => e.operatorName === 'Jaye');
+  const snowEntry = specialEntries.find(e => e.operatorName === 'Snowsant');
+  if (jayeEntry) {
+    const modeled = jayeContribution(prelimOrderLimit.base + othersLimitRaw, othersEff, snowEntry ? (snowEntry.skillName.endsWith('β') ? 0.35 : 0.25) : 0, orderLimitAffectingDeferred.length > 0, prelimProd.grey + (overrides?.controlCenterTradingPostBonus ?? 0), overrides?.loginInterval ?? 24, overrides?.tradingPostLevel ?? 3, tradingPostExpectedMinutes(goldOrderTier(specialEntries), overrides?.tradingPostLevel ?? 3));
+    results.push({ orderEfficiency: modeled.jaye, orderLimit: modeled.limitReduction });
+    if (snowEntry) results.push({ orderEfficiency: modeled.snowsant });
+    othersLimitRaw += modeled.limitReduction;
   }
-  for (const { key } of remainingDeferred) {
+
+  for (const { key, operatorName } of remainingDeferred) {
+    if (operatorName === 'Jaye' || (operatorName === 'Snowsant' && jayeEntry)) continue;
     const result = TRADING_POST_SPECIAL_SKILLS[key]({
       ...base,
       sameRoomOperatorNames,
       filledCountThisRoom: candidates.length,
       othersOrderEfficiencySum: othersEff,
       othersOrderLimitRawSum: othersLimitRaw,
-      genericOrderLimitAdjustment: prelimOrderLimit.base + prelimOrderLimit.adjustment,
+      genericOrderLimitAdjustment: prelimOrderLimit.base,
     });
     results.push(result);
   }
 
-  const karlanHere = realNames.filter((n) => rosters.KARLAN_TRADE.has(n)).length;
-  const gnosisPresent = overrides?.gnosisInControlCenter ?? true; // defaults true for backward compatibility with callers (wholeBaseOptimizer.ts) that genuinely do place Gnosis unconditionally
-  const gnosisEff = gnosisPresent ? -0.15 * karlanHere : 0;
-  const gnosisLimit = gnosisPresent ? 6 * karlanHere : 0;
+
 
   const specialProductivitySum = results.reduce((s, r) => s + (r.orderEfficiency ?? 0), 0);
   const specialOrderLimitSum = results.reduce((s, r) => s + (r.orderLimit ?? 0), 0);
@@ -380,19 +390,7 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   const provisoSkill = provisoCandidate?.skills.find((s) => s.skillName in PROVISO_GOLD_BONUS);
   const tequilaCandidate = candidates.find((c) => c.operatorName === 'Tequila');
   const tequilaSkill = tequilaCandidate?.skills.find((s) => s.skillName in TEQUILA_LMD_BONUS);
-  const hasHigherTier = candidates.some((c) => c.skills.some((s) => GOLD_TIER_HIGHER[c.operatorName] === s.skillName));
-  // Counting DISTINCT operators, not just presence -- confirmed by the
-  // user: two different lower-tier operators stacked together shift the
-  // distribution further than either alone (its own distinct 13/22/65
-  // split), not just a boolean "is anyone lower-tier present".
-  const lowerTierCount = candidates.filter((c) => c.skills.some((s) => GOLD_TIER_LOWER[c.operatorName] === s.skillName)).length;
-  const goldTier: 'base' | 'lower' | 'doubleLower' | 'higher' = hasHigherTier
-    ? 'higher'
-    : lowerTierCount >= 2
-    ? 'doubleLower'
-    : lowerTierCount === 1
-    ? 'lower'
-    : 'base';
+  const goldTier = goldOrderTier(candidates.flatMap(c => c.skills.map(sk => ({ operatorName: c.operatorName, skillName: sk.skillName }))));
   const isPepe = candidates.some((c) => c.operatorName === 'Pepe' && c.skills.some((s) => s.skillName === 'Insightful'));
   const isUOfficial = candidates.some((c) => c.operatorName === 'U-Official');
 
@@ -400,8 +398,12 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
   let dailyLmd: number;
   if (isPepe) {
     return { combo: comboIds, effectiveProductivity: null, effectiveLimit: null, dailyGold: 0, dailyLmd: (24 * 60 / 270) * 1000 };
+  } else if (candidates.some(c => c.operatorName === 'Closure' && c.skills.some(sk => sk.skillName === 'Special Orders'))) {
+    const dailyOrders = effectiveProductivity * 24 / 2.4;
+    dailyGold = dailyOrders * 2;
+    dailyLmd = dailyOrders * 1200;
   } else if (isUOfficial) {
-    dailyGold = calcTradingPostGoldPerHourStandardized(effectiveProductivity, 2) * 24;
+    dailyGold = calcTradingPostGoldPerHourStandardized(effectiveProductivity, 2, overrides?.tradingPostLevel ?? 3) * 24;
     dailyLmd = dailyGold * 500;
   } else {
     // Always the same combined call -- Tailoring's distribution tier,
@@ -413,7 +415,8 @@ export function evalTradingPost(comboIds: string[], overrides?: DynamicContextOv
       effectiveProductivity,
       provisoSkill ? PROVISO_GOLD_BONUS[provisoSkill.skillName] : 0,
       tequilaSkill ? TEQUILA_LMD_BONUS[tequilaSkill.skillName] : 0,
-      goldTier
+      goldTier,
+      overrides?.tradingPostLevel ?? 3
     );
     dailyGold = goldPerHour * 24;
     dailyLmd = dailyGold * 500 + extraLmdPerHour * 24;
@@ -517,6 +520,10 @@ function emptyFactoryContext(sameFactoryOperatorNames: string[], sameFactorySkil
   return {
     rosters,
     selectedProduct: product,
+    totalDormitoryLevels: 20,
+    totalFacilityLevels: 64,
+    trainingRoomLevel: 3,
+    allPlacedNames: overrides?.allPlacedNames ?? [],
     sameFactoryOperatorNames,
     sameFactorySkillNames,
     filledCountThisFactory: sameFactoryOperatorNames.length,

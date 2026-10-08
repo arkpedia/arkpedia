@@ -54,7 +54,8 @@
     "banners:sync": "node scripts/sync/sync-recurring-banners.mjs",
     "test:banners": "node --test scripts/tests/test-recurring-banners.mjs",
     "modules:sync": "node scripts/sync/sync-module-stats.mjs",
-    "test:module-stats": "node --test scripts/tests/test-module-stats.mjs"
+    "test:module-stats": "node --test scripts/tests/test-module-stats.mjs",
+    "test:base": "tsx --test scripts/tests/test-base-skills.ts scripts/tests/test-base-imports.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

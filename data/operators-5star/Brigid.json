@@ -526,13 +526,21 @@
       "name": "Restless Rover α",
       "facility": "Office",
       "eliteLevel": "Base",
-      "description": "When this Operator is assigned to the HR Office, HR contacting speed +30% and Morale consumed per hour +1"
+      "description": "When this Operator is assigned to the HR Office, HR contacting speed +30% and Morale consumed per hour +1",
+      "buffId": "hire_spd_cost[220]",
+      "slot": 0,
+      "phase": 0,
+      "level": 1
     },
     {
       "name": "Restless Rover βReplacesRestless Rover α",
       "facility": "Office",
       "eliteLevel": "Elite 2",
-      "description": "When this Operator is assigned to the HR Office, HR contacting speed +45% and Morale consumed per hour +1"
+      "description": "When this Operator is assigned to the HR Office, HR contacting speed +45% and Morale consumed per hour +1",
+      "buffId": "hire_spd_cost[230]",
+      "slot": 0,
+      "phase": 2,
+      "level": 1
     }
   ],
   "modules": [
