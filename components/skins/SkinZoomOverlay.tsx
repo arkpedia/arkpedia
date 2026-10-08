@@ -2,6 +2,7 @@ import { ContentImg } from '@/components/content/ContentImage';
 /* eslint-disable @next/next/no-img-element -- zoom deliberately loads the lossless public original. */
 import { useCallback, useEffect, useRef, useState, MouseEvent, TouchEvent } from 'react';
 import dynamic from 'next/dynamic';
+import StyledSelect from '@/components/ui/StyledSelect';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { getSkinArtworkOriginal } from '@/lib/assets/skinArtwork';
 import { animationButtons } from '@/lib/skins/dynamicArt';
@@ -17,6 +18,7 @@ interface Props {
   /** The artwork's animated version: its model.json (lib/skins/dynamicArt.ts), or null when it has
    *  none. Required, so every page that opens this view says which (null where it carries no pointers). */
   dynamic: string | null;
+  voiceOperator?: string;
   onClose: () => void;
 }
 
@@ -39,7 +41,7 @@ function writeSound(on: boolean) {
   try { window.localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ }
 }
 
-export default function SkinZoomOverlay({ image, name, dynamic: model, onClose }: Props) {
+export default function SkinZoomOverlay({ image, name, dynamic: model, voiceOperator, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -73,6 +75,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: model, onClose }
     };
     const onEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      if (dialogRef.current?.querySelector('[role="combobox"][aria-expanded="true"]')) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();
@@ -205,7 +208,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: model, onClose }
           />
           {animated && (
             <DynamicArtwork key={model} model={model} label={name} transform={transform} scale={scale} request={request}
-              sound={sound} onStatus={onStatus} onPlaying={setPlaying} />
+              sound={sound} voiceOperator={voiceOperator} onStatus={onStatus} onPlaying={setPlaying} />
           )}
         </div>
       </div>
@@ -215,15 +218,17 @@ export default function SkinZoomOverlay({ image, name, dynamic: model, onClose }
       {model !== null && (
         <div className="skin-zoom-animations" aria-live="polite">
           {ready && status?.kind === 'ready' ? (<>
-            <div role="group" aria-label="Animation" className="seg-control">
-              {animationButtons(status.animations).map((button) => (
+            {status.animations.length > 6 ? <StyledSelect label="Animation" value={playing ?? ''}
+              options={animationButtons(status.animations, status.labels).map(button => ({value:button.name,label:button.label}))}
+              onChange={name => setRequest(last => ({name,id:(last?.id ?? 0) + 1}))} /> : <div role="group" aria-label="Animation" className="seg-control">
+              {animationButtons(status.animations, status.labels).map((button) => (
                 <button key={button.name} type="button" className="filter-chip" aria-pressed={playing === button.name}
                   onClick={() => setRequest((last) => ({ name: button.name, id: (last?.id ?? 0) + 1 }))}>
                   {button.label}
                 </button>
               ))}
-            </div>
-            {/* Only an outfit whose entrance has a soundtrack has anything to hear. */}
+            </div>}
+            {/* Soundtracks and authored voice actions share the sound preference. */}
             {status.sound && (
               <button type="button" className="filter-chip" aria-pressed={sound} onClick={toggleSound}>
                 Sound

@@ -1609,7 +1609,7 @@ export default function OperatorDetailPage({ operator, appearances, skinObtainBy
       </div>
 
       {zooming && shownAppearance?.fullPath && (
-        <SkinZoomOverlay image={shownAppearance.fullPath} name={shownAppearance.label} dynamic={dynamicArt[shownAppearance.label] ?? null}
+        <SkinZoomOverlay voiceOperator={operator.name} image={shownAppearance.fullPath} name={shownAppearance.label} dynamic={dynamicArt[shownAppearance.label] ?? null}
           onClose={() => setZooming(false)} />
       )}
     </>

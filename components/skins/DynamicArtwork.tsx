@@ -1,4 +1,6 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
+import { useContentUrl } from '@/lib/content/context';
+import { selectableAnimations, voiceActionEnd, voiceAnimation, VoiceChoreography, type ArtworkVoice } from '@/lib/skins/dynamicPlayback';
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
 import {
   ANIMATION_MIX, HANDOVER_SECONDS, INTRO_ANIMATION, TOUCH_ANIMATION, cameraAt, fadesAt, handoverIn, handoverOut, openingPlan,
@@ -60,7 +62,7 @@ export type DynamicArtworkStatus =
   | { kind: 'loading' }
   /** The first frame is on the canvas: the still picture can step aside. `sound`: the outfit's
    *  entrance has a soundtrack (the view then offers a Sound switch). */
-  | { kind: 'ready'; animations: string[]; sound: boolean }
+  | { kind: 'ready'; animations: string[]; labels: Record<string, string>; sound: boolean }
   | { kind: 'error'; message: string };
 
 interface Props {
@@ -76,6 +78,7 @@ interface Props {
   request: { name: string; id: number } | null;
   /** Whether the entrance's soundtrack is heard (the view's Sound switch). */
   sound: boolean;
+  voiceOperator?: string;
   onStatus: (status: DynamicArtworkStatus) => void;
   /** The animation now playing, for the buttons' pressed state; null while it stands still. */
   onPlaying: (name: string | null) => void;
@@ -183,16 +186,18 @@ async function loadLayers(file: string, url: (name: string) => string, signal: A
 
 /** The model's files, fetched side by side from the folder its model.json is in: the
  *  illustration, its mesh layers, and its entrance and soundtrack when it has one. */
-async function loadModel(url: string, signal: AbortSignal) {
+async function loadModel(url: string, signal: AbortSignal, operator: string | undefined, resolveUrl: (url: string) => string) {
   const model = parseDynamicModel(await (await fetchOk(url, signal)).json());
   const file = (name: string) => new URL(name, url).href;
+  const voices: ArtworkVoice[] = operator && model.playback?.voiceActions.length ? await fetchOk(`/api/artwork-voices?operator=${encodeURIComponent(operator)}&skinId=${encodeURIComponent(model.skinId.replace(/\^sp_dyn$/, ''))}`, signal)
+    .then(r => r.json()).then((records: ArtworkVoice[]) => records.map(v => ({ ...v, url: resolveUrl(v.url) }))).catch(() => []) : [];
   const [illustration, entrance, audio, layers] = await Promise.all([
     loadSkeleton(model, file, signal),
     model.entrance ? loadSkeleton(model.entrance, file, signal) : null,
     model.entrance?.audio ? loadAudio(file(model.entrance.audio.file), signal) : null,
     model.layers ? loadLayers(model.layers.file, file, signal) : null,
   ]);
-  return { model, ...illustration, entrance, audio, layers };
+  return { model, ...illustration, entrance, audio, layers, voices };
 }
 
 type SpineContext = InstanceType<SpineRuntime['webgl']['ManagedWebGLRenderingContext']>;
@@ -221,7 +226,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   reducedMotion: boolean;
   sound: boolean;
   scale: () => number;
-  onFirstFrame: (animations: string[], sound: boolean) => void;
+  onFirstFrame: (animations: string[], sound: boolean, labels: Record<string, string>) => void;
   onPlaying: (name: string | null) => void;
   /** The particles, when they came within the grace; else the load still running (they fade in), or null. */
   particles: { ready: ParticleFiles | null; later: Promise<ParticleFiles | null> | null };
@@ -238,12 +243,19 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   let particleRenderer: ParticleRenderer | null = null;
   let disposed = false;
   const audio = files.audio;
+  let voiceAudio: HTMLAudioElement | null = null;
+  let sound = options.sound;
+  let voiceTimeout: ReturnType<typeof setTimeout> | null = null;
   // The entrance camera's full-screen fades and hand-over colour, over the canvas.
   const veil = document.createElement('div');
   veil.className = 'skin-zoom-canvas-veil';
   host.appendChild(veil);
   const release = () => {
     audio?.pause();
+    if (voiceTimeout) clearTimeout(voiceTimeout);
+    voiceAudio?.pause();
+    voiceAudio?.removeAttribute('src');
+    voiceAudio?.load();
     veil.remove();
     for (const atlas of atlases) atlas.dispose();
     particleRenderer?.dispose();
@@ -256,6 +268,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   try {
     if (!gl) throw new Error('WebGL is not available');
     const { data, skeleton, state } = readSkeleton(spine, context, files, atlases);
+    for (const mix of model.mixes) state.data.setMix(mix.from, mix.to, mix.duration);
     // The entrance: its own skeleton and state, drawn instead of the illustration while it plays.
     const entrance = files.entrance ? readSkeleton(spine, context, files.entrance, atlases) : null;
     renderer = new spine.webgl.SceneRenderer(canvas, context, true);
@@ -313,7 +326,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     };
     // How long the illustration has run since it took over (the layers' clock).
     let illustrationTime = 0;
-    const names = data.animations.map((animation) => animation.name);
+    const names = selectableAnimations(data.animations.map((animation) => animation.name), model.playback);
+    const labels = Object.fromEntries((model.playback?.voiceActions ?? []).map((action, i) => [voiceAnimation(action.id), files.voices.find(v => v.id === action.id)?.title ?? `Dialogue ${i + 1}`]));
     const scene = renderer;
     const reduced = options.reducedMotion;
     const hasEntrance = entrance !== null;
@@ -327,8 +341,19 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     // After the entrance: from its last view onto the illustration's, the hand-over colour clearing.
     let handover: { from: View; colour: [number, number, number, number] | null; start: number } | null = null;
 
+    let speech: { key: string; choreography: VoiceChoreography; time: number; end: number; waiting: boolean; heard: boolean } | null = null;
+    const stopSpeech = () => {
+      speech = null;
+      if (voiceTimeout) clearTimeout(voiceTimeout);
+      voiceTimeout = null;
+      voiceAudio?.pause();
+      voiceAudio?.removeAttribute('src');
+      voiceAudio?.load();
+      voiceAudio = null;
+      if (state.getCurrent(1)) state.setEmptyAnimation(1, 0.1);
+    };
     state.addListener({
-      start: (entry) => options.onPlaying(entry.animation.name),
+      start: (entry) => { if (entry.trackIndex === 0 && !speech) options.onPlaying(entry.animation.name); },
       complete: (entry) => { if (reduced && !entry.loop && state.getCurrent(0) === entry) options.onPlaying(null); },
       interrupt: () => {}, end: () => {}, dispose: () => {}, event: () => {},
     });
@@ -456,7 +481,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
 
     // Under reduced motion the loop runs only while something the reader asked for plays.
     const moving = () => {
-      if (!reduced || inEntrance || handover) return true;
+      if (!reduced || inEntrance || handover || speech) return true;
       const current = state.getCurrent(0);
       return !!current && (!!current.mixingFrom || (current.timeScale !== 0 && (current.loop || !current.isComplete())));
     };
@@ -499,6 +524,20 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       }
       if (!inEntrance) {
         state.update(delta);
+        if (speech) {
+          const current = speech;
+          if (!current.waiting) current.time = current.heard && voiceAudio ? voiceAudio.currentTime : current.time + delta;
+          if ((current.heard && voiceAudio?.ended) || (!current.heard && !current.waiting && current.time >= current.end)) {
+            stopSpeech();
+            const rest = pressPlan('Idle', names, reduced, hasEntrance);
+            state.setAnimation(0, rest.play, rest.loop);
+          } else {
+            const steps = current.choreography.apply(current.time);
+            const body = state.getCurrent(0), mouth = state.getCurrent(1);
+            if (body && steps.body) body.trackTime = Math.max(0, current.time - steps.body.time);
+            if (mouth && steps.mouth) mouth.trackTime = Math.max(0, current.time - steps.mouth.time);
+          }
+        }
         state.apply(skeleton);
         skeleton.updateWorldTransform();
         illustrationTime += delta;
@@ -507,7 +546,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       const clock = clockNow();
       stepParticles(clock, delta, now);
       draw(clock);
-      if (firstFrame) { firstFrame = false; options.onFirstFrame(names, !!audio); }
+      if (firstFrame) { firstFrame = false; options.onFirstFrame(names, !!audio || files.voices.length > 0, labels); }
       if (moving() || fadeFrom !== null) frameId = requestAnimationFrame(frame);
       else last = 0;
     };
@@ -535,6 +574,30 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
 
     const press = (name: string) => {
       if (!names.includes(name)) return;
+      stopSpeech();
+      for (const track of model.playback?.extraTracks ?? []) { const entry = state.getCurrent(track.track); if (entry) entry.timeScale = 1; }
+      const action = model.playback?.voiceActions.find(a => voiceAnimation(a.id) === name);
+      if (action) {
+        stopEntrance();
+        speech = { key: name, choreography: new VoiceChoreography(action, state), time: 0, end: voiceActionEnd(action, model.animations), waiting: false, heard: false };
+        speech.choreography.apply(0);
+        options.onPlaying(name);
+        const clip = files.voices.find(v => v.id === action.id);
+        if (clip) {
+          const current = speech;
+          const heard = voiceAudio = new Audio(clip.url);
+          heard.muted = !sound;
+          current.waiting = true;
+          const silent = () => { if (speech === current && !current.heard) { current.waiting = false; heard.pause(); heard.removeAttribute('src'); heard.load(); } };
+          voiceTimeout = setTimeout(silent, 8000);
+          heard.play().then(() => {
+            if (speech === current && current.waiting) { current.waiting = false; current.heard = true; if (voiceTimeout) clearTimeout(voiceTimeout); }
+          }, silent);
+          heard.addEventListener('error', () => { if (speech === current) { current.heard = false; current.waiting = false; current.time = heard.currentTime; heard.pause(); } }, { once: true });
+        }
+        run();
+        return;
+      }
       const plan = pressPlan(name, names, reduced, hasEntrance);
       if (plan.entrance) {
         startEntrance(plan.play, plan.then);
@@ -562,6 +625,11 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       state.setAnimation(0, plan.pose, false).timeScale = 0;
       options.onPlaying(null);
     }
+    for (const track of model.playback?.extraTracks ?? []) {
+      const entry = state.setAnimation(track.track, track.name, true);
+      entry.mixDuration = 0;
+      entry.timeScale = reduced ? 0 : 1;
+    }
     // The particles: drawn from the first frame when they came in time, else faded in when they come.
     if (options.particles.ready) attachParticles(options.particles.ready, false);
     else options.particles.later?.then((loaded) => { if (loaded) attachParticles(loaded, true); }, () => {});
@@ -572,12 +640,13 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     return {
       press,
       resize,
-      setSound: (on: boolean) => { if (audio) audio.muted = !on; },
+      setSound: (on: boolean) => { sound = on; if (audio) audio.muted = !on; if (voiceAudio) voiceAudio.muted = !on; },
       dispose: () => {
         disposed = true;
         if (frameId) cancelAnimationFrame(frameId);
         frameId = 0;
         observer.disconnect();
+        stopSpeech();
         state.clearListeners();
         entrance?.state.clearListeners();
         release();
@@ -589,7 +658,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   }
 }
 
-export default function DynamicArtwork({ model, label, transform, scale, request, sound, onStatus, onPlaying }: Props) {
+export default function DynamicArtwork({ model, label, transform, scale, request, sound, voiceOperator, onStatus, onPlaying }: Props) {
+  const resolveVoiceUrl = useContentUrl();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
   const scaleRef = useRef(scale);
@@ -606,7 +676,7 @@ export default function DynamicArtwork({ model, label, transform, scale, request
     let player: Player | null = null;
     handlers.current.onStatus({ kind: 'loading' });
     (async () => {
-      const [{ spine }, files] = await Promise.all([import('@/lib/vendor/spine-3.8/spine-webgl'), loadModel(model, controller.signal)]);
+      const [{ spine }, files] = await Promise.all([import('@/lib/vendor/spine-3.8/spine-webgl'), loadModel(model, controller.signal, voiceOperator, resolveVoiceUrl)]);
       if (controller.signal.aborted) return;
       // Everything else is ready: the particles get PARTICLE_GRACE_MS more, then come in (faded) when they are.
       const pending = files.layers?.particles ?? null;
@@ -624,7 +694,7 @@ export default function DynamicArtwork({ model, label, transform, scale, request
         reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
         sound: soundRef.current,
         scale: () => scaleRef.current,
-        onFirstFrame: (animations, hasSound) => { if (!controller.signal.aborted) handlers.current.onStatus({ kind: 'ready', animations, sound: hasSound }); },
+        onFirstFrame: (animations, hasSound, labels) => { if (!controller.signal.aborted) handlers.current.onStatus({ kind: 'ready', animations, labels, sound: hasSound }); },
         onPlaying: (name) => { if (!controller.signal.aborted) handlers.current.onPlaying(name); },
       });
       playerRef.current = player;
@@ -639,7 +709,7 @@ export default function DynamicArtwork({ model, label, transform, scale, request
       player?.dispose();
       playerRef.current = null;
     };
-  }, [model]);
+  }, [model, voiceOperator, resolveVoiceUrl]);
 
   useEffect(() => {
     if (request) playerRef.current?.press(request.name);
