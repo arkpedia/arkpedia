@@ -2324,14 +2324,15 @@ export default function BasePage({ operators }: Props) {
       (f.kind === 'controlCenter' ? ccEffects.ccMoraleBonus + ccBaseMoraleRelief : ccMoraleRelief) -
       0;
 
-    const combinedMoraleRate = Math.max(0, morale.grey + facilityMoraleYellowShared);
+    // Workshop Morale is spent per craft, never by an hourly staffing clock.
+    const combinedMoraleRate = f.kind === 'workshop' ? 0 : Math.max(0, morale.grey + facilityMoraleYellowShared);
 
     // Always individualized per operator now -- never a single number
     // for the whole room, since Morale almost always decreases
     // differently per operator once any of them has their own
     // self-only modifier (which is the common case, not an exception).
     let perOperatorMorale: Record<string, number> | null = null;
-    if (f.kind !== 'dormitory' && filled.length > 0) {
+    if (f.kind !== 'dormitory' && f.kind !== 'workshop' && filled.length > 0) {
       perOperatorMorale = {};
       for (const slot of filled) {
         const opName = slot.operatorName;
@@ -2356,7 +2357,7 @@ export default function BasePage({ operators }: Props) {
     const worstCaseMoraleRate = perOperatorMorale
       ? Math.max(combinedMoraleRate, ...Object.values(perOperatorMorale))
       : combinedMoraleRate;
-    const deadTime = filled.length > 0 ? calcDeadTime(worstCaseMoraleRate) : null;
+    const deadTime = filled.length > 0 && f.kind !== 'workshop' ? calcDeadTime(worstCaseMoraleRate) : null;
 
     let fullTime: number | null = null;
     if (f.kind === 'factory' && productivity && capacity) {
