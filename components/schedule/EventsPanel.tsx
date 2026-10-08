@@ -93,7 +93,7 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
         <div className="front-events-info">
           <span className="front-events-name">{active.event.name}</span>
           {shopOnly
-            ? <CountdownTimer target={shopEnd!} label="Stages closed · Shop closes in" />
+            ? <CountdownTimer target={shopEnd!} label="Stages closed · Shop closes in" closed />
             : <CountdownTimer start={active.event.start} target={active.event.end} />}
         </div>
       </Link>
@@ -104,12 +104,11 @@ export default function EventsPanel({ ongoing, upcoming, farmableMaterials, now 
             <button
               type="button"
               key={s.event.name}
-              className={`front-events-dot${i === activeIndex ? ' active' : ''}${s.isUpcoming ? ' upcoming' : ''}`}
+              className={`front-events-dot${i === activeIndex ? ' active' : ''}${s.isUpcoming ? ' upcoming' : ''}${clock >= s.event.end.getTime() ? ' closed' : ''}`}
               onClick={() => selectSlide(i)}
-              /* The amber pip means "not started yet", which is worth saying in
-                 words too -- a colour is only a legend if you have seen one. */
-              title={s.isUpcoming ? `${s.event.name} — not started yet` : s.event.name}
-              aria-label={s.isUpcoming ? `${s.event.name}, upcoming` : s.event.name}
+              /* Keep stage availability in the accessible name as well as the pip colour. */
+              title={s.isUpcoming ? `${s.event.name} — not started yet` : clock >= s.event.end.getTime() ? `${s.event.name} — stages closed` : `${s.event.name} — stages open`}
+              aria-label={s.isUpcoming ? `${s.event.name}, upcoming` : clock >= s.event.end.getTime() ? `${s.event.name}, stages closed` : `${s.event.name}, stages open`}
               aria-current={i === activeIndex}
             />
           ))}
