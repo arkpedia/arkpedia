@@ -48,3 +48,17 @@ test('older assets remain readable, internal tracks stay out of the menu, and au
   assert.equal(mixed.mixes[0].duration,0.2);
   assert.deepEqual(selectableAnimations(['Idle','Talk_1','exLayer_1'],null),['Idle']);
 });
+
+test("Kal'tsit's older controller preserves all dialogue cues, including simultaneous mouth events",()=>{
+  const m=fixture('kaltsit'), p=parsePlayback(m.playback,m.animations)!;
+  assert.equal(p.voiceActions.length,8);
+  assert.ok(!selectableAnimations(Object.keys(m.animations),p).some(n=>n.startsWith('Talk_')));
+  const calls:{track:number;name:string}[]=[];
+  const state={setAnimation(track:number,name:string){calls.push({track,name});return {mixDuration:0};}};
+  const player=new VoiceChoreography(p.voiceActions[3],state as unknown as Spine.AnimationState);
+  player.apply(0);
+  assert.deepEqual(calls,[{track:0,name:'Interact_2'},{track:1,name:'Talk_1'}]);
+  const steps=player.apply(11.1);
+  assert.equal(steps.body.name,'Interact_4');
+  assert.equal(steps.mouth.name,'Talk_1');
+});

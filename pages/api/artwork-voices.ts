@@ -18,7 +18,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { getOperatorVoiceData } = await import('@/lib/operators/operatorVoices');
     data = getOperatorVoiceData(getOperatorByName(operator)?.internalName);
   }
-  const set = data?.skinVoices?.find(s => s.skinIds.includes(skinId));
+  // Outfits without their own recordings use the operator's normal voice set in game.
+  const set = data?.skinVoices?.find(s => s.skinIds.includes(skinId)) ?? data;
   const pack = set?.packs.find(p => p.id === 'cn' && p.status === 'current');
   const voices = pack ? set!.lines.filter(l => hasRecording(l, pack)).map(l => ({ id: l.id, title: `${l.title} (CN)`, url: clipUrl(pack.audioTemplate, l.id)! })) : [];
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
