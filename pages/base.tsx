@@ -51,6 +51,7 @@ import { RotationExperimentResult, runRotationExperiment, RotationFacilityLevels
 import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
 import PageHeader from '@/components/ui/PageHeader';
 import XButton from '@/components/ui/XButton';
+import StyledSelect from '@/components/ui/StyledSelect';
 import { activeBaseSkills } from '@/lib/base/activeBaseSkills';
 import { downloadBaseSnapshotImage } from '@/lib/base/baseSnapshotImage';
 import { readSavedBasePresets, SAVED_BASE_PRESETS_KEY, type SavedBasePreset } from '@/lib/base/baseSavedPresets';
@@ -3415,8 +3416,8 @@ export default function BasePage({ operators }: Props) {
                 at most 5 Trading Posts, 5 Factories and 3 Power Plants. Every other room&apos;s type is
                 fixed by the base itself, so only its level can change. Any facility can be left
                 unbuilt. Dormitories and the Control Center reach Level 5, everything else Level 3.
-                Capacity follows level for Trading Posts, Factories, the Reception Room and the
-                Office (Level 1 = 1 slot, Level 2 = 2, and so on).
+                Production staffing follows level (1–3 slots); the Reception Room has two slots
+                and the Office one at every built level.
               </p>
 
               {/* Three presets and a way past them. Each preset is a whole
@@ -3660,7 +3661,7 @@ export default function BasePage({ operators }: Props) {
 
       <main>
         {showSavedPresets && <section className="op-section base-saved-presets" aria-label="Saved base presets">
-          <label>Saved preset <select value={selectedPreset} onChange={e => setSelectedPreset(e.target.value)}><option value="">Choose a preset</option>{savedPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+          <label>Saved preset <StyledSelect label="Saved preset" value={selectedPreset} onChange={setSelectedPreset} options={[{ value: '', label: 'Choose a preset' }, ...savedPresets.map(p => ({ value: p.id, label: p.name }))]} /></label>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={loadNamedPreset}>Load</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
@@ -4006,8 +4007,8 @@ export default function BasePage({ operators }: Props) {
                       return (
                         <>
                           {facility.kind === 'workshop' && <div className="base-room-team">
-                            <label>Recipe <select value={workshopSettings.recipeId} onChange={e => setWorkshopSettings({ ...workshopSettings, recipeId: e.target.value })}>{workshopRecipes.filter(r => r.level <= facility.level).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
-                            <label><input type="checkbox" checked={!!workshopSettings.overrideDormCount} onChange={e => setWorkshopSettings({ ...workshopSettings, overrideDormCount: e.target.checked })} />Override qualifying dorm count</label>
+                            <label>Recipe <StyledSelect label="Workshop recipe" value={workshopSettings.recipeId} onChange={recipeId => setWorkshopSettings({ ...workshopSettings, recipeId })} options={workshopRecipes.filter(r => r.level <= facility.level).map(r => ({ value: r.id, label: r.name }))} /></label>
+                            <label className="check"><input type="checkbox" checked={!!workshopSettings.overrideDormCount} onChange={e => setWorkshopSettings({ ...workshopSettings, overrideDormCount: e.target.checked })} />Override qualifying dorm count</label>
                             {workshopSettings.overrideDormCount && <label>Dorm operators meeting skill’s Morale threshold <input aria-label="Qualifying dorm operators" type="number" min={0} max={dormitoryOperatorNames.size} value={workshopSettings.qualifyingDormOperators} onChange={e => setWorkshopSettings({ ...workshopSettings, qualifyingDormOperators: Math.min(dormitoryOperatorNames.size, Math.max(0, Number(e.target.value))) })} /></label>}
                             {slots.some(s => s?.operatorName === 'Nine-Colored Deer') && <>{(['causality', 'karma'] as const).map(key => <label key={key}>{key} <input type="number" min={0} max={key === 'karma' ? 80 : 40} value={workshopSettings[key]} onChange={e => setWorkshopSettings({ ...workshopSettings, [key]: Math.max(0, Number(e.target.value)) })} /></label>)}</>}
                             {slots.some(s => s?.operatorName === 'Thorns') && <label>Failed crafts <input type="number" min={0} value={workshopSettings.thornsFailures} onChange={e => setWorkshopSettings({ ...workshopSettings, thornsFailures: Math.max(0, Number(e.target.value)) })} /></label>}
@@ -4020,23 +4021,16 @@ export default function BasePage({ operators }: Props) {
                               LOOKED like while saying nothing about what they WERE. */}
                           {facility.kind === 'trainingRoom' && (
                             <div className="base-training-target">
-                              <label>Trainee <select aria-label="Trainee operator" value={trainingTarget.operatorName ?? ''} onChange={e => {
-                                const name = e.target.value, op = operatorByName.get(name);
+                              <label>Trainee <StyledSelect label="Trainee operator" value={trainingTarget.operatorName ?? ''} onChange={name => {
+                                const op = operatorByName.get(name);
                                 const next = Object.fromEntries(Object.entries(assignments).map(([id, slots]) => [id, slots.map(slot => slot?.operatorName === name ? null : slot)]));
                                 persist(next); setTrainingTarget(t => ({ ...t, operatorName: name, timeReductionActive: false, class: op?.class ?? t.class, branch: op?.branch ?? '' }));
-                              }}><option value="">Class / branch only</option>{operators.filter(op => !slots.some(s => s?.operatorName === op.name)).map(op => <option key={op.name}>{op.name}</option>)}</select></label>
-                              <label>Class <select aria-label="Trainee class" disabled={!!trainingTarget.operatorName} value={trainingTarget.class} onChange={e => setTrainingTarget(t => ({ ...t, class: e.target.value, branch: '' }))}>
-                                {TRAINING_CLASSES.map(value => <option key={value}>{value}</option>)}
-                              </select></label>
-                              <label>Branch <select aria-label="Trainee branch" disabled={!!trainingTarget.operatorName} value={trainingTarget.branch} onChange={e => setTrainingTarget(t => ({ ...t, branch: e.target.value }))}>
-                                <option value="">Any branch</option>
-                                {[...new Set(operators.filter(op => op.class === trainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(branch => <option key={branch}>{branch}</option>)}
-                              </select></label>
-                              <label>Mastery <select aria-label="Target mastery" value={Math.min(trainingTarget.mastery, facility.level)} onChange={e => setTrainingTarget(t => ({ ...t, mastery: Number(e.target.value) }))}>
-                                {[1, 2, 3].filter(level => level <= facility.level).map(level => <option key={level} value={level}>M{level}</option>)}
-                              </select></label>
-                              <label><input type="checkbox" checked={trainingTarget.timeReductionActive} onChange={e => setTrainingTarget(t => ({ ...t, timeReductionActive: e.target.checked }))} />Started with Irene / Logos time reduction</label>
-                              {slots.some(slot => slot?.operatorName === 'Zuo Le') && <label><input type="checkbox" checked={trainingTarget.instantTrainingReady} onChange={e => setTrainingTarget(t => ({ ...t, instantTrainingReady: e.target.checked }))} />Martial Arts ready</label>}
+                              }} options={[{ value: '', label: 'Class / branch only' }, ...operators.filter(op => !slots.some(s => s?.operatorName === op.name)).map(op => ({ value: op.name, label: op.name }))]} /></label>
+                              <label>Class <StyledSelect label="Trainee class" disabled={!!trainingTarget.operatorName} value={trainingTarget.class} onChange={value => setTrainingTarget(t => ({ ...t, class: value, branch: '' }))} options={TRAINING_CLASSES.map(value => ({ value, label: value }))} /></label>
+                              <label>Branch <StyledSelect label="Trainee branch" disabled={!!trainingTarget.operatorName} value={trainingTarget.branch} onChange={branch => setTrainingTarget(t => ({ ...t, branch }))} options={[{ value: '', label: 'Any branch' }, ...[...new Set(operators.filter(op => op.class === trainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(value => ({ value, label: value }))]} /></label>
+                              <label>Mastery <StyledSelect label="Target mastery" value={String(Math.min(trainingTarget.mastery, facility.level))} onChange={value => setTrainingTarget(t => ({ ...t, mastery: Number(value) }))} options={[1, 2, 3].filter(level => level <= facility.level).map(level => ({ value: String(level), label: `M${level}` }))} /></label>
+                              <label className="check"><input type="checkbox" checked={trainingTarget.timeReductionActive} onChange={e => setTrainingTarget(t => ({ ...t, timeReductionActive: e.target.checked }))} />Started with Irene / Logos time reduction</label>
+                              {slots.some(slot => slot?.operatorName === 'Zuo Le') && <label className="check"><input type="checkbox" checked={trainingTarget.instantTrainingReady} onChange={e => setTrainingTarget(t => ({ ...t, instantTrainingReady: e.target.checked }))} />Martial Arts ready</label>}
                             </div>
                           )}
                           <div className="base-room-team">

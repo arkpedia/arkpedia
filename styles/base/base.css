@@ -1457,11 +1457,11 @@
   gap: 0.65rem;
 }
 .base-saved-presets label { display: flex; align-items: center; gap: 0.4rem; }
-.base-saved-presets input, .base-saved-presets select { max-width: 100%; }
-.base-saved-presets .hint { flex-basis: 100%; margin: 0; }
+.base-saved-presets input, .base-saved-presets [role="combobox"] { max-width: 100%; }
+.base-saved-presets > p { flex-basis: 100%; margin: 0; }
 @media (max-width: 600px) {
   .base-saved-presets label { flex-basis: 100%; }
-  .base-saved-presets input, .base-saved-presets select { flex: 1; min-width: 0; }
+  .base-saved-presets input, .base-saved-presets [role="combobox"] { flex: 1; min-width: 0; }
 }
 
 .base-training-target {
@@ -1472,15 +1472,15 @@
   padding: 0.6rem 0;
 }
 .base-training-target label { display: flex; align-items: center; gap: 0.35rem; max-width: 100%; }
-.base-training-target select { max-width: 15rem; min-width: 0; }
+.base-training-target [role="combobox"] { max-width: 15rem; min-width: 0; }
 .base-room-team input[type="number"] { max-width: 5rem; }
 @media (max-width: 600px) {
   .base-training-target label { font-size: 0.8rem; }
-  .base-training-target select { max-width: 12rem; }
+  .base-training-target [role="combobox"] { max-width: 12rem; }
 }
 
-.base-slot-morale { display: flex; align-items: center; gap: .4rem; font-size: .75rem; color: var(--text-muted); }
-.base-slot-morale input { width: 3.5rem; padding: .3rem; border: 1px solid var(--border); border-radius: .25rem; background: var(--bg-card); color: inherit; }
+.base-slot-morale { display: flex; align-items: center; gap: .4rem; font-size: .75rem; color: var(--text-dim); }
+.base-slot-morale input { width: 3.5rem; padding: .3rem; border: 1px solid var(--line); border-radius: .25rem; background: var(--panel); color: inherit; }
 
 /* Reserve feedback space so saving/loading does not shift the base map. */
 .base-preset-status { min-height: 1.4em; }
