@@ -127,22 +127,22 @@ test('a shader layer\'s clock is its own: delayed, and still under reduced motio
 
 test('each program has only the stages its layers use, as the game\'s shaders do', () => {
   const read = (shader: unknown) => parseShader(shader, 2) as ParticleShader;
-  const disturb = particleFragment(particleFeatures(read(flow)));
+  const disturb = particleFragment(particleFeatures(read(flow), 'none'));
   assert.match(disturb, /m \+= d \* u_dInfluence\.x;/, 'Disturb/Ram: moved after the main tiling');
   assert.doesNotMatch(disturb, /u_s0|u_r\b|u_edge/);
   const anchor = read({ ...flow, distort: { ...FLOW_DISTORT, space: 'raw', maps: [map({ anchor: [0.5, 0.5], intensity: [0.1, 0] }), map({ anchor: [0.5, 0.5], intensity: [0, 0.2] })] },
     dissolve: [map({ fract: false, amount: 0.2, border: 0.1 })] });
-  const anchored = particleFragment(particleFeatures(anchor));
+  const anchored = particleFragment(particleFeatures(anchor, 'none'));
   assert.match(anchored, /vec2 base = uv \+ d;/, 'Disturb Anchor: the mesh UV, before the tiling');
   assert.match(anchored, /vec2 s0 = base \* u_s0ST\.xy \+ u_s0ST\.zw \+ u_s0Off;/, 'its dissolve follows the distorted UV');
   assert.match(anchored, /u_d1/);
   const edged = particleFragment(particleFeatures(read(particle({ dissolve: [map({ fract: false, amount: 0.2, border: 0.1 }), map({ fract: true, amount: 0.4, border: 0.2 })],
-    edge: { color: [1, 1, 1, 0.3], pow: 2, epsilon: true } }))));
+    edge: { color: [1, 1, 1, 0.3], pow: 2, epsilon: true } })), 'none'));
   assert.match(edged, /\(f \+ 0\.001\) \/ \(u_edge\.a \+ 0\.001\)/);
   assert.match(edged, /e = max\(e, 0\.001\);/);
   assert.match(edged, /f \*= clamp\(\(sampleUnity\(u_s1, s1\)/);
-  assert.notEqual(programKey(read(flow)), programKey(anchor));
-  assert.equal(programKey(read(flow)), programKey(read({ ...flow, main: { ...flow.main, speed: [0.5, 0] } })), 'parameters are uniforms, not programs');
+  assert.notEqual(programKey(read(flow), 'none'), programKey(anchor, 'none'));
+  assert.equal(programKey(read(flow), 'none'), programKey(read({ ...flow, main: { ...flow.main, speed: [0.5, 0] } }), 'none'), 'parameters are uniforms, not programs');
   for (const mode of ['default', 'add', 'glow'] as const) assert.match(noiseFragment(mode), /\* 0\.1\);/);
 });
 
@@ -203,7 +203,7 @@ test('a tilted entry is read with its 3D vertices and the depth column of its fr
     assert.equal(parseDynamicLayers({ ...EFFECTS, draw: [{ part: 0 }, { tilted: odd }] }).skipped, 1);
   }
   // The renderer projects it with a 2x4 matrix of its own program variant.
-  assert.equal(programKey(star.shader!, true), `${programKey(star.shader!)}3`);
+  assert.equal(programKey(star.shader!, 'none', true), `${programKey(star.shader!, 'none')}3`);
   assert.match(effectVertex(false, true), /attribute vec3 a_position;[\s\S]*uniform vec4 u_row0;[\s\S]*vec4 q = vec4\(p, 1\.0\);/);
   assert.match(effectVertex(true, true), /p \+= d;/, 'a vertex effect moves it in 3D');
   // Under a bone follower turned a quarter: x' = -y, y' = x, the depth column turns with it.

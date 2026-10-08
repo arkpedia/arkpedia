@@ -10,6 +10,7 @@ Run commands from the repository root. npm scripts are the stable entry points.
 | `tests/` | TypeScript regression tests for operators, games, recruitment, and techniques. |
 | `audits/` | Asset coverage, styles, planner calculations, and data/model audits; baselines live beside their audit. |
 | `palettes/` | Palette generation, local review UI, and its Python/TypeScript tests. |
+| `particles/` | The particle simulator's golden fixtures (made by the assets repository's reference simulator), their error report, and its benchmark; the particle geometry's golden vertex dumps (`make-vertex-golden.py`, a Python expansion of the reference simulator's particles) and the layers reader's compat fixture (`make-compat.ts`, what the deployed reader draws). |
 | `stage-pipeline/` | Existing stage extraction pipeline and its helpers. |
 | `lib/` | Shared CSV, game-text, and upstream-sync helpers. |
 | `deploy/` | Vercel build selection and safe production deployment scripts. |
