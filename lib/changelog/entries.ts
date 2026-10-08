@@ -34,7 +34,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-08T14:04:51Z',
+    at: '2026-10-08T16:47:00Z',
     title: 'Skin planning, animated art and home updates',
     added: [
       { title: 'Particles in animated outfit art', detail: 'Sparks, fire, petals and lightning now play in the animated art, as in the game; trails and a few effects come later.', href: '/skins' },
@@ -42,6 +42,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'Fashion Review', detail: 'A dedicated button groups Fashion Review outfits in the skin database and planner.', href: '/skins' },
       { title: 'Alternate animated illustrations', detail: 'Choose Version 2 where the outfit includes another illustration, including Exusiai’s The Legend Seeker.', href: '/skins' },
       { title: 'Operator previews on the home page', detail: 'Click a featured or returning operator to preview their stats, skills and talents, as in the Gacha Simulator.', href: '/' },
+      { title: 'Mastery priority guide beside Skills', detail: 'Open mastery recommendations from the right side of the Skills heading, with a shorter label on phones.', href: '/operators' },
     ],
     changed: [
       { title: 'Home page stage and countdown colors', detail: 'Open stages and Starts in are green, closed stages are red, and Ends in is yellow.', href: '/' },
@@ -49,6 +50,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     fixed: [
       { title: 'Upcoming skins and returning shops', detail: 'Upcoming outfits follow their acquisition dates, and partial shop announcements keep other returning batches.', href: '/skins' },
       { title: 'Shared effects in animated art', detail: 'Kal’tsit - Esperanta’s warning screens and other effects now play with their animations.', href: '/operators' },
+      { title: 'Stable still and animated artwork framing', detail: 'Switching to animated art keeps the same zoom and position, including Haruka’s Stranded In Utopia.', href: '/skins' },
+      { title: 'Dialogue and extra layers in animated art', detail: 'Exusiai and Kal’tsit play their authored dialogue poses, and Haruka’s extra layer plays with her artwork.', href: '/skins' },
     ],
   },
   {
