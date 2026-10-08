@@ -4909,7 +4909,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ba
   // returns every operator's ENTIRE record (all combat skills' per-level/
   // per-mastery text, talents, modules, promotion tables, full bios,
   // voice credits, ...), almost none of which the base simulator touches.
-  const operators: BaseOperator[] = getAllOperators().map((op) => ({
+  const operators: BaseOperator[] = getAllOperators().filter(op => !/^Amiya \(/.test(op.name)).map((op) => ({
     name: op.name,
     rarity: op.rarity,
     faction: op.faction,
@@ -4924,9 +4924,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ba
   // compiling. Complete pre-schema rosters here, rather than counting new groups
   // as empty. Once all named groups exist, the published table remains authoritative.
   finalize: async props => {
+    // Combat forms share Amiya's one physical base worker, including older releases.
+    const staffProps = { ...props, operators: props.operators.filter(op => !/^Amiya \(/.test(op.name)) };
     const table = props.__contentTables?.['base-group-rosters'] as Partial<BaseRosterData> | undefined;
-    if (table && BASE_ROSTER_NAMES.every(name => Array.isArray(table[name]))) return props;
-    return { ...props, __contentTables: { ...props.__contentTables, 'base-group-rosters': checkBaseRosters((await import('@/data/base-group-rosters.json')).default) } };
+    if (table && BASE_ROSTER_NAMES.every(name => Array.isArray(table[name]))) return staffProps;
+    return { ...staffProps, __contentTables: { ...props.__contentTables, 'base-group-rosters': checkBaseRosters((await import('@/data/base-group-rosters.json')).default) } };
   },
   tables: {
     'base-workshop-recipes': async () => (await import('@/data/base-workshop-recipes.json')).default,

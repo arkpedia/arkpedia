@@ -2,7 +2,7 @@
 
 ## Outcome and evidence boundary
 
-All 429 operators in the current game roster have their complete 921 base-skill steps matched to game buff IDs, upgrade slots, promotion phases, unlock levels and facilities. The two combat-only Amiya forms intentionally use the original Amiya's base skills rather than duplicating them. Global text comes directly from the English game tables; 19 CN-only operators retain reviewed English translations with CN identity/unlock metadata. This is a complete inventory and activation audit, **not proof that every combination and hidden probability equals the game**.
+All 429 operators in the current game roster have their complete 921 base-skill steps matched to game buff IDs, upgrade slots, promotion phases, unlock levels and facilities. The two combat-only Amiya forms are excluded from the staffing picker: Amiya is one physical base worker, using her original record's skills. This also prevents assigning three Amiyas from older content releases. Global text comes directly from the English game tables; 19 CN-only operators retain reviewed English translations with CN identity/unlock metadata. This is a complete inventory and activation audit, **not proof that every combination and hidden probability equals the game**.
 
 The numeric model now handles training and workshop effects, actual facility levels, conditional dorm recovery, cross-room resources and the reported R6S/Rose Salt errors. Source data, formula regression tests, actual browser results and estimates are distinguished below.
 
