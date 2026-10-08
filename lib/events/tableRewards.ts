@@ -68,18 +68,18 @@ export const TABLE_REWARD_LABEL: Record<TableRewardGroup['kind'], string | null>
 
 /** What the page shows beside the reward blocks: packs, furniture sets and announced gifts. */
 export interface EventExtras {
-  packs: { title: string; source: string; packs: (Omit<EventPack, 'contents'> & { contents: (PackContents & { iconPath: string | null })[] })[] }[];
+  packs: { title: string; source: string; packs: (Omit<EventPack, 'contents'> & { imagePath?: string | null; contents: (PackContents & { iconPath: string | null })[] })[] }[];
   furniture: { title: string; source: string; description: string | null; pieces: FurniturePiece[] }[];
   notices: { title: string; source: string; lines: string[] }[];
 }
 
 export const NO_EXTRAS: EventExtras = { packs: [], furniture: [], notices: [] };
 
-export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) => string | null): EventExtras {
+export function eventExtras(groups: TableRewardGroup[], iconFor: (name: string) => string | null, packArt: (name: string) => string | null = () => null): EventExtras {
   return {
     packs: groups.filter(g => g.kind === 'packs' && g.packs?.length).map(g => ({
       title: g.title, source: g.source,
-      packs: g.packs!.map(pack => ({ ...pack, end: pack.end ?? null, contents: pack.contents.map(item => ({ ...item, iconPath: iconFor(item.name) })) })),
+      packs: g.packs!.map(pack => ({ ...pack, imagePath: packArt(pack.name), end: pack.end ?? null, contents: pack.contents.map(item => ({ ...item, iconPath: iconFor(item.name) })) })),
     })),
     furniture: groups.filter(g => g.kind === 'furniture-set' && g.pieces?.length).map(g => ({ title: g.title, source: g.source, description: g.description ?? null, pieces: g.pieces! })),
     notices: groups.filter(g => g.kind === 'notice' && g.lines?.length).map(g => ({ title: g.title, source: g.source, lines: g.lines! })),

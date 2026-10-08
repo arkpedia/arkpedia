@@ -388,7 +388,10 @@
 
 /* Compact purchase cards; contents and selector rosters stay inside a modal. */
 .event-pack-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 10px; }
-.event-pack-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 8px; text-align: left; padding: 14px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer; min-width: 0; }
+.event-pack-card { display: flex; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer; min-width: 0; }
+.event-pack-card-image { width: 88px; height: 88px; flex: 0 0 88px; object-fit: contain; border-radius: var(--radius); }
+.event-pack-card-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.event-pack-detail-image { display: block; width: 200px; height: 150px; object-fit: contain; margin: 0 auto 12px; border-radius: var(--radius); }
 .event-pack-card:hover { border-color: var(--heading); }
 .event-pack-card-name { font-weight: 700; }
 .event-pack-preview { color: var(--text-dim); font-size: 12px; line-height: 1.5; }

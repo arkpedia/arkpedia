@@ -296,13 +296,13 @@
               "name": "Special Event Transfer Permit",
               "count": 1,
               "kind": "permit",
-              "id": ""
+              "id": "voucher_recruitR6_pick7201"
             },
             {
               "name": "Echoes of Recollection",
               "count": 1,
               "kind": "furniture",
-              "id": ""
+              "id": "furni_act72d6_audioPlayer_01"
             },
             {
               "name": "Home Screen UI - Reconstruction",
@@ -327,7 +327,7 @@
               "name": "Life Specimen",
               "count": 1,
               "kind": "other",
-              "id": ""
+              "id": "randomMaterial_message3"
             }
           ],
           "description": "JP preview: a mailed keepsake that can be used for 30,000 LMD. See Announced for claim timing."

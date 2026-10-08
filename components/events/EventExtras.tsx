@@ -1,4 +1,5 @@
 import type { EventExtras } from '@/lib/events/tableRewards';
+import Image from '@/components/content/ContentImage';
 import { PackButton } from './RewardDetails';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
@@ -25,10 +26,13 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
           <div className="event-pack-cards">
           {group.packs.map((pack) => (
             <PackButton key={pack.name} pack={pack} source={group.source}>
+              {pack.imagePath && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
+              <span className="event-pack-card-copy">
               <span className="event-pack-card-name">{pack.name}</span>
               {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end)}` : ''}</span>}
               <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
               <span className="event-pack-more">View contents ↗</span>
+              </span>
             </PackButton>
           ))}
           </div>
