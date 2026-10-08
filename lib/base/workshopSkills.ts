@@ -35,7 +35,7 @@ export function workshopResult(operatorName: string, skills: BaseSkill[], ctx: W
     if (/Morale cost divided by 4/i.test(text) && recipe.morale >= 4) morale /= 4;
     const fixed = text.match(/only consume (\d+) Morale/i);
     if (fixed) morale = Number(fixed[1]);
-    const cost = text.match(/(?:cost|costs)\s+(\d+)\s*(?:Morale)?\s*(or (?:more|higher))?/i);
+    const cost = text.match(/(?:cost|costs)\s+(?:of\s+)?(\d+)\s*(?:Morale)?\s*(or (?:more|higher))?/i);
     const deduction = text.match(/(?:by |now )?([+-]\d+)\s*(?:Morale cost)?/i);
     if (/Morale.*(?:consumed|consumption|costs?|formulas)|consum.*Morale/i.test(text) && deduction) {
       const condition = !cost || (cost[2] ? recipe.morale >= Number(cost[1]) : recipe.morale === Number(cost[1]));

@@ -116,6 +116,11 @@ test('workshop recipe category/family, costs, dorm thresholds and guarantee coun
   near(craft('Aosta', 'Orirock Concentration').chance, 0.1); near(craft('Aosta', 'Polyester Lump').chance, 0.19);
   near(craft('Arene', 'Orirock Concentration', { qualifyingDormOperators: 20 }).chance, 0.2);
   near(craft('Stainless', 'Orirock Concentration', { qualifyingDormOperators: 20 }).morale, 2);
+  near(craft('Stainless', 'Orirock Cluster', { qualifyingDormOperators: 20 }).morale, 2);
+  near(craft('Stainless', recipes.find(r => r.category === 'Elite materials' && r.morale === 8)!.name, { qualifyingDormOperators: 20 }).morale, 8);
+  near(craft('Vetochki', 'Oriron Cluster').morale, 1);
+  near(craft('Vetochki', 'Oriron').morale, 1);
+  near(craft('Vetochki', 'Oriron Block').morale, 4);
   near(craft('Nine-Colored Deer', 'Orirock Concentration', { causality: 40 }).chance, 1);
   near(craft('Blemishine', 'Orirock Concentration').lmd, 0);
   for (const op of ops.values()) for (const recipe of recipes) {
