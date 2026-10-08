@@ -752,7 +752,7 @@ test('director: a bone follower\'s placement is stepped between frames; slow fra
   const sys = record({ follow, clock: { loop: true, space: 'world' }, emission: { rate: 600 }, start: { lifetime: 10 } });
   const d = director([sys]);
   let x = 0;
-  const placement = () => ({ matrix: [1, 0, 0, x, 0, 1, 0, 0, 0, 0, 1, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] });
+  const placement = () => ({ matrix: [1, 0, 0, x, 0, 1, 0, 0, 0, 0, 1, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1], origin: null });
   d.frame(clockAt(0), 0, placement);
   x = 6;
   d.frame(clockAt(0.1), 0.1, placement);

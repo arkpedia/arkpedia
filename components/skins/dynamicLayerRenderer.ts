@@ -1,7 +1,7 @@
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
 import {
   animatedShader, combine, dissolveK, followMatrix, layerPose, mapOffset, unityUvMap, wrapUnit,
-  type DynamicLayer, type DynamicLayers, type LayerClock, type LayerShader, type LayerTexture, type NoiseShader, type ParticleShader, type ShaderMap,
+  type CustomFeature, type DynamicLayer, type DynamicLayers, type LayerClock, type LayerShader, type LayerTexture, type NoiseShader, type ParticleShader, type ShaderMap,
 } from '@/lib/skins/dynamicLayers';
 
 /*
@@ -23,7 +23,8 @@ import {
  * the faces it turns away are culled by their winding on screen, as Unity culls them.
  *
  * Every layer's mesh goes to the GPU once; a frame only sets each layer's matrix, colour, UV map and
- * its shader's offsets. Only DynamicArtwork imports this, after the reader pressed Animated.
+ * its shader's offsets. Only DynamicArtwork and the particle renderer (which draws particles with the same
+ * effect programs and samples the same textures) import this, after the reader pressed Animated.
  */
 
 const VERTEX = `
@@ -103,23 +104,30 @@ ${vertexEffect ? `  vec3 n = sampleLod(u_v, a_uv * u_vST.xy + u_vST.zw + u_vOff)
 }`;
 }
 
-/** What a particle program has to do, as the switches its source is built from. */
-export interface ParticleFeatures { maps: number; distort: boolean; raw: boolean; weight: boolean; dissolves: number; edge: 0 | 1 | 2; ramp: boolean; vertex: boolean }
 
-export function particleFeatures(shader: ParticleShader): ParticleFeatures {
+/** What a particle program has to do, as the switches its source is built from. */
+export interface ParticleFeatures { maps: number; distort: boolean; raw: boolean; weight: boolean; dissolves: number; edge: 0 | 1 | 2; ramp: boolean; vertex: boolean; custom: CustomFeature }
+
+export function particleFeatures(shader: ParticleShader, custom: CustomFeature): ParticleFeatures {
   return {
     maps: shader.distort?.maps.length ?? 0, distort: !!shader.distort, raw: shader.distort?.space === 'raw', weight: !!shader.distort?.weight,
-    dissolves: shader.dissolve.length, edge: shader.edge ? (shader.edge.epsilon ? 2 : 1) : 0, ramp: !!shader.ramp, vertex: !!shader.vertex,
+    dissolves: shader.dissolve.length, edge: shader.edge ? (shader.edge.epsilon ? 2 : 1) : 0, ramp: !!shader.ramp, vertex: !!shader.vertex, custom,
   };
 }
 
-const featureKey = (f: ParticleFeatures) => `p${f.maps}${+f.distort}${+f.raw}${+f.weight}${f.dissolves}${f.edge}${+f.ramp}${+f.vertex}`;
+const CUSTOM_KEY: Record<CustomFeature, string> = { none: '', disturb: 'c', dissolve: 'd' };
+const featureKey = (f: ParticleFeatures) => `p${f.maps}${+f.distort}${+f.raw}${+f.weight}${f.dissolves}${f.edge}${+f.ramp}${+f.vertex}${CUSTOM_KEY[f.custom]}`;
+
+/** GLSL ES 1.0 has no roundEven (GLES3's, which the CustomData shaders use for a dissolve's k): halves go to the even neighbour. */
+const ROUND_EVEN = 'float roundHalfEven(float x) { float r = floor(x + 0.5); return (r - x == 0.5 && mod(r, 2.0) != 0.0) ? r - 1.0 : r; }';
 
 /** The fragment shader of the Torappu particle family (Disturb, Ram/Disturb, VertexDisturb, Disturb
  *  Anchor, the Dissolve shaders), with only the stages `f` uses. */
 export function particleFragment(f: ParticleFeatures): string {
   const lines: string[] = [PRECISION, 'uniform sampler2D u_main;', 'uniform vec4 u_mainST;', 'uniform vec2 u_mainOff;', 'uniform vec4 u_uvMap;',
     'uniform float u_mainFract;', 'uniform vec4 u_tint;', 'uniform float u_add;', 'varying vec2 v_uv;', 'varying vec4 v_color;', SAMPLE];
+  const custom = f.custom !== 'none';
+  if (custom) lines.push('varying vec4 v_in0;', 'varying vec4 v_in1;', ROUND_EVEN);
   for (let i = 0; i < f.maps; i++) lines.push(`uniform sampler2D u_d${i};`, `uniform vec4 u_d${i}ST;`, `uniform vec2 u_d${i}Off;`, `uniform vec4 u_d${i}AI;`);
   if (f.weight) lines.push('uniform sampler2D u_w;', 'uniform vec4 u_wST;', 'uniform vec2 u_wOff;');
   if (f.distort) lines.push('uniform vec2 u_dConst;', 'uniform vec2 u_dInfluence;');
@@ -129,16 +137,19 @@ export function particleFragment(f: ParticleFeatures): string {
   if (f.ramp) lines.push('uniform sampler2D u_r;', 'uniform vec4 u_rST;', 'uniform vec2 u_rOff;');
   if (f.edge) lines.push('uniform vec4 u_edge;', 'uniform float u_pow;');
   const body: string[] = ['vec2 uv = v_uv;', 'vec2 d = vec2(0.0);'];
-  // The noise: (texture.r - anchor) x intensity per map, times the weight's red and green.
+  // The noise: (texture.r - anchor) x intensity per map, times the weight's red and green. A particle's custom
+  // inputs move the first map's UV (6, 7) and add to both its intensities (5) in the disturb layout.
   for (let i = 0; i < f.maps; i++) {
-    body.push(`d += (vec2(sampleUnity(u_d${i}, uv * u_d${i}ST.xy + u_d${i}ST.zw + u_d${i}Off).r) - u_d${i}AI.xy) * u_d${i}AI.zw;`);
+    const moved = i === 0 && f.custom === 'disturb';
+    body.push(`d += (vec2(sampleUnity(u_d${i}, uv * u_d${i}ST.xy + u_d${i}ST.zw + u_d${i}Off${moved ? ' + v_in1.zw' : ''}).r) - u_d${i}AI.xy) * ${moved ? `(u_d${i}AI.zw + v_in1.y)` : `u_d${i}AI.zw`};`);
   }
   if (f.weight) body.push('d *= sampleUnity(u_w, uv * u_wST.xy + u_wST.zw + u_wOff).rg;');
   if (f.distort) body.push('d += u_dConst;');
   // The main UV: distorted before its tiling (Disturb Anchor, old Disturb) or after it (the others).
   const raw = f.distort && f.raw;
   body.push(`vec2 base = ${raw ? 'uv + d' : 'uv'};`);
-  body.push('vec2 m = base * u_mainST.xy + u_mainST.zw;', 'm = vec2(m.x * u_uvMap.x + u_uvMap.y, m.y * u_uvMap.z + u_uvMap.w) + u_mainOff;');
+  // The main UV: its tiling, then (a particle) the custom offset (inputs 0, 1), then a layer frame's UV map and the scroll.
+  body.push(`vec2 m = base * u_mainST.xy + u_mainST.zw${custom ? ' + v_in0.xy' : ''};`, 'm = vec2(m.x * u_uvMap.x + u_uvMap.y, m.y * u_uvMap.z + u_uvMap.w) + u_mainOff;');
   if (f.distort && !f.raw) body.push('m += d * u_dInfluence.x;');
   body.push('m = mix(m, fract(m), u_mainFract);', 'vec4 c = sampleUnity(u_main, m) * u_tint * v_color;');
   if (f.ramp) body.push('c *= sampleUnity(u_r, uv * u_rST.xy + u_rST.zw + u_rOff);');
@@ -146,9 +157,15 @@ export function particleFragment(f: ParticleFeatures): string {
   for (let i = 0; i < f.dissolves; i++) {
     // Only the first dissolve is distorted: no shader has a distortion and two dissolves.
     const moved = i === 0 && f.distort ? (f.raw ? '' : ' + d * u_dInfluence.y') : '';
-    body.push(`vec2 s${i} = ${i === 0 ? 'base' : 'uv'} * u_s${i}ST.xy + u_s${i}ST.zw + u_s${i}Off${moved};`);
+    const fed = i === 0 && custom;
+    body.push(`vec2 s${i} = ${i === 0 ? 'base' : 'uv'} * u_s${i}ST.xy + u_s${i}ST.zw + u_s${i}Off${moved}${fed ? ' + v_in0.zw' : ''};`);
     body.push(`s${i} = mix(s${i}, fract(s${i}), u_s${i}Fract);`);
-    body.push(`f *= clamp((sampleUnity(u_s${i}, s${i}).r - u_s${i}AKB.x + u_s${i}AKB.z * u_s${i}AKB.y) / u_s${i}AKB.z, 0.0, 1.0);`);
+    if (fed) {
+      // A particle's own amount (input 4; in the dissolve layout its border too, input 5): k per fragment.
+      body.push(`float a${i} = u_s${i}AKB.x + v_in1.x;`, `float k${i} = 1.0 - roundHalfEven(a${i} + 0.5);`,
+        `float b${i} = ${f.custom === 'dissolve' ? `clamp(u_s${i}AKB.z + v_in1.y, 0.0, 1.0)` : `u_s${i}AKB.z`};`,
+        `f *= clamp((sampleUnity(u_s${i}, s${i}).r - a${i} + b${i} * k${i}) / b${i}, 0.0, 1.0);`);
+    } else body.push(`f *= clamp((sampleUnity(u_s${i}, s${i}).r - u_s${i}AKB.x + u_s${i}AKB.z * u_s${i}AKB.y) / u_s${i}AKB.z, 0.0, 1.0);`);
   }
   if (f.edge) {
     // The Dissolve Double edge shaders: an edge colour where the dissolve thins out.
@@ -195,6 +212,9 @@ void main() {
 export interface LayerRenderer {
   /** Draws one layer at its pose now (nothing when it is hidden). Call between scene.end() and scene.begin(). */
   draw(layer: DynamicLayer, clock: LayerClock, projection: Float32Array): void;
+  /** One of layers.json's textures as uploaded now (particle materials sample them too); null before the
+   *  upload or after a lost context, until it is restored. */
+  texture(index: number): WebGLTexture | null;
   dispose(): void;
 }
 
@@ -209,8 +229,8 @@ interface Program {
 const powerOfTwo = (n: number) => (n & (n - 1)) === 0;
 
 /** The key of the program a shader layer needs (a tilted layer's own variant ends in 3). */
-export function programKey(shader: LayerShader, solid = false): string {
-  return (shader.family === 'noise' ? `n${shader.mode}` : featureKey(particleFeatures(shader))) + (solid ? '3' : '');
+export function programKey(shader: LayerShader, custom: CustomFeature, solid = false): string {
+  return (shader.family === 'noise' ? `n${shader.mode}` : featureKey(particleFeatures(shader, custom))) + (solid ? '3' : '');
 }
 
 /** A tilted layer's 2x4 projection [a, b, e, tx, c, d, f, ty] under a bone follower's 2x3 [a, b, c, d, tx, ty]. */
@@ -282,13 +302,14 @@ export function createLayerRenderer(context: Context, layers: DynamicLayers, ima
 
   /** The program a shader layer needs, built on first use; null when it cannot be built here. */
   const effectProgram = (shader: LayerShader, solid: boolean): Program | null => {
-    const key = programKey(shader, solid);
+    // A mesh layer has no particle data: no custom inputs.
+    const key = programKey(shader, 'none', solid);
     if (programs.has(key)) return programs.get(key)!;
     let built: Program | null = null;
     try {
       const vertexEffect = shader.family === 'particle' && !!shader.vertex;
       if (vertexEffect && (gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS) as number) < 2) throw new Error('no textures in the vertex shader');
-      built = link(effectVertex(vertexEffect, solid), shader.family === 'noise' ? noiseFragment(shader.mode) : particleFragment(particleFeatures(shader)));
+      built = link(effectVertex(vertexEffect, solid), shader.family === 'noise' ? noiseFragment(shader.mode) : particleFragment(particleFeatures(shader, 'none')));
     } catch (error) {
       if (!warned.has(key)) {
         warned.add(key);
@@ -523,6 +544,7 @@ export function createLayerRenderer(context: Context, layers: DynamicLayers, ima
       // spine's batcher binds its pages on unit 0 and assumes it is the active one.
       gl.activeTexture(gl.TEXTURE0);
     },
+    texture: (index) => textures[index] ?? null,
     dispose() {
       context.removeRestorable(restorable);
       release();

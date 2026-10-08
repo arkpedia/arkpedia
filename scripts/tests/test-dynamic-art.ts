@@ -11,6 +11,7 @@ import {
 } from '../../lib/skins/dynamicArt';
 import { LIMITS, combine, followMatrix, frameAt, layerClock, layerPose, parseDynamicLayers, partRanges, wrapUnit, type DynamicLayer } from '../../lib/skins/dynamicLayers';
 import { contentUrl } from '../../lib/content/urls';
+import { readGolden } from '../particles/golden';
 import { SPINE_RUNTIMES_LICENSE } from '../../lib/credits/spineLicense';
 import { LINKS } from '../../lib/nav/navLinks';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -317,7 +318,8 @@ const layerOf = (name: string) => {
 
 test('a layers.json is checked before its textures are fetched, and a layer this reader does not know is dropped alone', () => {
   const layers = parseDynamicLayers(LAYERS);
-  assert.deepEqual(layers.draw.map((e) => (e.kind === 'part' ? e.index : e.layer.name)), ['bg_02', 0, 'glow', 1, 'spark', 'ribbon']);
+  assert.deepEqual(layers.draw.map((e) => (e.kind === 'part' ? e.index : e.kind === 'layer' ? e.layer.name : e.systems)), ['bg_02', 0, 'glow', 1, 'spark', 'ribbon']);
+  assert.equal(layers.particles, null);
   assert.deepEqual(layers.textures.map((t) => t.file), ['layer0.webp', 'layer1.webp']);
   assert.deepEqual(layers.bounds, LAYERS.bounds);
   assert.equal(layers.skipped, 0);
@@ -483,6 +485,61 @@ test('the view settles from the entrance onto the illustration\'s framing, which
   assert.ok(Math.abs(half.height - (800 + to.height) / 2) < 1e-9 && Math.abs(half.roll + 5) < 1e-9);
 });
 
+/* --- particle runs -------------------------------------------------------------------- */
+
+test('a layers.json\'s particle runs stand where the export put them, beside a particle file this reader reads', () => {
+  const POINTER = { file: 'layerParticles.json', bytes: 100, sha256: '0'.repeat(64), version: 1 };
+  const draw = [LAYERS.draw[0], { particles: [0, 1] }, LAYERS.draw[1], { particles: [3] }, ...LAYERS.draw.slice(2)];
+  const read = parseDynamicLayers({ ...LAYERS, particles: POINTER, draw });
+  assert.deepEqual(read.particles, { file: 'layerParticles.json' });
+  assert.equal(read.skipped, 0);
+  assert.deepEqual(read.draw.map((e) => (e.kind === 'part' ? e.index : e.kind === 'layer' ? e.layer.name : e.systems)), ['bg_02', [0, 1], 0, [3], 'glow', 1, 'spark', 'ribbon']);
+  // No pointer, or one this reader does not read (a path, another version): no particles, each run skipped as unknown
+  // (as the deployed readers skip them), the rest drawn as before.
+  for (const particles of [undefined, null, { ...POINTER, file: '../layerParticles.json' }, { ...POINTER, file: 'https://example.com/layerParticles.json' },
+    { ...POINTER, version: 2 }]) {
+    const other = parseDynamicLayers({ ...LAYERS, particles, draw });
+    assert.equal(other.particles, null, JSON.stringify(particles));
+    assert.equal(other.skipped, 2);
+    assert.deepEqual(other.draw.map((e) => e.kind), ['layer', 'part', 'layer', 'part', 'layer', 'layer']);
+  }
+  // A run that is not one (empty, not whole numbers, out of order, a system an earlier run named, past the cap) is skipped alone.
+  for (const run of [[], [1.5], [2, 1], [1, 1], [-1], [LIMITS.particleSystems], 'x']) {
+    const odd = parseDynamicLayers({ ...LAYERS, particles: POINTER, draw: [{ particles: [0, 1] }, { particles: run }, { particles: [5] }, ...LAYERS.draw] });
+    assert.equal(odd.skipped, 1, JSON.stringify(run));
+    assert.deepEqual(odd.draw.filter((e) => e.kind === 'particles').map((e) => e.kind === 'particles' && e.systems), [[0, 1], [5]]);
+  }
+  const later = parseDynamicLayers({ ...LAYERS, particles: POINTER, draw: [{ particles: [4] }, { particles: [2, 3] }, ...LAYERS.draw] });
+  assert.equal(later.skipped, 1, 'runs list their systems in index order');
+  // The particle textures are capped on their own: a layers.json at the layers' cap still has its particles.
+  const full = Array.from({ length: LIMITS.textures }, (_, i) => ({ ...LAYERS.textures[1], file: `layer${i}.webp` }));
+  assert.deepEqual(parseDynamicLayers({ ...LAYERS, textures: full, particles: POINTER, draw }).particles, { file: 'layerParticles.json' });
+});
+
+test('compat: today\'s file is drawn as the deployed reader draws it, and a file with particles draws the same layers in the same order, its runs between', () => {
+  type Drawn = { draw: (number | string)[]; skipped: number; textures: string[]; bounds: unknown };
+  const fixture = readGolden<{ today: { file: Record<string, unknown>; deployed: Drawn }; particles: { file: { draw: Record<string, unknown>[] }; deployed: Drawn } }>(
+    'scripts/tests/fixtures/particles/compat.json.gz');
+  const summary = (value: unknown): Drawn => {
+    const read = parseDynamicLayers(value);
+    return { draw: read.draw.flatMap((e): (number | string)[] => (e.kind === 'part' ? [e.index] : e.kind === 'layer' ? [e.layer.name] : [])), skipped: read.skipped,
+      textures: read.textures.map((t) => t.file), bounds: read.bounds };
+  };
+  assert.deepEqual(summary(fixture.today.file), fixture.today.deployed);
+  assert.equal(parseDynamicLayers(fixture.today.file).particles, null);
+  const read = parseDynamicLayers(fixture.particles.file);
+  assert.equal(read.skipped, 0, 'the new reader skips nothing');
+  assert.deepEqual(read.particles, { file: 'layerParticles.json' });
+  const runs = read.draw.filter((e) => e.kind === 'particles');
+  assert.equal(runs.length, fixture.particles.deployed.skipped, 'each run is what the deployed reader skips');
+  assert.ok(runs.length >= 20, `${runs.length} runs (Hoshiguma has 22)`);
+  assert.deepEqual({ ...summary(fixture.particles.file), skipped: fixture.particles.deployed.skipped }, fixture.particles.deployed);
+  // Every run where the file has it.
+  fixture.particles.file.draw.forEach((entry, i) => {
+    if (Object.hasOwn(entry, 'particles')) assert.deepEqual(read.draw[i], { kind: 'particles', systems: entry.particles }, `entry ${i}`);
+  });
+});
+
 /* --- nothing loads with the page ------------------------------------------------------- */
 
 const RUNTIME = 'lib/vendor/spine-3.8/spine-webgl.js';
@@ -490,7 +547,9 @@ const ARTWORK = 'components/skins/DynamicArtwork.tsx';
 const LAYER_RENDERER = 'components/skins/dynamicLayerRenderer.ts';
 const PARTICLE_DATA = 'lib/skins/particleData.ts';
 const PARTICLE_SIM = 'lib/skins/particleSim.ts';
-const LAYER_FILES = ['lib/skins/dynamicLayers.ts', LAYER_RENDERER, PARTICLE_DATA, PARTICLE_SIM];
+const PARTICLE_GEOMETRY = 'lib/skins/particleGeometry.ts';
+const PARTICLE_RENDERER = 'components/skins/particleRenderer.ts';
+const LAYER_FILES = ['lib/skins/dynamicLayers.ts', LAYER_RENDERER, PARTICLE_DATA, PARTICLE_SIM, PARTICLE_GEOMETRY, PARTICLE_RENDERER];
 
 test('no page loads the Spine runtime or the animated artwork with itself: only when the reader asks', () => {
   // Not vacuous: both pages that offer animated art do reach both, lazily.
@@ -521,10 +580,14 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   const naming = ['pages', 'components', 'lib'].flatMap(walk)
     .filter((file) => /vendor\/spine-3\.8/.test(fs.readFileSync(file, 'utf8').replace(/^import type [^\n]*$/gm, '')));
   assert.deepEqual(naming.sort(), [ARTWORK, 'lib/credits/spineLicense.ts']);
-  // The layers and the particle systems come in with the artwork, never on their own (the particle reader
-  // borrows the layers' shader reader; nothing imports the simulator until the renderer does).
-  for (const [file, allowed] of [[LAYER_FILES[0], [ARTWORK, LAYER_RENDERER, PARTICLE_DATA]], [LAYER_RENDERER, [ARTWORK]], [PARTICLE_DATA, [PARTICLE_SIM]],
-    [PARTICLE_SIM, []]] as const) {
+  // The layers and the particle systems come in with the artwork, never on their own: the particle reader borrows
+  // the layers' shader reader, the particle renderer the layers' programs and textures, and only the artwork and
+  // the particle modules themselves import the simulator, the geometry and the renderer (type imports included).
+  for (const [file, allowed] of [
+    [LAYER_FILES[0], [ARTWORK, LAYER_RENDERER, PARTICLE_DATA, PARTICLE_GEOMETRY, PARTICLE_RENDERER]], [LAYER_RENDERER, [ARTWORK, PARTICLE_RENDERER]],
+    [PARTICLE_DATA, [ARTWORK, PARTICLE_SIM, PARTICLE_GEOMETRY, PARTICLE_RENDERER]], [PARTICLE_SIM, [ARTWORK, PARTICLE_GEOMETRY, PARTICLE_RENDERER]],
+    [PARTICLE_GEOMETRY, [ARTWORK, PARTICLE_RENDERER]], [PARTICLE_RENDERER, [ARTWORK]],
+  ] as const) {
     const importers = ['pages', 'components', 'lib'].flatMap(walk).filter((other) => other !== file
       && new RegExp(`from '[^']*/${path.basename(file).replace(/\.tsx?$/, '')}'`).test(fs.readFileSync(other, 'utf8')));
     assert.deepEqual(importers.sort(), [...allowed].sort(), `${file} is imported only with the artwork`);

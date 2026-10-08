@@ -1141,8 +1141,10 @@ const RECOVER_BELOW = 0.018;
 export interface ParticleClock { playing: string | null; animationTime: number; time: number }
 
 /** Where a bone follower puts its systems this frame: a 3x4 (row-major, Unity units in the root), a rotation
- *  quaternion and a size scale, composed before each system's own emitter (`follow` systems only). */
-export interface Placement { matrix: ArrayLike<number>; rotation: ArrayLike<number>; scale: ArrayLike<number> }
+ *  quaternion and a size scale, composed before each system's own emitter (`follow` systems only). `origin`: a
+ *  3x4 the emitter's origin goes through instead of `matrix` (a Local-scaling system: its linear part turns by
+ *  the follower's rotation alone, its origin by the follower's whole placement), or null: `matrix` places both. */
+export interface Placement { matrix: ArrayLike<number>; rotation: ArrayLike<number>; scale: ArrayLike<number>; origin: ArrayLike<number> | null }
 
 /** One system as the director runs it, and what the renderer reads of it. */
 export interface SystemRun {
@@ -1287,6 +1289,11 @@ export class ParticleDirector {
     }
     if (placement) {
       compose(placement, matrix, this.composed);
+      if (placement.length >= 31) {
+        // The origin through the follower's whole placement (Placement.origin).
+        const o = placement;
+        for (let r = 0; r < 3; r++) this.composed[r * 4 + 3] = o[19 + r * 4] * matrix[3] + o[20 + r * 4] * matrix[7] + o[21 + r * 4] * matrix[11] + o[22 + r * 4];
+      }
       const q = quatMul(placement.subarray(12, 16), rotation);
       poseFrom(this.composed, q, this.pose);
       run.scale[0] = placement[16] * scale[0]; run.scale[1] = placement[17] * scale[1]; run.scale[2] = placement[18] * scale[2];
@@ -1352,7 +1359,7 @@ export class ParticleDirector {
         let placement: Float64Array | null = null;
         if (data.follow && placements) {
           const p = placements(data);
-          if (p) placement = Float64Array.from([...Array.from(p.matrix), ...Array.from(p.rotation), ...Array.from(p.scale)]);
+          if (p) placement = Float64Array.from([...Array.from(p.matrix), ...Array.from(p.rotation), ...Array.from(p.scale), ...(p.origin ? Array.from(p.origin) : [])]);
         }
         const { key, tau, line } = this.governing(data, clock);
         if (key === null) {
@@ -1466,8 +1473,9 @@ function quatMul(a: ArrayLike<number>, b: ArrayLike<number>): number[] {
   ];
 }
 
-/** Two follower placements (matrix 12, quaternion 4, scale 3) mixed by k: linear, the quaternion renormalized. */
+/** Two follower placements (matrix 12, quaternion 4, scale 3 [, origin 12]) mixed by k: linear, the quaternion renormalized. */
 function lerpPlacement(a: Float64Array, b: Float64Array, k: number): Float64Array {
+  if (a.length !== b.length) return b;
   const f = Math.min(Math.max(k, 0), 1);
   const out = new Float64Array(a.length);
   for (let i = 0; i < a.length; i++) out[i] = a[i] + (b[i] - a[i]) * f;
