@@ -139,6 +139,7 @@ stage item-icons --needs stage-dataset,upstream-cn-art -- node scripts/imports/i
 # our own operator records for the alter names -- but it belongs to the same refresh:
 # a new operator has to reach the map's deploy bar too.
 stage operator-deploy -- node scripts/build/build-operator-deploy.mjs
+stage operator-summons -- node scripts/build/build-operator-summons.mjs
 # Amiya class forms: the Guard and Medic operator records.
 stage amiya-forms -- node scripts/build/build-amiya-forms.mjs
 # Skills that change an operator attack range.

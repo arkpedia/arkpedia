@@ -7,7 +7,7 @@ import { RewardAmount } from "@/components/pulls/RewardAmount";
 import DataLink from '@/components/account/DataLink';
 import ImportDialog from '@/components/account/ImportDialog';
 import { PastRewards } from '@/components/pulls/PastRewards';
-import { certificatePulls, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
+import { certificatePulls, certificateSpending, greenCertificateIncome, selectedIncome, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
@@ -136,6 +136,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const handledLink = useRef('');
   const [orundum, setOrundum] = useState('');
   const [yellowCerts, setYellowCerts] = useState('');
+  const [certSpending, setCertSpending] = useState<Record<string, number>>({});
   const [incomeSettings, setIncomeSettings] = useState<IncomeSettings>(DEFAULT_INCOME_SETTINGS);
   const [originite, setOriginite] = useState('');
   const [permits, setPermits] = useState('');
@@ -162,7 +163,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   /* `skins`: take the plan's outfits into the shared skin plan -- for an imported file, not for
      the copy this page saved, which the shared plan already holds and may have moved past. */
   const applyPlan = useCallback((plan: SavedPullPlan, skins: boolean) => {
-    setYellowCerts(plan.yellowCerts ?? ''); setIncomeSettings(plan.incomeSettings ?? DEFAULT_INCOME_SETTINGS);
+    setYellowCerts(plan.yellowCerts ?? ''); setCertSpending(plan.certificateSpending ?? {}); setIncomeSettings(plan.incomeSettings ?? DEFAULT_INCOME_SETTINGS);
     setOrundum(plan.orundum); setOriginite(plan.originite); setPermits(plan.permits); setReservedOP(plan.reservedOP);
     setUntil(plan.until); setBannerName(plan.bannerName);
     setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setIncludeSkins(plan.includeSkins ?? true); setClearedReruns(new Set(plan.clearedReruns));
@@ -185,12 +186,12 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
     setHydrated(true);
   }, [applyPlan]);
 
-  const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings,
+  const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certificateSpending: certSpending, incomeSettings,
     monthlyCard, includeBacklog, includeSkins, annihilationDone: past.annihilationDone, doneEvents: past.progress.doneEvents, doneKeys: past.progress.doneKeys, clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
     /* The ticks live in their own store now (lib/pulls/pastProgress.ts); the plan mirrors them
        for an older build reading this browser's storage. */
     ...(walletFrom ? { walletFrom } : {}), ...(past.progress.ticksFrom ? { ticksFrom: past.progress.ticksFrom } : {}),
-  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, incomeSettings, monthlyCard, includeBacklog, includeSkins, past.progress, past.annihilationDone, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certSpending, incomeSettings, monthlyCard, includeBacklog, includeSkins, past.progress, past.annihilationDone, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
 
   /* An account import fills the resources (and the Monthly Card, ticked while it runs), once
      per import: after that they are the reader's to edit, until the next import. Run after
@@ -268,7 +269,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
    */
   const totalAt = useCallback((when: Date) => {
     const inc = selectedIncome(now ? incomeBetween(now, when) : incomeBetween(new Date(0), new Date(0)), incomeSettings);
-    const certs = now ? certificatePulls(now, when, readNumber(yellowCerts), incomeSettings.certificates) : 0;
+    const certs = now ? certificatePulls(now, when, readNumber(yellowCerts), incomeSettings.certificates, certSpending) : 0;
     const green = greenCertificateIncome(now ?? when, when, !!incomeSettings.greenCertificates);
     const mc = monthlyCardIncome(inc);
     const haul = bannerHaul(rewardEvents, when, rerunOptions);
@@ -307,7 +308,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       arriving: withExtras.orundum,
     };
   }, [now, rewardEvents, picked, rerunOptions, monthlyCard, inHand.orundum, inHand.originitePrime,
-    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts]);
+    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending]);
 
   const at = useMemo(() => (target ? totalAt(target) : null), [target, totalAt]);
   const total = at ? at.pulls : pullsFrom({ ...held, originitePrime: Math.max(0, held.originitePrime - reserve) }, incomeBetween(new Date(0), new Date(0)));
@@ -350,7 +351,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
   const monthlyBase = selectedIncome(incomeBetween(now ?? monthlyEnd, monthlyEnd), incomeSettings);
   const monthlyBonus = monthlyCardIncome(monthlyBase);
   const monthlyGreen = greenCertificateIncome(now ?? monthlyEnd, monthlyEnd, !!incomeSettings.greenCertificates);
-  const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates);
+  const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + monthlyBonus.originitePrime * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates, certSpending);
   return <>
     <Head><title>Pull Planner — Arkpedia</title></Head>
     {/* The site's page header, outside <main> like every page's: it was a 34px
@@ -404,6 +405,12 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
       </section>
       <section className={`op-section ${workspace.forecast}`} aria-label="Pull calculation">
         <div className={workspace.calculationHeading}><h2>Pull calculation</h2><div className={workspace.forecastDate}><label htmlFor="pull-calculation-date">Until</label><input id="pull-calculation-date" type="date" value={until} onChange={e => {if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName('');}} /></div></div>
+        {incomeSettings.certificates && now && target && <details className="pulls-disclosure" open>
+          <summary>Yellow cert shop · monthly spending</summary>
+          <p className="hint">Enter a budget for each month. Complete tiers cost 10 / 28 / 68 / 138 / 258 certs for 1 / 3 / 8 / 18 / 38 pulls. Include only purchases you have not already claimed.</p>
+          <div className="pulls-cert-months">{certificateSpending(now, target, readNumber(yellowCerts), certSpending).rows.map(row => <label key={row.month}>{row.month}<input type="number" min="0" max="258" step="1" aria-label={`Yellow cert spending ${row.month}`} value={certSpending[row.month] ?? 0} onChange={e => setCertSpending(value => ({ ...value, [row.month]: Math.max(0, Math.min(258, Math.floor(Number(e.target.value) || 0))) }))} /><span>{row.spent} certs → {row.pulls} pulls{row.short ? ` · ${row.short} certs short` : ''}</span></label>)}</div>
+        </details>}
+
         <dl>
           <div><dt>Available now</dt><dd>{today.pulls}</dd></div>
           <div><dt>Income</dt><dd><span aria-hidden="true">+</span>{recurringGained}</dd></div>
@@ -459,7 +466,7 @@ export default function PullsPage({ scheduledEvents, scheduledBanners, skinCatal
               <ReportRow what="Annihilation" how={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM} Orundum`} pulls={income.annihilation / ORUNDUM_PER_PULL} off={!incomeSettings.annihilation} />
               <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + card.originitePrime * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
               <ReportRow what="Green cert shop" how={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} pulls={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} off={!incomeSettings.greenCertificates} />
-              <ReportRow what="Yellow cert shop" how="full monthly sets from your certs" pulls={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates) : 0} off={!incomeSettings.certificates} />
+              <ReportRow what="Yellow cert shop" how="planned monthly shop purchases" pulls={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates, certSpending) : 0} off={!incomeSettings.certificates} />
               <tr className="pulls-report-sum"><th scope="row">Income</th><td>in whole pulls, with what you hold</td><td>{recurringGained}</td></tr>
             </tbody>
             <tbody>

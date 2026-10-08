@@ -43,6 +43,7 @@
 
 /* --- artwork ---------------------------------------------------------------------- */
 .gallery {
+  position: relative;
   display: flex;
   flex-direction: column;
   grid-column: 1;

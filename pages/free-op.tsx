@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { remainingBacklog } from '@/lib/pulls/pulls';
 import type { GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -24,7 +26,11 @@ interface Props {
 
 export default function FreeOpPage({ backlogSources }: Props) {
   const past = usePastRewards(backlogSources);
-  const { originitePrime, annihilationOrundum } = past.remaining;
+  const [presentation, setPresentation] = useState(false);
+  const [demoKeys, setDemoKeys] = useState(new Set<string>());
+  const [demoEvents, setDemoEvents] = useState(new Set<string>());
+  const [demoAnnihilation, setDemoAnnihilation] = useState(false);
+  const { originitePrime, annihilationOrundum } = presentation ? remainingBacklog(backlogSources, demoEvents, demoKeys, demoAnnihilation) : past.remaining;
   const pulls = (originitePrime * ORUNDUM_PER_ORIGINITE + annihilationOrundum) / ORUNDUM_PER_PULL;
   return (
     <>
@@ -33,6 +39,8 @@ export default function FreeOpPage({ backlogSources }: Props) {
         sub={<>The Originite Prime and Orundum the game still owes you for first clears. The <Link prefetch={false} href="/pulls">Pull Planner</Link> counts the same list into your forecast.</>}
         actions={<DataLink />} />
       <main>
+        <button type="button" className="filter-chip" aria-pressed={presentation} onClick={() => { setPresentation(value => !value); setDemoKeys(new Set()); setDemoEvents(new Set()); setDemoAnnihilation(false); }}>Fully uncompleted view</button>
+        {presentation && <p className="hint">Presentation view. Your saved completion stays unchanged.</p>}
         <section className="op-section" aria-labelledby="free-op-left">
           <h2 id="free-op-left">Still to claim</h2>
           <dl className="free-op-summary">
@@ -41,8 +49,8 @@ export default function FreeOpPage({ backlogSources }: Props) {
             <div><dt>Worth, in pulls</dt><dd>{formatOneDecimal(pulls)}</dd></div>
           </dl>
         </section>
-        <PastRewards backlog={past.counting} doneKeys={past.doneKeys} doneEvents={past.doneEvents} annihilationDone={past.annihilationDone}
-          onKeys={past.onKeys} onEvents={past.onEvents} onAnnihilation={past.onAnnihilation} imported={past.imported} cleared={past.cleared} layout="page" />
+        <PastRewards backlog={presentation ? backlogSources : past.counting} doneKeys={presentation ? demoKeys : past.doneKeys} doneEvents={presentation ? demoEvents : past.doneEvents} annihilationDone={presentation ? demoAnnihilation : past.annihilationDone}
+          onKeys={presentation ? setDemoKeys : past.onKeys} onEvents={presentation ? setDemoEvents : past.onEvents} onAnnihilation={presentation ? setDemoAnnihilation : past.onAnnihilation} imported={presentation ? null : past.imported} cleared={presentation ? null : past.cleared} layout="page" />
       </main>
     </>
   );

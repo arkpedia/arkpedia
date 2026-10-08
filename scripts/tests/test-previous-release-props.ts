@@ -322,6 +322,16 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/artists': props => {
+    const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
+    assert.ok(people.length > 50 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
+    assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
+  },
+  '/voice-actors': props => {
+    const people = props.people as {name:string;operators:{name:string;credits:string[]}[]}[];
+    assert.ok(people.length > 100 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
+    assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
+  },
   '/community': (props, { from, to }) => {
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');

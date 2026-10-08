@@ -130,7 +130,7 @@ function FarmableInline({ materials }: { materials: FarmingMaterial[] }) {
     return (
       <div className="front-events-farmable">
         <h3>Currently Farmable</h3>
-        <p className="hint">No event-boosted materials right now.</p>
+        <p className="hint">No event-boosted materials right now, play any stage you would like.</p>
       </div>
     );
   }

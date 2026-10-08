@@ -1,0 +1,4 @@
+export type WorldCategory = 'offline' | 'web' | 'youtube' | 'twitch' | 'discord' | 'cosplay' | 'art' | 'music';
+export interface WorldCreator { name: string; category: 'cosplay' | 'art' | 'music'; url: string; works: { title: string; character: string; image: string; source: string }[] }
+export interface WorldDirectory { creators: WorldCreator[]; webEvents: { name: string; start: string; end: string; url: string }[]; discord: { name: string; url: string }[] }
+export const WORLD_CATEGORIES: { value: WorldCategory; label: string }[] = [{ value: 'offline', label: 'Offline Events' }, { value: 'web', label: 'Web Events' }, { value: 'youtube', label: 'YouTube' }, { value: 'twitch', label: 'Twitch' }, { value: 'discord', label: 'Discord' }, { value: 'cosplay', label: 'Cosplayers' }, { value: 'art', label: 'Fan-artists' }, { value: 'music', label: 'Fan Musicians' }];

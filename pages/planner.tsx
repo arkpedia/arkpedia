@@ -238,7 +238,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   const readerClock = useReaderClock(now, { tickMs: 60_000 });
   /* depotCatalogue: every material the depot can hold, from the release's catalogue
      (data/material-catalogue.json), which only lists materials with a published icon. */
-  const { resolveNeeds, shortShares, planBuild, levels, inGameOrder, depotCatalogue } = usePlannerContent();
+  const { resolveNeeds, shortShares, planBuild, levels, inGameOrder, depotCatalogue, BATTLE_RECORDS } = usePlannerContent();
   const contentUrl = useContentUrl();
   const [plannerMode, setPlannerMode] = useState<'simple' | 'experimental'>('simple');
   /* The Anti-Page Jump hold for the mode tabs (useSwitchHold): Simple is shorter than
@@ -927,11 +927,12 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNames, detailCache, builderStates, roster]);
 
+  const [excludedGoals, setExcludedGoals] = useState<Set<string>>(new Set());
   const combinedBill = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const bill of Object.values(bills)) addCostGroup(totals, bill);
+    for (const [name, bill] of Object.entries(bills)) if (!excludedGoals.has(name)) addCostGroup(totals, bill);
     return totalsToCostGroup(totals);
-  }, [bills]);
+  }, [bills, excludedGoals]);
 
   /** EXP and LMD are counted, not held, so they come out of the material list. */
   const split = useMemo(() => {
@@ -955,7 +956,23 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
   /* Crafting costs LMD at the bench, and the plan's own LMD line is where that
      belongs -- it is the same money. */
   const lmdTotal = split.lmd + resolution.craftingLmd;
-  const shares = useMemo(() => shortShares(resolution), [resolution, shortShares]);
+  // Selecting a summary subset must not change an operator's coverage in the full plan.
+  const fullBill = useMemo(() => {
+    const totals = new Map<string, number>();
+    Object.values(bills).forEach(bill => addCostGroup(totals, bill));
+    return totalsToCostGroup(totals);
+  }, [bills]);
+  const fullResolution = useMemo(() => resolveNeeds(fullBill.filter(item => item.name !== 'EXP' && item.name !== 'LMD'), depot, { crafting, autoCraft }), [fullBill, depot, crafting, autoCraft, resolveNeeds]);
+  const shares = useMemo(() => shortShares(fullResolution), [fullResolution, shortShares]);
+  const simpleShares = useMemo(() => {
+    const result = new Map(shares);
+    for (const name of ['LMD', 'EXP']) {
+      const needed = Number(fullBill.find(item => item.name === name)?.quantity ?? 0);
+      const held = name === 'LMD' ? depot.LMD || 0 : BATTLE_RECORDS.reduce((sum, item) => sum + (depot[item.name] || 0) * item.exp, 0);
+      result.set(name, needed ? Math.max(0, needed - held) / needed : 0);
+    }
+    return result;
+  }, [shares, fullBill, depot, BATTLE_RECORDS]);
   const shortMaterialCount = resolution.rows.filter((r) => r.short > 0).length;
 
   /**
@@ -1093,6 +1110,29 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
     }} />;
 
 
+  const materialsPanel = <ShortfallList
+            resolution={resolution}
+            depot={depot}
+            crafting={crafting}
+            onCraftingToggle={toggleCrafting}
+            onDepotChange={setDepotCount}
+            showAll={showAllMaterials}
+            onShowAll={setShowAllMaterials}
+            exp={split.exp}
+            lmd={lmdTotal}
+            goalCount={planRows.planned.filter(row => !excludedGoals.has(row.name) && !row.pending).reduce((sum, row) => sum + row.goals, 0)}
+            /* The bill is assembled from one static file per operator, fetched
+               on demand -- so on a cold load there is a moment where the plan
+               has four operators and no cost yet. Saying "no goals set" then
+               would be the page reporting the network as an empty plan. */
+            loading={selectedNames.some((n) => !detailCache[n])}
+          />;
+  const goalFilter = selectedNames.length > 0 && <details className="pulls-disclosure">
+    <summary>View materials for selected goals</summary>
+    <div className="skin-plan-filter-row"><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set())}>All</button><button type="button" className="ghost btn-sm" onClick={() => setExcludedGoals(new Set(selectedNames))}>None</button>
+      {selectedNames.map(name => <label key={name} className="check"><input type="checkbox" checked={!excludedGoals.has(name)} onChange={e => setExcludedGoals(values => { const next = new Set(values); if (e.target.checked) next.delete(name); else next.add(name); return next; })} />{name}</label>)}
+    </div>
+  </details>;
   return (
     <>
       <Head><title>Operator Planner — Arkpedia</title></Head>
@@ -1116,6 +1156,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
       />
 
       <main>
+        {goalFilter}
         {/* Not a nicety. This browser's storage is the only copy there is, so
             clearing site data or moving machine loses the depot and the roster
             both -- which is why the way out lives in the page header rather
@@ -1123,7 +1164,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
 
         <div {...tabPanelProps('planner-mode', plannerMode)} ref={modeHold.ref} style={modeHold.style}>
         {plannerMode === 'simple' ? (
-          <SimplePlanner levelsLocked={levelsLocked} clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
+          <SimplePlanner missingShares={simpleShares} materialsPanel={materialsPanel} levelsLocked={levelsLocked} clearControl={clearControl('simple')} operators={operators} selectedNames={selectedNames} states={builderStates} details={detailCache} bills={bills} combinedBill={combinedBill} selected={summaryName} onSelect={setSummaryName}
             onEdit={(name, step) => { setSimpleNewOperator(!selectedNames.includes(name)); addOperator(name); setSummaryName(name); setSimpleStep(step ?? (selectedNames.includes(name) || levelsLocked ? 'goal' : 'current')); setWizard({ flow: 'goal', step: 'one', queue: [name], index: 0, fromPick: false }); }}
             onRemove={removeOperator} onRetry={fetchOperatorDetail} failedNames={failedNames} />
         ) : (<>
@@ -1152,23 +1193,7 @@ export default function PlannerPage({ operators: exportedOperators, now }: Props
             reader's own order is the other way round: you say who you are
             building, and then what that leaves you short of. Moved on request. */}
         <section className="plan-panel">
-          <ShortfallList
-            resolution={resolution}
-            depot={depot}
-            crafting={crafting}
-            onCraftingToggle={toggleCrafting}
-            onDepotChange={setDepotCount}
-            showAll={showAllMaterials}
-            onShowAll={setShowAllMaterials}
-            exp={split.exp}
-            lmd={lmdTotal}
-            goalCount={goalTotal}
-            /* The bill is assembled from one static file per operator, fetched
-               on demand -- so on a cold load there is a moment where the plan
-               has four operators and no cost yet. Saying "no goals set" then
-               would be the page reporting the network as an empty plan. */
-            loading={selectedNames.some((n) => !detailCache[n])}
-          />
+          {materialsPanel}
         </section>
 
         {/* Last, because it is the answer to the least urgent question. Closed,

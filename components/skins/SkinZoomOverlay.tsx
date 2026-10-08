@@ -1,6 +1,6 @@
 import { ContentImg } from '@/components/content/ContentImage';
 /* eslint-disable @next/next/no-img-element -- zoom deliberately loads the lossless public original. */
-import { useCallback, useEffect, useRef, useState, MouseEvent, TouchEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, MouseEvent, TouchEvent, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import StyledSelect from '@/components/ui/StyledSelect';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -19,6 +19,7 @@ interface Props {
    *  none. Required, so every page that opens this view says which (null where it carries no pointers). */
   dynamic: string | null;
   alternate?: string | null;
+  details?: ReactNode;
   onClose: () => void;
 }
 
@@ -41,7 +42,7 @@ function writeSound(on: boolean) {
   try { window.localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ }
 }
 
-export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, onClose }: Props) {
+export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, details, onClose }: Props) {
   const [variant, setVariant] = useState('original');
   const model = variant === 'alternate' && alternate ? alternate : original;
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -244,6 +245,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
         </div>
       )}
 
+      {details && <details className="skin-zoom-details"><summary>Outfit details</summary>{details}</details>}
       <div className="skin-zoom-controls">
         {alternate && view === 'animated' && <SegmentedControl label="Illustration version" value={variant}
           options={[{ value: 'original', label: 'Version 1' }, { value: 'alternate', label: 'Version 2' }]}

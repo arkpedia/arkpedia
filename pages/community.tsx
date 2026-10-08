@@ -1,3 +1,10 @@
+import { useEffect, useState } from 'react';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import Tabs from '@/components/ui/Tabs';
+import SearchInput from '@/components/ui/SearchInput';
+import StyledSelect from '@/components/ui/StyledSelect';
+import { ContentImg } from '@/components/content/ContentImage';
+import { WORLD_CATEGORIES, type WorldCategory, type WorldDirectory } from '@/lib/community/worldDirectory';
 import { GetStaticProps } from 'next';
 import { withContentPage } from '@/lib/content/server';
 import Head from 'next/head';
@@ -12,13 +19,12 @@ import { EVENTS } from '@/lib/schedule/eventsConfig';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
 import WorldMapEvents from '@/components/schedule/WorldMapEvents';
 import EventListPanel from '@/components/schedule/EventListPanel';
-import FadeCarousel from '@/components/ui/FadeCarousel';
 import PageHeader from '@/components/ui/PageHeader';
 import { VideoCard, TwitchCard } from '@/components/community/StreamCards';
 
-const CAROUSEL_MAX_ITEMS = 4;
 
 interface Props {
+  directory?: WorldDirectory;
   videos: YouTubeVideo[];
   twitchStreams: TwitchStream[];
   events: CommunityEvent[];
@@ -29,6 +35,7 @@ interface Props {
 }
 
 export default function CommunityHub({
+  directory = { creators: [], webEvents: [], discord: [] },
   videos,
   twitchStreams,
   events,
@@ -36,102 +43,36 @@ export default function CommunityHub({
   hasYouTubeApiKey,
   hasTwitchCreds,
 }: Props) {
-  const nothingAtAll = videos.length === 0 && twitchStreams.length === 0;
-  /* Events still worth travelling to, at the page's clock. When every configured event
-     has ended the page used to open on a 480px block of them plus a map labelled
-     "Ended"; it now says so in one line and points at the schedule. */
+  const [category, setCategory] = useState<WorldCategory>('offline');
+  const [country, setCountry] = useState(''), [query, setQuery] = useState(''), [limit, setLimit] = useState(12);
+  useEffect(() => { try { setCountry(localStorage.getItem('arkpedia.world.country') ?? ''); } catch { /* private mode */ } }, []);
+  const countries = [...new Set(events.map(event => event.country))].sort();
+  const localEvents = country ? events.filter(event => event.country === country) : events;
+  const needle = query.trim().toLocaleLowerCase();
+  const creators = directory.creators.filter(creator => creator.category === category && (!needle || `${creator.name} ${creator.works.map(work => work.character).join(' ')}`.toLocaleLowerCase().includes(needle)));
+  const shownVideos = [...videos].filter(video => !needle || `${video.title} ${video.channelLabel}`.toLocaleLowerCase().includes(needle)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  return <>
+    <Head><title>World — Arkpedia</title></Head>
+    <PageHeader eyebrow="Rhodes Island // Around the world" title="World" sub="Events, creators and communities." />
+    <main>
+      <Tabs label="World sections" id="world-sections" value={category} options={WORLD_CATEGORIES} onChange={value => { setCategory(value); setQuery(''); setLimit(12); }} />
+      {category === 'offline' ? <section className="op-section community-events" aria-label="Offline Events">
+        <div className="live-section-heading-row"><h2>Offline Events</h2><StyledSelect label="Event country" value={country} options={[{ value: '', label: 'All countries' }, ...countries.map(value => ({ value, label: value }))]} onChange={value => { setCountry(value); try { localStorage.setItem('arkpedia.world.country', value); } catch { /* private mode */ } }} /></div>
+        <div className="community-map-row"><div className="community-event-panel"><EventListPanel events={localEvents} now={now} /></div><div className="community-map-main"><WorldMapEvents events={localEvents} now={now} /></div></div>
+      </section> : category === 'web' ? <section className="op-section"><h2>Web Events</h2><div className="world-directory">{directory.webEvents.map(event => <a key={event.url} className="ghost" href={event.url} target="_blank" rel="noreferrer"><b>{event.name}</b><span>{event.start} – {event.end}</span></a>)}</div>{!directory.webEvents.length && <p className="hint">No web events listed right now.</p>}</section>
+      : category === 'discord' ? <section className="op-section"><h2>Discord</h2><div className="world-directory">{directory.discord.map(server => <a className="ghost" key={server.url} href={server.url} target="_blank" rel="noreferrer">{server.name} ↗</a>)}</div></section>
+      : category === 'youtube' ? <section className="op-section"><div className="live-section-heading-row"><h2>YouTube</h2><Link className="ghost btn-sm" href="/community/videos">All videos</Link></div>
+        <SearchInput label="Search videos or creators" placeholder="Video or creator" value={query} onChange={value => { setQuery(value); setLimit(12); }} />
+        <details className="pulls-disclosure"><summary>Content creators</summary><div className="world-directory">{YOUTUBE_CHANNELS.filter(channel => !needle || channel.label.toLocaleLowerCase().includes(needle)).map(channel => <a className="ghost" key={channel.id} href={`https://www.youtube.com/channel/${channel.id}`} target="_blank" rel="noreferrer">{channel.label} ↗</a>)}</div></details>
+        <div className="world-gallery">{shownVideos.slice(0, limit).map(v => <VideoCard key={v.videoId} v={v} />)}</div>{!shownVideos.length && <p className="hint">No matching videos available.</p>}<LoadOnScroll shown={Math.min(limit, shownVideos.length)} total={shownVideos.length} onMore={() => setLimit(value => value + 12)} />
+      </section> : category === 'twitch' ? <section className="op-section"><div className="live-section-heading-row"><h2>Twitch</h2><Link className="ghost btn-sm" href="/community/twitch">All streams</Link></div><div className="world-gallery">{twitchStreams.map(stream => <TwitchCard key={stream.userLogin} s={stream} />)}</div>{!twitchStreams.length && <p className="hint">No one’s live on Twitch right now.</p>}</section>
+      : <section className="op-section"><h2>{WORLD_CATEGORIES.find(value => value.value === category)?.label}</h2><SearchInput label="Search creators or characters" placeholder="Creator or character" value={query} onChange={setQuery} />
+        <div className="world-gallery">{creators.map(creator => <article key={creator.url}><h3><a href={creator.url} target="_blank" rel="noreferrer">{creator.name} ↗</a></h3>{creator.works.filter(work => !needle || `${creator.name} ${work.character}`.toLocaleLowerCase().includes(needle)).map(work => <a key={work.source} href={work.source} target="_blank" rel="noreferrer"><ContentImg src={work.image} alt={work.title} width={480} height={480} /><span>{work.character} · {work.title}</span></a>)}</article>)}</div>
+        {!creators.length && <p className="hint">No {needle ? 'matching ' : ''}creators listed yet.</p>}
+      </section>}
+    </main>
+  </>;
 
-  return (
-    <>
-      <Head><title>Community Hub — Arkpedia</title></Head>
-
-      <PageHeader eyebrow="Rhodes Island // Broadcast Feed" title="Community Hub" sub="Community events, live streams and videos." />
-
-      <main>
-        {nothingAtAll && (
-          <div className="waiting-box">
-            <h2>No videos found</h2>
-            <p className="hint">The community feed is temporarily unavailable.</p>
-          </div>
-        )}
-
-        {/* Map + events: the event list as a left panel, the map to its right;
-            on a phone the map comes first and the list below it. */}
-        <section className="op-section community-events" aria-labelledby="community-events-title">
-          <h2 id="community-events-title">Community events</h2>
-          {/* Always drawn, with every event (an ended one says Ended): the map is the
-              page's feature, not a reward for a busy month. It was hidden whenever no
-              event was upcoming (2026-09-25), which took the whole map away. */}
-          <div className="community-map-row">
-            <div className="community-event-panel">
-              <EventListPanel events={events} now={now} />
-            </div>
-            <div className="community-map-main">
-              <WorldMapEvents events={events} now={now} />
-            </div>
-          </div>
-        </section>
-
-        {/* Twitch + YouTube: each its own fade-carousel, up to 4 items
-            shown 2 at a time, rather than a click-to-scroll row. */}
-        <div className="community-feeds">
-          <section className="op-section">
-            <div className="live-section-heading-row">
-              <h2>Live on Twitch</h2>
-              <Link prefetch={false} href="/community/twitch" className="ghost btn-sm">
-                Show all
-              </Link>
-            </div>
-            {twitchStreams.length > 0 ? (
-              <FadeCarousel
-                items={twitchStreams.slice(0, CAROUSEL_MAX_ITEMS)}
-                perPage={2}
-                renderItem={(s) => <TwitchCard s={s} />}
-              />
-            ) : (
-              <p className="hint">No one&apos;s live on Twitch right now.</p>
-            )}
-          </section>
-
-          <section className="op-section">
-            <div className="live-section-heading-row">
-              <h2>YouTube videos</h2>
-              <Link prefetch={false} href="/community/videos" className="ghost btn-sm">
-                Show all
-              </Link>
-            </div>
-            {videos.length > 0 ? (
-              <FadeCarousel
-                items={videos.slice(0, CAROUSEL_MAX_ITEMS)}
-                perPage={2}
-                renderItem={(v) => <VideoCard v={v} />}
-              />
-            ) : (
-              <p className="hint">No videos found.</p>
-            )}
-          </section>
-        </div>
-
-        {/* Setup notes for whoever runs the site, never for readers: they named
-            environment variables and a source file on the public page. */}
-        {process.env.NODE_ENV === 'development' && (!hasYouTubeApiKey || !hasTwitchCreds) && !nothingAtAll && (
-          <div className="hint" style={{ marginTop: 16 }}>
-            {!hasYouTubeApiKey && (
-              <p>
-                Set <code>YOUTUBE_API_KEY</code> so livestreams can be correctly excluded from the Videos panel.
-              </p>
-            )}
-            {!hasTwitchCreds && (
-              <p>
-                Set <code>TWITCH_CLIENT_ID</code> and <code>TWITCH_CLIENT_SECRET</code>, and confirm the
-                category in <code>lib/twitchConfig.ts</code>, to show live Twitch streams.
-              </p>
-            )}
-          </div>
-        )}
-      </main>
-    </>
-  );
 }
 
 /* A page of the content release like /results: the site nav's art and the event list resolve
@@ -139,6 +80,7 @@ export default function CommunityHub({
    feeds are live, not game data, so they are fetched on every revalidation (finalize) and
    never exported into the release; the builder holds only what the release should carry. */
 async function withLiveFeeds(props: Props): Promise<Props> {
+  const directory = props.directory ?? (await import('@/data/world-directory.json')).default as WorldDirectory;
   const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const enriched = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
@@ -160,6 +102,7 @@ async function withLiveFeeds(props: Props): Promise<Props> {
 
   return {
     ...props,
+    directory,
     videos,
     twitchStreams,
     hasYouTubeApiKey: Boolean(youtubeApiKey),
@@ -173,5 +116,5 @@ async function withLiveFeeds(props: Props): Promise<Props> {
    stayed as the deploy built them until the next release. The builder reads only the
    compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
-  props: { events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
+  props: { directory: (await import('@/data/world-directory.json')).default as WorldDirectory, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
 }), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true });

@@ -17,6 +17,8 @@ export interface NavLink {
 
 export const LINKS: NavLink[] = [
   { href: '/operators', label: 'Operators', icon: 'roster' },
+  { href: '/artists', label: 'Artists', icon: 'roster' },
+  { href: '/voice-actors', label: 'Voice actors', icon: 'roster' },
   { href: '/skins', label: 'Skins', icon: 'skins' },
   /* Not in the bar any more: the Events list is a view of the Schedule page. Kept in
      LINKS because the event detail pages still live under /events/, and isActiveLink
@@ -40,7 +42,7 @@ export const LINKS: NavLink[] = [
   { href: '/planner', label: 'Operator Planner', icon: 'planner' },
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
-  { href: '/community', label: 'Community', icon: 'community' },
+  { href: '/community', label: 'World', icon: 'community' },
   { href: '/gacha', label: 'Gacha', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
   { href: '/results', label: 'Power Scale', icon: 'rate' },
@@ -79,11 +81,11 @@ const at = (href: string): NavLink => {
 };
 
 export const GROUPS: NavGroup[] = [
-  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages'), at('/story')] },
+  { id: 'database', label: 'Database', items: [at('/operators'), at('/skins'), at('/enemies'), at('/stages'), at('/story'), at('/artists'), at('/voice-actors')] },
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
   /* The reader's own: their account, and the planners that read it (issue #94). */
   { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
-  { id: 'community', label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog'), at('/credits')] },
+  { id: 'community', label: 'World', items: [at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog'), at('/credits')] },
 ];
 
 /* Not in a menu: one destination each, and a menu of one is a click in front of a

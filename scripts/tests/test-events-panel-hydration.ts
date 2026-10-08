@@ -40,5 +40,5 @@ test('the Events panel renders the same HTML on the server and in a browser on e
 
 test('the prop, not the host, decides what is farmable', () => {
   const after = render('UTC', '2026-09-30T10:59:30Z', at('2026-09-30T11:00:00Z'));
-  assert.ok(after.includes('No event-boosted materials right now.'), 'at the close the materials leave the panel');
+  assert.ok(after.includes('No event-boosted materials right now, play any stage you would like.'), 'at the close the materials leave the panel');
 });
