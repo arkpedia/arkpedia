@@ -497,22 +497,42 @@ function valueNoise(k: number, x: number, y: number, z: number): number {
   return out;
 }
 
-const field = (k: number, x: number, y: number, z: number) => valueNoise(k, x + 31.7 * k, y + 17.3 * k, z + 11.1 * k);
+// Evaluate the central-difference gradient directly from the cell's cubic interpolation. Inside
+// a cell, (smoothstep(f + e) - smoothstep(f - e)) / (2e) is 6f(1-f) - 2e².
+// Keep that tiny correction and sample across cell boundaries explicitly: the noise field and
+// trajectories still match the independent finite-difference oracle, including negative cells.
+const noiseGradient = new Float64Array(9);
+function fieldGradient(k: number, x: number, y: number, z: number): void {
+  x += 31.7 * k; y += 17.3 * k; z += 11.1 * k;
+  const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+  const fx = x - ix, fy = y - iy, fz = z - iz;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), sz = fz * fz * (3 - 2 * fz);
+  const key = k * 3, h = k * 8;
+  if (cellKey[key] !== ix || cellKey[key + 1] !== iy || cellKey[key + 2] !== iz) {
+    cellKey[key] = ix; cellKey[key + 1] = iy; cellKey[key + 2] = iz;
+    for (let c = 0; c < 8; c++) cellHash[h + c] = hash3(ix + (c >> 2), iy + ((c >> 1) & 1), iz + (c & 1));
+  }
+  const a = cellHash[h], b = cellHash[h + 1], c = cellHash[h + 2], d = cellHash[h + 3];
+  const f = cellHash[h + 4], g = cellHash[h + 5], j = cellHash[h + 6], l = cellHash[h + 7];
+  const e = 1e-3, correction = 2 * e * e;
+  if (k !== 0) noiseGradient[key] = (6 * fx * (1 - fx) - correction) * ((1 - sy) * ((1 - sz) * (f - a) + sz * (g - b)) + sy * ((1 - sz) * (j - c) + sz * (l - d)));
+  if (k !== 1) noiseGradient[key + 1] = (6 * fy * (1 - fy) - correction) * ((1 - sx) * ((1 - sz) * (c - a) + sz * (d - b)) + sx * ((1 - sz) * (j - f) + sz * (l - g)));
+  if (k !== 2) noiseGradient[key + 2] = (6 * fz * (1 - fz) - correction) * ((1 - sx) * ((1 - sy) * (b - a) + sy * (d - c)) + sx * ((1 - sy) * (g - f) + sy * (l - j)));
+  if (k !== 0 && (fx < e || fx > 1 - e)) noiseGradient[key] = (valueNoise(k, x + e, y, z) - valueNoise(k, x - e, y, z)) / (2 * e);
+  if (k !== 1 && (fy < e || fy > 1 - e)) noiseGradient[key + 1] = (valueNoise(k, x, y + e, z) - valueNoise(k, x, y - e, z)) / (2 * e);
+  if (k !== 2 && (fz < e || fz > 1 - e)) noiseGradient[key + 2] = (valueNoise(k, x, y, z + e) - valueNoise(k, x, y, z - e)) / (2 * e);
+}
 
-/** The curl of three offset value-noise fields by central differences, octaves summed (roughly unit amplitude). */
+/** The curl of three offset value-noise fields, octaves summed (roughly unit amplitude). */
 export function curlNoise(x: number, y: number, z: number, octaves: number, octaveMultiplier: number, octaveScale: number, out: Float64Array): void {
-  const e = 1e-3, e2 = 2 * e;
   let ox = 0, oy = 0, oz = 0, amp = 1, freq = 1;
   for (let o = 0; o < Math.max(1, octaves); o++) {
     const q0 = x * freq, q1 = y * freq, q2 = z * freq;
-    const dfzDy = (field(2, q0, q1 + e, q2) - field(2, q0, q1 - e, q2)) / e2;
-    const dfyDz = (field(1, q0, q1, q2 + e) - field(1, q0, q1, q2 - e)) / e2;
-    const dfxDz = (field(0, q0, q1, q2 + e) - field(0, q0, q1, q2 - e)) / e2;
-    const dfzDx = (field(2, q0 + e, q1, q2) - field(2, q0 - e, q1, q2)) / e2;
-    const dfyDx = (field(1, q0 + e, q1, q2) - field(1, q0 - e, q1, q2)) / e2;
-    const dfxDy = (field(0, q0, q1 + e, q2) - field(0, q0, q1 - e, q2)) / e2;
+    for (let field = 0; field < 3; field++) fieldGradient(field, q0, q1, q2);
     const k = amp * 0.25;
-    ox += (dfzDy - dfyDz) * k; oy += (dfxDz - dfzDx) * k; oz += (dfyDx - dfxDy) * k;
+    ox += (noiseGradient[7] - noiseGradient[5]) * k;
+    oy += (noiseGradient[2] - noiseGradient[6]) * k;
+    oz += (noiseGradient[3] - noiseGradient[1]) * k;
     amp *= octaveMultiplier;
     freq *= octaveScale;
   }
@@ -652,7 +672,10 @@ export class ParticleSim {
   private readonly phases = new Float64Array(3);
   private readonly shapeFrame: ShapeFrame | null;
   private readonly stream = new KeyedStream();
-  private readonly budget: BirthBudget | null;
+  private budget: BirthBudget | null;
+  private warmRemaining = 0;
+  private warmDelta = 0;
+  private warmGame = 0;
   /** Which parts of velocity over lifetime add anything (a part whose values are all constant 0 adds nothing). */
   private readonly plan: { linear: boolean; orbit: boolean };
   // Emission events of a step: absolute time, burst index, burst size (reused).
@@ -799,7 +822,7 @@ export class ParticleSim {
    *  the last prewarmWindow of its first loop (all of it with the 'full' option), in equal steps of at most
    *  prewarmStep, then its clock restarts. `seed`: this play's (playSeed), unless the system has a fixed one.
    *  Its sub-emitter children start with it (`childPoses`: theirs, in link order) and are prewarmed with it. */
-  play(seed: number, pose: Pose | null = null, childPoses: readonly (Pose | null)[] | null = null): void {
+  play(seed: number, pose: Pose | null = null, childPoses: readonly (Pose | null)[] | null = null, warmSteps = Infinity): void {
     if (this.isChild) throw new Error(`${this.data.name}: a sub-emitter plays only through its parent`);
     const poses = this.childPosesOf(childPoses);
     this.reset(seed);
@@ -810,16 +833,34 @@ export class ParticleSim {
       if (p) { sim.pose.set(p); sim.prevPose.set(p); }
     });
     const c = this.data.clock;
+    this.warmRemaining = 0;
     if (c.prewarm && c.loop) {
       const duration = Math.max(c.duration, 0);
       const window = this.options.prewarm === 'full' || c.prewarmWindow === null ? duration : Math.min(c.prewarmWindow, duration);
       this.time = duration - window;
       const n = Math.max(1, Math.ceil(window / this.options.prewarmStep - 1e-9));
       // Its children run at their own speed: a prewarm step of the parent's time is that over its speed in theirs.
-      const game = c.speed > 0 ? window / n / c.speed : 0;
-      for (let i = 0; i < n; i++) this.advance(window / n, game);
-      this.time = 0;
+      this.warmDelta = window / n;
+      this.warmGame = c.speed > 0 ? this.warmDelta / c.speed : 0;
+      this.warmRemaining = n;
+      this.warm(warmSteps);
     }
+  }
+
+  /** Continue a staged prewarm with exactly the same steps as play(), without drawing it. */
+  warm(steps: number): boolean {
+    const n = Math.min(this.warmRemaining, steps);
+    for (let i = 0; i < n; i++) this.advance(this.warmDelta, this.warmGame);
+    this.warmRemaining -= n;
+    if (this.warmRemaining === 0) this.time = 0;
+    return this.warmRemaining === 0;
+  }
+
+  /** Adopt a finished, uncapped prewarm when the director has room for all of its births. */
+  adoptBudget(budget: BirthBudget): void {
+    if (this.budget || this.warmRemaining) throw new Error('only a finished staged prewarm can be adopted');
+    this.budget = budget;
+    budget.live += this.count;
   }
 
   /** Ends emission; the particles alive live out their lives. */
@@ -1643,9 +1684,14 @@ export interface DirectorOptions {
   liveCap: number;
   /** Step at 1/30 s while frames are slow (never in tests). */
   degrade: boolean;
+  /** Spread predictable mid-clip prewarms over preceding frames. */
+  prewarmAhead: boolean;
   actionEnd: 'vanish' | 'finish';
   warn: (message: string) => void;
 }
+
+const PREWARM_LOOKAHEAD = 3;
+const PREWARM_STEPS_PER_FRAME = 2;
 
 const STATES = new Set(['Interact', 'Special', 'Start']);
 
@@ -1685,10 +1731,13 @@ export class ParticleDirector {
   /** The frame's span for followers (between()): the last frame's governing time and this one's. */
   private spanFrom = 0;
   private spanTo = 0;
+  private readonly document: ParticleDocument;
+  private readonly prewarmed = new Map<SystemRun, { sim: ParticleSim; key: string; at: number; step: number; lastTau: number; play: number; ready: boolean }>();
 
   constructor(doc: ParticleDocument, options: Partial<DirectorOptions> = {}) {
+    this.document = doc;
     this.options = {
-      modelSeed: MODEL_SEED, reduced: false, precision: 32, options: {}, liveCap: LIVE_CAP, degrade: true, actionEnd: ACTION_END,
+      modelSeed: MODEL_SEED, reduced: false, precision: 32, options: {}, liveCap: LIVE_CAP, degrade: true, prewarmAhead: true, actionEnd: ACTION_END,
       warn: (message) => console.warn(`[particles] ${message}`), ...options,
     };
     const cap = this.options.liveCap;
@@ -1810,11 +1859,12 @@ export class ParticleDirector {
     if (hasColumn(at, 'velocity.speedModifier') && a.speedModifier) a.speedModifier.scalar = frame[at['velocity.speedModifier']];
     if (hasColumn(at, 'size.multiplier') && a.size) a.size.scalar = frame[at['size.multiplier']];
     // The shape is read where particles are born; its radius is the system's own (no other system shares it).
-    if (hasColumn(at, 'shape.radius') && run.data.shape) run.data.shape.radius.value = frame[at['shape.radius']];
+    if (hasColumn(at, 'shape.radius') && run.sim.data.shape) run.sim.data.shape.radius.value = frame[at['shape.radius']];
     if (hasColumn(at, 'main.startColor')) for (let j = 0; j < 4; j++) a.startColor[j] = frame[at['main.startColor'] + j];
   }
 
   private fail(run: SystemRun, why: string): void {
+    this.prewarmed.delete(run);
     run.failed = true;
     run.on = false;
     run.sim.clear();
@@ -1875,6 +1925,8 @@ export class ParticleDirector {
   /** Clears and starts a play at governing time tau (its children with it). */
   private rise(run: SystemRun, line: EmitterLine | null, tau: number, placement: Float64Array | null, childLines: readonly (EmitterLine | null)[],
     childPlacements: readonly (Float64Array | null)[]): void {
+    const staged = this.prewarmed.get(run);
+    this.prewarmed.delete(run);
     run.sim.clear();
     run.plays++;
     this.emitterAt(run, line, tau, run.data.timeline ? this.sample : null, placement, this.pose, this.composed);
@@ -1883,9 +1935,56 @@ export class ParticleDirector {
     run.prevMatrix.set(this.composed);
     run.pose.set(this.pose);
     const childPoses = this.childrenAt(run, childLines, tau, tau, childPlacements, true);
-    run.sim.play(playSeed(this.options.modelSeed, run.data.index, run.plays), run.pose, childPoses);
+    if (staged?.ready && staged.play === run.plays && staged.key === run.key && Math.abs(staged.at - tau) < 1e-9 && staged.step === this.step
+      && this.budget.ratio >= 1 && staged.sim.emittedTotal <= this.options.liveCap - this.budget.live) {
+      run.sim = staged.sim;
+      run.sim.adoptBudget(this.budget);
+      this.budget.demand += run.sim.emittedTotal;
+    } else run.sim.play(playSeed(this.options.modelSeed, run.data.index, run.plays), run.pose, childPoses);
     run.on = true;
     run.finishing = false;
+  }
+
+  /** A known switch-on in a non-looping clip can prewarm while its GameObject is off.
+   * Followers and sub-emitter families need future poses, so they keep synchronous play().
+   * The staging simulation has no live budget and never draws. Adoption requires enough
+   * room for every birth it made; otherwise normal play applies the model's cap as before. */
+  private stagePrewarm(run: SystemRun, key: string, tau: number, line: EmitterLine | null): void {
+    const data = run.data, tl = data.timeline;
+    if (run.on || !this.options.prewarmAhead || this.options.reduced || data.follow || run.children.length || !data.clock.prewarm || !data.clock.loop || !tl || !line || line.loop) {
+      this.prewarmed.delete(run);
+      return;
+    }
+    let staged = this.prewarmed.get(run);
+    if (staged && (staged.key !== key || staged.step !== this.step || tau > staged.at || tau < staged.lastTau - 1e-9 || staged.play !== run.plays + 1)) {
+      this.prewarmed.delete(run);
+      staged = undefined;
+    }
+    if (!staged) {
+      // Find the next active row without scanning the clip from the beginning every frame.
+      const frames = line.frames, width = tl.width;
+      let lo = 0, hi = line.count;
+      while (lo < hi) { const mid = (lo + hi) >>> 1; if (frames[mid * width] <= tau + SWITCH_SLACK) lo = mid + 1; else hi = mid; }
+      let at = Infinity;
+      for (let i = lo; i < line.count; i++) {
+        const time = frames[i * width];
+        if (time > tau + PREWARM_LOOKAHEAD) break;
+        if (frames[i * width + ACTIVE_COLUMN] >= 0.5) { at = Math.ceil((time - SWITCH_SLACK) / this.step - 1e-9) * this.step; break; }
+      }
+      if (!Number.isFinite(at)) return;
+      // Parsed settings and timelines are immutable; only the driven shape radius needs
+      // its own copy. Sharing the rest avoids cloning large clips on the preparation frame.
+      const stagedData = { ...data, shape: data.shape ? { ...data.shape, radius: { ...data.shape.radius } } : null };
+      const sim = new ParticleSim(stagedData, this.document, this.options.options, this.options.precision);
+      const temporary = { ...run, sim, scale: Float64Array.from(run.scale) };
+      this.emitterAt(temporary, line, at, this.sample, null, this.pose, this.composed);
+      this.applyColumns(temporary, this.sample);
+      sim.play(playSeed(this.options.modelSeed, data.index, run.plays + 1), this.pose, null, 0);
+      staged = { sim, key, at, step: this.step, lastTau: tau, play: run.plays + 1, ready: false };
+      this.prewarmed.set(run, staged);
+    }
+    staged.lastTau = tau;
+    if (!staged.ready) staged.ready = staged.sim.warm(PREWARM_STEPS_PER_FRAME);
   }
 
   /** A parent's children mirror its clock; their timeline frames (tint) at the display time. */
@@ -1931,6 +2030,7 @@ export class ParticleDirector {
           }
           if (run.finishing) this.finish(run, delta);
           run.key = null;
+          this.prewarmed.delete(run);
           this.syncChildren(run, childLines, tau);
           continue;
         }
@@ -2001,6 +2101,7 @@ export class ParticleDirector {
         run.lastPlacement = placement;
         run.children.forEach((child, k) => { child.lastPlacement = childPlacements[k]; });
         if (run.row && line && data.timeline) sampleLine(line, data.timeline.width, Math.max(tau, 0), run.row);
+        this.stagePrewarm(run, key, tau, line);
         this.syncChildren(run, childLines, tau);
       } catch (error) {
         this.fail(run, error instanceof Error ? error.message : String(error));

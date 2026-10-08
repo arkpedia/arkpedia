@@ -8,7 +8,7 @@ import {
 } from '../../lib/skins/particleData';
 import {
   ACTION_END, LIVE_CAP, MODEL_SEED, ParticleDirector, ParticleSim, REDUCED_STILL, STEP, SWITCH_SLACK, identityPose, mix32, particleRandom, particleWord, playSeed, poseFrom,
-  poseInverseVector, posePoint, poseVector, shapeStart, type ParticleClock, type ParticleOptions, type Pose,
+  curlNoise, poseInverseVector, posePoint, poseVector, shapeStart, type ParticleClock, type ParticleOptions, type Pose,
 } from '../../lib/skins/particleSim';
 import { followPlacement } from '../../lib/skins/particleGeometry';
 import { readGolden } from '../particles/golden';
@@ -1134,4 +1134,100 @@ test('director: a bone follower\'s placement is stepped between frames; slow fra
   for (let n = 0; n < 300; n++) slow.frame(clockAt(3.2 + n * 0.01), 0.01);
   assert.equal(slow.step, STEP);
   assert.equal(MODEL_SEED, 0x5eed);
+});
+
+/* Independent scalar central differences: preserve the field at cell boundaries and across octaves. */
+test('curl noise: direct gradients preserve finite differences inside and across cells', () => {
+  function hash3(ix: number, iy: number, iz: number): number {
+    let h = (((Math.imul(ix, 374761393) + Math.imul(iy, 668265263)) | 0) + Math.imul(iz, 2147483647)) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+    return (((h ^ (h >>> 16)) & 0xffff) / 65535) * 2 - 1;
+  }
+
+  // The 8 corner hashes of the cell each field (k = 0, 1, 2) last sampled: a curl samples each field at four points
+  // 2e-3 apart, almost always in one cell, so its hashes are worked out once (the same values, the same sums).
+  const cellKey = new Float64Array(9).fill(NaN);
+  const cellHash = new Float64Array(24);
+
+  function valueNoise(k: number, x: number, y: number, z: number): number {
+    const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+    const fx = x - ix, fy = y - iy, fz = z - iz;
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), sz = fz * fz * (3 - 2 * fz);
+    const key = k * 3, h = k * 8;
+    if (cellKey[key] !== ix || cellKey[key + 1] !== iy || cellKey[key + 2] !== iz) {
+      cellKey[key] = ix; cellKey[key + 1] = iy; cellKey[key + 2] = iz;
+      for (let c = 0; c < 8; c++) cellHash[h + c] = hash3(ix + (c >> 2), iy + ((c >> 1) & 1), iz + (c & 1));
+    }
+    // The corners in the oracle's order (dx, then dy, then dz), each weight the same product, summed in turn.
+    const ox = 1 - sx, oy = 1 - sy, oz = 1 - sz;
+    let out = 0;
+    out += ox * oy * oz * cellHash[h];
+    out += ox * oy * sz * cellHash[h + 1];
+    out += ox * sy * oz * cellHash[h + 2];
+    out += ox * sy * sz * cellHash[h + 3];
+    out += sx * oy * oz * cellHash[h + 4];
+    out += sx * oy * sz * cellHash[h + 5];
+    out += sx * sy * oz * cellHash[h + 6];
+    out += sx * sy * sz * cellHash[h + 7];
+    return out;
+  }
+
+  const field = (k: number, x: number, y: number, z: number) => valueNoise(k, x + 31.7 * k, y + 17.3 * k, z + 11.1 * k);
+
+  /** The curl of three offset value-noise fields by central differences, octaves summed (roughly unit amplitude). */
+  function referenceCurlNoise(x: number, y: number, z: number, octaves: number, octaveMultiplier: number, octaveScale: number, out: Float64Array): void {
+    const e = 1e-3, e2 = 2 * e;
+    let ox = 0, oy = 0, oz = 0, amp = 1, freq = 1;
+    for (let o = 0; o < Math.max(1, octaves); o++) {
+      const q0 = x * freq, q1 = y * freq, q2 = z * freq;
+      const dfzDy = (field(2, q0, q1 + e, q2) - field(2, q0, q1 - e, q2)) / e2;
+      const dfyDz = (field(1, q0, q1, q2 + e) - field(1, q0, q1, q2 - e)) / e2;
+      const dfxDz = (field(0, q0, q1, q2 + e) - field(0, q0, q1, q2 - e)) / e2;
+      const dfzDx = (field(2, q0 + e, q1, q2) - field(2, q0 - e, q1, q2)) / e2;
+      const dfyDx = (field(1, q0 + e, q1, q2) - field(1, q0 - e, q1, q2)) / e2;
+      const dfxDy = (field(0, q0, q1 + e, q2) - field(0, q0, q1 - e, q2)) / e2;
+      const k = amp * 0.25;
+      ox += (dfzDy - dfyDz) * k; oy += (dfxDz - dfzDx) * k; oz += (dfyDx - dfxDy) * k;
+      amp *= octaveMultiplier;
+      freq *= octaveScale;
+    }
+    out[0] = ox; out[1] = oy; out[2] = oz;
+  }
+
+
+  const actual = new Float64Array(3), expected = new Float64Array(3);
+  const points: number[][] = [];
+  for (let i = 0; i < 256; i++) points.push([mix32(i + 1) / 1e8 - 20, mix32(i + 257) / 1e8 - 20, mix32(i + 513) / 1e8 - 20]);
+  for (let field = 0; field < 3; field++) for (const cell of [-2, -1, 0, 1]) for (const offset of [-0.0011, -0.001, -0.0005, 0, 0.0005, 0.001, 0.0011]) {
+    points.push([cell + offset - 31.7 * field, 0.37, 0.62]);
+    points.push([0.24, cell + offset - 17.3 * field, -0.43]);
+    points.push([-0.36, 0.58, cell + offset - 11.1 * field]);
+  }
+  for (const [x, y, z] of points) for (const octaves of [1, 4]) {
+    curlNoise(x, y, z, octaves, 0.5, 2, actual);
+    referenceCurlNoise(x, y, z, octaves, 0.5, 2, expected);
+    for (let axis = 0; axis < 3; axis++) assert.ok(Math.abs(actual[axis] - expected[axis]) < 1e-10, `${x},${y},${z}, octave ${octaves}, axis ${axis}: ${actual[axis]} vs ${expected[axis]}`);
+  }
+});
+
+
+test('director: staged prewarm preserves particles, budgets, replay and driven shape on every frame', () => {
+  const system = record({ active: false, clock: { loop: true, prewarm: true, prewarmWindow: 1.5, duration: 5 },
+    emission: { rate: 30 }, start: { lifetime: 1.5, speed: ['r', 0.2, 0.5] }, shape: { type: 'sphere' }, noise: { strength: 0.1 },
+    emitter: { timeline: timeline([[0, 0, 1], [2, 1, 2], [3, 0, 3], [5, 1, 4], [6, 0, 1]], ['shape.radius']) } });
+  for (const cap of [8192, 10]) for (const fps of [30, 60, 120]) {
+    const ahead = director([system], { liveCap: cap }), sync = director([system], { liveCap: cap, prewarmAhead: false });
+    let adopted = false;
+    const initial = ahead.runs[0].sim;
+    for (let replay = 0; replay < 2; replay++) for (let frame = 0; frame <= 6.5 * fps; frame++) {
+      const t = frame / fps;
+      ahead.frame(clockAt(t), 1 / fps); sync.frame(clockAt(t), 1 / fps);
+      assert.equal(ahead.live, sync.live, `live at ${fps}fps, cap ${cap}, t ${t}`);
+      assert.equal(ahead.runs[0].plays, sync.runs[0].plays);
+      assert.deepEqual(records(ahead.runs[0].sim), records(sync.runs[0].sim), `particles at ${fps}fps, cap ${cap}, t ${t}, replay ${replay}`);
+      adopted ||= ahead.runs[0].sim !== initial;
+    }
+    if (cap === 8192) assert.ok(adopted, 'a completed prewarm was adopted');
+    else assert.ok(!adopted, 'capped births use the synchronous path');
+  }
 });
