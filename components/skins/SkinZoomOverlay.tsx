@@ -18,6 +18,7 @@ interface Props {
   /** The artwork's animated version: its model.json (lib/skins/dynamicArt.ts), or null when it has
    *  none. Required, so every page that opens this view says which (null where it carries no pointers). */
   dynamic: string | null;
+  alternate?: string | null;
   voiceOperator?: string;
   onClose: () => void;
 }
@@ -41,7 +42,9 @@ function writeSound(on: boolean) {
   try { window.localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ }
 }
 
-export default function SkinZoomOverlay({ image, name, dynamic: model, voiceOperator, onClose }: Props) {
+export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, voiceOperator, onClose }: Props) {
+  const [variant, setVariant] = useState('original');
+  const model = variant === 'alternate' && alternate ? alternate : original;
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -207,7 +210,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: model, voiceOper
             draggable={false}
           />
           {animated && (
-            <DynamicArtwork key={model} model={model} label={name} transform={transform} scale={scale} request={request}
+            <DynamicArtwork key={model} model={model} poster={getSkinArtworkOriginal(image)} label={name} transform={transform} scale={scale} request={request}
               sound={sound} voiceOperator={voiceOperator} onStatus={onStatus} onPlaying={setPlaying} />
           )}
         </div>
@@ -243,6 +246,9 @@ export default function SkinZoomOverlay({ image, name, dynamic: model, voiceOper
       )}
 
       <div className="skin-zoom-controls">
+        {alternate && <div className="skin-zoom-versions" aria-hidden={view !== 'animated'} style={{ visibility: view === 'animated' ? 'visible' : 'hidden' }}><SegmentedControl label="Illustration version" value={variant}
+          options={[{ value: 'original', label: 'Version 1', disabled: view !== 'animated' }, { value: 'alternate', label: 'Version 2', disabled: view !== 'animated' }]}
+          onChange={next => { setVariant(next); setStatus(null); setPlaying(null); setRequest(null); }} /></div>}
         {model !== null && <SegmentedControl label="Artwork" options={VIEW_OPTIONS} value={view} onChange={pickView} />}
         <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
           Reset

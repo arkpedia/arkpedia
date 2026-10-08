@@ -1,5 +1,6 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { useContentUrl } from '@/lib/content/context';
+import { alphaBox, visibleWorldBox, posterView, type ArtworkBox } from '@/lib/skins/artworkFraming';
 import { selectableAnimations, voiceActionEnd, voiceAnimation, VoiceChoreography, type ArtworkVoice } from '@/lib/skins/dynamicPlayback';
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
 import {
@@ -68,6 +69,8 @@ export type DynamicArtworkStatus =
 interface Props {
   /** The model.json URL, from the page's pointer (data/dynamic-art.json). */
   model: string;
+  /** The still image used to keep the two views in the same frame. */
+  poster: string;
   /** The artwork's name, for the canvas's accessible name. */
   label: string;
   /** The still picture's zoom and pan as a CSS transform: the canvas takes the same one. */
@@ -119,6 +122,21 @@ async function loadSkeleton(part: SkeletonPart, file: (name: string) => string, 
     Promise.all(part.textures.map(async (texture) => [texture.file, await loadImage(file(texture.file), signal)] as const)),
   ]);
   return { skeleton, atlas, pages: new Map(pages) };
+}
+
+/** One small alpha mask; no full-resolution image pixels are retained. */
+async function loadPoster(url: string, signal: AbortSignal): Promise<ArtworkBox | null> {
+  try {
+    const image = await loadImage(url, signal);
+    const mask = document.createElement('canvas');
+    const density = Math.min(1, 1024 / Math.max(image.naturalWidth, image.naturalHeight));
+    mask.width = Math.max(1, Math.round(image.naturalWidth * density));
+    mask.height = Math.max(1, Math.round(image.naturalHeight * density));
+    const context = mask.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
+    context.drawImage(image, 0, 0, mask.width, mask.height);
+    return alphaBox(context.getImageData(0, 0, mask.width, mask.height).data, mask.width, mask.height);
+  } catch { return null; }
 }
 
 /** The soundtrack, ready to play from its start (a failure only means a silent entrance). */
@@ -186,18 +204,19 @@ async function loadLayers(file: string, url: (name: string) => string, signal: A
 
 /** The model's files, fetched side by side from the folder its model.json is in: the
  *  illustration, its mesh layers, and its entrance and soundtrack when it has one. */
-async function loadModel(url: string, signal: AbortSignal, operator: string | undefined, resolveUrl: (url: string) => string) {
+async function loadModel(url: string, signal: AbortSignal, operator: string | undefined, resolveUrl: (url: string) => string, poster: string) {
   const model = parseDynamicModel(await (await fetchOk(url, signal)).json());
   const file = (name: string) => new URL(name, url).href;
   const voices: ArtworkVoice[] = operator && model.playback?.voiceActions.length ? await fetchOk(`/api/artwork-voices?operator=${encodeURIComponent(operator)}&skinId=${encodeURIComponent(model.skinId.replace(/\^sp_dyn$/, ''))}`, signal)
     .then(r => r.json()).then((records: ArtworkVoice[]) => records.map(v => ({ ...v, url: resolveUrl(v.url) }))).catch(() => []) : [];
-  const [illustration, entrance, audio, layers] = await Promise.all([
+  const [illustration, entrance, audio, layers, posterBounds] = await Promise.all([
     loadSkeleton(model, file, signal),
     model.entrance ? loadSkeleton(model.entrance, file, signal) : null,
     model.entrance?.audio ? loadAudio(file(model.entrance.audio.file), signal) : null,
     model.layers ? loadLayers(model.layers.file, file, signal) : null,
+    loadPoster(resolveUrl(poster), signal),
   ]);
-  return { model, ...illustration, entrance, audio, layers, voices };
+  return { model, ...illustration, entrance, audio, layers, voices, posterBounds };
 }
 
 type SpineContext = InstanceType<SpineRuntime['webgl']['ManagedWebGLRenderingContext']>;
@@ -285,6 +304,8 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     }
     // The illustration is framed with its layers (their bounds include the skeleton's).
     const restBounds = layers?.bounds ?? model.bounds;
+    let visibleArtwork: ArtworkBox | null = null;
+    const restView = () => visibleArtwork && files.posterBounds ? posterView(visibleArtwork, files.posterBounds, aspect) : restingView(restBounds, aspect);
     // How many skeleton parts the ranges are worked out for (the parts are numbered from 0).
     const parts = layers ? layers.draw.reduce((most, entry) => (entry.kind === 'part' ? Math.max(most, entry.index + 1) : most), 0) : 0;
     // The particle systems: their simulation on the layers' clock and their renderer, once the file is in.
@@ -364,7 +385,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       complete: () => {
         if (!inEntrance || !then) return;
         inEntrance = false;
-        if (camera) handover = { from: lastView ?? restingView(restBounds, aspect), colour: handoverOut(camera, entranceLength), start: performance.now() };
+        if (camera) handover = { from: lastView ?? restView(), colour: handoverOut(camera, entranceLength), start: performance.now() };
         illustrationTime = 0;
         const next = then;
         then = null;
@@ -397,7 +418,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
 
     /** What the camera shows now, and the veil's layers (bottom to top, [r, g, b, alpha]). */
     const framing = (now: number): { view: View; layers: [number, number, number, number][] } => {
-      const rest = restingView(restBounds, aspect);
+      const rest = restView();
       if (inEntrance && camera) {
         const t = entrance?.state.getCurrent(0)?.trackTime ?? 0;
         const view = cameraAt(camera, t);
@@ -442,7 +463,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         animationEnd: current.animationEnd, timeScale: current.timeScale } : null, illustrationTime);
     };
 
-    const draw = (clock: LayerClock) => {
+    const draw = (clock: LayerClock, particles = true) => {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       if (inEntrance && entrance) {
@@ -474,7 +495,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         }
         if (open) { scene.end(); open = false; }
         if (entry.kind === 'layer') layerRenderer.draw(entry.layer, clock, projection);
-        else particleRenderer?.drawRun(entry.systems, projection);
+        else if (particles) particleRenderer?.drawRun(entry.systems, projection);
       }
       if (open) scene.end();
     };
@@ -552,9 +573,43 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     };
     const run = () => { if (!frameId) frameId = requestAnimationFrame(frame); };
 
-    // The canvas has the still picture's box; the illustration is framed by its bounds (setup pose
-    // and Idle at its first frame with the layers drawn then, from layers.json, else model.json)
-    // contained in it (restingView), the entrance by its camera at the canvas's aspect.
+    // Measure Idle once, with concurrent tracks and layers, then match the still image's visible
+    // box. Setup bounds can include hidden attachments far outside the actual picture. Exclude
+    // moving particles; later animations must not change the camera. Entrances keep their camera.
+    let calibrated = false;
+    const calibrate = () => {
+      calibrated = true;
+      if (!files.posterBounds) return;
+      const width = canvas.width, height = canvas.height, wasEntrance = inEntrance;
+      try {
+        const density = Math.min(1, 1024 / Math.max(width, height));
+        canvas.width = Math.max(1, Math.round(width * density));
+        canvas.height = Math.max(1, Math.round(height * density));
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        const reference = new spine.AnimationState(state.data);
+        reference.setAnimation(0, 'Idle', true);
+        for (const track of model.playback?.extraTracks ?? []) reference.setAnimation(track.track, track.name, true);
+        skeleton.setToSetupPose();
+        reference.apply(skeleton);
+        skeleton.updateWorldTransform();
+        inEntrance = false;
+        const view = restingView(restBounds, aspect);
+        show({ view, layers: [] });
+        draw({ playing: 'Idle', animationTime: 0, time: 0 }, false);
+        const pixels = new Uint8Array(canvas.width * canvas.height * 4);
+        gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        const box = alphaBox(pixels, canvas.width, canvas.height, true);
+        if (box) visibleArtwork = visibleWorldBox(view, aspect, box);
+      } catch { /* The normal model framing still works when a reference cannot be measured. */ }
+      finally {
+        inEntrance = wasEntrance;
+        skeleton.setToSetupPose();
+        state.apply(skeleton);
+        skeleton.updateWorldTransform();
+        canvas.width = width; canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    };
     let size = '';
     const resize = () => {
       const width = host.clientWidth, height = host.clientHeight;
@@ -569,6 +624,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       canvas.height = h;
       gl.viewport(0, 0, w, h);
       aspect = w / h;
+      if (!calibrated) calibrate();
       if (!frameId) frame(performance.now());
     };
 
@@ -658,7 +714,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   }
 }
 
-export default function DynamicArtwork({ model, label, transform, scale, request, sound, voiceOperator, onStatus, onPlaying }: Props) {
+export default function DynamicArtwork({ model, poster, label, transform, scale, request, sound, voiceOperator, onStatus, onPlaying }: Props) {
   const resolveVoiceUrl = useContentUrl();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
@@ -676,7 +732,7 @@ export default function DynamicArtwork({ model, label, transform, scale, request
     let player: Player | null = null;
     handlers.current.onStatus({ kind: 'loading' });
     (async () => {
-      const [{ spine }, files] = await Promise.all([import('@/lib/vendor/spine-3.8/spine-webgl'), loadModel(model, controller.signal, voiceOperator, resolveVoiceUrl)]);
+      const [{ spine }, files] = await Promise.all([import('@/lib/vendor/spine-3.8/spine-webgl'), loadModel(model, controller.signal, voiceOperator, resolveVoiceUrl, poster)]);
       if (controller.signal.aborted) return;
       // Everything else is ready: the particles get PARTICLE_GRACE_MS more, then come in (faded) when they are.
       const pending = files.layers?.particles ?? null;
@@ -709,7 +765,7 @@ export default function DynamicArtwork({ model, label, transform, scale, request
       player?.dispose();
       playerRef.current = null;
     };
-  }, [model, voiceOperator, resolveVoiceUrl]);
+  }, [model, poster, voiceOperator, resolveVoiceUrl]);
 
   useEffect(() => {
     if (request) playerRef.current?.press(request.name);
