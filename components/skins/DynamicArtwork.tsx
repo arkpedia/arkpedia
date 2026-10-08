@@ -354,7 +354,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     };
     state.addListener({
       start: (entry) => { if (entry.trackIndex === 0 && !speech) options.onPlaying(entry.animation.name); },
-      complete: (entry) => { if (reduced && !entry.loop && state.getCurrent(0) === entry) options.onPlaying(null); },
+      complete: (entry) => { if (reduced && !speech && !entry.loop && state.getCurrent(0) === entry) options.onPlaying(null); },
       interrupt: () => {}, end: () => {}, dispose: () => {}, event: () => {},
     });
     // The entrance over: the illustration takes over with what was queued after it (its Start,
