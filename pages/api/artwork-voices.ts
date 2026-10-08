@@ -12,8 +12,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     || typeof skinId !== 'string' || !/^char_[A-Za-z0-9_]+(?:@[A-Za-z0-9_]+)?#\d+$/.test(skinId)) return res.status(400).end();
   let data: OperatorVoiceData | null | undefined;
   try { data = (await readPublishedContentPageProps<{ voiceData?: OperatorVoiceData }>(contentRoute('/operators/[name]', { name: operator })))?.voiceData; }
-  catch { if (process.env.VERCEL === '1') return res.status(503).end(); }
-  if (!data && process.env.VERCEL !== '1') {
+  catch { if (process.env.NODE_ENV !== 'development') return res.status(503).end(); }
+  if (!data && process.env.NODE_ENV === 'development') {
     const { getOperatorByName } = await import('@/lib/operators/operators');
     const { getOperatorVoiceData } = await import('@/lib/operators/operatorVoices');
     data = getOperatorVoiceData(getOperatorByName(operator)?.internalName);
