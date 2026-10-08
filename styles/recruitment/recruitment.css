@@ -128,4 +128,4 @@
 .recruit-preferences { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
 .recruit-preferences label { display: flex; gap: 6px; align-items: center; }
 .recruit-preferences input { width: 90px; }
-.recruit-page .recruit-tag-picker .filter-chip, .recruit-page .recruit-combo-tags, .recruit-page .recruit-combo-op, .recruit-page .recruit-selection button, .recruit-page .recruit-sheet-pairing { font-size: var(--recruit-text-size, 14px); }
+.recruit-page .recruit-tag-picker > button, .recruit-page .recruit-combo-tags, .recruit-page .recruit-combo-op, .recruit-page .recruit-selection button, .recruit-page .recruit-sheet-pairing { font-size: var(--recruit-text-size, 14px); }

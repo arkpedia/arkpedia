@@ -88,7 +88,7 @@
   line-height: 1.5;
 }
 
-.planner-mat-icon { object-fit: contain; flex: none; }
+.planner-mat-icon { object-fit: contain; flex: none; border-radius: 4px; }
 .planner-need-stage {
   font-family: var(--font-mono);
   font-style: normal;
