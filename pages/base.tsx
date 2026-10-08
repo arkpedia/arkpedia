@@ -881,7 +881,7 @@ export default function BasePage({ operators }: Props) {
       if (savedModel) {
         const raw = JSON.parse(savedModel);
         const normalized = readSavedBasePresets([{ ...raw, version: 1, id: 'current', name: 'Current', productionSpots: defaultProductionSpots(), assignments: {} }], new Set(operators.map(op => op.name)))[0];
-        if (normalized) { setTrainingTarget(normalized.trainingTarget); setWorkshopSettings(normalized.workshopSettings); }
+        if (normalized) { setTrainingTarget(resolveTrainingTarget(normalized.trainingTarget, operators)); setWorkshopSettings(normalized.workshopSettings); }
       }
       const savedSettings = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (savedSettings) {
@@ -1045,7 +1045,7 @@ export default function BasePage({ operators }: Props) {
     persistSetup(preset.productionSpots, preset.facilityLevels, true);
     persist(preset.assignments);
     setFactoryProducts(preset.factoryProducts); setDormitoryAmbience(preset.dormitoryAmbience);
-    setLoginInterval(preset.loginInterval); setTrainingTarget(preset.trainingTarget); setWorkshopSettings(preset.workshopSettings);
+    setLoginInterval(preset.loginInterval); setTrainingTarget(resolveTrainingTarget(preset.trainingTarget, operators)); setWorkshopSettings(preset.workshopSettings);
     persistSettings(preset);
     try { window.localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(preset.factoryProducts)); window.localStorage.setItem(AMBIENCE_STORAGE_KEY, JSON.stringify(preset.dormitoryAmbience)); } catch { /* Session still restored. */ }
     setActiveFacility(null); setPresetStatus(`Loaded ${preset.name}.`);
@@ -4036,8 +4036,8 @@ export default function BasePage({ operators }: Props) {
                               <label>Class <StyledSelect label="Trainee class" disabled={!!resolvedTrainingTarget.operatorName} value={resolvedTrainingTarget.class} onChange={value => setTrainingTarget(t => ({ ...t, class: value, branch: '' }))} options={TRAINING_CLASSES.map(value => ({ value, label: value }))} /></label>
                               <label>Branch <StyledSelect label="Trainee branch" disabled={!!resolvedTrainingTarget.operatorName} value={resolvedTrainingTarget.branch} onChange={branch => setTrainingTarget(t => ({ ...t, branch }))} options={[{ value: '', label: 'Any branch' }, ...[...new Set(operators.filter(op => op.class === resolvedTrainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(value => ({ value, label: value }))]} /></label>
                               <label>Mastery <StyledSelect label="Target mastery" value={String(Math.min(trainingTarget.mastery, facility.level))} onChange={value => setTrainingTarget(t => ({ ...t, mastery: Number(value) }))} options={[1, 2, 3].filter(level => level <= facility.level).map(level => ({ value: String(level), label: `M${level}` }))} /></label>
-                              <label className="check"><input type="checkbox" checked={trainingTarget.timeReductionActive} onChange={e => setTrainingTarget(t => ({ ...t, timeReductionActive: e.target.checked }))} />Started with Irene / Logos time reduction</label>
-                              {slots.some(slot => slot?.operatorName === 'Zuo Le') && <label className="check"><input type="checkbox" checked={trainingTarget.instantTrainingReady} onChange={e => setTrainingTarget(t => ({ ...t, instantTrainingReady: e.target.checked }))} />Martial Arts ready</label>}
+                              <label className="check"><input type="checkbox" checked={resolvedTrainingTarget.timeReductionActive} onChange={e => setTrainingTarget(t => ({ ...t, timeReductionActive: e.target.checked }))} />Started with Irene / Logos time reduction</label>
+                              {slots.some(slot => slot?.operatorName === 'Zuo Le') && <label className="check"><input type="checkbox" checked={resolvedTrainingTarget.instantTrainingReady} onChange={e => setTrainingTarget(t => ({ ...t, instantTrainingReady: e.target.checked }))} />Martial Arts ready</label>}
                             </div>
                           )}
                           <div className="base-room-team">
