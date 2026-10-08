@@ -19,6 +19,7 @@ interface Props {
    *  none. Required, so every page that opens this view says which (null where it carries no pointers). */
   dynamic: string | null;
   alternate?: string | null;
+  voiceOperator?: string;
   onClose: () => void;
 }
 
@@ -41,7 +42,7 @@ function writeSound(on: boolean) {
   try { window.localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ }
 }
 
-export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, onClose }: Props) {
+export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, voiceOperator, onClose }: Props) {
   const [variant, setVariant] = useState('original');
   const model = variant === 'alternate' && alternate ? alternate : original;
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -209,8 +210,8 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
             draggable={false}
           />
           {animated && (
-            <DynamicArtwork key={model} model={model} label={name} transform={transform} scale={scale} request={request}
-              sound={sound} onStatus={onStatus} onPlaying={setPlaying} />
+            <DynamicArtwork key={model} model={model} poster={getSkinArtworkOriginal(image)} label={name} transform={transform} scale={scale} request={request}
+              sound={sound} voiceOperator={voiceOperator} onStatus={onStatus} onPlaying={setPlaying} />
           )}
         </div>
       </div>
@@ -221,16 +222,16 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
         <div className="skin-zoom-animations" aria-live="polite">
           {ready && status?.kind === 'ready' ? (<>
             {status.animations.length > 6 ? <StyledSelect label="Animation" value={playing ?? ''}
-              options={animationButtons(status.animations).map(button => ({value:button.name,label:button.label}))}
+              options={animationButtons(status.animations, status.labels).map(button => ({value:button.name,label:button.label}))}
               onChange={name => setRequest(last => ({name,id:(last?.id ?? 0) + 1}))} /> : <div role="group" aria-label="Animation" className="seg-control">
-              {animationButtons(status.animations).map((button) => (
+              {animationButtons(status.animations, status.labels).map((button) => (
                 <button key={button.name} type="button" className="filter-chip" aria-pressed={playing === button.name}
                   onClick={() => setRequest((last) => ({ name: button.name, id: (last?.id ?? 0) + 1 }))}>
                   {button.label}
                 </button>
               ))}
             </div>}
-            {/* Only an outfit whose entrance has a soundtrack has anything to hear. */}
+            {/* Soundtracks and authored voice actions share the sound preference. */}
             {status.sound && (
               <button type="button" className="filter-chip" aria-pressed={sound} onClick={toggleSound}>
                 Sound
@@ -245,9 +246,9 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
       )}
 
       <div className="skin-zoom-controls">
-        {alternate && view === 'animated' && <SegmentedControl label="Illustration version" value={variant}
-          options={[{ value: 'original', label: 'Version 1' }, { value: 'alternate', label: 'Version 2' }]}
-          onChange={next => { setVariant(next); setStatus(null); setPlaying(null); setRequest(null); }} />}
+        {alternate && <div className="skin-zoom-versions" aria-hidden={view !== 'animated'} style={{ visibility: view === 'animated' ? 'visible' : 'hidden' }}><SegmentedControl label="Illustration version" value={variant}
+          options={[{ value: 'original', label: 'Version 1', disabled: view !== 'animated' }, { value: 'alternate', label: 'Version 2', disabled: view !== 'animated' }]}
+          onChange={next => { setVariant(next); setStatus(null); setPlaying(null); setRequest(null); }} /></div>}
         {model !== null && <SegmentedControl label="Artwork" options={VIEW_OPTIONS} value={view} onChange={pickView} />}
         <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
           Reset

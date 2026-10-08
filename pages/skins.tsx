@@ -424,7 +424,7 @@ export default function SkinsGallery({ skins, events, now, availabilityWindows, 
       )}
 
       {zooming && active?.image && (
-        <SkinZoomOverlay image={active.image} name={active.name} dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null} alternate={active.skinId ? dynamicArt[`${active.skinId}^sp_dyn`] ?? null : null}
+        <SkinZoomOverlay voiceOperator={active.model ?? undefined} image={active.image} name={active.name} dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null} alternate={active.skinId ? dynamicArt[`${active.skinId}^sp_dyn`] ?? null : null}
           onClose={() => setZooming(false)} />
       )}
     </>
