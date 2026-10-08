@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chibiIndex} from '../build/build-chibi-index.mjs';
 import {operatorSummons} from '../build/build-operator-summons.mjs';
-test('battle chibis map exact skin prefabs, including single-facing bards, and exclude dormitory models',()=>{
- const paths=['char_1/char_1_outfit/Spine/a.skel','char_1/char_1_outfit/Spine/a.atlas','char_1/char_1_outfit/Spine/a.png','char_2/build_char_2/Spine/a.skel','char_2/build_char_2/Spine/a.atlas','char_2/build_char_2/Spine/a.png'];
+test('battle chibis map exact skin prefabs, including single-facing bards, and map exact dormitory models separately',()=>{
+ const paths=['char_1/build_char_1_outfit/Spine/a.skel','char_1/build_char_1_outfit/Spine/a.atlas','char_1/build_char_1_outfit/Spine/a.png','char_1/char_1_outfit/Spine/a.skel','char_1/char_1_outfit/Spine/a.atlas','char_1/char_1_outfit/Spine/a.png','char_2/build_char_2/Spine/a.skel','char_2/build_char_2/Spine/a.atlas','char_2/build_char_2/Spine/a.png'];
  const index=chibiIndex({models:{}},{tree:paths.map(path=>({path,type:'blob'}))},'a'.repeat(40),'b'.repeat(40),{charSkins:{'char_1@outfit':{charId:'char_1',battleSkin:{skinOrPrefabId:'char_1_outfit'}},'char_2@outfit':{charId:'char_2',battleSkin:{skinOrPrefabId:'build_char_2'}}}});
  assert.ok(index['char_1@outfit'].front.skeleton.includes('/'+'b'.repeat(40)+'/'));assert.equal(index['char_1@outfit'].back,undefined);assert.equal(index['char_2@outfit'],undefined);
+ assert.ok(index['char_1@outfit'].walk.skeleton.includes('/build_char_1_outfit/'));
+ assert.ok(!index['char_1@outfit'].front.skeleton.includes('/build_'));
 });
 test('summon generation lists concrete displayed tokens and excludes abstract aliases',()=>{
  const phase={maxLevel:1,attributesKeyFrames:[{level:1,data:{maxHp:100,atk:20,def:10,magicResistance:0,cost:5,blockCnt:1,baseAttackTime:1,respawnTime:10}}]};

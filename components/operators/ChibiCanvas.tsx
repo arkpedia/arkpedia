@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import StyledSelect from '@/components/ui/StyledSelect';
+import type { PointerEventHandler } from 'react';
 import type { ChibiModel } from '@/lib/operators/chibi';
-export default function ChibiCanvas({ model, label }: { model: ChibiModel; label: string }) {
+interface ChibiCanvasProps {
+  model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
+  onAnimationsChange: (values: string[]) => void; paused: boolean; moving: boolean; flipped: boolean;
+  onPointerDown: PointerEventHandler<HTMLCanvasElement>; roaming: boolean;
+}
+export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming }: ChibiCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [animations, setAnimations] = useState<string[]>([]), [animation, setAnimation] = useState('Idle'), [paused, setPaused] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches), [error, setError] = useState('');
-  const control = useRef({ animation, paused });
-  control.current = { animation, paused };
+  const [loading, setLoading] = useState(true), [error, setError] = useState('');
+  const control = useRef({ animation, paused, moving, roaming });
+  control.current = { animation, paused, moving, roaming };
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const abort = new AbortController(); let stopped = false, frame = 0;
     let cleanup: (() => void) | undefined;
-    setError(''); setAnimations([]);
+    setError(''); setLoading(true);
     (async () => {
       const [{ spine }, skeletonBytes, atlasText, images] = await Promise.all([
         import('@/lib/vendor/spine-3.8/spine-webgl'),
@@ -29,7 +34,11 @@ export default function ChibiCanvas({ model, label }: { model: ChibiModel; label
       const stateData = new spine.AnimationStateData(data); stateData.defaultMix = .15;
       const state = new spine.AnimationState(stateData);
       const names = data.animations.map(value => value.name); const initial = names.includes('Idle') ? 'Idle' : names[0];
-      setAnimations(names); setAnimation(initial); state.setAnimation(0, initial, true);
+      if (!control.current.roaming) onAnimationsChange(names); setLoading(false);
+      // Frame Idle, but retain the selected animation across facing/model changes.
+      if (!control.current.roaming && !names.includes(control.current.animation)) onAnimationChange(initial);
+      state.setAnimation(0, initial, true);
+      const walkAnimation = names.find(name => /^(move|walk)$/i.test(name)) ?? names.find(name => /walk|move/i.test(name));
       const renderer = new spine.webgl.SceneRenderer(canvas, context, true);
       // Frame the visible idle pose. Invisible effect slots can be much larger than
       // the character in the setup pose; including them makes bard chibis tiny.
@@ -44,7 +53,9 @@ export default function ChibiCanvas({ model, label }: { model: ChibiModel; label
       const render = (now: number) => {
         if (stopped) return;
         const dt = Math.min(.05, (now - previous) / 1000); previous = now;
-        if (control.current.animation !== current && names.includes(control.current.animation)) { current = control.current.animation; state.setAnimation(0, current, !/die|retreat|start|begin|end/i.test(current)); }
+        const requested = control.current.moving ? walkAnimation ?? initial : control.current.roaming ? initial : control.current.animation;
+        if (requested !== current && names.includes(requested)) { current = requested; state.setAnimation(0, current, !/die|retreat|start|begin|end/i.test(current)); }
+        if (canvas.dataset.animation !== current) canvas.dataset.animation = current;
         if (!control.current.paused) state.update(dt);
         state.apply(skeleton); skeleton.updateWorldTransform();
         const width = Math.max(1, canvas.clientWidth), height = Math.max(1, canvas.clientHeight), dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -59,8 +70,9 @@ export default function ChibiCanvas({ model, label }: { model: ChibiModel; label
       frame = requestAnimationFrame(render);
     })().catch(() => { cleanup?.(); cleanup = undefined; if (!stopped) setError('This chibi could not load. Try another facing or reopen the viewer.'); });
     return () => { stopped = true; abort.abort(); cancelAnimationFrame(frame); cleanup?.(); };
-  }, [model]);
-  return <div className="chibi-viewer"><canvas ref={canvasRef} aria-label={`${label} chibi`} />
-    {error ? <p role="status">{error}</p> : !animations.length ? <p role="status">Loading chibi…</p> : <div className="skin-plan-filter-row"><StyledSelect label="Chibi animation" value={animation} options={animations.map(value => ({ value, label: value }))} onChange={setAnimation} /><button type="button" className="ghost" aria-pressed={paused} onClick={() => setPaused(!paused)}>{paused ? 'Play' : 'Pause'}</button></div>}
+  }, [model, onAnimationChange, onAnimationsChange]);
+  return <div className={`chibi-viewer${roaming ? ' is-roaming' : ''}`}>
+    <canvas ref={canvasRef} aria-label={`${label} chibi`} title="Drag chibi onto the page" onPointerDown={onPointerDown} style={flipped ? { transform: 'scaleX(-1)' } : undefined} />
+    {error ? <p role="status">{error}</p> : loading ? <p role="status">Loading chibi…</p> : null}
   </div>;
 }

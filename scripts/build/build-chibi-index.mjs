@@ -6,11 +6,11 @@ export function chibiIndex(sd, tree, sdRevision, spineRevision, skins) {
   const prefabs = {};
   const paths = new Set(tree.tree.filter(entry => entry.type === 'blob').map(entry => entry.path));
   for (const file of paths) {
-    if (!file.endsWith('.skel') || /\/build_/.test(file)) continue;
+    if (!file.endsWith('.skel')) continue;
     const bits = file.split('/'), prefab = bits[1];
     // Bards use one battle Spine directory rather than Front / Back exports.
-    const facing = bits[2] === 'Spine' ? 'front' : bits[2]?.toLowerCase();
-    if (!prefab || !['front', 'back'].includes(facing)) continue;
+    const facing = prefab?.startsWith('build_') ? 'walk' : bits[2] === 'Spine' ? 'front' : bits[2]?.toLowerCase();
+    if (!prefab || !['front', 'back', 'walk'].includes(facing)) continue;
     const directory = file.slice(0, file.lastIndexOf('/') + 1);
     const atlas = [...paths].find(value => value.startsWith(directory) && value.endsWith('.atlas'));
     const textures = [...paths].filter(value => value.startsWith(directory) && !value.slice(directory.length).includes('/') && /\.png$/i.test(value));
@@ -27,7 +27,10 @@ export function chibiIndex(sd, tree, sdRevision, spineRevision, skins) {
     if (!skin.charId?.startsWith('char_')) continue;
     const prefab = skin.battleSkin?.skinOrPrefabId;
     const key = !prefab || prefab === 'DefaultSkin' ? skin.charId : prefab.replace(/#/g, '_');
-    if (prefabs[key]) bySkin[id] = prefabs[key];
+    if (prefabs[key]?.front || prefabs[key]?.back) {
+      const walk = prefabs[`build_${key}`]?.walk;
+      bySkin[id] = { ...prefabs[key], ...(walk ? { walk } : {}) };
+    }
   }
   return bySkin;
 }
