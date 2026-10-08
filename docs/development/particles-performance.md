@@ -10,10 +10,10 @@ Each number below is the median of three runs. Raw per-frame timings and live co
 
 | CPU throttle | Code | Mean ms | p95 ms | Maximum ms |
 | --- | --- | ---: | ---: | ---: |
-| 1x | before | 0.963 | 1.340 | 9.520 |
-| 1x | after | 0.793 | 1.120 | 2.435 |
-| 4x | before | 4.121 | 5.945 | 38.565 |
-| 4x | after | 3.402 | 5.060 | 10.690 |
+| 1x | before | 0.963 | 1.355 | 9.520 |
+| 1x | after | 0.793 | 1.155 | 2.435 |
+| 4x | before | 4.121 | 6.095 | 38.565 |
+| 4x | after | 3.402 | 5.140 | 10.690 |
 
 The 4 ms **mean** budget passes in this peak window. p95 remains above 4 ms. Preparation begins up to three seconds before a predictable switch-on and advances two prewarm steps per display frame: part of the improvement in this window comes from spreading that work into earlier, less busy frames. These numbers do not claim that every frame, the entire action, or a real phone meets 4 ms. A physical phone check remains outstanding.
 
