@@ -31,7 +31,7 @@ export const BRANCH = 'main';
 export const OUT = 'data/dynamic-art.json';
 const SHA = /^[a-f0-9]{40}$/;
 /** char_1044_hsgma2#2, char_113_cqbw@epoque#7: the game's skin ids. */
-const SKIN_ID = /^char_[a-z0-9_]+(?:@[a-z0-9_]+)?#\d+$/i;
+const SKIN_ID = /^char_[a-z0-9_]+(?:@[a-z0-9_]+)?#\d+(?:\^sp_dyn)?$/i;
 /** models/<slug>/<first 12 hex of the bundle's md5>/model.json */
 const MODEL_PATH = /^models\/[A-Za-z0-9_]+\/[a-f0-9]{12}\/model\.json$/;
 
