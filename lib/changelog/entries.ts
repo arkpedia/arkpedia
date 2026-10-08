@@ -34,6 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // A placeholder date: the release PR to main sets the moment the release reaches the site (and folds in
+    // any other release of that UTC day).
+    at: '2026-10-09T00:00:00Z',
+    added: [
+      { title: 'Particles in animated outfit art', detail: 'Sparks, fire, petals and lightning now play in the animated art, as in the game; trails and a few effects come later.', href: '/skins' },
+    ],
+  },
+  {
     at: '2026-10-07T23:26:00Z',
     title: 'Animated outfit art, credits and fixes',
     added: [
