@@ -89,9 +89,10 @@ test('only operators who can train mastery can occupy the named trainee slot', (
   const target = { operatorName: 'Lancet-2', class: 'Medic', branch: 'Medic', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
   for (const expected of fixture.operators) {
     const op = ops.get(expected.name)!;
-    assert.equal(canTrainMastery(op), op.rarity! >= 4, op.name);
+    const hasElite2 = op.promotion.some(row => row.tier === 'Elite 2');
+    assert.equal(canTrainMastery(op), hasElite2, op.name);
     const resolved = resolveTrainingTarget({ ...target, operatorName: op.name }, [...ops.values()]);
-    assert.equal(resolved.operatorName, op.rarity! >= 4 ? op.name : '', op.name);
+    assert.equal(resolved.operatorName, hasElite2 ? op.name : '', op.name);
   }
   const invalid = resolveTrainingTarget({ ...target, timeReductionActive: true, instantTrainingReady: true }, [...ops.values()]);
   assert.equal(invalid.timeReductionActive, false); assert.equal(invalid.instantTrainingReady, false);
