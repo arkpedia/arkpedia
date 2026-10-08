@@ -102,8 +102,9 @@ try {
     await page.route('https://raw.githubusercontent.com/arkpedia/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#1b2c34"/></svg>' }));
     const checkVoice = async (label) => {
       await page.goto('http://localhost:3193/operators/Runtime%20Content%20Test#voiceLines');
-      await page.getByRole('button', { name: /^Play / }).first().click();
-      const src = await page.locator('audio').first().getAttribute('src');
+      const voice = page.locator('#operator-voiceLines');
+      await voice.getByRole('button', { name: /^Play / }).first().click();
+      const src = await voice.locator('audio').getAttribute('src');
       assert.ok(src?.includes(pinnedRevision(label.repeat(40))), `${name} voice URL did not use release ${label}`);
     };
     active = 'a'; corrupt = false;
