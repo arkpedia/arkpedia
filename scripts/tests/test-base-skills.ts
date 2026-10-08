@@ -88,6 +88,32 @@ test('recruitment slots scale with Office level', () => {
     near(pools.measure, 2); near(pools.dreamland, 3); near(pools.memoryFragments, 10 * (level - 1)); near(pools.worldlyPlight, 10 * (level - 1));
   }
 });
+test('spreadsheet regressions use actual room levels and distinguish base-wide from same-room effects', () => {
+  const fc = { selectedProduct: 'Precious Metals', totalDormitoryLevels: 5, totalFacilityLevels: 44 } as FactorySkillContext;
+  near(factory['Narantuya|Union of Desert Bandits'](fc).productivity, 0.05);
+  near(factory['Narantuya|Union of Desert Bandits']({ ...fc, selectedProduct: 'Battle Records' }).productivity, 0);
+  near(factory['Minimalist|Machine Assistance α'](fc).productivity, 0.1);
+  near(factory['Minimalist|Machine Assistance β'](fc).productivity, 0.25);
+  near(factory['Minimalist|Machine Assistance β']({ ...fc, totalFacilityLevels: 80 }).productivity, 0.4);
+  const oc = { officeLevel: 1, totalDormitoryLevels: 4 } as OfficeContext;
+  near(office['Tin Man|Maylander Detective β'](oc).hrSpeed, 0.13);
+  for (let level = 1; level <= 3; level++) for (const key of ['Mr. Nothing|Nosy', "Tsukinogi|Empath's Insight", 'Ukusik|Law of the Streets']) {
+    near(office[key]({ ...oc, officeLevel: level }).receptionRoomClueSpeed, 0.05 * (level - 1));
+  }
+  const tc = { receptionRoomLevel: 0, allPlacedNames: [], sameRoomOperatorNames: ['Bellone'] } as unknown as TradingPostContext;
+  for (let level = 0; level <= 3; level++) {
+    near(tp['Vigil|New City Trade']({ ...tc, receptionRoomLevel: level }).orderEfficiency, 0.25 + 0.05 * level);
+    near(tp['Mitm|Gifted Adviser']({ ...tc, receptionRoomLevel: level }).orderEfficiency, 0.15 + 0.05 * level);
+  }
+  near(tp['Bellone|Famiglia Business β'](tc).orderEfficiency, 0.3);
+  // Game text says Vigil anywhere in the base; the spreadsheet's separate-room 30% omits this.
+  const separate = { ...tc, allPlacedNames: ['Bellone', 'Vigil'] };
+  near(tp['Bellone|Famiglia Business β'](separate).orderEfficiency, 0.4);
+  assert.equal(tp['Bellone|Outstanding Debt'](separate).orderLimit, undefined);
+  const together = { ...separate, sameRoomOperatorNames: ['Bellone', 'Vigil'] };
+  near(tp['Bellone|Outstanding Debt'](together).orderLimit, 2);
+  near(tp['Bellone|Outstanding Debt'](together).selfMorale, -0.1);
+});
 test('cross-facility morale keeps strongest matching scope, never stacks banners', () => {
   near(crossFacilityMoraleRelief('factory', 0.2, 0.15, true, ['Capable Assistance', 'Chief Engineer']), 0.2);
   near(crossFacilityMoraleRelief('office', 0.1, 0.15, true, ['Capable Assistance', 'Chief Engineer']), 0.2);

@@ -28,13 +28,11 @@ export const OFFICE_SPECIAL_SKILLS: Record<string, Handler> = {
     hrSpeed: 0.2 + (ctx.resourceBonuses['Blitz|Linguistics|hr_speed_pct_from_intel'] ?? 0) / 100 + 0.05 * ctx.ursusSpecialtyBeverageTotal,
   }),
 
-  // Dormitory-level dependent -- assumes Level 5 (max), matching the
-  // same confirmed correction as Narantuya's Factory skill.
+  // Dormitory-level dependent: use the actual sum, including unfinished dorms.
   'Tin Man|Maylander Detective α': (ctx) => ({ hrSpeed: 0.05 + 0.01 * ctx.totalDormitoryLevels }),
   'Tin Man|Maylander Detective β': (ctx) => ({ hrSpeed: 0.05 + 0.02 * ctx.totalDormitoryLevels }),
 
-  // Recruit-slot-scaled HR speed. Fixed at the confirmed constant now,
-  // no manual input needed.
+  // Recruit-slot-scaled HR speed, using the extra slots unlocked by Office level.
   'Lin|Meritocracy': (ctx) => ({ hrSpeed: 0.1 * nonDefaultRecruitSlots(ctx.officeLevel) }),
 
   // Recruit-slot-scaled MORALE (not HR speed) on top of a flat HR speed base.
