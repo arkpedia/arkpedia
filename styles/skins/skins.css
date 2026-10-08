@@ -116,3 +116,5 @@
 @media (prefers-reduced-motion: reduce) {
   .skins-results .skin-card-enter { animation: none; }
 }
+
+.skin-zoom-versions { display: flex; }

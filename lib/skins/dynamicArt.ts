@@ -1,3 +1,4 @@
+import { parsePlayback, type AnimationPlayback } from './dynamicPlayback';
 import type { Skin } from './skinTypes';
 
 /*
@@ -127,9 +128,9 @@ export interface AnimationButton { name: string; label: string }
 
 /** A button for each of the model's animations: Intro, Idle, Touch and Special first where the
  *  model has them, then the rest by their own names, in the model's order. */
-export function animationButtons(names: readonly string[]): AnimationButton[] {
+export function animationButtons(names: readonly string[], labels: Record<string, string> = {}): AnimationButton[] {
   const known = KNOWN.filter(([name]) => names.includes(name)).map(([name, label]) => ({ name, label }));
-  const rest = names.filter((name) => !KNOWN.some(([known]) => known === name)).map((name) => ({ name, label: name }));
+  const rest = names.filter((name) => !KNOWN.some(([known]) => known === name)).map((name) => ({ name, label: labels[name] ?? name }));
   return [...known, ...rest];
 }
 
@@ -210,6 +211,8 @@ export interface DynamicEntrance extends SkeletonFiles {
 
 /** One model folder's model.json, as arkpedia-l2d-assets writes it (schemaVersion 1). */
 export interface DynamicModel extends SkeletonFiles {
+  playback: AnimationPlayback | null;
+  mixes: { from: string; to: string; duration: number }[];
   skinId: string;
   premultipliedAlpha: boolean;
   bounds: { x: number; y: number; width: number; height: number };
@@ -358,7 +361,11 @@ export function parseDynamicModel(value: unknown): DynamicModel {
   // prefab); a model from before layers has none either.
   const layers = model.layers;
   if (layers != null && !(typeof layers === 'object' && FILE.test(String(layers.file)))) fail('layers');
+  const playback = parsePlayback(model.playback, files.animations);
+  const mixes = model.mixes ?? [];
+  if (!Array.isArray(mixes) || mixes.length > 2048 || !mixes.every(x => x && Object.hasOwn(files.animations, x.from) && Object.hasOwn(files.animations, x.to) && finite(x.duration) && x.duration >= 0)) fail('mixes');
   return {
+    playback, mixes: mixes.map(x => ({ ...x })),
     skinId: model.skinId!,
     ...files,
     premultipliedAlpha: model.premultipliedAlpha!,
