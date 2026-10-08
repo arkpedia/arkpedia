@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import type { BaseSkill } from '../../lib/operators/operatorTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
-import { trainingResult, trainingSkillContribution, resolveTrainingTarget } from '../../lib/base/trainingRoomSkills';
+import { trainingResult, trainingSkillContribution, resolveTrainingTarget, canTrainMastery } from '../../lib/base/trainingRoomSkills';
 import { workshopResult } from '../../lib/base/workshopSkills';
 import { crossFacilityMoraleRelief } from '../../lib/base/crossFacilityMorale';
 import { jayeContribution } from '../../lib/base/jaye';
@@ -84,6 +84,19 @@ test('named trainee traits override stale preset metadata, while manual and lega
   assert.deepEqual(resolveTrainingTarget(saved, [{ name: 'Warfarin' }]), saved);
   const doc = resolveTrainingTarget({ ...saved, operatorName: 'Doc', class: 'Medic' }, roster);
   assert.equal(doc.class, 'Guard'); assert.equal(doc.branch, 'Instructor');
+});
+test('only operators who can train mastery can occupy the named trainee slot', () => {
+  const target = { operatorName: 'Lancet-2', class: 'Medic', branch: 'Medic', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
+  for (const expected of fixture.operators) {
+    const op = ops.get(expected.name)!;
+    assert.equal(canTrainMastery(op), op.rarity! >= 4, op.name);
+    const resolved = resolveTrainingTarget({ ...target, operatorName: op.name }, [...ops.values()]);
+    assert.equal(resolved.operatorName, op.rarity! >= 4 ? op.name : '', op.name);
+  }
+  const invalid = resolveTrainingTarget({ ...target, timeReductionActive: true, instantTrainingReady: true }, [...ops.values()]);
+  assert.equal(invalid.timeReductionActive, false); assert.equal(invalid.instantTrainingReady, false);
+  assert(!canTrainMastery({ rarity: null }));
+  assert(!canTrainMastery({}));
 });
 test('actual TP/RR levels and exact Taraxacum quoted name', () => {
   const ctx = { rosters, tradingPostLevel: 1, receptionRoomLevel: 1, totalDormitoryLevels: 4, allPlacedNames: [], sameRoomOperatorNames: [], facilitiesWithSuiOperator: 3 } as unknown as TradingPostContext;

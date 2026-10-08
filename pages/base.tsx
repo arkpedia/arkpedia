@@ -59,7 +59,7 @@ import { jayeContribution } from '@/lib/base/jaye';
 import { workshopResult, type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
 import { dormitoryRecoveryRates } from '@/lib/base/dormitoryRecovery';
 import { crossFacilityMoraleRelief } from '@/lib/base/crossFacilityMorale';
-import { trainingResult, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
+import { trainingResult, resolveTrainingTarget, canTrainMastery, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
 
 
 // The manual-value input mechanism (see needsManualValue / setManualValue
@@ -983,7 +983,7 @@ export default function BasePage({ operators }: Props) {
   // other facility's own slots are just nulled out, not gap-closed --
   // only the facility currently being edited re-orders itself.
   function toggleRoomOperator(facilityId: string, operatorName: string, eliteLevel: string | null) {
-    if (trainingTarget.operatorName === operatorName) setTrainingTarget(t => ({ ...t, operatorName: '' }));
+    if (resolvedTrainingTarget.operatorName === operatorName) setTrainingTarget(t => ({ ...t, operatorName: '' }));
     const currentSlots = assignments[facilityId] || [];
     const existingIdx = currentSlots.findIndex((s) => s?.operatorName === operatorName);
     if (existingIdx !== -1) {
@@ -1059,7 +1059,7 @@ export default function BasePage({ operators }: Props) {
         if (stats.capacity) lines.push(`Capacity ${stats.capacity.base + stats.capacity.adjustment}`);
         if (stats.orderLimit) lines.push(`Order limit ${stats.orderLimit.base + stats.orderLimit.adjustment}`);
         if (factoryProducts[f.id]) lines.push(`Product: ${factoryProducts[f.id]}`);
-        if (stats.trainingSpeed !== null) lines.push(`Training ${(stats.trainingSpeed * 100).toFixed(1)}% · ${stats.trainingHours?.toFixed(2)}h · ${trainingTarget.operatorName || resolvedTrainingTarget.class} M${Math.min(trainingTarget.mastery, f.level)}`);
+        if (stats.trainingSpeed !== null) lines.push(`Training ${(stats.trainingSpeed * 100).toFixed(1)}% · ${stats.trainingHours?.toFixed(2)}h · ${resolvedTrainingTarget.operatorName || resolvedTrainingTarget.class} M${Math.min(trainingTarget.mastery, f.level)}`);
         if (stats.workshop) lines.push(`Byproduct ${(stats.workshop.chance * 100).toFixed(1)}% · ${stats.workshop.morale} Morale/craft`);
         if (stats.office) lines.push(`HR ${(stats.office.speed * 100).toFixed(1)}% · refresh ${stats.office.refreshHours.toFixed(2)}h`);
         if (stats.droneRate !== null) lines.push(`Drone recovery +${(stats.droneRate * 100).toFixed(1)}%`);
@@ -2444,7 +2444,7 @@ export default function BasePage({ operators }: Props) {
     }
     allPlacedNames.push(...slots.map((s) => s.operatorName));
   }
-  if (trainingTarget.operatorName && FACILITIES.some(f => f.kind === 'trainingRoom' && f.level > 0) && !allPlacedNames.includes(trainingTarget.operatorName)) allPlacedNames.push(trainingTarget.operatorName);
+  if (resolvedTrainingTarget.operatorName && FACILITIES.some(f => f.kind === 'trainingRoom' && f.level > 0) && !allPlacedNames.includes(resolvedTrainingTarget.operatorName)) allPlacedNames.push(resolvedTrainingTarget.operatorName);
   function factionCountInBase(factionName: string): number {
     return allPlacedNames.filter((n) => operatorByName.get(n)?.faction === factionName).length;
   }
@@ -2558,7 +2558,7 @@ export default function BasePage({ operators }: Props) {
       if (WANDERING_MEDIC.has(slot.operatorName)) wanderingMedicCountBaseWide++;
       if (SUI.has(slot.operatorName)) suiCountBaseWide++;
     }
-    const trainee = f.kind === 'trainingRoom' && f.level > 0 && trainingTarget.operatorName && !slots.some(s => s.operatorName === trainingTarget.operatorName) ? trainingTarget.operatorName : '';
+    const trainee = f.kind === 'trainingRoom' && f.level > 0 && resolvedTrainingTarget.operatorName && !slots.some(s => s.operatorName === resolvedTrainingTarget.operatorName) ? resolvedTrainingTarget.operatorName : '';
     if (trainee && WANDERING_MEDIC.has(trainee)) wanderingMedicCountBaseWide++;
     if (trainee && SUI.has(trainee)) suiCountBaseWide++;
     const abyssalHere = slots.filter((s) => ABYSSAL_HUNTERS.has(s.operatorName)).length + (trainee && ABYSSAL_HUNTERS.has(trainee) ? 1 : 0);
@@ -2726,8 +2726,8 @@ export default function BasePage({ operators }: Props) {
   let facilitiesWithEliteOperator = 0;
   for (const f of FACILITIES) {
     const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    if (f.kind !== 'dormitory' && (slots.some((s) => rosters.SUI.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && trainingTarget.operatorName && rosters.SUI.has(trainingTarget.operatorName))) facilitiesWithSuiOperator += 1;
-    if (slots.some((s) => ELITE_OPERATOR.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && trainingTarget.operatorName && ELITE_OPERATOR.has(trainingTarget.operatorName)) facilitiesWithEliteOperator += 1;
+    if (f.kind !== 'dormitory' && (slots.some((s) => rosters.SUI.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && resolvedTrainingTarget.operatorName && rosters.SUI.has(resolvedTrainingTarget.operatorName))) facilitiesWithSuiOperator += 1;
+    if (slots.some((s) => ELITE_OPERATOR.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && resolvedTrainingTarget.operatorName && ELITE_OPERATOR.has(resolvedTrainingTarget.operatorName)) facilitiesWithEliteOperator += 1;
   }
 
   const officeSlotsForPrelim = (assignments['office'] || []).filter((s): s is SlotAssignment => s !== null);
@@ -4028,13 +4028,13 @@ export default function BasePage({ operators }: Props) {
                               LOOKED like while saying nothing about what they WERE. */}
                           {facility.kind === 'trainingRoom' && (
                             <div className="base-training-target">
-                              <label>Trainee <StyledSelect label="Trainee operator" value={trainingTarget.operatorName ?? ''} onChange={name => {
+                              <label>Trainee <StyledSelect label="Trainee operator" value={resolvedTrainingTarget.operatorName ?? ''} onChange={name => {
                                 const op = operatorByName.get(name);
                                 const next = Object.fromEntries(Object.entries(assignments).map(([id, slots]) => [id, slots.map(slot => slot?.operatorName === name ? null : slot)]));
                                 persist(next); setTrainingTarget(t => ({ ...t, operatorName: name, timeReductionActive: false, class: op?.class ?? t.class, branch: op?.branch ?? '' }));
-                              }} options={[{ value: '', label: 'Class / branch only' }, ...operators.filter(op => !slots.some(s => s?.operatorName === op.name)).map(op => ({ value: op.name, label: op.name }))]} /></label>
-                              <label>Class <StyledSelect label="Trainee class" disabled={!!trainingTarget.operatorName} value={resolvedTrainingTarget.class} onChange={value => setTrainingTarget(t => ({ ...t, class: value, branch: '' }))} options={TRAINING_CLASSES.map(value => ({ value, label: value }))} /></label>
-                              <label>Branch <StyledSelect label="Trainee branch" disabled={!!trainingTarget.operatorName} value={resolvedTrainingTarget.branch} onChange={branch => setTrainingTarget(t => ({ ...t, branch }))} options={[{ value: '', label: 'Any branch' }, ...[...new Set(operators.filter(op => op.class === resolvedTrainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(value => ({ value, label: value }))]} /></label>
+                              }} options={[{ value: '', label: 'Class / branch only' }, ...operators.filter(op => canTrainMastery(op) && !slots.some(s => s?.operatorName === op.name)).map(op => ({ value: op.name, label: op.name }))]} /></label>
+                              <label>Class <StyledSelect label="Trainee class" disabled={!!resolvedTrainingTarget.operatorName} value={resolvedTrainingTarget.class} onChange={value => setTrainingTarget(t => ({ ...t, class: value, branch: '' }))} options={TRAINING_CLASSES.map(value => ({ value, label: value }))} /></label>
+                              <label>Branch <StyledSelect label="Trainee branch" disabled={!!resolvedTrainingTarget.operatorName} value={resolvedTrainingTarget.branch} onChange={branch => setTrainingTarget(t => ({ ...t, branch }))} options={[{ value: '', label: 'Any branch' }, ...[...new Set(operators.filter(op => op.class === resolvedTrainingTarget.class).map(op => op.branch).filter((branch): branch is string => !!branch))].sort().map(value => ({ value, label: value }))]} /></label>
                               <label>Mastery <StyledSelect label="Target mastery" value={String(Math.min(trainingTarget.mastery, facility.level))} onChange={value => setTrainingTarget(t => ({ ...t, mastery: Number(value) }))} options={[1, 2, 3].filter(level => level <= facility.level).map(level => ({ value: String(level), label: `M${level}` }))} /></label>
                               <label className="check"><input type="checkbox" checked={trainingTarget.timeReductionActive} onChange={e => setTrainingTarget(t => ({ ...t, timeReductionActive: e.target.checked }))} />Started with Irene / Logos time reduction</label>
                               {slots.some(slot => slot?.operatorName === 'Zuo Le') && <label className="check"><input type="checkbox" checked={trainingTarget.instantTrainingReady} onChange={e => setTrainingTarget(t => ({ ...t, instantTrainingReady: e.target.checked }))} />Martial Arts ready</label>}
