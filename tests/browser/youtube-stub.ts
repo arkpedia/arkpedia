@@ -33,7 +33,8 @@ const stub = (policy: AutoplayPolicy) => `(() => {
     el.replaceWith(frame);
     const events = (opts && opts.events) || {};
     const player = this;
-    S.fail = () => { S.state = -1; if (events.onError) events.onError({ target: player, data: 100 }); };
+    // An asynchronous YouTube failure arrives after the pending state notification.
+    S.fail = () => setTimeout(() => { S.state = -1; if (events.onError) events.onError({ target: player, data: 100 }); }, 20);
     const emit = (state) => { S.state = state; setTimeout(() => events.onStateChange && events.onStateChange({ data: state, target: player }), 10); };
     const video = (arg) => typeof arg === 'string' ? { videoId: arg, startSeconds: 0 } : { videoId: arg.videoId, startSeconds: arg.startSeconds || 0 };
     const mayPlay = () => S.policy === 'allow' || Date.now() - S.pressedAt < 5000;
