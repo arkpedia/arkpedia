@@ -74,7 +74,9 @@ test('roaming chibi survives viewer close, page navigation and browser back with
     const current = await pet.boundingBox();
     return Math.hypot(current!.x - start!.x, current!.y - start!.y);
   }, { timeout: 10000 }).toBeGreaterThan(5);
-  await pet.getByRole('button', { name: 'Pause roaming chibi', exact: true }).press('Enter');
+  await expect(pet.getByRole('button')).toHaveCount(1);
+  await expect(pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true })).toBeVisible();
+  await pet.focus(); await page.keyboard.press('ArrowLeft');
   const stopped = await pet.boundingBox();
   // A real Next link changes pages without reloading the app and its detached canvas.
   await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
