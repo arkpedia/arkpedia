@@ -13,6 +13,13 @@ export function chibiActivities(animations: readonly ChibiAnimation[]) {
   };
 }
 
+/** Default is a static setup pose in base models; Relax is their normal idle loop. */
+export function chibiIdleAnimation(animations: readonly ChibiAnimation[]): string | undefined {
+  const idle = chibiActivities(animations).idle;
+  return (idle.find(pose => /^idle$/i.test(pose.name))
+    ?? idle.find(pose => /^relax$/i.test(pose.name)) ?? idle[0])?.name;
+}
+
 /** At a walking destination, sometimes take a break using an actual available pose. */
 export function chooseChibiBreak(animations: readonly ChibiAnimation[], random = Math.random): ChibiBreak | null {
   if (random() >= .4) return null;

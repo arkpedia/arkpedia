@@ -261,6 +261,12 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingBanners[].global_window': 'optional exact game-table window; parseBannerWindow falls back to the legacy global_date range when absent',
     '.ongoingBanners[].globalPoolId': 'optional game pool identity for account pull-history matching; the homepage does not read it',
     '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
+    // The current clock selects different records from the two catalogues. These
+    // optional client/scheduling fields exist only on some of those records; Home
+    // renders finalized start/end dates and never reads the raw metadata itself.
+    '.ongoingBanners[].global_date_estimated': "optional forecast metadata on the selected banner records; Home does not read it",
+    '.ongoingBanners[].globalPoolId': "optional Global client pool ID on the selected banner records; Home does not read it",
+    '.ongoingBanners[].global_window': "optional exact timing metadata on the selected banner records; parseBannerWindow already falls back to global_date when absent, and finalizeHome sends the resulting start/end to the browser",
   },
   '/schedule': {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",

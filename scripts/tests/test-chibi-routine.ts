@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chooseChibiBreak, chibiActivities } from '../../lib/operators/chibiRoutine';
+import { chooseChibiBreak, chibiActivities, chibiIdleAnimation } from '../../lib/operators/chibiRoutine';
 
 const base = [
   { name: 'Default', duration: 0 }, { name: 'Move', duration: 2 },
@@ -8,6 +8,14 @@ const base = [
   { name: 'Sit', duration: 4 }, { name: 'Sleep', duration: 2 },
 ];
 const sequence = (...values: number[]) => () => { assert.ok(values.length); return values.shift()!; };
+
+test('stationary chibis use a real idle loop instead of a zero-duration setup pose', () => {
+  assert.equal(chibiIdleAnimation(base), 'Relax');
+  assert.equal(chibiIdleAnimation([{ name: 'Idle', duration: 0 }, ...base]), 'Relax');
+  assert.equal(chibiIdleAnimation([...base, { name: 'Idle', duration: 1 }]), 'Idle');
+  assert.equal(chibiIdleAnimation([{ name: 'Idle_2', duration: 2 }]), 'Idle_2');
+  assert.equal(chibiIdleAnimation([{ name: 'Default', duration: 0 }, { name: 'Move', duration: 2 }]), undefined);
+});
 
 test('chairs last 3–10 seconds and beds last 10–20 seconds independently of native loop length', () => {
   for (const [pick, activity, bounds] of [[0, 'sit', [3000, 10000]], [.3, 'sleep', [10000, 20000]]] as const) {
