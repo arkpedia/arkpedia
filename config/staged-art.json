@@ -36,6 +36,11 @@
       "folders": ["material-icons"],
       "adopt": ["python3", "scripts/imports/import-reward-icons.py"]
     },
+    "furniture-art": {
+      "stage": "furniture-art",
+      "folders": ["content-art"],
+      "adopt": ["node", "scripts/imports/import-furniture-art.mjs"]
+    },
     "story-map": {
       "stage": "story-map",
       "folders": ["story-map"],

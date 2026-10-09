@@ -410,7 +410,7 @@ export function buildEventRewards(events, tables, posts, cn) {
       const pieces = Object.values(furniture).filter(piece => piece.themeId === themeId).sort((a, b) => (a.sortId ?? 0) - (b.sortId ?? 0))
         .map(piece => ({ name: piece.name, id: piece.id, obtain: piece.obtainApproach ?? null, comfort: piece.comfort ?? null }));
       const global = Boolean(tables.building?.customData?.themes?.[themeId]);
-      entry.groups.push({ kind: 'furniture-set', title: theme.name, source: `${global ? '' : 'CN '}building_data ${themeId}`, items: [], description: theme.desc ?? null, pieces, ...(global ? {} : { region: 'CN' }) });
+      entry.groups.push({ kind: 'furniture-set', themeId, title: theme.name, source: `${global ? '' : 'CN '}building_data ${themeId}`, items: [], description: theme.desc ?? null, pieces, ...(global ? {} : { region: 'CN' }) });
     }
   }
   // A rerun repeats its original run's stages, missions and furniture: until the tables carry the

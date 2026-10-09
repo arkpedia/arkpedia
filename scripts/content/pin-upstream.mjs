@@ -42,6 +42,8 @@ export const MIRRORS = [
   { repository: 'PuppiizSunniiz/ArknightsGameData_YoStar', branch: 'main' },
   // The Global client's art, for the Standard banners' name plates (banner-art-lineup.mjs).
   { repository: 'ArknightsAssets/ArknightsAssets2', branch: 'en' },
+  // The CN client's furniture shop thumbnails; retain them beside Global's.
+  { repository: 'ArknightsAssets/ArknightsAssets2', branch: 'cn', key: 'ArknightsAssets/ArknightsAssets2:cn' },
 ];
 /*
  * Where the CN tables (gamedata/excel and gamedata/levels) may come from, in order: ALL of
@@ -98,15 +100,17 @@ export function pinEnvironment(root, env = process.env) {
 }
 
 /**
- * One commit per mirror: a commit given in the environment, else the branch head, else the
+ * One commit per mirror/region: an optional key keeps a second branch of the same
+ * repository in its own lock entry and environment variable (the CN furniture art).
+ * A commit given in the environment, else the branch head, else the
  * previous lock's commit (with a warning), else none (with a warning; readers then use the
  * branch, as they did before pinning).
  */
 export async function pinUpstream({ previous = null, resolve, env = {}, mirrors = MIRRORS }) {
   const injected = new Set(String(env[INJECTED] ?? '').split(',').filter(Boolean));
   const repositories = {}, warnings = [];
-  for (const { repository, branch } of mirrors) {
-    const variable = pinVariable(repository);
+  for (const { repository, branch, key = repository } of mirrors) {
+    const variable = pinVariable(key);
     const given = injected.has(variable) ? '' : String(env[variable] ?? '');
     let commit = null, source;
     if (sha.test(given)) { commit = given; source = 'given'; } else {
@@ -115,7 +119,7 @@ export async function pinUpstream({ previous = null, resolve, env = {}, mirrors 
         if (!sha.test(commit ?? '')) throw new Error(`not a commit: ${JSON.stringify(commit)}`);
         source = 'resolved';
       } catch (error) {
-        const last = previous?.repositories?.[repository]?.commit;
+        const last = previous?.repositories?.[key]?.commit;
         if (sha.test(last ?? '')) {
           commit = last; source = 'last-known';
           warnings.push(`${repository}: cannot resolve ${branch} (${error.message}); using the last known commit ${last.slice(0, 12)}`);
@@ -125,7 +129,7 @@ export async function pinUpstream({ previous = null, resolve, env = {}, mirrors 
         }
       }
     }
-    repositories[repository] = { branch, commit, variable, source };
+    repositories[key] = { branch, commit, variable, source };
   }
   // Which CN tables the previous run read is this run's to settle again (cn-tables.mjs), and
   // no stage may read them before it has: the record is kept only as where they last came
@@ -148,10 +152,10 @@ export async function lsRemote(repository, branch) {
  * environment, never the lock: run by hand, a reader wants today's branch, not the commit
  * of the release it was hydrated from. A test holds every stage's scripts to this.
  */
-export function pinnedRef(repository, env = process.env) {
-  const mirror = MIRRORS.find(entry => entry.repository === repository);
+export function pinnedRef(repository, env = process.env, branch = null) {
+  const mirror = MIRRORS.find(entry => entry.repository === repository && (!branch || entry.branch === branch));
   if (!mirror) throw new Error(`Not a pinned mirror: ${repository}`);
-  const commit = String(env[pinVariable(repository)] ?? '');
+  const commit = String(env[pinVariable(mirror.key ?? repository)] ?? '');
   return sha.test(commit) ? commit : mirror.branch;
 }
 

@@ -214,6 +214,10 @@ stage event-stores -- node scripts/sync/sync-event-stores.mjs
 # appear. Stores are event-stores' above.
 stage event-rewards -- node scripts/build/build-event-rewards.mjs
 
+# Official shop artwork for the sets the rewards name, including inherited reruns.
+# Keep CN originals; automatically prefer Global when its client thumbnail arrives.
+stage furniture-art --needs event-rewards -- node scripts/imports/import-furniture-art.mjs
+
 # Reward icons for every reward an event page lists: the stores (event-stores.json), the rewards
 # the tables and announcements list (event-rewards.json, written just above, so a new event's
 # icons come the run it is listed) and the events' own fallback stores. Furniture by its

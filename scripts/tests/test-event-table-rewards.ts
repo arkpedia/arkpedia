@@ -127,6 +127,19 @@ const story = { name: '[Side Story] A Story', global: { dateRange: '2026/01/06�
 const duel = { name: 'Duel Channel: Vine', global: { dateRange: '2026/01/06–2026/01/27' } };
 const post = (title: string, sections: string[][]) => ({ title, url: 'https://example.invalid/news/1', lines: [`DURATION: January 6, 2026, 08:00 – January 20, 2026, 03:59 (UTC-7)`, ...sections.flat()] });
 
+test('generated furniture groups retain the stable theme ID through rerun inheritance', () => {
+  const tables = world();
+  const id = 'furni_set_workshop';
+  (tables.building.customData.themes as Record<string, object>)[id] = { id, name: 'Workshop', desc: 'Official description' };
+  const rerun = { name: '[Rerun] A Story Rerun', global: { dateRange: '2027/01/06–2027/01/20' } };
+  const result = buildEventRewards([story, rerun], tables, [post('SIDESTORY: A STORY OPEN', [['01 FURNITURE SET – WORKSHOP', 'DETAILS: available']])], null);
+  const original = result[story.name].groups.find((group: { kind: string }) => group.kind === 'furniture-set');
+  const repeated = result[rerun.name].groups.find((group: { kind: string }) => group.kind === 'furniture-set');
+  assert.equal(original.themeId, id);
+  assert.equal(repeated.themeId, id);
+  assert.equal(repeated.inherited, story.name);
+});
+
 test('a mode\'s rewards are its milestones, never first clears its "stages" list', () => {
   const result = buildEventRewards([story, duel], world(), [], null);
   const kinds = (name: string) => (result[name].groups as Group[]).map(g => g.kind);
