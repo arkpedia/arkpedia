@@ -122,7 +122,6 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
       <ChibiCanvas key={pet.model.skeleton} model={pet.model} label={pet.label} animation="Idle" onAnimationChange={ignoreAnimation}
         onAnimationsChange={ignoreAnimation} paused={pet.paused} moving={moving} flipped={flipped} roaming onPointerDown={event => beginDrag(event, pet, true)} />
       <div className="chibi-roaming-controls">
-        <button className="ghost" type="button" aria-label={`${pet.paused ? 'Play' : 'Pause'} roaming chibi`} aria-pressed={pet.paused} onClick={() => setPaused(!pet.paused)}>{pet.paused ? 'Play' : 'Pause'}</button>
         <XButton dense label="Dismiss roaming chibi" onClick={dismiss} />
       </div>
     </div>, document.body)}

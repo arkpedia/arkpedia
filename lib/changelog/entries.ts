@@ -56,7 +56,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { title: 'World community sections', detail: 'Browse creator feeds and community links, with country filters for offline events.', href: '/community' },
     ],
     changed: [
-      { title: 'Roaming chibis stay with you', detail: 'A dragged-out chibi keeps walking after you close its viewer or change pages, with its own pause and dismiss controls.', href: '/operators' },
+      { title: 'Roaming chibis stay with you', detail: 'A dragged-out chibi keeps walking after you close its viewer or change pages, until you dismiss it.', href: '/operators' },
       { title: 'Home page stage and countdown colors', detail: 'Open stages and Starts in are green, closed stages are red, and Ends in is yellow.', href: '/' },
       { title: 'Skin Planner shop sections', detail: 'Browse open shop sections with cards and artwork loading as you scroll, and owned outfits last.', href: '/skin-planner' },
       { title: 'Recruitment language and text size', detail: 'Choose EN, JP, KR or CN tag labels and your text size, including in the pop-out window.', href: '/recruitment' },
