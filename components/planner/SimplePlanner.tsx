@@ -66,14 +66,15 @@ export function SimpleMaterialGroups({
   }, [groups]);
   return (
     <div className="simple-cost-groups">
-      {missingShares && <SegmentedControl label="Which operator materials to show" value={showAll ? 'all' : 'missing'} onChange={value => setShowAll(value === 'all')} options={[{ value: 'missing', label: 'Missing' }, { value: 'all', label: 'All' }]} />}
-      <SegmentedControl
-        label="Material display"
-        className="simple-material-view"
-        value={view}
-        onChange={setView}
-        options={[{ value: 'total', label: 'Total' }, { value: 'separate', label: 'Separate' }]}
-      />
+      <div className="simple-material-toolbar">
+        <SegmentedControl
+          label="Material display"
+          value={view}
+          onChange={setView}
+          options={[{ value: 'total', label: 'Total' }, { value: 'separate', label: 'Separate' }]}
+        />
+        {missingShares && <SegmentedControl label="Which operator materials to show" value={showAll ? 'all' : 'missing'} onChange={value => setShowAll(value === 'all')} options={[{ value: 'missing', label: 'Missing' }, { value: 'all', label: 'All' }]} />}
+      </div>
       {view === 'total' ? <Materials cost={total} missingShares={showAll ? undefined : missingShares} /> : groups.map(g => (
         <section key={g.name}>
           <h3>{g.name}</h3>
