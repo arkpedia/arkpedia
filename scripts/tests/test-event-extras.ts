@@ -9,7 +9,7 @@ import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
 import { eventExtras, EVENTS_STORE, furniturePieceSource, TABLE_REWARD_LABEL, tableRewardStores, type TableRewardGroup } from '../../lib/events/tableRewards';
 import type { ResolvedRewardStore } from '../../lib/events/rewardTotals';
 import { eventTitle, isRerun } from '../../lib/events/eventName.mjs';
-import { EventPacks, packDay } from '../../components/events/EventExtras';
+import { EventFurniture, EventPacks, packDay } from '../../components/events/EventExtras';
 
 /*
  * An event's rewards beyond its store, as /events/[slug] lays them out (lib/events/tableRewards.ts):
@@ -69,6 +69,24 @@ test('packs, announced gifts and furniture sets become their own tabs, empty one
   // A pack with no end in the post keeps null (JSON cannot carry undefined).
   const open = eventExtras([group('packs', 'P', [], { packs: [{ name: 'Open', start: '2026-09-16T15:00:00.000Z', contents: [] }] })], () => null);
   assert.equal(open.packs[0].packs[0].end, null);
+});
+
+test('furniture uses published official Global shop art, then CN, including old rerun records', () => {
+  const set = group('furniture-set', "Paganini's Firearms Workshop", [], {
+    source: 'building_data furni_set_gunworkshop', inherited: 'Original run',
+    pieces: [{ name: 'Storage Rack', id: 'furni_rack', obtain: 'Event missions', comfort: 95 }],
+  });
+  const cn = 'content-art/furni_set_gunworkshop-cn.webp';
+  const en = 'content-art/furni_set_gunworkshop-en.webp';
+  const extras = (published: string[]) => eventExtras([set], () => null, () => null, file => published.includes(file));
+  assert.equal(extras([]).furniture[0].imagePath, null);
+  assert.equal(extras([cn]).furniture[0].imagePath, `/${cn}`);
+  assert.equal(extras([cn, en]).furniture[0].imagePath, `/${en}`);
+  const html = render(createElement(EventFurniture, { sets: extras([cn, en]).furniture }));
+  assert.match(html, /furni_set_gunworkshop-en.webp/);
+  assert.match(html, /in-game shop artwork/);
+  assert.match(html, /Storage Rack/);
+  assert.doesNotMatch(render(createElement(EventFurniture, { sets: extras([]).furniture })), /<img/);
 });
 
 test("the furniture checklist names the store and price, else the block, by the blocks' own labels", () => {

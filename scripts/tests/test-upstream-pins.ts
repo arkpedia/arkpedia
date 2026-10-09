@@ -14,11 +14,12 @@ const heads: Record<string, string> = {
   'Kengxxiao/ArknightsGameData': commit('1'), 'ArknightsAssets/ArknightsGamedata': commit('2'),
   'yuanyan3060/ArknightsGameResource': commit('3'), 'PuppiizSunniiz/ArknightsGameData_YoStar': commit('4'),
   'ArknightsAssets/ArknightsAssets2': commit('5'),
+  'ArknightsAssets/ArknightsAssets2:cn': commit('6'),
 };
-const resolveAll = async (repository: string) => heads[repository];
+const resolveAll = async (repository: string, branch: string) => heads[branch === 'cn' ? `${repository}:cn` : repository];
 
 test('every mirror the refresh reads is pinned to one commit, under its own variable', async () => {
-  assert.deepEqual(MIRRORS.map((mirror: any) => mirror.repository), Object.keys(heads));
+  assert.deepEqual(MIRRORS.map((mirror: any) => mirror.key ?? mirror.repository), Object.keys(heads));
   const { lock, warnings } = await pinUpstream({ resolve: resolveAll });
   assert.deepEqual(warnings, []);
   assert.deepEqual(lock.repositories['yuanyan3060/ArknightsGameResource'],
@@ -28,6 +29,8 @@ test('every mirror the refresh reads is pinned to one commit, under its own vari
   assert.equal(lock.repositories['Kengxxiao/ArknightsGameData'].variable, 'ARKPEDIA_PIN_KENGXXIAO_ARKNIGHTSGAMEDATA');
   assert.deepEqual(lock.repositories['ArknightsAssets/ArknightsAssets2'],
     { branch: 'en', commit: commit('5'), variable: 'ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSASSETS2', source: 'resolved' });
+  assert.equal(lock.repositories['ArknightsAssets/ArknightsAssets2:cn'].commit, commit('6'));
+  assert.equal(lock.repositories['ArknightsAssets/ArknightsAssets2:cn'].variable, 'ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSASSETS2_CN');
 });
 
 test('a mirror that cannot be reached keeps the last known commit, and never fails the pin', async () => {
@@ -73,7 +76,7 @@ test('raw file URLs and the upstream checkouts read the same pin', () => {
     fs.rmSync(root, { recursive: true, force: true });
   }
   // scripts/lib/upstream.sh derives the variable name itself, from the clone URL.
-  for (const { repository } of MIRRORS) {
+  for (const { repository } of MIRRORS.filter((mirror: any) => !mirror.key)) {
     const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_PIN_')));
     const shell = spawnSync('bash', ['-c', '. scripts/lib/upstream.sh && upstream_pin "$1"', '_', `https://github.com/${repository}.git`],
       { encoding: 'utf8', env: { ...clean, [pinVariable(repository)]: commit('9') } as NodeJS.ProcessEnv });
@@ -102,6 +105,9 @@ test('a reader fetches at the pinned commit, and only an unpinned one asks for t
   assert.deepEqual(asked, []);
   assert.equal(await pinnedCommit(kengxxiao, head, {}), commit('6'));
   assert.deepEqual(asked, ['Kengxxiao/ArknightsGameData@master']);
+  const regional = { ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSASSETS2: commit('5'), ARKPEDIA_PIN_ARKNIGHTSASSETS_ARKNIGHTSASSETS2_CN: commit('6') };
+  assert.equal(pinnedRef('ArknightsAssets/ArknightsAssets2', regional, 'en'), commit('5'));
+  assert.equal(pinnedRef('ArknightsAssets/ArknightsAssets2', regional, 'cn'), commit('6'));
 });
 
 test('the catalogue reads both regions and plans its art at the pinned commits, with no API call for them', async () => {
@@ -137,7 +143,7 @@ test('every reader of the daily refresh fetches each mirror at its pinned commit
     const preload = path.join(root, 'offline.mjs'), log = path.join(root, 'fetched.txt');
     fs.writeFileSync(preload, "import fs from 'node:fs';\nglobalThis.fetch = async url => { fs.appendFileSync(process.env.FETCH_LOG, `${url}\\n`); throw new Error('offline'); };\n");
     fs.mkdirSync(path.join(root, 'cwd/data'), { recursive: true });
-    const pins = Object.fromEntries(MIRRORS.map((mirror: any, i: number) => [pinVariable(mirror.repository), commit(String(i + 1))]));
+    const pins = Object.fromEntries(MIRRORS.map((mirror: any, i: number) => [pinVariable(mirror.key ?? mirror.repository), commit(String(i + 1))]));
     const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_'))) as NodeJS.ProcessEnv;
     for (const script of ['sync/sync-module-stats.mjs', 'sync/sync-event-windows.mjs', 'sync/sync-content-inventory.mjs', 'sync/sync-recruitment.mjs',
       'sync/sync-recurring-banners.mjs', 'build/build-operator-voices.mjs', 'sync/sync-operator-english.mjs']) {
@@ -165,7 +171,7 @@ test('the voice lines name the mirrors by branch, so a mirror moving does not re
     fs.writeFileSync(empty, '{}');
     fs.writeFileSync(path.join(root, 'assets.json'), JSON.stringify({ voice: [], voice_cn: [], voice_custom: [], voice_en: [], voice_kr: [] }));
     fs.mkdirSync(path.join(root, 'tlvr'));
-    const pins = Object.fromEntries(MIRRORS.map((mirror: any, i: number) => [pinVariable(mirror.repository), commit(String(i + 1))]));
+    const pins = Object.fromEntries(MIRRORS.map((mirror: any, i: number) => [pinVariable(mirror.key ?? mirror.repository), commit(String(i + 1))]));
     const run = spawnSync(process.execPath, ['scripts/build/build-operator-voices.mjs'], { encoding: 'utf8', env: { ...process.env, ...pins,
       ARKPEDIA_EN_CHARWORDS: empty, ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS: empty, ARKPEDIA_CN_CHARWORDS: empty, ARKPEDIA_VOICE_INDEX: empty,
       ARKPEDIA_EN_SKINS: empty, ARKPEDIA_CN_SKINS: empty,

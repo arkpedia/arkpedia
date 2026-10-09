@@ -313,6 +313,8 @@ test('the release validator holds the published quarantine and upstream lock to 
   const lock = (repositories: object) => validateSources({ 'data/upstream.lock.json': { version: 1, repositories } });
   assert.match(lock({ 'Kengxxiao/ArknightsGameData': { branch: 'master', commit: 'd'.repeat(40), source: 'resolved' }, 'a/b': { branch: 'main', commit: null } }), passes);
   assert.match(lock({ 'Kengxxiao/ArknightsGameData': { branch: 'master', commit: 'master' } }), /invalid pin for Kengxxiao\/ArknightsGameData/);
+  assert.match(lock({ 'ArknightsAssets/ArknightsAssets2:cn': { branch: 'cn', commit: '6'.repeat(40) } }), passes);
+  assert.match(lock({ 'ArknightsAssets/ArknightsAssets2:cn': { branch: 'en', commit: '6'.repeat(40) } }), /invalid pin/);
   // Where the run's CN tables came from (scripts/content/cn-tables.mjs) names a source at a commit.
   const tables = (cnTables: object) => validateSources({ 'data/upstream.lock.json': { version: 1, repositories: {}, cnTables } });
   assert.match(tables({ repository: 'yuanyan3060/ArknightsGameResource', commit: 'e'.repeat(40), folder: 'gamedata', serialization: 'numeric' }), passes);

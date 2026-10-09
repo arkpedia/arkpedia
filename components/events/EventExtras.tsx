@@ -49,7 +49,10 @@ export function EventFurniture({ sets }: { sets: EventExtras['furniture'] }) {
       {sets.map((set) => (
         <article key={set.title} className="event-furniture-set">
           <h3>{set.title}</h3>
-          {set.description && <p className="hint">{set.description}</p>}
+          <div className="event-furniture-overview">
+            {set.imagePath && <Image className="event-furniture-art" src={set.imagePath} alt={`${set.title} in-game shop artwork`} width={226} height={169} />}
+            {set.description && <p className="event-furniture-description hint">{set.description}</p>}
+          </div>
           <ul className="event-furniture-pieces">
             {set.pieces.map((piece) => (
               <li key={piece.id}>
