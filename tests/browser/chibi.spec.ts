@@ -131,3 +131,57 @@ test('dragging outside the viewer drops a walking chibi at that point', async ({
   await expect(pet).toHaveCount(0);
   await expect(page.locator('#page-content')).toBeFocused();
 });
+
+for (const theme of ['dark', 'light'] as const) for (const [activity, choice, clip, duration] of [
+  ['sit', 0, 'Sit', 3000], ['sleep', .3, 'Sleep', 10000],
+  ['idle', .55, 'Relax', 2000], ['special', .9, 'Interact', 2233.3333492279053],
+] as const) {
+  test(`roaming ${activity} uses a native base pose and returns to its routine (${theme})`, async ({ page, isMobile }, testInfo) => {
+    await page.addInitScript(value => localStorage.setItem('theme', value), theme);
+    await openChibi(page);
+    await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
+    const pet = page.locator('.chibi-roaming');
+    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', /.+/);
+    // Preloaded game furniture is required before choosing a sitting/sleeping pose.
+    await expect.poll(() => page.evaluate(() => performance.getEntriesByType('resource').filter(entry => entry.name.includes('/furnitureicons/')).length)).toBe(2);
+    await page.evaluate(pick => {
+      const values = [0, 0, 0, 0, pick, 0, 0];
+      Math.random = () => values.shift() ?? 0;
+    }, choice);
+    const bounds = await pet.locator('canvas').boundingBox();
+    const start = { x: bounds!.x + 80, y: bounds!.y + 90 }, drop = { x: 90, y: 90 };
+    if (isMobile) {
+      const touch = await page.context().newCDPSession(page);
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [drop] });
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await touch.detach();
+    } else {
+      await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(drop.x, drop.y); await page.mouse.up();
+    }
+    await expect(pet).toHaveAttribute('data-activity', activity, { timeout: 12000 });
+    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', clip);
+    expect(Number(await pet.getAttribute('data-break-duration'))).toBeCloseTo(duration, 0);
+    const furniture = pet.locator('.chibi-furniture');
+    await expect(furniture).toHaveCount(activity === 'sit' || activity === 'sleep' ? 1 : 0);
+    if (activity === 'sit' || activity === 'sleep') {
+      expect(await furniture.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(226);
+      const box = await furniture.boundingBox(), viewport = page.viewportSize()!;
+      expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+    }
+    const position = await pet.boundingBox();
+    if (process.env.ARKPEDIA_QA_CAPTURE && (activity === 'sit' || activity === 'sleep')) {
+      await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/chibi-${activity}-${theme}-${testInfo.project.name}.png` });
+    }
+    await page.waitForTimeout(duration / 2);
+    await expect(pet).toHaveAttribute('data-activity', activity);
+    expect(await pet.boundingBox()).toEqual(position);
+    await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: duration / 2 + 1500 });
+    await expect(pet.locator('canvas')).not.toHaveAttribute('data-animation', clip);
+    await expect(furniture).toHaveCount(0);
+    await pet.focus(); await page.keyboard.press('Escape');
+    await expect(pet).toHaveCount(0);
+  });
+}

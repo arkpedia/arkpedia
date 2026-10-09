@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-09T09:56:52Z',
+    title: 'Chibi breaks',
+    added: [
+      { title: 'Roaming chibis take a break', detail: 'Chibis occasionally sit on a chair, sleep in a bed, or play their base idle and special animations.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-09T01:21:49Z',
     title: 'Music playlists',
     added: [
