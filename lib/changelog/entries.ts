@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-09T01:21:49Z',
+    title: 'Music playlists',
+    added: [
+      { title: 'Save and transfer music playlists', detail: 'Save your queue or favorites as a playlist, then export or import Arkpedia playlist files between browsers.', href: '/music' },
+    ],
+  },
+  {
     at: '2026-10-08T23:51:56Z',
     title: 'Web events and campaign art',
     added: [

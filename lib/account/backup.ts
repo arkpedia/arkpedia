@@ -30,6 +30,8 @@ import { PAST_PROGRESS_EVENT, PAST_PROGRESS_KEY, parsePastProgress } from '@/lib
 import { SKIN_PLAN_EVENT, SKIN_PLAN_KEY, parseSkinPlan } from '@/lib/skins/skinPlan';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
 
+import { MUSIC_PLAYLISTS_KEY, MUSIC_PLAYLISTS_EVENT, validatePlaylists } from '@/lib/music/musicPlaylists';
+
 export const BACKUP_KIND = 'arkpedia-backup';
 export const BACKUP_VERSION = 1;
 
@@ -79,6 +81,7 @@ export const BACKUP_STORES: readonly Store[] = [
   { key: 'baseFactoryProducts_v1', label: 'factory products', valid: (_, value) => isObject(value), event: null },
   { key: 'baseDormitoryAmbience_v1', label: 'dormitory ambience', valid: (_, value) => isObject(value) || typeof value === 'number', event: null },
   // The music player holds them on every page, the Account page included.
+  { key: MUSIC_PLAYLISTS_KEY, label: 'music playlists', valid: (_, value) => { try { validatePlaylists(value); return true; } catch { return false; } }, event: MUSIC_PLAYLISTS_EVENT },
   { key: MUSIC_FAVORITES_KEY, label: 'music favourites', valid: (_, value) => isStringList(value), event: MUSIC_FAVORITES_EVENT },
 ];
 

@@ -11,6 +11,7 @@ import { useMusicPlayer, QueueTrack } from '@/lib/music/musicPlayerContext';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
+import MusicPlaylists from '@/components/music/MusicPlaylists';
 import TransportIcon from '@/components/music/TransportIcons';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -483,13 +484,13 @@ export default function MusicPage({ songLookup }: Props) {
       <Head><title>Music — Arkpedia</title></Head>
 
       <PageHeader slim eyebrow="Rhodes Island // Sound Archive" title="Music"
-        actions={<Link prefetch={false} href="/music/discover" className="ghost btn-sm music-discover-btn">
+        actions={<><MusicPlaylists songs={songLookup} /><Link prefetch={false} href="/music/discover" className="ghost btn-sm music-discover-btn">
           <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
             <circle cx="10" cy="10" r="7.5" />
             <path d="M13 7 L11 11 L7 13 L9 9 Z" strokeLinejoin="round" />
           </svg>
           Discover
-        </Link>} />
+        </Link></>} />
 
       <main className="music-player-page">
         <div className="visually-hidden" aria-live="polite">
