@@ -14,7 +14,7 @@ Source revision: `ArknightsAssets/ArknightsAssets2` at
 `404cf368572a4f346f66614612c40fd7779012b5`.
 Furniture IDs match `building_data.customData.furnitures`.
 
-The SVGs are display masks in the original 226×169 coordinate system. They clip
+The inline SVGs in `styles/core/shared.css` are display masks in the original 226×169 coordinate system. They clip
 the baked grey catalogue backdrop from the original PNGs, including the spaces
 between chair legs. Their contours follow pixels darker than the backdrop by
 42/255 or with a channel spread above 20/255; tiny isolated specks are omitted.
