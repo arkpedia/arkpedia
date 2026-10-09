@@ -72,6 +72,9 @@ public/**/*.svg
 public/**/*.avif
 public/**/*.ico
 
+# UI display masks; furniture artwork stays in its source asset repository.
+!public/chibi-furniture/*-mask.svg
+
 # Python importer caches
 __pycache__/
 *.py[cod]
