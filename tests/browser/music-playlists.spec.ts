@@ -37,6 +37,12 @@ for (const theme of ['dark', 'light']) {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Playlists', exact: true })).toBeFocused();
     await expect(page.locator('.music-queue-row')).toHaveCount(1);
+    // YouTube reports a removed/blocked video: a one-song playlist must stop, not retry forever.
+    const loads = (await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById').length;
+    await page.evaluate(() => (window as unknown as { __yt: { fail: () => void } }).__yt.fail());
+    await expect(page.locator('.music-player-bottombar-controls').getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+    await page.waitForTimeout(200);
+    expect((await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById')).toHaveLength(loads);
     await page.reload();
     await page.getByRole('button', { name: 'Playlists', exact: true }).click();
     await expect(page.getByRole('combobox', { name: 'Saved playlist' })).toContainText('Night music');

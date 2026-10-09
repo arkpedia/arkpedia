@@ -694,6 +694,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             // disabled, age-restricted, etc.) -- skip it instead of
             // leaving playback dead with no recovery.
             setIsPlaying(false);
+            // A short saved playlist may consist entirely of unavailable videos.
+            // Stop at its end instead of wrapping and retrying the same failures forever.
+            const order = shuffleRef.current ? shuffleOrderRef.current : null;
+            const atEnd = order ? shufflePositionRef.current >= order.length - 1
+              : queueIndexRef.current >= queueRef.current.length - 1;
+            if (playlistIdsRef.current && atEnd) { endResumeWatch(); return; }
             nextTrack();
           },
           // The browser would not let this document start sound by itself (autoplay):
