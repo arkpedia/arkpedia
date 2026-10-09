@@ -454,14 +454,6 @@ test.describe('cards lift, and only by paint', () => {
     test(`${route}: every picture card rises on hover and keyboard focus, moves no layout box, and does not shrink when pressed`, async ({ page }) => {
       await readOnly(page);
       await page.goto(route);
-      // A newly opened banner can lack its poster (e.g. Standard Pool #177).
-      // Select an illustrated banner through the real control so the poster's
-      // hover/focus coverage does not disappear with the request's date.
-      if (route === '/') {
-        const illustratedBanner = page.locator('.front-gacha-thumb:has(img)').first();
-        if (await illustratedBanner.count()) await illustratedBanner.click();
-        await expect(page.locator('.front-gacha-poster-wrap img')).toBeVisible();
-      }
       if (route === '/community') await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
       // The first banner follows today's schedule and may have no published art yet.
       // Exercise the poster card using an illustrated banner, not its empty fallback.
