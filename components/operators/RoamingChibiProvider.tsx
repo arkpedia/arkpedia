@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import XButton from '@/components/ui/XButton';
+import { ContentImg } from '@/components/content/ContentImage';
 import type { ChibiModel } from '@/lib/operators/chibi';
 import { CHIBI_FURNITURE, chooseChibiBreak, chibiActivities } from '@/lib/operators/chibiRoutine';
 import type { ChibiAnimation, ChibiBreak } from '@/lib/operators/chibiRoutine';
@@ -156,7 +157,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
           place({ x: position.current.x + (event.key === 'ArrowLeft' ? -20 : event.key === 'ArrowRight' ? 20 : 0), y: position.current.y + (event.key === 'ArrowUp' ? -20 : event.key === 'ArrowDown' ? 20 : 0) });
         }
       }}>
-      {furniture && <img className={`chibi-furniture chibi-furniture-${rest!.activity}`} src={furniture.image} alt="" aria-hidden="true" draggable={false}
+      {furniture && <ContentImg className={`chibi-furniture chibi-furniture-${rest!.activity}`} src={furniture.image} alt="" aria-hidden="true" draggable={false}
         data-furniture={furniture.id} style={flipped ? { transform: 'scaleX(-1)' } : undefined} onError={endRest} />}
       <ChibiCanvas key={pet.model.skeleton} model={pet.model} label={pet.label} animation={rest?.clip ?? 'Idle'} activity={rest?.activity} onAnimationChange={ignoreAnimation}
         onAnimationsChange={onAnimationsChange} paused={pet.paused} moving={moving} flipped={flipped} roaming onPointerDown={event => beginDrag(event, pet, true)} />
