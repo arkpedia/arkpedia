@@ -264,7 +264,10 @@ function RecommendationBadge({ entries }: { entries: SkillRecommendationEntry[] 
     <span className="op-skill-recommend-stack">
       {visible.map((e, i) => (
         <span key={i} className="op-skill-recommend-row">
-          {e.mastery && <><span aria-hidden="true"><OperatorGameIcon label={e.mastery.toUpperCase()} color size={26} /></span><span>{e.mastery.toUpperCase()}</span></>}
+          {e.mastery && <>
+            <span className={pageStyles.recommendArt} aria-hidden="true"><OperatorGameIcon label={e.mastery.toUpperCase()} color size={26} /></span>
+            <span className={pageStyles.recommendLevel}>{e.mastery.toUpperCase()}</span>
+          </>}
           {e.mastery && e.order && <span className="op-skill-recommend-dot">·</span>}
           {e.order && <span className="op-skill-recommend-mastery">{e.order}</span>}
         </span>
@@ -619,7 +622,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
   // Each section keeps its controls mounted while only the selected one is visible.
   const availableSections: { key: SectionKey; label: string }[] = [];
   const skillList = useMemo(() => getSkillList(operator), [operator]);
-  // Show the recorded mastery and priority beside each recommended skill.
+  // Show the recorded mastery and priority beside every recommended skill tab.
   const showRecommendations = skillList.some(skill => skill.recommendation?.length);
   const skillCost = useMemo(() => getSkillCost(operator), [operator]);
   const priorityGuideGroups = useMemo(() => {
@@ -1115,15 +1118,19 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                 <Tabs
                   label="Skill"
                   id="operator-skill"
-                  className="op-skill-tabs"
+                  className={`op-skill-tabs ${pageStyles.skillTabs}`}
                   value={activeSkillIndex}
                   onChange={setActiveSkillIndex}
                   options={skillList.map((s, i) => {
                     const iconPath = getSkillIconPath(operator.name, s.name);
                     return {
                       value: i,
-                      label: `Skill ${i + 1}`,
-                      ariaLabel: `Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}`,
+                      label: <span className={pageStyles.skillTabLabel}>
+                        <span className={pageStyles.skillTabLong}>Skill {i + 1}</span>
+                        <span className={pageStyles.skillTabShort} aria-hidden="true">S{i + 1}</span>
+                        {showRecommendations && <RecommendationBadge entries={s.recommendation} />}
+                      </span>,
+                      ariaLabel: `Skill ${i + 1}: ${s.name || `Skill ${i + 1}`}${showRecommendations ? (s.recommendation ?? []).filter(e => e.mastery || e.order).map(e => `, ${[e.mastery?.toUpperCase(), e.order].filter(Boolean).join(' · ')}`).join('') : ''}`,
                       title: s.name || `Skill ${i + 1}`,
                       icon: iconPath ? <Image src={iconPath} alt="" width={40} height={40} /> : undefined,
                     };
@@ -1134,13 +1141,12 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                   <div {...tabPanelProps('operator-skill', activeSkillIndex)}>
                     <h3 className={`entity-title entity-title-sm ${pageStyles.selectedSkill}`}>
                       {/* Overlapping variants reserve the tallest header at this width,
-                          including wrapped names and recommendation badges. */}
+                          including wrapped names. */}
                       {skillList.map((skill, index) => (
                         <span key={index} className={pageStyles.skillTitleVariant}
                           aria-hidden={index !== activeSkillIndex}
                           style={{ visibility: index === activeSkillIndex ? 'visible' : 'hidden' }}>
                           <span>{skill.name || `Skill ${index + 1}`}</span>
-                          {showRecommendations && <RecommendationBadge entries={skill.recommendation} />}
                         </span>
                       ))}
                     </h3>

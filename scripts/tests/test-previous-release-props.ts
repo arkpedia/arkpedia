@@ -257,6 +257,9 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.featuredStream': "the live Twitch stream, fetched at the request the same way; null whenever none is live or the API answers nothing",
     // getHomeGachaBanners spreads whole banner records, and a banner an official CN post announced
     // keeps the post's name for good: it reaches this list once Global dates the banner.
+    '.ongoingBanners[].global_date_estimated': 'optional timing confidence on imported Global banners; absent older records retain their existing date handling',
+    '.ongoingBanners[].global_window': 'optional exact game-table window; parseBannerWindow falls back to the legacy global_date range when absent',
+    '.ongoingBanners[].globalPoolId': 'optional game pool identity for account pull-history matching; the homepage does not read it',
     '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
   },
   '/schedule': {

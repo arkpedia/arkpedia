@@ -455,6 +455,12 @@ test.describe('cards lift, and only by paint', () => {
       await readOnly(page);
       await page.goto(route);
       if (route === '/community') await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
+      // The first banner follows today's schedule and may have no published art yet.
+      // Exercise the poster card using an illustrated banner, not its empty fallback.
+      if (route === '/') {
+        await page.locator('.front-gacha-thumb:has(img)').first().click();
+        await expect(page.locator('.front-gacha-poster-wrap img')).toBeVisible();
+      }
       await settle(page);
       const cards = await pictureCards(page);
       const kinds = [...new Map(cards.filter((c) => !NO_LIFT[c.kind]).map((c) => [c.kind, c])).values()];
