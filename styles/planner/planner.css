@@ -320,8 +320,8 @@
 .state-level-max { flex:none; }
 .state-level-max:focus-visible,.state-level-number:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
 
-.simple-cost-groups > .simple-material-view { border-top:1px solid var(--line); margin:14px 0 12px; padding-top:12px; }
-.simple-material-view + section { margin-top:0; padding-top:0; border-top:0; }
+.simple-material-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 24px; border-top:1px solid var(--line); margin:14px 0 12px; padding-top:12px; }
+.simple-material-toolbar + section { margin-top:0; padding-top:0; border-top:0; }
 
 /* The level field is one control-height box: its LEVEL label beside the number, on the
    row's centre line with the slider and MAX (it was a 48px label-over-value stack). */
