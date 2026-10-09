@@ -5,8 +5,8 @@
  * release to the main site, for what that release brings. Not every merge: tests, CI and
  * internals stay out (scripts/tests/test-changelog.ts holds the shape).
  *
- * One entry per day (UTC): a later release on the same day is a patch to that day's update, so
- * its items go into the day's entry and the entry's `at` moves to the newest release.
+ * Releases may be added independently: groupChangelogDays automatically combines their
+ * items under one date in the reader's timezone, retaining the newest release timestamp.
  */
 
 /** One change, scannable: a headline that is the point on its own, and at most one short sentence
@@ -33,6 +33,44 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    at: '2026-10-09T14:39:11Z',
+    title: 'Import a Friend',
+    added: [
+      { title: 'Import a Friend', detail: 'Export your account as a file and view a friend’s profile, operator builds and skins, saved separately from your own account.', href: '/friends' },
+    ],
+  },
+  {
+    at: '2026-10-09T09:56:52Z',
+    title: 'Chibi breaks',
+    added: [
+      { title: 'Roaming chibis take a break', detail: 'Chibis occasionally sit on a chair, sleep in a bed, or play their base idle and special animations.', href: '/operators' },
+    ],
+  },
+  {
+    at: '2026-10-09T01:21:49Z',
+    title: 'Music playlists',
+    added: [
+      { title: 'Save and transfer music playlists', detail: 'Save your queue or favorites as a playlist, then export or import Arkpedia playlist files between browsers.', href: '/music' },
+    ],
+  },
+  {
+    at: '2026-10-08T23:51:56Z',
+    title: 'Web events and campaign art',
+    added: [
+      { title: 'Artwork for regional web events', detail: 'See official campaign images alongside regional links and closing times in World.', href: '/community' },
+    ],
+    changed: [
+      { title: 'Automatic web-event discovery', detail: 'Daily checks of official announcements add verified campaigns and update their dates and artwork.', href: '/community' },
+    ],
+  },
+  {
+    at: '2026-10-08T22:50:18Z',
+    title: 'Smoother animated artwork',
+    changed: [
+      { title: 'Fewer pauses in animated art', detail: 'Particle effects use less processing and prepare animation restarts ahead of time to reduce stutters.', href: '/skins' },
+    ],
+  },
   {
     at: '2026-10-08T14:04:51Z',
     title: 'Skin planning, animated art and home updates',
