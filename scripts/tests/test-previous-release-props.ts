@@ -265,10 +265,17 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
   '/schedule': {
     '.operators[].portraitPending': 'optional publication status on a newly discovered operator whose portrait has not arrived; an older release without it keeps its published portrait',
     '.events[].aliases': 'optional historic names on renamed source records; Schedule does not read this field',
+    '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].cn.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].global.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.eventRows[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
   },
   '/skins': {
     '.events[].aliases': 'optional historic names on renamed source records; the skin page does not read this field',
+    '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].cn.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].global.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },
   '/gacha': {

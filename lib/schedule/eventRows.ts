@@ -11,6 +11,8 @@ import type { TimelineOperator } from '@/lib/operators/operatorTypes';
 /** One calendar event as exported: its Global window as epoch ms, end exclusive. */
 export interface EventRow {
   name: string;
+  /** Permanent-mode launch; its row window covers launch day only. */
+  modeId?: string;
   poster: string | null;
   dateRange: string;
   isPredicted: boolean;
@@ -25,6 +27,8 @@ export interface EventRow {
  * already has this shape, decided at its export. */
 export interface EventRowView {
   name: string;
+  /** Permanent-mode launch; its row window covers launch day only. */
+  modeId?: string;
   poster: string | null;
   dateRange: string;
   isPredicted: boolean;

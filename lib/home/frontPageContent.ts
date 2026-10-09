@@ -20,6 +20,7 @@ export interface GameEvent extends GameWindowTimes {
 }
 
 interface RawEvent {
+  modeId?: string;
   name: string;
   poster: string | null;
   year: number;
@@ -34,6 +35,8 @@ export function loadGameEvents(): GameEvent[] {
   const raw = loadAllEventYears() as RawEvent[];
   const events: GameEvent[] = [];
   for (const e of raw) {
+    // Permanent modes have a launch, not a timed event window. Schedule lists them separately.
+    if (e.modeId) continue;
     const dateRange = e.global?.dateRange;
     if (!dateRange) continue;
     const window = parseGameWindow(dateRange, e.global ?? {});
@@ -184,6 +187,8 @@ export function getEventCalendar(): GameEventListing[] {
   const result: GameEventListing[] = [];
 
   for (const e of raw) {
+    // Permanent modes have a launch, not a timed event window. Schedule lists them separately.
+    if (e.modeId) continue;
     const globalRange = e.global?.dateRange;
     if (globalRange) {
       const window = parseGameWindow(globalRange, e.global ?? {});

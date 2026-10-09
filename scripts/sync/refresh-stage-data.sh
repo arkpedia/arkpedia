@@ -194,6 +194,8 @@ stage stronghold-enemies --needs enemy-index -- node scripts/build/build-strongh
 # Recurring Standard and Kernel banners first, so their windows are reconciled too.
 stage recurring-banners -- node scripts/sync/sync-recurring-banners.mjs
 stage event-windows -- node scripts/sync/sync-event-windows.mjs
+# Permanent RA themes are outside activity_table; import each launch by its stable topic ID.
+stage ra-releases -- node scripts/sync/sync-ra-releases.mjs
 
 # The event-reward stages, after event-windows: each one dates the events it reads, and an
 # estimated date the client has since corrected misplaces a login, a post or a store's 30-day

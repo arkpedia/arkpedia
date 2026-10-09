@@ -18,3 +18,13 @@ inherited reruns and content released before explicit theme IDs were added.
 Pack artwork still uses `config/event-pack-art.json`; new packs require a sourced entry
 until their artwork discovery is automated. Official livestream crops should retain
 their source and region. Selector operator clicks should keep the event context open.
+
+Permanent Reclamation Algorithm launches are imported by `scripts/sync/sync-ra-releases.mjs`
+from each region's `sandbox_perm_table.json`, matched by `topicId`. They use `modeId`
+and regional `releaseDate` fields in the event records, without an invented closing
+window. The schedule shows a one-day launch marker. Global dates absent from the
+client receive the existing CN-to-Global forecast with an explicit estimate label.
+`config/ra-releases.json` supplies reviewed translations and published official art
+for CN-only themes; new unmapped themes still appear under their client name.
+Relaunch Anchor currently uses its official OST cover while release key art is not
+in the published asset catalogue.
