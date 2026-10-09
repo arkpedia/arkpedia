@@ -106,6 +106,7 @@ interface MusicPlayerContextValue {
   playQueueIndex: (index: number) => void;
   playTrackByVideoId: (videoId: string) => void;
   playFirst: (videoId: string) => void;
+  playPlaylist: (videoIds: string[] | null) => Promise<number>;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
   reorderShuffleOrder: (fromPos: number, toPos: number) => void;
   moveQueueItemToTop: (index: number) => void;
@@ -197,6 +198,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // onStateChange callback (registered once at setup) always reads
   // current values instead of stale ones from its original closure.
   const queueRef = useRef<QueueTrack[]>([]);
+  const playlistIdsRef = useRef<string[] | null>(null);
   const queueIndexRef = useRef(0);
   const repeatModeRef = useRef<RepeatMode>('off');
   const favoritesRef = useRef<Set<string>>(new Set());
@@ -371,7 +373,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       });
       const existingIds = new Set(oldQueue.map((t) => t.id));
       const toAdd = fullCatalog
-        .filter((s) => !existingIds.has(s.videoId))
+        .filter((s) => !existingIds.has(s.videoId) && (!playlistIdsRef.current || playlistIdsRef.current.includes(s.videoId)))
         .map(toQueueTrack);
       nextQueue = [...oldQueue, ...toAdd];
     }
@@ -866,6 +868,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       duration: Number.isFinite(durationRef.current) && durationRef.current > 0 ? durationRef.current : 0,
       playing: isPlayingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
       queue: queue.map((track) => track.id),
+      playlistIds: playlistIdsRef.current,
       queueIndex: queueIndexRef.current,
       shuffle: shuffleRef.current,
       shuffleOrder: order ? order.flatMap((index) => (queue[index] ? [queue[index].id] : [])) : null,
@@ -912,6 +915,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // song resumed there would play over its clips.
     const play = record.playing && router.pathname !== GAME_PATHS.music;
     resumeRef.current = { ...record, playing: play };
+    playlistIdsRef.current = record.playlistIds ?? null;
     pendingPlayRef.current = play;
     shuffleRef.current = record.shuffle;
     setShuffle(record.shuffle);
@@ -1003,6 +1007,26 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       player.loadVideoById(videoId);
     }
     player.playVideo();
+  }
+
+  async function playPlaylist(videoIds: string[] | null): Promise<number> {
+    if (!playerReadyRef.current) return 0;
+    await buildQueueFromCatalog();
+    const byId = new Map((catalogRef.current ?? []).map(song => [song.videoId, song]));
+    const tracks = [...new Set(videoIds ?? [...byId.keys()])].flatMap(id => {
+      const song = byId.get(id);
+      return song && !(excludeCopyrightedRef.current && song.copyright) ? [toQueueTrack(song)] : [];
+    });
+    if (!tracks.length) return 0;
+    playlistIdsRef.current = videoIds ? [...videoIds] : null;
+    queueRef.current = tracks; setQueue(tracks);
+    queueIndexRef.current = 0; setQueueIndex(0);
+    // Start in the saved order. The reader can turn shuffle on afterwards.
+    shuffleRef.current = false; setShuffle(false);
+    shuffleOrderRef.current = null; setShuffleOrder(null);
+    shufflePositionRef.current = 0; setShufflePosition(0);
+    loadTrackAt(0);
+    return tracks.length;
   }
 
   function toggleShuffle() {
@@ -1221,7 +1245,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     handleSeekCommit,
     setSeeking,
     playQueueIndex,
-    playTrackByVideoId, playFirst,
+    playTrackByVideoId, playFirst, playPlaylist,
     reorderQueue,
     reorderShuffleOrder,
     moveQueueItemToTop,

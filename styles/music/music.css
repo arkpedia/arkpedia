@@ -611,3 +611,13 @@
    focus draws the same teal edge as hover. */
 .music-discover-album-tile:focus-visible .music-discover-album-tile-cover,
 .music-discover-character-tile:focus-visible .music-discover-character-portrait { border-color: var(--teal); }
+
+/* Playlist actions share the page header and a compact record, rather than another page row. */
+.music-playlists-dialog { width: min(720px, calc(100vw - 24px)); }
+.music-playlists-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
+.music-playlists-toolbar > input { flex: 1; min-width: 160px; }
+.music-playlists-toolbar > div { max-width: 100%; }
+.music-playlist-tracks { max-height: 240px; overflow: auto; }
+.music-playlist-tracks ol { padding-left: 28px; }
+.music-playlist-tracks li { padding: 4px 0; overflow-wrap: anywhere; }
+.music-playlist-status { min-height: 1.5em; }
