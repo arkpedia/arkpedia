@@ -122,6 +122,10 @@ test('dragging outside the viewer drops a walking chibi at that point', async ({
   await page.getByRole('button', { name: 'Chibi viewer', exact: true }).click();
   await expect(pet).toBeVisible();
   await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
+  // The pet outlives both pages, so its visibility does not mean navigation finished.
+  // Dismiss on Home, once the old viewer trigger really has unmounted.
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('button', { name: 'Chibi viewer', exact: true })).toHaveCount(0);
   await expect(pet).toBeVisible();
   await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
   await expect(pet).toHaveCount(0);
