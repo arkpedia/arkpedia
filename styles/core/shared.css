@@ -1693,5 +1693,8 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .chibi-roaming .chibi-viewer p { bottom: 0; font-size: 12px; }
 .chibi-roaming.is-dragging canvas { cursor: grabbing; }
 .chibi-roaming-controls { position: absolute; right: 0; top: 0; display: flex; align-items: center; gap: 4px; }
+.chibi-furniture { position: absolute; left: 0; width: 160px; height: 118px; pointer-events: none; mask-size: 100% 100%; mask-repeat: no-repeat; }
+.chibi-furniture-sit { top: 56px; mask-image: url('/chibi-furniture/chair-mask.svg'); }
+.chibi-furniture-sleep { top: 62px; mask-image: url('/chibi-furniture/bed-mask.svg'); }
 
 @media (max-width: 650px) { .chibi-away { height: 180px; } }

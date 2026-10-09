@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEventHandler } from 'react';
 import type { ChibiModel } from '@/lib/operators/chibi';
+import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
-  onAnimationsChange: (values: string[]) => void; paused: boolean; moving: boolean; flipped: boolean;
+  onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
   onPointerDown: PointerEventHandler<HTMLCanvasElement>; roaming: boolean;
+  activity?: ChibiActivity;
 }
-export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming }: ChibiCanvasProps) {
+export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming, activity }: ChibiCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState('');
-  const control = useRef({ animation, paused, moving, roaming });
-  control.current = { animation, paused, moving, roaming };
+  const control = useRef({ animation, paused, moving, roaming, activity });
+  control.current = { animation, paused, moving, roaming, activity };
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const abort = new AbortController(); let stopped = false, frame = 0;
@@ -34,7 +36,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const stateData = new spine.AnimationStateData(data); stateData.defaultMix = .15;
       const state = new spine.AnimationState(stateData);
       const names = data.animations.map(value => value.name); const initial = names.includes('Idle') ? 'Idle' : names[0];
-      if (!control.current.roaming) onAnimationsChange(names); setLoading(false);
+      onAnimationsChange(names, Object.fromEntries(data.animations.map(value => [value.name, value.duration]))); setLoading(false);
       // Frame Idle, but retain the selected animation across facing/model changes.
       if (!control.current.roaming && !names.includes(control.current.animation)) onAnimationChange(initial);
       state.setAnimation(0, initial, true);
@@ -53,10 +55,13 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const render = (now: number) => {
         if (stopped) return;
         const dt = Math.min(.05, (now - previous) / 1000); previous = now;
-        const requested = control.current.moving ? walkAnimation ?? initial : control.current.roaming ? initial : control.current.animation;
+        const requested = control.current.moving ? walkAnimation ?? initial : names.includes(control.current.animation) ? control.current.animation : initial;
         if (requested !== current && names.includes(requested)) { current = requested; state.setAnimation(0, current, !/die|retreat|start|begin|end/i.test(current)); }
         if (canvas.dataset.animation !== current) canvas.dataset.animation = current;
         if (!control.current.paused) state.update(dt);
+        // Native Sit lowers the hips below standing ground; lift the pose onto the seat.
+        // Sleep stays horizontal above the mattress, with the same camera and scale.
+        skeleton.y = control.current.roaming ? size.y * (control.current.activity === 'sit' ? .25 : control.current.activity === 'sleep' ? .13 : 0) : 0;
         state.apply(skeleton); skeleton.updateWorldTransform();
         const width = Math.max(1, canvas.clientWidth), height = Math.max(1, canvas.clientHeight), dpr = Math.min(2, window.devicePixelRatio || 1);
         if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
