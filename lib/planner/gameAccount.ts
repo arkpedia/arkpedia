@@ -58,6 +58,7 @@ export function checkGameAccountMap(value: unknown): GameAccountMap {
 interface GameSkill { specializeLevel?: number }
 interface GameEquip { locked?: number; level?: number }
 interface GameChar {
+  potentialRank?: number;
   charId?: string;
   evolvePhase?: number;
   level?: number;
@@ -94,6 +95,7 @@ function owned(char: GameChar, form: { skills?: GameSkill[]; equip?: Record<stri
   }
   return {
     elite: whole(char.evolvePhase, 0, 2, 0),
+    ...(typeof char.potentialRank === 'number' ? { potential: whole(char.potentialRank, 0, 5, 0) + 1 } : {}),
     level: whole(char.level, 1, 90, 1),
     skillLevel: whole(char.mainSkillLvl, 1, 7, 1),
     masteries,

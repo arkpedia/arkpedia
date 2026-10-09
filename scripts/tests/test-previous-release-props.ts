@@ -257,6 +257,9 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.featuredStream': "the live Twitch stream, fetched at the request the same way; null whenever none is live or the API answers nothing",
     // getHomeGachaBanners spreads whole banner records, and a banner an official CN post announced
     // keeps the post's name for good: it reaches this list once Global dates the banner.
+    '.ongoingBanners[].global_date_estimated': 'optional timing confidence on imported Global banners; absent older records retain their existing date handling',
+    '.ongoingBanners[].global_window': 'optional exact game-table window; parseBannerWindow falls back to the legacy global_date range when absent',
+    '.ongoingBanners[].globalPoolId': 'optional game pool identity for account pull-history matching; the homepage does not read it',
     '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
   },
   '/schedule': {
@@ -330,6 +333,16 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/friends': props => {
+    const operators = props.operators as {name:string;rarity:number;icon:string;skills:number}[];
+    assert.ok(operators.length > 400 && operators.every(op => op.name && op.icon.startsWith('/') && op.rarity >= 1 && op.rarity <= 6), 'the owned-operator catalogue survives without source files');
+    assert.equal(operators.find(op => op.name === 'Angelina')?.skills, 3);
+    assert.equal(operators.find(op => op.name === 'Lancet-2')?.rarity, 1);
+    const skins = props.skins as {id:string;image:string|null}[];
+    assert.ok(skins.length > 400 && skins.filter(skin => skin.image?.startsWith('/')).length > 400, 'owned skins retain official artwork');
+    const tables = props.__contentTables as Record<string, {chars?:Record<string,unknown>}>;
+    assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'the profile id map is attached');
+  },
   '/community': (props, { from, to }) => {
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');

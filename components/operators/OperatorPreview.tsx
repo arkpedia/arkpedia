@@ -9,7 +9,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import XButton from '@/components/ui/XButton';
 import { operatorHref } from '@/lib/operators/operatorHref';
 
-export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon' | 'rarity'>;
+export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon'> & { rarity: number };
 
 /* A tab panel that keeps the tallest height it has had for this operator (the Anti-Page
    Jump rule's floor, reset per logical page): the preview scrolls inside itself, and a
@@ -71,7 +71,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
       .catch((error: unknown) => { if (!(error instanceof Error && error.name === 'AbortError')) setLoadError(true); });
     return () => controller.abort();
   }, [item.name]);
-  const artFolder = item.rarity === 6 ? 'six' : item.rarity === 5 ? 'five' : item.rarity === 4 ? 'four' : 'three';
+  const artFolder = ({1:'one',2:'two',3:'three',4:'four',5:'five',6:'six'} as Record<number, string>)[item.rarity] ?? 'six';
   const art = `/${artFolder}-star-skins/${encodeURIComponent(`${item.name} - Base.webp`)}`;
   const selectedModuleData = details?.modules[selectedModule];
   const moduleStage = selectedModuleData?.stages[selectedStage];

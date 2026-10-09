@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { hiddenUnless } from '@/lib/ui/inert';
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ContentArt, ContentImg } from '@/components/content/ContentImage';
 import { assistantArtPath, moduleMarkPath, portraitPath, profileArtPath, skillIconPath, avatarSources } from '@/lib/account/portraits';
 import { getFactionIconPath } from '@/lib/operators/classBranchIcons';
@@ -112,12 +112,19 @@ function mainEpisode(cleared: string[]): number | null {
   return best;
 }
 
-export default function ProfileCard({ account, map, outfits, outfitArt, outfitNames }: {
+function CollectionLink({ onClick, href, className, title, children }: { onClick?: () => void; href: string; className: string; title: string; children: ReactNode }) {
+  return onClick ? <button type="button" className={`btn-bare ${className}`} onClick={onClick} title={title} aria-label={title} aria-haspopup="dialog">{children}</button>
+    : <Link prefetch={false} href={href} className={className} title={title}>{children}</Link>;
+}
+
+export default function ProfileCard({ account, map, outfits, outfitArt, outfitNames, onOperators, onSkins }: {
   account: AccountRecord; map: GameAccountMap; outfits: number;
   /** Each outfit's art by its game id, for the assistant on a theme without one of its own. */
   outfitArt: ReadonlyMap<string, string>;
   /** Every outfit's name by its skin id: the assistant's icon when it is the avatar. */
   outfitNames: ReadonlyMap<string, string>;
+  onOperators?: () => void;
+  onSkins?: () => void;
 }) {
   const profile = account.profile ?? { level: null, registeredAt: null, secretary: null, bio: null };
   // The game dates the card by its server's day (UTC-7, rolling over at 04:00), not UTC's.
@@ -243,11 +250,11 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
         </div>
         <div className="account-card-outfits">
           <ContentImg className="account-card-outfits-decor" src={UI('decor_skin')} alt="" aria-hidden="true" />
-          <Link prefetch={false} href="/skins?owned=missing" className="account-card-outfits-count account-card-link" title="The outfits you don't have">
+          <CollectionLink onClick={onSkins} href="/skins?owned=missing" className="account-card-outfits-count account-card-link" title={onSkins ? "Show friend's skins" : "The outfits you don't have"}>
             <ContentImg src={UI('icon_skin')} alt="" aria-hidden="true" />
             <span>Outfits Owned</span>
             <b>{outfits}</b>
-          </Link>
+          </CollectionLink>
         </div>
         <div className="account-card-hiring">
           <p className="account-card-tag"><span>Operator Hiring Progress</span><ContentImg src={UI('human_resource')} alt="" aria-hidden="true" /></p>
@@ -257,9 +264,9 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
               aria-label={asShare ? 'Show the operators hired as a count' : 'Show the operators hired as a percentage'} onClick={() => setAsShare(!asShare)}>
               <ContentImg key={`hired-${asShare}`} src={UI('style_change_icon')} alt="" />
             </button>
-            <Link prefetch={false} href="/operators?owned=missing" className="account-card-hired account-card-link" title="The operators you don't have">
+            <CollectionLink onClick={onOperators} href="/operators?owned=missing" className="account-card-hired account-card-link" title={onOperators ? "Show friend's operators" : "The operators you don't have"}>
               {asShare ? `${((100 * hiredCount) / Math.max(1, globalOperators)).toFixed(1)}%` : hiredCount}
-            </Link>
+            </CollectionLink>
           </div>
           {/* The emblems, or the game's tower: one cell, so the switch moves nothing below. */}
           <div className="account-card-hiring-art">
@@ -271,11 +278,11 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
                 const complete = total > 0 && missing.length === 0;
                 const label = `${nation}: ${total - missing.length} of ${total} hired${missing.length ? `. Not yet: ${missing.join(', ')}` : ''}`;
                 return (
-                  <Link key={nation} prefetch={false} href={`/operators?faction=${encodeURIComponent(ROSTER_FACTION[nation] ?? nation)}${complete ? '' : '&owned=missing'}`}
+                  <CollectionLink key={nation} onClick={onOperators} href={`/operators?faction=${encodeURIComponent(ROSTER_FACTION[nation] ?? nation)}${complete ? '' : '&owned=missing'}`}
                     className={`account-card-nation${complete ? ' is-complete' : ''}`} title={label} aria-label={label}>
                     <ContentImg src={UI('team_back')} alt="" />
                     <ContentArt src={getFactionIconPath(nation)!} />
-                  </Link>
+                  </CollectionLink>
                 );
               })}
             </div>

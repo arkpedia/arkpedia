@@ -50,12 +50,12 @@ export function importGameAccount(user: Record<string, any>, tables: ImportTable
   // This server's earlier record, shown or waiting: its pull history is the one this joins.
   const earlier = shown?.server === server ? shown : others[server] ?? null;
   const history = mergePulls(samePlayer(earlier, imported) ? earlier?.pulls : undefined, pulls, now);
-  const record: AccountRecord = { ...imported, ...(history ? { pulls: history } : {}) };
+  const { roster, depot, unknown } = readGameAccount(user, tables.map, tables.aliases, tables.depotNames);
+  const record: AccountRecord = { ...imported, operatorBuilds: roster, ...(history ? { pulls: history } : {}) };
   // The import is shown; the record it takes the place of, if another server's, waits.
   delete others[server];
   if (shown && shown.server !== server) others[shown.server] = shown;
   writeOtherAccounts(others);
-  const { roster, depot, unknown } = readGameAccount(user, tables.map, tables.aliases, tables.depotNames);
   writeAccount(record);
   writeRoster(roster);
   writeDepot(depot);

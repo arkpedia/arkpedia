@@ -463,6 +463,11 @@ test.describe('cards lift, and only by paint', () => {
     test(`${route}: every picture card rises on hover and keyboard focus, moves no layout box, and does not shrink when pressed`, async ({ page }) => {
       await readOnly(page);
       await page.goto(route);
+      // Today's first banner can lack published art; test an illustrated poster.
+      if (route === '/') {
+        await page.locator('.front-gacha-thumb:has(img)').first().click();
+        await expect(page.locator('.front-gacha-poster-wrap img')).toBeVisible();
+      }
       await settle(page);
       const cards = await pictureCards(page);
       const kinds = [...new Map(cards.filter((c) => !NO_LIFT[c.kind]).map((c) => [c.kind, c])).values()];

@@ -41,6 +41,7 @@ export const LINKS: NavLink[] = [
   { href: '/pulls', label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
   { href: '/community', label: 'Community', icon: 'community' },
+  { href: '/friends', label: 'Import a Friend', icon: 'roster' },
   { href: '/gacha', label: 'Gacha', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
   { href: '/results', label: 'Power Scale', icon: 'rate' },
@@ -83,7 +84,7 @@ export const GROUPS: NavGroup[] = [
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/gamemodes'), at('/base'), at('/recruitment'), at('/gacha')] },
   /* The reader's own: their account, and the planners that read it (issue #94). */
   { id: 'own', label: 'Planner', items: [at('/account'), at('/free-op'), at('/planner'), at('/skin-planner'), at('/pulls')] },
-  { id: 'community', label: 'Community', items: [at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog'), at('/credits')] },
+  { id: 'community', label: 'Community', items: [at('/friends'), at('/results'), at('/games'), at('/community'), at('/music'), at('/changelog'), at('/credits')] },
 ];
 
 /* Not in a menu: one destination each, and a menu of one is a click in front of a
