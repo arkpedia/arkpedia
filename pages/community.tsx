@@ -4,7 +4,7 @@ import Tabs from '@/components/ui/Tabs';
 import SearchInput from '@/components/ui/SearchInput';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { ContentImg } from '@/components/content/ContentImage';
-import { currentWebEvents, WORLD_CATEGORIES, type WorldCategory, type WorldDirectory } from '@/lib/community/worldDirectory';
+import { currentWebEvents, mergeWebEvents, WORLD_CATEGORIES, type WorldCategory, type WorldDirectory } from '@/lib/community/worldDirectory';
 import WEB_EVENTS from '@/config/community-web-events.json';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { GetStaticProps } from 'next';
@@ -63,7 +63,7 @@ export default function CommunityHub({
       {category === 'offline' ? <section className="op-section community-events" aria-label="Offline Events">
         <div className="live-section-heading-row"><h2>Offline Events</h2><StyledSelect label="Event country" value={country} options={[{ value: '', label: 'All countries' }, ...countries.map(value => ({ value, label: value }))]} onChange={value => { setCountry(value); try { localStorage.setItem('arkpedia.world.country', value); } catch { /* private mode */ } }} /></div>
         <div className="community-map-row"><div className="community-event-panel"><EventListPanel events={localEvents} now={now} /></div><div className="community-map-main"><WorldMapEvents events={localEvents} now={now} /></div></div>
-      </section> : category === 'web' ? <section className="op-section"><h2>Web Events</h2><div className="world-directory">{webEvents.map(event => <a key={event.url} className="ghost" href={event.url} target="_blank" rel="noopener noreferrer"><span>{event.region}</span><b>{event.name} ↗</b><span>{event.start} – {event.end}</span>{event.closingTime && <span>Closes at {event.closingTime}</span>}</a>)}</div>{!webEvents.length && <p className="hint">No web events listed right now.</p>}</section>
+      </section> : category === 'web' ? <section className="op-section"><h2>Web Events</h2><div className="world-directory world-web-events">{webEvents.map(event => <a key={event.url} className="ghost world-web-event" href={event.url} target="_blank" rel="noopener noreferrer">{event.image && <ContentImg className="world-web-event-art" src={event.image} alt={`${event.name} event art`} width={1200} height={630} />}<span>{event.region}</span><b>{event.name} ↗</b><span>{event.start} – {event.end}</span>{event.closingTime && <span>Closes at {event.closingTime}</span>}</a>)}</div>{!webEvents.length && <p className="hint">No web events listed right now.</p>}</section>
       : category === 'discord' ? <section className="op-section"><h2>Discord</h2><div className="world-directory">{directory.discord.map(server => <a className="ghost" key={server.url} href={server.url} target="_blank" rel="noreferrer">{server.name} ↗</a>)}</div></section>
       : category === 'youtube' ? <section className="op-section"><div className="live-section-heading-row"><h2>YouTube</h2><Link className="ghost btn-sm" href="/community/videos">All videos</Link></div>
         <SearchInput label="Search videos or creators" placeholder="Video or creator" value={query} onChange={value => { setQuery(value); setLimit(12); }} />
@@ -84,9 +84,10 @@ export default function CommunityHub({
    feeds are live, not game data, so they are fetched on every revalidation (finalize) and
    never exported into the release; the builder holds only what the release should carry. */
 async function withLiveFeeds(props: Props): Promise<Props> {
-  // Web campaigns are curated site configuration, independent of the game-data release.
-  // An older published directory must not hide newly announced campaigns after a deploy.
-  const directory = { ...(props.directory ?? (await import('@/data/world-directory.json')).default as WorldDirectory), webEvents: WEB_EVENTS };
+  // New campaigns travel in the content release without a code deploy. The reviewed
+  // seeds keep the initial campaigns visible while an older directory is still live.
+  const existing = props.directory ?? (await import('@/data/world-directory.json')).default as WorldDirectory;
+  const directory = { ...existing, webEvents: mergeWebEvents(WEB_EVENTS, existing.webEvents) };
   const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const enriched = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
@@ -122,5 +123,5 @@ async function withLiveFeeds(props: Props): Promise<Props> {
    stayed as the deploy built them until the next release. The builder reads only the
    compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
-  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: WEB_EVENTS }, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
+  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: mergeWebEvents(WEB_EVENTS, (await import('@/data/community-web-events.json')).default) }, events: EVENTS, videos: [], twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
 }), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true });
