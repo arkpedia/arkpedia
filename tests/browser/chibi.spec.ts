@@ -161,6 +161,7 @@ for (const theme of ['dark', 'light'] as const) for (const [activity, choice, cl
     }
     await expect(pet).toHaveAttribute('data-activity', activity, { timeout: 12000 });
     await expect(pet.locator('canvas')).toHaveAttribute('data-animation', clip);
+    await expect(pet).toHaveAttribute('data-break-duration', /.+/, { timeout: 12000 });
     expect(Number(await pet.getAttribute('data-break-duration'))).toBeCloseTo(duration, 0);
     const furniture = pet.locator('.chibi-furniture');
     await expect(furniture).toHaveCount(activity === 'sit' || activity === 'sleep' ? 1 : 0);
