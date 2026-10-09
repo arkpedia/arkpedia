@@ -105,5 +105,8 @@
 
 .world-directory { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 12px 0; }
 .world-directory a { display: grid; gap: 6px; }
+.world-web-events { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.world-web-events .world-web-event { padding: 12px; align-content: start; text-align: left; }
+.world-web-event-art { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: contain; background: var(--panel); margin-bottom: 6px; }
 .world-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-top: 16px; }
 .world-gallery img { max-width: 100%; height: auto; object-fit: contain; }

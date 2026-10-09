@@ -34,6 +34,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-08T23:51:56Z',
+    title: 'Web events and campaign art',
+    added: [
+      { title: 'Artwork for regional web events', detail: 'See official campaign images alongside regional links and closing times in World.', href: '/community' },
+    ],
+    changed: [
+      { title: 'Automatic web-event discovery', detail: 'Daily checks of official announcements add verified campaigns and update their dates and artwork.', href: '/community' },
+    ],
+  },
+  {
     at: '2026-10-08T22:50:18Z',
     title: 'Smoother animated artwork',
     changed: [

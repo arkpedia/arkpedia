@@ -202,6 +202,7 @@ stage event-windows -- node scripts/sync/sync-event-windows.mjs
 # The official Global event announcements, cached post by post (data/official-news/global): a
 # quiet day reads two pages of the list. GET only; a day the site is down keeps the cache.
 stage official-news -- node scripts/sync/sync-official-news.mjs
+stage community-web-events -- node scripts/sync/sync-community-web-events.mjs
 
 # Each event's store as arknights.wiki.gg lists it, a rerun's from its /Rerun page
 # (data/event-stores.json): no table or announcement has a store's listings. A page parsed before

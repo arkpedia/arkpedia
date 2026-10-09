@@ -53,6 +53,32 @@ write the handler. What this removes is having to *notice* that they need one.
 
 ## Stage data pipeline
 
+### Regional web campaigns
+
+`sync-community-web-events.mjs` runs in the daily content refresh after official
+news. It reads the public EN/JP/KR website home and news feeds and the Korean
+official Naver cafe's web-event announcements. A campaign announced in one region
+also prompts a check of the same campaign subdomain in the other regions.
+
+Publication requires each regional campaign's own canonical URL and a complete,
+unambiguous period in its rules. Entry scripts are read as text, never executed.
+The supported rule formats are English numeric/named-month dates with UTC−7 and
+Japanese/Korean year-month-day dates in their server time zones. The final minute
+is inclusive; date-only Korean opening notices stay date-only. Unsupported rules
+go to `data/quarantine.json` for review, and source outages retain verified records.
+
+Verified records and official CDN artwork URLs go to
+`data/community-web-events.json`; the normal content release updates Community →
+World without a code deployment. `config/community-web-events.json` supplies
+manually verified fallback cards until a release carries them. Closed events
+remain in the data but disappear from the current-events view automatically.
+
+Discovery currently covers recent official website/cafe announcements linking
+campaign microsites. Social-only announcements and other URL/rule formats may
+still need a manual entry or a new source/parser. Run the sync locally with
+`node scripts/sync/sync-community-web-events.mjs`; it updates the records and
+quarantine report.
+
 ### Before the first refresh
 
 Serving the site needs nothing but `npm install`: every byte it reads is committed.
