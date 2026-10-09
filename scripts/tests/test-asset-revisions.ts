@@ -32,11 +32,11 @@ function publishedImagePath(value: string): string {
 test('schedule artwork uses Arkpedia image-asset paths', () => {
   const directory = path.join(process.cwd(), 'data', 'events');
   for (const file of fs.readdirSync(directory).filter(name => /^events_\d{4}\.json$/.test(name))) {
-    const events = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8')) as Array<{ name: string; poster?: string | null }>;
+    const events = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8')) as Array<{ name: string; modeId?: string; poster?: string | null }>;
     for (const event of events) {
       if (!event.poster) continue;
       const asset = publishedImagePath(event.poster);
-      assert.match(asset, /^\/event-poster\/.+\.(?:webp|jpg)$/, `${file}: ${event.name}`);
+      assert.match(asset, event.modeId ? /^\/(?:content-art|album-covers)\/.+\.(?:webp|jpg)$/ : /^\/event-poster\/.+\.(?:webp|jpg)$/, `${file}: ${event.name}`);
     }
   }
 });

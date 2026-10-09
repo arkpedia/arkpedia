@@ -260,9 +260,16 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingBanners[].announcedName': "the name an official CN announcement gave a banner (applyAnnouncements, new on 2026-10-04), on the banners an announcement created; HeadhuntingBanner has it optional and nothing on the page reads it",
   },
   '/schedule': {
+    '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].cn.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].global.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.eventRows[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
   },
   '/skins': {
+    '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].cn.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
+    '.events[].global.releaseDate': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
     '.availabilityWindows[].inventoryComplete': 'source metadata spread by confirmedWindow from the refreshed acquisition-window records; SkinWindow does not require it, and no skin component reads it, so the previous release can omit it',
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /skins reads it yet",
   },

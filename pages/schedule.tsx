@@ -7,9 +7,10 @@ import { getPullSchedule } from '@/lib/pulls/schedule';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, CSSProperties, type ReactNode } from 'react';
 import { generateMonths, computeWeekBars, WeekEventSource } from '@/lib/schedule/timelineUtils';
 import { getAllEvents } from '@/lib/schedule/schedule';
+import { modeReleaseRow } from '@/lib/schedule/modeReleases';
 import { getOperatorBirthdays, parseDateRange, type OperatorBirthday } from '@/lib/schedule/scheduleDates';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -83,6 +84,12 @@ const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
+
+function ScheduleRowLink({ name, modeId, onOpen, children }: { name: string; modeId?: string; onOpen: () => void; children: ReactNode }) {
+  return modeId
+    ? <button type="button" className="events-row-main btn-bare" onClick={onOpen}>{children}</button>
+    : <Link prefetch={false} href={`/events/${encodeURIComponent(name)}`} className="events-row-main">{children}</Link>;
+}
 
 export default function SchedulePage({ events, operators: exportedOperators, skins, releaseLookup, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now }: Props) {
   /* The release's tables, which the page's props always carry (lib/content/tables.mjs). The
@@ -314,16 +321,16 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             <div className="events-list">
               {eventRows.map((e) => (
                 <div key={e.name} className="events-row">
-                  <Link prefetch={false} href={`/events/${encodeURIComponent(e.name)}`} className="events-row-main">
+                  <ScheduleRowLink name={e.name} modeId={e.modeId} onOpen={() => { const event = events.find(event => event.name === e.name); if (event) openEvent(event); }}>
                     <div className="events-row-poster-wrap">
-                      {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: 'cover' }} />}
-                      {e.isOngoing && <span className="badge-live events-row-live-badge">LIVE</span>}
+                      {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: e.modeId ? 'contain' : 'cover' }} />}
+                      {e.isOngoing && <span className="badge-live events-row-live-badge">{e.modeId ? 'LAUNCH' : 'LIVE'}</span>}
                     </div>
                     <div className="events-row-info">
                       <span className="events-row-name">{e.name}</span>
                       <span className="events-row-date">
-                        {e.isPredicted ? 'Predicted: ' : ''}
-                        {e.dateRange}
+                        {e.isPredicted ? (e.modeId ? 'Predicted launch: ' : 'Predicted: ') : (e.modeId ? 'Launch: ' : '')}
+                        {e.dateRange}{e.modeId ? ' · Permanent' : ''}
                       </span>
                       {e.featuredOperators.length > 0 && (
                         <div className="events-row-ops">
@@ -341,7 +348,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                         </div>
                       )}
                     </div>
-                  </Link>
+                  </ScheduleRowLink>
                   {e.pullBannerName && (
                     <Link prefetch={false} className="ghost btn-sm events-row-plan" href={{ pathname: '/pulls', query: { banner: e.pullBannerName } }}>
                       Plan pulls
@@ -557,6 +564,10 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             </div>
           </div>
 
+
+        </div>
+        </div>
+        </div>
           {/* The event's details open as a drawer over the page's right edge (a full
               sheet on a phone), so opening one moves nothing: it used to slide the
               whole calendar 180px left to make room beside it. Always rendered, so the
@@ -574,14 +585,23 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                     width={1600}
                     height={900}
                     className="schedule-panel-poster"
-                    style={{ width: '100%', height: 'auto' }}
+                    style={{ width: '100%', height: displayEvent.modeId ? 220 : 'auto', objectFit: 'contain' }}
                   />
                 )}
                 <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
-                <p className="hint">{displayEvent.global.dateRange}</p>
-                <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">
-                  Event page
-                </Link>
+                {displayEvent.modeId ? (
+                  <>
+                    <p className="hint">{displayEvent.global.note ? 'Predicted launch' : 'Global launch'}: {displayEvent.global.releaseDate} · Permanent mode</p>
+                    {displayEvent.global.note && <p className="hint">{displayEvent.global.note}</p>}
+                    <p className="hint">CN launch: {displayEvent.cn.releaseDate}. Available permanently after launch.</p>
+                    {displayEvent.cn.timingSource && <a href={displayEvent.cn.timingSource} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">CN game data</a>}
+                  </>
+                ) : (
+                  <>
+                    <p className="hint">{displayEvent.global.dateRange}</p>
+                    <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">Event page</Link>
+                  </>
+                )}
 
                 {panelBanner && isLineupPending(panelBanner) && (
                   <div className="schedule-panel-pullable">
@@ -713,19 +733,14 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   </>
                 )}
 
-                <h3 className="schedule-panel-subheading">Pulls Needed</h3>
-                {displayEvent.pullsNeeded ? (
-                  <p className="hint">{displayEvent.pullsNeeded}</p>
-                ) : (
-                  <p className="hint">Not available yet.</p>
-                )}
+                {!displayEvent.modeId && <>
+                  <h3 className="schedule-panel-subheading">Pulls Needed</h3>
+                  <p className="hint">{displayEvent.pullsNeeded || 'Not available yet.'}</p>
+                </>}
 
               </div>
             )}
           </div>
-        </div>
-        </div>
-        </div>
       </main>
 
       {showAllSkins && (
@@ -853,9 +868,15 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
     };
   });
 
+  const events = getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster) }));
+  for (const event of events) {
+    const release = modeReleaseRow(event);
+    if (release) eventRows.push(release);
+  }
+  eventRows.sort((a, b) => a.start - b.start);
   return {
     // The panel's poster, like every other: null until the image repository has it.
-    props: { events: getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster) })), operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
+    props: { events, operators: trimmedOperators, skins: getAllSkins(), releaseLookup, eventRows, pullBanners },
   };
 }, {
   finalize: async (props) => pruneScheduleProps(props),

@@ -1,4 +1,6 @@
 export interface ServerDateInfo {
+  /** Launch date for a permanent mode, without an end date. */
+  releaseDate?: string;
   startAt?: string;
   endAt?: string;
   timingSource?: string;
@@ -10,6 +12,7 @@ export interface ServerDateInfo {
 
 export interface ScheduleEvent {
   name: string;
+  modeId?: string;
   poster: string | null;
   year: number;
   cn: ServerDateInfo;

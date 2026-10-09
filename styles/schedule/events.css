@@ -23,6 +23,7 @@
   transition: border-color 0.15s ease;
 }
 .events-row:has(.events-row-main:hover) { border-color: var(--teal); }
+button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0; font: inherit; text-align: left; text-transform: none; letter-spacing: normal; box-shadow: none; cursor: pointer; }
 .events-row-main {
   display: flex;
   align-items: center;
