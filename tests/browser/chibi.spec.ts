@@ -179,9 +179,46 @@ for (const theme of ['dark', 'light'] as const) for (const [activity, choice, cl
     await expect(pet).toHaveAttribute('data-activity', activity);
     expect(await pet.boundingBox()).toEqual(position);
     await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: duration / 2 + 1500 });
-    await expect(pet.locator('canvas')).not.toHaveAttribute('data-animation', clip);
+    await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Relax');
     await expect(furniture).toHaveCount(0);
     await pet.focus(); await page.keyboard.press('Escape');
     await expect(pet).toHaveCount(0);
   });
 }
+
+
+test('ordinary stationary chibi visibly animates between walks without a timed break', async ({ page, isMobile }) => {
+  await openChibi(page);
+  await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
+  const pet = page.locator('.chibi-roaming'), canvas = pet.locator('canvas');
+  await expect(canvas).toHaveAttribute('data-animation', /.+/);
+  // Choose a nearby destination, skip the optional break, then stay at that point.
+  await page.evaluate(() => {
+    const values = [0, 0, 0, .9, 0, 0, 0];
+    Math.random = () => values.shift() ?? 0;
+  });
+  const bounds = await canvas.boundingBox();
+  const start = { x: bounds!.x + 80, y: bounds!.y + 90 }, drop = { x: 90, y: 90 };
+  if (isMobile) {
+    const touch = await page.context().newCDPSession(page);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [drop] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await touch.detach();
+  } else {
+    await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(drop.x, drop.y); await page.mouse.up();
+  }
+  await expect.poll(async () => (await pet.boundingBox())!.x).toBeLessThan(5);
+  await expect(pet).toHaveAttribute('data-activity', 'idle');
+  await expect(pet).not.toHaveAttribute('data-break-duration', /.+/);
+  await expect(canvas).toHaveAttribute('data-animation', 'Relax');
+  // Let the walk-to-idle blend finish before checking ongoing movement.
+  await page.waitForTimeout(250);
+  const position = await pet.boundingBox(), first = await canvas.screenshot();
+  await page.waitForTimeout(900);
+  const second = await canvas.screenshot();
+  expect(await pet.boundingBox()).toEqual(position);
+  expect(first.equals(second)).toBe(false);
+  await expect(canvas).toHaveAttribute('data-animation', 'Relax');
+  await pet.focus(); await page.keyboard.press('Escape');
+});

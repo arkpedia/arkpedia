@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEventHandler } from 'react';
 import type { ChibiModel } from '@/lib/operators/chibi';
 import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
+import { chibiIdleAnimation } from '@/lib/operators/chibiRoutine';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
@@ -41,6 +42,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       if (!control.current.roaming && !names.includes(control.current.animation)) onAnimationChange(initial);
       state.setAnimation(0, initial, true);
       const walkAnimation = names.find(name => /^(move|walk)$/i.test(name)) ?? names.find(name => /walk|move/i.test(name));
+      const idleAnimation = chibiIdleAnimation(data.animations);
       const renderer = new spine.webgl.SceneRenderer(canvas, context, true);
       // Frame the visible idle pose. Invisible effect slots can be much larger than
       // the character in the setup pose; including them makes bard chibis tiny.
@@ -55,7 +57,10 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const render = (now: number) => {
         if (stopped) return;
         const dt = Math.min(.05, (now - previous) / 1000); previous = now;
-        const requested = control.current.moving ? walkAnimation ?? initial : names.includes(control.current.animation) ? control.current.animation : initial;
+        const fallback = control.current.roaming ? idleAnimation ?? initial : initial;
+        const requested = control.current.moving ? walkAnimation ?? fallback
+          : control.current.roaming && !control.current.activity ? fallback
+          : names.includes(control.current.animation) ? control.current.animation : fallback;
         if (requested !== current && names.includes(requested)) { current = requested; state.setAnimation(0, current, !/die|retreat|start|begin|end/i.test(current)); }
         if (canvas.dataset.animation !== current) canvas.dataset.animation = current;
         if (!control.current.paused) state.update(dt);
