@@ -34,7 +34,7 @@ export default function OperatorChibi({ models, label, onOpen }: { onOpen?: () =
     onAnimationsChange={setAnimations} paused={paused} moving={false} flipped={false} onPointerDown={startDrag} roaming={false} /> : null;
   return <div className="operator-chibi" ref={panelRef}>
     <div className="operator-chibi-header">
-      <button ref={triggerRef} className="ghost" type="button" aria-expanded={open} onClick={() => { if (!open) onOpen?.(); setOpen(!open); }}>Chibi viewer</button>
+      <button ref={triggerRef} className="ghost" type="button" aria-label="Chibi viewer" aria-expanded={open} onClick={() => { if (!open) onOpen?.(); setOpen(!open); }}>Chibi</button>
       {open && shown && <SegmentedControl label="Chibi facing" value={shown} options={options} onChange={setFacing} />}
     </div>
     {open && (roaming ? <div className="chibi-away"><button className="ghost" type="button" onClick={roamingChibi.dismiss}>Return to viewer</button></div>

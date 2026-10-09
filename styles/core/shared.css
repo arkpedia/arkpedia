@@ -1672,7 +1672,8 @@ a.primary:where(:has(~ :is(button, a).ghost)),
 .chibi-viewer { position: relative; width: min(100%, 420px); }
 .chibi-viewer > p { position: absolute; bottom: 8px; left: 0; right: 0; margin: 0; background: var(--panel); }
 .chibi-viewer canvas { width: 100%; height: 260px; display: block; }
-.operator-chibi { position: absolute; z-index: 5; top: 8px; right: 8px; padding: 8px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius-frame); }
+.operator-chibi { position: absolute; z-index: 5; top: 8px; right: 8px; }
+.operator-chibi:has([aria-expanded="true"]) { padding: 8px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius-frame); }
 .operator-chibi:has(.chibi-controls) { width: min(360px, calc(100% - 16px)); max-height: calc(100% - 150px); overflow: auto; }
 @media (max-width: 650px) { .chibi-viewer canvas { height: 180px; } }
 .operator-summons { display: grid; gap: 12px; }
