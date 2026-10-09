@@ -32,6 +32,7 @@ import { useSyncExternalStore } from 'react';
 import type { GameAccountMap } from '@/lib/planner/gameAccount';
 import { isServerId, type ServerId } from '@/lib/account-import/yostar';
 import { parsePullHistory, type PullHistory } from './pulls';
+import { parseRosterExport, type Roster } from '@/lib/planner/roster';
 
 export const ACCOUNT_STORAGE_KEY = 'arkpediaAccount';
 /** The other servers' records, { [server]: record }: none but the shown one's server is ever
@@ -56,6 +57,8 @@ export interface AccountRecord {
   wallet?: AccountWallet;
   profile?: AccountProfile;
   pulls?: PullHistory;
+  /** Per-server build snapshot, kept with the account rather than another server's planner. */
+  operatorBuilds?: Roster;
 }
 
 /** From the game's status: Orundum (diamondShard); Originite Prime (payDiamond plus
@@ -170,11 +173,13 @@ export function parseAccount(raw: string | null): AccountRecord | null {
   if (!value || typeof value !== 'object' || value.version !== 1 || !isServerId(value.server) || typeof value.importedAt !== 'string') return null;
   if (!strings(value.operators, 5000) || !strings(value.skins, 20000) || !strings(value.cleared, 50000)) return null;
   const profile = value.profile && typeof value.profile === 'object' ? value.profile as Record<string, unknown> : null;
+  const operatorBuilds = value.operatorBuilds ? parseRosterExport(JSON.stringify(value.operatorBuilds)) : null;
   const text = (field: unknown) => (typeof field === 'string' && field.length <= 500 ? field : null);
   return {
     version: 1, server: value.server, importedAt: value.importedAt,
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     operators: value.operators as string[], skins: value.skins as string[], cleared: value.cleared as string[],
+    ...(operatorBuilds ? { operatorBuilds } : {}),
     ...(strings(value.annihilation, 500) ? { annihilation: value.annihilation as string[] } : {}),
     ...(value.outfits && typeof value.outfits === 'object' ? { outfits: Object.fromEntries(Object.entries(value.outfits as Record<string, unknown>)
       .slice(0, 5000).flatMap(([name, skin]) => (name.length <= 200 && skinId(skin) ? [[name, skinId(skin)!]] : []))) } : {}),

@@ -27,6 +27,8 @@ export const ROSTER_EVENT = 'plannerRosterChanged';
 
 /** What you have. Deliberately the same four fields the build panel's "from" holds. */
 export interface Owned {
+  /** Game imports keep the potential for shared collection views; older rosters omit it. */
+  potential?: number;
   elite: number;
   level: number;
   skillLevel: number;
@@ -92,6 +94,7 @@ function clean(value: unknown): Owned | null {
     elite,
     level,
     skillLevel: rank,
+    ...(typeof v.potential === 'number' && Number.isInteger(v.potential) && v.potential >= 1 && v.potential <= 6 ? { potential: v.potential } : {}),
     masteries: reachableMasteries,
     ...(Object.keys(reachableModules).length ? { modules: reachableModules } : {}),
   };

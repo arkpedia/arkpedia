@@ -335,6 +335,16 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(people.length > 100 && people.every(person => person.name && person.operators.every(op => op.name && op.credits.length)));
     assert.ok(people.some(person => person.operators.some(op => op.name === 'Thorns')));
   },
+  '/friends': props => {
+    const operators = props.operators as {name:string;rarity:number;icon:string;skills:number}[];
+    assert.ok(operators.length > 400 && operators.every(op => op.name && op.icon.startsWith('/') && op.rarity >= 1 && op.rarity <= 6), 'the owned-operator catalogue survives without source files');
+    assert.equal(operators.find(op => op.name === 'Angelina')?.skills, 3);
+    assert.equal(operators.find(op => op.name === 'Lancet-2')?.rarity, 1);
+    const skins = props.skins as {id:string;image:string|null}[];
+    assert.ok(skins.length > 400 && skins.filter(skin => skin.image?.startsWith('/')).length > 400, 'owned skins retain official artwork');
+    const tables = props.__contentTables as Record<string, {chars?:Record<string,unknown>}>;
+    assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'the profile id map is attached');
+  },
   '/community': (props, { from, to }) => {
     const campaigns = (props.directory as { webEvents: { url: string; name: string; expiresAt: string }[] }).webEvents;
     assert.ok((require('../../config/community-web-events.json') as { url: string }[]).every(seed => campaigns.some(event => event.url === seed.url)), 'seeded campaigns survive an older published Community directory');

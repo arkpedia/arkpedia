@@ -5,8 +5,8 @@
  * release to the main site, for what that release brings. Not every merge: tests, CI and
  * internals stay out (scripts/tests/test-changelog.ts holds the shape).
  *
- * Small patches normally join the day's entry; separately announced releases keep their
- * own timestamp, even when more than one release falls on the same UTC day.
+ * Releases may be added independently: groupChangelogDays automatically combines their
+ * items under one date in the reader's timezone, retaining the newest release timestamp.
  */
 
 /** One change, scannable: a headline that is the point on its own, and at most one short sentence
@@ -33,6 +33,13 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    at: '2026-10-09T14:39:11Z',
+    title: 'Import a Friend',
+    added: [
+      { title: 'Import a Friend', detail: 'Export your account as a file and view a friend’s profile, operator builds and skins, saved separately from your own account.', href: '/friends' },
+    ],
+  },
   {
     at: '2026-10-09T09:56:52Z',
     title: 'Chibi breaks',

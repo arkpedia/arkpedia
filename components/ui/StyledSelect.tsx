@@ -52,7 +52,8 @@ const PAGE = 10;
 
 /**
  * The site's one dropdown: a select-only combobox whose trigger keeps keyboard focus
- * while the list is open (aria-activedescendant), with the list portalled to <body>
+ * while the list is open (aria-activedescendant), with the list portalled to its
+ * enclosing native dialog (so it shares the modal's top layer) or otherwise <body>
  * and positioned fixed so no scrolling or clipping ancestor can cut it off.
  *
  * It replaces the native <select> (drawn by the OS in the system font, so it could not
@@ -258,6 +259,6 @@ export default function StyledSelect<T extends SelectOption>({
             {run.items.map((option, i) => row(option, run.start + i))}
           </div>
         : run.items.map((option, i) => row(option, run.start + i)))}
-    </div>, document.body)}
+    </div>, triggerRef.current?.closest('dialog') ?? document.body)}
   </div>;
 }

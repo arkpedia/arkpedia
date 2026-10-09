@@ -4,7 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { CHANGELOG, LATEST_CHANGE } from '../../lib/changelog/entries';
+import { CHANGELOG, LATEST_CHANGE, type ChangelogEntry } from '../../lib/changelog/entries';
+import { groupChangelogDays } from '../../lib/changelog/group';
 
 // tsx compiles the components' JSX to React.createElement (tsconfig keeps JSX for Next).
 (globalThis as { React?: typeof React }).React = React;
@@ -37,6 +38,53 @@ test('the changelog is newest first, each entry at a real UTC instant, and every
   }
 });
 
+test('daily grouping combines every category, keeps the newest timestamp and leaves source entries intact', () => {
+  const releases: ChangelogEntry[] = [
+    { at: '2026-10-08T23:51:56Z', title: 'Campaigns', added: [{ title: 'Campaign art' }], changed: [{ title: 'Daily discovery' }] },
+    { at: '2026-10-07T10:00:00Z', title: 'Older update', fixed: [{ title: 'Older fix' }] },
+    { at: '2026-10-09T09:56:52Z', title: 'Chibis', added: [{ title: 'Chibi breaks' }], fixed: [{ title: 'Newer fix' }] },
+    { at: '2026-10-08T22:50:18Z', title: 'Artwork', changed: [{ title: 'Smoother artwork' }] },
+  ];
+  const before = structuredClone(releases);
+  const days = groupChangelogDays(releases, 'Asia/Seoul');
+  assert.deepEqual(days.map(({ day }) => day), ['2026-10-09', '2026-10-07']);
+  assert.equal(days[0].at, '2026-10-09T09:56:52Z');
+  assert.equal(days[0].title, undefined);
+  assert.deepEqual(days[0].added?.map(({ title }) => title), ['Chibi breaks', 'Campaign art']);
+  assert.deepEqual(days[0].changed?.map(({ title }) => title), ['Daily discovery', 'Smoother artwork']);
+  assert.deepEqual(days[0].fixed?.map(({ title }) => title), ['Newer fix']);
+  assert.equal(days[1].title, 'Older update');
+  assert.deepEqual(releases, before);
+  assert.deepEqual(groupChangelogDays([], 'UTC'), []);
+});
+
+test('daily groups follow the displayed timezone and calendar midnight, including daylight saving', () => {
+  const releases = [
+    { at: '2026-10-09T00:30:00Z', added: [{ title: 'After midnight' }] },
+    { at: '2026-10-08T23:30:00Z', added: [{ title: 'Before midnight' }] },
+  ];
+  assert.equal(groupChangelogDays(releases, 'UTC').length, 2);
+  assert.deepEqual(groupChangelogDays(releases, 'Asia/Seoul').map(({ day }) => day), ['2026-10-09']);
+  assert.deepEqual(groupChangelogDays(releases, 'America/Los_Angeles').map(({ day }) => day), ['2026-10-08']);
+  const fallBack = [
+    { at: '2026-11-01T09:30:00Z', added: [{ title: 'After clock change' }] },
+    { at: '2026-11-01T08:30:00Z', added: [{ title: 'Before clock change' }] },
+  ];
+  assert.equal(groupChangelogDays(fallBack, 'America/Los_Angeles').length, 1);
+});
+
+test('each displayed day is unique and later releases still update the unread timestamp', () => {
+  for (const zone of ['UTC', 'Asia/Seoul', 'America/Los_Angeles']) {
+    const days = groupChangelogDays(CHANGELOG, zone);
+    assert.equal(new Set(days.map(({ day }) => day)).size, days.length);
+    assert.equal(days[0].at, LATEST_CHANGE);
+    for (const kind of ['added', 'changed', 'fixed'] as const) {
+      assert.equal(days.reduce((total, day) => total + (day[kind]?.length ?? 0), 0),
+        CHANGELOG.reduce((total, entry) => total + (entry[kind]?.length ?? 0), 0));
+    }
+  }
+});
+
 test('formatInstant writes an instant in the given zone, en-GB, to the day or the minute', async () => {
   const { formatInstant } = await import('../../components/ui/LocalTime');
   assert.equal(formatInstant('2026-10-05T08:26:00Z', 'minute', 'UTC'), '5 Oct 2026, 08:26 UTC');
@@ -61,9 +109,4 @@ test('LocalTime renders an entry\'s moment in UTC on the server, with the instan
   // To the day: the date alone, the full moment still in the tooltip.
   assert.equal(renderToStaticMarkup(createElement(LocalTime, { iso: '2026-10-05T08:26:00Z', precision: 'day' })),
     '<time dateTime="2026-10-05T08:26:00Z" title="5 Oct 2026, 08:26 UTC">5 Oct 2026</time>');
-});
-
-test('What\'s new shows each entry\'s day, not its time', async () => {
-  const fs = await import('node:fs');
-  assert.match(fs.readFileSync('pages/changelog.tsx', 'utf8'), /<LocalTime iso=\{entry\.at\} precision="day" \/>/);
 });
