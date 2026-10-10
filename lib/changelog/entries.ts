@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-10T00:06:49Z',
+    title: 'Chibi tap reactions',
+    added: [
+      { title: 'Tap roaming chibis', detail: 'The first tap plays the trust reaction, then later taps have equal chances of playing the normal or trust reaction.', href: '/operators' },
+    ],
+  },
+  {
     at: '2026-10-09T14:39:11Z',
     title: 'Import a Friend',
     added: [

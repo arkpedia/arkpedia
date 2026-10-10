@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chooseChibiBreak, chibiActivities, chibiIdleAnimation } from '../../lib/operators/chibiRoutine';
+import { chooseChibiBreak, chooseChibiTap, chibiActivities, chibiIdleAnimation } from '../../lib/operators/chibiRoutine';
 
 const base = [
   { name: 'Default', duration: 0 }, { name: 'Move', duration: 2 },
@@ -8,6 +8,28 @@ const base = [
   { name: 'Sit', duration: 4 }, { name: 'Sleep', duration: 2 },
 ];
 const sequence = (...values: number[]) => () => { assert.ok(values.length); return values.shift()!; };
+
+test('first tap guarantees the native trust reaction without drawing random odds', () => {
+  const clips = [...base, { name: 'Special', duration: 6.766666889190674 }];
+  assert.deepEqual(chooseChibiTap(clips, true, () => { throw Error('First tap must not draw odds'); }),
+    { activity: 'trust-tap', clip: 'Special', duration: 6766.666889190674 });
+});
+test('later taps divide the random range equally and play the complete native reaction', () => {
+  const clips = [...base, { name: 'Special', duration: 6.7 }];
+  for (const odds of [0, .25, .499999, .5, .75, .999999]) {
+    assert.deepEqual(chooseChibiTap(clips, false, sequence(odds)), odds < .5
+      ? { activity: 'trust-tap', clip: 'Special', duration: 6700 }
+      : { activity: 'tap', clip: 'Interact', duration: 2230 });
+  }
+});
+test('models with one reaction share it, while absent and static reactions are ignored', () => {
+  for (const first of [true, false]) {
+    assert.equal(chooseChibiTap(base, first, () => .9)?.clip, 'Interact');
+    assert.equal(chooseChibiTap([{ name: 'Special_1', duration: 2 }], first, () => .9)?.clip, 'Special_1');
+  }
+  assert.equal(chooseChibiTap([{ name: 'Special', duration: 0 }, ...base], true)?.clip, 'Interact');
+  assert.equal(chooseChibiTap([{ name: 'Special', duration: 0 }, { name: 'Attack_1', duration: 3 }], true), null);
+});
 
 test('stationary chibis use a real idle loop instead of a zero-duration setup pose', () => {
   assert.equal(chibiIdleAnimation(base), 'Relax');

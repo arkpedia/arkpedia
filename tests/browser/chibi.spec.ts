@@ -223,3 +223,109 @@ test('ordinary stationary chibi visibly animates between walks without a timed b
   await expect(canvas).toHaveAttribute('data-animation', 'Relax');
   await pet.focus(); await page.keyboard.press('Escape');
 });
+
+async function openTapChibi(page: import('@playwright/test').Page) {
+  await page.goto('/operators/Thorns');
+  await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Blade-cleaved Tides', exact: true }).click();
+  await page.getByRole('button', { name: 'Chibi viewer', exact: true }).click();
+  // The artwork switch keeps the previous outfit visible until the next art loads.
+  await expect(page.locator('.operator-chibi canvas')).toHaveAccessibleName('Thorns — Blade-cleaved Tides chibi');
+  await expect(page.locator('.operator-chibi [role="status"]')).toHaveCount(0);
+  // Pause automatic walking, then explicitly tap: user reactions still play once.
+  await page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
+  const pet = page.locator('.chibi-roaming');
+  await expect(pet.locator('canvas')).toHaveAttribute('data-animation', 'Relax');
+  return pet;
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`chibi first tap is trust, later taps choose either reaction, and repeated taps restart (${theme})`, async ({ page, isMobile }, testInfo) => {
+    await page.addInitScript(value => localStorage.setItem('theme', value), theme);
+    const pet = await openTapChibi(page), canvas = pet.locator('canvas');
+    const position = await pet.boundingBox();
+    await page.evaluate(() => { Math.random = () => .9; });
+    if (isMobile) await canvas.tap(); else await canvas.click();
+    await expect(pet).toHaveAttribute('data-activity', 'trust-tap');
+    await expect(canvas).toHaveAttribute('data-animation', 'Special');
+    expect(Number(await pet.getAttribute('data-break-duration'))).toBeCloseTo(6766.666889190674, 0);
+    await page.waitForTimeout(1000);
+    const start = await canvas.screenshot();
+    await page.waitForTimeout(2500);
+    const progressed = await canvas.screenshot();
+    expect(start.equals(progressed)).toBe(false);
+    expect(await pet.boundingBox()).toEqual(position);
+    // Restart the same native clip using Space, without resuming paused walking.
+    await page.evaluate(() => { Math.random = () => .1; });
+    await pet.focus(); await page.keyboard.press('Space');
+    await page.waitForTimeout(350);
+    expect((await canvas.screenshot()).equals(progressed)).toBe(false);
+    if (process.env.ARKPEDIA_QA_CAPTURE) {
+      await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/chibi-tap-${theme}-${testInfo.project.name}.png` });
+    }
+    await page.waitForTimeout(4000);
+    await expect(pet).toHaveAttribute('data-activity', 'trust-tap');
+    await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 4000 });
+    await expect(canvas).toHaveAttribute('data-animation', 'Relax');
+    expect(await pet.boundingBox()).toEqual(position);
+    // Viewer close/navigation do not reset the first-tap guarantee on this pet.
+    await page.getByRole('button', { name: 'Chibi viewer', exact: true }).press('Enter');
+    await page.getByRole('link', { name: /^Arkpedia ARKPEDIA(?: Beta)?$/ }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.evaluate(() => { Math.random = () => .9; });
+    await pet.focus(); await page.keyboard.press('Enter');
+    await expect(pet).toHaveAttribute('data-activity', 'tap');
+    await expect(canvas).toHaveAttribute('data-animation', 'Interact');
+    await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 3000 });
+    await expect(canvas).toHaveAttribute('data-animation', 'Relax');
+    expect(await pet.boundingBox()).toEqual(position);
+    await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
+    await expect(pet).toHaveCount(0);
+  });
+}
+
+test('dragging and cancelled touches do not consume the first trust tap', async ({ page, isMobile }) => {
+  const pet = await openTapChibi(page), canvas = pet.locator('canvas');
+  await page.evaluate(() => { Math.random = () => .9; });
+  const bounds = await canvas.boundingBox();
+  const start = { x: bounds!.x + 80, y: bounds!.y + 90 }, drop = { x: 100, y: 100 };
+  if (isMobile) {
+    const touch = await page.context().newCDPSession(page);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [drop] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [start] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await touch.detach();
+  } else {
+    await page.mouse.move(start.x, start.y); await page.mouse.down();
+    await page.mouse.move(drop.x, drop.y); await page.mouse.move(start.x, start.y); await page.mouse.up();
+  }
+  await expect(pet).toHaveAttribute('data-activity', 'idle');
+  const position = await pet.boundingBox();
+  if (isMobile) await canvas.tap(); else await canvas.click();
+  await expect(pet).toHaveAttribute('data-activity', 'trust-tap');
+  await expect(canvas).toHaveAttribute('data-animation', 'Special');
+  expect(await pet.boundingBox()).toEqual(position);
+  await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
+});
+
+test('a base chibi with only Interact uses its native reaction and resumes walking', async ({ page, isMobile }) => {
+  await openChibi(page);
+  await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
+  const pet = page.locator('.chibi-roaming'), canvas = pet.locator('canvas');
+  await expect(canvas).toHaveAttribute('data-animation', /.+/);
+  if (isMobile) await canvas.tap(); else await canvas.click();
+  await expect(pet).toHaveAttribute('data-activity', 'trust-tap');
+  await expect(canvas).toHaveAttribute('data-animation', 'Interact');
+  const position = await pet.boundingBox();
+  await page.waitForTimeout(1000);
+  expect(await pet.boundingBox()).toEqual(position);
+  await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 2000 });
+  await expect(canvas).toHaveAttribute('data-animation', 'Relax');
+  await expect.poll(async () => {
+    const current = await pet.boundingBox();
+    return Math.hypot(current!.x - position!.x, current!.y - position!.y);
+  }, { timeout: 10000 }).toBeGreaterThan(5);
+});

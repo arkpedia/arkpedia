@@ -2,18 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEventHandler } from 'react';
 import type { ChibiModel } from '@/lib/operators/chibi';
 import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
-import { chibiIdleAnimation } from '@/lib/operators/chibiRoutine';
+import { chibiIdleAnimation, isChibiTap } from '@/lib/operators/chibiRoutine';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
   onPointerDown: PointerEventHandler<HTMLCanvasElement>; roaming: boolean;
   activity?: ChibiActivity;
+  animationSequence?: number;
 }
-export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming, activity }: ChibiCanvasProps) {
+export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming, activity, animationSequence = 0 }: ChibiCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState('');
-  const control = useRef({ animation, paused, moving, roaming, activity });
-  control.current = { animation, paused, moving, roaming, activity };
+  const control = useRef({ animation, paused, moving, roaming, activity, animationSequence });
+  control.current = { animation, paused, moving, roaming, activity, animationSequence };
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const abort = new AbortController(); let stopped = false, frame = 0;
@@ -52,7 +53,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const origin = new spine.Vector2(), size = new spine.Vector2(); skeleton.getBounds(origin, size, []);
       skeleton.drawOrder = drawOrder;
       if (!Number.isFinite(size.x) || !Number.isFinite(size.y)) { origin.set(-100, 0); size.set(200, 300); }
-      let previous = performance.now(), current = initial;
+      let previous = performance.now(), current = initial, sequence = 0, wasTap = false;
       cleanup = () => { atlas.dispose(); renderer.dispose(); context.gl.getExtension('WEBGL_lose_context')?.loseContext(); };
       const render = (now: number) => {
         if (stopped) return;
@@ -61,9 +62,17 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
         const requested = control.current.moving ? walkAnimation ?? fallback
           : control.current.roaming && !control.current.activity ? fallback
           : names.includes(control.current.animation) ? control.current.animation : fallback;
-        if (requested !== current && names.includes(requested)) { current = requested; state.setAnimation(0, current, !/die|retreat|start|begin|end/i.test(current)); }
+        const tap = isChibiTap(control.current.activity);
+        if ((requested !== current || sequence !== control.current.animationSequence) && names.includes(requested)) {
+          current = requested; sequence = control.current.animationSequence;
+          const entry = state.setAnimation(0, current, !tap && !/die|retreat|start|begin|end/i.test(current));
+          // A paused routine cannot advance a blend back from the completed reaction.
+          if (wasTap && control.current.paused && !tap) entry.mixDuration = 0;
+          wasTap = tap;
+        }
         if (canvas.dataset.animation !== current) canvas.dataset.animation = current;
-        if (!control.current.paused) state.update(dt);
+        // An explicit tap plays once even with automatic movement paused.
+        if ((!control.current.paused || tap) && !document.hidden) state.update(dt);
         // Native Sit lowers the hips below standing ground; lift the pose onto the seat.
         // Sleep stays horizontal above the mattress, with the same camera and scale.
         skeleton.y = control.current.roaming ? size.y * (control.current.activity === 'sit' ? .25 : control.current.activity === 'sleep' ? .13 : 0) : 0;
@@ -82,7 +91,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
     return () => { stopped = true; abort.abort(); cancelAnimationFrame(frame); cleanup?.(); };
   }, [model, onAnimationChange, onAnimationsChange]);
   return <div className={`chibi-viewer${roaming ? ' is-roaming' : ''}`}>
-    <canvas ref={canvasRef} aria-label={`${label} chibi`} title="Drag chibi onto the page" onPointerDown={onPointerDown} style={flipped ? { transform: 'scaleX(-1)' } : undefined} />
+    <canvas ref={canvasRef} aria-label={`${label} chibi`} title={roaming ? 'Tap to interact · Drag to move' : 'Drag chibi onto the page'} onPointerDown={onPointerDown} style={flipped ? { transform: 'scaleX(-1)' } : undefined} />
     {error ? <p role="status">{error}</p> : loading ? <p role="status">Loading chibi…</p> : null}
   </div>;
 }
