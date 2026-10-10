@@ -19,7 +19,10 @@ import { getAllSkins } from '@/lib/skins/skins';
 import { getSkinsForEvent } from '@/lib/schedule/scheduleSkinMatch';
 import { getEventMaterials } from '@/lib/schedule/eventMaterials';
 import { confirmedGlobalRange, getBannerForEvent } from '@/lib/gacha/headhuntingBanners';
-import { waitsForGlobal } from '@/lib/gacha/bannerSchedule';
+import { waitsForGlobal, globalBannerPreview } from '@/lib/gacha/bannerSchedule';
+import { parseGameWindow } from '@/lib/schedule/gameWindow';
+import { bannerScheduleEvents } from '@/lib/schedule/bannerEvents';
+import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
@@ -85,8 +88,8 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-function ScheduleRowLink({ name, modeId, onOpen, children }: { name: string; modeId?: string; onOpen: () => void; children: ReactNode }) {
-  return modeId
+function ScheduleRowLink({ name, modeId, bannerName, onOpen, children }: { name: string; modeId?: string; bannerName?: string; onOpen: () => void; children: ReactNode }) {
+  return modeId || bannerName
     ? <button type="button" className="events-row-main btn-bare" onClick={onOpen}>{children}</button>
     : <Link prefetch={false} href={`/events/${encodeURIComponent(name)}`} className="events-row-main">{children}</Link>;
 }
@@ -228,7 +231,9 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
     : [];
   // Not a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal), as on every
   // page: a release compiled before its table was filtered still carries them.
-  const panelBanner = displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners.filter((banner) => !waitsForGlobal(banner))) : null;
+  const panelBanner = displayEvent?.bannerName
+    ? banners.map(globalBannerPreview).find(banner => banner.name === displayEvent.bannerName) ?? null
+    : displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners.filter((banner) => !waitsForGlobal(banner))) : null;
   const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
 
   function openEvent(e: ScheduleEvent) {
@@ -321,7 +326,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
             <div className="events-list">
               {eventRows.map((e) => (
                 <div key={e.name} className="events-row">
-                  <ScheduleRowLink name={e.name} modeId={e.modeId} onOpen={() => { const event = events.find(event => event.name === e.name); if (event) openEvent(event); }}>
+                  <ScheduleRowLink name={e.name} modeId={e.modeId} bannerName={e.bannerName} onOpen={() => { const event = events.find(event => event.name === e.name); if (event) openEvent(event); }}>
                     <div className="events-row-poster-wrap">
                       {e.poster && <Image src={e.poster} alt="" fill sizes="200px" style={{ objectFit: e.modeId ? 'contain' : 'cover' }} />}
                       {e.isOngoing && <span className="badge-live events-row-live-badge">{e.modeId ? 'LAUNCH' : 'LIVE'}</span>}
@@ -553,7 +558,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                             }}
                             onClick={() => openEvent(eventByName.get(bar.key)!)}
                           >
-                            {bar.name}
+                            {bar.name}{eventByName.get(bar.key)?.bannerName && /estimated/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
                           </button>
                         );
                       })}
@@ -598,8 +603,8 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   </>
                 ) : (
                   <>
-                    <p className="hint">{displayEvent.global.dateRange}</p>
-                    <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">Event page</Link>
+                    <p className="hint">{displayEvent.bannerName && displayEvent.global.note ? 'Estimated Global: ' : ''}{displayEvent.global.dateRange}</p>
+                    <Link prefetch={false} href={displayEvent.bannerName ? { pathname: '/gacha', query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
                   </>
                 )}
 
@@ -675,6 +680,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   </div>
                 )}
 
+                {!displayEvent.bannerName && <>
                 <div className="schedule-panel-skins-header">
                   <h3 className="schedule-panel-subheading">Skins</h3>
                   <div className="schedule-panel-skins-actions">
@@ -721,6 +727,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                 ) : (
                   <p className="hint">No matched skins for this event.</p>
                 )}
+                </>}
 
                 {panelMaterials && panelMaterials.length > 0 && (
                   <>
@@ -733,7 +740,7 @@ export default function SchedulePage({ events, operators: exportedOperators, ski
                   </>
                 )}
 
-                {!displayEvent.modeId && <>
+                {!displayEvent.modeId && !displayEvent.bannerName && <>
                   <h3 className="schedule-panel-subheading">Pulls Needed</h3>
                   <p className="hint">{displayEvent.pullsNeeded || 'Not available yet.'}</p>
                 </>}
@@ -869,6 +876,19 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   });
 
   const events = getAllEvents().map((e) => ({ ...e, poster: publishedArt(e.poster) }));
+  const scheduledBanners = resolveGachaSimulatorBanners(getAllHeadhuntingBanners());
+  for (const event of bannerScheduleEvents(scheduledBanners)) {
+    if (events.some(existing => existing.name === event.name)) continue;
+    events.push(event);
+    const range = parseGameWindow(event.global.dateRange, event.global)!;
+    const banner = scheduledBanners.find(b => b.name === event.bannerName)!;
+    eventRows.push({
+      name: event.name, bannerName: event.bannerName, poster: event.poster, dateRange: event.global.dateRange!,
+      isPredicted: !!banner.global_date_estimated, start: range.start.getTime(), end: range.end.getTime(),
+      pullBanner: pullBanners[banner.name.toLowerCase()] ?? null,
+      featuredOperators: [...banner.six_stars.map(name => ({ name, rarity: 6 as const })), ...banner.five_stars.map(name => ({ name, rarity: 5 as const }))],
+    });
+  }
   for (const event of events) {
     const release = modeReleaseRow(event);
     if (release) eventRows.push(release);
@@ -883,7 +903,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,
     event_materials: async () => (await import('@/data/event_materials.json')).default,
-    // Without a Joint Operation or an Orienteering Global does not have yet (waitsForGlobal).
-    headhunting_banners: async () => ((await import('@/data/headhunting_banners.json')).default as HeadhuntingBanner[]).filter((banner) => !waitsForGlobal(banner)),
+    // Forecast timing stays available, without a CN lineup or CN artwork.
+    headhunting_banners: async () => ((await import('@/data/headhunting_banners.json')).default as HeadhuntingBanner[]).map(globalBannerPreview),
   },
 });

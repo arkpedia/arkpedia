@@ -1971,7 +1971,7 @@ export default function GachaSimulator({ pools, banners, kernelLookup, releaseLo
                 )}
 
                 <div className="gacha-content-group">
-                {(isOrienteering && !orienteeringConfirmed) || (isCelebration && !celebrationConfirmed) || (isKernelLocating && !kernelLocatingConfirmed) ? (
+                {(isOrienteering && !orienteeringConfirmed && !isLineupPending(selectedBanner!)) || (isCelebration && !celebrationConfirmed) || (isKernelLocating && !kernelLocatingConfirmed) ? (
                   isOrienteering ? (
                   <section className="op-section">
                     <div className="gacha-info-toggle-row" style={{ marginBottom: 10 }}>
@@ -2545,6 +2545,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     cn_date: b.cn_date ?? null,
     global_date: b.global_date ?? null,
     global_date_estimated: b.global_date_estimated ?? false,
+    ...(b.globalLineupPending ? { globalLineupPending: true } : {}),
     ...(b.schedule_anchor ? { schedule_anchor: b.schedule_anchor } : {}),
     ...(b.global_window ? { global_window: b.global_window } : {}),
     ...(b.cn_window ? { cn_window: b.cn_window } : {}),

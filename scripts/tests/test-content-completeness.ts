@@ -404,7 +404,7 @@ test('a released operator\'s missing skill icon is the icon coverage audit\'s ho
   assert.deepEqual(holds(emptyCatalogue({ operators: [op] })).filter(h => /skill-icons/.test(h.reason)), []);
 });
 
-test('a Joint Operation or an Orienteering Global does not have yet holds nothing: it is shown nowhere', () => {
+test('a Joint Operation or an Orienteering Global does not have yet holds no CN lineup or art while Global confirmation is pending', () => {
   const banner = (extra: object) => ({ name: 'Orienteering #8', pull_type: 'orienteering', cnPoolId: 'SPECIAL_77_0_4', six_stars: ['Unknown Operator'], banner_image: '/headhunting-banner-images/Orienteering 8.webp', ...extra });
   const keys = (extra: object) => {
     const catalogue = collaboration();
@@ -418,8 +418,8 @@ test('a Joint Operation or an Orienteering Global does not have yet holds nothin
   assert.equal(keys({ globalPoolId: 'SPECIAL_EN_42_0_1' }).length, 2);
 });
 
-test('/schedule\'s banner table and its event panel leave out what waits for Global, like every page', () => {
+test('/schedule\'s table sanitizes forecast lineups and its event panel requires Global confirmation', () => {
   const source = fs.readFileSync('pages/schedule.tsx', 'utf8');
-  assert.match(source, /headhunting_banners: async \(\) => \(\(await import\('@\/data\/headhunting_banners\.json'\)\)\.default as HeadhuntingBanner\[\]\)\.filter\(\(banner\) => !waitsForGlobal\(banner\)\)/);
+  assert.match(source, /headhunting_banners: async \(\) => \(\(await import\('@\/data\/headhunting_banners\.json'\)\)\.default as HeadhuntingBanner\[\]\)\.map\(globalBannerPreview\)/);
   assert.match(source, /getBannerForEvent\(displayEvent\.name, confirmedGlobalRange\(displayEvent\.global\), banners\.filter\(\(banner\) => !waitsForGlobal\(banner\)\)\)/);
 });

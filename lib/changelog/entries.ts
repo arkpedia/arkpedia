@@ -34,6 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-10T08:59:00Z',
+    title: 'Upcoming banner forecasts',
+    changed: [{ title: 'Joint Operation and Orienteering forecasts', detail: 'See approximate Global dates in Schedule, Gacha and Pull Planner; operator lineups appear after Global confirmation.', href: '/schedule' }],
+  },
+  {
     at: '2026-10-10T00:44:03Z',
     title: 'Selector recommendations',
     added: [
