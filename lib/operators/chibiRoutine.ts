@@ -1,5 +1,5 @@
 export interface ChibiAnimation { name: string; duration: number }
-export type ChibiActivity = 'sit' | 'sleep' | 'idle' | 'special';
+export type ChibiActivity = 'sit' | 'sleep' | 'idle' | 'special' | 'tap' | 'trust-tap';
 export interface ChibiBreak { activity: ChibiActivity; clip: string; duration: number }
 
 /** Building models use Relax/Interact; battle-only fallbacks may have Idle/Special. */
@@ -19,6 +19,20 @@ export function chibiIdleAnimation(animations: readonly ChibiAnimation[]): strin
   return (idle.find(pose => /^idle$/i.test(pose.name))
     ?? idle.find(pose => /^relax$/i.test(pose.name)) ?? idle[0])?.name;
 }
+
+/** Native base models use Interact for a tap and Special for an outfit's trust reaction.
+ * Models with only one reaction share it; never substitute a static or battle pose. */
+export function chooseChibiTap(animations: readonly ChibiAnimation[], firstTap: boolean, random = Math.random): ChibiBreak | null {
+  const find = (name: string) => animations.find(pose => pose.duration > 0 && pose.name.toLowerCase() === name.toLowerCase())
+    ?? animations.find(pose => pose.duration > 0 && new RegExp(`^${name}[_\\d]`, 'i').test(pose.name));
+  const normal = find('Interact'), trust = find('Special');
+  if (!normal && !trust) return null;
+  const trustTap = firstTap || random() < .5;
+  const chosen = (trustTap ? trust ?? normal : normal ?? trust)!;
+  return { activity: trustTap ? 'trust-tap' : 'tap', clip: chosen.name, duration: chosen.duration * 1000 };
+}
+
+export const isChibiTap = (activity?: ChibiActivity) => activity === 'tap' || activity === 'trust-tap';
 
 /** At a walking destination, sometimes take a break using an actual available pose. */
 export function chooseChibiBreak(animations: readonly ChibiAnimation[], random = Math.random): ChibiBreak | null {
