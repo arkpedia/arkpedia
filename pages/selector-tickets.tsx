@@ -1,0 +1,45 @@
+import Head from 'next/head';
+import Link from 'next/link';
+import { useMemo } from 'react';
+import { withContentPage } from '@/lib/content/server';
+import PageHeader from '@/components/ui/PageHeader';
+import Image from '@/components/content/ContentImage';
+import { RewardClick, RewardDetailsProvider } from '@/components/events/RewardDetails';
+import { useAccount } from '@/lib/account/accountStore';
+import type { buildSelectorCatalogue } from '@/lib/selectors/catalogue';
+import { recommendation } from '@/lib/selectors/scoring';
+
+type Props = ReturnType<typeof buildSelectorCatalogue>;
+export default function SelectorTickets({ cards, tickets, candidates }: Props) {
+  const account = useAccount();
+  const scores = useMemo(() => Object.fromEntries(candidates.map(op => [op.name, recommendation(op, candidates, account?.operators ?? null)])), [candidates, account]);
+  const missingRatings = candidates.some(op => Object.values(tickets).some(ticket => ticket.operators.some(candidate => candidate.name === op.name)) && op.kukkikaze === null);
+  const note = `${account ? 'Scores include your imported roster bonuses.' : 'Base scores only. Import your account to apply roster bonuses.'}${missingRatings ? ' Operators without a Kukkikaze rating show an available subtotal; the breakdown identifies missing data.' : ''}`;
+  return <>
+    <Head><title>Selector Tickets — Arkpedia</title></Head>
+    <PageHeader eyebrow="Rhodes Island // Guides" title="Selector Tickets" sub="Compare the current 6★ selectors for your roster." />
+    <main>
+      <p className="selector-account">{account ? `Using ${account.doctor ?? 'your imported account'} · ${account.server}` : 'Import your account for personalized recommendations.'} <Link href="/account">{account ? 'Manage account' : 'Import account'}</Link></p>
+      {missingRatings && <p className="hint" role="status">Some Kukkikaze ratings are missing. Those operators show available subtotals.</p>}
+      <RewardDetailsProvider tickets={tickets} recommendations={scores} recommendationNote={note}>
+        <div className="selector-cards">{cards.map(card => <RewardClick key={card.name} name={card.name} className="selector-card">
+          <span className="selector-card-art">{card.imagePath && <Image src={card.imagePath} alt="" width={180} height={140} />}</span>
+          <strong>{card.label}</strong><span>{card.name}</span><span className="hint">{card.pack ?? 'To Look Back on Terra · 3-day login gift'}</span>
+          <span className="selector-card-action">View operators</span>
+        </RewardClick>)}</div>
+      </RewardDetailsProvider>
+      <details className="selector-rules">
+        <summary>How the score works</summary>
+        <p>Kukkikaze and community ratings each contribute −1 (5.8–6.2), 0 (6.3–6.5), +1 (6.6–6.8) or +2 (6.9–7.2). Community averages round to one decimal, as on Power Scale. With no community rating, Kukkikaze’s contribution doubles.</p>
+        <p>Each main priority skill adds +1; each sub priority skill adds +0.25. A skill with several mastery recommendations counts once, using its highest priority. IS and RA modules add +0.5 each.</p>
+        <p>Your imported account adds +1 for Arts dealers with three or fewer owned 6★ Casters; +1 for True damage dealers with no owned 6★ True damage dealer; and +1 for a Kukkikaze 7.0–7.2 operator when you own no other operator in that bracket. Damage types include skills, talents and summons.</p>
+        <p>Red: below 0. Yellow: 0 to under 5. Green: 5 or higher. Owned operators keep their score and show an Owned label. Hover or focus a portrait for its score breakdown; click it for the operator preview.</p>
+      </details>
+    </main>
+  </>;
+}
+export const getStaticProps = withContentPage<Props>('/selector-tickets', async () => ({
+  props: process.env.ARKPEDIA_EXPORT_CONTENT === '1'
+    ? (await import('@/lib/selectors/catalogue')).buildSelectorCatalogue()
+    : (await import('@/data/selector-catalogue.json')).default as Props,
+}), { bundledWhenUnpublished: true });

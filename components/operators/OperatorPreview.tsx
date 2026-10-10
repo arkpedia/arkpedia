@@ -41,6 +41,8 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
   useEffect(() => {
     const element = modal.current;
     const previousFocus = document.activeElement as HTMLElement | null;
+    const parentDialog = previousFocus?.closest('dialog');
+    const parentScrollTop = parentDialog?.scrollTop;
     const previousOverflow = document.body.style.overflow;
     // A native preview sits above the selector, which owns its scroll lock.
     if (!nativeModal) document.body.style.overflow = 'hidden';
@@ -53,6 +55,8 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
       if (nativeModal) element?.close();
       if (!nativeModal) document.body.style.overflow = previousOverflow;
       previousFocus?.focus({ preventScroll: true });
+      // Closing a native dialog can scroll its opener before preventScroll focus runs.
+      if (parentDialog && parentScrollTop !== undefined) parentDialog.scrollTop = parentScrollTop;
     };
   }, [onClose, nativeModal]);
   useEffect(() => {

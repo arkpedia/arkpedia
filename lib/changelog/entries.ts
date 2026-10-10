@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-10T00:44:03Z',
+    title: 'Selector recommendations',
+    added: [
+      { title: 'Selector ticket recommendations', detail: 'Compare gifted and purchasable 6★ tickets with colored scores based on Kukkikaze ratings and your imported roster.', href: '/selector-tickets' },
+    ],
+  },
+  {
     at: '2026-10-09T14:39:11Z',
     title: 'Import a Friend',
     added: [

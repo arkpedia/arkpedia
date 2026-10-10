@@ -35,8 +35,8 @@
     "audit:build": "npx tsx scripts/audits/audit-build.ts",
     "stages:refresh": "bash scripts/sync/refresh-stage-data.sh",
     "events:sync": "node scripts/sync/sync-event-windows.mjs",
-    "prebuild": "node scripts/build/write-build-info.mjs && node scripts/build/adopt-release-asset-pins.mjs && node scripts/audits/check-skin-catalogue.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts",
-    "predev": "node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts",
+    "prebuild": "node scripts/build/write-build-info.mjs && node scripts/build/adopt-release-asset-pins.mjs && node scripts/audits/check-skin-catalogue.mjs && node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts && npx tsx scripts/build/build-selector-catalogue.ts",
+    "predev": "node scripts/build/build-enemy-details.mjs && npx tsx scripts/build/build-stage-details.ts && npx tsx scripts/build/build-stage-guesser.ts && npx tsx scripts/build/build-operator-search.ts && npx tsx scripts/build/build-music-catalogue.ts && npx tsx scripts/build/build-selector-catalogue.ts",
     "test": "env -u ARKPEDIA_RELEASE_BRANCH -u ARKPEDIA_DATA_BRANCH -u ARKPEDIA_CONTENT_POINTER -u ARKPEDIA_CONTENT_CHANNEL tsx --test scripts/tests/test-*.ts scripts/tests/test-*.mjs scripts/palettes/test-color-palette.ts",
     "check:styles": "node scripts/audits/check-unstyled-classes.mjs --strict",
     "check:assets": "node scripts/audits/check-external-assets.cjs && node scripts/audits/check-stage-previews.mjs && npx tsx scripts/audits/check-icon-coverage.ts",
@@ -55,7 +55,8 @@
     "test:banners": "node --test scripts/tests/test-recurring-banners.mjs",
     "modules:sync": "node scripts/sync/sync-module-stats.mjs",
     "test:module-stats": "node --test scripts/tests/test-module-stats.mjs",
-    "test:base": "tsx --test scripts/tests/test-base-skills.ts scripts/tests/test-base-imports.mjs"
+    "test:base": "tsx --test scripts/tests/test-base-skills.ts scripts/tests/test-base-imports.mjs",
+    "selectors:ratings": "tsx scripts/imports/import-selector-ratings.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

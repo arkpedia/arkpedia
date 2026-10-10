@@ -1,0 +1,13 @@
+# Selector recommendations
+
+`/selector-tickets` shares the three reviewed Critical Phase Transition ticket pools from `config/event-announcements.json`, official pack art, the event ticket dialog and nested operator preview. Recommendation badges are opt-in and appear only on this guide.
+
+The scoring function is `lib/selectors/scoring.ts`. It uses the shown imported account's operator names from the existing local account store; planner goals are not ownership. No account means base scores without roster bonuses. Owned candidates retain their scores and show an Owned marker.
+
+The user-supplied sheet is `config/selector-ratings.csv`; Ling is corrected to 6.7 as requested. Run `npm run selectors:ratings` after updating it to resolve the reviewed spelling aliases and write `config/selector-ratings.json`, keyed by game character ID. Blank cells stay unrated; unknown names, duplicate IDs and invalid scores fail the import. They must be reviewed Kukkikaze ratings. Missing author ratings retain available subtotals identified in the accessible breakdown. Badges use signed point totals with no asterisk, colored red below zero, yellow below five and green at five or more. A Game-Destroyer bonus also stays pending if an owned operator's author rating is unknown. Community averages come from the published Power Scale poll and round to the nearest tenth before applying the user's brackets.
+
+Skill priorities count unique skills, using main over sub if a skill has several mastery entries. ISW and RA module prefixes each contribute once. Direct Arts/True damage descriptions in traits, skills and talents supply the coverage classifications, including summons; damage-taken mentions alone do not classify a dealer. If the product needs a narrower definition of damage dealer, add reviewed ID overrides instead of replacing this with class heuristics.
+
+Color defaults are negative below 0, middle 0–under 5, great 5+. All numeric quarter-point contributions are retained. The rules disclosure and portrait accessible names expose the breakdown.
+
+`build-selector-catalogue.ts` regenerates the compact projection during predev and prebuild, The content page export calls the catalogue builder directly against its hydrated source records. The content exporter publishes `/selector-tickets` as versioned page props, so subsequent data releases update it without a frontend deployment. The generated JSON is also a bundled fallback for ISR while a newly deployed route is absent from the older release. Production promotion remains separate from development preview.

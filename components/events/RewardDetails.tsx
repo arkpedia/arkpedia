@@ -6,6 +6,7 @@ import type { TicketDetails } from '@/lib/events/announcements';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
+import { pointLabel, type Recommendation } from '@/lib/selectors/scoring';
 
 export interface ResolvedTicket extends Omit<TicketDetails, 'operators'> {
   operators: { name: string; iconPath: string; href: string }[];
@@ -16,7 +17,7 @@ const Details = createContext<{ tickets: Record<string, ResolvedTicket>; open: (
 
 /** One native modal handles packs and their tickets. Browser focus containment, Escape,
  * scroll locking and restoring the original card keep both desktop and phone usable. */
-export function RewardDetailsProvider({ tickets, children }: { tickets: Record<string, ResolvedTicket>; children: ReactNode }) {
+export function RewardDetailsProvider({ tickets, children, recommendations, recommendationNote }: { tickets: Record<string, ResolvedTicket>; children: ReactNode; recommendations?: Record<string, Recommendation>; recommendationNote?: string }) {
   const [stack, setStack] = useState<Detail[]>([]);
   const [operatorPreview, setOperatorPreview] = useState<OperatorPreviewItem | null>(null);
   const closeOperatorPreview = useCallback(() => setOperatorPreview(null), []);
@@ -67,12 +68,16 @@ export function RewardDetailsProvider({ tickets, children }: { tickets: Record<s
         {'ticket' in active ? <>
           <p>{active.ticket.description}</p>
           {active.ticket.note && <p className="hint">{active.ticket.note}</p>}
+          {recommendationNote && <p className="hint">{recommendationNote}</p>}
           <div className="event-selector-operators">
-            {active.ticket.operators.map(op => <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" aria-label={`${op.name}: operator preview`}
+            {active.ticket.operators.map(op => { const score = recommendations?.[op.name]; const breakdown = score ? `${score.complete ? "Recommendation" : "Available subtotal (rating data missing)"}: ${pointLabel(score.total)}. ${score.lines.map(line => `${line.label}: ${pointLabel(line.points)}`).join("; ")}` : undefined; return <button key={op.name} type="button" className="btn-bare event-selector-operator" aria-haspopup="dialog" title={breakdown} aria-label={`${op.name}: operator preview${score ? `, ${breakdown}${score.owned ? ", already owned" : ""}` : ""}`}
               onClick={() => setOperatorPreview({ name: op.name, icon: op.iconPath, rarity: 6 })}>
-              <Image src={op.iconPath} alt="" width={56} height={56} />
+              <span className="selector-portrait"><Image src={op.iconPath} alt="" width={56} height={56} />
+              {score && <span className={`selector-score selector-score-${score.tone}`} aria-hidden="true">{pointLabel(score.total)}</span>}
+              </span>
               <span>{op.name}</span>
-            </button>)}
+            {score?.owned && <span className="selector-owned">Owned</span>}
+            </button>; })}
           </div>
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </> : <>

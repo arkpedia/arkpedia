@@ -333,6 +333,11 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/selector-tickets': props => {
+    assert.equal((props.cards as unknown[]).length, 3);
+    assert.deepEqual(Object.values(props.tickets as Record<string, { operators: unknown[] }>).map(ticket => ticket.operators.length), [8, 35, 48]);
+    assert.ok((props.candidates as { id: string }[]).every(op => op.id));
+  },
   '/friends': props => {
     const operators = props.operators as {name:string;rarity:number;icon:string;skills:number}[];
     assert.ok(operators.length > 400 && operators.every(op => op.name && op.icon.startsWith('/') && op.rarity >= 1 && op.rarity <= 6), 'the owned-operator catalogue survives without source files');
