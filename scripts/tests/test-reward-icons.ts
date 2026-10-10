@@ -136,6 +136,14 @@ const duelEvents = [{ name: duelA, activityId: 'act99duel', rewards: [{ items: [
 const filesOf = (events: object[]) => [...new Set(events.flatMap(event => eventRewardIcons(event, { eventStores, eventRewards }) as { file?: string }[]).flatMap(icon => (icon.file ? [icon.file] : [])))];
 const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+test('announcement reward aliases keep the official display name and use the same published art in rendering and release checks', () => {
+  const name = 'Upcoming announcement';
+  const reward = { name: 'New Model Data Terminal', iconName: 'Module Data Block', kind: 'other', id: 'announcement:terminal', count: 1 };
+  const icons = eventRewardIcons({ name }, { eventStores: { events: {} }, eventRewards: { events: { [name]: { groups: [{ kind: 'login', items: [reward] }] } } } });
+  assert.deepEqual(icons, [{ name: reward.name, file: 'material-icons/Module Data Block.webp' }]);
+  assert.equal(rewardIconPath({ ...reward, type: 'material' }, outfitIcon, isPublished), '/material-icons/Module Data Block.webp');
+});
+
 test('the release holds every row the page lists without its icon that a stage can source: the wiki\'s store, the table rewards and the packs', () => {
   const [event] = duelEvents;
   // Row by row, the files rewardIconPath asks for: the trophy by the id A's rewards give it, the

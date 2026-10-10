@@ -81,7 +81,7 @@ export function eventRewardIcons(event, { eventStores, eventRewards }) {
         else if (/^avatar_/.test(id)) named(item.name, `profile-avatars/${id.toLowerCase()}.webp`);
         else if (/^furni_/.test(id)) named(item.name, `material-icons/${safe(id)}.webp`);
         else if (item?.kind === 'outfit') icons.push({ name: item.name, outfit: String(item.name).split(' / ').pop() });
-        else if (item?.kind !== 'other') byName(item?.name, item?.name);
+        else if (item?.kind !== 'other' || item?.iconName) byName(item?.name, item?.iconName ?? item?.name);
       }
     }
     if (group.kind === 'packs') for (const pack of list(group.packs)) for (const item of list(pack.contents)) if (item?.kind !== 'other') byName(item?.name, item?.name);

@@ -569,7 +569,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
     // A daily free roll is a headhunting roll: the permit's picture.
     if (item.kind === 'free-roll') return rewardIconPath({ name: 'Headhunting Permit', type: 'material', id: null }, () => null, publicFileExists);
     return rewardIconPath(
-      { name: item.name, type: item.kind === 'outfit' ? 'skin' : 'material', id: item.id ?? null },
+      { name: item.name, iconName: item.iconName, type: item.kind === 'outfit' ? 'skin' : 'material', id: item.id ?? null },
       (skinName) => findSkinIconPath(skinName.split(' / ').pop() ?? skinName) || null,
       publicFileExists,
     );
