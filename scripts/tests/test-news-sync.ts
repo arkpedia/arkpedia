@@ -122,9 +122,9 @@ test('a gap the newest-first code left at the older end is healed by the weekly 
   assert.deepEqual(await syncOfficialNews(root, { now: monday, fetcher: site.fetcher, pause: async () => {} }), { fresh: 0, unreadable: [] });
   assert.deepEqual([site.pages, site.details], [[1, 2], []], 'a quiet day reads two pages');
   site.pages.length = 0;
-  assert.deepEqual(await syncOfficialNews(root, { now: sunday, fetcher: site.fetcher, pause: async () => {} }), { fresh: 10, unreadable: [] });
+  assert.deepEqual(await syncOfficialNews(root, { now: sunday, fetcher: site.fetcher, pause: async () => {} }), { fresh: 100, unreadable: [] });
   assert.deepEqual(site.pages, [1, 2, 3, 4], 'every page, the last one short');
-  assert.deepEqual(site.details, Array.from({ length: 10 }, (_, i) => i + 1), 'the gap, oldest first');
+  assert.deepEqual(site.details, Array.from({ length: 100 }, (_, i) => i + 1), 'the gap, oldest first');
   assert.equal(cachedIds(root, NEWS_DIR).length, 100);
 }));
 
@@ -199,3 +199,14 @@ test('a joint operation preview (联合行动) is a banner of its own kind', () 
   const [banner] = cnBanners(post);
   assert.deepEqual([banner.name, banner.kind, banner.six, banner.five], ['联合行动', 'joint', ['甲', '乙', '丙', '丁'], ['戊', '己', '庚', '辛']]);
 });
+
+test('recent cached Global announcements are revisited and corrections replace their old text', () => temporary(async root => {
+  const publishTime = NOW - 86400000;
+  const fetcher = async (input: string) => input.includes('/list?')
+    ? json({ code: 0, data: { rows: [{ id: 1, title: 'Corrected', type: 'event', publishTime }] } })
+    : json({ code: 0, data: { id: 1, title: 'Corrected', publishTime, content: '<p>01 EVENT OPEN</p><p>DETAILS: corrected rewards</p>' } });
+  cachePosts(root, [1]);
+  assert.deepEqual(await syncOfficialNews(root, { now: NOW, fetcher, pause: async () => {} }), { fresh: 1, unreadable: [] });
+  assert.match(fs.readFileSync(path.join(root, NEWS_DIR, '1.json'), 'utf8'), /corrected rewards/);
+  assert.deepEqual(await syncOfficialNews(root, { now: NOW, fetcher, pause: async () => {} }), { fresh: 0, unreadable: [] });
+}));
