@@ -279,7 +279,6 @@ const CONTROL_HEIGHT_EXEMPT = [
   [/^styles\/recruitment\/recruitment\.css: \.recruit-selection button \{/, 'the five recruitment tag slots: a fixed grid of equal slots (an empty one is the same box) sized for a two-line tag name'],
   [/^styles\/games\/song-guesser\.module\.css: \.play \{/, "the music guesser's one big play button: the round's hero control, alone on its line"],
   [/^styles\/enemies\/enemies\.css: \.enemy-appear-option \{/, "a row in the enemy picker's menu: 40px like StyledSelect's own options, a menu row rather than a row control"],
-  [/^styles\/base\/base\.css: [^{]*\.base-(?:facility-explain|facility-settings|zoom-reset)-btn \{/, 'on the /base pan-and-zoom map: sized with the room tiles and scaled by --base-tap-scale so they stay 24px on screen at any zoom'],
   [/^components\/operators\/OperatorPage\.module\.css: \.splitRail button \{/, "the operator page's split handle between the artwork and the details: a 28px-wide rail, not a row control"],
   [/^components\/operators\/OperatorPage\.module\.css: \.relationPopover > button \{/, 'a name drawn as text (no border, no fill) that opens a popover: a 28px hit area round one line of text'],
   // Boxed bare buttons (boxedClasses) that are not row controls.

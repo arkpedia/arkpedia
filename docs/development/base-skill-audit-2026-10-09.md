@@ -60,10 +60,14 @@ Save image exports a self-contained PNG with room positions (B101 etc.), workers
 ## Explicit remaining estimates and unmodeled history
 
 1. Order-quality probability curves and warm-up are not exposed in the source tables. Existing mature Lv3 community measurements remain an estimate; applying that proxy at lower levels is explicitly marked in the TP explanation. Ordinary TP level distributions and fixed order types are modeled separately.
-2. Jaye with Degenbrecher/Swire has capacity/efficiency feedback. The source text does not establish the evaluation priority; the current ordering is marked unverified in the explanation. Do not treat its optimizer ranking as game-certified.
+2. Jaye with Degenbrecher/Swire has capacity/efficiency feedback. The subsequent complete-calculator audit corrects the priority and matches all six Annex 1 examples. Source text does not establish that priority, so this remains community reference evidence rather than a game-certified optimizer ranking.
 3. Pepe plus Closure has conflicting special order types. Pepe's fixed order is currently used, with that priority explicitly marked unverified.
 4. Clue-type likelihood changes remain qualitative notes: they are not converted to invented numeric probabilities.
 5. This is a snapshot calculator, not a chronological game simulator. Fiammetta's one-off Morale transfer, dorm historical target locks, Logos/Irene uninterrupted training history, Zuo Le's accumulated Martial Arts, NCD counters and Thorns craft history are not inferred automatically. Current Morale and prepared/craft counters are explicit inputs where modeled.
 6. Selected Elite tier assumes its level-gated base skills have been unlocked. Drone capacity assumes full excavation (235). The disabled rotation experiment still uses optimistic support-room assumptions; its results are not a validation oracle for the interactive calculator.
 
 These are recorded as unresolved verification scope. A zero-result static audit must not be described as exhaustive numeric validation of all combinations.
+
+## Subsequent complete-calculator combination audit
+
+[The combination coverage report](base-combination-coverage-2026-10-09.md) records all 173 populated worksheet scenarios, their original cells, reviewed discrepancies and reconstruction assumptions. The `/base` page now calls the same extracted `calculateBase` function as the regression suite. Fifty-four current linked trading-reference rows calibrate special-order arithmetic, twenty additional boundary tests cover cross-room resources/R6 unlocks/exhausted workers, and 19,445 two-worker/product pairings check finite output and slot-order invariance. These scopes supplement the source activation checks; they do not turn qualitative probability effects or historical state into verified numbers.

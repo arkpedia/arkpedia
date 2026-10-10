@@ -58,9 +58,9 @@ const experimental = async (page: Page) => {
 const beginBase = async (page: Page) => {
   await page.locator('.base-setup-preset-card').first().click();
   await page.getByRole('button', { name: 'Begin Simulation' }).click();
-  await expect(page.locator('.base-facility').first()).toBeVisible();
+  await expect(page.locator('.base-overview-room').first()).toBeVisible();
 };
-const builtFacility = (page: Page) => page.locator('.base-facility:not(.base-facility-unbuilt)').nth(2);
+const builtFacility = (page: Page) => page.locator('.base-overview-room').nth(2);
 
 interface Place {
   id: string;
@@ -224,14 +224,8 @@ const PLACES: Place[] = [
     gone: async (page) => { await expect(page.locator('.stage-tile-pop')).toHaveCount(0); },
   },
   {
-    id: '/base room popover', route: '/base',
-    open: async (page) => { await beginBase(page); await builtFacility(page).click(); await expect(page.locator('.base-popover-close')).toBeVisible(); },
-    x: (page) => page.locator('.base-popover-close'),
-    gone: async (page) => { await expect(page.locator('.base-popover-close')).toHaveCount(0); },
-  },
-  {
     id: '/base room team', route: '/base',
-    open: async (page) => { await beginBase(page); await builtFacility(page).click(); await page.locator('.base-slot').first().click(); await page.locator('.base-room-card').first().click(); await expect(page.getByRole('button', { name: /^Remove / }).first()).toBeVisible(); },
+    open: async (page) => { await beginBase(page); await builtFacility(page).click(); await page.locator('.base-room-card').first().click(); await expect(page.getByRole('button', { name: /^Remove / }).first()).toBeVisible(); },
     x: (page) => page.locator('.base-room-team-x').first(),
     gone: async (page) => { await expect(page.locator('.base-room-team-x')).toHaveCount(0); },
   },

@@ -74,6 +74,8 @@ export interface MoraleResult {
 export interface SlotAssignment {
   operatorName: string;
   eliteLevel: string | null;
+  /** Exact account-import level; manual Elite picks assume unlock levels. */
+  level?: number;
   // For skills that scale off something the simulator can't know on its
   // own (item counts like Witchcraft Crystal, Engineering Robots, etc.,
   // or hours since placement for ramp-up skills) -- a manual value the

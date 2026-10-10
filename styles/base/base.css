@@ -1474,6 +1474,91 @@
 .base-training-target label { display: flex; align-items: center; gap: 0.35rem; max-width: 100%; }
 .base-training-target [role="combobox"] { max-width: 15rem; min-width: 0; }
 .base-room-team input[type="number"] { max-width: 5rem; }
+
+/* Base command view: real floor positions, readable room staffing and a fixed editor. */
+.base-source-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; min-height: 40px; }
+.base-source-bar > div { display: flex; gap: 6px; }
+.base-source-bar > .primary { margin-left: auto; }
+.base-production-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px; padding: 12px 0; border-block: 1px solid var(--line-soft); margin-bottom: 16px; font-size: 12px; color: var(--text-dim); }
+.base-production-strip strong { font-size: 18px; font-family: var(--font-display); color: var(--text); font-variant-numeric: tabular-nums; }
+.base-production-strip > span:last-child { margin-left: auto; }
+.base-command-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 18px; }
+.base-command-workspace.has-room { grid-template-columns: minmax(0, 1fr) 300px; }
+.base-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(140px, 1.2fr); gap: 8px; grid-template-areas: "cc cc reception reception" "prod1 prod2 prod3 dorm1" "prod4 prod5 prod6 dorm2" "prod7 prod8 prod9 dorm3" "workshop office training dorm4"; }
+.base-overview-room { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; min-height: 130px; line-height: 1.35; text-align: left; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: var(--radius-frame); color: var(--text); box-shadow: var(--shadow-panel); }
+.base-overview-room:hover { border-color: var(--teal); background: var(--panel-2); }
+.base-overview-room[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-dim); }
+.base-overview-tradingPost { border-top-color: var(--cat-blue); }
+.base-overview-factory { border-top-color: var(--amber); }
+.base-overview-powerPlant { border-top-color: var(--cat-green); }
+.base-overview-room-head { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 600; color: var(--text-dim); }
+.base-overview-room-name { font-size: 13px; font-family: var(--font-display); }
+.base-overview-staff { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; min-height: 38px; }
+.base-overview-slot { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--well); border: 1px solid var(--line-soft); border-radius: var(--radius); color: var(--text-faint); overflow: hidden; }
+.base-overview-slot img { width: 36px; height: 36px; object-fit: contain; }
+.base-overview-result { margin-top: auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.base-overview-detail,
+.base-overview-deadline { font-size: 10px; line-height: 1.4; color: var(--text-dim); overflow-wrap: anywhere; }
+.base-overview-deadline.prod-danger { color: var(--prod-danger); }
+.base-command-editor { min-width: 0; position: sticky; top: 76px; }
+.base-command-editor:empty { display: none; }
+.base-command-editor .base-room-panel { height: min(780px, calc(100dvh - 100px)); padding: 14px; gap: 12px; overflow-y: auto; }
+.base-command-editor .base-room-panel-header { flex-wrap: wrap; }
+.base-command-editor .base-breakdown-panel { flex: 1; min-height: 0; }
+.base-command-editor .base-breakdown-panel > * { flex-shrink: 0; }
+.base-command-editor .base-breakdown-lines { overflow: visible; }
+.base-command-editor .base-room-panel-controls { flex-direction: column; align-items: stretch; }
+.base-command-editor .base-room-panel-controls input { width: 100%; min-width: 0; }
+.base-command-editor .base-room-elite-select { flex-wrap: wrap; }
+.base-command-editor .base-room-grid { grid-template-columns: 1fr; min-height: 100px; overflow-y: auto; }
+.base-command-editor .base-room-card { min-height: 70px; }
+.base-command-editor .base-room-card-skills-scroll { max-height: none; }
+.base-room-building-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+.base-room-building-controls > .styled-select { flex: 1; }
+.base-room-building-controls label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.base-room-building-controls input { width: 5rem; }
+.base-empty-message,
+.base-import-room { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-frame); background: var(--panel); }
+.base-empty-message h2,
+.base-import-room h2 { margin: 0 0 8px; }
+.base-empty-message p { max-width: 65ch; font-size: 13px; }
+.base-import-notes { padding: 8px 0; font-size: 12px; margin-bottom: 8px; }
+.base-import-worker { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.base-rotation-plan { padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-frame); margin-bottom: 16px; }
+.base-rotation-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.base-rotation-heading h2 { margin: 0; font-family: var(--font-display); }
+.base-rotation-heading label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.base-rotation-shift { display: grid; grid-template-columns: 115px minmax(150px, 1fr) 100px auto auto auto; align-items: center; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line-soft); }
+.base-rotation-time { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.base-rotation-shift label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.base-rotation-shift input { width: 4rem; }
+.base-rotation-team,
+.base-rotation-warnings { grid-column: 2 / -1; font-size: 12px; line-height: 1.7; margin: 0; }
+.base-rotation-warnings { color: var(--prod-danger); }
+@media (max-width: 1150px) {
+  .base-command-workspace.has-room { grid-template-columns: minmax(0, 1fr); }
+  .base-command-editor { position: static; }
+  .base-command-editor .base-room-panel { height: 560px; }
+  .base-command-editor .base-room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .base-overview { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(140px, 1.2fr); }
+}
+@media (max-width: 720px) {
+  .base-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: none; }
+  .base-overview-room { grid-area: auto !important; min-height: 152px; padding: 10px; }
+  .base-command-workspace.has-room { display: flex; flex-direction: column; }
+  .base-command-workspace.has-room > .base-command-editor { order: -1; width: 100%; }
+  .base-command-workspace.has-room > .base-overview { width: 100%; }
+  .base-command-editor .base-room-panel { height: 520px; }
+  .base-command-editor .base-room-grid { grid-template-columns: 1fr; }
+  .base-source-bar { gap: 8px; }
+  .base-production-strip { gap: 10px 20px; }
+  .base-production-strip strong { font-size: 18px; }
+  .base-production-strip > span:last-child { margin-left: 0; }
+  .base-rotation-shift { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .base-rotation-team,
+  .base-rotation-warnings { grid-column: 1 / -1; }
+  .base-rotation-shift > .styled-select { min-width: 0; }
+}
 @media (max-width: 600px) {
   .base-training-target label { font-size: 0.8rem; }
   .base-training-target [role="combobox"] { max-width: 12rem; }
@@ -1483,4 +1568,13 @@
 .base-slot-morale input { width: 3.5rem; padding: .3rem; border: 1px solid var(--line); border-radius: .25rem; background: var(--panel); color: inherit; }
 
 /* Reserve feedback space so saving/loading does not shift the base map. */
-.base-preset-status { min-height: 1.4em; }
+.base-preset-status { min-height: 1.4em; margin: 0 0 8px; }
+
+.base-editor-idle { padding: 22px; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius-frame); }
+.base-editor-idle h2 { font-family: var(--font-display); margin: 0 0 8px; }
+.base-editor-idle p { font-size: 13px; line-height: 1.7; margin: 0 0 16px; }
+@media (max-width: 1150px) { .base-command-workspace { grid-template-columns: minmax(0, 1fr); } .base-editor-idle { display: none; } }
+
+/* Five resting operators fit the dorm tile without pushing the whole floor down. */
+.base-overview-dormitory .base-overview-slot,
+.base-overview-dormitory .base-overview-slot img { width: 30px; height: 30px; }

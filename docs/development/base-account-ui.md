@@ -1,0 +1,80 @@
+# Base account view and rotation
+
+`/base` has two sources. **Your plan** is the editable, browser-local setup.
+**Imported account** displays the last imported building snapshot. Switching views
+never writes the snapshot over the plan. **Edit a copy** explicitly does that and
+keeps an existing completed plan as a recoverable saved preset.
+
+## Snapshot reader
+
+`lib/account/baseSnapshot.ts` reads `account/syncData.user.building` during the
+existing account import. No new game requests or staffing writes are made.
+The normalized snapshot lives inside the per-server AccountRecord, so account
+switching and backups carry it with the account. Imports made before this feature
+need to be repeated; building fields were previously discarded.
+
+- `roomSlots[slot].roomId`, `.level`, `.charInstIds` identify rooms and staffing.
+  Room detail lives at `rooms[roomId][slot]`; its `.level` is a fallback.
+- The slot-to-floor mapping is `building_data.layouts.v0`: slots 24/25/26 are B1,
+  14/15/16 B2, and 5/6/7 B3. The overview keeps production floor/column positions and dorm order; support
+  rooms are grouped above and below them to fit the shared 1040px page frame.
+- Instance IDs resolve through `troop.chars`. Combat forms resolve to one physical
+  operator. Training's second operator is kept separately as the trainee.
+- `building.chars[instance].ap / 360000` is displayed Morale, using the game table's
+  `manpowerDisplayFactor`. Missing Morale stays unknown; zero is preserved.
+- Operator promotion and level are retained, including unassigned owned operators,
+  for skill unlocks and replacement picks on the shown server. Unknown progress
+  uses conservative E0/Lv1 defaults where fields are missing and reports a warning.
+- Factory formulas 1/2/3 map to Battle Records, 4 to Precious Metals and 13/14 to
+  Originium Shards. Unsupported chip recipes are left unmodeled. Output estimates
+  use Tactical Battle Records; lower-tier recipes report that limitation.
+- Dorm ambience reads `comfort` or `diySolution.comfort`. If absent, calculations
+  use zero and explain this. Unknown room types/levels are omitted with warnings.
+
+The assignment/detail protocol is cross-checked against the public
+[Arkdays building controller](https://github.com/Shiiyuko/Arkdays/blob/main/src/main/java/com/hypergryph/arknights/game/building.java)
+and [ArkPRTS automation client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/automation.py).
+Slot positions, capacities, Morale units and formula categories are from the game
+`building_data` table used in the preceding base skill audit. Tests use synthetic
+protocol/account fixtures, not a player's private export. A fresh live Yostar
+import with building data remains a separate integration check.
+
+Room/staff/level/Morale data describes the import instant. Displayed productivity
+and depletion/recovery rates are calculator estimates, using known starting Morale, the collection
+interval and conditions; elapsed time since import is not projected. Ling and
+Dusk use their individual imported Morale when known. Training mastery/history
+and remaining training time are not imported, and no target mastery is presented
+as an account fact. Workshop recipes/counters require an editable copy.
+
+## Rotation
+
+**Add to rotation** saves the imported staffing as a setup and adds a 12-hour
+shift without replacing the draft. Other working/resting setups can be saved in
+Presets, then selected as shifts with a duration and start time. Load shift
+explicitly loads its complete setup into Your plan. Rotation survives reload and
+is included in backups.
+
+Each saved setup captures net Morale rates from the existing calculator. Positive
+rates consume Morale; negative dorm rates recover it up to 24. Unassigned operators
+do not recover off-base. Workshops are discrete crafts, not continuous drains.
+The initial state uses imported Morale where available, then saved Morale or 24.
+Two complete cycles are checked. Warnings cover exhaustion, missing/deleted setup
+rates, unowned operators, duplicate placements, and changes to room types/levels.
+Unbuilt rooms do not count toward facility-count skills. Old presets need to be
+loaded and updated once to capture rates.
+
+This is a manual staffing timetable with estimated rates. It does not optimize
+replacement teams, import an in-game preset/rotation history, change staffing in
+the game, or simulate chronological threshold changes, skill warm-up or one-off
+Morale/training effects. For those numeric-model boundaries, see
+[the base skill audit](base-skill-audit-2026-10-09.md).
+
+## Verification
+
+- Unit coverage: protocol mapping, AP conversion, malformed fields, physical forms,
+  exact-level skill unlocks, preset/rotation validation and second-cycle depletion.
+- Browser coverage: view switching without draft writes, explicit copying with
+  recovery preset, importing before formation setup, reimport instructions,
+  rotation persistence/loading, stable desktop geometry and 320px containment.
+- Existing base tests retain light-theme contrast, mobile touch targets, roster
+  filtering and team remove-button checks.

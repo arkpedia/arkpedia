@@ -1,65 +1,73 @@
-import { withContentPage } from '@/lib/content/server';
-import { GetStaticProps } from 'next';
-import Head from 'next/head';
+import BaseOverview, { type BaseRoomSummary } from '@/components/base/BaseOverview';
+import BaseRotationPanel from '@/components/base/BaseRotationPanel';
 import Image from '@/components/content/ContentImage';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from 'react';
-import { getAllOperators } from '@/lib/operators/operators';
-import type { BaseSkillSlot, BaseSkillSlots } from '@/lib/base/baseSkillSlots';
-import { useReleaseTable } from '@/lib/content/context';
-import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { getBaseSkillIconPath, getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
-import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
+import PageHeader from '@/components/ui/PageHeader';
+import StyledSelect from '@/components/ui/StyledSelect';
+import XButton from '@/components/ui/XButton';
+import { useAccount } from '@/lib/account/accountStore';
+import { activeBaseSkills } from '@/lib/base/activeBaseSkills';
 import {
-  getFacilities,
-  createEmptyAssignments,
-  levelEditableFacilities,
-  reconcileAssignments,
-  migrateLegacySetup,
-  defaultProductionSpots,
-  presetSpots,
-  productionKindCounts,
-  canSetSpotKind,
   assignedKindCount,
-  PRODUCTION_SPOTS,
-  PRODUCTION_SPOT_IDS,
-  PRODUCTION_KINDS,
+  BASE_PRESET_IDS,
+  BASE_PRESETS,
+  BasePresetId,
+  canSetSpotKind,
+  createEmptyAssignments,
+  defaultProductionSpots,
+  FACILITY_KIND_LABELS,
+  getFacilities,
+  layoutProblems,
+  levelEditableFacilities,
+  matchingPreset,
   MAX_LEVEL_BY_KIND,
   MAX_PRODUCTION_BY_KIND,
-  FACILITY_KIND_LABELS,
-  BASE_PRESETS,
-  BASE_PRESET_IDS,
-  BasePresetId,
-  presetLevels,
-  matchingPreset,
+  migrateLegacySetup,
   powerBalance,
-  layoutProblems,
+  presetLevels,
+  presetSpots,
+  PRODUCTION_KINDS,
+  PRODUCTION_SPOTS,
+  productionKindCounts,
+  reconcileAssignments,
 } from '@/lib/base/baseConfig';
-import { BaseAssignments, FactoryProduct, FactoryProducts, DormitoryAmbience, SlotAssignment, BaseLayout, FacilityLevels, ProductionKind, ProductionSpots } from '@/lib/base/baseTypes';
-import { calcProductivity, calcCapacity, calcCapacityPerOperator, calcOrderLimit, calcMorale, calcClueSpeed, calcReceptionRoomBaseSpeed, receptionRoomBaseContribution, calcDroneRate, calcFullTime, calcDeadTime, calcDailyProduction, calcControlCenterEffects, clueCollectionBonusFrom, calcControlCenterMoraleRelief, calcOffice, calcTradingPostFullTime, calcTradingPostGoldPerHourStandardized, goldOrderTier, tradingPostExpectedMinutes, calcTradingPostGoldAndLmdPerHour, formatHours, ControlCenterEffects, calcGreyProductivity, factoryYellowContribution, tradingPostYellowContribution, calcDormitoryRecovery, defaultDormitoryAmbience, dormitoryAmbienceCap } from '@/lib/base/baseProductivity';
-import { FACTORY_SPECIAL_SKILLS, FactorySkillContext } from '@/lib/base/factorySpecialSkills';
-import { checkBaseRosters, BASE_ROSTER_NAMES, toBaseRosters, type BaseRosterData } from '@/lib/base/baseGroupRosters';
-import { useAccount } from '@/lib/account/accountStore';
-import { readRoster, ROSTER_EVENT } from '@/lib/planner/roster';
-import { DORMITORY_SPECIAL_SKILLS, DORMITORY_PREFERRED_TARGET } from '@/lib/base/dormitorySpecialSkills';
-import { RECEPTION_ROOM_SPECIAL_SKILLS, ReceptionRoomContext } from '@/lib/base/receptionRoomSpecialSkills';
-import { POWER_PLANT_SPECIAL_SKILLS } from '@/lib/base/powerPlantSpecialSkills';
-import { OFFICE_SPECIAL_SKILLS, OfficeContext } from '@/lib/base/officeSpecialSkills';
-import { TRADING_POST_SPECIAL_SKILLS, TradingPostContext } from '@/lib/base/tradingPostSpecialSkills';
-import { CONTROL_CENTER_SPECIAL_SKILLS, ControlCenterContext } from '@/lib/base/controlCenterSpecialSkills';
-import { computeResourcePools, consumerBonuses, BaseResourceState, pureGoldProductionLineCount, ResourcePools, LayoutCounts } from '@/lib/base/baseResources';
-import { RotationExperimentResult, runRotationExperiment, RotationFacilityLevels, initializeRotationExperimentData } from '@/lib/base/baseRotationExperiment';
-import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
-import PageHeader from '@/components/ui/PageHeader';
-import XButton from '@/components/ui/XButton';
-import StyledSelect from '@/components/ui/StyledSelect';
-import { activeBaseSkills } from '@/lib/base/activeBaseSkills';
-import { downloadBaseSnapshotImage } from '@/lib/base/baseSnapshotImage';
+import { BASE_ROSTER_NAMES, checkBaseRosters, toBaseRosters, type BaseRosterData } from '@/lib/base/baseGroupRosters';
+import { defaultDormitoryAmbience, dormitoryAmbienceCap } from '@/lib/base/baseProductivity';
+import {
+  initializeRotationExperimentData,
+  RotationExperimentResult,
+  RotationFacilityLevels,
+  runRotationExperiment,
+} from '@/lib/base/baseRotationExperiment';
+import { BASE_ROTATION_PLAN_KEY, readRotationPlan, type BaseRotationPlan } from '@/lib/base/baseRotationPlan';
 import { readSavedBasePresets, SAVED_BASE_PRESETS_KEY, type SavedBasePreset } from '@/lib/base/baseSavedPresets';
-import { jayeContribution } from '@/lib/base/jaye';
-import { workshopResult, type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
-import { dormitoryRecoveryRates } from '@/lib/base/dormitoryRecovery';
-import { crossFacilityMoraleRelief } from '@/lib/base/crossFacilityMorale';
-import { trainingResult, resolveTrainingTarget, canTrainMastery, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
+import { BaseSkillSlots } from '@/lib/base/baseSkillSlots';
+import { downloadBaseSnapshotImage } from '@/lib/base/baseSnapshotImage';
+import {
+  BaseAssignments,
+  BaseLayout,
+  DormitoryAmbience,
+  FacilityLevels,
+  FactoryProduct,
+  FactoryProducts,
+  ProductionKind,
+  ProductionSpots,
+  SlotAssignment,
+} from '@/lib/base/baseTypes';
+import { calculateBase } from '@/lib/base/calculateBase';
+import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
+import { canTrainMastery, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
+import { type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
+import { useReleaseTable } from '@/lib/content/context';
+import { withContentPage } from '@/lib/content/server';
+import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
+import { getBaseSkillIconPath } from '@/lib/operators/operatorIconPaths';
+import { getAllOperators } from '@/lib/operators/operators';
+import { BaseOperator, BaseSkill } from '@/lib/operators/operatorTypes';
+import { readRoster, ROSTER_EVENT } from '@/lib/planner/roster';
+import { GetStaticProps } from 'next';
+import Head from 'next/head';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 
 // The manual-value input mechanism (see needsManualValue / setManualValue
@@ -110,11 +118,6 @@ const MODEL_SETTINGS_KEY = 'baseModelSettings_v1';
 // meant to be under direct, explicit control regardless of build mode,
 // not an accident of which environment happens to build the site.
 const ROTATION_EXPERIMENT_ENABLED = false;
-const PRODUCTIVITY_KINDS = new Set(['factory', 'tradingPost']);
-
-function matchingSkills(op: BaseOperator, facilityLabel: string): BaseSkill[] {
-  return (op.baseSkills || []).filter((bs) => bs.facility === facilityLabel);
-}
 
 export default function BasePage({ operators }: Props) {
   // The game's slot chains and the group rosters: game tables from this page's props
@@ -125,7 +128,6 @@ export default function BasePage({ operators }: Props) {
   const skillSlots = useReleaseTable<BaseSkillSlots>('base-skill-slots');
   const rosterData = useReleaseTable<BaseRosterData>('base-group-rosters');
   const rosters = useMemo(() => toBaseRosters(rosterData), [rosterData]);
-  const { ELITE_OPERATOR, ABYSSAL_HUNTERS, OPERATION_PLATFORM, BLACKSTEEL_WORLDWIDE, TEAM_RAINBOW, DURIN, PINUS_SYLVESTRIS, WANDERING_MEDIC, SUI, KNIGHTS, LATERANO, RHINE_LAB } = rosters;
   // --- Base formation setup: chosen once before the simulation begins,
   // with a reset available to redo it. 2-4-3 needs no further input.
   // 2-5-2 requires the player to set every settable facility's level
@@ -166,21 +168,6 @@ export default function BasePage({ operators }: Props) {
   // facility list and read wherever a change could break it.
   const basePower = useMemo(() => powerBalance(FACILITIES), [FACILITIES]);
 
-  const layoutCounts = useMemo<LayoutCounts>(() => {
-    const built = productionKindCounts(productionSpots, facilityLevels);
-    return {
-      tradingPostCount: built.tradingPost,
-      factoryCount: built.factory,
-      powerPlantCount: built.powerPlant,
-    };
-  }, [productionSpots, facilityLevels]);
-  // Philae's drone rate scales with every Dormitory's own level added together,
-  // so this has to follow the player's chosen levels, not a fixed 4 x 5.
-  const totalDormitoryLevels = useMemo(
-    () => FACILITIES.filter((f) => f.kind === 'dormitory').reduce((sum, f) => sum + f.level, 0),
-    [FACILITIES]
-  );
-
   const [assignments, setAssignments] = useState<BaseAssignments>(createEmptyAssignments(FACILITIES));
   const [factoryProducts, setFactoryProducts] = useState<FactoryProducts>({});
   const [dormitoryAmbience, setDormitoryAmbience] = useState<DormitoryAmbience>({});
@@ -190,7 +177,6 @@ export default function BasePage({ operators }: Props) {
   // both get the measured placement and edge-clamping for free.
 
   const baseRoomPanelRef = useRef<HTMLDivElement>(null);
-  const baseScrollBeforeRoomPanelRef = useRef<number | null>(null);
   const [breakdownFacilityId, setBreakdownFacilityId] = useState<string | null>(null);
   const [roomPanelFacilityId, setRoomPanelFacilityId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -199,7 +185,7 @@ export default function BasePage({ operators }: Props) {
   const [presetName, setPresetName] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('');
   const [presetStatus, setPresetStatus] = useState('');
-  const [viewMode, setViewMode] = useState<'cumulated' | 'separated'>('cumulated');
+  const [viewMode] = useState<'cumulated' | 'separated'>('cumulated');
   const [loginInterval, setLoginInterval] = useState(24);
   const [modelSettingsLoaded, setModelSettingsLoaded] = useState(false);
   const [trainingTarget, setTrainingTarget] = useState<TrainingTarget>({ class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false });
@@ -221,11 +207,24 @@ export default function BasePage({ operators }: Props) {
      fills): 'Yours'. Planning ahead is still a click away -- "Not owned too" adds the rest,
      and a placed operator's elite is changed on their chip. */
   const account = useAccount();
-  const ownedOperators = useMemo(() => (account ? new Set(account.operators) : null), [account]);
+  const [baseSource, setBaseSource] = useState<'planner' | 'account'>('planner');
+  const [showRotationPlan, setShowRotationPlan] = useState(false);
+  const [rotationPlan, setRotationPlan] = useState<BaseRotationPlan>({ version: 1, startHour: 8, shifts: [] });
+  const plannerBeforeImport = useRef<{ preset: SavedBasePreset; complete: boolean } | null>(null);
+  const [snapshotRoom, setSnapshotRoom] = useState<string | null>(null);
+  useEffect(() => {
+    try { setRotationPlan(readRotationPlan(JSON.parse(window.localStorage.getItem(BASE_ROTATION_PLAN_KEY) ?? 'null'))); } catch { /* An invalid saved plan starts empty. */ }
+  }, []);
+  const ownedOperators = useMemo(() => (account ? new Set(account.operators.map(name => /^Amiya \(/.test(name) ? 'Amiya' : name)) : null), [account]);
   const [includeUnowned, setIncludeUnowned] = useState(false);
   const [rosterElite, setRosterElite] = useState<Record<string, number>>({});
+  const [rosterLevel, setRosterLevel] = useState<Record<string, number>>({});
   useEffect(() => {
-    const read = () => setRosterElite(Object.fromEntries(Object.entries(readRoster()).map(([name, owned]) => [name, owned.elite])));
+    const read = () => {
+      const roster = Object.entries(readRoster());
+      setRosterElite(Object.fromEntries(roster.map(([name, owned]) => [name, owned.elite])));
+      setRosterLevel(Object.fromEntries(roster.map(([name, owned]) => [name, owned.level])));
+    };
     read();
     window.addEventListener(ROSTER_EVENT, read);
     window.addEventListener('storage', read);
@@ -240,410 +239,19 @@ export default function BasePage({ operators }: Props) {
    *  operator the reader does not own, added for planning, at Elite 0). */
   function pickElite(name: string): 'Base' | 'Elite 1' | 'Elite 2' {
     if (roomPanelEliteLevel !== 'Yours') return roomPanelEliteLevel;
+    const imported = account?.base?.operatorProgress?.[name];
+    if (ownedOperators?.has(name) && imported) return imported.eliteLevel as 'Base' | 'Elite 1' | 'Elite 2';
     return (['Base', 'Elite 1', 'Elite 2'] as const)[ownedOperators?.has(name) ? Math.min(2, Math.max(0, rosterElite[name] ?? 0)) : 0];
   }
   const [statsPeriod, setStatsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
   const STATS_PERIOD_MULTIPLIER: Record<typeof statsPeriod, number> = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
 
-  // --- Base grid zoom/pan panel: the facility boxes live in their own
-  // zoomable panel, starting zoomed out so the whole base is visible at
-  // once (with correspondingly tiny text), and zooming in via mouse
-  // wheel, the slider control, or touch pinch reveals detail. panOffset
-  // is in the same coordinate space as CSS transform translate, applied
-  // BEFORE scale (see the stage's transform below), with the origin at
-  // the viewport's own center (matching transform-origin: center center)
-  // so zoom-toward-a-point math stays simple.
-  const BASE_MIN_ZOOM = 0.35;
-  const BASE_MAX_ZOOM = 2.5;
-  const BASE_INITIAL_ZOOM = 0.5;
-  const [baseZoom, setBaseZoom] = useState(BASE_INITIAL_ZOOM);
-  const baseZoomRef = useRef(BASE_INITIAL_ZOOM);
+  // The desktop editor stays beside the board. On a phone it is above the
+  // board, so bring its controls into view only when selecting a room.
   useEffect(() => {
-    baseZoomRef.current = baseZoom;
-  }, [baseZoom]);
-  const [basePan, setBasePan] = useState({ x: 0, y: 0 });
-  const basePanRef = useRef({ x: 0, y: 0 });
-  useEffect(() => {
-    basePanRef.current = basePan;
-  }, [basePan]);
-  // Text renders blurry under a CSS scale transform when the stage is
-  // kept permanently GPU-layer-promoted (will-change: transform) --
-  // the browser scales up a bitmap of the layer instead of
-  // re-rasterizing crisp vector text at the final size. Only promoting
-  // during active interaction, and dropping it ~150ms after the user
-  // stops, keeps zooming/panning smooth while letting the RESTING frame
-  // render at full text sharpness.
-  const [baseInteracting, setBaseInteracting] = useState(false);
-  const baseInteractingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const baseViewportRef = useRef<HTMLDivElement>(null);
-  const baseDragActiveRef = useRef(false);
-  const baseDragMovedRef = useRef(false);
-  const baseDragStartRef = useRef({ x: 0, y: 0 });
-  const baseDragStartPanRef = useRef({ x: 0, y: 0 });
-  const basePinchStartDistRef = useRef<number | null>(null);
-  const basePinchStartZoomRef = useRef(BASE_INITIAL_ZOOM);
-
-  function markBaseInteracting() {
-    setBaseInteracting(true);
-    if (baseInteractingTimeoutRef.current) clearTimeout(baseInteractingTimeoutRef.current);
-    baseInteractingTimeoutRef.current = setTimeout(() => setBaseInteracting(false), 150);
-  }
-
-  function clampBaseZoom(z: number) {
-    return Math.min(BASE_MAX_ZOOM, Math.max(BASE_MIN_ZOOM, z));
-  }
-
-  function zoomBaseToward(nextZoomRaw: number, anchorX: number, anchorY: number) {
-    markBaseInteracting();
-    // Wheel, slider and pinch all come through here, so this one line is
-    // enough to stop the fit-to-view observer from overriding the user.
-    baseUserZoomedRef.current = true;
-    setBaseZoom((prevZoom) => {
-      const nextZoom = clampBaseZoom(nextZoomRaw);
-      const ratio = nextZoom / prevZoom;
-      setBasePan((prevPan) => ({
-        x: anchorX - (anchorX - prevPan.x) * ratio,
-        y: anchorY - (anchorY - prevPan.y) * ratio,
-      }));
-      return nextZoom;
-    });
-  }
-
-  // This is a page on a website, not a standalone map app, so a plain
-  // wheel over the base scrolls the page like it does everywhere else --
-  // that is what the reader almost always means by it. Zooming is the
-  // slider's job, with ctrl/cmd + wheel kept as the usual shortcut for
-  // anyone who wants it.
-  //
-  // React attaches onWheel as a passive listener by default (for scroll
-  // performance), so preventDefault() inside a React synthetic wheel
-  // handler is frequently ignored by the browser. A real, non-passive
-  // native listener is the only reliable way to actually stop the page
-  // scrolling when we DO handle the event.
-  useEffect(() => {
-    const viewport = baseViewportRef.current;
-    if (!viewport) return;
-    function nativeWheelHandler(e: WheelEvent) {
-      if (!e.ctrlKey && !e.metaKey) return; // let the page scroll
-      e.preventDefault();
-      const rect = viewport!.getBoundingClientRect();
-      const anchorX = e.clientX - rect.left - rect.width / 2;
-      const anchorY = e.clientY - rect.top - rect.height / 2;
-      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-      zoomBaseToward(baseZoomRef.current * factor, anchorX, anchorY);
+    if (roomPanelFacilityId && window.matchMedia('(max-width: 720px)').matches) {
+      baseRoomPanelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }
-    viewport.addEventListener('wheel', nativeWheelHandler, { passive: false });
-    return () => viewport.removeEventListener('wheel', nativeWheelHandler);
-  }, [roomPanelFacilityId, setupComplete]);
-
-  function handleBaseSliderChange(nextZoom: number) {
-    // Slider has no cursor position to anchor to -- zooms around the
-    // viewport's own center instead.
-    zoomBaseToward(nextZoom, 0, 0);
-  }
-
-  function baseTouchDistance(touches: TouchList) {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.hypot(dx, dy);
-  }
-
-  function handleBasePointerDown(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.button !== 0) return;
-    e.preventDefault(); // stops the browser's native drag-to-select text behavior from ever starting
-    markBaseInteracting();
-    baseDragActiveRef.current = true;
-    baseDragMovedRef.current = false;
-    baseDragStartRef.current = { x: e.clientX, y: e.clientY };
-    baseDragStartPanRef.current = { ...basePan };
-  }
-  function handleBasePointerMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (!baseDragActiveRef.current) return;
-    markBaseInteracting();
-    const dx = e.clientX - baseDragStartRef.current.x;
-    const dy = e.clientY - baseDragStartRef.current.y;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) baseDragMovedRef.current = true;
-    setBasePan({ x: baseDragStartPanRef.current.x + dx, y: baseDragStartPanRef.current.y + dy });
-  }
-  function handleBasePointerUp() {
-    baseDragActiveRef.current = false;
-  }
-
-  // Same passive-listener issue as wheel above -- React's synthetic
-  // onTouchStart/onTouchMove are passive by default, so preventDefault()
-  // on the pinch-zoom case wouldn't reliably stop the page itself from
-  // scrolling/zooming underneath a two-finger pinch. Native listeners
-  // with { passive: false } are the reliable fix, same pattern as wheel.
-  useEffect(() => {
-    const viewport = baseViewportRef.current;
-    if (!viewport) return;
-
-    function nativeTouchStart(e: TouchEvent) {
-      markBaseInteracting();
-      if (e.touches.length === 2) {
-        basePinchStartDistRef.current = baseTouchDistance(e.touches);
-        basePinchStartZoomRef.current = baseZoomRef.current;
-        baseDragActiveRef.current = false;
-      } else if (e.touches.length === 1) {
-        baseDragActiveRef.current = true;
-        baseDragMovedRef.current = false;
-        baseDragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        baseDragStartPanRef.current = { ...basePanRef.current };
-      }
-    }
-    function nativeTouchMove(e: TouchEvent) {
-      markBaseInteracting();
-      if (e.touches.length === 2 && basePinchStartDistRef.current) {
-        e.preventDefault();
-        const dist = baseTouchDistance(e.touches);
-        const scaleFactor = dist / basePinchStartDistRef.current;
-        setBaseZoom(clampBaseZoom(basePinchStartZoomRef.current * scaleFactor));
-      } else if (e.touches.length === 1 && baseDragActiveRef.current) {
-        e.preventDefault();
-        const dx = e.touches[0].clientX - baseDragStartRef.current.x;
-        const dy = e.touches[0].clientY - baseDragStartRef.current.y;
-        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) baseDragMovedRef.current = true;
-        setBasePan({ x: baseDragStartPanRef.current.x + dx, y: baseDragStartPanRef.current.y + dy });
-      }
-    }
-    function nativeTouchEnd(e: TouchEvent) {
-      if (e.touches.length < 2) basePinchStartDistRef.current = null;
-      if (e.touches.length === 0) baseDragActiveRef.current = false;
-    }
-
-    viewport.addEventListener('touchstart', nativeTouchStart, { passive: false });
-    viewport.addEventListener('touchmove', nativeTouchMove, { passive: false });
-    viewport.addEventListener('touchend', nativeTouchEnd, { passive: false });
-    return () => {
-      viewport.removeEventListener('touchstart', nativeTouchStart);
-      viewport.removeEventListener('touchmove', nativeTouchMove);
-      viewport.removeEventListener('touchend', nativeTouchEnd);
-    };
-  }, [roomPanelFacilityId, setupComplete]);
-
-  const [baseFullscreen, setBaseFullscreen] = useState(false);
-
-  // The grid is ~1003x1060 CSS px at 1:1 (see .base-grid) in a view that is
-  // deliberately the operator picker's height, so that swapping between them
-  // never changes the page's height. That means the grid's width fits and its
-  // height does not, on purpose: fitBaseView scales to the width and the rest
-  // of the base is a pan away.
-  //
-  // A hard-coded starting zoom was wrong for every screen -- 0.5 clipped the
-  // bottom row against the view's own edge before anyone touched a control --
-  // and fitting BOTH axes was worse, dropping to ~0.6 and taking the tile
-  // labels down to ~7px. Measure the width, cap at 1:1, and re-fit when the
-  // view changes size, unless the user has taken the zoom over themselves.
-  const baseGridRef = useRef<HTMLDivElement>(null);
-  const baseUserZoomedRef = useRef(false);
-
-  function fitBaseView() {
-    const viewport = baseViewportRef.current;
-    const grid = baseGridRef.current;
-    if (!viewport || !grid) return;
-    // offsetWidth/Height are layout values, so they report the grid's real
-    // 1003x1149 regardless of the scale currently applied to the stage.
-    const gridWidth = grid.offsetWidth;
-    const gridHeight = grid.offsetHeight;
-    if (!gridWidth || !gridHeight) return;
-    const breathingRoom = 16;
-    // WIDTH only, and capped at 1:1. Fitting both axes is what dropped the
-    // zoom to ~0.52 and took the tile labels down to ~6px: the view is
-    // deliberately the picker's height, so the grid's height is not meant to
-    // fit and the rest of the base is a pan away. Scaling up past 1:1 would
-    // only blur it; zooming in further stays available on the slider.
-    const fit = clampBaseZoom(Math.min(1, (viewport.clientWidth - breathingRoom) / gridWidth));
-    setBaseZoom(fit);
-    // Open on the TOP of the base, not the middle. The stage is centred in
-    // the view, so with a grid taller than the view the default would show
-    // the middle floors; shifting down by half the overhang puts the first
-    // floor at the top. Pan is applied before the scale in the stage's
-    // transform, so it is in screen pixels.
-    const overhang = gridHeight * fit - (viewport.clientHeight - breathingRoom);
-    setBasePan({ x: 0, y: overhang > 0 ? overhang / 2 : 0 });
-  }
-
-  useEffect(() => {
-    const viewport = baseViewportRef.current;
-    if (!viewport || typeof ResizeObserver === 'undefined') return;
-    // Fires once on observe, which is what gives us the initial fit, and
-    // then on window resize, fullscreen, and the room panel handing the
-    // viewport back -- each of which mounts or resizes the box we measure.
-    const observer = new ResizeObserver(() => {
-      if (!baseUserZoomedRef.current) fitBaseView();
-    });
-    observer.observe(viewport);
-    return () => observer.disconnect();
-  }, [roomPanelFacilityId, baseFullscreen, setupComplete]);
-
-  // --- Facility popover placement ---------------------------------------
-  // The popover lives inside the zoom stage so that it stays glued to its
-  // facility while the base is panned, which also puts it under the
-  // viewport's overflow: hidden. Opening downwards therefore fails for any
-  // facility in the lower part of the view: Dormitory 3 was measured
-  // clipping 132px of its 236px popover, slots included, leaving nothing
-  // to click. That used to be worked around with a hard-coded set of two
-  // facilities that opened upwards instead, which can only ever be correct
-  // at one particular zoom and pan.
-  //
-  // So measure, then place. The offsets are applied as a translate placed
-  // AFTER the counter-scale in the transform list, which makes them screen
-  // pixels at any zoom -- verified in the browser rather than derived: a
-  // trailing translateX(100px) moves the popover 100px at 0.5x zoom, the
-  // same translate ahead of the scale moves it 50px.
-  const BASE_POPOVER_GAP = 10; // screen px between a facility and its popover
-  const BASE_POPOVER_EDGE = 8; // screen px kept clear of the viewport's edges
-  const basePopoverRef = useRef<HTMLDivElement>(null);
-  const [basePopoverPlacement, setBasePopoverPlacement] = useState<{
-    dx: number;
-    dy: number;
-    above: boolean;
-    maxHeight: number;
-    arrowX: number;
-  } | null>(null);
-  // Bumped on scroll/resize purely to re-run the placement below.
-  const [basePopoverNudge, setBasePopoverNudge] = useState(0);
-
-  useLayoutEffect(() => {
-    if (!activeFacility) {
-      setBasePopoverPlacement((prev) => (prev === null ? prev : null));
-      return;
-    }
-    const popover = basePopoverRef.current;
-    const viewport = baseViewportRef.current;
-    const tile = popover?.parentElement;
-    if (!popover || !viewport || !tile) return;
-
-    const viewportBox = viewport.getBoundingClientRect();
-    const tileBox = tile.getBoundingClientRect();
-    // Layout values again, deliberately: reading the popover's own
-    // getBoundingClientRect() here would include the translate this effect
-    // set last time and feed each placement back into the next one.
-    const popoverWidth = popover.offsetWidth;
-
-    // The viewport is normally taller than the space left below the page
-    // header, so its lower part sits past the bottom of the browser window.
-    // Clamping to the viewport alone therefore still leaves popovers
-    // off-screen -- "if the bottom is cut off it doesn't even show". Clamp
-    // into the part of the viewport that is genuinely on screen instead.
-    const visible = {
-      top: Math.max(viewportBox.top, 0),
-      bottom: Math.min(viewportBox.bottom, window.innerHeight),
-      left: Math.max(viewportBox.left, 0),
-      right: Math.min(viewportBox.right, window.innerWidth),
-    };
-    // With the viewport scrolled nearly out of view there is no band worth
-    // clamping into, and squeezing a popover into a 20px sliver would be
-    // worse than letting the page scroll to it. Fall back to the viewport.
-    const MIN_BAND = 200;
-    if (visible.bottom - visible.top < MIN_BAND) {
-      visible.top = viewportBox.top;
-      visible.bottom = viewportBox.bottom;
-    }
-    if (visible.right - visible.left < MIN_BAND) {
-      visible.left = viewportBox.left;
-      visible.right = viewportBox.right;
-    }
-
-    const maxHeight = Math.max(120, visible.bottom - visible.top - BASE_POPOVER_EDGE * 2);
-    // offsetHeight, not scrollHeight: scrollHeight reads ~9px taller here
-    // because the slot grid's margins overflow the padding box, and that
-    // difference lands as visible slack between popover and facility. Once
-    // maxHeight is clamping (a popover taller than the whole viewport)
-    // offsetHeight is already the clamped height, so the min() is a no-op
-    // and the popover just gets pinned inside and scrolls.
-    const height = Math.min(popover.offsetHeight, maxHeight);
-
-    // Below is the default; flip above only when below genuinely doesn't
-    // fit and above is the roomier side.
-    const roomBelow = visible.bottom - tileBox.bottom - BASE_POPOVER_GAP - BASE_POPOVER_EDGE;
-    const roomAbove = tileBox.top - visible.top - BASE_POPOVER_GAP - BASE_POPOVER_EDGE;
-    const above = roomBelow < height && roomAbove > roomBelow;
-
-    // Where the CSS anchor alone puts it: top: 100% is the facility's bottom
-    // edge exactly, with no margin (the gap is applied here instead, so that
-    // it stays 10 screen px rather than shrinking with the zoom), and
-    // left: 50% + translateX(-50%) centres it on the facility. dx/dy are
-    // corrections from that point.
-    const anchorTop = tileBox.bottom;
-    const anchorLeft = tileBox.left + tileBox.width / 2 - popoverWidth / 2;
-
-    const wantedTop = above
-      ? tileBox.top - BASE_POPOVER_GAP - height
-      : tileBox.bottom + BASE_POPOVER_GAP;
-    const lowestTop = Math.max(visible.top + BASE_POPOVER_EDGE, visible.bottom - BASE_POPOVER_EDGE - height);
-    const top = Math.min(Math.max(wantedTop, visible.top + BASE_POPOVER_EDGE), lowestTop);
-
-    // A 5-slot Dormitory popover is ~508px wide, so on a narrow viewport it
-    // can be wider than the space it has to fit in; centre it there rather
-    // than clamping it to one edge.
-    const visibleWidth = visible.right - visible.left;
-    const left =
-      popoverWidth >= visibleWidth - BASE_POPOVER_EDGE * 2
-        ? visible.left + (visibleWidth - popoverWidth) / 2
-        : Math.min(
-            Math.max(anchorLeft, visible.left + BASE_POPOVER_EDGE),
-            visible.right - BASE_POPOVER_EDGE - popoverWidth,
-          );
-
-    const arrowX = Math.min(
-      Math.max(tileBox.left + tileBox.width / 2 - left, 14),
-      Math.max(14, popoverWidth - 14),
-    );
-
-    const next = {
-      dx: Math.round(left - anchorLeft),
-      dy: Math.round(top - anchorTop),
-      above,
-      maxHeight: Math.round(maxHeight),
-      arrowX: Math.round(arrowX),
-    };
-    setBasePopoverPlacement((prev) =>
-      prev &&
-      prev.dx === next.dx &&
-      prev.dy === next.dy &&
-      prev.above === next.above &&
-      prev.maxHeight === next.maxHeight &&
-      prev.arrowX === next.arrowX
-        ? prev
-        : next,
-    );
-    // assignments and factoryProducts are here because filling a slot
-    // changes the popover's own height, which changes where it has to go.
-  }, [activeFacility, baseZoom, basePan.x, basePan.y, baseFullscreen, assignments, factoryProducts, dormitoryAmbience, basePopoverNudge]);
-
-  // The operator picker replaces the base view in place, so opening it while
-  // the page is scrolled down the base leaves its own header -- Back, the
-  // search box, the Elite toggles -- above the top of the window. Bring the
-  // panel's top into view, and put the page back where it was on the way out,
-  // so picking an operator doesn't cost you your place on the base.
-  //
-  // The remembered position is only set when we actually move the page, so
-  // closing the panel restores nothing if opening it scrolled nothing.
-  useEffect(() => {
-    if (roomPanelFacilityId) {
-      const panel = baseRoomPanelRef.current;
-      if (!panel) return;
-      const margin = 24;
-      const top = panel.getBoundingClientRect().top;
-      if (top >= margin) return;
-      // Instant, not smooth: a smooth scroll is an animation that anything
-      // else touching the scroll position cancels, and the page height changes
-      // underneath this one. The jump is the point anyway -- the header has to
-      // be on screen before the first click, not a moment later.
-      window.scrollTo({ top: window.scrollY + top - margin, behavior: 'auto' });
-      return;
-    }
-    const previous = baseScrollBeforeRoomPanelRef.current;
-    if (previous === null) return;
-    baseScrollBeforeRoomPanelRef.current = null;
-    // Set once now and again on the next frame. The panel is short and the
-    // base view that replaces it is tall, and the browser's scroll anchoring
-    // adjusts the scroll position during the layout that follows -- which
-    // silently undid a single scrollTo here, landing back within ~12px of
-    // where the panel had been rather than where the base was left.
-    window.scrollTo({ top: previous, behavior: 'auto' });
-    requestAnimationFrame(() => window.scrollTo({ top: previous, behavior: 'auto' }));
   }, [roomPanelFacilityId]);
 
   // Clicking away closes whatever is open. Facility tiles and the popover
@@ -675,28 +283,6 @@ export default function BasePage({ operators }: Props) {
       document.removeEventListener('keydown', handleEscape);
     };
   }, [activeFacility, showResourceSettings]);
-
-  // Scrolling the page slides the on-screen band that the placement above
-  // clamped into, so it has to be recomputed as the page moves -- otherwise
-  // a scroll walks the popover straight back off the bottom of the screen.
-  useEffect(() => {
-    if (!activeFacility) return;
-    let frame = 0;
-    const nudge = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        setBasePopoverNudge((n) => n + 1);
-      });
-    };
-    window.addEventListener('scroll', nudge, { passive: true });
-    window.addEventListener('resize', nudge);
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', nudge);
-      window.removeEventListener('resize', nudge);
-    };
-  }, [activeFacility]);
 
   // One-time initialization -- optimizerLogic.ts and baseRotationExperiment.ts
   // both used to fetch operator data themselves via a server-only
@@ -798,31 +384,11 @@ export default function BasePage({ operators }: Props) {
     fetchRotationExperiment(mode);
   }
 
-  function toggleBaseFullscreen() {
-    markBaseInteracting();
-    setBaseFullscreen((v) => !v);
-    // Fresh zoom/pan each time, matching the same reset-on-toggle
-    // behavior already used for the world map's fullscreen view. Handing
-    // the zoom back to fit-to-view is what makes fullscreen actually fill
-    // the screen -- the resize this toggle causes is picked up by the
-    // observer, which re-fits to the new viewport size.
-    baseUserZoomedRef.current = false;
-    setBasePan({ x: 0, y: 0 });
-  }
-
-  // Escape exits fullscreen, matching standard fullscreen UX elsewhere
-  // on the site (world map).
+  // Storage is restored once using the initial catalogue and layout. Re-running
+  // this when the reader edits a room would overwrite those edits.
+  const initialBase = useRef({ operators, facilities: FACILITIES });
   useEffect(() => {
-    if (!baseFullscreen) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setBaseFullscreen(false);
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [baseFullscreen]);
-
-
-  useEffect(() => {
+    const { operators, facilities: FACILITIES } = initialBase.current;
     try {
       const savedPresets = JSON.parse(window.localStorage.getItem(SAVED_BASE_PRESETS_KEY) ?? '[]');
       setSavedPresets(readSavedBasePresets(savedPresets, new Set(operators.map(op => op.name))));
@@ -897,9 +463,9 @@ export default function BasePage({ operators }: Props) {
 
   useEffect(() => { setModelSettingsLoaded(true); }, []);
   useEffect(() => {
-    if (!modelSettingsLoaded) return;
+    if (!modelSettingsLoaded || baseSource === 'account') return;
     try { window.localStorage.setItem(MODEL_SETTINGS_KEY, JSON.stringify({ trainingTarget: resolvedTrainingTarget, workshopSettings })); } catch { /* Session remains usable. */ }
-  }, [modelSettingsLoaded, resolvedTrainingTarget, workshopSettings]);
+  }, [modelSettingsLoaded, resolvedTrainingTarget, workshopSettings, baseSource]);
 
   // Debug-only: exposes the full operator dataset to the dev console for
   // manual inspection/extraction (e.g. window.__operators.filter(...)).
@@ -909,6 +475,7 @@ export default function BasePage({ operators }: Props) {
   }, [operators]);
 
   function persist(next: BaseAssignments) {
+    if (baseSource === 'account') return;
     setAssignments(next);
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -918,6 +485,7 @@ export default function BasePage({ operators }: Props) {
   }
 
   function persistProduct(facilityId: string, product: FactoryProduct) {
+    if (baseSource === 'account') return;
     const next = { ...factoryProducts, [facilityId]: product };
     setFactoryProducts(next);
     try {
@@ -928,6 +496,7 @@ export default function BasePage({ operators }: Props) {
   }
 
   function persistAmbience(facilityId: string, level: number, ambience: number) {
+    if (baseSource === 'account') return;
     const clamped = Math.max(0, Math.min(ambience, dormitoryAmbienceCap(level)));
     const next = { ...dormitoryAmbience, [facilityId]: clamped };
     setDormitoryAmbience(next);
@@ -939,6 +508,7 @@ export default function BasePage({ operators }: Props) {
   }
 
   function persistSettings(next: { clueExchangeActive: boolean; moraleAbove12: boolean; swapPolicy: SwapPolicy }) {
+    if (baseSource === 'account') return;
     setClueExchangeActive(next.clueExchangeActive);
     setMoraleAbove12(next.moraleAbove12);
     setSwapPolicy(next.swapPolicy);
@@ -949,26 +519,11 @@ export default function BasePage({ operators }: Props) {
     }
   }
 
-  // Hours a ramping skill gets to climb before its operator is pulled out.
-  // `hoursUntilMoraleGone` is Infinity for a room that never drains.
-  function rampWindow(hoursUntilMoraleGone: number): number {
-    const untilSwap = swapPolicy === 'onLogin' ? Math.min(loginInterval, hoursUntilMoraleGone) : hoursUntilMoraleGone;
-    return Math.min(24, untilSwap);
-  }
-
   function assignedElsewhere(name: string): string | null {
     for (const [facilityId, slots] of Object.entries(assignments)) {
       if (slots.some((s) => s?.operatorName === name)) return facilityId;
     }
     return null;
-  }
-
-  // Places immediately into the first empty slot -- no separate "select
-  // then click a slot" step anymore, per your request.
-  function clearSlot(facilityId: string, slotIndex: number) {
-    const next = { ...assignments, [facilityId]: [...assignments[facilityId]] };
-    next[facilityId][slotIndex] = null;
-    persist(next);
   }
 
   // Toggles an operator's placement in a facility using ordered
@@ -999,7 +554,7 @@ export default function BasePage({ operators }: Props) {
     const slots = cleared[facilityId];
     const emptyIdx = slots.findIndex((s) => s === null);
     if (emptyIdx === -1) return; // facility full, nothing to do
-    slots[emptyIdx] = { operatorName, eliteLevel };
+    slots[emptyIdx] = { operatorName, eliteLevel, ...(roomPanelEliteLevel === 'Yours' && ownedOperators?.has(operatorName) && (account?.base?.operatorProgress?.[operatorName]?.level ?? rosterLevel[operatorName]) ? { level: account?.base?.operatorProgress?.[operatorName]?.level ?? rosterLevel[operatorName] } : {}) };
     persist(cleared);
   }
 
@@ -1018,7 +573,8 @@ export default function BasePage({ operators }: Props) {
     const slot = assignments[facilityId]?.[slotIndex];
     if (!slot) return;
     const next = { ...assignments, [facilityId]: [...assignments[facilityId]] };
-    next[facilityId][slotIndex] = { ...slot, eliteLevel };
+    const { level: _importLevel, ...rest } = slot;
+    next[facilityId][slotIndex] = { ...rest, eliteLevel };
     persist(next);
   }
 
@@ -1033,26 +589,103 @@ export default function BasePage({ operators }: Props) {
     catch { setPresetStatus('Could not save: browser storage is unavailable or full.'); return false; }
   }
   function saveNamedPreset(overwrite: boolean) {
+    if (baseSource === 'account') return;
     const existing = savedPresets.find(p => p.id === selectedPreset);
     const name = (overwrite ? existing?.name : presetName)?.trim().slice(0, 80);
     if (!name) { setPresetStatus('Enter a name for this preset.'); return; }
-    const snapshot: SavedBasePreset = JSON.parse(JSON.stringify({ version: 1, id: overwrite && existing ? existing.id : crypto.randomUUID(), name, savedAt: new Date().toISOString(), productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, trainingTarget: resolvedTrainingTarget, workshopSettings }));
+    const snapshot = captureSetup(overwrite && existing ? existing.id : crypto.randomUUID(), name);
     if (storePresets([...savedPresets.filter(p => p.id !== snapshot.id), snapshot])) { setSelectedPreset(snapshot.id); setPresetName(''); setPresetStatus(`Saved ${name}.`); }
   }
-  function loadNamedPreset() {
-    const preset = readSavedBasePresets(savedPresets, new Set(operators.map(op => op.name))).find(p => p.id === selectedPreset);
+  function loadNamedPreset(id = selectedPreset) {
+    const preset = readSavedBasePresets(savedPresets, new Set(operators.map(op => op.name))).find(p => p.id === id);
     if (!preset) return;
-    persistSetup(preset.productionSpots, preset.facilityLevels, true);
-    persist(preset.assignments);
-    setFactoryProducts(preset.factoryProducts); setDormitoryAmbience(preset.dormitoryAmbience);
-    setLoginInterval(preset.loginInterval); setTrainingTarget(resolveTrainingTarget(preset.trainingTarget, operators)); setWorkshopSettings(preset.workshopSettings);
-    persistSettings(preset);
-    try { window.localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(preset.factoryProducts)); window.localStorage.setItem(AMBIENCE_STORAGE_KEY, JSON.stringify(preset.dormitoryAmbience)); } catch { /* Session still restored. */ }
-    setActiveFacility(null); setPresetStatus(`Loaded ${preset.name}.`);
+    setBaseSource('planner'); plannerBeforeImport.current = null;
+    applySetupSnapshot(preset, true, true);
+    setSelectedPreset(preset.id); setPresetStatus(`Loaded ${preset.name}.`);
+  }
+  function captureSetup(id: string, name: string): SavedBasePreset {
+    const rotationRates: Record<string, number> = {};
+    for (const f of FACILITIES) {
+      const stats = productivityFor(f, ccEffects, ccMoraleRelief);
+      for (const slot of assignments[f.id] ?? []) if (slot) {
+        const dormRate = dormitoryRecoveryByFacility[f.id]?.find(r => r.name === slot.operatorName);
+        if (dormRate) rotationRates[slot.operatorName] = -(dormRate.base + dormRate.bonus);
+        else if (f.kind !== 'workshop') rotationRates[slot.operatorName] = stats.perOperatorMorale?.[slot.operatorName] ?? stats.combinedMoraleRate;
+      }
+    }
+    return JSON.parse(JSON.stringify({ version: 1, id, name, savedAt: new Date().toISOString(), productionSpots, facilityLevels, assignments, factoryProducts, dormitoryAmbience, clueExchangeActive, moraleAbove12, swapPolicy, loginInterval, trainingTarget: resolvedTrainingTarget, workshopSettings, rotationRates }));
+  }
+  function applySetupSnapshot(p: SavedBasePreset, complete: boolean, save: boolean) {
+    setProductionSpots(p.productionSpots); setFacilityLevels(p.facilityLevels); setSetupComplete(complete);
+    setAssignments(p.assignments); setFactoryProducts(p.factoryProducts); setDormitoryAmbience(p.dormitoryAmbience);
+    setLoginInterval(p.loginInterval); setTrainingTarget(resolveTrainingTarget(p.trainingTarget, operators)); setWorkshopSettings(p.workshopSettings);
+    setClueExchangeActive(p.clueExchangeActive); setMoraleAbove12(p.moraleAbove12); setSwapPolicy(p.swapPolicy);
+    setRoomPanelFacilityId(null); setActiveFacility(null); setBreakdownFacilityId(null); setSnapshotRoom(null);
+    if (save) try {
+      window.localStorage.setItem(SETUP_STORAGE_KEY, JSON.stringify({ productionSpots: p.productionSpots, facilityLevels: p.facilityLevels, setupComplete: complete }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(p.assignments));
+      window.localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(p.factoryProducts));
+      window.localStorage.setItem(AMBIENCE_STORAGE_KEY, JSON.stringify(p.dormitoryAmbience));
+      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ clueExchangeActive: p.clueExchangeActive, moraleAbove12: p.moraleAbove12, swapPolicy: p.swapPolicy }));
+    } catch { setPresetStatus('Setup loaded for this session; browser storage is unavailable.'); }
+  }
+  function showImportedBase() {
+    if (baseSource === 'account') return;
+    if (baseSource === 'planner') plannerBeforeImport.current = { preset: captureSetup('before-import', 'Your plan'), complete: setupComplete };
+    setBaseSource('account'); setShowRotationPlan(false); setSetupComplete(true);
+    setRoomPanelFacilityId(null); setSnapshotRoom(null);
+    const snapshot = account?.base;
+    if (snapshot) {
+      const p = { ...captureSetup('import', 'Imported base'), ...snapshot, trainingTarget: { ...resolvedTrainingTarget, operatorName: snapshot.trainee ?? '', timeReductionActive: false, instantTrainingReady: false } };
+      applySetupSnapshot(p, true, false);
+    }
+  }
+  function showPlanner() {
+    if (baseSource === 'planner') return;
+    if (plannerBeforeImport.current) applySetupSnapshot(plannerBeforeImport.current.preset, plannerBeforeImport.current.complete, false);
+    plannerBeforeImport.current = null; setBaseSource('planner'); setSnapshotRoom(null);
+  }
+  function editImportedCopy() {
+    const p = captureSetup(crypto.randomUUID(), `Imported ${account?.doctor ?? 'base'}`);
+    // Keep the previous plan as a recoverable preset before replacing the draft.
+    if (plannerBeforeImport.current?.complete && !storePresets([...savedPresets, { ...plannerBeforeImport.current.preset, id: crypto.randomUUID(), name: 'Plan before account copy' }])) return;
+    setBaseSource('planner'); plannerBeforeImport.current = null;
+    applySetupSnapshot(p, true, true); setPresetStatus('Imported base copied into your plan.');
+  }
+  function addImportedShift() {
+    if (!account?.base || rotationPlan.shifts.length >= 24) return;
+    const preset = captureSetup(crypto.randomUUID(), `${account.doctor ?? 'Account'} · current shift`);
+    if (!storePresets([...savedPresets, preset])) return;
+    updateRotationPlan({ ...rotationPlan, shifts: [...rotationPlan.shifts, { id: crypto.randomUUID(), presetId: preset.id, hours: 12 }] });
+    setShowRotationPlan(true);
+    setPresetStatus('Imported staffing added to rotation. Add a resting setup for the next shift.');
+  }
+  function updateRotationPlan(next: BaseRotationPlan) {
+    setRotationPlan(next);
+    try { window.localStorage.setItem(BASE_ROTATION_PLAN_KEY, JSON.stringify(next)); } catch { setPresetStatus('Rotation kept for this session; browser storage is unavailable.'); }
+  }
+  useEffect(() => {
+    if (baseSource !== 'account' || !account?.base) return;
+    const b = account.base;
+    setProductionSpots(b.productionSpots); setFacilityLevels(b.facilityLevels); setAssignments(b.assignments);
+    setFactoryProducts(b.factoryProducts); setDormitoryAmbience(b.dormitoryAmbience);
+    setTrainingTarget(resolveTrainingTarget({ class: 'Guard', branch: '', mastery: 1, operatorName: b.trainee ?? '', timeReductionActive: false, instantTrainingReady: false }, operators));
+    setSnapshotRoom(null);
+  }, [account, baseSource, operators]);
+
+  function renderBaseSources() {
+    return <div className="base-source-bar"><div role="group" aria-label="Base source">
+      <button type="button" className="filter-chip" aria-pressed={baseSource === 'planner'} onClick={showPlanner}>Your plan</button>
+      <button type="button" className="filter-chip" aria-pressed={baseSource === 'account'} onClick={showImportedBase}>Imported account</button>
+    </div>{baseSource === 'account' && account?.base && <><span className="hint">{account.doctor ?? 'Account'} · {account.server.toUpperCase()} · {new Date(account.importedAt).toLocaleString()}</span><button type="button" className="ghost" disabled={rotationPlan.shifts.length >= 24} onClick={addImportedShift}>Add to rotation</button><button type="button" className="primary" onClick={editImportedCopy}>Edit a copy</button></>}</div>;
   }
   async function exportSnapshot() {
     try {
       const rooms = FACILITIES.filter(f => f.kind !== 'elevator' && f.level > 0).map(f => {
+        if (baseSource === 'account') {
+          const summary = roomSummaries.find(r => r.id === f.id)!;
+          return { title: `${f.id.startsWith('prod') ? f.id : f.label} · Lv${f.level}`, lines: [summary.metric, summary.detail, ...summary.workers.map(w => `${w.name} · ${w.morale === null ? 'Morale unknown' : `${w.morale.toFixed(1)}/24 Morale`}`)].filter(Boolean) };
+        }
         const stats = productivityFor(f, ccEffects, ccMoraleRelief);
         const lines = (assignments[f.id] ?? []).filter((s): s is SlotAssignment => s !== null).map(s => `${s.operatorName} · ${eliteShort(s.eliteLevel)}${stats.perOperatorMorale ? ` · ${stats.perOperatorMorale[s.operatorName].toFixed(2)} Morale/h` : ''}`);
         if (stats.productivity) lines.push(`Efficiency ${((stats.productivity.grey + stats.productivity.yellow) * 100).toFixed(1)}%`);
@@ -1073,12 +706,13 @@ export default function BasePage({ operators }: Props) {
         const roomLabel = spot ? `B${spot.row}0${spot.column} · ${f.label}` : f.kind === 'dormitory' ? `${f.label} ${f.id.replace(/\D/g, '')}` : f.label;
         return { title: `${roomLabel} · Lv${f.level}`, lines: lines.length ? lines : ['Empty'] };
       });
-      await downloadBaseSnapshotImage(rooms, [`${new Date().toLocaleString()} · Login interval ${loginInterval}h · Power ${basePower.drawn}/${basePower.supplied}`, `Daily EXP ${Math.round(dailyExpGreen)} · Gold made ${dailyGoldMadeGreen.toFixed(1)} · LMD ${Math.round(dailyGoldWorthGreen)} · Morale ${moraleAbove12 ? 'above' : 'at/below'} 12`]);
+      await downloadBaseSnapshotImage(rooms, baseSource === 'account' ? [`${account?.doctor ?? 'Imported account'} · Snapshot ${account?.importedAt}`, 'Morale at import time; rates and efficiency are estimates.'] : [`${new Date().toLocaleString()} · Login interval ${loginInterval}h · Power ${basePower.drawn}/${basePower.supplied}`, `Daily EXP ${Math.round(dailyExpGreen)} · Gold made ${dailyGoldMadeGreen.toFixed(1)} · LMD ${Math.round(dailyGoldWorthGreen)} · Morale ${moraleAbove12 ? 'above' : 'at/below'} 12`]);
       setPresetStatus('Snapshot downloaded.');
     } catch (error) { setPresetStatus(error instanceof Error ? error.message : 'Could not export snapshot.'); }
   }
 
   function persistSetup(nextSpots: ProductionSpots, nextFacilityLevels: FacilityLevels, nextComplete: boolean) {
+    if (baseSource === 'account') return;
     setProductionSpots(nextSpots);
     setFacilityLevels(nextFacilityLevels);
     setSetupComplete(nextComplete);
@@ -1187,37 +821,8 @@ export default function BasePage({ operators }: Props) {
     setEditingExistingLayout(false);
   }
 
-  function toggleFacility(id: string) {
-    if (baseDragMovedRef.current) {
-      baseDragMovedRef.current = false;
-      return;
-    }
-    setActiveFacility((current) => (current === id ? null : id));
-  }
-
-  /** Opens the operator picker for a facility, remembering where the page was
-   * first. This has to happen HERE rather than in an effect: the picker panel
-   * is far shorter than the base view it replaces, so the page shrinks the
-   * moment it mounts and the browser clamps the scroll position down to the
-   * new maximum. By the time an effect runs, the position worth returning to
-   * has already been overwritten -- measured at 760 becoming 298 before a
-   * single line of our own code got to look at it. */
   function openRoomPanel(facilityId: string) {
-    baseScrollBeforeRoomPanelRef.current = window.scrollY;
     setRoomPanelFacilityId(facilityId);
-  }
-
-  /** The gear and the room itself open the SAME panel now -- it carries the
-   * building's type and level and its operator slots together, because
-   * "change this room" and "who works here" were never separate questions.
-   * The gear still exists on an unbuilt plot, where there are no slots to
-   * click and it is the only way in. */
-  function openFacilitySettings(id: string) {
-    if (baseDragMovedRef.current) {
-      baseDragMovedRef.current = false;
-      return;
-    }
-    setActiveFacility((current) => (current === id ? null : id));
   }
 
   /** Applies a change to ONE building and takes effect immediately -- there
@@ -1242,1937 +847,19 @@ export default function BasePage({ operators }: Props) {
     applyLayoutChange(productionSpots, { ...facilityLevels, [facilityId]: level });
   }
 
-  // Two skills are treated as "the same skill, just upgraded" if their
-  // descriptions match word-for-word once numbers are stripped out --
-  // e.g. "...productivity +5%..." and "...productivity +10%..." are the
-  // same skill at different levels, since upgrades typically only change
-  // the number and leave the wording identical. Anything that differs
-  // beyond the numbers is treated as a genuinely separate skill.
-  function normalizeForComparison(description: string | null): string {
-    if (!description) return '';
-    return description.replace(/\d+(\.\d+)?%?/g, '#').trim();
-  }
-
-  // Confirmed against the raw scraped skill data: many skill names are
-  // stored raw-concatenated with "ReplacesX" (e.g. "Master of Machines
-  // βReplacesMaster of Machines α", no space), which breaks any special
-  // -case handler lookup keyed on the clean name. Strip it once, here,
-  // rather than patching every individual handler key.
-  function cleanSkillName(name: string | null): string | null {
-    if (!name) return name;
-    const idx = name.indexOf('Replaces');
-    return idx === -1 ? name : name.slice(0, idx).trim();
-  }
-
-  // Icon files/lookups use the 'Elite 0' naming convention, but this
-  // simulator's own data model stores that same tier internally as
-  // 'Base' -- the text-label display already converts this inline in a
-  // couple of places (lvl === 'Base' ? 'Elite 0' : lvl), but the icon
-  // path lookups were missing the same conversion, which is what caused
-  // Elite 0 operators to render the wrong badge.
-  function eliteIconLabel(eliteLevel: string | null): string | null {
-    if (!eliteLevel) return null;
-    return eliteLevel === 'Base' ? 'Elite 0' : eliteLevel;
-  }
-
-  // The name a raw name explicitly says it replaces, if any -- e.g.
-  // "Workflow OptimizationReplacesScientific Restructuring" -> "Scientific
-  // Restructuring". More reliable than description-diffing for upgrades
-  // that add a genuinely new clause (confirmed case: Snegurochka's Elite
-  // 1 skill adds an entire extra productivity-bonus phrase her Base skill
-  // doesn't have, so normalizeForComparison alone can't match them).
-  function extractReplacedName(rawName: string | null): string | null {
-    if (!rawName) return null;
-    const idx = rawName.indexOf('Replaces');
-    return idx === -1 ? null : rawName.slice(idx + 'Replaces'.length).trim();
-  }
-
-  function combinedSkillsForElite(op: BaseOperator, facilityLabel: string, eliteLevel: string | null): BaseSkill[] {
-    return activeBaseSkills(op, facilityLabel, eliteLevel, skillSlots);
-  }
-
-  // Returns EVERY skill for this operator+facility, accounting for
-  // elite-level inheritance -- if this operator's Elite 2 skill is a
-  // genuinely different skill than their Elite 0/Elite 1 one (different
-  // wording beyond just the numbers), both apply together once placed
-  // at Elite 2. If it's the same skill just upgraded, only the
-  // higher-elite version is used, not both.
-  function skillsFor(slot: SlotAssignment | null, facilityLabel: string): BaseSkill[] {
-    if (!slot) return [];
-    const op = operators.find((o) => o.name === slot.operatorName);
-    if (!op) return [];
-    return combinedSkillsForElite(op, facilityLabel, slot.eliteLevel);
-  }
-
-  interface FacilityBreakdownLine {
-    operatorName: string;
-    skillName: string | null; // null for generic (regex-parsed) skills
-    rawValue: number;
-    included: boolean;
-    reason: string;
-    formula?: string; // the skill's own derivation, when its handler provides one -- not every handler has this populated yet
-    note?: string; // non-numeric/unmodeled caveat text, when its handler provides one -- shown in the breakdown panel instead of cluttering the facility tile
-  }
-  interface FacilityBreakdown {
-    filledCount: number;
-    greyProductivity: number;
-    greyFormula: string;
-    overrideActive: boolean;
-    lines: FacilityBreakdownLine[];
-    finalYellow: number;
-    effectiveProductivity: number;
-  }
-
-  // Returns the rate AND the per-skill lines behind it, so the Power Plant can
-  // offer the same "?" explanation the other facilities do -- a bare +13%
-  // doesn't say whether it came from a base drone skill or from a Rhine Lab
-  // headcount that might be counting the wrong people.
-  function computePowerPlantDroneRate(
-    f: (typeof FACILITIES)[number],
-    filled: SlotAssignment[]
-  ): { rate: number; lines: FacilityBreakdownLine[] } {
-    const genericDescriptions: (string | null)[] = [];
-    const genericLines: { operatorName: string; skillName: string | null; description: string | null }[] = [];
-    const specialEntries: { slot: SlotAssignment; skillName: string | null; handler: (typeof POWER_PLANT_SPECIAL_SKILLS)[string] }[] = [];
-    for (const slot of filled) {
-      for (const sk of skillsFor(slot, f.label)) {
-        const key = `${slot.operatorName}|${sk.name}`;
-        if (key in POWER_PLANT_SPECIAL_SKILLS) {
-          specialEntries.push({ slot, skillName: sk.name, handler: POWER_PLANT_SPECIAL_SKILLS[key] });
-        } else {
-          genericDescriptions.push(sk.description);
-          genericLines.push({ operatorName: slot.operatorName, skillName: sk.name, description: sk.description });
-        }
-      }
-    }
-    const linesFor = (): FacilityBreakdownLine[] =>
-      genericLines.map((g) => {
-        const raw = calcDroneRate([g.description]);
-        return {
-          operatorName: g.operatorName,
-          skillName: g.skillName,
-          rawValue: raw,
-          included: raw !== 0,
-          reason: raw === 0 ? 'No numeric drone recovery effect.' : 'Counted normally.',
-        };
-      });
-    if (specialEntries.length === 0) return { rate: 0.05 * filled.length + calcDroneRate(genericDescriptions), lines: linesFor() };
-
-    const kaltsitInControlCenter = ccOperatorNames.includes("Kal'tsit");
-    const lateranoInAnyOtherPowerPlant = [...powerPlantsWithLaterano].some((id) => id !== f.id);
-
-    // Spuria's ramp -- same "real time until the first operator anywhere
-    // in this Power Plant dies from Morale loss" window used everywhere
-    // else this codebase models a ramping skill.
-    const powerPlantMorale = calcMorale(
-      filled.length,
-      filled.flatMap((s) => skillsFor(s, f.label).map((sk) => ({ operatorName: s.operatorName, description: sk.description })))
-    );
-    const ppRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief('powerPlant', bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
-    const ownRate = (opName: string) => Math.max(0, powerPlantMorale.grey + powerPlantMorale.allOperatorsYellow - ppRelief + (powerPlantMorale.selfYellow[opName] || 0));
-    const worstRate = filled.length > 0 ? Math.max(...filled.map((s) => ownRate(s.operatorName))) : 0;
-    const rampWindowHours = rampWindow(worstRate > 0 ? 24 / worstRate : Infinity);
-
-    let total = 0.05 * filled.length + calcDroneRate(genericDescriptions);
-    const lines = linesFor();
-    for (const { slot, skillName, handler } of specialEntries) {
-      const result = handler({
-        otherRobotInPowerPlant: FACILITIES.some(room => room.kind === 'powerPlant' && assignments[room.id]?.some(s => s && s.operatorName !== slot.operatorName && rosters.OPERATION_PLATFORM.has(s.operatorName))),
-        makotoInFactory: FACILITIES.some(room => room.kind === 'factory' && assignments[room.id]?.some(s => s?.operatorName === 'Makoto Yuki')),
-        sameFacilityOperatorNames: filled.map((s) => s.operatorName),
-        lateranoInAnyOtherPowerPlant,
-        kaltsitInControlCenter,
-        // Training Room has exactly 1 slot in this simulator, so this
-        // directly reflects whether Logos is that slot's occupant.
-        logosIsTrainerInTrainingRoom: logosInTrainingRoom,
-        maxDroneCapacity: 235, // sum of building_data.layouts.v0.slots[].provideLabor, assuming all rooms excavated
-        // Whole-base Rhine Lab count, minus this specific operator if
-        // they're themselves a Rhine Lab member -- Muelsyse's skill says
-        // "every OTHER Rhine Lab Operator", not including herself.
-        //
-        // Capped at 5 here, not in the handler: her text is "for every other
-        // Rhine Lab Operator in base (excluding Assistants and Activity Room
-        // users, caps at 5)", and powerPlantSpecialSkills.ts documents this
-        // count as arriving pre-capped -- but it wasn't, so six or more Rhine
-        // Lab operators overpaid her beyond the +15% ceiling.
-        otherRhineLabCountBaseWide: Math.min(5, rhineLabCountInBase - (RHINE_LAB.has(slot.operatorName) ? 1 : 0)),
-        // Summed from the actual Dormitories rather than assuming 4 x Level 5.
-        // Same hardcoded max-level assumption Senshi's Diner had above.
-        totalDormitoryLevels,
-        rampWindowHours,
-      });
-      if (result.droneRate) total += result.droneRate;
-      lines.push({
-        operatorName: slot.operatorName,
-        skillName,
-        rawValue: result.droneRate ?? 0,
-        included: (result.droneRate ?? 0) !== 0,
-        reason: (result.droneRate ?? 0) !== 0
-          ? 'Counted normally.'
-          : 'No drone recovery contribution under the current setup.',
-        note: result.note,
-      });
-    }
-    return { rate: total, lines };
-  }
-
-  function productivityFor(
-    f: (typeof FACILITIES)[number],
-    ccEffects: ControlCenterEffects,
-    ccMoraleRelief: number
-  ) {
-    const slots = assignments[f.id] || [];
-    const filled = slots.filter((s): s is SlotAssignment => s !== null);
-
-    let descriptions: (string | null)[];
-    let specialProductivitySum = 0;
-    let specialCapacitySum = 0;
-    let specialOrderLimitSum = 0;
-    const perOperatorSpecialMorale: Record<string, number> = {};
-    let overrideActive = false;
-    let overrideProductivitySum = 0;
-    let exemptProductivitySum = 0;
-    const specialNotes: { operator: string; note: string }[] = [];
-    let facilityBreakdown: FacilityBreakdown | null = null;
-    let genericSkillsForMorale: { operatorName: string; description: string | null }[] = [];
-    let genericSkillsForCapacity: { operatorName: string; description: string | null }[] = [];
-
-    if (f.kind === 'factory') {
-      const sameFactoryOperatorNames = filled.map((s) => s.operatorName);
-      const sameFactorySkillNames = filled.flatMap((s) => skillsFor(s, f.label).map((sk) => sk.name || ''));
-
-      const genericDescriptions: (string | null)[] = [];
-      const specialEntries: { slot: SlotAssignment; skillName: string; handler: (typeof FACTORY_SPECIAL_SKILLS)[string] }[] = [];
-
-      for (const slot of filled) {
-        for (const sk of skillsFor(slot, f.label)) {
-          const key = `${slot.operatorName}|${sk.name}`;
-          if (key in FACTORY_SPECIAL_SKILLS) {
-            const handler = FACTORY_SPECIAL_SKILLS[key];
-            specialEntries.push({ slot, skillName: sk.name || '', handler });
-          } else {
-            genericDescriptions.push(sk.description);
-            genericSkillsForMorale.push({ operatorName: slot.operatorName, description: sk.description });
-            genericSkillsForCapacity.push({ operatorName: slot.operatorName, description: sk.description });
-          }
-        }
-      }
-      descriptions = genericDescriptions;
-
-      const baseCtx: Omit<FactorySkillContext, 'manualValue' | 'othersProductivitySum' | 'otherOperatorsCapacity' | 'totalFactoryCapacityIncrease' | 'eliteLevel'> = {
-        rosters,
-        totalDormitoryLevels,
-        trainingRoomLevel: FACILITIES.find(room => room.kind === 'trainingRoom')?.level ?? 0,
-        totalFacilityLevels: FACILITIES.reduce((sum, room) => sum + room.level, 0),
-        allPlacedNames,
-        selectedProduct: factoryProducts[f.id] || null,
-        sameFactoryOperatorNames,
-        sameFactorySkillNames,
-        filledCountThisFactory: filled.length,
-        tradingPostOperatorCount,
-        tradingPostCount: FACILITIES.filter((f2) => f2.kind === 'tradingPost').length,
-        powerPlantOperatorCount,
-        powerPlantCount: effectivePowerPlantCount,
-        robotPowerPlantCount,
-        operatorFaction: (name) => operatorByName.get(name)?.faction || null,
-        factionCountInBase,
-        dormitoryCount,
-        gladiiaGroupHuntingActiveInCC,
-        felvineTotal: totalFelvine,
-        monsterMealTotal: totalMonsterMeal,
-        ursusSpecialtyBeverageTotal: totalUrsusBeverage,
-        blacksteelWorldwideCountInBase,
-        rhineLabCountInBase,
-        resourcePools,
-        resourceBonuses,
-        operatorInAnyTradingPost,
-        rampWindowHours: 24, // placeholder -- only the morale-dependent operators below read this, and they get a corrected context after the real value is known
-        selfMoraleRate: 1, // placeholder -- only Totter's handlers read this
-      };
-
-      // Three groups now: Waai Fu (self-referential off everyone else's
-      // productivity), the ramping operators (Fang/Kroos/Scene/Ceobe,
-      // whose average productivity depends on THEIR OWN Morale-based
-      // time window, only knowable once every other special skill --
-      // including Morale-affecting ones -- has resolved), and
-      // everything else.
-      const MORALE_DEPENDENT_FACTORY_SKILLS = new Set([
-        'Fang|Hothead',
-        'Kroos|Slowcoach',
-        'Scene|Time-Lapse Photography',
-        'Ceobe|Right Now',
-        'Totter|Blurry Vision',
-        'Totter|Blizzard Outside',
-        'Aroma|Routine Cleaning',
-        'Mechanist|I Slept Already',
-      ]);
-      let othersSum = 0;
-      const pending: { slot: SlotAssignment; skillName: string; handler: (typeof FACTORY_SPECIAL_SKILLS)[string] }[] = [];
-      let waaiFuEntry: (typeof specialEntries)[number] | null = null;
-      let bubbleEntry: (typeof specialEntries)[number] | null = null;
-      let vermeilEntry: (typeof specialEntries)[number] | null = null;
-      const moraleDependentEntries: (typeof specialEntries)[number][] = [];
-
-      for (const entry of specialEntries) {
-        if (entry.slot.operatorName === 'Waai Fu' && entry.skillName === 'Cooperative Will') {
-          waaiFuEntry = entry;
-        } else if (entry.slot.operatorName === 'Bubble' && entry.skillName === 'Bigger is Better!') {
-          bubbleEntry = entry;
-        } else if (entry.slot.operatorName === 'Vermeil' && entry.skillName === 'Recycling') {
-          vermeilEntry = entry;
-        } else if (MORALE_DEPENDENT_FACTORY_SKILLS.has(`${entry.slot.operatorName}|${entry.skillName}`)) {
-          moraleDependentEntries.push(entry);
-        } else {
-          pending.push(entry);
-        }
-      }
-
-      const results: { result: ReturnType<(typeof FACTORY_SPECIAL_SKILLS)[string]>; operator: string }[] = [];
-      const pendingSelfMorale: Record<string, number> = {};
-      const pendingSpecialCapacity: Record<string, number> = {};
-      for (const { slot, handler } of pending) {
-        const result = handler({ ...baseCtx, eliteLevel: slot.eliteLevel, manualValue: slot.manualValue });
-        results.push({ result, operator: slot.operatorName });
-        // Facility-count-based contributions (Purestream, Thorns, Alanna,
-        // Narantuya -- marked exemptFromOverride) are explicitly excluded
-        // from Waai Fu's "everyone else's productivity" sum, per her own
-        // skill text.
-        if (result.productivity && !result.exemptFromOverride) othersSum += result.productivity;
-        if (result.selfMorale) {
-          pendingSelfMorale[slot.operatorName] = (pendingSelfMorale[slot.operatorName] || 0) + result.selfMorale;
-        }
-        if (result.capacity) {
-          pendingSpecialCapacity[slot.operatorName] = (pendingSpecialCapacity[slot.operatorName] || 0) + result.capacity;
-        }
-      }
-
-      if (bubbleEntry || vermeilEntry) {
-        // Shared per-operator capacity data (generic regex-parsed +
-        // any special-cased skill), needed by both Bubble and Vermeil.
-        const genericCapacityByOp = calcCapacityPerOperator(genericSkillsForCapacity);
-        const capacityByOp = (opName: string) => (genericCapacityByOp[opName] || 0) + (pendingSpecialCapacity[opName] || 0);
-
-        if (bubbleEntry) {
-          // Bubble scales off EVERY operator's own individual capacity
-          // contribution, including her own -- 1% productivity per
-          // point at <=15, 3% per point at >=16 (confirmed correction
-          // to the raw skill text's "16 or less"/"greater than 16"
-          // wording).
-          const allOperatorsCapacity: Record<string, number> = {};
-          for (const slot of filled) {
-            const total = capacityByOp(slot.operatorName);
-            if (total !== 0) allOperatorsCapacity[slot.operatorName] = total;
-          }
-          const result = bubbleEntry.handler({
-            ...baseCtx,
-            eliteLevel: bubbleEntry.slot.eliteLevel,
-            manualValue: bubbleEntry.slot.manualValue,
-            otherOperatorsCapacity: allOperatorsCapacity,
-          });
-          results.push({ result, operator: 'Bubble' });
-          // Genuinely counts toward "everyone else's productivity" for
-          // Waai Fu -- Bubble returns real productivity, not just
-          // capacity, and has no confirmed exemption in her skill text
-          // (unlike the facility-count-based skills, which do).
-          if (result.productivity) othersSum += result.productivity;
-        }
-
-        if (vermeilEntry) {
-          // Vermeil: flat +2% per point of capacity increase across
-          // EVERY operator in the Factory, including her own (confirmed
-          // -- unlike Bubble, who excludes herself).
-          const totalFactoryCapacityIncrease = filled.reduce((sum, s) => sum + capacityByOp(s.operatorName), 0);
-          const result = vermeilEntry.handler({
-            ...baseCtx,
-            eliteLevel: vermeilEntry.slot.eliteLevel,
-            manualValue: vermeilEntry.slot.manualValue,
-            totalFactoryCapacityIncrease,
-          });
-          results.push({ result, operator: 'Vermeil' });
-          if (result.productivity) othersSum += result.productivity;
-        }
-      }
-
-      if (waaiFuEntry) {
-        // othersSum so far only includes special-cased contributions --
-        // generic, regex-parsed skills (e.g. Vanilla's plain "+25%")
-        // never touched it at all, since they're computed entirely
-        // separately via calcProductivity. Add that contribution too,
-        // using only the skill-based yellow portion, not the grey
-        // baseline rate (which isn't "provided" by any operator's skill
-        // in the sense Waai Fu's own skill text means).
-        const genericOthers = calcProductivity('factory', genericDescriptions, filled.length, factoryProducts[f.id] || null);
-        othersSum += genericOthers.yellow;
-        const result = waaiFuEntry.handler({
-          ...baseCtx,
-          eliteLevel: waaiFuEntry.slot.eliteLevel,
-          manualValue: waaiFuEntry.slot.manualValue,
-          othersProductivitySum: othersSum,
-        });
-        results.push({ result, operator: 'Waai Fu' });
-      }
-
-
-      if (moraleDependentEntries.length > 0) {
-        // Real per-operator Morale calc for THIS Factory, using only
-        // what's known so far (generic descriptions + every
-        // non-morale-dependent special skill's self-only Morale
-        // contribution).
-        const factoryMorale = calcMorale(filled.length, genericSkillsForMorale);
-        const ownRate = (opName: string) =>
-          Math.max(
-            0,
-            factoryMorale.grey +
-              factoryMorale.allOperatorsYellow +
-              (factoryMorale.selfYellow[opName] || 0) +
-              (pendingSelfMorale[opName] || 0) -
-              ccMoraleRelief
-          );
-
-        // The window is genuinely facility-wide -- the first operator
-        // ANYWHERE in this Factory to run out of Morale ends the whole
-        // Factory's operational window, not just each operator's own
-        // individual survival time.
-        const worstRate = Math.max(...filled.map((s) => ownRate(s.operatorName)));
-        const rampWindowHours = rampWindow(worstRate > 0 ? 24 / worstRate : Infinity);
-
-        for (const { slot, handler } of moraleDependentEntries) {
-          const opName = slot.operatorName;
-          const result = handler({
-            ...baseCtx,
-            rampWindowHours,
-            selfMoraleRate: ownRate(opName),
-            eliteLevel: slot.eliteLevel,
-            manualValue: slot.manualValue,
-          });
-          results.push({ result, operator: opName });
-        }
-      }
-
-      for (const { result, operator } of results) {
-        if (result.productivity) specialProductivitySum += result.productivity;
-        if (result.capacity) specialCapacitySum += result.capacity;
-        if (result.selfMorale) {
-          perOperatorSpecialMorale[operator] = (perOperatorSpecialMorale[operator] || 0) + result.selfMorale;
-        }
-        if (result.overridesOthersProductivity) {
-          overrideActive = true;
-          if (result.productivity) overrideProductivitySum += result.productivity;
-        }
-        if (result.exemptFromOverride && result.productivity) exemptProductivitySum += result.productivity;
-        // NOTE: result.note is no longer pushed onto the tile-level
-        // specialNotes list here -- it was cluttering the small facility
-        // tile with skill caveat text instead of the usual grey/yellow
-        // stats. It's carried into breakdownLines below instead, so it
-        // only shows up in the "explain this facility" panel.
-      }
-
-      // Step-by-step breakdown for the "explain this facility" panel --
-      // built from the SAME data the real calculation above already
-      // produced, not re-derived separately, so it can't drift from what
-      // actually happened.
-      const product = factoryProducts[f.id] || null;
-      const greyProductivity = calcGreyProductivity(filled.length);
-      const breakdownLines: FacilityBreakdownLine[] = [];
-
-      for (const g of genericSkillsForMorale) {
-        const raw = factoryYellowContribution(g.description, product);
-        const included = raw !== 0 && !overrideActive;
-        breakdownLines.push({
-          operatorName: g.operatorName,
-          skillName: null,
-          rawValue: raw,
-          included,
-          reason: overrideActive
-            ? 'Excluded -- an override skill in this Factory replaces everyone else\u2019s own productivity entirely.'
-            : raw === 0
-            ? 'No numeric productivity effect for this Factory\u2019s selected product.'
-            : 'Counted normally.',
-        });
-      }
-
-      for (const { result, operator } of results) {
-        const raw = result.productivity ?? 0;
-        let included: boolean;
-        let reason: string;
-        if (result.exemptFromOverride) {
-          included = raw !== 0;
-          reason = 'Exempt -- this skill survives even when another skill overrides everyone else\u2019s productivity.';
-        } else if (overrideActive) {
-          included = !!result.overridesOthersProductivity && raw !== 0;
-          reason = result.overridesOthersProductivity
-            ? 'Counted -- this is the override skill itself.'
-            : 'Excluded -- an override skill in this Factory replaces everyone else\u2019s own productivity entirely.';
-        } else {
-          included = raw !== 0;
-          reason = raw === 0 ? 'No numeric productivity contribution.' : 'Counted normally.';
-        }
-        breakdownLines.push({
-          operatorName: operator,
-          skillName: specialEntries.find((e) => e.slot.operatorName === operator)?.skillName ?? null,
-          rawValue: raw,
-          included,
-          reason,
-          formula: result.formula,
-          note: result.note,
-        });
-      }
-
-      const finalYellow = exemptProductivitySum + (overrideActive ? overrideProductivitySum : specialProductivitySum + genericDescriptions.reduce((sum, d) => sum + factoryYellowContribution(d, product), 0));
-      facilityBreakdown = {
-        filledCount: filled.length,
-        greyProductivity,
-        greyFormula: `1.01 + (${filled.length} - 1) \u00d7 0.01 = ${greyProductivity.toFixed(2)}`,
-        overrideActive,
-        lines: breakdownLines,
-        finalYellow,
-        effectiveProductivity: Math.max(0, greyProductivity + finalYellow),
-      };
-    } else if (f.kind === 'tradingPost') {
-      const sameRoomOperatorNames = filled.map((s) => s.operatorName);
-      const genericDescriptions: (string | null)[] = [];
-      const specialEntries: { slot: SlotAssignment; skillName: string; handler: (typeof TRADING_POST_SPECIAL_SKILLS)[string] }[] = [];
-
-      for (const slot of filled) {
-        for (const sk of skillsFor(slot, f.label)) {
-          const key = `${slot.operatorName}|${sk.name}`;
-          if (key in TRADING_POST_SPECIAL_SKILLS) {
-            const handler = TRADING_POST_SPECIAL_SKILLS[key];
-            specialEntries.push({ slot, skillName: sk.name || '', handler });
-          } else {
-            genericDescriptions.push(sk.description);
-            genericSkillsForMorale.push({ operatorName: slot.operatorName, description: sk.description });
-          }
-        }
-      }
-      descriptions = genericDescriptions;
-
-      const baseTPCtx: Omit<TradingPostContext, 'manualValue' | 'othersOrderEfficiencySum' | 'othersOrderLimitSum'> = {
-        rosters,
-        tradingPostLevel: f.level,
-        bubbleKingdomHuntersInTradingPosts: allPlacedNames.filter(n => rosters.BUBBLE_KINGDOM_HUNTERS.has(n) && operatorInAnyTradingPost(n)).length,
-        receptionRoomLevel: FACILITIES.find(room => room.kind === 'receptionRoom')?.level ?? 0,
-        totalDormitoryLevels,
-        sameRoomOperatorNames,
-        filledCountThisRoom: filled.length,
-        dormitoryOperatorCount: dormitoryOperatorNames.size,
-        distinctFactoryProductCount,
-        operatorFaction: (name) => operatorByName.get(name)?.faction || null,
-        ulpianusInBase,
-        facilitiesWithSuiOperator,
-        facilitiesWithEliteOperator,
-        resourceBonuses,
-        monsterMealTotal: totalMonsterMeal,
-        felvineTotal: totalFelvine,
-        effectiveGoldLineCount,
-        allPlacedNames,
-      };
-
-      // Snowsant/Jaye's second skill are self-referential off everyone
-      // ELSE's order efficiency; Degenbrecher/Swire off everyone else's
-      // order limit contribution. Both need everything else resolved first.
-      const SELF_REFERENTIAL = new Set([
-        'Jaye|Basic Needs',
-        'Jaye|Street Economics',
-        'Snowsant|Heavenly Reward α',
-        'Snowsant|Heavenly Reward β',
-        "Degenbrecher|Champion's Bearing",
-        'Swire the Elegant Wit|Investment Solicitations',
-      ]);
-
-      const pendingTP = specialEntries.filter((e) => !SELF_REFERENTIAL.has(`${e.slot.operatorName}|${e.skillName}`));
-      const deferredTP = specialEntries.filter((e) => SELF_REFERENTIAL.has(`${e.slot.operatorName}|${e.skillName}`));
-      // Among the deferred group, only Jaye's "Basic Needs" ALSO produces
-      // an orderLimit output of its own (her CAP reduction) -- Swire's
-      // "Investment Solicitations" and Degenbrecher's "Champion's
-      // Bearing" both read othersOrderLimitRawSum, so they need to see
-      // Jaye's real reduction already netted in, not the pre-Jaye
-      // snapshot. Snowsant's skill only outputs orderEfficiency, so it
-      // has no such cross-dependency and stays in the normal batch.
-      const orderLimitAffectingDeferred = deferredTP.filter((e) => e.skillName === 'Basic Needs');
-      const remainingDeferred = deferredTP.filter((e) => e.skillName !== 'Basic Needs');
-
-      const prelimProd = calcProductivity('tradingPost', genericDescriptions, filled.length, null);
-      const prelimOrderLimit = calcOrderLimit(genericDescriptions, f.level);
-      let othersEff = prelimProd.yellow + (perTradingPostBonus.get(f.id) || 0);
-      // Raw (including negatives) order limit total -- used by
-      // Degenbrecher's "Champion's Bearing", Swire the Elegant Wit's
-      // "Investment Solicitations" (both confirmed to scale off the
-      // SAME net total shown as the room's final order limit, including
-      // their own negative Intimidate/Imposing Presence contribution
-      // netted in -- not a positive-only "exclude my own" version), and
-      // Jaye's own effective-order-limit computation.
-      let othersLimitRaw = prelimOrderLimit.adjustment + (perTradingPostOrderLimitBonus.get(f.id) || 0);
-
-      const resultsTP: { result: ReturnType<(typeof TRADING_POST_SPECIAL_SKILLS)[string]>; operator: string }[] = [];
-      for (const { slot, handler } of pendingTP) {
-        const result = handler({ ...baseTPCtx, manualValue: slot.manualValue });
-        resultsTP.push({ result, operator: slot.operatorName });
-        if (result.orderEfficiency) othersEff += result.orderEfficiency;
-        if (result.orderLimit) othersLimitRaw += result.orderLimit;
-      }
-      const jayeEntry = specialEntries.find(e => e.slot.operatorName === 'Jaye');
-      const snowEntry = specialEntries.find(e => e.slot.operatorName === 'Snowsant');
-      if (jayeEntry) {
-        const modeled = jayeContribution(prelimOrderLimit.base + othersLimitRaw, othersEff, snowEntry ? (snowEntry.skillName.endsWith('β') ? 0.35 : 0.25) : 0, orderLimitAffectingDeferred.length > 0, prelimProd.grey + ccEffects.tradingPostBonus, loginInterval, f.level, tradingPostExpectedMinutes(goldOrderTier(filled.flatMap(slot => skillsFor(slot, f.label).map(sk => ({ operatorName: slot.operatorName, skillName: cleanSkillName(sk.name) ?? '' })))), f.level));
-        resultsTP.push({ operator: 'Jaye', result: { orderEfficiency: modeled.jaye, orderLimit: modeled.limitReduction, note: orderLimitAffectingDeferred.length ? 'Street Economics + Basic Needs cancel queue dependence. Snowsant copies other operators first, then Basic Needs uses that combined bonus (game glossary: Special Interaction Rules).' : `Expected average from an empty queue over ${loginInterval}h between collections; speed is recalculated after every expected order.` } });
-        if (snowEntry) resultsTP.push({ operator: 'Snowsant', result: { orderEfficiency: modeled.snowsant } });
-        othersLimitRaw += modeled.limitReduction;
-      }
-      for (const { slot, handler } of remainingDeferred) {
-        if (slot.operatorName === 'Jaye' || (slot.operatorName === 'Snowsant' && jayeEntry)) continue;
-        const result = handler({
-          ...baseTPCtx,
-          manualValue: slot.manualValue,
-          othersOrderEfficiencySum: othersEff,
-          othersOrderLimitRawSum: othersLimitRaw,
-          genericOrderLimitAdjustment: prelimOrderLimit.base,
-        });
-        resultsTP.push({ result, operator: slot.operatorName });
-      }
-
-      for (const { result, operator } of resultsTP) {
-        if (result.orderEfficiency) specialProductivitySum += result.orderEfficiency;
-        if (result.orderLimit) specialOrderLimitSum += result.orderLimit;
-        if (result.selfMorale) {
-          perOperatorSpecialMorale[operator] = (perOperatorSpecialMorale[operator] || 0) + result.selfMorale;
-        }
-        if (result.allOperatorsBonus) {
-          for (const s of filled) {
-            perOperatorSpecialMorale[s.operatorName] = (perOperatorSpecialMorale[s.operatorName] || 0) + result.allOperatorsBonus;
-          }
-        }
-        if (result.overridesOthersEfficiency) {
-          overrideActive = true;
-          if (result.orderEfficiency) overrideProductivitySum += result.orderEfficiency;
-        }
-        // NOTE: result.note is no longer pushed onto the tile-level
-        // specialNotes list here -- see the matching Factory-side note
-        // above. It's carried into tpBreakdownLines below instead, so it
-        // only shows up in the "explain this facility" panel.
-      }
-
-      // Step-by-step breakdown for the "explain this facility" panel --
-      // same approach as Factory: built from the results already
-      // computed above, not re-derived separately.
-      const tpGreyProductivity = calcGreyProductivity(filled.length);
-      const tpBreakdownLines: FacilityBreakdownLine[] = [];
-      const quality = goldOrderTier(filled.flatMap(slot => skillsFor(slot, f.label).map(sk => ({ operatorName: slot.operatorName, skillName: cleanSkillName(sk.name) ?? '' }))));
-      if (quality !== 'base') tpBreakdownLines.push({ operatorName: '(Order quality)', skillName: null, rawValue: 0, included: false, reason: 'Quality-weighted output estimate.', note: 'Uses mature Lv3 observed order probabilities. Warm-up and lower-level quality distributions are not verified; their output is an approximation.' });
-      if (jayeEntry && remainingDeferred.some(e => e.slot.operatorName === 'Degenbrecher' || e.slot.operatorName === 'Swire the Elegant Wit')) tpBreakdownLines.push({ operatorName: 'Jaye', skillName: null, rawValue: 0, included: false, reason: 'Capacity/efficiency feedback estimate.', note: 'Basic Needs is evaluated before the capacity-dependent Degenbrecher/Swire bonus. This combination’s game evaluation order has not been verified.' });
-      if (filled.some(s => s.operatorName === 'Closure') && filled.some(s => s.operatorName === 'Pepe') && skillsFor(filled.find(s => s.operatorName === 'Pepe')!, f.label).some(s => s.name === 'Insightful')) tpBreakdownLines.push({ operatorName: '(Special orders)', skillName: null, rawValue: 0, included: false, reason: 'Conflicting special order types.', note: 'Pepe’s fixed order is used; the priority against Closure’s Special Orders has not been verified.' });
-
-      for (const g of genericSkillsForMorale) {
-        const raw = tradingPostYellowContribution(g.description);
-        const included = raw !== 0 && !overrideActive;
-        tpBreakdownLines.push({
-          operatorName: g.operatorName,
-          skillName: null,
-          rawValue: raw,
-          included,
-          reason: overrideActive
-            ? 'Excluded -- an override skill in this Trading Post replaces everyone else\u2019s own order efficiency entirely.'
-            : raw === 0
-            ? 'No numeric order efficiency effect.'
-            : 'Counted normally.',
-        });
-      }
-
-      for (const { result, operator } of resultsTP) {
-        const raw = result.orderEfficiency ?? 0;
-        let included: boolean;
-        let reason: string;
-        if (overrideActive) {
-          included = !!result.overridesOthersEfficiency && raw !== 0;
-          reason = result.overridesOthersEfficiency
-            ? 'Counted -- this is the override skill itself.'
-            : 'Excluded -- an override skill in this Trading Post replaces everyone else\u2019s own order efficiency entirely.';
-        } else {
-          included = raw !== 0;
-          reason = raw === 0 ? 'No numeric order efficiency contribution (may still affect order limit or Morale separately).' : 'Counted normally.';
-        }
-        tpBreakdownLines.push({
-          operatorName: operator,
-          skillName: specialEntries.find((e) => e.slot.operatorName === operator)?.skillName ?? null,
-          rawValue: raw,
-          included,
-          reason,
-          formula: result.formula,
-          note: result.note,
-        });
-      }
-
-      const tpFinalYellow = overrideActive
-        ? overrideProductivitySum
-        : prelimProd.yellow + specialProductivitySum;
-      facilityBreakdown = {
-        filledCount: filled.length,
-        greyProductivity: tpGreyProductivity,
-        greyFormula: `1.01 + (${filled.length} - 1) \u00d7 0.01 = ${tpGreyProductivity.toFixed(2)}`,
-        overrideActive,
-        lines: tpBreakdownLines,
-        finalYellow: tpFinalYellow,
-        effectiveProductivity: Math.max(0, tpGreyProductivity + tpFinalYellow),
-      };
-    } else {
-      descriptions = filled.flatMap((s) => skillsFor(s, f.label).map((sk) => sk.description));
-      genericSkillsForMorale = filled.flatMap((s) =>
-        skillsFor(s, f.label).map((sk) => ({ operatorName: s.operatorName, description: sk.description }))
-      );
-    }
-
-    // Specialized room handlers own their self-morale, avoiding duplicate or unconditional parsing.
-    if (f.kind === 'trainingRoom' || f.kind === 'workshop') genericSkillsForMorale = [];
-    if (f.kind === 'controlCenter') genericSkillsForMorale = genericSkillsForMorale.filter(value => !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => `${value.operatorName}|${sk.name}` in CONTROL_CENTER_SPECIAL_SKILLS && sk.description === value.description));
-    if (f.kind === 'office' || f.kind === 'receptionRoom') genericSkillsForMorale = genericSkillsForMorale.filter(value => {
-      const map = f.kind === 'office' ? OFFICE_SPECIAL_SKILLS : RECEPTION_ROOM_SPECIAL_SKILLS;
-      return !skillsFor(filled.find(s => s.operatorName === value.operatorName)!, f.label).some(sk => `${value.operatorName}|${sk.name}` in map && sk.description === value.description);
-    });
-    ccMoraleRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief(f.kind, bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
-    const morale = calcMorale(filled.length, genericSkillsForMorale);
-    const productivity = PRODUCTIVITY_KINDS.has(f.kind)
-      ? calcProductivity(f.kind as 'factory' | 'tradingPost', descriptions, filled.length, factoryProducts[f.id] || null)
-      : null;
-    // Layer Control Center's highest-only global bonus on top of this
-    // facility's own local skill contributions.
-    if (productivity) {
-      if (f.kind === 'tradingPost') {
-        const thisTpBonus = perTradingPostBonus.get(f.id) || 0;
-        productivity.yellow = (overrideActive ? overrideProductivitySum : productivity.yellow + specialProductivitySum) + ccEffects.tradingPostBonus + thisTpBonus;
-        // Sync the breakdown panel to match -- it was built above before
-        // these cross-facility Control Center bonuses were known, so its
-        // displayed percentage was silently stuck at the pre-CC-bonus
-        // value even when the real productivity (and the LMD figures
-        // computed from it) correctly included them.
-        if (facilityBreakdown) {
-          const ccBonusTotal = ccEffects.tradingPostBonus + thisTpBonus;
-          if (ccBonusTotal !== 0) {
-            facilityBreakdown.lines.push({
-              operatorName: '(Control Center)',
-              skillName: null,
-              rawValue: ccBonusTotal,
-              included: true,
-              reason: 'Cross-facility Order Efficiency bonus (Control Center highest-only bonus plus any per-Trading-Post bonus) -- added after this room\u2019s own local skills.',
-            });
-          }
-          facilityBreakdown.finalYellow = productivity.yellow;
-          facilityBreakdown.effectiveProductivity = Math.max(0, facilityBreakdown.greyProductivity + productivity.yellow);
-        }
-      }
-      if (f.kind === 'factory') {
-        // "Zero out everyone else" skills (Snegurochka, Automation
-        // family) replace ALL other LOCAL productivity contributions --
-        // generic AND other special-cased ones -- with just their own,
-        // EXCEPT skills whose productivity is granted based on facility
-        // count rather than being "contributed" in the sense these
-        // skills mean (Purestream, Thorns the Lodestar) -- not about
-        // evaluation order, they're simply exempt from the zero-out
-        // entirely, regardless of which other operators are also
-        // present. CC-sourced cross-facility bonuses are conceptually
-        // independent of this LOCAL override and always apply, the same
-        // fix as Trading Post above -- these used to be silently
-        // dropped whenever an override was active.
-        productivity.yellow = overrideActive ? overrideProductivitySum + exemptProductivitySum : productivity.yellow + specialProductivitySum;
-        productivity.yellow += ccEffects.factoryBonus;
-        if (factoryProducts[f.id] === 'Precious Metals') {
-          productivity.yellow += factoryPreciousMetalBonusFromCC;
-        }
-        productivity.yellow += perFactoryProductivityBonus.get(f.id) || 0;
-        // Same sync the Trading Post branch above does: the breakdown was
-        // built before any of these cross-facility bonuses were known, so
-        // without this its total silently disagreed with the tile -- a Factory
-        // of three Knights on Precious Metals showed 178% in the panel next to
-        // 174% on the tile, with nothing named to account for the difference.
-        if (facilityBreakdown) {
-          // One line per contributing skill, not per contributing operator:
-          // these skills grant their amount per affected operator, so a
-          // three-Knight Factory produced three identical rows and the reader
-          // had to add them up. Grouped, with the multiplier spelled out.
-          const groupedSources = new Map<string, { operatorName: string; skillName: string | null; per: number; count: number }>();
-          for (const src of perFactoryProductivitySources.get(f.id) || []) {
-            const groupKey = `${src.operatorName}|${src.skillName ?? ''}`;
-            const held = groupedSources.get(groupKey);
-            if (held) {
-              held.count += 1;
-            } else {
-              groupedSources.set(groupKey, { operatorName: src.operatorName, skillName: src.skillName, per: src.amount, count: 1 });
-            }
-          }
-          for (const g of groupedSources.values()) {
-            facilityBreakdown.lines.push({
-              operatorName: g.operatorName,
-              skillName: g.skillName,
-              rawValue: g.per * g.count,
-              included: true,
-              reason: 'Cross-facility bonus targeting this Factory specifically -- added after this room\u2019s own local skills.',
-              formula: g.count > 1 ? `${(g.per * 100).toFixed(2)}% x ${g.count} operators = ${(g.per * g.count * 100).toFixed(2)}%` : undefined,
-            });
-          }
-          const sharedCcFactoryBonus = ccEffects.factoryBonus
-            + (factoryProducts[f.id] === 'Precious Metals' ? factoryPreciousMetalBonusFromCC : 0);
-          if (sharedCcFactoryBonus !== 0) {
-            facilityBreakdown.lines.push({
-              operatorName: '(Control Center)',
-              skillName: null,
-              rawValue: sharedCcFactoryBonus,
-              included: true,
-              reason: 'Cross-facility Factory productivity bonus (Control Center highest-only bonus, plus any Precious-Metal-specific bonus) -- added after this room\u2019s own local skills.',
-            });
-          }
-          facilityBreakdown.finalYellow = productivity.yellow;
-          facilityBreakdown.effectiveProductivity = Math.max(0, facilityBreakdown.greyProductivity + productivity.yellow);
-        }
-      }
-    }
-
-    const capacity = f.kind === 'factory' ? calcCapacity(descriptions, f.level) : null;
-    if (capacity) capacity.adjustment += specialCapacitySum;
-    const orderLimit = f.kind === 'tradingPost' ? calcOrderLimit(descriptions, f.level) : null;
-    if (orderLimit) orderLimit.adjustment += specialOrderLimitSum + (perTradingPostOrderLimitBonus.get(f.id) || 0);
-    let clueSpeed: number | null = null;
-    let clueSpeedBase: number | null = null;
-    let inesNote: string | undefined;
-    const receptionRoomSelfMorale: Record<string, number> = {};
-    if (f.kind === 'receptionRoom') {
-      const sameRoomOperatorNames = filled.map((s) => s.operatorName);
-      const genericDescriptions: (string | null)[] = [];
-      // The breakdown's generic lines are built from this, NOT from
-      // genericSkillsForMorale: that array is assigned every skill in the room
-      // for the morale calculation and then had the generic ones pushed onto it
-      // again here, so Curiosity was listed twice and Gourmand -- which is
-      // special-cased and deliberately excluded from genericDescriptions --
-      // appeared as a phantom flat +2%. The displayed lines have to come from
-      // the same list the total sums, or the panel contradicts its own Final.
-      const genericClueLines: { operatorName: string; description: string | null }[] = [];
-      let specialClueSum = 0;
-      const pendingReceptionEntries: { slot: SlotAssignment; sk: BaseSkill; handler: (typeof RECEPTION_ROOM_SPECIAL_SKILLS)[string] }[] = [];
-      let inesEntry: { slot: SlotAssignment; handler: (typeof RECEPTION_ROOM_SPECIAL_SKILLS)[string] } | null = null;
-
-      for (const slot of filled) {
-        for (const sk of skillsFor(slot, f.label)) {
-          const key = `${slot.operatorName}|${sk.name}`;
-          if (key in RECEPTION_ROOM_SPECIAL_SKILLS) {
-            const handler = RECEPTION_ROOM_SPECIAL_SKILLS[key];
-            if (slot.operatorName === 'Ines' && sk.name === 'Shadow Gathering') {
-              inesEntry = { slot, handler };
-            } else {
-              pendingReceptionEntries.push({ slot, sk, handler });
-            }
-          } else {
-            genericDescriptions.push(sk.description);
-            genericClueLines.push({ operatorName: slot.operatorName, description: sk.description });
-          }
-        }
-      }
-
-      const pendingReceptionSelfMorale: Record<string, number> = {};
-      for (const { slot, handler } of pendingReceptionEntries) {
-        const result = handler({
-          rosters,
-          manualValue: slot.manualValue,
-          sameRoomOperatorNames,
-          filledCountThisRoom: filled.length,
-          dormitoryHasOperator,
-          monsterMealTotal: totalMonsterMeal,
-          rampWindowHours: 24, // unused by any non-Ines handler
-          resourceBonuses,
-          clueExchangeActive,
-          violetOrchidInControlCenter: ccOperatorNames.includes('Violet Mizutsune Orchid'),
-          officeLevel,
-        });
-        if (result.clueSpeed) specialClueSum += result.clueSpeed;
-        if (result.selfMorale) {
-          receptionRoomSelfMorale[slot.operatorName] = (receptionRoomSelfMorale[slot.operatorName] || 0) + result.selfMorale;
-        }
-      }
-
-      if (inesEntry) {
-        // Real facility-wide Morale window, same principle as the
-        // Factory ramping operators -- the first operator ANYWHERE in
-        // this Reception Room to run out of Morale ends the whole
-        // room's operational window, not just Ines's own survival time.
-        const receptionMorale = calcMorale(filled.length, genericSkillsForMorale);
-        const ownRate = (opName: string) =>
-          Math.max(
-            0,
-            receptionMorale.grey +
-              receptionMorale.allOperatorsYellow +
-              (receptionMorale.selfYellow[opName] || 0) +
-              (pendingReceptionSelfMorale[opName] || 0) -
-              ccMoraleRelief
-          );
-        const worstRate = Math.max(...filled.map((s) => ownRate(s.operatorName)));
-        const rampWindowHours = rampWindow(worstRate > 0 ? 24 / worstRate : Infinity);
-        const result = inesEntry.handler({
-          rosters,
-          manualValue: inesEntry.slot.manualValue,
-          sameRoomOperatorNames,
-          filledCountThisRoom: filled.length,
-          dormitoryHasOperator,
-          monsterMealTotal: totalMonsterMeal,
-          rampWindowHours,
-          resourceBonuses,
-          clueExchangeActive,
-          violetOrchidInControlCenter: ccOperatorNames.includes('Violet Mizutsune Orchid'),
-          officeLevel,
-        });
-        if (result.clueSpeed) specialClueSum += result.clueSpeed;
-        if (result.note) inesNote = result.note;
-      }
-      clueSpeed = calcClueSpeed(genericDescriptions) + specialClueSum + ccEffects.clueCollectionBonus + officeReceptionRoomBonus + receptionRoomClueSpeedFromCC;
-      clueSpeedBase = calcReceptionRoomBaseSpeed(
-        filled.map((s) => ({
-          rarity: operatorByName.get(s.operatorName)?.rarity ?? null,
-          eliteLevel: s.eliteLevel,
-        }))
-      );
-      const receptionBreakdownLines: FacilityBreakdownLine[] = [];
-      // Itemise the base speed per operator instead of hiding it inside one
-      // summed figure. "+25%" for an Elite 2 5-star says nothing about which
-      // part is the promotion and which the rarity, and three of the reported
-      // Reception Room bugs were "innate/promotion/rarity bonuses missing" --
-      // which is impossible to confirm or refute against a single total.
-      // Zero contributions are listed too, marked excluded, so a 3-star at
-      // Elite 0 visibly contributes nothing rather than being absent.
-      for (const slot of filled) {
-        const contribution = receptionRoomBaseContribution({
-          rarity: operatorByName.get(slot.operatorName)?.rarity ?? null,
-          eliteLevel: slot.eliteLevel,
-        });
-        const rarity = operatorByName.get(slot.operatorName)?.rarity ?? null;
-        const eliteLabel = slot.eliteLevel === 'Base' ? 'Elite 0' : slot.eliteLevel ?? 'Elite 0';
-        receptionBreakdownLines.push({
-          operatorName: slot.operatorName,
-          skillName: 'in the room',
-          rawValue: contribution.slotted,
-          included: contribution.slotted !== 0,
-          reason: 'Every slotted operator adds this, whether or not their skill does anything here.',
-        });
-        receptionBreakdownLines.push({
-          operatorName: slot.operatorName,
-          skillName: rarity ? `${rarity}★ rarity` : 'rarity',
-          rawValue: contribution.rarity,
-          included: contribution.rarity !== 0,
-          reason: contribution.rarity !== 0
-            ? 'Rarity bonus: 6★ +5%, 5★ +4%, 4★ +2%.'
-            : 'Rarity bonus only applies at 4★ and above.',
-        });
-        receptionBreakdownLines.push({
-          operatorName: slot.operatorName,
-          skillName: eliteLabel,
-          rawValue: contribution.elite,
-          included: contribution.elite !== 0,
-          reason: contribution.elite !== 0
-            ? 'Promotion bonus: Elite 2 +16%, Elite 1 +8%.'
-            : 'Promotion bonus starts at Elite 1 -- Elite 0 adds nothing.',
-        });
-      }
-      for (const g of genericClueLines) {
-        const raw = calcClueSpeed([g.description]);
-        receptionBreakdownLines.push({
-          operatorName: g.operatorName,
-          skillName: null,
-          rawValue: raw,
-          included: raw !== 0,
-          reason: raw === 0 ? 'No numeric Clue search speed effect.' : 'Counted normally.',
-        });
-      }
-      for (const { slot, sk, handler } of pendingReceptionEntries) {
-        const result = handler({
-          rosters,
-          manualValue: slot.manualValue,
-          sameRoomOperatorNames,
-          filledCountThisRoom: filled.length,
-          dormitoryHasOperator,
-          monsterMealTotal: totalMonsterMeal,
-          rampWindowHours: 24,
-          resourceBonuses,
-          clueExchangeActive,
-          violetOrchidInControlCenter: ccOperatorNames.includes('Violet Mizutsune Orchid'),
-          officeLevel,
-        });
-        const raw = result.clueSpeed ?? 0;
-        receptionBreakdownLines.push({ operatorName: slot.operatorName, skillName: sk.name, rawValue: raw, included: raw !== 0, reason: raw === 0 ? 'No numeric Clue search speed effect.' : 'Counted normally.', note: result.note });
-      }
-      if (inesEntry) {
-        receptionBreakdownLines.push({ operatorName: 'Ines', skillName: 'Shadow Gathering', rawValue: specialClueSum, included: specialClueSum !== 0, reason: 'Ramping skill -- scales with the room\u2019s own Morale window, recomputed above.', note: inesNote });
-      }
-      if (ccEffects.clueCollectionBonus !== 0) {
-        receptionBreakdownLines.push({ operatorName: clueCollectionSource?.operatorName ?? '(Control Center)', skillName: clueCollectionSource?.skillName ?? null, rawValue: ccEffects.clueCollectionBonus, included: true, reason: 'Highest single Clue Collection Speed bonus among Control Center operators -- only the strongest of this type applies, so any others in the room contribute nothing.' });
-      }
-      if (officeReceptionRoomBonus !== 0) {
-        receptionBreakdownLines.push({ operatorName: '(Office)', skillName: null, rawValue: officeReceptionRoomBonus, included: true, reason: 'Cross-facility bonus from an Office skill.' });
-      }
-      for (const src of receptionRoomClueSpeedSources) {
-        receptionBreakdownLines.push({
-          operatorName: src.operatorName,
-          skillName: src.skillName,
-          rawValue: src.amount,
-          included: src.amount !== 0,
-          reason: 'Control Center cross-facility bonus aimed at this room -- additive, so it stacks with the highest-only Clue Collection Speed above rather than competing with it.',
-        });
-      }
-      facilityBreakdown = {
-        filledCount: filled.length,
-        greyProductivity: clueSpeedBase,
-        greyFormula: `100% room baseline + each operator's three contributions itemised below = ${(clueSpeedBase * 100).toFixed(2)}%`,
-        overrideActive: false,
-        lines: receptionBreakdownLines,
-        finalYellow: clueSpeed,
-        effectiveProductivity: clueSpeedBase + clueSpeed,
-      };
-    }
-    if (f.kind === 'controlCenter' && filled.length > 0) {
-      // The Control Center produces Morale for its own occupants plus a set of
-      // bonuses that land in other facilities, so there is no baseline to show
-      // and the grey figure is 0 -- same shape as the Power Plant's.
-      facilityBreakdown = {
-        filledCount: filled.length,
-        greyProductivity: 0,
-        greyFormula: 'no baseline -- the Control Center produces Morale for this room plus bonuses that land elsewhere',
-        overrideActive: false,
-        lines: ccBreakdownLines.filter((line) => filled.some((slot) => slot.operatorName === line.operatorName)),
-        finalYellow: ccEffects.ccMoraleBonus,
-        effectiveProductivity: ccEffects.ccMoraleBonus,
-      };
-    }
-    const powerPlant = f.kind === 'powerPlant' ? computePowerPlantDroneRate(f, filled) : null;
-    const droneRate = powerPlant ? powerPlant.rate : null;
-    if (powerPlant && filled.length > 0) {
-      // building_data.powerData.basicSpeedBuff: +5% per staffed plant.
-      facilityBreakdown = {
-        filledCount: filled.length,
-        greyProductivity: 0.05 * filled.length,
-        greyFormula: '5% innate charging bonus from the plant operator, plus skill bonuses',
-        overrideActive: false,
-        lines: powerPlant.lines,
-        finalYellow: powerPlant.rate - 0.05 * filled.length,
-        effectiveProductivity: powerPlant.rate,
-      };
-    }
-
-    let office: { speed: number; ownSpeed: number; ccBonus: number; refreshHours: number } | null = null;
-    let trainingSpeed: number | null = null;
-    let trainingHours: number | null = null;
-    const recipe = workshopRecipes.find(r => r.id === workshopSettings.recipeId && r.level <= f.level) ?? workshopRecipes.find(r => r.level <= f.level)!;
-    const workshop = f.kind === 'workshop' && filled[0] && recipe ? workshopResult(filled[0].operatorName, skillsFor(filled[0], f.label), { ...workshopSettings, dormMorale: workshopSettings.overrideDormCount ? undefined : FACILITIES.filter(room => room.kind === 'dormitory' && room.level > 0).flatMap(room => (assignments[room.id] || []).flatMap(slot => slot ? [slot.morale ?? 0] : [])), recipe, dormitoryOperatorCount: dormitoryOperatorNames.size, stainlessInDorm: dormitoryHasOperator('Stainless'), intelligenceReserve: resourcePools.intelligenceReserve, ursusBeverages: totalUrsusBeverage }) : null;
-    const officeSpecialMorale: Record<string, number> = {};
-    if (f.kind === 'office') {
-      const genericOfficeDescriptions: (string | null)[] = [];
-      let specialHrSum = 0;
-      for (const slot of filled) {
-        for (const sk of skillsFor(slot, f.label)) {
-          const key = `${slot.operatorName}|${sk.name}`;
-          if (key in OFFICE_SPECIAL_SKILLS) {
-            const handler = OFFICE_SPECIAL_SKILLS[key];
-            const result = handler({
-              manualValue: slot.manualValue,
-              dormitoryCount: FACILITIES.filter((f2) => f2.kind === 'dormitory').length,
-              totalDormitoryLevels,
-              officeLevel,
-              facilitiesWithEliteOperator,
-              silverAshReignfrostInControlCenter,
-              resourceBonuses,
-              ursusSpecialtyBeverageTotal: totalUrsusBeverage,
-            });
-            if (result.hrSpeed) specialHrSum += result.hrSpeed;
-            if (result.selfMorale) {
-              officeSpecialMorale[slot.operatorName] = (officeSpecialMorale[slot.operatorName] || 0) + result.selfMorale;
-            }
-          } else {
-            genericOfficeDescriptions.push(sk.description);
-          }
-        }
-      }
-      const generic = calcOffice(genericOfficeDescriptions);
-      const ownSpeed = 0.05 * filled.length + generic.speed + specialHrSum;
-      const combinedSpeed = ownSpeed + officeHrSpeedBonusFromCC;
-      office = { speed: combinedSpeed, ownSpeed, ccBonus: officeHrSpeedBonusFromCC, refreshHours: 12 / (1 + combinedSpeed) };
-    }
-
-    if (f.kind === 'trainingRoom' && filled[0]) {
-      const trainer = filled[0];
-      const result = trainingResult(trainer.operatorName, skillsFor(trainer, f.label), {
-        target: { ...resolvedTrainingTarget, mastery: Math.min(trainingTarget.mastery, f.level) }, allPlacedNames, rosters, worldlyPlight: resourcePools.worldlyPlight,
-      }, trainingSpeedBonusFromCC);
-      trainingSpeed = result.speed;
-      trainingHours = result.hours;
-      facilityBreakdown = { filledCount: 1, greyProductivity: 1.05, greyFormula: '100% baseline + 5% from the trainer', overrideActive: false, lines: result.contributions.map(value => ({ operatorName: trainer.operatorName, skillName: value.skill.name, rawValue: value.speed, included: value.speed !== 0, reason: value.speed ? 'Applies to the selected trainee, mastery and placed group members.' : 'No speed bonus for this target; the skill may change time or Morale instead.', note: value.note })), finalYellow: result.speed - 1.05, effectiveProductivity: result.speed };
-      if (trainingSpeedBonusFromCC) facilityBreakdown.lines.push({ operatorName: '(Control Center)', skillName: null, rawValue: trainingSpeedBonusFromCC, included: true, reason: 'Strongest Control Center training bonus.' });
-      perOperatorSpecialMorale[trainer.operatorName] = result.morale;
-      for (const value of result.contributions) if (value.note) specialNotes.push({ operator: trainer.operatorName, note: value.note });
-    }
-
-    // Every facility gets morale relief from however many operators
-    // are physically in Control Center right now, on top of whatever
-    // this facility's own skills contribute. Dormitories additionally
-    // get their own dedicated relief from Control Center skills that
-    // specifically target them. This is the SHARED, room-wide portion
-    // only -- confirmed against the full uploaded skill list, the vast
-    // majority of "Morale consumed per hour +/-X" skills only affect
-    // the operator who has them, not the room, so those are tracked
-    // per-operator below instead of folded into this shared number.
-    //
-    // Control Center itself is a special case: it uses ccBaseMoraleRelief
-    // (just the base "+0.05 per CC operator" portion, unconditional on
-    // who they are) rather than the full ccMoraleRelief, since that
-    // bundles in bannerOfBabelBonus/chongyueSolitaryLightBonus -- two
-    // skill-specific bonuses documented as cross-facility effects for
-    // every OTHER facility, not meant to apply back to Control Center's
-    // own display. It also gets ccMoraleBonus added on top, a separate
-    // source (parsed from individual operators' own skill text) that
-    // only affects Control Center's own morale. Both the base relief
-    // and ccMoraleBonus stack together -- the first operator placed in
-    // Control Center should show the base relief immediately, even with
-    // no morale-related skill of their own.
-    const facilityMoraleYellowShared =
-      morale.allOperatorsYellow -
-      (f.kind === 'controlCenter' ? ccEffects.ccMoraleBonus + ccBaseMoraleRelief : ccMoraleRelief) -
-      0;
-
-    // Workshop Morale is spent per craft, never by an hourly staffing clock.
-    const combinedMoraleRate = f.kind === 'workshop' ? 0 : Math.max(0, morale.grey + facilityMoraleYellowShared);
-
-    // Always individualized per operator now -- never a single number
-    // for the whole room, since Morale almost always decreases
-    // differently per operator once any of them has their own
-    // self-only modifier (which is the common case, not an exception).
-    let perOperatorMorale: Record<string, number> | null = null;
-    if (f.kind !== 'dormitory' && f.kind !== 'workshop' && filled.length > 0) {
-      perOperatorMorale = {};
-      for (const slot of filled) {
-        const opName = slot.operatorName;
-        let selfOnly =
-          (morale.selfYellow[opName] || 0) +
-          (perOperatorSpecialMorale[opName] || 0) +
-          (officeSpecialMorale[opName] || 0) +
-          (receptionRoomSelfMorale[opName] || 0) +
-          (ccSelfMorale[opName] || 0);
-        if (f.kind === 'controlCenter' && opName !== 'Ling' && rosters.SUI.has(opName) && activeSkillKeys.has('Ling|Keep the Wine Flowing')) selfOnly = Math.max(0, selfOnly);
-        const isWaaiFuImmune = opName === 'Waai Fu';
-        const rateBeforeSelf = isWaaiFuImmune
-          ? Math.max(0, morale.grey + facilityMoraleYellowShared - morale.allOperatorsYellow)
-          : combinedMoraleRate;
-        perOperatorMorale[opName] = Math.max(0, rateBeforeSelf + selfOnly);
-      }
-    }
-
-    // Worst-case (highest-rate, i.e. first-to-die) operator's time,
-    // for the shared Full/Dead-time display alongside the per-operator
-    // Morale breakdown.
-    const worstCaseMoraleRate = perOperatorMorale
-      ? Math.max(combinedMoraleRate, ...Object.values(perOperatorMorale))
-      : combinedMoraleRate;
-    const deadTime = filled.length > 0 && f.kind !== 'workshop' ? calcDeadTime(worstCaseMoraleRate) : null;
-
-    let fullTime: number | null = null;
-    if (f.kind === 'factory' && productivity && capacity) {
-      fullTime = calcFullTime(capacity.base + capacity.adjustment, productivity.grey + productivity.yellow, factoryProducts[f.id] || null);
-    } else if (f.kind === 'tradingPost' && productivity && orderLimit) {
-      fullTime = calcTradingPostFullTime(Math.max(1, orderLimit.base + orderLimit.adjustment), productivity.grey + productivity.yellow, f.level, goldOrderTier(filled.flatMap(slot => skillsFor(slot, f.label).map(sk => ({ operatorName: slot.operatorName, skillName: cleanSkillName(sk.name) ?? '' })))), filled.some(slot => slot.operatorName === 'Closure' && skillsFor(slot, f.label).some(sk => sk.name === 'Special Orders')) ? 144 : undefined);
-      if (filled.some(slot => slot.operatorName === 'Pepe' && skillsFor(slot, f.label).some(sk => sk.name === 'Insightful'))) fullTime = Math.max(1, orderLimit.base + orderLimit.adjustment) * 4.5;
-    }
-
-    return {
-      productivity,
-      capacity,
-      orderLimit,
-      morale: { grey: morale.grey, yellow: facilityMoraleYellowShared },
-      clueSpeed,
-      clueSpeedBase,
-      droneRate,
-      office,
-      trainingSpeed,
-      trainingHours,
-      workshop,
-      combinedMoraleRate,
-      perOperatorMorale,
-      deadTime,
-      fullTime,
-      facilityBreakdown,
-      // Reception Room notes are deliberately NOT included here. They ride on
-      // their own breakdown line instead, which is what FacilityBreakdownLine's
-      // `note` field is documented for -- "shown in the breakdown panel instead
-      // of cluttering the facility tile". Ch'en the Dawnstreak's "non-numeric
-      // effect, not modeled" filled her tile with a paragraph of explanation.
-      // The Control Center has no "?" panel, so its notes stay on the tile.
-      // Control Center notes are no longer piled onto the tile either -- they
-      // ride on their own breakdown line now that the room has a panel.
-      specialNotes,
-    };
-  }
-
-  const facility = FACILITIES.find((f) => f.id === roomPanelFacilityId);
-
-  // Base-wide operator/faction data -- needed by Control Center's
-  // special handlers before its own effects can be computed.
-  const operatorByName = new Map(operators.map((o) => [o.name, o]));
-  let tradingPostOperatorCount = 0;
-  let powerPlantOperatorCount = 0;
-  let robotPowerPlantCount = 0;
-  let lancet2InPowerPlant = false;
-  const powerPlantsWithRobot = new Set<string>();
-  const powerPlantsWithLaterano = new Set<string>();
-  let greyyDawnlightPowerPlantId: string | null = null;
-  // Justice Knight's "Beep beep, activate!" Power Plant skill boosts
-  // Wild Mane's own Factory (not this Power Plant) -- tracked here so
-  // it can be applied to perFactoryProductivityBonus once that map
-  // exists further below, since this loop runs first.
-  let justiceKnightActiveInAnyPowerPlant = false;
-  let wildManeFactoryId: string | null = null;
-  const allPlacedNames: string[] = [];
-  for (const f of FACILITIES) {
-    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    if (f.kind === 'tradingPost') tradingPostOperatorCount += slots.length;
-    if (f.kind === 'powerPlant') {
-      powerPlantOperatorCount += slots.length;
-      robotPowerPlantCount += slots.filter((s) => OPERATION_PLATFORM.has(s.operatorName)).length;
-      if (slots.some((s) => OPERATION_PLATFORM.has(s.operatorName))) powerPlantsWithRobot.add(f.id);
-      if (slots.some((s) => LATERANO.has(s.operatorName))) powerPlantsWithLaterano.add(f.id);
-      if (slots.some((s) => s.operatorName === 'Lancet-2')) lancet2InPowerPlant = true;
-      const greyySlot = slots.find((s) => s.operatorName === 'Greyy the Lightningbearer');
-      if (greyySlot && skillsFor(greyySlot, f.label).some((sk) => sk.name === 'Dawnlight')) {
-        greyyDawnlightPowerPlantId = f.id;
-      }
-      const jkSlot = slots.find((s) => s.operatorName === 'Justice Knight');
-      if (jkSlot && skillsFor(jkSlot, f.label).some((sk) => sk.name === '"Beep beep, activate!"')) {
-        justiceKnightActiveInAnyPowerPlant = true;
-      }
-    }
-    if (f.kind === 'factory' && slots.some((s) => s.operatorName === 'Wild Mane')) {
-      wildManeFactoryId = f.id;
-    }
-    allPlacedNames.push(...slots.map((s) => s.operatorName));
-  }
-  if (resolvedTrainingTarget.operatorName && FACILITIES.some(f => f.kind === 'trainingRoom' && f.level > 0) && !allPlacedNames.includes(resolvedTrainingTarget.operatorName)) allPlacedNames.push(resolvedTrainingTarget.operatorName);
-  function factionCountInBase(factionName: string): number {
-    return allPlacedNames.filter((n) => operatorByName.get(n)?.faction === factionName).length;
-  }
-
-  const ccSlots = (assignments['controlCenter'] || []).filter((s): s is SlotAssignment => s !== null);
-  const ccOperatorNames = ccSlots.map((s) => s.operatorName);
-  const silverAshReignfrostInControlCenter = ccOperatorNames.includes('SilverAsh the Reignfrost');
-
-  // Training Room has exactly 1 slot in this simulator's model, so "is
-  // Logos the Trainer" and "is Logos the Training Room's occupant" are
-  // the same question here -- there's no separate trainer/trainee role
-  // distinction to model since only one operator can ever be assigned.
-  const trainingRoomSlots = (assignments['trainingRoom'] || []).filter((s): s is SlotAssignment => s !== null);
-  const logosInTrainingRoom = trainingRoomSlots.some((s) => s.operatorName === 'Logos');
-
-  // Eunectes's "I've Got This" (Control Center): if Lancet-2 is in a
-  // Power Plant, Power Plant count +2 -- explicitly the FACILITY count
-  // only, not operator/robot headcounts, so this affects every Factory
-  // skill that scales off powerPlantCount (Windflit, Eunectes's own
-  // Automation skills, Passenger, Weedy) without touching
-  // powerPlantOperatorCount/robotPowerPlantCount at all.
-  const eunectesIveGotThisActive = ccSlots.some(
-    (s) => s.operatorName === 'Eunectes' && skillsFor(s, 'Control Center').some((sk) => sk.name === "I've Got This")
-  );
-  // Greyy the Lightningbearer's "Dawnlight": +1 Power Plant (facility
-  // count only), conditional on no OTHER Power Plant containing an
-  // Operation Platform robot (her own Power Plant is excluded from that
-  // check by definition -- it's "other" Power Plants specifically).
-  const greyyDawnlightActive =
-    greyyDawnlightPowerPlantId !== null &&
-    ![...powerPlantsWithRobot].some((id) => id !== greyyDawnlightPowerPlantId);
-  const effectivePowerPlantCount =
-    FACILITIES.filter((f2) => f2.kind === 'powerPlant').length +
-    (eunectesIveGotThisActive && lancet2InPowerPlant ? 2 : 0) +
-    (greyyDawnlightActive ? 1 : 0);
-  const civilightEternaInCC = ccOperatorNames.includes('Civilight Eterna');
-
-  const dormitoryCountForCC = FACILITIES.filter((f) => f.kind === 'dormitory').length;
-
-  const tradingPostFacilities = FACILITIES.filter((f) => f.kind === 'tradingPost');
-  const tradingPostFactionCounts = tradingPostFacilities.map((f) => ({
-    facilityId: f.id,
-    operatorNames: (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null).map((s) => s.operatorName),
-  }));
-  function operatorInAnyTradingPost(name: string): { facilityId: string } | null {
-    for (const tp of tradingPostFactionCounts) {
-      if (tp.operatorNames.includes(name)) return { facilityId: tp.facilityId };
-    }
-    return null;
-  }
-  const receptionRoomOperatorNames = (assignments['receptionRoom'] || [])
-    .filter((s): s is SlotAssignment => s !== null)
-    .map((s) => s.operatorName);
-  function reineInReceptionRoom(name: string): boolean {
-    return receptionRoomOperatorNames.includes(name);
-  }
-
-  let blacksteelWorldwideCountInFactories = 0;
-  const blacksteelWorldwideFactoryCounts: { factoryId: string; count: number }[] = [];
-  const pinusSylvestrisFactoryAssignments: { factoryId: string; product: 'Battle Records' | 'Precious Metals' | null }[] = [];
-  const abyssalHunterFactoryCounts: { factoryId: string; count: number }[] = [];
-  let abyssalHunterTotalInFactories = 0; // base-wide total across every Factory -- Gladiia's Group Hunting bonus scales each Factory's boost by BOTH how many AH are in that specific Factory AND how many exist base-wide, confirmed by the user's own worked examples
-  const factoriesWithKnight: { facilityId: string; knightCount: number; totalFilled: number }[] = [];
-  for (const f of FACILITIES) {
-    if (f.kind !== 'factory') continue;
-    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    const ahHere = slots.filter((s) => ABYSSAL_HUNTERS.has(s.operatorName)).length;
-    if (ahHere > 0) abyssalHunterFactoryCounts.push({ factoryId: f.id, count: ahHere });
-    abyssalHunterTotalInFactories += ahHere;
-    const knightCount = slots.filter((s) => KNIGHTS.has(s.operatorName)).length;
-    if (knightCount > 0) factoriesWithKnight.push({ facilityId: f.id, knightCount, totalFilled: slots.length });
-    const bswHere = slots.filter((s) => BLACKSTEEL_WORLDWIDE.has(s.operatorName)).length;
-    if (bswHere > 0) blacksteelWorldwideFactoryCounts.push({ factoryId: f.id, count: bswHere });
-    for (const s of slots) {
-      if (BLACKSTEEL_WORLDWIDE.has(s.operatorName)) blacksteelWorldwideCountInFactories += 1;
-      if (PINUS_SYLVESTRIS.has(s.operatorName)) {
-        pinusSylvestrisFactoryAssignments.push({ factoryId: f.id, product: (factoryProducts[f.id] as 'Battle Records' | 'Precious Metals' | undefined) || null });
-      }
-    }
-  }
-
-  // Preliminary Office HR speed (generic + Office special skills, minus
-  // anything that itself depends on Control Center) -- computed early
-  // because Saileach's Control Center skill needs this value.
-  // Base-wide resource pools -- computed once, early, since both Office
-  // and Control Center handlers need the final values. Self-contained
-  // (doesn't depend on dormitoryOperatorNames/facilitiesWithSuiOperator,
-  // which are computed later in this function for other purposes) so it
-  // doesn't need to wait on those.
-  const activeSkillKeys = new Set<string>();
-  let earlyDormitoryOperatorCount = 0;
-  let earlySuiFacilityCount = 0;
-  let earlySuiHeadcountNonDorm = 0;
-  let abyssalHuntersRestingInDormitories = 0;
-  let abyssalHuntersRestingAtFullMorale = 0;
-  let abyssalHuntersInNonDormFacilities = 0;
-  let totalMonsterMeal = 0;
-  // Base-wide headcounts for Eyjafjalla's and Yu's Dormitory skills.
-  // Real text excludes "Assistants and Activity Room users" -- confirmed
-  // not needed for this base setup (no Assistants/Activity Room usage),
-  // so this counts every placed operator matching the roster directly.
-  let wanderingMedicCountBaseWide = 0;
-  let suiCountBaseWide = 0;
-  let virtuosaRoomOperatorCount = 0;
-  for (const f of FACILITIES) {
-    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    for (const slot of slots) {
-      for (const sk of skillsFor(slot, f.label)) {
-        activeSkillKeys.add(`${slot.operatorName}|${sk.name}`);
-      }
-      if (WANDERING_MEDIC.has(slot.operatorName)) wanderingMedicCountBaseWide++;
-      if (SUI.has(slot.operatorName)) suiCountBaseWide++;
-    }
-    const trainee = f.kind === 'trainingRoom' && f.level > 0 && resolvedTrainingTarget.operatorName && !slots.some(s => s.operatorName === resolvedTrainingTarget.operatorName) ? resolvedTrainingTarget.operatorName : '';
-    if (trainee && WANDERING_MEDIC.has(trainee)) wanderingMedicCountBaseWide++;
-    if (trainee && SUI.has(trainee)) suiCountBaseWide++;
-    const abyssalHere = slots.filter((s) => ABYSSAL_HUNTERS.has(s.operatorName)).length + (trainee && ABYSSAL_HUNTERS.has(trainee) ? 1 : 0);
-    if (f.kind === 'dormitory') {
-      earlyDormitoryOperatorCount += slots.length;
-      abyssalHuntersRestingInDormitories += abyssalHere;
-      abyssalHuntersRestingAtFullMorale += slots.filter(s => rosters.ABYSSAL_HUNTERS.has(s.operatorName) && (s.morale ?? 0) >= 24).length;
-      // Senshi's Diner: "provide 1 Monster Meal for every level of the
-      // current Dormitory" -- Dormitories are confirmed Level 5, so
-      // each Senshi placement generates 5.
-      // Virtuosa's Soundless Resonance: "for every 1 Operator in that
-      // Dormitory, Soundless Resonance +1" -- scales with HER OWN room's
-      // size specifically, not the base-wide Dormitory total.
-      for (const slot of slots) {
-        if (slot.operatorName === 'Senshi' && skillsFor(slot, f.label).some((sk) => sk.name === "Senshi's Diner")) {
-          // "for every level of the current Dormitory" -- the level of the
-          // Dormitory he is actually standing in, which is user-settable. This
-          // was hardcoded to 5 on the assumption that every Dormitory is max
-          // level; in a Level 2 Dormitory he generates 2, so Laios read 155%
-          // (5 meals) where he should read 149% (2 meals x 2% each).
-          totalMonsterMeal += f.level;
-        }
-        if (slot.operatorName === 'Virtuosa' && skillsFor(slot, f.label).some((sk) => sk.name === 'Soundless Resonance')) {
-          virtuosaRoomOperatorCount = slots.length;
-        }
-      }
-      continue;
-    }
-    abyssalHuntersInNonDormFacilities += abyssalHere;
-    const suiHere = slots.filter((s) => SUI.has(s.operatorName)).length + (trainee && SUI.has(trainee) ? 1 : 0);
-    if (suiHere > 0) earlySuiFacilityCount += 1;
-    earlySuiHeadcountNonDorm += suiHere;
-  }
-  const teamRainbowOperatorsInCC = ccOperatorNames.filter((n) => TEAM_RAINBOW.has(n)).length;
-  const blacksteelWorldwideCountInBase = allPlacedNames.filter((n) => BLACKSTEEL_WORLDWIDE.has(n)).length;
-  // Nasti's own skill counts herself toward her 3% scale, so this is a
-  // plain whole-base count with no exclusion. Muelsyse's separate
-  // "other Rhine Lab" count (excluding herself) is computed per-Power-
-  // Plant where it's actually consumed, since it needs to know which
-  // specific operator is asking.
-  const rhineLabCountInBase = allPlacedNames.filter((n) => RHINE_LAB.has(n)).length;
-
-  // Gladiia's Group Hunting -- confirmed mechanic: 5%/10% productivity
-  // per Abyssal Hunter in Factories (base-wide count), capping at
-  // Waai Fu's Cooperative Will needs to know whether Gladiia's Group
-  // Hunting is active (it gets overridden when it is) -- the NUMERIC
-  // bonus itself is applied entirely through controlCenterSpecialSkills.ts's
-  // perFactoryProductivity mechanism now, not duplicated here (that
-  // duplication was the actual bug: this used to ALSO compute and apply
-  // its own separate copy of the same bonus, using the older, simpler
-  // per-factory-only formula, stacking on top of the newer, correctly
-  // base-wide-scaled one).
-  const gladiiaGroupHuntingActiveInCC = ccOperatorNames.includes('Gladiia');
-  // Prelim pass, mirroring the Office prelim pattern above: runs every
-  // Control Center handler once early, using placeholder values for
-  // fields that genuinely can't be known yet (resourceBonuses,
-  // officeHrSpeedPercent) since only a couple of handlers even read
-  // those for their own Morale output -- an accepted, minor
-  // approximation, same tradeoff already made for Office's own prelim
-  // pass. Purpose: derive each Control Center operator's own Morale
-  // rate, then the facility-wide window (time until the first operator
-  // hits 0), then for Ling/Dusk specifically, what fraction of that
-  // window they spend above vs below 12 Morale -- confirmed by the
-  // user: operators start at full Morale and are simply left in place
-  // until the first one runs out.
-  const emptyResourcePoolsForPrelim: ResourcePools = {
-    passion: 0,
-    worldlyPlight: 0,
-    soundlessResonance: 0,
-    perceptionInformation: 0,
-    intelligenceReserve: 0,
-    memoryFragments: 0,
-    witchcraftCrystal: 0,
-    chainOfThought: 0,
-    measure: 0,
-    dreamland: 0,
-  };
-  let prelimCcMoraleBonus = 0;
-  const prelimCcSelfMorale: Record<string, number> = {};
-  for (const slot of ccSlots) {
-    for (const sk of skillsFor(slot, 'Control Center')) {
-      const key = `${slot.operatorName}|${sk.name}`;
-      const handler = CONTROL_CENTER_SPECIAL_SKILLS[key];
-      if (!handler) continue;
-      const result = handler({
-        rosters,
-        manualValue: slot.manualValue,
-        ccOperatorNames,
-        // Wang's Expedience compares Factories against Power Plants +
-        // Trading Posts, which is the player's own layout now.
-        ...layoutCounts,
-        operatorFaction: (name) => operatorByName.get(name)?.faction || null,
-        tradingPostFactionCounts,
-        reineInReceptionRoom,
-        operatorInAnyTradingPost,
-        blacksteelWorldwideCountInFactories,
-        blacksteelWorldwideFactoryCounts,
-        pinusSylvestrisFactoryAssignments,
-        abyssalHunterFactoryCounts,
-        abyssalHunterTotalInFactories,
-        factoriesWithKnight,
-        powerPlantOperatorCount,
-        robotPowerPlantCount,
-        officeHrSpeedPercent: 0, // not yet known at this point -- only Saileach reads this, and her skill doesn't affect Morale at all
-        civilightEternaInCC,
-        resourcePools: emptyResourcePoolsForPrelim,
-        resourceBonuses: {},
-        activeSkillKeys,
-        abyssalHuntersInNonDormFacilities,
-        abyssalHuntersRestingInDormitories,
-        abyssalHuntersRestingAtFullMorale,
-        eliteLevel: slot.eliteLevel,
-        allPlacedNames,
-      });
-      if (result.ccMoraleBonus) prelimCcMoraleBonus += result.ccMoraleBonus;
-      if (result.selfMorale) {
-        prelimCcSelfMorale[slot.operatorName] = (prelimCcSelfMorale[slot.operatorName] || 0) + result.selfMorale;
-      }
-      if (result.targetedMoraleEffect) {
-        const { targetName, amount } = result.targetedMoraleEffect;
-        prelimCcSelfMorale[targetName] = (prelimCcSelfMorale[targetName] || 0) + amount;
-      }
-      if (result.targetedMoraleEffects) {
-        for (const { targetName, amount } of result.targetedMoraleEffects) {
-          prelimCcSelfMorale[targetName] = (prelimCcSelfMorale[targetName] || 0) + amount;
-        }
-      }
-    }
-  }
-  const prelimCcGreyRate = ccSlots.length > 0 ? Math.max(0, 1 - 0.05 * (ccSlots.length - 1)) : 0;
-  // Manual setting instead of a calculated fraction -- confirmed by the
-  // user: the real trigger depends on how the whole day actually plays
-  // out, which this steady-state simulator can't track, so it's a
-  // direct on/off choice instead. Defaults to "above 12".
-  const lingFractionAbove12 = moraleAbove12 ? 1 : 0;
-  const duskFractionAbove12 = moraleAbove12 ? 1 : 0;
-
-  const officeLevel = FACILITIES.find(room => room.kind === 'office')?.level ?? 0;
-  const dormLevelFor = (name: string) => FACILITIES.find(room => room.kind === 'dormitory' && assignments[room.id]?.some(slot => slot?.operatorName === name))?.level ?? 0;
-  const resourceState: BaseResourceState = {
-    officeLevel,
-    czernyDormitoryLevel: dormLevelFor('Czerny'),
-    irisDormitoryLevel: dormLevelFor('Iris'),
-    // Wang's Expedience weighs Factories against Power Plants + Trading
-    // Posts, so it needs the layout the player actually built.
-    ...layoutCounts,
-    dormitoryOperatorCount: earlyDormitoryOperatorCount,
-    suiOperatorsInNonDormFacilities: earlySuiHeadcountNonDorm,
-    suiOperatorFacilityCount: earlySuiFacilityCount,
-    teamRainbowOperatorsInCC,
-    // Assumes full Morale at the start of a freshly-placed 24h cycle --
-    // this calculator computes a steady-state snapshot rather than a true
-    // minute-by-minute simulation, so morale-threshold skills (Dusk,
-    // Ling) are evaluated at this single starting condition rather than
-    // tracking how morale actually depletes over the day.
-    selfMorale: 24,
-    lingFractionAbove12,
-    duskFractionAbove12,
-    virtuosaRoomOperatorCount,
-  };
-  const resourcePools = computeResourcePools(resourceState, activeSkillKeys);
-  const resourceBonuses = consumerBonuses(resourceState, resourcePools);
-
-  let facilitiesWithSuiOperator = 0;
-  let facilitiesWithEliteOperator = 0;
-  for (const f of FACILITIES) {
-    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    if (f.kind !== 'dormitory' && (slots.some((s) => rosters.SUI.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && resolvedTrainingTarget.operatorName && rosters.SUI.has(resolvedTrainingTarget.operatorName))) facilitiesWithSuiOperator += 1;
-    if (slots.some((s) => ELITE_OPERATOR.has(s.operatorName)) || f.kind === 'trainingRoom' && f.level > 0 && resolvedTrainingTarget.operatorName && ELITE_OPERATOR.has(resolvedTrainingTarget.operatorName)) facilitiesWithEliteOperator += 1;
-  }
-
-  const officeSlotsForPrelim = (assignments['office'] || []).filter((s): s is SlotAssignment => s !== null);
-  let prelimOfficeSpecialHr = 0;
-  let officeReceptionRoomBonus = 0;
-  const prelimOfficeGeneric: (string | null)[] = [];
-  for (const slot of officeSlotsForPrelim) {
-    for (const sk of skillsFor(slot, 'Office')) {
-      const handler = OFFICE_SPECIAL_SKILLS[`${slot.operatorName}|${sk.name}`];
-      if (handler) {
-        const result = handler({
-          manualValue: slot.manualValue,
-          dormitoryCount: dormitoryCountForCC,
-          totalDormitoryLevels,
-          officeLevel,
-          facilitiesWithEliteOperator,
-          silverAshReignfrostInControlCenter,
-          resourceBonuses,
-          ursusSpecialtyBeverageTotal: 0, // Control Center processing (where this is actually generated) hasn't run yet at this point -- only feeds Saileach's threshold check, not Blitz's own final HR speed
-        });
-        if (result.hrSpeed) prelimOfficeSpecialHr += result.hrSpeed;
-        if (result.receptionRoomClueSpeed) officeReceptionRoomBonus += result.receptionRoomClueSpeed;
-      } else {
-        prelimOfficeGeneric.push(sk.description);
-      }
-    }
-  }
-  const officeHrSpeedPercent = (calcOffice(prelimOfficeGeneric).speed + prelimOfficeSpecialHr) * 100;
-
-  // Control Center's cross-facility effects, computed once here since
-  // every other facility's calculation needs it.
-  const ccDescriptions = ccSlots.flatMap((s) =>
-    skillsFor(s, 'Control Center')
-      .filter((sk) => !(`${s.operatorName}|${sk.name}` in CONTROL_CENTER_SPECIAL_SKILLS))
-      .map((sk) => sk.description)
-  );
-  let ccEffects: ControlCenterEffects = calcControlCenterEffects(ccDescriptions);
-  // Who actually won the highest-only Clue Collection pool. calcControlCenterEffects
-  // returns the value but not the source, and the Reception Room's breakdown was
-  // labelling it "(Control Center) (generic)" -- true, but useless when Civilight
-  // Eterna's +15% and Wiš'adel's +5% are both in play and only one of them is the
-  // one being reported. Tracked over the same generic skills the pool is built
-  // from; a special-cased candidate overwrites it below, where the source is known.
-  let clueCollectionSource: { operatorName: string; skillName: string | null } | null = null;
-  for (const slot of ccSlots) {
-    for (const sk of skillsFor(slot, 'Control Center')) {
-      if (`${slot.operatorName}|${sk.name}` in CONTROL_CENTER_SPECIAL_SKILLS) continue;
-      if (Math.abs(clueCollectionBonusFrom(sk.description)) === Math.abs(ccEffects.clueCollectionBonus)
-          && ccEffects.clueCollectionBonus !== 0 && !clueCollectionSource) {
-        clueCollectionSource = { operatorName: slot.operatorName, skillName: sk.name };
-      }
-    }
-  }
-  const wisAdelBannerOfBabelActive = ccSlots.some(
-    (s) => s.operatorName === "Wiš'adel" && skillsFor(s, 'Control Center').some((sk) => sk.name === 'Banner of Babel')
-  );
-  const bannerOfBabelBonus = wisAdelBannerOfBabelActive ? (civilightEternaInCC ? 0.2 : 0.1) : 0;
-  const chongyueSolitaryLightActive = ccSlots.some(
-    (s) => s.operatorName === 'Chongyue' && skillsFor(s, 'Control Center').some((sk) => sk.name === 'Solitary Light')
-  );
-  const chongyueSolitaryLightBonus = chongyueSolitaryLightActive
-    ? 0.05 + (resourceBonuses['Chongyue|Solitary Light|morale_recovery_bonus'] ?? 0)
-    : 0;
-  // The base "each CC operator provides +0.05 relief" portion,
-  // unconditional on who they are -- kept separate from the full
-  // ccMoraleRelief below, since that bundles in bannerOfBabelBonus and
-  // chongyueSolitaryLightBonus, which are specifically cross-facility
-  // effects for every OTHER facility (see the comment above where
-  // they're computed), not meant to apply back to Control Center's own
-  // display.
-  const ccBaseMoraleRelief = calcControlCenterMoraleRelief(ccSlots.length);
-  const ccActiveSkillNames = ccSlots.flatMap(s => skillsFor(s, 'Control Center').map(sk => (sk.name ?? '').split('Replaces')[0].trim()));
-  const mlynarActive = ccActiveSkillNames.includes('Business Is Business');
-  const ccMoraleRelief = ccBaseMoraleRelief + crossFacilityMoraleRelief('factory', bannerOfBabelBonus, chongyueSolitaryLightBonus, mlynarActive, ccActiveSkillNames);
-
-  let ccDormitoryAllOperatorsRelief = 0; // highest-only among "all Operators in Dormitories" effects (Kestrel, Nymph, Reed the Flame Shadow)
-  let ccDormitoryEliteOperatorsRelief = 0; // highest-only among "all Elite Operators in Dormitories" effects (Raidian) -- a separate type, doesn't compete with the above
-  let officeHrSpeedBonusFromCC = 0;
-  let trainingSpeedBonusFromCC = 0; // highest-only among Ascalon/Blaze the Igniting Spark/Hoshiguma the Breacher, all confirmed "strongest effect of this type"
-  let factoryPreciousMetalBonusFromCC = 0;
-  let receptionRoomClueSpeedFromCC = 0;
-  const receptionRoomClueSpeedSources: { operatorName: string; skillName: string | null; amount: number }[] = [];
-  const perTradingPostBonus = new Map<string, number>();
-  const perTradingPostOrderLimitBonus = new Map<string, number>();
-  const perFactoryProductivityBonus = new Map<string, number>();
-  // Who each of those per-Factory amounts came from. The map above is a bare
-  // total, which is fine for the arithmetic but leaves the Factory's "?" panel
-  // unable to name Viviana, Flametail or Justice Knight -- and an unexplained
-  // gap between the panel and the tile is exactly how a wrong number hides.
-  const perFactoryProductivitySources = new Map<string, { operatorName: string; skillName: string | null; amount: number }[]>();
-  function addPerFactoryProductivity(facilityId: string, amount: number, operatorName: string, skillName: string | null) {
-    perFactoryProductivityBonus.set(facilityId, (perFactoryProductivityBonus.get(facilityId) || 0) + amount);
-    perFactoryProductivitySources.set(facilityId, [
-      ...(perFactoryProductivitySources.get(facilityId) || []),
-      { operatorName, skillName, amount },
-    ]);
-  }
-  // Justice Knight's "Beep beep, activate!" cross-facility bonus, tracked
-  // earlier -- was computed in powerPlantSpecialSkills.ts but never
-  // actually applied anywhere until now.
-  if (justiceKnightActiveInAnyPowerPlant && wildManeFactoryId) {
-    addPerFactoryProductivity(wildManeFactoryId, 0.05, 'Justice Knight', '"Beep beep, activate!"');
-  }
-  // Per-skill attribution for the Control Center's own breakdown panel. The
-  // aggregates in ccEffects say what the room produces but not who produced it,
-  // and without a panel the Control Center had nowhere to show any of this --
-  // which is why its skills' notes were being printed onto the facility tile
-  // instead, filling the card with paragraphs.
-  const ccBreakdownLines: FacilityBreakdownLine[] = [];
-  let totalFelvine = 0;
-  let totalUrsusBeverage = 0;
-  const ccSelfMorale: Record<string, number> = {};
-
-  for (const slot of ccSlots) {
-    for (const sk of skillsFor(slot, 'Control Center')) {
-      const handler = CONTROL_CENTER_SPECIAL_SKILLS[`${slot.operatorName}|${sk.name}`];
-      if (!handler) continue;
-      const result = handler({
-        rosters,
-        manualValue: slot.manualValue,
-        ccOperatorNames,
-        // Wang's Expedience compares Factories against Power Plants +
-        // Trading Posts, which is the player's own layout now.
-        ...layoutCounts,
-        operatorFaction: (name) => operatorByName.get(name)?.faction || null,
-        tradingPostFactionCounts,
-        reineInReceptionRoom,
-        operatorInAnyTradingPost,
-        blacksteelWorldwideCountInFactories,
-        blacksteelWorldwideFactoryCounts,
-        pinusSylvestrisFactoryAssignments,
-        abyssalHunterFactoryCounts,
-        abyssalHunterTotalInFactories,
-        factoriesWithKnight,
-        powerPlantOperatorCount,
-        robotPowerPlantCount,
-        officeHrSpeedPercent,
-        civilightEternaInCC,
-        resourcePools,
-        resourceBonuses,
-        activeSkillKeys,
-        abyssalHuntersInNonDormFacilities,
-        abyssalHuntersRestingInDormitories,
-        abyssalHuntersRestingAtFullMorale,
-        eliteLevel: slot.eliteLevel,
-        allPlacedNames,
-      });
-      if (result.ccMoraleBonus) ccEffects = { ...ccEffects, ccMoraleBonus: ccEffects.ccMoraleBonus + result.ccMoraleBonus };
-      if (result.tradingPostBonusCandidate && Math.abs(result.tradingPostBonusCandidate) > Math.abs(ccEffects.tradingPostBonus)) {
-        ccEffects = { ...ccEffects, tradingPostBonus: result.tradingPostBonusCandidate };
-      }
-      if (result.factoryBonusCandidate && Math.abs(result.factoryBonusCandidate) > Math.abs(ccEffects.factoryBonus)) {
-        ccEffects = { ...ccEffects, factoryBonus: result.factoryBonusCandidate };
-      }
-      if (result.clueCollectionBonusCandidate && Math.abs(result.clueCollectionBonusCandidate) > Math.abs(ccEffects.clueCollectionBonus)) {
-        ccEffects = { ...ccEffects, clueCollectionBonus: result.clueCollectionBonusCandidate };
-        clueCollectionSource = { operatorName: slot.operatorName, skillName: sk.name };
-      }
-      if (result.dormitoryMoraleRelief) ccDormitoryAllOperatorsRelief = Math.max(ccDormitoryAllOperatorsRelief, result.dormitoryMoraleRelief);
-      if (result.dormitoryEliteOperatorsRelief) ccDormitoryEliteOperatorsRelief = Math.max(ccDormitoryEliteOperatorsRelief, result.dormitoryEliteOperatorsRelief);
-      if (result.officeHrSpeedBonus) officeHrSpeedBonusFromCC += result.officeHrSpeedBonus;
-      if (result.trainingSpeedBonus) trainingSpeedBonusFromCC = Math.max(trainingSpeedBonusFromCC, result.trainingSpeedBonus);
-      if (result.factoryPreciousMetalBonusFromCC) factoryPreciousMetalBonusFromCC += result.factoryPreciousMetalBonusFromCC;
-      if (result.receptionRoomClueSpeedFromCC) {
-        receptionRoomClueSpeedFromCC += result.receptionRoomClueSpeedFromCC;
-        receptionRoomClueSpeedSources.push({ operatorName: slot.operatorName, skillName: sk.name, amount: result.receptionRoomClueSpeedFromCC });
-      }
-      if (result.perTradingPostOrderEfficiency) {
-        for (const { facilityId, amount } of result.perTradingPostOrderEfficiency) {
-          perTradingPostBonus.set(facilityId, (perTradingPostBonus.get(facilityId) || 0) + amount);
-        }
-      }
-      if (result.perTradingPostOrderLimit) {
-        for (const { facilityId, amount } of result.perTradingPostOrderLimit) {
-          perTradingPostOrderLimitBonus.set(facilityId, (perTradingPostOrderLimitBonus.get(facilityId) || 0) + amount);
-        }
-      }
-      if (result.perFactoryProductivity) {
-        for (const { facilityId, amount } of result.perFactoryProductivity) {
-          addPerFactoryProductivity(facilityId, amount, slot.operatorName, sk.name);
-        }
-      }
-      // One line per skill, carrying whatever it contributed. Morale is the
-      // Control Center's own output; everything else it produces lands in other
-      // facilities, so those are reported as 0 here with the note saying where
-      // to look, rather than being silently absent.
-      {
-        const landsElsewhere = [
-          result.tradingPostBonusCandidate !== undefined && 'Trading Post order efficiency',
-          result.factoryBonusCandidate !== undefined && 'Factory productivity',
-          result.clueCollectionBonusCandidate !== undefined && 'Reception Room clue speed',
-          result.receptionRoomClueSpeedFromCC !== undefined && 'Reception Room clue speed',
-          result.perFactoryProductivity?.length && 'a specific Factory',
-          result.perTradingPostOrderEfficiency?.length && 'a specific Trading Post',
-          result.perTradingPostOrderLimit?.length && 'a specific Trading Post order limit',
-          result.officeHrSpeedBonus !== undefined && 'Office HR speed',
-          result.factoryPreciousMetalBonusFromCC !== undefined && 'Factory Precious Metal productivity',
-          result.dormitoryMoraleRelief !== undefined && 'Dormitory morale',
-          result.trainingSpeedBonus !== undefined && 'Training Room speed',
-        ].filter(Boolean) as string[];
-        const morale = result.ccMoraleBonus ?? 0;
-        if (morale !== 0 || landsElsewhere.length > 0 || result.note) {
-          ccBreakdownLines.push({
-            operatorName: slot.operatorName,
-            skillName: sk.name,
-            rawValue: morale,
-            included: morale !== 0,
-            reason: morale !== 0
-              ? 'Morale per hour for everyone in the Control Center -- these stack rather than competing.'
-              : landsElsewhere.length > 0
-                ? `Contributes nothing to this room; it lands in ${landsElsewhere.join(', ')}.`
-                : 'No numeric effect on this room.',
-            note: result.note,
-          });
-        }
-      }
-      if (result.felvine) totalFelvine += result.felvine;
-      if (result.ursusSpecialtyBeverage) totalUrsusBeverage += result.ursusSpecialtyBeverage;
-      if (result.selfMorale) {
-        ccSelfMorale[slot.operatorName] = (ccSelfMorale[slot.operatorName] || 0) + result.selfMorale;
-      }
-      if (result.targetedMoraleEffect) {
-        const { targetName, amount } = result.targetedMoraleEffect;
-        ccSelfMorale[targetName] = (ccSelfMorale[targetName] || 0) + amount;
-      }
-      if (result.targetedMoraleEffects) {
-        for (const { targetName, amount } of result.targetedMoraleEffects) {
-          ccSelfMorale[targetName] = (ccSelfMorale[targetName] || 0) + amount;
-        }
-      }
-    }
-  }
-  const dormitoryCount = FACILITIES.filter((f) => f.kind === 'dormitory').length;
-  const dormitoryOperatorNames = new Set<string>();
-  for (const f of FACILITIES) {
-    if (f.kind !== 'dormitory') continue;
-    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    slots.forEach((s) => dormitoryOperatorNames.add(s.operatorName));
-  }
-  function dormitoryHasOperator(name: string): boolean {
-    return dormitoryOperatorNames.has(name);
-  }
-
-  const dormitoryRecoveryByFacility: Record<string, { name: string; base: number; bonus: number }[]> = {};
-  for (const f of FACILITIES) {
-    if (f.kind !== 'dormitory') continue;
-    const slots = (assignments[f.id] || []).filter((s): s is SlotAssignment => s !== null);
-    const roomNames = slots.map((s2) => s2.operatorName);
-    const moraleByOperator = Object.fromEntries(slots.map(s => [s.operatorName, s.morale ?? 0]));
-    // This specific Dormitory's own base recovery rate -- depends on ITS
-    // level and ITS ambience (player-set, or defaulted to fully-furnished
-    // for that level if never touched), not a single base-wide constant.
-    const thisRoomBaseRecovery = calcDormitoryRecovery(f.level, dormitoryAmbience[f.id] ?? defaultDormitoryAmbience(f.level));
-
-    // First pass: what does each operator's own skill contribute --
-    // to themselves, to everyone (self included), to everyone else, and
-    // to one specific other operator (single-target skills).
-    const perSlotResults = slots.map((s) => {
-      let selfBonus = 0;
-      let allOperatorsBonus = 0;
-      let allOthersBonus = 0;
-      let singleTargetBonus = 0;
-      let exclusiveRecovery: number | undefined;
-      let conditionalGroupBonus: { below: number; amount: number } | undefined;
-      let distributedBonus: { recipients: string[]; amount: number } | undefined;
-      // Leftmost OTHER operator in the room (confirmed tie-break, since
-      // every operator is assumed to start at full Morale when placed --
-      // everyone's tied for lowest, so the leftmost one wins) -- UNLESS
-      // this operator has a confirmed preferred target who's actually
-      // present in the room, which takes precedence over the tiebreak
-      // entirely (e.g. Schwarz always targets Ceylon if she's there).
-      const preferredTarget = DORMITORY_PREFERRED_TARGET[s.operatorName];
-      const targetIfSelected =
-        (preferredTarget && roomNames.includes(preferredTarget) && moraleByOperator[preferredTarget] < 24 ? preferredTarget : null) ??
-        roomNames.filter(n => n !== s.operatorName && moraleByOperator[n] < 24).sort((a, b) => moraleByOperator[a] - moraleByOperator[b])[0] ??
-        null;
-      for (const sk of skillsFor(s, 'Dormitory')) {
-        const handler = DORMITORY_SPECIAL_SKILLS[`${s.operatorName}|${sk.name}`];
-        if (!handler) {
-          const text = sk.description ?? '';
-          const value = Number(text.match(/(?:restores?|recover(?:s|y))[^+]*[+]?(\d+(?:\.\d+)?)/i)?.[1] ?? 0);
-          if (/all (?:other )?operators/i.test(text)) allOperatorsBonus += value; else selfBonus += value;
-          continue;
-        }
-        const result = handler({
-          rosters,
-          manualValue: s.manualValue,
-          sameRoomOperatorNames: roomNames,
-          moraleByOperator,
-          filledCountThisRoom: slots.length,
-          // The player sets each Dormitory's own level now, so read this
-          // room's rather than assuming every Dormitory is maxed.
-          dormitoryLevel: f.level,
-          officeLevel,
-          targetIfSelected,
-          wanderingMedicCountBaseWide,
-          suiCountBaseWide,
-          soundlessResonanceTotal: resourcePools.soundlessResonance,
-          powerPlantCount: layoutCounts.powerPlantCount, // Lumen's Glimmering Glow scales off it
-        });
-        if (result.exclusiveRecovery !== undefined) exclusiveRecovery = result.exclusiveRecovery;
-        if (result.conditionalGroupBonus) conditionalGroupBonus = result.conditionalGroupBonus;
-        if (result.distributedBonus) distributedBonus = result.distributedBonus;
-        selfBonus += result.selfMoraleRecovery || 0;
-        allOperatorsBonus += result.allOperatorsBonus || 0;
-        allOthersBonus += result.allOthersBonus || 0;
-        singleTargetBonus += result.singleTargetBonus || 0;
-      }
-      return { name: s.operatorName, selfBonus, allOperatorsBonus, allOthersBonus, singleTargetBonus, targetIfSelected, exclusiveRecovery, conditionalGroupBonus, distributedBonus };
-    });
-
-    dormitoryRecoveryByFacility[f.id] = dormitoryRecoveryRates(perSlotResults, thisRoomBaseRecovery, rosters, moraleByOperator, slots.some(s => s.operatorName === 'Morgan' && skillsFor(s, 'Dormitory').some(sk => sk.name === 'No.1 Practice Partner')), ccDormitoryAllOperatorsRelief, ccDormitoryEliteOperatorsRelief);
-  }
-
-  const distinctFactoryProductCount = new Set(Object.values(factoryProducts).filter(Boolean)).size;
-  const baseGoldLineCount = pureGoldProductionLineCount(Object.values(factoryProducts));
-  const kiraraGoldLineBonus = activeSkillKeys.has('Kirara|Order Flow Visualization α')
-    ? Math.floor(baseGoldLineCount / 4) * 2
-    : activeSkillKeys.has('Kirara|Order Flow Visualization β')
-    ? Math.floor(baseGoldLineCount / 2) * 2
-    : 0;
-  const pozemkaGoldLineBonus = activeSkillKeys.has('Pozëmka|Zeruertza Resident')
-    ? Math.min(4, allPlacedNames.filter((n) => DURIN.has(n)).length)
-    : 0;
-  const effectiveGoldLineCount = baseGoldLineCount + kiraraGoldLineBonus + pozemkaGoldLineBonus;
-  const ulpianusInBase = allPlacedNames.includes('Ulpianus');
-
-
-  // Base-wide aggregates, computed across every facility, not just the
-  // currently-open one. Tracked as Green/Red pairs: Green is the
-  // REALISTIC daily average given the player's actual chosen login
-  // interval -- if a Trading Post or Factory hits full capacity (or
-  // its operators run dry) before the player is due back, it sits idle
-  // doing nothing until the next check-in, wasting that time. Red is
-  // the IDEAL daily average assuming the player always collects the
-  // instant a room caps out, so it's never idle -- always >= Green,
-  // and exactly equal to it whenever loginInterval is short enough
-  // that the room never actually caps before they return anyway.
-  let dailyExpGreen = 0;
-  let dailyExpRed = 0;
-  let dailyGoldMadeGreen = 0; // Factory (Precious Metals) production -- not yet sold
-  let dailyGoldMadeRed = 0;
-  let dailyGoldSoldGreen = 0; // Trading Post's random gold spawns -- this is what actually becomes LMD
-  let dailyGoldFromProvisoGreen = 0; // Proviso's own slice of the gold above -- isolated for display, not a separate pool
-  let dailyGoldFromProvisoRed = 0;
-  let dailyGoldSoldRed = 0;
-  let dailyExtraLmdFromOrdersGreen = 0;
-  let dailyExtraLmdFromOrdersRed = 0;
-  let dailyLmdFromPepeGreen = 0; // Pepe's Special Exclusive Orders -- a completely separate mechanic, no gold bar at all, fixed 270min/order regardless of any efficiency modifier
-  let dailyLmdFromPepeRed = 0;
-
-  for (const f of FACILITIES) {
-    if (f.capacity <= 0) continue;
-    const { productivity, deadTime, fullTime } = productivityFor(f, ccEffects, ccMoraleRelief);
-    // capHours: whichever comes first -- running out of storage
-    // capacity (fullTime) or running out of operator energy (deadTime)
-    // -- is when this room actually stops producing until someone
-    // collects/reassigns it. null means neither applies (never stops).
-    const capHours = fullTime !== null && deadTime !== null ? Math.min(fullTime, deadTime) : fullTime !== null ? fullTime : deadTime;
-    const cyclesPerDay = 24 / loginInterval;
-    // Realistic: each login cycle only produces for min(capHours,
-    // loginInterval) hours -- if the room caps before the player is
-    // due back, the rest of that cycle is wasted. Ideal: always
-    // exactly 24 (== 24/24), since perfect on-time collection means
-    // the room is never actually idle.
-    const realisticFraction = capHours !== null ? (Math.min(capHours, loginInterval) * cyclesPerDay) / 24 : 1;
-    const idealFraction = 1;
-
-    if (f.kind === 'factory' && productivity) {
-      const product = factoryProducts[f.id];
-      const effectiveProductivity = productivity.grey + productivity.yellow;
-      if (product === 'Battle Records') {
-        const perDay = calcDailyProduction(effectiveProductivity, 'Battle Records') * 1000;
-        dailyExpGreen += perDay * realisticFraction;
-        dailyExpRed += perDay * idealFraction;
-      } else if (product === 'Precious Metals') {
-        const perDay = calcDailyProduction(effectiveProductivity, 'Precious Metals');
-        dailyGoldMadeGreen += perDay * realisticFraction;
-        dailyGoldMadeRed += perDay * idealFraction;
-      }
-    }
-    if (f.kind === 'tradingPost' && productivity) {
-      const effectiveProductivity = productivity.grey + productivity.yellow;
-      const roomSlots = assignments[f.id] || [];
-      const pepeInsightfulActive = roomSlots.some(
-        (s) => s && s.operatorName === 'Pepe' && skillsFor(s, 'Trading Post').some((sk) => sk.name === 'Insightful')
-      );
-      const uOfficialHere = roomSlots.some(
-        (s) => s && s.operatorName === 'U-Official' && skillsFor(s, 'Trading Post').some((sk) => sk.name === 'Naive Negotiator')
-      );
-      const provisoBonus = roomSlots.some((s) => s && s.operatorName === 'Proviso' && skillsFor(s, 'Trading Post').some((sk) => sk.name === 'Damages for Breach β'))
-        ? 2
-        : roomSlots.some((s) => s && s.operatorName === 'Proviso' && skillsFor(s, 'Trading Post').some((sk) => sk.name === 'Damages for Breach α'))
-        ? 1
-        : 0;
-      const tequilaLmdBonus = roomSlots.some((s) => s && s.operatorName === 'Tequila' && skillsFor(s, 'Trading Post').some((sk) => sk.name === 'Investment β'))
-        ? 500
-        : roomSlots.some((s) => s && s.operatorName === 'Tequila' && skillsFor(s, 'Trading Post').some((sk) => sk.name === 'Investment α'))
-        ? 250
-        : 0;
-      const goldTier = goldOrderTier(roomSlots.flatMap(s => s ? skillsFor(s, 'Trading Post').map(sk => ({ operatorName: s.operatorName, skillName: sk.name ?? '' })) : []));
-      const realisticHours = realisticFraction * 24;
-      const idealHours = idealFraction * 24;
-      if (pepeInsightfulActive) {
-        dailyLmdFromPepeGreen += (realisticHours * 60 / 270) * 1000;
-        dailyLmdFromPepeRed += (idealHours * 60 / 270) * 1000;
-      } else if (roomSlots.some(s => s?.operatorName === 'Closure' && skillsFor(s, 'Trading Post').some(sk => sk.name === 'Special Orders'))) {
-        // Fixed 2-gold/1200-LMD, 144-minute orders; not Defaulted.
-        const tradesPerHour = effectiveProductivity / 2.4;
-        dailyGoldSoldGreen += 2 * tradesPerHour * realisticHours;
-        dailyGoldSoldRed += 2 * tradesPerHour * idealHours;
-        dailyExtraLmdFromOrdersGreen += 200 * tradesPerHour * realisticHours;
-        dailyExtraLmdFromOrdersRed += 200 * tradesPerHour * idealHours;
-      } else if (uOfficialHere) {
-        const perHour = calcTradingPostGoldPerHourStandardized(effectiveProductivity, 2, f.level);
-        dailyGoldSoldGreen += perHour * realisticHours;
-        dailyGoldSoldRed += perHour * idealHours;
-      } else {
-        // Always the same combined call -- Tailoring's distribution tier,
-        // Proviso's gold bonus, and Tequila's LMD bonus all apply
-        // together regardless of which subset is actually present
-        // (0/0/'base' for any that aren't), instead of a branching chain
-        // that could silently drop one dimension when another is active.
-        const { goldPerHour, extraLmdPerHour } = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, provisoBonus, tequilaLmdBonus, goldTier, f.level);
-        dailyGoldSoldGreen += goldPerHour * realisticHours;
-        dailyGoldSoldRed += goldPerHour * idealHours;
-        dailyExtraLmdFromOrdersGreen += extraLmdPerHour * realisticHours;
-        dailyExtraLmdFromOrdersRed += extraLmdPerHour * idealHours;
-        // Isolate Proviso's own slice for display -- same real call, her
-        // bonus zeroed out, difference is exactly her own contribution.
-        // Doesn't change any actual totals above, purely for the display
-        // breakdown.
-        if (provisoBonus > 0) {
-          const withoutProviso = calcTradingPostGoldAndLmdPerHour(effectiveProductivity, 0, tequilaLmdBonus, goldTier, f.level);
-          const provisoGoldPerHour = goldPerHour - withoutProviso.goldPerHour;
-          dailyGoldFromProvisoGreen += provisoGoldPerHour * realisticHours;
-          dailyGoldFromProvisoRed += provisoGoldPerHour * idealHours;
-        }
-      }
-    }
-  }
-  // LMD only comes from gold actually SOLD (Trading Post), not gold merely
-  // produced (Factory) -- Factory output isn't automatically sold.
-  const dailyGoldWorthGreen = dailyGoldSoldGreen * 500 + dailyExtraLmdFromOrdersGreen + dailyLmdFromPepeGreen;
-  const dailyGoldWorthRed = dailyGoldSoldRed * 500 + dailyExtraLmdFromOrdersRed + dailyLmdFromPepeRed;
+  const {
+    productivityFor, operatorByName, totalMonsterMeal, resourcePools, ccEffects,
+    ccMoraleRelief, totalFelvine, dormitoryOperatorNames, dormitoryRecoveryByFacility,
+    dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed,
+    dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed,
+    dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed,
+  } = calculateBase({
+    operators, rosters, skillSlots, facilities: FACILITIES, assignments, factoryProducts,
+    dormitoryAmbience, loginInterval, swapPolicy, clueExchangeActive, moraleAbove12,
+    trainingTarget, workshopSettings, workshopRecipes,
+    importedMorale: baseSource === 'account' ? account?.base?.morale : undefined,
+  });
+  const facility = FACILITIES.find(f => f.id === roomPanelFacilityId);
 
   // One row per (operator, elite level) GROUP, not per individual skill --
   // an operator with two skills both at Elite 2 shows as one row
@@ -3338,7 +1025,8 @@ export default function BasePage({ operators }: Props) {
           const eliteForRow = slotIndex !== -1
             ? (facilitySlots[slotIndex]?.eliteLevel ?? pickElite(op.name))
             : pickElite(op.name);
-          let skills = combinedSkillsForElite(op, facility.label, eliteForRow);
+          const level = slotIndex !== -1 ? facilitySlots[slotIndex]?.level : roomPanelEliteLevel === 'Yours' && ownedOperators?.has(op.name) ? account?.base?.operatorProgress?.[op.name]?.level ?? rosterLevel[op.name] : undefined;
+          let skills = activeBaseSkills(op, facility.label, eliteForRow, skillSlots, level);
           if (facility.kind === 'factory' && selectedProduct) {
             skills = skills.filter((sk) => {
               const product = factoryProductForSkill(op.name, sk.name, sk.description);
@@ -3405,6 +1093,32 @@ export default function BasePage({ operators }: Props) {
     resourcePools.memoryFragments > 0 ||
     resourcePools.perceptionInformation > 0;
 
+  const roomSummaries: BaseRoomSummary[] = FACILITIES.filter(f => f.kind !== 'elevator').map(f => {
+    const stats = productivityFor(f, ccEffects, ccMoraleRelief);
+    const workers = (assignments[f.id] ?? []).filter((s): s is SlotAssignment => !!s).map(s => {
+      const recovery = dormitoryRecoveryByFacility[f.id]?.find(r => r.name === s.operatorName);
+      return { name: s.operatorName, morale: baseSource === 'account' ? account?.base?.morale[s.operatorName] ?? null : s.morale ?? (f.kind === 'dormitory' ? 0 : 24), rate: recovery ? -(recovery.base + recovery.bonus) : f.kind === 'workshop' ? null : stats.perOperatorMorale?.[s.operatorName] ?? stats.combinedMoraleRate };
+    });
+    const draining = workers.filter(w => w.rate !== null && w.rate > 0);
+    const deadline = draining.length && draining.every(w => w.morale !== null) ? Math.min(...draining.map(w => w.morale! / w.rate!)) : null;
+    let metric = '', detail = '';
+    if (f.level && stats.productivity) metric = `${((stats.productivity.grey + stats.productivity.yellow) * 100).toFixed(0)}% efficiency`;
+    if (f.kind === 'factory' && f.level) detail = `${factoryProducts[f.id] ?? 'Choose a product'} · Capacity ${(stats.capacity?.base ?? 0) + (stats.capacity?.adjustment ?? 0)}`;
+    if (f.kind === 'tradingPost' && f.level) detail = `Order limit ${(stats.orderLimit?.base ?? 0) + (stats.orderLimit?.adjustment ?? 0)}`;
+    if (f.kind === 'powerPlant' && stats.droneRate !== null) metric = `+${((stats.droneRate ?? 0) * 100).toFixed(0)}% drones`;
+    if (f.kind === 'dormitory' && f.level) {
+      metric = workers.length ? `Resting ${workers.length} / ${f.capacity}` : 'Ready for resting';
+      detail = `Ambience ${dormitoryAmbience[f.id] ?? defaultDormitoryAmbience(f.level)}`;
+    }
+    if (stats.clueSpeed !== null) metric = `${(((stats.clueSpeedBase ?? 1) + (stats.clueSpeed ?? 0)) * 100).toFixed(0)}% clue speed`;
+    if (stats.office) { metric = `+${(stats.office.speed * 100).toFixed(0)}% HR`; detail = `${stats.office.refreshHours.toFixed(1)}h refresh`; }
+    if (stats.trainingSpeed !== null) { metric = baseSource === 'account' ? 'Training room staffed' : `${((stats.trainingSpeed ?? 0) * 100).toFixed(0)}% training`; detail = baseSource === 'account' ? account?.base?.trainee ? `Trainee: ${account.base.trainee}` : 'Training target unavailable' : `${stats.trainingHours?.toFixed(2) ?? '—'}h · ${resolvedTrainingTarget.operatorName || resolvedTrainingTarget.class}`; }
+    if (stats.workshop && baseSource === 'planner') { metric = `${(stats.workshop.chance * 100).toFixed(1)}% byproduct`; detail = `${stats.workshop.morale} Morale · ${stats.workshop.lmd} LMD / craft`; }
+    if (f.kind === 'workshop' && baseSource === 'account') { metric = 'Workshop staffed'; detail = 'Choose a craft in an editable copy'; }
+    if (f.kind === 'controlCenter' && f.level) { metric = `${workers.length} / ${f.capacity} staffed`; detail = 'Base-wide support'; }
+    return { id: f.id, metric: workers.length || f.kind === 'dormitory' ? metric : f.level ? 'Empty room' : '', detail: f.level ? detail : '', workers, deadline };
+  });
+
   if (!setupComplete) {
     return (
       <>
@@ -3417,6 +1131,7 @@ export default function BasePage({ operators }: Props) {
               : 'Build your base before starting the simulation. Start from a familiar split, then change anything you like.'}
           />
           <main>
+            {renderBaseSources()}
             <section className="op-section base-setup-screen">
               <p className="hint base-setup-intro">
                 The nine spots on floors 1-3 each hold a Trading Post, a Factory or a Power Plant --
@@ -3622,42 +1337,20 @@ export default function BasePage({ operators }: Props) {
 
       <div>
       <PageHeader
+        slim
         eyebrow="Rhodes Island // Base Layout"
         title="Base"
-        sub={<>Click a facility, then click an operator&apos;s skill to place them immediately in the
-          next open slot. Click a filled slot to remove.</>}
+        sub="Staff your rooms, compare setups and plan the next shift."
         actions={<div className="base-view-controls">
-          <div className="base-view-mode" role="group" aria-label="Figures">
-            <button
-              type="button"
-              className="filter-chip" aria-pressed={viewMode === 'cumulated'}
-              onClick={() => setViewMode('cumulated')}
-            >
-              Cumulated
-            </button>
-            <button
-              type="button"
-              className="filter-chip" aria-pressed={viewMode === 'separated'}
-              onClick={() => setViewMode('separated')}
-            >
-              Separated
-            </button>
-          </div>
-          <button type="button" className="ghost" aria-expanded={showSavedPresets} onClick={() => setShowSavedPresets(!showSavedPresets)}>Presets</button>
-          <button type="button" className="ghost" onClick={exportSnapshot}>Save image</button>
+          <button type="button" className="ghost" disabled={baseSource === 'account'} aria-expanded={showSavedPresets} onClick={() => setShowSavedPresets(!showSavedPresets)}>Presets</button>
+          <button type="button" className="ghost" disabled={baseSource === 'account' && !account?.base} onClick={exportSnapshot}>Save image</button>
+          <button type="button" className="ghost" aria-expanded={showRotationPlan} onClick={() => setShowRotationPlan(!showRotationPlan)}>Rotation</button>
           {/* Outside the development-only guard below: the layout editor is a
               player-facing feature, not a debugging aid. It stays alongside
               the per-building gears for changing many rooms at once. */}
-          <button type="button" className="ghost" onClick={openLayoutEditor}>
-            Edit everything
+          <button type="button" className="ghost" disabled={baseSource === 'account'} onClick={openLayoutEditor}>
+            Edit layout
           </button>
-          {/* Per-building edits apply the moment they're clicked, so there is
-              no commit step to refuse an over-drawn base at -- the balance is
-              shown here permanently instead. */}
-          <span className={`base-power-pill${basePower.ok ? '' : ' short'}`} title="Power supplied by Power Plants against what every other facility draws">
-            Power {basePower.drawn} / {basePower.supplied}
-            {basePower.ok ? '' : ` -- ${Math.abs(basePower.spare)} short`}
-          </span>
           {ROTATION_EXPERIMENT_ENABLED && (
             <button type="button" className="ghost" onClick={() => (showRotationPanel ? setShowRotationPanel(false) : openRotationPanel())}>
               Rotation Experiment (Elite 0)
@@ -3667,9 +1360,13 @@ export default function BasePage({ operators }: Props) {
       />
 
       <main>
-        {showSavedPresets && <section className="op-section base-saved-presets" aria-label="Saved base presets">
+        {renderBaseSources()}
+        {baseSource === 'account' && account?.base && <details className="base-import-notes"><summary>Snapshot and calculation limits{account.base.warnings.length ? ` (${account.base.warnings.length})` : ''}</summary><p>Rooms, staffing, levels and Morale are from the last import. Output uses known snapshot Morale, the current collection interval and manual skill conditions. Training mastery and factory recipe tiers are not imported; output is a planning estimate.</p><ul>{account.base.warnings.map(w => <li key={w}>{w}</li>)}</ul></details>}
+        {(baseSource === 'planner' || account?.base) && <div className="base-production-strip" aria-label="Daily production estimates">{baseSource === 'account' && <span className="hint">Estimated output</span>}<span><strong>{Math.round(dailyGoldWorthGreen).toLocaleString()}</strong> LMD / day</span><span><strong>{Math.round(dailyExpGreen).toLocaleString()}</strong> EXP / day</span><span><strong>{dailyGoldMadeGreen.toFixed(1)}</strong> Gold / day</span><span className={basePower.ok ? undefined : 'prod-danger'}>Power <strong>{basePower.drawn} / {basePower.supplied}</strong>{!basePower.ok && ` · ${Math.abs(basePower.spare)} short`}</span></div>}
+        {showRotationPlan && <BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={id => loadNamedPreset(id)} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} />}
+        {showSavedPresets && baseSource === 'planner'  && <section className="op-section base-saved-presets" aria-label="Saved base presets">
           <label>Saved preset <StyledSelect label="Saved preset" value={selectedPreset} onChange={setSelectedPreset} options={[{ value: '', label: 'Choose a preset' }, ...savedPresets.map(p => ({ value: p.id, label: p.name }))]} /></label>
-          <button type="button" className="ghost" disabled={!selectedPreset} onClick={loadNamedPreset}>Load</button>
+          <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => loadNamedPreset()}>Load</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => saveNamedPreset(true)}>Update</button>
           <button type="button" className="ghost" disabled={!selectedPreset} onClick={() => { if (storePresets(savedPresets.filter(p => p.id !== selectedPreset))) { setSelectedPreset(''); setPresetStatus('Preset deleted.'); } }}>Delete</button>
           <label>New preset <input maxLength={80} value={presetName} placeholder="e.g. Gold team" onChange={e => setPresetName(e.target.value)} /></label>
@@ -3781,10 +1478,26 @@ export default function BasePage({ operators }: Props) {
           </section>
         )}
 
-        <div className="base-layout">
-          <div className="base-grid-wrap">
-            {roomPanelFacilityId && facility ? (
-              <div ref={baseRoomPanelRef} className={`base-room-panel${baseFullscreen ? ' fullscreen' : ''}`}>
+        {baseSource === 'account' && !account?.base ? (
+          <section className="base-empty-message" aria-label="Imported base unavailable">
+            <h2>{account ? 'Import your base snapshot' : 'Import an account to view your base'}</h2>
+            <p>{account ? 'This account was imported before base rooms were saved, or its export did not include building data. Import it again to include rooms, staffing and Morale.' : 'Import your game account to see its rooms, staffing and Morale here.'}</p>
+            <Link className="primary" href="/account">Open account import</Link>
+          </section>
+        ) : <div className={`base-command-workspace${roomPanelFacilityId || snapshotRoom ? ' has-room' : ''}`}>
+          <BaseOverview loginInterval={loginInterval} facilities={FACILITIES} assignments={assignments} operators={operators} summaries={roomSummaries} selected={baseSource === 'account' ? snapshotRoom : roomPanelFacilityId} readOnly={baseSource === 'account'} onSelect={id => { if (baseSource === 'account') setSnapshotRoom(id); else { setBreakdownFacilityId(null); setSearch(''); openRoomPanel(id); } }} />
+          <div className="base-command-editor">
+            {!roomPanelFacilityId && !snapshotRoom && <section className="base-editor-idle"><h2>{baseSource === 'account' ? 'Your imported base' : 'Staffing'}</h2><p>{baseSource === 'account' ? 'Select a room to inspect its imported operators and Morale.' : 'Select a room to change its workers, level or product.'}</p>{baseSource === 'planner' && <button type="button" className="ghost" onClick={() => setShowSavedPresets(true)}>Save this setup</button>}</section>}
+            {baseSource === 'account' && snapshotRoom && <section className="base-import-room" aria-label="Imported room details">
+              <div className="base-room-panel-header"><h2>{FACILITIES.find(f => f.id === snapshotRoom)?.label}</h2><button type="button" className="ghost" onClick={() => setSnapshotRoom(null)}>Close</button></div>
+              <p>{roomSummaries.find(r => r.id === snapshotRoom)?.metric}</p>
+              {roomSummaries.find(r => r.id === snapshotRoom)?.workers.map(w => <div className="base-import-worker" key={w.name}><strong>{w.name}</strong><span>{eliteShort(assignments[snapshotRoom]?.find(s => s?.operatorName === w.name)?.eliteLevel ?? null)} · Lv{assignments[snapshotRoom]?.find(s => s?.operatorName === w.name)?.level ?? '—'}</span><span>{w.morale === null ? 'Morale unknown' : `${w.morale.toFixed(1)} / 24 Morale`}</span><span>{w.rate === null ? 'Rate unavailable' : `${Math.abs(w.rate).toFixed(2)} /h ${w.rate < 0 ? 'recovery' : 'consumption'}`}</span></div>)}
+              {snapshotRoom === 'trainingRoom' && account?.base?.trainee && <div className="base-import-worker"><strong>Trainee: {account.base.trainee}</strong><span>{account.base.morale[account.base.trainee] === undefined ? 'Morale unknown' : `${account.base.morale[account.base.trainee].toFixed(1)} / 24 Morale`}</span></div>}
+              <p className="hint">Snapshot at import time. Estimates do not track changes since then.</p>
+              <button type="button" className="primary" onClick={editImportedCopy}>Edit a copy</button>
+            </section>}
+            {baseSource === 'planner' && roomPanelFacilityId && facility ? (
+              <div ref={baseRoomPanelRef} className="base-room-panel">
                 <div className="base-room-panel-header">
                   <button
                     type="button"
@@ -3803,19 +1516,14 @@ export default function BasePage({ operators }: Props) {
                       {(assignments[facility.id] || []).filter(Boolean).length}/{facility.capacity} selected
                     </span>
                   )}
-                  {baseFullscreen && (
-                    <button
-                      type="button"
-                      className="ghost base-fullscreen-btn base-room-panel-fullscreen-btn"
-                      onClick={toggleBaseFullscreen}
-                      aria-label="Exit fullscreen"
-                      title="Exit fullscreen"
-                    >
-                      ⤢
-                    </button>
-                  )}
                 </div>
 
+                <div className="base-room-building-controls">
+                  {facility.id.startsWith('prod') && <StyledSelect label="Room type" value={productionSpots[facility.id]} onChange={v => setFacilityKind(facility.id, v as ProductionKind)} options={PRODUCTION_KINDS.map(kind => ({ value: kind, label: FACILITY_KIND_LABELS[kind], disabled: !canSetSpotKind(productionSpots, facility.id, kind) }))} />}
+                  <StyledSelect label="Room level" value={String(facility.level)} onChange={v => setFacilityLevel(facility.id, Number(v))} options={Array.from({ length: MAX_LEVEL_BY_KIND[facility.kind] + 1 }, (_, level) => ({ value: String(level), label: level ? `Level ${level}` : 'Not built' }))} />
+                  {facility.kind === 'dormitory' && <label>Ambience <input aria-label="Dormitory ambience" type="number" min="0" max={dormitoryAmbienceCap(facility.level)} value={dormitoryAmbience[facility.id] ?? defaultDormitoryAmbience(facility.level)} onChange={e => persistAmbience(facility.id, facility.level, Number(e.target.value))} /></label>}
+                  {productivityFor(facility, ccEffects, ccMoraleRelief).facilityBreakdown && <button type="button" className="ghost" onClick={() => setBreakdownFacilityId(activeBreakdown ? null : facility.id)}>{activeBreakdown ? 'Staffing' : 'Calculation'}</button>}
+                </div>
                 {activeBreakdown ? (
                   <div className="base-breakdown-panel">
                     <div className="base-breakdown-header">
@@ -3909,7 +1617,7 @@ export default function BasePage({ operators }: Props) {
 
                     {facility.kind === 'factory' && (
                       <div className="base-product-select" role="group" aria-label="Factory product">
-                        {(['Battle Records', 'Precious Metals'] as FactoryProduct[]).map((product) => (
+                        {(['Battle Records', 'Precious Metals', 'Originium Shards'] as FactoryProduct[]).map((product) => (
                           <button
                             key={product}
                             type="button"
@@ -3922,12 +1630,7 @@ export default function BasePage({ operators }: Props) {
                       </div>
                     )}
 
-                    <p className="hint base-room-panel-hint">
-                      {account ? 'The operators your imported account has, at the Elite they are at (Your elite). ' : ''}
-                      Pick an operator to place them in the next open slot at the Elite chosen above; pick them again
-                      to remove. Everyone already placed keeps their own Elite &mdash; shown and changed on their chip
-                      below. Order matters in facilities like the Dormitory, where slot #1 gets priority.
-                    </p>
+                    <p className="hint base-room-panel-hint">Select an operator to assign or remove them. Moving someone here removes their other assignment.</p>
 
                     {(() => {
                       function renderCard({ op, skills, slotIndex }: RoomOperatorRow, facilityId: string) {
@@ -4096,588 +1799,16 @@ export default function BasePage({ operators }: Props) {
                   </>
                 )}
               </div>
-            ) : (
-            <div
-              className={`base-zoom-viewport${baseFullscreen ? ' fullscreen' : ''}`}
-              ref={baseViewportRef}
-              onMouseDown={handleBasePointerDown}
-              onMouseMove={handleBasePointerMove}
-              onMouseUp={handleBasePointerUp}
-              onMouseLeave={handleBasePointerUp}
-              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-            >
-              {/* The viewport's own mousedown handler calls preventDefault()
-                  to stop native text-drag from starting, and these controls
-                  are inside it -- so a mousedown on the slider thumb bubbled
-                  up, got cancelled, and the range input's native drag never
-                  began (it also started panning the base instead). Keeping
-                  the event out of the viewport's handler fixes both. */}
-              <div
-                className="base-zoom-controls"
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  className="ghost base-zoom-reset-btn base-fullscreen-btn"
-                  onClick={toggleBaseFullscreen}
-                  aria-label={baseFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
-                  title={baseFullscreen ? 'Exit fullscreen' : 'View fullscreen'}
-                >
-                  ⤢
-                </button>
-                <input
-                  type="range"
-                  className="base-zoom-slider"
-                  min={BASE_MIN_ZOOM}
-                  max={BASE_MAX_ZOOM}
-                  step={0.01}
-                  value={baseZoom}
-                  onChange={(e) => handleBaseSliderChange(Number(e.target.value))}
-                />
-              </div>
-
-              <div
-                className="base-zoom-stage"
-                style={{
-                  transform: `translate(-50%, -50%) translate(${basePan.x}px, ${basePan.y}px) scale(${baseZoom})`,
-                  willChange: baseInteracting ? 'transform' : 'auto',
-                  /* How much a facility's gear and ? grow so they stay at least 24px on
-                     screen when the map is zoomed out (9px at a phone's 0.35 before). */
-                  '--base-tap-scale': Math.min(3.2, Math.max(1, 1.1 / baseZoom)),
-                } as CSSProperties}
-              >
-                <div className="base-grid" ref={baseGridRef}>
-                  {FACILITIES.map((f) => {
-                    const filled = f.capacity > 0 ? assignments[f.id]?.filter(Boolean).length || 0 : 0;
-                    const isActive = activeFacility === f.id;
-                    const { productivity, capacity, orderLimit, morale, clueSpeed, clueSpeedBase, droneRate, office, trainingSpeed, trainingHours, workshop, combinedMoraleRate, perOperatorMorale, deadTime, fullTime, facilityBreakdown, specialNotes } = productivityFor(f, ccEffects, ccMoraleRelief);
-                    return (
-                      <div
-                        key={f.id}
-                        className={`base-facility base-facility-${f.kind}${isActive ? ' active' : ''}${
-                          f.capacity === 0 && f.kind !== 'elevator' ? ' base-facility-unbuilt' : ''
-                        }`}
-                        style={{ gridArea: f.gridArea }}
-                        onClick={() => f.capacity > 0 && toggleFacility(f.id)}
-                      >
-                        {/* On every real facility, including unbuilt ones --
-                            an empty plot is exactly where you need this, since
-                            the gear is the only way to build something there. */}
-                        {f.kind !== 'elevator' && (
-                          <button
-                            type="button"
-                            className="base-facility-settings-btn"
-                            title={`Change this ${f.label || 'facility'}`}
-                            aria-label={`Change this ${f.label || 'facility'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openFacilitySettings(f.id);
-                            }}
-                          >
-                            ⚙
-                          </button>
-                        )}
-
-                        {/* Left unbuilt: named so the plot still reads as a
-                            place something could go, but with no slots and
-                            nothing for the simulation to include. */}
-                        {f.capacity === 0 && f.kind !== 'elevator' && (
-                          <>
-                            <span className="base-facility-label">{f.label}</span>
-                            <span className="base-facility-unbuilt-note">Not built</span>
-                          </>
-                        )}
-                        {f.capacity > 0 && (
-                          <>
-                            <span className="base-facility-level-row">
-                              {f.kind === 'dormitory' && (
-                                <span className="base-facility-ambience-badge" title="Ambience">
-                                  {dormitoryAmbience[f.id] ?? defaultDormitoryAmbience(f.level)}/{dormitoryAmbienceCap(f.level)}
-                                </span>
-                              )}
-                              <span className="base-facility-level-badge">Lvl.{f.level}</span>
-                            </span>
-                            {filled > 0 && (
-                              <div className="base-facility-portrait-block">
-                                <div className="base-facility-portraits">
-                                  {(assignments[f.id] || [])
-                                    .filter((s): s is SlotAssignment => s !== null)
-                                    .map((s, i) => {
-                                      const placedOp = operatorByName.get(s.operatorName);
-                                      if (!placedOp) return null;
-                                      return (
-                                        <div key={i} className="base-facility-portrait">
-                                          <Image src={getOperatorIconPath(placedOp)} alt={s.operatorName} width={22} height={22} />
-                                        </div>
-                                      );
-                                    })}
-                                </div>
-                                <div className="base-facility-portrait-elites">
-                                  {(assignments[f.id] || [])
-                                    .filter((s): s is SlotAssignment => s !== null)
-                                    .map((s, i) => {
-                                      const eliteIconPath = s.eliteLevel ? getEssentialIconPath(eliteIconLabel(s.eliteLevel)!) : null;
-                                      return (
-                                        <div key={i} className="base-facility-portrait-elite-slot">
-                                          {eliteIconPath && <Image src={eliteIconPath} alt={eliteIconLabel(s.eliteLevel)!} width={12} height={12} />}
-                                        </div>
-                                      );
-                                    })}
-                                </div>
-                              </div>
-                            )}
-                            <span className="base-facility-label">{f.label}</span>
-                        <span className="base-facility-count">
-                          {filled}/{f.capacity}
-                        </span>
-
-                        {productivity && (productivity.grey > 0 || productivity.yellow !== 0) && (
-                          <span className="base-facility-productivity">
-                            {viewMode === 'cumulated' ? (
-                              <span className="prod-grey">
-                                {((productivity.grey + productivity.yellow) * 100).toFixed(2)}%
-                              </span>
-                            ) : (
-                              <>
-                                <span className="prod-grey">{(productivity.grey * 100).toFixed(2)}%</span>
-                                {productivity.yellow !== 0 && (
-                                  <span className="prod-yellow">
-                                    {productivity.yellow > 0 ? '+' : ''}
-                                    {(productivity.yellow * 100).toFixed(2)}%
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </span>
-                        )}
-
-                        {/* The Reception Room builds a breakdown too, and had
-                            no way to open it -- so its base speed (the flat
-                            per-operator, rarity and promotion bonuses) was
-                            computed and displayed in the total but could not be
-                            inspected, which is exactly what made three reported
-                            "innate/promotion/rarity missing" cases impossible
-                            to confirm either way. */}
-                        {(f.kind === 'factory' || f.kind === 'tradingPost' || f.kind === 'receptionRoom' || f.kind === 'powerPlant' || f.kind === 'controlCenter' || f.kind === 'trainingRoom') && facilityBreakdown && (
-                          <button
-                            type="button"
-                            className="base-facility-explain-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openRoomPanel(f.id);
-                              setBreakdownFacilityId(f.id);
-                            }}
-                            title="Explain this facility's calculation"
-                          >
-                            ?
-                          </button>
-                        )}
-
-                        {specialNotes.length > 0 && (
-                          <div className="base-facility-notes">
-                            {specialNotes.map((n, i) => (
-                              <p key={i} className="hint base-facility-note">
-                                {n.operator !== '(diagnostic)' && <strong>{n.operator}: </strong>}
-                                {n.note}
-                              </p>
-                            ))}
-                          </div>
-                        )}
-
-                        {clueSpeedBase !== null && clueSpeedBase > 0 && (
-                          <span className="base-facility-productivity">
-                            {viewMode === 'cumulated' ? (
-                              <span className="prod-grey">{((clueSpeedBase + (clueSpeed ?? 0)) * 100).toFixed(2)}%</span>
-                            ) : (
-                              <>
-                                <span className="prod-grey">{(clueSpeedBase * 100).toFixed(2)}%</span>
-                                {clueSpeed !== null && clueSpeed !== 0 && (
-                                  <span className="prod-yellow">
-                                    {clueSpeed > 0 ? '+' : ''}
-                                    {(clueSpeed * 100).toFixed(2)}%
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </span>
-                        )}
-
-                        {droneRate !== null && droneRate !== 0 && (
-                          <span className="base-facility-productivity">
-                            <span className="prod-yellow">
-                              {droneRate > 0 ? '+' : ''}
-                              {(droneRate * 100).toFixed(2)}%
-                            </span>
-                          </span>
-                        )}
-
-                        {office && (
-                          <>
-                            {office.speed !== 0 && (
-                              <span className="base-facility-productivity">
-                                <span className="prod-grey">Speed:</span>
-                                {viewMode === 'cumulated' ? (
-                                  <span className="prod-yellow">
-                                    {office.speed > 0 ? '+' : ''}
-                                    {(office.speed * 100).toFixed(2)}%
-                                  </span>
-                                ) : (
-                                  <>
-                                    <span className="prod-yellow">
-                                      {office.ownSpeed > 0 ? '+' : ''}
-                                      {(office.ownSpeed * 100).toFixed(2)}%
-                                    </span>
-                                    {office.ccBonus !== 0 && (
-                                      <span className="prod-grey">
-                                        {office.ccBonus > 0 ? '+' : ''}
-                                        {(office.ccBonus * 100).toFixed(2)}% CC
-                                      </span>
-                                    )}
-                                  </>
-                                )}
-                              </span>
-                            )}
-                            <span className="base-facility-capacity">
-                              {viewMode === 'cumulated' ? (
-                                <span className="prod-grey">Refresh: {formatHours(office.refreshHours)}</span>
-                              ) : (
-                                <>
-                                  <span className="prod-grey">Refresh: 12h</span>
-                                  {office.speed !== 0 && (
-                                    <span className="prod-yellow">
-                                      {formatHours(office.refreshHours)} effective
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </span>
-                          </>
-                        )}
-
-                        {workshop && <span className="base-facility-capacity"><span className="prod-grey">Byproduct {(workshop.chance * 100).toFixed(1)}% · {workshop.morale} Morale · {workshop.lmd} LMD / craft</span></span>}
-                        {trainingSpeed !== null && (
-                          <span className="base-facility-productivity">
-                            <span className="prod-grey">Training Speed:</span>
-                            <span className="prod-yellow">{(trainingSpeed * 100).toFixed(0)}% · {trainingHours?.toFixed(2)}h</span>
-                          </span>
-                        )}
-
-                        {capacity && (
-                          <span className="base-facility-capacity">
-                            {viewMode === 'cumulated' ? (
-                              <span className="prod-grey">Capacity: {capacity.base + capacity.adjustment}</span>
-                            ) : (
-                              <>
-                                <span className="prod-grey">Capacity: {capacity.base}</span>
-                                {capacity.adjustment !== 0 && (
-                                  <span className="prod-yellow">
-                                    {capacity.adjustment > 0 ? '+' : ''}
-                                    {capacity.adjustment}
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </span>
-                        )}
-
-                        {orderLimit && (
-                          <span className="base-facility-capacity">
-                            {viewMode === 'cumulated' ? (
-                              <span className="prod-grey">Order Limit: {Math.max(1, orderLimit.base + orderLimit.adjustment)}</span>
-                            ) : (
-                              <>
-                                <span className="prod-grey">Order Limit: {orderLimit.base}</span>
-                                {orderLimit.adjustment !== 0 && (
-                                  <span className="prod-yellow">
-                                    {orderLimit.adjustment > 0 ? '+' : ''}
-                                    {orderLimit.adjustment}
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </span>
-                        )}
-
-                        {f.kind === 'dormitory' && (
-                          <span className="base-facility-morale base-dormitory-recovery">
-                            {filled > 0 ? (
-                              (dormitoryRecoveryByFacility[f.id] || []).map((r) => {
-                                const rate = r.base + r.bonus;
-                                return (
-                                  <span key={r.name} className="base-dormitory-recovery-row">
-                                    <span className="base-dormitory-recovery-name">{r.name}</span>
-                                    {viewMode === 'cumulated' ? (
-                                      <span className="prod-grey">Recovery: +{rate.toFixed(2)}/hr</span>
-                                    ) : (
-                                      <>
-                                        <span className="prod-grey">Recovery: +{r.base.toFixed(2)}/hr</span>
-                                        {r.bonus !== 0 && (
-                                          <span className="prod-yellow">
-                                            {r.bonus > 0 ? '+' : ''}
-                                            {r.bonus.toFixed(2)}
-                                          </span>
-                                        )}
-                                      </>
-                                    )}
-                                    <span className="prod-grey">Time: {((24 - ((assignments[f.id] || []).find(s => s?.operatorName === r.name)?.morale ?? 0)) / rate).toFixed(1)}hrs</span>
-                                  </span>
-                                );
-                              })
-                            ) : (
-                              <span className="base-dormitory-recovery-row">
-                                {(() => {
-                                  const emptyRoomRate = calcDormitoryRecovery(f.level, dormitoryAmbience[f.id] ?? defaultDormitoryAmbience(f.level));
-                                  return (
-                                    <>
-                                      <span className="prod-grey">Recovery: +{emptyRoomRate.toFixed(1)}/hr</span>
-                                      <span className="prod-grey">Time: {(24 / emptyRoomRate).toFixed(1)}hrs</span>
-                                    </>
-                                  );
-                                })()}
-                              </span>
-                            )}
-                          </span>
-                        )}
-
-                        {/* The HIGHEST consumption in the room, not the sum.
-                            The room's fate is set by whoever drains fastest --
-                            that operator is the one who has to be swapped out,
-                            and Dead time below is derived from the same rate --
-                            so a total would be a number nothing acts on. One
-                            line either way, which is what keeps every grid row
-                            to a modest reserved height; the per-operator rates
-                            are in this facility's "?" breakdown. */}
-                        {f.kind !== 'dormitory' && filled > 0 && perOperatorMorale && (
-                          <span className="base-facility-morale">
-                            <span className="prod-grey">
-                              {/* No "max" suffix: this is always the highest
-                                  rate now, so labelling it on every tile only
-                                  bought a line wrap in a 155px-wide tile. The
-                                  "?" breakdown says which figure this is. */}
-                              Morale: -{Math.max(...Object.values(perOperatorMorale)).toFixed(2)}/hr
-                            </span>
-                          </span>
-                        )}
-
-                        {f.kind === 'factory' && !factoryProducts[f.id] ? (
-                          <span className="base-facility-morale">
-                            <span className="prod-danger">Set Formula to Work</span>
-                          </span>
-                        ) : (
-                          <>
-                            {fullTime !== null && (
-                              <span className="base-facility-morale">
-                                <span className={fullTime < loginInterval ? 'prod-danger' : 'prod-grey'}>
-                                  Full: {formatHours(fullTime)}
-                                </span>
-                              </span>
-                            )}
-
-                            {f.kind !== 'dormitory' && deadTime !== null && (
-                              <span className="base-facility-morale">
-                                <span className={deadTime < loginInterval ? 'prod-danger' : 'prod-grey'}>
-                                  Dead: {formatHours(deadTime)}
-                                </span>
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
-
-                    {isActive && f.kind !== 'elevator' && (
-                      <div
-                        ref={basePopoverRef}
-                        className={`base-popover${basePopoverPlacement?.above ? ' popover-above' : ''}`}
-                        style={
-                          {
-                            transform: `translateX(-50%) scale(${1 / baseZoom}) translate(${basePopoverPlacement?.dx ?? 0}px, ${basePopoverPlacement?.dy ?? 0}px)`,
-                            maxHeight: basePopoverPlacement ? `${basePopoverPlacement.maxHeight}px` : undefined,
-                            '--base-popover-arrow-x': basePopoverPlacement ? `${basePopoverPlacement.arrowX}px` : '50%',
-                          } as CSSProperties
-                        }
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <XButton dense className="base-popover-close" label={`Close ${f.label}`} onClick={() => setActiveFacility(null)} />
-                        <p className="base-popover-title">
-                          {f.label}
-                          {f.level > 0 && <span className="base-popover-subtitle">Lv.{f.level}</span>}
-                        </p>
-
-                        {/* Build and level first: they decide whether there are slots
-                            below at all, and on an unbuilt plot they are the only
-                            thing in here. */}
-                        <div className="base-facility-settings">
-                            {/* Only the nine production spots can change kind;
-                                every other room's type is fixed by the base. */}
-                            {PRODUCTION_SPOT_IDS.includes(f.id) ? (
-                              <div className="base-facility-settings-group">
-                                <span className="base-facility-settings-label">Build</span>
-                                <div className="base-facility-settings-buttons" role="group" aria-label="Build">
-                                  {PRODUCTION_KINDS.map((kind) => {
-                                    const allowed = canSetSpotKind(productionSpots, f.id, kind);
-                                    return (
-                                      <button
-                                        key={kind}
-                                        type="button"
-                                        className="filter-chip" aria-pressed={productionSpots[f.id] === kind}
-                                        disabled={!allowed}
-                                        title={
-                                          allowed
-                                            ? FACILITY_KIND_LABELS[kind]
-                                            : `Already ${MAX_PRODUCTION_BY_KIND[kind]} ${FACILITY_KIND_LABELS[kind]}s -- change another spot first`
-                                        }
-                                        onClick={() => setFacilityKind(f.id, kind)}
-                                      >
-                                        {FACILITY_KIND_LABELS[kind]}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="hint base-facility-settings-fixed">
-                                This room&apos;s type is fixed by the base -- only its level can change.
-                              </p>
-                            )}
-
-                            <div className="base-facility-settings-group">
-                              <span className="base-facility-settings-label">Level</span>
-                              <div className="base-facility-settings-buttons base-facility-settings-level" role="group" aria-label="Level">
-                                {Array.from({ length: MAX_LEVEL_BY_KIND[f.kind] + 1 }, (_, i) => i).map((lvl) => (
-                                  <button
-                                    key={lvl}
-                                    type="button"
-                                    className="filter-chip" aria-pressed={f.level === lvl}
-                                    title={lvl === 0 ? 'Not built' : `Level ${lvl}`}
-                                    onClick={() => setFacilityLevel(f.id, lvl)}
-                                  >
-                                    {lvl === 0 ? '--' : lvl}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {f.kind === 'dormitory' && f.level > 0 && (
-                              <div className="base-facility-settings-group">
-                                <span className="base-facility-settings-label">Ambience</span>
-                                <div className="base-facility-settings-ambience">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={dormitoryAmbienceCap(f.level)}
-                                    value={dormitoryAmbience[f.id] ?? defaultDormitoryAmbience(f.level)}
-                                    onChange={(e) => persistAmbience(f.id, f.level, Number(e.target.value))}
-                                    className="base-facility-ambience-input"
-                                  />
-                                  <span className="hint">/ {dormitoryAmbienceCap(f.level)} cap</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Power is a base-wide budget, so a change here can
-                                break a room somewhere else -- show the balance
-                                where the change is being made. */}
-                            <p className={`base-facility-settings-power${basePower.ok ? '' : ' short'}`}>
-                              Power {basePower.drawn} / {basePower.supplied}
-                              {basePower.ok
-                                ? ` -- ${basePower.spare} spare`
-                                : ` -- ${Math.abs(basePower.spare)} short`}
-                            </p>
-                          {/* What the Factory makes is a property of the building,
-                              so it belongs on this grid with Build and Level rather
-                              than floating above the slots as its own bar. */}
-                          {f.kind === 'factory' && f.level > 0 && (
-                            <div className="base-facility-settings-group">
-                              <span className="base-facility-settings-label">Makes</span>
-                              <div className="base-facility-settings-buttons" role="group" aria-label="Makes">
-                                {(['Battle Records', 'Precious Metals'] as FactoryProduct[]).map((product) => (
-                                  <button
-                                    key={product}
-                                    type="button"
-                                    className="filter-chip" aria-pressed={factoryProducts[f.id] === product}
-                                    onClick={() => persistProduct(f.id, product)}
-                                  >
-                                    {product}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* The slots, in the same panel. Nothing to hop to any more --
-                            the button that used to say "assign operators instead" was
-                            only there because this was two panels. */}
-                        {f.capacity > 0 && (<>
-                        <div className="base-slot-grid">
-                          {(assignments[f.id] || []).map((slot, i) => {
-                            const slotOp = slot ? operatorByName.get(slot.operatorName) : null;
-                            return (
-                              <div
-                                key={i}
-                                className={`base-slot${slot ? ' filled' : ''}`}
-                                role="button" tabIndex={0} aria-label={`Assign operators to ${f.label}`}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveFacility(null); openRoomPanel(f.id); } }}
-                                onClick={() => {
-                                  setActiveFacility(null);
-                                  openRoomPanel(f.id);
-                                }}
-                              >
-                                {slotOp ? (
-                                  <>
-                                    {/* Every icon in here is asked for well above its
-                                        box: the whole base sits inside a scale()
-                                        transform, so at 2.5x zoom a badge rendered at
-                                        its CSS size is being stretched, not drawn. */}
-                                    <span className="base-slot-face">
-                                      <Image src={getOperatorIconPath(slotOp)} alt={slotOp.name} width={128} height={128} quality={85} className="base-slot-portrait" />
-                                      {slot!.eliteLevel && getEssentialIconPath(eliteIconLabel(slot!.eliteLevel)!) && (
-                                        <Image
-                                          src={getEssentialIconPath(eliteIconLabel(slot!.eliteLevel)!)!}
-                                          alt={eliteIconLabel(slot!.eliteLevel)!}
-                                          width={64}
-                                          height={64}
-                                          quality={85}
-                                          className="base-slot-elite-badge"
-                                        />
-                                      )}
-                                    </span>
-                                    <span className="base-slot-name">{slotOp.name}</span>
-                                    <div className="base-slot-badges">
-                                      {skillsFor(slot, f.label).map((s, si) => {
-                                        const iconSrc = s.icon || getBaseSkillIconPath(slotOp.name, s);
-                                        return iconSrc ? (
-                                          <Image key={si} src={iconSrc} alt="" width={64} height={64} quality={85} className="base-slot-skill-icon" title={s.name ?? undefined} />
-                                        ) : null;
-                                      })}
-                                    </div>
-                                  </>
-                                ) : (
-                                  <span className="base-slot-empty">+</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-              </div>
-              </div>
-            )}
+            ) : null}
+          </div>
+        </div>}
 
             {/* Kept on screen while the operator picker is open. Hiding them
                 took ~390px out of the page, so opening the picker shrank the
                 document even though the picker itself is exactly the height
                 of the base view it replaces -- and a page that changes height
                 is what lets the browser clamp your scroll position away. */}
+        {(baseSource === 'planner' || account?.base) && <>
             <div className="base-bottom-panels">
               <div className="base-extra-resources-settings-panel">
                 {hasExtraResources ? (
@@ -4713,7 +1844,7 @@ export default function BasePage({ operators }: Props) {
                   <div className="base-resource-settings">
                     <button
                       type="button"
-                      className="ghost base-resource-settings-btn"
+                      className="ghost base-resource-settings-btn" disabled={baseSource === 'account'}
                       onClick={() => setShowResourceSettings((s) => !s)}
                     >
                       Settings
@@ -4895,15 +2026,14 @@ export default function BasePage({ operators }: Props) {
             {/* Both throw work away, so they are .danger, side by side at their own
                 width -- they were two full-width neutral ghosts. */}
             <div className="base-reset-row">
-              <button type="button" className="danger" onClick={resetBase}>
+              <button type="button" className="danger" disabled={baseSource === 'account'} onClick={resetBase}>
                 Reset base
               </button>
-              <button type="button" className="danger" onClick={resetToSetup}>
+              <button type="button" className="danger" disabled={baseSource === 'account'} onClick={resetToSetup}>
                 Start over (choose new formation)
               </button>
             </div>
-          </div>
-        </div>
+        </>}
       </main>
       </div>
     </>

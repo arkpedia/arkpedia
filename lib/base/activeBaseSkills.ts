@@ -4,7 +4,7 @@ export const cleanSkillName = (name: string | null | undefined) => (name ?? '').
 function extractReplacedName(name: string | null | undefined) { return name?.includes('Replaces') ? name.split('Replaces')[1].trim() : null; }
 function normalizeForComparison(description: string | null) { return (description ?? '').replace(/[+-]?\d+(?:\.\d+)?%?/g, '').replace(/\s+/g, ' ').trim(); }
 const ELITE_ORDER = ['Base', 'Elite 1', 'Elite 2'];
-export function activeBaseSkills(op: BaseOperator, facilityLabel: string, eliteLevel: string | null, skillSlots: BaseSkillSlots = {}): BaseSkill[] {
+export function activeBaseSkills(op: BaseOperator, facilityLabel: string, eliteLevel: string | null, skillSlots: BaseSkillSlots = {}, operatorLevel?: number): BaseSkill[] {
     // Level 30 is functionally the same tier as Base -- 1-star operators
     // have no Elite promotion path at all, so a slot tagged 'Level 30'
     // should resolve exactly like a Base-tier slot would.
@@ -37,14 +37,11 @@ export function activeBaseSkills(op: BaseOperator, facilityLabel: string, eliteL
       for (const entry of slotted) {
         const meta = entry.meta as BaseSkillSlot;
         if (meta.phase > currentIndex) continue; // not promoted far enough for this step yet
+        if (operatorLevel !== undefined && meta.phase === currentIndex && meta.level > operatorLevel) continue;
         const held = bestBySlot.get(meta.slot);
-        // Within one slot the highest unlocked step wins, and only that one
-        // applies. Operator level isn't modelled anywhere on this page, so a
-        // level-gated step counts as reached -- the same "levelled far enough
-        // for its tier" assumption the rest of the page already makes. That
-        // is what promotes Durin's Sleepiness (+0.25) over Laziness (+0.2);
-        // the two descriptions are identical once numbers are stripped, so
-        // the old dedupe kept whichever came first, which was the weaker one.
+        // Within one slot only the highest unlocked step applies. Account
+        // imports supply an exact level; manual elite choices assume the
+        // level-gated steps in that tier have been reached.
         if (!held || meta.phase > held.meta.phase || (meta.phase === held.meta.phase && meta.level > held.meta.level)) {
           bestBySlot.set(meta.slot, { bs: entry.bs, meta });
         }
@@ -80,4 +77,3 @@ export function activeBaseSkills(op: BaseOperator, facilityLabel: string, eliteL
     }
     return result;
   }
-

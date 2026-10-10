@@ -113,7 +113,7 @@ export const POWER_PLANT_SPECIAL_SKILLS: Record<string, Handler> = {
   'THRM-EX|Enthusiasm': () => ({ selfMorale: -0.52 }),
 
   'Greyy the Lightningbearer|Line Patrol Frame': (ctx) => ({
-    droneRate: Math.min(0.25, Math.floor(ctx.maxDroneCapacity / 10) * 0.01),
+    droneRate: Math.min(0.25, ctx.maxDroneCapacity / 10 * 0.01),
   }),
 
   'Greyy the Lightningbearer|Dawnlight': () => ({

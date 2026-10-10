@@ -77,6 +77,7 @@ export const BACKUP_STORES: readonly Store[] = [
   { key: 'baseAssignments_v2', label: 'base assignments', valid: (_, value) => isObject(value) || Array.isArray(value), event: null },
   { key: 'baseResourceSettings_v1', label: 'base settings', valid: (_, value) => isObject(value), event: null },
   { key: 'baseSavedPresets_v1', label: 'saved base presets', valid: (_, value) => Array.isArray(value), event: null },
+  { key: 'baseRotationPlan_v1', label: 'base rotation timetable', valid: (_, value) => isObject(value), event: null },
   { key: 'baseModelSettings_v1', label: 'base training and crafting', valid: (_, value) => isObject(value), event: null },
   { key: 'baseFactoryProducts_v1', label: 'factory products', valid: (_, value) => isObject(value), event: null },
   { key: 'baseDormitoryAmbience_v1', label: 'dormitory ambience', valid: (_, value) => isObject(value) || typeof value === 'number', event: null },

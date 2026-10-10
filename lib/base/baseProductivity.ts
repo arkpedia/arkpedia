@@ -105,16 +105,16 @@ export interface ReceptionRoomBaseContribution {
 }
 
 export function receptionRoomBaseContribution(
-  op: { rarity: number | null; eliteLevel: string | null }
+  op: { rarity: number | null; eliteLevel: string | null; exhausted?: boolean }
 ): ReceptionRoomBaseContribution {
   return {
-    slotted: 0.05,
+    slotted: op.exhausted ? 0 : 0.05,
     rarity: receptionRoomRarityBonus(op.rarity),
     elite: receptionRoomEliteBonus(op.eliteLevel),
   };
 }
 
-export function calcReceptionRoomBaseSpeed(operators: { rarity: number | null; eliteLevel: string | null }[]): number {
+export function calcReceptionRoomBaseSpeed(operators: { rarity: number | null; eliteLevel: string | null; exhausted?: boolean }[]): number {
   if (operators.length === 0) return 0;
   let total = 1.0;
   for (const op of operators) {

@@ -1,0 +1,483 @@
+{
+  "version": 1,
+  "server": "en",
+  "importedAt": "2026-10-09T00:00:00.000Z",
+  "base": {
+    "version": 1,
+    "productionSpots": {
+      "prod1": "tradingPost",
+      "prod2": "factory",
+      "prod3": "powerPlant",
+      "prod4": "tradingPost",
+      "prod5": "factory",
+      "prod6": "powerPlant",
+      "prod7": "factory",
+      "prod8": "factory",
+      "prod9": "powerPlant"
+    },
+    "facilityLevels": {
+      "prod1": 3,
+      "prod2": 3,
+      "prod3": 3,
+      "prod4": 3,
+      "prod5": 3,
+      "prod6": 3,
+      "prod7": 3,
+      "prod8": 3,
+      "prod9": 3,
+      "controlCenter": 5,
+      "dormitory1": 5,
+      "dormitory2": 5,
+      "dormitory3": 5,
+      "dormitory4": 5,
+      "receptionRoom": 3,
+      "workshop": 3,
+      "office": 3,
+      "trainingRoom": 3
+    },
+    "assignments": {
+      "prod1": [
+        {
+          "operatorName": "Proviso",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        {
+          "operatorName": "SilverAsh",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        {
+          "operatorName": "Texas",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ],
+      "prod2": [
+        {
+          "operatorName": "FEater",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        {
+          "operatorName": "Spot",
+          "eliteLevel": "Base",
+          "level": 20,
+          "morale": 18
+        },
+        null
+      ],
+      "prod3": [
+        {
+          "operatorName": "Lancet-2",
+          "eliteLevel": "Base",
+          "level": 20,
+          "morale": 18
+        }
+      ],
+      "prod4": [
+        {
+          "operatorName": "Lappland",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        null,
+        null
+      ],
+      "prod5": [
+        {
+          "operatorName": "Vermeil",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        {
+          "operatorName": "Cuora",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        {
+          "operatorName": "Perfumer",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ],
+      "prod6": [
+        {
+          "operatorName": "Greyy",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ],
+      "prod7": [
+        {
+          "operatorName": "Gravel",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        null,
+        null
+      ],
+      "prod8": [
+        {
+          "operatorName": "Mayer",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        null,
+        null
+      ],
+      "prod9": [
+        {
+          "operatorName": "Shaw",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ],
+      "controlCenter": [
+        {
+          "operatorName": "Ling",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 24
+        },
+        {
+          "operatorName": "Dusk",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 6
+        },
+        {
+          "operatorName": "Amiya",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        null,
+        null
+      ],
+      "dormitory1": [
+        {
+          "operatorName": "Frost",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 0
+        },
+        {
+          "operatorName": "Doc",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 0
+        },
+        {
+          "operatorName": "Ash",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 0
+        },
+        null,
+        null
+      ],
+      "dormitory2": [
+        {
+          "operatorName": "Durin",
+          "eliteLevel": "Base",
+          "level": 40,
+          "morale": 0
+        },
+        {
+          "operatorName": "Deepcolor",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 0
+        },
+        null,
+        null,
+        null
+      ],
+      "dormitory3": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dormitory4": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "receptionRoom": [
+        {
+          "operatorName": "Indra",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        },
+        {
+          "operatorName": "Gitano",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ],
+      "workshop": [
+        {
+          "operatorName": "Arene",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ],
+      "office": [
+        {
+          "operatorName": "Myrtle",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ],
+      "trainingRoom": [
+        {
+          "operatorName": "Ela",
+          "eliteLevel": "Elite 2",
+          "level": 40,
+          "morale": 18
+        }
+      ]
+    },
+    "factoryProducts": {
+      "prod2": "Battle Records",
+      "prod5": "Precious Metals",
+      "prod7": "Precious Metals",
+      "prod8": "Precious Metals"
+    },
+    "dormitoryAmbience": {
+      "dormitory1": 5000,
+      "dormitory2": 5000,
+      "dormitory3": 5000,
+      "dormitory4": 5000
+    },
+    "morale": {
+      "Proviso": 18,
+      "SilverAsh": 18,
+      "Texas": 18,
+      "FEater": 18,
+      "Spot": 18,
+      "Lancet-2": 18,
+      "Lappland": 18,
+      "Vermeil": 18,
+      "Cuora": 18,
+      "Perfumer": 18,
+      "Greyy": 18,
+      "Gravel": 18,
+      "Mayer": 18,
+      "Shaw": 18,
+      "Ling": 24,
+      "Dusk": 6,
+      "Amiya": 18,
+      "Frost": 0,
+      "Doc": 0,
+      "Ash": 0,
+      "Durin": 0,
+      "Deepcolor": 0,
+      "Indra": 18,
+      "Gitano": 18,
+      "Arene": 18,
+      "Myrtle": 18,
+      "Ela": 18,
+      "Tachanka": 18
+    },
+    "operatorProgress": {
+      "Proviso": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "SilverAsh": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Texas": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "FEater": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Spot": {
+        "eliteLevel": "Base",
+        "level": 20
+      },
+      "Lancet-2": {
+        "eliteLevel": "Base",
+        "level": 20
+      },
+      "Lappland": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Vermeil": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Cuora": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Perfumer": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Greyy": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Gravel": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Mayer": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Shaw": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Ling": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Dusk": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Amiya": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Frost": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Doc": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Ash": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Durin": {
+        "eliteLevel": "Base",
+        "level": 40
+      },
+      "Deepcolor": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Indra": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Gitano": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Arene": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Myrtle": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Ela": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      },
+      "Tachanka": {
+        "eliteLevel": "Elite 2",
+        "level": 40
+      }
+    },
+    "trainee": "Tachanka",
+    "warnings": []
+  },
+  "doctor": "Base UI fixture#0000",
+  "operators": [
+    "Amiya",
+    "Arene",
+    "Ash",
+    "Cuora",
+    "Deepcolor",
+    "Doc",
+    "Durin",
+    "Dusk",
+    "Ela",
+    "FEater",
+    "Frost",
+    "Gitano",
+    "Gravel",
+    "Greyy",
+    "Indra",
+    "Lancet-2",
+    "Lappland",
+    "Ling",
+    "Mayer",
+    "Myrtle",
+    "Perfumer",
+    "Proviso",
+    "Shaw",
+    "SilverAsh",
+    "Spot",
+    "Tachanka",
+    "Texas",
+    "Vermeil"
+  ],
+  "skins": [],
+  "cleared": [],
+  "annihilation": [],
+  "outfits": {},
+  "wallet": {
+    "orundum": 0,
+    "originitePrime": 0,
+    "permits": 0,
+    "yellowCerts": 0,
+    "monthlyCardUntil": null
+  },
+  "profile": {
+    "level": null,
+    "registeredAt": null,
+    "secretary": null,
+    "bio": null,
+    "uid": null,
+    "avatar": null,
+    "avatarType": null,
+    "nameCard": null,
+    "secretarySkin": null,
+    "panels": [],
+    "modules": {
+      "collected": 0,
+      "stage3": 0,
+      "operators": 0
+    },
+    "hired": 28,
+    "supports": [],
+    "medals": []
+  }
+}
