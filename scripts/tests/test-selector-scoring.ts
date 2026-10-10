@@ -15,7 +15,26 @@ test('rating brackets and community rounding cover every boundary', () => {
 test('missing community doubles author points; zero community points are present', () => {
   assert.equal(recommendation(candidate, [candidate], null).total, 2.25);
   assert.equal(recommendation({ ...candidate, community: null }, [candidate], null).total, 3.25);
-  assert.equal(recommendation({ ...candidate, kukkikaze: null }, [candidate], null).complete, false);
+  assert.equal(recommendation({ ...candidate, kukkikaze: null }, [candidate], null).complete, true);
+});
+test('missing author doubles community bracket points without doubling other bonuses', () => {
+  for (const [value, points] of [[6.0,-2],[6.4,0],[6.7,2],[7.1,4]]) {
+    const op = { ...candidate, kukkikaze: null, community: value };
+    const score = recommendation(op, [op], null);
+    assert.deepEqual(score.lines[0], { label: 'Community rating ×2 (no Kukkikaze rating)', points });
+    assert.equal(score.total, points + 1.25);
+    assert.equal(score.complete, true);
+  }
+  const absent = { ...candidate, kukkikaze: null, community: null };
+  assert.equal(recommendation(absent, [absent], null).total, 1.25);
+  assert.equal(recommendation(absent, [absent], null).complete, false);
+});
+test('Nasti uses the community-only fallback without filling her author rating', () => {
+  const nasti = snapshot.candidates.find(op => op.name === 'Nasti')!;
+  assert.equal(nasti.kukkikaze, null);
+  const score = recommendation(nasti, snapshot.candidates, null);
+  assert.deepEqual(score.lines[0], { label: 'Community rating ×2 (no Kukkikaze rating)', points: 2 });
+  assert.equal(score.complete, true);
 });
 test('account coverage bonuses require an imported account and exact six-star roster ownership', () => {
   const op = { ...candidate, arts: true, trueDamage: true, kukkikaze: 7.1, isModule: true, raModule: true };

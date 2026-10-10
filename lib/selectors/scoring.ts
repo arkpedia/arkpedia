@@ -35,7 +35,7 @@ export function recommendation(candidate: SelectorCandidate, roster: SelectorCan
   const add = (label: string, points: number) => lines.push({ label, points });
   const kukki = ratingPoints(candidate.kukkikaze), community = ratingPoints(candidate.community);
   if (kukki !== null) add(community === null ? 'Kukkikaze rating ×2 (no community rating)' : 'Kukkikaze rating', kukki * (community === null ? 2 : 1));
-  if (community !== null) add('Community rating', community);
+  if (community !== null) add(kukki === null ? 'Community rating ×2 (no Kukkikaze rating)' : 'Community rating', community * (kukki === null ? 2 : 1));
   add(`${candidate.mainSkills} main priority skill${candidate.mainSkills === 1 ? '' : 's'}`, candidate.mainSkills);
   add(`${candidate.subSkills} sub priority skill${candidate.subSkills === 1 ? '' : 's'}`, candidate.subSkills * .25);
   if (candidate.isModule) add('Integrated Strategies module', .5);
@@ -47,7 +47,7 @@ export function recommendation(candidate: SelectorCandidate, roster: SelectorCan
       && !owned.some(op => op.id !== candidate.id && op.kukkikaze !== null && op.kukkikaze >= 7 && op.kukkikaze <= 7.2)) add('Game-Destroyer: no other owned 7.0–7.2 operator', 1);
   }
   const total = lines.reduce((sum, line) => sum + line.points, 0);
-  return { total, complete: kukki !== null && (ownedNames === null || !gameDestroyer || knownOwnedRatings), owned: own.has(candidate.name), personalized: ownedNames !== null,
+  return { total, complete: (kukki !== null || community !== null) && (ownedNames === null || !gameDestroyer || knownOwnedRatings), owned: own.has(candidate.name), personalized: ownedNames !== null,
     tone: total < 0 ? 'negative' : total < 5 ? 'middle' : 'great', lines };
 }
 export const pointLabel = (points: number) => `${points > 0 ? '+' : ''}${points}`;
