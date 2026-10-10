@@ -448,3 +448,28 @@ test('an outfit without a chibi model keeps the catalogue message and close cont
   await expect(viewer).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Chibi viewer', exact: true })).toBeFocused();
 });
+
+
+test('manual base idle keeps animating after returning to the routine', async ({ page }) => {
+  await openChibi(page);
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.getByRole('button', { name: 'Walk on page', exact: true }).click();
+  const pet = page.locator('.chibi-roaming'), canvas = pet.locator('canvas');
+  await expect(canvas).toHaveAttribute('data-animation', 'Relax');
+  const position = await pet.boundingBox();
+  // Keep the random destination at the current position to isolate stationary playback.
+  await page.evaluate(point => {
+    const values = [point!.x / (innerWidth - 160), point!.y / (innerHeight - 180), 0];
+    let calls = 0; Math.random = () => values[calls++ % values.length];
+  }, position);
+  await chooseAnimation(page, 'Base idle');
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(pet).toHaveAttribute('data-activity', 'animation');
+  await expect(pet).not.toHaveAttribute('data-break-duration', /.+/, { timeout: 6000 });
+  await expect(canvas).toHaveAttribute('data-animation', 'Relax');
+  await page.waitForTimeout(300);
+  const first = await canvas.screenshot();
+  await page.waitForTimeout(900);
+  expect((await canvas.screenshot()).equals(first)).toBe(false);
+  expect(await pet.boundingBox()).toEqual(position);
+});

@@ -53,7 +53,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const origin = new spine.Vector2(), size = new spine.Vector2(); skeleton.getBounds(origin, size, []);
       skeleton.drawOrder = drawOrder;
       if (!Number.isFinite(size.x) || !Number.isFinite(size.y)) { origin.set(-100, 0); size.set(200, 300); }
-      let previous = performance.now(), current = initial, sequence = 0, wasTap = false;
+      let previous = performance.now(), current = initial, sequence = 0, wasTap = false, looping = true;
       cleanup = () => { atlas.dispose(); renderer.dispose(); context.gl.getExtension('WEBGL_lose_context')?.loseContext(); };
       const render = (now: number) => {
         if (stopped) return;
@@ -63,9 +63,10 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
           : control.current.roaming && !control.current.activity ? fallback
           : names.includes(control.current.animation) ? control.current.animation : fallback;
         const tap = isChibiTap(control.current.activity);
-        if ((requested !== current || sequence !== control.current.animationSequence) && names.includes(requested)) {
-          current = requested; sequence = control.current.animationSequence;
-          const entry = state.setAnimation(0, current, !tap && !control.current.once && !/die|retreat|start|begin|end/i.test(current));
+        const loop = !tap && !control.current.once && !/die|retreat|start|begin|end/i.test(requested);
+        if ((requested !== current || sequence !== control.current.animationSequence || looping !== loop) && names.includes(requested)) {
+          current = requested; sequence = control.current.animationSequence; looping = loop;
+          const entry = state.setAnimation(0, current, loop);
           // A paused routine cannot advance a blend back from the completed reaction.
           if (wasTap && control.current.paused && !tap) entry.mixDuration = 0;
           wasTap = tap;
