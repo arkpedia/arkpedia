@@ -96,6 +96,7 @@ test('roaming chibi survives viewer close, page navigation and browser back with
   await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
   await expect(pet).toHaveCount(0);
   await expect(page.locator('.chibi-window canvas')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('dragging outside the viewer drops a walking chibi at that point', async ({ page, isMobile }) => {
@@ -433,4 +434,17 @@ test('a faster base catalogue cannot replace the selected battle idle while batt
   await page.waitForTimeout(500);
   await expect(page.getByRole('combobox', { name: 'Chibi animation', exact: true })).toContainText('Idle');
   await expect(page.locator('.chibi-window canvas')).toHaveAttribute('data-animation', 'Idle');
+});
+
+test('an outfit without a chibi model keeps the catalogue message and close control', async ({ page }) => {
+  await page.goto('/operators/Amiya%20(Guard)');
+  await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Base', exact: true }).click();
+  await page.getByRole('button', { name: 'Chibi viewer', exact: true }).click();
+  const viewer = page.getByRole('dialog', { name: /Chibi viewer/ });
+  await expect(viewer.getByRole('status')).toContainText('not in the current asset catalogue');
+  await expect(viewer.locator('canvas')).toHaveCount(0);
+  await expect(viewer.getByRole('button', { name: 'Walk on page', exact: true })).toHaveCount(0);
+  await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).click();
+  await expect(viewer).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Chibi viewer', exact: true })).toBeFocused();
 });

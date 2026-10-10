@@ -24,7 +24,9 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   const [error, setError] = useState('');
   const [previewPaused, setPreviewPaused] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [sequence, setSequence] = useState(0);
-  const paused = roaming ? chibi.pet!.paused : previewPaused;
+  const petPaused = chibi.pet?.paused;
+  const paused = roaming ? petPaused! : previewPaused;
+  useEffect(() => { if (roaming && petPaused !== undefined) setPreviewPaused(petPaused); }, [roaming, petPaused]);
   const windowRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 8, y: 8 });
   const placed = useRef(false), drag = useRef<{ pointer: number; offset: Point } | null>(null);
   const place = useCallback((point: Point) => {
@@ -123,20 +125,20 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     {model ? <ChibiCanvas key={model.skeleton} model={model} label={config.label} animation={selected.clip} onAnimationChange={ignoreAnimation}
       onAnimationsChange={onAnimationsChange} animationSequence={sequence} paused={paused} moving={false} flipped={false} activity={furnitureActivity}
       roaming={false} onPointerDown={event => { const next = nextPet(); if (next) chibi.startDrag(event, next); }} />
-      : <p role="status">Loading chibi animations…</p>}
-    <div className="chibi-controls">
+      : <p className="hint" role="status">Chibi artwork for this outfit is not in the current asset catalogue.</p>}
+    {model && <div className="chibi-controls">
       <StyledSelect className="chibi-animation" label="Chibi animation" value={`${selected.base ? 'base' : 'battle'}:${selected.clip}`} options={choices}
         onChange={value => { const choice = choices.find(choice => choice.value === value); if (choice) setSelected({ base: choice.base, clip: choice.pose.name }); }} />
       <button className="ghost btn-icon" type="button" aria-label="Play" title="Play selected animation" disabled={!selectedPose} onClick={play}>▶</button>
       <button className="ghost btn-icon" type="button" aria-label="Pause" title="Pause" aria-pressed={paused}
         onClick={() => { setPreviewPaused(true); if (roaming) chibi.setPaused(true); }}>Ⅱ</button>
-    </div>
-    <div className="chibi-page-controls"><button className="ghost" type="button" onClick={() => {
+    </div>}
+    {(model || roaming) && <div className="chibi-page-controls"><button className="ghost" type="button" onClick={() => {
       if (roaming) chibi.dismiss(); else { const next = nextPet(); if (next && windowRef.current) { const bounds = windowRef.current.getBoundingClientRect(); const point = bounds.left >= 168 ? { x: bounds.left - 168, y: bounds.top }
           : window.innerHeight - bounds.bottom >= 188 ? { x: 8, y: bounds.bottom + 8 }
           : bounds.top >= 188 ? { x: 8, y: bounds.top - 188 } : { x: 8, y: window.innerHeight - 180 };
         chibi.walkOnPage(next, point); } }
-    }}>{roaming ? 'Return to viewer' : 'Walk on page'}</button></div>
+    }}>{roaming ? 'Return to viewer' : 'Walk on page'}</button></div>}
     {error && <p className="hint" role="status">{error}</p>}
   </div>, document.body);
 }
