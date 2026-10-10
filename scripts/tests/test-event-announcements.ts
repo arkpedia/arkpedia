@@ -54,3 +54,13 @@ test('an unrelated event retains its own rewards without supplements', () => {
   const groups = [group('login', 'Other')];
   assert.deepEqual(announcedRewards('Other event', groups), { groups, tickets: {} });
 });
+
+test('official sign-in replaces CN login and duplicate banner gift; Global selector metadata reaches the popup', () => {
+  const item = { name: 'A Sealed Vow Headhunting Permit', count: 1, kind: 'permit', id: 'gift' };
+  const login = { ...group('login', 'Global sign-in', 'Global'), items: [item], daily: [[item]] };
+  const detail = { source: 'https://www.arknights.global/news/4814', description: 'Choose one', note: 'Expires December 14, 2026 (UTC-7)', operators: ['Mantra'] };
+  const packs = { ...group('packs', 'Global packs', 'Global'), tickets: { 'Top Operator Transfer Permit': detail } };
+  const { groups, tickets } = announcedRewards(event, [group('login', 'CN sign-in', 'CN'), { ...group('banner-gift', 'CN ten roll', 'CN'), items: [{ ...item, name: item.name + ' (ten-roll)' }] }, login, packs]);
+  assert.equal(groups.some(g => g.title === 'CN sign-in' || g.title === 'CN ten roll'), false);
+  assert.deepEqual(tickets['Top Operator Transfer Permit'], detail);
+});

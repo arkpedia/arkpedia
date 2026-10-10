@@ -99,3 +99,14 @@ test('an estimated Global date is never passed as evidence, on any page', async 
   assert.ok(calls.length >= 3, calls.join('\n'));
   for (const call of calls) assert.match(call, /isPredicted \? null :|confirmedGlobalRange\(/, call);
 });
+
+test('an original run never supplies a banner to its rerun, and an old erroneous link cannot override dates', async () => {
+  const getBannerForEvent = await linker;
+  const old = banner({ name: '2020 Hoshiguma', linked_event: '[Side Story – Carnival] Ato', global_date: '2020/03/11–2020/03/25' });
+  const original = banner({ name: 'Hanabi Exiled', global_date: '2026/01/16–2026/01/30' });
+  assert.equal(getBannerForEvent('[Side Story – Carnival] Ato', '2026/01/16–2026/02/06', [old, original]), original);
+  assert.equal(getBannerForEvent('[Rerun] Ato Rerun', null, [old, original]), null);
+  assert.equal(getBannerForEvent('[Rerun] Ato', null, [old, original]), null);
+  const announced = { ...original, linked_event: '[Rerun] Ato Rerun', global_date: null };
+  assert.equal(getBannerForEvent('[Rerun] Ato Rerun', null, [announced]), announced);
+});

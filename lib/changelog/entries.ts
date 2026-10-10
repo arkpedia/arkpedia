@@ -34,6 +34,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-10-10T15:35:00Z',
+    title: 'Event and banner updates',
+    fixed: [
+      { title: 'Correct banners for reruns', detail: 'Reruns show only their own confirmed banner, and unrelated historical banners no longer attach to events.', href: '/schedule' },
+    ],
+    changed: [
+      { title: 'Official event details update automatically', detail: 'Global announcements supply sign-in rewards, pack dates and selector pools, replacing previews as details arrive.', href: '/events' },
+    ],
+  },
+  {
     at: '2026-10-10T08:59:00Z',
     title: 'Upcoming banner forecasts',
     changed: [{ title: 'Joint Operation and Orienteering forecasts', detail: 'See approximate Global dates in Schedule, Gacha and Pull Planner; operator lineups appear after Global confirmation.', href: '/schedule' }],
