@@ -100,37 +100,89 @@ export function parseContents(value) {
 const KEY = /^([A-Z][A-Z ]*?):\s*(.*)$/;
 /**
  * The packs a section offers: each a name line, then its DURATION (or the section's) and its
- * CONTENTS. A pack whose CONTENTS line names nothing countable is left out rather than guessed.
+ * CONTENTS. Special pack rules remain as notes when the post gives no countable contents.
  */
 export function parsePacks(section) {
-  const packs = [];
-  let name = null;
+  const packs = new Map();
+  const lines = section.lines;
+  const begins = (line, next = '') => !KEY.test(line) && !/^[◆•-]|^note|^day \d/i.test(line)
+    && line.length <= 90 && /^(?:DURATION|SALES PERIOD|CONTENTS?|INCLUDES|DETAILS|UPDATE TIME|ELIGIBLE PLAYERS|AVAILABLE PURCHASE PERIOD):/.test(next);
+  let current = null;
   let sectionDuration = null;
-  let duration = null;
-  for (const line of section.lines) {
+  const finish = () => {
+    if (!current) return;
+    if (current.contents.length || current.notes?.length) {
+      const previous = packs.get(current.name);
+      if (!previous) packs.set(current.name, current);
+    }
+    current = null;
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (begins(line, lines[i + 1])) {
+      finish();
+      const limit = line.match(/\(Limited to (\d+) purchases?\)/i);
+      current = { name: line.replace(/^\[|\]$/g, '').replace(/\s*\(Limited to \d+ purchases?\)/i, ''), ...(sectionDuration ?? {}), contents: [], ...(limit ? { limit: Number(limit[1]) } : {}) };
+      continue;
+    }
     const key = line.match(KEY);
-    if (key) {
-      const [, label, value] = key;
-      if (label === 'DURATION') {
-        const parsed = parseDuration(value);
-        if (name) duration = parsed; else sectionDuration = parsed;
-      } else if ((label === 'CONTENTS' || label === 'CONTENT' || label === 'INCLUDES' || label === 'DETAILS') && name) {
-        // Older posts list a pack's items as CONTENT, INCLUDES or DETAILS; a DETAILS line that
-        // names nothing countable is a description, and the pack waits for its items.
-        const contents = parseContents(value);
-        if (!contents.length && label === 'DETAILS') continue;
-        if (contents.length) packs.push({ name, ...(duration ?? sectionDuration ?? {}), contents });
-        name = null;
-        duration = null;
-      } else if (label === 'NOTE' || label === 'OTHERS') {
-        name = null;
-      }
-    } else if (!/^[◆\-•]/.test(line) && !/^note/i.test(line) && line.length <= 80) {
-      name = line.replace(/^\[|\]$/g, '').trim();
-      duration = null;
+    if (!current) {
+      if (key?.[1] === 'DURATION') sectionDuration = parseDuration(key[2]);
+      continue;
+    }
+    if (['DURATION', 'SALES PERIOD'].includes(key?.[1])) Object.assign(current, parseDuration(key[2]) ?? {});
+    else if (['CONTENTS', 'CONTENT', 'INCLUDES', 'DETAILS'].includes(key?.[1])) {
+      const items = parseContents(key[2]);
+      if (items.length) current.contents.push(...items);
+      else if (/PACK|KIT|BUNDLE|PACKAGE/i.test(current.name)) (current.notes ??= []).push(line);
+    } else if (!current.contents.length && /PACK|KIT|BUNDLE|PACKAGE/i.test(current.name)) {
+      (current.notes ??= []).push(line);
     }
   }
-  return packs;
+  finish();
+  return [...packs.values()];
+}
+
+/** Explicit Day N rows; prose is preserved separately, never assigned a quantity. */
+export function parseLoginDays(section) {
+  const rows = section.lines.map(line => line.match(/^Day (\d+):\s*(.+)$/i)).filter(Boolean);
+  if (!rows.length || rows.some((row, i) => Number(row[1]) !== i + 1)) return [];
+  let complete = true;
+  const daily = rows.map(row => row[2].split(/,(?!\d{3}(?!\d))\s*/).flatMap(part => {
+    const counted = parseContents(part);
+    if (counted.length) return counted;
+    const operator = part.match(/^Operator \[★+:\s*(.+)\]$/i);
+    if (operator) return [{ name: operator[1], count: 1, kind: 'operator' }];
+    const outfit = part.match(/^.+? Collection - (.+) for (.+)$/i);
+    if (outfit) return [{ name: `${outfit[2]} / ${outfit[1]}`, count: 1, kind: 'outfit' }];
+    // The post states one named piece of furniture rather than a count.
+    if (/^Reception Room Functional Furniture - /i.test(part)) return [{ name: part.replace(/^Reception Room Functional Furniture - /i, ''), count: 1, kind: 'furniture' }];
+    complete = false;
+    return [];
+  }));
+  return complete ? daily : [];
+}
+
+/** A selector's explicitly enumerated pool, beneath its bracketed permit heading. */
+export function parseSelectorTickets(section, source) {
+  const tickets = {};
+  for (let i = 0; i < section.lines.length; i++) {
+    const heading = section.lines[i].match(/^\[([^\]]*(?:Transfer|Selection|Selector)[^\]]*Permit[^\]]*)\]$/i);
+    if (!heading) continue;
+    const block = [];
+    for (let j = i + 1; j < section.lines.length; j++) {
+      if (/^(?:DURATION|CONTENTS):/.test(section.lines[j]) || /^\[/.test(section.lines[j]) || /^(?:Advanced|Special|Comprehensive).*Pack$/.test(section.lines[j])) break;
+      block.push(section.lines[j]);
+    }
+    const description = block.find(line => /^You can select/i.test(line));
+    const operatorLine = block.find(line => line.includes(',') && !/^(?:You|Note|Top|DURATION|CONTENTS)|expires/i.test(line) && !/\d{4}|UTC|★/.test(line));
+    if (!description || !operatorLine) continue;
+    const operators = operatorLine.replace(/\.$/, '').split(/\s*[,/]\s*/).filter(Boolean);
+    if (!operators.length) continue;
+    const expiry = block.find(line => /expires/i.test(line));
+    tickets[heading[1]] = { source, description, ...(expiry ? { note: expiry } : {}), operators };
+  }
+  return tickets;
 }
 
 /** The announced event's own window: the first DURATION in the post. */

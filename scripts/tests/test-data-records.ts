@@ -73,7 +73,7 @@ test('every top-level record in data/ is read by code, or is a named record kept
  * arknights.wiki.gg is a citation, never a data source. A URL of it may appear only in a
  * field that cites where a hand-kept fact was checked.
  */
-const CITATION_FIELDS = new Set(['inventorySource', 'gallery', 'module', 'wiki', 'source', 'sources']);
+const CITATION_FIELDS = new Set(['inventorySource', 'gallery', 'module', 'wiki', 'source', 'sources', 'sourceRef']);
 
 test('no released record carries a wiki.gg URL outside a citation field', () => {
   const offenders: string[] = [];

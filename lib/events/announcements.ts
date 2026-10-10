@@ -15,7 +15,8 @@ const supplements = announcements.events as unknown as Record<string, Supplement
  * the same sign-in or paid pack twice. Independent early login gifts stay with the event. */
 export function announcedRewards(name: string, groups: TableRewardGroup[]) {
   const supplement = supplements[name];
-  if (!supplement) return { groups, tickets: {} as Record<string, TicketDetails> };
+  const officialTickets = Object.assign({}, ...groups.filter(g => g.region !== 'CN').map(g => g.tickets ?? {})) as Record<string, TicketDetails>;
+  if (!supplement) return { groups, tickets: officialTickets };
   const titleKey = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '');
   const sameTitle = (a: string, b: string) => a === b || (!!titleKey(a) && !!titleKey(b) && (titleKey(a).includes(titleKey(b)) || titleKey(b).includes(titleKey(a))));
   const earlyTitles = supplement.groups.filter(g => g.region === 'Global').map(g => g.title);
@@ -25,9 +26,11 @@ export function announcedRewards(name: string, groups: TableRewardGroup[]) {
     if (g.region?.includes('preview') && g.kind !== 'notice' && g.title !== 'A letter from Kal’tsit - Esperanta' && hasGlobal(g.kind)) return false;
     return true;
   });
-  const replaced = new Set(additions.filter(g => g.region?.includes('preview')).map(g => g.kind));
+  const replaced = new Set([...additions.filter(g => g.region?.includes('preview')).map(g => g.kind), ...groups.filter(g => hasGlobal(g.kind)).map(g => g.kind)]);
+  const itemKey = (name: string) => titleKey(name.replace(/\s*\(ten-roll\)$/, ''));
+  const officialItems = new Set(groups.filter(g => g.region === 'Global' && g.kind !== 'packs').flatMap(g => g.items.map(i => itemKey(i.name))));
   return {
-    groups: [...groups.filter(g => !(g.region === 'CN' && replaced.has(g.kind))), ...additions],
-    tickets: supplement.tickets,
+    groups: [...groups.filter(g => !(g.region === 'CN' && (replaced.has(g.kind) || (g.kind === 'banner-gift' && g.items.length > 0 && g.items.every(i => officialItems.has(itemKey(i.name))))))), ...additions],
+    tickets: { ...supplement.tickets, ...officialTickets },
   };
 }

@@ -24,6 +24,7 @@ export interface TableRewardGroup {
   items: TableRewardItem[];
   /** packs: the packs a post's section offers. */
   packs?: EventPack[];
+  tickets?: Record<string, import('./announcements').TicketDetails>;
   /** notice: the section's DURATION/DETAILS/REWARDS lines as the post words them. */
   lines?: string[];
   /** furniture-set: the set's pieces and its description. */

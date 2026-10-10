@@ -650,6 +650,20 @@ function applyAnnouncements({ events, banners, announced, operators, cn, nowSeco
 export function reconcileCalendars({ events, banners, operators, cn, en, eventRows, bannerRows, announced, now = Date.now() }) {
   if (!Array.isArray(announced?.events) || !Array.isArray(announced?.banners)) throw new Error('reconcileCalendars needs the CN announcements ({ events: [], banners: [] } for none)');
   const nextEvents = structuredClone(events), nextBanners = structuredClone(banners), media = [], renames = [], quarantine = [];
+  // A persisted legacy link cannot override incompatible client calendar evidence.
+  // Keep CN-only announcements and estimates; compare only a shared confirmed region.
+  for (const banner of nextBanners) {
+    const event = nextEvents.find(event => event.name === banner.linked_event);
+    if (!event) continue;
+    const mismatches = [];
+    for (const [region, range] of [['cn', banner.cn_date], ['global', banner.global_date]]) {
+      const eventRange = event[region]?.dateRange;
+      if (!range || !eventRange || /estimated|predicted/i.test(event[region]?.note ?? '') || (region === 'global' && banner.global_date_estimated)) continue;
+      const start = value => String(value).split('–')[0].trim();
+      mismatches.push(start(range) !== start(eventRange));
+    }
+    if (mismatches.length && mismatches.every(Boolean)) banner.linked_event = null;
+  }
   const operatorNamed = lineupNameLookup(operators.flatMap(op => [op.name, ...(op.aliases ?? [])].map(n => [n, op])));
   const roster = new Map(operators.map(op => [op.internalName, op]));
   const cnSource = cn.source, enSource = en.source;
