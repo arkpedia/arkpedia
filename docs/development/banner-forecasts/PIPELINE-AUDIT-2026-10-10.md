@@ -1,0 +1,15 @@
+# Banner preview publication audit — 10 October 2026
+
+Scope: `arkpedia/arkpedia` dev, `arkpedia/arkpedia-data` source and dev-live release, and the served `arkpedia-dev.vercel.app` schedule. This is a focused delivery audit, not an organization-wide freshness audit. The banner implementation merged as `e3b64e963b242ea277b0a2112b85cdac2e405e7d`; its Check run [38040155994](https://github.com/arkpedia/arkpedia/actions/runs/38040155994) passed.
+
+| Producer | Trigger / transform | Consumer | Evidence and state |
+|---|---|---|---|
+| CN and EN client/wiki banner records | Existing catalogue refresh writes Global pool/window evidence separately from CN dates | Banner data and schedule forecasts | Projection tests pass: CN lineups/art are withheld, confirmed Global records are preserved. Future Global ingestion is conditional on successful source refresh. |
+| App banner records | `globalBannerPreview`, localization-gap/event-window resolution | Schedule, Gacha, Pull Planner | **Verified working locally**: six desktop/mobile interaction checks and fifteen layout checks passed. No LIVE claim or simulated pulls for an unconfirmed Global lineup. |
+| Public source records | `hydrate-source.mjs` replaces deploy-time data; the derived `selector-catalogue.json` is excluded from published source | Tests and selector page imports, before content export | **Broken handoff confirmed**: [prepare run 38019064646](https://github.com/arkpedia/arkpedia/actions/runs/38019064646) failed with `Cannot find module '../../data/selector-catalogue.json'`. App prebuild generated it, but Prepare content did not. |
+| Selector source records | Add `build-selector-catalogue.ts` before `npm test` in Prepare content | Compiled page props and dev-live pointer | **Implemented, hosted publication pending**: a temporary clean copy with the snapshot removed regenerated it and passed all ten selector tests; fourteen focused pipeline/scoring checks passed. |
+| Compiled dev content release | Immutable manifest and dev-live pointer, then page revalidation | Served schedule and banner previews | **Unverified** until the rebuilt release is published and its served page is checked. A successful application deployment alone cannot restore entries absent from the old compiled props. |
+
+Other observed failures in the earlier prepare run include an unknown Homebound base buff during catalogue refresh, base-reference checks, and external fetch timeouts. These are separate from the missing selector build step. They were not weakened or bypassed by this repair, and no claim of complete upstream freshness is made here.
+
+Minimal repair order: generate the derived selector snapshot after hydration and before tests; deploy that compiler; publish its validated dev content; verify the dev build identity, content pointer and served schedule. If upstream refresh still fails independently, compile the last validated public source records for the preview and report that freshness limit separately. CN source lineups remain intact for reference; no source records or assets are deleted.

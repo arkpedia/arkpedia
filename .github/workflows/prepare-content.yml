@@ -269,6 +269,8 @@ jobs:
         run: |
           node scripts/content/check-completeness.mjs
           npx tsx scripts/build/build-operator-search.ts
+          # Hydration removes this derived fallback; selector pages/tests import it before export.
+          npx tsx scripts/build/build-selector-catalogue.ts
           # check:published-assets, except that a legacy voice clip an operator page offers
           # but the pinned voice repository lacks (a day the voices stage failed, or a newly
           # adopted voice revision that dropped one) holds back that clip, and a folder an asset

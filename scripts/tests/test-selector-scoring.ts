@@ -94,3 +94,10 @@ test('rating imports reject unmatched names, duplicate operators and invalid sco
   assert.throws(() => importAuthorRatings('Ling;NaN', operators), /invalid score/);
   assert.throws(() => importAuthorRatings('Ling;6.7;extra', operators), /expected name;score/);
 });
+
+test('the content release regenerates the selector catalogue after hydration and before tests', () => {
+  const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
+  const compile = workflow.slice(workflow.indexOf('- name: Validate and compile data'), workflow.indexOf('- name: Publish the validated public release'));
+  assert.ok(compile.indexOf('npx tsx scripts/build/build-selector-catalogue.ts') >= 0);
+  assert.ok(compile.indexOf('npx tsx scripts/build/build-selector-catalogue.ts') < compile.indexOf('npm test'));
+});
