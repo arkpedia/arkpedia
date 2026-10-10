@@ -564,7 +564,7 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   assert.deepEqual(eager, [], 'A page bundle may not carry the Spine runtime or DynamicArtwork: import them with import() / next/dynamic.');
 
   // And in the source: the overlay brings the artwork in through next/dynamic, the artwork the
-  // runtime through import(), and nothing else names the runtime at all.
+  // runtime through import(); chibi rendering and catalogue loading are lazy too.
   const overlay = fs.readFileSync('components/skins/SkinZoomOverlay.tsx', 'utf8');
   assert.match(overlay, /= dynamic\(\(\) => import\('\.\/DynamicArtwork'\), \{ ssr: false \}\)/);
   assert.doesNotMatch(overlay, /^import (?!type )[^\n]*['"]\.\/DynamicArtwork['"]/m);
@@ -579,7 +579,10 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   // Type-only imports (the layer renderer's) are erased from the bundle.
   const naming = ['pages', 'components', 'lib'].flatMap(walk)
     .filter((file) => /vendor\/spine-3\.8/.test(fs.readFileSync(file, 'utf8').replace(/^import type [^\n]*$/gm, '')));
-  assert.deepEqual(naming.sort(), ['components/operators/ChibiCanvas.tsx', ARTWORK, 'lib/credits/spineLicense.ts']);
+  assert.deepEqual(naming.sort(), ['components/operators/ChibiCanvas.tsx', ARTWORK, 'lib/credits/spineLicense.ts', 'lib/operators/chibiAnimations.ts']);
+  const chibiCatalogue = fs.readFileSync('lib/operators/chibiAnimations.ts', 'utf8');
+  assert.match(chibiCatalogue, /import\('@\/lib\/vendor\/spine-3\.8\/spine-webgl'\)/);
+  assert.doesNotMatch(chibiCatalogue, /^import (?!type )[^\n]*spine-3\.8/m);
   // The layers and the particle systems come in with the artwork, never on their own: the particle reader borrows
   // the layers' shader reader, the particle renderer the layers' programs and textures, and only the artwork and
   // the particle modules themselves import the simulator, the geometry and the renderer (type imports included).

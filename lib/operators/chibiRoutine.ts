@@ -1,6 +1,7 @@
+import type { ChibiModel } from './chibi';
 export interface ChibiAnimation { name: string; duration: number }
-export type ChibiActivity = 'sit' | 'sleep' | 'idle' | 'special' | 'tap' | 'trust-tap';
-export interface ChibiBreak { activity: ChibiActivity; clip: string; duration: number }
+export type ChibiActivity = 'sit' | 'sleep' | 'idle' | 'special' | 'tap' | 'trust-tap' | 'animation' | 'walking';
+export interface ChibiBreak { activity: ChibiActivity; clip: string; duration: number; model?: ChibiModel; once?: boolean }
 
 /** Building models use Relax/Interact; battle-only fallbacks may have Idle/Special. */
 export function chibiActivities(animations: readonly ChibiAnimation[]) {
@@ -54,3 +55,12 @@ export const CHIBI_FURNITURE = {
   sit: { name: 'Black Retro Chair', image: furnitureRoot + 's2_01/furni_s2_chair_l_01.png', id: 'furni_s2_chair_L_01' },
   sleep: { name: 'Porcelain Bed', image: furnitureRoot + 's1_01/furni_s1_bed_01.png', id: 'furni_s1_bed_01' },
 } as const;
+
+/** A requested animation temporarily interrupts the routine, then gives it back. */
+export function chibiRequestedAnimation(pose: ChibiAnimation, base: boolean, model?: ChibiModel): ChibiBreak {
+  const activity = base && /^sit(?:[_\d].*)?$/i.test(pose.name) ? 'sit'
+    : base && /^sleep(?:[_\d].*)?$/i.test(pose.name) ? 'sleep'
+    : base && /^(move|walk)$/i.test(pose.name) ? 'walking' : 'animation';
+  return { activity, clip: pose.name, duration: activity === 'sit' ? 5000 : activity === 'sleep' ? 15000 : Math.max(1000, pose.duration * 1000),
+    model, once: activity === 'animation' };
+}
