@@ -87,6 +87,7 @@ Run:  python3 scripts/imports/import-reward-icons.py
 from published_assets import published_assets
 from quarantine import WIKI_API as WIKI_API_URL, report
 from staged_art import Staging
+from download_budget import BudgetExpired, DownloadBudget
 import glob
 import http.client
 import json
@@ -106,6 +107,14 @@ from PIL import Image
 
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 UA = 'Arkpedia-import/1.0 (+https://arkpedia.net) python-urllib'
+download_budget = None
+
+
+def pause_for(seconds):
+    if download_budget:
+        download_budget.sleep(seconds)
+    else:
+        time.sleep(seconds)
 
 root = os.getcwd()
 EN = os.path.join(os.environ.get('ARKPEDIA_EN', '.cache/upstream/en-gamedata/en'), 'gamedata', 'excel')
@@ -184,7 +193,7 @@ def back_off(attempt, retry_after=None):
         seconds = float(retry_after)
     except (TypeError, ValueError):
         seconds = 5 * 3 ** attempt
-    time.sleep(min(max(seconds, 0), 60))
+    pause_for(min(max(seconds, 0), 60))
 
 
 def fetch(url, timeout=90, attempts=3):
@@ -197,11 +206,12 @@ def fetch(url, timeout=90, attempts=3):
     # the caller's reason names the step, never the error.
     pause = WIKI_PAUSE if urllib.parse.urlsplit(url).netloc == WIKI_HOST else PAUSE
     for attempt in range(attempts):
-        time.sleep(pause)
+        pause_for(pause)
         try:
             req = urllib.request.Request(url, headers={'User-Agent': UA})
-            with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=timeout) as r:
-                return r.read()
+            request_timeout = download_budget.timeout(timeout) if download_budget else timeout
+            with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=request_timeout) as r:
+                return download_budget.read(r) if download_budget else r.read()
         except urllib.error.HTTPError as error:
             if error.code not in RETRY_STATUSES or attempt == attempts - 1:
                 raise
@@ -209,7 +219,7 @@ def fetch(url, timeout=90, attempts=3):
         except (*DROPPED, urllib.error.URLError) as error:
             if not dropped(error) or attempt == attempts - 1:
                 raise
-            time.sleep(2 * (attempt + 1))
+            pause_for(2 * (attempt + 1))
 
 
 def table(local_dir, raw_base, name):
@@ -490,7 +500,23 @@ def host_is_down(error):
     return isinstance(error, (urllib.error.URLError, *DROPPED))
 
 
-for target, (name, event, furniture_id, item_id) in sorted(missing.items()):
+# Adoption updates availability and quarantine after publication. Fetching another batch
+# here would leave its art unpublished and consume the publisher stage's own deadline.
+download_budget = DownloadBudget(0 if os.environ.get('ARKPEDIA_ART_ADOPTION') == '1' else 600)
+pending = sorted(missing.items())
+DEFERRED = 'not fetched within this run\'s download budget; the next refresh retries it'
+
+
+def defer_remaining(index):
+    for _, (name, event, furniture_id, _) in pending[index:]:
+        unresolved.append((furniture_id or name, name, event, DEFERRED))
+    print(f'  Download budget reached: {len(fetched)} icon(s) staged; {len(pending) - index} left for the next refresh.')
+
+
+for index, (target, (name, event, furniture_id, item_id)) in enumerate(pending):
+    if download_budget.remaining() <= 0:
+        defer_remaining(index)
+        break
     url = mirror = None
     if furniture_id:
         # A piece the game names by id: its own icon, whatever other pieces share its name.
@@ -512,6 +538,9 @@ for target, (name, event, furniture_id, item_id) in sorted(missing.items()):
     else:
         try:
             url = wiki_file(name)
+        except BudgetExpired:
+            defer_remaining(index)
+            break
         except Exception as e:  # noqa: BLE001 -- the wiki is enrichment, never a gate
             # No answer, or "not now" to the last retry: the wiki is down for this run. An answer
             # this cannot read (a maintenance page served as 200) is this name's alone.
@@ -529,6 +558,9 @@ for target, (name, event, furniture_id, item_id) in sorted(missing.items()):
     try:
         blob = fetch(url)
         host_failures[host] = 0
+    except BudgetExpired:
+        defer_remaining(index)
+        break
     except Exception as e:  # noqa: BLE001 -- a 404 here is data, not a crash
         if host_is_down(e):
             host_failures[host] = host_failures.get(host, 0) + 1
@@ -546,6 +578,8 @@ for target, (name, event, furniture_id, item_id) in sorted(missing.items()):
         continue
     # As the source serves it: the publisher encodes it at the size material-icons/ keeps.
     staged = staging.stage(target, blob, source=url, mirror=mirror)
+    # A later source or an external interruption must not discard art already fetched.
+    staging.commit()
     fetched.append((furniture_id or name, name, event, url, staged.name, target))
     print(f'  + {staged.name}  ({im.size[0]}x{im.size[1]}, from {host})')
 staging.commit()
