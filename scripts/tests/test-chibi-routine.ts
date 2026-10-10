@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chooseChibiBreak, chooseChibiTap, chibiActivities, chibiIdleAnimation } from '../../lib/operators/chibiRoutine';
+import { chooseChibiBreak, chooseChibiTap, chibiActivities, chibiIdleAnimation, chibiRequestedAnimation } from '../../lib/operators/chibiRoutine';
+
+import { chibiAnimationLabel } from '../../lib/operators/chibiAnimations';
 
 const base = [
   { name: 'Default', duration: 0 }, { name: 'Move', duration: 2 },
@@ -57,4 +59,24 @@ test('ordinary walking remains probable and unavailable or static poses are neve
   assert.equal(chooseChibiBreak([{ name: 'Default', duration: 0 }, { name: 'Move', duration: 2 }], sequence(0)), null);
   assert.deepEqual(chibiActivities([{ name: 'Idle_2', duration: 2 }, { name: 'Special_1', duration: 1 }, { name: 'Attack_1', duration: 3 }]).idle.map(value => value.name), ['Idle_2']);
   assert.equal(chooseChibiBreak([{ name: 'Idle_2', duration: 2 }], sequence(0, .9, .9, 0))?.clip, 'Idle_2');
+});
+
+
+test('requested native clips interrupt the routine for one cycle, with timed furniture and actual walking', () => {
+  const battle = { skeleton: 'battle.skel', atlas: 'battle.atlas', textures: {}, premultipliedAlpha: true };
+  assert.deepEqual(chibiRequestedAnimation({ name: 'Attack_1', duration: 2.5 }, false, battle),
+    { activity: 'animation', clip: 'Attack_1', duration: 2500, model: battle, once: true });
+  assert.equal(chibiRequestedAnimation({ name: 'Default', duration: 0 }, true).duration, 1000);
+  for (const [name, activity, duration] of [['Sit', 'sit', 5000], ['Sleep', 'sleep', 15000], ['Move', 'walking', 2000]] as const) {
+    const command = chibiRequestedAnimation({ name, duration: 2 }, true);
+    assert.equal(command.activity, activity); assert.equal(command.duration, duration); assert.equal(command.once, false);
+  }
+});
+test('base labels expose movement, furniture and both native tap reactions, including shared fallbacks', () => {
+  for (const [clip, label] of [['Move', 'Walking'], ['Sit', 'Sitting'], ['Sleep', 'Sleeping'], ['Relax', 'Base idle'], ['Interact', 'Normal tap'], ['Special', 'Trust tap']]) {
+    assert.equal(chibiAnimationLabel(clip, true), label);
+  }
+  assert.equal(chibiAnimationLabel('Interact', true, true), 'Tap / trust tap');
+  assert.equal(chibiAnimationLabel('Special_2', true), 'Trust tap 2');
+  assert.equal(chibiAnimationLabel('Attack_1', false), 'Attack_1');
 });

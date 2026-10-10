@@ -34,9 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-10-10T00:06:49Z',
-    title: 'Chibi tap reactions',
+    at: '2026-10-10T09:09:00Z',
+    title: 'Chibi controls',
     added: [
+      { title: 'Choose every chibi animation', detail: 'Play battle and base animations on your roaming chibi, including walking, sitting and sleeping, with Play and Pause controls.', href: '/operators' },
+      { title: 'Move and reopen the chibi viewer', detail: 'Drag the viewer within the page and reopen it from the roaming chibi’s + button after changing pages.', href: '/operators' },
       { title: 'Tap roaming chibis', detail: 'The first tap plays the trust reaction, then later taps have equal chances of playing the normal or trust reaction.', href: '/operators' },
     ],
   },
